@@ -16,6 +16,8 @@
 #include "Myra/Graphics2D/Transform.hpp"
 #include "Myra/Graphics2D/UI/InputEventType.hpp"
 #include "Myra/Graphics2D/UI/InputEventsManager.hpp"
+#include "Myra/Graphics2D/UI/Enums.hpp"
+#include "Myra/Graphics2D/UI/LayoutUtils.hpp"
 #include "Myra/MyraEnvironment.hpp"
 #include "Myra/Utility/ColorHSV.hpp"
 #include "Myra/Utility/Mathematics.hpp"

@@ -7,6 +7,7 @@ add_executable(myra_cna_unit_tests
     EventHandlingStrategyTests.cpp
     EventsTests.cpp
     InputEventsManagerTests.cpp
+    LayoutUtilsTests.cpp
     MathematicsTests.cpp
     StringUtilsTests.cpp
     ThicknessTests.cpp

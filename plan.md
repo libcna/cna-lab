@@ -374,11 +374,11 @@ are green, and the build uses no more than three parallel jobs.
 
 ### Phase 5 — Widget, desktop, layout, and input kernel
 
-- [ ] P5-001 Port `Graphics2D/UI/Enums.cs`.
+- [x] P5-001 Port `Graphics2D/UI/Enums.cs`.
 - [ ] P5-002 Port `Graphics2D/UI/IContent.cs`.
 - [ ] P5-003 Port `Graphics2D/UI/ILayout.cs`.
 - [ ] P5-004 Port `Graphics2D/UI/ITransformable.cs`.
-- [ ] P5-005 Port `Graphics2D/UI/LayoutUtils.cs`.
+- [x] P5-005 Port `Graphics2D/UI/LayoutUtils.cs`.
 - [ ] P5-006 Port `Graphics2D/UI/InputContext.cs`.
 - [ ] P5-007 Port `Graphics2D/UI/InputEventsManager.cs`.
 - [ ] P5-008 Port `Graphics2D/UI/Widget.cs` properties/defaults/invalidation/render traversal.
