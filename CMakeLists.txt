@@ -55,8 +55,9 @@ endif()
 
 # CNA is intentionally resolved in the same three modes as cna-extended:
 # a target supplied by the parent, an explicit sibling build, or header-only
-# bootstrap mode. The bootstrap library does not yet call CNA, so it remains
-# useful for documentation and provenance tests without a graphics build.
+# compile-check mode. The latter remains useful for API/provenance validation;
+# features that construct CNA value types are exercised only by the linked
+# CNA configuration.
 set(MYRA_CNA_CNA_LINKED OFF)
 
 if(TARGET CNA)

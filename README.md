@@ -5,10 +5,14 @@ for [CNA](https://github.com/openeggbert/cna). It targets the behavior of
 upstream Myra's FNA/XNA-oriented build directly through CNA; it does not depend
 on FNA or .NET at runtime.
 
-The project is at the first shared-runtime stage. It provides build,
-attribution, provenance, and test infrastructure plus faithful translations of
-event arguments/propagation, `EventHandlingStrategy`, and `Thickness`; no
-widget has been ported yet.
+The project is in an early, validated retained-mode layout stage. In addition
+to build, attribution, provenance, events, and utility foundations, it has
+partial ports of `Widget`, `Container`, `Panel`, `Proportion`, and
+`SingleItemLayout<T>`. They support layout measurement/arrangement,
+transforms, and explicit child ownership; rendering, Desktop integration,
+styles, rich text, MML loading, and interactive controls are not implemented
+yet. See [NEXT.md](NEXT.md) for the current hand-off state and
+[plan.md](plan.md) for the full compatibility backlog.
 
 ## Build
 
@@ -18,7 +22,7 @@ GoogleTest vendoring path:
 ```bash
 cmake -S . -B build
 cmake --build build --parallel 3
-ctest --test-dir build --output-on-failure
+ctest --test-dir build --output-on-failure --parallel 3
 ```
 
 To make this project add and link sibling CNA itself, select one backend:
@@ -28,7 +32,10 @@ cmake -S . -B build-cna \
   -DMYRA_CNA_LINK_CNA=ON \
   -DMYRA_CNA_CNA_GRAPHICS_BACKEND=SOFTWARE
 cmake --build build-cna --parallel 3
+ctest --test-dir build-cna --output-on-failure --parallel 3
 ```
+
+Use no more than three compilation workers in every configuration.
 
 When a parent project already supplies target `CNA`, add Myra-CNA after CNA;
 the `MYRA_CNA` target links it automatically.

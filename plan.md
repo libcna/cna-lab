@@ -2,7 +2,10 @@
 
 ## 1. Decision, scope, and status
 
-**Status:** planning complete; implementation has not begun.
+**Status:** active implementation. The shared-runtime, provenance, and an
+initial retained-mode layout kernel are complete enough for tested partial
+widgets; renderer, Desktop/input, MML registry/loading, fonts, styles, and
+advanced controls remain in progress.
 
 **Product:** `myra-cna` is one standalone C++23 library: a faithful port of the
 Myra UI library to C++ for CNA.  It is not a new generic GUI framework, a CNA
@@ -256,7 +259,8 @@ are green, and the build uses no more than three parallel jobs.
 - [x] P0-004 Implement parent-CNA / opt-in sibling-CNA / headers-only CMake modes.
 - [x] P0-005 Add `MYRA_CNA_BUILD_TESTS` and GoogleTest integration without building unrelated sibling tests.
 - [x] P0-006 Add `MYRA_CNA_BUILD_EXAMPLES` and a minimal executable target.
-- [ ] P0-007 Add an explicit `--parallel 3` build/test command to README and CI scripts.
+- [x] P0-007a Document `--parallel 3` build and test commands in README.
+- [ ] P0-007 Add the same worker limit to CI scripts when CI is introduced by P10-022.
 - [x] P0-008 Create root `LICENSE` for original Myra-CNA work.
 - [x] P0-009 Create `NOTICE.md` with complete Myra MIT notice and official source URL/revision.
 - [x] P0-010 Create `THIRD_PARTY_NOTICES.md` with Myra, MonoGame.Extended, and TextCopy notices.
@@ -564,8 +568,10 @@ implementation/test task during the phase shown.
 
 ## 7. Sequencing and acceptance gates
 
-1. **Do not port widgets before P0/P1/P2/P3 decision gate:** the project needs
-   provenance, rendering primitives, and a real font strategy first.
+1. **Do not claim a rendered or text-capable widget before the P0/P1/P2/P3
+   gates:** a headless layout/ownership kernel may be translated and tested
+   earlier, but visual controls require rendering primitives and a real font
+   strategy.
 2. **Do not claim MML support before P4:** XML parsing without a type/property
    registry is not MML compatibility.
 3. **Do not claim editable text support before P3 + P5-018 + P6-025:** keyboard
