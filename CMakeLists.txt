@@ -29,6 +29,7 @@ set_property(CACHE MYRA_CNA_CNA_GRAPHICS_BACKEND PROPERTY STRINGS
 add_library(MYRA_CNA STATIC
     src/Myra/Events/MyraEventArgs.cpp
     src/Myra/Graphics2D/Thickness.cpp
+    src/Myra/Graphics2D/UI/InputContext.cpp
     src/Myra/Graphics2D/UI/InputEventsManager.cpp
     src/Myra/MML/BaseObject.cpp
     src/Myra/MyraEnvironment.cpp

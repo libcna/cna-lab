@@ -13,6 +13,7 @@ add_executable(myra_cna_unit_tests
     StringUtilsTests.cpp
     ThicknessTests.cpp
     VersionTests.cpp
+    WidgetContractsTests.cpp
 )
 
 # In the default headers-only configuration, compile CNA's small Point and
@@ -23,6 +24,7 @@ if(MYRA_CNA_CNA_LINKED)
     target_sources(myra_cna_unit_tests PRIVATE
         ColorHSVTests.cpp
         ThicknessRectangleTests.cpp
+        TransformableContractTests.cpp
         TransformTests.cpp
     )
 else()
