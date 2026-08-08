@@ -26,8 +26,9 @@ if(MYRA_CNA_CNA_LINKED)
         ColorHSVTests.cpp
         IHasColorTests.cpp
         PanelTests.cpp
-    ProportionTests.cpp
-    ThicknessRectangleTests.cpp
+        ProportionTests.cpp
+        SingleItemLayoutTests.cpp
+        ThicknessRectangleTests.cpp
         TransformableContractTests.cpp
         TransformTests.cpp
         WidgetTests.cpp

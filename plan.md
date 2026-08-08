@@ -389,7 +389,7 @@ are green, and the build uses no more than three parallel jobs.
 - [ ] P5-011 Port `Graphics2D/UI/ContentControl.cs`.
 - [x] P5-012a Implement `Container` stretch defaults and its explicit child-ownership facade.
 - [ ] P5-012 Port `Graphics2D/UI/Container.cs`.
-- [ ] P5-013 Port `Graphics2D/UI/Layouts/SingleItemLayout.cs`.
+- [x] P5-013 Port `Graphics2D/UI/Layouts/SingleItemLayout.cs`.
 - [ ] P5-014 Port `Graphics2D/UI/Layouts/StackPanelLayout.cs`.
 - [ ] P5-015 Port `Graphics2D/UI/Layouts/GridLayout.cs`.
 - [ ] P5-016 Port `Graphics2D/UI/Desktop.cs` widget ordering, layout, focus, menus, tooltip, dispose.
