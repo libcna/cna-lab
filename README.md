@@ -9,7 +9,7 @@ The project is in an early, validated retained-mode layout stage. In addition
 to build, attribution, provenance, events, and utility foundations, it has
 partial ports of `Widget`, `Container`, `Panel`, `Proportion`, and
 `SingleItemLayout<T>`, `GridLayout`, and layout-only `Grid`, along with MML
-type and attached-property registries. They support layout
+type and attached-property registries, and layout-only stack panels. They support layout
 measurement/arrangement, transforms, explicit child ownership, and registered
 metadata; rendering, Desktop integration, styles, MML loading, rich text, Grid
 selection/input, and interactive controls are not implemented yet. See

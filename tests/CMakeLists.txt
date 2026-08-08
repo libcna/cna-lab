@@ -32,6 +32,7 @@ if(MYRA_CNA_CNA_LINKED)
         PanelTests.cpp
         ProportionTests.cpp
         SingleItemLayoutTests.cpp
+        StackPanelTests.cpp
         ThicknessRectangleTests.cpp
         TransformableContractTests.cpp
         TransformTests.cpp

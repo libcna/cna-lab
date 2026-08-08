@@ -394,7 +394,7 @@ are green, and the build uses no more than three parallel jobs.
 - [x] P5-012a Implement `Container` stretch defaults and its explicit child-ownership facade.
 - [ ] P5-012 Port `Graphics2D/UI/Container.cs`.
 - [x] P5-013 Port `Graphics2D/UI/Layouts/SingleItemLayout.cs`.
-- [ ] P5-014 Port `Graphics2D/UI/Layouts/StackPanelLayout.cs`.
+- [x] P5-014 Port `Graphics2D/UI/Layouts/StackPanelLayout.cs`.
 - [x] P5-015 Port `Graphics2D/UI/Layouts/GridLayout.cs`.
 - [ ] P5-016 Port `Graphics2D/UI/Desktop.cs` widget ordering, layout, focus, menus, tooltip, dispose.
 - [ ] P5-017 Port `Graphics2D/UI/Desktop.Input.cs` against CNA keyboard/mouse/touch snapshots.
@@ -419,9 +419,12 @@ are green, and the build uses no more than three parallel jobs.
 - [ ] P6-011 Port `Simple/VerticalSeparator.cs`.
 - [x] P6-012a Implement `Panel` measuring and arranging behavior without style constructors.
 - [ ] P6-012 Port `Containers/Panel.cs`.
-- [ ] P6-013 Port `Containers/StackPanel.cs`.
-- [ ] P6-014 Port `Containers/HorizontalStackPanel.cs`.
-- [ ] P6-015 Port `Containers/VerticalStackPanel.cs`.
+- [x] P6-013a Implement the layout and attached-proportion subset of `Containers/StackPanel.cs`.
+- [ ] P6-013 Port `Containers/StackPanel.cs` styles, debug rendering, and observable proportion semantics.
+- [x] P6-014a Implement the layout subset of `Containers/HorizontalStackPanel.cs`.
+- [ ] P6-014 Port `Containers/HorizontalStackPanel.cs` style integration.
+- [x] P6-015a Implement the layout subset of `Containers/VerticalStackPanel.cs`.
+- [ ] P6-015 Port `Containers/VerticalStackPanel.cs` style integration.
 - [x] P6-016a Implement `Grid` layout and attached row/column/span property subset.
 - [ ] P6-016 Port `Containers/Grid.cs` selection, style, debug render, input, and observable proportion semantics.
 - [x] P6-017 Port `Containers/Proportion.cs`.
