@@ -387,6 +387,7 @@ are green, and the build uses no more than three parallel jobs.
 - [ ] P5-009 Port `Graphics2D/UI/Widget.Children.cs` with explicit ownership and reparenting.
 - [ ] P5-010 Port `Graphics2D/UI/Widget.Input.cs` bubbling/capturing/hover/drag semantics.
 - [ ] P5-011 Port `Graphics2D/UI/ContentControl.cs`.
+- [x] P5-012a Implement `Container` stretch defaults and its explicit child-ownership facade.
 - [ ] P5-012 Port `Graphics2D/UI/Container.cs`.
 - [ ] P5-013 Port `Graphics2D/UI/Layouts/SingleItemLayout.cs`.
 - [ ] P5-014 Port `Graphics2D/UI/Layouts/StackPanelLayout.cs`.
@@ -412,6 +413,7 @@ are green, and the build uses no more than three parallel jobs.
 - [ ] P6-009 Port `Simple/SeparatorWidget.cs`.
 - [ ] P6-010 Port `Simple/HorizontalSeparator.cs`.
 - [ ] P6-011 Port `Simple/VerticalSeparator.cs`.
+- [x] P6-012a Implement `Panel` measuring and arranging behavior without style constructors.
 - [ ] P6-012 Port `Containers/Panel.cs`.
 - [ ] P6-013 Port `Containers/StackPanel.cs`.
 - [ ] P6-014 Port `Containers/HorizontalStackPanel.cs`.
