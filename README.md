@@ -11,8 +11,9 @@ partial ports of `Widget`, `Container`, `Panel`, `Proportion`, and
 `SingleItemLayout<T>`, `GridLayout`, and layout-only `Grid`, along with MML
 type and attached-property registries, and layout-only stack panels. They support layout
 measurement/arrangement, transforms, explicit child ownership, and registered
-metadata; rendering, Desktop integration, styles, MML loading, rich text, Grid
-selection/input, and interactive controls are not implemented yet. See
+metadata plus basic MML geometry serialization; rendering, Desktop integration,
+styles, MML loading, rich text, Grid selection/input, and interactive controls
+are not implemented yet. See
 [NEXT.md](NEXT.md) for the current hand-off state and
 [plan.md](plan.md) for the full compatibility backlog.
 

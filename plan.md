@@ -368,7 +368,8 @@ are green, and the build uses no more than three parallel jobs.
 - [ ] P4-013 Implement value codecs for primitive, optional, enum, color, vector, rectangle, thickness, image, and font values.
 - [x] P4-014 Implement attached-property descriptors and `AttachedPropertiesRegistry.cs` semantics.
 - [ ] P4-015 Port `MML/BaseContext.cs` over `System::Xml`.
-- [ ] P4-016 Port `MML/TypeSerializers.cs` over the explicit codecs.
+- [x] P4-016a Port the audited Vector2, Thickness, and Rectangle subset of `MML/TypeSerializers.cs`.
+- [ ] P4-016 Port `MML/TypeSerializers.cs` over explicit codecs, including Color after `ColorStorage` provenance is audited.
 - [ ] P4-017 Port `MML/LoadContext.cs`, including collection/content-property rules.
 - [ ] P4-018 Port `MML/SaveContext.cs`, including default/skip-save rules.
 - [ ] P4-019 Register every Phase 5–9 public MML type/property explicitly.

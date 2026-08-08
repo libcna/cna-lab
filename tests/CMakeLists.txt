@@ -36,6 +36,7 @@ if(MYRA_CNA_CNA_LINKED)
         ThicknessRectangleTests.cpp
         TransformableContractTests.cpp
         TransformTests.cpp
+        TypeSerializersTests.cpp
         WidgetTests.cpp
     )
 else()

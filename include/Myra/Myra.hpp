@@ -46,6 +46,7 @@
 #include "Myra/MML/INotifyAttachedPropertyChanged.hpp"
 #include "Myra/MML/IItemWithId.hpp"
 #include "Myra/MML/TypeRegistry.hpp"
+#include "Myra/MML/TypeSerializers.hpp"
 #include "Myra/MyraEnvironment.hpp"
 #include "Myra/Utility/ColorHSV.hpp"
 #include "Myra/Utility/EventsExtensions.hpp"
