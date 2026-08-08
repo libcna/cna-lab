@@ -293,7 +293,7 @@ are green, and the build uses no more than three parallel jobs.
 - [ ] P1-016 Port `Utility/Rest.cs`.
 - [x] P1-017 Port `Utility/StringUtils.cs`.
 - [ ] P1-018 Port `Utility/UIUtils.cs`.
-- [ ] P1-019 Port `Utility/EventsExtensions.cs` with removable subscriptions.
+- [x] P1-019 Port `Utility/EventsExtensions.cs` with removable subscriptions.
 - [ ] P1-020 Port `Utility/CurrentPlatform.cs` only to the extent required by FileDialog/clipboard.
 - [ ] P1-021 Port `Utility/InputExtension.cs` with MonoGame.Extended dual attribution.
 - [ ] P1-022 Translate upstream unit tests for all Phase 1 types.

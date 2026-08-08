@@ -26,6 +26,7 @@
 #include "Myra/MML/IItemWithId.hpp"
 #include "Myra/MyraEnvironment.hpp"
 #include "Myra/Utility/ColorHSV.hpp"
+#include "Myra/Utility/EventsExtensions.hpp"
 #include "Myra/Utility/Mathematics.hpp"
 #include "Myra/Utility/StringUtils.hpp"
 #include "Myra/Version.hpp"

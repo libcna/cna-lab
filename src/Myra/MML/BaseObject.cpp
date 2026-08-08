@@ -9,6 +9,7 @@
 #include <utility>
 
 #include "Myra/Graphics2D/UI/InputEventType.hpp"
+#include "Myra/Utility/EventsExtensions.hpp"
 
 namespace Myra::MML
 {
@@ -49,7 +50,6 @@ namespace Myra::MML
 
     void BaseObject::OnIdChanged()
     {
-        Events::MyraEventArgs arguments(Graphics2D::UI::InputEventType::ValueChanged);
-        IdChanged.Invoke(this, arguments);
+        Utility::EventsExtensions::Invoke(IdChanged, this, Graphics2D::UI::InputEventType::ValueChanged);
     }
 }
