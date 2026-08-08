@@ -353,14 +353,14 @@ are green, and the build uses no more than three parallel jobs.
 
 ### Phase 4 — MML metadata and XML foundation
 
-- [ ] P4-001 Port `Attributes/ContentAttribute.cs` as registry metadata.
-- [ ] P4-002 Port `Attributes/DesignerFoldedAttribute.cs` as registry metadata.
-- [ ] P4-003 Port `Attributes/FilePathAttribute.cs` as registry metadata.
-- [ ] P4-004 Port `Attributes/RangeAttribute.cs` as registry metadata.
-- [ ] P4-005 Port `Attributes/SkipLoadAttribute.cs` as registry metadata.
-- [ ] P4-006 Port `Attributes/SkipSaveAttribute.cs` as registry metadata.
-- [ ] P4-007 Port `Attributes/StylePropertyPathAttribute.cs` as registry metadata.
-- [ ] P4-008 Port `Attributes/XmlNameAttribute.cs` as registry metadata.
+- [x] P4-001 Port `Attributes/ContentAttribute.cs` as registry metadata.
+- [x] P4-002 Port `Attributes/DesignerFoldedAttribute.cs` as registry metadata.
+- [x] P4-003 Port `Attributes/FilePathAttribute.cs` as registry metadata.
+- [x] P4-004 Port `Attributes/RangeAttribute.cs` as registry metadata.
+- [x] P4-005 Port `Attributes/SkipLoadAttribute.cs` as registry metadata.
+- [x] P4-006 Port `Attributes/SkipSaveAttribute.cs` as registry metadata.
+- [x] P4-007 Port `Attributes/StylePropertyPathAttribute.cs` as registry metadata.
+- [x] P4-008 Port `Attributes/XmlNameAttribute.cs` as registry metadata.
 - [x] P4-009 Port `MML/BaseObject.cs`.
 - [x] P4-010 Port `MML/IItemWithId.cs`.
 - [x] P4-011 Port `MML/IHasColor.cs` with CNA `Color`.
@@ -482,7 +482,7 @@ are green, and the build uses no more than three parallel jobs.
 
 ### Phase 9 — file dialog, data grid, property grid, and remaining advanced API
 
-- [ ] P9-001 Port `File/FileDialogMode.cs`.
+- [x] P9-001 Port `File/FileDialogMode.cs`.
 - [ ] P9-002 Port `File/FileDialog.cs`.
 - [ ] P9-003 Port `File/FileDialog.Util.cs`.
 - [ ] P9-004 Port `File/FileDialog.PlatformDependent.cs` using C++ filesystem/CNA facilities.

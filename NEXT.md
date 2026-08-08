@@ -21,6 +21,8 @@ and a manifest entry. The current ported surface includes:
 - MML `BaseObject`, `IItemWithId`, and `IHasColor`;
 - UI contracts, `Widget`'s layout/transform/ownership kernel, `Container`,
   `Panel`, `Proportion`, and `SingleItemLayout<T>`.
+- Registry metadata attributes (`Content`, `Range`, XML/style/file-path, and
+  skip/designer markers) plus `FileDialogMode`.
 
 The widget work is deliberately partial: no drawing traversal, desktop
 propagation, style application, hit testing, or input dispatch has been
@@ -47,8 +49,8 @@ All compilation commands must continue to use at most three workers.
 1. Keep `README.md`, `plan.md`, and this file synchronized with the actual
    partial-widget implementation.
 2. Implement the explicit MML metadata/attached-property foundation required
-   by `Grid` and `StackPanel`, beginning with the small attribute metadata
-   types and then the deliberately non-reflective registry.
+   by `Grid` and `StackPanel`, beginning with the deliberately non-reflective
+   registry now that its attribute metadata values exist.
 3. Continue layout work only when the required metadata/ownership semantics
    are tested. Do not represent partial renderer, font, desktop, or input
    support as complete.

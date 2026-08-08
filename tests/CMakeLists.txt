@@ -4,6 +4,7 @@
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
 
 add_executable(myra_cna_unit_tests
+    AttributeMetadataTests.cpp
     BaseObjectTests.cpp
     EventHandlingStrategyTests.cpp
     EventsExtensionsTests.cpp

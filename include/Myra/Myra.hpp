@@ -3,6 +3,14 @@
 // See NOTICE.md and THIRD_PARTY_NOTICES.md.
 #pragma once
 
+#include "Myra/Attributes/ContentAttribute.hpp"
+#include "Myra/Attributes/DesignerFoldedAttribute.hpp"
+#include "Myra/Attributes/FilePathAttribute.hpp"
+#include "Myra/Attributes/RangeAttribute.hpp"
+#include "Myra/Attributes/SkipLoadAttribute.hpp"
+#include "Myra/Attributes/SkipSaveAttribute.hpp"
+#include "Myra/Attributes/StylePropertyPathAttribute.hpp"
+#include "Myra/Attributes/XmlNameAttribute.hpp"
 #include "Myra/Events/CancellableEventArgs.hpp"
 #include "Myra/Events/CancellableEventArgsT.hpp"
 #include "Myra/Events/EventHandlingStrategy.hpp"
@@ -19,6 +27,7 @@
 #include "Myra/Graphics2D/UI/InputContext.hpp"
 #include "Myra/Graphics2D/UI/InputEventsManager.hpp"
 #include "Myra/Graphics2D/UI/Enums.hpp"
+#include "Myra/Graphics2D/UI/File/FileDialogMode.hpp"
 #include "Myra/Graphics2D/UI/Container.hpp"
 #include "Myra/Graphics2D/UI/Containers/Panel.hpp"
 #include "Myra/Graphics2D/UI/Containers/Proportion.hpp"
