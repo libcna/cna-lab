@@ -3,8 +3,8 @@
 ## Current state
 
 - Active branch: `develop`.
-- Last validated commit: `3b96e86` (`Port Myra stack panel layout subset`).
-- The worktree was clean before the current TypeSerializers implementation.
+- Last validated commit: `0443615` (`Port Myra geometry type serializers`).
+- The worktree was clean after that commit.
 - The authoritative upstream reference remains Myra revision
   `0d79b939310bfe1d00b21803fe15e291caf60aa1` at `/tmp/myra-upstream`.
 
@@ -43,7 +43,7 @@ claimed as complete. `UPSTREAM_MANIFEST.md` records this per source.
 
 ## Latest validation
 
-Both configurations are green with the uncommitted TypeSerializers change:
+Both configurations were green at `0443615`:
 
 ```bash
 cmake --build build --parallel 3
