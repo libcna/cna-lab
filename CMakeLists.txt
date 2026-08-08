@@ -30,6 +30,7 @@ add_library(MYRA_CNA STATIC
     src/Myra/Events/MyraEventArgs.cpp
     src/Myra/Graphics2D/Thickness.cpp
     src/Myra/Graphics2D/UI/InputEventsManager.cpp
+    src/Myra/MML/BaseObject.cpp
     src/Myra/MyraEnvironment.cpp
     src/Myra/Version.cpp
 )

@@ -357,8 +357,8 @@ are green, and the build uses no more than three parallel jobs.
 - [ ] P4-006 Port `Attributes/SkipSaveAttribute.cs` as registry metadata.
 - [ ] P4-007 Port `Attributes/StylePropertyPathAttribute.cs` as registry metadata.
 - [ ] P4-008 Port `Attributes/XmlNameAttribute.cs` as registry metadata.
-- [ ] P4-009 Port `MML/BaseObject.cs`.
-- [ ] P4-010 Port `MML/IItemWithId.cs`.
+- [x] P4-009 Port `MML/BaseObject.cs`.
+- [x] P4-010 Port `MML/IItemWithId.cs`.
 - [ ] P4-011 Port `MML/IHasColor.cs` with CNA `Color`.
 - [ ] P4-012 Design `TypeRegistry`, `TypeDescriptor`, property descriptor, and factory contracts.
 - [ ] P4-013 Implement value codecs for primitive, optional, enum, color, vector, rectangle, thickness, image, and font values.
@@ -380,7 +380,7 @@ are green, and the build uses no more than three parallel jobs.
 - [ ] P5-004 Port `Graphics2D/UI/ITransformable.cs`.
 - [x] P5-005 Port `Graphics2D/UI/LayoutUtils.cs`.
 - [ ] P5-006 Port `Graphics2D/UI/InputContext.cs`.
-- [ ] P5-007 Port `Graphics2D/UI/InputEventsManager.cs`.
+- [x] P5-007 Port `Graphics2D/UI/InputEventsManager.cs`.
 - [ ] P5-008 Port `Graphics2D/UI/Widget.cs` properties/defaults/invalidation/render traversal.
 - [ ] P5-009 Port `Graphics2D/UI/Widget.Children.cs` with explicit ownership and reparenting.
 - [ ] P5-010 Port `Graphics2D/UI/Widget.Input.cs` bubbling/capturing/hover/drag semantics.
