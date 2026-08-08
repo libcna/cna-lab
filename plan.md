@@ -250,41 +250,41 @@ are green, and the build uses no more than three parallel jobs.
 
 ### Phase 0 — repository, legal baseline, and test harness
 
-- [ ] P0-001 Create CMake project, `MYRA_CNA` static library, and `Myra::CNA` alias.
-- [ ] P0-002 Add `include/`, `src/`, `tests/`, `examples/`, `assets/`, `docs/`, and `cmake/` layout.
+- [x] P0-001 Create CMake project, `MYRA_CNA` static library, and `Myra::CNA` alias.
+- [x] P0-002 Add `include/`, `src/`, `tests/`, `examples/`, `assets/`, `docs/`, and `cmake/` layout.
 - [ ] P0-003 Add C++23, warning-as-error, formatting, and include-what-you-use policy.
-- [ ] P0-004 Implement parent-CNA / opt-in sibling-CNA / headers-only CMake modes.
-- [ ] P0-005 Add `MYRA_CNA_BUILD_TESTS` and GoogleTest integration without building unrelated sibling tests.
-- [ ] P0-006 Add `MYRA_CNA_BUILD_EXAMPLES` and a minimal executable target.
+- [x] P0-004 Implement parent-CNA / opt-in sibling-CNA / headers-only CMake modes.
+- [x] P0-005 Add `MYRA_CNA_BUILD_TESTS` and GoogleTest integration without building unrelated sibling tests.
+- [x] P0-006 Add `MYRA_CNA_BUILD_EXAMPLES` and a minimal executable target.
 - [ ] P0-007 Add an explicit `--parallel 3` build/test command to README and CI scripts.
-- [ ] P0-008 Create root `LICENSE` for original Myra-CNA work.
-- [ ] P0-009 Create `NOTICE.md` with complete Myra MIT notice and official source URL/revision.
-- [ ] P0-010 Create `THIRD_PARTY_NOTICES.md` with Myra, MonoGame.Extended, and TextCopy notices.
-- [ ] P0-011 Create `UPSTREAM_MANIFEST.md` schema and source-header template.
-- [ ] P0-012 Add automated test/lint that every ported `.hpp`/`.cpp` has provenance metadata.
-- [ ] P0-013 Add automated test/lint that every source header points to a manifest row.
+- [x] P0-008 Create root `LICENSE` for original Myra-CNA work.
+- [x] P0-009 Create `NOTICE.md` with complete Myra MIT notice and official source URL/revision.
+- [x] P0-010 Create `THIRD_PARTY_NOTICES.md` with Myra, MonoGame.Extended, and TextCopy notices.
+- [x] P0-011 Create `UPSTREAM_MANIFEST.md` schema and source-header template.
+- [x] P0-012 Add automated test/lint that every ported `.hpp`/`.cpp` has provenance metadata.
+- [x] P0-013 Add automated test/lint that every source header points to a manifest row.
 - [ ] P0-014 Audit every upstream `src/Myra` file for a non-Myra lineage or copied header.
 - [ ] P0-015 Audit the default skin and `Inter-Regular.ttf` redistribution provenance.
 - [ ] P0-016 Audit all Myra.Tests assets before copying them.
-- [ ] P0-017 Document named-source and asset exclusions until their licences are resolved.
-- [ ] P0-018 Add `docs/cpp-deviations.md` with an empty, reviewed deviation-table template.
+- [x] P0-017 Document named-source and asset exclusions until their licences are resolved.
+- [x] P0-018 Add `docs/cpp-deviations.md` with an empty, reviewed deviation-table template.
 - [ ] P0-019 Add test helper for numeric/rectangle/color comparisons.
 - [ ] P0-020 Add deterministic temporary asset directory helper.
-- [ ] P0-021 Add a headless test executable and register it in CTest.
+- [x] P0-021 Add a headless test executable and register it in CTest.
 - [ ] P0-022 Add a CNA SDL_RENDERER smoke executable and register its display requirement.
 
 ### Phase 1 — shared runtime translation layer
 
-- [ ] P1-001 Port `Events/CancellableEventArgs.cs`.
-- [ ] P1-002 Port `Events/CancellableEventArgs{T}.cs`.
-- [ ] P1-003 Port `Events/EventHandlingStrategy.cs`.
-- [ ] P1-004 Port `Events/GenericEventArgs.cs`.
-- [ ] P1-005 Port `Events/MyraEventArgs.cs`.
-- [ ] P1-006 Port `Events/MyraEventHandler.cs` using sharp-runtime event facilities.
-- [ ] P1-007 Port `Events/TextDeletedEventArgs.cs`.
-- [ ] P1-008 Port `Events/ValueChangedEventArgs.cs`.
-- [ ] P1-009 Port `Events/ValueChangingEventArgs.cs`.
-- [ ] P1-010 Port `Graphics2D/Thickness.cs`, equality, parsing, and arithmetic.
+- [x] P1-001 Port `Events/CancellableEventArgs.cs`.
+- [x] P1-002 Port `Events/CancellableEventArgs{T}.cs`.
+- [x] P1-003 Port `Events/EventHandlingStrategy.cs`.
+- [x] P1-004 Port `Events/GenericEventArgs.cs`.
+- [x] P1-005 Port `Events/MyraEventArgs.cs`.
+- [x] P1-006 Port `Events/MyraEventHandler.cs` using sharp-runtime event facilities.
+- [x] P1-007 Port `Events/TextDeletedEventArgs.cs`.
+- [x] P1-008 Port `Events/ValueChangedEventArgs.cs`.
+- [x] P1-009 Port `Events/ValueChangingEventArgs.cs`.
+- [x] P1-010 Port `Graphics2D/Thickness.cs`, equality, parsing, and arithmetic.
 - [ ] P1-011 Port `Graphics2D/Transform.cs` using CNA matrices/vectors.
 - [ ] P1-012 Port `Utility/ColorHSV.cs` and conversion edge cases.
 - [ ] P1-013 Port `Utility/CrossEngineStuff.cs` directly to CNA colors/matrices.
