@@ -3,10 +3,9 @@
 ## Current state
 
 - Active branch: `develop`.
-- Last validated state: the pending observable-proportion correction on top of
-  `2a17a79` (`Refresh autonomous handoff state`).
-- The worktree contains that coherent, tested correction and is ready to be
-  committed to `develop`.
+- Last validated implementation commit: `88ef342` (`Restore observable Myra proportions`).
+- This file records the clean hand-off state after the accompanying
+  documentation commit.
 - The authoritative upstream reference remains Myra revision
   `0d79b939310bfe1d00b21803fe15e291caf60aa1` at `/tmp/myra-upstream`.
 
@@ -46,7 +45,7 @@ claimed as complete. `UPSTREAM_MANIFEST.md` records this per source.
 
 ## Latest validation
 
-Both configurations are green for the pending observable-proportion correction:
+Both configurations are green at `88ef342`:
 
 ```bash
 cmake --build build --parallel 3
