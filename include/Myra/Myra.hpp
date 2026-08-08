@@ -21,6 +21,7 @@
 #include "Myra/Graphics2D/UI/Enums.hpp"
 #include "Myra/Graphics2D/UI/Container.hpp"
 #include "Myra/Graphics2D/UI/Containers/Panel.hpp"
+#include "Myra/Graphics2D/UI/Containers/Proportion.hpp"
 #include "Myra/Graphics2D/UI/ILayout.hpp"
 #include "Myra/Graphics2D/UI/ITransformable.hpp"
 #include "Myra/Graphics2D/UI/LayoutUtils.hpp"

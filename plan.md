@@ -419,7 +419,7 @@ are green, and the build uses no more than three parallel jobs.
 - [ ] P6-014 Port `Containers/HorizontalStackPanel.cs`.
 - [ ] P6-015 Port `Containers/VerticalStackPanel.cs`.
 - [ ] P6-016 Port `Containers/Grid.cs`.
-- [ ] P6-017 Port `Containers/Proportion.cs`.
+- [x] P6-017 Port `Containers/Proportion.cs`.
 - [ ] P6-018 Port `Containers/ScrollViewer.cs`.
 - [ ] P6-019 Port `Containers/SplitPane.cs`.
 - [ ] P6-020 Port horizontal and vertical split-pane specialisations.
