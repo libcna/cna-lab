@@ -24,7 +24,8 @@ add_executable(myra_cna_unit_tests
 if(MYRA_CNA_CNA_LINKED)
     target_sources(myra_cna_unit_tests PRIVATE
         ColorHSVTests.cpp
-    PanelTests.cpp
+        IHasColorTests.cpp
+        PanelTests.cpp
     ProportionTests.cpp
     ThicknessRectangleTests.cpp
         TransformableContractTests.cpp

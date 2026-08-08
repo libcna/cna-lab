@@ -359,7 +359,7 @@ are green, and the build uses no more than three parallel jobs.
 - [ ] P4-008 Port `Attributes/XmlNameAttribute.cs` as registry metadata.
 - [x] P4-009 Port `MML/BaseObject.cs`.
 - [x] P4-010 Port `MML/IItemWithId.cs`.
-- [ ] P4-011 Port `MML/IHasColor.cs` with CNA `Color`.
+- [x] P4-011 Port `MML/IHasColor.cs` with CNA `Color`.
 - [ ] P4-012 Design `TypeRegistry`, `TypeDescriptor`, property descriptor, and factory contracts.
 - [ ] P4-013 Implement value codecs for primitive, optional, enum, color, vector, rectangle, thickness, image, and font values.
 - [ ] P4-014 Implement attached-property descriptors and `AttachedPropertiesRegistry.cs` semantics.
