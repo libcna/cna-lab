@@ -8,6 +8,7 @@ add_executable(myra_cna_unit_tests
     EventsTests.cpp
     InputEventsManagerTests.cpp
     MathematicsTests.cpp
+    StringUtilsTests.cpp
     ThicknessTests.cpp
     VersionTests.cpp
 )

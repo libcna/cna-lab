@@ -291,7 +291,7 @@ are green, and the build uses no more than three parallel jobs.
 - [x] P1-014 Port `Utility/Mathematics.cs` and document C++ numeric differences.
 - [ ] P1-015 Port `Utility/PathUtils.cs` over sharp-runtime/filesystem APIs.
 - [ ] P1-016 Port `Utility/Rest.cs`.
-- [ ] P1-017 Port `Utility/StringUtils.cs`.
+- [x] P1-017 Port `Utility/StringUtils.cs`.
 - [ ] P1-018 Port `Utility/UIUtils.cs`.
 - [ ] P1-019 Port `Utility/EventsExtensions.cs` with removable subscriptions.
 - [ ] P1-020 Port `Utility/CurrentPlatform.cs` only to the extent required by FileDialog/clipboard.
