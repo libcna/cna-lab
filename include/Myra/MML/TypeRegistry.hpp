@@ -213,6 +213,24 @@ namespace Myra::MML
             return result;
         }
 
+        /** @brief Returns the registered type first, followed by each registered base type. */
+        [[nodiscard]] std::vector<std::type_index> GetTypesIncludingBase(const std::type_index type) const
+        {
+            const TypeDescriptor* descriptor = FindByType(type);
+            if (descriptor == nullptr)
+            {
+                throw std::out_of_range("The requested type is not registered.");
+            }
+
+            std::vector<std::type_index> result;
+            for (const TypeDescriptor* current = descriptor; current != nullptr;)
+            {
+                result.push_back(current->getTypeProperty());
+                current = current->getBaseTypeProperty() ? FindByType(*current->getBaseTypeProperty()) : nullptr;
+            }
+            return result;
+        }
+
         [[nodiscard]] std::shared_ptr<void> Create(const std::string& xmlName) const
         {
             const TypeDescriptor* descriptor = FindByXmlName(xmlName);

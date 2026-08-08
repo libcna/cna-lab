@@ -12,14 +12,15 @@
 #include <unordered_map>
 
 #include "Myra/Events/MyraEventHandler.hpp"
+#include "Myra/MML/INotifyAttachedPropertyChanged.hpp"
 #include "Myra/MML/IItemWithId.hpp"
 
 namespace Myra::MML
 {
-    class BaseAttachedPropertyInfo;
+    enum class AttachedPropertyOption : int;
 
     /** @brief Base class for objects that support identifiers and attached properties. */
-    class BaseObject : public IItemWithId
+    class BaseObject : public IItemWithId, public INotifyAttachedPropertyChanged
     {
     public:
         /**
@@ -44,7 +45,10 @@ namespace Myra::MML
         [[nodiscard]] std::unordered_map<std::string, std::string>& getUserDataProperty() noexcept;
 
         /** @brief Called after an attached property value changes. */
-        virtual void OnAttachedPropertyChanged(const BaseAttachedPropertyInfo& propertyInfo);
+        void OnAttachedPropertyChanged(const BaseAttachedPropertyInfo& propertyInfo) override;
+
+        /** @brief Applies the layout invalidation represented by an attached property. */
+        virtual void OnAttachedPropertyLayoutChanged(AttachedPropertyOption option);
 
     protected:
         /** @brief Raises IdChanged using the upstream ValueChanged event kind. */

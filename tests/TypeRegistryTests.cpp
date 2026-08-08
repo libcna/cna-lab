@@ -64,6 +64,11 @@ namespace
         EXPECT_EQ(dog->getXmlNameProperty(), "Canine");
         EXPECT_EQ(registry.FindByXmlName("Canine"), dog);
 
+        const auto hierarchy = registry.GetTypesIncludingBase(typeid(Dog));
+        ASSERT_EQ(hierarchy.size(), 2U);
+        EXPECT_EQ(hierarchy[0], typeid(Dog));
+        EXPECT_EQ(hierarchy[1], typeid(Animal));
+
         const auto properties = registry.GetPropertiesIncludingBase(typeid(Dog));
         ASSERT_EQ(properties.size(), 2U);
         EXPECT_EQ(properties[0]->getNameProperty(), "Age");

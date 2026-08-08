@@ -48,6 +48,10 @@ namespace Myra::MML
     {
     }
 
+    void BaseObject::OnAttachedPropertyLayoutChanged(const AttachedPropertyOption /*option*/)
+    {
+    }
+
     void BaseObject::OnIdChanged()
     {
         Utility::EventsExtensions::Invoke(IdChanged, this, Graphics2D::UI::InputEventType::ValueChanged);

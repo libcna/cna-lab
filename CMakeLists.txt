@@ -35,6 +35,7 @@ add_library(MYRA_CNA STATIC
     src/Myra/Graphics2D/UI/InputContext.cpp
     src/Myra/Graphics2D/UI/InputEventsManager.cpp
     src/Myra/Graphics2D/UI/Widget.cpp
+    src/Myra/MML/AttachedPropertiesRegistry.cpp
     src/Myra/MML/BaseObject.cpp
     src/Myra/MyraEnvironment.cpp
     src/Myra/Version.cpp

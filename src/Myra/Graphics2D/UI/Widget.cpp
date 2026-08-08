@@ -15,6 +15,7 @@
 #include "Myra/Utility/EventsExtensions.hpp"
 #include "Myra/Utility/Mathematics.hpp"
 #include "Myra/Graphics2D/UI/LayoutUtils.hpp"
+#include "Myra/MML/AttachedPropertiesRegistry.hpp"
 
 namespace Myra::Graphics2D::UI
 {
@@ -503,6 +504,21 @@ namespace Myra::Graphics2D::UI
     }
 
     void Widget::InvalidateArrange() noexcept { arrangeDirty_ = true; }
+
+    void Widget::OnAttachedPropertyLayoutChanged(const MML::AttachedPropertyOption option)
+    {
+        switch (option)
+        {
+            case MML::AttachedPropertyOption::None:
+                break;
+            case MML::AttachedPropertyOption::AffectsArrange:
+                InvalidateArrange();
+                break;
+            case MML::AttachedPropertyOption::AffectsMeasure:
+                InvalidateMeasure();
+                break;
+        }
+    }
 
     Vector2 Widget::ToLocal(const Vector2 source)
     {

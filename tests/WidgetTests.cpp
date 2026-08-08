@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Robert Vokáč and Myra-CNA contributors.
 // See NOTICE.md and THIRD_PARTY_NOTICES.md.
 #include "Myra/Graphics2D/UI/Widget.hpp"
+#include "Myra/MML/AttachedPropertiesRegistry.hpp"
 
 #include <gtest/gtest.h>
 
@@ -26,13 +27,18 @@ namespace
         explicit FixedWidget(const Point desiredSize) : desiredSize_(desiredSize) {}
 
         Point lastAvailableSize;
+        int measureCalls = 0;
+        int arrangeCalls = 0;
 
     protected:
         [[nodiscard]] Point InternalMeasure(const Point availableSize) override
         {
             lastAvailableSize = availableSize;
+            ++measureCalls;
             return desiredSize_;
         }
+
+        void InternalArrange() override { ++arrangeCalls; }
 
     private:
         Point desiredSize_;
@@ -145,5 +151,28 @@ namespace
         EXPECT_THROW(widget.setOpacityProperty(1.01F), std::out_of_range);
         widget.setOpacityProperty(0.5F);
         EXPECT_FLOAT_EQ(widget.getOpacityProperty(), 0.5F);
+    }
+
+    TEST(WidgetTests, AttachedPropertyOptionsInvalidateTheMatchingLayoutPhase)
+    {
+        static const Myra::MML::AttachedPropertyInfo<int>* measureProperty =
+            &Myra::MML::AttachedPropertiesRegistry::Create(
+                typeid(Widget), "WidgetTestMeasure", 0, Myra::MML::AttachedPropertyOption::AffectsMeasure);
+        static const Myra::MML::AttachedPropertyInfo<int>* arrangeProperty =
+            &Myra::MML::AttachedPropertiesRegistry::Create(
+                typeid(Widget), "WidgetTestArrange", 0, Myra::MML::AttachedPropertyOption::AffectsArrange);
+
+        FixedWidget widget(Point(10, 10));
+        EXPECT_EQ(widget.Measure(Point(100, 100)), Point(10, 10));
+        EXPECT_EQ(widget.measureCalls, 1);
+        measureProperty->SetValue(widget, 1);
+        EXPECT_EQ(widget.Measure(Point(100, 100)), Point(10, 10));
+        EXPECT_EQ(widget.measureCalls, 2);
+
+        widget.Arrange(Rectangle(0, 0, 100, 100));
+        EXPECT_EQ(widget.arrangeCalls, 1);
+        arrangeProperty->SetValue(widget, 1);
+        widget.UpdateArrange();
+        EXPECT_EQ(widget.arrangeCalls, 2);
     }
 }

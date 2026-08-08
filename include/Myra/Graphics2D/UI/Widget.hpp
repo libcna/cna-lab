@@ -131,6 +131,8 @@ namespace Myra::Graphics2D::UI
             Microsoft::Xna::Framework::Point position);
         [[nodiscard]] bool ContainsGlobalPoint(Microsoft::Xna::Framework::Point globalPosition);
 
+        void OnAttachedPropertyLayoutChanged(MML::AttachedPropertyOption option) override;
+
     protected:
         [[nodiscard]] virtual Microsoft::Xna::Framework::Point InternalMeasure(
             Microsoft::Xna::Framework::Point availableSize);
