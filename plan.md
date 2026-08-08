@@ -364,7 +364,7 @@ are green, and the build uses no more than three parallel jobs.
 - [x] P4-009 Port `MML/BaseObject.cs`.
 - [x] P4-010 Port `MML/IItemWithId.cs`.
 - [x] P4-011 Port `MML/IHasColor.cs` with CNA `Color`.
-- [ ] P4-012 Design `TypeRegistry`, `TypeDescriptor`, property descriptor, and factory contracts.
+- [x] P4-012 Design and implement `TypeRegistry`, `TypeDescriptor`, property descriptor, and factory contracts.
 - [ ] P4-013 Implement value codecs for primitive, optional, enum, color, vector, rectangle, thickness, image, and font values.
 - [ ] P4-014 Implement attached-property descriptors and `AttachedPropertiesRegistry.cs` semantics.
 - [ ] P4-015 Port `MML/BaseContext.cs` over `System::Xml`.

@@ -39,6 +39,7 @@
 #include "Myra/MML/BaseObject.hpp"
 #include "Myra/MML/IHasColor.hpp"
 #include "Myra/MML/IItemWithId.hpp"
+#include "Myra/MML/TypeRegistry.hpp"
 #include "Myra/MyraEnvironment.hpp"
 #include "Myra/Utility/ColorHSV.hpp"
 #include "Myra/Utility/EventsExtensions.hpp"

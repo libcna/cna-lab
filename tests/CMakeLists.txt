@@ -14,6 +14,7 @@ add_executable(myra_cna_unit_tests
     MathematicsTests.cpp
     StringUtilsTests.cpp
     ThicknessTests.cpp
+    TypeRegistryTests.cpp
     VersionTests.cpp
     WidgetContractsTests.cpp
 )

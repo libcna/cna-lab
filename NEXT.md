@@ -4,8 +4,8 @@
 
 - Active branch: `develop`.
 - Last validated commit at the start of this autonomous session:
-  `4ed11ae` (`Port Myra single item layout`).
-- The worktree was clean before the documentation reconciliation below.
+  `e460b76` (`Port Myra registry metadata attributes`).
+- The worktree was clean before the current TypeRegistry implementation.
 - The authoritative upstream reference remains Myra revision
   `0d79b939310bfe1d00b21803fe15e291caf60aa1` at `/tmp/myra-upstream`.
 
@@ -23,6 +23,9 @@ and a manifest entry. The current ported surface includes:
   `Panel`, `Proportion`, and `SingleItemLayout<T>`.
 - Registry metadata attributes (`Content`, `Range`, XML/style/file-path, and
   skip/designer markers) plus `FileDialogMode`.
+- An explicit, non-reflective MML `TypeRegistry`, with factories, typed
+  property getter/setter adapters, inherited properties, defaults, XML names,
+  and the previously ported attribute metadata.
 
 The widget work is deliberately partial: no drawing traversal, desktop
 propagation, style application, hit testing, or input dispatch has been
@@ -30,16 +33,16 @@ claimed as complete. `UPSTREAM_MANIFEST.md` records this per source.
 
 ## Latest validation
 
-Both configurations were green at `4ed11ae`:
+Both configurations are green with the uncommitted TypeRegistry change:
 
 ```bash
 cmake --build build --parallel 3
 ctest --test-dir build --output-on-failure --parallel 3
-# 23/23 tests passed
+# 29/29 tests passed
 
 CCACHE_DIR=/tmp/myra-cna-ccache cmake --build build-cna --parallel 3
 ctest --test-dir build-cna --output-on-failure --parallel 3
-# 41/41 tests passed, with MYRA_CNA_LINK_CNA=ON and SOFTWARE backend
+# 47/47 tests passed, with MYRA_CNA_LINK_CNA=ON and SOFTWARE backend
 ```
 
 All compilation commands must continue to use at most three workers.
@@ -48,9 +51,9 @@ All compilation commands must continue to use at most three workers.
 
 1. Keep `README.md`, `plan.md`, and this file synchronized with the actual
    partial-widget implementation.
-2. Implement the explicit MML metadata/attached-property foundation required
-   by `Grid` and `StackPanel`, beginning with the deliberately non-reflective
-   registry now that its attribute metadata values exist.
+2. Implement the remaining attached-property foundation required by `Grid`
+   and `StackPanel`; the deliberately non-reflective type/property registry
+   is now available.
 3. Continue layout work only when the required metadata/ownership semantics
    are tested. Do not represent partial renderer, font, desktop, or input
    support as complete.
@@ -73,6 +76,6 @@ All compilation commands must continue to use at most three workers.
 ## Recommended next starting point
 
 Read this file first, then inspect `plan.md` against the current source. The
-next implementation task is Phase 4's explicit metadata and attached-property
-foundation; it unblocks `GridLayout` and `StackPanelLayout` without requiring a
-renderer or external dependency.
+next implementation task is Phase 4's attached-property descriptor and
+registry semantics. It unblocks `GridLayout` and `StackPanelLayout` without
+requiring a renderer or external dependency.
