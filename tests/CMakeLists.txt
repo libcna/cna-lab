@@ -9,25 +9,34 @@ add_executable(myra_cna_unit_tests
     InputEventsManagerTests.cpp
     MathematicsTests.cpp
     ThicknessTests.cpp
-    ThicknessRectangleTests.cpp
     VersionTests.cpp
 )
 
-# Rectangle construction belongs to CNA. Compile its small, dependency-free
-# implementation only into the test executable so the public headers-only
-# mode still exercises `Rectangle - Thickness` without building all of CNA.
-set(_myra_cna_rectangle_source
-    "${MYRA_CNA_CNA_DIR}/src/Microsoft/Xna/Framework/Rectangle.cpp")
-set(_myra_cna_point_source
-    "${MYRA_CNA_CNA_DIR}/src/Microsoft/Xna/Framework/Point.cpp")
-if(NOT EXISTS "${_myra_cna_rectangle_source}" OR NOT EXISTS "${_myra_cna_point_source}")
-    message(FATAL_ERROR
-        "myra-cna: tests require CNA Point.cpp and Rectangle.cpp under '${MYRA_CNA_CNA_DIR}'.")
+# In the default headers-only configuration, compile CNA's small Point and
+# Rectangle implementations into the test executable to exercise `Rectangle -
+# Thickness` without building all of CNA. A linked CNA target already supplies
+# those symbols, and additionally enables matrix/vector transform tests.
+if(MYRA_CNA_CNA_LINKED)
+    target_sources(myra_cna_unit_tests PRIVATE
+        ColorHSVTests.cpp
+        ThicknessRectangleTests.cpp
+        TransformTests.cpp
+    )
+else()
+    set(_myra_cna_rectangle_source
+        "${MYRA_CNA_CNA_DIR}/src/Microsoft/Xna/Framework/Rectangle.cpp")
+    set(_myra_cna_point_source
+        "${MYRA_CNA_CNA_DIR}/src/Microsoft/Xna/Framework/Point.cpp")
+    if(NOT EXISTS "${_myra_cna_rectangle_source}" OR NOT EXISTS "${_myra_cna_point_source}")
+        message(FATAL_ERROR
+            "myra-cna: tests require CNA Point.cpp and Rectangle.cpp under '${MYRA_CNA_CNA_DIR}'.")
+    endif()
+    target_sources(myra_cna_unit_tests PRIVATE
+        ThicknessRectangleTests.cpp
+        "${_myra_cna_point_source}"
+        "${_myra_cna_rectangle_source}"
+    )
 endif()
-target_sources(myra_cna_unit_tests PRIVATE
-    "${_myra_cna_point_source}"
-    "${_myra_cna_rectangle_source}"
-)
 target_link_libraries(myra_cna_unit_tests PRIVATE Myra::CNA GTest::gtest_main)
 
 if(MSVC)

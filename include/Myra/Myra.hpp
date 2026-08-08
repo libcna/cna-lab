@@ -17,5 +17,6 @@
 #include "Myra/Graphics2D/UI/InputEventType.hpp"
 #include "Myra/Graphics2D/UI/InputEventsManager.hpp"
 #include "Myra/MyraEnvironment.hpp"
+#include "Myra/Utility/ColorHSV.hpp"
 #include "Myra/Utility/Mathematics.hpp"
 #include "Myra/Version.hpp"

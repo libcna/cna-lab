@@ -285,8 +285,8 @@ are green, and the build uses no more than three parallel jobs.
 - [x] P1-008 Port `Events/ValueChangedEventArgs.cs`.
 - [x] P1-009 Port `Events/ValueChangingEventArgs.cs`.
 - [x] P1-010 Port `Graphics2D/Thickness.cs`, equality, parsing, and arithmetic.
-- [ ] P1-011 Port `Graphics2D/Transform.cs` using CNA matrices/vectors.
-- [ ] P1-012 Port `Utility/ColorHSV.cs` and conversion edge cases.
+- [x] P1-011 Port `Graphics2D/Transform.cs` using CNA matrices/vectors.
+- [x] P1-012 Port `Utility/ColorHSV.cs` and conversion edge cases.
 - [ ] P1-013 Port `Utility/CrossEngineStuff.cs` directly to CNA colors/matrices.
 - [x] P1-014 Port `Utility/Mathematics.cs` and document C++ numeric differences.
 - [ ] P1-015 Port `Utility/PathUtils.cs` over sharp-runtime/filesystem APIs.
