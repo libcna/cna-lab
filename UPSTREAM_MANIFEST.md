@@ -19,6 +19,8 @@
 | `include/Myra/Events/TextDeletedEventArgs.hpp` | `src/Myra/Events/TextDeletedEventArgs.cs` | `0d79b939310bfe1d00b21803fe15e291caf60aa1` | Myra MIT, copyright 2017-2020 The Myra Team; complete notice: `THIRD_PARTY_NOTICES.md` | Ported | `EventsTests.ArgumentsPreserveUpstreamValuesAndMutability` |
 | `include/Myra/Events/ValueChangedEventArgs.hpp` | `src/Myra/Events/ValueChangedEventArgs.cs` | `0d79b939310bfe1d00b21803fe15e291caf60aa1` | Myra MIT, copyright 2017-2020 The Myra Team; complete notice: `THIRD_PARTY_NOTICES.md` | Ported | `EventsTests.ArgumentsPreserveUpstreamValuesAndMutability` |
 | `include/Myra/Events/ValueChangingEventArgs.hpp` | `src/Myra/Events/ValueChangingEventArgs.cs` | `0d79b939310bfe1d00b21803fe15e291caf60aa1` | Myra MIT, copyright 2017-2020 The Myra Team; complete notice: `THIRD_PARTY_NOTICES.md` | Ported | `EventsTests.*` |
+| `include/Myra/Utility/Mathematics.hpp` | `src/Myra/Utility/Mathematics.cs` | `0d79b939310bfe1d00b21803fe15e291caf60aa1` | Myra MIT, copyright 2017-2020 The Myra Team; complete notice: `THIRD_PARTY_NOTICES.md` | Ported header-only | `MathematicsTests.*` |
+| `include/Myra/Graphics2D/Transform.hpp` | `src/Myra/Graphics2D/Transform.cs` | `0d79b939310bfe1d00b21803fe15e291caf60aa1` | Myra MIT plus MonoGame SpriteBatch.DrawString (Ms-PL) attribution; complete notices: `THIRD_PARTY_NOTICES.md` | Ported header-only; exact historical MonoGame revision remains a release audit item | Header compile via `myra_cna_minimal`; CNA-linked behavioral coverage pending |
 
 ## Rules
 

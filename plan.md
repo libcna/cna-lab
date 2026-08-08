@@ -288,7 +288,7 @@ are green, and the build uses no more than three parallel jobs.
 - [ ] P1-011 Port `Graphics2D/Transform.cs` using CNA matrices/vectors.
 - [ ] P1-012 Port `Utility/ColorHSV.cs` and conversion edge cases.
 - [ ] P1-013 Port `Utility/CrossEngineStuff.cs` directly to CNA colors/matrices.
-- [ ] P1-014 Port `Utility/Mathematics.cs` and document C++ numeric differences.
+- [x] P1-014 Port `Utility/Mathematics.cs` and document C++ numeric differences.
 - [ ] P1-015 Port `Utility/PathUtils.cs` over sharp-runtime/filesystem APIs.
 - [ ] P1-016 Port `Utility/Rest.cs`.
 - [ ] P1-017 Port `Utility/StringUtils.cs`.
