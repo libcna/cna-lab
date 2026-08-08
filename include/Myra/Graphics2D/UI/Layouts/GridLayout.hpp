@@ -25,14 +25,14 @@ namespace Myra::Graphics2D::UI
         [[nodiscard]] int getRowSpacingProperty() const noexcept;
         void setRowSpacingProperty(int value) noexcept;
 
-        [[nodiscard]] const Proportion& getDefaultColumnProportionProperty() const noexcept;
-        void setDefaultColumnProportionProperty(Proportion value);
-        [[nodiscard]] const Proportion& getDefaultRowProportionProperty() const noexcept;
-        void setDefaultRowProportionProperty(Proportion value);
-        [[nodiscard]] const std::vector<Proportion>& getColumnsProportionsProperty() const noexcept;
-        [[nodiscard]] std::vector<Proportion>& getColumnsProportionsProperty() noexcept;
-        [[nodiscard]] const std::vector<Proportion>& getRowsProportionsProperty() const noexcept;
-        [[nodiscard]] std::vector<Proportion>& getRowsProportionsProperty() noexcept;
+        [[nodiscard]] const std::shared_ptr<Proportion>& getDefaultColumnProportionProperty() const noexcept;
+        void setDefaultColumnProportionProperty(std::shared_ptr<Proportion> value);
+        [[nodiscard]] const std::shared_ptr<Proportion>& getDefaultRowProportionProperty() const noexcept;
+        void setDefaultRowProportionProperty(std::shared_ptr<Proportion> value);
+        [[nodiscard]] const ProportionCollection& getColumnsProportionsProperty() const noexcept;
+        [[nodiscard]] ProportionCollection& getColumnsProportionsProperty() noexcept;
+        [[nodiscard]] const ProportionCollection& getRowsProportionsProperty() const noexcept;
+        [[nodiscard]] ProportionCollection& getRowsProportionsProperty() noexcept;
 
         [[nodiscard]] const std::vector<int>& getGridLinesXProperty() const noexcept;
         [[nodiscard]] const std::vector<int>& getGridLinesYProperty() const noexcept;
@@ -46,8 +46,8 @@ namespace Myra::Graphics2D::UI
         [[nodiscard]] int GetCellLocationX(int column) const noexcept;
         [[nodiscard]] int GetCellLocationY(int row) const noexcept;
         [[nodiscard]] Microsoft::Xna::Framework::Rectangle GetCellRectangle(int column, int row) const noexcept;
-        [[nodiscard]] const Proportion& GetColumnProportion(int column) const noexcept;
-        [[nodiscard]] const Proportion& GetRowProportion(int row) const noexcept;
+        [[nodiscard]] const std::shared_ptr<Proportion>& GetColumnProportion(int column) const noexcept;
+        [[nodiscard]] const std::shared_ptr<Proportion>& GetRowProportion(int row) const noexcept;
 
         [[nodiscard]] Microsoft::Xna::Framework::Point Measure(
             const std::vector<std::shared_ptr<Widget>>& widgets,
@@ -62,10 +62,10 @@ namespace Myra::Graphics2D::UI
 
         int columnSpacing_ = 0;
         int rowSpacing_ = 0;
-        Proportion defaultColumnProportion_ = Proportion::GridDefault;
-        Proportion defaultRowProportion_ = Proportion::GridDefault;
-        std::vector<Proportion> columnsProportions_;
-        std::vector<Proportion> rowsProportions_;
+        std::shared_ptr<Proportion> defaultColumnProportion_ = Proportion::GridDefault;
+        std::shared_ptr<Proportion> defaultRowProportion_ = Proportion::GridDefault;
+        ProportionCollection columnsProportions_;
+        ProportionCollection rowsProportions_;
         std::vector<int> measureColumnWidths_;
         std::vector<int> measureRowHeights_;
         std::vector<std::shared_ptr<Widget>> visibleWidgets_;

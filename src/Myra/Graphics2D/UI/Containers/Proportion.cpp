@@ -7,6 +7,7 @@
 #include "Myra/Graphics2D/UI/Containers/Proportion.hpp"
 
 #include <iomanip>
+#include <memory>
 #include <sstream>
 
 #include "Myra/Graphics2D/UI/InputEventType.hpp"
@@ -15,10 +16,12 @@
 
 namespace Myra::Graphics2D::UI
 {
-    const Proportion Proportion::Auto(ProportionType::Auto);
-    const Proportion Proportion::Fill(ProportionType::Fill);
-    const Proportion Proportion::GridDefault(ProportionType::Part, 1.0F);
-    const Proportion Proportion::StackPanelDefault(ProportionType::Auto);
+    const std::shared_ptr<Proportion> Proportion::Auto = std::make_shared<Proportion>(ProportionType::Auto);
+    const std::shared_ptr<Proportion> Proportion::Fill = std::make_shared<Proportion>(ProportionType::Fill);
+    const std::shared_ptr<Proportion> Proportion::GridDefault =
+        std::make_shared<Proportion>(ProportionType::Part, 1.0F);
+    const std::shared_ptr<Proportion> Proportion::StackPanelDefault =
+        std::make_shared<Proportion>(ProportionType::Auto);
 
     Proportion::Proportion(const ProportionType type) noexcept : type_(type) {}
 

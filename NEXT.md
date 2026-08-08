@@ -3,8 +3,10 @@
 ## Current state
 
 - Active branch: `develop`.
-- Last validated commit: `0443615` (`Port Myra geometry type serializers`).
-- The worktree was clean after that commit.
+- Last validated state: the pending observable-proportion correction on top of
+  `2a17a79` (`Refresh autonomous handoff state`).
+- The worktree contains that coherent, tested correction and is ready to be
+  committed to `develop`.
 - The authoritative upstream reference remains Myra revision
   `0d79b939310bfe1d00b21803fe15e291caf60aa1` at `/tmp/myra-upstream`.
 
@@ -29,11 +31,12 @@ and a manifest entry. The current ported surface includes:
   base-type enumeration via `TypeRegistry`, change notifications, and widget
   measure/arrange invalidation options.
 - `GridLayout` plus the layout/attached-property subset of `Grid`, including
-  Part/Auto/Fill/Pixels proportions, spacing, spans, cell geometry, and child
-  placement.
+  Part/Auto/Fill/Pixels proportions, spacing, spans, cell geometry, child
+  placement, observable proportion collections, and safe retained-proportion
+  change subscriptions.
 - `StackPanelLayout`, `StackPanel`, `HorizontalStackPanel`, and
-  `VerticalStackPanel` layout subsets, including spacing and attached
-  proportions.
+  `VerticalStackPanel` layout subsets, including spacing, attached
+  proportions, and explicit observable proportion collections.
 - MML `ITypeSerializer`/`TypeSerializer<T>` and invariant Vector2, Thickness,
   and Rectangle serializers.
 
@@ -43,7 +46,7 @@ claimed as complete. `UPSTREAM_MANIFEST.md` records this per source.
 
 ## Latest validation
 
-Both configurations were green at `0443615`:
+Both configurations are green for the pending observable-proportion correction:
 
 ```bash
 cmake --build build --parallel 3
@@ -52,7 +55,7 @@ ctest --test-dir build --output-on-failure --parallel 3
 
 CCACHE_DIR=/tmp/myra-cna-ccache cmake --build build-cna --parallel 3
 ctest --test-dir build-cna --output-on-failure --parallel 3
-# 56/56 tests passed, with MYRA_CNA_LINK_CNA=ON and SOFTWARE backend
+# 59/59 tests passed, with MYRA_CNA_LINK_CNA=ON and SOFTWARE backend
 ```
 
 All compilation commands must continue to use at most three workers.
@@ -84,9 +87,10 @@ All compilation commands must continue to use at most three workers.
   human decision rather than changing it.
 - `Widget::AddChild` deliberately reparents a child to preserve one owning
   parent. This necessary C++ difference is `DEV-011` and is covered by tests.
-- Grid and StackPanel are layout subsets. Their proportion collections use
-  vectors rather than sharp-runtime `ObservableCollection`; see `DEV-014` and
-  the remaining P6-013/P6-016 tasks before claiming full parity.
+- Grid and StackPanel are still layout subsets: styles, debug rendering,
+  selection, and input remain unported. Their `ProportionCollection` now maps
+  the upstream observable reference collection to sharp-runtime
+  `ObservableCollection<std::shared_ptr<Proportion>>`; see accepted `DEV-014`.
 
 ## Recommended next starting point
 

@@ -6,9 +6,11 @@
 // See NOTICE.md and UPSTREAM_MANIFEST.md.
 #pragma once
 
+#include <memory>
 #include <string>
 
 #include "Myra/Events/MyraEventHandler.hpp"
+#include "System/Collections/ObjectModel/ObservableCollection.hpp"
 
 namespace Myra::Graphics2D::UI
 {
@@ -25,10 +27,12 @@ namespace Myra::Graphics2D::UI
     class Proportion
     {
     public:
-        static const Proportion Auto;
-        static const Proportion Fill;
-        static const Proportion GridDefault;
-        static const Proportion StackPanelDefault;
+        // C# exposes these as readonly references to mutable objects.  shared_ptr
+        // preserves that reference identity in the C++ object model.
+        static const std::shared_ptr<Proportion> Auto;
+        static const std::shared_ptr<Proportion> Fill;
+        static const std::shared_ptr<Proportion> GridDefault;
+        static const std::shared_ptr<Proportion> StackPanelDefault;
 
         Events::MyraEventHandler Changed;
 
@@ -48,4 +52,13 @@ namespace Myra::Graphics2D::UI
         ProportionType type_ = ProportionType::Auto;
         float value_ = 1.0F;
     };
+
+    /**
+     * @brief C++ counterpart of ObservableCollection&lt;Proportion&gt;.
+     *
+     * A C# collection stores references to mutable Proportion objects.  The
+     * shared pointers preserve that identity and let owners remove their
+     * subscriptions safely when a proportion leaves a collection.
+     */
+    using ProportionCollection = System::Collections::ObjectModel::ObservableCollection<std::shared_ptr<Proportion>>;
 }

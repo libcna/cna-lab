@@ -67,4 +67,47 @@ namespace
         EXPECT_EQ(grid.GetCellRectangle(0, 0), Rectangle(0, 0, 50, 30));
         EXPECT_EQ(child->getContainerBoundsProperty(), Rectangle(0, 0, 100, 60));
     }
+
+    TEST(GridLayoutTests, ObservableProportionsInvalidateAndObserveRetainedObjects)
+    {
+        Grid grid;
+        auto first = std::make_shared<FixedWidget>(Point(20, 10));
+        auto second = std::make_shared<FixedWidget>(Point(30, 10));
+        Grid::SetColumn(*second, 1);
+        grid.AddWidget(first);
+        grid.AddWidget(second);
+
+        auto proportion = std::make_shared<Myra::Graphics2D::UI::Proportion>(
+            Myra::Graphics2D::UI::ProportionType::Pixels, 20.0F);
+        auto& columns = grid.getColumnsProportionsProperty();
+        columns.Add(proportion);
+        EXPECT_EQ(columns.getCountProperty(), 1);
+        EXPECT_EQ(columns[0], proportion);
+
+        grid.Arrange(Rectangle(0, 0, 100, 30));
+        EXPECT_EQ(grid.GetColumnWidth(0), 20);
+        EXPECT_EQ(grid.GetColumnWidth(1), 80);
+
+        proportion->setValueProperty(35.0F);
+        grid.Arrange(Rectangle(0, 0, 100, 30));
+        EXPECT_EQ(grid.GetColumnWidth(0), 35);
+        EXPECT_EQ(grid.GetColumnWidth(1), 65);
+
+        ASSERT_TRUE(columns.Remove(proportion));
+        grid.Arrange(Rectangle(0, 0, 100, 30));
+        EXPECT_EQ(grid.GetColumnWidth(0), 50);
+        EXPECT_EQ(grid.GetColumnWidth(1), 50);
+    }
+
+    TEST(GridLayoutTests, DetachesProportionSubscriptionsWhenDestroyed)
+    {
+        auto proportion = std::make_shared<Myra::Graphics2D::UI::Proportion>(
+            Myra::Graphics2D::UI::ProportionType::Pixels, 10.0F);
+        {
+            auto grid = std::make_unique<Grid>();
+            grid->getColumnsProportionsProperty().Add(proportion);
+        }
+
+        proportion->setValueProperty(20.0F);
+    }
 }

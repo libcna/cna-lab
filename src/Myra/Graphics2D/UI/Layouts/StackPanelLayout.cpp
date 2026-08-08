@@ -37,13 +37,13 @@ namespace Myra::Graphics2D::UI
         }
     }
 
-    const Proportion& StackPanelLayout::getDefaultProportionProperty() const noexcept
+    const std::shared_ptr<Proportion>& StackPanelLayout::getDefaultProportionProperty() const noexcept
     {
         return orientation_ == Orientation::Horizontal ? layout_.getDefaultColumnProportionProperty()
                                                        : layout_.getDefaultRowProportionProperty();
     }
 
-    void StackPanelLayout::setDefaultProportionProperty(Proportion value)
+    void StackPanelLayout::setDefaultProportionProperty(std::shared_ptr<Proportion> value)
     {
         if (orientation_ == Orientation::Horizontal)
         {
@@ -55,13 +55,13 @@ namespace Myra::Graphics2D::UI
         }
     }
 
-    const std::vector<Proportion>& StackPanelLayout::getProportionsProperty() const noexcept
+    const ProportionCollection& StackPanelLayout::getProportionsProperty() const noexcept
     {
         return orientation_ == Orientation::Horizontal ? layout_.getColumnsProportionsProperty()
                                                        : layout_.getRowsProportionsProperty();
     }
 
-    std::vector<Proportion>& StackPanelLayout::getProportionsProperty() noexcept
+    ProportionCollection& StackPanelLayout::getProportionsProperty() noexcept
     {
         return orientation_ == Orientation::Horizontal ? layout_.getColumnsProportionsProperty()
                                                        : layout_.getRowsProportionsProperty();
@@ -79,8 +79,8 @@ namespace Myra::Graphics2D::UI
 
     void StackPanelLayout::UpdateWidgets(const std::vector<std::shared_ptr<Widget>>& widgets)
     {
-        std::vector<Proportion>& proportions = getProportionsProperty();
-        proportions.clear();
+        ProportionCollection& proportions = getProportionsProperty();
+        proportions.Clear();
         int index = 0;
         for (const std::shared_ptr<Widget>& widget : widgets)
         {
@@ -96,13 +96,15 @@ namespace Myra::Graphics2D::UI
             {
                 Grid::SetRow(*widget, index);
             }
-            if (StackPanel::getProportionTypeProperty().HasValue(*widget))
+            const std::shared_ptr<Proportion>& defaultProportion = getDefaultProportionProperty();
+            if (StackPanel::getProportionTypeProperty().HasValue(*widget) || !defaultProportion)
             {
-                proportions.emplace_back(StackPanel::GetProportionType(*widget), StackPanel::GetProportionValue(*widget));
+                proportions.Add(std::make_shared<Proportion>(
+                    StackPanel::GetProportionType(*widget), StackPanel::GetProportionValue(*widget)));
             }
             else
             {
-                proportions.push_back(getDefaultProportionProperty());
+                proportions.Add(defaultProportion);
             }
             ++index;
         }

@@ -23,10 +23,10 @@ namespace Myra::Graphics2D::UI
         [[nodiscard]] Orientation getOrientationProperty() const noexcept;
         [[nodiscard]] int getSpacingProperty() const noexcept;
         void setSpacingProperty(int value) noexcept;
-        [[nodiscard]] const Proportion& getDefaultProportionProperty() const noexcept;
-        void setDefaultProportionProperty(Proportion value);
-        [[nodiscard]] const std::vector<Proportion>& getProportionsProperty() const noexcept;
-        [[nodiscard]] std::vector<Proportion>& getProportionsProperty() noexcept;
+        [[nodiscard]] const std::shared_ptr<Proportion>& getDefaultProportionProperty() const noexcept;
+        void setDefaultProportionProperty(std::shared_ptr<Proportion> value);
+        [[nodiscard]] const ProportionCollection& getProportionsProperty() const noexcept;
+        [[nodiscard]] ProportionCollection& getProportionsProperty() noexcept;
         [[nodiscard]] const std::vector<int>& getGridLinesXProperty() const noexcept;
         [[nodiscard]] const std::vector<int>& getGridLinesYProperty() const noexcept;
 

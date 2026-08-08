@@ -6,8 +6,6 @@
 // See NOTICE.md and UPSTREAM_MANIFEST.md.
 #pragma once
 
-#include <vector>
-
 #include "Myra/Graphics2D/UI/Container.hpp"
 #include "Myra/Graphics2D/UI/Layouts/GridLayout.hpp"
 #include "Myra/MML/AttachedPropertiesRegistry.hpp"
@@ -19,20 +17,20 @@ namespace Myra::Graphics2D::UI
     {
     public:
         Grid();
-        ~Grid() override = default;
+        ~Grid() override;
 
         [[nodiscard]] int getColumnSpacingProperty() const noexcept;
         void setColumnSpacingProperty(int value);
         [[nodiscard]] int getRowSpacingProperty() const noexcept;
         void setRowSpacingProperty(int value);
-        [[nodiscard]] const Proportion& getDefaultColumnProportionProperty() const noexcept;
-        void setDefaultColumnProportionProperty(Proportion value);
-        [[nodiscard]] const Proportion& getDefaultRowProportionProperty() const noexcept;
-        void setDefaultRowProportionProperty(Proportion value);
-        [[nodiscard]] const std::vector<Proportion>& getColumnsProportionsProperty() const noexcept;
-        [[nodiscard]] std::vector<Proportion>& getColumnsProportionsProperty();
-        [[nodiscard]] const std::vector<Proportion>& getRowsProportionsProperty() const noexcept;
-        [[nodiscard]] std::vector<Proportion>& getRowsProportionsProperty();
+        [[nodiscard]] const std::shared_ptr<Proportion>& getDefaultColumnProportionProperty() const noexcept;
+        void setDefaultColumnProportionProperty(std::shared_ptr<Proportion> value);
+        [[nodiscard]] const std::shared_ptr<Proportion>& getDefaultRowProportionProperty() const noexcept;
+        void setDefaultRowProportionProperty(std::shared_ptr<Proportion> value);
+        [[nodiscard]] const ProportionCollection& getColumnsProportionsProperty() const noexcept;
+        [[nodiscard]] ProportionCollection& getColumnsProportionsProperty() noexcept;
+        [[nodiscard]] const ProportionCollection& getRowsProportionsProperty() const noexcept;
+        [[nodiscard]] ProportionCollection& getRowsProportionsProperty() noexcept;
 
         [[nodiscard]] int GetColumnWidth(int index) const noexcept;
         [[nodiscard]] int GetRowHeight(int index) const noexcept;
@@ -54,6 +52,17 @@ namespace Myra::Graphics2D::UI
         static void SetRowSpan(Widget& widget, int value);
 
     private:
+        struct ProportionSubscription
+        {
+            std::shared_ptr<Proportion> proportion;
+            Events::MyraEventHandler::Token token = Events::MyraEventHandler::InvalidToken;
+        };
+
+        void OnProportionsCollectionChanged();
+        void RebuildProportionSubscriptions();
+        void ClearProportionSubscriptions();
+
         GridLayout layout_;
+        std::vector<ProportionSubscription> proportionSubscriptions_;
     };
 }

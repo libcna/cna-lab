@@ -13,11 +13,15 @@ namespace
 
     TEST(ProportionTests, ExposesTheUpstreamStaticDefaults)
     {
-        EXPECT_EQ(Proportion::Auto.getTypeProperty(), ProportionType::Auto);
-        EXPECT_EQ(Proportion::Fill.getTypeProperty(), ProportionType::Fill);
-        EXPECT_EQ(Proportion::GridDefault.getTypeProperty(), ProportionType::Part);
-        EXPECT_FLOAT_EQ(Proportion::GridDefault.getValueProperty(), 1.0F);
-        EXPECT_EQ(Proportion::StackPanelDefault.getTypeProperty(), ProportionType::Auto);
+        ASSERT_NE(Proportion::Auto, nullptr);
+        ASSERT_NE(Proportion::Fill, nullptr);
+        ASSERT_NE(Proportion::GridDefault, nullptr);
+        ASSERT_NE(Proportion::StackPanelDefault, nullptr);
+        EXPECT_EQ(Proportion::Auto->getTypeProperty(), ProportionType::Auto);
+        EXPECT_EQ(Proportion::Fill->getTypeProperty(), ProportionType::Fill);
+        EXPECT_EQ(Proportion::GridDefault->getTypeProperty(), ProportionType::Part);
+        EXPECT_FLOAT_EQ(Proportion::GridDefault->getValueProperty(), 1.0F);
+        EXPECT_EQ(Proportion::StackPanelDefault->getTypeProperty(), ProportionType::Auto);
     }
 
     TEST(ProportionTests, ChangesOnlyOutsideTheUpstreamEpsilonAndRaisesEvents)

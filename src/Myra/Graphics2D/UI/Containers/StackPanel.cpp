@@ -15,6 +15,7 @@ namespace Myra::Graphics2D::UI
     StackPanel::StackPanel(const Orientation orientation) : layout_(orientation)
     {
         setChildrenLayoutProperty(&layout_);
+        proportions_.CollectionChanged.emplace_back([this](void*, const auto&) { InvalidateProportions(); });
     }
 
     Orientation StackPanel::getOrientationProperty() const noexcept { return layout_.getOrientationProperty(); }
@@ -29,23 +30,21 @@ namespace Myra::Graphics2D::UI
         }
     }
 
-    const Proportion& StackPanel::getDefaultProportionProperty() const noexcept
+    const std::shared_ptr<Proportion>& StackPanel::getDefaultProportionProperty() const noexcept
     {
         return layout_.getDefaultProportionProperty();
     }
 
-    void StackPanel::setDefaultProportionProperty(Proportion value)
+    void StackPanel::setDefaultProportionProperty(std::shared_ptr<Proportion> value)
     {
         layout_.setDefaultProportionProperty(std::move(value));
         InvalidateMeasure();
     }
 
-    const std::vector<Proportion>& StackPanel::getProportionsProperty() const noexcept { return proportions_; }
+    const ProportionCollection& StackPanel::getProportionsProperty() const noexcept { return proportions_; }
 
-    std::vector<Proportion>& StackPanel::getProportionsProperty()
+    ProportionCollection& StackPanel::getProportionsProperty() noexcept
     {
-        childrenDirty_ = true;
-        InvalidateMeasure();
         return proportions_;
     }
 
@@ -101,14 +100,20 @@ namespace Myra::Graphics2D::UI
         size_t index = 0;
         for (const std::shared_ptr<Widget>& widget : getChildrenCopyProperty())
         {
-            if (index < proportions_.size())
+            if (index < static_cast<size_t>(proportions_.getCountProperty()))
             {
-                SetProportionType(*widget, proportions_[index].getTypeProperty());
-                SetProportionValue(*widget, proportions_[index].getValueProperty());
+                const std::shared_ptr<Proportion>& proportion = proportions_[static_cast<SharpRuntime::intcs>(index)];
+                SetProportionType(*widget, proportion->getTypeProperty());
+                SetProportionValue(*widget, proportion->getValueProperty());
             }
             ++index;
         }
         childrenDirty_ = false;
+    }
+
+    void StackPanel::InvalidateProportions() noexcept
+    {
+        childrenDirty_ = true;
     }
 
     Microsoft::Xna::Framework::Point StackPanel::InternalMeasure(

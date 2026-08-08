@@ -421,13 +421,15 @@ are green, and the build uses no more than three parallel jobs.
 - [x] P6-012a Implement `Panel` measuring and arranging behavior without style constructors.
 - [ ] P6-012 Port `Containers/Panel.cs`.
 - [x] P6-013a Implement the layout and attached-proportion subset of `Containers/StackPanel.cs`.
-- [ ] P6-013 Port `Containers/StackPanel.cs` styles, debug rendering, and observable proportion semantics.
+- [x] P6-013b Restore `ObservableCollection<Proportion>` semantics for the layout subset, using retained C++ proportion ownership and sharp-runtime collection notifications.
+- [ ] P6-013 Port `Containers/StackPanel.cs` styles and debug rendering.
 - [x] P6-014a Implement the layout subset of `Containers/HorizontalStackPanel.cs`.
 - [ ] P6-014 Port `Containers/HorizontalStackPanel.cs` style integration.
 - [x] P6-015a Implement the layout subset of `Containers/VerticalStackPanel.cs`.
 - [ ] P6-015 Port `Containers/VerticalStackPanel.cs` style integration.
 - [x] P6-016a Implement `Grid` layout and attached row/column/span property subset.
-- [ ] P6-016 Port `Containers/Grid.cs` selection, style, debug render, input, and observable proportion semantics.
+- [x] P6-016b Restore Grid's observable proportion collection and retained-proportion invalidation semantics.
+- [ ] P6-016 Port `Containers/Grid.cs` selection, style, debug render, and input.
 - [x] P6-017 Port `Containers/Proportion.cs`.
 - [ ] P6-018 Port `Containers/ScrollViewer.cs`.
 - [ ] P6-019 Port `Containers/SplitPane.cs`.

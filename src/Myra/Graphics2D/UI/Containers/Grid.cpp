@@ -6,6 +6,7 @@
 // See NOTICE.md and UPSTREAM_MANIFEST.md.
 #include "Myra/Graphics2D/UI/Containers/Grid.hpp"
 
+#include <algorithm>
 #include <utility>
 
 #include "Myra/Attributes/RangeAttribute.hpp"
@@ -25,6 +26,15 @@ namespace Myra::Graphics2D::UI
     Grid::Grid()
     {
         setChildrenLayoutProperty(&layout_);
+        layout_.getColumnsProportionsProperty().CollectionChanged.emplace_back(
+            [this](void*, const auto&) { OnProportionsCollectionChanged(); });
+        layout_.getRowsProportionsProperty().CollectionChanged.emplace_back(
+            [this](void*, const auto&) { OnProportionsCollectionChanged(); });
+    }
+
+    Grid::~Grid()
+    {
+        ClearProportionSubscriptions();
     }
 
     int Grid::getColumnSpacingProperty() const noexcept { return layout_.getColumnSpacingProperty(); }
@@ -51,48 +61,87 @@ namespace Myra::Graphics2D::UI
         InvalidateMeasure();
     }
 
-    const Proportion& Grid::getDefaultColumnProportionProperty() const noexcept
+    const std::shared_ptr<Proportion>& Grid::getDefaultColumnProportionProperty() const noexcept
     {
         return layout_.getDefaultColumnProportionProperty();
     }
 
-    void Grid::setDefaultColumnProportionProperty(Proportion value)
+    void Grid::setDefaultColumnProportionProperty(std::shared_ptr<Proportion> value)
     {
         layout_.setDefaultColumnProportionProperty(std::move(value));
         InvalidateMeasure();
     }
 
-    const Proportion& Grid::getDefaultRowProportionProperty() const noexcept
+    const std::shared_ptr<Proportion>& Grid::getDefaultRowProportionProperty() const noexcept
     {
         return layout_.getDefaultRowProportionProperty();
     }
 
-    void Grid::setDefaultRowProportionProperty(Proportion value)
+    void Grid::setDefaultRowProportionProperty(std::shared_ptr<Proportion> value)
     {
         layout_.setDefaultRowProportionProperty(std::move(value));
         InvalidateMeasure();
     }
 
-    const std::vector<Proportion>& Grid::getColumnsProportionsProperty() const noexcept
+    const ProportionCollection& Grid::getColumnsProportionsProperty() const noexcept
     {
         return layout_.getColumnsProportionsProperty();
     }
 
-    std::vector<Proportion>& Grid::getColumnsProportionsProperty()
+    ProportionCollection& Grid::getColumnsProportionsProperty() noexcept
     {
-        InvalidateMeasure();
         return layout_.getColumnsProportionsProperty();
     }
 
-    const std::vector<Proportion>& Grid::getRowsProportionsProperty() const noexcept
+    const ProportionCollection& Grid::getRowsProportionsProperty() const noexcept
     {
         return layout_.getRowsProportionsProperty();
     }
 
-    std::vector<Proportion>& Grid::getRowsProportionsProperty()
+    ProportionCollection& Grid::getRowsProportionsProperty() noexcept
     {
-        InvalidateMeasure();
         return layout_.getRowsProportionsProperty();
+    }
+
+    void Grid::OnProportionsCollectionChanged()
+    {
+        RebuildProportionSubscriptions();
+        InvalidateMeasure();
+    }
+
+    void Grid::RebuildProportionSubscriptions()
+    {
+        ClearProportionSubscriptions();
+
+        const auto subscribe = [this](const std::shared_ptr<Proportion>& proportion) {
+            if (!proportion)
+            {
+                return;
+            }
+            const Events::MyraEventHandler::Token token = proportion->Changed.Add(
+                [this](void*, Events::MyraEventArgs&) { InvalidateMeasure(); });
+            proportionSubscriptions_.push_back({proportion, token});
+        };
+        for (const std::shared_ptr<Proportion>& proportion : layout_.getColumnsProportionsProperty())
+        {
+            subscribe(proportion);
+        }
+        for (const std::shared_ptr<Proportion>& proportion : layout_.getRowsProportionsProperty())
+        {
+            subscribe(proportion);
+        }
+    }
+
+    void Grid::ClearProportionSubscriptions()
+    {
+        for (ProportionSubscription& subscription : proportionSubscriptions_)
+        {
+            if (subscription.proportion)
+            {
+                static_cast<void>(subscription.proportion->Changed.Remove(subscription.token));
+            }
+        }
+        proportionSubscriptions_.clear();
     }
 
     int Grid::GetColumnWidth(const int index) const noexcept { return layout_.GetColumnWidth(index); }

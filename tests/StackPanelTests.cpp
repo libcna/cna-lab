@@ -68,4 +68,23 @@ namespace
         EXPECT_EQ(first->getContainerBoundsProperty(), Rectangle(0, 0, 40, 30));
         EXPECT_EQ(second->getContainerBoundsProperty(), Rectangle(0, 30, 40, 60));
     }
+
+    TEST(StackPanelTests, UsesObservableExplicitProportionsDuringLayout)
+    {
+        HorizontalStackPanel panel;
+        auto first = std::make_shared<FixedWidget>(Point(10, 10));
+        auto second = std::make_shared<FixedWidget>(Point(10, 10));
+        panel.AddWidget(first);
+        panel.AddWidget(second);
+
+        auto proportion = std::make_shared<Myra::Graphics2D::UI::Proportion>(ProportionType::Pixels, 25.0F);
+        auto& proportions = panel.getProportionsProperty();
+        proportions.Add(proportion);
+        EXPECT_EQ(proportions.getCountProperty(), 1);
+        EXPECT_EQ(proportions[0], proportion);
+
+        panel.Arrange(Rectangle(0, 0, 100, 20));
+        EXPECT_EQ(panel.GetCellSize(0), 25);
+        EXPECT_EQ(panel.GetCellSize(1), 10);
+    }
 }

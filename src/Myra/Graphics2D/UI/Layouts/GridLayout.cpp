@@ -19,14 +19,30 @@ namespace Myra::Graphics2D::UI
     void GridLayout::setColumnSpacingProperty(const int value) noexcept { columnSpacing_ = value; }
     int GridLayout::getRowSpacingProperty() const noexcept { return rowSpacing_; }
     void GridLayout::setRowSpacingProperty(const int value) noexcept { rowSpacing_ = value; }
-    const Proportion& GridLayout::getDefaultColumnProportionProperty() const noexcept { return defaultColumnProportion_; }
-    void GridLayout::setDefaultColumnProportionProperty(Proportion value) { defaultColumnProportion_ = std::move(value); }
-    const Proportion& GridLayout::getDefaultRowProportionProperty() const noexcept { return defaultRowProportion_; }
-    void GridLayout::setDefaultRowProportionProperty(Proportion value) { defaultRowProportion_ = std::move(value); }
-    const std::vector<Proportion>& GridLayout::getColumnsProportionsProperty() const noexcept { return columnsProportions_; }
-    std::vector<Proportion>& GridLayout::getColumnsProportionsProperty() noexcept { return columnsProportions_; }
-    const std::vector<Proportion>& GridLayout::getRowsProportionsProperty() const noexcept { return rowsProportions_; }
-    std::vector<Proportion>& GridLayout::getRowsProportionsProperty() noexcept { return rowsProportions_; }
+    const std::shared_ptr<Proportion>& GridLayout::getDefaultColumnProportionProperty() const noexcept
+    {
+        return defaultColumnProportion_;
+    }
+
+    void GridLayout::setDefaultColumnProportionProperty(std::shared_ptr<Proportion> value)
+    {
+        defaultColumnProportion_ = std::move(value);
+    }
+
+    const std::shared_ptr<Proportion>& GridLayout::getDefaultRowProportionProperty() const noexcept
+    {
+        return defaultRowProportion_;
+    }
+
+    void GridLayout::setDefaultRowProportionProperty(std::shared_ptr<Proportion> value)
+    {
+        defaultRowProportion_ = std::move(value);
+    }
+
+    const ProportionCollection& GridLayout::getColumnsProportionsProperty() const noexcept { return columnsProportions_; }
+    ProportionCollection& GridLayout::getColumnsProportionsProperty() noexcept { return columnsProportions_; }
+    const ProportionCollection& GridLayout::getRowsProportionsProperty() const noexcept { return rowsProportions_; }
+    ProportionCollection& GridLayout::getRowsProportionsProperty() noexcept { return rowsProportions_; }
     const std::vector<int>& GridLayout::getGridLinesXProperty() const noexcept { return gridLinesX_; }
     const std::vector<int>& GridLayout::getGridLinesYProperty() const noexcept { return gridLinesY_; }
     const std::vector<int>& GridLayout::getColWidthsProperty() const noexcept { return columnWidths_; }
@@ -64,15 +80,15 @@ namespace Myra::Graphics2D::UI
         return Rectangle(cellLocationsX_[column], cellLocationsY_[row], columnWidths_[column], rowHeights_[row]);
     }
 
-    const Proportion& GridLayout::GetColumnProportion(const int column) const noexcept
+    const std::shared_ptr<Proportion>& GridLayout::GetColumnProportion(const int column) const noexcept
     {
-        return column < 0 || static_cast<size_t>(column) >= columnsProportions_.size()
+        return column < 0 || column >= columnsProportions_.getCountProperty()
             ? defaultColumnProportion_ : columnsProportions_[column];
     }
 
-    const Proportion& GridLayout::GetRowProportion(const int row) const noexcept
+    const std::shared_ptr<Proportion>& GridLayout::GetRowProportion(const int row) const noexcept
     {
-        return row < 0 || static_cast<size_t>(row) >= rowsProportions_.size()
+        return row < 0 || row >= rowsProportions_.getCountProperty()
             ? defaultRowProportion_ : rowsProportions_[row];
     }
 
@@ -86,34 +102,34 @@ namespace Myra::Graphics2D::UI
         int size = 0;
         for (size_t index = 0; index < measureColumnWidths_.size(); ++index)
         {
-            if (GetColumnProportion(static_cast<int>(index)).getTypeProperty() == ProportionType::Part)
+            if (GetColumnProportion(static_cast<int>(index))->getTypeProperty() == ProportionType::Part)
             {
                 size = std::max(size, measureColumnWidths_[index]);
             }
         }
         for (size_t index = 0; index < measureColumnWidths_.size(); ++index)
         {
-            const Proportion& proportion = GetColumnProportion(static_cast<int>(index));
-            if (proportion.getTypeProperty() == ProportionType::Part)
+            const std::shared_ptr<Proportion>& proportion = GetColumnProportion(static_cast<int>(index));
+            if (proportion->getTypeProperty() == ProportionType::Part)
             {
-                measureColumnWidths_[index] = static_cast<int>(static_cast<float>(size) * proportion.getValueProperty());
+                measureColumnWidths_[index] = static_cast<int>(static_cast<float>(size) * proportion->getValueProperty());
             }
         }
 
         size = 0;
         for (size_t index = 0; index < measureRowHeights_.size(); ++index)
         {
-            if (GetRowProportion(static_cast<int>(index)).getTypeProperty() == ProportionType::Part)
+            if (GetRowProportion(static_cast<int>(index))->getTypeProperty() == ProportionType::Part)
             {
                 size = std::max(size, measureRowHeights_[index]);
             }
         }
         for (size_t index = 0; index < measureRowHeights_.size(); ++index)
         {
-            const Proportion& proportion = GetRowProportion(static_cast<int>(index));
-            if (proportion.getTypeProperty() == ProportionType::Part)
+            const std::shared_ptr<Proportion>& proportion = GetRowProportion(static_cast<int>(index));
+            if (proportion->getTypeProperty() == ProportionType::Part)
             {
-                measureRowHeights_[index] = static_cast<int>(static_cast<float>(size) * proportion.getValueProperty());
+                measureRowHeights_[index] = static_cast<int>(static_cast<float>(size) * proportion->getValueProperty());
             }
         }
     }
@@ -134,8 +150,8 @@ namespace Myra::Graphics2D::UI
             columns = std::max(columns, position.X + std::max(Grid::GetColumnSpan(*child), 1));
             rows = std::max(rows, position.Y + std::max(Grid::GetRowSpan(*child), 1));
         }
-        columns = std::max(columns, static_cast<int>(columnsProportions_.size()));
-        rows = std::max(rows, static_cast<int>(rowsProportions_.size()));
+        columns = std::max(columns, static_cast<int>(columnsProportions_.getCountProperty()));
+        rows = std::max(rows, static_cast<int>(rowsProportions_.getCountProperty()));
 
         measureColumnWidths_.assign(static_cast<size_t>(columns), 0);
         measureRowHeights_.assign(static_cast<size_t>(rows), 0);
@@ -153,21 +169,21 @@ namespace Myra::Graphics2D::UI
         {
             for (int column = 0; column < columns; ++column)
             {
-                const Proportion& rowProportion = GetRowProportion(row);
-                const Proportion& columnProportion = GetColumnProportion(column);
-                if (columnProportion.getTypeProperty() == ProportionType::Pixels)
+                const std::shared_ptr<Proportion>& rowProportion = GetRowProportion(row);
+                const std::shared_ptr<Proportion>& columnProportion = GetColumnProportion(column);
+                if (columnProportion->getTypeProperty() == ProportionType::Pixels)
                 {
-                    measureColumnWidths_[column] = static_cast<int>(columnProportion.getValueProperty());
+                    measureColumnWidths_[column] = static_cast<int>(columnProportion->getValueProperty());
                 }
-                if (rowProportion.getTypeProperty() == ProportionType::Pixels)
+                if (rowProportion->getTypeProperty() == ProportionType::Pixels)
                 {
-                    measureRowHeights_[row] = static_cast<int>(rowProportion.getValueProperty());
+                    measureRowHeights_[row] = static_cast<int>(rowProportion->getValueProperty());
                 }
                 for (const std::shared_ptr<Widget>& widget : widgetsByGridPosition_[row][column])
                 {
                     Point measuredSize(0, 0);
-                    if (rowProportion.getTypeProperty() != ProportionType::Pixels ||
-                        columnProportion.getTypeProperty() != ProportionType::Pixels)
+                    if (rowProportion->getTypeProperty() != ProportionType::Pixels ||
+                        columnProportion->getTypeProperty() != ProportionType::Pixels)
                     {
                         measuredSize = widget->Measure(availableSize);
                     }
@@ -179,11 +195,11 @@ namespace Myra::Graphics2D::UI
                     {
                         measuredSize.Y = 0;
                     }
-                    if (columnProportion.getTypeProperty() != ProportionType::Pixels)
+                    if (columnProportion->getTypeProperty() != ProportionType::Pixels)
                     {
                         measureColumnWidths_[column] = std::max(measureColumnWidths_[column], measuredSize.X);
                     }
-                    if (rowProportion.getTypeProperty() != ProportionType::Pixels)
+                    if (rowProportion->getTypeProperty() != ProportionType::Pixels)
                     {
                         measureRowHeights_[row] = std::max(measureRowHeights_[row], measuredSize.Y);
                     }
@@ -223,14 +239,14 @@ namespace Myra::Graphics2D::UI
         float totalPart = 0.0F;
         for (size_t column = 0; column < columnWidths_.size(); ++column)
         {
-            const Proportion& proportion = GetColumnProportion(static_cast<int>(column));
-            if (proportion.getTypeProperty() == ProportionType::Auto || proportion.getTypeProperty() == ProportionType::Pixels)
+            const std::shared_ptr<Proportion>& proportion = GetColumnProportion(static_cast<int>(column));
+            if (proportion->getTypeProperty() == ProportionType::Auto || proportion->getTypeProperty() == ProportionType::Pixels)
             {
                 availableWidth -= static_cast<float>(columnWidths_[column]);
             }
             else
             {
-                totalPart += proportion.getValueProperty();
+                totalPart += proportion->getValueProperty();
             }
         }
         if (totalPart != 0.0F)
@@ -238,10 +254,10 @@ namespace Myra::Graphics2D::UI
             float takenSpace = 0.0F;
             for (size_t column = 0; column < columnWidths_.size(); ++column)
             {
-                const Proportion& proportion = GetColumnProportion(static_cast<int>(column));
-                if (proportion.getTypeProperty() == ProportionType::Part)
+                const std::shared_ptr<Proportion>& proportion = GetColumnProportion(static_cast<int>(column));
+                if (proportion->getTypeProperty() == ProportionType::Part)
                 {
-                    columnWidths_[column] = static_cast<int>(proportion.getValueProperty() * availableWidth / totalPart);
+                    columnWidths_[column] = static_cast<int>(proportion->getValueProperty() * availableWidth / totalPart);
                     takenSpace += static_cast<float>(columnWidths_[column]);
                 }
             }
@@ -249,7 +265,7 @@ namespace Myra::Graphics2D::UI
         }
         for (size_t column = 0; column < columnWidths_.size(); ++column)
         {
-            if (GetColumnProportion(static_cast<int>(column)).getTypeProperty() == ProportionType::Fill)
+            if (GetColumnProportion(static_cast<int>(column))->getTypeProperty() == ProportionType::Fill)
             {
                 columnWidths_[column] = static_cast<int>(availableWidth);
                 break;
@@ -261,14 +277,14 @@ namespace Myra::Graphics2D::UI
         totalPart = 0.0F;
         for (size_t row = 0; row < rowHeights_.size(); ++row)
         {
-            const Proportion& proportion = GetRowProportion(static_cast<int>(row));
-            if (proportion.getTypeProperty() == ProportionType::Auto || proportion.getTypeProperty() == ProportionType::Pixels)
+            const std::shared_ptr<Proportion>& proportion = GetRowProportion(static_cast<int>(row));
+            if (proportion->getTypeProperty() == ProportionType::Auto || proportion->getTypeProperty() == ProportionType::Pixels)
             {
                 availableHeight -= static_cast<float>(rowHeights_[row]);
             }
             else
             {
-                totalPart += proportion.getValueProperty();
+                totalPart += proportion->getValueProperty();
             }
         }
         if (totalPart != 0.0F)
@@ -276,10 +292,10 @@ namespace Myra::Graphics2D::UI
             float takenSpace = 0.0F;
             for (size_t row = 0; row < rowHeights_.size(); ++row)
             {
-                const Proportion& proportion = GetRowProportion(static_cast<int>(row));
-                if (proportion.getTypeProperty() == ProportionType::Part)
+                const std::shared_ptr<Proportion>& proportion = GetRowProportion(static_cast<int>(row));
+                if (proportion->getTypeProperty() == ProportionType::Part)
                 {
-                    rowHeights_[row] = static_cast<int>(proportion.getValueProperty() * availableHeight / totalPart);
+                    rowHeights_[row] = static_cast<int>(proportion->getValueProperty() * availableHeight / totalPart);
                     takenSpace += static_cast<float>(rowHeights_[row]);
                 }
             }
@@ -287,7 +303,7 @@ namespace Myra::Graphics2D::UI
         }
         for (size_t row = 0; row < rowHeights_.size(); ++row)
         {
-            if (GetRowProportion(static_cast<int>(row)).getTypeProperty() == ProportionType::Fill)
+            if (GetRowProportion(static_cast<int>(row))->getTypeProperty() == ProportionType::Fill)
             {
                 rowHeights_[row] = static_cast<int>(availableHeight);
                 break;

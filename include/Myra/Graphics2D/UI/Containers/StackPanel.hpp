@@ -6,8 +6,6 @@
 // See NOTICE.md and UPSTREAM_MANIFEST.md.
 #pragma once
 
-#include <vector>
-
 #include "Myra/Graphics2D/UI/Container.hpp"
 #include "Myra/Graphics2D/UI/Layouts/StackPanelLayout.hpp"
 #include "Myra/MML/AttachedPropertiesRegistry.hpp"
@@ -23,10 +21,10 @@ namespace Myra::Graphics2D::UI
         [[nodiscard]] Orientation getOrientationProperty() const noexcept;
         [[nodiscard]] int getSpacingProperty() const noexcept;
         void setSpacingProperty(int value);
-        [[nodiscard]] const Proportion& getDefaultProportionProperty() const noexcept;
-        void setDefaultProportionProperty(Proportion value);
-        [[nodiscard]] const std::vector<Proportion>& getProportionsProperty() const noexcept;
-        [[nodiscard]] std::vector<Proportion>& getProportionsProperty();
+        [[nodiscard]] const std::shared_ptr<Proportion>& getDefaultProportionProperty() const noexcept;
+        void setDefaultProportionProperty(std::shared_ptr<Proportion> value);
+        [[nodiscard]] const ProportionCollection& getProportionsProperty() const noexcept;
+        [[nodiscard]] ProportionCollection& getProportionsProperty() noexcept;
         [[nodiscard]] int GetCellSize(int index) const noexcept;
 
         [[nodiscard]] static const MML::AttachedPropertyInfo<ProportionType>& getProportionTypeProperty();
@@ -44,9 +42,10 @@ namespace Myra::Graphics2D::UI
 
     private:
         void UpdateChildren();
+        void InvalidateProportions() noexcept;
 
         StackPanelLayout layout_;
-        std::vector<Proportion> proportions_;
+        ProportionCollection proportions_;
         bool childrenDirty_ = true;
     };
 
