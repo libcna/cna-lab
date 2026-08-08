@@ -17,8 +17,8 @@ namespace Myra::Graphics2D::UI
         virtual ~ITransformable() = default;
 
         [[nodiscard]] virtual Microsoft::Xna::Framework::Vector2 ToLocal(
-            Microsoft::Xna::Framework::Vector2 source) const = 0;
+            Microsoft::Xna::Framework::Vector2 source) = 0;
         [[nodiscard]] virtual Microsoft::Xna::Framework::Vector2 ToGlobal(
-            Microsoft::Xna::Framework::Vector2 position) const = 0;
+            Microsoft::Xna::Framework::Vector2 position) = 0;
     };
 }

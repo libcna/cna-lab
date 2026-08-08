@@ -381,7 +381,9 @@ are green, and the build uses no more than three parallel jobs.
 - [x] P5-005 Port `Graphics2D/UI/LayoutUtils.cs`.
 - [x] P5-006 Port `Graphics2D/UI/InputContext.cs`.
 - [x] P5-007 Port `Graphics2D/UI/InputEventsManager.cs`.
+- [x] P5-008a Implement the layout, transform, property/event, and invalidation kernel of `Widget.cs`.
 - [ ] P5-008 Port `Graphics2D/UI/Widget.cs` properties/defaults/invalidation/render traversal.
+- [x] P5-009a Implement explicit child ownership, reparenting, and stable Z-index snapshots from `Widget.Children.cs`.
 - [ ] P5-009 Port `Graphics2D/UI/Widget.Children.cs` with explicit ownership and reparenting.
 - [ ] P5-010 Port `Graphics2D/UI/Widget.Input.cs` bubbling/capturing/hover/drag semantics.
 - [ ] P5-011 Port `Graphics2D/UI/ContentControl.cs`.

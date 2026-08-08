@@ -27,6 +27,7 @@ if(MYRA_CNA_CNA_LINKED)
         ThicknessRectangleTests.cpp
         TransformableContractTests.cpp
         TransformTests.cpp
+        WidgetTests.cpp
     )
 else()
     set(_myra_cna_rectangle_source

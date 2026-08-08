@@ -12,12 +12,12 @@ namespace
     class Transformable final : public Myra::Graphics2D::UI::ITransformable
     {
     public:
-        [[nodiscard]] Vector2 ToLocal(Vector2 source) const override
+        [[nodiscard]] Vector2 ToLocal(Vector2 source) override
         {
             return source;
         }
 
-        [[nodiscard]] Vector2 ToGlobal(Vector2 position) const override
+        [[nodiscard]] Vector2 ToGlobal(Vector2 position) override
         {
             return position;
         }
@@ -25,7 +25,7 @@ namespace
 
     TEST(TransformableContractTests, PreservesCnaVector2ByValueContract)
     {
-        const Transformable transformable;
+        Transformable transformable;
         const Vector2 input(3.0F, 7.0F);
 
         EXPECT_EQ(transformable.ToLocal(input), input);

@@ -22,6 +22,7 @@
 #include "Myra/Graphics2D/UI/ILayout.hpp"
 #include "Myra/Graphics2D/UI/ITransformable.hpp"
 #include "Myra/Graphics2D/UI/LayoutUtils.hpp"
+#include "Myra/Graphics2D/UI/Widget.hpp"
 #include "Myra/MML/BaseObject.hpp"
 #include "Myra/MML/IItemWithId.hpp"
 #include "Myra/MyraEnvironment.hpp"
