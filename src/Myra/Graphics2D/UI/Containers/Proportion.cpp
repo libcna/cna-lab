@@ -64,7 +64,7 @@ namespace Myra::Graphics2D::UI
             return stream.str();
         }
         case ProportionType::Pixels:
-            return "Pixels: " + std::to_string(static_cast<int>(value_));
+            return "Pixels: " + std::to_string(Utility::Mathematics::TruncateToInt(value_));
         }
         return "";
     }

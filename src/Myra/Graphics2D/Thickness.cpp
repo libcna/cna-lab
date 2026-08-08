@@ -11,6 +11,7 @@
 #include <charconv>
 #include <cctype>
 #include <cstdint>
+#include <limits>
 #include <stdexcept>
 #include <string_view>
 #include <system_error>
@@ -58,6 +59,30 @@ namespace
             throw std::invalid_argument("Could not convert string '" + original + "' to Thickness");
         }
         return result;
+    }
+
+    [[nodiscard]] SharpRuntime::intcs CheckedAdd(
+        const SharpRuntime::intcs left, const SharpRuntime::intcs right)
+    {
+        const std::int64_t result = static_cast<std::int64_t>(left) + right;
+        if (result < std::numeric_limits<SharpRuntime::intcs>::min() ||
+            result > std::numeric_limits<SharpRuntime::intcs>::max())
+        {
+            throw std::overflow_error("Thickness application exceeds the supported integer range.");
+        }
+        return static_cast<SharpRuntime::intcs>(result);
+    }
+
+    [[nodiscard]] SharpRuntime::intcs CheckedSubtract(
+        const SharpRuntime::intcs left, const SharpRuntime::intcs right)
+    {
+        const std::int64_t result = static_cast<std::int64_t>(left) - right;
+        if (result < std::numeric_limits<SharpRuntime::intcs>::min() ||
+            result > std::numeric_limits<SharpRuntime::intcs>::max())
+        {
+            throw std::overflow_error("Thickness application exceeds the supported integer range.");
+        }
+        return static_cast<SharpRuntime::intcs>(result);
     }
 }
 
@@ -127,12 +152,12 @@ namespace Myra::Graphics2D
 
     Microsoft::Xna::Framework::Rectangle operator-(
         Microsoft::Xna::Framework::Rectangle rectangle,
-        const Thickness& thickness) noexcept
+        const Thickness& thickness)
     {
-        rectangle.X += thickness.Left;
-        rectangle.Y += thickness.Top;
-        rectangle.Width -= thickness.getWidthProperty();
-        rectangle.Height -= thickness.getHeightProperty();
+        rectangle.X = CheckedAdd(rectangle.X, thickness.Left);
+        rectangle.Y = CheckedAdd(rectangle.Y, thickness.Top);
+        rectangle.Width = CheckedSubtract(rectangle.Width, thickness.getWidthProperty());
+        rectangle.Height = CheckedSubtract(rectangle.Height, thickness.getHeightProperty());
 
         if (rectangle.Width < 0)
         {

@@ -1,0 +1,481 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Robert Vokáč and Myra-CNA contributors.
+// Implements the explicit C++ metadata table required in place of .NET reflection.
+// MyraUI/Myra is MIT, Copyright (c) 2017-2020 The Myra Team.
+// See NOTICE.md and THIRD_PARTY_NOTICES.md.
+#include "Myra/MML/RegisterMyraTypes.hpp"
+
+#include <any>
+#include <functional>
+#include <memory>
+#include <optional>
+#include <string>
+#include <typeindex>
+#include <type_traits>
+#include <utility>
+#include <vector>
+
+#include "Microsoft/Xna/Framework/Vector2.hpp"
+#include "Myra/Graphics2D/Thickness.hpp"
+#include "Myra/Graphics2D/UI/Container.hpp"
+#include "Myra/Graphics2D/UI/ContentControl.hpp"
+#include "Myra/Graphics2D/UI/Containers/Grid.hpp"
+#include "Myra/Graphics2D/UI/Containers/Panel.hpp"
+#include "Myra/Graphics2D/UI/Containers/Proportion.hpp"
+#include "Myra/Graphics2D/UI/Containers/StackPanel.hpp"
+#include "Myra/Graphics2D/UI/Widget.hpp"
+
+namespace Myra::MML
+{
+    namespace
+    {
+        using Graphics2D::Thickness;
+        using Graphics2D::UI::Container;
+        using Graphics2D::UI::ContentControl;
+        using Graphics2D::UI::DragDirection;
+        using Graphics2D::UI::Grid;
+        using Graphics2D::UI::HorizontalAlignment;
+        using Graphics2D::UI::HorizontalStackPanel;
+        using Graphics2D::UI::MouseCursorType;
+        using Graphics2D::UI::Orientation;
+        using Graphics2D::UI::Panel;
+        using Graphics2D::UI::Proportion;
+        using Graphics2D::UI::ProportionCollection;
+        using Graphics2D::UI::ProportionType;
+        using Graphics2D::UI::StackPanel;
+        using Graphics2D::UI::VerticalAlignment;
+        using Graphics2D::UI::VerticalStackPanel;
+        using Graphics2D::UI::Widget;
+        using Microsoft::Xna::Framework::Vector2;
+
+        template<typename T>
+        struct IsOptional : std::false_type
+        {
+        };
+
+        template<typename T>
+        struct IsOptional<std::optional<T>> : std::true_type
+        {
+        };
+
+        template<typename Owner, typename Value, typename Getter, typename Setter>
+        [[nodiscard]] PropertyDescriptor MakeScalarProperty(std::string name, Getter getter, Setter setter,
+            Value defaultValue, PropertyMetadata metadata = {})
+        {
+            PropertyDescriptor::NullCheck nullCheck;
+            if constexpr (IsOptional<Value>::value)
+            {
+                nullCheck = [](const std::any& value) {
+                    return !std::any_cast<const Value&>(value).has_value();
+                };
+            }
+            return PropertyDescriptor(std::move(name), typeid(Value),
+                [getter = std::move(getter)](const void* object) {
+                    return std::any(Value(getter(*static_cast<const Owner*>(object))));
+                },
+                [setter = std::move(setter)](void* object, const std::any& value) {
+                    setter(*static_cast<Owner*>(object), std::any_cast<const Value&>(value));
+                },
+                std::any(std::move(defaultValue)), std::move(metadata),
+                [](const std::any& left, const std::any& right) {
+                    return std::any_cast<const Value&>(left) == std::any_cast<const Value&>(right);
+                },
+                std::move(nullCheck));
+        }
+
+        [[nodiscard]] std::shared_ptr<Widget> AsWidget(const std::shared_ptr<void>& value)
+        {
+            return std::shared_ptr<Widget>(value, static_cast<Widget*>(value.get()));
+        }
+
+        [[nodiscard]] std::shared_ptr<Proportion> AsProportion(const std::shared_ptr<void>& value)
+        {
+            return std::shared_ptr<Proportion>(value, static_cast<Proportion*>(value.get()));
+        }
+
+        [[nodiscard]] std::vector<RegisteredObjectView> EnumerateWidgets(
+            const std::vector<std::shared_ptr<Widget>>& values)
+        {
+            std::vector<RegisteredObjectView> result;
+            result.reserve(values.size());
+            for (const std::shared_ptr<Widget>& value : values)
+            {
+                if (value)
+                {
+                    result.emplace_back(dynamic_cast<const void*>(value.get()), typeid(*value));
+                }
+                else
+                {
+                    result.emplace_back(nullptr, typeid(Widget));
+                }
+            }
+            return result;
+        }
+
+        [[nodiscard]] std::vector<RegisteredObjectView> EnumerateWidget(
+            const std::shared_ptr<Widget>& value)
+        {
+            return value
+                ? std::vector<RegisteredObjectView>{{dynamic_cast<const void*>(value.get()), typeid(*value)}}
+                : std::vector<RegisteredObjectView>();
+        }
+
+        [[nodiscard]] std::vector<RegisteredObjectView> EnumerateProportions(
+            const ProportionCollection& values)
+        {
+            std::vector<RegisteredObjectView> result;
+            for (const std::shared_ptr<Proportion>& value : values)
+            {
+                result.emplace_back(value.get(), typeid(Proportion));
+            }
+            return result;
+        }
+
+        [[nodiscard]] std::vector<RegisteredObjectView> EnumerateProportion(
+            const std::shared_ptr<Proportion>& value)
+        {
+            return value
+                ? std::vector<RegisteredObjectView>{{value.get(), typeid(Proportion)}}
+                : std::vector<RegisteredObjectView>();
+        }
+
+        PropertyDescriptor MakeProportionProperty(std::string name,
+            std::function<const std::shared_ptr<Proportion>&(const void*)> getter,
+            std::function<void(void*, std::shared_ptr<Proportion>)> setter)
+        {
+            return PropertyDescriptor(std::move(name), typeid(std::shared_ptr<Proportion>), {}, {},
+                std::nullopt, {}, {}, {}, ComplexPropertyAdapter::SingleWritable(
+                    typeid(Proportion),
+                    [setter = std::move(setter)](void* object, const std::shared_ptr<void>& value) {
+                        setter(object, AsProportion(value));
+                    },
+                    [getter = std::move(getter)](const void* object) {
+                        return EnumerateProportion(getter(object));
+                    }));
+        }
+
+        PropertyDescriptor MakeProportionCollectionProperty(std::string name,
+            std::function<ProportionCollection&(void*)> mutableGetter,
+            std::function<const ProportionCollection&(const void*)> getter)
+        {
+            return PropertyDescriptor(std::move(name), typeid(ProportionCollection), {}, {},
+                std::nullopt, {}, {}, {}, ComplexPropertyAdapter::Sequence(
+                    typeid(Proportion),
+                    [mutableGetter](void* object, const std::shared_ptr<void>& value) {
+                        mutableGetter(object).Add(AsProportion(value));
+                    },
+                    [getter](const void* object) {
+                        return EnumerateProportions(getter(object));
+                    }));
+        }
+
+        TypeDescriptor MakeBaseObjectDescriptor()
+        {
+            TypeDescriptor descriptor("BaseObject", typeid(BaseObject), [] {
+                return std::static_pointer_cast<void>(std::make_shared<BaseObject>());
+            });
+            descriptor.EnableBaseObjectAccess<BaseObject>();
+            descriptor.AddProperty(MakeScalarProperty<BaseObject, std::optional<std::string>>(
+                "Id",
+                [](const BaseObject& object) { return object.getIdProperty(); },
+                [](BaseObject& object, const std::optional<std::string>& value) {
+                    object.setIdProperty(value);
+                },
+                std::nullopt));
+            return descriptor;
+        }
+
+        TypeDescriptor MakeWidgetDescriptor()
+        {
+            TypeDescriptor descriptor("Widget", typeid(Widget), [] {
+                return std::static_pointer_cast<void>(std::make_shared<Widget>());
+            }, typeid(BaseObject));
+            descriptor.EnableBaseTypeAccess<Widget, BaseObject>();
+            descriptor.EnableBaseObjectAccess<Widget>();
+
+            descriptor.AddProperty(MakeScalarProperty<Widget, std::optional<std::string>>("StyleName",
+                [](const Widget& object) { return object.getStyleNameProperty(); },
+                [](Widget& object, const std::optional<std::string>& value) {
+                    object.setStyleNameProperty(value);
+                }, std::optional<std::string>(std::string())));
+            descriptor.AddProperty(MakeScalarProperty<Widget, int>("Left",
+                [](const Widget& object) { return object.getLeftProperty(); },
+                [](Widget& object, const int value) { object.setLeftProperty(value); }, 0));
+            descriptor.AddProperty(MakeScalarProperty<Widget, int>("Top",
+                [](const Widget& object) { return object.getTopProperty(); },
+                [](Widget& object, const int value) { object.setTopProperty(value); }, 0));
+            descriptor.AddProperty(MakeScalarProperty<Widget, std::optional<int>>("MinWidth",
+                [](const Widget& object) { return object.getMinWidthProperty(); },
+                [](Widget& object, const std::optional<int>& value) { object.setMinWidthProperty(value); },
+                std::nullopt));
+            descriptor.AddProperty(MakeScalarProperty<Widget, std::optional<int>>("MaxWidth",
+                [](const Widget& object) { return object.getMaxWidthProperty(); },
+                [](Widget& object, const std::optional<int>& value) { object.setMaxWidthProperty(value); },
+                std::nullopt));
+            descriptor.AddProperty(MakeScalarProperty<Widget, std::optional<int>>("Width",
+                [](const Widget& object) { return object.getWidthProperty(); },
+                [](Widget& object, const std::optional<int>& value) { object.setWidthProperty(value); },
+                std::nullopt));
+            descriptor.AddProperty(MakeScalarProperty<Widget, std::optional<int>>("MinHeight",
+                [](const Widget& object) { return object.getMinHeightProperty(); },
+                [](Widget& object, const std::optional<int>& value) { object.setMinHeightProperty(value); },
+                std::nullopt));
+            descriptor.AddProperty(MakeScalarProperty<Widget, std::optional<int>>("MaxHeight",
+                [](const Widget& object) { return object.getMaxHeightProperty(); },
+                [](Widget& object, const std::optional<int>& value) { object.setMaxHeightProperty(value); },
+                std::nullopt));
+            descriptor.AddProperty(MakeScalarProperty<Widget, std::optional<int>>("Height",
+                [](const Widget& object) { return object.getHeightProperty(); },
+                [](Widget& object, const std::optional<int>& value) { object.setHeightProperty(value); },
+                std::nullopt));
+            descriptor.AddProperty(MakeScalarProperty<Widget, Thickness>("Margin",
+                [](const Widget& object) { return object.getMarginProperty(); },
+                [](Widget& object, const Thickness& value) { object.setMarginProperty(value); }, Thickness()));
+            descriptor.AddProperty(MakeScalarProperty<Widget, Thickness>("BorderThickness",
+                [](const Widget& object) { return object.getBorderThicknessProperty(); },
+                [](Widget& object, const Thickness& value) { object.setBorderThicknessProperty(value); },
+                Thickness()));
+            descriptor.AddProperty(MakeScalarProperty<Widget, Thickness>("Padding",
+                [](const Widget& object) { return object.getPaddingProperty(); },
+                [](Widget& object, const Thickness& value) { object.setPaddingProperty(value); }, Thickness()));
+            descriptor.AddProperty(MakeScalarProperty<Widget, HorizontalAlignment>("HorizontalAlignment",
+                [](const Widget& object) { return object.getHorizontalAlignmentProperty(); },
+                [](Widget& object, const HorizontalAlignment value) {
+                    object.setHorizontalAlignmentProperty(value);
+                }, HorizontalAlignment::Left));
+            descriptor.AddProperty(MakeScalarProperty<Widget, VerticalAlignment>("VerticalAlignment",
+                [](const Widget& object) { return object.getVerticalAlignmentProperty(); },
+                [](Widget& object, const VerticalAlignment value) {
+                    object.setVerticalAlignmentProperty(value);
+                }, VerticalAlignment::Top));
+            descriptor.AddProperty(MakeScalarProperty<Widget, bool>("Enabled",
+                [](const Widget& object) { return object.getEnabledProperty(); },
+                [](Widget& object, const bool value) { object.setEnabledProperty(value); }, true));
+            descriptor.AddProperty(MakeScalarProperty<Widget, bool>("Visible",
+                [](const Widget& object) { return object.getVisibleProperty(); },
+                [](Widget& object, const bool value) { object.setVisibleProperty(value); }, true));
+            descriptor.AddProperty(MakeScalarProperty<Widget, DragDirection>("DragDirection",
+                [](const Widget& object) { return object.getDragDirectionProperty(); },
+                [](Widget& object, const DragDirection value) {
+                    object.setDragDirectionProperty(value);
+                }, DragDirection::None));
+            descriptor.AddProperty(MakeScalarProperty<Widget, int>("ZIndex",
+                [](const Widget& object) { return object.getZIndexProperty(); },
+                [](Widget& object, const int value) { object.setZIndexProperty(value); }, 0));
+            descriptor.AddProperty(MakeScalarProperty<Widget, std::optional<MouseCursorType>>("MouseCursor",
+                [](const Widget& object) { return object.getMouseCursorProperty(); },
+                [](Widget& object, const std::optional<MouseCursorType>& value) {
+                    object.setMouseCursorProperty(value);
+                }, std::nullopt));
+            descriptor.AddProperty(MakeScalarProperty<Widget, std::optional<std::string>>("Tooltip",
+                [](const Widget& object) { return object.getTooltipProperty(); },
+                [](Widget& object, const std::optional<std::string>& value) {
+                    object.setTooltipProperty(value);
+                }, std::nullopt));
+            PropertyMetadata opacityMetadata;
+            opacityMetadata.Range = Attributes::RangeAttribute(0.0F, 1.0F);
+            descriptor.AddProperty(MakeScalarProperty<Widget, float>("Opacity",
+                [](const Widget& object) { return object.getOpacityProperty(); },
+                [](Widget& object, const float value) { object.setOpacityProperty(value); },
+                1.0F, std::move(opacityMetadata)));
+            descriptor.AddProperty(MakeScalarProperty<Widget, Vector2>("Scale",
+                [](const Widget& object) { return object.getScaleProperty(); },
+                [](Widget& object, const Vector2& value) { object.setScaleProperty(value); },
+                Vector2(1.0F, 1.0F)));
+            descriptor.AddProperty(MakeScalarProperty<Widget, Vector2>("TransformOrigin",
+                [](const Widget& object) { return object.getTransformOriginProperty(); },
+                [](Widget& object, const Vector2& value) { object.setTransformOriginProperty(value); },
+                Vector2(0.5F, 0.5F)));
+            descriptor.AddProperty(MakeScalarProperty<Widget, float>("Rotation",
+                [](const Widget& object) { return object.getRotationProperty(); },
+                [](Widget& object, const float value) { object.setRotationProperty(value); }, 0.0F));
+            descriptor.AddProperty(MakeScalarProperty<Widget, bool>("ClipToBounds",
+                [](const Widget& object) { return object.getClipToBoundsProperty(); },
+                [](Widget& object, const bool value) { object.setClipToBoundsProperty(value); }, false));
+            return descriptor;
+        }
+
+        TypeDescriptor MakeContainerDescriptor()
+        {
+            TypeDescriptor descriptor("Container", typeid(Container), {}, typeid(Widget));
+            descriptor.EnableBaseTypeAccess<Container, Widget>();
+            descriptor.EnableBaseObjectAccess<Container>();
+            descriptor.AddProperty(MakeScalarProperty<Container, HorizontalAlignment>("HorizontalAlignment",
+                [](const Container& object) { return object.getHorizontalAlignmentProperty(); },
+                [](Container& object, const HorizontalAlignment value) {
+                    object.setHorizontalAlignmentProperty(value);
+                }, HorizontalAlignment::Stretch));
+            descriptor.AddProperty(MakeScalarProperty<Container, VerticalAlignment>("VerticalAlignment",
+                [](const Container& object) { return object.getVerticalAlignmentProperty(); },
+                [](Container& object, const VerticalAlignment value) {
+                    object.setVerticalAlignmentProperty(value);
+                }, VerticalAlignment::Stretch));
+            PropertyMetadata widgetsMetadata;
+            widgetsMetadata.Content = true;
+            descriptor.AddProperty(PropertyDescriptor("Widgets",
+                typeid(std::vector<std::shared_ptr<Widget>>), {}, {}, std::nullopt,
+                std::move(widgetsMetadata), {}, {}, ComplexPropertyAdapter::Sequence(
+                    typeid(Widget),
+                    [](void* object, const std::shared_ptr<void>& value) {
+                        static_cast<Container*>(object)->AddWidget(AsWidget(value));
+                    },
+                    [](const void* object) {
+                        return EnumerateWidgets(static_cast<const Container*>(object)->getWidgetsProperty());
+                    })));
+            return descriptor;
+        }
+
+        TypeDescriptor MakeContentControlDescriptor()
+        {
+            TypeDescriptor descriptor("ContentControl", typeid(ContentControl), {}, typeid(Widget));
+            descriptor.EnableBaseTypeAccess<ContentControl, Widget>();
+            descriptor.EnableBaseObjectAccess<ContentControl>();
+            PropertyMetadata contentMetadata;
+            contentMetadata.Content = true;
+            descriptor.AddProperty(PropertyDescriptor("Content", typeid(std::shared_ptr<Widget>),
+                {}, {}, std::nullopt, std::move(contentMetadata), {}, {},
+                ComplexPropertyAdapter::SingleWritable(
+                    typeid(Widget),
+                    [](void* object, const std::shared_ptr<void>& value) {
+                        static_cast<ContentControl*>(object)->setContentProperty(AsWidget(value));
+                    },
+                    [](const void* object) {
+                        return EnumerateWidget(
+                            static_cast<const ContentControl*>(object)->getContentProperty());
+                    })));
+            return descriptor;
+        }
+
+        TypeDescriptor MakeProportionDescriptor()
+        {
+            TypeDescriptor descriptor("Proportion", typeid(Proportion), [] {
+                return std::static_pointer_cast<void>(std::make_shared<Proportion>());
+            });
+            descriptor.AddProperty(MakeScalarProperty<Proportion, ProportionType>("Type",
+                [](const Proportion& object) { return object.getTypeProperty(); },
+                [](Proportion& object, const ProportionType value) { object.setTypeProperty(value); },
+                ProportionType::Auto));
+            descriptor.AddProperty(MakeScalarProperty<Proportion, float>("Value",
+                [](const Proportion& object) { return object.getValueProperty(); },
+                [](Proportion& object, const float value) { object.setValueProperty(value); }, 1.0F));
+            return descriptor;
+        }
+
+        TypeDescriptor MakePanelDescriptor()
+        {
+            TypeDescriptor descriptor("Panel", typeid(Panel), [] {
+                return std::static_pointer_cast<void>(std::make_shared<Panel>());
+            }, typeid(Container));
+            descriptor.EnableBaseTypeAccess<Panel, Container>();
+            descriptor.EnableBaseObjectAccess<Panel>();
+            return descriptor;
+        }
+
+        TypeDescriptor MakeGridDescriptor()
+        {
+            TypeDescriptor descriptor("Grid", typeid(Grid), [] {
+                return std::static_pointer_cast<void>(std::make_shared<Grid>());
+            }, typeid(Container));
+            descriptor.EnableBaseTypeAccess<Grid, Container>();
+            descriptor.EnableBaseObjectAccess<Grid>();
+            descriptor.AddProperty(MakeScalarProperty<Grid, int>("ColumnSpacing",
+                [](const Grid& object) { return object.getColumnSpacingProperty(); },
+                [](Grid& object, const int value) { object.setColumnSpacingProperty(value); }, 0));
+            descriptor.AddProperty(MakeScalarProperty<Grid, int>("RowSpacing",
+                [](const Grid& object) { return object.getRowSpacingProperty(); },
+                [](Grid& object, const int value) { object.setRowSpacingProperty(value); }, 0));
+            descriptor.AddProperty(MakeProportionProperty("DefaultColumnProportion",
+                [](const void* object) -> const std::shared_ptr<Proportion>& {
+                    return static_cast<const Grid*>(object)->getDefaultColumnProportionProperty();
+                },
+                [](void* object, std::shared_ptr<Proportion> value) {
+                    static_cast<Grid*>(object)->setDefaultColumnProportionProperty(std::move(value));
+                }));
+            descriptor.AddProperty(MakeProportionProperty("DefaultRowProportion",
+                [](const void* object) -> const std::shared_ptr<Proportion>& {
+                    return static_cast<const Grid*>(object)->getDefaultRowProportionProperty();
+                },
+                [](void* object, std::shared_ptr<Proportion> value) {
+                    static_cast<Grid*>(object)->setDefaultRowProportionProperty(std::move(value));
+                }));
+            descriptor.AddProperty(MakeProportionCollectionProperty("ColumnsProportions",
+                [](void* object) -> ProportionCollection& {
+                    return static_cast<Grid*>(object)->getColumnsProportionsProperty();
+                },
+                [](const void* object) -> const ProportionCollection& {
+                    return static_cast<const Grid*>(object)->getColumnsProportionsProperty();
+                }));
+            descriptor.AddProperty(MakeProportionCollectionProperty("RowsProportions",
+                [](void* object) -> ProportionCollection& {
+                    return static_cast<Grid*>(object)->getRowsProportionsProperty();
+                },
+                [](const void* object) -> const ProportionCollection& {
+                    return static_cast<const Grid*>(object)->getRowsProportionsProperty();
+                }));
+            return descriptor;
+        }
+
+        TypeDescriptor MakeStackPanelDescriptor()
+        {
+            TypeDescriptor descriptor("StackPanel", typeid(StackPanel), {}, typeid(Container));
+            descriptor.EnableBaseTypeAccess<StackPanel, Container>();
+            descriptor.EnableBaseObjectAccess<StackPanel>();
+            PropertyMetadata orientationMetadata;
+            orientationMetadata.XmlIgnore = true;
+            descriptor.AddProperty(PropertyDescriptor("Orientation", typeid(Orientation),
+                [](const void* object) {
+                    return std::any(static_cast<const StackPanel*>(object)->getOrientationProperty());
+                }, {}, std::nullopt, std::move(orientationMetadata)));
+            descriptor.AddProperty(MakeScalarProperty<StackPanel, int>("Spacing",
+                [](const StackPanel& object) { return object.getSpacingProperty(); },
+                [](StackPanel& object, const int value) { object.setSpacingProperty(value); }, 0));
+            descriptor.AddProperty(MakeProportionProperty("DefaultProportion",
+                [](const void* object) -> const std::shared_ptr<Proportion>& {
+                    return static_cast<const StackPanel*>(object)->getDefaultProportionProperty();
+                },
+                [](void* object, std::shared_ptr<Proportion> value) {
+                    static_cast<StackPanel*>(object)->setDefaultProportionProperty(std::move(value));
+                }));
+            return descriptor;
+        }
+
+        template<typename T>
+        TypeDescriptor MakeConcreteStackPanelDescriptor(std::string name)
+        {
+            TypeDescriptor descriptor(std::move(name), typeid(T), [] {
+                return std::static_pointer_cast<void>(std::make_shared<T>());
+            }, typeid(StackPanel));
+            descriptor.template EnableBaseTypeAccess<T, StackPanel>();
+            descriptor.template EnableBaseObjectAccess<T>();
+            return descriptor;
+        }
+    }
+
+    void RegisterMyraTypes(TypeRegistry& registry)
+    {
+        registry.Register(MakeBaseObjectDescriptor());
+        registry.Register(MakeWidgetDescriptor());
+        registry.Register(MakeContentControlDescriptor());
+        registry.Register(MakeContainerDescriptor());
+        registry.Register(MakeProportionDescriptor());
+        registry.Register(MakePanelDescriptor());
+        registry.Register(MakeGridDescriptor());
+        registry.Register(MakeStackPanelDescriptor());
+        registry.Register(MakeConcreteStackPanelDescriptor<HorizontalStackPanel>("HorizontalStackPanel"));
+        registry.Register(MakeConcreteStackPanelDescriptor<VerticalStackPanel>("VerticalStackPanel"));
+
+        static_cast<void>(Grid::getColumnProperty());
+        static_cast<void>(Grid::getRowProperty());
+        static_cast<void>(Grid::getColumnSpanProperty());
+        static_cast<void>(Grid::getRowSpanProperty());
+        static_cast<void>(StackPanel::getProportionTypeProperty());
+        static_cast<void>(StackPanel::getProportionValueProperty());
+    }
+
+    TypeRegistry CreateMyraTypeRegistry()
+    {
+        TypeRegistry registry;
+        RegisterMyraTypes(registry);
+        return registry;
+    }
+}

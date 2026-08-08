@@ -4,8 +4,9 @@
 
 **Status:** active implementation. The shared-runtime, provenance, and an
 initial retained-mode layout kernel are complete enough for tested partial
-widgets; renderer, Desktop/input, MML registry/loading, fonts, styles, and
-advanced controls remain in progress.
+widgets; the explicit MML metadata and scalar-codec foundations are also in
+place. Renderer, Desktop/input, XML loading, fonts, styles, and advanced
+controls remain in progress.
 
 **Product:** `myra-cna` is one standalone C++23 library: a faithful port of the
 Myra UI library to C++ for CNA.  It is not a new generic GUI framework, a CNA
@@ -291,15 +292,16 @@ are green, and the build uses no more than three parallel jobs.
 - [x] P1-010 Port `Graphics2D/Thickness.cs`, equality, parsing, and arithmetic.
 - [x] P1-011 Port `Graphics2D/Transform.cs` using CNA matrices/vectors.
 - [x] P1-012 Port `Utility/ColorHSV.cs` and conversion edge cases.
-- [ ] P1-013 Port `Utility/CrossEngineStuff.cs` directly to CNA colors/matrices.
+- [x] P1-013a Port the dependency-free `CrossEngineStuff.MultiplyColor` path directly to CNA `Color::Multiply`.
+- [ ] P1-013 Complete `Utility/CrossEngineStuff.cs` view-size and texture helpers after P2-001/P2-002 define the global CNA GraphicsDevice lifetime contract.
 - [x] P1-014 Port `Utility/Mathematics.cs` and document C++ numeric differences.
-- [ ] P1-015 Port `Utility/PathUtils.cs` over sharp-runtime/filesystem APIs.
-- [ ] P1-016 Port `Utility/Rest.cs`.
+- [x] P1-015 Port `Utility/PathUtils.cs` over lexical `std::filesystem` paths.
+- [x] P1-016 Port `Utility/Rest.cs` as type-safe generic table helpers, preserving shallow element-copy and column-sort behavior while validating jagged rows before mutation.
 - [x] P1-017 Port `Utility/StringUtils.cs`.
-- [ ] P1-018 Port `Utility/UIUtils.cs`.
+- [x] P1-018 Port `Utility/UIUtils.cs` and use its stable upstream Z-index ordering for widget snapshots.
 - [x] P1-019 Port `Utility/EventsExtensions.cs` with removable subscriptions.
 - [ ] P1-020 Port `Utility/CurrentPlatform.cs` only to the extent required by FileDialog/clipboard.
-- [ ] P1-021 Port `Utility/InputExtension.cs` with MonoGame.Extended dual attribution.
+- [x] P1-021 Port `Utility/InputExtension.cs` with MonoGame.Extended dual attribution.
 - [ ] P1-022 Translate upstream unit tests for all Phase 1 types.
 
 ### Phase 2 — direct CNA environment and graphics primitives
@@ -365,16 +367,27 @@ are green, and the build uses no more than three parallel jobs.
 - [x] P4-010 Port `MML/IItemWithId.cs`.
 - [x] P4-011 Port `MML/IHasColor.cs` with CNA `Color`.
 - [x] P4-012 Design and implement `TypeRegistry`, `TypeDescriptor`, property descriptor, and factory contracts.
-- [ ] P4-013 Implement value codecs for primitive, optional, enum, color, vector, rectangle, thickness, image, and font values.
+- [x] P4-012b Enforce one unambiguous effective inherited property namespace and reject null registry callback owners/factory results.
+- [x] P4-013a Implement invariant codecs for primitive and optional values plus finite explicit enum/flags mappings; include audited geometry automatically in CNA-linked builds.
+- [ ] P4-013 Implement the remaining Color and external image/font value handling after their dependency and provenance gates pass.
 - [x] P4-014 Implement attached-property descriptors and `AttachedPropertiesRegistry.cs` semantics.
-- [ ] P4-015 Port `MML/BaseContext.cs` over `System::Xml`.
+- [x] P4-014b Make global attached-property ID/collection access thread-safe and reject duplicate owner/name declarations.
+- [x] P4-015 Port `MML/BaseContext.cs` property classification onto `TypeRegistry` and `ValueCodecRegistry` (the upstream class itself does not access XML).
 - [x] P4-016a Port the audited Vector2, Thickness, and Rectangle subset of `MML/TypeSerializers.cs`.
 - [ ] P4-016 Port `MML/TypeSerializers.cs` over explicit codecs, including Color after `ColorStorage` provenance is audited.
-- [ ] P4-017 Port `MML/LoadContext.cs`, including collection/content-property rules.
-- [ ] P4-018 Port `MML/SaveContext.cs`, including default/skip-save rules.
+- [x] P4-017a Implement registry-backed object creation, scalar attribute loading, legacy-name mapping, explicit external-asset adapters, and conversion diagnostics.
+- [x] P4-017b Implement attached-property attributes and `_`-prefixed `BaseObject` user-data loading through explicit type adapters.
+- [x] P4-017 Port `MML/LoadContext.cs` onto explicit scalar, attached, single-object, sequence, dictionary, content, and external-asset adapters.
+- [x] P4-017d Roll back all `ObjectsNodes` entries added by a failed root or nested load so reusable C++ contexts cannot retain dangling object pointers.
+- [ ] P4-017c **needs_human:** choose whether `LoadContext::ObjectsNodes` owns cloned XML snapshots, stores serialized source, or requires callers to retain the non-movable sharp-runtime `XmlDocument` before P4-020 exposes the mapping through `Project`.
+- [x] P4-018a Implement scalar property saving with XML names, explicit external-asset adapters, null/default omission, empty-value overrides, and load/save skip metadata.
+- [x] P4-018b Implement non-default attached-property saving with owner-qualified upstream names.
+- [x] P4-018 Port `MML/SaveContext.cs`, including default/skip-save, attached, recursive complex/content, namespace-prefix, and external-asset adapter rules.
+- [x] P4-019a Add the central registration table for every currently ported MML type/property (`BaseObject`, `Widget`, `ContentControl`, container bases, `Panel`, Grid, stack panels, and `Proportion`) with real-type XML round trips.
 - [ ] P4-019 Register every Phase 5–9 public MML type/property explicitly.
 - [ ] P4-020 Port `Graphics2D/UI/Project.cs` load/save/clone/export behavior.
-- [ ] P4-021 Add malformed XML, unknown type/property, duplicate id, and conversion-error tests.
+- [x] P4-021a Add parser-boundary and `LoadContext` tests for malformed XML, ignored unknown scalar attributes, rejected unknown root/complex names, incompatible nested types, duplicate dictionary Id keys, and contextual conversion diagnostics.
+- [ ] P4-021 Complete Project-level malformed-document and duplicate object-Id validation after P4-020 defines the owning document/project contract.
 - [ ] P4-022 Translate `MMLTests.cs`, `AssetLoadingTests.cs`, and XML round-trip fixtures.
 
 ### Phase 5 — Widget, desktop, layout, and input kernel
@@ -386,12 +399,21 @@ are green, and the build uses no more than three parallel jobs.
 - [x] P5-005 Port `Graphics2D/UI/LayoutUtils.cs`.
 - [x] P5-006 Port `Graphics2D/UI/InputContext.cs`.
 - [x] P5-007 Port `Graphics2D/UI/InputEventsManager.cs`.
+- [ ] P5-007b **needs_human:** choose whether queued C++ input processors are retained, token-registered, or guaranteed to outlive synchronous processing before `Widget.Input` exposes the current non-owning queue publicly.
 - [x] P5-008a Implement the layout, transform, property/event, and invalidation kernel of `Widget.cs`.
+- [x] P5-008b Preserve measure/arrange invalidations raised reentrantly from virtual callbacks or events, and use stable child snapshots during enabled-state propagation.
+- [x] P5-008c Port `EnsureWidgetById` and protected `SuppressInvalidateMeasure` batch-update behavior.
+- [x] P5-008d Retain local child snapshots across virtual layout/traversal callbacks and make add/remove/clear callbacks reentrant-lifetime safe.
+- [x] P5-008e Port the dependency-free Widget behavior properties/defaults for dragging, recursive mouse cursors, tooltips, modal/pressed state, clipping, and keyboard-focus acceptance, including pressed change/cancellation events and current-type MML metadata.
+- [x] P5-008f Port Widget's internally controlled keyboard-focus state, change event, and public got/lost focus callbacks for future Desktop integration.
+- [x] P5-008g Port dependency-free `StyleName`, non-owning `DragHandle`, arbitrary `Tag`, and border/background box bounds, including `StyleName` MML round trips.
+- [ ] P5-008h **needs_human:** choose the public C++ deep-clone construction contract (virtual per-type factory, explicit `TypeRegistry`, or another custom-widget-capable mechanism) before porting `Widget.Clone`/`CopyFrom` and dependent content/container copy overrides.
 - [ ] P5-008 Port `Graphics2D/UI/Widget.cs` properties/defaults/invalidation/render traversal.
 - [x] P5-009a Implement explicit child ownership, reparenting, and stable Z-index snapshots from `Widget.Children.cs`.
-- [ ] P5-009 Port `Graphics2D/UI/Widget.Children.cs` with explicit ownership and reparenting.
+- [x] P5-009 Port `Graphics2D/UI/Widget.Children.cs` with explicit ownership, reparenting, recursive queries, typed ID lookup, visibility-aware counts, and cycle rejection.
 - [ ] P5-010 Port `Graphics2D/UI/Widget.Input.cs` bubbling/capturing/hover/drag semantics.
-- [ ] P5-011 Port `Graphics2D/UI/ContentControl.cs`.
+- [x] P5-011a Port `ContentControl`'s abstract `IContent` contract and inherited MML content adapter; deep-copy behavior remains dependent on Widget cloning.
+- [ ] P5-011 Port `Graphics2D/UI/ContentControl.cs`, including its deep-copy behavior after Widget cloning exists.
 - [x] P5-012a Implement `Container` stretch defaults and its explicit child-ownership facade.
 - [ ] P5-012 Port `Graphics2D/UI/Container.cs`.
 - [x] P5-013 Port `Graphics2D/UI/Layouts/SingleItemLayout.cs`.
@@ -402,8 +424,11 @@ are green, and the build uses no more than three parallel jobs.
 - [ ] P5-018 Add CNA `TextInputEXT` subscription lifecycle to Desktop/TextBox focus transitions.
 - [ ] P5-019 Implement correct wheel deltas and pointer capture using previous input states.
 - [ ] P5-020 Test arrange/measure margins, padding, min/max, alignments, transforms, visibility, opacity, and z-order.
+- [x] P5-020a Harden Grid numeric conversions/accumulation and restore the upstream epsilon-zero `Part` distribution rule, with invalid-span and overflow tests.
+- [x] P5-020b Remove signed-overflow UB from the ported `Thickness`/`LayoutUtils`/Widget measure-arrange-transform chain and reject NaN opacity.
 - [ ] P5-021 Test focus changes, keyboard navigation, capture/bubble ordering, hover, drag, tooltip, and context-menu lifetimes.
-- [ ] P5-022 Test destruction/reparenting under AddressSanitizer and UndefinedBehaviorSanitizer.
+- [x] P5-021a Lock down the standalone `InputEventsManager` capture/bubble/stop-propagation ordering, including upstream's bubbling stack-rebuild reversal.
+- [x] P5-022 Test destruction/reparenting and the broad linked suite under AddressSanitizer and UndefinedBehaviorSanitizer.
 
 ### Phase 6 — simple widgets, containers, range controls, and text editing
 

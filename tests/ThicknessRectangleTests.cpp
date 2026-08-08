@@ -5,6 +5,9 @@
 
 #include <gtest/gtest.h>
 
+#include <limits>
+#include <stdexcept>
+
 namespace
 {
     using Microsoft::Xna::Framework::Rectangle;
@@ -23,5 +26,8 @@ namespace
         EXPECT_EQ(clamped.Y, 9);
         EXPECT_EQ(clamped.Width, 0);
         EXPECT_EQ(clamped.Height, 0);
+
+        EXPECT_THROW(static_cast<void>(Rectangle(std::numeric_limits<int>::max(), 0, 1, 1) -
+            Thickness(1, 0, 0, 0)), std::overflow_error);
     }
 }

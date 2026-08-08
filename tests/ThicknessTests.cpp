@@ -5,6 +5,7 @@
 
 #include <gtest/gtest.h>
 
+#include <limits>
 #include <stdexcept>
 
 namespace
@@ -58,5 +59,13 @@ namespace
         EXPECT_TRUE(thickness.Equals(Thickness(1, 2, 3, 4)));
         EXPECT_NE(thickness, Thickness(1, 2, 3, 5));
         EXPECT_EQ(thickness.GetHashCode(), Thickness(1, 2, 3, 4).GetHashCode());
+    }
+
+    TEST(ThicknessTests, RejectsOverflowingComputedDimensions)
+    {
+        const Thickness horizontal(std::numeric_limits<int>::max(), 0, 1, 0);
+        const Thickness vertical(0, std::numeric_limits<int>::min(), 0, -1);
+        EXPECT_THROW(static_cast<void>(horizontal.getWidthProperty()), std::overflow_error);
+        EXPECT_THROW(static_cast<void>(vertical.getHeightProperty()), std::overflow_error);
     }
 }

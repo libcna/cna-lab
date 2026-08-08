@@ -5,6 +5,9 @@
 
 #include <gtest/gtest.h>
 
+#include <limits>
+#include <stdexcept>
+
 namespace
 {
     using Myra::Graphics2D::UI::InputEventType;
@@ -53,5 +56,7 @@ namespace
         EXPECT_EQ(Proportion(ProportionType::Fill).ToString(), "Fill");
         EXPECT_EQ(Proportion(ProportionType::Part, 2.5F).ToString(), "Part: 2.50");
         EXPECT_EQ(Proportion(ProportionType::Pixels, 3.8F).ToString(), "Pixels: 3");
+        EXPECT_THROW(static_cast<void>(Proportion(ProportionType::Pixels,
+            std::numeric_limits<float>::infinity()).ToString()), std::invalid_argument);
     }
 }

@@ -40,9 +40,18 @@ add_library(MYRA_CNA STATIC
     src/Myra/Graphics2D/UI/Layouts/StackPanelLayout.cpp
     src/Myra/Graphics2D/UI/Widget.cpp
     src/Myra/MML/AttachedPropertiesRegistry.cpp
+    src/Myra/MML/BaseContext.cpp
     src/Myra/MML/BaseObject.cpp
+    src/Myra/MML/LoadContext.cpp
+    src/Myra/MML/RegisterMyraTypes.cpp
+    src/Myra/MML/SaveContext.cpp
     src/Myra/MML/TypeSerializers.cpp
+    src/Myra/MML/ValueCodecGeometry.cpp
+    src/Myra/MML/ValueCodecRegistry.cpp
     src/Myra/MyraEnvironment.cpp
+    src/Myra/Utility/InputExtension.cpp
+    src/Myra/Utility/PathUtils.cpp
+    src/Myra/Utility/UIUtils.cpp
     src/Myra/Version.cpp
 )
 add_library(Myra::CNA ALIAS MYRA_CNA)

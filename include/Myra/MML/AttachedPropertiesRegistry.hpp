@@ -43,6 +43,7 @@ namespace Myra::MML
         [[nodiscard]] const PropertyMetadata& getMetadataProperty() const noexcept;
         [[nodiscard]] virtual std::type_index getPropertyTypeProperty() const noexcept = 0;
         [[nodiscard]] virtual std::any getDefaultValueObjectProperty() const = 0;
+        [[nodiscard]] virtual bool IsDefaultValueObject(const std::any& value) const = 0;
 
         [[nodiscard]] bool HasValue(const BaseObject& object) const noexcept;
         [[nodiscard]] virtual std::any GetValueObject(const BaseObject& object) const = 0;
@@ -71,6 +72,15 @@ namespace Myra::MML
         [[nodiscard]] const T& getDefaultValueProperty() const noexcept { return defaultValue_; }
         [[nodiscard]] std::type_index getPropertyTypeProperty() const noexcept override { return typeid(T); }
         [[nodiscard]] std::any getDefaultValueObjectProperty() const override { return defaultValue_; }
+
+        [[nodiscard]] bool IsDefaultValueObject(const std::any& value) const override
+        {
+            if (std::type_index(value.type()) != typeid(T))
+            {
+                throw std::invalid_argument("The attached property value has the wrong C++ type.");
+            }
+            return std::any_cast<const T&>(value) == defaultValue_;
+        }
 
         [[nodiscard]] T GetValue(const BaseObject& object) const
         {
@@ -123,6 +133,8 @@ namespace Myra::MML
 
         [[nodiscard]] static std::vector<const BaseAttachedPropertyInfo*> GetPropertiesOfType(
             std::type_index type, const TypeRegistry& typeRegistry);
+        [[nodiscard]] static const BaseAttachedPropertyInfo* FindProperty(
+            std::type_index type, const std::string& name, const TypeRegistry& typeRegistry);
 
     private:
         [[nodiscard]] static int ReserveId();

@@ -7,11 +7,41 @@
 #include "Myra/Graphics2D/UI/Layouts/GridLayout.hpp"
 
 #include <algorithm>
+#include <limits>
+#include <stdexcept>
 
 #include "Myra/Graphics2D/UI/Containers/Grid.hpp"
+#include "Myra/Utility/Mathematics.hpp"
 
 namespace Myra::Graphics2D::UI
 {
+    namespace
+    {
+        int CheckedIntegerResult(const long long value, const char* const message)
+        {
+            if (value < std::numeric_limits<int>::min() || value > std::numeric_limits<int>::max())
+            {
+                throw std::overflow_error(message);
+            }
+            return static_cast<int>(value);
+        }
+
+        int CheckedAdd(const int left, const int right, const char* const message)
+        {
+            return CheckedIntegerResult(static_cast<long long>(left) + right, message);
+        }
+
+        int CheckedSubtract(const int left, const int right, const char* const message)
+        {
+            return CheckedIntegerResult(static_cast<long long>(left) - right, message);
+        }
+
+        int CheckedMultiply(const int left, const int right, const char* const message)
+        {
+            return CheckedIntegerResult(static_cast<long long>(left) * right, message);
+        }
+    }
+
     using Microsoft::Xna::Framework::Point;
     using Microsoft::Xna::Framework::Rectangle;
 
@@ -80,16 +110,26 @@ namespace Myra::Graphics2D::UI
         return Rectangle(cellLocationsX_[column], cellLocationsY_[row], columnWidths_[column], rowHeights_[row]);
     }
 
-    const std::shared_ptr<Proportion>& GridLayout::GetColumnProportion(const int column) const noexcept
+    const std::shared_ptr<Proportion>& GridLayout::GetColumnProportion(const int column) const
     {
-        return column < 0 || column >= columnsProportions_.getCountProperty()
+        const std::shared_ptr<Proportion>& result = column < 0 || column >= columnsProportions_.getCountProperty()
             ? defaultColumnProportion_ : columnsProportions_[column];
+        if (!result)
+        {
+            throw std::logic_error("A grid column proportion cannot be null.");
+        }
+        return result;
     }
 
-    const std::shared_ptr<Proportion>& GridLayout::GetRowProportion(const int row) const noexcept
+    const std::shared_ptr<Proportion>& GridLayout::GetRowProportion(const int row) const
     {
-        return row < 0 || row >= rowsProportions_.getCountProperty()
+        const std::shared_ptr<Proportion>& result = row < 0 || row >= rowsProportions_.getCountProperty()
             ? defaultRowProportion_ : rowsProportions_[row];
+        if (!result)
+        {
+            throw std::logic_error("A grid row proportion cannot be null.");
+        }
+        return result;
     }
 
     Point GridLayout::GetActualGridPosition(const Widget& child) const
@@ -112,7 +152,8 @@ namespace Myra::Graphics2D::UI
             const std::shared_ptr<Proportion>& proportion = GetColumnProportion(static_cast<int>(index));
             if (proportion->getTypeProperty() == ProportionType::Part)
             {
-                measureColumnWidths_[index] = static_cast<int>(static_cast<float>(size) * proportion->getValueProperty());
+                measureColumnWidths_[index] = Utility::Mathematics::TruncateToInt(
+                    static_cast<float>(size) * proportion->getValueProperty());
             }
         }
 
@@ -129,7 +170,8 @@ namespace Myra::Graphics2D::UI
             const std::shared_ptr<Proportion>& proportion = GetRowProportion(static_cast<int>(index));
             if (proportion->getTypeProperty() == ProportionType::Part)
             {
-                measureRowHeights_[index] = static_cast<int>(static_cast<float>(size) * proportion->getValueProperty());
+                measureRowHeights_[index] = Utility::Mathematics::TruncateToInt(
+                    static_cast<float>(size) * proportion->getValueProperty());
             }
         }
     }
@@ -147,8 +189,23 @@ namespace Myra::Graphics2D::UI
             }
             visibleWidgets_.push_back(child);
             const Point position = GetActualGridPosition(*child);
-            columns = std::max(columns, position.X + std::max(Grid::GetColumnSpan(*child), 1));
-            rows = std::max(rows, position.Y + std::max(Grid::GetRowSpan(*child), 1));
+            if (position.X < 0 || position.Y < 0)
+            {
+                throw std::invalid_argument("Grid row and column coordinates cannot be negative.");
+            }
+            const int columnSpan = Grid::GetColumnSpan(*child);
+            const int rowSpan = Grid::GetRowSpan(*child);
+            if (columnSpan <= 0 || rowSpan <= 0)
+            {
+                throw std::invalid_argument("Grid row and column spans must be positive.");
+            }
+            if (position.X > std::numeric_limits<int>::max() - columnSpan ||
+                position.Y > std::numeric_limits<int>::max() - rowSpan)
+            {
+                throw std::overflow_error("A grid coordinate and span exceed the supported integer range.");
+            }
+            columns = std::max(columns, position.X + columnSpan);
+            rows = std::max(rows, position.Y + rowSpan);
         }
         columns = std::max(columns, static_cast<int>(columnsProportions_.getCountProperty()));
         rows = std::max(rows, static_cast<int>(rowsProportions_.getCountProperty()));
@@ -163,8 +220,14 @@ namespace Myra::Graphics2D::UI
             widgetsByGridPosition_[position.Y][position.X].push_back(widget);
         }
 
-        availableSize.X -= (columns - 1) * columnSpacing_;
-        availableSize.Y -= (rows - 1) * rowSpacing_;
+        const int columnSpacingTotal = CheckedMultiply(
+            columns - 1, columnSpacing_, "Grid column spacing exceeds the supported integer range.");
+        const int rowSpacingTotal = CheckedMultiply(
+            rows - 1, rowSpacing_, "Grid row spacing exceeds the supported integer range.");
+        availableSize.X = CheckedSubtract(availableSize.X, columnSpacingTotal,
+            "Grid available width exceeds the supported integer range.");
+        availableSize.Y = CheckedSubtract(availableSize.Y, rowSpacingTotal,
+            "Grid available height exceeds the supported integer range.");
         for (int row = 0; row < rows; ++row)
         {
             for (int column = 0; column < columns; ++column)
@@ -173,11 +236,13 @@ namespace Myra::Graphics2D::UI
                 const std::shared_ptr<Proportion>& columnProportion = GetColumnProportion(column);
                 if (columnProportion->getTypeProperty() == ProportionType::Pixels)
                 {
-                    measureColumnWidths_[column] = static_cast<int>(columnProportion->getValueProperty());
+                    measureColumnWidths_[column] = Utility::Mathematics::TruncateToInt(
+                        columnProportion->getValueProperty());
                 }
                 if (rowProportion->getTypeProperty() == ProportionType::Pixels)
                 {
-                    measureRowHeights_[row] = static_cast<int>(rowProportion->getValueProperty());
+                    measureRowHeights_[row] = Utility::Mathematics::TruncateToInt(
+                        rowProportion->getValueProperty());
                 }
                 for (const std::shared_ptr<Widget>& widget : widgetsByGridPosition_[row][column])
                 {
@@ -211,18 +276,22 @@ namespace Myra::Graphics2D::UI
         Point result(0, 0);
         for (size_t index = 0; index < measureColumnWidths_.size(); ++index)
         {
-            result.X += measureColumnWidths_[index];
+            result.X = CheckedAdd(result.X, measureColumnWidths_[index],
+                "Measured grid width exceeds the supported integer range.");
             if (index + 1 < measureColumnWidths_.size())
             {
-                result.X += columnSpacing_;
+                result.X = CheckedAdd(result.X, columnSpacing_,
+                    "Measured grid width exceeds the supported integer range.");
             }
         }
         for (size_t index = 0; index < measureRowHeights_.size(); ++index)
         {
-            result.Y += measureRowHeights_[index];
+            result.Y = CheckedAdd(result.Y, measureRowHeights_[index],
+                "Measured grid height exceeds the supported integer range.");
             if (index + 1 < measureRowHeights_.size())
             {
-                result.Y += rowSpacing_;
+                result.Y = CheckedAdd(result.Y, rowSpacing_,
+                    "Measured grid height exceeds the supported integer range.");
             }
         }
         return result;
@@ -234,8 +303,11 @@ namespace Myra::Graphics2D::UI
         columnWidths_ = measureColumnWidths_;
         rowHeights_ = measureRowHeights_;
 
-        float availableWidth = static_cast<float>(bounds.Width -
-            (static_cast<int>(columnWidths_.size()) - 1) * columnSpacing_);
+        const int arrangedColumnSpacing = CheckedMultiply(
+            static_cast<int>(columnWidths_.size()) - 1, columnSpacing_,
+            "Arranged grid column spacing exceeds the supported integer range.");
+        float availableWidth = static_cast<float>(CheckedSubtract(
+            bounds.Width, arrangedColumnSpacing, "Arranged grid width exceeds the supported integer range."));
         float totalPart = 0.0F;
         for (size_t column = 0; column < columnWidths_.size(); ++column)
         {
@@ -249,7 +321,7 @@ namespace Myra::Graphics2D::UI
                 totalPart += proportion->getValueProperty();
             }
         }
-        if (totalPart != 0.0F)
+        if (!Utility::Mathematics::IsZero(totalPart))
         {
             float takenSpace = 0.0F;
             for (size_t column = 0; column < columnWidths_.size(); ++column)
@@ -257,7 +329,8 @@ namespace Myra::Graphics2D::UI
                 const std::shared_ptr<Proportion>& proportion = GetColumnProportion(static_cast<int>(column));
                 if (proportion->getTypeProperty() == ProportionType::Part)
                 {
-                    columnWidths_[column] = static_cast<int>(proportion->getValueProperty() * availableWidth / totalPart);
+                    columnWidths_[column] = Utility::Mathematics::TruncateToInt(
+                        proportion->getValueProperty() * availableWidth / totalPart);
                     takenSpace += static_cast<float>(columnWidths_[column]);
                 }
             }
@@ -267,13 +340,16 @@ namespace Myra::Graphics2D::UI
         {
             if (GetColumnProportion(static_cast<int>(column))->getTypeProperty() == ProportionType::Fill)
             {
-                columnWidths_[column] = static_cast<int>(availableWidth);
+                columnWidths_[column] = Utility::Mathematics::TruncateToInt(availableWidth);
                 break;
             }
         }
 
-        float availableHeight = static_cast<float>(bounds.Height -
-            (static_cast<int>(rowHeights_.size()) - 1) * rowSpacing_);
+        const int arrangedRowSpacing = CheckedMultiply(
+            static_cast<int>(rowHeights_.size()) - 1, rowSpacing_,
+            "Arranged grid row spacing exceeds the supported integer range.");
+        float availableHeight = static_cast<float>(CheckedSubtract(
+            bounds.Height, arrangedRowSpacing, "Arranged grid height exceeds the supported integer range."));
         totalPart = 0.0F;
         for (size_t row = 0; row < rowHeights_.size(); ++row)
         {
@@ -287,7 +363,7 @@ namespace Myra::Graphics2D::UI
                 totalPart += proportion->getValueProperty();
             }
         }
-        if (totalPart != 0.0F)
+        if (!Utility::Mathematics::IsZero(totalPart))
         {
             float takenSpace = 0.0F;
             for (size_t row = 0; row < rowHeights_.size(); ++row)
@@ -295,7 +371,8 @@ namespace Myra::Graphics2D::UI
                 const std::shared_ptr<Proportion>& proportion = GetRowProportion(static_cast<int>(row));
                 if (proportion->getTypeProperty() == ProportionType::Part)
                 {
-                    rowHeights_[row] = static_cast<int>(proportion->getValueProperty() * availableHeight / totalPart);
+                    rowHeights_[row] = Utility::Mathematics::TruncateToInt(
+                        proportion->getValueProperty() * availableHeight / totalPart);
                     takenSpace += static_cast<float>(rowHeights_[row]);
                 }
             }
@@ -305,7 +382,7 @@ namespace Myra::Graphics2D::UI
         {
             if (GetRowProportion(static_cast<int>(row))->getTypeProperty() == ProportionType::Fill)
             {
-                rowHeights_[row] = static_cast<int>(availableHeight);
+                rowHeights_[row] = Utility::Mathematics::TruncateToInt(availableHeight);
                 break;
             }
         }
@@ -316,12 +393,15 @@ namespace Myra::Graphics2D::UI
         for (size_t column = 0; column < columnWidths_.size(); ++column)
         {
             cellLocationsX_.push_back(position);
-            position += columnWidths_[column];
+            position = CheckedAdd(position, columnWidths_[column],
+                "A grid column location exceeds the supported integer range.");
             if (column + 1 < columnWidths_.size())
             {
-                gridLinesX_.push_back(position + columnSpacing_ / 2);
+                gridLinesX_.push_back(CheckedAdd(position, columnSpacing_ / 2,
+                    "A vertical grid line exceeds the supported integer range."));
             }
-            position += columnSpacing_;
+            position = CheckedAdd(position, columnSpacing_,
+                "A grid column location exceeds the supported integer range.");
         }
         gridLinesY_.clear();
         cellLocationsY_.clear();
@@ -329,12 +409,15 @@ namespace Myra::Graphics2D::UI
         for (size_t row = 0; row < rowHeights_.size(); ++row)
         {
             cellLocationsY_.push_back(position);
-            position += rowHeights_[row];
+            position = CheckedAdd(position, rowHeights_[row],
+                "A grid row location exceeds the supported integer range.");
             if (row + 1 < rowHeights_.size())
             {
-                gridLinesY_.push_back(position + rowSpacing_ / 2);
+                gridLinesY_.push_back(CheckedAdd(position, rowSpacing_ / 2,
+                    "A horizontal grid line exceeds the supported integer range."));
             }
-            position += rowSpacing_;
+            position = CheckedAdd(position, rowSpacing_,
+                "A grid row location exceeds the supported integer range.");
         }
         for (const std::shared_ptr<Widget>& control : visibleWidgets_)
         {
@@ -345,38 +428,66 @@ namespace Myra::Graphics2D::UI
     void GridLayout::LayoutControl(Widget& control, const Rectangle bounds)
     {
         const Point position = GetActualGridPosition(control);
-        Point cellSize(0, 0);
         const int columnSpan = Grid::GetColumnSpan(control);
         const int rowSpan = Grid::GetRowSpan(control);
-        for (int column = position.X; column < position.X + columnSpan; ++column)
+        if (position.X < 0 || position.Y < 0 || columnSpan <= 0 || rowSpan <= 0 ||
+            static_cast<size_t>(position.X) >= columnWidths_.size() ||
+            static_cast<size_t>(position.Y) >= rowHeights_.size() ||
+            (columnSpan > 0 && static_cast<long long>(position.X) + columnSpan >
+                static_cast<long long>(columnWidths_.size())) ||
+            (rowSpan > 0 && static_cast<long long>(position.Y) + rowSpan >
+                static_cast<long long>(rowHeights_.size())))
         {
-            cellSize.X += columnWidths_[column];
-            if (column + 1 < position.X + columnSpan)
+            throw std::invalid_argument(
+                "A grid child's coordinates or spans changed outside the measured grid bounds.");
+        }
+
+        const int columnEnd = CheckedAdd(position.X, columnSpan,
+            "A grid column and span exceed the supported integer range.");
+        const int rowEnd = CheckedAdd(position.Y, rowSpan,
+            "A grid row and span exceed the supported integer range.");
+
+        Point cellSize(0, 0);
+        for (int column = position.X; column < columnEnd; ++column)
+        {
+            cellSize.X = CheckedAdd(cellSize.X, columnWidths_[column],
+                "A spanned grid cell width exceeds the supported integer range.");
+            if (column + 1 < columnEnd)
             {
-                cellSize.X += columnSpacing_;
+                cellSize.X = CheckedAdd(cellSize.X, columnSpacing_,
+                    "A spanned grid cell width exceeds the supported integer range.");
             }
         }
-        for (int row = position.Y; row < position.Y + rowSpan; ++row)
+        for (int row = position.Y; row < rowEnd; ++row)
         {
-            cellSize.Y += rowHeights_[row];
-            if (row + 1 < position.Y + rowSpan)
+            cellSize.Y = CheckedAdd(cellSize.Y, rowHeights_[row],
+                "A spanned grid cell height exceeds the supported integer range.");
+            if (row + 1 < rowEnd)
             {
-                cellSize.Y += rowSpacing_;
+                cellSize.Y = CheckedAdd(cellSize.Y, rowSpacing_,
+                    "A spanned grid cell height exceeds the supported integer range.");
             }
         }
-        Rectangle rectangle(bounds.X + cellLocationsX_[position.X], bounds.Y + cellLocationsY_[position.Y],
+        Rectangle rectangle(CheckedAdd(bounds.X, cellLocationsX_[position.X],
+                                "A grid child X coordinate exceeds the supported integer range."),
+            CheckedAdd(bounds.Y, cellLocationsY_[position.Y],
+                "A grid child Y coordinate exceeds the supported integer range."),
             cellSize.X, cellSize.Y);
-        if (rectangle.getRightProperty() > bounds.getRightProperty())
+        const long long boundsRight = static_cast<long long>(bounds.X) + bounds.Width;
+        const long long boundsBottom = static_cast<long long>(bounds.Y) + bounds.Height;
+        if (static_cast<long long>(rectangle.X) + rectangle.Width > boundsRight)
         {
-            rectangle.Width = bounds.getRightProperty() - rectangle.X;
+            rectangle.Width = CheckedIntegerResult(boundsRight - rectangle.X,
+                "A clipped grid child width exceeds the supported integer range.");
         }
         if (rectangle.Width < 0)
         {
             rectangle.Width = 0;
         }
-        if (rectangle.getBottomProperty() > bounds.getBottomProperty())
+        if (static_cast<long long>(rectangle.Y) + rectangle.Height > boundsBottom)
         {
-            rectangle.Height = bounds.getBottomProperty() - rectangle.Y;
+            rectangle.Height = CheckedIntegerResult(boundsBottom - rectangle.Y,
+                "A clipped grid child height exceeds the supported integer range.");
         }
         if (rectangle.Height < 0)
         {

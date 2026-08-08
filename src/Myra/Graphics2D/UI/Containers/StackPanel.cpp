@@ -6,6 +6,7 @@
 // See NOTICE.md and UPSTREAM_MANIFEST.md.
 #include "Myra/Graphics2D/UI/Containers/StackPanel.hpp"
 
+#include <stdexcept>
 #include <utility>
 
 #include "Myra/Attributes/RangeAttribute.hpp"
@@ -98,11 +99,16 @@ namespace Myra::Graphics2D::UI
             return;
         }
         size_t index = 0;
-        for (const std::shared_ptr<Widget>& widget : getChildrenCopyProperty())
+        const std::vector<std::shared_ptr<Widget>> snapshot = getChildrenCopyProperty();
+        for (const std::shared_ptr<Widget>& widget : snapshot)
         {
             if (index < static_cast<size_t>(proportions_.getCountProperty()))
             {
                 const std::shared_ptr<Proportion>& proportion = proportions_[static_cast<SharpRuntime::intcs>(index)];
+                if (!proportion)
+                {
+                    throw std::logic_error("A stack-panel explicit proportion cannot be null.");
+                }
                 SetProportionType(*widget, proportion->getTypeProperty());
                 SetProportionValue(*widget, proportion->getValueProperty());
             }

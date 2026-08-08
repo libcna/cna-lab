@@ -101,4 +101,25 @@ namespace
 
         EXPECT_EQ(calls, (std::vector<int>{1, 3}));
     }
+
+    TEST(InputEventsManagerTests, BubblingStopPropagationPreservesTheUpstreamRebuildOrder)
+    {
+        Myra::MyraEnvironment::setEventHandlingModelProperty(EventHandlingStrategy::EventBubbling);
+        std::vector<int> calls;
+        RecordingProcessor oldest(calls, 1);
+        RecordingProcessor removed(calls, 2);
+        RecordingProcessor newest(calls, 3);
+        StopPropagationProcessor stopping(calls);
+
+        InputEventsManager::Queue(oldest, InputEventType::KeyDown);
+        InputEventsManager::Queue(removed, InputEventType::MouseMoved);
+        InputEventsManager::Queue(newest, InputEventType::KeyUp);
+        InputEventsManager::Queue(stopping, InputEventType::MouseMoved);
+        InputEventsManager::ProcessEvents();
+
+        // Upstream enumerates the stack top-to-bottom and pushes the filtered
+        // sequence into a fresh stack, reversing the surviving events.
+        EXPECT_EQ(calls, (std::vector<int>{1, 1, 3}));
+        Myra::MyraEnvironment::setEventHandlingModelProperty(EventHandlingStrategy::EventCapturing);
+    }
 }

@@ -7,6 +7,7 @@
 #include "Myra/MML/AttachedPropertiesRegistry.hpp"
 
 #include <limits>
+#include <mutex>
 
 namespace Myra::MML
 {
@@ -14,7 +15,9 @@ namespace Myra::MML
     {
         struct RegistryState
         {
+            std::mutex Mutex;
             std::vector<std::unique_ptr<BaseAttachedPropertyInfo>> Properties;
+            int NextId = 0;
         };
 
         RegistryState& GetRegistryState()
@@ -51,12 +54,13 @@ namespace Myra::MML
 
     int AttachedPropertiesRegistry::ReserveId()
     {
-        const size_t propertyCount = GetRegistryState().Properties.size();
-        if (propertyCount >= static_cast<size_t>(std::numeric_limits<int>::max()))
+        RegistryState& state = GetRegistryState();
+        const std::lock_guard lock(state.Mutex);
+        if (state.NextId == std::numeric_limits<int>::max())
         {
             throw std::overflow_error("The attached property registry ran out of identifiers.");
         }
-        return static_cast<int>(propertyCount);
+        return state.NextId++;
     }
 
     void AttachedPropertiesRegistry::Register(std::unique_ptr<BaseAttachedPropertyInfo> property)
@@ -65,19 +69,31 @@ namespace Myra::MML
         {
             throw std::invalid_argument("An attached property cannot be null.");
         }
-        GetRegistryState().Properties.push_back(std::move(property));
+        RegistryState& state = GetRegistryState();
+        const std::lock_guard lock(state.Mutex);
+        for (const std::unique_ptr<BaseAttachedPropertyInfo>& existing : state.Properties)
+        {
+            if (existing->getOwnerTypeProperty() == property->getOwnerTypeProperty() &&
+                existing->getNameProperty() == property->getNameProperty())
+            {
+                throw std::invalid_argument(
+                    "An attached property with the same owner type and name is already registered.");
+            }
+        }
+        state.Properties.push_back(std::move(property));
     }
 
     std::vector<const BaseAttachedPropertyInfo*> AttachedPropertiesRegistry::GetPropertiesOfType(
         const std::type_index type, const TypeRegistry& typeRegistry)
     {
         const std::vector<std::type_index> hierarchy = typeRegistry.GetTypesIncludingBase(type);
-        const std::vector<std::unique_ptr<BaseAttachedPropertyInfo>>& properties = GetRegistryState().Properties;
+        RegistryState& state = GetRegistryState();
+        const std::lock_guard lock(state.Mutex);
 
         std::vector<const BaseAttachedPropertyInfo*> result;
         for (const std::type_index ownerType : hierarchy)
         {
-            for (const std::unique_ptr<BaseAttachedPropertyInfo>& property : properties)
+            for (const std::unique_ptr<BaseAttachedPropertyInfo>& property : state.Properties)
             {
                 if (property->getOwnerTypeProperty() == ownerType)
                 {
@@ -86,5 +102,19 @@ namespace Myra::MML
             }
         }
         return result;
+    }
+
+    const BaseAttachedPropertyInfo* AttachedPropertiesRegistry::FindProperty(
+        const std::type_index type, const std::string& name, const TypeRegistry& typeRegistry)
+    {
+        const std::vector<const BaseAttachedPropertyInfo*> properties = GetPropertiesOfType(type, typeRegistry);
+        for (const BaseAttachedPropertyInfo* property : properties)
+        {
+            if (property->getNameProperty() == name)
+            {
+                return property;
+            }
+        }
+        return nullptr;
     }
 }

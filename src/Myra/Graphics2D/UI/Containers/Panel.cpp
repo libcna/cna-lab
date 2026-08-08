@@ -15,7 +15,8 @@ namespace Myra::Graphics2D::UI
     Point Panel::InternalMeasure(const Point availableSize)
     {
         Point result(0, 0);
-        for (const std::shared_ptr<Widget>& widget : getChildrenCopyProperty())
+        const std::vector<std::shared_ptr<Widget>> snapshot = getChildrenCopyProperty();
+        for (const std::shared_ptr<Widget>& widget : snapshot)
         {
             if (!widget->getVisibleProperty())
             {
@@ -31,7 +32,8 @@ namespace Myra::Graphics2D::UI
     void Panel::InternalArrange()
     {
         const auto actualBounds = getActualBoundsProperty();
-        for (const std::shared_ptr<Widget>& widget : getChildrenCopyProperty())
+        const std::vector<std::shared_ptr<Widget>> snapshot = getChildrenCopyProperty();
+        for (const std::shared_ptr<Widget>& widget : snapshot)
         {
             if (widget->getVisibleProperty())
             {

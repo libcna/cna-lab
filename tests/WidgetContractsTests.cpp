@@ -2,12 +2,14 @@
 // Copyright (c) 2026 Robert Vokáč and Myra-CNA contributors.
 // See NOTICE.md and THIRD_PARTY_NOTICES.md.
 #include "Myra/Graphics2D/IContent.hpp"
+#include "Myra/Graphics2D/UI/ContentControl.hpp"
 #include "Myra/Graphics2D/UI/ILayout.hpp"
 #include "Myra/Graphics2D/UI/InputContext.hpp"
 
 #include <gtest/gtest.h>
 
 #include <memory>
+#include <type_traits>
 #include <vector>
 
 namespace
@@ -31,6 +33,12 @@ namespace
     private:
         std::shared_ptr<Myra::Graphics2D::UI::Widget> content_;
     };
+
+    static_assert(std::is_abstract_v<Myra::Graphics2D::UI::ContentControl>);
+    static_assert(std::is_base_of_v<Myra::Graphics2D::UI::Widget,
+        Myra::Graphics2D::UI::ContentControl>);
+    static_assert(std::is_base_of_v<Myra::Graphics2D::IContent,
+        Myra::Graphics2D::UI::ContentControl>);
 
     class Layout final : public Myra::Graphics2D::UI::ILayout
     {

@@ -8,26 +8,59 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
+#include <limits>
 #include <numbers>
 #include <stdexcept>
 #include <utility>
 
 #include "Myra/Utility/EventsExtensions.hpp"
 #include "Myra/Utility/Mathematics.hpp"
+#include "Myra/Utility/UIUtils.hpp"
 #include "Myra/Graphics2D/UI/LayoutUtils.hpp"
 #include "Myra/MML/AttachedPropertiesRegistry.hpp"
 
 namespace Myra::Graphics2D::UI
 {
+    namespace
+    {
+        int CheckedAdd(const int left, const int right, const char* const message)
+        {
+            const std::int64_t result = static_cast<std::int64_t>(left) + right;
+            if (result < std::numeric_limits<int>::min() || result > std::numeric_limits<int>::max())
+            {
+                throw std::overflow_error(message);
+            }
+            return static_cast<int>(result);
+        }
+
+        int CheckedSubtract(const int left, const int right, const char* const message)
+        {
+            const std::int64_t result = static_cast<std::int64_t>(left) - right;
+            if (result < std::numeric_limits<int>::min() || result > std::numeric_limits<int>::max())
+            {
+                throw std::overflow_error(message);
+            }
+            return static_cast<int>(result);
+        }
+    }
+
     using Microsoft::Xna::Framework::Point;
     using Microsoft::Xna::Framework::Rectangle;
     using Microsoft::Xna::Framework::Vector2;
 
-    Widget::Widget() = default;
+    Widget::Widget() : dragHandle_(this) {}
 
     Widget::~Widget()
     {
         ClearChildren();
+    }
+
+    const std::optional<std::string>& Widget::getStyleNameProperty() const noexcept { return styleName_; }
+
+    void Widget::setStyleNameProperty(std::optional<std::string> value)
+    {
+        styleName_ = std::move(value);
     }
 
     int Widget::getLeftProperty() const noexcept { return left_; }
@@ -203,7 +236,8 @@ namespace Myra::Graphics2D::UI
             return;
         }
         enabled_ = value;
-        for (const std::shared_ptr<Widget>& child : getChildrenCopyProperty())
+        const std::vector<std::shared_ptr<Widget>> snapshot = getChildrenCopyProperty();
+        for (const std::shared_ptr<Widget>& child : snapshot)
         {
             child->setEnabledProperty(value);
         }
@@ -222,6 +256,12 @@ namespace Myra::Graphics2D::UI
         OnVisibleChanged();
     }
 
+    DragDirection Widget::getDragDirectionProperty() const noexcept { return dragDirection_; }
+
+    void Widget::setDragDirectionProperty(const DragDirection value) noexcept { dragDirection_ = value; }
+
+    bool Widget::getIsDraggableProperty() const noexcept { return dragDirection_ != DragDirection::None; }
+
     int Widget::getZIndexProperty() const noexcept { return zIndex_; }
 
     void Widget::setZIndexProperty(const int value)
@@ -231,18 +271,93 @@ namespace Myra::Graphics2D::UI
             return;
         }
         zIndex_ = value;
+        if (parent_ != nullptr)
+        {
+            parent_->childrenDirty_ = true;
+        }
         InvalidateMeasure();
     }
+
+    const std::optional<MouseCursorType>& Widget::getMouseCursorProperty() const noexcept
+    {
+        return mouseCursor_;
+    }
+
+    void Widget::setMouseCursorProperty(std::optional<MouseCursorType> value)
+    {
+        if (value == mouseCursor_)
+        {
+            return;
+        }
+        mouseCursor_ = value;
+        const std::vector<std::shared_ptr<Widget>> snapshot = children_;
+        for (const std::shared_ptr<Widget>& child : snapshot)
+        {
+            child->setMouseCursorProperty(value);
+        }
+    }
+
+    const std::optional<std::string>& Widget::getTooltipProperty() const noexcept { return tooltip_; }
+
+    void Widget::setTooltipProperty(std::optional<std::string> value)
+    {
+        tooltip_ = std::move(value);
+    }
+
+    bool Widget::getIsModalProperty() const noexcept { return isModal_; }
+
+    void Widget::setIsModalProperty(const bool value) noexcept { isModal_ = value; }
 
     float Widget::getOpacityProperty() const noexcept { return opacity_; }
 
     void Widget::setOpacityProperty(const float value)
     {
-        if (value < 0.0F || value > 1.0F)
+        if (!std::isfinite(value) || value < 0.0F || value > 1.0F)
         {
             throw std::out_of_range("Widget opacity must be in the range [0, 1].");
         }
         opacity_ = value;
+    }
+
+    bool Widget::getIsPressedProperty() const noexcept { return isPressed_; }
+
+    void Widget::setIsPressedProperty(const bool value)
+    {
+        if (value == isPressed_)
+        {
+            return;
+        }
+        isPressed_ = value;
+        const std::vector<std::shared_ptr<Widget>> snapshot = getChildrenCopyProperty();
+        for (const std::shared_ptr<Widget>& child : snapshot)
+        {
+            child->setIsPressedProperty(value);
+        }
+        OnPressedChanged();
+    }
+
+    bool Widget::getClipToBoundsProperty() const noexcept { return clipToBounds_; }
+
+    void Widget::setClipToBoundsProperty(const bool value) noexcept { clipToBounds_ = value; }
+
+    bool Widget::getAcceptsKeyboardFocusProperty() const noexcept { return acceptsKeyboardFocus_; }
+
+    void Widget::setAcceptsKeyboardFocusProperty(const bool value) noexcept
+    {
+        acceptsKeyboardFocus_ = value;
+    }
+
+    bool Widget::getIsKeyboardFocusedProperty() const noexcept { return isKeyboardFocused_; }
+
+    void Widget::setIsKeyboardFocusedProperty(const bool value)
+    {
+        if (value == isKeyboardFocused_)
+        {
+            return;
+        }
+        isKeyboardFocused_ = value;
+        Utility::EventsExtensions::Invoke(
+            KeyboardFocusChanged, this, InputEventType::KeyboardFocusChanged);
     }
 
     const Vector2& Widget::getScaleProperty() const noexcept { return scale_; }
@@ -281,26 +396,44 @@ namespace Myra::Graphics2D::UI
         InvalidateTransform();
     }
 
-    const Rectangle& Widget::getBoundsProperty() const noexcept { return layoutBounds_; }
+    Widget* Widget::getDragHandleProperty() const noexcept { return dragHandle_; }
 
-    Rectangle Widget::getActualBoundsProperty() const noexcept
+    void Widget::setDragHandleProperty(Widget* const value) noexcept { dragHandle_ = value; }
+
+    Rectangle Widget::getBoundsProperty() const noexcept
     {
-        return (Rectangle(0, 0, layoutBounds_.Width, layoutBounds_.Height) - margin_) - borderThickness_ - padding_;
+        return Rectangle(0, 0, layoutBounds_.Width, layoutBounds_.Height);
+    }
+
+    Rectangle Widget::getActualBoundsProperty() const
+    {
+        return (getBoundsProperty() - margin_) - borderThickness_ - padding_;
     }
 
     const Rectangle& Widget::getContainerBoundsProperty() const noexcept { return containerBounds_; }
 
-    int Widget::getMBPWidthProperty() const noexcept
+    int Widget::getMBPWidthProperty() const
     {
-        return margin_.Left + margin_.Right + borderThickness_.Left + borderThickness_.Right + padding_.Left + padding_.Right;
+        return CheckedAdd(CheckedAdd(margin_.getWidthProperty(), borderThickness_.getWidthProperty(),
+                              "Widget horizontal border geometry exceeds the supported integer range."),
+            padding_.getWidthProperty(), "Widget horizontal box geometry exceeds the supported integer range.");
     }
 
-    int Widget::getMBPHeightProperty() const noexcept
+    int Widget::getMBPHeightProperty() const
     {
-        return margin_.Top + margin_.Bottom + borderThickness_.Top + borderThickness_.Bottom + padding_.Top + padding_.Bottom;
+        return CheckedAdd(CheckedAdd(margin_.getHeightProperty(), borderThickness_.getHeightProperty(),
+                              "Widget vertical border geometry exceeds the supported integer range."),
+            padding_.getHeightProperty(), "Widget vertical box geometry exceeds the supported integer range.");
     }
 
     Widget* Widget::getParentProperty() const noexcept { return parent_; }
+
+    const std::any& Widget::getTagProperty() const noexcept { return tag_; }
+
+    void Widget::setTagProperty(std::any value)
+    {
+        tag_ = std::move(value);
+    }
 
     ILayout* Widget::getChildrenLayoutProperty() const noexcept { return childrenLayout_; }
 
@@ -324,6 +457,13 @@ namespace Myra::Graphics2D::UI
         {
             throw std::invalid_argument("A widget cannot be its own child.");
         }
+        for (const Widget* ancestor = this; ancestor != nullptr; ancestor = ancestor->parent_)
+        {
+            if (ancestor == child.get())
+            {
+                throw std::invalid_argument("Adding an ancestor would create a widget ownership cycle.");
+            }
+        }
         if (child->parent_ == this)
         {
             return;
@@ -333,9 +473,10 @@ namespace Myra::Graphics2D::UI
             static_cast<void>(child->parent_->RemoveChild(child.get()));
         }
 
-        children_.push_back(std::move(child));
-        OnChildAdded(*children_.back());
+        std::shared_ptr<Widget> retained = std::move(child);
+        children_.push_back(retained);
         childrenDirty_ = true;
+        OnChildAdded(*retained);
         InvalidateMeasure();
     }
 
@@ -351,19 +492,28 @@ namespace Myra::Graphics2D::UI
 
         std::shared_ptr<Widget> removed = *iterator;
         children_.erase(iterator);
-        OnChildRemoved(*removed);
         childrenDirty_ = true;
+        OnChildRemoved(*removed);
         InvalidateMeasure();
         return true;
     }
 
     void Widget::ClearChildren()
     {
-        for (const std::shared_ptr<Widget>& child : children_)
+        const std::vector<std::shared_ptr<Widget>> snapshot = children_;
+        for (const std::shared_ptr<Widget>& child : snapshot)
         {
-            OnChildRemoved(*child);
+            const auto iterator = std::find(children_.begin(), children_.end(), child);
+            if (iterator == children_.end())
+            {
+                continue;
+            }
+
+            std::shared_ptr<Widget> removed = *iterator;
+            children_.erase(iterator);
+            childrenDirty_ = true;
+            OnChildRemoved(*removed);
         }
-        children_.clear();
         childrenCopy_.clear();
         childrenDirty_ = true;
         InvalidateMeasure();
@@ -377,12 +527,85 @@ namespace Myra::Graphics2D::UI
         }
     }
 
+    std::size_t Widget::CalculateTotalChildCount(const bool visibleOnly)
+    {
+        std::size_t result = 0;
+        const std::vector<std::shared_ptr<Widget>> snapshot = getChildrenCopyProperty();
+        for (const std::shared_ptr<Widget>& child : snapshot)
+        {
+            if (visibleOnly && !child->getVisibleProperty())
+            {
+                continue;
+            }
+            ++result;
+            result += child->CalculateTotalChildCount(visibleOnly);
+        }
+        return result;
+    }
+
+    Widget* Widget::FindChildById(const std::string& id)
+    {
+        return FindChild([&id](Widget& widget) {
+            const std::optional<std::string>& widgetId = widget.getIdProperty();
+            return widgetId.has_value() && *widgetId == id;
+        });
+    }
+
+    Widget& Widget::EnsureWidgetById(const std::string& id)
+    {
+        Widget* const result = FindChildById(id);
+        if (result == nullptr)
+        {
+            throw std::out_of_range("Could not find a descendant widget with id '" + id + "'.");
+        }
+        return *result;
+    }
+
+    Widget* Widget::FindChild(const WidgetPredicate& predicate)
+    {
+        const std::vector<std::shared_ptr<Widget>> snapshot = getChildrenCopyProperty();
+        for (const std::shared_ptr<Widget>& widget : snapshot)
+        {
+            if (!predicate || predicate(*widget))
+            {
+                return widget.get();
+            }
+            if (Widget* const descendant = widget->FindChild(predicate))
+            {
+                return descendant;
+            }
+        }
+        return nullptr;
+    }
+
+    std::vector<Widget*> Widget::GetChildren(
+        const bool recursive, const WidgetPredicate& predicate)
+    {
+        std::vector<Widget*> result;
+        const std::vector<std::shared_ptr<Widget>> snapshot = getChildrenCopyProperty();
+        for (const std::shared_ptr<Widget>& widget : snapshot)
+        {
+            if (!predicate || predicate(*widget))
+            {
+                result.push_back(widget.get());
+            }
+            if (recursive)
+            {
+                std::vector<Widget*> descendants = widget->GetChildren(true, predicate);
+                result.insert(result.end(), descendants.begin(), descendants.end());
+            }
+        }
+        return result;
+    }
+
     Point Widget::Measure(Point availableSize)
     {
         if (!measureDirty_ && lastMeasureAvailableSize_ == availableSize)
         {
             return lastMeasureSize_;
         }
+        const std::uint64_t invalidationVersion = measureInvalidationVersion_;
+        const Point requestedAvailableSize = availableSize;
 
         if (width_.has_value() && availableSize.X > *width_)
         {
@@ -401,11 +624,15 @@ namespace Myra::Graphics2D::UI
             availableSize.Y = *maxHeight_;
         }
 
-        availableSize.X -= getMBPWidthProperty();
-        availableSize.Y -= getMBPHeightProperty();
+        availableSize.X = CheckedSubtract(availableSize.X, getMBPWidthProperty(),
+            "Widget measure width exceeds the supported integer range.");
+        availableSize.Y = CheckedSubtract(availableSize.Y, getMBPHeightProperty(),
+            "Widget measure height exceeds the supported integer range.");
         Point result = InternalMeasure(availableSize);
-        result.X += getMBPWidthProperty();
-        result.Y += getMBPHeightProperty();
+        result.X = CheckedAdd(result.X, getMBPWidthProperty(),
+            "Measured widget width exceeds the supported integer range.");
+        result.Y = CheckedAdd(result.Y, getMBPHeightProperty(),
+            "Measured widget height exceeds the supported integer range.");
 
         if (width_.has_value())
         {
@@ -439,8 +666,8 @@ namespace Myra::Graphics2D::UI
         }
 
         lastMeasureSize_ = result;
-        lastMeasureAvailableSize_ = availableSize;
-        measureDirty_ = false;
+        lastMeasureAvailableSize_ = requestedAvailableSize;
+        measureDirty_ = measureInvalidationVersion_ != invalidationVersion;
         return result;
     }
 
@@ -461,6 +688,7 @@ namespace Myra::Graphics2D::UI
         {
             return;
         }
+        const std::uint64_t invalidationVersion = arrangeInvalidationVersion_;
 
         Point size;
         const Point containerSize(containerBounds_.Width, containerBounds_.Height);
@@ -486,15 +714,23 @@ namespace Myra::Graphics2D::UI
         }
 
         layoutBounds_ = LayoutUtils::Align(alignedContainerSize, size, horizontalAlignment_, verticalAlignment_);
-        layoutBounds_.Offset(containerBounds_.X, containerBounds_.Y);
+        layoutBounds_.X = CheckedAdd(layoutBounds_.X, containerBounds_.X,
+            "Arranged widget X coordinate exceeds the supported integer range.");
+        layoutBounds_.Y = CheckedAdd(layoutBounds_.Y, containerBounds_.Y,
+            "Arranged widget Y coordinate exceeds the supported integer range.");
         InvalidateTransform();
         InternalArrange();
         Utility::EventsExtensions::Invoke(ArrangeUpdated, this, InputEventType::ArrangeUpdated);
-        arrangeDirty_ = false;
+        arrangeDirty_ = arrangeInvalidationVersion_ != invalidationVersion;
     }
 
     void Widget::InvalidateMeasure()
     {
+        if (suppressInvalidateMeasure_)
+        {
+            return;
+        }
+        ++measureInvalidationVersion_;
         measureDirty_ = true;
         InvalidateArrange();
         if (parent_ != nullptr)
@@ -503,7 +739,11 @@ namespace Myra::Graphics2D::UI
         }
     }
 
-    void Widget::InvalidateArrange() noexcept { arrangeDirty_ = true; }
+    void Widget::InvalidateArrange() noexcept
+    {
+        ++arrangeInvalidationVersion_;
+        arrangeDirty_ = true;
+    }
 
     void Widget::OnAttachedPropertyLayoutChanged(const MML::AttachedPropertyOption option)
     {
@@ -518,6 +758,21 @@ namespace Myra::Graphics2D::UI
                 InvalidateMeasure();
                 break;
         }
+    }
+
+    void Widget::OnLostKeyboardFocus()
+    {
+        setIsKeyboardFocusedProperty(false);
+    }
+
+    void Widget::OnGotKeyboardFocus()
+    {
+        setIsKeyboardFocusedProperty(true);
+    }
+
+    void Widget::OnPressedChanged()
+    {
+        Utility::EventsExtensions::Invoke(PressedChanged, this, InputEventType::PressedChanged);
     }
 
     Vector2 Widget::ToLocal(const Vector2 source)
@@ -544,7 +799,10 @@ namespace Myra::Graphics2D::UI
     {
         const Point localPosition = ToLocal(globalPosition);
         const Rectangle borderBounds = Rectangle(0, 0, layoutBounds_.Width, layoutBounds_.Height) - margin_;
-        return borderBounds.Contains(localPosition);
+        const std::int64_t right = static_cast<std::int64_t>(borderBounds.X) + borderBounds.Width;
+        const std::int64_t bottom = static_cast<std::int64_t>(borderBounds.Y) + borderBounds.Height;
+        return borderBounds.X <= localPosition.X && localPosition.X < right &&
+            borderBounds.Y <= localPosition.Y && localPosition.Y < bottom;
     }
 
     Point Widget::InternalMeasure(const Point availableSize)
@@ -553,14 +811,16 @@ namespace Myra::Graphics2D::UI
         {
             return Point(0, 0);
         }
-        return childrenLayout_->Measure(getChildrenCopyProperty(), availableSize);
+        const std::vector<std::shared_ptr<Widget>> snapshot = getChildrenCopyProperty();
+        return childrenLayout_->Measure(snapshot, availableSize);
     }
 
     void Widget::InternalArrange()
     {
         if (childrenLayout_ != nullptr)
         {
-            childrenLayout_->Arrange(getChildrenCopyProperty(), getActualBoundsProperty());
+            const std::vector<std::shared_ptr<Widget>> snapshot = getChildrenCopyProperty();
+            childrenLayout_->Arrange(snapshot, getActualBoundsProperty());
         }
     }
 
@@ -585,10 +845,45 @@ namespace Myra::Graphics2D::UI
         }
     }
 
+    Rectangle Widget::getBorderBoundsProperty() const
+    {
+        return getBoundsProperty() - margin_;
+    }
+
+    Rectangle Widget::getBackgroundBoundsProperty() const
+    {
+        return getBorderBoundsProperty() - borderThickness_;
+    }
+
+    bool Widget::getSuppressInvalidateMeasureProperty() const noexcept
+    {
+        return suppressInvalidateMeasure_;
+    }
+
+    void Widget::setSuppressInvalidateMeasureProperty(const bool value) noexcept
+    {
+        suppressInvalidateMeasure_ = value;
+    }
+
+    void Widget::SetIsPressedByUser(const bool value)
+    {
+        if (value != isPressed_ && PressedChangingByUser)
+        {
+            Events::ValueChangingEventArgs<bool> arguments(isPressed_, value);
+            PressedChangingByUser.Invoke(this, arguments);
+            if (arguments.Cancel)
+            {
+                return;
+            }
+        }
+        setIsPressedProperty(value);
+    }
+
     void Widget::InvalidateTransform()
     {
         transformDirty_ = true;
-        for (const std::shared_ptr<Widget>& child : getChildrenCopyProperty())
+        const std::vector<std::shared_ptr<Widget>> snapshot = getChildrenCopyProperty();
+        for (const std::shared_ptr<Widget>& child : snapshot)
         {
             child->InvalidateTransform();
         }
@@ -607,7 +902,10 @@ namespace Myra::Graphics2D::UI
             return;
         }
 
-        const Point point(layoutBounds_.X + left_, layoutBounds_.Y + top_);
+        const Point point(CheckedAdd(layoutBounds_.X, left_,
+                              "Widget transform X coordinate exceeds the supported integer range."),
+            CheckedAdd(layoutBounds_.Y, top_,
+                "Widget transform Y coordinate exceeds the supported integer range."));
         Graphics2D::Transform localTransform(
             Vector2(static_cast<float>(point.X), static_cast<float>(point.Y)),
             Vector2(transformOrigin_.X * static_cast<float>(layoutBounds_.Width),
@@ -633,9 +931,7 @@ namespace Myra::Graphics2D::UI
             return;
         }
         childrenCopy_ = children_;
-        std::stable_sort(childrenCopy_.begin(), childrenCopy_.end(), [](const auto& left, const auto& right) {
-            return left->getZIndexProperty() < right->getZIndexProperty();
-        });
+        Utility::UIUtils::SortWidgetsByZIndex(childrenCopy_);
         childrenDirty_ = false;
     }
 

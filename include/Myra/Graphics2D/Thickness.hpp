@@ -6,6 +6,9 @@
 // See NOTICE.md and UPSTREAM_MANIFEST.md.
 #pragma once
 
+#include <cstdint>
+#include <limits>
+#include <stdexcept>
 #include <string>
 
 #include "Microsoft/Xna/Framework/Rectangle.hpp"
@@ -60,14 +63,14 @@ namespace Myra::Graphics2D
         {
         }
 
-        [[nodiscard]] constexpr SharpRuntime::intcs getWidthProperty() const noexcept
+        [[nodiscard]] constexpr SharpRuntime::intcs getWidthProperty() const
         {
-            return Left + Right;
+            return CheckedAdd(Left, Right);
         }
 
-        [[nodiscard]] constexpr SharpRuntime::intcs getHeightProperty() const noexcept
+        [[nodiscard]] constexpr SharpRuntime::intcs getHeightProperty() const
         {
-            return Top + Bottom;
+            return CheckedAdd(Top, Bottom);
         }
 
         [[nodiscard]] constexpr bool getSameSizeProperty() const noexcept
@@ -88,6 +91,19 @@ namespace Myra::Graphics2D
 
         /** Returns the deterministic 32-bit hash algorithm used by upstream Myra. */
         [[nodiscard]] SharpRuntime::intcs GetHashCode() const noexcept;
+
+    private:
+        [[nodiscard]] static constexpr SharpRuntime::intcs CheckedAdd(
+            const SharpRuntime::intcs left, const SharpRuntime::intcs right)
+        {
+            const std::int64_t result = static_cast<std::int64_t>(left) + right;
+            if (result < std::numeric_limits<SharpRuntime::intcs>::min() ||
+                result > std::numeric_limits<SharpRuntime::intcs>::max())
+            {
+                throw std::overflow_error("Thickness dimensions exceed the supported integer range.");
+            }
+            return static_cast<SharpRuntime::intcs>(result);
+        }
     };
 
     [[nodiscard]] constexpr bool operator==(const Thickness& left, const Thickness& right) noexcept
@@ -103,5 +119,5 @@ namespace Myra::Graphics2D
     /** Returns a rectangle reduced by the given thickness, with dimensions clamped to zero. */
     [[nodiscard]] Microsoft::Xna::Framework::Rectangle operator-(
         Microsoft::Xna::Framework::Rectangle rectangle,
-        const Thickness& thickness) noexcept;
+        const Thickness& thickness);
 }

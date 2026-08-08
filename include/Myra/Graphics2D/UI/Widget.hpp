@@ -6,14 +6,20 @@
 // See NOTICE.md and UPSTREAM_MANIFEST.md.
 #pragma once
 
+#include <any>
+#include <concepts>
+#include <cstdint>
+#include <functional>
 #include <memory>
 #include <optional>
+#include <string>
 #include <vector>
 
 #include "Microsoft/Xna/Framework/Point.hpp"
 #include "Microsoft/Xna/Framework/Rectangle.hpp"
 #include "Microsoft/Xna/Framework/Vector2.hpp"
 #include "Myra/Events/MyraEventHandler.hpp"
+#include "Myra/Events/ValueChangingEventArgs.hpp"
 #include "Myra/Graphics2D/Thickness.hpp"
 #include "Myra/Graphics2D/Transform.hpp"
 #include "Myra/Graphics2D/UI/Enums.hpp"
@@ -51,6 +57,12 @@ namespace Myra::Graphics2D::UI
         Events::MyraEventHandler LocationChanged;
         Events::MyraEventHandler SizeChanged;
         Events::MyraEventHandler ArrangeUpdated;
+        Events::MyraEventHandler KeyboardFocusChanged;
+        Events::MyraEventHandler PressedChanged;
+        Events::MyraEventHandlerT<Events::ValueChangingEventArgs<bool>> PressedChangingByUser;
+
+        [[nodiscard]] const std::optional<std::string>& getStyleNameProperty() const noexcept;
+        void setStyleNameProperty(std::optional<std::string> value);
 
         [[nodiscard]] int getLeftProperty() const noexcept;
         void setLeftProperty(int value);
@@ -86,10 +98,26 @@ namespace Myra::Graphics2D::UI
         void setEnabledProperty(bool value);
         [[nodiscard]] bool getVisibleProperty() const noexcept;
         void setVisibleProperty(bool value);
+        [[nodiscard]] virtual DragDirection getDragDirectionProperty() const noexcept;
+        virtual void setDragDirectionProperty(DragDirection value) noexcept;
+        [[nodiscard]] bool getIsDraggableProperty() const noexcept;
         [[nodiscard]] int getZIndexProperty() const noexcept;
         void setZIndexProperty(int value);
+        [[nodiscard]] virtual const std::optional<MouseCursorType>& getMouseCursorProperty() const noexcept;
+        virtual void setMouseCursorProperty(std::optional<MouseCursorType> value);
+        [[nodiscard]] const std::optional<std::string>& getTooltipProperty() const noexcept;
+        void setTooltipProperty(std::optional<std::string> value);
+        [[nodiscard]] bool getIsModalProperty() const noexcept;
+        void setIsModalProperty(bool value) noexcept;
         [[nodiscard]] float getOpacityProperty() const noexcept;
         void setOpacityProperty(float value);
+        [[nodiscard]] virtual bool getIsPressedProperty() const noexcept;
+        virtual void setIsPressedProperty(bool value);
+        [[nodiscard]] virtual bool getClipToBoundsProperty() const noexcept;
+        virtual void setClipToBoundsProperty(bool value) noexcept;
+        [[nodiscard]] bool getAcceptsKeyboardFocusProperty() const noexcept;
+        void setAcceptsKeyboardFocusProperty(bool value) noexcept;
+        [[nodiscard]] bool getIsKeyboardFocusedProperty() const noexcept;
 
         [[nodiscard]] const Microsoft::Xna::Framework::Vector2& getScaleProperty() const noexcept;
         void setScaleProperty(Microsoft::Xna::Framework::Vector2 value);
@@ -97,13 +125,17 @@ namespace Myra::Graphics2D::UI
         void setTransformOriginProperty(Microsoft::Xna::Framework::Vector2 value);
         [[nodiscard]] float getRotationProperty() const noexcept;
         void setRotationProperty(float value);
+        [[nodiscard]] Widget* getDragHandleProperty() const noexcept;
+        void setDragHandleProperty(Widget* value) noexcept;
 
-        [[nodiscard]] const Microsoft::Xna::Framework::Rectangle& getBoundsProperty() const noexcept;
-        [[nodiscard]] Microsoft::Xna::Framework::Rectangle getActualBoundsProperty() const noexcept;
+        [[nodiscard]] Microsoft::Xna::Framework::Rectangle getBoundsProperty() const noexcept;
+        [[nodiscard]] Microsoft::Xna::Framework::Rectangle getActualBoundsProperty() const;
         [[nodiscard]] const Microsoft::Xna::Framework::Rectangle& getContainerBoundsProperty() const noexcept;
-        [[nodiscard]] int getMBPWidthProperty() const noexcept;
-        [[nodiscard]] int getMBPHeightProperty() const noexcept;
+        [[nodiscard]] int getMBPWidthProperty() const;
+        [[nodiscard]] int getMBPHeightProperty() const;
         [[nodiscard]] Widget* getParentProperty() const noexcept;
+        [[nodiscard]] const std::any& getTagProperty() const noexcept;
+        void setTagProperty(std::any value);
 
         [[nodiscard]] ILayout* getChildrenLayoutProperty() const noexcept;
         void setChildrenLayoutProperty(ILayout* value) noexcept;
@@ -113,6 +145,55 @@ namespace Myra::Graphics2D::UI
         [[nodiscard]] bool RemoveChild(const Widget* child);
         void ClearChildren();
         void RemoveFromParent();
+
+        using WidgetPredicate = std::function<bool(Widget&)>;
+
+        /** @brief Counts descendants, optionally excluding invisible subtrees. */
+        [[nodiscard]] std::size_t CalculateTotalChildCount(bool visibleOnly);
+
+        /** @brief Finds the first descendant with the requested identifier in Z-order. */
+        [[nodiscard]] Widget* FindChildById(const std::string& id);
+
+        /** @brief Returns the requested descendant or throws when it is absent. */
+        [[nodiscard]] Widget& EnsureWidgetById(const std::string& id);
+
+        /** @brief Finds the first descendant matching a predicate in depth-first Z-order. */
+        [[nodiscard]] Widget* FindChild(const WidgetPredicate& predicate = {});
+
+        /** @brief Returns matching direct children or descendants in depth-first Z-order. */
+        [[nodiscard]] std::vector<Widget*> GetChildren(
+            bool recursive = false, const WidgetPredicate& predicate = {});
+
+        template<typename WidgetT>
+            requires std::derived_from<WidgetT, Widget>
+        [[nodiscard]] WidgetT* FindChildById(const std::string& id)
+        {
+            return FindChild<WidgetT>([&id](WidgetT& widget) {
+                const std::optional<std::string>& widgetId = widget.getIdProperty();
+                return widgetId.has_value() && *widgetId == id;
+            });
+        }
+
+        template<typename WidgetT>
+            requires std::derived_from<WidgetT, Widget>
+        [[nodiscard]] WidgetT* FindChild(
+            const std::function<bool(WidgetT&)>& predicate = {})
+        {
+            const std::vector<std::shared_ptr<Widget>> snapshot = getChildrenCopyProperty();
+            for (const std::shared_ptr<Widget>& widget : snapshot)
+            {
+                WidgetT* const casted = dynamic_cast<WidgetT*>(widget.get());
+                if (casted != nullptr && (!predicate || predicate(*casted)))
+                {
+                    return casted;
+                }
+                if (WidgetT* const descendant = widget->FindChild<WidgetT>(predicate))
+                {
+                    return descendant;
+                }
+            }
+            return nullptr;
+        }
 
         [[nodiscard]] Microsoft::Xna::Framework::Point Measure(
             Microsoft::Xna::Framework::Point availableSize);
@@ -132,6 +213,9 @@ namespace Myra::Graphics2D::UI
         [[nodiscard]] bool ContainsGlobalPoint(Microsoft::Xna::Framework::Point globalPosition);
 
         void OnAttachedPropertyLayoutChanged(MML::AttachedPropertyOption option) override;
+        virtual void OnLostKeyboardFocus();
+        virtual void OnGotKeyboardFocus();
+        virtual void OnPressedChanged();
 
     protected:
         [[nodiscard]] virtual Microsoft::Xna::Framework::Point InternalMeasure(
@@ -140,15 +224,24 @@ namespace Myra::Graphics2D::UI
         virtual void OnVisibleChanged();
         virtual void OnChildAdded(Widget& child);
         virtual void OnChildRemoved(Widget& child);
+        [[nodiscard]] Microsoft::Xna::Framework::Rectangle getBorderBoundsProperty() const;
+        [[nodiscard]] Microsoft::Xna::Framework::Rectangle getBackgroundBoundsProperty() const;
         void InvalidateTransform();
+        void SetIsPressedByUser(bool value);
+        [[nodiscard]] bool getSuppressInvalidateMeasureProperty() const noexcept;
+        void setSuppressInvalidateMeasureProperty(bool value) noexcept;
 
     private:
+        friend class Desktop;
+
         [[nodiscard]] const Graphics2D::Transform& getTransformProperty();
+        void setIsKeyboardFocusedProperty(bool value);
         void UpdateTransform();
         void UpdateChildren();
         void FireLocationChanged();
         void FireSizeChanged();
 
+        std::optional<std::string> styleName_;
         Thickness margin_;
         Thickness borderThickness_;
         Thickness padding_;
@@ -165,19 +258,32 @@ namespace Myra::Graphics2D::UI
         VerticalAlignment verticalAlignment_ = VerticalAlignment::Top;
         bool measureDirty_ = true;
         bool arrangeDirty_ = true;
+        bool suppressInvalidateMeasure_ = false;
+        std::uint64_t measureInvalidationVersion_ = 0;
+        std::uint64_t arrangeInvalidationVersion_ = 0;
         Microsoft::Xna::Framework::Point lastMeasureSize_;
         Microsoft::Xna::Framework::Point lastMeasureAvailableSize_;
         Microsoft::Xna::Framework::Rectangle containerBounds_;
         Microsoft::Xna::Framework::Rectangle layoutBounds_;
         bool visible_ = true;
         bool enabled_ = true;
+        DragDirection dragDirection_ = DragDirection::None;
+        std::optional<MouseCursorType> mouseCursor_;
+        std::optional<std::string> tooltip_;
+        bool isModal_ = false;
         float opacity_ = 1.0F;
+        bool isPressed_ = false;
+        bool clipToBounds_ = false;
+        bool acceptsKeyboardFocus_ = false;
+        bool isKeyboardFocused_ = false;
         Microsoft::Xna::Framework::Vector2 scale_{1.0F, 1.0F};
         Microsoft::Xna::Framework::Vector2 transformOrigin_{0.5F, 0.5F};
         float rotation_ = 0.0F;
+        Widget* dragHandle_ = nullptr;
         bool transformDirty_ = true;
         std::optional<Graphics2D::Transform> transform_;
         Widget* parent_ = nullptr;
+        std::any tag_;
         Desktop* desktop_ = nullptr;
         ILayout* childrenLayout_ = nullptr;
         bool childrenDirty_ = true;

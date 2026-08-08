@@ -46,8 +46,8 @@ namespace Myra::Graphics2D::UI
         [[nodiscard]] int GetCellLocationX(int column) const noexcept;
         [[nodiscard]] int GetCellLocationY(int row) const noexcept;
         [[nodiscard]] Microsoft::Xna::Framework::Rectangle GetCellRectangle(int column, int row) const noexcept;
-        [[nodiscard]] const std::shared_ptr<Proportion>& GetColumnProportion(int column) const noexcept;
-        [[nodiscard]] const std::shared_ptr<Proportion>& GetRowProportion(int row) const noexcept;
+        [[nodiscard]] const std::shared_ptr<Proportion>& GetColumnProportion(int column) const;
+        [[nodiscard]] const std::shared_ptr<Proportion>& GetRowProportion(int row) const;
 
         [[nodiscard]] Microsoft::Xna::Framework::Point Measure(
             const std::vector<std::shared_ptr<Widget>>& widgets,

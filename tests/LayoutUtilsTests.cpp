@@ -5,6 +5,9 @@
 
 #include <gtest/gtest.h>
 
+#include <limits>
+#include <stdexcept>
+
 using Microsoft::Xna::Framework::Point;
 using Myra::Graphics2D::UI::HorizontalAlignment;
 using Myra::Graphics2D::UI::LayoutUtils;
@@ -25,4 +28,8 @@ TEST(LayoutUtilsTests, AlignsAndStretchesUsingUpstreamRules)
     EXPECT_EQ(stretched.Y, 0);
     EXPECT_EQ(stretched.Width, 100);
     EXPECT_EQ(stretched.Height, 60);
+
+    EXPECT_THROW(static_cast<void>(LayoutUtils::Align(
+        Point(std::numeric_limits<int>::max(), 0), Point(std::numeric_limits<int>::min(), 0),
+        HorizontalAlignment::Right, VerticalAlignment::Top)), std::overflow_error);
 }

@@ -7,6 +7,8 @@
 #pragma once
 
 #include <cmath>
+#include <limits>
+#include <stdexcept>
 
 #include "Microsoft/Xna/Framework/Matrix.hpp"
 #include "Microsoft/Xna/Framework/Point.hpp"
@@ -53,6 +55,22 @@ namespace Myra::Utility
             return {RoundToEven(value.X), RoundToEven(value.Y)};
         }
 
+        /**
+         * @brief Truncates a finite float to the CNA/.NET integer range.
+         * @throws std::invalid_argument if @p value is NaN or infinite.
+         * @throws std::overflow_error if the truncated result is outside the
+         *         representable integer range.
+         */
+        [[nodiscard]] static SharpRuntime::intcs TruncateToInt(const float value)
+        {
+            if (!std::isfinite(value))
+            {
+                throw std::invalid_argument("Cannot convert a non-finite floating-point value to an integer.");
+            }
+
+            return CheckedIntegralResult(std::trunc(static_cast<double>(value)));
+        }
+
         [[nodiscard]] static Microsoft::Xna::Framework::Vector2 ToVector2(
             const Microsoft::Xna::Framework::Point& value)
         {
@@ -78,10 +96,10 @@ namespace Myra::Utility
                 static_cast<float>(rectangle.Width) * transformScale.X,
                 static_cast<float>(rectangle.Height) * transformScale.Y);
 
-            return {static_cast<SharpRuntime::intcs>(position.X),
-                    static_cast<SharpRuntime::intcs>(position.Y),
-                    static_cast<SharpRuntime::intcs>(scale.X),
-                    static_cast<SharpRuntime::intcs>(scale.Y)};
+            return {TruncateToInt(position.X),
+                    TruncateToInt(position.Y),
+                    TruncateToInt(scale.X),
+                    TruncateToInt(scale.Y)};
         }
 
         static void CalculateInverse(const Microsoft::Xna::Framework::Matrix& source,
@@ -125,22 +143,39 @@ namespace Myra::Utility
         }
 
     private:
+        [[nodiscard]] static SharpRuntime::intcs CheckedIntegralResult(const double value)
+        {
+            constexpr double minimum = static_cast<double>(std::numeric_limits<SharpRuntime::intcs>::min());
+            constexpr double maximum = static_cast<double>(std::numeric_limits<SharpRuntime::intcs>::max());
+            if (value < minimum || value > maximum)
+            {
+                throw std::overflow_error("A floating-point value exceeds the supported integer range.");
+            }
+
+            return static_cast<SharpRuntime::intcs>(value);
+        }
+
         [[nodiscard]] static SharpRuntime::intcs RoundToEven(const float value)
         {
-            const float lower = std::floor(value);
-            const float fraction = value - lower;
-            if (fraction < 0.5F)
+            if (!std::isfinite(value))
             {
-                return static_cast<SharpRuntime::intcs>(lower);
+                throw std::invalid_argument("Cannot round a non-finite floating-point value to an integer.");
             }
 
-            if (fraction > 0.5F)
+            const double lower = std::floor(static_cast<double>(value));
+            const double fraction = static_cast<double>(value) - lower;
+            double rounded = lower;
+            if (fraction > 0.5)
             {
-                return static_cast<SharpRuntime::intcs>(lower + 1.0F);
+                rounded = lower + 1.0;
+            }
+            else if (fraction == 0.5)
+            {
+                const auto lowerInteger = CheckedIntegralResult(lower);
+                rounded = (lowerInteger % 2 == 0) ? lower : lower + 1.0;
             }
 
-            const auto lowerInteger = static_cast<SharpRuntime::intcs>(lower);
-            return (lowerInteger % 2 == 0) ? lowerInteger : lowerInteger + 1;
+            return CheckedIntegralResult(rounded);
         }
     };
 }

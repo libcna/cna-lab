@@ -6,16 +6,21 @@ find_package(Python3 REQUIRED COMPONENTS Interpreter)
 add_executable(myra_cna_unit_tests
     AttachedPropertiesRegistryTests.cpp
     AttributeMetadataTests.cpp
+    BaseContextTests.cpp
     BaseObjectTests.cpp
     EventHandlingStrategyTests.cpp
     EventsExtensionsTests.cpp
     EventsTests.cpp
+    InputExtensionTests.cpp
     InputEventsManagerTests.cpp
     LayoutUtilsTests.cpp
     MathematicsTests.cpp
+    PathUtilsTests.cpp
+    RestTests.cpp
     StringUtilsTests.cpp
     ThicknessTests.cpp
     TypeRegistryTests.cpp
+    ValueCodecRegistryTests.cpp
     VersionTests.cpp
     WidgetContractsTests.cpp
 )
@@ -27,8 +32,11 @@ add_executable(myra_cna_unit_tests
 if(MYRA_CNA_CNA_LINKED)
     target_sources(myra_cna_unit_tests PRIVATE
         ColorHSVTests.cpp
+        CrossEngineStuffTests.cpp
         GridLayoutTests.cpp
         IHasColorTests.cpp
+        MMLContextTests.cpp
+        MyraTypeRegistryTests.cpp
         PanelTests.cpp
         ProportionTests.cpp
         SingleItemLayoutTests.cpp
@@ -37,6 +45,7 @@ if(MYRA_CNA_CNA_LINKED)
         TransformableContractTests.cpp
         TransformTests.cpp
         TypeSerializersTests.cpp
+        UIUtilsTests.cpp
         WidgetTests.cpp
     )
 else()

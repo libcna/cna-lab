@@ -56,10 +56,10 @@ namespace
         layout.setChildProperty(child);
 
         layout.Arrange(container.getChildrenProperty(), Rectangle(1, 2, 100, 80));
-        EXPECT_EQ(child->getBoundsProperty(), Rectangle(1, 2, 20, 30));
+        EXPECT_EQ(child->getBoundsProperty(), Rectangle(0, 0, 20, 30));
 
         child->setVisibleProperty(false);
         layout.Arrange(container.getChildrenProperty(), Rectangle(10, 20, 30, 40));
-        EXPECT_EQ(child->getBoundsProperty(), Rectangle(1, 2, 20, 30));
+        EXPECT_EQ(child->getBoundsProperty(), Rectangle(0, 0, 20, 30));
     }
 }

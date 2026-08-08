@@ -5,6 +5,9 @@
 
 #include <gtest/gtest.h>
 
+#include <limits>
+#include <stdexcept>
+
 namespace
 {
     using Myra::Utility::Mathematics;
@@ -25,5 +28,17 @@ namespace
         EXPECT_FLOAT_EQ(Mathematics::Clamp(-1.0F, 0.0F, 1.0F), 0.0F);
         EXPECT_FLOAT_EQ(Mathematics::Clamp(0.25F, 0.0F, 1.0F), 0.25F);
         EXPECT_FLOAT_EQ(Mathematics::Clamp(2.0F, 0.0F, 1.0F), 1.0F);
+    }
+
+    TEST(MathematicsTests, IntegerConversionsRejectNonFiniteAndOutOfRangeValues)
+    {
+        EXPECT_EQ(Mathematics::TruncateToInt(3.8F), 3);
+        EXPECT_EQ(Mathematics::TruncateToInt(-3.8F), -3);
+        EXPECT_THROW(static_cast<void>(Mathematics::TruncateToInt(
+            std::numeric_limits<float>::infinity())), std::invalid_argument);
+        EXPECT_THROW(static_cast<void>(Mathematics::TruncateToInt(
+            std::numeric_limits<float>::quiet_NaN())), std::invalid_argument);
+        EXPECT_THROW(static_cast<void>(Mathematics::TruncateToInt(
+            std::numeric_limits<float>::max())), std::overflow_error);
     }
 }

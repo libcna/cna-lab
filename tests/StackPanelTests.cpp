@@ -6,6 +6,7 @@
 #include <gtest/gtest.h>
 
 #include <memory>
+#include <stdexcept>
 
 namespace
 {
@@ -86,5 +87,17 @@ namespace
         panel.Arrange(Rectangle(0, 0, 100, 20));
         EXPECT_EQ(panel.GetCellSize(0), 25);
         EXPECT_EQ(panel.GetCellSize(1), 10);
+    }
+
+    TEST(StackPanelTests, SupportsNullDefaultButRejectsNullExplicitProportions)
+    {
+        HorizontalStackPanel panel;
+        auto child = std::make_shared<FixedWidget>(Point(10, 10));
+        panel.AddWidget(child);
+        panel.setDefaultProportionProperty(nullptr);
+
+        EXPECT_NO_THROW(static_cast<void>(panel.Measure(Point(100, 20))));
+        panel.getProportionsProperty().Add(nullptr);
+        EXPECT_THROW(static_cast<void>(panel.Measure(Point(101, 20))), std::logic_error);
     }
 }
