@@ -395,7 +395,7 @@ are green, and the build uses no more than three parallel jobs.
 - [ ] P5-012 Port `Graphics2D/UI/Container.cs`.
 - [x] P5-013 Port `Graphics2D/UI/Layouts/SingleItemLayout.cs`.
 - [ ] P5-014 Port `Graphics2D/UI/Layouts/StackPanelLayout.cs`.
-- [ ] P5-015 Port `Graphics2D/UI/Layouts/GridLayout.cs`.
+- [x] P5-015 Port `Graphics2D/UI/Layouts/GridLayout.cs`.
 - [ ] P5-016 Port `Graphics2D/UI/Desktop.cs` widget ordering, layout, focus, menus, tooltip, dispose.
 - [ ] P5-017 Port `Graphics2D/UI/Desktop.Input.cs` against CNA keyboard/mouse/touch snapshots.
 - [ ] P5-018 Add CNA `TextInputEXT` subscription lifecycle to Desktop/TextBox focus transitions.
@@ -422,7 +422,8 @@ are green, and the build uses no more than three parallel jobs.
 - [ ] P6-013 Port `Containers/StackPanel.cs`.
 - [ ] P6-014 Port `Containers/HorizontalStackPanel.cs`.
 - [ ] P6-015 Port `Containers/VerticalStackPanel.cs`.
-- [ ] P6-016 Port `Containers/Grid.cs`.
+- [x] P6-016a Implement `Grid` layout and attached row/column/span property subset.
+- [ ] P6-016 Port `Containers/Grid.cs` selection, style, debug render, input, and observable proportion semantics.
 - [x] P6-017 Port `Containers/Proportion.cs`.
 - [ ] P6-018 Port `Containers/ScrollViewer.cs`.
 - [ ] P6-019 Port `Containers/SplitPane.cs`.

@@ -4,8 +4,8 @@
 
 - Active branch: `develop`.
 - Last validated commit at the start of this autonomous session:
-  `62f3ab4` (`Add explicit MML type registry`).
-- The worktree was clean before the current attached-properties implementation.
+  `140d1f9` (`Port Myra attached properties registry`).
+- The worktree was clean before the current GridLayout implementation.
 - The authoritative upstream reference remains Myra revision
   `0d79b939310bfe1d00b21803fe15e291caf60aa1` at `/tmp/myra-upstream`.
 
@@ -29,6 +29,9 @@ and a manifest entry. The current ported surface includes:
 - Myra's typed `AttachedPropertyInfo<T>`, global attached-property registry,
   base-type enumeration via `TypeRegistry`, change notifications, and widget
   measure/arrange invalidation options.
+- `GridLayout` plus the layout/attached-property subset of `Grid`, including
+  Part/Auto/Fill/Pixels proportions, spacing, spans, cell geometry, and child
+  placement.
 
 The widget work is deliberately partial: no drawing traversal, desktop
 propagation, style application, hit testing, or input dispatch has been
@@ -36,7 +39,7 @@ claimed as complete. `UPSTREAM_MANIFEST.md` records this per source.
 
 ## Latest validation
 
-Both configurations are green with the uncommitted attached-properties change:
+Both configurations are green with the uncommitted GridLayout change:
 
 ```bash
 cmake --build build --parallel 3
@@ -45,7 +48,7 @@ ctest --test-dir build --output-on-failure --parallel 3
 
 CCACHE_DIR=/tmp/myra-cna-ccache cmake --build build-cna --parallel 3
 ctest --test-dir build-cna --output-on-failure --parallel 3
-# 50/50 tests passed, with MYRA_CNA_LINK_CNA=ON and SOFTWARE backend
+# 52/52 tests passed, with MYRA_CNA_LINK_CNA=ON and SOFTWARE backend
 ```
 
 All compilation commands must continue to use at most three workers.
@@ -54,11 +57,10 @@ All compilation commands must continue to use at most three workers.
 
 1. Keep `README.md`, `plan.md`, and this file synchronized with the actual
    partial-widget implementation.
-2. Implement MML value codecs before XML loading; the type and
-   attached-property registries are now available to consume them.
-3. Continue layout work (`StackPanelLayout`, then `GridLayout`) when its
-   required metadata/ownership semantics are tested. Do not represent partial
-   renderer, font, desktop, or input support as complete.
+2. Continue layout work with `StackPanelLayout`, which is now unblocked by
+   `GridLayout`, then its `StackPanel` container subset.
+3. Implement MML value codecs before XML loading. Do not represent partial
+   renderer, font, desktop, input, or Grid selection/style support as complete.
 
 ## Known limitations and decisions
 
@@ -74,10 +76,13 @@ All compilation commands must continue to use at most three workers.
   human decision rather than changing it.
 - `Widget::AddChild` deliberately reparents a child to preserve one owning
   parent. This necessary C++ difference is `DEV-011` and is covered by tests.
+- `Grid` is only a layout subset. Its proportion collections currently use
+  vectors rather than sharp-runtime `ObservableCollection`; see `DEV-014` and
+  the remaining P6-016 task before claiming complete Grid parity.
 
 ## Recommended next starting point
 
 Read this file first, then inspect `plan.md` against the current source. The
-next implementation task is Phase 4's MML value codecs, beginning with
-primitive/optional/enum values and the already ported geometry types. Layout
-work can proceed independently after that without a renderer or dependency.
+next implementation task is `StackPanelLayout`, followed by the corresponding
+layout subset of `StackPanel`. MML value codecs remain the next independent MML
+foundation task.

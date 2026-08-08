@@ -31,9 +31,11 @@ add_library(MYRA_CNA STATIC
     src/Myra/Graphics2D/Thickness.cpp
     src/Myra/Graphics2D/UI/Container.cpp
     src/Myra/Graphics2D/UI/Containers/Panel.cpp
+    src/Myra/Graphics2D/UI/Containers/Grid.cpp
     src/Myra/Graphics2D/UI/Containers/Proportion.cpp
     src/Myra/Graphics2D/UI/InputContext.cpp
     src/Myra/Graphics2D/UI/InputEventsManager.cpp
+    src/Myra/Graphics2D/UI/Layouts/GridLayout.cpp
     src/Myra/Graphics2D/UI/Widget.cpp
     src/Myra/MML/AttachedPropertiesRegistry.cpp
     src/Myra/MML/BaseObject.cpp

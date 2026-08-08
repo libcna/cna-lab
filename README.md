@@ -8,10 +8,12 @@ on FNA or .NET at runtime.
 The project is in an early, validated retained-mode layout stage. In addition
 to build, attribution, provenance, events, and utility foundations, it has
 partial ports of `Widget`, `Container`, `Panel`, `Proportion`, and
-`SingleItemLayout<T>`, along with MML type and attached-property registries.
-They support layout measurement/arrangement, transforms, explicit child
-ownership, and registered metadata; rendering, Desktop integration, styles,
-MML loading, rich text, and interactive controls are not implemented yet. See [NEXT.md](NEXT.md) for the current hand-off state and
+`SingleItemLayout<T>`, `GridLayout`, and layout-only `Grid`, along with MML
+type and attached-property registries. They support layout
+measurement/arrangement, transforms, explicit child ownership, and registered
+metadata; rendering, Desktop integration, styles, MML loading, rich text, Grid
+selection/input, and interactive controls are not implemented yet. See
+[NEXT.md](NEXT.md) for the current hand-off state and
 [plan.md](plan.md) for the full compatibility backlog.
 
 ## Build
