@@ -70,6 +70,7 @@ add_library(MYRA_CNA STATIC
     src/Myra/Graphics2D/UI/Simple/SeparatorWidget.cpp
     src/Myra/Graphics2D/UI/Simple/VerticalSeparator.cpp
     src/Myra/Graphics2D/UI/Widget.cpp
+    src/Myra/Graphics2D/UI/WidgetInput.cpp
     src/Myra/MML/AttachedPropertiesRegistry.cpp
     src/Myra/MML/BaseContext.cpp
     src/Myra/MML/BaseObject.cpp

@@ -78,8 +78,8 @@ behavioral redesign.
 
 ### 1.4 Whole-port completion and remaining-effort estimate
 
-Checkpoint: 2026-08-09, after P6-021a. The mechanical backlog count is
-**141/291 checked tasks (48.5%)**. That is useful for auditing plan state but is
+Checkpoint: 2026-08-09, after P5-010a. The mechanical backlog count is
+**142/291 checked tasks (48.8%)**. That is useful for auditing plan state but is
 not a parity percentage: small foundation subtasks and large end-to-end
 features each count once, while the remaining font/text, Desktop/input,
 advanced-widget, style, data/property-grid, asset, and release-parity work is
@@ -97,13 +97,13 @@ are planning ranges rather than a delivery promise.
 | Phase 2 — CNA graphics | 20/24 | 24–48 |
 | Phase 3 — font/text/assets | 4/20 | 180–300 |
 | Phase 4 — MML/XML | 31/36 | 40–80 |
-| Phase 5 — Widget/Desktop/input | 30/39 | 80–140 |
+| Phase 5 — Widget/Desktop/input | 31/39 | 72–128 |
 | Phase 6 — controls/editing | 11/38 | 150–250 |
 | Phase 7 — selectors/windows/dialogs | 0/24 | 180–300 |
 | Phase 8 — styles/default skin | 0/14 | 140–240 |
 | Phase 9 — file/data/property grids | 1/21 | 180–320 |
 | Phase 10 — parity/release | 0/28 | 140–240 |
-| **Whole remaining technical port** | **141/291 complete** | **1,154–2,030** |
+| **Whole remaining technical port** | **142/291 complete** | **1,146–2,018** |
 
 For scheduling, use **about 1,600 focused hours remaining** as the midpoint,
 with **1,200–2,000 hours** as the sensible rounded range. This assumes prompt
@@ -458,7 +458,7 @@ are green, and the build uses no more than three parallel jobs.
 - [ ] P5-008 Port `Graphics2D/UI/Widget.cs` properties/defaults/invalidation/render traversal.
 - [x] P5-009a Implement explicit child ownership, reparenting, and stable Z-index snapshots from `Widget.Children.cs`.
 - [x] P5-009 Port `Graphics2D/UI/Widget.Children.cs` with explicit ownership, reparenting, recursive queries, typed ID lookup, visibility-aware counts, and cycle rejection.
-- [ ] P5-010a Port the Desktop-independent Widget input hook/event surface needed by controls: virtual mouse/touch/key callbacks and CNA `Keys` event forwarding. Keep hit testing, queued position transitions, wheel/Desktop state, hover/cursor/tooltip, double-click timing, and drag tracking in P5-010/P5-016/P5-017; keep character-index semantics gated on P3-006.
+- [x] P5-010a Port the Desktop-independent Widget input hook/event surface needed by controls: virtual mouse/touch/key callbacks and CNA `Keys` event forwarding. Pointer dispatch preserves upstream hook-before-event ordering, while direct key callbacks raise typed events. Keep hit testing, queued position transitions, wheel/Desktop state, hover/cursor/tooltip, double-click timing, and drag tracking in P5-010/P5-016/P5-017; keep character-index semantics gated on P3-006.
 - [ ] P5-010 Port `Graphics2D/UI/Widget.Input.cs` bubbling/capturing/hover/drag semantics.
 - [x] P5-011a Port `ContentControl`'s abstract `IContent` contract and inherited MML content adapter; its former deep-copy dependency is now completed by P5-011/P5-008h.
 - [x] P5-011 Port `Graphics2D/UI/ContentControl.cs`, including its deep-copy behavior after Widget cloning exists. Nullable content is preserved safely during cloning (`DEV-041`).

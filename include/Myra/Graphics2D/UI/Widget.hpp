@@ -2,7 +2,8 @@
 // Copyright (c) 2026 Robert Vokáč and Myra-CNA contributors.
 // Portions derived from MyraUI/Myra, MIT License,
 // Copyright (c) 2017-2020 The Myra Team.
-// Ported from: src/Myra/Graphics2D/UI/Widget.cs and src/Myra/Graphics2D/UI/Widget.Children.cs at 0d79b939310bfe1d00b21803fe15e291caf60aa1.
+// Ported from: src/Myra/Graphics2D/UI/Widget.cs, src/Myra/Graphics2D/UI/Widget.Children.cs,
+// and src/Myra/Graphics2D/UI/Widget.Input.cs at 0d79b939310bfe1d00b21803fe15e291caf60aa1.
 // See NOTICE.md and UPSTREAM_MANIFEST.md.
 #pragma once
 
@@ -16,15 +17,18 @@
 #include <string>
 #include <vector>
 
+#include "Microsoft/Xna/Framework/Input/Keys.hpp"
 #include "Microsoft/Xna/Framework/Point.hpp"
 #include "Microsoft/Xna/Framework/Rectangle.hpp"
 #include "Microsoft/Xna/Framework/Vector2.hpp"
+#include "Myra/Events/GenericEventArgs.hpp"
 #include "Myra/Events/MyraEventHandler.hpp"
 #include "Myra/Events/ValueChangingEventArgs.hpp"
 #include "Myra/Graphics2D/Thickness.hpp"
 #include "Myra/Graphics2D/Transform.hpp"
 #include "Myra/Graphics2D/UI/Enums.hpp"
 #include "Myra/Graphics2D/UI/ILayout.hpp"
+#include "Myra/Graphics2D/UI/InputEventsManager.hpp"
 #include "Myra/Graphics2D/UI/ITransformable.hpp"
 #include "Myra/MML/BaseObject.hpp"
 
@@ -48,7 +52,7 @@ namespace Myra::Graphics2D::UI
     };
 
     /** @brief Base class for retained-mode Myra UI widgets. */
-    class Widget : public MML::BaseObject, public ITransformable
+    class Widget : public MML::BaseObject, public ITransformable, public IInputEventsProcessor
     {
     public:
         Widget();
@@ -64,6 +68,19 @@ namespace Myra::Graphics2D::UI
         Events::MyraEventHandler LocationChanged;
         Events::MyraEventHandler SizeChanged;
         Events::MyraEventHandler ArrangeUpdated;
+        Events::MyraEventHandler MouseLeft;
+        Events::MyraEventHandler MouseEntered;
+        Events::MyraEventHandler MouseMoved;
+        Events::MyraEventHandler TouchLeft;
+        Events::MyraEventHandler TouchEntered;
+        Events::MyraEventHandler TouchMoved;
+        Events::MyraEventHandler TouchDown;
+        Events::MyraEventHandler TouchUp;
+        Events::MyraEventHandler TouchDoubleClick;
+        Events::MyraEventHandlerT<
+            Events::GenericEventArgs<Microsoft::Xna::Framework::Input::Keys>> KeyUp;
+        Events::MyraEventHandlerT<
+            Events::GenericEventArgs<Microsoft::Xna::Framework::Input::Keys>> KeyDown;
         Events::MyraEventHandler KeyboardFocusChanged;
         Events::MyraEventHandler PressedChanged;
         Events::MyraEventHandlerT<Events::ValueChangingEventArgs<bool>> PressedChangingByUser;
@@ -258,6 +275,17 @@ namespace Myra::Graphics2D::UI
         [[nodiscard]] bool ContainsGlobalPoint(Microsoft::Xna::Framework::Point globalPosition);
 
         void OnAttachedPropertyLayoutChanged(MML::AttachedPropertyOption option) override;
+        virtual void OnMouseLeft();
+        virtual void OnMouseEntered();
+        virtual void OnMouseMoved();
+        virtual void OnTouchLeft();
+        virtual void OnTouchEntered();
+        virtual void OnTouchMoved();
+        virtual void OnTouchDown();
+        virtual void OnTouchUp();
+        virtual void OnTouchDoubleClick();
+        virtual void OnKeyDown(Microsoft::Xna::Framework::Input::Keys key);
+        virtual void OnKeyUp(Microsoft::Xna::Framework::Input::Keys key);
         virtual void OnLostKeyboardFocus();
         virtual void OnGotKeyboardFocus();
         virtual void OnPressedChanged();
@@ -306,6 +334,7 @@ namespace Myra::Graphics2D::UI
 
         [[nodiscard]] virtual Microsoft::Xna::Framework::Point InternalMeasure(
             Microsoft::Xna::Framework::Point availableSize);
+        void FireKeyDown(Microsoft::Xna::Framework::Input::Keys key);
         virtual void InternalArrange();
         virtual void OnVisibleChanged();
         virtual void OnChildAdded(Widget& child);
@@ -327,6 +356,7 @@ namespace Myra::Graphics2D::UI
         friend class Desktop;
 
         [[nodiscard]] const Graphics2D::Transform& getTransformProperty();
+        void ProcessEvent(InputEventType eventType) override;
         void setIsKeyboardFocusedProperty(bool value);
         void UpdateTransform();
         void UpdateChildren();

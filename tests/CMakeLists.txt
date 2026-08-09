@@ -65,6 +65,7 @@ if(MYRA_CNA_CNA_LINKED)
         TypeSerializersTests.cpp
         UIUtilsTests.cpp
         WidgetCloneTests.cpp
+        WidgetInputTests.cpp
         WidgetRenderTests.cpp
         WidgetTests.cpp
     )
