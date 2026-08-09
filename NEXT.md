@@ -12,8 +12,10 @@
   test-asset audit, and local commit `c81ed69` (`Complete widget rendering
   traversal`) completes P5-008i. Local commit `e28cf33` (`Implement Image widget
   core`) completes P6-001a, and local commit `811fe75` (`Implement separator
-  widget hierarchy`) completes P6-009a. The current worktree implements and
-  broadly validates P6-021a's style-independent ProgressBar hierarchy.
+  widget hierarchy`) completes P6-009a. Local commit `04a4645` (`Implement
+  ProgressBar widget hierarchy`) completes and broadly validates P6-021a.
+  No P5-010a implementation has started; the repository is at a coherent task
+  boundary for a new context.
 - The authoritative upstream reference remains Myra revision
   `0d79b939310bfe1d00b21803fe15e291caf60aa1` at `/tmp/myra-upstream`.
 - The font audit additionally pinned FontStashSharp 1.5.6 at
