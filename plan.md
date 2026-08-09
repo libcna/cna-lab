@@ -440,7 +440,7 @@ are green, and the build uses no more than three parallel jobs.
 
 ### Phase 6 — simple widgets, containers, range controls, and text editing
 
-- [ ] P6-001a Port the FNA-selected dependency-safe `Simple/Image.cs` core: retained visual-state images, measurement, tint/resize rendering, and exact-type cloning. Keep style application in P6-001/P8-002.
+- [x] P6-001a Port the FNA-selected dependency-safe `Simple/Image.cs` core: retained visual-state images, maximum-state measurement, tint/resize rendering, exact-type cloning, resize enum codec, and external-image MML metadata (`DEV-046`). Keep Color MML text and style application in P4-013/P6-001/P8-002.
 - [ ] P6-001 Port `Simple/Image.cs`, including `ImageStyle` application after P8-002.
 - [ ] P6-002 Port `Simple/Label.cs`.
 - [ ] P6-003 Port `Simple/ButtonBase.cs`.
@@ -449,6 +449,7 @@ are green, and the build uses no more than three parallel jobs.
 - [ ] P6-006 Port `Simple/CheckButtonBase.cs`.
 - [ ] P6-007 Port `Simple/CheckButton.cs`.
 - [ ] P6-008 Port `Simple/RadioButton.cs`.
+- [ ] P6-009a Port the style-independent separator hierarchy core: thickness/orientation measurement, concrete alignment defaults, inherited image rendering, exact-type cloning, and MML metadata. Keep stylesheet constructors/application in P6-009–P6-011/P8-004.
 - [ ] P6-009 Port `Simple/SeparatorWidget.cs`.
 - [ ] P6-010 Port `Simple/HorizontalSeparator.cs`.
 - [ ] P6-011 Port `Simple/VerticalSeparator.cs`.

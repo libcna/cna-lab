@@ -16,6 +16,7 @@
 #include <vector>
 
 #include "Microsoft/Xna/Framework/Vector2.hpp"
+#include "Myra/Graphics2D/IImage.hpp"
 #include "Myra/Graphics2D/Thickness.hpp"
 #include "Myra/Graphics2D/UI/Container.hpp"
 #include "Myra/Graphics2D/UI/ContentControl.hpp"
@@ -24,6 +25,7 @@
 #include "Myra/Graphics2D/UI/Containers/Proportion.hpp"
 #include "Myra/Graphics2D/UI/Containers/StackPanel.hpp"
 #include "Myra/Graphics2D/UI/Project.hpp"
+#include "Myra/Graphics2D/UI/Simple/Image.hpp"
 #include "Myra/Graphics2D/UI/Widget.hpp"
 
 namespace Myra::MML
@@ -38,6 +40,8 @@ namespace Myra::MML
         using Graphics2D::UI::Grid;
         using Graphics2D::UI::HorizontalAlignment;
         using Graphics2D::UI::HorizontalStackPanel;
+        using Graphics2D::UI::Image;
+        using Graphics2D::UI::ImageResizeMode;
         using Graphics2D::UI::MouseCursorType;
         using Graphics2D::UI::Orientation;
         using Graphics2D::UI::Panel;
@@ -61,15 +65,25 @@ namespace Myra::MML
         {
         };
 
+        template<typename T>
+        struct IsSharedPtr : std::false_type
+        {
+        };
+
+        template<typename T>
+        struct IsSharedPtr<std::shared_ptr<T>> : std::true_type
+        {
+        };
+
         template<typename Owner, typename Value, typename Getter, typename Setter>
         [[nodiscard]] PropertyDescriptor MakeScalarProperty(std::string name, Getter getter, Setter setter,
             Value defaultValue, PropertyMetadata metadata = {})
         {
             PropertyDescriptor::NullCheck nullCheck;
-            if constexpr (IsOptional<Value>::value)
+            if constexpr (IsOptional<Value>::value || IsSharedPtr<Value>::value)
             {
                 nullCheck = [](const std::any& value) {
-                    return !std::any_cast<const Value&>(value).has_value();
+                    return !std::any_cast<const Value&>(value);
                 };
             }
             return PropertyDescriptor(std::move(name), typeid(Value),
@@ -334,6 +348,57 @@ namespace Myra::MML
             return descriptor;
         }
 
+        TypeDescriptor MakeImageDescriptor()
+        {
+            TypeDescriptor descriptor("Image", typeid(Image), [] {
+                return std::static_pointer_cast<void>(std::make_shared<Image>());
+            }, typeid(Widget));
+            descriptor.EnableBaseTypeAccess<Image, Widget>();
+            descriptor.EnableBaseObjectAccess<Image>();
+
+            const auto addRenderable = [&descriptor](
+                std::string name, std::string stylePropertyPath, auto getter, auto setter) {
+                PropertyMetadata metadata;
+                metadata.ExternalAsset = true;
+                metadata.StylePropertyPath = std::move(stylePropertyPath);
+                descriptor.AddProperty(
+                    MakeScalarProperty<Image, std::shared_ptr<Graphics2D::IImage>>(
+                        std::move(name), std::move(getter), std::move(setter), nullptr,
+                        std::move(metadata)));
+            };
+            addRenderable("Renderable", "Image",
+                [](const Image& object) { return object.getRenderableProperty(); },
+                [](Image& object, const std::shared_ptr<Graphics2D::IImage>& value) {
+                    object.setRenderableProperty(value);
+                });
+            addRenderable("DisabledRenderable", "DisabledImage",
+                [](const Image& object) { return object.getDisabledRenderableProperty(); },
+                [](Image& object, const std::shared_ptr<Graphics2D::IImage>& value) {
+                    object.setDisabledRenderableProperty(value);
+                });
+            addRenderable("OverRenderable", "OverImage",
+                [](const Image& object) { return object.getOverRenderableProperty(); },
+                [](Image& object, const std::shared_ptr<Graphics2D::IImage>& value) {
+                    object.setOverRenderableProperty(value);
+                });
+            addRenderable("FocusedRenderable", "FocusedImage",
+                [](const Image& object) { return object.getFocusedRenderableProperty(); },
+                [](Image& object, const std::shared_ptr<Graphics2D::IImage>& value) {
+                    object.setFocusedRenderableProperty(value);
+                });
+            addRenderable("PressedRenderable", "PressedImage",
+                [](const Image& object) { return object.getPressedRenderableProperty(); },
+                [](Image& object, const std::shared_ptr<Graphics2D::IImage>& value) {
+                    object.setPressedRenderableProperty(value);
+                });
+            descriptor.AddProperty(MakeScalarProperty<Image, ImageResizeMode>("ResizeMode",
+                [](const Image& object) { return object.getResizeModeProperty(); },
+                [](Image& object, const ImageResizeMode value) {
+                    object.setResizeModeProperty(value);
+                }, ImageResizeMode::Stretch));
+            return descriptor;
+        }
+
         TypeDescriptor MakeContentControlDescriptor()
         {
             TypeDescriptor descriptor("ContentControl", typeid(ContentControl), {}, typeid(Widget));
@@ -546,6 +611,7 @@ namespace Myra::MML
     {
         registry.Register(MakeBaseObjectDescriptor());
         registry.Register(MakeWidgetDescriptor());
+        registry.Register(MakeImageDescriptor());
         registry.Register(MakeContentControlDescriptor());
         registry.Register(MakeContainerDescriptor());
         registry.Register(MakeProportionDescriptor());

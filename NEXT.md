@@ -9,7 +9,9 @@
   foundations`); local commit `36a79f5` (`Complete source and default asset
   audits`) records the subsequent production-source/default-resource audit.
   Local commit `8121b5a` (`Audit upstream test assets`) completes P0-016's
-  test-asset audit. The current worktree completes P5-008i's Widget renderer.
+  test-asset audit, and local commit `c81ed69` (`Complete widget rendering
+  traversal`) completes P5-008i. The current worktree implements P6-001a's
+  dependency-safe `Image` core.
 - The authoritative upstream reference remains Myra revision
   `0d79b939310bfe1d00b21803fe15e291caf60aa1` at `/tmp/myra-upstream`.
 - The font audit additionally pinned FontStashSharp 1.5.6 at
@@ -207,6 +209,12 @@ and a manifest entry. The current ported surface includes:
   culling/clipping behavior. Caller transform, opacity, and scissor state are
   restored even when user rendering throws (`DEV-045`); dependency-deferred
   builds provide explicit throwing renderer stubs rather than unresolved vtables.
+- The FNA-selected `Image` core retains all five `IImage` visual states,
+  measures their maximum dimensions, draws the current state with tint and
+  resize behavior, and clones the exact type while sharing managed renderable
+  handles. Its selected-upstream aspect formula is preserved, with deterministic
+  zero-height/overflow diagnostics (`DEV-046`). Resize and external-image MML
+  metadata are registered; Color text and ImageStyle remain dependency-gated.
 - Versioned Widget dirty state preserves measure/arrange invalidations raised
   during virtual layout callbacks or `ArrangeUpdated`; enabled-state propagation
   holds a local child snapshot so reentrant tree refresh cannot invalidate C++
@@ -268,13 +276,13 @@ ctest --test-dir build --output-on-failure --parallel 3
 
 CCACHE_DIR=/tmp/myra-cna-ccache cmake --build build-cna --parallel 3
 ctest --test-dir build-cna --output-on-failure --parallel 3
-# 205/205 tests passed, with MYRA_CNA_LINK_CNA=ON and SOFTWARE backend
+# 212/212 tests passed, with MYRA_CNA_LINK_CNA=ON and SOFTWARE backend
 
 ASAN_OPTIONS=detect_leaks=0 CCACHE_DIR=/tmp/myra-cna-ccache \
   cmake --build build-sanitize --parallel 3
 ASAN_OPTIONS=detect_leaks=0 UBSAN_OPTIONS=print_stacktrace=1 \
   ctest --test-dir build-sanitize --output-on-failure --parallel 3
-# 205/205 tests passed with ASan address checks and UBSan
+# 212/212 tests passed with ASan address checks and UBSan
 
 # focused UIUtils validation after that broad run: 3/3 passed
 # focused PathUtils validation after that broad run: 3/3 passed
@@ -358,6 +366,8 @@ ASAN_OPTIONS=detect_leaks=0 UBSAN_OPTIONS=print_stacktrace=1 \
 # P5-008i Widget renderer: focused linked SOFTWARE 7/7; broad default 64/64,
 # linked SOFTWARE 205/205, and ASan+UBSan 205/205 passed. Sanitizer configure-time
 # test discovery requires ASAN_OPTIONS=detect_leaks=0 on this ptrace host too.
+# P6-001a Image core: focused Image/registry/codec 15/15; broad default 64/64,
+# linked SOFTWARE 212/212, and ASan+UBSan 212/212 passed
 # implementation checkpoint 6ff6fa1 revalidated: default 64/64 and
 # ASan+UBSan 198/198 passed before commit
 ```
@@ -379,10 +389,10 @@ was disabled because LeakSanitizer cannot run under this environment's
 3. P0-016 is complete. Keep every upstream test binary unbundled; execute
    P0-016a's original PNG/BMFont/stylesheet replacements only when their
    affected asset tests become implementable.
-4. P5-008i is complete. Continue with P6-001a's dependency-safe `Image` core,
-   now that Widget traversal and `IImage` are available. Keep `ImageStyle`
-   application in P6-001/P8-002 and keep P4-020's remaining stylesheet/asset
-   construction dependency-blocked.
+4. P5-008i and P6-001a are complete. Continue with P6-009a's style-independent
+   separator hierarchy, which now builds directly on `Image`. Keep separator
+   stylesheet construction/application in P6-009–P6-011/P8-004, and keep
+   P4-020's remaining stylesheet/asset construction dependency-blocked.
 5. Keep P4-019 open for types added by future Phase 5–9 work; every MML-capable
    type currently in the repository is registered and round-trip tested.
 6. Continue layout work only with a coherent next dependency. Do not represent partial
@@ -531,8 +541,9 @@ HEADLESS and SDL_RENDERER-on-Xvfb each passed the 44/44 graphics subset and full
 172/172 suite at the P2-022 milestone. The current SDL_RENDERER tree, including
 the explicit display smoke and all work since then, passes 199/199 on Xvfb.
 The current default, linked SOFTWARE, and ASan+UBSan suites pass
-64/64, 205/205, and 205/205 respectively. P5-008i additionally passes all 7/7
-focused Widget renderer tests. P5-007b passed 7/7
+64/64, 212/212, and 212/212 respectively. P6-001a passes all 15/15 focused
+Image/registry/codec tests, and P5-008i passes all 7/7 focused Widget renderer
+tests. P5-007b passed 7/7
 focused tests in default, linked SOFTWARE, and linked ASan+UBSan
 configurations. P5-008h then passed 6/6 focused linked SOFTWARE and ASan+UBSan
 tests, and the default build passed. P4-017c subsequently passed all 9/9 focused

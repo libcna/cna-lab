@@ -16,6 +16,7 @@
 #include "Myra/Graphics2D/UI/Containers/Proportion.hpp"
 #include "Myra/Graphics2D/UI/Enums.hpp"
 #include "Myra/Graphics2D/UI/File/FileDialogMode.hpp"
+#include "Myra/Graphics2D/UI/Simple/Image.hpp"
 #include "Myra/Graphics2D/UI/Widget.hpp"
 
 namespace Myra::MML
@@ -313,6 +314,9 @@ namespace Myra::MML
                 {"Part", Graphics2D::UI::ProportionType::Part},
                 {"Fill", Graphics2D::UI::ProportionType::Fill},
                 {"Pixels", Graphics2D::UI::ProportionType::Pixels}});
+        RegisterEnumAndOptional<Graphics2D::UI::ImageResizeMode>(registry,
+            {{"Stretch", Graphics2D::UI::ImageResizeMode::Stretch},
+                {"KeepAspectRatio", Graphics2D::UI::ImageResizeMode::KeepAspectRatio}});
         RegisterEnumAndOptional<Graphics2D::UI::File::FileDialogMode>(registry,
             {{"OpenFile", Graphics2D::UI::File::FileDialogMode::OpenFile},
                 {"SaveFile", Graphics2D::UI::File::FileDialogMode::SaveFile},

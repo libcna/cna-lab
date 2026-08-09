@@ -41,6 +41,7 @@ if(MYRA_CNA_CNA_LINKED)
         DefaultAssetsTests.cpp
         GridLayoutTests.cpp
         IHasColorTests.cpp
+        ImageTests.cpp
         MMLContextTests.cpp
         MyraEnvironmentTests.cpp
         MyraTypeRegistryTests.cpp
