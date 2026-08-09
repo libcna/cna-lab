@@ -49,6 +49,7 @@ if(MYRA_CNA_CNA_LINKED)
         PanelTests.cpp
         ProjectTests.cpp
         ProportionTests.cpp
+        ProgressBarTests.cpp
         RenderContextShapesTests.cpp
         RenderContextTests.cpp
         SeparatorTests.cpp

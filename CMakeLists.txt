@@ -62,6 +62,9 @@ add_library(MYRA_CNA STATIC
     src/Myra/Graphics2D/UI/Layouts/GridLayout.cpp
     src/Myra/Graphics2D/UI/Layouts/StackPanelLayout.cpp
     src/Myra/Graphics2D/UI/Project.cpp
+    src/Myra/Graphics2D/UI/Range/HorizontalProgressBar.cpp
+    src/Myra/Graphics2D/UI/Range/ProgressBar.cpp
+    src/Myra/Graphics2D/UI/Range/VerticalProgressBar.cpp
     src/Myra/Graphics2D/UI/Simple/HorizontalSeparator.cpp
     src/Myra/Graphics2D/UI/Simple/Image.cpp
     src/Myra/Graphics2D/UI/Simple/SeparatorWidget.cpp

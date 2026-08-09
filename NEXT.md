@@ -11,8 +11,9 @@
   Local commit `8121b5a` (`Audit upstream test assets`) completes P0-016's
   test-asset audit, and local commit `c81ed69` (`Complete widget rendering
   traversal`) completes P5-008i. Local commit `e28cf33` (`Implement Image widget
-  core`) completes P6-001a. The current worktree implements and broadly validates
-  P6-009a's style-independent separator hierarchy.
+  core`) completes P6-001a, and local commit `811fe75` (`Implement separator
+  widget hierarchy`) completes P6-009a. The current worktree implements and
+  broadly validates P6-021a's style-independent ProgressBar hierarchy.
 - The authoritative upstream reference remains Myra revision
   `0d79b939310bfe1d00b21803fe15e291caf60aa1` at `/tmp/myra-upstream`.
 - The font audit additionally pinned FontStashSharp 1.5.6 at
@@ -123,9 +124,10 @@ and a manifest entry. The current ported surface includes:
 - A central `RegisterMyraTypes` table for all currently ported MML objects:
   `BaseObject`, `Widget`, abstract content/container/stack bases, `Panel`,
   Grid, horizontal/vertical stack panels, `Image`, the abstract/concrete
-  separator hierarchy, `Proportion`, `ExportOptions`, and `Project`. It records
-  inherited default overrides, content/proportion adapters, and eagerly
-  initializes the Grid/StackPanel attached-property declarations.
+  separator and ProgressBar hierarchies, `Proportion`, `ExportOptions`, and
+  `Project`. It records inherited default overrides, content/proportion
+  adapters, and eagerly initializes the Grid/StackPanel attached-property
+  declarations.
 - The dependency-safe P4-020a `Project` core preserves the upstream
   `Project.ExportOptions` plus implicit root XML shape, path metadata, built-in
   legacy container aliases, and special Grid/StackPanel default-proportion save
@@ -223,6 +225,13 @@ and a manifest entry. The current ported surface includes:
   metadata. A dynamic thickness change invalidates cached measurement instead
   of retaining the selected upstream's stale result (`DEV-047`); stylesheet
   construction/application remains P6-009–P6-011/P8-004.
+- `ProgressBar`, `HorizontalProgressBar`, and `VerticalProgressBar` now provide
+  upstream epsilon/event state, range clamping, alignment defaults, exact-type
+  clones, orientation rendering, and external-filler MML metadata. Fillers are
+  retained across reentrant drawing and unsafe float-to-int extents fail
+  deterministically (`DEV-048`). The pinned vertical implementation fills from
+  the top despite its bottom-to-top comment; stylesheet integration remains
+  P6-021/P8-005. `Myra.hpp` now exports Image, separator, and ProgressBar types.
 - Versioned Widget dirty state preserves measure/arrange invalidations raised
   during virtual layout callbacks or `ArrangeUpdated`; enabled-state propagation
   holds a local child snapshot so reentrant tree refresh cannot invalidate C++
@@ -272,6 +281,25 @@ The widget work is deliberately partial: drawing traversal is complete, while
 desktop propagation, hover/tooltip integration, style application, hit testing,
 and input dispatch remain open. `UPSTREAM_MANIFEST.md` records this per source.
 
+## Whole-port progress estimate
+
+As of 2026-08-09 after P6-021a, `plan.md` has **141/291 checked tasks
+(48.5%)**. Equal checkbox counting overstates end-user parity because the
+largest remaining workstreams are font/rich text, Desktop/input, most controls,
+styles/default assets, selectors/windows/dialogs, DataGrid/PropertyGrid, and the
+exhaustive release gate. The feature-weighted estimate is therefore **about
+30–35% of the complete Myra-CNA port**.
+
+All currently known technical work through P10-028 is estimated at
+**1,154–2,030 focused implementation/validation hours remaining**; use about
+**1,600 hours** as the planning midpoint or **1,200–2,000 hours** as the rounded
+range. This includes code, tests, documentation, integration, and the known
+project-owned test-fixture work. It assumes P3-004 and P0-015b receive prompt
+human decisions and excludes idle waiting/legal-review time. Choosing wholly
+original default-skin artwork under P0-015b would add approximately **80–200
+specialist art hours**. The phase-by-phase derivation and assumptions are in
+`plan.md` section 1.4; recalculate after major phases or blocker decisions.
+
 ## Latest validation
 
 Both supported configurations are broadly green with the complete handoff
@@ -284,13 +312,13 @@ ctest --test-dir build --output-on-failure --parallel 3
 
 CCACHE_DISABLE=1 cmake --build build-cna --parallel 3
 ctest --test-dir build-cna --output-on-failure --parallel 3
-# 217/217 tests passed, with MYRA_CNA_LINK_CNA=ON and SOFTWARE backend
+# 225/225 tests passed, with MYRA_CNA_LINK_CNA=ON and SOFTWARE backend
 
 ASAN_OPTIONS=detect_leaks=0 CCACHE_DISABLE=1 \
   cmake --build build-sanitize --parallel 3
 ASAN_OPTIONS=detect_leaks=0 UBSAN_OPTIONS=print_stacktrace=1 \
   ctest --test-dir build-sanitize --output-on-failure --parallel 3
-# 217/217 tests passed with ASan address checks and UBSan
+# 225/225 tests passed with ASan address checks and UBSan
 
 # focused UIUtils validation after that broad run: 3/3 passed
 # focused PathUtils validation after that broad run: 3/3 passed
@@ -378,6 +406,8 @@ ASAN_OPTIONS=detect_leaks=0 UBSAN_OPTIONS=print_stacktrace=1 \
 # linked SOFTWARE 212/212, and ASan+UBSan 212/212 passed
 # P6-009a separator core: focused separator/Image/registry/codec 20/20;
 # broad default 64/64, linked SOFTWARE 217/217, and ASan+UBSan 217/217 passed
+# P6-021a ProgressBar core: focused ProgressBar/registry 10/10; broad default
+# 64/64, linked SOFTWARE 225/225, and ASan+UBSan 225/225 passed
 # implementation checkpoint 6ff6fa1 revalidated: default 64/64 and
 # ASan+UBSan 198/198 passed before commit
 ```
@@ -399,11 +429,11 @@ was disabled because LeakSanitizer cannot run under this environment's
 3. P0-016 is complete. Keep every upstream test binary unbundled; execute
    P0-016a's original PNG/BMFont/stylesheet replacements only when their
    affected asset tests become implementable.
-4. P5-008i, P6-001a, and P6-009a are complete. Continue with P6-021a's
-   style-independent ProgressBar hierarchy, which depends only on the available
-   Widget/brush/event renderer core. Keep separator and progress-bar stylesheet
-   construction/application in P6-009–P6-011/P6-021/P8-004/P8-005, and keep
-   P4-020's remaining stylesheet/asset construction dependency-blocked.
+4. P5-008i, P6-001a, P6-009a, and P6-021a are complete. Continue with
+   P5-010a's Desktop-independent Widget input hook/event surface, then reassess
+   the style-independent ButtonBase dependency. Keep queued hit testing,
+   hover/cursor/tooltip, wheel, double-click, drag, and full Desktop input in
+   P5-010/P5-016/P5-017; keep character indexing gated on P3-006.
 5. Keep P4-019 open for types added by future Phase 5–9 work; every MML-capable
    type currently in the repository is registered and round-trip tested.
 6. Continue layout work only with a coherent next dependency. Do not represent partial
@@ -520,6 +550,10 @@ was disabled because LeakSanitizer cannot run under this environment's
 - The separator hierarchy is complete only for its dependency-safe core. Its
   style constructors, style dictionary selection, and `SeparatorStyle`
   application remain deferred to P6-009–P6-011/P8-004.
+- The ProgressBar hierarchy likewise has no style constructor, style dictionary
+  selection, or `ProgressBarStyle` application yet; those remain
+  P6-021/P8-005. Its retained `Filler` is already usable directly and through
+  caller-provided MML external-asset callbacks.
 - Grid layout rejects active null proportions and invalid
   negative/out-of-measured-range coordinates or spans before they can become
   C++ indexing/dereference UB; StackPanel's intentional null-default fallback
@@ -555,9 +589,10 @@ HEADLESS and SDL_RENDERER-on-Xvfb each passed the 44/44 graphics subset and full
 172/172 suite at the P2-022 milestone. The current SDL_RENDERER tree, including
 the explicit display smoke and all work since then, passes 199/199 on Xvfb.
 The current default, linked SOFTWARE, and ASan+UBSan suites pass
-64/64, 217/217, and 217/217 respectively. P6-009a passes all 20/20 focused
-separator/Image/registry/codec tests, P6-001a passes its 15/15 focused subset,
-and P5-008i passes all 7/7 focused Widget renderer tests. P5-007b passed 7/7
+64/64, 225/225, and 225/225 respectively. P6-021a passes all 10/10 focused
+ProgressBar/registry tests, P6-009a passes its 20/20 focused
+separator/Image/registry/codec set, P6-001a passes its 15/15 focused subset, and
+P5-008i passes all 7/7 focused Widget renderer tests. P5-007b passed 7/7
 focused tests in default, linked SOFTWARE, and linked ASan+UBSan
 configurations. P5-008h then passed 6/6 focused linked SOFTWARE and ASan+UBSan
 tests, and the default build passed. P4-017c subsequently passed all 9/9 focused
@@ -579,9 +614,9 @@ P0-015 completed the default-resource provenance audit. The exact Inter font is
 OFL-cleared but still unbundled; the VisUI-derived atlas is explicitly
 `needs_human` P0-015b. P0-016 subsequently classified all 35 test assets without
 copying them and opened P0-016a for behavior-equivalent project-owned fixtures.
-Continue with P6-021a's dependency-independent style-free ProgressBar hierarchy;
-defer replacement fixtures until their asset/font consumers are implementable.
-If P3-004 is later approved, begin with P3-005's narrow abstraction and P3-006's
-explicit index-domain contract before introducing rasterizer code. P4-019
-remains open only for future widget types, while caller-provided external-asset
-callbacks are already usable.
+Continue with P5-010a's dependency-independent Widget input hooks/events; defer
+the Desktop-driven hit-test/hover/drag path and replacement fixtures until their
+dependencies are implementable. If P3-004 is later approved, begin with P3-005's
+narrow abstraction and P3-006's explicit index-domain contract before
+introducing rasterizer code. P4-019 remains open only for future widget types,
+while caller-provided external-asset callbacks are already usable.

@@ -16,6 +16,7 @@
 #include <vector>
 
 #include "Microsoft/Xna/Framework/Vector2.hpp"
+#include "Myra/Graphics2D/IBrush.hpp"
 #include "Myra/Graphics2D/IImage.hpp"
 #include "Myra/Graphics2D/Thickness.hpp"
 #include "Myra/Graphics2D/UI/Container.hpp"
@@ -25,6 +26,9 @@
 #include "Myra/Graphics2D/UI/Containers/Proportion.hpp"
 #include "Myra/Graphics2D/UI/Containers/StackPanel.hpp"
 #include "Myra/Graphics2D/UI/Project.hpp"
+#include "Myra/Graphics2D/UI/Range/HorizontalProgressBar.hpp"
+#include "Myra/Graphics2D/UI/Range/ProgressBar.hpp"
+#include "Myra/Graphics2D/UI/Range/VerticalProgressBar.hpp"
 #include "Myra/Graphics2D/UI/Simple/HorizontalSeparator.hpp"
 #include "Myra/Graphics2D/UI/Simple/Image.hpp"
 #include "Myra/Graphics2D/UI/Simple/SeparatorWidget.hpp"
@@ -42,6 +46,7 @@ namespace Myra::MML
         using Graphics2D::UI::ExportOptions;
         using Graphics2D::UI::Grid;
         using Graphics2D::UI::HorizontalAlignment;
+        using Graphics2D::UI::HorizontalProgressBar;
         using Graphics2D::UI::HorizontalSeparator;
         using Graphics2D::UI::HorizontalStackPanel;
         using Graphics2D::UI::Image;
@@ -52,10 +57,12 @@ namespace Myra::MML
         using Graphics2D::UI::Proportion;
         using Graphics2D::UI::ProportionCollection;
         using Graphics2D::UI::ProportionType;
+        using Graphics2D::UI::ProgressBar;
         using Graphics2D::UI::Project;
         using Graphics2D::UI::SeparatorWidget;
         using Graphics2D::UI::StackPanel;
         using Graphics2D::UI::VerticalAlignment;
+        using Graphics2D::UI::VerticalProgressBar;
         using Graphics2D::UI::VerticalSeparator;
         using Graphics2D::UI::VerticalStackPanel;
         using Graphics2D::UI::Widget;
@@ -451,6 +458,71 @@ namespace Myra::MML
             return descriptor;
         }
 
+        TypeDescriptor MakeProgressBarDescriptor()
+        {
+            TypeDescriptor descriptor("ProgressBar", typeid(ProgressBar), {}, typeid(Widget));
+            descriptor.EnableBaseTypeAccess<ProgressBar, Widget>();
+            descriptor.EnableBaseObjectAccess<ProgressBar>();
+            PropertyMetadata orientationMetadata;
+            orientationMetadata.XmlIgnore = true;
+            descriptor.AddProperty(PropertyDescriptor("Orientation", typeid(Orientation),
+                [](const void* object) {
+                    return std::any(
+                        static_cast<const ProgressBar*>(object)->getOrientationProperty());
+                }, {}, std::nullopt, std::move(orientationMetadata)));
+            descriptor.AddProperty(MakeScalarProperty<ProgressBar, float>("Minimum",
+                [](const ProgressBar& object) { return object.getMinimumProperty(); },
+                [](ProgressBar& object, const float value) {
+                    object.setMinimumProperty(value);
+                }, 0.0F));
+            descriptor.AddProperty(MakeScalarProperty<ProgressBar, float>("Maximum",
+                [](const ProgressBar& object) { return object.getMaximumProperty(); },
+                [](ProgressBar& object, const float value) {
+                    object.setMaximumProperty(value);
+                }, 100.0F));
+            descriptor.AddProperty(MakeScalarProperty<ProgressBar, float>("Value",
+                [](const ProgressBar& object) { return object.getValueProperty(); },
+                [](ProgressBar& object, const float value) {
+                    object.setValueProperty(value);
+                }, 0.0F));
+            PropertyMetadata fillerMetadata;
+            fillerMetadata.ExternalAsset = true;
+            descriptor.AddProperty(
+                MakeScalarProperty<ProgressBar, std::shared_ptr<Graphics2D::IBrush>>(
+                    "Filler",
+                    [](const ProgressBar& object) { return object.getFillerProperty(); },
+                    [](ProgressBar& object,
+                        const std::shared_ptr<Graphics2D::IBrush>& value) {
+                        object.setFillerProperty(value);
+                    }, nullptr, std::move(fillerMetadata)));
+            return descriptor;
+        }
+
+        template<typename T>
+        TypeDescriptor MakeConcreteProgressBarDescriptor(std::string name,
+            const HorizontalAlignment horizontalDefault,
+            const VerticalAlignment verticalDefault)
+        {
+            TypeDescriptor descriptor(std::move(name), typeid(T), [] {
+                return std::static_pointer_cast<void>(std::make_shared<T>());
+            }, typeid(ProgressBar));
+            descriptor.template EnableBaseTypeAccess<T, ProgressBar>();
+            descriptor.template EnableBaseObjectAccess<T>();
+            descriptor.AddProperty(MakeScalarProperty<T, HorizontalAlignment>(
+                "HorizontalAlignment",
+                [](const T& object) { return object.getHorizontalAlignmentProperty(); },
+                [](T& object, const HorizontalAlignment value) {
+                    object.setHorizontalAlignmentProperty(value);
+                }, horizontalDefault));
+            descriptor.AddProperty(MakeScalarProperty<T, VerticalAlignment>(
+                "VerticalAlignment",
+                [](const T& object) { return object.getVerticalAlignmentProperty(); },
+                [](T& object, const VerticalAlignment value) {
+                    object.setVerticalAlignmentProperty(value);
+                }, verticalDefault));
+            return descriptor;
+        }
+
         TypeDescriptor MakeContentControlDescriptor()
         {
             TypeDescriptor descriptor("ContentControl", typeid(ContentControl), {}, typeid(Widget));
@@ -669,6 +741,11 @@ namespace Myra::MML
             "HorizontalSeparator", HorizontalAlignment::Stretch, VerticalAlignment::Center));
         registry.Register(MakeConcreteSeparatorDescriptor<VerticalSeparator>(
             "VerticalSeparator", HorizontalAlignment::Center, VerticalAlignment::Stretch));
+        registry.Register(MakeProgressBarDescriptor());
+        registry.Register(MakeConcreteProgressBarDescriptor<HorizontalProgressBar>(
+            "HorizontalProgressBar", HorizontalAlignment::Stretch, VerticalAlignment::Top));
+        registry.Register(MakeConcreteProgressBarDescriptor<VerticalProgressBar>(
+            "VerticalProgressBar", HorizontalAlignment::Left, VerticalAlignment::Stretch));
         registry.Register(MakeContentControlDescriptor());
         registry.Register(MakeContainerDescriptor());
         registry.Register(MakeProportionDescriptor());
