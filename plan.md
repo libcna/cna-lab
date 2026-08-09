@@ -415,6 +415,7 @@ are green, and the build uses no more than three parallel jobs.
 - [x] P5-008f Port Widget's internally controlled keyboard-focus state, change event, and public got/lost focus callbacks for future Desktop integration.
 - [x] P5-008g Port dependency-free `StyleName`, non-owning `DragHandle`, arbitrary `Tag`, and border/background box bounds, including `StyleName` MML round trips.
 - [x] P5-008h Port no-argument `Widget.Clone`/`CopyFrom` using the human-selected virtual per-type construction factory, then complete dependent ContentControl/Container copy overrides and custom-widget tests. Clone factories must return a new non-null exact dynamic type, current concrete widgets provide factories, containers deep-clone their owned children, and custom non-default-constructible widgets are covered (`DEV-040`, `DEV-041`).
+- [x] P5-008i Port Widget's retained brush visual states, pre/post-render callbacks, background/border rendering, transformed child traversal, opacity, culling, clipping, and exception-safe context restoration (`DEV-045`). Hover/tooltip behavior remains with P5-010/P5-016.
 - [ ] P5-008 Port `Graphics2D/UI/Widget.cs` properties/defaults/invalidation/render traversal.
 - [x] P5-009a Implement explicit child ownership, reparenting, and stable Z-index snapshots from `Widget.Children.cs`.
 - [x] P5-009 Port `Graphics2D/UI/Widget.Children.cs` with explicit ownership, reparenting, recursive queries, typed ID lookup, visibility-aware counts, and cycle rejection.
@@ -439,7 +440,8 @@ are green, and the build uses no more than three parallel jobs.
 
 ### Phase 6 — simple widgets, containers, range controls, and text editing
 
-- [ ] P6-001 Port `Simple/Image.cs`.
+- [ ] P6-001a Port the FNA-selected dependency-safe `Simple/Image.cs` core: retained visual-state images, measurement, tint/resize rendering, and exact-type cloning. Keep style application in P6-001/P8-002.
+- [ ] P6-001 Port `Simple/Image.cs`, including `ImageStyle` application after P8-002.
 - [ ] P6-002 Port `Simple/Label.cs`.
 - [ ] P6-003 Port `Simple/ButtonBase.cs`.
 - [ ] P6-004 Port `Simple/Button.cs`.
@@ -469,7 +471,7 @@ are green, and the build uses no more than three parallel jobs.
 - [ ] P6-021 Port `Range/ProgressBar.cs` and both orientations.
 - [ ] P6-022 Port `Range/Slider.cs` and both orientations.
 - [ ] P6-023 Port `Range/SpinButton.cs`.
-- [ ] P6-024 Port `TextEdit/UndoRedoRecord.cs` and `UndoRedoStack.cs`.
+- [ ] P6-024 Port `TextEdit/UndoRedoRecord.cs` and `UndoRedoStack.cs` after P3-006 selects the C++ text index domain: their `Substring(where, length)` behavior currently uses C# UTF-16 code-unit indices and must not be silently mapped to UTF-8 byte offsets.
 - [ ] P6-025 Port `Simple/TextBox.cs` keyboard, IME, clipboard, selection, undo/redo, scrolling, and rich text.
 - [ ] P6-026 Replace upstream TextCopy calls with CNA Clipboard while preserving user-visible behavior.
 - [ ] P6-027 Translate `SimpleWidgetsTests.cs`, `LabelTests.cs`, `GridTests.cs`, `SliderTests.cs`, and `StackPanelTests.cs`.

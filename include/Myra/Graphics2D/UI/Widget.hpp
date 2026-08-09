@@ -7,6 +7,7 @@
 #pragma once
 
 #include <any>
+#include <array>
 #include <concepts>
 #include <cstdint>
 #include <functional>
@@ -26,6 +27,12 @@
 #include "Myra/Graphics2D/UI/ILayout.hpp"
 #include "Myra/Graphics2D/UI/ITransformable.hpp"
 #include "Myra/MML/BaseObject.hpp"
+
+namespace Myra::Graphics2D
+{
+    class IBrush;
+    class RenderContext;
+}
 
 namespace Myra::Graphics2D::UI
 {
@@ -60,6 +67,10 @@ namespace Myra::Graphics2D::UI
         Events::MyraEventHandler KeyboardFocusChanged;
         Events::MyraEventHandler PressedChanged;
         Events::MyraEventHandlerT<Events::ValueChangingEventArgs<bool>> PressedChangingByUser;
+
+        using RenderCallback = std::function<void(Graphics2D::RenderContext&)>;
+        RenderCallback BeforeRender;
+        RenderCallback AfterRender;
 
         [[nodiscard]] const std::optional<std::string>& getStyleNameProperty() const noexcept;
         void setStyleNameProperty(std::optional<std::string> value);
@@ -111,6 +122,31 @@ namespace Myra::Graphics2D::UI
         void setIsModalProperty(bool value) noexcept;
         [[nodiscard]] float getOpacityProperty() const noexcept;
         void setOpacityProperty(float value);
+
+        [[nodiscard]] std::shared_ptr<Graphics2D::IBrush> getBackgroundProperty() const;
+        void setBackgroundProperty(std::shared_ptr<Graphics2D::IBrush> value);
+        [[nodiscard]] std::shared_ptr<Graphics2D::IBrush> getOverBackgroundProperty() const;
+        void setOverBackgroundProperty(std::shared_ptr<Graphics2D::IBrush> value);
+        [[nodiscard]] std::shared_ptr<Graphics2D::IBrush> getDisabledBackgroundProperty() const;
+        void setDisabledBackgroundProperty(std::shared_ptr<Graphics2D::IBrush> value);
+        [[nodiscard]] std::shared_ptr<Graphics2D::IBrush> getFocusedBackgroundProperty() const;
+        void setFocusedBackgroundProperty(std::shared_ptr<Graphics2D::IBrush> value);
+        [[nodiscard]] std::shared_ptr<Graphics2D::IBrush> getPressedBackgroundProperty() const;
+        void setPressedBackgroundProperty(std::shared_ptr<Graphics2D::IBrush> value);
+
+        [[nodiscard]] std::shared_ptr<Graphics2D::IBrush> getBorderProperty() const;
+        void setBorderProperty(std::shared_ptr<Graphics2D::IBrush> value);
+        [[nodiscard]] std::shared_ptr<Graphics2D::IBrush> getOverBorderProperty() const;
+        void setOverBorderProperty(std::shared_ptr<Graphics2D::IBrush> value);
+        [[nodiscard]] std::shared_ptr<Graphics2D::IBrush> getDisabledBorderProperty() const;
+        void setDisabledBorderProperty(std::shared_ptr<Graphics2D::IBrush> value);
+        [[nodiscard]] std::shared_ptr<Graphics2D::IBrush> getFocusedBorderProperty() const;
+        void setFocusedBorderProperty(std::shared_ptr<Graphics2D::IBrush> value);
+        [[nodiscard]] std::shared_ptr<Graphics2D::IBrush> getPressedBorderProperty() const;
+        void setPressedBorderProperty(std::shared_ptr<Graphics2D::IBrush> value);
+
+        [[nodiscard]] std::shared_ptr<Graphics2D::IBrush> GetCurrentBackground() const;
+        [[nodiscard]] std::shared_ptr<Graphics2D::IBrush> GetCurrentBorder() const;
         [[nodiscard]] virtual bool getIsPressedProperty() const noexcept;
         virtual void setIsPressedProperty(bool value);
         [[nodiscard]] virtual bool getClipToBoundsProperty() const noexcept;
@@ -205,6 +241,12 @@ namespace Myra::Graphics2D::UI
         virtual void InvalidateMeasure();
         void InvalidateArrange() noexcept;
 
+        /** @brief Renders this widget, its decoration, and its retained child snapshot. */
+        void Render(Graphics2D::RenderContext& context);
+
+        /** @brief Renders widget-specific content; the default traverses children in Z-order. */
+        virtual void InternalRender(Graphics2D::RenderContext& context);
+
         [[nodiscard]] Microsoft::Xna::Framework::Vector2 ToLocal(
             Microsoft::Xna::Framework::Vector2 source) override;
         [[nodiscard]] Microsoft::Xna::Framework::Vector2 ToGlobal(
@@ -221,6 +263,47 @@ namespace Myra::Graphics2D::UI
         virtual void OnPressedChanged();
 
     protected:
+        static constexpr std::size_t WidgetVisualStateNormal = 0;
+        static constexpr std::size_t WidgetVisualStateDisabled = 1;
+        static constexpr std::size_t WidgetVisualStateOver = 2;
+        static constexpr std::size_t WidgetVisualStateFocused = 3;
+        static constexpr std::size_t WidgetVisualStatePressed = 4;
+        static constexpr std::size_t WidgetVisualStateTotal = 5;
+
+        template<typename VisualT>
+        [[nodiscard]] std::shared_ptr<VisualT> GetCurrentVisual(
+            const std::array<std::shared_ptr<VisualT>, WidgetVisualStateTotal>& values) const
+        {
+            std::shared_ptr<VisualT> result = values[WidgetVisualStateNormal];
+            if (enabled_)
+            {
+                if (isPressed_ && values[WidgetVisualStatePressed])
+                {
+                    return values[WidgetVisualStatePressed];
+                }
+                if (isKeyboardFocused_ && values[WidgetVisualStateFocused])
+                {
+                    return values[WidgetVisualStateFocused];
+                }
+                if (UseOverBackground() && values[WidgetVisualStateOver])
+                {
+                    return values[WidgetVisualStateOver];
+                }
+            }
+            else if (values[WidgetVisualStateDisabled])
+            {
+                return values[WidgetVisualStateDisabled];
+            }
+            else if (values[WidgetVisualStateOver])
+            {
+                return values[WidgetVisualStateOver];
+            }
+            return result;
+        }
+
+        /** @brief Supplies the hover-state hook completed by P5-010 input tracking. */
+        [[nodiscard]] virtual bool UseOverBackground() const noexcept;
+
         [[nodiscard]] virtual Microsoft::Xna::Framework::Point InternalMeasure(
             Microsoft::Xna::Framework::Point availableSize);
         virtual void InternalArrange();
@@ -281,6 +364,8 @@ namespace Myra::Graphics2D::UI
         std::optional<std::string> tooltip_;
         bool isModal_ = false;
         float opacity_ = 1.0F;
+        std::array<std::shared_ptr<Graphics2D::IBrush>, WidgetVisualStateTotal> backgrounds_;
+        std::array<std::shared_ptr<Graphics2D::IBrush>, WidgetVisualStateTotal> borders_;
         bool isPressed_ = false;
         bool clipToBounds_ = false;
         bool acceptsKeyboardFocus_ = false;

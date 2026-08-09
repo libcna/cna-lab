@@ -8,8 +8,8 @@
   checkpoint is now local commit `6ff6fa1` (`Advance graphics and ownership
   foundations`); local commit `36a79f5` (`Complete source and default asset
   audits`) records the subsequent production-source/default-resource audit.
-  The current checkpoint completes P0-016's test-asset audit; its exact local
-  commit follows in Git history.
+  Local commit `8121b5a` (`Audit upstream test assets`) completes P0-016's
+  test-asset audit. The current worktree completes P5-008i's Widget renderer.
 - The authoritative upstream reference remains Myra revision
   `0d79b939310bfe1d00b21803fe15e291caf60aa1` at `/tmp/myra-upstream`.
 - The font audit additionally pinned FontStashSharp 1.5.6 at
@@ -201,6 +201,12 @@ and a manifest entry. The current ported surface includes:
   typed/untyped search, ID lookup, filtering, visibility-aware descendant counts,
   one-parent reparenting, and explicit ancestor-cycle rejection. The visible-count
   implementation corrects the pinned upstream stale-cache/invisible-child defect.
+- Widget now retains all five background/border visual states and render
+  callbacks, draws its box decoration, traverses a locally retained child
+  snapshot with composed transforms/opacity, and applies upstream's unrotated
+  culling/clipping behavior. Caller transform, opacity, and scissor state are
+  restored even when user rendering throws (`DEV-045`); dependency-deferred
+  builds provide explicit throwing renderer stubs rather than unresolved vtables.
 - Versioned Widget dirty state preserves measure/arrange invalidations raised
   during virtual layout callbacks or `ArrangeUpdated`; enabled-state propagation
   holds a local child snapshot so reentrant tree refresh cannot invalidate C++
@@ -246,9 +252,9 @@ and a manifest entry. The current ported surface includes:
   invoking signed-integer undefined behavior, point containment widens edge sums,
   and Widget opacity rejects NaN as well as out-of-range finite values.
 
-The widget work is deliberately partial: no drawing traversal, desktop
-propagation, style application, hit testing, or input dispatch has been
-claimed as complete. `UPSTREAM_MANIFEST.md` records this per source.
+The widget work is deliberately partial: drawing traversal is complete, while
+desktop propagation, hover/tooltip integration, style application, hit testing,
+and input dispatch remain open. `UPSTREAM_MANIFEST.md` records this per source.
 
 ## Latest validation
 
@@ -262,13 +268,13 @@ ctest --test-dir build --output-on-failure --parallel 3
 
 CCACHE_DIR=/tmp/myra-cna-ccache cmake --build build-cna --parallel 3
 ctest --test-dir build-cna --output-on-failure --parallel 3
-# 198/198 tests passed, with MYRA_CNA_LINK_CNA=ON and SOFTWARE backend
+# 205/205 tests passed, with MYRA_CNA_LINK_CNA=ON and SOFTWARE backend
 
 ASAN_OPTIONS=detect_leaks=0 CCACHE_DIR=/tmp/myra-cna-ccache \
   cmake --build build-sanitize --parallel 3
 ASAN_OPTIONS=detect_leaks=0 UBSAN_OPTIONS=print_stacktrace=1 \
   ctest --test-dir build-sanitize --output-on-failure --parallel 3
-# 198/198 tests passed with ASan address checks and UBSan
+# 205/205 tests passed with ASan address checks and UBSan
 
 # focused UIUtils validation after that broad run: 3/3 passed
 # focused PathUtils validation after that broad run: 3/3 passed
@@ -349,6 +355,9 @@ ASAN_OPTIONS=detect_leaks=0 UBSAN_OPTIONS=print_stacktrace=1 \
 # pinned libGDX PNG and atlas matched exactly, normalized BMFont differed only
 # by Myra's atlas-page reference; AOSP DroidSans comparison exposed 33 differing
 # bytes/build 112 vs 113, so the test binary is replacement-only
+# P5-008i Widget renderer: focused linked SOFTWARE 7/7; broad default 64/64,
+# linked SOFTWARE 205/205, and ASan+UBSan 205/205 passed. Sanitizer configure-time
+# test discovery requires ASAN_OPTIONS=detect_leaks=0 on this ptrace host too.
 # implementation checkpoint 6ff6fa1 revalidated: default 64/64 and
 # ASan+UBSan 198/198 passed before commit
 ```
@@ -370,9 +379,10 @@ was disabled because LeakSanitizer cannot run under this environment's
 3. P0-016 is complete. Keep every upstream test binary unbundled; execute
    P0-016a's original PNG/BMFont/stylesheet replacements only when their
    affected asset tests become implementable.
-4. Continue with the next safe dependency-independent UI/MML task;
-   P4-020's remaining stylesheet/asset construction and Widget's render
-   traversal are dependency-blocked.
+4. P5-008i is complete. Continue with P6-001a's dependency-safe `Image` core,
+   now that Widget traversal and `IImage` are available. Keep `ImageStyle`
+   application in P6-001/P8-002 and keep P4-020's remaining stylesheet/asset
+   construction dependency-blocked.
 5. Keep P4-019 open for types added by future Phase 5–9 work; every MML-capable
    type currently in the repository is registered and round-trip tested.
 6. Continue layout work only with a coherent next dependency. Do not represent partial
@@ -409,6 +419,9 @@ was disabled because LeakSanitizer cannot run under this environment's
   code-point counts, while Myra TextBox also uses C# string indices. P3-006 must
   define explicit UTF-8 byte/code-point/grapheme mapping and astral-plane tests;
   silently changing the public cursor model to graphemes is not authorized.
+- P6-024 is also downstream of that index-domain decision: `UndoRedoStack`
+  captures deleted/replaced text with C# `Substring(where, length)`. Do not
+  translate those positions to `std::string` byte offsets before P3-006.
 - P2-014 is intentionally coupled to P3-016: upstream AssetManagementBase has a
   strong, recursive, settings-aware cache, whereas CNA ContentManager's
   Texture2D cache deliberately retains only weak backend handles. Do not add a
@@ -518,7 +531,8 @@ HEADLESS and SDL_RENDERER-on-Xvfb each passed the 44/44 graphics subset and full
 172/172 suite at the P2-022 milestone. The current SDL_RENDERER tree, including
 the explicit display smoke and all work since then, passes 199/199 on Xvfb.
 The current default, linked SOFTWARE, and ASan+UBSan suites pass
-64/64, 198/198, and 198/198 respectively. P5-007b passed 7/7
+64/64, 205/205, and 205/205 respectively. P5-008i additionally passes all 7/7
+focused Widget renderer tests. P5-007b passed 7/7
 focused tests in default, linked SOFTWARE, and linked ASan+UBSan
 configurations. P5-008h then passed 6/6 focused linked SOFTWARE and ASan+UBSan
 tests, and the default build passed. P4-017c subsequently passed all 9/9 focused

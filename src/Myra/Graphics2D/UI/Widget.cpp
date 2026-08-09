@@ -15,6 +15,7 @@
 #include <typeinfo>
 #include <utility>
 
+#include "Myra/Graphics2D/IBrush.hpp"
 #include "Myra/Utility/EventsExtensions.hpp"
 #include "Myra/Utility/Mathematics.hpp"
 #include "Myra/Utility/UIUtils.hpp"
@@ -320,6 +321,116 @@ namespace Myra::Graphics2D::UI
         opacity_ = value;
     }
 
+    std::shared_ptr<Graphics2D::IBrush> Widget::getBackgroundProperty() const
+    {
+        return backgrounds_[WidgetVisualStateNormal];
+    }
+
+    void Widget::setBackgroundProperty(std::shared_ptr<Graphics2D::IBrush> value)
+    {
+        backgrounds_[WidgetVisualStateNormal] = std::move(value);
+    }
+
+    std::shared_ptr<Graphics2D::IBrush> Widget::getOverBackgroundProperty() const
+    {
+        return backgrounds_[WidgetVisualStateOver];
+    }
+
+    void Widget::setOverBackgroundProperty(std::shared_ptr<Graphics2D::IBrush> value)
+    {
+        backgrounds_[WidgetVisualStateOver] = std::move(value);
+    }
+
+    std::shared_ptr<Graphics2D::IBrush> Widget::getDisabledBackgroundProperty() const
+    {
+        return backgrounds_[WidgetVisualStateDisabled];
+    }
+
+    void Widget::setDisabledBackgroundProperty(std::shared_ptr<Graphics2D::IBrush> value)
+    {
+        backgrounds_[WidgetVisualStateDisabled] = std::move(value);
+    }
+
+    std::shared_ptr<Graphics2D::IBrush> Widget::getFocusedBackgroundProperty() const
+    {
+        return backgrounds_[WidgetVisualStateFocused];
+    }
+
+    void Widget::setFocusedBackgroundProperty(std::shared_ptr<Graphics2D::IBrush> value)
+    {
+        backgrounds_[WidgetVisualStateFocused] = std::move(value);
+    }
+
+    std::shared_ptr<Graphics2D::IBrush> Widget::getPressedBackgroundProperty() const
+    {
+        return backgrounds_[WidgetVisualStatePressed];
+    }
+
+    void Widget::setPressedBackgroundProperty(std::shared_ptr<Graphics2D::IBrush> value)
+    {
+        backgrounds_[WidgetVisualStatePressed] = std::move(value);
+    }
+
+    std::shared_ptr<Graphics2D::IBrush> Widget::getBorderProperty() const
+    {
+        return borders_[WidgetVisualStateNormal];
+    }
+
+    void Widget::setBorderProperty(std::shared_ptr<Graphics2D::IBrush> value)
+    {
+        borders_[WidgetVisualStateNormal] = std::move(value);
+    }
+
+    std::shared_ptr<Graphics2D::IBrush> Widget::getOverBorderProperty() const
+    {
+        return borders_[WidgetVisualStateOver];
+    }
+
+    void Widget::setOverBorderProperty(std::shared_ptr<Graphics2D::IBrush> value)
+    {
+        borders_[WidgetVisualStateOver] = std::move(value);
+    }
+
+    std::shared_ptr<Graphics2D::IBrush> Widget::getDisabledBorderProperty() const
+    {
+        return borders_[WidgetVisualStateDisabled];
+    }
+
+    void Widget::setDisabledBorderProperty(std::shared_ptr<Graphics2D::IBrush> value)
+    {
+        borders_[WidgetVisualStateDisabled] = std::move(value);
+    }
+
+    std::shared_ptr<Graphics2D::IBrush> Widget::getFocusedBorderProperty() const
+    {
+        return borders_[WidgetVisualStateFocused];
+    }
+
+    void Widget::setFocusedBorderProperty(std::shared_ptr<Graphics2D::IBrush> value)
+    {
+        borders_[WidgetVisualStateFocused] = std::move(value);
+    }
+
+    std::shared_ptr<Graphics2D::IBrush> Widget::getPressedBorderProperty() const
+    {
+        return borders_[WidgetVisualStatePressed];
+    }
+
+    void Widget::setPressedBorderProperty(std::shared_ptr<Graphics2D::IBrush> value)
+    {
+        borders_[WidgetVisualStatePressed] = std::move(value);
+    }
+
+    std::shared_ptr<Graphics2D::IBrush> Widget::GetCurrentBackground() const
+    {
+        return GetCurrentVisual(backgrounds_);
+    }
+
+    std::shared_ptr<Graphics2D::IBrush> Widget::GetCurrentBorder() const
+    {
+        return GetCurrentVisual(borders_);
+    }
+
     bool Widget::getIsPressedProperty() const noexcept { return isPressed_; }
 
     void Widget::setIsPressedProperty(const bool value)
@@ -588,6 +699,10 @@ namespace Myra::Graphics2D::UI
         setClipToBoundsProperty(source.clipToBounds_);
         setTagProperty(source.tag_);
         setAcceptsKeyboardFocusProperty(source.acceptsKeyboardFocus_);
+        BeforeRender = source.BeforeRender;
+        AfterRender = source.AfterRender;
+        backgrounds_ = source.backgrounds_;
+        borders_ = source.borders_;
     }
 
     std::size_t Widget::CalculateTotalChildCount(const bool visibleOnly)
@@ -836,6 +951,11 @@ namespace Myra::Graphics2D::UI
     void Widget::OnPressedChanged()
     {
         Utility::EventsExtensions::Invoke(PressedChanged, this, InputEventType::PressedChanged);
+    }
+
+    bool Widget::UseOverBackground() const noexcept
+    {
+        return false;
     }
 
     Vector2 Widget::ToLocal(const Vector2 source)

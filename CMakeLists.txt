@@ -192,8 +192,13 @@ if(MYRA_CNA_CNA_LINKED)
         src/Myra/Graphics2D/TextureAtlases/TextureRegion.cpp
         src/Myra/Graphics2D/TextureAtlases/TextureRegionAtlas.cpp
         src/Myra/Graphics2D/TextureAtlases/TintedRegion.cpp
+        src/Myra/Graphics2D/UI/WidgetRender.cpp
         src/Myra/MyraEnvironmentCna.cpp
         src/Myra/Utility/CrossEngineStuff.cpp
+    )
+else()
+    target_sources(MYRA_CNA PRIVATE
+        src/Myra/Graphics2D/UI/WidgetRenderStub.cpp
     )
 endif()
 
