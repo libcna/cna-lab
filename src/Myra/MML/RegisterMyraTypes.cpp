@@ -29,6 +29,7 @@
 #include "Myra/Graphics2D/UI/Range/HorizontalProgressBar.hpp"
 #include "Myra/Graphics2D/UI/Range/ProgressBar.hpp"
 #include "Myra/Graphics2D/UI/Range/VerticalProgressBar.hpp"
+#include "Myra/Graphics2D/UI/Simple/Button.hpp"
 #include "Myra/Graphics2D/UI/Simple/ButtonBase.hpp"
 #include "Myra/Graphics2D/UI/Simple/HorizontalSeparator.hpp"
 #include "Myra/Graphics2D/UI/Simple/Image.hpp"
@@ -41,6 +42,7 @@ namespace Myra::MML
     namespace
     {
         using Graphics2D::Thickness;
+        using Graphics2D::UI::Button;
         using Graphics2D::UI::ButtonBase;
         using Graphics2D::UI::Container;
         using Graphics2D::UI::ContentControl;
@@ -560,6 +562,16 @@ namespace Myra::MML
             return descriptor;
         }
 
+        TypeDescriptor MakeButtonDescriptor()
+        {
+            TypeDescriptor descriptor("Button", typeid(Button), [] {
+                return std::static_pointer_cast<void>(std::make_shared<Button>());
+            }, typeid(ButtonBase));
+            descriptor.EnableBaseTypeAccess<Button, ButtonBase>();
+            descriptor.EnableBaseObjectAccess<Button>();
+            return descriptor;
+        }
+
         TypeDescriptor MakeProportionDescriptor()
         {
             TypeDescriptor descriptor("Proportion", typeid(Proportion), [] {
@@ -764,6 +776,7 @@ namespace Myra::MML
             "VerticalProgressBar", HorizontalAlignment::Left, VerticalAlignment::Stretch));
         registry.Register(MakeContentControlDescriptor());
         registry.Register(MakeButtonBaseDescriptor());
+        registry.Register(MakeButtonDescriptor());
         registry.Register(MakeContainerDescriptor());
         registry.Register(MakeProportionDescriptor());
         registry.Register(MakePanelDescriptor());

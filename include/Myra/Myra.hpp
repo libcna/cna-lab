@@ -53,6 +53,7 @@
 #include "Myra/Graphics2D/UI/Range/HorizontalProgressBar.hpp"
 #include "Myra/Graphics2D/UI/Range/ProgressBar.hpp"
 #include "Myra/Graphics2D/UI/Range/VerticalProgressBar.hpp"
+#include "Myra/Graphics2D/UI/Simple/Button.hpp"
 #include "Myra/Graphics2D/UI/Simple/ButtonBase.hpp"
 #include "Myra/Graphics2D/UI/Simple/HorizontalSeparator.hpp"
 #include "Myra/Graphics2D/UI/Simple/Image.hpp"
