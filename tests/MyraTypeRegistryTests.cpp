@@ -18,6 +18,7 @@
 #include "Myra/Graphics2D/UI/Containers/Panel.hpp"
 #include "Myra/Graphics2D/UI/Containers/Proportion.hpp"
 #include "Myra/Graphics2D/UI/Containers/StackPanel.hpp"
+#include "Myra/Graphics2D/UI/Simple/ButtonBase.hpp"
 #include "Myra/MML/AttachedPropertiesRegistry.hpp"
 #include "Myra/MML/LoadContext.hpp"
 #include "Myra/MML/SaveContext.hpp"
@@ -28,6 +29,7 @@
 namespace
 {
     using Myra::Graphics2D::Thickness;
+    using Myra::Graphics2D::UI::ButtonBase;
     using Myra::Graphics2D::UI::Container;
     using Myra::Graphics2D::UI::ContentControl;
     using Myra::Graphics2D::UI::DragDirection;
@@ -57,18 +59,21 @@ namespace
         const TypeDescriptor* baseObject = registry.FindByType(typeid(Myra::MML::BaseObject));
         const TypeDescriptor* widget = registry.FindByType(typeid(Widget));
         const TypeDescriptor* contentControl = registry.FindByType(typeid(ContentControl));
+        const TypeDescriptor* buttonBase = registry.FindByType(typeid(ButtonBase));
         const TypeDescriptor* container = registry.FindByType(typeid(Container));
         const TypeDescriptor* grid = registry.FindByType(typeid(Grid));
         const TypeDescriptor* stack = registry.FindByType(typeid(StackPanel));
         ASSERT_NE(baseObject, nullptr);
         ASSERT_NE(widget, nullptr);
         ASSERT_NE(contentControl, nullptr);
+        ASSERT_NE(buttonBase, nullptr);
         ASSERT_NE(container, nullptr);
         ASSERT_NE(grid, nullptr);
         ASSERT_NE(stack, nullptr);
         EXPECT_TRUE(baseObject->getCanCreateProperty());
         EXPECT_TRUE(widget->getCanCreateProperty());
         EXPECT_FALSE(contentControl->getCanCreateProperty());
+        EXPECT_FALSE(buttonBase->getCanCreateProperty());
         EXPECT_FALSE(container->getCanCreateProperty());
         EXPECT_TRUE(grid->getCanCreateProperty());
         EXPECT_FALSE(stack->getCanCreateProperty());

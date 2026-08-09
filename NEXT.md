@@ -13,10 +13,10 @@
   traversal`) completes P5-008i. Local commit `e28cf33` (`Implement Image widget
   core`) completes P6-001a, and local commit `811fe75` (`Implement separator
   widget hierarchy`) completes P6-009a. Local commit `04a4645` (`Implement
-  ProgressBar widget hierarchy`) completes and broadly validates P6-021a. The
-  current worktree implements P5-010a's Desktop-independent Widget pointer
-  hook/event dispatch and typed CNA `Keys` forwarding, with all three broad
-  configurations green.
+  ProgressBar widget hierarchy`) completes and broadly validates P6-021a. Pushed
+  commit `a427b1a` (`Add Widget input event surface`) completes P5-010a. The
+  current worktree implements P6-003a's style-independent `ButtonBase` state
+  machine, with all three broad configurations green.
 - The authoritative upstream reference remains Myra revision
   `0d79b939310bfe1d00b21803fe15e291caf60aa1` at `/tmp/myra-upstream`.
 - The font audit additionally pinned FontStashSharp 1.5.6 at
@@ -127,10 +127,10 @@ and a manifest entry. The current ported surface includes:
 - A central `RegisterMyraTypes` table for all currently ported MML objects:
   `BaseObject`, `Widget`, abstract content/container/stack bases, `Panel`,
   Grid, horizontal/vertical stack panels, `Image`, the abstract/concrete
-  separator and ProgressBar hierarchies, `Proportion`, `ExportOptions`, and
-  `Project`. It records inherited default overrides, content/proportion
-  adapters, and eagerly initializes the Grid/StackPanel attached-property
-  declarations.
+  separator and ProgressBar hierarchies, `ButtonBase`, `Proportion`,
+  `ExportOptions`, and `Project`. It records inherited default overrides,
+  content/proportion adapters, and eagerly initializes the Grid/StackPanel
+  attached-property declarations.
 - The dependency-safe P4-020a `Project` core preserves the upstream
   `Project.ExportOptions` plus implicit root XML shape, path metadata, built-in
   legacy container aliases, and special Grid/StackPanel default-proportion save
@@ -278,6 +278,11 @@ and a manifest entry. The current ported surface includes:
   ownership contract. Desktop hit testing/positions, wheel state,
   tooltip/cursor/hover behavior, double-click detection, drag tracking, and
   character input remain in their dependency tasks.
+- `ButtonBase` now supplies the abstract style-independent press/click state
+  machine used by future button controls: `ReadOnly`, `DoClick`, internal touch
+  hooks, `Click`, pressed-state cloning, and MML metadata. Clones retain
+  `ReadOnly` instead of silently becoming interactive as in the selected
+  upstream omission (`DEV-049`); the armed-click flag remains transient.
 - Checked float-to-integer conversion for layout/transform values and checked Grid
   spacing/size/location accumulation. Grid now rejects non-finite/out-of-range
   proportions and non-positive spans deterministically, while restoring upstream's
@@ -293,16 +298,16 @@ and input dispatch remain open. `UPSTREAM_MANIFEST.md` records this per source.
 
 ## Whole-port progress estimate
 
-As of 2026-08-09 after P5-010a, `plan.md` has **142/291 checked tasks
-(48.8%)**. Equal checkbox counting overstates end-user parity because the
+As of 2026-08-09 after P6-003a, `plan.md` has **143/292 checked tasks
+(49.0%)**. Equal checkbox counting overstates end-user parity because the
 largest remaining workstreams are font/rich text, Desktop/input, most controls,
 styles/default assets, selectors/windows/dialogs, DataGrid/PropertyGrid, and the
 exhaustive release gate. The feature-weighted estimate is therefore **about
 30–35% of the complete Myra-CNA port**.
 
 All currently known technical work through P10-028 is estimated at
-**1,146–2,018 focused implementation/validation hours remaining**; use about
-**1,600 hours** as the planning midpoint or **1,200–2,000 hours** as the rounded
+**1,138–2,006 focused implementation/validation hours remaining**; use about
+**1,570 hours** as the planning midpoint or **1,150–2,000 hours** as the rounded
 range. This includes code, tests, documentation, integration, and the known
 project-owned test-fixture work. It assumes P3-004 and P0-015b receive prompt
 human decisions and excludes idle waiting/legal-review time. Choosing wholly
@@ -322,13 +327,13 @@ ctest --test-dir build --output-on-failure --parallel 3
 
 CCACHE_DISABLE=1 cmake --build build-cna --parallel 3
 ctest --test-dir build-cna --output-on-failure --parallel 3
-# 229/229 tests passed, with MYRA_CNA_LINK_CNA=ON and SOFTWARE backend
+# 233/233 tests passed, with MYRA_CNA_LINK_CNA=ON and SOFTWARE backend
 
 ASAN_OPTIONS=detect_leaks=0 CCACHE_DISABLE=1 \
   cmake --build build-sanitize --parallel 3
 ASAN_OPTIONS=detect_leaks=0 UBSAN_OPTIONS=print_stacktrace=1 \
   ctest --test-dir build-sanitize --output-on-failure --parallel 3
-# 229/229 tests passed with ASan address checks and UBSan
+# 233/233 tests passed with ASan address checks and UBSan
 
 # focused UIUtils validation after that broad run: 3/3 passed
 # focused PathUtils validation after that broad run: 3/3 passed
@@ -421,6 +426,9 @@ ASAN_OPTIONS=detect_leaks=0 UBSAN_OPTIONS=print_stacktrace=1 \
 # P5-010a Widget input hooks/events: focused WidgetInput/InputEventsManager/Widget
 # linked SOFTWARE 28/28 and ASan+UBSan 28/28; broad default 64/64, linked
 # SOFTWARE 229/229, and ASan+UBSan 229/229 passed
+# P6-003a ButtonBase core: focused ButtonBase/WidgetInput/registry 10/10 in
+# linked SOFTWARE and ASan+UBSan; broad default 64/64, linked SOFTWARE 233/233,
+# and ASan+UBSan 233/233 passed
 # implementation checkpoint 6ff6fa1 revalidated: default 64/64 and
 # ASan+UBSan 198/198 passed before commit
 ```
@@ -442,8 +450,8 @@ was disabled because LeakSanitizer cannot run under this environment's
 3. P0-016 is complete. Keep every upstream test binary unbundled; execute
    P0-016a's original PNG/BMFont/stylesheet replacements only when their
    affected asset tests become implementable.
-4. P5-008i, P5-010a, P6-001a, P6-009a, and P6-021a are complete. Reassess
-   P6-003's style-independent ButtonBase dependency next. Keep queued hit testing,
+4. P5-008i, P5-010a, P6-001a, P6-003a, P6-009a, and P6-021a are complete.
+   Audit P6-004's style-independent `Button` core next. Keep queued hit testing,
    hover/cursor/tooltip, wheel, double-click, drag, and full Desktop input in
    P5-010/P5-016/P5-017; keep character indexing gated on P3-006.
 5. Keep P4-019 open for types added by future Phase 5–9 work; every MML-capable
@@ -601,8 +609,10 @@ HEADLESS and SDL_RENDERER-on-Xvfb each passed the 44/44 graphics subset and full
 172/172 suite at the P2-022 milestone. The current SDL_RENDERER tree, including
 the explicit display smoke and all work since then, passes 199/199 on Xvfb.
 The current default, linked SOFTWARE, and ASan+UBSan suites pass
-64/64, 229/229, and 229/229 respectively. P5-010a passes all 28/28 focused
-WidgetInput/InputEventsManager/Widget tests in both linked and sanitised builds.
+64/64, 233/233, and 233/233 respectively. P6-003a passes all 10/10 focused
+ButtonBase/WidgetInput/registry tests in both linked and sanitised builds.
+P5-010a passes all 28/28 focused WidgetInput/InputEventsManager/Widget tests in
+both linked and sanitised builds.
 P6-021a passes all 10/10 focused ProgressBar/registry tests, P6-009a passes its 20/20 focused
 separator/Image/registry/codec set, P6-001a passes its 15/15 focused subset, and
 P5-008i passes all 7/7 focused Widget renderer tests. P5-007b passed 7/7
@@ -627,7 +637,7 @@ P0-015 completed the default-resource provenance audit. The exact Inter font is
 OFL-cleared but still unbundled; the VisUI-derived atlas is explicitly
 `needs_human` P0-015b. P0-016 subsequently classified all 35 test assets without
 copying them and opened P0-016a for behavior-equivalent project-owned fixtures.
-Continue by auditing P6-003's dependency-independent ButtonBase core; defer the
+Continue by auditing P6-004's dependency-independent `Button` core; defer the
 Desktop-driven hit-test/hover/drag path and replacement fixtures until their
 dependencies are implementable. If P3-004 is later approved, begin with P3-005's
 narrow abstraction and P3-006's explicit index-domain contract before

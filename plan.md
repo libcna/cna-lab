@@ -78,8 +78,8 @@ behavioral redesign.
 
 ### 1.4 Whole-port completion and remaining-effort estimate
 
-Checkpoint: 2026-08-09, after P5-010a. The mechanical backlog count is
-**142/291 checked tasks (48.8%)**. That is useful for auditing plan state but is
+Checkpoint: 2026-08-09, after P6-003a. The mechanical backlog count is
+**143/292 checked tasks (49.0%)**. That is useful for auditing plan state but is
 not a parity percentage: small foundation subtasks and large end-to-end
 features each count once, while the remaining font/text, Desktop/input,
 advanced-widget, style, data/property-grid, asset, and release-parity work is
@@ -98,15 +98,15 @@ are planning ranges rather than a delivery promise.
 | Phase 3 — font/text/assets | 4/20 | 180–300 |
 | Phase 4 — MML/XML | 31/36 | 40–80 |
 | Phase 5 — Widget/Desktop/input | 31/39 | 72–128 |
-| Phase 6 — controls/editing | 11/38 | 150–250 |
+| Phase 6 — controls/editing | 12/39 | 142–238 |
 | Phase 7 — selectors/windows/dialogs | 0/24 | 180–300 |
 | Phase 8 — styles/default skin | 0/14 | 140–240 |
 | Phase 9 — file/data/property grids | 1/21 | 180–320 |
 | Phase 10 — parity/release | 0/28 | 140–240 |
-| **Whole remaining technical port** | **142/291 complete** | **1,146–2,018** |
+| **Whole remaining technical port** | **143/292 complete** | **1,138–2,006** |
 
-For scheduling, use **about 1,600 focused hours remaining** as the midpoint,
-with **1,200–2,000 hours** as the sensible rounded range. This assumes prompt
+For scheduling, use **about 1,570 focused hours remaining** as the midpoint,
+with **1,150–2,000 hours** as the sensible rounded range. This assumes prompt
 human decisions for P3-004 and P0-015b, no newly discovered upstream/CNA
 architectural blocker, and continued reuse of the existing tested foundations.
 It excludes idle time waiting for decisions or legal review. If P0-015b is
@@ -483,6 +483,7 @@ are green, and the build uses no more than three parallel jobs.
 - [x] P6-001a Port the FNA-selected dependency-safe `Simple/Image.cs` core: retained visual-state images, maximum-state measurement, tint/resize rendering, exact-type cloning, resize enum codec, and external-image MML metadata (`DEV-046`). Keep Color MML text and style application in P4-013/P6-001/P8-002.
 - [ ] P6-001 Port `Simple/Image.cs`, including `ImageStyle` application after P8-002.
 - [ ] P6-002 Port `Simple/Label.cs`.
+- [x] P6-003a Port the style-independent `ButtonBase` core: `ReadOnly`, touch down/up click state, `DoClick`, the `Click` event, abstract internal hooks, clone state, and MML metadata. Cloning preserves `ReadOnly`, correcting the selected upstream omission (`DEV-049`). Keep button/image-button style application in P6-003/P8-003.
 - [ ] P6-003 Port `Simple/ButtonBase.cs`.
 - [ ] P6-004 Port `Simple/Button.cs`.
 - [ ] P6-005 Port `Simple/ToggleButton.cs`.

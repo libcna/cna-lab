@@ -29,6 +29,7 @@
 #include "Myra/Graphics2D/UI/Range/HorizontalProgressBar.hpp"
 #include "Myra/Graphics2D/UI/Range/ProgressBar.hpp"
 #include "Myra/Graphics2D/UI/Range/VerticalProgressBar.hpp"
+#include "Myra/Graphics2D/UI/Simple/ButtonBase.hpp"
 #include "Myra/Graphics2D/UI/Simple/HorizontalSeparator.hpp"
 #include "Myra/Graphics2D/UI/Simple/Image.hpp"
 #include "Myra/Graphics2D/UI/Simple/SeparatorWidget.hpp"
@@ -40,6 +41,7 @@ namespace Myra::MML
     namespace
     {
         using Graphics2D::Thickness;
+        using Graphics2D::UI::ButtonBase;
         using Graphics2D::UI::Container;
         using Graphics2D::UI::ContentControl;
         using Graphics2D::UI::DragDirection;
@@ -544,6 +546,20 @@ namespace Myra::MML
             return descriptor;
         }
 
+        TypeDescriptor MakeButtonBaseDescriptor()
+        {
+            TypeDescriptor descriptor(
+                "ButtonBase", typeid(ButtonBase), {}, typeid(ContentControl));
+            descriptor.EnableBaseTypeAccess<ButtonBase, ContentControl>();
+            descriptor.EnableBaseObjectAccess<ButtonBase>();
+            descriptor.AddProperty(MakeScalarProperty<ButtonBase, bool>("ReadOnly",
+                [](const ButtonBase& object) { return object.getReadOnlyProperty(); },
+                [](ButtonBase& object, const bool value) {
+                    object.setReadOnlyProperty(value);
+                }, false));
+            return descriptor;
+        }
+
         TypeDescriptor MakeProportionDescriptor()
         {
             TypeDescriptor descriptor("Proportion", typeid(Proportion), [] {
@@ -747,6 +763,7 @@ namespace Myra::MML
         registry.Register(MakeConcreteProgressBarDescriptor<VerticalProgressBar>(
             "VerticalProgressBar", HorizontalAlignment::Left, VerticalAlignment::Stretch));
         registry.Register(MakeContentControlDescriptor());
+        registry.Register(MakeButtonBaseDescriptor());
         registry.Register(MakeContainerDescriptor());
         registry.Register(MakeProportionDescriptor());
         registry.Register(MakePanelDescriptor());

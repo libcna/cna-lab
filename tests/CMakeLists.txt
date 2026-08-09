@@ -34,6 +34,7 @@ add_executable(myra_cna_unit_tests
 # those symbols, and additionally enables matrix/vector transform tests.
 if(MYRA_CNA_CNA_LINKED)
     target_sources(myra_cna_unit_tests PRIVATE
+        ButtonBaseTests.cpp
         ColorHSVTests.cpp
         ColoredRegionTests.cpp
         ComparisonHelpersTests.cpp
