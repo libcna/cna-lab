@@ -306,6 +306,28 @@ with further terms. No VisUI-derived asset is incorporated, and this entry is
 not a redistribution approval. See `docs/default-assets-audit.md` and
 `needs_human` P0-015b.
 
+## Myra test assets (audited; not incorporated)
+
+The complete 35-file audit is recorded in `docs/test-assets-audit.md`. No
+upstream test binary is currently incorporated.
+
+- The `Stylesheets/LibGDX` atlas is derived from libGDX commit
+  `134da9bee14bd91517660b6e96c0bdf4a8a5d5f4`, licensed Apache-2.0. Its exact
+  PNG and descriptor lineage is established, but the complete Apache licence
+  and attribution must be added here before any future copy.
+- The test `Inter-Regular.ttf` duplicates the OFL-1.1 file and notice already
+  recorded above. The alternate `DroidSans.ttf` embeds Google/Ascender
+  copyright and an Apache-2.0 declaration, but its build-112 binary did not
+  byte-match the official AOSP build checked during the audit; it will be
+  replaced rather than copied.
+- `MonoGameLogo.png` is a registered MonoGame trademark and is expressly not
+  part of MonoGame's Ms-PL source licence. The official usage rules are at
+  <https://github.com/MonoGame/MonoGame.Logo>; it will be replaced by an
+  original test image.
+- The Arial BMFont pair and Commodore 64 Pixelized bundle have no adequate
+  redistribution notice in the pinned Myra tree. They will be replaced by
+  project-owned or separately cleared fixtures.
+
 ## Future dependencies
 
 Notices for the selected font rasterizer and any future third-party dependency

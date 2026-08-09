@@ -76,6 +76,11 @@ The [default-asset audit](docs/default-assets-audit.md) clears the exact Inter
 font under OFL 1.1 but blocks copying the VisUI-derived atlas until
 `needs_human` P0-015b chooses documented permission/compliance or replacement
 artwork. No upstream font or skin binary is currently bundled.
+The [test-asset audit](docs/test-assets-audit.md) classifies all 35 pinned
+Myra.Tests assets. It permits Myra-authored text and a properly noticed libGDX
+fixture, while requiring project-owned replacements for the MonoGame logo,
+Arial/C64 bitmap fonts, unmatched DroidSans binary, and blocked default skin.
+No upstream test binary is currently bundled.
 See
 [NEXT.md](NEXT.md) for the current hand-off state and
 [plan.md](plan.md) for the full compatibility backlog.

@@ -6,8 +6,10 @@
 - Repository HEAD at this session's start: `3092b25`
   (`Expand MML and widget foundations`). The validated compiled-source
   checkpoint is now local commit `6ff6fa1` (`Advance graphics and ownership
-  foundations`); it includes the environment/graphics, MML ownership/Project,
-  retained input, widget cloning, test tooling, and smoke-test work below.
+  foundations`); local commit `36a79f5` (`Complete source and default asset
+  audits`) records the subsequent production-source/default-resource audit.
+  The current checkpoint completes P0-016's test-asset audit; its exact local
+  commit follows in Git history.
 - The authoritative upstream reference remains Myra revision
   `0d79b939310bfe1d00b21803fe15e291caf60aa1` at `/tmp/myra-upstream`.
 - The font audit additionally pinned FontStashSharp 1.5.6 at
@@ -47,6 +49,13 @@ and a manifest entry. The current ported surface includes:
   `06b166889e335a2454c0767734a05b27f6403098` under OFL 1.1 and its full notice
   is preserved. The skin remains unbundled: 202/207 raw rasters byte-match
   VisUI, whose NOTICE/icon terms require the human decision P0-015b;
+- a complete P0-016 inventory of all 35 pinned Myra.Tests assets (906457
+  bytes; sorted manifest SHA-256
+  `8d6ae480b533b3dc1892fc2ff386db7a9056e5127e9d8c40455df6d58cb7291f`).
+  Myra-authored XML is reusable with attribution and the libGDX skin has exact
+  Apache-2.0 lineage. The MonoGame logo, Arial/C64 bitmap assets, unmatched
+  DroidSans build, and VisUI-derived default skin must be replaced/deferred;
+  no upstream test binary was copied;
 - event arguments, multicast handlers, a propagation manager whose capture and
   bubble queues retain processors through dispatch/filtering, and invocation
   helpers (`DEV-039`);
@@ -335,6 +344,11 @@ ASAN_OPTIONS=detect_leaks=0 UBSAN_OPTIONS=print_stacktrace=1 \
 # provenance CTest 1/1 and git diff --check passed
 # P0-015 asset audit: all seven resource hashes verified; Inter embedded source
 # commit and OFL text verified; VisUI comparison was 202/207 exact raw rasters
+# P0-016 test-asset audit: 35/35 paths and 906457 bytes classified; sorted
+# manifest SHA-256 8d6ae480b533b3dc1892fc2ff386db7a9056e5127e9d8c40455df6d58cb7291f;
+# pinned libGDX PNG and atlas matched exactly, normalized BMFont differed only
+# by Myra's atlas-page reference; AOSP DroidSans comparison exposed 33 differing
+# bytes/build 112 vs 113, so the test binary is replacement-only
 # implementation checkpoint 6ff6fa1 revalidated: default 64/64 and
 # ASan+UBSan 198/198 passed before commit
 ```
@@ -353,9 +367,10 @@ was disabled because LeakSanitizer cannot run under this environment's
 2. Treat P0-015b as `needs_human`: do not copy the VisUI-derived skin atlas or
    raw artwork. Inter itself is provenance-cleared under OFL but packaging waits
    for P3-004/P3-020.
-3. Audit all upstream Myra.Tests assets under P0-016 before copying any test
-   binary; this is the immediate safe, dependency-independent task.
-4. Then continue with the next safe dependency-independent UI/MML task;
+3. P0-016 is complete. Keep every upstream test binary unbundled; execute
+   P0-016a's original PNG/BMFont/stylesheet replacements only when their
+   affected asset tests become implementable.
+4. Continue with the next safe dependency-independent UI/MML task;
    P4-020's remaining stylesheet/asset construction and Widget's render
    traversal are dependency-blocked.
 5. Keep P4-019 open for types added by future Phase 5–9 work; every MML-capable
@@ -424,6 +439,12 @@ was disabled because LeakSanitizer cannot run under this environment's
   autonomously. P0-015b requires documented permission/compliance or original,
   clearly licensed replacement artwork. The current white-region primitive is
   independently created and does not use this atlas.
+- All 35 pinned Myra.Tests assets are now classified in
+  `docs/test-assets-audit.md`. Do not copy `MonoGameLogo.png`, the Arial BMFont
+  pair, the Commodore64 bundle, or the unmatched DroidSans build; their tests
+  must use P0-016a replacements. The exact libGDX bundle is Apache-2.0-derived
+  and may be copied only after its complete notice is added. General Myra XML
+  may be reused after blocked asset paths are rewritten.
 - Do not edit sibling `cna`, `cna-extended`, or `sharp-runtime` repositories.
   If one proves to need a modification, record the need here and request a
   human decision rather than changing it.
@@ -516,11 +537,12 @@ subsequent P3-001/P3-002/P3-003 audit is recorded in `docs/font-audit.md`, with
 P3-018 manifested and P3-004 explicitly `needs_human`; it changed no compiled
 source. P0-014 then completed the all-production-source lineage audit, and
 P0-015 completed the default-resource provenance audit. The exact Inter font is
-OFL-cleared but still unbundled; the VisUI-derived atlas is now explicitly
-`needs_human` P0-015b. Continue first with P0-016's test-asset audit, recording
-hash, source, licence, and copy/block disposition for every one of the 35 test
-assets. Then choose another dependency-independent UI/MML task. If P3-004 is
-later approved, begin with P3-005's narrow abstraction and P3-006's explicit
+OFL-cleared but still unbundled; the VisUI-derived atlas is explicitly
+`needs_human` P0-015b. P0-016 subsequently classified all 35 test assets without
+copying them and opened P0-016a for behavior-equivalent project-owned fixtures.
+Continue with the next dependency-independent UI/MML task; defer those fixtures
+until their asset/font consumers are implementable. If P3-004 is later
+approved, begin with P3-005's narrow abstraction and P3-006's explicit
 index-domain contract before introducing rasterizer code. P4-019 remains open
 only for future widget types, while caller-provided external-asset callbacks
 are already usable.
