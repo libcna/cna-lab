@@ -7,6 +7,7 @@
 #pragma once
 
 #include <deque>
+#include <memory>
 #include <vector>
 
 #include "Myra/Graphics2D/UI/InputEventType.hpp"
@@ -27,14 +28,19 @@ namespace Myra::Graphics2D::UI
     public:
         InputEventsManager() = delete;
 
-        static void Queue(IInputEventsProcessor& processor, InputEventType eventType);
+        /**
+         * @brief Queues an event while retaining its processor through dispatch.
+         * @throws std::invalid_argument if @p processor is null.
+         */
+        static void Queue(
+            std::shared_ptr<IInputEventsProcessor> processor, InputEventType eventType);
         static void ProcessEvents();
         static void StopPropagation(InputEventType eventType);
 
     private:
         struct InputEvent
         {
-            IInputEventsProcessor* Processor;
+            std::shared_ptr<IInputEventsProcessor> Processor;
             InputEventType Type;
         };
 

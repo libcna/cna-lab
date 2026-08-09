@@ -7,6 +7,8 @@
 
 #include <gtest/gtest.h>
 
+#include <memory>
+#include <stdexcept>
 #include <vector>
 
 namespace
@@ -57,9 +59,9 @@ namespace
     {
         Myra::MyraEnvironment::setEventHandlingModelProperty(EventHandlingStrategy::EventCapturing);
         std::vector<int> calls;
-        RecordingProcessor first(calls, 1);
-        RecordingProcessor second(calls, 2);
-        RecordingProcessor third(calls, 3);
+        auto first = std::make_shared<RecordingProcessor>(calls, 1);
+        auto second = std::make_shared<RecordingProcessor>(calls, 2);
+        auto third = std::make_shared<RecordingProcessor>(calls, 3);
 
         InputEventsManager::Queue(first, InputEventType::MouseEntered);
         InputEventsManager::Queue(second, InputEventType::MouseMoved);
@@ -73,9 +75,9 @@ namespace
     {
         Myra::MyraEnvironment::setEventHandlingModelProperty(EventHandlingStrategy::EventBubbling);
         std::vector<int> calls;
-        RecordingProcessor first(calls, 1);
-        RecordingProcessor second(calls, 2);
-        RecordingProcessor third(calls, 3);
+        auto first = std::make_shared<RecordingProcessor>(calls, 1);
+        auto second = std::make_shared<RecordingProcessor>(calls, 2);
+        auto third = std::make_shared<RecordingProcessor>(calls, 3);
 
         InputEventsManager::Queue(first, InputEventType::MouseEntered);
         InputEventsManager::Queue(second, InputEventType::MouseMoved);
@@ -90,9 +92,9 @@ namespace
     {
         Myra::MyraEnvironment::setEventHandlingModelProperty(EventHandlingStrategy::EventCapturing);
         std::vector<int> calls;
-        StopPropagationProcessor stopping(calls);
-        RecordingProcessor removed(calls, 2);
-        RecordingProcessor retained(calls, 3);
+        auto stopping = std::make_shared<StopPropagationProcessor>(calls);
+        auto removed = std::make_shared<RecordingProcessor>(calls, 2);
+        auto retained = std::make_shared<RecordingProcessor>(calls, 3);
 
         InputEventsManager::Queue(stopping, InputEventType::MouseMoved);
         InputEventsManager::Queue(removed, InputEventType::MouseMoved);
@@ -106,10 +108,10 @@ namespace
     {
         Myra::MyraEnvironment::setEventHandlingModelProperty(EventHandlingStrategy::EventBubbling);
         std::vector<int> calls;
-        RecordingProcessor oldest(calls, 1);
-        RecordingProcessor removed(calls, 2);
-        RecordingProcessor newest(calls, 3);
-        StopPropagationProcessor stopping(calls);
+        auto oldest = std::make_shared<RecordingProcessor>(calls, 1);
+        auto removed = std::make_shared<RecordingProcessor>(calls, 2);
+        auto newest = std::make_shared<RecordingProcessor>(calls, 3);
+        auto stopping = std::make_shared<StopPropagationProcessor>(calls);
 
         InputEventsManager::Queue(oldest, InputEventType::KeyDown);
         InputEventsManager::Queue(removed, InputEventType::MouseMoved);
@@ -121,5 +123,50 @@ namespace
         // sequence into a fresh stack, reversing the surviving events.
         EXPECT_EQ(calls, (std::vector<int>{1, 1, 3}));
         Myra::MyraEnvironment::setEventHandlingModelProperty(EventHandlingStrategy::EventCapturing);
+    }
+
+    TEST(InputEventsManagerTests, RetainsProcessorUntilCapturingEventIsDispatched)
+    {
+        Myra::MyraEnvironment::setEventHandlingModelProperty(EventHandlingStrategy::EventCapturing);
+        std::vector<int> calls;
+        std::weak_ptr<RecordingProcessor> observer;
+
+        {
+            auto processor = std::make_shared<RecordingProcessor>(calls, 1);
+            observer = processor;
+            InputEventsManager::Queue(processor, InputEventType::MouseMoved);
+        }
+
+        ASSERT_FALSE(observer.expired());
+        InputEventsManager::ProcessEvents();
+
+        EXPECT_TRUE(observer.expired());
+        EXPECT_EQ(calls, (std::vector<int>{1}));
+    }
+
+    TEST(InputEventsManagerTests, StopPropagationReleasesFilteredProcessor)
+    {
+        Myra::MyraEnvironment::setEventHandlingModelProperty(EventHandlingStrategy::EventBubbling);
+        std::vector<int> calls;
+        std::weak_ptr<RecordingProcessor> observer;
+
+        {
+            auto processor = std::make_shared<RecordingProcessor>(calls, 1);
+            observer = processor;
+            InputEventsManager::Queue(processor, InputEventType::MouseMoved);
+        }
+
+        ASSERT_FALSE(observer.expired());
+        InputEventsManager::StopPropagation(InputEventType::MouseMoved);
+        EXPECT_TRUE(observer.expired());
+
+        InputEventsManager::ProcessEvents();
+        EXPECT_TRUE(calls.empty());
+        Myra::MyraEnvironment::setEventHandlingModelProperty(EventHandlingStrategy::EventCapturing);
+    }
+
+    TEST(InputEventsManagerTests, RejectsNullProcessor)
+    {
+        EXPECT_THROW(InputEventsManager::Queue({}, InputEventType::MouseMoved), std::invalid_argument);
     }
 }

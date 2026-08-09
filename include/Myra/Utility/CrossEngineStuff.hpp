@@ -6,7 +6,18 @@
 // See NOTICE.md and UPSTREAM_MANIFEST.md.
 #pragma once
 
+#include <cstdint>
+#include <span>
+
 #include "Microsoft/Xna/Framework/Color.hpp"
+#include "Microsoft/Xna/Framework/Point.hpp"
+#include "Microsoft/Xna/Framework/Rectangle.hpp"
+#include "Microsoft/Xna/Framework/Graphics/Texture2D.hpp"
+
+namespace Microsoft::Xna::Framework::Graphics
+{
+    class GraphicsDevice;
+}
 
 namespace Myra::Utility
 {
@@ -23,5 +34,26 @@ namespace Myra::Utility
         {
             return Microsoft::Xna::Framework::Color::Multiply(color, value);
         }
+
+        /** @brief Returns the configured GraphicsDevice viewport dimensions. */
+        [[nodiscard]] static Microsoft::Xna::Framework::Point getViewSizeProperty();
+
+        /** @brief Creates an RGBA Texture2D on a live CNA graphics device. */
+        [[nodiscard]] static Microsoft::Xna::Framework::Graphics::Texture2D CreateTexture(
+            Microsoft::Xna::Framework::Graphics::GraphicsDevice& device,
+            int width,
+            int height);
+
+        /**
+         * @brief Uploads row-major RGBA8 bytes into a texture region.
+         *
+         * Extra trailing bytes are ignored, matching the element-count supplied
+         * by upstream Myra. A short buffer or invalid region is rejected before
+         * CNA's typed Color upload is invoked.
+         */
+        static void SetTextureData(
+            Microsoft::Xna::Framework::Graphics::Texture2D& texture,
+            const Microsoft::Xna::Framework::Rectangle& bounds,
+            std::span<const std::uint8_t> data);
     };
 }

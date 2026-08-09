@@ -19,6 +19,19 @@ namespace Myra::Graphics2D::UI
         proportions_.CollectionChanged.emplace_back([this](void*, const auto&) { InvalidateProportions(); });
     }
 
+    void StackPanel::CopyFrom(const Widget& source)
+    {
+        Container::CopyFrom(source);
+        const auto* const stackPanel = dynamic_cast<const StackPanel*>(&source);
+        if (stackPanel == nullptr)
+        {
+            throw std::invalid_argument("StackPanel copy source must be a StackPanel.");
+        }
+
+        setSpacingProperty(stackPanel->getSpacingProperty());
+        setDefaultProportionProperty(stackPanel->getDefaultProportionProperty());
+    }
+
     Orientation StackPanel::getOrientationProperty() const noexcept { return layout_.getOrientationProperty(); }
     int StackPanel::getSpacingProperty() const noexcept { return layout_.getSpacingProperty(); }
 
@@ -137,4 +150,14 @@ namespace Myra::Graphics2D::UI
 
     HorizontalStackPanel::HorizontalStackPanel() : StackPanel(Orientation::Horizontal) {}
     VerticalStackPanel::VerticalStackPanel() : StackPanel(Orientation::Vertical) {}
+
+    std::shared_ptr<Widget> HorizontalStackPanel::CreateCloneInstance() const
+    {
+        return std::make_shared<HorizontalStackPanel>();
+    }
+
+    std::shared_ptr<Widget> VerticalStackPanel::CreateCloneInstance() const
+    {
+        return std::make_shared<VerticalStackPanel>();
+    }
 }

@@ -349,7 +349,9 @@ namespace
         EXPECT_EQ(model->LoadOnly, 3);
         EXPECT_EQ(model->SaveOnly, 0);
         ASSERT_EQ(context.ObjectsNodes.size(), 1U);
-        EXPECT_EQ(context.ObjectsNodes.front().first, loaded.Value.get());
+        EXPECT_EQ(context.ObjectsNodes.front().Object, loaded.Value.get());
+        EXPECT_EQ(context.ObjectsNodes.front().Type, typeid(ScalarModel));
+        EXPECT_EQ(context.ObjectsNodes.front().RetainedValue, loaded.Value);
     }
 
     TEST(MMLContextTests, SavesDefaultsNullsSkipsAndXmlNamesWithoutLosingEmptyOverrides)
@@ -679,7 +681,81 @@ namespace
         const Myra::MML::LoadedObject loaded =
             loader.CreateAndLoad(*validDocument.getDocumentElementProperty());
         ASSERT_EQ(loader.ObjectsNodes.size(), 1U);
-        EXPECT_EQ(loader.ObjectsNodes.front().first, loaded.Value.get());
-        EXPECT_EQ(loader.ObjectsNodes.front().second, validDocument.getDocumentElementProperty());
+        EXPECT_EQ(loader.ObjectsNodes.front().Object, loaded.Value.get());
+        EXPECT_EQ(loader.ObjectsNodes.front().Type, typeid(ScalarModel));
+        EXPECT_EQ(loader.ObjectsNodes.front().Node, validDocument.getDocumentElementProperty());
+        EXPECT_EQ(loader.ObjectsNodes.front().RetainedValue, loaded.Value);
+    }
+
+    TEST(MMLContextTests, RetainsCreatedObjectsUntilTheirMappingsAreReleased)
+    {
+        const TypeRegistry types = CreateRegistry();
+        const ValueCodecRegistry codecs = ValueCodecRegistry::CreateDefault();
+        LoadContext loader(types, codecs);
+        System::Xml::XmlDocument document;
+        document.LoadXml("<Scalar Count=\"7\" />");
+
+        Myra::MML::LoadedObject loaded =
+            loader.CreateAndLoad(*document.getDocumentElementProperty());
+        std::weak_ptr<void> objectObserver = loaded.Value;
+        loaded.Value.reset();
+
+        ASSERT_EQ(loader.ObjectsNodes.size(), 1U);
+        EXPECT_FALSE(objectObserver.expired());
+        EXPECT_NE(loader.ObjectsNodes.front().RetainedValue, nullptr);
+
+        loader.ObjectsNodes.clear();
+        EXPECT_TRUE(objectObserver.expired());
+
+        ScalarModel external;
+        loader.Load(&external, typeid(ScalarModel), *document.getDocumentElementProperty());
+        ASSERT_EQ(loader.ObjectsNodes.size(), 1U);
+        EXPECT_EQ(loader.ObjectsNodes.front().Object, &external);
+        EXPECT_EQ(loader.ObjectsNodes.front().Type, typeid(ScalarModel));
+        EXPECT_EQ(loader.ObjectsNodes.front().RetainedValue, nullptr);
+    }
+
+    TEST(MMLContextTests, OwnedDocumentResultOutlivesContextAndRetainsDetachedCreatedObjects)
+    {
+        const TypeRegistry types = CreateRegistry();
+        const ValueCodecRegistry codecs = ValueCodecRegistry::CreateDefault();
+        std::weak_ptr<System::Xml::XmlDocument> documentObserver;
+
+        {
+            Myra::MML::LoadedDocument loaded = [&] {
+                LoadContext loader(types, codecs);
+                loader.DemandContentProperty = false;
+                Myra::MML::LoadedDocument result = loader.CreateAndLoadDocument(
+                    "<Scalar Count=\"9\"><Nested Id=\"detached\" Number=\"3\" /></Scalar>");
+                EXPECT_TRUE(loader.ObjectsNodes.empty());
+                return result;
+            }();
+
+            documentObserver = loaded.Document;
+            ASSERT_NE(loaded.Document, nullptr);
+            EXPECT_EQ(loaded.Root.Type, typeid(ScalarModel));
+            ASSERT_EQ(loaded.ObjectsNodes.size(), 2U);
+            EXPECT_EQ(loaded.ObjectsNodes[0].Object, loaded.Root.Value.get());
+            EXPECT_EQ(loaded.ObjectsNodes[0].Type, typeid(ScalarModel));
+            EXPECT_EQ(loaded.ObjectsNodes[0].Node->getNameProperty(), "Scalar");
+            EXPECT_EQ(loaded.ObjectsNodes[1].Type, typeid(NestedModel));
+            EXPECT_EQ(loaded.ObjectsNodes[1].Node->getNameProperty(), "Nested");
+            EXPECT_NE(loaded.ObjectsNodes[0].RetainedValue, nullptr);
+            EXPECT_NE(loaded.ObjectsNodes[1].RetainedValue, nullptr);
+
+            std::weak_ptr<void> detachedObserver = loaded.ObjectsNodes[1].RetainedValue;
+            loaded.ObjectsNodes.erase(loaded.ObjectsNodes.begin() + 1);
+            EXPECT_TRUE(detachedObserver.expired());
+            EXPECT_FALSE(documentObserver.expired());
+
+            std::weak_ptr<void> rootObserver = loaded.Root.Value;
+            loaded.Root.Value.reset();
+            EXPECT_FALSE(rootObserver.expired());
+            loaded.ObjectsNodes.clear();
+            EXPECT_TRUE(rootObserver.expired());
+            EXPECT_FALSE(documentObserver.expired());
+        }
+
+        EXPECT_TRUE(documentObserver.expired());
     }
 }

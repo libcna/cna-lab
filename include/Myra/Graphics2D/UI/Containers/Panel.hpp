@@ -18,6 +18,7 @@ namespace Myra::Graphics2D::UI
         ~Panel() override = default;
 
     protected:
+        [[nodiscard]] std::shared_ptr<Widget> CreateCloneInstance() const override;
         [[nodiscard]] Microsoft::Xna::Framework::Point InternalMeasure(
             Microsoft::Xna::Framework::Point availableSize) override;
         void InternalArrange() override;

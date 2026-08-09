@@ -12,6 +12,7 @@
 #include <limits>
 #include <numbers>
 #include <stdexcept>
+#include <typeinfo>
 #include <utility>
 
 #include "Myra/Utility/EventsExtensions.hpp"
@@ -525,6 +526,68 @@ namespace Myra::Graphics2D::UI
         {
             static_cast<void>(parent_->RemoveChild(this));
         }
+    }
+
+    std::shared_ptr<Widget> Widget::Clone() const
+    {
+        std::shared_ptr<Widget> result = CreateCloneInstance();
+        if (!result)
+        {
+            throw std::logic_error("A widget clone factory returned null.");
+        }
+        if (result.get() == this)
+        {
+            throw std::logic_error("A widget clone factory must create a new instance.");
+        }
+        if (typeid(*result) != typeid(*this))
+        {
+            throw std::logic_error("A widget clone factory must preserve the exact dynamic type.");
+        }
+
+        result->CopyFrom(*this);
+        for (const auto& [id, value] : AttachedPropertiesValues)
+        {
+            result->AttachedPropertiesValues.insert_or_assign(id, value);
+        }
+        return result;
+    }
+
+    std::shared_ptr<Widget> Widget::CreateCloneInstance() const
+    {
+        return std::make_shared<Widget>();
+    }
+
+    void Widget::CopyFrom(const Widget& source)
+    {
+        setStyleNameProperty(source.styleName_);
+        setLeftProperty(source.left_);
+        setTopProperty(source.top_);
+        setMinWidthProperty(source.minWidth_);
+        setMaxWidthProperty(source.maxWidth_);
+        setWidthProperty(source.width_);
+        setMinHeightProperty(source.minHeight_);
+        setMaxHeightProperty(source.maxHeight_);
+        setHeightProperty(source.height_);
+        setMarginProperty(source.margin_);
+        setBorderThicknessProperty(source.borderThickness_);
+        setPaddingProperty(source.padding_);
+        setHorizontalAlignmentProperty(source.horizontalAlignment_);
+        setVerticalAlignmentProperty(source.verticalAlignment_);
+        setEnabledProperty(source.enabled_);
+        setVisibleProperty(source.visible_);
+        setDragDirectionProperty(source.dragDirection_);
+        setZIndexProperty(source.zIndex_);
+        setMouseCursorProperty(source.mouseCursor_);
+        setTooltipProperty(source.tooltip_);
+        setScaleProperty(source.scale_);
+        setTransformOriginProperty(source.transformOrigin_);
+        setRotationProperty(source.rotation_);
+        setDragHandleProperty(source.dragHandle_ == &source ? this : source.dragHandle_);
+        setIsModalProperty(source.isModal_);
+        setOpacityProperty(source.opacity_);
+        setClipToBoundsProperty(source.clipToBounds_);
+        setTagProperty(source.tag_);
+        setAcceptsKeyboardFocusProperty(source.acceptsKeyboardFocus_);
     }
 
     std::size_t Widget::CalculateTotalChildCount(const bool visibleOnly)

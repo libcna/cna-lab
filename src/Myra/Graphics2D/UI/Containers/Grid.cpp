@@ -7,6 +7,7 @@
 #include "Myra/Graphics2D/UI/Containers/Grid.hpp"
 
 #include <algorithm>
+#include <stdexcept>
 #include <utility>
 
 #include "Myra/Attributes/RangeAttribute.hpp"
@@ -35,6 +36,34 @@ namespace Myra::Graphics2D::UI
     Grid::~Grid()
     {
         ClearProportionSubscriptions();
+    }
+
+    std::shared_ptr<Widget> Grid::CreateCloneInstance() const
+    {
+        return std::make_shared<Grid>();
+    }
+
+    void Grid::CopyFrom(const Widget& source)
+    {
+        Container::CopyFrom(source);
+        const auto* const grid = dynamic_cast<const Grid*>(&source);
+        if (grid == nullptr)
+        {
+            throw std::invalid_argument("Grid copy source must be a Grid.");
+        }
+
+        setColumnSpacingProperty(grid->getColumnSpacingProperty());
+        setRowSpacingProperty(grid->getRowSpacingProperty());
+        setDefaultColumnProportionProperty(grid->getDefaultColumnProportionProperty());
+        setDefaultRowProportionProperty(grid->getDefaultRowProportionProperty());
+        for (const std::shared_ptr<Proportion>& proportion : grid->getColumnsProportionsProperty())
+        {
+            getColumnsProportionsProperty().Add(proportion);
+        }
+        for (const std::shared_ptr<Proportion>& proportion : grid->getRowsProportionsProperty())
+        {
+            getRowsProportionsProperty().Add(proportion);
+        }
     }
 
     int Grid::getColumnSpacingProperty() const noexcept { return layout_.getColumnSpacingProperty(); }

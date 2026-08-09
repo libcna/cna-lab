@@ -36,6 +36,7 @@ namespace Myra::Graphics2D::UI
 
     protected:
         explicit StackPanel(Orientation orientation);
+        void CopyFrom(const Widget& source) override;
         [[nodiscard]] Microsoft::Xna::Framework::Point InternalMeasure(
             Microsoft::Xna::Framework::Point availableSize) override;
         void InternalArrange() override;
@@ -54,6 +55,9 @@ namespace Myra::Graphics2D::UI
     {
     public:
         HorizontalStackPanel();
+
+    protected:
+        [[nodiscard]] std::shared_ptr<Widget> CreateCloneInstance() const override;
     };
 
     /** @brief A stack panel with vertical orientation. */
@@ -61,5 +65,8 @@ namespace Myra::Graphics2D::UI
     {
     public:
         VerticalStackPanel();
+
+    protected:
+        [[nodiscard]] std::shared_ptr<Widget> CreateCloneInstance() const override;
     };
 }

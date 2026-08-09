@@ -3,6 +3,7 @@
 // See NOTICE.md and THIRD_PARTY_NOTICES.md.
 #include "Myra/Graphics2D/UI/Widget.hpp"
 #include "Myra/MML/AttachedPropertiesRegistry.hpp"
+#include "ComparisonHelpers.hpp"
 
 #include <gtest/gtest.h>
 
@@ -516,6 +517,36 @@ namespace
         EXPECT_FLOAT_EQ(local.Y, 0.0F);
         EXPECT_TRUE(widget.ContainsGlobalPoint(Point(15, 27)));
         EXPECT_FALSE(widget.ContainsGlobalPoint(Point(35, 37)));
+    }
+
+    TEST(WidgetTests, TransformAppliesScaleRotationOriginAndInvalidatesItsCache)
+    {
+        Widget widget;
+        widget.setLeftProperty(5);
+        widget.setTopProperty(7);
+        widget.setWidthProperty(20);
+        widget.setHeightProperty(10);
+        widget.setScaleProperty(Vector2(2.0F, 3.0F));
+        widget.setTransformOriginProperty(Vector2(0.5F, 0.5F));
+        widget.setRotationProperty(90.0F);
+        widget.Arrange(Rectangle(10, 20, 100, 80));
+
+        const Vector2 transformedOrigin = widget.ToGlobal(Vector2(0.0F, 0.0F));
+        EXPECT_MYRA_NUMERIC_NEAR(40.0F, transformedOrigin.X, 0.0001F);
+        EXPECT_MYRA_NUMERIC_NEAR(12.0F, transformedOrigin.Y, 0.0001F);
+
+        const Vector2 transformedCenter = widget.ToGlobal(Vector2(10.0F, 5.0F));
+        EXPECT_MYRA_NUMERIC_NEAR(25.0F, transformedCenter.X, 0.0001F);
+        EXPECT_MYRA_NUMERIC_NEAR(32.0F, transformedCenter.Y, 0.0001F);
+
+        const Vector2 localCenter = widget.ToLocal(transformedCenter);
+        EXPECT_MYRA_NUMERIC_NEAR(10.0F, localCenter.X, 0.0001F);
+        EXPECT_MYRA_NUMERIC_NEAR(5.0F, localCenter.Y, 0.0001F);
+
+        widget.setRotationProperty(0.0F);
+        const Vector2 unrotatedOrigin = widget.ToGlobal(Vector2(0.0F, 0.0F));
+        EXPECT_FLOAT_EQ(unrotatedOrigin.X, 5.0F);
+        EXPECT_FLOAT_EQ(unrotatedOrigin.Y, 17.0F);
     }
 
     TEST(WidgetTests, OpacityRejectsValuesOutsideTheUpstreamRange)

@@ -7,6 +7,8 @@
 #include "Myra/Graphics2D/UI/InputEventsManager.hpp"
 
 #include <algorithm>
+#include <stdexcept>
+#include <utility>
 
 #include "Myra/Events/EventHandlingStrategy.hpp"
 #include "Myra/MyraEnvironment.hpp"
@@ -16,16 +18,22 @@ namespace Myra::Graphics2D::UI
     std::deque<InputEventsManager::InputEvent> InputEventsManager::eventsQueue_;
     std::vector<InputEventsManager::InputEvent> InputEventsManager::eventsStack_;
 
-    void InputEventsManager::Queue(IInputEventsProcessor& processor, const InputEventType eventType)
+    void InputEventsManager::Queue(
+        std::shared_ptr<IInputEventsProcessor> processor, const InputEventType eventType)
     {
-        const InputEvent event{&processor, eventType};
+        if (!processor)
+        {
+            throw std::invalid_argument("InputEventsManager cannot queue a null processor");
+        }
+
+        InputEvent event{std::move(processor), eventType};
         switch (MyraEnvironment::getEventHandlingModelProperty())
         {
         case Events::EventHandlingStrategy::EventCapturing:
-            eventsQueue_.push_back(event);
+            eventsQueue_.push_back(std::move(event));
             break;
         case Events::EventHandlingStrategy::EventBubbling:
-            eventsStack_.push_back(event);
+            eventsStack_.push_back(std::move(event));
             break;
         }
     }
@@ -37,7 +45,7 @@ namespace Myra::Graphics2D::UI
         case Events::EventHandlingStrategy::EventCapturing:
             while (!eventsQueue_.empty())
             {
-                const InputEvent event = eventsQueue_.front();
+                InputEvent event = std::move(eventsQueue_.front());
                 eventsQueue_.pop_front();
                 event.Processor->ProcessEvent(event.Type);
             }
@@ -45,7 +53,7 @@ namespace Myra::Graphics2D::UI
         case Events::EventHandlingStrategy::EventBubbling:
             while (!eventsStack_.empty())
             {
-                const InputEvent event = eventsStack_.back();
+                InputEvent event = std::move(eventsStack_.back());
                 eventsStack_.pop_back();
                 event.Processor->ProcessEvent(event.Type);
             }

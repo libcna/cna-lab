@@ -20,6 +20,7 @@
 
 namespace System::Xml
 {
+    class XmlDocument;
     class XmlElement;
 }
 
@@ -32,6 +33,23 @@ namespace Myra::MML
     {
         std::shared_ptr<void> Value;
         std::type_index Type;
+    };
+
+    /** @brief Associates one loaded object with its source node and optional owning handle. */
+    struct LoadedObjectNode final
+    {
+        void* Object = nullptr;
+        std::type_index Type = typeid(void);
+        const System::Xml::XmlElement* Node = nullptr;
+        std::shared_ptr<void> RetainedValue;
+    };
+
+    /** @brief Owns a parsed MML document, its root object, and every load mapping. */
+    struct LoadedDocument final
+    {
+        std::shared_ptr<System::Xml::XmlDocument> Document;
+        LoadedObject Root;
+        std::vector<LoadedObjectNode> ObjectsNodes;
     };
 
     /** @brief Registry-backed MML loader using explicit scalar, object, collection, and asset adapters. */
@@ -55,14 +73,23 @@ namespace Myra::MML
         AttachedExternalAssetLoader LoadAttachedExternalAsset;
         bool DemandContentProperty = true;
 
-        /** @brief Pairs each loaded object address with its source element. */
-        std::vector<std::pair<void*, const System::Xml::XmlElement*>> ObjectsNodes;
+        /**
+         * @brief Maps loaded object addresses to source elements.
+         *
+         * Objects created by this context also populate RetainedValue. Objects
+         * supplied through Load() remain caller-owned and leave it empty.
+         */
+        std::vector<LoadedObjectNode> ObjectsNodes;
 
         void Load(void* object, std::type_index type, const System::Xml::XmlElement& element);
         [[nodiscard]] LoadedObject CreateAndLoad(const System::Xml::XmlElement& element);
+        [[nodiscard]] LoadedDocument CreateAndLoadDocument(const std::string& xml);
 
     private:
-        void LoadCore(void* object, std::type_index type, const System::Xml::XmlElement& element);
+        void LoadWithRetention(void* object, std::type_index type,
+            const System::Xml::XmlElement& element, std::shared_ptr<void> retainedValue);
+        void LoadCore(void* object, std::type_index type,
+            const System::Xml::XmlElement& element, std::shared_ptr<void> retainedValue);
         [[nodiscard]] std::shared_ptr<void> CreateRegisteredObject(
             const TypeDescriptor& descriptor, const System::Xml::XmlElement& element);
         [[nodiscard]] const TypeDescriptor& ResolveElementType(

@@ -3,6 +3,7 @@
 // See NOTICE.md and THIRD_PARTY_NOTICES.md.
 #pragma once
 
+#include "Myra/DefaultAssets.hpp"
 #include "Myra/Attributes/ContentAttribute.hpp"
 #include "Myra/Attributes/DesignerFoldedAttribute.hpp"
 #include "Myra/Attributes/FilePathAttribute.hpp"
@@ -21,6 +22,15 @@
 #include "Myra/Events/ValueChangedEventArgs.hpp"
 #include "Myra/Events/ValueChangingEventArgs.hpp"
 #include "Myra/Graphics2D/IContent.hpp"
+#include "Myra/Graphics2D/IBrush.hpp"
+#include "Myra/Graphics2D/IImage.hpp"
+#include "Myra/Graphics2D/Brushes/SolidBrush.hpp"
+#include "Myra/Graphics2D/RenderContext.hpp"
+#include "Myra/Graphics2D/TextureAtlases/ColoredRegion.hpp"
+#include "Myra/Graphics2D/TextureAtlases/NinePatchRegion.hpp"
+#include "Myra/Graphics2D/TextureAtlases/TextureRegion.hpp"
+#include "Myra/Graphics2D/TextureAtlases/TextureRegionAtlas.hpp"
+#include "Myra/Graphics2D/TextureAtlases/TintedRegion.hpp"
 #include "Myra/Graphics2D/Thickness.hpp"
 #include "Myra/Graphics2D/Transform.hpp"
 #include "Myra/Graphics2D/UI/InputEventType.hpp"
@@ -39,6 +49,7 @@
 #include "Myra/Graphics2D/UI/Layouts/StackPanelLayout.hpp"
 #include "Myra/Graphics2D/UI/ILayout.hpp"
 #include "Myra/Graphics2D/UI/ITransformable.hpp"
+#include "Myra/Graphics2D/UI/Project.hpp"
 #include "Myra/Graphics2D/UI/LayoutUtils.hpp"
 #include "Myra/Graphics2D/UI/Widget.hpp"
 #include "Myra/MML/BaseObject.hpp"

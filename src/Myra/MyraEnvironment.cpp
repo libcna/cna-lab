@@ -10,6 +10,16 @@ namespace Myra
 {
     Events::EventHandlingStrategy MyraEnvironment::eventHandlingModel_ =
         Events::EventHandlingStrategy::EventCapturing;
+    bool MyraEnvironment::drawWidgetsFrames_ = false;
+    bool MyraEnvironment::drawKeyboardFocusedWidgetFrame_ = false;
+    bool MyraEnvironment::drawMouseHoveredWidgetFrame_ = false;
+    bool MyraEnvironment::drawTextGlyphsFrames_ = false;
+    bool MyraEnvironment::disableClipping_ = false;
+    bool MyraEnvironment::setMouseCursorFromWidget_ = true;
+    Graphics2D::UI::MouseCursorType MyraEnvironment::mouseCursorType_ =
+        Graphics2D::UI::MouseCursorType::Arrow;
+    Graphics2D::UI::MouseCursorType MyraEnvironment::defaultMouseCursorType_ =
+        Graphics2D::UI::MouseCursorType::Arrow;
 
     Events::EventHandlingStrategy MyraEnvironment::getEventHandlingModelProperty() noexcept
     {
@@ -19,5 +29,81 @@ namespace Myra
     void MyraEnvironment::setEventHandlingModelProperty(const Events::EventHandlingStrategy value) noexcept
     {
         eventHandlingModel_ = value;
+    }
+
+    bool MyraEnvironment::getDrawWidgetsFramesProperty() noexcept
+    {
+        return drawWidgetsFrames_;
+    }
+
+    void MyraEnvironment::setDrawWidgetsFramesProperty(const bool value) noexcept
+    {
+        drawWidgetsFrames_ = value;
+    }
+
+    bool MyraEnvironment::getDrawKeyboardFocusedWidgetFrameProperty() noexcept
+    {
+        return drawKeyboardFocusedWidgetFrame_;
+    }
+
+    void MyraEnvironment::setDrawKeyboardFocusedWidgetFrameProperty(const bool value) noexcept
+    {
+        drawKeyboardFocusedWidgetFrame_ = value;
+    }
+
+    bool MyraEnvironment::getDrawMouseHoveredWidgetFrameProperty() noexcept
+    {
+        return drawMouseHoveredWidgetFrame_;
+    }
+
+    void MyraEnvironment::setDrawMouseHoveredWidgetFrameProperty(const bool value) noexcept
+    {
+        drawMouseHoveredWidgetFrame_ = value;
+    }
+
+    bool MyraEnvironment::getDrawTextGlyphsFramesProperty() noexcept
+    {
+        return drawTextGlyphsFrames_;
+    }
+
+    void MyraEnvironment::setDrawTextGlyphsFramesProperty(const bool value) noexcept
+    {
+        drawTextGlyphsFrames_ = value;
+    }
+
+    bool MyraEnvironment::getDisableClippingProperty() noexcept
+    {
+        return disableClipping_;
+    }
+
+    void MyraEnvironment::setDisableClippingProperty(const bool value) noexcept
+    {
+        disableClipping_ = value;
+    }
+
+    bool MyraEnvironment::getSetMouseCursorFromWidgetProperty() noexcept
+    {
+        return setMouseCursorFromWidget_;
+    }
+
+    void MyraEnvironment::setSetMouseCursorFromWidgetProperty(const bool value) noexcept
+    {
+        setMouseCursorFromWidget_ = value;
+    }
+
+    Graphics2D::UI::MouseCursorType MyraEnvironment::getMouseCursorTypeProperty() noexcept
+    {
+        return mouseCursorType_;
+    }
+
+    Graphics2D::UI::MouseCursorType MyraEnvironment::getDefaultMouseCursorTypeProperty() noexcept
+    {
+        return defaultMouseCursorType_;
+    }
+
+    void MyraEnvironment::setDefaultMouseCursorTypeProperty(
+        const Graphics2D::UI::MouseCursorType value) noexcept
+    {
+        defaultMouseCursorType_ = value;
     }
 }

@@ -23,6 +23,7 @@
 #include "Myra/Graphics2D/UI/Containers/Panel.hpp"
 #include "Myra/Graphics2D/UI/Containers/Proportion.hpp"
 #include "Myra/Graphics2D/UI/Containers/StackPanel.hpp"
+#include "Myra/Graphics2D/UI/Project.hpp"
 #include "Myra/Graphics2D/UI/Widget.hpp"
 
 namespace Myra::MML
@@ -33,6 +34,7 @@ namespace Myra::MML
         using Graphics2D::UI::Container;
         using Graphics2D::UI::ContentControl;
         using Graphics2D::UI::DragDirection;
+        using Graphics2D::UI::ExportOptions;
         using Graphics2D::UI::Grid;
         using Graphics2D::UI::HorizontalAlignment;
         using Graphics2D::UI::HorizontalStackPanel;
@@ -42,6 +44,7 @@ namespace Myra::MML
         using Graphics2D::UI::Proportion;
         using Graphics2D::UI::ProportionCollection;
         using Graphics2D::UI::ProportionType;
+        using Graphics2D::UI::Project;
         using Graphics2D::UI::StackPanel;
         using Graphics2D::UI::VerticalAlignment;
         using Graphics2D::UI::VerticalStackPanel;
@@ -118,6 +121,12 @@ namespace Myra::MML
             return value
                 ? std::vector<RegisteredObjectView>{{dynamic_cast<const void*>(value.get()), typeid(*value)}}
                 : std::vector<RegisteredObjectView>();
+        }
+
+        [[nodiscard]] std::vector<RegisteredObjectView> EnumerateExportOptions(
+            const ExportOptions& value)
+        {
+            return {{&value, typeid(ExportOptions)}};
         }
 
         [[nodiscard]] std::vector<RegisteredObjectView> EnumerateProportions(
@@ -449,6 +458,88 @@ namespace Myra::MML
             descriptor.template EnableBaseObjectAccess<T>();
             return descriptor;
         }
+
+        TypeDescriptor MakeExportOptionsDescriptor()
+        {
+            TypeDescriptor descriptor("ExportOptions", typeid(ExportOptions), [] {
+                return std::static_pointer_cast<void>(std::make_shared<ExportOptions>());
+            });
+            descriptor.AddProperty(MakeScalarProperty<ExportOptions, std::optional<std::string>>(
+                "Namespace",
+                [](const ExportOptions& object) { return object.getNamespaceProperty(); },
+                [](ExportOptions& object, const std::optional<std::string>& value) {
+                    object.setNamespaceProperty(value);
+                }, std::nullopt));
+            descriptor.AddProperty(MakeScalarProperty<ExportOptions, std::optional<std::string>>(
+                "Class",
+                [](const ExportOptions& object) { return object.getClassProperty(); },
+                [](ExportOptions& object, const std::optional<std::string>& value) {
+                    object.setClassProperty(value);
+                }, std::nullopt));
+            descriptor.AddProperty(MakeScalarProperty<ExportOptions, std::optional<std::string>>(
+                "OutputPath",
+                [](const ExportOptions& object) { return object.getOutputPathProperty(); },
+                [](ExportOptions& object, const std::optional<std::string>& value) {
+                    object.setOutputPathProperty(value);
+                }, std::nullopt));
+            descriptor.AddProperty(MakeScalarProperty<ExportOptions, std::optional<std::string>>(
+                "TemplateDesigner",
+                [](const ExportOptions& object) { return object.getTemplateDesignerProperty(); },
+                [](ExportOptions& object, const std::optional<std::string>& value) {
+                    object.setTemplateDesignerProperty(value);
+                }, std::nullopt));
+            descriptor.AddProperty(MakeScalarProperty<ExportOptions, std::optional<std::string>>(
+                "TemplateMain",
+                [](const ExportOptions& object) { return object.getTemplateMainProperty(); },
+                [](ExportOptions& object, const std::optional<std::string>& value) {
+                    object.setTemplateMainProperty(value);
+                }, std::nullopt));
+            return descriptor;
+        }
+
+        TypeDescriptor MakeProjectDescriptor()
+        {
+            TypeDescriptor descriptor("Project", typeid(Project), [] {
+                return std::static_pointer_cast<void>(std::make_shared<Project>());
+            });
+            descriptor.AddProperty(MakeScalarProperty<Project, std::optional<std::string>>(
+                "StylesheetPath",
+                [](const Project& object) { return object.getStylesheetPathProperty(); },
+                [](Project& object, const std::optional<std::string>& value) {
+                    object.setStylesheetPathProperty(value);
+                }, std::nullopt));
+            PropertyMetadata assetsPathMetadata;
+            assetsPathMetadata.FilePath = Attributes::FilePathAttribute(
+                Graphics2D::UI::File::FileDialogMode::ChooseFolder);
+            descriptor.AddProperty(MakeScalarProperty<Project, std::optional<std::string>>(
+                "DesignerRtfAssetsPath",
+                [](const Project& object) { return object.getDesignerRtfAssetsPathProperty(); },
+                [](Project& object, const std::optional<std::string>& value) {
+                    object.setDesignerRtfAssetsPathProperty(value);
+                }, std::nullopt, std::move(assetsPathMetadata)));
+            descriptor.AddProperty(PropertyDescriptor("ExportOptions", typeid(ExportOptions), {}, {},
+                std::nullopt, {}, {}, {}, ComplexPropertyAdapter::SingleReadOnly(
+                    typeid(ExportOptions),
+                    [](void* object) {
+                        return &static_cast<Project*>(object)->getExportOptionsProperty();
+                    },
+                    [](const void* object) {
+                        return EnumerateExportOptions(
+                            static_cast<const Project*>(object)->getExportOptionsProperty());
+                    })));
+            PropertyMetadata rootMetadata;
+            rootMetadata.Content = true;
+            descriptor.AddProperty(PropertyDescriptor("Root", typeid(std::shared_ptr<Widget>), {}, {},
+                std::nullopt, std::move(rootMetadata), {}, {}, ComplexPropertyAdapter::SingleWritable(
+                    typeid(Widget),
+                    [](void* object, const std::shared_ptr<void>& value) {
+                        static_cast<Project*>(object)->setRootProperty(AsWidget(value));
+                    },
+                    [](const void* object) {
+                        return EnumerateWidget(static_cast<const Project*>(object)->getRootProperty());
+                    })));
+            return descriptor;
+        }
     }
 
     void RegisterMyraTypes(TypeRegistry& registry)
@@ -463,6 +554,8 @@ namespace Myra::MML
         registry.Register(MakeStackPanelDescriptor());
         registry.Register(MakeConcreteStackPanelDescriptor<HorizontalStackPanel>("HorizontalStackPanel"));
         registry.Register(MakeConcreteStackPanelDescriptor<VerticalStackPanel>("VerticalStackPanel"));
+        registry.Register(MakeExportOptionsDescriptor());
+        registry.Register(MakeProjectDescriptor());
 
         static_cast<void>(Grid::getColumnProperty());
         static_cast<void>(Grid::getRowProperty());

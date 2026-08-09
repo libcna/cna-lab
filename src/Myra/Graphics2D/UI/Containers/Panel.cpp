@@ -12,6 +12,11 @@ namespace Myra::Graphics2D::UI
 {
     using Microsoft::Xna::Framework::Point;
 
+    std::shared_ptr<Widget> Panel::CreateCloneInstance() const
+    {
+        return std::make_shared<Panel>();
+    }
+
     Point Panel::InternalMeasure(const Point availableSize)
     {
         Point result(0, 0);

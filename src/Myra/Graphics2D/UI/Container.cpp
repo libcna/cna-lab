@@ -6,6 +6,7 @@
 // See NOTICE.md and UPSTREAM_MANIFEST.md.
 #include "Myra/Graphics2D/UI/Container.hpp"
 
+#include <stdexcept>
 #include <utility>
 
 namespace Myra::Graphics2D::UI
@@ -29,5 +30,26 @@ namespace Myra::Graphics2D::UI
     bool Container::RemoveWidget(const Widget* const widget)
     {
         return RemoveChild(widget);
+    }
+
+    std::shared_ptr<Widget> Container::CreateCloneInstance() const
+    {
+        return std::make_shared<Container>();
+    }
+
+    void Container::CopyFrom(const Widget& source)
+    {
+        Widget::CopyFrom(source);
+        const auto* const container = dynamic_cast<const Container*>(&source);
+        if (container == nullptr)
+        {
+            throw std::invalid_argument("Container copy source must be a Container.");
+        }
+
+        const std::vector<std::shared_ptr<Widget>> snapshot = container->getWidgetsProperty();
+        for (const std::shared_ptr<Widget>& child : snapshot)
+        {
+            AddWidget(child->Clone());
+        }
     }
 }

@@ -9,8 +9,10 @@ add_executable(myra_cna_unit_tests
     BaseContextTests.cpp
     BaseObjectTests.cpp
     EventHandlingStrategyTests.cpp
+    MyraEnvironmentSettingsTests.cpp
     EventsExtensionsTests.cpp
     EventsTests.cpp
+    GraphicsContractsTests.cpp
     InputExtensionTests.cpp
     InputEventsManagerTests.cpp
     LayoutUtilsTests.cpp
@@ -18,6 +20,7 @@ add_executable(myra_cna_unit_tests
     PathUtilsTests.cpp
     RestTests.cpp
     StringUtilsTests.cpp
+    TemporaryAssetDirectoryTests.cpp
     ThicknessTests.cpp
     TypeRegistryTests.cpp
     ValueCodecRegistryTests.cpp
@@ -32,20 +35,33 @@ add_executable(myra_cna_unit_tests
 if(MYRA_CNA_CNA_LINKED)
     target_sources(myra_cna_unit_tests PRIVATE
         ColorHSVTests.cpp
+        ColoredRegionTests.cpp
+        ComparisonHelpersTests.cpp
         CrossEngineStuffTests.cpp
+        DefaultAssetsTests.cpp
         GridLayoutTests.cpp
         IHasColorTests.cpp
         MMLContextTests.cpp
+        MyraEnvironmentTests.cpp
         MyraTypeRegistryTests.cpp
+        NinePatchRegionTests.cpp
         PanelTests.cpp
+        ProjectTests.cpp
         ProportionTests.cpp
+        RenderContextShapesTests.cpp
+        RenderContextTests.cpp
         SingleItemLayoutTests.cpp
+        SolidBrushTests.cpp
         StackPanelTests.cpp
         ThicknessRectangleTests.cpp
+        TextureRegionTests.cpp
+        TextureRegionAtlasTests.cpp
+        TintedRegionTests.cpp
         TransformableContractTests.cpp
         TransformTests.cpp
         TypeSerializersTests.cpp
         UIUtilsTests.cpp
+        WidgetCloneTests.cpp
         WidgetTests.cpp
     )
 else()
@@ -64,12 +80,7 @@ else()
     )
 endif()
 target_link_libraries(myra_cna_unit_tests PRIVATE Myra::CNA GTest::gtest_main)
-
-if(MSVC)
-    target_compile_options(myra_cna_unit_tests PRIVATE /W4 /WX)
-else()
-    target_compile_options(myra_cna_unit_tests PRIVATE -Wall -Wextra -Werror)
-endif()
+myra_cna_enable_strict_warnings(myra_cna_unit_tests)
 
 include(GoogleTest)
 gtest_discover_tests(myra_cna_unit_tests)
@@ -79,3 +90,20 @@ add_test(
     COMMAND "${Python3_EXECUTABLE}" "${PROJECT_SOURCE_DIR}/tools/check_provenance.py"
             --root "${PROJECT_SOURCE_DIR}"
 )
+
+if(MYRA_CNA_CNA_LINKED
+   AND MYRA_CNA_CNA_GRAPHICS_BACKEND STREQUAL "SDL_RENDERER")
+    add_executable(myra_cna_sdlrenderer_smoke SdlRendererSmoke.cpp)
+    target_link_libraries(myra_cna_sdlrenderer_smoke PRIVATE Myra::CNA)
+    if(TARGET SDL3::SDL3main)
+        target_link_libraries(myra_cna_sdlrenderer_smoke PRIVATE SDL3::SDL3main)
+    endif()
+    myra_cna_enable_strict_warnings(myra_cna_sdlrenderer_smoke)
+
+    add_test(NAME myra_cna_sdlrenderer_smoke COMMAND myra_cna_sdlrenderer_smoke)
+    set_tests_properties(myra_cna_sdlrenderer_smoke PROPERTIES
+        ENVIRONMENT "SDL_VIDEODRIVER=x11;DISPLAY=${MYRA_CNA_TEST_DISPLAY}"
+        LABELS "GraphicsSmoke;SDLRenderer;RequiresDisplay"
+        RESOURCE_LOCK myra_cna_display
+        TIMEOUT 30)
+endif()

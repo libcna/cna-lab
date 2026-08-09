@@ -7,11 +7,13 @@
 #include "Myra/MML/LoadContext.hpp"
 
 #include <stdexcept>
+#include <utility>
 
 #include "Myra/MML/AttachedPropertiesRegistry.hpp"
 #include "SharpRuntime/SharpRuntimeHelper.hpp"
 #include "System/Xml/XmlAttribute.hpp"
 #include "System/Xml/XmlAttributeCollection.hpp"
+#include "System/Xml/XmlDocument.hpp"
 #include "System/Xml/XmlElement.hpp"
 #include "System/Xml/XmlNodeList.hpp"
 #include "System/Xml/XmlNodeType.hpp"
@@ -38,10 +40,16 @@ namespace Myra::MML
 
     void LoadContext::Load(void* object, const std::type_index type, const System::Xml::XmlElement& element)
     {
+        LoadWithRetention(object, type, element, nullptr);
+    }
+
+    void LoadContext::LoadWithRetention(void* object, const std::type_index type,
+        const System::Xml::XmlElement& element, std::shared_ptr<void> retainedValue)
+    {
         const std::size_t objectsNodesStart = ObjectsNodes.size();
         try
         {
-            LoadCore(object, type, element);
+            LoadCore(object, type, element, std::move(retainedValue));
         }
         catch (...)
         {
@@ -51,7 +59,7 @@ namespace Myra::MML
     }
 
     void LoadContext::LoadCore(void* object, const std::type_index type,
-        const System::Xml::XmlElement& element)
+        const System::Xml::XmlElement& element, std::shared_ptr<void> retainedValue)
     {
         if (object == nullptr)
         {
@@ -66,7 +74,7 @@ namespace Myra::MML
         BaseObject* baseObject = descriptor->GetBaseObject(object);
 
         const ParsedProperties properties = ParseProperties(type, false);
-        ObjectsNodes.emplace_back(object, &element);
+        ObjectsNodes.push_back({object, type, &element, std::move(retainedValue)});
 
         const System::Xml::XmlAttributeCollection* attributes = element.getAttributesProperty();
         for (SharpRuntime::intcs index = 0; index < attributes->getCountProperty(); ++index)
@@ -268,7 +276,7 @@ namespace Myra::MML
                     ? contentProperty->getComplexAdapterProperty()->getItemTypeProperty()
                     : typeid(void));
             std::shared_ptr<void> item = CreateRegisteredObject(itemDescriptor, *child);
-            Load(item.get(), itemDescriptor.getTypeProperty(), *child);
+            LoadWithRetention(item.get(), itemDescriptor.getTypeProperty(), *child, item);
 
             if (contentProperty == nullptr)
             {
@@ -313,8 +321,38 @@ namespace Myra::MML
         }
 
         std::shared_ptr<void> object = CreateRegisteredObject(*descriptor, element);
-        Load(object.get(), descriptor->getTypeProperty(), element);
+        LoadWithRetention(object.get(), descriptor->getTypeProperty(), element, object);
         return {std::move(object), descriptor->getTypeProperty()};
+    }
+
+    LoadedDocument LoadContext::CreateAndLoadDocument(const std::string& xml)
+    {
+        auto document = std::make_shared<System::Xml::XmlDocument>();
+        document->LoadXml(xml);
+        System::Xml::XmlElement* const rootElement = document->getDocumentElementProperty();
+        if (rootElement == nullptr)
+        {
+            throw std::invalid_argument("An MML document must have a root element.");
+        }
+
+        const std::size_t objectsNodesStart = ObjectsNodes.size();
+        try
+        {
+            LoadedObject root = CreateAndLoad(*rootElement);
+            std::vector<LoadedObjectNode> objectsNodes;
+            objectsNodes.reserve(ObjectsNodes.size() - objectsNodesStart);
+            for (std::size_t index = objectsNodesStart; index < ObjectsNodes.size(); ++index)
+            {
+                objectsNodes.push_back(std::move(ObjectsNodes[index]));
+            }
+            ObjectsNodes.resize(objectsNodesStart);
+            return {std::move(document), std::move(root), std::move(objectsNodes)};
+        }
+        catch (...)
+        {
+            ObjectsNodes.resize(objectsNodesStart);
+            throw;
+        }
     }
 
     std::shared_ptr<void> LoadContext::CreateRegisteredObject(
@@ -379,7 +417,7 @@ namespace Myra::MML
             }
 
             std::shared_ptr<void> value = CreateRegisteredObject(*itemDescriptor, element);
-            Load(value.get(), itemDescriptor->getTypeProperty(), element);
+            LoadWithRetention(value.get(), itemDescriptor->getTypeProperty(), element, value);
             adapter.AssignObject(propertyOwner, value);
             return;
         }
@@ -395,7 +433,7 @@ namespace Myra::MML
             const auto* child = static_cast<const System::Xml::XmlElement*>(node);
             const TypeDescriptor& concreteDescriptor = ResolveElementType(*child, adapter.getItemTypeProperty());
             std::shared_ptr<void> value = CreateRegisteredObject(concreteDescriptor, *child);
-            Load(value.get(), concreteDescriptor.getTypeProperty(), *child);
+            LoadWithRetention(value.get(), concreteDescriptor.getTypeProperty(), *child, value);
 
             if (adapter.getKindProperty() == ComplexPropertyKind::Sequence)
             {

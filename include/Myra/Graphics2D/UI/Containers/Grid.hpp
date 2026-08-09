@@ -51,6 +51,10 @@ namespace Myra::Graphics2D::UI
         [[nodiscard]] static int GetRowSpan(const Widget& widget);
         static void SetRowSpan(Widget& widget, int value);
 
+    protected:
+        [[nodiscard]] std::shared_ptr<Widget> CreateCloneInstance() const override;
+        void CopyFrom(const Widget& source) override;
+
     private:
         struct ProportionSubscription
         {

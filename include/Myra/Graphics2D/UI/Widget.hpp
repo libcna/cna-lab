@@ -146,6 +146,9 @@ namespace Myra::Graphics2D::UI
         void ClearChildren();
         void RemoveFromParent();
 
+        /** @brief Creates a deep copy using the dynamic type's virtual factory. */
+        [[nodiscard]] std::shared_ptr<Widget> Clone() const;
+
         using WidgetPredicate = std::function<bool(Widget&)>;
 
         /** @brief Counts descendants, optionally excluding invisible subtrees. */
@@ -230,6 +233,12 @@ namespace Myra::Graphics2D::UI
         void SetIsPressedByUser(bool value);
         [[nodiscard]] bool getSuppressInvalidateMeasureProperty() const noexcept;
         void setSuppressInvalidateMeasureProperty(bool value) noexcept;
+
+        /** @brief Constructs an empty instance of this widget's exact dynamic type. */
+        [[nodiscard]] virtual std::shared_ptr<Widget> CreateCloneInstance() const;
+
+        /** @brief Copies this type's ported state from @p source. */
+        virtual void CopyFrom(const Widget& source);
 
     private:
         friend class Desktop;

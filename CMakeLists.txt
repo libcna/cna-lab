@@ -16,6 +16,26 @@ option(MYRA_CNA_BUILD_TESTS "Build Myra-CNA tests" ON)
 option(MYRA_CNA_BUILD_EXAMPLES "Build Myra-CNA examples" ON)
 option(MYRA_CNA_LINK_CNA
        "When no parent supplies CNA, add the sibling CNA project and link it" OFF)
+option(MYRA_CNA_WARNINGS_AS_ERRORS
+       "Treat warnings from Myra-CNA-owned targets as errors" ON)
+option(MYRA_CNA_ENABLE_FORMAT_TARGETS
+       "Add myra_cna_format/check_format targets when clang-format is available" ON)
+option(MYRA_CNA_ENABLE_IWYU
+       "Run include-what-you-use while compiling the MYRA_CNA library" OFF)
+
+function(myra_cna_enable_strict_warnings target)
+    if(MSVC)
+        target_compile_options(${target} PRIVATE /W4)
+        if(MYRA_CNA_WARNINGS_AS_ERRORS)
+            target_compile_options(${target} PRIVATE /WX)
+        endif()
+    else()
+        target_compile_options(${target} PRIVATE -Wall -Wextra)
+        if(MYRA_CNA_WARNINGS_AS_ERRORS)
+            target_compile_options(${target} PRIVATE -Werror)
+        endif()
+    endif()
+endfunction()
 
 set(MYRA_CNA_CNA_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../cna"
     CACHE PATH "Path to the sibling CNA repository")
@@ -23,12 +43,15 @@ set(MYRA_CNA_SHARP_RUNTIME_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../sharp-runtime"
     CACHE PATH "Path to the sibling sharp-runtime repository")
 set(MYRA_CNA_CNA_GRAPHICS_BACKEND "SOFTWARE"
     CACHE STRING "CNA backend used only when MYRA_CNA_LINK_CNA=ON")
+set(MYRA_CNA_TEST_DISPLAY ":0"
+    CACHE STRING "X11 DISPLAY used by Myra-CNA tests labelled RequiresDisplay")
 set_property(CACHE MYRA_CNA_CNA_GRAPHICS_BACKEND PROPERTY STRINGS
     SDL_RENDERER EASYGL BGFX VULKAN WEBGPU HEADLESS SOFTWARE CANVAS ASCII DX3 D3D9 D3D11 D3D12 SDL_GPU)
 
 add_library(MYRA_CNA STATIC
     src/Myra/Events/MyraEventArgs.cpp
     src/Myra/Graphics2D/Thickness.cpp
+    src/Myra/Graphics2D/UI/ContentControl.cpp
     src/Myra/Graphics2D/UI/Container.cpp
     src/Myra/Graphics2D/UI/Containers/Panel.cpp
     src/Myra/Graphics2D/UI/Containers/Grid.cpp
@@ -38,6 +61,7 @@ add_library(MYRA_CNA STATIC
     src/Myra/Graphics2D/UI/InputEventsManager.cpp
     src/Myra/Graphics2D/UI/Layouts/GridLayout.cpp
     src/Myra/Graphics2D/UI/Layouts/StackPanelLayout.cpp
+    src/Myra/Graphics2D/UI/Project.cpp
     src/Myra/Graphics2D/UI/Widget.cpp
     src/Myra/MML/AttachedPropertiesRegistry.cpp
     src/Myra/MML/BaseContext.cpp
@@ -61,11 +85,51 @@ target_include_directories(MYRA_CNA
         "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
 )
 target_compile_features(MYRA_CNA PUBLIC cxx_std_23)
+myra_cna_enable_strict_warnings(MYRA_CNA)
 
-if(MSVC)
-    target_compile_options(MYRA_CNA PRIVATE /W4 /WX)
-else()
-    target_compile_options(MYRA_CNA PRIVATE -Wall -Wextra -Werror)
+if(MYRA_CNA_ENABLE_IWYU)
+    find_program(MYRA_CNA_IWYU_EXECUTABLE
+        NAMES include-what-you-use iwyu
+        DOC "Path to include-what-you-use")
+    if(NOT MYRA_CNA_IWYU_EXECUTABLE)
+        message(FATAL_ERROR
+            "myra-cna: MYRA_CNA_ENABLE_IWYU=ON requires include-what-you-use")
+    endif()
+    set_property(TARGET MYRA_CNA PROPERTY
+        CXX_INCLUDE_WHAT_YOU_USE "${MYRA_CNA_IWYU_EXECUTABLE}")
+endif()
+
+if(MYRA_CNA_ENABLE_FORMAT_TARGETS)
+    find_program(MYRA_CNA_CLANG_FORMAT_EXECUTABLE
+        NAMES clang-format clang-format-20 clang-format-19 clang-format-18
+              clang-format-17 clang-format-16 clang-format-15 clang-format-14
+        DOC "Path to clang-format")
+    if(MYRA_CNA_CLANG_FORMAT_EXECUTABLE)
+        file(GLOB_RECURSE MYRA_CNA_FORMAT_SOURCES CONFIGURE_DEPENDS
+            "${CMAKE_CURRENT_SOURCE_DIR}/include/*.hpp"
+            "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tests/*.hpp"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tests/*.cpp"
+            "${CMAKE_CURRENT_SOURCE_DIR}/examples/*.hpp"
+            "${CMAKE_CURRENT_SOURCE_DIR}/examples/*.cpp")
+        list(SORT MYRA_CNA_FORMAT_SOURCES)
+
+        add_custom_target(myra_cna_format
+            COMMAND "${MYRA_CNA_CLANG_FORMAT_EXECUTABLE}"
+                    --style=file -i ${MYRA_CNA_FORMAT_SOURCES}
+            COMMENT "Formatting Myra-CNA C++ sources"
+            COMMAND_EXPAND_LISTS
+            VERBATIM)
+        add_custom_target(myra_cna_check_format
+            COMMAND "${MYRA_CNA_CLANG_FORMAT_EXECUTABLE}"
+                    --style=file --dry-run --Werror ${MYRA_CNA_FORMAT_SOURCES}
+            COMMENT "Checking Myra-CNA C++ source formatting"
+            COMMAND_EXPAND_LISTS
+            VERBATIM)
+    else()
+        message(STATUS
+            "myra-cna: clang-format not found; format targets are unavailable")
+    endif()
 endif()
 
 # CNA is intentionally resolved in the same three modes as cna-extended:
@@ -115,6 +179,22 @@ elseif(EXISTS "${MYRA_CNA_CNA_DIR}/include")
     message(STATUS "myra-cna: CNA/sharp-runtime headers available; linkage deferred to consumer")
 else()
     message(STATUS "myra-cna: CNA not found; foundation-only bootstrap configuration")
+endif()
+
+if(MYRA_CNA_CNA_LINKED)
+    target_sources(MYRA_CNA PRIVATE
+        src/Myra/DefaultAssets.cpp
+        src/Myra/Graphics2D/Brushes/SolidBrush.cpp
+        src/Myra/Graphics2D/RenderContext.cpp
+        src/Myra/Graphics2D/RenderContextShapes.cpp
+        src/Myra/Graphics2D/TextureAtlases/ColoredRegion.cpp
+        src/Myra/Graphics2D/TextureAtlases/NinePatchRegion.cpp
+        src/Myra/Graphics2D/TextureAtlases/TextureRegion.cpp
+        src/Myra/Graphics2D/TextureAtlases/TextureRegionAtlas.cpp
+        src/Myra/Graphics2D/TextureAtlases/TintedRegion.cpp
+        src/Myra/MyraEnvironmentCna.cpp
+        src/Myra/Utility/CrossEngineStuff.cpp
+    )
 endif()
 
 if(MYRA_CNA_BUILD_EXAMPLES)

@@ -16,5 +16,8 @@ namespace Myra::Graphics2D::UI
     {
     public:
         ~ContentControl() override = default;
+
+    protected:
+        void CopyFrom(const Widget& source) override;
     };
 }
