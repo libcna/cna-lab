@@ -62,7 +62,10 @@ add_library(MYRA_CNA STATIC
     src/Myra/Graphics2D/UI/Layouts/GridLayout.cpp
     src/Myra/Graphics2D/UI/Layouts/StackPanelLayout.cpp
     src/Myra/Graphics2D/UI/Project.cpp
+    src/Myra/Graphics2D/UI/Simple/HorizontalSeparator.cpp
     src/Myra/Graphics2D/UI/Simple/Image.cpp
+    src/Myra/Graphics2D/UI/Simple/SeparatorWidget.cpp
+    src/Myra/Graphics2D/UI/Simple/VerticalSeparator.cpp
     src/Myra/Graphics2D/UI/Widget.cpp
     src/Myra/MML/AttachedPropertiesRegistry.cpp
     src/Myra/MML/BaseContext.cpp

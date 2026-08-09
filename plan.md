@@ -449,7 +449,7 @@ are green, and the build uses no more than three parallel jobs.
 - [ ] P6-006 Port `Simple/CheckButtonBase.cs`.
 - [ ] P6-007 Port `Simple/CheckButton.cs`.
 - [ ] P6-008 Port `Simple/RadioButton.cs`.
-- [ ] P6-009a Port the style-independent separator hierarchy core: thickness/orientation measurement, concrete alignment defaults, inherited image rendering, exact-type cloning, and MML metadata. Keep stylesheet constructors/application in P6-009–P6-011/P8-004.
+- [x] P6-009a Port the style-independent separator hierarchy core: thickness/orientation measurement, concrete alignment defaults, inherited image rendering, exact-type cloning, and MML metadata. Dynamic `Thickness` changes invalidate the cached measurement (`DEV-047`). Keep stylesheet constructors/application in P6-009–P6-011/P8-004.
 - [ ] P6-009 Port `Simple/SeparatorWidget.cs`.
 - [ ] P6-010 Port `Simple/HorizontalSeparator.cs`.
 - [ ] P6-011 Port `Simple/VerticalSeparator.cs`.
@@ -469,6 +469,7 @@ are green, and the build uses no more than three parallel jobs.
 - [ ] P6-018 Port `Containers/ScrollViewer.cs`.
 - [ ] P6-019 Port `Containers/SplitPane.cs`.
 - [ ] P6-020 Port horizontal and vertical split-pane specialisations.
+- [ ] P6-021a Port the style-independent `ProgressBar` hierarchy core: retained filler ownership, minimum/maximum/value state and event behavior, orientation rendering, exact-type cloning, alignment defaults, and MML metadata. Keep stylesheet construction/application in P6-021/P8-005.
 - [ ] P6-021 Port `Range/ProgressBar.cs` and both orientations.
 - [ ] P6-022 Port `Range/Slider.cs` and both orientations.
 - [ ] P6-023 Port `Range/SpinButton.cs`.

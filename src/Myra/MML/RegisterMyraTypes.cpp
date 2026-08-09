@@ -25,7 +25,10 @@
 #include "Myra/Graphics2D/UI/Containers/Proportion.hpp"
 #include "Myra/Graphics2D/UI/Containers/StackPanel.hpp"
 #include "Myra/Graphics2D/UI/Project.hpp"
+#include "Myra/Graphics2D/UI/Simple/HorizontalSeparator.hpp"
 #include "Myra/Graphics2D/UI/Simple/Image.hpp"
+#include "Myra/Graphics2D/UI/Simple/SeparatorWidget.hpp"
+#include "Myra/Graphics2D/UI/Simple/VerticalSeparator.hpp"
 #include "Myra/Graphics2D/UI/Widget.hpp"
 
 namespace Myra::MML
@@ -39,6 +42,7 @@ namespace Myra::MML
         using Graphics2D::UI::ExportOptions;
         using Graphics2D::UI::Grid;
         using Graphics2D::UI::HorizontalAlignment;
+        using Graphics2D::UI::HorizontalSeparator;
         using Graphics2D::UI::HorizontalStackPanel;
         using Graphics2D::UI::Image;
         using Graphics2D::UI::ImageResizeMode;
@@ -49,8 +53,10 @@ namespace Myra::MML
         using Graphics2D::UI::ProportionCollection;
         using Graphics2D::UI::ProportionType;
         using Graphics2D::UI::Project;
+        using Graphics2D::UI::SeparatorWidget;
         using Graphics2D::UI::StackPanel;
         using Graphics2D::UI::VerticalAlignment;
+        using Graphics2D::UI::VerticalSeparator;
         using Graphics2D::UI::VerticalStackPanel;
         using Graphics2D::UI::Widget;
         using Microsoft::Xna::Framework::Vector2;
@@ -399,6 +405,52 @@ namespace Myra::MML
             return descriptor;
         }
 
+        TypeDescriptor MakeSeparatorWidgetDescriptor()
+        {
+            TypeDescriptor descriptor(
+                "SeparatorWidget", typeid(SeparatorWidget), {}, typeid(Image));
+            descriptor.EnableBaseTypeAccess<SeparatorWidget, Image>();
+            descriptor.EnableBaseObjectAccess<SeparatorWidget>();
+            descriptor.AddProperty(MakeScalarProperty<SeparatorWidget, int>("Thickness",
+                [](const SeparatorWidget& object) { return object.getThicknessProperty(); },
+                [](SeparatorWidget& object, const int value) {
+                    object.setThicknessProperty(value);
+                }, 0));
+            PropertyMetadata orientationMetadata;
+            orientationMetadata.XmlIgnore = true;
+            descriptor.AddProperty(PropertyDescriptor("Orientation", typeid(Orientation),
+                [](const void* object) {
+                    return std::any(
+                        static_cast<const SeparatorWidget*>(object)->getOrientationProperty());
+                }, {}, std::nullopt, std::move(orientationMetadata)));
+            return descriptor;
+        }
+
+        template<typename T>
+        TypeDescriptor MakeConcreteSeparatorDescriptor(std::string name,
+            const HorizontalAlignment horizontalDefault,
+            const VerticalAlignment verticalDefault)
+        {
+            TypeDescriptor descriptor(std::move(name), typeid(T), [] {
+                return std::static_pointer_cast<void>(std::make_shared<T>());
+            }, typeid(SeparatorWidget));
+            descriptor.template EnableBaseTypeAccess<T, SeparatorWidget>();
+            descriptor.template EnableBaseObjectAccess<T>();
+            descriptor.AddProperty(MakeScalarProperty<T, HorizontalAlignment>(
+                "HorizontalAlignment",
+                [](const T& object) { return object.getHorizontalAlignmentProperty(); },
+                [](T& object, const HorizontalAlignment value) {
+                    object.setHorizontalAlignmentProperty(value);
+                }, horizontalDefault));
+            descriptor.AddProperty(MakeScalarProperty<T, VerticalAlignment>(
+                "VerticalAlignment",
+                [](const T& object) { return object.getVerticalAlignmentProperty(); },
+                [](T& object, const VerticalAlignment value) {
+                    object.setVerticalAlignmentProperty(value);
+                }, verticalDefault));
+            return descriptor;
+        }
+
         TypeDescriptor MakeContentControlDescriptor()
         {
             TypeDescriptor descriptor("ContentControl", typeid(ContentControl), {}, typeid(Widget));
@@ -612,6 +664,11 @@ namespace Myra::MML
         registry.Register(MakeBaseObjectDescriptor());
         registry.Register(MakeWidgetDescriptor());
         registry.Register(MakeImageDescriptor());
+        registry.Register(MakeSeparatorWidgetDescriptor());
+        registry.Register(MakeConcreteSeparatorDescriptor<HorizontalSeparator>(
+            "HorizontalSeparator", HorizontalAlignment::Stretch, VerticalAlignment::Center));
+        registry.Register(MakeConcreteSeparatorDescriptor<VerticalSeparator>(
+            "VerticalSeparator", HorizontalAlignment::Center, VerticalAlignment::Stretch));
         registry.Register(MakeContentControlDescriptor());
         registry.Register(MakeContainerDescriptor());
         registry.Register(MakeProportionDescriptor());
