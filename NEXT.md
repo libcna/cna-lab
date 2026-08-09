@@ -3,11 +3,11 @@
 ## Current state
 
 - Active branch: `develop`.
-- Pushed commit `ace8db4` (`Implement ButtonBase interaction core`) completes
-  P6-003a. The repository HEAD described by this handoff completes P6-004a's
-  style-independent concrete `Button`, including content layout, touch/Space
-  interaction, exact-type cloning, MML registration, and five new tests. All
-  three broad configurations are green.
+- Pushed commit `4993397` (`Implement Button interaction core`) completes
+  P6-004a. The repository HEAD described by this handoff completes P6-005a's
+  style-independent concrete `ToggleButton`, including its true toggle-event
+  alias, content layout, touch/Space interaction, exact-type cloning, MML
+  registration, and six new tests. All three broad configurations are green.
 - The authoritative upstream reference remains Myra revision
   `0d79b939310bfe1d00b21803fe15e291caf60aa1` at `/tmp/myra-upstream`.
 - The font audit additionally pinned FontStashSharp 1.5.6 at
@@ -118,10 +118,10 @@ and a manifest entry. The current ported surface includes:
 - A central `RegisterMyraTypes` table for all currently ported MML objects:
   `BaseObject`, `Widget`, abstract content/container/stack bases, `Panel`,
   Grid, horizontal/vertical stack panels, `Image`, the abstract/concrete
-  separator and ProgressBar hierarchies, `ButtonBase`, concrete `Button`,
-  `Proportion`, `ExportOptions`, and `Project`. It records inherited default
-  overrides, content/proportion adapters, and eagerly initializes the
-  Grid/StackPanel attached-property declarations.
+  separator and ProgressBar hierarchies, `ButtonBase`, concrete `Button` and
+  `ToggleButton`, `Proportion`, `ExportOptions`, and `Project`. It records
+  inherited default overrides, content/proportion adapters, and eagerly
+  initializes the Grid/StackPanel attached-property declarations.
 - The dependency-safe P4-020a `Project` core preserves the upstream
   `Project.ExportOptions` plus implicit root XML shape, path metadata, built-in
   legacy container aliases, and special Grid/StackPanel default-proportion save
@@ -279,6 +279,13 @@ and a manifest entry. The current ported surface includes:
   ordinary key event, deep-clones its content through the existing
   ContentControl path, and is a concrete MML type. Its internal
   `ReleaseOnTouchLeft` default is retained for future Slider/SplitPane use.
+- Concrete `ToggleButton` now owns the same single-item content layout while
+  mapping `IsToggled` directly to the inherited pressed state and exposing
+  `IsToggledChanged` as a true reference alias of `PressedChanged`. Touch-down
+  and Space toggle through the cancelable user-change path, touch-up still
+  clicks, cloning is exact and deep, and MML round trips the concrete type.
+  Tests deliberately pin the selected upstream's keyboard quirk: Space can
+  toggle a read-only control, while disabled controls remain guarded.
 - Checked float-to-integer conversion for layout/transform values and checked Grid
   spacing/size/location accumulation. Grid now rejects non-finite/out-of-range
   proportions and non-positive spans deterministically, while restoring upstream's
@@ -294,16 +301,16 @@ and input dispatch remain open. `UPSTREAM_MANIFEST.md` records this per source.
 
 ## Whole-port progress estimate
 
-As of 2026-08-09 after P6-004a, `plan.md` has **144/293 checked tasks
-(49.1%)**. Equal checkbox counting overstates end-user parity because the
+As of 2026-08-09 after P6-005a, `plan.md` has **145/294 checked tasks
+(49.3%)**. Equal checkbox counting overstates end-user parity because the
 largest remaining workstreams are font/rich text, Desktop/input, most controls,
 styles/default assets, selectors/windows/dialogs, DataGrid/PropertyGrid, and the
 exhaustive release gate. The feature-weighted estimate is therefore **about
 30–35% of the complete Myra-CNA port**.
 
 All currently known technical work through P10-028 is estimated at
-**1,128–1,990 focused implementation/validation hours remaining**; use about
-**1,560 hours** as the planning midpoint or **1,100–2,000 hours** as the rounded
+**1,118–1,972 focused implementation/validation hours remaining**; use about
+**1,545 hours** as the planning midpoint or **1,100–2,000 hours** as the rounded
 range. This includes code, tests, documentation, integration, and the known
 project-owned test-fixture work. It assumes P3-004 and P0-015b receive prompt
 human decisions and excludes idle waiting/legal-review time. Choosing wholly
@@ -323,13 +330,13 @@ ctest --test-dir build --output-on-failure --parallel 3
 
 CCACHE_DISABLE=1 cmake --build build-cna --parallel 3
 ctest --test-dir build-cna --output-on-failure --parallel 3
-# 238/238 tests passed, with MYRA_CNA_LINK_CNA=ON and SOFTWARE backend
+# 244/244 tests passed, with MYRA_CNA_LINK_CNA=ON and SOFTWARE backend
 
 ASAN_OPTIONS=detect_leaks=0 CCACHE_DISABLE=1 \
   cmake --build build-sanitize --parallel 3
 ASAN_OPTIONS=detect_leaks=0 UBSAN_OPTIONS=print_stacktrace=1 \
   ctest --test-dir build-sanitize --output-on-failure --parallel 3
-# 238/238 tests passed with ASan address checks and UBSan
+# 244/244 tests passed with ASan address checks and UBSan
 
 # focused UIUtils validation after that broad run: 3/3 passed
 # focused PathUtils validation after that broad run: 3/3 passed
@@ -428,6 +435,9 @@ ASAN_OPTIONS=detect_leaks=0 UBSAN_OPTIONS=print_stacktrace=1 \
 # P6-004a Button core: focused Button/ButtonBase/registry 11/11 in linked
 # SOFTWARE; broad default 64/64, linked SOFTWARE 238/238, and ASan+UBSan
 # 238/238 passed
+# P6-005a ToggleButton core: focused ToggleButton/ButtonBase/registry 13/13 in
+# linked SOFTWARE; broad default 64/64, linked SOFTWARE 244/244, and ASan+UBSan
+# 244/244 passed
 # implementation checkpoint 6ff6fa1 revalidated: default 64/64 and
 # ASan+UBSan 198/198 passed before commit
 ```
@@ -449,12 +459,13 @@ was disabled because LeakSanitizer cannot run under this environment's
 3. P0-016 is complete. Keep every upstream test binary unbundled; execute
    P0-016a's original PNG/BMFont/stylesheet replacements only when their
    affected asset tests become implementable.
-4. P5-008i, P5-010a, P6-001a, P6-003a, P6-004a, P6-009a, and P6-021a are
-   complete. Audit a dependency-safe P6-005a `ToggleButton` core next: content,
-   toggle state/event aliasing, touch/Space interaction, cloning, and MML.
-   Keep its style integration and Label-dependent `CreateTextButton` in
-   P6-002/P6-005/P8-003; keep queued hit testing and full Desktop input in
-   P5-010/P5-016/P5-017.
+4. P5-008i, P5-010a, P6-001a, P6-003a, P6-004a, P6-005a, P6-009a, and
+   P6-021a are complete. Do not reopen full P6-005 yet: its remaining
+   style integration and Label-dependent helper belong with P6-002/P8-003.
+   When a later autonomous session resumes, the next dependency audit should
+   be P6-006a's style-independent `CheckButtonBase` core. Keep its
+   `CheckImageInternal` hover behavior deferred until P5-010 supplies
+   `IsMouseInside`, and keep style application in P8.
 5. Keep P4-019 open for types added by future Phase 5–9 work; every MML-capable
    type currently in the repository is registered and round-trip tested.
 6. Continue layout work only with a coherent next dependency. Do not represent partial
@@ -580,6 +591,11 @@ was disabled because LeakSanitizer cannot run under this environment's
   P6-002/P6-004/P8-003. The Desktop-wide touch-up subscription used when the
   internal `ReleaseOnTouchLeft` flag is false remains P5-016/P6-004; the flag is
   currently private to future Slider and SplitPane friends and defaults true.
+- `ToggleButton` is complete only for P6-005a's style-independent core.
+  Stylesheet construction/dictionary lookup and Label-dependent convenience
+  creation remain P6-002/P6-005/P8-003. The selected upstream behavior is
+  intentionally preserved: touch interaction honors `ReadOnly`, but Space
+  still toggles a read-only control; disabled controls reject both paths.
 - Grid layout rejects active null proportions and invalid
   negative/out-of-measured-range coordinates or spans before they can become
   C++ indexing/dereference UB; StackPanel's intentional null-default fallback
@@ -615,9 +631,11 @@ HEADLESS and SDL_RENDERER-on-Xvfb each passed the 44/44 graphics subset and full
 172/172 suite at the P2-022 milestone. The current SDL_RENDERER tree, including
 the explicit display smoke and all work since then, passes 199/199 on Xvfb.
 The current default, linked SOFTWARE, and ASan+UBSan suites pass
-64/64, 238/238, and 238/238 respectively. P6-004a passes all 11/11 focused
-Button/ButtonBase/registry tests in the linked build; the same tests are also
-covered by the complete sanitised run. P6-003a previously passed all 10/10
+64/64, 244/244, and 244/244 respectively. P6-005a passes all 13/13 focused
+ToggleButton/ButtonBase/registry tests in the linked build; those paths are
+also covered by the complete sanitised run. P6-004a previously passed all
+11/11 focused Button/ButtonBase/registry tests in the linked build and complete
+sanitised run. P6-003a previously passed all 10/10
 focused ButtonBase/WidgetInput/registry tests in both linked and sanitised builds.
 P5-010a passes all 28/28 focused WidgetInput/InputEventsManager/Widget tests in
 both linked and sanitised builds.
@@ -645,9 +663,11 @@ P0-015 completed the default-resource provenance audit. The exact Inter font is
 OFL-cleared but still unbundled; the VisUI-derived atlas is explicitly
 `needs_human` P0-015b. P0-016 subsequently classified all 35 test assets without
 copying them and opened P0-016a for behavior-equivalent project-owned fixtures.
-Continue by auditing a P6-005a dependency-independent `ToggleButton` core;
-do not reopen P6-004's Desktop/style/Label-dependent remainder until those
-dependencies are implementable. Defer the Desktop-driven hit-test/hover/drag
+The exact future starting point is a dependency audit for P6-006a's
+style-independent `CheckButtonBase` core; do not start its hover-dependent
+`CheckImageInternal` override before P5-010 provides `IsMouseInside`, and keep
+its styles in P8. Do not reopen P6-005's Label/style-dependent remainder until
+P6-002/P8-003 are implementable. Defer the Desktop-driven hit-test/hover/drag
 path and replacement fixtures likewise. If P3-004 is later approved, begin
 with P3-005's narrow abstraction and P3-006's explicit index-domain contract
 before introducing rasterizer code. P4-019 remains open only for future widget types,

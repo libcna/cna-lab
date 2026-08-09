@@ -58,6 +58,7 @@
 #include "Myra/Graphics2D/UI/Simple/HorizontalSeparator.hpp"
 #include "Myra/Graphics2D/UI/Simple/Image.hpp"
 #include "Myra/Graphics2D/UI/Simple/SeparatorWidget.hpp"
+#include "Myra/Graphics2D/UI/Simple/ToggleButton.hpp"
 #include "Myra/Graphics2D/UI/Simple/VerticalSeparator.hpp"
 #include "Myra/Graphics2D/UI/LayoutUtils.hpp"
 #include "Myra/Graphics2D/UI/Widget.hpp"

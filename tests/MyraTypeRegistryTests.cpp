@@ -20,6 +20,7 @@
 #include "Myra/Graphics2D/UI/Containers/StackPanel.hpp"
 #include "Myra/Graphics2D/UI/Simple/Button.hpp"
 #include "Myra/Graphics2D/UI/Simple/ButtonBase.hpp"
+#include "Myra/Graphics2D/UI/Simple/ToggleButton.hpp"
 #include "Myra/MML/AttachedPropertiesRegistry.hpp"
 #include "Myra/MML/LoadContext.hpp"
 #include "Myra/MML/SaveContext.hpp"
@@ -43,6 +44,7 @@ namespace
     using Myra::Graphics2D::UI::Proportion;
     using Myra::Graphics2D::UI::ProportionType;
     using Myra::Graphics2D::UI::StackPanel;
+    using Myra::Graphics2D::UI::ToggleButton;
     using Myra::Graphics2D::UI::VerticalAlignment;
     using Myra::Graphics2D::UI::VerticalStackPanel;
     using Myra::Graphics2D::UI::Widget;
@@ -63,6 +65,7 @@ namespace
         const TypeDescriptor* contentControl = registry.FindByType(typeid(ContentControl));
         const TypeDescriptor* buttonBase = registry.FindByType(typeid(ButtonBase));
         const TypeDescriptor* button = registry.FindByType(typeid(Button));
+        const TypeDescriptor* toggleButton = registry.FindByType(typeid(ToggleButton));
         const TypeDescriptor* container = registry.FindByType(typeid(Container));
         const TypeDescriptor* grid = registry.FindByType(typeid(Grid));
         const TypeDescriptor* stack = registry.FindByType(typeid(StackPanel));
@@ -71,6 +74,7 @@ namespace
         ASSERT_NE(contentControl, nullptr);
         ASSERT_NE(buttonBase, nullptr);
         ASSERT_NE(button, nullptr);
+        ASSERT_NE(toggleButton, nullptr);
         ASSERT_NE(container, nullptr);
         ASSERT_NE(grid, nullptr);
         ASSERT_NE(stack, nullptr);
@@ -79,6 +83,7 @@ namespace
         EXPECT_FALSE(contentControl->getCanCreateProperty());
         EXPECT_FALSE(buttonBase->getCanCreateProperty());
         EXPECT_TRUE(button->getCanCreateProperty());
+        EXPECT_TRUE(toggleButton->getCanCreateProperty());
         EXPECT_FALSE(container->getCanCreateProperty());
         EXPECT_TRUE(grid->getCanCreateProperty());
         EXPECT_FALSE(stack->getCanCreateProperty());

@@ -34,6 +34,7 @@
 #include "Myra/Graphics2D/UI/Simple/HorizontalSeparator.hpp"
 #include "Myra/Graphics2D/UI/Simple/Image.hpp"
 #include "Myra/Graphics2D/UI/Simple/SeparatorWidget.hpp"
+#include "Myra/Graphics2D/UI/Simple/ToggleButton.hpp"
 #include "Myra/Graphics2D/UI/Simple/VerticalSeparator.hpp"
 #include "Myra/Graphics2D/UI/Widget.hpp"
 
@@ -65,6 +66,7 @@ namespace Myra::MML
         using Graphics2D::UI::Project;
         using Graphics2D::UI::SeparatorWidget;
         using Graphics2D::UI::StackPanel;
+        using Graphics2D::UI::ToggleButton;
         using Graphics2D::UI::VerticalAlignment;
         using Graphics2D::UI::VerticalProgressBar;
         using Graphics2D::UI::VerticalSeparator;
@@ -572,6 +574,21 @@ namespace Myra::MML
             return descriptor;
         }
 
+        TypeDescriptor MakeToggleButtonDescriptor()
+        {
+            TypeDescriptor descriptor("ToggleButton", typeid(ToggleButton), [] {
+                return std::static_pointer_cast<void>(std::make_shared<ToggleButton>());
+            }, typeid(ButtonBase));
+            descriptor.EnableBaseTypeAccess<ToggleButton, ButtonBase>();
+            descriptor.EnableBaseObjectAccess<ToggleButton>();
+            descriptor.AddProperty(MakeScalarProperty<ToggleButton, bool>("IsToggled",
+                [](const ToggleButton& object) { return object.getIsToggledProperty(); },
+                [](ToggleButton& object, const bool value) {
+                    object.setIsToggledProperty(value);
+                }, false));
+            return descriptor;
+        }
+
         TypeDescriptor MakeProportionDescriptor()
         {
             TypeDescriptor descriptor("Proportion", typeid(Proportion), [] {
@@ -777,6 +794,7 @@ namespace Myra::MML
         registry.Register(MakeContentControlDescriptor());
         registry.Register(MakeButtonBaseDescriptor());
         registry.Register(MakeButtonDescriptor());
+        registry.Register(MakeToggleButtonDescriptor());
         registry.Register(MakeContainerDescriptor());
         registry.Register(MakeProportionDescriptor());
         registry.Register(MakePanelDescriptor());

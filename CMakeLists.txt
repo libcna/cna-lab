@@ -70,6 +70,7 @@ add_library(MYRA_CNA STATIC
     src/Myra/Graphics2D/UI/Simple/HorizontalSeparator.cpp
     src/Myra/Graphics2D/UI/Simple/Image.cpp
     src/Myra/Graphics2D/UI/Simple/SeparatorWidget.cpp
+    src/Myra/Graphics2D/UI/Simple/ToggleButton.cpp
     src/Myra/Graphics2D/UI/Simple/VerticalSeparator.cpp
     src/Myra/Graphics2D/UI/Widget.cpp
     src/Myra/Graphics2D/UI/WidgetInput.cpp

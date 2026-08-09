@@ -62,6 +62,7 @@ if(MYRA_CNA_CNA_LINKED)
         TextureRegionTests.cpp
         TextureRegionAtlasTests.cpp
         TintedRegionTests.cpp
+        ToggleButtonTests.cpp
         TransformableContractTests.cpp
         TransformTests.cpp
         TypeSerializersTests.cpp
