@@ -131,9 +131,10 @@ only if a concrete public capability is reused.
    widget-to-desktop links are non-owning; subscriptions that cross ownership
    boundaries carry removable tokens and are removed during detach/destruction.
 4. **Assets:** default skin textures and XML are part of expected UI output.
-   The bundled `Inter-Regular.ttf` has no separate licence notice in the
-   inspected Myra tree, and the README says the skin originates from VisUI.
-   Asset provenance must be verified before either asset is redistributed.
+   The bundled `Inter-Regular.ttf` is traced to an exact OFL-1.1 Inter source
+   commit, but the VisUI-derived skin includes artwork governed by additional
+   NOTICE/icon terms. The font can be packaged later with its full OFL notice;
+   the current skin remains blocked by `needs_human` P0-015b.
 5. **Text input:** direct key-to-character conversion is only a fallback.
    Real text entry must subscribe to CNA `TextInputEXT` so UTF-8/IME input is
    not reduced to an English keyboard mapping.
@@ -256,7 +257,7 @@ are green, and the build uses no more than three parallel jobs.
 
 - [x] P0-001 Create CMake project, `MYRA_CNA` static library, and `Myra::CNA` alias.
 - [x] P0-002 Add `include/`, `src/`, `tests/`, `examples/`, `assets/`, `docs/`, and `cmake/` layout.
-- [ ] P0-003 Add C++23, warning-as-error, formatting, and include-what-you-use policy.
+- [x] P0-003 Add C++23, warning-as-error, formatting, and include-what-you-use policy. All project-owned targets share C++23/no-extension and strict warning settings; `.clang-format`, conditional format/check targets, and an opt-in fail-fast IWYU audit are documented in `DEVELOPING.md`. Ordinary consumers do not require either developer executable.
 - [x] P0-004 Implement parent-CNA / opt-in sibling-CNA / headers-only CMake modes.
 - [x] P0-005 Add `MYRA_CNA_BUILD_TESTS` and GoogleTest integration without building unrelated sibling tests.
 - [x] P0-006 Add `MYRA_CNA_BUILD_EXAMPLES` and a minimal executable target.
@@ -268,15 +269,16 @@ are green, and the build uses no more than three parallel jobs.
 - [x] P0-011 Create `UPSTREAM_MANIFEST.md` schema and source-header template.
 - [x] P0-012 Add automated test/lint that every ported `.hpp`/`.cpp` has provenance metadata.
 - [x] P0-013 Add automated test/lint that every source header points to a manifest row.
-- [ ] P0-014 Audit every upstream `src/Myra` file for a non-Myra lineage or copied header.
-- [ ] P0-015 Audit the default skin and `Inter-Regular.ttf` redistribution provenance.
+- [x] P0-014 Audit all 189 upstream `src/Myra` production files for non-Myra lineage or copied headers. `docs/source-lineage-audit.md` records the complete default classification, ten exceptions, FNA selection, exact inventory hash, licences, and do-not-translate decisions.
+- [x] P0-015 Audit the default skin and `Inter-Regular.ttf` redistribution provenance. `docs/default-assets-audit.md` pins all seven resource hashes, traces Inter to its embedded OFL-1.1 source commit, and proves that 202/207 raw raster assets match VisUI.
+- [ ] **needs_human — P0-015b:** Choose and document either authoritative permission/legal clearance for the VisUI-derived atlas (including all Apache/NOTICE/icon obligations) or replacement with original/clearly licensed skin artwork. Do not copy the atlas or its visual sources before this decision.
 - [ ] P0-016 Audit all Myra.Tests assets before copying them.
 - [x] P0-017 Document named-source and asset exclusions until their licences are resolved.
 - [x] P0-018 Add `docs/cpp-deviations.md` with an empty, reviewed deviation-table template.
-- [ ] P0-019 Add test helper for numeric/rectangle/color comparisons.
-- [ ] P0-020 Add deterministic temporary asset directory helper.
+- [x] P0-019 Add test helper for numeric/rectangle/color comparisons. `ComparisonHelpers.hpp` supplies reusable GoogleTest predicate-format assertions with component-level diagnostics and explicit non-finite/tolerance behavior; helper tests plus Widget/SolidBrush consumers pass in linked and sanitised builds.
+- [x] P0-020 Add deterministic temporary asset directory helper. The move-only RAII helper isolates paths by build working directory and current GoogleTest name, rejects traversal/absolute paths, removes stale input before a test, writes nested text assets, and cleans its exact owned tree afterward.
 - [x] P0-021 Add a headless test executable and register it in CTest.
-- [ ] P0-022 Add a CNA SDL_RENDERER smoke executable and register its display requirement.
+- [x] P0-022 Add a CNA SDL_RENDERER smoke executable and register its display requirement. The conditional CTest target creates a real CNA Game/device on X11, draws a Myra `SolidBrush`, verifies inside/outside backbuffer pixels, and exits after one frame; its display environment, labels, resource lock, and timeout are explicit. The full current SDL_RENDERER suite passes 199/199 on Xvfb.
 
 ### Phase 1 — shared runtime translation layer
 
@@ -293,65 +295,67 @@ are green, and the build uses no more than three parallel jobs.
 - [x] P1-011 Port `Graphics2D/Transform.cs` using CNA matrices/vectors.
 - [x] P1-012 Port `Utility/ColorHSV.cs` and conversion edge cases.
 - [x] P1-013a Port the dependency-free `CrossEngineStuff.MultiplyColor` path directly to CNA `Color::Multiply`.
-- [ ] P1-013 Complete `Utility/CrossEngineStuff.cs` view-size and texture helpers after P2-001/P2-002 define the global CNA GraphicsDevice lifetime contract.
+- [x] P1-013 Complete `Utility/CrossEngineStuff.cs` view-size and texture helpers on the checked P2-001/P2-002 GraphicsDevice lifetime contract, including validated RGBA-region conversion to CNA's typed `Color` upload API.
 - [x] P1-014 Port `Utility/Mathematics.cs` and document C++ numeric differences.
 - [x] P1-015 Port `Utility/PathUtils.cs` over lexical `std::filesystem` paths.
 - [x] P1-016 Port `Utility/Rest.cs` as type-safe generic table helpers, preserving shallow element-copy and column-sort behavior while validating jagged rows before mutation.
 - [x] P1-017 Port `Utility/StringUtils.cs`.
 - [x] P1-018 Port `Utility/UIUtils.cs` and use its stable upstream Z-index ordering for widget snapshots.
 - [x] P1-019 Port `Utility/EventsExtensions.cs` with removable subscriptions.
-- [ ] P1-020 Port `Utility/CurrentPlatform.cs` only to the extent required by FileDialog/clipboard.
+- [x] P1-020 Resolve internal `Utility/CurrentPlatform.cs` without translation: FileDialog will use CNA `getCurrentPlatform()`/`getCurrentDesktopOS()` and TextBox will use CNA Clipboard, avoiding an unnecessary MonoGame-derived platform shim.
 - [x] P1-021 Port `Utility/InputExtension.cs` with MonoGame.Extended dual attribution.
 - [ ] P1-022 Translate upstream unit tests for all Phase 1 types.
 
 ### Phase 2 — direct CNA environment and graphics primitives
 
-- [ ] P2-001 Port `MyraEnvironment.cs` as direct CNA environment/configuration.
-- [ ] P2-002 Define GraphicsDevice lifetime/initialisation contract and diagnostic errors.
-- [ ] P2-003 Implement default cursor mapping through CNA `MouseCursor`/`Mouse::SetCursor`.
-- [ ] P2-004 Implement `DisableClipping`, debug-frame, and event-model settings.
-- [ ] P2-005 Define explicit per-game/per-desktop cleanup in lieu of GC finalization.
-- [ ] P2-006 Port `Graphics2D/IBrush.cs`.
-- [ ] P2-007 Port `Graphics2D/IImage.cs`.
-- [ ] P2-008 Port `Graphics2D/Brushes/SolidBrush.cs`.
-- [ ] P2-009 Port `Graphics2D/TextureAtlases/TextureRegion.cs`.
-- [ ] P2-010 Port `Graphics2D/TextureAtlases/ColoredRegion.cs`.
-- [ ] P2-011 Port `Graphics2D/TextureAtlases/TintedRegion.cs`.
-- [ ] P2-012 Port `Graphics2D/TextureAtlases/NinePatchRegion.cs` including degenerate dimensions.
-- [ ] P2-013 Port `Graphics2D/TextureAtlases/TextureRegionAtlas.cs`.
-- [ ] P2-014 Implement texture loading/caching ownership against CNA `Texture2D`.
-- [ ] P2-015 Implement white-region creation with CNA texture lifetime tests.
-- [ ] P2-016 Port `Graphics2D/RenderContext.cs` begin/end/flush state machine.
-- [ ] P2-017 Map nearest/linear/anisotropic filtering to CNA sampler states.
-- [ ] P2-018 Map clipping/scissor changes to CNA rasterizer/device state and flush ordering.
-- [ ] P2-019 Port all `RenderContext::Draw` overloads.
-- [ ] P2-020 Port `RenderContext.Shapes.cs` with MonoGame.Extended dual attribution.
-- [ ] P2-021 Test sprite source rectangles, rotation, scale, opacity, clipping, and nested clips.
-- [ ] P2-022 Test render context under SOFTWARE/HEADLESS where possible and SDL_RENDERER on screen.
+- [x] P2-001 Port the direct CNA Game/GraphicsDevice portion of `MyraEnvironment.cs`; cursor, input delegate, asset, and rendering settings remain in their dedicated tasks below.
+- [x] P2-002 Define and test a checked non-owning GraphicsDevice lifetime/initialisation contract, normal CNA disposal/destruction detachment, explicit custom-lifecycle clearing, and diagnostic errors.
+- [x] P2-003 Implement all twelve default cursor mappings through CNA `MouseCursor`/`Mouse::SetCursor`, preserving upstream no-op and invalid-enum assignment ordering.
+- [x] P2-004 Implement `DisableClipping`, all four debug-frame flags, and event-model settings with upstream defaults.
+- [ ] P2-005 Define explicit per-game/per-desktop cleanup in lieu of GC finalization. Per-game cleanup is complete in P2-002; retain this task for the unported Desktop caches/lifecycle.
+- [x] P2-006 Port `Graphics2D/IBrush.cs` with a non-owning `RenderContext&` draw contract and C++ white-tint extension helper.
+- [x] P2-007 Port `Graphics2D/IImage.cs` as the sized `IBrush` contract.
+- [x] P2-008a Port `SolidBrush`'s CNA-color property and exact tint/draw core through the font-independent default white region.
+- [ ] P2-008 Complete the string constructor and `ToString()` after P3-004 authorizes the audited `ColorStorage` compatibility implementation and P4-013 supplies it, then select `Stylesheet.Current.WhiteRegion` after the Phase 8 stylesheet core exists.
+- [x] P2-009 Port `Graphics2D/TextureAtlases/TextureRegion.cs` with retained CNA texture handles, nullable names, checked relative offsets, and RenderContext drawing.
+- [x] P2-010 Port `Graphics2D/TextureAtlases/ColoredRegion.cs` with retained non-null regions and exact upstream per-channel tint truncation.
+- [x] P2-011a Port the retained region, tinting, size, equality, and hashing core of `Graphics2D/TextureAtlases/TintedRegion.cs`.
+- [ ] P2-011 Complete `TintedRegion.ToString()` after P3-004 authorizes the audited `ColorStorage` compatibility implementation and P4-013 supplies the selected-upstream color-string contract.
+- [x] P2-012 Port `Graphics2D/TextureAtlases/NinePatchRegion.cs`, including selected-upstream degenerate-destination positioning and checked C++ geometry.
+- [x] P2-013 Port `Graphics2D/TextureAtlases/TextureRegionAtlas.cs` with retained texture/region handles, Myra XML round trips, selected-upstream duplicate/unknown-entry behavior, atlas-region reference splitting, and checked diagnostics.
+- [ ] P2-014 Implement texture loading/caching ownership against CNA `Texture2D` as part of P3-016's `AssetManagementBase`-compatible layer; CNA's weak backend cache alone does not preserve upstream AssetManager object identity.
+- [x] P2-015 Implement font-independent white-region creation with retained CNA texture handles, stale-texture recovery, and per-game cache cleanup/lifetime tests.
+- [x] P2-016 Port the graphics-only `Graphics2D/RenderContext.cs` begin/end/flush and RAII/Dispose state machine; font/rich-text overloads remain with Phase 3.
+- [x] P2-017 Map nearest/linear/anisotropic filtering to CNA clamp sampler states and test flush-before-sampler-change ordering.
+- [x] P2-018 Map clipping/scissor changes to CNA rasterizer/device state, viewport offsets, `DisableClipping`, and flush ordering.
+- [x] P2-019 Port all texture `RenderContext::Draw` overloads with transform, scale, rotation, depth, and opacity forwarding; `DrawString`/rich text remain font-gated Phase 3 work.
+- [x] P2-020 Port `RenderContext.Shapes.cs` with MonoGame.Extended dual attribution, exact selected-upstream edge ordering/closed polygons/opacity quirks, and checked C++ numeric geometry.
+- [x] P2-021 Test nontrivial sprite source rectangles, rotation, scale, opacity, clipping, and caller-managed nested clip intersection/restoration. Automatic Widget clip traversal remains explicitly in P5-008.
+- [x] P2-022 Test the graphics-only RenderContext and dependent primitives under SOFTWARE and HEADLESS, plus SDL_RENDERER on an Xvfb X11 screen; all three linked backend configurations pass their graphics subsets and full Myra-CNA suites.
 
 ### Phase 3 — font, rich text, assets, and asset manager
 
-- [ ] P3-001 Inventory every FontStashSharp type/method called by upstream `src/Myra`.
-- [ ] P3-002 Verify FontStashSharp licence and record it before translating any implementation.
-- [ ] P3-003 Compare a direct required-subset port with existing permissible C/C++ alternatives.
-- [ ] P3-004 Obtain an explicit dependency decision before adding any new third-party source.
+- [x] P3-001 Inventory every FontStashSharp type/method called by upstream `src/Myra`; the active FNA surface and behavioral closure are recorded in `docs/font-audit.md`.
+- [x] P3-002 Verify FontStashSharp 1.5.6/Base 1.2.3 provenance and zlib licence, pin exact commits, and preserve the complete notice before translating any implementation.
+- [x] P3-003 Compare a direct required-subset port with CNA SpriteFont, cna-extended BitmapFont, FreeType/HarfBuzz, SDL_ttf, and an independent stb-based layout in `docs/font-audit.md`.
+- [ ] **needs_human — P3-004:** Select and explicitly approve the font layout/rasterizer sources, untrusted-font policy, and optional-shaping scope before adding any new third-party source or implementing P3-005 onward.
 - [ ] P3-005 Define Myra text abstraction without changing upstream widget semantics.
-- [ ] P3-006 Implement UTF-8/Unicode code-point iteration and grapheme-boundary policy.
+- [ ] P3-006 Implement UTF-8/Unicode iteration and an explicit index-domain/grapheme policy that reconciles the audited upstream mix of UTF-16 code-unit positions and code-point counts.
 - [ ] P3-007 Implement dynamic TTF/OTF font loading.
 - [ ] P3-008 Implement glyph rasterisation and CPU/GPU atlas allocation.
 - [ ] P3-009 Implement atlas growth, invalidation, cache lifetime, and device-loss behavior.
 - [ ] P3-010 Implement glyph metrics, kerning, line height, baseline, and measurement.
 - [ ] P3-011 Implement rich-text tokenisation/layout used by Label/TextBox.
 - [ ] P3-012 Implement wrapping, alignment, clipping, and selection-rectangle layout.
-- [ ] P3-013 Implement RTL/bidirectional behavior to the documented upstream level.
+- [ ] P3-013 Implement RTL/bidirectional behavior to the documented selected-upstream level; optional HarfBuzz shaping is off by default upstream and remains a separate P3-004 decision.
 - [ ] P3-014 Render glyphs through `RenderContext`/CNA SpriteBatch.
 - [ ] P3-015 Test text pixel baselines, measurement, wrapping, missing glyphs, and atlas reuse.
 - [ ] P3-016 Port `MyraAssetManagerExtensions.cs`.
 - [ ] P3-017 Port `MyraAssetManagerExtensions.Stylesheet.cs`.
-- [ ] P3-018 Record `MyraAssetManagerExtensions.PlatformAgnostic.cs` as an inactive conditional source in the FNA/CNA manifest; do not create a parallel platform-agnostic API.
-- [ ] P3-019 Port `DefaultAssets.cs` after the default-asset licence gate passes.
-- [ ] P3-020 Copy/package licensed default skin resources and verify all paths case-sensitively.
-- [ ] P3-021 Provide a documented no-default-assets configuration for unresolved asset cases.
+- [x] P3-018 Record `MyraAssetManagerExtensions.PlatformAgnostic.cs` as an inactive conditional source in the FNA/CNA manifest; do not create a parallel platform-agnostic API.
+- [ ] P3-019 Complete `DefaultAssets.cs`: the font-independent white-region cache is already P2-015; port stylesheet selection only after the style core exists, and do not bind it to the blocked VisUI atlas before P0-015b.
+- [ ] P3-020 Package the audited Inter font only after P3-004 selects the font implementation and preserve its full OFL notice; package a default skin only after P0-015b, then verify every path case-sensitively.
+- [ ] P3-021 Provide and test a documented no-default-skin configuration while P0-015b remains unresolved; font-independent primitives must continue to work without bundled visual assets.
 
 ### Phase 4 — MML metadata and XML foundation
 
@@ -369,25 +373,27 @@ are green, and the build uses no more than three parallel jobs.
 - [x] P4-012 Design and implement `TypeRegistry`, `TypeDescriptor`, property descriptor, and factory contracts.
 - [x] P4-012b Enforce one unambiguous effective inherited property namespace and reject null registry callback owners/factory results.
 - [x] P4-013a Implement invariant codecs for primitive and optional values plus finite explicit enum/flags mappings; include audited geometry automatically in CNA-linked builds.
-- [ ] P4-013 Implement the remaining Color and external image/font value handling after their dependency and provenance gates pass.
+- [ ] P4-013 Implement Color only after P3-004 authorizes the audited `ColorStorage` compatibility source, and add external image/font value handling after their dependency and provenance gates pass.
 - [x] P4-014 Implement attached-property descriptors and `AttachedPropertiesRegistry.cs` semantics.
 - [x] P4-014b Make global attached-property ID/collection access thread-safe and reject duplicate owner/name declarations.
 - [x] P4-015 Port `MML/BaseContext.cs` property classification onto `TypeRegistry` and `ValueCodecRegistry` (the upstream class itself does not access XML).
 - [x] P4-016a Port the audited Vector2, Thickness, and Rectangle subset of `MML/TypeSerializers.cs`.
-- [ ] P4-016 Port `MML/TypeSerializers.cs` over explicit codecs, including Color after `ColorStorage` provenance is audited.
+- [ ] P4-016 Complete `MML/TypeSerializers.cs` over explicit codecs, including Color after P3-004 authorizes the audited `ColorStorage` compatibility implementation.
 - [x] P4-017a Implement registry-backed object creation, scalar attribute loading, legacy-name mapping, explicit external-asset adapters, and conversion diagnostics.
 - [x] P4-017b Implement attached-property attributes and `_`-prefixed `BaseObject` user-data loading through explicit type adapters.
 - [x] P4-017 Port `MML/LoadContext.cs` onto explicit scalar, attached, single-object, sequence, dictionary, content, and external-asset adapters.
 - [x] P4-017d Roll back all `ObjectsNodes` entries added by a failed root or nested load so reusable C++ contexts cannot retain dangling object pointers.
-- [ ] P4-017c **needs_human:** choose whether `LoadContext::ObjectsNodes` owns cloned XML snapshots, stores serialized source, or requires callers to retain the non-movable sharp-runtime `XmlDocument` before P4-020 exposes the mapping through `Project`.
+- [x] P4-017c Make the future Project/load result own its parsed XML document and retain created object handles where their public types permit; this human-selected contract replaces the current caller-owned `XmlDocument` mapping before P4-020 exposes it through `Project`. `LoadedDocument` now owns the non-movable DOM and transferred mapping suffix, while each context-created mapping retains its type-erased owner; low-level `Load` remains explicitly caller-owned (`DEV-042`).
 - [x] P4-018a Implement scalar property saving with XML names, explicit external-asset adapters, null/default omission, empty-value overrides, and load/save skip metadata.
 - [x] P4-018b Implement non-default attached-property saving with owner-qualified upstream names.
 - [x] P4-018 Port `MML/SaveContext.cs`, including default/skip-save, attached, recursive complex/content, namespace-prefix, and external-asset adapter rules.
-- [x] P4-019a Add the central registration table for every currently ported MML type/property (`BaseObject`, `Widget`, `ContentControl`, container bases, `Panel`, Grid, stack panels, and `Proportion`) with real-type XML round trips.
+- [x] P4-019a Add the central registration table for every currently ported MML type/property (`BaseObject`, `Widget`, `ContentControl`, container bases, `Panel`, Grid, stack panels, `Proportion`, `ExportOptions`, and `Project`) with real-type XML round trips.
 - [ ] P4-019 Register every Phase 5–9 public MML type/property explicitly.
-- [ ] P4-020 Port `Graphics2D/UI/Project.cs` load/save/clone/export behavior.
+- [x] P4-020a Port the dependency-safe `ExportOptions` and `Project` root/load/save core. Built-in and caller-supplied registry overloads preserve the upstream XML shape and legacy container names; a loaded Project owns its DOM/mappings without retaining itself, while default Grid/StackPanel proportions are filtered like upstream (`DEV-043`).
+- [x] P4-020b Port the dependency-safe internal single-object load/save semantics as public C++ integration helpers. Loads return an owning `LoadedDocument`, resolve legacy widgets and proportion-property tags, and retain the root; saves preserve upstream `skipComplex`, tag override, parent attached-property context, and Project filtering.
+- [ ] P4-020 Complete `Graphics2D/UI/Project.cs`: add stylesheet-aware construction and asset-manager integration after their dependencies exist. The earlier “clone/export” wording was stale: selected upstream has no Project clone or code exporter; it only persists `ExportOptions`, while code generation lives in MyraPad.
 - [x] P4-021a Add parser-boundary and `LoadContext` tests for malformed XML, ignored unknown scalar attributes, rejected unknown root/complex names, incompatible nested types, duplicate dictionary Id keys, and contextual conversion diagnostics.
-- [ ] P4-021 Complete Project-level malformed-document and duplicate object-Id validation after P4-020 defines the owning document/project contract.
+- [x] P4-021 Complete Project-level malformed-document and duplicate object-Id validation. Each load mapping now records its exact registered type, and Project load rejects malformed/non-Project documents plus duplicate non-empty, case-sensitive IDs across distinct mapped `BaseObject` instances while preserving missing/empty IDs (`DEV-044`).
 - [ ] P4-022 Translate `MMLTests.cs`, `AssetLoadingTests.cs`, and XML round-trip fixtures.
 
 ### Phase 5 — Widget, desktop, layout, and input kernel
@@ -399,7 +405,7 @@ are green, and the build uses no more than three parallel jobs.
 - [x] P5-005 Port `Graphics2D/UI/LayoutUtils.cs`.
 - [x] P5-006 Port `Graphics2D/UI/InputContext.cs`.
 - [x] P5-007 Port `Graphics2D/UI/InputEventsManager.cs`.
-- [ ] P5-007b **needs_human:** choose whether queued C++ input processors are retained, token-registered, or guaranteed to outlive synchronous processing before `Widget.Input` exposes the current non-owning queue publicly.
+- [x] P5-007b Replace the current non-owning input queue with the human-selected lifetime contract: queued widget processors are retained, while the eventual Desktop link remains non-owning. `Queue` now requires a non-null `shared_ptr<IInputEventsProcessor>` and each capture/bubble entry retains it until dispatch or propagation filtering (`DEV-039`).
 - [x] P5-008a Implement the layout, transform, property/event, and invalidation kernel of `Widget.cs`.
 - [x] P5-008b Preserve measure/arrange invalidations raised reentrantly from virtual callbacks or events, and use stable child snapshots during enabled-state propagation.
 - [x] P5-008c Port `EnsureWidgetById` and protected `SuppressInvalidateMeasure` batch-update behavior.
@@ -407,13 +413,13 @@ are green, and the build uses no more than three parallel jobs.
 - [x] P5-008e Port the dependency-free Widget behavior properties/defaults for dragging, recursive mouse cursors, tooltips, modal/pressed state, clipping, and keyboard-focus acceptance, including pressed change/cancellation events and current-type MML metadata.
 - [x] P5-008f Port Widget's internally controlled keyboard-focus state, change event, and public got/lost focus callbacks for future Desktop integration.
 - [x] P5-008g Port dependency-free `StyleName`, non-owning `DragHandle`, arbitrary `Tag`, and border/background box bounds, including `StyleName` MML round trips.
-- [ ] P5-008h **needs_human:** choose the public C++ deep-clone construction contract (virtual per-type factory, explicit `TypeRegistry`, or another custom-widget-capable mechanism) before porting `Widget.Clone`/`CopyFrom` and dependent content/container copy overrides.
+- [x] P5-008h Port no-argument `Widget.Clone`/`CopyFrom` using the human-selected virtual per-type construction factory, then complete dependent ContentControl/Container copy overrides and custom-widget tests. Clone factories must return a new non-null exact dynamic type, current concrete widgets provide factories, containers deep-clone their owned children, and custom non-default-constructible widgets are covered (`DEV-040`, `DEV-041`).
 - [ ] P5-008 Port `Graphics2D/UI/Widget.cs` properties/defaults/invalidation/render traversal.
 - [x] P5-009a Implement explicit child ownership, reparenting, and stable Z-index snapshots from `Widget.Children.cs`.
 - [x] P5-009 Port `Graphics2D/UI/Widget.Children.cs` with explicit ownership, reparenting, recursive queries, typed ID lookup, visibility-aware counts, and cycle rejection.
 - [ ] P5-010 Port `Graphics2D/UI/Widget.Input.cs` bubbling/capturing/hover/drag semantics.
-- [x] P5-011a Port `ContentControl`'s abstract `IContent` contract and inherited MML content adapter; deep-copy behavior remains dependent on Widget cloning.
-- [ ] P5-011 Port `Graphics2D/UI/ContentControl.cs`, including its deep-copy behavior after Widget cloning exists.
+- [x] P5-011a Port `ContentControl`'s abstract `IContent` contract and inherited MML content adapter; its former deep-copy dependency is now completed by P5-011/P5-008h.
+- [x] P5-011 Port `Graphics2D/UI/ContentControl.cs`, including its deep-copy behavior after Widget cloning exists. Nullable content is preserved safely during cloning (`DEV-041`).
 - [x] P5-012a Implement `Container` stretch defaults and its explicit child-ownership facade.
 - [ ] P5-012 Port `Graphics2D/UI/Container.cs`.
 - [x] P5-013 Port `Graphics2D/UI/Layouts/SingleItemLayout.cs`.
@@ -423,7 +429,7 @@ are green, and the build uses no more than three parallel jobs.
 - [ ] P5-017 Port `Graphics2D/UI/Desktop.Input.cs` against CNA keyboard/mouse/touch snapshots.
 - [ ] P5-018 Add CNA `TextInputEXT` subscription lifecycle to Desktop/TextBox focus transitions.
 - [ ] P5-019 Implement correct wheel deltas and pointer capture using previous input states.
-- [ ] P5-020 Test arrange/measure margins, padding, min/max, alignments, transforms, visibility, opacity, and z-order.
+- [x] P5-020 Test arrange/measure margins, padding, min/max, alignments, transforms, visibility, opacity, and z-order. Existing Widget/LayoutUtils/UIUtils coverage exercises every listed behavior; the final integration case locks down Widget scale, rotation, fractional transform origin, inverse conversion, and transform-cache invalidation under linked and sanitised builds.
 - [x] P5-020a Harden Grid numeric conversions/accumulation and restore the upstream epsilon-zero `Part` distribution rule, with invalid-span and overflow tests.
 - [x] P5-020b Remove signed-overflow UB from the ported `Thickness`/`LayoutUtils`/Widget measure-arrange-transform chain and reject NaN opacity.
 - [ ] P5-021 Test focus changes, keyboard navigation, capture/bubble ordering, hover, drag, tooltip, and context-menu lifetimes.
@@ -610,7 +616,8 @@ implementation/test task during the phase shown.
    polling alone does not cover Unicode/IME, selection, clipboard, or undo.
 4. **Do not claim full Myra parity before P9 and P10:** PropertyGrid/DataGrid
    are precisely where C# reflection behavior becomes visible.
-5. **Do not redistribute a copied asset before P0-015/P0-016 passes.**
+5. **Do not redistribute a copied test asset before P0-016 passes, or any
+   VisUI-derived skin asset before `needs_human` P0-015b is resolved.**
 6. **Do not mark a port task complete without upstream-source comparison, a
    regression test, a manifest entry, clean warnings, and a `--parallel 3`
    build.**
@@ -621,10 +628,10 @@ implementation/test task during the phase shown.
 | --- | --- | --- | --- |
 | R1 | Project shape | One `myra-cna` C++/CNA library; no preliminary two-library split. | P0-001 onward. |
 | R2 | Reflection | Cannot rely on sharp-runtime reflection; it is intentionally stubbed. | Implement P4 explicit registry. |
-| R3 | Font stack | Highest-risk parity area; current siblings lack equivalent dynamic TTF/RichText behavior. | Execute P3-001–P3-015 before advanced widgets. |
+| R3 | Font stack | The completed `docs/font-audit.md` confirms that current siblings lack equivalent dynamic TTF/RichText behavior and documents a required-subset FontStashSharp plus native-rasterizer recommendation. | Resolve `needs_human` P3-004, then execute P3-005–P3-015 before advanced text widgets. |
 | R4 | CNA Extended | Valuable existing code and proven practices, but no blanket linkage. | Reuse only after per-capability comparison. |
 | R5 | MonoGame.Extended lineage | Two Myra files directly acknowledge it; existing C++ port is a useful reference. | Preserve dual notices in P0/P1/P2. |
 | R6 | TextCopy | CNA already has Clipboard API. | Keep TextCopy notice if semantics/source are ported; otherwise document replacement and compare behavior. |
-| R7 | Default assets | Legal provenance needs verification, especially Inter and VisUI-derived skin. | P0-015/P0-016 gate. |
+| R7 | Default assets | P0-015 traced Inter 3.012 to an exact OFL-1.1 source commit and preserved its full notice. The skin is demonstrably VisUI-derived and carries additional NOTICE/icon terms that this project will not reinterpret autonomously. | Resolve `needs_human` P0-015b or create original/clearly licensed artwork; keep P0-016 as the separate test-asset gate. |
 | R8 | Backend scope | Myra should use CNA SpriteBatch once, then inherit CNA backend support. | Establish SDL_RENDERER/SOFTWARE baseline first. |
 | R9 | CPU use | User requires at most three compilation workers. | Enforce P0-007 and P10-023. |
