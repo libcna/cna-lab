@@ -31,6 +31,7 @@
 #include "Myra/Graphics2D/UI/Range/VerticalProgressBar.hpp"
 #include "Myra/Graphics2D/UI/Simple/Button.hpp"
 #include "Myra/Graphics2D/UI/Simple/ButtonBase.hpp"
+#include "Myra/Graphics2D/UI/Simple/CheckButtonBase.hpp"
 #include "Myra/Graphics2D/UI/Simple/HorizontalSeparator.hpp"
 #include "Myra/Graphics2D/UI/Simple/Image.hpp"
 #include "Myra/Graphics2D/UI/Simple/SeparatorWidget.hpp"
@@ -45,6 +46,8 @@ namespace Myra::MML
         using Graphics2D::Thickness;
         using Graphics2D::UI::Button;
         using Graphics2D::UI::ButtonBase;
+        using Graphics2D::UI::CheckButtonBase;
+        using Graphics2D::UI::CheckPosition;
         using Graphics2D::UI::Container;
         using Graphics2D::UI::ContentControl;
         using Graphics2D::UI::DragDirection;
@@ -574,6 +577,69 @@ namespace Myra::MML
             return descriptor;
         }
 
+        TypeDescriptor MakeCheckButtonBaseDescriptor()
+        {
+            TypeDescriptor descriptor(
+                "CheckButtonBase", typeid(CheckButtonBase), {}, typeid(ButtonBase));
+            descriptor.EnableBaseTypeAccess<CheckButtonBase, ButtonBase>();
+            descriptor.EnableBaseObjectAccess<CheckButtonBase>();
+            descriptor.AddProperty(MakeScalarProperty<CheckButtonBase, CheckPosition>(
+                "CheckPosition",
+                [](const CheckButtonBase& object) {
+                    return object.getCheckPositionProperty();
+                },
+                [](CheckButtonBase& object, const CheckPosition value) {
+                    object.setCheckPositionProperty(value);
+                }, CheckPosition::Left));
+
+            PropertyMetadata spacingMetadata;
+            spacingMetadata.StylePropertyPath = "ImageTextSpacing";
+            descriptor.AddProperty(MakeScalarProperty<CheckButtonBase, int>(
+                "CheckContentSpacing",
+                [](const CheckButtonBase& object) {
+                    return object.getCheckContentSpacingProperty();
+                },
+                [](CheckButtonBase& object, const int value) {
+                    object.setCheckContentSpacingProperty(value);
+                }, 0, std::move(spacingMetadata)));
+
+            const auto addImage = [&descriptor](
+                std::string name, std::string stylePropertyPath, auto getter, auto setter) {
+                PropertyMetadata metadata;
+                metadata.ExternalAsset = true;
+                metadata.StylePropertyPath = std::move(stylePropertyPath);
+                descriptor.AddProperty(
+                    MakeScalarProperty<CheckButtonBase, std::shared_ptr<Graphics2D::IImage>>(
+                        std::move(name), std::move(getter), std::move(setter), nullptr,
+                        std::move(metadata)));
+            };
+            addImage("UncheckedImage", "ImageStyle/Image",
+                [](const CheckButtonBase& object) {
+                    return object.getUncheckedImageProperty();
+                },
+                [](CheckButtonBase& object,
+                    const std::shared_ptr<Graphics2D::IImage>& value) {
+                    object.setUncheckedImageProperty(value);
+                });
+            addImage("CheckedImage", "ImageStyle/PressedImage",
+                [](const CheckButtonBase& object) {
+                    return object.getCheckedImageProperty();
+                },
+                [](CheckButtonBase& object,
+                    const std::shared_ptr<Graphics2D::IImage>& value) {
+                    object.setCheckedImageProperty(value);
+                });
+
+            PropertyMetadata checkImageMetadata;
+            checkImageMetadata.XmlIgnore = true;
+            descriptor.AddProperty(PropertyDescriptor("CheckImage",
+                typeid(std::shared_ptr<Image>), [](const void* object) {
+                    return std::any(
+                        static_cast<const CheckButtonBase*>(object)->getCheckImageProperty());
+                }, {}, std::nullopt, std::move(checkImageMetadata)));
+            return descriptor;
+        }
+
         TypeDescriptor MakeToggleButtonDescriptor()
         {
             TypeDescriptor descriptor("ToggleButton", typeid(ToggleButton), [] {
@@ -795,6 +861,7 @@ namespace Myra::MML
         registry.Register(MakeButtonBaseDescriptor());
         registry.Register(MakeButtonDescriptor());
         registry.Register(MakeToggleButtonDescriptor());
+        registry.Register(MakeCheckButtonBaseDescriptor());
         registry.Register(MakeContainerDescriptor());
         registry.Register(MakeProportionDescriptor());
         registry.Register(MakePanelDescriptor());

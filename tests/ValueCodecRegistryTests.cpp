@@ -12,11 +12,13 @@
 #include <string>
 
 #include "Myra/Graphics2D/UI/Enums.hpp"
+#include "Myra/Graphics2D/UI/Simple/CheckButtonBase.hpp"
 #include "Myra/Graphics2D/UI/Widget.hpp"
 
 namespace
 {
     using Myra::Graphics2D::UI::DragDirection;
+    using Myra::Graphics2D::UI::CheckPosition;
     using Myra::Graphics2D::UI::HorizontalAlignment;
     using Myra::MML::EnumValue;
     using Myra::MML::ValueCodecRegistry;
@@ -81,6 +83,10 @@ namespace
         EXPECT_EQ(std::any_cast<DragDirection>(
             registry.Deserialize(typeid(DragDirection), "Vertical, Horizontal")), DragDirection::Both);
         EXPECT_EQ(registry.Serialize(std::any(DragDirection::Both)), "Both");
+
+        EXPECT_EQ(std::any_cast<CheckPosition>(
+            registry.Deserialize(typeid(CheckPosition), "Right")), CheckPosition::Right);
+        EXPECT_EQ(registry.Serialize(std::any(CheckPosition::Left)), "Left");
 
         const auto optional = std::any_cast<std::optional<HorizontalAlignment>>(
             registry.Deserialize(typeid(std::optional<HorizontalAlignment>), "Right"));

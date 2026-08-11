@@ -8,14 +8,14 @@
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-parameter"
 #endif
-#include "CNA/Internal/Backends/Common/IGraphicsBackend.hpp"
+#include "CNA/Internal/Renderers/Common/IGraphicsRenderer.hpp"
 #if defined(__GNUC__) || defined(__clang__)
 #pragma GCC diagnostic pop
 #endif
 
 namespace Myra::Tests
 {
-    class DummyTextureBackend final : public CNA::Internal::Backends::ITextureBackend
+    class DummyTextureBackend final : public CNA::Internal::Renderers::ITextureRenderer
     {
     public:
         explicit DummyTextureBackend(const int width = 2, const int height = 2)
@@ -44,7 +44,7 @@ namespace Myra::Tests
     };
 
     class RecordingSpriteBatchBackend final
-        : public CNA::Internal::Backends::ISpriteBatchBackend
+        : public CNA::Internal::Renderers::ISpriteBatchRenderer
     {
     public:
         struct DrawCall
@@ -80,7 +80,7 @@ namespace Myra::Tests
         }
 
         void Draw(
-            const CNA::Internal::Backends::ITextureBackend&,
+            const CNA::Internal::Renderers::ITextureRenderer&,
             const float x,
             const float y) override
         {
@@ -91,7 +91,7 @@ namespace Myra::Tests
         }
 
         void Draw(
-            const CNA::Internal::Backends::ITextureBackend&,
+            const CNA::Internal::Renderers::ITextureRenderer&,
             const Microsoft::Xna::Framework::Rectangle& destination,
             const Microsoft::Xna::Framework::Rectangle& source,
             const Microsoft::Xna::Framework::Color& color) override
@@ -100,7 +100,7 @@ namespace Myra::Tests
         }
 
         void Draw(
-            const CNA::Internal::Backends::ITextureBackend&,
+            const CNA::Internal::Renderers::ITextureRenderer&,
             const Microsoft::Xna::Framework::Rectangle& destination,
             const Microsoft::Xna::Framework::Rectangle& source,
             const Microsoft::Xna::Framework::Color& color,

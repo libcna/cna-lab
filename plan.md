@@ -17,8 +17,9 @@ MyraUI/Myra revision
 `0d79b939310bfe1d00b21803fe15e291caf60aa1` (`2026-08-08`, `build fix`),
 checked out for this analysis at `/tmp/myra-upstream`.
 
-**Integration baselines inspected:** CNA `ac3aaaeb2`, cna-extended `2ff3cff`,
-and sharp-runtime `b797928f`.
+**Integration baselines inspected:** initial CNA `ac3aaaeb2`, cna-extended
+`2ff3cff`, and sharp-runtime `b797928f`; the current modular integration is
+validated against CNA `fb3728267` and sharp-runtime `81624983`.
 
 ### 1.1 In scope
 
@@ -78,8 +79,10 @@ behavioral redesign.
 
 ### 1.4 Whole-port completion and remaining-effort estimate
 
-Checkpoint: 2026-08-09, after P6-005a. The mechanical backlog count is
-**145/294 checked tasks (49.3%)**. That is useful for auditing plan state but is
+Checkpoint: 2026-08-11, after P0-023 and P6-006a. The mechanical backlog count
+is **147/298 checked tasks (49.3%)**. This corrects the previous denominator,
+which omitted one Phase 0 and one Phase 3 checkbox. The count is useful for
+auditing plan state but is
 not a parity percentage: small foundation subtasks and large end-to-end
 features each count once, while the remaining font/text, Desktop/input,
 advanced-widget, style, data/property-grid, asset, and release-parity work is
@@ -92,20 +95,20 @@ are planning ranges rather than a delivery promise.
 
 | Phase | Checked tasks | Estimated focused hours remaining |
 | --- | ---: | ---: |
-| Phase 0 — legal/assets/harness | 22/24 | 24–80 |
+| Phase 0 — legal/assets/harness | 23/26 | 24–80 |
 | Phase 1 — shared runtime | 22/23 | 16–32 |
 | Phase 2 — CNA graphics | 20/24 | 24–48 |
-| Phase 3 — font/text/assets | 4/20 | 180–300 |
+| Phase 3 — font/text/assets | 4/21 | 180–300 |
 | Phase 4 — MML/XML | 31/36 | 40–80 |
 | Phase 5 — Widget/Desktop/input | 31/39 | 72–128 |
-| Phase 6 — controls/editing | 14/41 | 122–204 |
+| Phase 6 — controls/editing | 15/42 | 110–184 |
 | Phase 7 — selectors/windows/dialogs | 0/24 | 180–300 |
 | Phase 8 — styles/default skin | 0/14 | 140–240 |
 | Phase 9 — file/data/property grids | 1/21 | 180–320 |
 | Phase 10 — parity/release | 0/28 | 140–240 |
-| **Whole remaining technical port** | **145/294 complete** | **1,118–1,972** |
+| **Whole remaining technical port** | **147/298 complete** | **1,106–1,952** |
 
-For scheduling, use **about 1,545 focused hours remaining** as the midpoint,
+For scheduling, use **about 1,529 focused hours remaining** as the midpoint,
 with **1,100–2,000 hours** as the sensible rounded range. This assumes prompt
 human decisions for P3-004 and P0-015b, no newly discovered upstream/CNA
 architectural blocker, and continued reuse of the existing tested foundations.
@@ -319,6 +322,7 @@ are green, and the build uses no more than three parallel jobs.
 - [x] P0-020 Add deterministic temporary asset directory helper. The move-only RAII helper isolates paths by build working directory and current GoogleTest name, rejects traversal/absolute paths, removes stale input before a test, writes nested text assets, and cleans its exact owned tree afterward.
 - [x] P0-021 Add a headless test executable and register it in CTest.
 - [x] P0-022 Add a CNA SDL_RENDERER smoke executable and register its display requirement. The conditional CTest target creates a real CNA Game/device on X11, draws a Myra `SolidBrush`, verifies inside/outside backbuffer pixels, and exits after one frame; its display environment, labels, resource lock, and timeout are explicit. The full current SDL_RENDERER suite passes 199/199 on Xvfb.
+- [x] P0-023 Restore build compatibility with current modular CNA/sharp-runtime checkouts. Header-only mode discovers module include/source trees; linked and sanitised validation drives CNA as the top-level project through `CMAKE_PROJECT_CNA_INCLUDE`, explicitly links Myra's `SharpRuntime::Xml` dependency, and updates test renderer seams. The legacy `MYRA_CNA_LINK_CNA` child mode now diagnoses modular checkouts and remains available for compatible older layouts. Validated against CNA `fb3728267` and sharp-runtime `81624983` without editing either sibling.
 
 ### Phase 1 — shared runtime translation layer
 
@@ -489,6 +493,7 @@ are green, and the build uses no more than three parallel jobs.
 - [ ] P6-004 Port `Simple/Button.cs`.
 - [x] P6-005a Port the style-independent `ToggleButton` core: `IsToggled`, the exact `IsToggledChanged` alias of `PressedChanged`, single-content layout, persistent touch toggling/click arming, Space-key toggling, cancelable user changes, exact-type cloning, and MML registration/round trips. Preserve the selected upstream behavior that Space can toggle while `ReadOnly` (but not while disabled); keep stylesheet construction/dictionary lookup and Label-dependent `CreateTextButton` in P6-002/P6-005/P8-003.
 - [ ] P6-005 Port `Simple/ToggleButton.cs`.
+- [x] P6-006a Port the style-independent `CheckButtonBase` core: check-position/content layout, spacing, retained checked/unchecked renderables, read-only check image, touch/Space toggling, exact clone state, `CheckPosition` codec, and abstract MML metadata. Preserve the selected upstream read-only keyboard quirk, while correcting omitted visual-state refresh/clone backing handles (`DEV-050`) and stale measurement after spacing changes (`DEV-051`). Keep `CheckImageInternal` hover selection for P5-010 and stylesheet application for P6-006/P8-003.
 - [ ] P6-006 Port `Simple/CheckButtonBase.cs`.
 - [ ] P6-007 Port `Simple/CheckButton.cs`.
 - [ ] P6-008 Port `Simple/RadioButton.cs`.

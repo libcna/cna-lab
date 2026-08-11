@@ -20,6 +20,7 @@
 #include "Myra/Graphics2D/UI/Containers/StackPanel.hpp"
 #include "Myra/Graphics2D/UI/Simple/Button.hpp"
 #include "Myra/Graphics2D/UI/Simple/ButtonBase.hpp"
+#include "Myra/Graphics2D/UI/Simple/CheckButtonBase.hpp"
 #include "Myra/Graphics2D/UI/Simple/ToggleButton.hpp"
 #include "Myra/MML/AttachedPropertiesRegistry.hpp"
 #include "Myra/MML/LoadContext.hpp"
@@ -33,6 +34,7 @@ namespace
     using Myra::Graphics2D::Thickness;
     using Myra::Graphics2D::UI::Button;
     using Myra::Graphics2D::UI::ButtonBase;
+    using Myra::Graphics2D::UI::CheckButtonBase;
     using Myra::Graphics2D::UI::Container;
     using Myra::Graphics2D::UI::ContentControl;
     using Myra::Graphics2D::UI::DragDirection;
@@ -65,6 +67,7 @@ namespace
         const TypeDescriptor* contentControl = registry.FindByType(typeid(ContentControl));
         const TypeDescriptor* buttonBase = registry.FindByType(typeid(ButtonBase));
         const TypeDescriptor* button = registry.FindByType(typeid(Button));
+        const TypeDescriptor* checkButtonBase = registry.FindByType(typeid(CheckButtonBase));
         const TypeDescriptor* toggleButton = registry.FindByType(typeid(ToggleButton));
         const TypeDescriptor* container = registry.FindByType(typeid(Container));
         const TypeDescriptor* grid = registry.FindByType(typeid(Grid));
@@ -74,6 +77,7 @@ namespace
         ASSERT_NE(contentControl, nullptr);
         ASSERT_NE(buttonBase, nullptr);
         ASSERT_NE(button, nullptr);
+        ASSERT_NE(checkButtonBase, nullptr);
         ASSERT_NE(toggleButton, nullptr);
         ASSERT_NE(container, nullptr);
         ASSERT_NE(grid, nullptr);
@@ -83,6 +87,7 @@ namespace
         EXPECT_FALSE(contentControl->getCanCreateProperty());
         EXPECT_FALSE(buttonBase->getCanCreateProperty());
         EXPECT_TRUE(button->getCanCreateProperty());
+        EXPECT_FALSE(checkButtonBase->getCanCreateProperty());
         EXPECT_TRUE(toggleButton->getCanCreateProperty());
         EXPECT_FALSE(container->getCanCreateProperty());
         EXPECT_TRUE(grid->getCanCreateProperty());

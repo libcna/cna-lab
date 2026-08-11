@@ -5,16 +5,13 @@ for [CNA](https://github.com/openeggbert/cna). It targets the behavior of
 upstream Myra's FNA/XNA-oriented build directly through CNA; it does not depend
 on FNA or .NET at runtime.
 
-The project is in an early, validated retained-mode layout stage. In addition
-to build, attribution, provenance, events, and utility foundations (including
-type-safe table cloning/sorting), it has
-partial ports of `Widget`, abstract `ContentControl`, `Container`, `Panel`, `Proportion`, and
-`SingleItemLayout<T>`, `GridLayout`, and layout-only `Grid`, along with MML
-type and attached-property registries, and layout-only stack panels. They support layout
-measurement/arrangement, transforms, explicit child ownership, and registered
-metadata plus basic MML geometry serialization; rendering, Desktop integration,
-styles, rich text, Grid selection/input, interactive controls, and registration
-of the full upstream widget catalog are not implemented yet. Primitive, optional,
+The project is an incomplete but validated retained-mode UI port. Its current
+surface includes the Widget tree/layout/rendering kernel, Grid and stack layout,
+MML metadata and XML project loading, CNA SpriteBatch rendering primitives,
+images/atlases/brushes, separators, progress bars, and style-independent
+Button/ToggleButton/CheckButtonBase interaction cores. Desktop integration,
+styles, fonts/rich text, most controls, Grid selection/input, and the full
+upstream widget catalog are not implemented yet. Primitive, optional,
 explicitly mapped enum, and audited geometry codecs drive registry-backed XML
 loading/saving with defaults, skips, legacy/XML names, explicit external-asset
 callbacks, attached properties, BaseObject user data, and recursive
@@ -96,15 +93,27 @@ cmake --build build --parallel 3
 ctest --test-dir build --output-on-failure --parallel 3
 ```
 
-To make this project add and link sibling CNA itself, select one backend:
+Current modular CNA must remain the top-level CMake project. From the Myra-CNA
+repository root, use the project-specific include driver to add and link this
+project without enabling CNA's unrelated tests or examples:
 
 ```bash
-cmake -S . -B build-cna \
-  -DMYRA_CNA_LINK_CNA=ON \
-  -DMYRA_CNA_CNA_GRAPHICS_BACKEND=SOFTWARE
-cmake --build build-cna --parallel 3
-ctest --test-dir build-cna --output-on-failure --parallel 3
+cmake -S ../cna -B build-cna-parent \
+  -DCMAKE_PROJECT_CNA_INCLUDE="$PWD/cmake/AddMyraCnaToCnaBuild.cmake" \
+  -DCNA_BUILD_TESTS=OFF \
+  -DCNA_BUILD_EXAMPLES=OFF \
+  -DCNA_GRAPHICS_RENDERER=SOFTWARE \
+  -DMYRA_CNA_BUILD_TESTS=ON \
+  -DMYRA_CNA_BUILD_EXAMPLES=ON
+cmake --build build-cna-parent --parallel 3
+ctest --test-dir build-cna-parent/_myra_cna \
+  --output-on-failure --parallel 3
 ```
+
+`MYRA_CNA_LINK_CNA=ON` remains a compatibility path for older CNA layouts that
+support child-project embedding. A current modular checkout produces a focused
+diagnostic directing callers to the command above instead of failing inside
+CNA's top-level source-partition checks.
 
 An `SDL_RENDERER` build additionally registers
 `myra_cna_sdlrenderer_smoke`, which opens a real CNA window, renders a Myra
@@ -112,12 +121,16 @@ solid brush, and validates backbuffer pixels. Point its explicit display
 setting at an already-running X11/Xvfb server:
 
 ```bash
-cmake -S . -B build-sdlrenderer \
-  -DMYRA_CNA_LINK_CNA=ON \
-  -DMYRA_CNA_CNA_GRAPHICS_BACKEND=SDL_RENDERER \
+cmake -S ../cna -B build-sdlrenderer-parent \
+  -DCMAKE_PROJECT_CNA_INCLUDE="$PWD/cmake/AddMyraCnaToCnaBuild.cmake" \
+  -DCNA_BUILD_TESTS=OFF \
+  -DCNA_BUILD_EXAMPLES=OFF \
+  -DCNA_GRAPHICS_RENDERER=SDL_RENDERER \
+  -DMYRA_CNA_BUILD_TESTS=ON \
+  -DMYRA_CNA_BUILD_EXAMPLES=ON \
   -DMYRA_CNA_TEST_DISPLAY=:99
-cmake --build build-sdlrenderer --parallel 3
-ctest --test-dir build-sdlrenderer --output-on-failure \
+cmake --build build-sdlrenderer-parent --parallel 3
+ctest --test-dir build-sdlrenderer-parent/_myra_cna --output-on-failure \
   --parallel 3 -L RequiresDisplay
 ```
 
@@ -135,24 +148,31 @@ ordinary consumers.
 For a GCC/Clang linked-CNA AddressSanitizer and UndefinedBehaviorSanitizer run:
 
 ```bash
-cmake -S . -B build-sanitize \
-  -DMYRA_CNA_LINK_CNA=ON \
-  -DMYRA_CNA_CNA_GRAPHICS_BACKEND=SOFTWARE \
+cmake -S ../cna -B build-sanitize-parent \
+  -DCMAKE_PROJECT_CNA_INCLUDE="$PWD/cmake/AddMyraCnaToCnaBuild.cmake" \
+  -DCNA_BUILD_TESTS=OFF \
+  -DCNA_BUILD_EXAMPLES=OFF \
+  -DCNA_GRAPHICS_RENDERER=SOFTWARE \
+  -DMYRA_CNA_BUILD_TESTS=ON \
+  -DMYRA_CNA_BUILD_EXAMPLES=ON \
   -DCMAKE_BUILD_TYPE=Debug \
   -DCMAKE_CXX_FLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer" \
   -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=address,undefined"
 ASAN_OPTIONS=detect_leaks=0 \
-  cmake --build build-sanitize --parallel 3
+  cmake --build build-sanitize-parent --parallel 3
 ASAN_OPTIONS=detect_leaks=0 UBSAN_OPTIONS=print_stacktrace=1 \
-  ctest --test-dir build-sanitize --output-on-failure --parallel 3
+  ctest --test-dir build-sanitize-parent/_myra_cna \
+  --output-on-failure --parallel 3
 ```
 
 Only LeakSanitizer is disabled in these commands because this environment runs
 under `ptrace`; AddressSanitizer's memory checks and UndefinedBehaviorSanitizer
 remain enabled.
 
-When a parent project already supplies target `CNA`, add Myra-CNA after CNA;
-the `MYRA_CNA` target links it automatically.
+When another parent project already supplies target `CNA`, add Myra-CNA after
+CNA; the `MYRA_CNA` target links it automatically. The driver above handles the
+current CNA layout, whose umbrella target is created later in its top-level
+configure pass, and also declares Myra's direct `SharpRuntime::Xml` dependency.
 
 ## Licensing and attribution
 

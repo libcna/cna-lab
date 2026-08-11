@@ -184,7 +184,7 @@ namespace
             std::make_unique<Microsoft::Xna::Framework::Graphics::SpriteBatch>(std::move(backend));
         RenderContext context(std::move(spriteBatch));
         const auto textureBackend = std::make_shared<DummyTextureBackend>(8, 6);
-        const Texture2D texture = Texture2D::CreateWithBackendForTests(8, 6, textureBackend);
+        const Texture2D texture = Texture2D::CreateWithRendererForTests(8, 6, textureBackend);
         const Transform transform(
             Vector2(10.0F, 20.0F), Vector2::Zero, Vector2(2.0F, 3.0F), 0.25F);
 

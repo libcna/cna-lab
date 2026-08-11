@@ -67,6 +67,7 @@ add_library(MYRA_CNA STATIC
     src/Myra/Graphics2D/UI/Range/VerticalProgressBar.cpp
     src/Myra/Graphics2D/UI/Simple/Button.cpp
     src/Myra/Graphics2D/UI/Simple/ButtonBase.cpp
+    src/Myra/Graphics2D/UI/Simple/CheckButtonBase.cpp
     src/Myra/Graphics2D/UI/Simple/HorizontalSeparator.cpp
     src/Myra/Graphics2D/UI/Simple/Image.cpp
     src/Myra/Graphics2D/UI/Simple/SeparatorWidget.cpp
@@ -150,31 +151,78 @@ endif()
 # CNA configuration.
 set(MYRA_CNA_CNA_LINKED OFF)
 
-if(TARGET CNA)
+if(TARGET CNA OR MYRA_CNA_EXPECT_PARENT_CNA)
+    # Myra's MML/project implementation consumes System.Xml directly. The
+    # current modular CNA umbrella intentionally exposes only the Sharp
+    # Runtime components used by CNA itself, so keep this dependency explicit.
     target_link_libraries(MYRA_CNA PUBLIC CNA)
+    if(TARGET SharpRuntime::Xml)
+        target_link_libraries(MYRA_CNA PUBLIC SharpRuntime::Xml)
+    elseif(TARGET SHARP_RUNTIME)
+        target_link_libraries(MYRA_CNA PUBLIC SHARP_RUNTIME)
+    elseif(MYRA_CNA_EXPECT_PARENT_CNA)
+        # The project include runs before CNA adds sharp-runtime. CMake resolves
+        # this alias after the modular target appears later in the same pass.
+        target_link_libraries(MYRA_CNA PUBLIC SharpRuntime::Xml)
+    endif()
     target_compile_definitions(MYRA_CNA PUBLIC MYRA_CNA_HAS_CNA_TARGET=1)
     set(MYRA_CNA_CNA_LINKED ON)
-    message(STATUS "myra-cna: linking the parent-provided CNA target")
+    if(TARGET CNA)
+        message(STATUS "myra-cna: linking the parent-provided CNA target")
+    else()
+        message(STATUS "myra-cna: linking the CNA target supplied later by its top-level build")
+    endif()
 elseif(MYRA_CNA_LINK_CNA)
     if(NOT EXISTS "${MYRA_CNA_CNA_DIR}/CMakeLists.txt")
         message(FATAL_ERROR
             "myra-cna: MYRA_CNA_LINK_CNA=ON but CNA was not found at "
             "'${MYRA_CNA_CNA_DIR}'. Set MYRA_CNA_CNA_DIR to a CNA checkout.")
     endif()
+    if(EXISTS "${MYRA_CNA_CNA_DIR}/modules/CMakeLists.txt")
+        message(FATAL_ERROR
+            "myra-cna: this modular CNA checkout must remain the top-level "
+            "CMake project. Configure CNA with CMAKE_PROJECT_CNA_INCLUDE="
+            "<myra-cna>/cmake/AddMyraCnaToCnaBuild.cmake instead; see README.md. "
+            "MYRA_CNA_LINK_CNA remains available for compatible legacy CNA checkouts.")
+    endif()
 
     set(CNA_BUILD_TESTS OFF CACHE BOOL "" FORCE)
     set(CNA_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+    set(CNA_GRAPHICS_RENDERER "${MYRA_CNA_CNA_GRAPHICS_BACKEND}" CACHE STRING "" FORCE)
     set(CNA_GRAPHICS_BACKEND "${MYRA_CNA_CNA_GRAPHICS_BACKEND}" CACHE STRING "" FORCE)
     add_subdirectory("${MYRA_CNA_CNA_DIR}" "${CMAKE_BINARY_DIR}/_cna")
     target_link_libraries(MYRA_CNA PUBLIC CNA)
+    if(TARGET SharpRuntime::Xml)
+        target_link_libraries(MYRA_CNA PUBLIC SharpRuntime::Xml)
+    elseif(TARGET SHARP_RUNTIME)
+        target_link_libraries(MYRA_CNA PUBLIC SHARP_RUNTIME)
+    endif()
     target_compile_definitions(MYRA_CNA PUBLIC MYRA_CNA_HAS_CNA_TARGET=1)
     set(MYRA_CNA_CNA_LINKED ON)
     message(STATUS "myra-cna: linked sibling CNA (${MYRA_CNA_CNA_GRAPHICS_BACKEND})")
-elseif(EXISTS "${MYRA_CNA_CNA_DIR}/include")
-    target_include_directories(MYRA_CNA PUBLIC "${MYRA_CNA_CNA_DIR}/include")
-    if(EXISTS "${MYRA_CNA_SHARP_RUNTIME_DIR}/include")
+elseif(EXISTS "${MYRA_CNA_CNA_DIR}/include"
+       OR EXISTS "${MYRA_CNA_CNA_DIR}/modules/core/include")
+    if(EXISTS "${MYRA_CNA_CNA_DIR}/include")
+        target_include_directories(MYRA_CNA PUBLIC "${MYRA_CNA_CNA_DIR}/include")
+    else()
+        file(GLOB _myra_cna_cna_module_include_dirs LIST_DIRECTORIES TRUE
+            "${MYRA_CNA_CNA_DIR}/modules/*/include")
+        list(SORT _myra_cna_cna_module_include_dirs)
         target_include_directories(MYRA_CNA PUBLIC
-            "${MYRA_CNA_SHARP_RUNTIME_DIR}/include")
+            ${_myra_cna_cna_module_include_dirs})
+    endif()
+    if(EXISTS "${MYRA_CNA_SHARP_RUNTIME_DIR}/include"
+       OR EXISTS "${MYRA_CNA_SHARP_RUNTIME_DIR}/modules/core/include")
+        if(EXISTS "${MYRA_CNA_SHARP_RUNTIME_DIR}/include")
+            target_include_directories(MYRA_CNA PUBLIC
+                "${MYRA_CNA_SHARP_RUNTIME_DIR}/include")
+        else()
+            file(GLOB _myra_cna_sharp_module_include_dirs LIST_DIRECTORIES TRUE
+                "${MYRA_CNA_SHARP_RUNTIME_DIR}/modules/*/include")
+            list(SORT _myra_cna_sharp_module_include_dirs)
+            target_include_directories(MYRA_CNA PUBLIC
+                ${_myra_cna_sharp_module_include_dirs})
+        endif()
         # When CNA is not a CMake target, sharp-runtime's transitive vendor
         # include directory is unavailable. Mirror its public target surface.
         if(EXISTS "${MYRA_CNA_SHARP_RUNTIME_DIR}/vendor")

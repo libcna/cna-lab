@@ -36,6 +36,7 @@ if(MYRA_CNA_CNA_LINKED)
     target_sources(myra_cna_unit_tests PRIVATE
         ButtonTests.cpp
         ButtonBaseTests.cpp
+        CheckButtonBaseTests.cpp
         ColorHSVTests.cpp
         ColoredRegionTests.cpp
         ComparisonHelpersTests.cpp
@@ -73,10 +74,17 @@ if(MYRA_CNA_CNA_LINKED)
         WidgetTests.cpp
     )
 else()
-    set(_myra_cna_rectangle_source
-        "${MYRA_CNA_CNA_DIR}/src/Microsoft/Xna/Framework/Rectangle.cpp")
-    set(_myra_cna_point_source
-        "${MYRA_CNA_CNA_DIR}/src/Microsoft/Xna/Framework/Point.cpp")
+    if(EXISTS "${MYRA_CNA_CNA_DIR}/modules/math/src/Rectangle.cpp")
+        set(_myra_cna_rectangle_source
+            "${MYRA_CNA_CNA_DIR}/modules/math/src/Rectangle.cpp")
+        set(_myra_cna_point_source
+            "${MYRA_CNA_CNA_DIR}/modules/math/src/Point.cpp")
+    else()
+        set(_myra_cna_rectangle_source
+            "${MYRA_CNA_CNA_DIR}/src/Microsoft/Xna/Framework/Rectangle.cpp")
+        set(_myra_cna_point_source
+            "${MYRA_CNA_CNA_DIR}/src/Microsoft/Xna/Framework/Point.cpp")
+    endif()
     if(NOT EXISTS "${_myra_cna_rectangle_source}" OR NOT EXISTS "${_myra_cna_point_source}")
         message(FATAL_ERROR
             "myra-cna: tests require CNA Point.cpp and Rectangle.cpp under '${MYRA_CNA_CNA_DIR}'.")

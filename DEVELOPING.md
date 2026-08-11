@@ -14,6 +14,13 @@ cmake --build build --parallel 3
 ctest --test-dir build --output-on-failure --parallel 3
 ```
 
+For linked or sanitised validation against the current modular CNA checkout,
+configure CNA as the top-level project with
+`CMAKE_PROJECT_CNA_INCLUDE=.../cmake/AddMyraCnaToCnaBuild.cmake`, then run CTest
+from the generated `_myra_cna` subdirectory. The exact SOFTWARE,
+SDL_RENDERER, and sanitizer commands are maintained in [README.md](README.md).
+`MYRA_CNA_LINK_CNA=ON` is retained only for compatible legacy CNA layouts.
+
 ## Formatting
 
 The repository root `.clang-format` is authoritative for C++ sources. When a

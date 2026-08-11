@@ -31,7 +31,7 @@ namespace
     [[nodiscard]] std::shared_ptr<Texture2D> MakeTexture(
         const int width = 32, const int height = 32)
     {
-        return std::make_shared<Texture2D>(Texture2D::CreateWithBackendForTests(
+        return std::make_shared<Texture2D>(Texture2D::CreateWithRendererForTests(
             width, height, std::make_shared<DummyTextureBackend>(width, height)));
     }
 

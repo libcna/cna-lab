@@ -3,13 +3,17 @@
 ## Current state
 
 - Active branch: `develop`.
-- Pushed commit `4993397` (`Implement Button interaction core`) completes
-  P6-004a. The repository HEAD described by this handoff completes P6-005a's
-  style-independent concrete `ToggleButton`, including its true toggle-event
-  alias, content layout, touch/Space interaction, exact-type cloning, MML
-  registration, and six new tests. All three broad configurations are green.
+- Pushed commit `ba98d62` (`Implement ToggleButton interaction core`) completes
+  P6-005a. The repository HEAD described by this handoff completes P6-006a's
+  style-independent abstract `CheckButtonBase` and P0-023's compatibility with
+  current modular CNA/sharp-runtime checkouts. No P6-007a implementation has
+  been started; this is a complete, intentionally stopped checkpoint.
 - The authoritative upstream reference remains Myra revision
   `0d79b939310bfe1d00b21803fe15e291caf60aa1` at `/tmp/myra-upstream`.
+- Current linked validation pins sibling CNA
+  `fb3728267e8f2179d43b96357ff372ae712b7e7f` and sharp-runtime
+  `81624983c1e5388cb17e325480fdc2631a5cc653`; both sibling worktrees remained
+  unmodified.
 - The font audit additionally pinned FontStashSharp 1.5.6 at
   `24f3dc46d59dcda0dddb59754a99aeaefc9bd369`, FontStashSharp.Base 1.2.3 at
   `670ecb8c7a323fcce6d9c176fa3692b4dd28b959`, and XNAssets 0.8.5 at
@@ -22,6 +26,13 @@ The project has a provenance-checked C++23/CMake library with direct CNA and
 sharp-runtime integration modes. Every translated source has Myra attribution
 and a manifest entry. The current ported surface includes:
 
+- build integration for both legacy flat and current modular CNA/sharp-runtime
+  layouts. Header-only mode discovers module include/source trees. Because the
+  current CNA source-partition guard requires CNA to remain top-level, linked
+  and sanitizer builds use `cmake/AddMyraCnaToCnaBuild.cmake` through
+  `CMAKE_PROJECT_CNA_INCLUDE`; Myra explicitly links `SharpRuntime::Xml` and
+  current renderer test seams. `MYRA_CNA_LINK_CNA=ON` now gives a focused
+  diagnostic for modular checkouts instead of entering an invalid child build;
 - a shared strict-warning policy for all project-owned targets, with warnings
   as errors by default, a repository `.clang-format`, conditional non-mutating
   check/mutating format targets, and opt-in fail-fast include-what-you-use
@@ -286,6 +297,14 @@ and a manifest entry. The current ported surface includes:
   clicks, cloning is exact and deep, and MML round trips the concrete type.
   Tests deliberately pin the selected upstream's keyboard quirk: Space can
   toggle a read-only control, while disabled controls remain guarded.
+- Abstract `CheckButtonBase` now owns a horizontal check/content layout with
+  configurable order and spacing, retained checked/unchecked images, a
+  read-only nested check widget, touch/Space toggling, exact deep clone state,
+  a `CheckPosition` codec, and MML metadata. Direct images refresh with pressed
+  state and survive cloning (`DEV-050`), and spacing changes invalidate cached
+  measurement (`DEV-051`). The selected upstream quirk allowing Space while
+  read-only remains covered; hover-derived visual selection and styles remain
+  explicitly deferred.
 - Checked float-to-integer conversion for layout/transform values and checked Grid
   spacing/size/location accumulation. Grid now rejects non-finite/out-of-range
   proportions and non-positive spans deterministically, while restoring upstream's
@@ -301,22 +320,28 @@ and input dispatch remain open. `UPSTREAM_MANIFEST.md` records this per source.
 
 ## Whole-port progress estimate
 
-As of 2026-08-09 after P6-005a, `plan.md` has **145/294 checked tasks
-(49.3%)**. Equal checkbox counting overstates end-user parity because the
+As of 2026-08-11 after P0-023/P6-006a, `plan.md` has **147/298 checked tasks
+(49.3%)**. The denominator was corrected because the previous snapshot omitted
+one Phase 0 and one Phase 3 checkbox. Equal checkbox counting overstates
+end-user parity because the
 largest remaining workstreams are font/rich text, Desktop/input, most controls,
 styles/default assets, selectors/windows/dialogs, DataGrid/PropertyGrid, and the
 exhaustive release gate. The feature-weighted estimate is therefore **about
 30–35% of the complete Myra-CNA port**.
 
 All currently known technical work through P10-028 is estimated at
-**1,118–1,972 focused implementation/validation hours remaining**; use about
-**1,545 hours** as the planning midpoint or **1,100–2,000 hours** as the rounded
+**1,106–1,952 focused implementation/validation hours remaining**; use about
+**1,529 hours** as the planning midpoint or **1,100–2,000 hours** as the rounded
 range. This includes code, tests, documentation, integration, and the known
 project-owned test-fixture work. It assumes P3-004 and P0-015b receive prompt
 human decisions and excludes idle waiting/legal-review time. Choosing wholly
 original default-skin artwork under P0-015b would add approximately **80–200
 specialist art hours**. The phase-by-phase derivation and assumptions are in
 `plan.md` section 1.4; recalculate after major phases or blocker decisions.
+These are human-equivalent focused engineering hours. For quota/session
+planning, the separate rough estimate remains **100–200 active Codex hours**
+(midpoint about 150) to finish the technical port, with high uncertainty from
+build/test latency, context turnover, and future compatibility discoveries.
 
 ## Latest validation
 
@@ -328,15 +353,24 @@ cmake --build build --parallel 3
 ctest --test-dir build --output-on-failure --parallel 3
 # 64/64 tests passed
 
-CCACHE_DISABLE=1 cmake --build build-cna --parallel 3
-ctest --test-dir build-cna --output-on-failure --parallel 3
-# 244/244 tests passed, with MYRA_CNA_LINK_CNA=ON and SOFTWARE backend
+cmake -S ../cna -B build-cna-parent \
+  -DCMAKE_PROJECT_CNA_INCLUDE="$PWD/cmake/AddMyraCnaToCnaBuild.cmake" \
+  -DCNA_BUILD_TESTS=OFF -DCNA_BUILD_EXAMPLES=OFF \
+  -DCNA_GRAPHICS_RENDERER=SOFTWARE \
+  -DMYRA_CNA_BUILD_TESTS=ON -DMYRA_CNA_BUILD_EXAMPLES=ON
+CCACHE_DISABLE=1 cmake --build build-cna-parent --parallel 3
+ctest --test-dir build-cna-parent/_myra_cna \
+  --output-on-failure --parallel 3
+# 250/250 tests passed with current modular CNA/sharp-runtime
 
 ASAN_OPTIONS=detect_leaks=0 CCACHE_DISABLE=1 \
-  cmake --build build-sanitize --parallel 3
+  cmake --build build-sanitize-parent --parallel 3
 ASAN_OPTIONS=detect_leaks=0 UBSAN_OPTIONS=print_stacktrace=1 \
-  ctest --test-dir build-sanitize --output-on-failure --parallel 3
-# 244/244 tests passed with ASan address checks and UBSan
+  ctest --test-dir build-sanitize-parent/_myra_cna \
+  --output-on-failure --parallel 3
+# 250/250 tests passed with ASan address checks and UBSan
+
+# focused CheckButtonBase/ButtonBase/registry/codec validation: 19/19 passed
 
 # focused UIUtils validation after that broad run: 3/3 passed
 # focused PathUtils validation after that broad run: 3/3 passed
@@ -438,6 +472,11 @@ ASAN_OPTIONS=detect_leaks=0 UBSAN_OPTIONS=print_stacktrace=1 \
 # P6-005a ToggleButton core: focused ToggleButton/ButtonBase/registry 13/13 in
 # linked SOFTWARE; broad default 64/64, linked SOFTWARE 244/244, and ASan+UBSan
 # 244/244 passed
+# P0-023/P6-006a: focused CheckButtonBase/ButtonBase/registry/codec 19/19;
+# broad default 64/64, modular linked SOFTWARE 250/250, and modular ASan+UBSan
+# 250/250 passed against CNA fb3728267 / sharp-runtime 81624983
+# MYRA_CNA_LINK_CNA=ON against that modular checkout fails immediately with
+# the documented CMAKE_PROJECT_CNA_INCLUDE migration diagnostic
 # implementation checkpoint 6ff6fa1 revalidated: default 64/64 and
 # ASan+UBSan 198/198 passed before commit
 ```
@@ -459,13 +498,12 @@ was disabled because LeakSanitizer cannot run under this environment's
 3. P0-016 is complete. Keep every upstream test binary unbundled; execute
    P0-016a's original PNG/BMFont/stylesheet replacements only when their
    affected asset tests become implementable.
-4. P5-008i, P5-010a, P6-001a, P6-003a, P6-004a, P6-005a, P6-009a, and
-   P6-021a are complete. Do not reopen full P6-005 yet: its remaining
-   style integration and Label-dependent helper belong with P6-002/P8-003.
-   When a later autonomous session resumes, the next dependency audit should
-   be P6-006a's style-independent `CheckButtonBase` core. Keep its
-   `CheckImageInternal` hover behavior deferred until P5-010 supplies
-   `IsMouseInside`, and keep style application in P8.
+4. P0-023, P5-008i, P5-010a, P6-001a, P6-003a, P6-004a, P6-005a,
+   P6-006a, P6-009a, and P6-021a are complete. No task is currently in
+   progress. On explicit resumption, audit P6-007a's style-independent concrete
+   `CheckButton` (`IsChecked`, true event alias, exact clone, concrete MML
+   registration). Keep full P6-006 hover/style work in P5-010/P8-003 and do not
+   reopen P6-005's Label/style-dependent remainder before P6-002/P8-003.
 5. Keep P4-019 open for types added by future Phase 5–9 work; every MML-capable
    type currently in the repository is registered and round-trip tested.
 6. Continue layout work only with a coherent next dependency. Do not represent partial
@@ -544,6 +582,12 @@ was disabled because LeakSanitizer cannot run under this environment's
 - Do not edit sibling `cna`, `cna-extended`, or `sharp-runtime` repositories.
   If one proves to need a modification, record the need here and request a
   human decision rather than changing it.
+- CNA `fb3728267` uses top-level `CMAKE_SOURCE_DIR` paths and a root
+  source-partition guard, so it cannot safely be embedded through the legacy
+  `MYRA_CNA_LINK_CNA=ON` child path. Use the documented
+  `CMAKE_PROJECT_CNA_INCLUDE` driver; CTest must run from the generated
+  `_myra_cna` directory when `CNA_BUILD_TESTS=OFF`. This is a build-topology
+  constraint, not a request to modify the sibling repository.
 - `MyraEnvironment` is deliberately non-owning. Normal CNA `Game::Disposed`
   and `GraphicsDevice::Disposing` paths clear it, including ordinary stack/RAII
   destruction. A custom graphics-device service that outlives a game destroyed
@@ -596,6 +640,11 @@ was disabled because LeakSanitizer cannot run under this environment's
   creation remain P6-002/P6-005/P8-003. The selected upstream behavior is
   intentionally preserved: touch interaction honors `ReadOnly`, but Space
   still toggles a read-only control; disabled controls reject both paths.
+- `CheckButtonBase` is complete only for P6-006a's style-independent core.
+  Its public direct images, layout, input, cloning, enum codec, and MML metadata
+  are usable, but `CheckImageInternal` cannot inherit the parent's hover state
+  until P5-010 adds `IsMouseInside`; style construction/application remains
+  P6-006/P8-003. Concrete `CheckButton` and `RadioButton` remain P6-007/P6-008.
 - Grid layout rejects active null proportions and invalid
   negative/out-of-measured-range coordinates or spans before they can become
   C++ indexing/dereference UB; StackPanel's intentional null-default fallback
@@ -614,9 +663,10 @@ was disabled because LeakSanitizer cannot run under this environment's
 
 ## Recommended next starting point
 
-Read this file first, then inspect `plan.md` against the current source. The
-handoff was broadly validated in headers-only, linked SOFTWARE-CNA, and linked
-ASan+UBSan configurations before this session; the new P2-001/P2-002 contract
+Read this file first, then inspect `plan.md` against the current source. This
+handoff is broadly validated in headers-only, current modular linked
+SOFTWARE-CNA, and current modular linked ASan+UBSan configurations. The earlier
+P2-001/P2-002 contract
 has focused linked validation, P1-013's full viewport/texture bridge passes all
 six focused tests, P2-003/P2-004 cursor/configuration coverage passes in its
 applicable linked and headers-only modes, and P2-006/P2-007 contracts pass in
@@ -631,9 +681,10 @@ HEADLESS and SDL_RENDERER-on-Xvfb each passed the 44/44 graphics subset and full
 172/172 suite at the P2-022 milestone. The current SDL_RENDERER tree, including
 the explicit display smoke and all work since then, passes 199/199 on Xvfb.
 The current default, linked SOFTWARE, and ASan+UBSan suites pass
-64/64, 244/244, and 244/244 respectively. P6-005a passes all 13/13 focused
-ToggleButton/ButtonBase/registry tests in the linked build; those paths are
-also covered by the complete sanitised run. P6-004a previously passed all
+64/64, 250/250, and 250/250 respectively. P6-006a passes all 19/19 focused
+CheckButtonBase/ButtonBase/registry/codec tests in the linked build; those paths
+are also covered by the complete sanitised run. P6-005a previously passed all
+13/13 focused ToggleButton/ButtonBase/registry tests. P6-004a previously passed all
 11/11 focused Button/ButtonBase/registry tests in the linked build and complete
 sanitised run. P6-003a previously passed all 10/10
 focused ButtonBase/WidgetInput/registry tests in both linked and sanitised builds.
@@ -663,11 +714,12 @@ P0-015 completed the default-resource provenance audit. The exact Inter font is
 OFL-cleared but still unbundled; the VisUI-derived atlas is explicitly
 `needs_human` P0-015b. P0-016 subsequently classified all 35 test assets without
 copying them and opened P0-016a for behavior-equivalent project-owned fixtures.
-The exact future starting point is a dependency audit for P6-006a's
-style-independent `CheckButtonBase` core; do not start its hover-dependent
-`CheckImageInternal` override before P5-010 provides `IsMouseInside`, and keep
-its styles in P8. Do not reopen P6-005's Label/style-dependent remainder until
-P6-002/P8-003 are implementable. Defer the Desktop-driven hit-test/hover/drag
+The exact future starting point, only after explicit authorization, is a
+dependency audit for P6-007a's style-independent concrete `CheckButton` core.
+P6-006a is complete; do not start its hover-dependent `CheckImageInternal`
+override before P5-010 provides `IsMouseInside`, and keep its styles in P8. Do
+not reopen P6-005's Label/style-dependent remainder until P6-002/P8-003 are
+implementable. Defer the Desktop-driven hit-test/hover/drag
 path and replacement fixtures likewise. If P3-004 is later approved, begin
 with P3-005's narrow abstraction and P3-006's explicit index-domain contract
 before introducing rasterizer code. P4-019 remains open only for future widget types,

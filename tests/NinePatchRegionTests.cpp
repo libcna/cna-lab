@@ -39,7 +39,7 @@ namespace
             auto textureBackend =
                 std::make_shared<DummyTextureBackend>(textureWidth, textureHeight);
             texture = std::make_shared<Texture2D>(
-                Texture2D::CreateWithBackendForTests(
+                Texture2D::CreateWithRendererForTests(
                     textureWidth, textureHeight, std::move(textureBackend)));
 
             auto spriteBackend = std::make_unique<RecordingSpriteBatchBackend>();
