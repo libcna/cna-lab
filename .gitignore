@@ -32,4 +32,3 @@ Thumbs.db
 
 # Web/Emscripten (if used via TeaVM etc)
 dist/
-teavm/
