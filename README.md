@@ -19,6 +19,8 @@ Modern cross-platform Java starter template for the [CNA](https://github.com/ope
   - `src/main/java/`: Main game class (`HelloGame`) and entry point.
   - `src/main/resources/Content/`: Game assets (textures, etc.).
 - `android/`: Android-specific project configuration and Activity.
+- `teavm/`: Web support using TeaVM (compiles Java bytecode to JavaScript).
+- `gwt/`: Web support using GWT (compiles Java source to JavaScript).
 
 ## Getting Started
 
@@ -49,6 +51,22 @@ To build the Android APK:
 
 ```bash
 ./gradlew :android:assembleDebug
+```
+
+### Web (TeaVM)
+
+To compile the game to JavaScript using TeaVM:
+
+```bash
+./gradlew :teavm:teavmCompile
+```
+
+### Web (GWT)
+
+To compile the game to JavaScript using GWT:
+
+```bash
+./gradlew :gwt:gwtCompile
 ```
 
 ## Supported Engines

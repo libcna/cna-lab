@@ -1,3 +1,5 @@
 rootProject.name = 'cna-java-template'
 include 'game'
 include 'android'
+include 'teavm'
+include 'gwt'
