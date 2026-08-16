@@ -12,11 +12,11 @@ async function main() {
     
     // Check for smoke-test in command line arguments (Node.js)
     if (typeof process !== 'undefined' && process.argv.includes('--smoke-test')) {
-        game.setSmokeTest(true);
+        game.SetSmokeTest(true);
     }
 
     try {
-        await game.run();
+        await game.Run();
     } catch (err) {
         console.error("Game crashed:", err);
         if (typeof process !== 'undefined') {

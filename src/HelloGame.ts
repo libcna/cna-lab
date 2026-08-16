@@ -38,7 +38,7 @@ export class HelloGame extends Game {
     constructor() {
         super();
         this.graphics = new GraphicsDeviceManager(this);
-        this.content.rootDirectory = "Content";
+        this.Content.RootDirectory = "Content";
         
         // Parse smoke test flag from window or arguments
         if (typeof window !== 'undefined' && window.location.search.includes('smoke-test')) {
@@ -46,33 +46,33 @@ export class HelloGame extends Game {
         }
     }
 
-    protected initialize(): void {
-        this.graphics.preferredBackBufferWidth = 1280;
-        this.graphics.preferredBackBufferHeight = 720;
-        this.graphics.applyChanges();
-        super.initialize();
+    protected Initialize(): void {
+        this.graphics.PreferredBackBufferWidth = 1280;
+        this.graphics.PreferredBackBufferHeight = 720;
+        this.graphics.ApplyChanges();
+        super.Initialize();
     }
 
-    protected loadContent(): void {
-        this.spriteBatch = new SpriteBatch(this.graphicsDevice);
-        this.logo = this.content.load<Texture2D>(Texture2D, "logo");
+    protected LoadContent(): void {
+        this.spriteBatch = new SpriteBatch(this.GraphicsDevice);
+        this.logo = this.Content.Load<Texture2D>(Texture2D, "logo");
         
         // Create 1x1 white texture for banner
-        this.solidTexture = new Texture2D(this.graphicsDevice, 1, 1);
+        this.solidTexture = new Texture2D(this.GraphicsDevice, 1, 1);
         this.solidTexture.setData([new Color(255, 255, 255, 255)]);
 
-        this.rendererName = this.graphicsDevice.rendererName;
-        this.supportsThreeD = this.graphicsDevice.graphicsCapabilities.supportsCapability(GraphicsDeviceCapability.ThreeD);
-        this.supportsDepth = this.graphicsDevice.graphicsCapabilities.supportsCapability(GraphicsDeviceCapability.DepthStencilBuffer);
+        this.rendererName = this.GraphicsDevice.rendererName;
+        this.supportsThreeD = this.GraphicsDevice.graphicsCapabilities.supportsCapability(GraphicsDeviceCapability.ThreeD);
+        this.supportsDepth = this.GraphicsDevice.graphicsCapabilities.supportsCapability(GraphicsDeviceCapability.DepthStencilBuffer);
 
         if (this.supportsThreeD) {
-            this.cubeEffect = new BasicEffect(this.graphicsDevice);
+            this.cubeEffect = new BasicEffect(this.GraphicsDevice);
             this.cubeEffect.textureEnabled = true;
             this.cubeEffect.texture = this.logo;
-            this.createCubeVertices();
+            this.CreateCubeVertices();
         }
 
-        const viewport = this.graphicsDevice.viewport;
+        const viewport = this.GraphicsDevice.viewport;
         this.position = new Vector2(viewport.width / 2, viewport.height / 2);
 
         console.log(`cna-js-template: renderer ${this.rendererName}`);
@@ -80,7 +80,7 @@ export class HelloGame extends Game {
         console.log(`  depth/stencil   : ${this.supportsDepth ? "yes" : "no"}`);
     }
 
-    private createCubeVertices(): void {
+    private CreateCubeVertices(): void {
         this.cubeVertices = [];
         const addFace = (topLeft: Vector3, topRight: Vector3, bottomRight: Vector3, bottomLeft: Vector3) => {
             this.cubeVertices.push(new VertexPositionTexture(topLeft, new Vector2(0, 0)));
@@ -99,7 +99,7 @@ export class HelloGame extends Game {
         addFace(new Vector3(-1, -1, 1), new Vector3(1, -1, 1), new Vector3(1, -1, -1), new Vector3(-1, -1, -1));
     }
 
-    protected update(gameTime: GameTime): void {
+    protected Update(gameTime: GameTime): void {
         const dt = gameTime.elapsedGameTime.totalSeconds;
         this.animationSeconds += dt;
 
@@ -135,44 +135,44 @@ export class HelloGame extends Game {
             }
         }
 
-        super.update(gameTime);
+        super.Update(gameTime);
     }
 
-    protected draw(gameTime: GameTime): void {
+    protected Draw(gameTime: GameTime): void {
         if (this.supportsThreeD && this.supportsDepth) {
-            this.graphicsDevice.clear(Color.CornflowerBlue, 1.0, 0);
+            this.GraphicsDevice.Clear(Color.CornflowerBlue, 1.0, 0);
         } else {
-            this.graphicsDevice.clear(Color.CornflowerBlue);
+            this.GraphicsDevice.Clear(Color.CornflowerBlue);
         }
 
         if (this.supportsThreeD) {
-            this.draw3D(gameTime);
+            this.Draw3D(gameTime);
         } else {
-            this.draw2D(gameTime);
+            this.Draw2D(gameTime);
         }
 
         if (this.animationSeconds < 5.0) {
-            this.spriteBatch.begin();
-            RendererBanner.draw(this.spriteBatch, this.solidTexture, this.rendererName, this.graphicsDevice.viewport.width);
-            this.spriteBatch.end();
+            this.spriteBatch.Begin();
+            RendererBanner.Draw(this.spriteBatch, this.solidTexture, this.rendererName, this.GraphicsDevice.Viewport.Width);
+            this.spriteBatch.End();
         }
 
         if (this.smokeTest && ++this.drawnFrames >= 3) {
             console.log(`cna-js-template: smoke test drew ${this.drawnFrames} frames; exiting`);
-            this.exit();
+            this.Exit();
         }
 
-        super.draw(gameTime);
+        super.Draw(gameTime);
     }
 
-    private draw2D(gameTime: GameTime): void {
+    private Draw2D(gameTime: GameTime): void {
         const motionSeconds = this.animationSeconds * 2.0;
         const scale = 0.96 + 0.12 * Math.sin(motionSeconds * 0.65);
         const rotation = 0.11 * Math.sin(motionSeconds * 0.55);
         const origin = new Vector2(this.logo.width / 2, this.logo.height / 2);
 
-        this.spriteBatch.begin();
-        this.spriteBatch.draw(
+        this.spriteBatch.Begin();
+        this.spriteBatch.Draw(
             this.logo,
             this.position,
             null,
@@ -181,12 +181,12 @@ export class HelloGame extends Game {
             origin,
             scale
         );
-        this.spriteBatch.end();
+        this.spriteBatch.End();
     }
 
-    private draw3D(gameTime: GameTime): void {
-        const viewport = this.graphicsDevice.viewport;
-        const aspectRatio = viewport.width / (viewport.height || 1);
+    private Draw3D(gameTime: GameTime): void {
+        const viewport = this.GraphicsDevice.Viewport;
+        const aspectRatio = viewport.Width / (viewport.Height || 1);
         const motionSeconds = this.animationSeconds * 2.0;
         const scale = 0.88 + 0.10 * Math.sin(motionSeconds * 0.48);
         const moveX = 1.15 * Math.sin(motionSeconds * 0.24);
@@ -201,17 +201,17 @@ export class HelloGame extends Game {
         const view = Matrix.createLookAt(new Vector3(0, 0, 6), new Vector3(0, 0, 0), Vector3.up);
         const projection = Matrix.createPerspectiveFieldOfView(Math.PI / 4, aspectRatio, 0.1, 100);
 
-        this.cubeEffect.world = world;
-        this.cubeEffect.view = view;
-        this.cubeEffect.projection = projection;
+        this.cubeEffect.World = world;
+        this.cubeEffect.View = view;
+        this.cubeEffect.Projection = projection;
 
-        this.graphicsDevice.blendState = BlendState.Opaque;
-        this.graphicsDevice.depthStencilState = this.supportsDepth ? DepthStencilState.Default : DepthStencilState.None;
-        this.graphicsDevice.rasterizerState = RasterizerState.CullNone;
+        this.GraphicsDevice.BlendState = BlendState.Opaque;
+        this.GraphicsDevice.DepthStencilState = this.supportsDepth ? DepthStencilState.Default : DepthStencilState.None;
+        this.GraphicsDevice.RasterizerState = RasterizerState.CullNone;
 
-        for (const pass of this.cubeEffect.currentTechnique.passes) {
-            pass.apply();
-            this.graphicsDevice.drawUserPrimitives(
+        for (const pass of this.cubeEffect.CurrentTechnique.Passes) {
+            pass.Apply();
+            this.GraphicsDevice.DrawUserPrimitives(
                 PrimitiveType.TriangleList,
                 this.cubeVertices,
                 0,
@@ -220,7 +220,7 @@ export class HelloGame extends Game {
         }
     }
 
-    public setSmokeTest(enabled: boolean): void {
+    public SetSmokeTest(enabled: boolean): void {
         this.smokeTest = enabled;
     }
 }

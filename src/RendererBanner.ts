@@ -45,7 +45,7 @@ export class RendererBanner {
         ')': [0x08, 0x04, 0x04, 0x04, 0x04, 0x04, 0x08],
     };
 
-    public static draw(spriteBatch: SpriteBatch, solidTexture: Texture2D, text: string, viewportWidth: number): void {
+    public static Draw(spriteBatch: SpriteBatch, solidTexture: Texture2D, text: string, viewportWidth: number): void {
         const textUpper = text.toUpperCase();
         const glyphColumns = textUpper.length * 6 - 1;
         let pixelSize = Math.floor((viewportWidth - 48) / glyphColumns);
