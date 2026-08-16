@@ -15,7 +15,7 @@ import {
     BlendState,
     DepthStencilState,
     RasterizerState
-} from "@openeggbert/cna-js";
+} from "cna-ts";
 import { RendererBanner } from "./RendererBanner";
 
 export class HelloGame extends Game {
@@ -75,7 +75,7 @@ export class HelloGame extends Game {
         const viewport = this.GraphicsDevice.viewport;
         this.position = new Vector2(viewport.width / 2, viewport.height / 2);
 
-        console.log(`cna-js-template: renderer ${this.rendererName}`);
+        console.log(`cna-ts-template: renderer ${this.rendererName}`);
         console.log(`  3D pipeline     : ${this.supportsThreeD ? "yes" : "no (2D only)"}`);
         console.log(`  depth/stencil   : ${this.supportsDepth ? "yes" : "no"}`);
     }

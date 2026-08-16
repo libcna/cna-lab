@@ -1,4 +1,4 @@
-# cna-js-template
+# cna-ts-template
 
 > **Status: In progress - NOT YET FUNCTIONAL**
 
@@ -7,7 +7,7 @@ Multi-platform template for CNA (JavaScript/TypeScript) applications.
 
 ## Overview
 
-This template provides a starting point for building games and applications using the [CNA](https://github.com/openeggbert/cna) framework with the JavaScript/TypeScript binding. It is designed to run on:
+This template provides a starting point for building games and applications using the [CNA](https://github.com/openeggbert/cna) framework with the TypeScript binding. It is designed to run on:
 
 - **Web** (Browsers)
 - **Desktop** (Windows, Linux, macOS via Electron)

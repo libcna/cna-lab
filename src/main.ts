@@ -1,8 +1,8 @@
 import { HelloGame } from "./HelloGame";
-import { bindingsAvailable } from "@openeggbert/cna-js";
+import { bindingsAvailable } from "cna-ts";
 
 async function main() {
-    console.log("cna-js-template: starting...");
+    console.log("cna-ts-template: starting...");
     
     if (!bindingsAvailable) {
         console.warn("CNA bindings not available in this environment.");

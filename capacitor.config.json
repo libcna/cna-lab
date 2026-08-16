@@ -1,6 +1,6 @@
 {
-  "appId": "org.openeggbert.cnajstemplate",
-  "appName": "cna-js-template",
+  "appId": "org.openeggbert.cnatstemplate",
+  "appName": "cna-ts-template",
   "webDir": "dist",
   "server": {
     "androidScheme": "https"
