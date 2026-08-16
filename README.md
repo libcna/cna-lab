@@ -1,5 +1,8 @@
 # cna-js-template
 
+> **Status: In progress - ZATÍM NEFUNKČNÍ**
+
+
 Multi-platform template for CNA (JavaScript/TypeScript) applications.
 
 ## Overview
