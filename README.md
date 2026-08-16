@@ -1,5 +1,8 @@
 # cna-go-template
 
+> **Status: In progress - ZATÍM NEFUNKČNÍ**
+
+
 Modern template for CNA applications using the Go programming language.
 
 ## Features
