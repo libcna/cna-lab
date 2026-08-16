@@ -3,3 +3,20 @@ dist/
 build/
 .env
 *.log
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Mobile (Capacitor)
+android/
+ios/
+
+# Electron
+release/
