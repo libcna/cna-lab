@@ -1,6 +1,6 @@
 # cna-js-template
 
-> **Status: In progress - ZATÍM NEFUNKČNÍ**
+> **Status: In progress - NOT YET FUNCTIONAL**
 
 
 Multi-platform template for CNA (JavaScript/TypeScript) applications.
