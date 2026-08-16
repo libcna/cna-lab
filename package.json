@@ -1,0 +1,16 @@
+{
+  "name": "cna-js-template",
+  "version": "1.0.0",
+  "description": "Template for CNA JS applications",
+  "main": "dist/main.js",
+  "scripts": {
+    "start": "tsc && node dist/main.js",
+    "build": "tsc"
+  },
+  "dependencies": {
+    "@openeggbert/cna-js": "^1.0.0-preview"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  }
+}
