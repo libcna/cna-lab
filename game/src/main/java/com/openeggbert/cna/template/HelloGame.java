@@ -34,10 +34,9 @@ public class HelloGame extends Game {
 
     public HelloGame(boolean smokeTest) {
         _graphics = new GraphicsDeviceManager(this);
-        getContent().setRootDirectory("Content");
-        setIsMouseVisible(true);
+        Content().setRootDirectory("Content");
+        SetIsMouseVisible(true);
         _smokeTest = smokeTest;
-        // getWindow().setTitle("cna-java-template - HelloGame");
     }
 
     @Override
@@ -47,34 +46,33 @@ public class HelloGame extends Game {
 
     @Override
     protected void LoadContent() {
-        _spriteBatch = new SpriteBatch(getGraphicsDevice());
-        _logo = getContent().load(Texture2D.class, "logo");
+        _spriteBatch = new SpriteBatch(GraphicsDevice());
+        _logo = Content().load(Texture2D.class, "logo");
 
-        _solid = new Texture2D(getGraphicsDevice(), 1, 1);
+        _solid = new Texture2D(GraphicsDevice(), 1, 1);
         _solid.setData(new Color[] { Color.WHITE });
 
-        _rendererName = getRendererName();
-        // getWindow().setTitle("cna-java-template - HelloGame (" + _rendererName + ")");
+        _rendererName = GetRendererName();
 
-        _supports3D = supportsCapability("ThreeD");
-        _supportsDepth = supportsCapability("DepthStencilBuffer");
+        _supports3D = SupportsCapability("ThreeD");
+        _supportsDepth = SupportsCapability("DepthStencilBuffer");
 
         if (_supports3D) {
-            _cubeEffect = new BasicEffect(getGraphicsDevice());
+            _cubeEffect = new BasicEffect(GraphicsDevice());
             _cubeEffect.setTextureEnabled(true);
             _cubeEffect.setTexture(_logo);
             _cubeEffect.setLightingEnabled(false);
             _cubeEffect.setVertexColorEnabled(false);
         }
 
-        Viewport viewport = getGraphicsDevice().getViewport();
+        Viewport viewport = GraphicsDevice().getViewport();
         _position = new Vector2(viewport.getWidth() * 0.5f, viewport.getHeight() * 0.5f);
         _velocity = new Vector2(104.0f, 74.0f);
 
-        reportRendererCapabilities();
+        ReportRendererCapabilities();
     }
 
-    private String getRendererName() {
+    private String GetRendererName() {
         try {
             // Assume GraphicsDevice might have a way to get name
             return "CNA (Java)";
@@ -83,14 +81,14 @@ public class HelloGame extends Game {
         }
     }
 
-    private boolean supportsCapability(String capability) {
+    private boolean SupportsCapability(String capability) {
         // Future-proof: assume Reach/HiDef capability logic
         if ("ThreeD".equals(capability)) return true;
         if ("DepthStencilBuffer".equals(capability)) return true;
         return false;
     }
 
-    private void reportRendererCapabilities() {
+    private void ReportRendererCapabilities() {
         System.out.println("cna-java-template: renderer " + _rendererName);
         System.out.println("  3D pipeline     : " + (_supports3D ? "yes" : "no (2D only)"));
         System.out.println("  depth/stencil   : " + (_supportsDepth ? "yes" : "no"));
@@ -111,7 +109,7 @@ public class HelloGame extends Game {
             _position.x += _velocity.x * movementDelta;
             _position.y += _velocity.y * movementDelta;
 
-            Viewport viewport = getGraphicsDevice().getViewport();
+            Viewport viewport = GraphicsDevice().getViewport();
             float logoWidth = _logo.getWidth();
             float logoHeight = _logo.getHeight();
             float logoSize = Math.max(logoWidth, logoHeight);
@@ -123,10 +121,10 @@ public class HelloGame extends Game {
             float maxY = Math.max(minY, viewport.getHeight() - minY);
 
             if (_position.x < minX) { _position.x = minX; _velocity.x = Math.abs(_velocity.x); }
-            else if (_position.x > maxX) { _position.x = maxX; _velocity.x = -Math.Abs(_velocity.x); }
+            else if (_position.x > maxX) { _position.x = maxX; _velocity.x = -Math.abs(_velocity.x); }
 
             if (_position.y < minY) { _position.y = minY; _velocity.y = Math.abs(_velocity.y); }
-            else if (_position.y > maxY) { _position.y = maxY; _velocity.y = -Math.Abs(_velocity.y); }
+            else if (_position.y > maxY) { _position.y = maxY; _velocity.y = -Math.abs(_velocity.y); }
         }
 
         super.Update(gameTime);
@@ -135,19 +133,19 @@ public class HelloGame extends Game {
     @Override
     protected void Draw(GameTime gameTime) {
         if (_supports3D && _supportsDepth) {
-            getGraphicsDevice().clear(ClearOptions.TARGET | ClearOptions.DEPTH_BUFFER, Color.CORNFLOWER_BLUE, 1.0f, 0);
+            GraphicsDevice().clear(ClearOptions.TARGET | ClearOptions.DEPTH_BUFFER, Color.CORNFLOWER_BLUE, 1.0f, 0);
         } else {
-            getGraphicsDevice().clear(Color.CORNFLOWER_BLUE);
+            GraphicsDevice().clear(Color.CORNFLOWER_BLUE);
         }
 
         if (_supports3D) {
-            draw3DLogoCube();
+            Draw3DLogoCube();
         } else {
-            draw2DLogo();
+            Draw2DLogo();
         }
 
         if (_animationSeconds < RENDERER_BANNER_SECONDS) {
-            drawRendererBanner();
+            DrawRendererBanner();
         }
 
         super.Draw(gameTime);
@@ -158,7 +156,7 @@ public class HelloGame extends Game {
         }
     }
 
-    private void draw2DLogo() {
+    private void Draw2DLogo() {
         float motionSeconds = _animationSeconds * ANIMATION_SPEED;
         float scale = 0.96f + 0.12f * (float) Math.sin(motionSeconds * 0.65f);
         float rotation = 0.11f * (float) Math.sin(motionSeconds * 0.55f);
@@ -169,8 +167,8 @@ public class HelloGame extends Game {
         _spriteBatch.end();
     }
 
-    private void draw3DLogoCube() {
-        Viewport viewport = getGraphicsDevice().getViewport();
+    private void Draw3DLogoCube() {
+        Viewport viewport = GraphicsDevice().getViewport();
         float aspectRatio = (float) viewport.getWidth() / Math.max(1, viewport.getHeight());
         float motionSeconds = _animationSeconds * ANIMATION_SPEED;
         float scale = 0.88f + 0.10f * (float) Math.sin(motionSeconds * 0.48f);
@@ -193,18 +191,18 @@ public class HelloGame extends Game {
         _cubeEffect.setView(Matrix.createLookAt(new Vector3(0.0f, 0.0f, 6.0f), Vector3.ZERO, Vector3.UP));
         _cubeEffect.setProjection(Matrix.createPerspectiveFieldOfView(0.78539816339f, aspectRatio, 0.1f, 100.0f));
 
-        getGraphicsDevice().setBlendState(BlendState.OPAQUE);
-        getGraphicsDevice().setDepthStencilState(_supportsDepth ? DepthStencilState.DEFAULT : DepthStencilState.NONE);
-        getGraphicsDevice().setRasterizerState(RasterizerState.CULL_NONE);
+        GraphicsDevice().setBlendState(BlendState.OPAQUE);
+        GraphicsDevice().setDepthStencilState(_supportsDepth ? DepthStencilState.DEFAULT : DepthStencilState.NONE);
+        GraphicsDevice().setRasterizerState(RasterizerState.CULL_NONE);
 
         for (EffectPass pass : _cubeEffect.getCurrentTechnique().getPasses()) {
             pass.apply();
-            getGraphicsDevice().drawUserPrimitives(PrimitiveType.TRIANGLE_LIST, CUBE_VERTICES, 0, CUBE_VERTICES.length / 3);
+            GraphicsDevice().drawUserPrimitives(PrimitiveType.TRIANGLE_LIST, CUBE_VERTICES, 0, CUBE_VERTICES.length / 3);
         }
     }
 
-    private void drawRendererBanner() {
-        Viewport viewport = getGraphicsDevice().getViewport();
+    private void DrawRendererBanner() {
+        Viewport viewport = GraphicsDevice().getViewport();
         int viewportWidth = viewport.getWidth();
         int glyphColumns = Math.max(1, _rendererName.length() * 6 - 1);
         int pixelSize = Math.max(1, Math.min((viewportWidth - 48) / glyphColumns, 8));
@@ -219,7 +217,7 @@ public class HelloGame extends Game {
         _spriteBatch.draw(_solid, new Rectangle(textX - padding, textY - padding, textWidth + padding * 2, textHeight + padding * 2), translucentWhite);
 
         for (int i = 0; i < _rendererName.length(); i++) {
-            byte[] rows = getGlyphRows(_rendererName.charAt(i));
+            byte[] rows = GetGlyphRows(_rendererName.charAt(i));
             int charX = textX + i * 6 * pixelSize;
 
             for (int row = 0; row < 7; row++) {
@@ -233,7 +231,7 @@ public class HelloGame extends Game {
         _spriteBatch.end();
     }
 
-    private static byte[] getGlyphRows(char c) {
+    private static byte[] GetGlyphRows(char c) {
         switch (Character.toUpperCase(c)) {
             case 'A': return new byte[] { 0x0e, 0x11, 0x11, 0x1f, 0x11, 0x11, 0x11 };
             case 'B': return new byte[] { 0x1e, 0x11, 0x11, 0x1e, 0x11, 0x11, 0x1e };
@@ -281,20 +279,20 @@ public class HelloGame extends Game {
         }
     }
 
-    private static VertexPositionTexture[] createLogoCubeVertices() {
+    private static VertexPositionTexture[] CreateLogoCubeVertices() {
         List<VertexPositionTexture> vertices = new ArrayList<>();
 
-        addFace(vertices, new Vector3(-1, 1, 1), new Vector3(1, 1, 1), new Vector3(1, -1, 1), new Vector3(-1, -1, 1));
-        addFace(vertices, new Vector3(1, 1, -1), new Vector3(-1, 1, -1), new Vector3(-1, -1, -1), new Vector3(1, -1, -1));
-        addFace(vertices, new Vector3(1, 1, 1), new Vector3(1, 1, -1), new Vector3(1, -1, -1), new Vector3(1, -1, 1));
-        addFace(vertices, new Vector3(-1, 1, -1), new Vector3(-1, 1, 1), new Vector3(-1, -1, 1), new Vector3(-1, -1, -1));
-        addFace(vertices, new Vector3(-1, 1, -1), new Vector3(1, 1, -1), new Vector3(1, 1, 1), new Vector3(-1, 1, 1));
-        addFace(vertices, new Vector3(-1, -1, 1), new Vector3(1, -1, 1), new Vector3(1, -1, -1), new Vector3(-1, -1, -1));
+        AddFace(vertices, new Vector3(-1, 1, 1), new Vector3(1, 1, 1), new Vector3(1, -1, 1), new Vector3(-1, -1, 1));
+        AddFace(vertices, new Vector3(1, 1, -1), new Vector3(-1, 1, -1), new Vector3(-1, -1, -1), new Vector3(1, -1, -1));
+        AddFace(vertices, new Vector3(1, 1, 1), new Vector3(1, 1, -1), new Vector3(1, -1, -1), new Vector3(1, -1, 1));
+        AddFace(vertices, new Vector3(-1, 1, -1), new Vector3(-1, 1, 1), new Vector3(-1, -1, 1), new Vector3(-1, -1, -1));
+        AddFace(vertices, new Vector3(-1, 1, -1), new Vector3(1, 1, -1), new Vector3(1, 1, 1), new Vector3(-1, 1, 1));
+        AddFace(vertices, new Vector3(-1, -1, 1), new Vector3(1, -1, 1), new Vector3(1, -1, -1), new Vector3(-1, -1, -1));
 
         return vertices.toArray(new VertexPositionTexture[0]);
     }
 
-    private static void addFace(List<VertexPositionTexture> vertices, Vector3 tl, Vector3 tr, Vector3 br, Vector3 bl) {
+    private static void AddFace(List<VertexPositionTexture> vertices, Vector3 tl, Vector3 tr, Vector3 br, Vector3 bl) {
         vertices.add(new VertexPositionTexture(tl, new Vector2(0, 0)));
         vertices.add(new VertexPositionTexture(tr, new Vector2(1, 0)));
         vertices.add(new VertexPositionTexture(br, new Vector2(1, 1)));
