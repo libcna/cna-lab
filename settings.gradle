@@ -1,0 +1,3 @@
+rootProject.name = 'cna-java-template'
+include 'game'
+include 'android'

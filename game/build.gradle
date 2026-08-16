@@ -1,0 +1,38 @@
+plugins {
+    id 'java'
+    id 'application'
+}
+
+group 'com.openeggbert.cna'
+version '1.0-SNAPSHOT'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
+}
+
+dependencies {
+    // Reference to cna-java (assuming it will be published to mavenLocal or repository)
+    implementation 'com.openeggbert.cna:cna-java:1.0.0-preview'
+    
+    testImplementation platform('org.junit:junit-bom:5.9.1')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+}
+
+test {
+    useJUnitPlatform()
+}
+
+application {
+    mainClass = 'com.openeggbert.cna.template.Main'
+}
+
+// Ensure resources (Content) are included
+sourceSets {
+    main {
+        resources {
+            srcDirs = ['src/main/resources']
+        }
+    }
+}

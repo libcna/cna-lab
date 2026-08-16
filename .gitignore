@@ -1,9 +1,35 @@
+# Java/Gradle
+.gradle/
+build/
+bin/
 *.class
 *.jar
 *.war
 *.ear
-target/
+
+# IDEs
 .idea/
 *.iml
-.gradle/
-build/
+*.iws
+.project
+.classpath
+.settings/
+.vscode/
+
+# Android
+.cxx/
+captures/
+output.json
+*.apk
+*.aar
+*.ap_
+*.dex
+local.properties
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Web/Emscripten (if used via TeaVM etc)
+dist/
+teavm/

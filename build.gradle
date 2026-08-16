@@ -1,0 +1,19 @@
+buildscript {
+    repositories {
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        classpath 'com.android.tools.build:gradle:8.1.1'
+    }
+}
+
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+        mavenLocal()
+        // CNA repository placeholder
+        maven { url 'https://maven.openeggbert.org/repository/maven-public/' }
+    }
+}
