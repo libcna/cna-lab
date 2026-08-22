@@ -40,6 +40,7 @@ if(MYRA_CNA_CNA_LINKED)
         CheckButtonBaseTests.cpp
         ColorHSVTests.cpp
         ColoredRegionTests.cpp
+        ComboViewTests.cpp
         ComparisonHelpersTests.cpp
         CrossEngineStuffTests.cpp
         DefaultAssetsTests.cpp

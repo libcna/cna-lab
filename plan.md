@@ -80,8 +80,8 @@ behavioral redesign.
 
 ### 1.4 Whole-port completion and remaining-effort estimate
 
-Checkpoint: 2026-08-22, after P0-023, P6-007a, P6-008a, P6-018a, P6-022a, P7-001–P7-004a, P7-006, and P7-008. The mechanical
-backlog count is **157/303 checked tasks (51.8%)**. This corrects the previous denominator,
+Checkpoint: 2026-08-22, after P0-023, P6-007a, P6-008a, P6-018a, P6-022a, P7-001–P7-005a, P7-006, and P7-008. The mechanical
+backlog count is **158/304 checked tasks (52.0%)**. This corrects the previous denominator,
 which omitted one Phase 0 and one Phase 3 checkbox. The count is useful for
 auditing plan state but is
 not a parity percentage: small foundation subtasks and large end-to-end
@@ -539,6 +539,7 @@ are green, and the build uses no more than three parallel jobs.
 - [x] P7-003 Port `Selectors/ListViewButton.cs`.
 - [x] P7-004a Port the style-independent `ListView` core: retained ScrollViewer/stack layout, widget wrapping and collection mutation, single/multiple selection state, click selection, scroll forwarding, and exact-type cloning. Keep styles, Desktop context-menu behavior, keyboard navigation, and MML metadata in P5-016/P7-004/P8-004.
 - [ ] P7-004 Port `Selectors/ListView.cs` collection adapters and virtual behavior.
+- [x] P7-005a Port the style-independent `ComboView` core: retained toggle/list ownership, delegated item and selection APIs, selection-event forwarding, initial selection on expansion, selected-content cloning, measure/arrange sizing, and exact-type cloning. Keep Desktop context-menu display, Label placeholder/style, keyboard delegation, and MML metadata in P5-016/P6-002/P7-005/P8-004.
 - [ ] P7-005 Port `Selectors/ComboView.cs`.
 - [x] P7-006 Port `Selectors/IMenuItem.cs`.
 - [ ] P7-007 Port `Selectors/MenuItem.cs`.
