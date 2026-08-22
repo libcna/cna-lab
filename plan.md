@@ -80,8 +80,8 @@ behavioral redesign.
 
 ### 1.4 Whole-port completion and remaining-effort estimate
 
-Checkpoint: 2026-08-22, after P0-023, P6-007a, P6-008a, P6-022a, P7-001–P7-003, P7-006, and P7-008. The mechanical
-backlog count is **155/301 checked tasks (51.5%)**. This corrects the previous denominator,
+Checkpoint: 2026-08-22, after P0-023, P6-007a, P6-008a, P6-018a, P6-022a, P7-001–P7-003, P7-006, and P7-008. The mechanical
+backlog count is **156/302 checked tasks (51.7%)**. This corrects the previous denominator,
 which omitted one Phase 0 and one Phase 3 checkbox. The count is useful for
 auditing plan state but is
 not a parity percentage: small foundation subtasks and large end-to-end
@@ -517,6 +517,7 @@ are green, and the build uses no more than three parallel jobs.
 - [x] P6-016b Restore Grid's observable proportion collection and retained-proportion invalidation semantics.
 - [ ] P6-016 Port `Containers/Grid.cs` selection, style, debug render, and input.
 - [x] P6-017 Port `Containers/Proportion.cs`.
+- [x] P6-018a Port the style-independent `ScrollViewer` core: retained single content, scrollbar geometry, scrolling/clamping, direct wheel scrolling, optional image thumbs, exact-type cloning, and render traversal. Keep Desktop thumb drag capture, stylesheet application, and MML metadata in P5-016/P6-018/P8-004.
 - [ ] P6-018 Port `Containers/ScrollViewer.cs`.
 - [ ] P6-019 Port `Containers/SplitPane.cs`.
 - [ ] P6-020 Port horizontal and vertical split-pane specialisations.

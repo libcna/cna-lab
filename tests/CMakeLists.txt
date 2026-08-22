@@ -59,6 +59,7 @@ if(MYRA_CNA_CNA_LINKED)
         RadioButtonTests.cpp
         RenderContextShapesTests.cpp
         RenderContextTests.cpp
+        ScrollViewerTests.cpp
         SeparatorTests.cpp
         SelectorTests.cpp
         SingleItemLayoutTests.cpp
