@@ -48,6 +48,7 @@ if(MYRA_CNA_CNA_LINKED)
         IHasColorTests.cpp
         ImageTests.cpp
         ITreeViewNodeTests.cpp
+        TreeViewNodeTests.cpp
         ListViewButtonTests.cpp
         ListViewTests.cpp
         MMLContextTests.cpp

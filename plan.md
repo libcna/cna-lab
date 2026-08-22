@@ -80,8 +80,8 @@ behavioral redesign.
 
 ### 1.4 Whole-port completion and remaining-effort estimate
 
-Checkpoint: 2026-08-22, after P0-023, P6-007a, P6-008a, P6-018a, P6-022a, P7-001–P7-005a, P7-006, P7-008, and P7-014. The mechanical
-backlog count is **159/304 checked tasks (52.3%)**. This corrects the previous denominator,
+Checkpoint: 2026-08-22, after P0-023, P6-007a, P6-008a, P6-018a, P6-022a, P7-001–P7-005a, P7-006, P7-008, P7-014, and P7-015a. The mechanical
+backlog count is **160/305 checked tasks (52.5%)**. This corrects the previous denominator,
 which omitted one Phase 0 and one Phase 3 checkbox. The count is useful for
 auditing plan state but is
 not a parity percentage: small foundation subtasks and large end-to-end
@@ -550,6 +550,7 @@ are green, and the build uses no more than three parallel jobs.
 - [ ] P7-012 Port `Selectors/TabItem.cs`.
 - [ ] P7-013 Port `Selectors/TabControl.cs`.
 - [x] P7-014 Port `Misc/ITreeViewNode.cs`.
+- [x] P7-015a Port the style-independent `TreeViewNode` core: retained content and ordered child-node hierarchy, parent links, expand/collapse mark visibility, grid/stack layout, removal, and deep exact-type cloning. Keep `TreeView` node registration/selection/hover state, stylesheet mark application, and MML metadata in P7-015/P7-016/P8-004.
 - [ ] P7-015 Port `Misc/TreeViewNode.cs`.
 - [ ] P7-016 Port `Misc/TreeView.cs`.
 - [ ] P7-017 Port `Misc/Window.cs`.
