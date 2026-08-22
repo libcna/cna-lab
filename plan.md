@@ -80,8 +80,8 @@ behavioral redesign.
 
 ### 1.4 Whole-port completion and remaining-effort estimate
 
-Checkpoint: 2026-08-22, after P0-023, P6-007a, P6-008a, P6-018a, P6-019a, P6-022a, P7-001–P7-003, P7-004a, P7-005a, P7-006, P7-007a, P7-008, P7-012a, P7-013a, P7-014, P7-015a, and P7-016a. The mechanical
-backlog count is **165/310 checked tasks (53.2%)**. The count is useful for
+Checkpoint: 2026-08-22, after P0-023, P6-007a, P6-008a, P6-018a, P6-019a, P6-022a, P7-001–P7-003, P7-004a, P7-005a, P7-006, P7-007a, P7-008, P7-009a, P7-010a, P7-011a, P7-012a, P7-013a, P7-014, P7-015a, and P7-016a. The mechanical
+backlog count is **168/313 checked tasks (53.7%)**. The count is useful for
 auditing plan state but is
 not a parity percentage: small foundation subtasks and large end-to-end
 features each count once, while the remaining font/text, Desktop/input,
@@ -102,11 +102,11 @@ are planning ranges rather than a delivery promise.
 | Phase 4 — MML/XML | 31/36 | 40–80 |
 | Phase 5 — Widget/Desktop/input | 31/39 | 72–128 |
 | Phase 6 — controls/editing | 20/47 | 110–184 |
-| Phase 7 — selectors/windows/dialogs | 13/31 | 180–300 |
+| Phase 7 — selectors/windows/dialogs | 16/34 | 180–300 |
 | Phase 8 — styles/default skin | 0/14 | 140–240 |
 | Phase 9 — file/data/property grids | 1/21 | 180–320 |
 | Phase 10 — parity/release | 0/28 | 140–240 |
-| **Whole remaining technical port** | **165/310 complete** | **1,106–1,952** |
+| **Whole remaining technical port** | **168/313 complete** | **1,106–1,952** |
 
 For scheduling, use **about 1,529 focused hours remaining** as the midpoint,
 with **1,100–2,000 hours** as the sensible rounded range. This assumes prompt
@@ -542,11 +542,14 @@ are green, and the build uses no more than three parallel jobs.
 - [x] P7-005a Port the style-independent `ComboView` core: retained toggle/list ownership, delegated item and selection APIs, selection-event forwarding, initial selection on expansion, selected-content cloning, measure/arrange sizing, and exact-type cloning. Keep Desktop context-menu display, Label placeholder/style, keyboard delegation, and MML metadata in P5-016/P6-002/P7-005/P8-004.
 - [ ] P7-005 Port `Selectors/ComboView.cs`.
 - [x] P7-006 Port `Selectors/IMenuItem.cs`.
-- [x] P7-007a Port the style-independent `MenuItem` data core: text/mnemonic and marker-free display state, image/shortcut/tag metadata, enabled/index/owner state, constructors, and change/selection events. Keep retained Label/Image widgets, rich-text mnemonic colour, submenus/item collection, lookup, stylesheet integration, and MML metadata in P3-004/P6-002/P7-007/P7-009/P8-006.
+- [x] P7-007a Port the style-independent `MenuItem` data core: text/mnemonic and marker-free display state, image/shortcut/tag metadata, enabled/index/owner state, constructors, and change/selection events. Keep retained Label/Image widgets, rich-text mnemonic colour, stylesheet integration, and MML metadata in P3-004/P6-002/P7-007/P8-006.
 - [ ] P7-007 Port `Selectors/MenuItem.cs`.
 - [x] P7-008 Port `Selectors/MenuSeparator.cs`.
+- [x] P7-009a Port the style-independent `Menu` core: observable retained item collection, owner/index synchronization, nested `VerticalMenu` ownership, recursive id lookup, logical hover/selection/open state, close/click behavior, mnemonic/Enter/Space handling, and separator-skipping navigation. Keep Grid widget composition, measured cells, Label/Image visual wiring, selection brushes, styles, Desktop context menus, and MML metadata in P5-016/P6-002/P6-016/P7-009/P8-006.
 - [ ] P7-009 Port `Selectors/Menu.cs`.
+- [x] P7-010a Port `HorizontalMenu`'s style-independent orientation, alignment defaults, and Left/Right navigation.
 - [ ] P7-010 Port `Selectors/HorizontalMenu.cs`.
+- [x] P7-011a Port `VerticalMenu`'s style-independent orientation, alignment defaults, and Up/Down navigation.
 - [ ] P7-011 Port `Selectors/VerticalMenu.cs`.
 - [x] P7-012a Port the style-independent `TabItem` data core: retained optional text/content/image/tag/height state, identifier/change and selection events, `ToString`, and clone behavior. Keep text color, ListViewButton/Label visual wiring, TabControl integration, and MML metadata in P3-004/P6-002/P7-012/P7-013/P8-004.
 - [ ] P7-012 Port `Selectors/TabItem.cs`.

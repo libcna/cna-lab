@@ -55,6 +55,7 @@ if(MYRA_CNA_CNA_LINKED)
         MMLContextTests.cpp
         MenuItemTests.cpp
         MenuSeparatorTests.cpp
+        MenuTests.cpp
         MyraEnvironmentTests.cpp
         MyraTypeRegistryTests.cpp
         NinePatchRegionTests.cpp

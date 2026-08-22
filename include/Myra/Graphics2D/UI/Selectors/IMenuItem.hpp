@@ -6,13 +6,19 @@
 // See NOTICE.md and UPSTREAM_MANIFEST.md.
 #pragma once
 
+#include <memory>
 #include <optional>
 
 #include "Myra/MML/IItemWithId.hpp"
+#include "System/Collections/ObjectModel/ObservableCollection.hpp"
 
 namespace Myra::Graphics2D::UI
 {
     class Menu;
+    class IMenuItem;
+
+    /** @brief Retained, observable collection used by Menu and nested MenuItem submenus. */
+    using MenuItemCollection = System::Collections::ObjectModel::ObservableCollection<std::shared_ptr<IMenuItem>>;
 
     /** @brief Contract shared by items owned by a menu. */
     class IMenuItem : public MML::IItemWithId

@@ -9,6 +9,7 @@
 #include <cctype>
 #include <utility>
 
+#include "Myra/Graphics2D/UI/Selectors/VerticalMenu.hpp"
 #include "Myra/Utility/EventsExtensions.hpp"
 
 namespace Myra::Graphics2D::UI
@@ -19,7 +20,8 @@ namespace Myra::Graphics2D::UI
 
     MenuItem::MenuItem(std::string id, std::string text) : MenuItem(std::move(id), std::move(text), std::any()) {}
 
-    MenuItem::MenuItem(std::string id, std::string text, std::any tag) : tag_(std::move(tag))
+    MenuItem::MenuItem(std::string id, std::string text, std::any tag)
+        : subMenu_(std::make_shared<VerticalMenu>()), tag_(std::move(tag))
     {
         setIdProperty(std::move(id));
         setTextProperty(std::move(text));
@@ -125,6 +127,44 @@ namespace Myra::Graphics2D::UI
     void MenuItem::setEnabledProperty(const bool value) noexcept
     {
         enabled_ = value;
+    }
+
+    std::shared_ptr<VerticalMenu> MenuItem::getSubMenuProperty() const
+    {
+        return subMenu_;
+    }
+
+    const MenuItemCollection &MenuItem::getItemsProperty() const noexcept
+    {
+        return subMenu_->getItemsProperty();
+    }
+
+    MenuItemCollection &MenuItem::getItemsProperty() noexcept
+    {
+        return subMenu_->getItemsProperty();
+    }
+
+    bool MenuItem::getCanOpenProperty() const noexcept
+    {
+        return subMenu_->getItemsProperty().getCountProperty() > 0;
+    }
+
+    MenuItem *MenuItem::FindMenuItemById(const std::string &id) noexcept
+    {
+        if (getIdProperty() == id)
+        {
+            return this;
+        }
+        return subMenu_->FindMenuItemById(id);
+    }
+
+    const MenuItem *MenuItem::FindMenuItemById(const std::string &id) const noexcept
+    {
+        if (getIdProperty() == id)
+        {
+            return this;
+        }
+        return subMenu_->FindMenuItemById(id);
     }
 
     Menu *MenuItem::getMenuProperty() const noexcept

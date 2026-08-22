@@ -22,6 +22,8 @@ namespace Myra::Graphics2D
 
 namespace Myra::Graphics2D::UI
 {
+    class VerticalMenu;
+
     /** @brief Style-independent data and command state for one menu entry. */
     class MenuItem final : public MML::BaseObject, public IMenuItem
     {
@@ -52,6 +54,12 @@ namespace Myra::Graphics2D::UI
         void setShortcutTextProperty(std::optional<std::string> value);
         [[nodiscard]] bool getEnabledProperty() const noexcept;
         void setEnabledProperty(bool value) noexcept;
+        [[nodiscard]] std::shared_ptr<VerticalMenu> getSubMenuProperty() const;
+        [[nodiscard]] const MenuItemCollection &getItemsProperty() const noexcept;
+        [[nodiscard]] MenuItemCollection &getItemsProperty() noexcept;
+        [[nodiscard]] bool getCanOpenProperty() const noexcept;
+        [[nodiscard]] MenuItem *FindMenuItemById(const std::string &id) noexcept;
+        [[nodiscard]] const MenuItem *FindMenuItemById(const std::string &id) const noexcept;
 
         [[nodiscard]] Menu *getMenuProperty() const noexcept override;
         void setMenuProperty(Menu *value) noexcept override;
@@ -72,6 +80,7 @@ namespace Myra::Graphics2D::UI
         std::optional<std::string> text_;
         std::optional<std::string> shortcutText_;
         std::shared_ptr<Graphics2D::IImage> image_;
+        std::shared_ptr<VerticalMenu> subMenu_;
         std::any tag_;
         Menu *menu_ = nullptr;
         std::optional<char> underscoreChar_;

@@ -75,9 +75,12 @@ add_library(MYRA_CNA STATIC
     src/Myra/Graphics2D/UI/Selectors/ListViewButton.cpp
     src/Myra/Graphics2D/UI/Selectors/ListView.cpp
     src/Myra/Graphics2D/UI/Selectors/ComboView.cpp
+    src/Myra/Graphics2D/UI/Selectors/HorizontalMenu.cpp
+    src/Myra/Graphics2D/UI/Selectors/Menu.cpp
     src/Myra/Graphics2D/UI/Selectors/MenuItem.cpp
     src/Myra/Graphics2D/UI/Selectors/TabControl.cpp
     src/Myra/Graphics2D/UI/Selectors/TabItem.cpp
+    src/Myra/Graphics2D/UI/Selectors/VerticalMenu.cpp
     src/Myra/Graphics2D/UI/Simple/Button.cpp
     src/Myra/Graphics2D/UI/Simple/ButtonBase.cpp
     src/Myra/Graphics2D/UI/Simple/CheckButton.cpp
