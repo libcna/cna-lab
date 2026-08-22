@@ -25,4 +25,11 @@ final class MainTests {
         assertThrows(IllegalArgumentException.class,
                 () -> Main.parseFrameLimit(new String[] {"--pretend-web-works"}));
     }
+
+    @Test
+    void ConfiguresMappedGameWindowBeforeNativeStartup() {
+        try (HelloGame game = new HelloGame(1)) {
+            assertEquals("CNA-Java: HelloGame", game.getWindow().getTitle());
+        }
+    }
 }

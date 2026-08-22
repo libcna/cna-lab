@@ -18,6 +18,7 @@ public final class HelloGame extends Game {
         }
         this.frameLimit = frameLimit;
         graphics = new GraphicsDeviceManager(this);
+        getWindow().setTitle("CNA-Java: " + getClass().getSimpleName());
         getContent().setRootDirectory("Content");
         setIsMouseVisible(true);
     }
