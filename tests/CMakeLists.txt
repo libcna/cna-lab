@@ -58,6 +58,7 @@ if(MYRA_CNA_CNA_LINKED)
         RenderContextShapesTests.cpp
         RenderContextTests.cpp
         SeparatorTests.cpp
+        SelectorTests.cpp
         SingleItemLayoutTests.cpp
         SolidBrushTests.cpp
         StackPanelTests.cpp
