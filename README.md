@@ -1,96 +1,72 @@
 # cna-ts-template
 
-> **Status: In progress - NOT YET FUNCTIONAL**
+Canonical project template for both TypeScript and JavaScript consumers of `cna-ts`.
 
+## Measured status
 
-Multi-platform template for CNA (JavaScript/TypeScript) applications.
+This repository is a truthful managed/build canary, not yet a playable CNA game. The TypeScript
+source exercises the strict XNA projection's lifecycle shell, `GameTime`, `TimeSpan`, `Vector2`,
+and `Color`. It reports the real runtime status instead of inventing a graphics backend.
 
-## Overview
+| Target | Status | Evidence |
+| --- | --- | --- |
+| TypeScript project | build verified | strict TypeScript plus Vite production build |
+| JavaScript project | build verified | generated ordinary `.js`, Vite build, Node managed smoke |
+| Browser CNA runtime | planned / blocked | no packaged CNA C-ABI ESM/Wasm artifact is available |
+| Electron | planned | no runtime or build claim |
+| Android / iOS | planned | no WebView/native runtime or build claim |
 
-This template provides a starting point for building games and applications using the [CNA](https://github.com/openeggbert/cna) framework with the TypeScript binding. It is designed to run on:
+The old `cna-js` package, Electron, and Capacitor are not dependencies. A browser bundle alone is
+not described as CNA runtime support.
 
-- **Web** (Browsers)
-- **Desktop** (Windows, Linux, macOS via Electron)
-- **Mobile** (Android, iOS via Capacitor)
+## Work with the canonical TypeScript canary
 
-## Features
-
-- **Adaptive Rendering**: Automatically switches between a 3D rotating cube (HiDef/3D capable) and a bouncing 2D logo (Reach/2D only).
-- **Renderer Banner**: Displays the current graphics renderer name using an internal bitmap font.
-- **TypeScript**: Full type safety and modern JS features.
-- **Cross-Platform**: Unified codebase for Web, Desktop, and Mobile.
-- **Smoke Test Support**: Includes a `--smoke-test` mode for automated verification.
-
-## Project Structure
-
-- `src/`: TypeScript source code.
-  - `HelloGame.ts`: Core game logic (XNA-compatible API).
-  - `RendererBanner.ts`: Internal bitmap font renderer.
-  - `main.ts`: Entry point.
-- `public/Content/`: Game assets (textures, etc.).
-- `index.html`: Web entry point.
-- `vite.config.ts`: Vite configuration for Web and bundling.
-- `capacitor.config.json`: Capacitor configuration for Mobile.
-
-## Getting Started
-
-### Prerequisites
-
-- [Node.js](https://nodejs.org/) (v16 or later)
-- [npm](https://www.npmjs.com/) (usually bundled with Node.js)
-
-### Installation
+Requirements: Node `^20.19.0 || >=22.12.0` and npm.
 
 ```bash
 npm install
-```
-
-### Development (Web)
-
-Run a local development server with hot-reload:
-
-```bash
+npm run check
+npm run build
 npm run dev
 ```
 
-### Build (Web)
+The repository pins `cna-ts` `0.1.0`. During sibling development, verification installs the exact
+packed `cna-ts-0.1.0.tgz` with `--no-save`; normal generated projects never reference sibling
+source directories.
 
-Compile and bundle for production:
+## Generate a fresh project
 
-```bash
-npm run build
-```
-
-### Desktop (Electron)
-
-To run as a desktop application:
+TypeScript is the one maintained source. The JavaScript form is transpiled by the generator and
+does not carry TypeScript source or a TypeScript application dependency.
 
 ```bash
-npm run electron:dev
+npm run create:typescript
+npm run create:javascript
 ```
 
-### Mobile (Capacitor)
-
-1. Build the web version: `npm run build`
-2. Sync with native projects: `npm run cap:sync`
-3. Open in Android Studio / Xcode:
-   ```bash
-   npm run cap:open:android
-   npm run cap:open:ios
-   ```
-
-## Smoke Test
-
-You can run a quick automated test to verify the template:
+Or choose explicit empty output directories:
 
 ```bash
-# In Node.js environment
-node dist/main.js --smoke-test
-
-# Or in browser by adding ?smoke-test to URL
-http://localhost:3000/?smoke-test
+node tools/create-project.mjs --language typescript --output /tmp/my-cna-ts-game
+node tools/create-project.mjs --language javascript --output /tmp/my-cna-game-js
 ```
+
+To verify both generated forms against a locally packed canonical artifact:
+
+```bash
+node tools/verify-generated.mjs --package /path/to/cna-ts-0.1.0.tgz
+```
+
+The verifier creates fresh temporary projects, checks for legacy/sibling references, installs the
+tarball, builds both forms, and runs the generated JavaScript managed smoke test.
+
+## Next functional slice
+
+Once CNA supplies a consumable C-ABI WebAssembly ESM artifact, the canary can advance in this
+order: real `Game.Run` lifecycle and shutdown, device/canvas, raw-image `Texture2D` loading,
+`SpriteBatch`, keyboard/mouse, resize, 60-frame smoke, then 600-frame stability. Raw PNG files will
+not be passed to `Content.Load` as though they were compiled XNB assets.
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+MIT; see `LICENSE`.

@@ -1,6 +1,7 @@
 node_modules/
 dist/
 build/
+generated/
 .env
 *.log
 
@@ -13,10 +14,3 @@ build/
 # OS
 .DS_Store
 Thumbs.db
-
-# Mobile (Capacitor)
-android/
-ios/
-
-# Electron
-release/
