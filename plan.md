@@ -19,7 +19,8 @@ checked out for this analysis at `/tmp/myra-upstream`.
 
 **Integration baselines inspected:** initial CNA `ac3aaaeb2`, cna-extended
 `2ff3cff`, and sharp-runtime `b797928f`; the current modular integration is
-validated against CNA `fb3728267` and sharp-runtime `81624983`.
+validated against CNA `1bb2145d99ed572dd4eb15009c34e2e5f410fcf0` and sharp-runtime
+`01af6a74467428142b4c9cbcfe33b56f01811e55`.
 
 ### 1.1 In scope
 
@@ -79,8 +80,8 @@ behavioral redesign.
 
 ### 1.4 Whole-port completion and remaining-effort estimate
 
-Checkpoint: 2026-08-11, after P0-023 and P6-006a. The mechanical backlog count
-is **147/298 checked tasks (49.3%)**. This corrects the previous denominator,
+Checkpoint: 2026-08-22, after P0-023, P6-007a, and P6-008a. The mechanical
+backlog count is **149/300 checked tasks (49.7%)**. This corrects the previous denominator,
 which omitted one Phase 0 and one Phase 3 checkbox. The count is useful for
 auditing plan state but is
 not a parity percentage: small foundation subtasks and large end-to-end
@@ -322,7 +323,7 @@ are green, and the build uses no more than three parallel jobs.
 - [x] P0-020 Add deterministic temporary asset directory helper. The move-only RAII helper isolates paths by build working directory and current GoogleTest name, rejects traversal/absolute paths, removes stale input before a test, writes nested text assets, and cleans its exact owned tree afterward.
 - [x] P0-021 Add a headless test executable and register it in CTest.
 - [x] P0-022 Add a CNA SDL_RENDERER smoke executable and register its display requirement. The conditional CTest target creates a real CNA Game/device on X11, draws a Myra `SolidBrush`, verifies inside/outside backbuffer pixels, and exits after one frame; its display environment, labels, resource lock, and timeout are explicit. The full current SDL_RENDERER suite passes 199/199 on Xvfb.
-- [x] P0-023 Restore build compatibility with current modular CNA/sharp-runtime checkouts. Header-only mode discovers module include/source trees; linked and sanitised validation drives CNA as the top-level project through `CMAKE_PROJECT_CNA_INCLUDE`, explicitly links Myra's `SharpRuntime::Xml` dependency, and updates test renderer seams. The legacy `MYRA_CNA_LINK_CNA` child mode now diagnoses modular checkouts and remains available for compatible older layouts. Validated against CNA `fb3728267` and sharp-runtime `81624983` without editing either sibling.
+- [x] P0-023 Restore build compatibility with current modular CNA/sharp-runtime checkouts. Header-only mode discovers module include/source trees; linked and sanitised validation drives CNA as the top-level project through `CMAKE_PROJECT_CNA_INCLUDE`. Its driver defers enabling and linking Myra's narrow `SharpRuntime::Xml` component until sharp-runtime has registered modular components; linked test fakes no longer rely on CNA's removed `SDL_Texture` accessor and windowless cursor tests tolerate CNA's explicit platform refusal. The legacy `MYRA_CNA_LINK_CNA` child mode now diagnoses modular checkouts and remains available for compatible older layouts. Validated against CNA `1bb2145d` and sharp-runtime `01af6a74` without editing either sibling.
 
 ### Phase 1 — shared runtime translation layer
 
@@ -495,7 +496,9 @@ are green, and the build uses no more than three parallel jobs.
 - [ ] P6-005 Port `Simple/ToggleButton.cs`.
 - [x] P6-006a Port the style-independent `CheckButtonBase` core: check-position/content layout, spacing, retained checked/unchecked renderables, read-only check image, touch/Space toggling, exact clone state, `CheckPosition` codec, and abstract MML metadata. Preserve the selected upstream read-only keyboard quirk, while correcting omitted visual-state refresh/clone backing handles (`DEV-050`) and stale measurement after spacing changes (`DEV-051`). Keep `CheckImageInternal` hover selection for P5-010 and stylesheet application for P6-006/P8-003.
 - [ ] P6-006 Port `Simple/CheckButtonBase.cs`.
+- [x] P6-007a Port the style-independent concrete `CheckButton` core: `IsChecked`, its exact `PressedChanged` event alias, exact-type cloning, and MML metadata/round trips. Keep stylesheet construction and dictionary lookup for P6-007/P8-003.
 - [ ] P6-007 Port `Simple/CheckButton.cs`.
+- [x] P6-008a Port the style-independent `RadioButton` core: direct-sibling exclusive selection, last-selected preservation, exact-type cloning, and MML type/content round trips. Preserve upstream's XML-ignored `IsPressed`; keep stylesheet construction and dictionary lookup for P6-008/P8-003.
 - [ ] P6-008 Port `Simple/RadioButton.cs`.
 - [x] P6-009a Port the style-independent separator hierarchy core: thickness/orientation measurement, concrete alignment defaults, inherited image rendering, exact-type cloning, and MML metadata. Dynamic `Thickness` changes invalidate the cached measurement (`DEV-047`). Keep stylesheet constructors/application in P6-009–P6-011/P8-004.
 - [ ] P6-009 Port `Simple/SeparatorWidget.cs`.

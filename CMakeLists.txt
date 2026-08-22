@@ -67,9 +67,11 @@ add_library(MYRA_CNA STATIC
     src/Myra/Graphics2D/UI/Range/VerticalProgressBar.cpp
     src/Myra/Graphics2D/UI/Simple/Button.cpp
     src/Myra/Graphics2D/UI/Simple/ButtonBase.cpp
+    src/Myra/Graphics2D/UI/Simple/CheckButton.cpp
     src/Myra/Graphics2D/UI/Simple/CheckButtonBase.cpp
     src/Myra/Graphics2D/UI/Simple/HorizontalSeparator.cpp
     src/Myra/Graphics2D/UI/Simple/Image.cpp
+    src/Myra/Graphics2D/UI/Simple/RadioButton.cpp
     src/Myra/Graphics2D/UI/Simple/SeparatorWidget.cpp
     src/Myra/Graphics2D/UI/Simple/ToggleButton.cpp
     src/Myra/Graphics2D/UI/Simple/VerticalSeparator.cpp
@@ -161,9 +163,9 @@ if(TARGET CNA OR MYRA_CNA_EXPECT_PARENT_CNA)
     elseif(TARGET SHARP_RUNTIME)
         target_link_libraries(MYRA_CNA PUBLIC SHARP_RUNTIME)
     elseif(MYRA_CNA_EXPECT_PARENT_CNA)
-        # The project include runs before CNA adds sharp-runtime. CMake resolves
-        # this alias after the modular target appears later in the same pass.
-        target_link_libraries(MYRA_CNA PUBLIC SharpRuntime::Xml)
+        # The project include runs before CNA adds sharp-runtime. Its driver
+        # enables and links the narrow Xml component at the end of the parent
+        # CNA configure pass, after sharp-runtime has registered its modules.
     endif()
     target_compile_definitions(MYRA_CNA PUBLIC MYRA_CNA_HAS_CNA_TARGET=1)
     set(MYRA_CNA_CNA_LINKED ON)

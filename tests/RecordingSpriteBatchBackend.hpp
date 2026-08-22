@@ -17,36 +17,21 @@ namespace Myra::Tests
 {
     class DummyTextureBackend final : public CNA::Internal::Renderers::ITextureRenderer
     {
-    public:
-        explicit DummyTextureBackend(const int width = 2, const int height = 2)
-            : width_(width), height_(height)
-        {
-        }
+      public:
+        explicit DummyTextureBackend(const int width = 2, const int height = 2) : width_(width), height_(height) {}
 
-        [[nodiscard]] int GetWidth() const override
-        {
-            return width_;
-        }
+        [[nodiscard]] int GetWidth() const override { return width_; }
 
-        [[nodiscard]] int GetHeight() const override
-        {
-            return height_;
-        }
+        [[nodiscard]] int GetHeight() const override { return height_; }
 
-        [[nodiscard]] SDL_Texture* GetNativeTexture() const override
-        {
-            return nullptr;
-        }
-
-    private:
+      private:
         int width_;
         int height_;
     };
 
-    class RecordingSpriteBatchBackend final
-        : public CNA::Internal::Renderers::ISpriteBatchRenderer
+    class RecordingSpriteBatchBackend final : public CNA::Internal::Renderers::ISpriteBatchRenderer
     {
-    public:
+      public:
         struct DrawCall
         {
             Microsoft::Xna::Framework::Rectangle destination;
@@ -64,52 +49,34 @@ namespace Myra::Tests
         std::vector<int> samplerFilters;
         std::vector<DrawCall> draws;
 
-        void Begin() override
-        {
-            ++beginCount;
-        }
+        void Begin() override { ++beginCount; }
 
-        void End() override
-        {
-            ++endCount;
-        }
+        void End() override { ++endCount; }
 
-        void SetSamplerFilter(const int value) override
-        {
-            samplerFilters.push_back(value);
-        }
+        void SetSamplerFilter(const int value) override { samplerFilters.push_back(value); }
 
-        void Draw(
-            const CNA::Internal::Renderers::ITextureRenderer&,
-            const float x,
-            const float y) override
+        void Draw(const CNA::Internal::Renderers::ITextureRenderer &, const float x, const float y) override
         {
             DrawCall call;
-            call.destination = Microsoft::Xna::Framework::Rectangle(
-                static_cast<int>(x), static_cast<int>(y), 0, 0);
+            call.destination = Microsoft::Xna::Framework::Rectangle(static_cast<int>(x), static_cast<int>(y), 0, 0);
             draws.push_back(call);
         }
 
-        void Draw(
-            const CNA::Internal::Renderers::ITextureRenderer&,
-            const Microsoft::Xna::Framework::Rectangle& destination,
-            const Microsoft::Xna::Framework::Rectangle& source,
-            const Microsoft::Xna::Framework::Color& color) override
+        void Draw(const CNA::Internal::Renderers::ITextureRenderer &,
+                  const Microsoft::Xna::Framework::Rectangle &destination,
+                  const Microsoft::Xna::Framework::Rectangle &source,
+                  const Microsoft::Xna::Framework::Color &color) override
         {
             draws.push_back({destination, source, color});
         }
 
-        void Draw(
-            const CNA::Internal::Renderers::ITextureRenderer&,
-            const Microsoft::Xna::Framework::Rectangle& destination,
-            const Microsoft::Xna::Framework::Rectangle& source,
-            const Microsoft::Xna::Framework::Color& color,
-            const float rotation,
-            const Microsoft::Xna::Framework::Vector2& origin,
-            const Microsoft::Xna::Framework::Graphics::SpriteEffects effects,
-            const float depth) override
+        void Draw(const CNA::Internal::Renderers::ITextureRenderer &,
+                  const Microsoft::Xna::Framework::Rectangle &destination,
+                  const Microsoft::Xna::Framework::Rectangle &source, const Microsoft::Xna::Framework::Color &color,
+                  const float rotation, const Microsoft::Xna::Framework::Vector2 &origin,
+                  const Microsoft::Xna::Framework::Graphics::SpriteEffects effects, const float depth) override
         {
             draws.push_back({destination, source, color, rotation, origin, effects, depth});
         }
     };
-}
+} // namespace Myra::Tests

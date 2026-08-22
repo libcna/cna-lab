@@ -36,6 +36,7 @@ if(MYRA_CNA_CNA_LINKED)
     target_sources(myra_cna_unit_tests PRIVATE
         ButtonTests.cpp
         ButtonBaseTests.cpp
+        CheckButtonTests.cpp
         CheckButtonBaseTests.cpp
         ColorHSVTests.cpp
         ColoredRegionTests.cpp
@@ -53,6 +54,7 @@ if(MYRA_CNA_CNA_LINKED)
         ProjectTests.cpp
         ProportionTests.cpp
         ProgressBarTests.cpp
+        RadioButtonTests.cpp
         RenderContextShapesTests.cpp
         RenderContextTests.cpp
         SeparatorTests.cpp

@@ -4,15 +4,18 @@
 
 - Active branch: `develop`.
 - Pushed commit `ba98d62` (`Implement ToggleButton interaction core`) completes
-  P6-005a. The repository HEAD described by this handoff completes P6-006a's
-  style-independent abstract `CheckButtonBase` and P0-023's compatibility with
-  current modular CNA/sharp-runtime checkouts. No P6-007a implementation has
-  been started; this is a complete, intentionally stopped checkpoint.
+  P6-005a. The repository HEAD described by this handoff also completes P6-006a's
+  style-independent abstract `CheckButtonBase`, P6-007a's concrete
+  `CheckButton`, P6-008a's direct-sibling `RadioButton` behavior, and P0-023's
+  compatibility with current modular
+  CNA/sharp-runtime checkouts. `CheckButton` now carries its `IsChecked` and
+  `PressedChanged` event aliases, exact clone factory, and MML registration;
+  stylesheet construction remains deliberately deferred.
 - The authoritative upstream reference remains Myra revision
   `0d79b939310bfe1d00b21803fe15e291caf60aa1` at `/tmp/myra-upstream`.
 - Current linked validation pins sibling CNA
-  `fb3728267e8f2179d43b96357ff372ae712b7e7f` and sharp-runtime
-  `81624983c1e5388cb17e325480fdc2631a5cc653`; both sibling worktrees remained
+  `1bb2145d99ed572dd4eb15009c34e2e5f410fcf0` and sharp-runtime
+  `01af6a74467428142b4c9cbcfe33b56f01811e55`; both sibling worktrees remained
   unmodified.
 - The font audit additionally pinned FontStashSharp 1.5.6 at
   `24f3dc46d59dcda0dddb59754a99aeaefc9bd369`, FontStashSharp.Base 1.2.3 at
@@ -320,8 +323,8 @@ and input dispatch remain open. `UPSTREAM_MANIFEST.md` records this per source.
 
 ## Whole-port progress estimate
 
-As of 2026-08-11 after P0-023/P6-006a, `plan.md` has **147/298 checked tasks
-(49.3%)**. The denominator was corrected because the previous snapshot omitted
+As of 2026-08-22 after P0-023/P6-007a/P6-008a, `plan.md` has **149/300 checked
+tasks (49.7%)**. The denominator was corrected because the previous snapshot omitted
 one Phase 0 and one Phase 3 checkbox. Equal checkbox counting overstates
 end-user parity because the
 largest remaining workstreams are font/rich text, Desktop/input, most controls,
@@ -499,11 +502,10 @@ was disabled because LeakSanitizer cannot run under this environment's
    P0-016a's original PNG/BMFont/stylesheet replacements only when their
    affected asset tests become implementable.
 4. P0-023, P5-008i, P5-010a, P6-001a, P6-003a, P6-004a, P6-005a,
-   P6-006a, P6-009a, and P6-021a are complete. No task is currently in
-   progress. On explicit resumption, audit P6-007a's style-independent concrete
-   `CheckButton` (`IsChecked`, true event alias, exact clone, concrete MML
-   registration). Keep full P6-006 hover/style work in P5-010/P8-003 and do not
-   reopen P6-005's Label/style-dependent remainder before P6-002/P8-003.
+   P6-006a, P6-007a, P6-008a, P6-009a, and P6-021a are complete. Keep full
+   P6-006/P6-007/P6-008 hover/style work in P5-010/P8-003 and do not reopen P6-005's Label/style-
+   dependent remainder before P6-002/P8-003. Choose the next dependency-safe
+   widget milestone only after an upstream/source and registry audit.
 5. Keep P4-019 open for types added by future Phase 5–9 work; every MML-capable
    type currently in the repository is registered and round-trip tested.
 6. Continue layout work only with a coherent next dependency. Do not represent partial
@@ -640,11 +642,14 @@ was disabled because LeakSanitizer cannot run under this environment's
   creation remain P6-002/P6-005/P8-003. The selected upstream behavior is
   intentionally preserved: touch interaction honors `ReadOnly`, but Space
   still toggles a read-only control; disabled controls reject both paths.
-- `CheckButtonBase` is complete only for P6-006a's style-independent core.
+- `CheckButtonBase` and concrete `CheckButton` are complete only for their
+  P6-006a/P6-007a style-independent cores.
   Its public direct images, layout, input, cloning, enum codec, and MML metadata
   are usable, but `CheckImageInternal` cannot inherit the parent's hover state
   until P5-010 adds `IsMouseInside`; style construction/application remains
-  P6-006/P8-003. Concrete `CheckButton` and `RadioButton` remain P6-007/P6-008.
+  P6-006/P6-007/P6-008/P8-003. `RadioButton` now has its style-independent
+  direct-sibling selection core, cloning, and MML registration; its stylesheet
+  construction/application remains deferred.
 - Grid layout rejects active null proportions and invalid
   negative/out-of-measured-range coordinates or spans before they can become
   C++ indexing/dereference UB; StackPanel's intentional null-default fallback
@@ -714,13 +719,11 @@ P0-015 completed the default-resource provenance audit. The exact Inter font is
 OFL-cleared but still unbundled; the VisUI-derived atlas is explicitly
 `needs_human` P0-015b. P0-016 subsequently classified all 35 test assets without
 copying them and opened P0-016a for behavior-equivalent project-owned fixtures.
-The exact future starting point, only after explicit authorization, is a
-dependency audit for P6-007a's style-independent concrete `CheckButton` core.
-P6-006a is complete; do not start its hover-dependent `CheckImageInternal`
-override before P5-010 provides `IsMouseInside`, and keep its styles in P8. Do
-not reopen P6-005's Label/style-dependent remainder until P6-002/P8-003 are
-implementable. Defer the Desktop-driven hit-test/hover/drag
-path and replacement fixtures likewise. If P3-004 is later approved, begin
-with P3-005's narrow abstraction and P3-006's explicit index-domain contract
+P6-006a/P6-007a/P6-008a are complete; do not start their hover-dependent
+`CheckImageInternal` override before P5-010 provides `IsMouseInside`, and keep
+their styles in P8. Do not reopen P6-005's Label/style-dependent remainder
+until P6-002/P8-003 are implementable. Defer the Desktop-driven hit-test/
+hover/drag path and replacement fixtures likewise. If P3-004 is later
+approved, begin with P3-005's narrow abstraction and P3-006's explicit index-domain contract
 before introducing rasterizer code. P4-019 remains open only for future widget types,
 while caller-provided external-asset callbacks are already usable.
