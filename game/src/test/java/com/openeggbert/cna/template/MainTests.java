@@ -2,7 +2,11 @@ package com.openeggbert.cna.template;
 
 import org.junit.jupiter.api.Test;
 
+import java.io.InputStream;
+import java.util.Base64;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 final class MainTests {
@@ -30,6 +34,18 @@ final class MainTests {
     void ConfiguresMappedGameWindowBeforeNativeStartup() {
         try (HelloGame game = new HelloGame(1)) {
             assertEquals("CNA-Java: HelloGame", game.getWindow().getTitle());
+        }
+    }
+
+    @Test
+    void ShipsARealRawPngFixtureRatherThanAnXnbPlaceholder() throws Exception {
+        try (InputStream resource = MainTests.class.getResourceAsStream("/cna-logo.png.base64")) {
+            assertNotNull(resource);
+            byte[] png = Base64.getMimeDecoder().decode(resource.readAllBytes());
+            assertEquals((byte)0x89, png[0]);
+            assertEquals('P', png[1]);
+            assertEquals('N', png[2]);
+            assertEquals('G', png[3]);
         }
     }
 }
