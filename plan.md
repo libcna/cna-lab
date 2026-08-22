@@ -80,8 +80,8 @@ behavioral redesign.
 
 ### 1.4 Whole-port completion and remaining-effort estimate
 
-Checkpoint: 2026-08-22, after P0-023, P6-007a, P6-008a, P6-022a, and P7-001–P7-003. The mechanical
-backlog count is **153/301 checked tasks (50.8%)**. This corrects the previous denominator,
+Checkpoint: 2026-08-22, after P0-023, P6-007a, P6-008a, P6-022a, P7-001–P7-003, P7-006, and P7-008. The mechanical
+backlog count is **155/301 checked tasks (51.5%)**. This corrects the previous denominator,
 which omitted one Phase 0 and one Phase 3 checkbox. The count is useful for
 auditing plan state but is
 not a parity percentage: small foundation subtasks and large end-to-end
@@ -538,9 +538,9 @@ are green, and the build uses no more than three parallel jobs.
 - [x] P7-003 Port `Selectors/ListViewButton.cs`.
 - [ ] P7-004 Port `Selectors/ListView.cs` collection adapters and virtual behavior.
 - [ ] P7-005 Port `Selectors/ComboView.cs`.
-- [ ] P7-006 Port `Selectors/IMenuItem.cs`.
+- [x] P7-006 Port `Selectors/IMenuItem.cs`.
 - [ ] P7-007 Port `Selectors/MenuItem.cs`.
-- [ ] P7-008 Port `Selectors/MenuSeparator.cs`.
+- [x] P7-008 Port `Selectors/MenuSeparator.cs`.
 - [ ] P7-009 Port `Selectors/Menu.cs`.
 - [ ] P7-010 Port `Selectors/HorizontalMenu.cs`.
 - [ ] P7-011 Port `Selectors/VerticalMenu.cs`.

@@ -48,6 +48,7 @@ if(MYRA_CNA_CNA_LINKED)
         ImageTests.cpp
         ListViewButtonTests.cpp
         MMLContextTests.cpp
+        MenuSeparatorTests.cpp
         MyraEnvironmentTests.cpp
         MyraTypeRegistryTests.cpp
         NinePatchRegionTests.cpp
