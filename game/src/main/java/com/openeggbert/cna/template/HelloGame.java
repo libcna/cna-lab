@@ -6,6 +6,8 @@ import Microsoft.Xna.Framework.GameTime;
 import Microsoft.Xna.Framework.GraphicsDeviceManager;
 import Microsoft.Xna.Framework.Input.Keyboard;
 import Microsoft.Xna.Framework.Input.Keys;
+import Microsoft.Xna.Framework.Input.ButtonState;
+import Microsoft.Xna.Framework.Input.Mouse;
 
 /** Small truthful desktop canary for the currently implemented CNA-Java slice. */
 public final class HelloGame extends Game {
@@ -33,7 +35,8 @@ public final class HelloGame extends Game {
 
     @Override
     protected void Update(GameTime gameTime) {
-        if (Keyboard.GetState().IsKeyDown(Keys.Escape)) {
+        if (Keyboard.GetState().IsKeyDown(Keys.Escape)
+                || Mouse.GetState().getLeftButton() == ButtonState.Pressed) {
             Exit();
         }
         super.Update(gameTime);
