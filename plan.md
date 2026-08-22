@@ -80,8 +80,8 @@ behavioral redesign.
 
 ### 1.4 Whole-port completion and remaining-effort estimate
 
-Checkpoint: 2026-08-22, after P0-023, P6-007a, and P6-008a. The mechanical
-backlog count is **149/300 checked tasks (49.7%)**. This corrects the previous denominator,
+Checkpoint: 2026-08-22, after P0-023, P6-007a, P6-008a, and P6-022a. The mechanical
+backlog count is **150/301 checked tasks (49.8%)**. This corrects the previous denominator,
 which omitted one Phase 0 and one Phase 3 checkbox. The count is useful for
 auditing plan state but is
 not a parity percentage: small foundation subtasks and large end-to-end
@@ -522,6 +522,7 @@ are green, and the build uses no more than three parallel jobs.
 - [ ] P6-020 Port horizontal and vertical split-pane specialisations.
 - [x] P6-021a Port the style-independent `ProgressBar` hierarchy core: retained filler ownership, minimum/maximum/value state and event behavior, orientation rendering, exact-type cloning, alignment defaults, and MML metadata. Invalid floating fill conversions fail deterministically (`DEV-048`). Keep stylesheet construction/application in P6-021/P8-005.
 - [ ] P6-021 Port `Range/ProgressBar.cs` and both orientations.
+- [x] P6-022a Port the style-independent `Slider` hierarchy core: range clamping, typed value event, retained button/image knob, safe knob synchronization, orientation defaults, exact-type cloning, and MML metadata. Preserve upstream's sequential clamp behavior for inverted ranges; Desktop drag/wheel and stylesheet integration remain P5-016/P5-019/P6-022/P8-005.
 - [ ] P6-022 Port `Range/Slider.cs` and both orientations.
 - [ ] P6-023 Port `Range/SpinButton.cs`.
 - [ ] P6-024 Port `TextEdit/UndoRedoRecord.cs` and `UndoRedoStack.cs` after P3-006 selects the C++ text index domain: their `Substring(where, length)` behavior currently uses C# UTF-16 code-unit indices and must not be silently mapped to UTF-8 byte offsets.

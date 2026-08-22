@@ -6,7 +6,8 @@
 - Pushed commit `ba98d62` (`Implement ToggleButton interaction core`) completes
   P6-005a. The repository HEAD described by this handoff also completes P6-006a's
   style-independent abstract `CheckButtonBase`, P6-007a's concrete
-  `CheckButton`, P6-008a's direct-sibling `RadioButton` behavior, and P0-023's
+  `CheckButton`, P6-008a's direct-sibling `RadioButton` behavior, P6-022a's
+  style-independent `Slider` core, and P0-023's
   compatibility with current modular
   CNA/sharp-runtime checkouts. `CheckButton` now carries its `IsChecked` and
   `PressedChanged` event aliases, exact clone factory, and MML registration;
@@ -323,8 +324,8 @@ and input dispatch remain open. `UPSTREAM_MANIFEST.md` records this per source.
 
 ## Whole-port progress estimate
 
-As of 2026-08-22 after P0-023/P6-007a/P6-008a, `plan.md` has **149/300 checked
-tasks (49.7%)**. The denominator was corrected because the previous snapshot omitted
+As of 2026-08-22 after P0-023/P6-007a/P6-008a/P6-022a, `plan.md` has **150/301
+checked tasks (49.8%)**. The denominator was corrected because the previous snapshot omitted
 one Phase 0 and one Phase 3 checkbox. Equal checkbox counting overstates
 end-user parity because the
 largest remaining workstreams are font/rich text, Desktop/input, most controls,
@@ -502,8 +503,9 @@ was disabled because LeakSanitizer cannot run under this environment's
    P0-016a's original PNG/BMFont/stylesheet replacements only when their
    affected asset tests become implementable.
 4. P0-023, P5-008i, P5-010a, P6-001a, P6-003a, P6-004a, P6-005a,
-   P6-006a, P6-007a, P6-008a, P6-009a, and P6-021a are complete. Keep full
-   P6-006/P6-007/P6-008 hover/style work in P5-010/P8-003 and do not reopen P6-005's Label/style-
+   P6-006a, P6-007a, P6-008a, P6-009a, P6-021a, and P6-022a are complete. Keep full
+   P6-006/P6-007/P6-008 hover/style work in P5-010/P8-003, and keep Slider's
+   Desktop drag/wheel/style work in P5-016/P5-019/P8-005; do not reopen P6-005's Label/style-
    dependent remainder before P6-002/P8-003. Choose the next dependency-safe
    widget milestone only after an upstream/source and registry audit.
 5. Keep P4-019 open for types added by future Phase 5–9 work; every MML-capable

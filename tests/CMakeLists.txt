@@ -61,6 +61,7 @@ if(MYRA_CNA_CNA_LINKED)
         SingleItemLayoutTests.cpp
         SolidBrushTests.cpp
         StackPanelTests.cpp
+        SliderTests.cpp
         ThicknessRectangleTests.cpp
         TextureRegionTests.cpp
         TextureRegionAtlasTests.cpp

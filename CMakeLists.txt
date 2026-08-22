@@ -63,8 +63,11 @@ add_library(MYRA_CNA STATIC
     src/Myra/Graphics2D/UI/Layouts/StackPanelLayout.cpp
     src/Myra/Graphics2D/UI/Project.cpp
     src/Myra/Graphics2D/UI/Range/HorizontalProgressBar.cpp
+    src/Myra/Graphics2D/UI/Range/HorizontalSlider.cpp
     src/Myra/Graphics2D/UI/Range/ProgressBar.cpp
+    src/Myra/Graphics2D/UI/Range/Slider.cpp
     src/Myra/Graphics2D/UI/Range/VerticalProgressBar.cpp
+    src/Myra/Graphics2D/UI/Range/VerticalSlider.cpp
     src/Myra/Graphics2D/UI/Simple/Button.cpp
     src/Myra/Graphics2D/UI/Simple/ButtonBase.cpp
     src/Myra/Graphics2D/UI/Simple/CheckButton.cpp

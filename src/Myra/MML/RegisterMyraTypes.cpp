@@ -27,8 +27,11 @@
 #include "Myra/Graphics2D/UI/Containers/StackPanel.hpp"
 #include "Myra/Graphics2D/UI/Project.hpp"
 #include "Myra/Graphics2D/UI/Range/HorizontalProgressBar.hpp"
+#include "Myra/Graphics2D/UI/Range/HorizontalSlider.hpp"
 #include "Myra/Graphics2D/UI/Range/ProgressBar.hpp"
+#include "Myra/Graphics2D/UI/Range/Slider.hpp"
 #include "Myra/Graphics2D/UI/Range/VerticalProgressBar.hpp"
+#include "Myra/Graphics2D/UI/Range/VerticalSlider.hpp"
 #include "Myra/Graphics2D/UI/Simple/Button.hpp"
 #include "Myra/Graphics2D/UI/Simple/ButtonBase.hpp"
 #include "Myra/Graphics2D/UI/Simple/CheckButton.hpp"
@@ -59,6 +62,7 @@ namespace Myra::MML
         using Graphics2D::UI::HorizontalAlignment;
         using Graphics2D::UI::HorizontalProgressBar;
         using Graphics2D::UI::HorizontalSeparator;
+        using Graphics2D::UI::HorizontalSlider;
         using Graphics2D::UI::HorizontalStackPanel;
         using Graphics2D::UI::Image;
         using Graphics2D::UI::ImageResizeMode;
@@ -72,11 +76,13 @@ namespace Myra::MML
         using Graphics2D::UI::ProportionType;
         using Graphics2D::UI::RadioButton;
         using Graphics2D::UI::SeparatorWidget;
+        using Graphics2D::UI::Slider;
         using Graphics2D::UI::StackPanel;
         using Graphics2D::UI::ToggleButton;
         using Graphics2D::UI::VerticalAlignment;
         using Graphics2D::UI::VerticalProgressBar;
         using Graphics2D::UI::VerticalSeparator;
+        using Graphics2D::UI::VerticalSlider;
         using Graphics2D::UI::VerticalStackPanel;
         using Graphics2D::UI::Widget;
         using Microsoft::Xna::Framework::Vector2;
@@ -468,6 +474,61 @@ namespace Myra::MML
             return descriptor;
         }
 
+        TypeDescriptor MakeSliderDescriptor()
+        {
+            TypeDescriptor descriptor("Slider", typeid(Slider), {}, typeid(Widget));
+            descriptor.EnableBaseTypeAccess<Slider, Widget>();
+            descriptor.EnableBaseObjectAccess<Slider>();
+            PropertyMetadata orientationMetadata;
+            orientationMetadata.XmlIgnore = true;
+            descriptor.AddProperty(PropertyDescriptor(
+                "Orientation", typeid(Orientation), [](const void *object)
+                { return std::any(static_cast<const Slider *>(object)->getOrientationProperty()); }, {}, std::nullopt,
+                std::move(orientationMetadata)));
+            descriptor.AddProperty(MakeScalarProperty<Slider, float>(
+                "Minimum", [](const Slider &object) { return object.getMinimumProperty(); },
+                [](Slider &object, const float value) { object.setMinimumProperty(value); }, 0.0F));
+            descriptor.AddProperty(MakeScalarProperty<Slider, float>(
+                "Maximum", [](const Slider &object) { return object.getMaximumProperty(); },
+                [](Slider &object, const float value) { object.setMaximumProperty(value); }, 100.0F));
+            descriptor.AddProperty(MakeScalarProperty<Slider, float>(
+                "Value", [](const Slider &object) { return object.getValueProperty(); },
+                [](Slider &object, const float value) { object.setValueProperty(value); }, 0.0F));
+            descriptor.AddProperty(MakeScalarProperty<Slider, bool>(
+                "WheelAdjustment", [](const Slider &object) { return object.getWheelAdjustmentProperty(); },
+                [](Slider &object, const bool value) { object.setWheelAdjustmentProperty(value); }, false));
+            descriptor.AddProperty(MakeScalarProperty<Slider, float>(
+                "WheelStep", [](const Slider &object) { return object.getWheelStepProperty(); },
+                [](Slider &object, const float value) { object.setWheelStepProperty(value); }, 1.0F));
+            PropertyMetadata imageButtonMetadata;
+            imageButtonMetadata.XmlIgnore = true;
+            descriptor.AddProperty(PropertyDescriptor(
+                "ImageButton", typeid(std::shared_ptr<Button>), [](const void *object)
+                { return std::any(static_cast<const Slider *>(object)->getImageButtonProperty()); }, {}, std::nullopt,
+                std::move(imageButtonMetadata)));
+            return descriptor;
+        }
+
+        template <typename T>
+        TypeDescriptor MakeConcreteSliderDescriptor(std::string name, const HorizontalAlignment horizontalDefault,
+                                                    const VerticalAlignment verticalDefault)
+        {
+            TypeDescriptor descriptor(
+                std::move(name), typeid(T), [] { return std::static_pointer_cast<void>(std::make_shared<T>()); },
+                typeid(Slider));
+            descriptor.template EnableBaseTypeAccess<T, Slider>();
+            descriptor.template EnableBaseObjectAccess<T>();
+            descriptor.AddProperty(MakeScalarProperty<T, HorizontalAlignment>(
+                "HorizontalAlignment", [](const T &object) { return object.getHorizontalAlignmentProperty(); },
+                [](T &object, const HorizontalAlignment value) { object.setHorizontalAlignmentProperty(value); },
+                horizontalDefault));
+            descriptor.AddProperty(MakeScalarProperty<T, VerticalAlignment>(
+                "VerticalAlignment", [](const T &object) { return object.getVerticalAlignmentProperty(); },
+                [](T &object, const VerticalAlignment value) { object.setVerticalAlignmentProperty(value); },
+                verticalDefault));
+            return descriptor;
+        }
+
         TypeDescriptor MakeContentControlDescriptor()
         {
             TypeDescriptor descriptor("ContentControl", typeid(ContentControl), {}, typeid(Widget));
@@ -759,6 +820,11 @@ namespace Myra::MML
             "HorizontalProgressBar", HorizontalAlignment::Stretch, VerticalAlignment::Top));
         registry.Register(MakeConcreteProgressBarDescriptor<VerticalProgressBar>(
             "VerticalProgressBar", HorizontalAlignment::Left, VerticalAlignment::Stretch));
+        registry.Register(MakeSliderDescriptor());
+        registry.Register(MakeConcreteSliderDescriptor<HorizontalSlider>(
+            "HorizontalSlider", HorizontalAlignment::Stretch, VerticalAlignment::Top));
+        registry.Register(MakeConcreteSliderDescriptor<VerticalSlider>("VerticalSlider", HorizontalAlignment::Left,
+                                                                       VerticalAlignment::Stretch));
         registry.Register(MakeContentControlDescriptor());
         registry.Register(MakeButtonBaseDescriptor());
         registry.Register(MakeButtonDescriptor());

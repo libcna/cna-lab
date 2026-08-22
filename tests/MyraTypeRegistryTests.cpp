@@ -18,6 +18,9 @@
 #include "Myra/Graphics2D/UI/Containers/Panel.hpp"
 #include "Myra/Graphics2D/UI/Containers/Proportion.hpp"
 #include "Myra/Graphics2D/UI/Containers/StackPanel.hpp"
+#include "Myra/Graphics2D/UI/Range/HorizontalSlider.hpp"
+#include "Myra/Graphics2D/UI/Range/Slider.hpp"
+#include "Myra/Graphics2D/UI/Range/VerticalSlider.hpp"
 #include "Myra/Graphics2D/UI/Simple/Button.hpp"
 #include "Myra/Graphics2D/UI/Simple/ButtonBase.hpp"
 #include "Myra/Graphics2D/UI/Simple/CheckButton.hpp"
@@ -43,15 +46,18 @@ namespace
     using Myra::Graphics2D::UI::DragDirection;
     using Myra::Graphics2D::UI::Grid;
     using Myra::Graphics2D::UI::HorizontalAlignment;
+    using Myra::Graphics2D::UI::HorizontalSlider;
     using Myra::Graphics2D::UI::HorizontalStackPanel;
     using Myra::Graphics2D::UI::MouseCursorType;
     using Myra::Graphics2D::UI::Panel;
     using Myra::Graphics2D::UI::Proportion;
     using Myra::Graphics2D::UI::ProportionType;
     using Myra::Graphics2D::UI::RadioButton;
+    using Myra::Graphics2D::UI::Slider;
     using Myra::Graphics2D::UI::StackPanel;
     using Myra::Graphics2D::UI::ToggleButton;
     using Myra::Graphics2D::UI::VerticalAlignment;
+    using Myra::Graphics2D::UI::VerticalSlider;
     using Myra::Graphics2D::UI::VerticalStackPanel;
     using Myra::Graphics2D::UI::Widget;
     using Myra::MML::AttachedPropertiesRegistry;
@@ -74,6 +80,9 @@ namespace
         const TypeDescriptor *checkButtonBase = registry.FindByType(typeid(CheckButtonBase));
         const TypeDescriptor *checkButton = registry.FindByType(typeid(CheckButton));
         const TypeDescriptor *radioButton = registry.FindByType(typeid(RadioButton));
+        const TypeDescriptor *slider = registry.FindByType(typeid(Slider));
+        const TypeDescriptor *horizontalSlider = registry.FindByType(typeid(HorizontalSlider));
+        const TypeDescriptor *verticalSlider = registry.FindByType(typeid(VerticalSlider));
         const TypeDescriptor *toggleButton = registry.FindByType(typeid(ToggleButton));
         const TypeDescriptor *container = registry.FindByType(typeid(Container));
         const TypeDescriptor *grid = registry.FindByType(typeid(Grid));
@@ -86,6 +95,9 @@ namespace
         ASSERT_NE(checkButtonBase, nullptr);
         ASSERT_NE(checkButton, nullptr);
         ASSERT_NE(radioButton, nullptr);
+        ASSERT_NE(slider, nullptr);
+        ASSERT_NE(horizontalSlider, nullptr);
+        ASSERT_NE(verticalSlider, nullptr);
         ASSERT_NE(toggleButton, nullptr);
         ASSERT_NE(container, nullptr);
         ASSERT_NE(grid, nullptr);
@@ -97,6 +109,9 @@ namespace
         EXPECT_TRUE(button->getCanCreateProperty());
         EXPECT_FALSE(checkButtonBase->getCanCreateProperty());
         EXPECT_TRUE(checkButton->getCanCreateProperty());
+        EXPECT_FALSE(slider->getCanCreateProperty());
+        EXPECT_TRUE(horizontalSlider->getCanCreateProperty());
+        EXPECT_TRUE(verticalSlider->getCanCreateProperty());
         EXPECT_TRUE(toggleButton->getCanCreateProperty());
         EXPECT_FALSE(container->getCanCreateProperty());
         EXPECT_TRUE(grid->getCanCreateProperty());
