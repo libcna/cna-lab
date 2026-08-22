@@ -112,6 +112,11 @@ function writeProject(directory, language) {
         `const expected = Vector2.Multiply(new Vector2(48, 32), 0.016);\n` +
         `assert.equal(game.UpdateCount, 1);\n` +
         `assert.ok(Vector2.Distance(game.Position, expected) < 1e-6);\n` +
+        `assert.equal(game.ComponentInitializeCount, 1);\n` +
+        `assert.equal(game.ComponentUpdateCount, 1);\n` +
+        `assert.equal(game.ServiceRoundTrip, true);\n` +
+        `assert.equal(game.SpacePressed, true);\n` +
+        `assert.ok(Vector2.Distance(game.RotatedUnitX, Vector2.UnitY) < 1e-6);\n` +
         `game.Dispose();\n` +
         `console.log("CNA_TS_JAVASCRIPT_MANAGED_SMOKE=PASS");\n`,
     );

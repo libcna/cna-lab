@@ -5,8 +5,9 @@ Canonical project template for both TypeScript and JavaScript consumers of `cna-
 ## Measured status
 
 This repository is a truthful managed/build canary, not yet a playable CNA game. The TypeScript
-source exercises the strict XNA projection's lifecycle shell, `GameTime`, `TimeSpan`, `Vector2`,
-and `Color`. It reports the real runtime status instead of inventing a graphics backend.
+source exercises the strict XNA projection's managed components/services, input snapshots,
+`GameTime`, `TimeSpan`, vectors/matrices, and `Color`. It reports the real runtime status instead
+of inventing a graphics backend or polling result.
 
 | Target | Status | Evidence |
 | --- | --- | --- |
