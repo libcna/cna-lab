@@ -10,9 +10,9 @@ remain PascalCase and properties become `getFoo()` / `setFoo(...)`.
 The desktop module is real, but intentionally small. It creates a CNA-backed
 `Game`, attaches `GraphicsDeviceManager`, receives `GameTime`, clears through
 `GraphicsDevice`, configures the mapped `GameWindow` title before native
-startup, and exits deterministically after a requested frame count.
-It does not claim SpriteBatch, texture, content, keyboard, 3D, or renderer
-capability support yet.
+startup, captures CNA-backed `KeyboardState` snapshots (Escape exits), and exits
+deterministically after a requested frame count. It does not claim SpriteBatch,
+texture, content, mouse/gamepad/touch, 3D, or renderer capability support yet.
 
 | Target | Status |
 | --- | --- |

@@ -4,6 +4,8 @@ import Microsoft.Xna.Framework.Color;
 import Microsoft.Xna.Framework.Game;
 import Microsoft.Xna.Framework.GameTime;
 import Microsoft.Xna.Framework.GraphicsDeviceManager;
+import Microsoft.Xna.Framework.Input.Keyboard;
+import Microsoft.Xna.Framework.Input.Keys;
 
 /** Small truthful desktop canary for the currently implemented CNA-Java slice. */
 public final class HelloGame extends Game {
@@ -31,6 +33,9 @@ public final class HelloGame extends Game {
 
     @Override
     protected void Update(GameTime gameTime) {
+        if (Keyboard.GetState().IsKeyDown(Keys.Escape)) {
+            Exit();
+        }
         super.Update(gameTime);
     }
 
