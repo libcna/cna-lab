@@ -7,7 +7,7 @@
   P6-005a. The repository HEAD described by this handoff also completes P6-006a's
   style-independent abstract `CheckButtonBase`, P6-007a's concrete
   `CheckButton`, P6-008a's direct-sibling `RadioButton` behavior, P6-018a's
-  style-independent `ScrollViewer` core, P6-022a's
+  style-independent `ScrollViewer` core, P6-019a's split-pane core, P6-022a's
   style-independent `Slider` core, P7-001/P7-002's generic selector contracts
   and collection-backed selection core, P7-003's `ListViewButton` grouping,
   P7-004a's collection-backed `ListView` core, P7-005a's retained ComboView
@@ -329,8 +329,8 @@ and input dispatch remain open. `UPSTREAM_MANIFEST.md` records this per source.
 
 ## Whole-port progress estimate
 
-As of 2026-08-22 after P0-023/P6-007a/P6-008a/P6-018a/P6-022a/P7-001–P7-005a/P7-006/P7-008/P7-014–P7-016a, `plan.md` has **161/306
-checked tasks (52.3%)**. The denominator was corrected because the previous snapshot omitted
+As of 2026-08-22 after P0-023/P6-007a/P6-008a/P6-018a/P6-019a/P6-022a/P7-001–P7-005a/P7-006/P7-008/P7-014–P7-016a, `plan.md` has **162/307
+checked tasks (52.8%)**. The denominator was corrected because the previous snapshot omitted
 one Phase 0 and one Phase 3 checkbox. Equal checkbox counting overstates
 end-user parity because the
 largest remaining workstreams are font/rich text, Desktop/input, most controls,
@@ -508,7 +508,7 @@ was disabled because LeakSanitizer cannot run under this environment's
    P0-016a's original PNG/BMFont/stylesheet replacements only when their
    affected asset tests become implementable.
 4. P0-023, P5-008i, P5-010a, P6-001a, P6-003a, P6-004a, P6-005a,
-   P6-006a, P6-007a, P6-008a, P6-009a, P6-018a, P6-021a, P6-022a, P7-001–P7-005a, P7-006, P7-008, and P7-014–P7-016a are complete. Keep full
+   P6-006a, P6-007a, P6-008a, P6-009a, P6-018a, P6-019a, P6-021a, P6-022a, P7-001–P7-005a, P7-006, P7-008, and P7-014–P7-016a are complete. Keep full
    P6-006/P6-007/P6-008 hover/style work in P5-010/P8-003, and keep Slider's
    Desktop drag/wheel/style work in P5-016/P5-019/P8-005; do not reopen P6-005's Label/style-
    dependent remainder before P6-002/P8-003. TreeView now owns a reciprocal node

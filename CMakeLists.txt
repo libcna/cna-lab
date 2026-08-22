@@ -57,6 +57,7 @@ add_library(MYRA_CNA STATIC
     src/Myra/Graphics2D/UI/Containers/Grid.cpp
     src/Myra/Graphics2D/UI/Containers/Proportion.cpp
     src/Myra/Graphics2D/UI/Containers/ScrollViewer.cpp
+    src/Myra/Graphics2D/UI/Containers/SplitPane.cpp
     src/Myra/Graphics2D/UI/Containers/StackPanel.cpp
     src/Myra/Graphics2D/UI/InputContext.cpp
     src/Myra/Graphics2D/UI/InputEventsManager.cpp

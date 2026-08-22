@@ -44,6 +44,7 @@
 #include "Myra/Graphics2D/UI/Containers/Grid.hpp"
 #include "Myra/Graphics2D/UI/Containers/Proportion.hpp"
 #include "Myra/Graphics2D/UI/Containers/ScrollViewer.hpp"
+#include "Myra/Graphics2D/UI/Containers/SplitPane.hpp"
 #include "Myra/Graphics2D/UI/Containers/StackPanel.hpp"
 #include "Myra/Graphics2D/UI/Layouts/SingleItemLayout.hpp"
 #include "Myra/Graphics2D/UI/Layouts/GridLayout.hpp"

@@ -80,8 +80,8 @@ behavioral redesign.
 
 ### 1.4 Whole-port completion and remaining-effort estimate
 
-Checkpoint: 2026-08-22, after P0-023, P6-007a, P6-008a, P6-018a, P6-022a, P7-001–P7-005a, P7-006, P7-008, P7-014–P7-016a. The mechanical
-backlog count is **161/306 checked tasks (52.6%)**. This corrects the previous denominator,
+Checkpoint: 2026-08-22, after P0-023, P6-007a, P6-008a, P6-018a, P6-019a, P6-022a, P7-001–P7-005a, P7-006, P7-008, and P7-014–P7-016a. The mechanical
+backlog count is **162/307 checked tasks (52.8%)**. This corrects the previous denominator,
 which omitted one Phase 0 and one Phase 3 checkbox. The count is useful for
 auditing plan state but is
 not a parity percentage: small foundation subtasks and large end-to-end
@@ -519,6 +519,7 @@ are green, and the build uses no more than three parallel jobs.
 - [x] P6-017 Port `Containers/Proportion.cs`.
 - [x] P6-018a Port the style-independent `ScrollViewer` core: retained single content, scrollbar geometry, scrolling/clamping, direct wheel scrolling, optional image thumbs, exact-type cloning, and render traversal. Keep Desktop thumb drag capture, stylesheet application, and MML metadata in P5-016/P6-018/P8-004.
 - [ ] P6-018 Port `Containers/ScrollViewer.cs`.
+- [x] P6-019a Port the style-independent `SplitPane` core and both orientations: retained logical widget collection, grid-separated handles, proportions/split positions, reset events, removal, and exact-type deep cloning. Keep handle-style dimensions/visuals, Desktop drag/cursor control, and MML metadata in P5-016/P6-019/P6-020/P8-004.
 - [ ] P6-019 Port `Containers/SplitPane.cs`.
 - [ ] P6-020 Port horizontal and vertical split-pane specialisations.
 - [x] P6-021a Port the style-independent `ProgressBar` hierarchy core: retained filler ownership, minimum/maximum/value state and event behavior, orientation rendering, exact-type cloning, alignment defaults, and MML metadata. Invalid floating fill conversions fail deterministically (`DEV-048`). Keep stylesheet construction/application in P6-021/P8-005.

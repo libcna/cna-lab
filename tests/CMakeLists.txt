@@ -69,6 +69,7 @@ if(MYRA_CNA_CNA_LINKED)
         SelectorTests.cpp
         SingleItemLayoutTests.cpp
         SolidBrushTests.cpp
+        SplitPaneTests.cpp
         StackPanelTests.cpp
         SliderTests.cpp
         ThicknessRectangleTests.cpp
