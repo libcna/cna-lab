@@ -69,6 +69,7 @@
 #include "Myra/Graphics2D/UI/Selectors/ListViewButton.hpp"
 #include "Myra/Graphics2D/UI/Selectors/MenuSeparator.hpp"
 #include "Myra/Graphics2D/UI/Selectors/Selector.hpp"
+#include "Myra/Graphics2D/UI/Selectors/TabControl.hpp"
 #include "Myra/Graphics2D/UI/Selectors/TabItem.hpp"
 #include "Myra/Graphics2D/UI/Simple/Button.hpp"
 #include "Myra/Graphics2D/UI/Simple/ButtonBase.hpp"
