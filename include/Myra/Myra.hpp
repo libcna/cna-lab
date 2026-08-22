@@ -67,6 +67,7 @@
 #include "Myra/Graphics2D/UI/Selectors/ComboView.hpp"
 #include "Myra/Graphics2D/UI/Selectors/ListView.hpp"
 #include "Myra/Graphics2D/UI/Selectors/ListViewButton.hpp"
+#include "Myra/Graphics2D/UI/Selectors/MenuItem.hpp"
 #include "Myra/Graphics2D/UI/Selectors/MenuSeparator.hpp"
 #include "Myra/Graphics2D/UI/Selectors/Selector.hpp"
 #include "Myra/Graphics2D/UI/Selectors/TabControl.hpp"

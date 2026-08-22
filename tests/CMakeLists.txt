@@ -53,6 +53,7 @@ if(MYRA_CNA_CNA_LINKED)
         ListViewButtonTests.cpp
         ListViewTests.cpp
         MMLContextTests.cpp
+        MenuItemTests.cpp
         MenuSeparatorTests.cpp
         MyraEnvironmentTests.cpp
         MyraTypeRegistryTests.cpp

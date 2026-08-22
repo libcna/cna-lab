@@ -80,15 +80,14 @@ behavioral redesign.
 
 ### 1.4 Whole-port completion and remaining-effort estimate
 
-Checkpoint: 2026-08-22, after P0-023, P6-007a, P6-008a, P6-018a, P6-019a, P6-022a, P7-001–P7-005a, P7-006, P7-008, and P7-012a–P7-016a. The mechanical
-backlog count is **164/309 checked tasks (53.1%)**. This corrects the previous denominator,
-which omitted one Phase 0 and one Phase 3 checkbox. The count is useful for
+Checkpoint: 2026-08-22, after P0-023, P6-007a, P6-008a, P6-018a, P6-019a, P6-022a, P7-001–P7-003, P7-004a, P7-005a, P7-006, P7-007a, P7-008, P7-012a, P7-013a, P7-014, P7-015a, and P7-016a. The mechanical
+backlog count is **165/310 checked tasks (53.2%)**. The count is useful for
 auditing plan state but is
 not a parity percentage: small foundation subtasks and large end-to-end
 features each count once, while the remaining font/text, Desktop/input,
 advanced-widget, style, data/property-grid, asset, and release-parity work is
 substantially heavier. The current feature-weighted engineering estimate is
-therefore **about 30–35% of the complete port**, not 49.3%.
+therefore **about 30–35% of the complete port**.
 
 The following ranges estimate focused implementation, review, documentation,
 build, and validation time for every currently open task through P10-028. They
@@ -102,12 +101,12 @@ are planning ranges rather than a delivery promise.
 | Phase 3 — font/text/assets | 4/21 | 180–300 |
 | Phase 4 — MML/XML | 31/36 | 40–80 |
 | Phase 5 — Widget/Desktop/input | 31/39 | 72–128 |
-| Phase 6 — controls/editing | 15/42 | 110–184 |
-| Phase 7 — selectors/windows/dialogs | 0/24 | 180–300 |
+| Phase 6 — controls/editing | 20/47 | 110–184 |
+| Phase 7 — selectors/windows/dialogs | 13/31 | 180–300 |
 | Phase 8 — styles/default skin | 0/14 | 140–240 |
 | Phase 9 — file/data/property grids | 1/21 | 180–320 |
 | Phase 10 — parity/release | 0/28 | 140–240 |
-| **Whole remaining technical port** | **147/298 complete** | **1,106–1,952** |
+| **Whole remaining technical port** | **165/310 complete** | **1,106–1,952** |
 
 For scheduling, use **about 1,529 focused hours remaining** as the midpoint,
 with **1,100–2,000 hours** as the sensible rounded range. This assumes prompt
@@ -543,6 +542,7 @@ are green, and the build uses no more than three parallel jobs.
 - [x] P7-005a Port the style-independent `ComboView` core: retained toggle/list ownership, delegated item and selection APIs, selection-event forwarding, initial selection on expansion, selected-content cloning, measure/arrange sizing, and exact-type cloning. Keep Desktop context-menu display, Label placeholder/style, keyboard delegation, and MML metadata in P5-016/P6-002/P7-005/P8-004.
 - [ ] P7-005 Port `Selectors/ComboView.cs`.
 - [x] P7-006 Port `Selectors/IMenuItem.cs`.
+- [x] P7-007a Port the style-independent `MenuItem` data core: text/mnemonic and marker-free display state, image/shortcut/tag metadata, enabled/index/owner state, constructors, and change/selection events. Keep retained Label/Image widgets, rich-text mnemonic colour, submenus/item collection, lookup, stylesheet integration, and MML metadata in P3-004/P6-002/P7-007/P7-009/P8-006.
 - [ ] P7-007 Port `Selectors/MenuItem.cs`.
 - [x] P7-008 Port `Selectors/MenuSeparator.cs`.
 - [ ] P7-009 Port `Selectors/Menu.cs`.
