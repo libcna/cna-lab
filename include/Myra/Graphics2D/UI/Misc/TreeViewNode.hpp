@@ -58,5 +58,6 @@ namespace Myra::Graphics2D::UI
         std::shared_ptr<ToggleButton> mark_;
         std::shared_ptr<VerticalStackPanel> childNodesStackPanel_;
         std::shared_ptr<Widget> content_;
+        bool rowVisible_ = false;
     };
 } // namespace Myra::Graphics2D::UI

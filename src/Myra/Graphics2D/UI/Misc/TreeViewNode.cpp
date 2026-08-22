@@ -6,10 +6,12 @@
 // See NOTICE.md and UPSTREAM_MANIFEST.md.
 #include "Myra/Graphics2D/UI/Misc/TreeViewNode.hpp"
 
+#include <algorithm>
 #include <stdexcept>
 #include <utility>
 
 #include "Myra/Graphics2D/UI/Containers/Grid.hpp"
+#include "Myra/Graphics2D/UI/Misc/TreeView.hpp"
 #include "Myra/Graphics2D/UI/Simple/Image.hpp"
 
 namespace Myra::Graphics2D::UI
@@ -127,6 +129,10 @@ namespace Myra::Graphics2D::UI
             const auto node = std::dynamic_pointer_cast<TreeViewNode>(widget);
             if (node)
             {
+                if (topTree_ != nullptr)
+                {
+                    topTree_->UnregisterSubtree(node.get());
+                }
                 node->parentNode_ = nullptr;
             }
         }
@@ -136,11 +142,28 @@ namespace Myra::Graphics2D::UI
 
     void TreeViewNode::RemoveSubNode(TreeViewNode *const subNode)
     {
-        if (subNode == nullptr || !childNodesStackPanel_->RemoveWidget(subNode))
+        if (subNode == nullptr)
         {
             return;
         }
-        subNode->parentNode_ = nullptr;
+        const std::vector<std::shared_ptr<Widget>> &children = childNodesStackPanel_->getWidgetsProperty();
+        const auto iterator = std::find_if(children.begin(), children.end(),
+                                           [subNode](const auto &widget) { return widget.get() == subNode; });
+        if (iterator == children.end())
+        {
+            return;
+        }
+        const std::shared_ptr<TreeViewNode> retained = std::dynamic_pointer_cast<TreeViewNode>(*iterator);
+        if (!retained)
+        {
+            return;
+        }
+        if (topTree_ != nullptr)
+        {
+            topTree_->UnregisterSubtree(retained.get());
+        }
+        static_cast<void>(childNodesStackPanel_->RemoveWidget(retained.get()));
+        retained->parentNode_ = nullptr;
         UpdateMark();
     }
 
@@ -206,7 +229,11 @@ namespace Myra::Graphics2D::UI
 
         Grid::SetRow(*subNode, getChildNodesCountProperty());
         subNode->parentNode_ = this;
-        childNodesStackPanel_->AddWidget(std::move(subNode));
+        childNodesStackPanel_->AddWidget(subNode);
+        if (topTree_ != nullptr)
+        {
+            topTree_->RegisterSubtree(subNode);
+        }
         UpdateMark();
     }
 } // namespace Myra::Graphics2D::UI

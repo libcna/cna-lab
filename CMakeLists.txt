@@ -62,6 +62,7 @@ add_library(MYRA_CNA STATIC
     src/Myra/Graphics2D/UI/InputEventsManager.cpp
     src/Myra/Graphics2D/UI/Layouts/GridLayout.cpp
     src/Myra/Graphics2D/UI/Layouts/StackPanelLayout.cpp
+    src/Myra/Graphics2D/UI/Misc/TreeView.cpp
     src/Myra/Graphics2D/UI/Misc/TreeViewNode.cpp
     src/Myra/Graphics2D/UI/Project.cpp
     src/Myra/Graphics2D/UI/Range/HorizontalProgressBar.cpp

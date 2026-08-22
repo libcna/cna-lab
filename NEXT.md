@@ -329,7 +329,7 @@ and input dispatch remain open. `UPSTREAM_MANIFEST.md` records this per source.
 
 ## Whole-port progress estimate
 
-As of 2026-08-22 after P0-023/P6-007a/P6-008a/P6-018a/P6-022a/P7-001–P7-005a/P7-006/P7-008/P7-014/P7-015a, `plan.md` has **160/305
+As of 2026-08-22 after P0-023/P6-007a/P6-008a/P6-018a/P6-022a/P7-001–P7-005a/P7-006/P7-008/P7-014–P7-016a, `plan.md` has **161/306
 checked tasks (52.3%)**. The denominator was corrected because the previous snapshot omitted
 one Phase 0 and one Phase 3 checkbox. Equal checkbox counting overstates
 end-user parity because the
@@ -508,13 +508,14 @@ was disabled because LeakSanitizer cannot run under this environment's
    P0-016a's original PNG/BMFont/stylesheet replacements only when their
    affected asset tests become implementable.
 4. P0-023, P5-008i, P5-010a, P6-001a, P6-003a, P6-004a, P6-005a,
-   P6-006a, P6-007a, P6-008a, P6-009a, P6-018a, P6-021a, P6-022a, P7-001–P7-005a, P7-006, P7-008, P7-014, and P7-015a are complete. Keep full
+   P6-006a, P6-007a, P6-008a, P6-009a, P6-018a, P6-021a, P6-022a, P7-001–P7-005a, P7-006, P7-008, and P7-014–P7-016a are complete. Keep full
    P6-006/P6-007/P6-008 hover/style work in P5-010/P8-003, and keep Slider's
    Desktop drag/wheel/style work in P5-016/P5-019/P8-005; do not reopen P6-005's Label/style-
-   dependent remainder before P6-002/P8-003. TreeViewNode's C++ core deliberately
-   leaves TreeView registration/selection/hover state, style application, and MML
-   registration for P7-015/P7-016/P8-004. Choose the next dependency-safe widget
-   milestone only after an upstream/source and registry audit.
+   dependent remainder before P6-002/P8-003. TreeView now owns a reciprocal node
+   registry and selection/key core; Desktop mouse/touch hit testing, hover/brush
+   rendering, styles, and MML registration remain P5-016/P7-016/P8-004. Choose
+   the next dependency-safe widget milestone only after an upstream/source and
+   registry audit.
 5. Keep P4-019 open for types added by future Phase 5–9 work; every MML-capable
    type currently in the repository is registered and round-trip tested.
 6. Continue layout work only with a coherent next dependency. Do not represent partial
