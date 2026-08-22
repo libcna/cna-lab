@@ -60,6 +60,7 @@
 #include "Myra/Graphics2D/UI/Selectors/ISelector.hpp"
 #include "Myra/Graphics2D/UI/Selectors/ISelectorItem.hpp"
 #include "Myra/Graphics2D/UI/Selectors/IMenuItem.hpp"
+#include "Myra/Graphics2D/UI/Selectors/ListView.hpp"
 #include "Myra/Graphics2D/UI/Selectors/ListViewButton.hpp"
 #include "Myra/Graphics2D/UI/Selectors/MenuSeparator.hpp"
 #include "Myra/Graphics2D/UI/Selectors/Selector.hpp"

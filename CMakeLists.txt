@@ -70,6 +70,7 @@ add_library(MYRA_CNA STATIC
     src/Myra/Graphics2D/UI/Range/VerticalProgressBar.cpp
     src/Myra/Graphics2D/UI/Range/VerticalSlider.cpp
     src/Myra/Graphics2D/UI/Selectors/ListViewButton.cpp
+    src/Myra/Graphics2D/UI/Selectors/ListView.cpp
     src/Myra/Graphics2D/UI/Simple/Button.cpp
     src/Myra/Graphics2D/UI/Simple/ButtonBase.cpp
     src/Myra/Graphics2D/UI/Simple/CheckButton.cpp

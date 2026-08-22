@@ -47,6 +47,7 @@ if(MYRA_CNA_CNA_LINKED)
         IHasColorTests.cpp
         ImageTests.cpp
         ListViewButtonTests.cpp
+        ListViewTests.cpp
         MMLContextTests.cpp
         MenuSeparatorTests.cpp
         MyraEnvironmentTests.cpp
