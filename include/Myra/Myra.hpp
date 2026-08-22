@@ -58,6 +58,7 @@
 #include "Myra/Graphics2D/UI/Range/VerticalSlider.hpp"
 #include "Myra/Graphics2D/UI/Selectors/ISelector.hpp"
 #include "Myra/Graphics2D/UI/Selectors/ISelectorItem.hpp"
+#include "Myra/Graphics2D/UI/Selectors/ListViewButton.hpp"
 #include "Myra/Graphics2D/UI/Selectors/Selector.hpp"
 #include "Myra/Graphics2D/UI/Simple/Button.hpp"
 #include "Myra/Graphics2D/UI/Simple/ButtonBase.hpp"
