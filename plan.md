@@ -80,8 +80,8 @@ behavioral redesign.
 
 ### 1.4 Whole-port completion and remaining-effort estimate
 
-Checkpoint: 2026-08-22, after P0-023, P6-007a, P6-008a, P6-018a, P6-019a, P6-022a, P7-001–P7-005a, P7-006, P7-008, and P7-014–P7-016a. The mechanical
-backlog count is **162/307 checked tasks (52.8%)**. This corrects the previous denominator,
+Checkpoint: 2026-08-22, after P0-023, P6-007a, P6-008a, P6-018a, P6-019a, P6-022a, P7-001–P7-005a, P7-006, P7-008, P7-012a, and P7-014–P7-016a. The mechanical
+backlog count is **163/308 checked tasks (52.9%)**. This corrects the previous denominator,
 which omitted one Phase 0 and one Phase 3 checkbox. The count is useful for
 auditing plan state but is
 not a parity percentage: small foundation subtasks and large end-to-end
@@ -548,6 +548,7 @@ are green, and the build uses no more than three parallel jobs.
 - [ ] P7-009 Port `Selectors/Menu.cs`.
 - [ ] P7-010 Port `Selectors/HorizontalMenu.cs`.
 - [ ] P7-011 Port `Selectors/VerticalMenu.cs`.
+- [x] P7-012a Port the style-independent `TabItem` data core: retained optional text/content/image/tag/height state, identifier/change and selection events, `ToString`, and clone behavior. Keep text color, ListViewButton/Label visual wiring, TabControl integration, and MML metadata in P3-004/P6-002/P7-012/P7-013/P8-004.
 - [ ] P7-012 Port `Selectors/TabItem.cs`.
 - [ ] P7-013 Port `Selectors/TabControl.cs`.
 - [x] P7-014 Port `Misc/ITreeViewNode.cs`.

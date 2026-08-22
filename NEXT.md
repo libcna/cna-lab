@@ -11,7 +11,8 @@
   style-independent `Slider` core, P7-001/P7-002's generic selector contracts
   and collection-backed selection core, P7-003's `ListViewButton` grouping,
   P7-004a's collection-backed `ListView` core, P7-005a's retained ComboView
-  core, P7-006/P7-008's menu-item contracts and separator state, P7-014's
+  core, P7-006/P7-008's menu-item contracts and separator state, P7-012a's
+  TabItem data core, P7-014's
   tree-node contract, and P0-023's
   compatibility with current modular
   CNA/sharp-runtime checkouts. `CheckButton` now carries its `IsChecked` and
@@ -329,8 +330,8 @@ and input dispatch remain open. `UPSTREAM_MANIFEST.md` records this per source.
 
 ## Whole-port progress estimate
 
-As of 2026-08-22 after P0-023/P6-007a/P6-008a/P6-018a/P6-019a/P6-022a/P7-001–P7-005a/P7-006/P7-008/P7-014–P7-016a, `plan.md` has **162/307
-checked tasks (52.8%)**. The denominator was corrected because the previous snapshot omitted
+As of 2026-08-22 after P0-023/P6-007a/P6-008a/P6-018a/P6-019a/P6-022a/P7-001–P7-005a/P7-006/P7-008/P7-012a/P7-014–P7-016a, `plan.md` has **163/308
+checked tasks (52.9%)**. The denominator was corrected because the previous snapshot omitted
 one Phase 0 and one Phase 3 checkbox. Equal checkbox counting overstates
 end-user parity because the
 largest remaining workstreams are font/rich text, Desktop/input, most controls,
@@ -508,14 +509,15 @@ was disabled because LeakSanitizer cannot run under this environment's
    P0-016a's original PNG/BMFont/stylesheet replacements only when their
    affected asset tests become implementable.
 4. P0-023, P5-008i, P5-010a, P6-001a, P6-003a, P6-004a, P6-005a,
-   P6-006a, P6-007a, P6-008a, P6-009a, P6-018a, P6-019a, P6-021a, P6-022a, P7-001–P7-005a, P7-006, P7-008, and P7-014–P7-016a are complete. Keep full
+   P6-006a, P6-007a, P6-008a, P6-009a, P6-018a, P6-019a, P6-021a, P6-022a, P7-001–P7-005a, P7-006, P7-008, P7-012a, and P7-014–P7-016a are complete. Keep full
    P6-006/P6-007/P6-008 hover/style work in P5-010/P8-003, and keep Slider's
    Desktop drag/wheel/style work in P5-016/P5-019/P8-005; do not reopen P6-005's Label/style-
    dependent remainder before P6-002/P8-003. TreeView now owns a reciprocal node
    registry and selection/key core; Desktop mouse/touch hit testing, hover/brush
    rendering, styles, and MML registration remain P5-016/P7-016/P8-004. Choose
    the next dependency-safe widget milestone only after an upstream/source and
-   registry audit.
+   registry audit. TabItem currently stops before Color/Label/Button wiring;
+   those paths remain P3-004/P6-002/P7-012/P7-013/P8-004.
 5. Keep P4-019 open for types added by future Phase 5–9 work; every MML-capable
    type currently in the repository is registered and round-trip tested.
 6. Continue layout work only with a coherent next dependency. Do not represent partial

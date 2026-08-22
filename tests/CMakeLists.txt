@@ -72,6 +72,7 @@ if(MYRA_CNA_CNA_LINKED)
         SplitPaneTests.cpp
         StackPanelTests.cpp
         SliderTests.cpp
+        TabItemTests.cpp
         ThicknessRectangleTests.cpp
         TextureRegionTests.cpp
         TextureRegionAtlasTests.cpp
