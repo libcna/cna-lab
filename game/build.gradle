@@ -3,21 +3,29 @@ plugins {
     id 'application'
 }
 
-group 'com.openeggbert.cna'
-version '1.0-SNAPSHOT'
+group = 'org.openeggbert.examples'
+version = '0.1.0-SNAPSHOT'
+
+base {
+    archivesName = findProperty('artifactId') ?: 'cna-java-template-game'
+}
 
 java {
-    toolchain {
-        languageVersion = JavaLanguageVersion.of(17)
-    }
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
 }
 
 dependencies {
-    // Reference to cna-java (assuming it will be published to mavenLocal or repository)
-    implementation 'com.openeggbert.cna:cna-java:1.0.0-preview'
-    
-    testImplementation platform('org.junit:junit-bom:5.9.1')
+    implementation "org.openeggbert:cna-java:${findProperty('cnaVersion') ?: '0.1.0-SNAPSHOT'}"
+    testImplementation platform('org.junit:junit-bom:5.11.4')
     testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.release = 17
+    options.encoding = 'UTF-8'
+    options.compilerArgs.addAll(['-parameters', '-Xlint:all', '-Werror'])
 }
 
 test {
@@ -26,13 +34,4 @@ test {
 
 application {
     mainClass = 'com.openeggbert.cna.template.Main'
-}
-
-// Ensure resources (Content) are included
-sourceSets {
-    main {
-        resources {
-            srcDirs = ['src/main/resources']
-        }
-    }
 }

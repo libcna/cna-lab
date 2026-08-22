@@ -1,22 +1,9 @@
-buildscript {
-    repositories {
-        google()
-        mavenCentral()
-        gradlePluginPortal()
-    }
-    dependencies {
-        classpath 'com.android.tools.build:gradle:8.1.1'
-        classpath 'org.teavm:teavm-gradle-plugin:0.8.1'
-        classpath 'org.wisepersist:gwt-gradle-plugin:1.1.19'
-    }
-}
-
 allprojects {
     repositories {
-        google()
+        maven {
+            url = uri(rootProject.findProperty('cnaRepository') ?:
+                    new File(rootProject.projectDir, '.cna-repository'))
+        }
         mavenCentral()
-        mavenLocal()
-        // CNA repository placeholder
-        maven { url 'https://maven.openeggbert.org/repository/maven-public/' }
     }
 }

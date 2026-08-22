@@ -4,6 +4,7 @@ build/
 bin/
 *.class
 *.jar
+!gradle/wrapper/gradle-wrapper.jar
 *.war
 *.ear
 
@@ -32,3 +33,5 @@ Thumbs.db
 
 # Web/Emscripten (if used via TeaVM etc)
 dist/
+.cna-repository/
+__pycache__/
