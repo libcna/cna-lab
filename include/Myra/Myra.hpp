@@ -50,6 +50,7 @@
 #include "Myra/Graphics2D/UI/Layouts/StackPanelLayout.hpp"
 #include "Myra/Graphics2D/UI/ILayout.hpp"
 #include "Myra/Graphics2D/UI/ITransformable.hpp"
+#include "Myra/Graphics2D/UI/Misc/ITreeViewNode.hpp"
 #include "Myra/Graphics2D/UI/Project.hpp"
 #include "Myra/Graphics2D/UI/Range/HorizontalProgressBar.hpp"
 #include "Myra/Graphics2D/UI/Range/HorizontalSlider.hpp"

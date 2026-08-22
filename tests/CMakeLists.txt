@@ -47,6 +47,7 @@ if(MYRA_CNA_CNA_LINKED)
         GridLayoutTests.cpp
         IHasColorTests.cpp
         ImageTests.cpp
+        ITreeViewNodeTests.cpp
         ListViewButtonTests.cpp
         ListViewTests.cpp
         MMLContextTests.cpp
