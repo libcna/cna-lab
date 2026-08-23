@@ -1,6 +1,5 @@
 import {
   Color,
-  FrameworkDispatcher,
   Game,
   GameComponent,
   type GameTime,
@@ -119,7 +118,6 @@ export class HelloGame extends Game {
 
   protected override Update(gameTime: GameTime): void {
     if (this.#nativeRunning) {
-      FrameworkDispatcher.Update();
       const keyboard = Input.Keyboard.GetState();
       const mouse = Input.Mouse.GetState();
       const gamePad = Input.GamePad.GetState(PlayerIndex.One);
