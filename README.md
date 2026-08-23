@@ -13,10 +13,12 @@ The desktop module is real, but intentionally small. It creates a CNA-backed
 startup, captures CNA-backed `KeyboardState` snapshots (Escape exits), and exits
 deterministically after a requested frame count. It also captures CNA-backed
 `MouseState` snapshots (left click exits), decodes a real raw PNG through
-`Texture2D.FromStream`, and draws the moving texture through `SpriteBatch`.
-The Base64 text is only a transport-safe repository fixture; the decoded bytes
-are a valid PNG and are never presented as XNB content. The starter does not
-yet claim XNB content, gamepad/touch, 3D, or renderer capability support.
+`Texture2D.FromStream`, loads a separate generated uncompressed Color texture
+through `ContentManager.Load(Texture2D.class, ...)`, and draws both through
+`SpriteBatch`. The two Base64 files are transport-safe repository fixtures:
+one decodes to PNG and the other to a deterministic 135-byte Windows XNB v5
+asset. The starter does not yet claim SpriteFont XNB, gamepad/touch, 3D, Model,
+or renderer capability support.
 
 | Target | Status |
 | --- | --- |
