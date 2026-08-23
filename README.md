@@ -13,12 +13,28 @@ of inventing a graphics backend or polling result.
 | --- | --- | --- |
 | TypeScript project | build verified | strict TypeScript plus Vite production build |
 | JavaScript project | build verified | generated ordinary `.js`, Vite build, Node managed smoke |
+| Node CNA runtime | opt-in Linux HEADLESS smoke verified | explicit ABI-0.7 library and N-API bridge paths; not a bundled artifact |
 | Browser CNA runtime | planned / blocked | no packaged CNA C-ABI ESM/Wasm artifact is available |
 | Electron | planned | no runtime or build claim |
 | Android / iOS | planned | no WebView/native runtime or build claim |
 
 The old `cna-js` package, Electron, and Capacitor are not dependencies. A browser bundle alone is
 not described as CNA runtime support.
+
+## Opt-in Node CNA smoke
+
+The separate Node path executes `Game`, `GraphicsDeviceManager`, `GraphicsDevice.Clear`, an owned
+`Texture2D`, keyboard polling, and deterministic shutdown through a prebuilt CNA ABI 0.7 library.
+It neither changes nor implies the browser support status:
+
+```bash
+CNA_NATIVE_LIBRARY=/absolute/path/to/libcna_c_api.so \
+CNA_NODE_BRIDGE=/absolute/path/to/cna_node_bridge.node \
+npm run smoke:native
+```
+
+Set `CNA_NATIVE_FRAMES=600` for the longer stability run. CNA-TS ships bridge source and a build
+helper, but no platform-specific native binary or CNA library.
 
 ## Work with the canonical TypeScript canary
 

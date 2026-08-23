@@ -11,7 +11,8 @@
     "preview": "vite preview",
     "create:typescript": "node tools/create-project.mjs --language typescript --output generated/typescript",
     "create:javascript": "node tools/create-project.mjs --language javascript --output generated/javascript",
-    "verify:generated": "node tools/verify-generated.mjs"
+    "verify:generated": "node tools/verify-generated.mjs",
+    "smoke:native": "node tools/native-smoke.mjs"
   },
   "dependencies": {
     "cna-ts": "0.1.0"
