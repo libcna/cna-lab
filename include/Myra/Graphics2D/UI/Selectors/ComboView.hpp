@@ -10,6 +10,7 @@
 #include <optional>
 #include <vector>
 
+#include "Myra/Events/GenericEventArgs.hpp"
 #include "Myra/Graphics2D/UI/Container.hpp"
 #include "Myra/Graphics2D/UI/Layouts/SingleItemLayout.hpp"
 #include "Myra/Graphics2D/UI/Selectors/ListView.hpp"
@@ -22,7 +23,7 @@ namespace Myra::Graphics2D::UI
     {
       public:
         ComboView();
-        ~ComboView() override = default;
+        ~ComboView() override;
 
         /** @brief Raised when the retained ListView selection changes. */
         Events::MyraEventHandler SelectedIndexChanged;
@@ -42,20 +43,36 @@ namespace Myra::Graphics2D::UI
         void setSelectionModeProperty(SelectionMode value) noexcept;
         [[nodiscard]] std::optional<int> getSelectedIndexProperty() const;
         void setSelectedIndexProperty(std::optional<int> value);
+        void OnKeyDown(Microsoft::Xna::Framework::Input::Keys key) override;
 
       protected:
         [[nodiscard]] Microsoft::Xna::Framework::Point
         InternalMeasure(Microsoft::Xna::Framework::Point availableSize) override;
         void InternalArrange() override;
+        void OnPlacedChanged() override;
         [[nodiscard]] std::shared_ptr<Widget> CreateCloneInstance() const override;
         void CopyFrom(const Widget &source) override;
 
       private:
+        struct CallbackState
+        {
+            ComboView *owner = nullptr;
+        };
+
         void OnButtonPressedChanged(void *sender, Events::MyraEventArgs &arguments);
+        void DesktopOnContextMenuClosed();
+        void SubscribeDesktopContextMenuClosed();
+        void UnsubscribeDesktopContextMenuClosed() noexcept;
         void UpdateSelectedItem();
 
+        std::shared_ptr<CallbackState> callbackState_;
         SingleItemLayout<ToggleButton> layout_;
         std::shared_ptr<ToggleButton> button_;
         std::shared_ptr<ListView> listView_;
+        Events::MyraEventHandler::Token buttonPressedToken_ = Events::MyraEventHandler::InvalidToken;
+        Events::MyraEventHandler::Token listSelectionToken_ = Events::MyraEventHandler::InvalidToken;
+        Desktop *contextMenuSubscriptionDesktop_ = nullptr;
+        Events::MyraEventHandlerT<Events::GenericEventArgs<Widget *>>::Token contextMenuClosedToken_ =
+            Events::MyraEventHandlerT<Events::GenericEventArgs<Widget *>>::InvalidToken;
     };
 } // namespace Myra::Graphics2D::UI

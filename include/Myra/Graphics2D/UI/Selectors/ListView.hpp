@@ -26,7 +26,7 @@ namespace Myra::Graphics2D::UI
     {
       public:
         ListView();
-        ~ListView() override = default;
+        ~ListView() override;
 
         Events::MyraEventHandler SelectedIndexChanged;
 
@@ -46,19 +46,36 @@ namespace Myra::Graphics2D::UI
 
         /** @brief Forwards a wheel delta to the owned scroll viewer. */
         void OnMouseWheel(float delta) override;
+        void OnKeyDown(Microsoft::Xna::Framework::Input::Keys key) override;
 
       protected:
         [[nodiscard]] std::shared_ptr<Widget> CreateCloneInstance() const override;
         void CopyFrom(const Widget &source) override;
 
       private:
+        struct CallbackState
+        {
+            ListView *owner = nullptr;
+        };
+
+        struct ButtonSubscription
+        {
+            std::shared_ptr<ListViewButton> button;
+            Events::MyraEventHandler::Token token = Events::MyraEventHandler::InvalidToken;
+        };
+
         [[nodiscard]] std::shared_ptr<Widget> Wrap(std::shared_ptr<Widget> widget);
         void RebuildDisplay();
+        void ClearButtonSubscriptions() noexcept;
         void ButtonOnClick(void *sender, Events::MyraEventArgs &arguments);
+        void HideComboDropdown();
+        void UpdateScrolling();
 
+        std::shared_ptr<CallbackState> callbackState_;
         SingleItemLayout<ScrollViewer> layout_;
         std::shared_ptr<ScrollViewer> scrollViewer_;
         std::shared_ptr<VerticalStackPanel> box_;
+        std::vector<ButtonSubscription> buttonSubscriptions_;
         std::vector<std::shared_ptr<Widget>> widgets_;
         std::shared_ptr<Widget> selectedItem_;
         SelectionMode selectionMode_ = SelectionMode::Single;

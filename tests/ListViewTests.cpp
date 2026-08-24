@@ -7,11 +7,18 @@
 
 #include <memory>
 
+#include "Myra/Graphics2D/UI/Desktop.hpp"
 #include "Myra/Graphics2D/UI/Selectors/ListViewButton.hpp"
+#include "Myra/Graphics2D/UI/Simple/HorizontalSeparator.hpp"
 #include "Myra/Graphics2D/UI/Widget.hpp"
 
 namespace
 {
+    using Microsoft::Xna::Framework::Point;
+    using Microsoft::Xna::Framework::Rectangle;
+    using Microsoft::Xna::Framework::Input::Keys;
+    using Myra::Graphics2D::UI::Desktop;
+    using Myra::Graphics2D::UI::HorizontalSeparator;
     using Myra::Graphics2D::UI::InputEventType;
     using Myra::Graphics2D::UI::ListView;
     using Myra::Graphics2D::UI::ListViewButton;
@@ -83,5 +90,58 @@ namespace
         EXPECT_NE(clone->getWidgetsProperty()[1], first);
         EXPECT_EQ(clone->getSelectionModeProperty(), SelectionMode::Multiple);
         EXPECT_EQ(clone->getSelectedItemProperty(), nullptr);
+    }
+
+    TEST(ListViewTests, KeyboardAndClicksSkipSeparatorsAndCloseOnlyTheActiveDropdown)
+    {
+        Desktop desktop;
+        desktop.setBoundsFetcherProperty([] { return Rectangle(0, 0, 120, 90); });
+        const auto listView = std::make_shared<ListView>();
+        listView->setWidthProperty(60);
+        listView->setHeightProperty(50);
+        const auto first = std::make_shared<Widget>();
+        const auto separator = std::make_shared<HorizontalSeparator>();
+        const auto third = std::make_shared<Widget>();
+        listView->AddWidget(first);
+        listView->AddWidget(separator);
+        listView->AddWidget(third);
+
+        desktop.ShowContextMenu(listView, Point(5, 5));
+        desktop.UpdateLayout();
+        listView->OnKeyDown(Keys::Down);
+        EXPECT_EQ(listView->getSelectedItemProperty(), first);
+        listView->OnKeyDown(Keys::Down);
+        EXPECT_EQ(listView->getSelectedItemProperty(), third);
+        listView->OnKeyDown(Keys::Up);
+        EXPECT_EQ(listView->getSelectedItemProperty(), first);
+
+        listView->OnKeyDown(Keys::Enter);
+        EXPECT_EQ(desktop.getContextMenuProperty(), nullptr);
+        desktop.ShowContextMenu(listView, Point(5, 5));
+        desktop.UpdateLayout();
+        auto *const thirdButton = dynamic_cast<ListViewButton *>(third->getParentProperty());
+        ASSERT_NE(thirdButton, nullptr);
+        thirdButton->DoClick();
+        EXPECT_EQ(listView->getSelectedItemProperty(), third);
+        EXPECT_EQ(desktop.getContextMenuProperty(), nullptr);
+
+        listView->OnKeyDown(Keys::Enter);
+        EXPECT_EQ(desktop.getContextMenuProperty(), nullptr);
+    }
+
+    TEST(ListViewTests, RetainedWrapperBecomesInertAfterListDestruction)
+    {
+        auto listView = std::make_shared<ListView>();
+        const auto item = std::make_shared<Widget>();
+        listView->AddWidget(item);
+        const auto box = std::dynamic_pointer_cast<Myra::Graphics2D::UI::VerticalStackPanel>(
+            listView->getScrollViewerProperty()->getContentProperty());
+        ASSERT_NE(box, nullptr);
+        const auto retainedButton = std::dynamic_pointer_cast<ListViewButton>(box->getWidgetsProperty().front());
+        ASSERT_NE(retainedButton, nullptr);
+
+        listView.reset();
+        retainedButton->DoClick();
+        EXPECT_TRUE(retainedButton->getIsPressedProperty());
     }
 } // namespace

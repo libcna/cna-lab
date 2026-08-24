@@ -10,13 +10,18 @@
 #include <stdexcept>
 #include <utility>
 
+#include "Myra/Graphics2D/UI/Desktop.hpp"
+
 namespace Myra::Graphics2D::UI
 {
     using Microsoft::Xna::Framework::Point;
+    using Microsoft::Xna::Framework::Input::Keys;
 
     ComboView::ComboView()
-        : layout_(*this), button_(std::make_shared<ToggleButton>()), listView_(std::make_shared<ListView>())
+        : callbackState_(std::make_shared<CallbackState>()), layout_(*this), button_(std::make_shared<ToggleButton>()),
+          listView_(std::make_shared<ListView>())
     {
+        callbackState_->owner = this;
         button_->setHorizontalAlignmentProperty(HorizontalAlignment::Stretch);
         button_->setVerticalAlignmentProperty(VerticalAlignment::Stretch);
         button_->setContentProperty(std::make_shared<Widget>());
@@ -27,13 +32,37 @@ namespace Myra::Graphics2D::UI
         setVerticalAlignmentProperty(VerticalAlignment::Top);
         setDropdownMaximumHeightProperty(300);
 
-        button_->PressedChanged +=
-            [this](void *sender, Events::MyraEventArgs &arguments) { OnButtonPressedChanged(sender, arguments); };
-        listView_->SelectedIndexChanged += [this](void *sender, Events::MyraEventArgs &arguments)
-        {
-            SelectedIndexChanged.Invoke(sender, arguments);
-            UpdateSelectedItem();
-        };
+        buttonPressedToken_ = button_->PressedChanged.Add(
+            [callbackState = callbackState_](void *sender, Events::MyraEventArgs &arguments)
+            {
+                if (ComboView *const owner = callbackState->owner)
+                {
+                    owner->OnButtonPressedChanged(sender, arguments);
+                }
+            });
+        listSelectionToken_ = listView_->SelectedIndexChanged.Add(
+            [callbackState = callbackState_](void *sender, Events::MyraEventArgs &arguments)
+            {
+                ComboView *owner = callbackState->owner;
+                if (owner == nullptr)
+                {
+                    return;
+                }
+                owner->SelectedIndexChanged.Invoke(sender, arguments);
+                owner = callbackState->owner;
+                if (owner != nullptr)
+                {
+                    owner->UpdateSelectedItem();
+                }
+            });
+    }
+
+    ComboView::~ComboView()
+    {
+        callbackState_->owner = nullptr;
+        UnsubscribeDesktopContextMenuClosed();
+        static_cast<void>(button_->PressedChanged.Remove(buttonPressedToken_));
+        static_cast<void>(listView_->SelectedIndexChanged.Remove(listSelectionToken_));
     }
 
     std::optional<int> ComboView::getDropdownMaximumHeightProperty() const noexcept
@@ -106,6 +135,16 @@ namespace Myra::Graphics2D::UI
         listView_->setSelectedIndexProperty(value);
     }
 
+    void ComboView::OnKeyDown(const Keys key)
+    {
+        const std::shared_ptr<CallbackState> callbackState = callbackState_;
+        Widget::OnKeyDown(key);
+        if (callbackState->owner == this)
+        {
+            listView_->OnKeyDown(key);
+        }
+    }
+
     Point ComboView::InternalMeasure(const Point availableSize)
     {
         Point result = Widget::InternalMeasure(availableSize);
@@ -123,7 +162,14 @@ namespace Myra::Graphics2D::UI
     void ComboView::InternalArrange()
     {
         Widget::InternalArrange();
-        listView_->setWidthProperty(getActualBoundsProperty().Width);
+        listView_->setWidthProperty(getBorderBoundsProperty().Width);
+    }
+
+    void ComboView::OnPlacedChanged()
+    {
+        UnsubscribeDesktopContextMenuClosed();
+        SubscribeDesktopContextMenuClosed();
+        Widget::OnPlacedChanged();
     }
 
     std::shared_ptr<Widget> ComboView::CreateCloneInstance() const
@@ -155,10 +201,85 @@ namespace Myra::Graphics2D::UI
         {
             return;
         }
-        if (button_->getIsPressedProperty() && !listView_->getSelectedIndexProperty())
+        if (!button_->getIsPressedProperty())
+        {
+            return;
+        }
+
+        const std::shared_ptr<CallbackState> callbackState = callbackState_;
+        if (!listView_->getSelectedIndexProperty())
         {
             listView_->setSelectedIndexProperty(0);
         }
+        if (callbackState->owner != this)
+        {
+            return;
+        }
+
+        listView_->setWidthProperty(getBorderBoundsProperty().Width);
+        Desktop *const desktop = getDesktopProperty();
+        if (desktop == nullptr)
+        {
+            return;
+        }
+        const Point position = ToGlobal(Point(0, getBoundsProperty().Height));
+        desktop->ShowContextMenu(listView_, position);
+    }
+
+    void ComboView::DesktopOnContextMenuClosed()
+    {
+        if (contextMenuSubscriptionDesktop_ == nullptr || getDesktopProperty() != contextMenuSubscriptionDesktop_)
+        {
+            return;
+        }
+        if (!getIsMouseInsideProperty())
+        {
+            button_->setIsPressedProperty(false);
+        }
+    }
+
+    void ComboView::SubscribeDesktopContextMenuClosed()
+    {
+        Desktop *const desktop = getDesktopProperty();
+        if (desktop == nullptr)
+        {
+            return;
+        }
+
+        const std::shared_ptr<ComboView> retainedTarget = std::static_pointer_cast<ComboView>(RetainSelf());
+        if (!retainedTarget)
+        {
+            throw std::logic_error("A placed ComboView is missing from its owning collection.");
+        }
+
+        contextMenuSubscriptionDesktop_ = desktop;
+        try
+        {
+            contextMenuClosedToken_ =
+                desktop->ContextMenuClosed.Add([retainedTarget](void *, Events::GenericEventArgs<Widget *> &)
+                                               { retainedTarget->DesktopOnContextMenuClosed(); });
+        }
+        catch (...)
+        {
+            UnsubscribeDesktopContextMenuClosed();
+            throw;
+        }
+    }
+
+    void ComboView::UnsubscribeDesktopContextMenuClosed() noexcept
+    {
+        try
+        {
+            if (contextMenuSubscriptionDesktop_ != nullptr)
+            {
+                static_cast<void>(contextMenuSubscriptionDesktop_->ContextMenuClosed.Remove(contextMenuClosedToken_));
+            }
+        }
+        catch (...)
+        {
+        }
+        contextMenuSubscriptionDesktop_ = nullptr;
+        contextMenuClosedToken_ = Events::MyraEventHandlerT<Events::GenericEventArgs<Widget *>>::InvalidToken;
     }
 
     void ComboView::UpdateSelectedItem()

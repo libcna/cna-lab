@@ -7,21 +7,56 @@
 #include "Myra/Graphics2D/UI/Selectors/ListView.hpp"
 
 #include <algorithm>
+#include <cstdint>
+#include <limits>
 #include <stdexcept>
 #include <utility>
 
+#include "Myra/Graphics2D/UI/Desktop.hpp"
 #include "Myra/Graphics2D/UI/Simple/SeparatorWidget.hpp"
 #include "Myra/Utility/EventsExtensions.hpp"
 
 namespace Myra::Graphics2D::UI
 {
-    ListView::ListView()
-        : layout_(*this), scrollViewer_(std::make_shared<ScrollViewer>()), box_(std::make_shared<VerticalStackPanel>())
+    namespace
     {
+        [[nodiscard]] int CheckedListIndex(const std::size_t value)
+        {
+            if (value > static_cast<std::size_t>(std::numeric_limits<int>::max()))
+            {
+                throw std::overflow_error("ListView index is outside the supported integer range.");
+            }
+            return static_cast<int>(value);
+        }
+
+        [[nodiscard]] int CheckedScrollCoordinate(const std::int64_t value)
+        {
+            if (value < std::numeric_limits<int>::min() || value > std::numeric_limits<int>::max())
+            {
+                throw std::overflow_error("ListView scroll coordinate is outside the supported integer range.");
+            }
+            return static_cast<int>(value);
+        }
+    } // namespace
+
+    using Microsoft::Xna::Framework::Point;
+    using Microsoft::Xna::Framework::Input::Keys;
+
+    ListView::ListView()
+        : callbackState_(std::make_shared<CallbackState>()), layout_(*this),
+          scrollViewer_(std::make_shared<ScrollViewer>()), box_(std::make_shared<VerticalStackPanel>())
+    {
+        callbackState_->owner = this;
         setChildrenLayoutProperty(&layout_);
         layout_.setChildProperty(scrollViewer_);
         scrollViewer_->setContentProperty(box_);
         setAcceptsKeyboardFocusProperty(true);
+    }
+
+    ListView::~ListView()
+    {
+        callbackState_->owner = nullptr;
+        ClearButtonSubscriptions();
     }
 
     const std::vector<std::shared_ptr<Widget>> &ListView::getWidgetsProperty() const noexcept
@@ -138,6 +173,76 @@ namespace Myra::Graphics2D::UI
         scrollViewer_->OnMouseWheel(delta);
     }
 
+    void ListView::OnKeyDown(const Keys key)
+    {
+        const std::shared_ptr<CallbackState> callbackState = callbackState_;
+        Widget::OnKeyDown(key);
+        if (callbackState->owner != this)
+        {
+            return;
+        }
+
+        switch (key)
+        {
+        case Keys::Up:
+        {
+            if (widgets_.empty())
+            {
+                return;
+            }
+            std::size_t index;
+            if (const std::optional<int> selected = getSelectedIndexProperty())
+            {
+                if (*selected <= 0)
+                {
+                    return;
+                }
+                index = static_cast<std::size_t>(*selected - 1);
+            }
+            else
+            {
+                index = widgets_.size() - 1;
+            }
+            while (index > 0 && dynamic_cast<SeparatorWidget *>(widgets_[index].get()) != nullptr)
+            {
+                --index;
+            }
+            setSelectedIndexProperty(CheckedListIndex(index));
+            if (callbackState->owner == this)
+            {
+                UpdateScrolling();
+            }
+            break;
+        }
+        case Keys::Down:
+        {
+            std::size_t index = 0;
+            if (const std::optional<int> selected = getSelectedIndexProperty())
+            {
+                index = static_cast<std::size_t>(*selected) + 1;
+            }
+            while (index < widgets_.size() && dynamic_cast<SeparatorWidget *>(widgets_[index].get()) != nullptr)
+            {
+                ++index;
+            }
+            if (index < widgets_.size())
+            {
+                setSelectedIndexProperty(CheckedListIndex(index));
+                if (callbackState->owner == this)
+                {
+                    UpdateScrolling();
+                }
+            }
+            break;
+        }
+        case Keys::Enter:
+            HideComboDropdown();
+            break;
+        default:
+            break;
+        }
+    }
+
     std::shared_ptr<Widget> ListView::CreateCloneInstance() const
     {
         return std::make_shared<ListView>();
@@ -168,22 +273,56 @@ namespace Myra::Graphics2D::UI
         const auto button = std::make_shared<ListViewButton>();
         button->setContentProperty(std::move(widget));
         button->setHorizontalAlignmentProperty(HorizontalAlignment::Stretch);
-        button->Click += [this](void *sender, Events::MyraEventArgs &arguments) { ButtonOnClick(sender, arguments); };
+        const Events::MyraEventHandler::Token token = button->Click.Add(
+            [callbackState = callbackState_](void *sender, Events::MyraEventArgs &arguments)
+            {
+                if (ListView *const owner = callbackState->owner)
+                {
+                    owner->ButtonOnClick(sender, arguments);
+                }
+            });
+        buttonSubscriptions_.push_back({button, token});
         return button;
     }
 
     void ListView::RebuildDisplay()
     {
+        ClearButtonSubscriptions();
         box_->ClearChildren();
-        for (const std::shared_ptr<Widget> &widget : widgets_)
+        try
         {
-            box_->AddWidget(Wrap(widget));
+            for (const std::shared_ptr<Widget> &widget : widgets_)
+            {
+                box_->AddWidget(Wrap(widget));
+            }
         }
+        catch (...)
+        {
+            ClearButtonSubscriptions();
+            box_->ClearChildren();
+            throw;
+        }
+    }
+
+    void ListView::ClearButtonSubscriptions() noexcept
+    {
+        for (const ButtonSubscription &subscription : buttonSubscriptions_)
+        {
+            try
+            {
+                static_cast<void>(subscription.button->Click.Remove(subscription.token));
+            }
+            catch (...)
+            {
+            }
+        }
+        buttonSubscriptions_.clear();
     }
 
     void ListView::ButtonOnClick(void *const sender, Events::MyraEventArgs &arguments)
     {
         static_cast<void>(arguments);
+        const std::shared_ptr<CallbackState> callbackState = callbackState_;
         const auto *const button = static_cast<ListViewButton *>(sender);
         if (!button->getIsPressedProperty())
         {
@@ -193,5 +332,45 @@ namespace Myra::Graphics2D::UI
         {
             setSelectedItemProperty(button->getContentProperty());
         }
+        if (callbackState->owner == this)
+        {
+            HideComboDropdown();
+        }
+    }
+
+    void ListView::HideComboDropdown()
+    {
+        Desktop *const desktop = getDesktopProperty();
+        if (desktop != nullptr && desktop->getContextMenuProperty().get() == this)
+        {
+            desktop->HideContextMenu();
+        }
+    }
+
+    void ListView::UpdateScrolling()
+    {
+        const std::shared_ptr<Widget> selectedItem = selectedItem_;
+        if (!selectedItem)
+        {
+            return;
+        }
+
+        scrollViewer_->UpdateArrange();
+        const Point position =
+            box_->ToLocal(selectedItem->ToGlobal(selectedItem->getBoundsProperty().getLocationProperty()));
+        const int lineHeight = selectedItem->getActualBoundsProperty().Height;
+        Point scrollPosition = scrollViewer_->getScrollPositionProperty();
+        const auto scrollBounds = scrollViewer_->getBoundsProperty();
+        const std::int64_t lineBottom = static_cast<std::int64_t>(position.Y) + lineHeight;
+        const std::int64_t viewportBottom = static_cast<std::int64_t>(scrollPosition.Y) + scrollBounds.Height;
+        if (position.Y < scrollPosition.Y)
+        {
+            scrollPosition.Y = position.Y;
+        }
+        else if (lineBottom > viewportBottom)
+        {
+            scrollPosition.Y = CheckedScrollCoordinate(lineBottom - static_cast<std::int64_t>(scrollBounds.Height));
+        }
+        scrollViewer_->setScrollPositionProperty(scrollPosition);
     }
 } // namespace Myra::Graphics2D::UI
