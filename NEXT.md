@@ -3,12 +3,13 @@
 ## Current state
 
 - Active branch: `develop`.
-- Pushed commit `ba98d62` (`Implement ToggleButton interaction core`) completes
-  P6-005a. The repository HEAD described by this handoff also completes P6-006a/
+- Current committed baseline `a3ea0dd` (`feat: add closeable tab headers`)
+  completes P7-013b. The repository checkpoint described by this handoff also completes P6-006a/
   P6-006b's style-independent abstract `CheckButtonBase` and parent-hover image,
   P6-007a's concrete
   `CheckButton`, P6-008a's direct-sibling `RadioButton` behavior, P6-018a's
-  style-independent `ScrollViewer` core, P6-019a's split-pane core, P6-022a's
+  style-independent `ScrollViewer` core, P6-019a/P6-019b's split-pane core and
+  Desktop drag/cursor interaction, P6-022a's
   style-independent `Slider` core, P7-001/P7-002's generic selector contracts
   and collection-backed selection core, P7-003's `ListViewButton` grouping,
   P7-004a/P7-004b's collection-backed `ListView` core and dropdown keyboard/
@@ -396,8 +397,8 @@ capture remain open. `UPSTREAM_MANIFEST.md` records this per source.
 
 ## Whole-port progress estimate
 
-As of 2026-08-24 after P7-013b, `plan.md` has **183/327 checked tasks
-(56.0%)**. Equal checkbox counting overstates
+As of 2026-08-24 after P6-019b, `plan.md` has **184/328 checked tasks
+(56.1%)**. Equal checkbox counting overstates
 end-user parity because the
 largest remaining workstreams are font/rich text, Desktop/input, most controls,
 styles/default assets, selectors/windows/dialogs, DataGrid/PropertyGrid, and the
@@ -405,8 +406,8 @@ exhaustive release gate. The feature-weighted estimate is therefore **about
 30–35% of the complete Myra-CNA port**.
 
 All currently known technical work through P10-028 is estimated at
-**1,006–1,776 focused implementation/validation hours remaining**; use about
-**1,391 hours** as the planning midpoint or **1,000–2,000 hours** as the rounded
+**998–1,762 focused implementation/validation hours remaining**; use about
+**1,380 hours** as the planning midpoint or **1,000–2,000 hours** as the rounded
 range. This includes code, tests, documentation, integration, and the known
 project-owned test-fixture work. It assumes P3-004 and P0-015b receive prompt
 human decisions and excludes idle waiting/legal-review time. Choosing wholly
@@ -437,14 +438,14 @@ cmake -S ../cna -B build-cna-parent \
 CCACHE_DISABLE=1 cmake --build build-cna-parent --parallel 3
 ctest --test-dir build-cna-parent/_myra_cna \
   --output-on-failure --parallel 3
-# 343/343 tests passed with current modular CNA/sharp-runtime
+# 349/349 tests passed with current modular CNA/sharp-runtime
 
 ASAN_OPTIONS=detect_leaks=0 CCACHE_DISABLE=1 \
   cmake --build build-sanitize-parent --parallel 3
 ASAN_OPTIONS=detect_leaks=0 UBSAN_OPTIONS=print_stacktrace=1 \
   ctest --test-dir build-sanitize-parent/_myra_cna \
   --output-on-failure --parallel 3
-# 343/343 tests passed with ASan address checks and UBSan
+# 349/349 tests passed with ASan address checks and UBSan
 
 # focused CheckButtonBase/ButtonBase/registry/codec validation: 19/19 passed
 
@@ -469,6 +470,9 @@ ASAN_OPTIONS=detect_leaks=0 UBSAN_OPTIONS=print_stacktrace=1 \
 
 # P7-013b TabControl closeable/lifetime slice: focused linked and ASan+UBSan
 # 5/5; broad default 67/67, linked SOFTWARE 343/343, and ASan+UBSan 343/343 passed
+
+# P6-019b SplitPane drag/cursor slice: focused linked and ASan+UBSan 9/9;
+# broad default 67/67, linked SOFTWARE 349/349, and ASan+UBSan 349/349 passed
 
 # P5-010b Widget hit-test core: focused DesktopInput 9/9 and related input/
 # scrolling subset 17/17; broad default 66/66, linked SOFTWARE 311/311, and
@@ -623,7 +627,7 @@ was disabled because LeakSanitizer cannot run under this environment's
    P0-016a's original PNG/BMFont/stylesheet replacements only when their
    affected asset tests become implementable.
 4. P0-023, P5-008i, P5-010a, P5-010b, P5-010c, P5-010d, P5-012, P5-016a, P5-016b, P5-017a, P5-019a, P5-019b, P5-019c, P6-001a, P6-003a, P6-004a, P6-005a,
-   P6-006a, P6-006b, P6-007a, P6-008a, P6-009a, P6-018a, P6-019a, P6-021a, P6-022a, P7-001–P7-003, P7-004a, P7-004b, P7-005a, P7-005b, P7-006, P7-008, P7-012a–P7-016a, and P7-016b are complete. Keep full
+   P6-006a, P6-006b, P6-007a, P6-008a, P6-009a, P6-018a, P6-019a, P6-019b, P6-021a, P6-022a, P7-001–P7-003, P7-004a, P7-004b, P7-005a, P7-005b, P7-006, P7-008, P7-012a–P7-016a, and P7-016b are complete. Keep full
    P6-006/P6-007/P6-008 style work in P8-003, and keep Slider's
    remaining stylesheet work in P6-022/P8-005; do not reopen P6-005's Label/style-
    dependent remainder before P6-002/P8-003. TreeView now owns a reciprocal node
@@ -773,6 +777,12 @@ was disabled because LeakSanitizer cannot run under this environment's
   native-safe scroll arithmetic. Stylesheet construction/application and MML
   metadata remain P6-018/P8-004; null visual handles intentionally remain
   zero-size/non-rendering until those styles provide them.
+- `SplitPane` is complete for P6-019a's style-independent ownership/layout core
+  plus P6-019b's horizontal/vertical handle drag, Desktop-wide movement and
+  release capture, cursor switching, multi-handle offsets, and native-safe
+  callback/geometry behavior (`DEV-078`). Without `HandleStyle`, handles remain
+  zero-size unless callers assign dimensions directly; handle visuals, style
+  construction, and MML metadata remain P6-019/P6-020/P8-004.
 - `ToggleButton` is complete only for P6-005a's style-independent core.
   Stylesheet construction/dictionary lookup and Label-dependent convenience
   creation remain P6-002/P6-005/P8-003. The selected upstream behavior is
@@ -822,7 +832,10 @@ HEADLESS and SDL_RENDERER-on-Xvfb each passed the 44/44 graphics subset and full
 172/172 suite at the P2-022 milestone. The current SDL_RENDERER tree, including
 the explicit display smoke and all work since then, passes 199/199 on Xvfb.
 The current default, linked SOFTWARE, and ASan+UBSan suites pass
-67/67, 343/343, and 343/343 respectively. P7-013b passes all 5/5 focused
+67/67, 349/349, and 349/349 respectively. P6-019b passes all 9/9 focused
+SplitPane tests, including both orientations, later-handle cell offsets,
+out-of-bounds capture/global release, cursor restoration, degenerate geometry,
+reset/destruction detachment, and reentrant removal. P7-013b passes all 5/5 focused
 TabControl tests, including closeable header selection/removal, rebuild
 detachment, clone structure, and retained-button lifetime invalidation.
 P7-016b passes all 5/5 focused
@@ -893,7 +906,8 @@ while caller-provided external-asset callbacks are already usable. P5-010b,
 P5-010c, P5-010d, P5-012, P5-016a, P5-016b, P5-017a, P5-019a, P5-019b, and P5-019c are complete. P7-004b/P7-005b complete the dependency-safe
 ListView/ComboView dropdown and keyboard slice, P7-016b completes TreeView row
 pointer interaction, and P7-013b completes closeable TabControl headers plus
-native callback detachment. The P7-017 audit confirmed that a faithful Window still
+native callback detachment. P6-019b completes SplitPane's dependency-safe drag,
+cursor, and native lifetime slice; only its style/MML remainder stays open. The P7-017 audit confirmed that a faithful Window still
 needs Label even though the Desktop placement/focus/removal foundation now
 exists. Menu/Desktop submenu placement still waits for the unported visual
 item-grid/Label composition; audit the remaining style-independent simple

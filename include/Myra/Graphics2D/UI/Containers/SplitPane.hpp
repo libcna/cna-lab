@@ -7,7 +7,9 @@
 #pragma once
 
 #include <cstddef>
+#include <cstdint>
 #include <memory>
+#include <optional>
 #include <vector>
 
 #include "Myra/Events/MyraEventHandler.hpp"
@@ -21,7 +23,7 @@ namespace Myra::Graphics2D::UI
     class SplitPane : public Widget, public IContainer
     {
       public:
-        ~SplitPane() override = default;
+        ~SplitPane() override;
 
         Events::MyraEventHandler ProportionsChanged;
 
@@ -36,21 +38,48 @@ namespace Myra::Graphics2D::UI
         [[nodiscard]] float GetSplitterPosition(int leftWidgetIndex) const;
         void SetSplitterPosition(int leftWidgetIndex, float proportion);
         void Reset();
+        void OnTouchMoved() override;
 
       protected:
         SplitPane();
+        void OnPlacedChanged() override;
         void CopyFrom(const Widget &source) override;
 
       private:
+        struct CallbackState final
+        {
+            SplitPane *Owner = nullptr;
+        };
+
+        struct HandleSubscription final
+        {
+            std::shared_ptr<Button> Handle;
+            Events::MyraEventHandler::Token Token = Events::MyraEventHandler::InvalidToken;
+        };
+
         [[nodiscard]] const ProportionCollection &GetActiveProportions() const noexcept;
         [[nodiscard]] ProportionCollection &GetActiveProportions() noexcept;
         void GetProportions(int leftWidgetIndex, std::shared_ptr<Proportion> &left, std::shared_ptr<Proportion> &right,
                             float &total) const;
+        void HandleOnPressedChanged(void *sender);
+        void BeginHandleDrag(const std::shared_ptr<Button> &handle);
+        void EndHandleDrag();
+        void UpdateHandleDrag();
+        void SubscribeDesktopTouchMoved();
+        void UnsubscribeDesktopTouchMoved() noexcept;
+        void DesktopTouchMoved();
+        void ClearHandleSubscriptions() noexcept;
         void FireProportionsChanged();
 
         GridLayout layout_;
         std::vector<std::shared_ptr<Widget>> widgets_;
         std::vector<std::shared_ptr<Button>> handles_;
+        std::shared_ptr<CallbackState> callbackState_;
+        std::vector<HandleSubscription> handleSubscriptions_;
+        std::shared_ptr<Button> activeHandle_;
+        std::optional<std::int64_t> mouseCoord_;
+        Desktop *touchMovedSubscriptionDesktop_ = nullptr;
+        Events::MyraEventHandler::Token touchMovedToken_ = Events::MyraEventHandler::InvalidToken;
     };
 
     /** @brief Split pane whose logical widgets are arranged left-to-right. */
