@@ -3,10 +3,10 @@
 ## Current state
 
 - Active branch: `develop`.
-- Current committed baseline `795d93f` (`test: complete phase one parity coverage`)
-  completes P1-022. The repository checkpoint described by this handoff also
-  completes P10-019's README, prerequisites, build/consumer guidance, explicit
-  integration limits, and dual-mode minimal example, along with P1-022's
+- Current committed baseline `616b389` (`docs: complete project README`)
+  completes P10-019. The repository checkpoint described by this handoff also
+  completes P10-026's automated headers-only/linked boundary verification,
+  along with P1-022's
   complete Phase 1 regression coverage and P6-006a/
   P6-006b's style-independent abstract `CheckButtonBase` and parent-hover image,
   P6-007a's concrete
@@ -434,8 +434,8 @@ capture remain open. `UPSTREAM_MANIFEST.md` records this per source.
 
 ## Whole-port progress estimate
 
-As of 2026-08-24 after P10-019, `plan.md` has **201/342 checked tasks
-(58.8%)**. Equal checkbox counting overstates
+As of 2026-08-24 after P10-026, `plan.md` has **202/342 checked tasks
+(59.1%)**. Equal checkbox counting overstates
 end-user parity because the
 largest remaining workstreams are font/rich text, Desktop/input, most controls,
 styles/default assets, selectors/windows/dialogs, DataGrid/PropertyGrid, and the
@@ -443,8 +443,8 @@ exhaustive release gate. The feature-weighted estimate is therefore **about
 30–35% of the complete Myra-CNA port**.
 
 All currently known technical work through P10-028 is estimated at
-**962–1,690 focused implementation/validation hours remaining**; use about
-**1,326 hours** as the planning midpoint or **1,000–2,000 hours** as the rounded
+**958–1,682 focused implementation/validation hours remaining**; use about
+**1,320 hours** as the planning midpoint or **1,000–2,000 hours** as the rounded
 range. This includes code, tests, documentation, integration, and the known
 project-owned test-fixture work. It assumes P3-004 and P0-015b receive prompt
 human decisions and excludes idle waiting/legal-review time. Choosing wholly
@@ -465,7 +465,7 @@ all tests that existed at that checkpoint:
 ```bash
 cmake --build build --parallel 3
 ctest --test-dir build --output-on-failure --parallel 3
-# 67/67 tests passed
+# 68/68 tests passed
 
 cmake -S ../cna -B build-cna-parent \
   -DCMAKE_PROJECT_CNA_INCLUDE="$PWD/cmake/AddMyraCnaToCnaBuild.cmake" \
@@ -475,14 +475,17 @@ cmake -S ../cna -B build-cna-parent \
 CCACHE_DISABLE=1 cmake --build build-cna-parent --parallel 3
 ctest --test-dir build-cna-parent/_myra_cna \
   --output-on-failure --parallel 3
-# 377/377 tests passed with current modular CNA/sharp-runtime
+# 378/378 tests passed with current modular CNA/sharp-runtime
 
 ASAN_OPTIONS=detect_leaks=0 CCACHE_DISABLE=1 \
   cmake --build build-sanitize-parent --parallel 3
 ASAN_OPTIONS=detect_leaks=0 UBSAN_OPTIONS=print_stacktrace=1 \
   ctest --test-dir build-sanitize-parent/_myra_cna \
   --output-on-failure --parallel 3
-# 377/377 tests passed with ASan address checks and UBSan
+# 378/378 tests passed with ASan address checks and UBSan
+
+# P10-026 integration-mode verification: focused default 2/2 and linked 1/1;
+# broad default 68/68, linked SOFTWARE 378/378, and ASan+UBSan 378/378 passed
 
 # P10-019 README/minimal consumer example: bootstrap and linked SOFTWARE
 # example builds/runs passed; broad default 67/67, linked SOFTWARE 377/377,
@@ -717,7 +720,7 @@ was disabled because LeakSanitizer cannot run under this environment's
    P0-016a's original PNG/BMFont/stylesheet replacements only when their
    affected asset tests become implementable.
 4. P0-023, P1-022, P5-008i, P5-010a, P5-010b, P5-010c, P5-010d, P5-012, P5-016a, P5-016b, P5-016c, P5-016d, P5-017a, P5-018a, P5-019a, P5-019b, P5-019c, P6-001a, P6-003a, P6-004a, P6-005a,
-   P6-006a, P6-006b, P6-007a, P6-008a, P6-009a, P6-013c, P6-016c, P6-018a, P6-018b, P6-019a, P6-019b, P6-019c, P6-021a, P6-022a, P7-001–P7-004, P7-005a, P7-005b, P7-005c, P7-006, P7-007a, P7-007b, P7-008, P7-009a, P7-009b, P7-010a, P7-011a, P7-012a, P7-012b, P7-013a, P7-013b, P7-013c, P7-014, P7-015a, P7-016a, P7-016b, P7-016c, and P10-019 are complete. Keep full
+   P6-006a, P6-006b, P6-007a, P6-008a, P6-009a, P6-013c, P6-016c, P6-018a, P6-018b, P6-019a, P6-019b, P6-019c, P6-021a, P6-022a, P7-001–P7-004, P7-005a, P7-005b, P7-005c, P7-006, P7-007a, P7-007b, P7-008, P7-009a, P7-009b, P7-010a, P7-011a, P7-012a, P7-012b, P7-013a, P7-013b, P7-013c, P7-014, P7-015a, P7-016a, P7-016b, P7-016c, P10-019, and P10-026 are complete. Keep full
    P6-006/P6-007/P6-008 style work in P8-003, and keep Slider's
    remaining stylesheet work in P6-022/P8-005; do not reopen P6-005's Label/style-
    dependent remainder before P6-002/P8-003. TreeView now owns a reciprocal node
@@ -984,8 +987,10 @@ HEADLESS and SDL_RENDERER-on-Xvfb each passed the 44/44 graphics subset and full
 172/172 suite at the P2-022 milestone. The current SDL_RENDERER tree, including
 the explicit display smoke and all work since then, passes 199/199 on Xvfb.
 The current default, linked SOFTWARE, and ASan+UBSan suites pass
-67/67, 377/377, and 377/377 respectively. P10-019 completes the README contract
+68/68, 378/378, and 378/378 respectively. P10-019 completes the README contract
 and its minimal consumer builds/runs in both headers-only and linked CNA modes.
+P10-026 turns that integration boundary into an output-checked CTest and keeps
+the missing-backend Desktop diagnostic covered in the default suite.
 P1-022 closes Phase 1 with the exact
 six-scenario pinned event propagation matrix plus targeted coverage for every
 translated Phase 1 runtime type. P7-004 passes all 6/6 focused

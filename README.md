@@ -120,6 +120,15 @@ cmake --build build --parallel 3
 ctest --test-dir build --output-on-failure --parallel 3
 ```
 
+Here “headers-only compile-check mode” describes dependency resolution, not the
+shape of Myra-CNA itself: `Myra::CNA` is still a compiled static library. This
+mode consumes CNA and sharp-runtime headers but deliberately defers their
+libraries to a future consumer. It validates dependency-independent code,
+public-header compilation, provenance, and explicit missing-backend diagnostics;
+it cannot link an application that constructs CNA-backed widgets or renders a
+Desktop. The `myra_cna_minimal_consumer` CTest verifies this boundary and the
+same test constructs a widget tree in the linked configuration.
+
 Current modular CNA must remain the top-level CMake project. From the Myra-CNA
 repository root, use the project-specific include driver to add and link this
 project without enabling CNA's unrelated tests or examples:

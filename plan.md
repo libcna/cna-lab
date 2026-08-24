@@ -80,8 +80,8 @@ behavioral redesign.
 
 ### 1.4 Whole-port completion and remaining-effort estimate
 
-Checkpoint: 2026-08-24, after P10-019. The mechanical backlog count is
-**201/342 checked tasks (58.8%)**. The count is useful for
+Checkpoint: 2026-08-24, after P10-026. The mechanical backlog count is
+**202/342 checked tasks (59.1%)**. The count is useful for
 auditing plan state but is
 not a parity percentage: small foundation subtasks and large end-to-end
 features each count once, while the remaining font/text, Desktop/input,
@@ -105,10 +105,10 @@ are planning ranges rather than a delivery promise.
 | Phase 7 — selectors/windows/dialogs | 28/45 | 142–232 |
 | Phase 8 — styles/default skin | 0/14 | 140–240 |
 | Phase 9 — file/data/property grids | 1/21 | 180–320 |
-| Phase 10 — parity/release | 1/28 | 136–232 |
-| **Whole remaining technical port** | **201/342 complete** | **962–1,690** |
+| Phase 10 — parity/release | 2/28 | 132–224 |
+| **Whole remaining technical port** | **202/342 complete** | **958–1,682** |
 
-For scheduling, use **about 1,326 focused hours remaining** as the midpoint,
+For scheduling, use **about 1,320 focused hours remaining** as the midpoint,
 with **1,000–2,000 hours** as the sensible rounded range. This assumes prompt
 human decisions for P3-004 and P0-015b, no newly discovered upstream/CNA
 architectural blocker, and continued reuse of the existing tested foundations.
@@ -666,7 +666,7 @@ are green, and the build uses no more than three parallel jobs.
 - [ ] P10-023 Ensure CI and docs never invoke more than three compilation workers.
 - [ ] P10-024 Verify clean consumer integration through `add_subdirectory` with a parent CNA target.
 - [ ] P10-025 Verify standalone opt-in sibling-CNA configuration.
-- [ ] P10-026 Verify documented headers-only compile-check behavior and its limitations.
+- [x] P10-026 Verify documented headers-only compile-check behavior and its limitations. CTest runs the same minimal consumer in both configurations, requires the explicit compile-check result without linked CNA, and requires real widget construction when CNA is linked; the default Desktop stub test covers a rejected backend-dependent call.
 - [ ] P10-027 Perform a manual licence/provenance release audit.
 - [ ] P10-028 Tag the exact upstream revision and compatibility level in the first release notes.
 
