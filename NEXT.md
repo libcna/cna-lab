@@ -3,12 +3,13 @@
 ## Current state
 
 - Active branch: `develop`.
-- Current committed baseline `6a60cf3` (`feat: render tree view row brushes`)
-  completes P7-016c. The repository checkpoint described by this handoff also completes P6-006a/
+- Current committed baseline `1d83b15` (`feat: add grid selection interaction`)
+  completes P6-016c. The repository checkpoint described by this handoff also completes P6-006a/
   P6-006b's style-independent abstract `CheckButtonBase` and parent-hover image,
   P6-007a's concrete
   `CheckButton`, P6-008a's direct-sibling `RadioButton` behavior, P6-018a/P6-018b's
-  style-independent `ScrollViewer` core and MML round trips, P6-016c's Grid
+  style-independent `ScrollViewer` core and MML round trips, P6-013c's StackPanel
+  debug rendering/clone/MML surface, P6-016c's Grid
   selection/input/render and MML core, P6-019a/P6-019b/P6-019c's split-pane
   core, `Container` fidelity, Desktop drag/cursor interaction, and MML round
   trips, P6-022a's
@@ -131,7 +132,9 @@ and a manifest entry. The current ported surface includes:
   deferred.
 - `StackPanelLayout`, `StackPanel`, `HorizontalStackPanel`, and
   `VerticalStackPanel` layout subsets, including spacing, attached
-  proportions, and explicit observable proportion collections.
+  proportions, explicit observable proportion collections, exact horizontal/
+  vertical debug-divider rendering, clone state, and dependency-safe
+  `ShowGridLines` MML metadata. Styles and Color MML remain deferred.
 - MML `ITypeSerializer`/`TypeSerializer<T>` and invariant Vector2, Thickness,
   and Rectangle serializers.
 - An MML `ValueCodecRegistry` for invariant primitive values, C++ optionals,
@@ -426,8 +429,8 @@ capture remain open. `UPSTREAM_MANIFEST.md` records this per source.
 
 ## Whole-port progress estimate
 
-As of 2026-08-24 after P6-016c, `plan.md` has **197/341 checked tasks
-(57.8%)**. Equal checkbox counting overstates
+As of 2026-08-24 after P6-013c, `plan.md` has **198/342 checked tasks
+(57.9%)**. Equal checkbox counting overstates
 end-user parity because the
 largest remaining workstreams are font/rich text, Desktop/input, most controls,
 styles/default assets, selectors/windows/dialogs, DataGrid/PropertyGrid, and the
@@ -467,14 +470,14 @@ cmake -S ../cna -B build-cna-parent \
 CCACHE_DISABLE=1 cmake --build build-cna-parent --parallel 3
 ctest --test-dir build-cna-parent/_myra_cna \
   --output-on-failure --parallel 3
-# 373/373 tests passed with current modular CNA/sharp-runtime
+# 375/375 tests passed with current modular CNA/sharp-runtime
 
 ASAN_OPTIONS=detect_leaks=0 CCACHE_DISABLE=1 \
   cmake --build build-sanitize-parent --parallel 3
 ASAN_OPTIONS=detect_leaks=0 UBSAN_OPTIONS=print_stacktrace=1 \
   ctest --test-dir build-sanitize-parent/_myra_cna \
   --output-on-failure --parallel 3
-# 373/373 tests passed with ASan address checks and UBSan
+# 375/375 tests passed with ASan address checks and UBSan
 
 # focused CheckButtonBase/ButtonBase/registry/codec validation: 19/19 passed
 
@@ -541,6 +544,9 @@ ASAN_OPTIONS=detect_leaks=0 UBSAN_OPTIONS=print_stacktrace=1 \
 
 # P6-016c Grid selection/input/render/MML core: focused linked and ASan+UBSan 5/5;
 # broad default 67/67, linked SOFTWARE 373/373, and ASan+UBSan 373/373 passed
+
+# P6-013c StackPanel debug-render/clone/MML core: focused linked and ASan+UBSan 6/6;
+# broad default 67/67, linked SOFTWARE 375/375, and ASan+UBSan 375/375 passed
 
 # P5-010b Widget hit-test core: focused DesktopInput 9/9 and related input/
 # scrolling subset 17/17; broad default 66/66, linked SOFTWARE 311/311, and
@@ -695,7 +701,7 @@ was disabled because LeakSanitizer cannot run under this environment's
    P0-016a's original PNG/BMFont/stylesheet replacements only when their
    affected asset tests become implementable.
 4. P0-023, P5-008i, P5-010a, P5-010b, P5-010c, P5-010d, P5-012, P5-016a, P5-016b, P5-016c, P5-016d, P5-017a, P5-018a, P5-019a, P5-019b, P5-019c, P6-001a, P6-003a, P6-004a, P6-005a,
-   P6-006a, P6-006b, P6-007a, P6-008a, P6-009a, P6-016c, P6-018a, P6-018b, P6-019a, P6-019b, P6-019c, P6-021a, P6-022a, P7-001–P7-003, P7-004a, P7-004b, P7-004c, P7-005a, P7-005b, P7-005c, P7-006, P7-007a, P7-007b, P7-008, P7-009a, P7-009b, P7-010a, P7-011a, P7-012a, P7-012b, P7-013a, P7-013b, P7-013c, P7-014, P7-015a, P7-016a, P7-016b, and P7-016c are complete. Keep full
+   P6-006a, P6-006b, P6-007a, P6-008a, P6-009a, P6-013c, P6-016c, P6-018a, P6-018b, P6-019a, P6-019b, P6-019c, P6-021a, P6-022a, P7-001–P7-003, P7-004a, P7-004b, P7-004c, P7-005a, P7-005b, P7-005c, P7-006, P7-007a, P7-007b, P7-008, P7-009a, P7-009b, P7-010a, P7-011a, P7-012a, P7-012b, P7-013a, P7-013b, P7-013c, P7-014, P7-015a, P7-016a, P7-016b, and P7-016c are complete. Keep full
    P6-006/P6-007/P6-008 style work in P8-003, and keep Slider's
    remaining stylesheet work in P6-022/P8-005; do not reopen P6-005's Label/style-
    dependent remainder before P6-002/P8-003. TreeView now owns a reciprocal node
@@ -842,7 +848,9 @@ was disabled because LeakSanitizer cannot run under this environment's
   selection, while public indices and coordinate arithmetic fail
   deterministically (`DEV-083`). Grid stylesheet application and
   `GridLinesColor` MML wait for P6-016/P8-004 and the shared Color codec.
-  StackPanel remains a layout subset with styles/debug rendering pending. Both
+  StackPanel now also has exact horizontal/vertical debug rendering, clone
+  state, and `ShowGridLines` MML; only stylesheet application and Color MML
+  remain. Both
   proportion collections map upstream observable references to sharp-runtime
   `ObservableCollection<std::shared_ptr<Proportion>>`; see accepted `DEV-014`.
 - The separator hierarchy is complete only for its dependency-safe core. Its
@@ -957,7 +965,9 @@ HEADLESS and SDL_RENDERER-on-Xvfb each passed the 44/44 graphics subset and full
 172/172 suite at the P2-022 milestone. The current SDL_RENDERER tree, including
 the explicit display smoke and all work since then, passes 199/199 on Xvfb.
 The current default, linked SOFTWARE, and ASan+UBSan suites pass
-67/67, 373/373, and 373/373 respectively. P6-016c passes all 5/5 focused Grid
+67/67, 375/375, and 375/375 respectively. P6-013c passes all 6/6 focused
+StackPanel tests in both linked configurations, covering both divider axes,
+exact geometry/color, clone state, and dependency-safe MML. P6-016c passes all 5/5 focused Grid
 tests in both linked configurations, covering row/column/cell event and pointer
 state, exact selection/debug geometry and order, cloning, MML, invalid indices,
 and reentrant brush mutation. P7-016c passes all 6/6 focused
@@ -1074,7 +1084,7 @@ control-specific drag paths, and replacement fixtures. If P3-004 is later
 approved, begin with P3-005's narrow abstraction and P3-006's explicit index-domain contract
 before introducing rasterizer code. P4-019 remains open only for future widget types,
 while caller-provided external-asset callbacks are already usable. P5-010b,
-P5-010c, P5-010d, P5-012, P5-016a, P5-016b, P5-016c, P5-016d, P5-017a, P5-018a, P5-019a, P5-019b, and P5-019c are complete. P6-016c completes Grid's dependency-safe selection, pointer, render/debug-line, clone, and MML core; styles and Color MML remain deferred. P7-004b/P7-004c/P7-005b/P7-005c complete the dependency-safe
+P5-010c, P5-010d, P5-012, P5-016a, P5-016b, P5-016c, P5-016d, P5-017a, P5-018a, P5-019a, P5-019b, and P5-019c are complete. P6-013c completes StackPanel debug rendering, clone state, and dependency-safe MML; P6-016c completes Grid's dependency-safe selection, pointer, render/debug-line, clone, and MML core. Their styles and Color MML remain deferred. P7-004b/P7-004c/P7-005b/P7-005c complete the dependency-safe
 ListView/ComboView dropdown, keyboard, and MML slices; P7-007b/P7-009b add the
 dependency-safe heterogeneous menu-item and concrete menu MML surfaces; P7-012b adds TabItem's
 dependency-safe MML surface; P7-016b/P7-016c complete TreeView row pointer

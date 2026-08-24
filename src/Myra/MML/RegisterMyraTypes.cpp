@@ -1295,6 +1295,9 @@ namespace Myra::MML
                 "Orientation", typeid(Orientation), [](const void *object)
                 { return std::any(static_cast<const StackPanel *>(object)->getOrientationProperty()); }, {},
                 std::nullopt, std::move(orientationMetadata)));
+            descriptor.AddProperty(MakeScalarProperty<StackPanel, bool>(
+                "ShowGridLines", [](const StackPanel &object) { return object.getShowGridLinesProperty(); },
+                [](StackPanel &object, const bool value) { object.setShowGridLinesProperty(value); }, false));
             descriptor.AddProperty(MakeScalarProperty<StackPanel, int>(
                 "Spacing", [](const StackPanel &object) { return object.getSpacingProperty(); },
                 [](StackPanel &object, const int value) { object.setSpacingProperty(value); }, 0));

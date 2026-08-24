@@ -80,8 +80,8 @@ behavioral redesign.
 
 ### 1.4 Whole-port completion and remaining-effort estimate
 
-Checkpoint: 2026-08-24, after P6-016c. The mechanical backlog count is
-**197/341 checked tasks (57.8%)**. The count is useful for
+Checkpoint: 2026-08-24, after P6-013c. The mechanical backlog count is
+**198/342 checked tasks (57.9%)**. The count is useful for
 auditing plan state but is
 not a parity percentage: small foundation subtasks and large end-to-end
 features each count once, while the remaining font/text, Desktop/input,
@@ -101,12 +101,12 @@ are planning ranges rather than a delivery promise.
 | Phase 3 — font/text/assets | 4/21 | 180–300 |
 | Phase 4 — MML/XML | 31/36 | 40–80 |
 | Phase 5 — Widget/Desktop/input | 44/51 | 0–0 |
-| Phase 6 — controls/editing | 25/52 | 96–158 |
+| Phase 6 — controls/editing | 26/53 | 96–158 |
 | Phase 7 — selectors/windows/dialogs | 27/45 | 142–232 |
 | Phase 8 — styles/default skin | 0/14 | 140–240 |
 | Phase 9 — file/data/property grids | 1/21 | 180–320 |
 | Phase 10 — parity/release | 0/28 | 140–240 |
-| **Whole remaining technical port** | **197/341 complete** | **982–1,730** |
+| **Whole remaining technical port** | **198/342 complete** | **982–1,730** |
 
 For scheduling, use **about 1,356 focused hours remaining** as the midpoint,
 with **1,000–2,000 hours** as the sensible rounded range. This assumes prompt
@@ -520,7 +520,8 @@ are green, and the build uses no more than three parallel jobs.
 - [ ] P6-012 Port `Containers/Panel.cs`.
 - [x] P6-013a Implement the layout and attached-proportion subset of `Containers/StackPanel.cs`.
 - [x] P6-013b Restore `ObservableCollection<Proportion>` semantics for the layout subset, using retained C++ proportion ownership and sharp-runtime collection notifications.
-- [ ] P6-013 Port `Containers/StackPanel.cs` styles and debug rendering.
+- [x] P6-013c Port StackPanel's dependency-safe debug surface: `ShowGridLines`, `GridLinesColor`, exact post-child horizontal/vertical divider rendering, clone state, and boolean MML metadata. Keep `GridLinesColor` MML blocked on the shared Color codec.
+- [ ] P6-013 Port the remaining `Containers/StackPanel.cs` stylesheet construction/application and register `GridLinesColor` after the shared Color MML decision.
 - [x] P6-014a Implement the layout subset of `Containers/HorizontalStackPanel.cs`.
 - [ ] P6-014 Port `Containers/HorizontalStackPanel.cs` style integration.
 - [x] P6-015a Implement the layout subset of `Containers/VerticalStackPanel.cs`.
