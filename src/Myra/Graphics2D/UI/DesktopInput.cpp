@@ -200,6 +200,25 @@ namespace Myra::Graphics2D::UI
         UpdateMouseInput();
     }
 
+    void Desktop::ProcessWidgetInput()
+    {
+        inputContext_.Reset();
+        const std::vector<std::shared_ptr<Widget>> roots = getChildrenCopyProperty();
+        for (auto iterator = roots.rbegin(); iterator != roots.rend(); ++iterator)
+        {
+            (*iterator)->ProcessInput(inputContext_);
+        }
+
+        if (inputContext_.MouseWheelWidget != nullptr)
+        {
+            std::shared_ptr<Widget> retainedTarget = RetainWidget(inputContext_.MouseWheelWidget);
+            if (retainedTarget)
+            {
+                InputEventsManager::Queue(std::move(retainedTarget), InputEventType::MouseWheel);
+            }
+        }
+    }
+
     void Desktop::OnKeyDown(const Keys key)
     {
         Utility::EventsExtensions::Invoke(KeyDown, key, InputEventType::KeyDown);

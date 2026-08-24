@@ -167,8 +167,14 @@ namespace Myra::Graphics2D::UI
         return verticalScrollingOn_;
     }
 
+    bool ScrollViewer::getAcceptsMouseWheelProperty() const noexcept
+    {
+        return verticalScrollingOn_;
+    }
+
     void ScrollViewer::OnMouseWheel(const float delta)
     {
+        Widget::OnMouseWheel(delta);
         if (!verticalScrollingOn_)
         {
             return;

@@ -134,6 +134,7 @@ namespace Myra::Graphics2D::UI
 
     void ListView::OnMouseWheel(const float delta)
     {
+        Widget::OnMouseWheel(delta);
         scrollViewer_->OnMouseWheel(delta);
     }
 

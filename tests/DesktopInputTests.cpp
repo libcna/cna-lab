@@ -8,8 +8,11 @@
 #include <array>
 #include <memory>
 #include <optional>
+#include <string>
 #include <vector>
 
+#include "Microsoft/Xna/Framework/Color.hpp"
+#include "Myra/Graphics2D/IBrush.hpp"
 #include "Myra/Graphics2D/UI/Containers/Panel.hpp"
 #include "Myra/Graphics2D/UI/InputEventsManager.hpp"
 #include "Myra/Graphics2D/UI/Selectors/HorizontalMenu.hpp"
@@ -23,6 +26,8 @@ namespace
     using Microsoft::Xna::Framework::Input::Keys;
     using Myra::MyraEnvironment;
     using Myra::Events::GenericEventArgs;
+    using Myra::Graphics2D::IBrush;
+    using Myra::Graphics2D::RenderContext;
     using Myra::Graphics2D::UI::Desktop;
     using Myra::Graphics2D::UI::HorizontalMenu;
     using Myra::Graphics2D::UI::InputEventsManager;
@@ -51,6 +56,48 @@ namespace
         }
     };
 
+    class NullBrush final : public IBrush
+    {
+      public:
+        void Draw(RenderContext &, Rectangle, Microsoft::Xna::Framework::Color) const override {}
+    };
+
+    class WheelProbeWidget final : public Widget
+    {
+      public:
+        explicit WheelProbeWidget(std::vector<float> &deltas) : deltas_(deltas) {}
+
+        void OnMouseWheel(const float delta) override
+        {
+            Widget::OnMouseWheel(delta);
+            deltas_.push_back(delta);
+        }
+
+      protected:
+        [[nodiscard]] bool getAcceptsMouseWheelProperty() const noexcept override { return true; }
+
+      private:
+        std::vector<float> &deltas_;
+    };
+
+    class WheelProbePanel final : public Panel
+    {
+      public:
+        explicit WheelProbePanel(std::vector<float> &deltas) : deltas_(deltas) {}
+
+        void OnMouseWheel(const float delta) override
+        {
+            Widget::OnMouseWheel(delta);
+            deltas_.push_back(delta);
+        }
+
+      protected:
+        [[nodiscard]] bool getAcceptsMouseWheelProperty() const noexcept override { return true; }
+
+      private:
+        std::vector<float> &deltas_;
+    };
+
     class DesktopInputTests : public testing::Test
     {
       protected:
@@ -64,6 +111,7 @@ namespace
         void TearDown() override
         {
             InputEventsManager::ProcessEvents();
+            MyraEnvironment::setEventHandlingModelProperty(Myra::Events::EventHandlingStrategy::EventCapturing);
             MyraEnvironment::setMouseInfoGetterProperty(std::move(oldMouseInfoGetter_));
             MyraEnvironment::setDownKeysGetterProperty(std::move(oldDownKeysGetter_));
         }
@@ -238,5 +286,210 @@ namespace
         desktop.OnKeyDown(Keys::Right);
         EXPECT_EQ(menu->getHoverIndexProperty(), 0);
         EXPECT_EQ(focused->keysDown, (std::vector<Keys>{Keys::A, Keys::A}));
+    }
+
+    TEST_F(DesktopInputTests, HitTestingTracksLocalMouseAndTouchTransitionsAndFocus)
+    {
+        MouseInfo snapshot{{25, 15}, false, false, false, 0.0F};
+        MyraEnvironment::setMouseInfoGetterProperty([&] { return snapshot; });
+        MyraEnvironment::setDownKeysGetterProperty([](MyraEnvironment::DownKeys &keys) { keys.fill(false); });
+
+        Desktop desktop;
+        desktop.setBoundsFetcherProperty([] { return Rectangle(0, 0, 100, 80); });
+        auto root = std::make_shared<Panel>();
+        auto child = std::make_shared<Widget>();
+        child->setLeftProperty(20);
+        child->setTopProperty(10);
+        child->setWidthProperty(40);
+        child->setHeightProperty(30);
+        child->setAcceptsKeyboardFocusProperty(true);
+        const auto normalBrush = std::make_shared<NullBrush>();
+        const auto overBrush = std::make_shared<NullBrush>();
+        child->setBackgroundProperty(normalBrush);
+        child->setOverBackgroundProperty(overBrush);
+        root->AddWidget(child);
+        desktop.AddWidget(root);
+        desktop.UpdateLayout();
+
+        std::vector<std::string> calls;
+        root->MouseEntered += [&](void *, Myra::Events::MyraEventArgs &) { calls.emplace_back("root:mouse-enter"); };
+        root->MouseMoved += [&](void *, Myra::Events::MyraEventArgs &) { calls.emplace_back("root:mouse-move"); };
+        root->TouchDown += [&](void *, Myra::Events::MyraEventArgs &) { calls.emplace_back("root:touch-down"); };
+        root->TouchMoved += [&](void *, Myra::Events::MyraEventArgs &) { calls.emplace_back("root:touch-move"); };
+        root->TouchUp += [&](void *, Myra::Events::MyraEventArgs &) { calls.emplace_back("root:touch-up"); };
+        child->MouseEntered += [&](void *, Myra::Events::MyraEventArgs &) { calls.emplace_back("child:mouse-enter"); };
+        child->MouseMoved += [&](void *, Myra::Events::MyraEventArgs &) { calls.emplace_back("child:mouse-move"); };
+        child->MouseLeft += [&](void *, Myra::Events::MyraEventArgs &) { calls.emplace_back("child:mouse-left"); };
+        child->TouchDown += [&](void *, Myra::Events::MyraEventArgs &) { calls.emplace_back("child:touch-down"); };
+        child->TouchLeft += [&](void *, Myra::Events::MyraEventArgs &) { calls.emplace_back("child:touch-left"); };
+
+        desktop.UpdateInput();
+        desktop.ProcessWidgetInput();
+        EXPECT_EQ(root->getLocalMousePositionProperty(), Point(25, 15));
+        EXPECT_EQ(child->getLocalMousePositionProperty(), Point(5, 5));
+        EXPECT_TRUE(root->getIsMouseInsideProperty());
+        EXPECT_TRUE(child->getIsMouseInsideProperty());
+        EXPECT_EQ(child->GetCurrentBackground(), overBrush);
+        InputEventsManager::ProcessEvents();
+        EXPECT_EQ(calls, (std::vector<std::string>{"root:mouse-enter", "child:mouse-enter"}));
+
+        calls.clear();
+        snapshot = {{30, 20}, true, false, false, 0.0F};
+        desktop.UpdateInput();
+        desktop.ProcessWidgetInput();
+        InputEventsManager::ProcessEvents();
+        EXPECT_EQ(calls, (std::vector<std::string>{"root:mouse-move", "root:touch-down", "child:mouse-move",
+                                                   "child:touch-down"}));
+        EXPECT_EQ(child->getLocalTouchPositionProperty(), Point(10, 10));
+        EXPECT_EQ(desktop.getFocusedKeyboardWidgetProperty(), child.get());
+
+        calls.clear();
+        snapshot = {{90, 70}, true, false, false, 0.0F};
+        desktop.UpdateInput();
+        desktop.ProcessWidgetInput();
+        InputEventsManager::ProcessEvents();
+        EXPECT_EQ(calls, (std::vector<std::string>{"root:mouse-move", "root:touch-move", "child:mouse-left",
+                                                   "child:touch-left"}));
+        EXPECT_FALSE(child->getIsMouseInsideProperty());
+        EXPECT_FALSE(child->getIsTouchInsideProperty());
+
+        calls.clear();
+        snapshot.IsLeftButtonDown = false;
+        desktop.UpdateInput();
+        desktop.ProcessWidgetInput();
+        InputEventsManager::ProcessEvents();
+        EXPECT_EQ(calls, (std::vector<std::string>{"root:touch-up"}));
+    }
+
+    TEST_F(DesktopInputTests, TransparentAndOpaqueTopRootsControlInputFallThrough)
+    {
+        MyraEnvironment::setMouseInfoGetterProperty([] { return MouseInfo{{10, 10}, false, false, false, 0.0F}; });
+        MyraEnvironment::setDownKeysGetterProperty([](MyraEnvironment::DownKeys &keys) { keys.fill(false); });
+
+        Desktop desktop;
+        desktop.setBoundsFetcherProperty([] { return Rectangle(0, 0, 100, 80); });
+        auto lower = std::make_shared<Panel>();
+        auto upper = std::make_shared<Panel>();
+        lower->setBackgroundProperty(std::make_shared<NullBrush>());
+        upper->setZIndexProperty(1);
+        desktop.AddWidget(lower);
+        desktop.AddWidget(upper);
+        desktop.UpdateLayout();
+
+        desktop.UpdateInput();
+        desktop.ProcessWidgetInput();
+        InputEventsManager::ProcessEvents();
+        EXPECT_TRUE(upper->getIsMouseInsideProperty());
+        EXPECT_TRUE(lower->getIsMouseInsideProperty());
+
+        int lowerLeft = 0;
+        lower->MouseLeft += [&](void *, Myra::Events::MyraEventArgs &) { ++lowerLeft; };
+        upper->setBackgroundProperty(std::make_shared<NullBrush>());
+        desktop.ProcessWidgetInput();
+        InputEventsManager::ProcessEvents();
+
+        EXPECT_TRUE(upper->getIsMouseInsideProperty());
+        EXPECT_FALSE(lower->getIsMouseInsideProperty());
+        EXPECT_EQ(lowerLeft, 1);
+    }
+
+    TEST_F(DesktopInputTests, BubblingDispatchesChildPointerTransitionsBeforeParentTransitions)
+    {
+        MyraEnvironment::setMouseInfoGetterProperty([] { return MouseInfo{{10, 10}, false, false, false, 0.0F}; });
+        MyraEnvironment::setDownKeysGetterProperty([](MyraEnvironment::DownKeys &keys) { keys.fill(false); });
+        MyraEnvironment::setEventHandlingModelProperty(Myra::Events::EventHandlingStrategy::EventBubbling);
+
+        Desktop desktop;
+        desktop.setBoundsFetcherProperty([] { return Rectangle(0, 0, 100, 80); });
+        auto root = std::make_shared<Panel>();
+        auto child = std::make_shared<Widget>();
+        child->setWidthProperty(30);
+        child->setHeightProperty(20);
+        root->AddWidget(child);
+        desktop.AddWidget(root);
+        desktop.UpdateLayout();
+
+        std::vector<std::string> calls;
+        root->MouseEntered += [&](void *, Myra::Events::MyraEventArgs &) { calls.emplace_back("root"); };
+        child->MouseEntered += [&](void *, Myra::Events::MyraEventArgs &) { calls.emplace_back("child"); };
+
+        desktop.UpdateInput();
+        desktop.ProcessWidgetInput();
+        InputEventsManager::ProcessEvents();
+
+        EXPECT_EQ(calls, (std::vector<std::string>{"child", "root"}));
+    }
+
+    TEST_F(DesktopInputTests, DeepestAcceptingWidgetReceivesTheWheelDelta)
+    {
+        MyraEnvironment::setMouseInfoGetterProperty([] { return MouseInfo{{15, 15}, false, false, false, 120.0F}; });
+        MyraEnvironment::setDownKeysGetterProperty([](MyraEnvironment::DownKeys &keys) { keys.fill(false); });
+
+        std::vector<float> parentDeltas;
+        std::vector<float> childDeltas;
+        Desktop desktop;
+        desktop.setBoundsFetcherProperty([] { return Rectangle(0, 0, 100, 80); });
+        auto parent = std::make_shared<WheelProbePanel>(parentDeltas);
+        auto child = std::make_shared<WheelProbeWidget>(childDeltas);
+        child->setWidthProperty(40);
+        child->setHeightProperty(30);
+        parent->AddWidget(child);
+        desktop.AddWidget(parent);
+        desktop.UpdateLayout();
+
+        std::vector<float> eventDeltas;
+        child->MouseWheelChanged += [&](void *sender, GenericEventArgs<float> &arguments)
+        {
+            EXPECT_EQ(sender, child.get());
+            eventDeltas.push_back(arguments.getDataProperty());
+        };
+
+        desktop.UpdateInput();
+        desktop.ProcessWidgetInput();
+        InputEventsManager::ProcessEvents();
+
+        EXPECT_TRUE(parentDeltas.empty());
+        EXPECT_EQ(childDeltas, (std::vector<float>{120.0F}));
+        EXPECT_EQ(eventDeltas, (std::vector<float>{120.0F}));
+    }
+
+    TEST_F(DesktopInputTests, QueuedChildTransitionSurvivesRemovalByAnEarlierParentCallback)
+    {
+        MyraEnvironment::setMouseInfoGetterProperty([] { return MouseInfo{{10, 10}, false, false, false, 0.0F}; });
+        MyraEnvironment::setDownKeysGetterProperty([](MyraEnvironment::DownKeys &keys) { keys.fill(false); });
+
+        Desktop desktop;
+        desktop.setBoundsFetcherProperty([] { return Rectangle(0, 0, 100, 80); });
+        auto root = std::make_shared<Panel>();
+        auto child = std::make_shared<Widget>();
+        child->setWidthProperty(30);
+        child->setHeightProperty(20);
+        Widget *const childAddress = child.get();
+        const std::weak_ptr<Widget> observer = child;
+        root->AddWidget(child);
+        desktop.AddWidget(root);
+        desktop.UpdateLayout();
+
+        bool childEntered = false;
+        root->MouseEntered += [&](void *, Myra::Events::MyraEventArgs &)
+        {
+            EXPECT_TRUE(root->RemoveWidget(childAddress));
+            child.reset();
+            EXPECT_FALSE(observer.expired());
+        };
+        child->MouseEntered += [&](void *sender, Myra::Events::MyraEventArgs &)
+        {
+            EXPECT_EQ(sender, childAddress);
+            EXPECT_FALSE(observer.expired());
+            childEntered = true;
+        };
+
+        desktop.UpdateInput();
+        desktop.ProcessWidgetInput();
+        InputEventsManager::ProcessEvents();
+
+        EXPECT_TRUE(childEntered);
+        static_cast<void>(root->getChildrenCopyProperty());
+        EXPECT_TRUE(observer.expired());
     }
 } // namespace

@@ -41,6 +41,7 @@ namespace Myra::Graphics2D
 namespace Myra::Graphics2D::UI
 {
     class Desktop;
+    class InputContext;
 
     /** @brief Specifies the directions in which a widget may be dragged. */
     enum class DragDirection
@@ -77,6 +78,7 @@ namespace Myra::Graphics2D::UI
         Events::MyraEventHandler TouchDown;
         Events::MyraEventHandler TouchUp;
         Events::MyraEventHandler TouchDoubleClick;
+        Events::MyraEventHandlerT<Events::GenericEventArgs<float>> MouseWheelChanged;
         Events::MyraEventHandlerT<
             Events::GenericEventArgs<Microsoft::Xna::Framework::Input::Keys>> KeyUp;
         Events::MyraEventHandlerT<
@@ -184,6 +186,13 @@ namespace Myra::Graphics2D::UI
         [[nodiscard]] Widget* getDragHandleProperty() const noexcept;
         void setDragHandleProperty(Widget* value) noexcept;
 
+        [[nodiscard]] bool getIsMouseInsideProperty() const noexcept;
+        [[nodiscard]] const std::optional<Microsoft::Xna::Framework::Point>&
+            getLocalMousePositionProperty() const noexcept;
+        [[nodiscard]] bool getIsTouchInsideProperty() const noexcept;
+        [[nodiscard]] const std::optional<Microsoft::Xna::Framework::Point>&
+            getLocalTouchPositionProperty() const noexcept;
+
         [[nodiscard]] Microsoft::Xna::Framework::Rectangle getBoundsProperty() const noexcept;
         [[nodiscard]] Microsoft::Xna::Framework::Rectangle getActualBoundsProperty() const;
         [[nodiscard]] const Microsoft::Xna::Framework::Rectangle& getContainerBoundsProperty() const noexcept;
@@ -285,6 +294,7 @@ namespace Myra::Graphics2D::UI
         virtual void OnMouseLeft();
         virtual void OnMouseEntered();
         virtual void OnMouseMoved();
+        virtual void OnMouseWheel(float delta);
         virtual void OnTouchLeft();
         virtual void OnTouchEntered();
         virtual void OnTouchMoved();
@@ -339,6 +349,12 @@ namespace Myra::Graphics2D::UI
         /** @brief Supplies the hover-state hook completed by P5-010 input tracking. */
         [[nodiscard]] virtual bool UseOverBackground() const noexcept;
 
+        /** @brief Reports whether this widget can become the current wheel target. */
+        [[nodiscard]] virtual bool getAcceptsMouseWheelProperty() const noexcept;
+
+        /** @brief Updates local pointer state and recursively hit-tests retained children. */
+        virtual void ProcessInput(InputContext& inputContext);
+
         [[nodiscard]] virtual Microsoft::Xna::Framework::Point InternalMeasure(
             Microsoft::Xna::Framework::Point availableSize);
         void FireKeyDown(Microsoft::Xna::Framework::Input::Keys key);
@@ -365,6 +381,11 @@ namespace Myra::Graphics2D::UI
 
         [[nodiscard]] const Graphics2D::Transform& getTransformProperty();
         void ProcessEvent(InputEventType eventType) override;
+        void QueueInputEvent(InputEventType eventType);
+        void setLocalMousePositionProperty(
+            std::optional<Microsoft::Xna::Framework::Point> value);
+        void setLocalTouchPositionProperty(
+            std::optional<Microsoft::Xna::Framework::Point> value);
         void setIsKeyboardFocusedProperty(bool value);
         void SetDesktop(Desktop* value);
         void UpdateTransform();
@@ -413,6 +434,8 @@ namespace Myra::Graphics2D::UI
         Microsoft::Xna::Framework::Vector2 transformOrigin_{0.5F, 0.5F};
         float rotation_ = 0.0F;
         Widget* dragHandle_ = nullptr;
+        std::optional<Microsoft::Xna::Framework::Point> localMousePosition_;
+        std::optional<Microsoft::Xna::Framework::Point> localTouchPosition_;
         bool transformDirty_ = true;
         std::optional<Graphics2D::Transform> transform_;
         Widget* parent_ = nullptr;

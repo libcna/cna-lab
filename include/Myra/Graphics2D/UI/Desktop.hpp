@@ -24,6 +24,7 @@
 #include "Myra/Events/GenericEventArgs.hpp"
 #include "Myra/Events/MyraEventHandler.hpp"
 #include "Myra/Graphics2D/Transform.hpp"
+#include "Myra/Graphics2D/UI/InputContext.hpp"
 #include "Myra/Graphics2D/UI/ITransformable.hpp"
 #include "Myra/Graphics2D/UI/MouseInfo.hpp"
 #include "Myra/Graphics2D/UI/Widget.hpp"
@@ -106,6 +107,8 @@ namespace Myra::Graphics2D::UI
         void UpdateMouseInput();
         void UpdateKeyboardInput();
         void UpdateInput();
+        /** @brief Hit-tests the current pointer snapshot and queues widget input transitions. */
+        void ProcessWidgetInput();
         void OnKeyDown(Microsoft::Xna::Framework::Input::Keys key);
 
         [[nodiscard]] float getOpacityProperty() const noexcept;
@@ -208,6 +211,7 @@ namespace Myra::Graphics2D::UI
         std::uint64_t layoutInvalidationVersion_ = 0;
         std::optional<Graphics2D::Transform> transform_;
         MouseInfo lastMouseInfo_;
+        InputContext inputContext_;
         std::array<bool, 0xff> downKeys_{};
         std::array<bool, 0xff> lastDownKeys_{};
         Microsoft::Xna::Framework::Point previousMousePosition_;

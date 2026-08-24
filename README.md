@@ -14,8 +14,10 @@ lays out retained roots, propagates placement and transforms, maintains stable
 Z-order and focus, and exposes traversal/menu/modal queries. Its input core
 polls injectable CNA mouse/key snapshots, tracks pointer/touch/wheel state,
 dispatches retained global events, repeats keys, moves Tab focus, and routes
-keys to menus or the focused widget. Desktop widget hit testing/hover/drag,
-rendering, context menus/tooltips, styles, fonts/rich text, most controls, Grid
+keys to menus or the focused widget. Reverse-Z widget hit testing now tracks
+local mouse/touch transitions, input fall-through, hover visuals, touch focus,
+and the deepest wheel target. Cursor/tooltip, double-click, capture/drag,
+Desktop rendering, context menus, styles, fonts/rich text, most controls, Grid
 selection/input, and the full upstream widget catalog are not implemented yet. Primitive, optional,
 explicitly mapped enum, and audited geometry codecs drive registry-backed XML
 loading/saving with defaults, skips, legacy/XML names, explicit external-asset

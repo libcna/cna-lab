@@ -1010,7 +1010,7 @@ namespace Myra::Graphics2D::UI
 
     bool Widget::UseOverBackground() const noexcept
     {
-        return false;
+        return getIsMouseInsideProperty();
     }
 
     Vector2 Widget::ToLocal(const Vector2 source)

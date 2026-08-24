@@ -565,14 +565,32 @@ namespace Myra::Graphics2D::UI
         {
             return nullptr;
         }
-        const Widget *root = widget;
-        while (root->parent_ != nullptr)
+
+        const auto findTarget = [&widget](auto &&self,
+                                          const std::shared_ptr<Widget> &current) -> std::shared_ptr<Widget>
         {
-            root = root->parent_;
+            if (current.get() == widget)
+            {
+                return current;
+            }
+            for (const std::shared_ptr<Widget> &child : current->getChildrenProperty())
+            {
+                if (std::shared_ptr<Widget> result = self(self, child))
+                {
+                    return result;
+                }
+            }
+            return nullptr;
+        };
+
+        for (const std::shared_ptr<Widget> &root : attachedRoots_)
+        {
+            if (std::shared_ptr<Widget> result = findTarget(findTarget, root))
+            {
+                return result;
+            }
         }
-        const auto iterator = std::find_if(attachedRoots_.begin(), attachedRoots_.end(),
-                                           [root](const auto &item) { return item.get() == root; });
-        return iterator == attachedRoots_.end() ? nullptr : *iterator;
+        return nullptr;
     }
 
     bool Desktop::ContainsWidget(const Widget &root, const Widget *const target) const

@@ -45,7 +45,7 @@ namespace Myra::Graphics2D::UI
         void setSelectedItemProperty(std::shared_ptr<Widget> value);
 
         /** @brief Forwards a wheel delta to the owned scroll viewer. */
-        void OnMouseWheel(float delta);
+        void OnMouseWheel(float delta) override;
 
       protected:
         [[nodiscard]] std::shared_ptr<Widget> CreateCloneInstance() const override;

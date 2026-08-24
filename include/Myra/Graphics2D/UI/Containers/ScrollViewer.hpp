@@ -55,11 +55,12 @@ namespace Myra::Graphics2D::UI
         [[nodiscard]] bool getHorizontalScrollingOnProperty() const noexcept;
         [[nodiscard]] bool getVerticalScrollingOnProperty() const noexcept;
 
-        /** @brief Scrolls vertically when invoked by a parent or future Desktop wheel dispatch. */
-        void OnMouseWheel(float delta);
+        /** @brief Scrolls vertically when invoked by Desktop wheel dispatch. */
+        void OnMouseWheel(float delta) override;
         void InternalRender(Graphics2D::RenderContext &context) override;
 
       protected:
+        [[nodiscard]] bool getAcceptsMouseWheelProperty() const noexcept override;
         [[nodiscard]] Microsoft::Xna::Framework::Point
         InternalMeasure(Microsoft::Xna::Framework::Point availableSize) override;
         void InternalArrange() override;
