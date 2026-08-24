@@ -80,8 +80,8 @@ behavioral redesign.
 
 ### 1.4 Whole-port completion and remaining-effort estimate
 
-Checkpoint: 2026-08-24, after P5-019b. The mechanical backlog count is
-**175/319 checked tasks (54.9%)**. The count is useful for
+Checkpoint: 2026-08-24, after P5-019c. The mechanical backlog count is
+**176/320 checked tasks (55.0%)**. The count is useful for
 auditing plan state but is
 not a parity percentage: small foundation subtasks and large end-to-end
 features each count once, while the remaining font/text, Desktop/input,
@@ -100,15 +100,15 @@ are planning ranges rather than a delivery promise.
 | Phase 2 — CNA graphics | 20/24 | 24–48 |
 | Phase 3 — font/text/assets | 4/21 | 180–300 |
 | Phase 4 — MML/XML | 31/36 | 40–80 |
-| Phase 5 — Widget/Desktop/input | 38/45 | 20–34 |
+| Phase 5 — Widget/Desktop/input | 39/46 | 14–22 |
 | Phase 6 — controls/editing | 20/47 | 110–184 |
 | Phase 7 — selectors/windows/dialogs | 16/34 | 180–300 |
 | Phase 8 — styles/default skin | 0/14 | 140–240 |
 | Phase 9 — file/data/property grids | 1/21 | 180–320 |
 | Phase 10 — parity/release | 0/28 | 140–240 |
-| **Whole remaining technical port** | **175/319 complete** | **1,054–1,858** |
+| **Whole remaining technical port** | **176/320 complete** | **1,048–1,846** |
 
-For scheduling, use **about 1,456 focused hours remaining** as the midpoint,
+For scheduling, use **about 1,447 focused hours remaining** as the midpoint,
 with **1,100–2,000 hours** as the sensible rounded range. This assumes prompt
 human decisions for P3-004 and P0-015b, no newly discovered upstream/CNA
 architectural blocker, and continued reuse of the existing tested foundations.
@@ -480,7 +480,8 @@ are green, and the build uses no more than three parallel jobs.
 - [ ] P5-018 Add CNA `TextInputEXT` subscription lifecycle to Desktop/TextBox focus transitions.
 - [x] P5-019a Port the generic Widget drag-capture core: arm only through the retained in-tree `DragHandle`, subscribe draggable roots/children to Desktop/parent movement and release events, preserve horizontal/vertical flags and upstream bounds-clamp order, and reset capture on release/detach. Tokenized subscriptions retain exact callback targets and detach before native owner links change (`DEV-067`); checked float conversion and widened coordinate arithmetic reject C++ overflow without changing valid movement (`DEV-068`).
 - [x] P5-019b Port the first consumer-specific capture/wheel slice for `Button` and `Slider`: non-releasing buttons reset pressed state on Desktop-wide touch-up, sliders track a pressed knob through Desktop movement beyond local bounds, touch-to-value mapping preserves both orientations and the selected event order, and deepest-target wheel routing honors `WheelAdjustment`/`WheelStep`. Exact retained callback targets, tokenized detach, and clone preservation keep reentrant removal safe (`DEV-069`); widened hint arithmetic rejects native overflow without changing representable geometry (`DEV-070`). Preserve the selected upstream's duplicate general `ValueChanged` notification for a successful wheel adjustment before its single `ValueChangedByUser` notification.
-- [ ] P5-019 Complete consumer-specific pointer capture and wheel integration for ScrollViewer thumbs, DataGrid resizing, and other downstream controls. The snapshot wheel-delta core, generic Widget drag capture, and Button/Slider slice are complete in P5-017a/P5-010b/P5-019a/P5-019b.
+- [x] P5-019c Port the `ScrollViewer` consumer-capture slice: both image thumbs arm only on their current geometry, track Desktop movement outside local bounds, clamp through the selected incremental delta mapping, and stop on local/global release or detach. Transparent content falls through except over active scrollbar frames. Exact retained callback targets and tokenized cleanup make reentrant move/release removal safe (`DEV-071`); widened, checked extent/frame/thumb/wheel/drag arithmetic rejects native overflow without partial scroll-position mutation (`DEV-072`).
+- [ ] P5-019 Complete consumer-specific pointer capture and wheel integration for DataGrid resizing and other downstream controls. The snapshot wheel-delta core, generic Widget drag capture, Button/Slider slice, and ScrollViewer thumb slice are complete in P5-017a/P5-010b/P5-019a/P5-019b/P5-019c.
 - [x] P5-020 Test arrange/measure margins, padding, min/max, alignments, transforms, visibility, opacity, and z-order. Existing Widget/LayoutUtils/UIUtils coverage exercises every listed behavior; the final integration case locks down Widget scale, rotation, fractional transform origin, inverse conversion, and transform-cache invalidation under linked and sanitised builds.
 - [x] P5-020a Harden Grid numeric conversions/accumulation and restore the upstream epsilon-zero `Part` distribution rule, with invalid-span and overflow tests.
 - [x] P5-020b Remove signed-overflow UB from the ported `Thickness`/`LayoutUtils`/Widget measure-arrange-transform chain and reject NaN opacity.
@@ -522,7 +523,7 @@ are green, and the build uses no more than three parallel jobs.
 - [x] P6-016b Restore Grid's observable proportion collection and retained-proportion invalidation semantics.
 - [ ] P6-016 Port `Containers/Grid.cs` selection, style, debug render, and input.
 - [x] P6-017 Port `Containers/Proportion.cs`.
-- [x] P6-018a Port the style-independent `ScrollViewer` core: retained single content, scrollbar geometry, scrolling/clamping, direct wheel scrolling, optional image thumbs, exact-type cloning, and render traversal. Keep Desktop thumb drag capture, stylesheet application, and MML metadata in P5-016/P6-018/P8-004.
+- [x] P6-018a Port the style-independent `ScrollViewer` core: retained single content, scrollbar geometry, scrolling/clamping, direct wheel scrolling, optional image thumbs, exact-type cloning, and render traversal. Desktop thumb drag capture and scrollbar input fall-through arrived in P5-019c; keep stylesheet application and MML metadata in P6-018/P8-004.
 - [ ] P6-018 Port `Containers/ScrollViewer.cs`.
 - [x] P6-019a Port the style-independent `SplitPane` core and both orientations: retained logical widget collection, grid-separated handles, proportions/split positions, reset events, removal, and exact-type deep cloning. Keep handle-style dimensions/visuals, Desktop drag/cursor control, and MML metadata in P5-016/P6-019/P6-020/P8-004.
 - [ ] P6-019 Port `Containers/SplitPane.cs`.

@@ -17,8 +17,8 @@
   TabControl core, P7-014's tree-node contract, P7-015a/P7-016a's TreeView node
   and tree cores, P5-010b's Widget hit-test core, P5-010c's double-click timing,
   P5-019a's generic Widget drag capture, P5-019b's Button/Slider Desktop capture
-  and wheel slice, P5-012's complete Container
-  contract, P5-016a's retained-root
+  and wheel slice, P5-019c's ScrollViewer thumb capture/input slice, P5-012's
+  complete Container contract, P5-016a's retained-root
   Desktop ownership/layout/focus core, P5-017a's Desktop snapshot and keyboard
   routing core, and P0-023's
   compatibility with current modular
@@ -306,7 +306,9 @@ and a manifest entry. The current ported surface includes:
   Desktop event subscriptions with bounds clamping and safe detach (`DEV-067`,
   `DEV-068`). P5-019b adds the first control-specific slice: owner-retained
   Button release and Slider movement callbacks plus wheel routing and checked
-  hint geometry (`DEV-069`, `DEV-070`). Tooltip/cursor behavior, remaining
+  hint geometry (`DEV-069`, `DEV-070`). P5-019c adds owner-retained ScrollViewer
+  thumb movement/release callbacks, scrollbar-frame input blocking, and checked
+  scroll geometry (`DEV-071`, `DEV-072`). Tooltip/cursor behavior, remaining
   control-specific capture, and character input remain in their dependency tasks.
 - Desktop now polls injectable mouse and fixed-domain keyboard providers whose
   linked defaults read CNA frame snapshots. It tracks previous/current pointer
@@ -321,8 +323,9 @@ and a manifest entry. The current ported surface includes:
   targets across reentrant removal (`DEV-065`). Widget-local double-click
   recognition is now complete (`DEV-066`), as is generic Widget drag capture
   (`DEV-067`, `DEV-068`) and the Button/Slider consumer slice (`DEV-069`,
-  `DEV-070`). Native text input, cursor/tooltip behavior, and the remaining
-  control-specific capture paths remain open.
+  `DEV-070`). ScrollViewer's image-thumb consumer slice is also complete
+  (`DEV-071`, `DEV-072`). Native text input, cursor/tooltip behavior, and the
+  remaining control-specific capture paths remain open.
 - `ButtonBase` now supplies the abstract style-independent press/click state
   machine used by future button controls: `ReadOnly`, `DoClick`, internal touch
   hooks, `Click`, pressed-state cloning, and MML metadata. Clones retain
@@ -342,6 +345,12 @@ and a manifest entry. The current ported surface includes:
   Exact owner retention and clone-mode restoration prevent stale callbacks
   (`DEV-069`), while checked three-term hint arithmetic rejects native overflow
   (`DEV-070`). Stylesheet construction remains deferred to P6-022/P8-005.
+- `ScrollViewer` now tracks either image thumb through Desktop movement outside
+  its local bounds and ends capture on release or detach. Transparent content
+  falls through except on active scrollbar frames. Retained/tokenized callbacks
+  survive reentrant removal (`DEV-071`), and checked widened extent, geometry,
+  wheel, and drag arithmetic prevents native overflow or partial offset mutation
+  (`DEV-072`). Stylesheet construction and MML metadata remain deferred.
 - Concrete `ToggleButton` now owns the same single-item content layout while
   mapping `IsToggled` directly to the inherited pressed state and exposing
   `IsToggledChanged` as a true reference alias of `PressedChanged`. Touch-down
@@ -375,8 +384,8 @@ capture remain open. `UPSTREAM_MANIFEST.md` records this per source.
 
 ## Whole-port progress estimate
 
-As of 2026-08-24 after P5-019b, `plan.md` has **175/319 checked tasks
-(54.9%)**. Equal checkbox counting overstates
+As of 2026-08-24 after P5-019c, `plan.md` has **176/320 checked tasks
+(55.0%)**. Equal checkbox counting overstates
 end-user parity because the
 largest remaining workstreams are font/rich text, Desktop/input, most controls,
 styles/default assets, selectors/windows/dialogs, DataGrid/PropertyGrid, and the
@@ -384,8 +393,8 @@ exhaustive release gate. The feature-weighted estimate is therefore **about
 30–35% of the complete Myra-CNA port**.
 
 All currently known technical work through P10-028 is estimated at
-**1,054–1,858 focused implementation/validation hours remaining**; use about
-**1,456 hours** as the planning midpoint or **1,100–2,000 hours** as the rounded
+**1,048–1,846 focused implementation/validation hours remaining**; use about
+**1,447 hours** as the planning midpoint or **1,100–2,000 hours** as the rounded
 range. This includes code, tests, documentation, integration, and the known
 project-owned test-fixture work. It assumes P3-004 and P0-015b receive prompt
 human decisions and excludes idle waiting/legal-review time. Choosing wholly
@@ -416,14 +425,14 @@ cmake -S ../cna -B build-cna-parent \
 CCACHE_DISABLE=1 cmake --build build-cna-parent --parallel 3
 ctest --test-dir build-cna-parent/_myra_cna \
   --output-on-failure --parallel 3
-# 322/322 tests passed with current modular CNA/sharp-runtime
+# 327/327 tests passed with current modular CNA/sharp-runtime
 
 ASAN_OPTIONS=detect_leaks=0 CCACHE_DISABLE=1 \
   cmake --build build-sanitize-parent --parallel 3
 ASAN_OPTIONS=detect_leaks=0 UBSAN_OPTIONS=print_stacktrace=1 \
   ctest --test-dir build-sanitize-parent/_myra_cna \
   --output-on-failure --parallel 3
-# 322/322 tests passed with ASan address checks and UBSan
+# 327/327 tests passed with ASan address checks and UBSan
 
 # focused CheckButtonBase/ButtonBase/registry/codec validation: 19/19 passed
 
@@ -450,6 +459,10 @@ ASAN_OPTIONS=detect_leaks=0 UBSAN_OPTIONS=print_stacktrace=1 \
 # P5-019b Button/Slider capture and wheel slice: focused Slider/Button/
 # DesktopInput 31/31; broad default 66/66, linked SOFTWARE 322/322, and
 # ASan+UBSan 322/322 passed
+
+# P5-019c ScrollViewer thumb capture/input slice: focused ScrollViewer plus
+# deepest wheel targeting 8/8; broad default 66/66, linked SOFTWARE 327/327,
+# and ASan+UBSan 327/327 passed
 
 # focused UIUtils validation after that broad run: 3/3 passed
 # focused PathUtils validation after that broad run: 3/3 passed
@@ -577,7 +590,7 @@ was disabled because LeakSanitizer cannot run under this environment's
 3. P0-016 is complete. Keep every upstream test binary unbundled; execute
    P0-016a's original PNG/BMFont/stylesheet replacements only when their
    affected asset tests become implementable.
-4. P0-023, P5-008i, P5-010a, P5-010b, P5-010c, P5-012, P5-016a, P5-017a, P5-019a, P5-019b, P6-001a, P6-003a, P6-004a, P6-005a,
+4. P0-023, P5-008i, P5-010a, P5-010b, P5-010c, P5-012, P5-016a, P5-017a, P5-019a, P5-019b, P5-019c, P6-001a, P6-003a, P6-004a, P6-005a,
    P6-006a, P6-007a, P6-008a, P6-009a, P6-018a, P6-019a, P6-021a, P6-022a, P7-001–P7-005a, P7-006, P7-008, and P7-012a–P7-016a are complete. Keep full
    P6-006/P6-007/P6-008 hover/style work in P5-010/P8-003, and keep Slider's
    remaining stylesheet work in P6-022/P8-005; do not reopen P6-005's Label/style-
@@ -718,6 +731,11 @@ was disabled because LeakSanitizer cannot run under this environment's
   constructors/dictionary lookup and Label-dependent `CreateTextButton` remain
   P6-002/P6-004/P8-003. The internal `ReleaseOnTouchLeft` flag remains private
   to Slider and SplitPane friends and defaults true.
+- `ScrollViewer` is complete for P6-018a's style-independent core plus
+  P5-019c's Desktop image-thumb capture, active-frame input blocking, and
+  native-safe scroll arithmetic. Stylesheet construction/application and MML
+  metadata remain P6-018/P8-004; null visual handles intentionally remain
+  zero-size/non-rendering until those styles provide them.
 - `ToggleButton` is complete only for P6-005a's style-independent core.
   Stylesheet construction/dictionary lookup and Label-dependent convenience
   creation remain P6-002/P6-005/P8-003. The selected upstream behavior is
@@ -767,7 +785,10 @@ HEADLESS and SDL_RENDERER-on-Xvfb each passed the 44/44 graphics subset and full
 172/172 suite at the P2-022 milestone. The current SDL_RENDERER tree, including
 the explicit display smoke and all work since then, passes 199/199 on Xvfb.
 The current default, linked SOFTWARE, and ASan+UBSan suites pass
-66/66, 322/322, and 322/322 respectively. P5-019b passes all 11/11 Slider
+66/66, 327/327, and 327/327 respectively. P5-019c passes its focused 8/8
+ScrollViewer/deepest-wheel subset, including both thumb orientations,
+out-of-bounds movement, global release, frame fall-through, reentrant removal,
+and checked arithmetic. P5-019b passes all 11/11 Slider
 tests, including both orientations, deepest wheel targeting, global release,
 clone capture mode, checked hint overflow, and reentrant move/release removal;
 the combined Slider/Button/DesktopInput focus passes 31/31. P5-019a passes all 15/15 focused
@@ -818,10 +839,11 @@ cursor/tooltip/control-specific drag paths and replacement fixtures likewise. If
 approved, begin with P3-005's narrow abstraction and P3-006's explicit index-domain contract
 before introducing rasterizer code. P4-019 remains open only for future widget types,
 while caller-provided external-asset callbacks are already usable. P5-010b,
-P5-010c, P5-012, P5-016a, P5-017a, P5-019a, and P5-019b are complete. The P7-017 audit confirmed that a faithful Window still
+P5-010c, P5-012, P5-016a, P5-017a, P5-019a, P5-019b, and P5-019c are complete. The P7-017 audit confirmed that a faithful Window still
 needs Label even though the Desktop placement/focus/removal foundation now
-exists. The next coherent dependency-safe target should therefore extend the
-same consumer-capture foundation to ScrollViewer's image thumbs, stopping
-before stylesheet-dependent construction. Context menus, tooltips/cursor,
+exists. Audit the remaining P5 input gaps before selecting the next coherent
+dependency-safe milestone: DataGrid capture waits for its Phase 9 control, while
+cursor/tooltip or another downstream interaction slice may now be available.
+Context menus, tooltips/cursor,
 Desktop rendering/style defaults, and text input remain in their downstream
 tasks.

@@ -7,16 +7,68 @@
 #include "Myra/Graphics2D/UI/Containers/ScrollViewer.hpp"
 
 #include <algorithm>
+#include <cstdint>
+#include <limits>
 #include <stdexcept>
 #include <utility>
 
 #include "Myra/Graphics2D/IBrush.hpp"
 #include "Myra/Graphics2D/IImage.hpp"
+#include "Myra/Graphics2D/UI/Desktop.hpp"
 
 namespace Myra::Graphics2D::UI
 {
     using Microsoft::Xna::Framework::Point;
     using Microsoft::Xna::Framework::Rectangle;
+
+    namespace
+    {
+        [[nodiscard]] int CheckedScrollInteger(const std::int64_t value, const char *const message)
+        {
+            if (value < std::numeric_limits<int>::min() || value > std::numeric_limits<int>::max())
+            {
+                throw std::overflow_error(message);
+            }
+            return static_cast<int>(value);
+        }
+
+        [[nodiscard]] int CheckedScrollAdd(const int left, const int right, const char *const message)
+        {
+            return CheckedScrollInteger(static_cast<std::int64_t>(left) + right, message);
+        }
+
+        [[nodiscard]] int CheckedScrollSubtract(const int left, const int right, const char *const message)
+        {
+            return CheckedScrollInteger(static_cast<std::int64_t>(left) - right, message);
+        }
+
+        [[nodiscard]] int CheckedScrollNegate(const int value, const char *const message)
+        {
+            return CheckedScrollInteger(-static_cast<std::int64_t>(value), message);
+        }
+
+        [[nodiscard]] int CheckedScrollScale(const std::int64_t value, const int scale, const int divisor,
+                                             const char *const message)
+        {
+            if (divisor == 0)
+            {
+                throw std::logic_error("A ScrollViewer thumb travel divisor cannot be zero.");
+            }
+            return CheckedScrollInteger(value * scale / divisor, message);
+        }
+
+        [[nodiscard]] int CheckedNonNegativeScrollExtent(const std::int64_t value, const char *const message)
+        {
+            return value <= 0 ? 0 : CheckedScrollInteger(value, message);
+        }
+
+        [[nodiscard]] bool ContainsScrollPoint(const Rectangle &rectangle, const Point point) noexcept
+        {
+            const std::int64_t right = static_cast<std::int64_t>(rectangle.X) + rectangle.Width;
+            const std::int64_t bottom = static_cast<std::int64_t>(rectangle.Y) + rectangle.Height;
+            return rectangle.X <= point.X && point.X < right && rectangle.Y <= point.Y && point.Y < bottom;
+        }
+    } // namespace
 
     ScrollViewer::ScrollViewer() : layout_(*this)
     {
@@ -24,6 +76,11 @@ namespace Myra::Graphics2D::UI
         setClipToBoundsProperty(true);
         setHorizontalAlignmentProperty(HorizontalAlignment::Stretch);
         setVerticalAlignmentProperty(VerticalAlignment::Stretch);
+    }
+
+    ScrollViewer::~ScrollViewer()
+    {
+        UnsubscribeDesktopInput();
     }
 
     std::shared_ptr<Widget> ScrollViewer::getContentProperty() const
@@ -47,8 +104,12 @@ namespace Myra::Graphics2D::UI
 
         const Rectangle contentBounds = content->getBoundsProperty();
         const Rectangle bounds = getActualBoundsProperty();
-        return Point(std::max(0, contentBounds.Width - bounds.Width + getVerticalThumbWidth()),
-                     std::max(0, contentBounds.Height - bounds.Height + getHorizontalThumbHeight()));
+        return Point(CheckedNonNegativeScrollExtent(
+                         static_cast<std::int64_t>(contentBounds.Width) - bounds.Width + getVerticalThumbWidth(),
+                         "Horizontal ScrollViewer extent exceeds the supported integer range."),
+                     CheckedNonNegativeScrollExtent(
+                         static_cast<std::int64_t>(contentBounds.Height) - bounds.Height + getHorizontalThumbHeight(),
+                         "Vertical ScrollViewer extent exceeds the supported integer range."));
     }
 
     Point ScrollViewer::getScrollPositionProperty() const
@@ -58,7 +119,10 @@ namespace Myra::Graphics2D::UI
         {
             return Point(0, 0);
         }
-        return Point(-content->getLeftProperty(), -content->getTopProperty());
+        return Point(CheckedScrollNegate(content->getLeftProperty(),
+                                         "Horizontal ScrollViewer position exceeds the supported integer range."),
+                     CheckedScrollNegate(content->getTopProperty(),
+                                         "Vertical ScrollViewer position exceeds the supported integer range."));
     }
 
     void ScrollViewer::setScrollPositionProperty(const Point value)
@@ -68,8 +132,12 @@ namespace Myra::Graphics2D::UI
         {
             return;
         }
-        content->setLeftProperty(-value.X);
-        content->setTopProperty(-value.Y);
+        const int left =
+            CheckedScrollNegate(value.X, "Horizontal ScrollViewer offset exceeds the supported integer range.");
+        const int top =
+            CheckedScrollNegate(value.Y, "Vertical ScrollViewer offset exceeds the supported integer range.");
+        content->setLeftProperty(left);
+        content->setTopProperty(top);
     }
 
     void ScrollViewer::ResetScroll()
@@ -180,7 +248,8 @@ namespace Myra::Graphics2D::UI
             return;
         }
 
-        const int step = scrollMultiplier_ * getScrollMaximumProperty().Y / thumbMaximumY_;
+        const int step = CheckedScrollScale(scrollMultiplier_, getScrollMaximumProperty().Y, thumbMaximumY_,
+                                            "ScrollViewer wheel step exceeds the supported integer range.");
         if (delta < 0.0F)
         {
             scrollbarOrientation_ = Orientation::Vertical;
@@ -191,6 +260,58 @@ namespace Myra::Graphics2D::UI
             scrollbarOrientation_ = Orientation::Vertical;
             MoveThumb(-step);
         }
+    }
+
+    void ScrollViewer::OnTouchDown()
+    {
+        Widget::OnTouchDown();
+        Desktop *const desktop = getDesktopProperty();
+        if (desktop == nullptr || !desktop->getTouchPositionProperty())
+        {
+            return;
+        }
+
+        const Point &globalTouchPosition = *desktop->getTouchPositionProperty();
+        const Point localTouchPosition = ToLocal(globalTouchPosition);
+        const Point thumbPosition = getThumbPosition();
+
+        Rectangle rectangle = verticalScrollbarThumb_;
+        rectangle.Y = CheckedScrollAdd(rectangle.Y, thumbPosition.Y,
+                                       "Vertical ScrollViewer thumb coordinate exceeds the supported integer range.");
+        if (showVerticalScrollBar_ && verticalScrollingOn_ && ContainsScrollPoint(rectangle, localTouchPosition))
+        {
+            startBoundsPosition_ = globalTouchPosition.Y;
+            scrollbarOrientation_ = Orientation::Vertical;
+        }
+
+        rectangle = horizontalScrollbarThumb_;
+        rectangle.X = CheckedScrollAdd(rectangle.X, thumbPosition.X,
+                                       "Horizontal ScrollViewer thumb coordinate exceeds the supported integer range.");
+        if (showHorizontalScrollBar_ && horizontalScrollingOn_ && ContainsScrollPoint(rectangle, localTouchPosition))
+        {
+            startBoundsPosition_ = globalTouchPosition.X;
+            scrollbarOrientation_ = Orientation::Horizontal;
+        }
+    }
+
+    void ScrollViewer::OnTouchUp()
+    {
+        Widget::OnTouchUp();
+        startBoundsPosition_.reset();
+    }
+
+    bool ScrollViewer::InputFallsThrough(const Point localPosition)
+    {
+        if (getBackgroundProperty())
+        {
+            return false;
+        }
+        if ((horizontalScrollingOn_ && ContainsScrollPoint(horizontalScrollbarFrame_, localPosition)) ||
+            (verticalScrollingOn_ && ContainsScrollPoint(verticalScrollbarFrame_, localPosition)))
+        {
+            return false;
+        }
+        return true;
     }
 
     void ScrollViewer::InternalRender(Graphics2D::RenderContext &context)
@@ -212,7 +333,9 @@ namespace Myra::Graphics2D::UI
             if (horizontalScrollKnob_)
             {
                 Rectangle rectangle = horizontalScrollbarThumb_;
-                rectangle.X += thumbPosition.X;
+                rectangle.X =
+                    CheckedScrollAdd(rectangle.X, thumbPosition.X,
+                                     "Horizontal ScrollViewer render coordinate exceeds the supported integer range.");
                 Graphics2D::IBrushExtensions::Draw(*horizontalScrollKnob_, context, rectangle);
             }
         }
@@ -225,7 +348,9 @@ namespace Myra::Graphics2D::UI
             if (verticalScrollKnob_)
             {
                 Rectangle rectangle = verticalScrollbarThumb_;
-                rectangle.Y += thumbPosition.Y;
+                rectangle.Y =
+                    CheckedScrollAdd(rectangle.Y, thumbPosition.Y,
+                                     "Vertical ScrollViewer render coordinate exceeds the supported integer range.");
                 Graphics2D::IBrushExtensions::Draw(*verticalScrollKnob_, context, rectangle);
             }
         }
@@ -246,11 +371,13 @@ namespace Myra::Graphics2D::UI
         {
             if (horizontalScrollbarVisible)
             {
-                measureSize.Y += getHorizontalScrollbarHeight();
+                measureSize.Y = CheckedScrollAdd(measureSize.Y, getHorizontalScrollbarHeight(),
+                                                 "Measured ScrollViewer height exceeds the supported integer range.");
             }
             if (verticalScrollbarVisible)
             {
-                measureSize.X += getVerticalScrollbarWidth();
+                measureSize.X = CheckedScrollAdd(measureSize.X, getVerticalScrollbarWidth(),
+                                                 "Measured ScrollViewer width exceeds the supported integer range.");
             }
         }
         return measureSize;
@@ -276,38 +403,72 @@ namespace Myra::Graphics2D::UI
             const int horizontalScrollbarHeight = getHorizontalScrollbarHeight();
             if (horizontalScrollingOn_ && showHorizontalScrollBar_)
             {
-                availableSize.Y = std::max(0, availableSize.Y - horizontalScrollbarHeight);
+                availableSize.Y = std::max(
+                    0, CheckedScrollSubtract(availableSize.Y, horizontalScrollbarHeight,
+                                             "ScrollViewer available height exceeds the supported integer range."));
             }
             if (verticalScrollingOn_ && showVerticalScrollBar_)
             {
-                availableSize.X = std::max(0, availableSize.X - verticalScrollbarWidth);
+                availableSize.X = std::max(
+                    0, CheckedScrollSubtract(availableSize.X, verticalScrollbarWidth,
+                                             "ScrollViewer available width exceeds the supported integer range."));
             }
 
             const Point measureSize = content->Measure(availableSize);
-            const int scrollbarWidth =
-                bounds.Width - (verticalScrollingOn_ && showVerticalScrollBar_ ? verticalScrollbarWidth : 0);
-            const int boundsBottom = bounds.Y + bounds.Height;
-            horizontalScrollbarFrame_ = Rectangle(bounds.X, boundsBottom - horizontalScrollbarHeight, scrollbarWidth,
-                                                  horizontalScrollbarHeight);
+            const int scrollbarWidth = CheckedScrollSubtract(
+                bounds.Width, verticalScrollingOn_ && showVerticalScrollBar_ ? verticalScrollbarWidth : 0,
+                "Horizontal ScrollViewer frame width exceeds the supported integer range.");
+            const int boundsBottom = CheckedScrollAdd(bounds.Y, bounds.Height,
+                                                      "ScrollViewer bottom edge exceeds the supported integer range.");
+            horizontalScrollbarFrame_ = Rectangle(
+                bounds.X,
+                CheckedScrollSubtract(boundsBottom, horizontalScrollbarHeight,
+                                      "Horizontal ScrollViewer frame coordinate exceeds the supported integer range."),
+                scrollbarWidth, horizontalScrollbarHeight);
             const int measuredWidth = std::max(1, measureSize.X);
             const int horizontalKnobWidth = horizontalScrollKnob_ ? horizontalScrollKnob_->getSizeProperty().X : 0;
             const int horizontalKnobHeight = horizontalScrollKnob_ ? horizontalScrollKnob_->getSizeProperty().Y : 0;
             horizontalScrollbarThumb_ = Rectangle(
-                bounds.X, boundsBottom - horizontalScrollbarHeight,
-                std::max(horizontalKnobWidth, scrollbarWidth * scrollbarWidth / measuredWidth), horizontalKnobHeight);
+                bounds.X,
+                CheckedScrollSubtract(boundsBottom, horizontalScrollbarHeight,
+                                      "Horizontal ScrollViewer thumb coordinate exceeds the supported integer range."),
+                std::max(
+                    horizontalKnobWidth,
+                    CheckedScrollScale(scrollbarWidth, scrollbarWidth, measuredWidth,
+                                       "Horizontal ScrollViewer thumb width exceeds the supported integer range.")),
+                horizontalKnobHeight);
 
-            const int scrollbarHeight =
-                bounds.Height - (horizontalScrollingOn_ && showHorizontalScrollBar_ ? horizontalScrollbarHeight : 0);
-            verticalScrollbarFrame_ = Rectangle(bounds.X + bounds.Width - verticalScrollbarWidth, bounds.Y,
-                                                verticalScrollbarWidth, scrollbarHeight);
+            const int scrollbarHeight = CheckedScrollSubtract(
+                bounds.Height, horizontalScrollingOn_ && showHorizontalScrollBar_ ? horizontalScrollbarHeight : 0,
+                "Vertical ScrollViewer frame height exceeds the supported integer range.");
+            const int verticalScrollbarX = CheckedScrollSubtract(
+                CheckedScrollAdd(bounds.X, bounds.Width,
+                                 "ScrollViewer right edge exceeds the supported integer range."),
+                verticalScrollbarWidth, "Vertical ScrollViewer frame coordinate exceeds the supported integer range.");
+            verticalScrollbarFrame_ = Rectangle(verticalScrollbarX, bounds.Y, verticalScrollbarWidth, scrollbarHeight);
             const int measuredHeight = std::max(1, measureSize.Y);
             const int verticalKnobWidth = verticalScrollKnob_ ? verticalScrollKnob_->getSizeProperty().X : 0;
             const int verticalKnobHeight = verticalScrollKnob_ ? verticalScrollKnob_->getSizeProperty().Y : 0;
             verticalScrollbarThumb_ =
-                Rectangle(bounds.X + bounds.Width - verticalScrollbarWidth, bounds.Y, verticalKnobWidth,
-                          std::max(verticalKnobHeight, scrollbarHeight * scrollbarHeight / measuredHeight));
-            thumbMaximumX_ = std::max(1, scrollbarWidth - horizontalScrollbarThumb_.Width);
-            thumbMaximumY_ = std::max(1, scrollbarHeight - verticalScrollbarThumb_.Height);
+                Rectangle(verticalScrollbarX, bounds.Y, verticalKnobWidth,
+                          std::max(verticalKnobHeight,
+                                   CheckedScrollScale(
+                                       scrollbarHeight, scrollbarHeight, measuredHeight,
+                                       "Vertical ScrollViewer thumb height exceeds the supported integer range.")));
+            thumbMaximumX_ =
+                CheckedScrollSubtract(scrollbarWidth, horizontalScrollbarThumb_.Width,
+                                      "Horizontal ScrollViewer thumb travel exceeds the supported integer range.");
+            thumbMaximumY_ =
+                CheckedScrollSubtract(scrollbarHeight, verticalScrollbarThumb_.Height,
+                                      "Vertical ScrollViewer thumb travel exceeds the supported integer range.");
+            if (thumbMaximumX_ == 0)
+            {
+                thumbMaximumX_ = 1;
+            }
+            if (thumbMaximumY_ == 0)
+            {
+                thumbMaximumY_ = 1;
+            }
 
             bounds.Width = horizontalScrollingOn_ && showHorizontalScrollBar_ ? measureSize.X : availableSize.X;
             bounds.Height = verticalScrollingOn_ && showVerticalScrollBar_ ? measureSize.Y : availableSize.Y;
@@ -325,6 +486,13 @@ namespace Myra::Graphics2D::UI
             scrollPosition.Y = maximum.Y;
         }
         setScrollPositionProperty(scrollPosition);
+    }
+
+    void ScrollViewer::OnPlacedChanged()
+    {
+        UnsubscribeDesktopInput();
+        SubscribeDesktopInput();
+        ContentControl::OnPlacedChanged();
     }
 
     std::shared_ptr<Widget> ScrollViewer::CreateCloneInstance() const
@@ -394,11 +562,14 @@ namespace Myra::Graphics2D::UI
         Point result(0, 0);
         if (maximum.X > 0)
         {
-            result.X = scrollPosition.X * thumbMaximumX_ / maximum.X;
+            result.X =
+                CheckedScrollScale(scrollPosition.X, thumbMaximumX_, maximum.X,
+                                   "Horizontal ScrollViewer thumb position exceeds the supported integer range.");
         }
         if (maximum.Y > 0)
         {
-            result.Y = scrollPosition.Y * thumbMaximumY_ / maximum.Y;
+            result.Y = CheckedScrollScale(scrollPosition.Y, thumbMaximumY_, maximum.Y,
+                                          "Vertical ScrollViewer thumb position exceeds the supported integer range.");
         }
         return result;
     }
@@ -409,7 +580,102 @@ namespace Myra::Graphics2D::UI
         const Point maximum = getScrollMaximumProperty();
         int &position = scrollbarOrientation_ == Orientation::Horizontal ? scrollPosition.X : scrollPosition.Y;
         const int limit = scrollbarOrientation_ == Orientation::Horizontal ? maximum.X : maximum.Y;
-        position = std::clamp(position + delta, 0, limit);
+        const std::int64_t candidate = static_cast<std::int64_t>(position) + delta;
+        if (candidate < 0)
+        {
+            position = 0;
+        }
+        else if (candidate > limit)
+        {
+            position = limit;
+        }
+        else
+        {
+            position = static_cast<int>(candidate);
+        }
         setScrollPositionProperty(scrollPosition);
+    }
+
+    void ScrollViewer::SubscribeDesktopInput()
+    {
+        Desktop *const desktop = getDesktopProperty();
+        if (desktop == nullptr)
+        {
+            return;
+        }
+
+        const std::shared_ptr<ScrollViewer> retainedTarget = std::static_pointer_cast<ScrollViewer>(RetainSelf());
+        if (!retainedTarget)
+        {
+            throw std::logic_error("A placed ScrollViewer is missing from its owning collection.");
+        }
+
+        inputSubscriptionDesktop_ = desktop;
+        try
+        {
+            touchMovedToken_ = desktop->TouchMoved.Add([retainedTarget](void *, Events::MyraEventArgs &)
+                                                       { retainedTarget->DesktopTouchMoved(); });
+            touchUpToken_ = desktop->TouchUp.Add([retainedTarget](void *, Events::MyraEventArgs &)
+                                                 { retainedTarget->DesktopTouchUp(); });
+        }
+        catch (...)
+        {
+            UnsubscribeDesktopInput();
+            throw;
+        }
+    }
+
+    void ScrollViewer::UnsubscribeDesktopInput() noexcept
+    {
+        try
+        {
+            if (inputSubscriptionDesktop_ != nullptr)
+            {
+                static_cast<void>(inputSubscriptionDesktop_->TouchMoved.Remove(touchMovedToken_));
+                static_cast<void>(inputSubscriptionDesktop_->TouchUp.Remove(touchUpToken_));
+            }
+        }
+        catch (...)
+        {
+        }
+        inputSubscriptionDesktop_ = nullptr;
+        touchMovedToken_ = Events::MyraEventHandler::InvalidToken;
+        touchUpToken_ = Events::MyraEventHandler::InvalidToken;
+        startBoundsPosition_.reset();
+    }
+
+    void ScrollViewer::DesktopTouchMoved()
+    {
+        if (!startBoundsPosition_ || inputSubscriptionDesktop_ == nullptr ||
+            getDesktopProperty() != inputSubscriptionDesktop_ || !inputSubscriptionDesktop_->getTouchPositionProperty())
+        {
+            return;
+        }
+
+        const Point &touchPosition = *inputSubscriptionDesktop_->getTouchPositionProperty();
+        int delta;
+        if (scrollbarOrientation_ == Orientation::Horizontal)
+        {
+            delta = CheckedScrollScale(static_cast<std::int64_t>(touchPosition.X) - *startBoundsPosition_,
+                                       getScrollMaximumProperty().X, thumbMaximumX_,
+                                       "Horizontal ScrollViewer drag delta exceeds the supported integer range.");
+            startBoundsPosition_ = touchPosition.X;
+        }
+        else
+        {
+            delta = CheckedScrollScale(static_cast<std::int64_t>(touchPosition.Y) - *startBoundsPosition_,
+                                       getScrollMaximumProperty().Y, thumbMaximumY_,
+                                       "Vertical ScrollViewer drag delta exceeds the supported integer range.");
+            startBoundsPosition_ = touchPosition.Y;
+        }
+        MoveThumb(delta);
+    }
+
+    void ScrollViewer::DesktopTouchUp() noexcept
+    {
+        if (inputSubscriptionDesktop_ != nullptr && getDesktopProperty() == inputSubscriptionDesktop_)
+        {
+            startBoundsPosition_.reset();
+        }
     }
 } // namespace Myra::Graphics2D::UI

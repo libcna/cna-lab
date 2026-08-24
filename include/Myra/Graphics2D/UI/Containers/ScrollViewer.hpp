@@ -7,6 +7,7 @@
 #pragma once
 
 #include <memory>
+#include <optional>
 
 #include "Microsoft/Xna/Framework/Point.hpp"
 #include "Microsoft/Xna/Framework/Rectangle.hpp"
@@ -26,7 +27,7 @@ namespace Myra::Graphics2D::UI
     {
       public:
         ScrollViewer();
-        ~ScrollViewer() override = default;
+        ~ScrollViewer() override;
 
         [[nodiscard]] std::shared_ptr<Widget> getContentProperty() const override;
         void setContentProperty(std::shared_ptr<Widget> value) override;
@@ -57,6 +58,9 @@ namespace Myra::Graphics2D::UI
 
         /** @brief Scrolls vertically when invoked by Desktop wheel dispatch. */
         void OnMouseWheel(float delta) override;
+        void OnTouchDown() override;
+        void OnTouchUp() override;
+        [[nodiscard]] bool InputFallsThrough(Microsoft::Xna::Framework::Point localPosition) override;
         void InternalRender(Graphics2D::RenderContext &context) override;
 
       protected:
@@ -64,6 +68,7 @@ namespace Myra::Graphics2D::UI
         [[nodiscard]] Microsoft::Xna::Framework::Point
         InternalMeasure(Microsoft::Xna::Framework::Point availableSize) override;
         void InternalArrange() override;
+        void OnPlacedChanged() override;
         [[nodiscard]] std::shared_ptr<Widget> CreateCloneInstance() const override;
         void CopyFrom(const Widget &source) override;
 
@@ -74,6 +79,10 @@ namespace Myra::Graphics2D::UI
         [[nodiscard]] int getHorizontalThumbHeight() const noexcept;
         [[nodiscard]] Microsoft::Xna::Framework::Point getThumbPosition() const;
         void MoveThumb(int delta);
+        void SubscribeDesktopInput();
+        void UnsubscribeDesktopInput() noexcept;
+        void DesktopTouchMoved();
+        void DesktopTouchUp() noexcept;
 
         SingleItemLayout<Widget> layout_;
         Orientation scrollbarOrientation_ = Orientation::Vertical;
@@ -85,6 +94,7 @@ namespace Myra::Graphics2D::UI
         Microsoft::Xna::Framework::Rectangle horizontalScrollbarThumb_;
         Microsoft::Xna::Framework::Rectangle verticalScrollbarFrame_;
         Microsoft::Xna::Framework::Rectangle verticalScrollbarThumb_;
+        std::optional<int> startBoundsPosition_;
         int thumbMaximumX_ = 1;
         int thumbMaximumY_ = 1;
         std::shared_ptr<Graphics2D::IImage> horizontalScrollBackground_;
@@ -92,5 +102,8 @@ namespace Myra::Graphics2D::UI
         std::shared_ptr<Graphics2D::IImage> verticalScrollBackground_;
         std::shared_ptr<Graphics2D::IImage> verticalScrollKnob_;
         int scrollMultiplier_ = 10;
+        Desktop *inputSubscriptionDesktop_ = nullptr;
+        Events::MyraEventHandler::Token touchMovedToken_ = Events::MyraEventHandler::InvalidToken;
+        Events::MyraEventHandler::Token touchUpToken_ = Events::MyraEventHandler::InvalidToken;
     };
 } // namespace Myra::Graphics2D::UI
