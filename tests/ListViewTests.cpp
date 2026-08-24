@@ -5,12 +5,21 @@
 
 #include <gtest/gtest.h>
 
+#include <any>
 #include <memory>
+#include <string>
+#include <typeindex>
 
+#include "Myra/Graphics2D/UI/Containers/Panel.hpp"
 #include "Myra/Graphics2D/UI/Desktop.hpp"
 #include "Myra/Graphics2D/UI/Selectors/ListViewButton.hpp"
 #include "Myra/Graphics2D/UI/Simple/HorizontalSeparator.hpp"
 #include "Myra/Graphics2D/UI/Widget.hpp"
+#include "Myra/MML/LoadContext.hpp"
+#include "Myra/MML/RegisterMyraTypes.hpp"
+#include "Myra/MML/SaveContext.hpp"
+#include "Myra/MML/ValueCodecRegistry.hpp"
+#include "System/Xml/XmlDocument.hpp"
 
 namespace
 {
@@ -22,8 +31,14 @@ namespace
     using Myra::Graphics2D::UI::InputEventType;
     using Myra::Graphics2D::UI::ListView;
     using Myra::Graphics2D::UI::ListViewButton;
+    using Myra::Graphics2D::UI::Panel;
     using Myra::Graphics2D::UI::SelectionMode;
     using Myra::Graphics2D::UI::Widget;
+    using Myra::MML::LoadContext;
+    using Myra::MML::PropertyDescriptor;
+    using Myra::MML::SaveContext;
+    using Myra::MML::TypeDescriptor;
+    using Myra::MML::ValueCodecRegistry;
 
     TEST(ListViewTests, WrapsWidgetsAndUpdatesSingleSelectionFromButtonClicks)
     {
@@ -143,5 +158,61 @@ namespace
         listView.reset();
         retainedButton->DoClick();
         EXPECT_TRUE(retainedButton->getIsPressedProperty());
+    }
+
+    TEST(ListViewTests, RegistersAndRoundTripsLogicalWidgetsAndSelectionModeMml)
+    {
+        const Myra::MML::TypeRegistry registry = Myra::MML::CreateMyraTypeRegistry();
+        const TypeDescriptor *descriptor = registry.FindByType(typeid(ListView));
+        ASSERT_NE(descriptor, nullptr);
+        EXPECT_TRUE(descriptor->getCanCreateProperty());
+        ASSERT_TRUE(descriptor->getBaseTypeProperty().has_value());
+        EXPECT_EQ(*descriptor->getBaseTypeProperty(), std::type_index(typeid(Widget)));
+
+        const PropertyDescriptor *widgets = registry.FindPropertyByName(typeid(ListView), "Widgets");
+        const PropertyDescriptor *selectionMode = registry.FindPropertyByName(typeid(ListView), "SelectionMode");
+        const PropertyDescriptor *scrollViewer = registry.FindPropertyByName(typeid(ListView), "ScrollViewer");
+        const PropertyDescriptor *selectedIndex = registry.FindPropertyByName(typeid(ListView), "SelectedIndex");
+        const PropertyDescriptor *selectedItem = registry.FindPropertyByName(typeid(ListView), "SelectedItem");
+        ASSERT_NE(widgets, nullptr);
+        ASSERT_NE(selectionMode, nullptr);
+        ASSERT_NE(scrollViewer, nullptr);
+        ASSERT_NE(selectedIndex, nullptr);
+        ASSERT_NE(selectedItem, nullptr);
+        EXPECT_TRUE(widgets->getMetadataProperty().Content);
+        EXPECT_EQ(std::any_cast<SelectionMode>(*selectionMode->getDefaultValueProperty()), SelectionMode::Single);
+        EXPECT_TRUE(scrollViewer->getMetadataProperty().XmlIgnore);
+        EXPECT_TRUE(selectedIndex->getMetadataProperty().XmlIgnore);
+        EXPECT_TRUE(selectedItem->getMetadataProperty().XmlIgnore);
+
+        const ValueCodecRegistry codecs = ValueCodecRegistry::CreateDefault();
+        LoadContext loader(registry, codecs);
+        System::Xml::XmlDocument document;
+        document.LoadXml("<ListView SelectionMode=\"Multiple\"><Panel Width=\"31\"/><HorizontalSeparator/></ListView>");
+        const Myra::MML::LoadedObject loaded = loader.CreateAndLoad(*document.getDocumentElementProperty());
+        ASSERT_EQ(loaded.Type, typeid(ListView));
+        const auto *listView = static_cast<const ListView *>(loaded.Value.get());
+        EXPECT_EQ(listView->getSelectionModeProperty(), SelectionMode::Multiple);
+        ASSERT_EQ(listView->getWidgetsProperty().size(), 2U);
+        const auto panel = std::dynamic_pointer_cast<Panel>(listView->getWidgetsProperty()[0]);
+        ASSERT_NE(panel, nullptr);
+        EXPECT_EQ(panel->getWidthProperty(), 31);
+        EXPECT_NE(std::dynamic_pointer_cast<HorizontalSeparator>(listView->getWidgetsProperty()[1]), nullptr);
+        EXPECT_NE(dynamic_cast<ListViewButton *>(panel->getParentProperty()), nullptr);
+        const auto box = std::dynamic_pointer_cast<Myra::Graphics2D::UI::VerticalStackPanel>(
+            listView->getScrollViewerProperty()->getContentProperty());
+        ASSERT_NE(box, nullptr);
+        ASSERT_EQ(box->getWidgetsProperty().size(), 2U);
+        EXPECT_NE(std::dynamic_pointer_cast<ListViewButton>(box->getWidgetsProperty()[0]), nullptr);
+
+        SaveContext saver(registry, codecs);
+        const std::string xml = saver.ToXml(listView, typeid(ListView));
+        EXPECT_NE(xml.find("SelectionMode=\"Multiple\""), std::string::npos);
+        EXPECT_NE(xml.find("<Panel Width=\"31\""), std::string::npos);
+        EXPECT_NE(xml.find("<HorizontalSeparator"), std::string::npos);
+        EXPECT_EQ(xml.find("ListViewButton"), std::string::npos);
+        EXPECT_EQ(xml.find("ScrollViewer="), std::string::npos);
+        EXPECT_EQ(xml.find("SelectedIndex="), std::string::npos);
+        EXPECT_EQ(xml.find("SelectedItem="), std::string::npos);
     }
 } // namespace

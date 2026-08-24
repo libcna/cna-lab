@@ -16,6 +16,7 @@
 #include "Myra/Graphics2D/UI/Containers/Proportion.hpp"
 #include "Myra/Graphics2D/UI/Enums.hpp"
 #include "Myra/Graphics2D/UI/File/FileDialogMode.hpp"
+#include "Myra/Graphics2D/UI/Selectors/ISelector.hpp"
 #include "Myra/Graphics2D/UI/Simple/CheckButtonBase.hpp"
 #include "Myra/Graphics2D/UI/Simple/Image.hpp"
 #include "Myra/Graphics2D/UI/Widget.hpp"
@@ -321,6 +322,9 @@ namespace Myra::MML
         RegisterEnumAndOptional<Graphics2D::UI::CheckPosition>(registry,
             {{"Left", Graphics2D::UI::CheckPosition::Left},
                 {"Right", Graphics2D::UI::CheckPosition::Right}});
+        RegisterEnumAndOptional<Graphics2D::UI::SelectionMode>(registry,
+            {{"Single", Graphics2D::UI::SelectionMode::Single},
+                {"Multiple", Graphics2D::UI::SelectionMode::Multiple}});
         RegisterEnumAndOptional<Graphics2D::UI::File::FileDialogMode>(registry,
             {{"OpenFile", Graphics2D::UI::File::FileDialogMode::OpenFile},
                 {"SaveFile", Graphics2D::UI::File::FileDialogMode::SaveFile},

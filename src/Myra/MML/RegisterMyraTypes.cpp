@@ -44,6 +44,7 @@
 #include "Myra/Graphics2D/UI/Simple/SeparatorWidget.hpp"
 #include "Myra/Graphics2D/UI/Simple/ToggleButton.hpp"
 #include "Myra/Graphics2D/UI/Simple/VerticalSeparator.hpp"
+#include "Myra/Graphics2D/UI/Selectors/ListView.hpp"
 #include "Myra/Graphics2D/UI/Widget.hpp"
 
 namespace Myra::MML
@@ -69,6 +70,7 @@ namespace Myra::MML
         using Graphics2D::UI::HorizontalStackPanel;
         using Graphics2D::UI::Image;
         using Graphics2D::UI::ImageResizeMode;
+        using Graphics2D::UI::ListView;
         using Graphics2D::UI::MouseCursorType;
         using Graphics2D::UI::Orientation;
         using Graphics2D::UI::Panel;
@@ -79,6 +81,7 @@ namespace Myra::MML
         using Graphics2D::UI::ProportionType;
         using Graphics2D::UI::RadioButton;
         using Graphics2D::UI::ScrollViewer;
+        using Graphics2D::UI::SelectionMode;
         using Graphics2D::UI::SeparatorWidget;
         using Graphics2D::UI::Slider;
         using Graphics2D::UI::SplitPane;
@@ -627,6 +630,52 @@ namespace Myra::MML
             return descriptor;
         }
 
+        TypeDescriptor MakeListViewDescriptor()
+        {
+            TypeDescriptor descriptor(
+                "ListView", typeid(ListView),
+                [] { return std::static_pointer_cast<void>(std::make_shared<ListView>()); }, typeid(Widget));
+            descriptor.EnableBaseTypeAccess<ListView, Widget>();
+            descriptor.EnableBaseObjectAccess<ListView>();
+
+            descriptor.AddProperty(MakeScalarProperty<ListView, SelectionMode>(
+                "SelectionMode", [](const ListView &object) { return object.getSelectionModeProperty(); },
+                [](ListView &object, const SelectionMode value) { object.setSelectionModeProperty(value); },
+                SelectionMode::Single));
+
+            PropertyMetadata widgetsMetadata;
+            widgetsMetadata.Content = true;
+            descriptor.AddProperty(PropertyDescriptor(
+                "Widgets", typeid(std::vector<std::shared_ptr<Widget>>), {}, {}, std::nullopt,
+                std::move(widgetsMetadata), {}, {},
+                ComplexPropertyAdapter::Sequence(
+                    typeid(Widget), [](void *object, const std::shared_ptr<void> &value)
+                    { static_cast<ListView *>(object)->AddWidget(AsWidget(value)); }, [](const void *object)
+                    { return EnumerateWidgets(static_cast<const ListView *>(object)->getWidgetsProperty()); })));
+
+            PropertyMetadata scrollViewerMetadata;
+            scrollViewerMetadata.XmlIgnore = true;
+            descriptor.AddProperty(PropertyDescriptor(
+                "ScrollViewer", typeid(std::shared_ptr<ScrollViewer>), [](const void *object)
+                { return std::any(static_cast<const ListView *>(object)->getScrollViewerProperty()); }, {},
+                std::nullopt, std::move(scrollViewerMetadata)));
+
+            PropertyMetadata selectedIndexMetadata;
+            selectedIndexMetadata.XmlIgnore = true;
+            descriptor.AddProperty(PropertyDescriptor(
+                "SelectedIndex", typeid(std::optional<int>), [](const void *object)
+                { return std::any(static_cast<const ListView *>(object)->getSelectedIndexProperty()); }, {},
+                std::nullopt, std::move(selectedIndexMetadata)));
+
+            PropertyMetadata selectedItemMetadata;
+            selectedItemMetadata.XmlIgnore = true;
+            descriptor.AddProperty(PropertyDescriptor(
+                "SelectedItem", typeid(std::shared_ptr<Widget>), [](const void *object)
+                { return std::any(static_cast<const ListView *>(object)->getSelectedItemProperty()); }, {},
+                std::nullopt, std::move(selectedItemMetadata)));
+            return descriptor;
+        }
+
         TypeDescriptor MakeButtonBaseDescriptor()
         {
             TypeDescriptor descriptor("ButtonBase", typeid(ButtonBase), {}, typeid(ContentControl));
@@ -932,6 +981,7 @@ namespace Myra::MML
                                                                        VerticalAlignment::Stretch));
         registry.Register(MakeContentControlDescriptor());
         registry.Register(MakeScrollViewerDescriptor());
+        registry.Register(MakeListViewDescriptor());
         registry.Register(MakeButtonBaseDescriptor());
         registry.Register(MakeButtonDescriptor());
         registry.Register(MakeToggleButtonDescriptor());
