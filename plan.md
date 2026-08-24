@@ -80,8 +80,8 @@ behavioral redesign.
 
 ### 1.4 Whole-port completion and remaining-effort estimate
 
-Checkpoint: 2026-08-24, after P1-022. The mechanical backlog count is
-**200/342 checked tasks (58.5%)**. The count is useful for
+Checkpoint: 2026-08-24, after P10-019. The mechanical backlog count is
+**201/342 checked tasks (58.8%)**. The count is useful for
 auditing plan state but is
 not a parity percentage: small foundation subtasks and large end-to-end
 features each count once, while the remaining font/text, Desktop/input,
@@ -105,10 +105,10 @@ are planning ranges rather than a delivery promise.
 | Phase 7 — selectors/windows/dialogs | 28/45 | 142–232 |
 | Phase 8 — styles/default skin | 0/14 | 140–240 |
 | Phase 9 — file/data/property grids | 1/21 | 180–320 |
-| Phase 10 — parity/release | 0/28 | 140–240 |
-| **Whole remaining technical port** | **200/342 complete** | **966–1,698** |
+| Phase 10 — parity/release | 1/28 | 136–232 |
+| **Whole remaining technical port** | **201/342 complete** | **962–1,690** |
 
-For scheduling, use **about 1,332 focused hours remaining** as the midpoint,
+For scheduling, use **about 1,326 focused hours remaining** as the midpoint,
 with **1,000–2,000 hours** as the sensible rounded range. This assumes prompt
 human decisions for P3-004 and P0-015b, no newly discovered upstream/CNA
 architectural blocker, and continued reuse of the existing tested foundations.
@@ -659,7 +659,7 @@ are green, and the build uses no more than three parallel jobs.
 - [ ] P10-016 Add a text-edit/IME/clipboard CNA example.
 - [ ] P10-017 Add an MML/default-style loading CNA example.
 - [ ] P10-018 Add a file-dialog and property-grid example after their registry work is complete.
-- [ ] P10-019 Write README: purpose, non-affiliation, licence/attribution, prerequisites, build, and minimal usage.
+- [x] P10-019 Write README: purpose, non-affiliation, licence/attribution, prerequisites, build, and minimal usage. The checked example constructs a widget tree in linked CNA builds and reports its explicit headers-only fallback in bootstrap builds.
 - [ ] P10-020 Write migration guide from Myra C# / FNA code to Myra-CNA conventions.
 - [ ] P10-021 Document every C++ deviation and every unsupported/blocked source feature.
 - [ ] P10-022 Add CI with compilation, headless tests, provenance lint, and licence manifest validation.

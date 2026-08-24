@@ -3,7 +3,8 @@
 Myra-CNA is an independent C++23 port of [Myra](https://github.com/MyraUI/Myra)
 for [CNA](https://github.com/openeggbert/cna). It targets the behavior of
 upstream Myra's FNA/XNA-oriented build directly through CNA; it does not depend
-on FNA or .NET at runtime.
+on FNA or .NET at runtime. It is not affiliated with, maintained by, or endorsed
+by the Myra or CNA upstream projects.
 
 The project is an incomplete but validated retained-mode UI port. Its current
 surface includes the Widget tree/layout/rendering kernel, Grid and stack layout,
@@ -18,11 +19,12 @@ keys to menus or the focused widget. Reverse-Z widget hit testing now tracks
 local mouse/touch transitions, input fall-through, hover visuals, touch focus,
 the deepest wheel target, and upstream-compatible local double-click timing.
 Generic Widget dragging now honors in-tree handles, direction flags, parent/
-Desktop capture, release reset, and bounds clamping. Cursor/tooltip and
-control-specific capture/drag,
-Desktop rendering, context menus, styles, fonts/rich text, most controls, Grid
-selection/input, and the full upstream widget catalog are not implemented yet. Primitive, optional,
-explicitly mapped enum, and audited geometry codecs drive registry-backed XML
+Desktop capture, release reset, and bounds clamping. Cursor routing, injectable
+tooltip overlays, Desktop rendering, context menus, Grid selection, and the
+Button/Slider/ScrollViewer capture slices are implemented. Label-backed default
+tooltips, remaining control-specific input, styles, fonts/rich text, advanced
+controls, and the full upstream widget catalog are not implemented yet.
+Primitive, optional, explicitly mapped enum, and audited geometry codecs drive registry-backed XML
 loading/saving with defaults, skips, legacy/XML names, explicit external-asset
 callbacks, attached properties, BaseObject user data, and recursive
 single/sequence/dictionary/content adapters. A central metadata table registers
@@ -92,6 +94,20 @@ No upstream test binary is currently bundled.
 See
 [NEXT.md](NEXT.md) for the current hand-off state and
 [plan.md](plan.md) for the full compatibility backlog.
+
+## Prerequisites
+
+- CMake 3.20 or newer and a C++23 compiler.
+- A CNA checkout and its sibling sharp-runtime checkout. Current modular CNA
+  must be the top-level CMake project for linked rendering and input builds.
+- The platform and renderer dependencies required by the selected CNA backend.
+- Python 3 and the GoogleTest sources vendored by CNA when building this
+  repository's tests.
+- An X11/Xvfb display only for the optional `SDL_RENDERER` smoke test.
+
+No font library, skin, or copied upstream binary asset is currently bundled.
+The dependency-free configuration is a compile/test aid; applications that
+render or use CNA-backed platform behavior need the linked CNA configuration.
 
 ## Build
 
@@ -184,6 +200,43 @@ When another parent project already supplies target `CNA`, add Myra-CNA after
 CNA; the `MYRA_CNA` target links it automatically. The driver above handles the
 current CNA layout, whose umbrella target is created later in its top-level
 configure pass, and also declares Myra's direct `SharpRuntime::Xml` dependency.
+
+## Minimal usage
+
+Once a parent has supplied `CNA`, add the repository and link the stable alias:
+
+```cmake
+add_subdirectory(path/to/myra-cna)
+target_link_libraries(my_app PRIVATE Myra::CNA)
+```
+
+The umbrella header exposes the currently ported widget surface. This
+asset-independent example builds a logical tree without requiring a font or skin:
+
+```cpp
+#include "Myra/Myra.hpp"
+
+#include <memory>
+
+int main()
+{
+    auto root = std::make_shared<Myra::Graphics2D::UI::VerticalStackPanel>();
+    auto button = std::make_shared<Myra::Graphics2D::UI::Button>();
+    button->setWidthProperty(120);
+    button->setHeightProperty(32);
+    root->AddWidget(button);
+
+    return root->getWidgetsProperty().size() == 1 ? 0 : 1;
+}
+```
+
+In a linked CNA build, `examples/Minimal.cpp` performs the same construction and
+prints the library version. In headers-only compile-check mode it deliberately
+limits itself to the dependency-free version API. A rendered application
+additionally configures a CNA `Game` through `MyraEnvironment`, owns a `Desktop`,
+and drives its update/render lifecycle; those APIs require a linked CNA build.
+Until the font/style phases are complete, compose only controls listed as
+available above and in [NEXT.md](NEXT.md).
 
 ## Licensing and attribution
 
