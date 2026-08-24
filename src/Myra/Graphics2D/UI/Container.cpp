@@ -32,6 +32,11 @@ namespace Myra::Graphics2D::UI
         return RemoveChild(widget);
     }
 
+    bool Container::InputFallsThrough(const Microsoft::Xna::Framework::Point)
+    {
+        return getBackgroundProperty() == nullptr;
+    }
+
     std::shared_ptr<Widget> Container::CreateCloneInstance() const
     {
         return std::make_shared<Container>();

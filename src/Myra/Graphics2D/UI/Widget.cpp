@@ -988,6 +988,11 @@ namespace Myra::Graphics2D::UI
             borderBounds.Y <= localPosition.Y && localPosition.Y < bottom;
     }
 
+    bool Widget::InputFallsThrough(const Point)
+    {
+        return false;
+    }
+
     Point Widget::InternalMeasure(const Point availableSize)
     {
         if (childrenLayout_ == nullptr)

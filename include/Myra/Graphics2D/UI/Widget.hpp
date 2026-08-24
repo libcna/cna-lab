@@ -273,6 +273,8 @@ namespace Myra::Graphics2D::UI
         [[nodiscard]] Microsoft::Xna::Framework::Point ToGlobal(
             Microsoft::Xna::Framework::Point position);
         [[nodiscard]] bool ContainsGlobalPoint(Microsoft::Xna::Framework::Point globalPosition);
+        [[nodiscard]] virtual bool InputFallsThrough(
+            Microsoft::Xna::Framework::Point localPosition);
 
         void OnAttachedPropertyLayoutChanged(MML::AttachedPropertyOption option) override;
         virtual void OnMouseLeft();

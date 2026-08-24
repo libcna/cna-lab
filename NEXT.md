@@ -15,7 +15,7 @@
   MenuItem data core, P7-009a's retained menu/navigation core, P7-010a/P7-011a's
   horizontal/vertical menu navigation, P7-012a's TabItem data core, P7-013a's
   TabControl core, P7-014's tree-node contract, P7-015a/P7-016a's TreeView node
-  and tree cores, and P0-023's
+  and tree cores, P5-012's complete Container contract, and P0-023's
   compatibility with current modular
   CNA/sharp-runtime checkouts. `CheckButton` now carries its `IsChecked` and
   `PressedChanged` event aliases, exact clone factory, and MML registration;
@@ -24,7 +24,7 @@
   `0d79b939310bfe1d00b21803fe15e291caf60aa1` at `/tmp/myra-upstream`.
 - Current linked validation pins sibling CNA
   `1bb2145d99ed572dd4eb15009c34e2e5f410fcf0` and sharp-runtime
-  `01af6a74467428142b4c9cbcfe33b56f01811e55`; both sibling worktrees remained
+  `54578590b328aa9612fe38bfddca9fd8ca795144`; both sibling worktrees remained
   unmodified.
 - The font audit additionally pinned FontStashSharp 1.5.6 at
   `24f3dc46d59dcda0dddb59754a99aeaefc9bd369`, FontStashSharp.Base 1.2.3 at
@@ -85,6 +85,9 @@ and a manifest entry. The current ported surface includes:
 - UI contracts, `Widget`'s layout/transform kernel and complete child-tree API,
   abstract `ContentControl`, `Container`, `Panel`, `Proportion`, and
   `SingleItemLayout<T>`.
+- `Container` now completes its selected-upstream surface: stretch defaults,
+  the explicit owned widget facade, reentrant-safe deep cloning, and input that
+  falls through exactly when no background brush is assigned.
 - Registry metadata attributes (`Content`, `Range`, XML/style/file-path, and
   skip/designer markers) plus `FileDialogMode`.
 - An explicit, non-reflective MML `TypeRegistry`, with factories, typed
@@ -332,8 +335,8 @@ and input dispatch remain open. `UPSTREAM_MANIFEST.md` records this per source.
 
 ## Whole-port progress estimate
 
-As of 2026-08-22 after P0-023/P6-007a/P6-008a/P6-018a/P6-019a/P6-022a/P7-001–P7-003/P7-004a/P7-005a/P7-006/P7-007a/P7-008/P7-009a/P7-010a/P7-011a/P7-012a/P7-013a/P7-014/P7-015a/P7-016a, `plan.md` has **168/313
-checked tasks (53.7%)**. Equal checkbox counting overstates
+As of 2026-08-24 after P5-012, `plan.md` has **169/313 checked tasks
+(54.0%)**. Equal checkbox counting overstates
 end-user parity because the
 largest remaining workstreams are font/rich text, Desktop/input, most controls,
 styles/default assets, selectors/windows/dialogs, DataGrid/PropertyGrid, and the
@@ -356,8 +359,9 @@ build/test latency, context turnover, and future compatibility discoveries.
 
 ## Latest validation
 
-All three supported validation configurations are broadly green with the
-complete handoff worktree:
+The default and linked SOFTWARE configurations are broadly green with the
+current worktree. The latest sanitizer checkpoint is also broadly green for
+all tests that existed at that checkpoint:
 
 ```bash
 cmake --build build --parallel 3
@@ -372,7 +376,7 @@ cmake -S ../cna -B build-cna-parent \
 CCACHE_DISABLE=1 cmake --build build-cna-parent --parallel 3
 ctest --test-dir build-cna-parent/_myra_cna \
   --output-on-failure --parallel 3
-# 250/250 tests passed with current modular CNA/sharp-runtime
+# 294/294 tests passed with current modular CNA/sharp-runtime
 
 ASAN_OPTIONS=detect_leaks=0 CCACHE_DISABLE=1 \
   cmake --build build-sanitize-parent --parallel 3
@@ -382,6 +386,9 @@ ASAN_OPTIONS=detect_leaks=0 UBSAN_OPTIONS=print_stacktrace=1 \
 # 250/250 tests passed with ASan address checks and UBSan
 
 # focused CheckButtonBase/ButtonBase/registry/codec validation: 19/19 passed
+
+# P5-012 Container completion: focused linked Panel 4/4, broad default 64/64,
+# and broad linked SOFTWARE 294/294 passed
 
 # focused UIUtils validation after that broad run: 3/3 passed
 # focused PathUtils validation after that broad run: 3/3 passed
@@ -509,7 +516,7 @@ was disabled because LeakSanitizer cannot run under this environment's
 3. P0-016 is complete. Keep every upstream test binary unbundled; execute
    P0-016a's original PNG/BMFont/stylesheet replacements only when their
    affected asset tests become implementable.
-4. P0-023, P5-008i, P5-010a, P6-001a, P6-003a, P6-004a, P6-005a,
+4. P0-023, P5-008i, P5-010a, P5-012, P6-001a, P6-003a, P6-004a, P6-005a,
    P6-006a, P6-007a, P6-008a, P6-009a, P6-018a, P6-019a, P6-021a, P6-022a, P7-001–P7-005a, P7-006, P7-008, and P7-012a–P7-016a are complete. Keep full
    P6-006/P6-007/P6-008 hover/style work in P5-010/P8-003, and keep Slider's
    Desktop drag/wheel/style work in P5-016/P5-019/P8-005; do not reopen P6-005's Label/style-
@@ -739,4 +746,9 @@ until P6-002/P8-003 are implementable. Defer the Desktop-driven hit-test/
 hover/drag path and replacement fixtures likewise. If P3-004 is later
 approved, begin with P3-005's narrow abstraction and P3-006's explicit index-domain contract
 before introducing rasterizer code. P4-019 remains open only for future widget types,
-while caller-provided external-asset callbacks are already usable.
+while caller-provided external-asset callbacks are already usable. P5-012 is
+complete. The P7-017 audit confirmed that a faithful Window needs Label and the
+Desktop show/focus/removal lifecycle; the next coherent dependency-safe target
+is therefore a narrowly audited P5-016 Desktop ownership/layout/focus core,
+with input polling, text input, styles, menus, tooltips, and drag behavior kept
+in their existing downstream tasks.

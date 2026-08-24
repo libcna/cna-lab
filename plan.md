@@ -80,8 +80,8 @@ behavioral redesign.
 
 ### 1.4 Whole-port completion and remaining-effort estimate
 
-Checkpoint: 2026-08-22, after P0-023, P6-007a, P6-008a, P6-018a, P6-019a, P6-022a, P7-001–P7-003, P7-004a, P7-005a, P7-006, P7-007a, P7-008, P7-009a, P7-010a, P7-011a, P7-012a, P7-013a, P7-014, P7-015a, and P7-016a. The mechanical
-backlog count is **168/313 checked tasks (53.7%)**. The count is useful for
+Checkpoint: 2026-08-24, after P5-012. The mechanical backlog count is
+**169/313 checked tasks (54.0%)**. The count is useful for
 auditing plan state but is
 not a parity percentage: small foundation subtasks and large end-to-end
 features each count once, while the remaining font/text, Desktop/input,
@@ -100,13 +100,13 @@ are planning ranges rather than a delivery promise.
 | Phase 2 — CNA graphics | 20/24 | 24–48 |
 | Phase 3 — font/text/assets | 4/21 | 180–300 |
 | Phase 4 — MML/XML | 31/36 | 40–80 |
-| Phase 5 — Widget/Desktop/input | 31/39 | 72–128 |
+| Phase 5 — Widget/Desktop/input | 32/39 | 72–128 |
 | Phase 6 — controls/editing | 20/47 | 110–184 |
 | Phase 7 — selectors/windows/dialogs | 16/34 | 180–300 |
 | Phase 8 — styles/default skin | 0/14 | 140–240 |
 | Phase 9 — file/data/property grids | 1/21 | 180–320 |
 | Phase 10 — parity/release | 0/28 | 140–240 |
-| **Whole remaining technical port** | **168/313 complete** | **1,106–1,952** |
+| **Whole remaining technical port** | **169/313 complete** | **1,106–1,952** |
 
 For scheduling, use **about 1,529 focused hours remaining** as the midpoint,
 with **1,100–2,000 hours** as the sensible rounded range. This assumes prompt
@@ -467,7 +467,7 @@ are green, and the build uses no more than three parallel jobs.
 - [x] P5-011a Port `ContentControl`'s abstract `IContent` contract and inherited MML content adapter; its former deep-copy dependency is now completed by P5-011/P5-008h.
 - [x] P5-011 Port `Graphics2D/UI/ContentControl.cs`, including its deep-copy behavior after Widget cloning exists. Nullable content is preserved safely during cloning (`DEV-041`).
 - [x] P5-012a Implement `Container` stretch defaults and its explicit child-ownership facade.
-- [ ] P5-012 Port `Graphics2D/UI/Container.cs`.
+- [x] P5-012 Port `Graphics2D/UI/Container.cs`, including the background-dependent input fall-through contract.
 - [x] P5-013 Port `Graphics2D/UI/Layouts/SingleItemLayout.cs`.
 - [x] P5-014 Port `Graphics2D/UI/Layouts/StackPanelLayout.cs`.
 - [x] P5-015 Port `Graphics2D/UI/Layouts/GridLayout.cs`.

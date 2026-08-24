@@ -34,6 +34,8 @@ namespace Myra::Graphics2D::UI
         [[nodiscard]] const std::vector<std::shared_ptr<Widget>>& getWidgetsProperty() const noexcept override;
         void AddWidget(std::shared_ptr<Widget> widget) override;
         [[nodiscard]] bool RemoveWidget(const Widget* widget) override;
+        [[nodiscard]] bool InputFallsThrough(
+            Microsoft::Xna::Framework::Point localPosition) override;
 
     protected:
         [[nodiscard]] std::shared_ptr<Widget> CreateCloneInstance() const override;

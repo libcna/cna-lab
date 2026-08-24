@@ -8,10 +8,16 @@
 #include <functional>
 #include <memory>
 
+#include "Microsoft/Xna/Framework/Color.hpp"
+#include "Myra/Graphics2D/IBrush.hpp"
+
 namespace
 {
+    using Microsoft::Xna::Framework::Color;
     using Microsoft::Xna::Framework::Point;
     using Microsoft::Xna::Framework::Rectangle;
+    using Myra::Graphics2D::IBrush;
+    using Myra::Graphics2D::RenderContext;
     using Myra::Graphics2D::UI::HorizontalAlignment;
     using Myra::Graphics2D::UI::Panel;
     using Myra::Graphics2D::UI::VerticalAlignment;
@@ -66,12 +72,30 @@ namespace
         Point desiredSize_;
     };
 
+    class NullBrush final : public IBrush
+    {
+    public:
+        void Draw(RenderContext&, Rectangle, Color) const override {}
+    };
+
     TEST(PanelTests, DefaultsToStretchAndExposesTheSharedWidgetCollection)
     {
         Panel panel;
         EXPECT_EQ(panel.getHorizontalAlignmentProperty(), HorizontalAlignment::Stretch);
         EXPECT_EQ(panel.getVerticalAlignmentProperty(), VerticalAlignment::Stretch);
         EXPECT_TRUE(panel.getWidgetsProperty().empty());
+    }
+
+    TEST(PanelTests, LetsInputFallThroughOnlyWithoutABackground)
+    {
+        Panel panel;
+        EXPECT_TRUE(panel.InputFallsThrough(Point(3, 4)));
+
+        panel.setBackgroundProperty(std::make_shared<NullBrush>());
+        EXPECT_FALSE(panel.InputFallsThrough(Point(3, 4)));
+
+        Widget widget;
+        EXPECT_FALSE(widget.InputFallsThrough(Point(3, 4)));
     }
 
     TEST(PanelTests, MeasuresLargestVisibleChildAndArrangesChildrenInActualBounds)
