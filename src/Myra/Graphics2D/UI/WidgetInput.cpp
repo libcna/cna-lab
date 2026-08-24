@@ -12,6 +12,9 @@
 #include <stdexcept>
 #include <utility>
 
+#ifdef MYRA_CNA_HAS_CNA_TARGET
+#include "CNA/Platform/PlatformException.hpp"
+#endif
 #include "Myra/Graphics2D/UI/Desktop.hpp"
 #include "Myra/Graphics2D/UI/InputContext.hpp"
 #include "Myra/MyraEnvironment.hpp"
@@ -45,6 +48,23 @@ namespace Myra::Graphics2D::UI
         [[nodiscard]] bool HasDragDirection(const DragDirection value, const DragDirection direction) noexcept
         {
             return (static_cast<int>(value) & static_cast<int>(direction)) == static_cast<int>(direction);
+        }
+
+        void ApplyWidgetMouseCursor(const MouseCursorType value)
+        {
+#ifdef MYRA_CNA_HAS_CNA_TARGET
+            try
+            {
+                MyraEnvironment::setMouseCursorTypeProperty(value);
+            }
+            catch (const CNA::Platform::PlatformException &)
+            {
+                // The backing state is assigned before CNA reports an unavailable
+                // native cursor capability (for example in a windowless backend).
+            }
+#else
+            MyraEnvironment::setMouseCursorTypeProperty(value);
+#endif
         }
     } // namespace
 
@@ -425,10 +445,27 @@ namespace Myra::Graphics2D::UI
         switch (eventType)
         {
         case InputEventType::MouseLeft:
+            if (MyraEnvironment::getSetMouseCursorFromWidgetProperty() && mouseCursor_)
+            {
+                Widget *ancestor = parent_;
+                while (ancestor != nullptr && !ancestor->getIsMouseInsideProperty())
+                {
+                    ancestor = ancestor->parent_;
+                }
+
+                const MouseCursorType cursor = ancestor != nullptr && ancestor->mouseCursor_
+                                                   ? *ancestor->mouseCursor_
+                                                   : MyraEnvironment::getDefaultMouseCursorTypeProperty();
+                ApplyWidgetMouseCursor(cursor);
+            }
             OnMouseLeft();
             Utility::EventsExtensions::Invoke(MouseLeft, this, eventType);
             break;
         case InputEventType::MouseEntered:
+            if (MyraEnvironment::getSetMouseCursorFromWidgetProperty() && mouseCursor_)
+            {
+                ApplyWidgetMouseCursor(*mouseCursor_);
+            }
             OnMouseEntered();
             Utility::EventsExtensions::Invoke(MouseEntered, this, eventType);
             break;

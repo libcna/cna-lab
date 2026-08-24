@@ -70,16 +70,8 @@ namespace Myra
     std::optional<std::size_t> MyraEnvironment::gameDisposedToken_;
     std::optional<std::size_t> MyraEnvironment::graphicsDeviceDisposingToken_;
 
-    void MyraEnvironment::setMouseCursorTypeProperty(const Graphics2D::UI::MouseCursorType value)
+    void MyraEnvironment::ApplyMouseCursorType(const Graphics2D::UI::MouseCursorType value)
     {
-        if (mouseCursorType_ == value)
-        {
-            return;
-        }
-
-        // Preserve upstream assignment ordering: an invalid cast is retained in
-        // the backing property before cursor lookup reports that it is unmapped.
-        mouseCursorType_ = value;
         Microsoft::Xna::Framework::Input::Mouse::SetCursor(ResolveMouseCursor(value));
     }
 

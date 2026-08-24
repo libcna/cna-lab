@@ -104,6 +104,19 @@ namespace Myra
         return mouseCursorType_;
     }
 
+    void MyraEnvironment::setMouseCursorTypeProperty(const Graphics2D::UI::MouseCursorType value)
+    {
+        if (mouseCursorType_ == value)
+        {
+            return;
+        }
+
+        // Preserve upstream assignment ordering: an invalid cast is retained in
+        // the backing property before platform lookup reports that it is unmapped.
+        mouseCursorType_ = value;
+        ApplyMouseCursorType(value);
+    }
+
     Graphics2D::UI::MouseCursorType MyraEnvironment::getDefaultMouseCursorTypeProperty() noexcept
     {
         return defaultMouseCursorType_;

@@ -280,6 +280,7 @@ else()
     target_sources(MYRA_CNA PRIVATE
         src/Myra/Graphics2D/UI/DesktopCnaStub.cpp
         src/Myra/Graphics2D/UI/WidgetRenderStub.cpp
+        src/Myra/MyraEnvironmentCnaStub.cpp
     )
 endif()
 

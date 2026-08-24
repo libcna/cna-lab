@@ -8,6 +8,7 @@
 
 #include <gtest/gtest.h>
 
+#include <stdexcept>
 #include <utility>
 
 namespace
@@ -112,4 +113,18 @@ namespace
         EXPECT_FALSE(MyraEnvironment::getMouseInfoGetterProperty());
         EXPECT_FALSE(MyraEnvironment::getDownKeysGetterProperty());
     }
+
+#ifndef MYRA_CNA_HAS_CNA_TARGET
+    TEST_F(MyraEnvironmentSettingsTests, DeferredCursorSetterValidatesAndStoresWithoutANativeBackend)
+    {
+        MyraEnvironment::setMouseCursorTypeProperty(MouseCursorType::Hand);
+        EXPECT_EQ(MyraEnvironment::getMouseCursorTypeProperty(), MouseCursorType::Hand);
+
+        const auto invalid = static_cast<MouseCursorType>(1000);
+        EXPECT_THROW(MyraEnvironment::setMouseCursorTypeProperty(invalid), std::invalid_argument);
+        EXPECT_EQ(MyraEnvironment::getMouseCursorTypeProperty(), invalid);
+
+        MyraEnvironment::setMouseCursorTypeProperty(MouseCursorType::Arrow);
+    }
+#endif
 } // namespace

@@ -16,6 +16,7 @@
   horizontal/vertical menu navigation, P7-012a's TabItem data core, P7-013a's
   TabControl core, P7-014's tree-node contract, P7-015a/P7-016a's TreeView node
   and tree cores, P5-010b's Widget hit-test core, P5-010c's double-click timing,
+  P5-010d's Widget/ancestor/default cursor routing,
   P5-019a's generic Widget drag capture, P5-019b's Button/Slider Desktop capture
   and wheel slice, P5-019c's ScrollViewer thumb capture/input slice, P5-012's
   complete Container contract, P5-016a's retained-root
@@ -191,9 +192,11 @@ and a manifest entry. The current ported surface includes:
   so the headers-only compile-check configuration keeps its existing link surface.
 - `MyraEnvironment` also carries the upstream event model, four debug-frame
   flags, clipping override, widget-driven/default/current cursor settings, and
-  all twelve `MouseCursorType` mappings through CNA `Mouse::SetCursor`. Pure
-  settings remain available in deferred-linkage builds; cursor application is
-  isolated with the CNA lifecycle definitions.
+  all twelve `MouseCursorType` mappings through CNA `Mouse::SetCursor`. P5-010d
+  now drives those settings from Widget enter/leave events, including hovered-
+  ancestor and default restoration. Deferred linkage validates/stores without a
+  native operation, and automatic routing tolerates a backend that lacks cursor
+  shapes while preserving assignment order (`DEV-073`).
 - `Utility::InputExtension` maps CNA `Keys` to the selected upstream US-keyboard
   character set, including shifted digits/OEM punctuation, number-pad keys, and
   control characters, with the required MonoGame.Extended dual attribution.
@@ -301,14 +304,16 @@ and a manifest entry. The current ported surface includes:
   ownership contract. P5-010b now adds local positions, hit testing, basic
   hover visual selection, touch focus, and wheel targeting. P5-010c adds the
   upstream interval/radius defaults, boundaries, reset behavior, and event
-  ordering with a monotonic overflow-safe C++ implementation (`DEV-066`);
+  ordering with a monotonic overflow-safe C++ implementation (`DEV-066`).
+  P5-010d adds entered-widget/hovered-ancestor/default cursor selection before
+  public hooks/events, gated by `SetMouseCursorFromWidget` (`DEV-073`);
   P5-019a adds handle-gated direction-aware dragging through retained parent/
   Desktop event subscriptions with bounds clamping and safe detach (`DEV-067`,
   `DEV-068`). P5-019b adds the first control-specific slice: owner-retained
   Button release and Slider movement callbacks plus wheel routing and checked
   hint geometry (`DEV-069`, `DEV-070`). P5-019c adds owner-retained ScrollViewer
   thumb movement/release callbacks, scrollbar-frame input blocking, and checked
-  scroll geometry (`DEV-071`, `DEV-072`). Tooltip/cursor behavior, remaining
+  scroll geometry (`DEV-071`, `DEV-072`). Tooltip behavior, remaining
   control-specific capture, and character input remain in their dependency tasks.
 - Desktop now polls injectable mouse and fixed-domain keyboard providers whose
   linked defaults read CNA frame snapshots. It tracks previous/current pointer
@@ -324,7 +329,8 @@ and a manifest entry. The current ported surface includes:
   recognition is now complete (`DEV-066`), as is generic Widget drag capture
   (`DEV-067`, `DEV-068`) and the Button/Slider consumer slice (`DEV-069`,
   `DEV-070`). ScrollViewer's image-thumb consumer slice is also complete
-  (`DEV-071`, `DEV-072`). Native text input, cursor/tooltip behavior, and the
+  (`DEV-071`, `DEV-072`). Widget-driven cursor routing is complete (`DEV-073`).
+  Native text input, tooltip behavior, and the
   remaining control-specific capture paths remain open.
 - `ButtonBase` now supplies the abstract style-independent press/click state
   machine used by future button controls: `ReadOnly`, `DoClick`, internal touch
@@ -384,8 +390,8 @@ capture remain open. `UPSTREAM_MANIFEST.md` records this per source.
 
 ## Whole-port progress estimate
 
-As of 2026-08-24 after P5-019c, `plan.md` has **176/320 checked tasks
-(55.0%)**. Equal checkbox counting overstates
+As of 2026-08-24 after P5-010d, `plan.md` has **177/321 checked tasks
+(55.1%)**. Equal checkbox counting overstates
 end-user parity because the
 largest remaining workstreams are font/rich text, Desktop/input, most controls,
 styles/default assets, selectors/windows/dialogs, DataGrid/PropertyGrid, and the
@@ -393,8 +399,8 @@ exhaustive release gate. The feature-weighted estimate is therefore **about
 30–35% of the complete Myra-CNA port**.
 
 All currently known technical work through P10-028 is estimated at
-**1,048–1,846 focused implementation/validation hours remaining**; use about
-**1,447 hours** as the planning midpoint or **1,100–2,000 hours** as the rounded
+**1,044–1,838 focused implementation/validation hours remaining**; use about
+**1,441 hours** as the planning midpoint or **1,100–2,000 hours** as the rounded
 range. This includes code, tests, documentation, integration, and the known
 project-owned test-fixture work. It assumes P3-004 and P0-015b receive prompt
 human decisions and excludes idle waiting/legal-review time. Choosing wholly
@@ -415,7 +421,7 @@ all tests that existed at that checkpoint:
 ```bash
 cmake --build build --parallel 3
 ctest --test-dir build --output-on-failure --parallel 3
-# 66/66 tests passed
+# 67/67 tests passed
 
 cmake -S ../cna -B build-cna-parent \
   -DCMAKE_PROJECT_CNA_INCLUDE="$PWD/cmake/AddMyraCnaToCnaBuild.cmake" \
@@ -425,14 +431,14 @@ cmake -S ../cna -B build-cna-parent \
 CCACHE_DISABLE=1 cmake --build build-cna-parent --parallel 3
 ctest --test-dir build-cna-parent/_myra_cna \
   --output-on-failure --parallel 3
-# 327/327 tests passed with current modular CNA/sharp-runtime
+# 329/329 tests passed with current modular CNA/sharp-runtime
 
 ASAN_OPTIONS=detect_leaks=0 CCACHE_DISABLE=1 \
   cmake --build build-sanitize-parent --parallel 3
 ASAN_OPTIONS=detect_leaks=0 UBSAN_OPTIONS=print_stacktrace=1 \
   ctest --test-dir build-sanitize-parent/_myra_cna \
   --output-on-failure --parallel 3
-# 327/327 tests passed with ASan address checks and UBSan
+# 329/329 tests passed with ASan address checks and UBSan
 
 # focused CheckButtonBase/ButtonBase/registry/codec validation: 19/19 passed
 
@@ -463,6 +469,10 @@ ASAN_OPTIONS=detect_leaks=0 UBSAN_OPTIONS=print_stacktrace=1 \
 # P5-019c ScrollViewer thumb capture/input slice: focused ScrollViewer plus
 # deepest wheel targeting 8/8; broad default 66/66, linked SOFTWARE 327/327,
 # and ASan+UBSan 327/327 passed
+
+# P5-010d Widget cursor routing: focused linked cursor transitions 2/2 and
+# deferred-linkage cursor mapping 1/1; broad default 67/67, linked SOFTWARE
+# 329/329, and ASan+UBSan 329/329 passed
 
 # focused UIUtils validation after that broad run: 3/3 passed
 # focused PathUtils validation after that broad run: 3/3 passed
@@ -590,7 +600,7 @@ was disabled because LeakSanitizer cannot run under this environment's
 3. P0-016 is complete. Keep every upstream test binary unbundled; execute
    P0-016a's original PNG/BMFont/stylesheet replacements only when their
    affected asset tests become implementable.
-4. P0-023, P5-008i, P5-010a, P5-010b, P5-010c, P5-012, P5-016a, P5-017a, P5-019a, P5-019b, P5-019c, P6-001a, P6-003a, P6-004a, P6-005a,
+4. P0-023, P5-008i, P5-010a, P5-010b, P5-010c, P5-010d, P5-012, P5-016a, P5-017a, P5-019a, P5-019b, P5-019c, P6-001a, P6-003a, P6-004a, P6-005a,
    P6-006a, P6-007a, P6-008a, P6-009a, P6-018a, P6-019a, P6-021a, P6-022a, P7-001–P7-005a, P7-006, P7-008, and P7-012a–P7-016a are complete. Keep full
    P6-006/P6-007/P6-008 hover/style work in P5-010/P8-003, and keep Slider's
    remaining stylesheet work in P6-022/P8-005; do not reopen P6-005's Label/style-
@@ -688,6 +698,11 @@ was disabled because LeakSanitizer cannot run under this environment's
   and `GraphicsDevice::Disposing` paths clear it, including ordinary stack/RAII
   destruction. A custom graphics-device service that outlives a game destroyed
   without raising either event must call `ClearGame()` first (`DEV-030`).
+- Widget cursor routing preserves upstream enter/leave ordering and ancestor/
+  default restoration. On linked backends, an unavailable native cursor shape
+  is ignored only for automatic hover routing after the backing state changes;
+  explicit setter calls still surface CNA's capability failure. Deferred
+  linkage validates/stores the same finite enum with no native call (`DEV-073`).
 - `CrossEngineStuff::SetTextureData` validates region arithmetic and RGBA byte
   length before converting to CNA's typed `Color` upload (`DEV-031`). It ignores
   trailing bytes like upstream's explicit element count.
@@ -785,7 +800,8 @@ HEADLESS and SDL_RENDERER-on-Xvfb each passed the 44/44 graphics subset and full
 172/172 suite at the P2-022 milestone. The current SDL_RENDERER tree, including
 the explicit display smoke and all work since then, passes 199/199 on Xvfb.
 The current default, linked SOFTWARE, and ASan+UBSan suites pass
-66/66, 327/327, and 327/327 respectively. P5-019c passes its focused 8/8
+67/67, 329/329, and 329/329 respectively. P5-010d passes 2/2 focused linked
+cursor-routing tests plus 1/1 deferred-linkage cursor mapping test. P5-019c passes its focused 8/8
 ScrollViewer/deepest-wheel subset, including both thumb orientations,
 out-of-bounds movement, global release, frame fall-through, reentrant removal,
 and checked arithmetic. P5-019b passes all 11/11 Slider
@@ -831,19 +847,19 @@ P0-015 completed the default-resource provenance audit. The exact Inter font is
 OFL-cleared but still unbundled; the VisUI-derived atlas is explicitly
 `needs_human` P0-015b. P0-016 subsequently classified all 35 test assets without
 copying them and opened P0-016a for behavior-equivalent project-owned fixtures.
-P6-006a/P6-007a/P6-008a are complete; do not start their hover-dependent
-`CheckImageInternal` override before P5-010 provides `IsMouseInside`, and keep
-their styles in P8. Do not reopen P6-005's Label/style-dependent remainder
+P6-006a/P6-007a/P6-008a are complete; P5-010b now provides `IsMouseInside`, so
+their dependency-safe `CheckImageInternal` hover override can be audited as a
+possible next slice while their styles remain in P8. Do not reopen P6-005's Label/style-dependent remainder
 until P6-002/P8-003 are implementable. Defer the remaining Desktop-driven
-cursor/tooltip/control-specific drag paths and replacement fixtures likewise. If P3-004 is later
+tooltip/control-specific drag paths and replacement fixtures likewise. If P3-004 is later
 approved, begin with P3-005's narrow abstraction and P3-006's explicit index-domain contract
 before introducing rasterizer code. P4-019 remains open only for future widget types,
 while caller-provided external-asset callbacks are already usable. P5-010b,
-P5-010c, P5-012, P5-016a, P5-017a, P5-019a, P5-019b, and P5-019c are complete. The P7-017 audit confirmed that a faithful Window still
+P5-010c, P5-010d, P5-012, P5-016a, P5-017a, P5-019a, P5-019b, and P5-019c are complete. The P7-017 audit confirmed that a faithful Window still
 needs Label even though the Desktop placement/focus/removal foundation now
 exists. Audit the remaining P5 input gaps before selecting the next coherent
 dependency-safe milestone: DataGrid capture waits for its Phase 9 control, while
-cursor/tooltip or another downstream interaction slice may now be available.
-Context menus, tooltips/cursor,
+the CheckButton hover-image override or another downstream interaction slice may now be available.
+Context menus, tooltips,
 Desktop rendering/style defaults, and text input remain in their downstream
 tasks.

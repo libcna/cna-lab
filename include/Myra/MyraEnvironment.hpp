@@ -75,7 +75,7 @@ namespace Myra
         /** @brief Returns the current Myra cursor type. */
         [[nodiscard]] static Graphics2D::UI::MouseCursorType getMouseCursorTypeProperty() noexcept;
 
-        /** @brief Maps and applies a Myra cursor type through CNA Mouse::SetCursor. */
+        /** @brief Maps a cursor type and applies it through CNA when linked. */
         static void setMouseCursorTypeProperty(Graphics2D::UI::MouseCursorType value);
 
         [[nodiscard]] static Graphics2D::UI::MouseCursorType getDefaultMouseCursorTypeProperty() noexcept;
@@ -139,6 +139,7 @@ namespace Myra
         static std::optional<std::size_t> gameDisposedToken_;
         static std::optional<std::size_t> graphicsDeviceDisposingToken_;
 
+        static void ApplyMouseCursorType(Graphics2D::UI::MouseCursorType value);
         static void OnGameDisposed(System::Object *sender, const System::EventArgs &eventArgs);
         static void OnGraphicsDeviceDisposing(System::Object *sender, const System::EventArgs &eventArgs);
     };

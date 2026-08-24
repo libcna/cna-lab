@@ -13,6 +13,7 @@
 #include <string>
 #include <vector>
 
+#include "CNA/Platform/PlatformException.hpp"
 #include "Microsoft/Xna/Framework/Color.hpp"
 #include "Myra/Graphics2D/IBrush.hpp"
 #include "Myra/Graphics2D/UI/Containers/Panel.hpp"
@@ -36,6 +37,7 @@ namespace
     using Myra::Graphics2D::UI::InputEventsManager;
     using Myra::Graphics2D::UI::InputEventType;
     using Myra::Graphics2D::UI::MenuItem;
+    using Myra::Graphics2D::UI::MouseCursorType;
     using Myra::Graphics2D::UI::MouseInfo;
     using Myra::Graphics2D::UI::Panel;
     using Myra::Graphics2D::UI::Widget;
@@ -110,6 +112,9 @@ namespace
             oldDownKeysGetter_ = MyraEnvironment::getDownKeysGetterProperty();
             oldDoubleClickInterval_ = MyraEnvironment::getDoubleClickIntervalInMsProperty();
             oldDoubleClickRadius_ = MyraEnvironment::getDoubleClickRadiusProperty();
+            oldSetMouseCursorFromWidget_ = MyraEnvironment::getSetMouseCursorFromWidgetProperty();
+            oldMouseCursorType_ = MyraEnvironment::getMouseCursorTypeProperty();
+            oldDefaultMouseCursorType_ = MyraEnvironment::getDefaultMouseCursorTypeProperty();
             MyraEnvironment::setEventHandlingModelProperty(Myra::Events::EventHandlingStrategy::EventCapturing);
         }
 
@@ -121,6 +126,9 @@ namespace
             MyraEnvironment::setDownKeysGetterProperty(std::move(oldDownKeysGetter_));
             MyraEnvironment::setDoubleClickIntervalInMsProperty(oldDoubleClickInterval_);
             MyraEnvironment::setDoubleClickRadiusProperty(oldDoubleClickRadius_);
+            MyraEnvironment::setSetMouseCursorFromWidgetProperty(oldSetMouseCursorFromWidget_);
+            MyraEnvironment::setDefaultMouseCursorTypeProperty(oldDefaultMouseCursorType_);
+            SetCursorWhenSupported(oldMouseCursorType_);
         }
 
         static void UseFixedBounds(Desktop &desktop)
@@ -128,11 +136,26 @@ namespace
             desktop.setBoundsFetcherProperty([] { return Rectangle(0, 0, 320, 200); });
         }
 
+        static void SetCursorWhenSupported(const MouseCursorType cursor)
+        {
+            try
+            {
+                MyraEnvironment::setMouseCursorTypeProperty(cursor);
+            }
+            catch (const CNA::Platform::PlatformException &exception)
+            {
+                EXPECT_EQ(exception.GetOperation(), "Mouse::SetCursor");
+            }
+        }
+
       private:
         MyraEnvironment::MouseInfoGetter oldMouseInfoGetter_;
         MyraEnvironment::DownKeysGetter oldDownKeysGetter_;
         int oldDoubleClickInterval_ = 0;
         int oldDoubleClickRadius_ = 0;
+        bool oldSetMouseCursorFromWidget_ = true;
+        MouseCursorType oldMouseCursorType_ = MouseCursorType::Arrow;
+        MouseCursorType oldDefaultMouseCursorType_ = MouseCursorType::Arrow;
     };
 
     TEST_F(DesktopInputTests, MouseSnapshotsQueueTouchMovementAndWheelEventsInUpstreamOrder)
@@ -368,6 +391,86 @@ namespace
         desktop.ProcessWidgetInput();
         InputEventsManager::ProcessEvents();
         EXPECT_EQ(calls, (std::vector<std::string>{"root:touch-up"}));
+    }
+
+    TEST_F(DesktopInputTests, MouseCursorTracksEnteredChildHoveredAncestorAndDefault)
+    {
+        MouseInfo snapshot{{5, 5}, false, false, false, 0.0F};
+        MyraEnvironment::setMouseInfoGetterProperty([&] { return snapshot; });
+        MyraEnvironment::setDownKeysGetterProperty([](MyraEnvironment::DownKeys &keys) { keys.fill(false); });
+        MyraEnvironment::setSetMouseCursorFromWidgetProperty(true);
+        MyraEnvironment::setDefaultMouseCursorTypeProperty(MouseCursorType::SizeAll);
+        SetCursorWhenSupported(MouseCursorType::Arrow);
+
+        Desktop desktop;
+        desktop.setBoundsFetcherProperty([] { return Rectangle(0, 0, 100, 80); });
+        auto root = std::make_shared<Panel>();
+        auto child = std::make_shared<Widget>();
+        child->setWidthProperty(20);
+        child->setHeightProperty(20);
+        root->AddWidget(child);
+        root->setMouseCursorProperty(MouseCursorType::Crosshair);
+        child->setMouseCursorProperty(MouseCursorType::Hand);
+        desktop.AddWidget(root);
+        desktop.UpdateLayout();
+        root->MouseEntered += [&](void *, Myra::Events::MyraEventArgs &)
+        { EXPECT_EQ(MyraEnvironment::getMouseCursorTypeProperty(), MouseCursorType::Crosshair); };
+        child->MouseEntered += [&](void *, Myra::Events::MyraEventArgs &)
+        { EXPECT_EQ(MyraEnvironment::getMouseCursorTypeProperty(), MouseCursorType::Hand); };
+        child->MouseLeft += [&](void *, Myra::Events::MyraEventArgs &)
+        { EXPECT_EQ(MyraEnvironment::getMouseCursorTypeProperty(), MouseCursorType::Crosshair); };
+        root->MouseLeft += [&](void *, Myra::Events::MyraEventArgs &)
+        { EXPECT_EQ(MyraEnvironment::getMouseCursorTypeProperty(), MouseCursorType::SizeAll); };
+
+        desktop.UpdateInput();
+        desktop.ProcessWidgetInput();
+        InputEventsManager::ProcessEvents();
+        EXPECT_EQ(MyraEnvironment::getMouseCursorTypeProperty(), MouseCursorType::Hand);
+
+        snapshot.Position = Point(50, 50);
+        desktop.UpdateInput();
+        desktop.ProcessWidgetInput();
+        InputEventsManager::ProcessEvents();
+        EXPECT_EQ(MyraEnvironment::getMouseCursorTypeProperty(), MouseCursorType::Crosshair);
+
+        snapshot.Position = Point(120, 90);
+        desktop.UpdateInput();
+        desktop.ProcessWidgetInput();
+        InputEventsManager::ProcessEvents();
+        EXPECT_EQ(MyraEnvironment::getMouseCursorTypeProperty(), MouseCursorType::SizeAll);
+    }
+
+    TEST_F(DesktopInputTests, WidgetMouseCursorRoutingCanBeDisabled)
+    {
+        MouseInfo snapshot{{5, 5}, false, false, false, 0.0F};
+        MyraEnvironment::setMouseInfoGetterProperty([&] { return snapshot; });
+        MyraEnvironment::setDownKeysGetterProperty([](MyraEnvironment::DownKeys &keys) { keys.fill(false); });
+        MyraEnvironment::setDefaultMouseCursorTypeProperty(MouseCursorType::Arrow);
+        MyraEnvironment::setSetMouseCursorFromWidgetProperty(false);
+        SetCursorWhenSupported(MouseCursorType::No);
+
+        Desktop desktop;
+        desktop.setBoundsFetcherProperty([] { return Rectangle(0, 0, 100, 80); });
+        auto root = std::make_shared<Panel>();
+        root->setMouseCursorProperty(MouseCursorType::Hand);
+        desktop.AddWidget(root);
+        desktop.UpdateLayout();
+
+        desktop.UpdateInput();
+        desktop.ProcessWidgetInput();
+        InputEventsManager::ProcessEvents();
+        EXPECT_EQ(MyraEnvironment::getMouseCursorTypeProperty(), MouseCursorType::No);
+
+        snapshot.Position = Point(120, 90);
+        desktop.UpdateInput();
+        desktop.ProcessWidgetInput();
+        InputEventsManager::ProcessEvents();
+        MyraEnvironment::setSetMouseCursorFromWidgetProperty(true);
+        snapshot.Position = Point(5, 5);
+        desktop.UpdateInput();
+        desktop.ProcessWidgetInput();
+        InputEventsManager::ProcessEvents();
+        EXPECT_EQ(MyraEnvironment::getMouseCursorTypeProperty(), MouseCursorType::Hand);
     }
 
     TEST_F(DesktopInputTests, TransparentAndOpaqueTopRootsControlInputFallThrough)
