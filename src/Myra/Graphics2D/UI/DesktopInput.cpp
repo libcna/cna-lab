@@ -309,18 +309,17 @@ namespace Myra::Graphics2D::UI
     void Desktop::InputOnTouchDown()
     {
         const std::shared_ptr<Widget> menu = contextMenu_;
-        if (!menu || menu->getIsTouchInsideProperty())
+        if (menu && !menu->getIsTouchInsideProperty())
         {
-            return;
+            Events::CancellableEventArgsT<Widget *> arguments(menu.get(), InputEventType::ContextMenuClosing);
+            ContextMenuClosing.Invoke(nullptr, arguments);
+            if (arguments.Cancel || contextMenu_ != menu)
+            {
+                return;
+            }
+            HideContextMenu();
         }
-
-        Events::CancellableEventArgsT<Widget *> arguments(menu.get(), InputEventType::ContextMenuClosing);
-        ContextMenuClosing.Invoke(nullptr, arguments);
-        if (arguments.Cancel || contextMenu_ != menu)
-        {
-            return;
-        }
-        HideContextMenu();
+        HideTooltip();
     }
 
     void Desktop::setMousePositionProperty(const Point value)

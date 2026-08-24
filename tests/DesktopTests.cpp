@@ -13,12 +13,14 @@
 
 #include "Myra/Graphics2D/UI/Containers/Panel.hpp"
 #include "Myra/Graphics2D/UI/Selectors/HorizontalMenu.hpp"
+#include "Myra/MyraEnvironment.hpp"
 
 namespace
 {
     using Microsoft::Xna::Framework::Point;
     using Microsoft::Xna::Framework::Rectangle;
     using Microsoft::Xna::Framework::Vector2;
+    using Myra::MyraEnvironment;
     using Myra::Events::CancellableEventArgsT;
     using Myra::Events::GenericEventArgs;
     using Myra::Graphics2D::UI::Desktop;
@@ -28,6 +30,29 @@ namespace
     using Myra::Graphics2D::UI::Panel;
     using Myra::Graphics2D::UI::VerticalAlignment;
     using Myra::Graphics2D::UI::Widget;
+
+    class TooltipEnvironmentGuard final
+    {
+      public:
+        TooltipEnvironmentGuard()
+            : delay_(MyraEnvironment::getTooltipDelayInMsProperty()),
+              offset_(MyraEnvironment::getTooltipOffsetProperty()),
+              creator_(MyraEnvironment::getTooltipCreatorProperty())
+        {
+        }
+
+        ~TooltipEnvironmentGuard()
+        {
+            MyraEnvironment::setTooltipDelayInMsProperty(delay_);
+            MyraEnvironment::setTooltipOffsetProperty(offset_);
+            MyraEnvironment::setTooltipCreatorProperty(std::move(creator_));
+        }
+
+      private:
+        int delay_;
+        Point offset_;
+        MyraEnvironment::TooltipCreator creator_;
+    };
 
     class ProbeWidget final : public Widget
     {
@@ -425,6 +450,61 @@ namespace
         EXPECT_TRUE(desktop.RemoveWidget(root.get()));
         desktop.HideContextMenu();
         EXPECT_EQ(desktop.getFocusedKeyboardWidgetProperty(), nullptr);
+    }
+
+    TEST(DesktopTests, TooltipCreatorPositionsAndDetachesTheOverlayWithItsOwner)
+    {
+        TooltipEnvironmentGuard environment;
+        Desktop desktop;
+        UseFixedBounds(desktop, Rectangle(20, 30, 200, 100));
+        auto owner = std::make_shared<ProbeWidget>();
+        owner->setTooltipProperty(std::string("details"));
+        desktop.AddWidget(owner);
+        desktop.UpdateLayout();
+
+        auto first = std::make_shared<ProbeWidget>(Point(30, 20));
+        first->setVisibleProperty(false);
+        Widget *creatorOwner = nullptr;
+        int creatorCalls = 0;
+        MyraEnvironment::setTooltipCreatorProperty(
+            [&](Widget &widget)
+            {
+                creatorOwner = &widget;
+                ++creatorCalls;
+                return first;
+            });
+
+        desktop.ShowTooltip(*owner, Point(210, 120));
+        EXPECT_EQ(creatorCalls, 1);
+        EXPECT_EQ(creatorOwner, owner.get());
+        EXPECT_EQ(desktop.getTooltipProperty(), first);
+        EXPECT_TRUE(first->getVisibleProperty());
+        EXPECT_EQ(first->getDesktopProperty(), &desktop);
+        EXPECT_EQ(first->getHorizontalAlignmentProperty(), HorizontalAlignment::Left);
+        EXPECT_EQ(first->getVerticalAlignmentProperty(), VerticalAlignment::Top);
+        EXPECT_EQ(first->getLeftProperty(), 170);
+        EXPECT_EQ(first->getTopProperty(), 80);
+
+        EXPECT_TRUE(desktop.RemoveWidget(owner.get()));
+        EXPECT_EQ(desktop.getTooltipProperty(), nullptr);
+        EXPECT_FALSE(first->getVisibleProperty());
+        EXPECT_FALSE(first->getIsPlacedProperty());
+
+        desktop.AddWidget(owner);
+        desktop.ShowTooltip(*owner, Point(20, 30));
+        EXPECT_EQ(desktop.getTooltipProperty(), first);
+        EXPECT_TRUE(desktop.RemoveWidget(first.get()));
+        EXPECT_EQ(desktop.getTooltipProperty(), nullptr);
+        EXPECT_FALSE(first->getVisibleProperty());
+
+        owner->setTooltipProperty(std::string());
+        desktop.ShowTooltip(*owner, Point(20, 30));
+        EXPECT_EQ(creatorCalls, 2);
+        EXPECT_EQ(desktop.getTooltipProperty(), nullptr);
+        MyraEnvironment::setTooltipCreatorProperty({});
+        owner->setTooltipProperty(std::string("details"));
+        desktop.ShowTooltip(*owner, Point(20, 30));
+        EXPECT_EQ(desktop.getTooltipProperty(), nullptr);
     }
 
     TEST(DesktopTests, DesktopTransformComposesWithRootWidgetCoordinates)

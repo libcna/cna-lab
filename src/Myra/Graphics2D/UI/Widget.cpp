@@ -1179,11 +1179,25 @@ namespace Myra::Graphics2D::UI
         {
             try
             {
-                desktop_->ClearFocusForDetaching(*this);
+                if (desktop_->tooltipOwner_.lock().get() == this)
+                {
+                    desktop_->HideTooltip();
+                }
             }
             catch (...)
             {
                 pendingException = std::current_exception();
+            }
+            try
+            {
+                desktop_->ClearFocusForDetaching(*this);
+            }
+            catch (...)
+            {
+                if (!pendingException)
+                {
+                    pendingException = std::current_exception();
+                }
             }
         }
         desktop_ = value;

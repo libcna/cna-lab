@@ -14,6 +14,7 @@
 #include <utility>
 
 #include "Myra/Graphics2D/UI/Selectors/HorizontalMenu.hpp"
+#include "Myra/MyraEnvironment.hpp"
 #include "Myra/Utility/EventsExtensions.hpp"
 #include "Myra/Utility/Mathematics.hpp"
 #include "Myra/Utility/UIUtils.hpp"
@@ -75,6 +76,8 @@ namespace Myra::Graphics2D::UI
     {
         destroying_ = true;
         contextMenu_.reset();
+        tooltip_.reset();
+        tooltipOwner_.reset();
         previousKeyboardFocus_.reset();
         inputProcessor_->Detach();
         try
@@ -139,6 +142,7 @@ namespace Myra::Graphics2D::UI
             return;
         }
         HideContextMenu();
+        HideTooltip();
         widgets_.Clear();
         if (value)
         {
@@ -200,6 +204,7 @@ namespace Myra::Graphics2D::UI
     void Desktop::ClearWidgets()
     {
         HideContextMenu();
+        HideTooltip();
         widgets_.Clear();
     }
 
@@ -312,6 +317,103 @@ namespace Myra::Graphics2D::UI
             }
         }
 
+        if (pendingException)
+        {
+            std::rethrow_exception(pendingException);
+        }
+    }
+
+    std::shared_ptr<Widget> Desktop::getTooltipProperty() const
+    {
+        return tooltip_;
+    }
+
+    void Desktop::ShowTooltip(Widget &owner, Point position)
+    {
+        const std::optional<std::string> &text = owner.getTooltipProperty();
+        if (!text || text->empty())
+        {
+            return;
+        }
+
+        const std::shared_ptr<Widget> retainedOwner = RetainWidget(&owner);
+        if (!retainedOwner)
+        {
+            return;
+        }
+
+        HideTooltip();
+        const MyraEnvironment::TooltipCreator creator = MyraEnvironment::getTooltipCreatorProperty();
+        if (!creator || retainedOwner->desktop_ != this)
+        {
+            return;
+        }
+
+        std::shared_ptr<Widget> tooltip = creator(*retainedOwner);
+        if (!tooltip || tooltip == retainedOwner || retainedOwner->desktop_ != this || tooltip_)
+        {
+            return;
+        }
+
+        position = ToLocal(position);
+        FixOverWidgetPosition(*tooltip, position);
+        if (retainedOwner->desktop_ != this || tooltip_)
+        {
+            return;
+        }
+
+        tooltip_ = tooltip;
+        tooltipOwner_ = retainedOwner;
+        try
+        {
+            tooltip->setVisibleProperty(true);
+            if (tooltip_ == tooltip)
+            {
+                AddWidget(tooltip);
+            }
+        }
+        catch (...)
+        {
+            if (tooltip_ == tooltip)
+            {
+                tooltip_.reset();
+                tooltipOwner_.reset();
+            }
+            throw;
+        }
+    }
+
+    void Desktop::HideTooltip()
+    {
+        const std::shared_ptr<Widget> tooltip = tooltip_;
+        if (!tooltip)
+        {
+            tooltipOwner_.reset();
+            return;
+        }
+
+        tooltip_.reset();
+        tooltipOwner_.reset();
+        std::exception_ptr pendingException;
+        try
+        {
+            static_cast<void>(RemoveWidget(tooltip.get()));
+        }
+        catch (...)
+        {
+            pendingException = std::current_exception();
+        }
+        try
+        {
+            tooltip->setVisibleProperty(false);
+        }
+        catch (...)
+        {
+            if (!pendingException)
+            {
+                pendingException = std::current_exception();
+            }
+        }
         if (pendingException)
         {
             std::rethrow_exception(pendingException);
@@ -596,6 +698,7 @@ namespace Myra::Graphics2D::UI
         }
         SynchronizeRoots();
         ReconcileContextMenuOwnership();
+        ReconcileTooltipOwnership();
     }
 
     void Desktop::SynchronizeRoots()
@@ -726,6 +829,24 @@ namespace Myra::Graphics2D::UI
         {
             std::rethrow_exception(pendingException);
         }
+    }
+
+    void Desktop::ReconcileTooltipOwnership()
+    {
+        const std::shared_ptr<Widget> tooltip = tooltip_;
+        const std::shared_ptr<Widget> owner = tooltipOwner_.lock();
+        if (!tooltip || (owner && owner->desktop_ == this && tooltip->parent_ == nullptr && tooltip->desktop_ == this))
+        {
+            if (!tooltip)
+            {
+                tooltipOwner_.reset();
+            }
+            return;
+        }
+
+        tooltip_.reset();
+        tooltipOwner_.reset();
+        tooltip->setVisibleProperty(false);
     }
 
     void Desktop::RemoveWidgetFromPreviousOwner(const std::shared_ptr<Widget> &widget)

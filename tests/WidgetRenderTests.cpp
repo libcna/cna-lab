@@ -21,7 +21,9 @@
 #include "Myra/Graphics2D/RenderContext.hpp"
 #include "Myra/Graphics2D/Thickness.hpp"
 #include "Myra/Graphics2D/Transform.hpp"
+#include "Myra/Graphics2D/UI/Desktop.hpp"
 #include "Myra/Graphics2D/UI/Enums.hpp"
+#include "Myra/Graphics2D/UI/InputEventsManager.hpp"
 #include "Myra/MyraEnvironment.hpp"
 
 namespace
@@ -31,14 +33,17 @@ namespace
     using Microsoft::Xna::Framework::Rectangle;
     using Microsoft::Xna::Framework::Vector2;
     using Microsoft::Xna::Framework::Graphics::Viewport;
+    using Myra::MyraEnvironment;
     using Myra::Graphics2D::IBrush;
     using Myra::Graphics2D::RenderContext;
     using Myra::Graphics2D::Thickness;
     using Myra::Graphics2D::Transform;
+    using Myra::Graphics2D::UI::Desktop;
     using Myra::Graphics2D::UI::HorizontalAlignment;
+    using Myra::Graphics2D::UI::InputEventsManager;
+    using Myra::Graphics2D::UI::MouseInfo;
     using Myra::Graphics2D::UI::VerticalAlignment;
     using Myra::Graphics2D::UI::Widget;
-    using Myra::MyraEnvironment;
 
     struct BrushObservation
     {
@@ -110,6 +115,10 @@ namespace
     protected:
         void SetUp() override
         {
+            mouseInfoGetter_ = MyraEnvironment::getMouseInfoGetterProperty();
+            tooltipDelay_ = MyraEnvironment::getTooltipDelayInMsProperty();
+            tooltipOffset_ = MyraEnvironment::getTooltipOffsetProperty();
+            tooltipCreator_ = MyraEnvironment::getTooltipCreatorProperty();
             MyraEnvironment::setDrawWidgetsFramesProperty(false);
             MyraEnvironment::setDrawKeyboardFocusedWidgetFrameProperty(false);
             MyraEnvironment::setDrawMouseHoveredWidgetFrameProperty(false);
@@ -118,10 +127,15 @@ namespace
 
         void TearDown() override
         {
+            InputEventsManager::ProcessEvents();
             MyraEnvironment::setDrawWidgetsFramesProperty(false);
             MyraEnvironment::setDrawKeyboardFocusedWidgetFrameProperty(false);
             MyraEnvironment::setDrawMouseHoveredWidgetFrameProperty(false);
             MyraEnvironment::setDisableClippingProperty(false);
+            MyraEnvironment::setMouseInfoGetterProperty(std::move(mouseInfoGetter_));
+            MyraEnvironment::setTooltipDelayInMsProperty(tooltipDelay_);
+            MyraEnvironment::setTooltipOffsetProperty(tooltipOffset_);
+            MyraEnvironment::setTooltipCreatorProperty(std::move(tooltipCreator_));
             MyraEnvironment::ClearGame();
         }
 
@@ -131,6 +145,12 @@ namespace
             device.setViewportProperty(Viewport(0, 0, 400, 300));
             return RenderContext(device);
         }
+
+      private:
+        MyraEnvironment::MouseInfoGetter mouseInfoGetter_;
+        int tooltipDelay_ = 0;
+        Microsoft::Xna::Framework::Point tooltipOffset_;
+        MyraEnvironment::TooltipCreator tooltipCreator_;
     };
 
     TEST_F(WidgetRenderTests, SelectsRetainedVisualsInUpstreamPriorityOrder)
@@ -395,5 +415,55 @@ namespace
         EXPECT_EQ(events, (std::vector<std::string>{"first", "second"}));
         EXPECT_EQ(second->getParentProperty(), nullptr);
         EXPECT_EQ(parent->getChildrenProperty().size(), 1U);
+    }
+
+    TEST_F(WidgetRenderTests, StationaryHoverCreatesAndMouseLeaveHidesTheTooltip)
+    {
+        MouseInfo snapshot{{5, 5}, false, false, false, 0.0F};
+        MyraEnvironment::setMouseInfoGetterProperty([&] { return snapshot; });
+        MyraEnvironment::setTooltipDelayInMsProperty(-1);
+        MyraEnvironment::setTooltipOffsetProperty({2, 3});
+
+        auto tooltip = std::make_shared<RenderProbeWidget>();
+        tooltip->setWidthProperty(20);
+        tooltip->setHeightProperty(10);
+        Widget *creatorOwner = nullptr;
+        MyraEnvironment::setTooltipCreatorProperty(
+            [&](Widget &owner)
+            {
+                creatorOwner = &owner;
+                return tooltip;
+            });
+
+        Desktop desktop;
+        desktop.setBoundsFetcherProperty([] { return Rectangle(0, 0, 100, 80); });
+        auto owner = std::make_shared<RenderProbeWidget>();
+        owner->setWidthProperty(50);
+        owner->setHeightProperty(40);
+        owner->setTooltipProperty(std::string("details"));
+        desktop.AddWidget(owner);
+        desktop.UpdateLayout();
+        desktop.UpdateMouseInput();
+        desktop.ProcessWidgetInput();
+        InputEventsManager::ProcessEvents();
+
+        Game game;
+        RenderContext context = MakeContext(game);
+        context.setScissorProperty(Rectangle(0, 0, 400, 300));
+        owner->Render(context);
+
+        EXPECT_EQ(creatorOwner, owner.get());
+        EXPECT_EQ(desktop.getTooltipProperty(), tooltip);
+        EXPECT_EQ(tooltip->getLeftProperty(), 7);
+        EXPECT_EQ(tooltip->getTopProperty(), 8);
+
+        snapshot.Position = {90, 70};
+        desktop.UpdateMouseInput();
+        desktop.ProcessWidgetInput();
+        InputEventsManager::ProcessEvents();
+
+        EXPECT_EQ(desktop.getTooltipProperty(), nullptr);
+        EXPECT_FALSE(tooltip->getVisibleProperty());
+        EXPECT_FALSE(tooltip->getIsPlacedProperty());
     }
 }

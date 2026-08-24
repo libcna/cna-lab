@@ -28,6 +28,9 @@ namespace Myra
 #endif
     int MyraEnvironment::doubleClickIntervalInMs_ = 500;
     int MyraEnvironment::doubleClickRadius_ = 2;
+    int MyraEnvironment::tooltipDelayInMs_ = 500;
+    Microsoft::Xna::Framework::Point MyraEnvironment::tooltipOffset_{0, 20};
+    MyraEnvironment::TooltipCreator MyraEnvironment::tooltipCreator_;
 
     Events::EventHandlingStrategy MyraEnvironment::getEventHandlingModelProperty() noexcept
     {
@@ -165,5 +168,35 @@ namespace Myra
     void MyraEnvironment::setDoubleClickRadiusProperty(const int value) noexcept
     {
         doubleClickRadius_ = value;
+    }
+
+    int MyraEnvironment::getTooltipDelayInMsProperty() noexcept
+    {
+        return tooltipDelayInMs_;
+    }
+
+    void MyraEnvironment::setTooltipDelayInMsProperty(const int value) noexcept
+    {
+        tooltipDelayInMs_ = value;
+    }
+
+    const Microsoft::Xna::Framework::Point &MyraEnvironment::getTooltipOffsetProperty() noexcept
+    {
+        return tooltipOffset_;
+    }
+
+    void MyraEnvironment::setTooltipOffsetProperty(const Microsoft::Xna::Framework::Point value) noexcept
+    {
+        tooltipOffset_ = value;
+    }
+
+    const MyraEnvironment::TooltipCreator &MyraEnvironment::getTooltipCreatorProperty() noexcept
+    {
+        return tooltipCreator_;
+    }
+
+    void MyraEnvironment::setTooltipCreatorProperty(TooltipCreator value)
+    {
+        tooltipCreator_ = std::move(value);
     }
 } // namespace Myra

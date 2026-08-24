@@ -445,6 +445,11 @@ namespace Myra::Graphics2D::UI
         switch (eventType)
         {
         case InputEventType::MouseLeft:
+            if (desktop_ != nullptr && desktop_->tooltipOwner_.lock().get() == this)
+            {
+                desktop_->HideTooltip();
+            }
+            lastMouseMovement_.reset();
             if (MyraEnvironment::getSetMouseCursorFromWidgetProperty() && mouseCursor_)
             {
                 Widget *ancestor = parent_;
@@ -462,6 +467,7 @@ namespace Myra::Graphics2D::UI
             Utility::EventsExtensions::Invoke(MouseLeft, this, eventType);
             break;
         case InputEventType::MouseEntered:
+            lastMouseMovement_ = std::chrono::steady_clock::now();
             if (MyraEnvironment::getSetMouseCursorFromWidgetProperty() && mouseCursor_)
             {
                 ApplyWidgetMouseCursor(*mouseCursor_);
@@ -470,6 +476,7 @@ namespace Myra::Graphics2D::UI
             Utility::EventsExtensions::Invoke(MouseEntered, this, eventType);
             break;
         case InputEventType::MouseMoved:
+            lastMouseMovement_ = std::chrono::steady_clock::now();
             OnMouseMoved();
             Utility::EventsExtensions::Invoke(MouseMoved, this, eventType);
             break;

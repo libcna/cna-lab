@@ -17,6 +17,7 @@
 #include "Microsoft/Xna/Framework/Rectangle.hpp"
 #include "Myra/Graphics2D/IBrush.hpp"
 #include "Myra/Graphics2D/RenderContext.hpp"
+#include "Myra/Graphics2D/UI/Desktop.hpp"
 #include "Myra/MyraEnvironment.hpp"
 #include "Myra/Utility/Mathematics.hpp"
 
@@ -45,9 +46,15 @@ namespace Myra::Graphics2D::UI
             }
             return static_cast<int>(result);
         }
+
+        [[nodiscard]] int CheckedTooltipPosition(const int position, const int offset)
+        {
+            return CheckedAdd(position, offset, "Tooltip position exceeds the supported integer range.");
+        }
     }
 
     using Microsoft::Xna::Framework::Color;
+    using Microsoft::Xna::Framework::Point;
     using Microsoft::Xna::Framework::Rectangle;
 
     void Widget::Render(Graphics2D::RenderContext& context)
@@ -55,6 +62,20 @@ namespace Myra::Graphics2D::UI
         if (!visible_)
         {
             return;
+        }
+
+        Desktop *const desktop = desktop_;
+        if (desktop != nullptr && tooltip_ && !tooltip_->empty() && lastMouseMovement_ &&
+            desktop->tooltipOwner_.lock().get() != this &&
+            std::chrono::steady_clock::now() - *lastMouseMovement_ >
+                std::chrono::milliseconds(MyraEnvironment::getTooltipDelayInMsProperty()))
+        {
+            Point position = desktop->getMousePositionProperty();
+            const Point &offset = MyraEnvironment::getTooltipOffsetProperty();
+            position.X = CheckedTooltipPosition(position.X, offset.X);
+            position.Y = CheckedTooltipPosition(position.Y, offset.Y);
+            desktop->ShowTooltip(*this, position);
+            lastMouseMovement_.reset();
         }
 
         UpdateArrange();

@@ -88,6 +88,11 @@ namespace Myra::Graphics2D::UI
         [[nodiscard]] std::shared_ptr<Widget> getContextMenuProperty() const;
         void ShowContextMenu(std::shared_ptr<Widget> menu, Microsoft::Xna::Framework::Point position);
         void HideContextMenu();
+        /** @brief Returns the currently retained tooltip overlay, if any. */
+        [[nodiscard]] std::shared_ptr<Widget> getTooltipProperty() const;
+        /** @brief Creates and fits an owner's tooltip through MyraEnvironment's injected factory. */
+        void ShowTooltip(Widget &owner, Microsoft::Xna::Framework::Point position);
+        void HideTooltip();
         [[nodiscard]] const Microsoft::Xna::Framework::Rectangle &getInternalBoundsProperty() const noexcept;
         [[nodiscard]] Microsoft::Xna::Framework::Rectangle getLayoutBoundsProperty() const;
 
@@ -170,6 +175,7 @@ namespace Myra::Graphics2D::UI
         void SynchronizeRoots();
         void SynchronizeRootsOnce();
         void ReconcileContextMenuOwnership();
+        void ReconcileTooltipOwnership();
         void RemoveWidgetFromPreviousOwner(const std::shared_ptr<Widget> &widget);
         [[nodiscard]] std::shared_ptr<Widget> RetainWidget(const Widget *widget) const;
         [[nodiscard]] bool ContainsWidget(const Widget &root, const Widget *target) const;
@@ -201,6 +207,8 @@ namespace Myra::Graphics2D::UI
         HorizontalMenu *menuBar_ = nullptr;
         Widget *focusedKeyboardWidget_ = nullptr;
         std::shared_ptr<Widget> contextMenu_;
+        std::shared_ptr<Widget> tooltip_;
+        std::weak_ptr<Widget> tooltipOwner_;
         std::weak_ptr<Widget> previousKeyboardFocus_;
         std::shared_ptr<InputProcessor> inputProcessor_;
         std::shared_ptr<Graphics2D::IBrush> background_;

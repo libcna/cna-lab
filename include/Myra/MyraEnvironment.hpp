@@ -9,6 +9,7 @@
 #include <array>
 #include <cstddef>
 #include <functional>
+#include <memory>
 #include <optional>
 
 #include "Myra/Events/EventHandlingStrategy.hpp"
@@ -33,6 +34,11 @@ namespace System
 
 namespace Myra
 {
+    namespace Graphics2D::UI
+    {
+        class Widget;
+    }
+
     /**
      * @brief Provides global configuration for Myra UI.
      *
@@ -48,6 +54,7 @@ namespace Myra
         using DownKeys = std::array<bool, KeyStateCount>;
         using MouseInfoGetter = std::function<Graphics2D::UI::MouseInfo()>;
         using DownKeysGetter = std::function<void(DownKeys &)>;
+        using TooltipCreator = std::function<std::shared_ptr<Graphics2D::UI::Widget>(Graphics2D::UI::Widget &)>;
 
         MyraEnvironment() = delete;
 
@@ -90,6 +97,14 @@ namespace Myra
         static void setDoubleClickIntervalInMsProperty(int value) noexcept;
         [[nodiscard]] static int getDoubleClickRadiusProperty() noexcept;
         static void setDoubleClickRadiusProperty(int value) noexcept;
+
+        [[nodiscard]] static int getTooltipDelayInMsProperty() noexcept;
+        static void setTooltipDelayInMsProperty(int value) noexcept;
+        [[nodiscard]] static const Microsoft::Xna::Framework::Point &getTooltipOffsetProperty() noexcept;
+        static void setTooltipOffsetProperty(Microsoft::Xna::Framework::Point value) noexcept;
+        /** @brief Gets the injected tooltip factory; empty until Label/style support is ported. */
+        [[nodiscard]] static const TooltipCreator &getTooltipCreatorProperty() noexcept;
+        static void setTooltipCreatorProperty(TooltipCreator value);
 
         /** @brief Reads the current CNA mouse snapshot relative to the active viewport. */
         [[nodiscard]] static Graphics2D::UI::MouseInfo DefaultMouseInfoGetter();
@@ -134,6 +149,9 @@ namespace Myra
         static DownKeysGetter downKeysGetter_;
         static int doubleClickIntervalInMs_;
         static int doubleClickRadius_;
+        static int tooltipDelayInMs_;
+        static Microsoft::Xna::Framework::Point tooltipOffset_;
+        static TooltipCreator tooltipCreator_;
         static Microsoft::Xna::Framework::Game *game_;
         static Microsoft::Xna::Framework::Graphics::GraphicsDevice *graphicsDevice_;
         static std::optional<std::size_t> gameDisposedToken_;

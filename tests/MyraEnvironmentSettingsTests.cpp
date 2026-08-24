@@ -24,6 +24,7 @@ namespace
         {
             mouseInfoGetter_ = MyraEnvironment::getMouseInfoGetterProperty();
             downKeysGetter_ = MyraEnvironment::getDownKeysGetterProperty();
+            tooltipCreator_ = MyraEnvironment::getTooltipCreatorProperty();
         }
 
         void TearDown() override
@@ -38,6 +39,9 @@ namespace
             MyraEnvironment::setDefaultMouseCursorTypeProperty(MouseCursorType::Arrow);
             MyraEnvironment::setDoubleClickIntervalInMsProperty(500);
             MyraEnvironment::setDoubleClickRadiusProperty(2);
+            MyraEnvironment::setTooltipDelayInMsProperty(500);
+            MyraEnvironment::setTooltipOffsetProperty({0, 20});
+            MyraEnvironment::setTooltipCreatorProperty(std::move(tooltipCreator_));
             MyraEnvironment::setMouseInfoGetterProperty(std::move(mouseInfoGetter_));
             MyraEnvironment::setDownKeysGetterProperty(std::move(downKeysGetter_));
         }
@@ -45,6 +49,7 @@ namespace
       private:
         MyraEnvironment::MouseInfoGetter mouseInfoGetter_;
         MyraEnvironment::DownKeysGetter downKeysGetter_;
+        MyraEnvironment::TooltipCreator tooltipCreator_;
     };
 
     TEST_F(MyraEnvironmentSettingsTests, UsesTheUpstreamConfigurationDefaults)
@@ -60,6 +65,9 @@ namespace
         EXPECT_EQ(MyraEnvironment::getDefaultMouseCursorTypeProperty(), MouseCursorType::Arrow);
         EXPECT_EQ(MyraEnvironment::getDoubleClickIntervalInMsProperty(), 500);
         EXPECT_EQ(MyraEnvironment::getDoubleClickRadiusProperty(), 2);
+        EXPECT_EQ(MyraEnvironment::getTooltipDelayInMsProperty(), 500);
+        EXPECT_EQ(MyraEnvironment::getTooltipOffsetProperty(), Microsoft::Xna::Framework::Point(0, 20));
+        EXPECT_FALSE(MyraEnvironment::getTooltipCreatorProperty());
     }
 
     TEST_F(MyraEnvironmentSettingsTests, StoresEachConfigurationSettingIndependently)
@@ -74,6 +82,9 @@ namespace
         MyraEnvironment::setDefaultMouseCursorTypeProperty(MouseCursorType::Hand);
         MyraEnvironment::setDoubleClickIntervalInMsProperty(275);
         MyraEnvironment::setDoubleClickRadiusProperty(7);
+        MyraEnvironment::setTooltipDelayInMsProperty(125);
+        MyraEnvironment::setTooltipOffsetProperty({4, 9});
+        MyraEnvironment::setTooltipCreatorProperty([](Myra::Graphics2D::UI::Widget &) { return nullptr; });
 
         EXPECT_EQ(MyraEnvironment::getEventHandlingModelProperty(), EventHandlingStrategy::EventBubbling);
         EXPECT_TRUE(MyraEnvironment::getDrawWidgetsFramesProperty());
@@ -85,6 +96,9 @@ namespace
         EXPECT_EQ(MyraEnvironment::getDefaultMouseCursorTypeProperty(), MouseCursorType::Hand);
         EXPECT_EQ(MyraEnvironment::getDoubleClickIntervalInMsProperty(), 275);
         EXPECT_EQ(MyraEnvironment::getDoubleClickRadiusProperty(), 7);
+        EXPECT_EQ(MyraEnvironment::getTooltipDelayInMsProperty(), 125);
+        EXPECT_EQ(MyraEnvironment::getTooltipOffsetProperty(), Microsoft::Xna::Framework::Point(4, 9));
+        EXPECT_TRUE(MyraEnvironment::getTooltipCreatorProperty());
     }
 
     TEST_F(MyraEnvironmentSettingsTests, StoresInjectableMouseAndKeyboardSnapshotProviders)

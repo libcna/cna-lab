@@ -118,6 +118,9 @@ namespace
             oldSetMouseCursorFromWidget_ = MyraEnvironment::getSetMouseCursorFromWidgetProperty();
             oldMouseCursorType_ = MyraEnvironment::getMouseCursorTypeProperty();
             oldDefaultMouseCursorType_ = MyraEnvironment::getDefaultMouseCursorTypeProperty();
+            oldTooltipDelay_ = MyraEnvironment::getTooltipDelayInMsProperty();
+            oldTooltipOffset_ = MyraEnvironment::getTooltipOffsetProperty();
+            oldTooltipCreator_ = MyraEnvironment::getTooltipCreatorProperty();
             MyraEnvironment::setEventHandlingModelProperty(Myra::Events::EventHandlingStrategy::EventCapturing);
         }
 
@@ -131,6 +134,9 @@ namespace
             MyraEnvironment::setDoubleClickRadiusProperty(oldDoubleClickRadius_);
             MyraEnvironment::setSetMouseCursorFromWidgetProperty(oldSetMouseCursorFromWidget_);
             MyraEnvironment::setDefaultMouseCursorTypeProperty(oldDefaultMouseCursorType_);
+            MyraEnvironment::setTooltipDelayInMsProperty(oldTooltipDelay_);
+            MyraEnvironment::setTooltipOffsetProperty(oldTooltipOffset_);
+            MyraEnvironment::setTooltipCreatorProperty(std::move(oldTooltipCreator_));
             SetCursorWhenSupported(oldMouseCursorType_);
         }
 
@@ -159,6 +165,9 @@ namespace
         bool oldSetMouseCursorFromWidget_ = true;
         MouseCursorType oldMouseCursorType_ = MouseCursorType::Arrow;
         MouseCursorType oldDefaultMouseCursorType_ = MouseCursorType::Arrow;
+        int oldTooltipDelay_ = 0;
+        Point oldTooltipOffset_;
+        MyraEnvironment::TooltipCreator oldTooltipCreator_;
     };
 
     TEST_F(DesktopInputTests, MouseSnapshotsQueueTouchMovementAndWheelEventsInUpstreamOrder)
@@ -416,6 +425,35 @@ namespace
         EXPECT_EQ(closedCalls, 2);
         EXPECT_EQ(desktop.getContextMenuProperty(), nullptr);
         EXPECT_EQ(desktop.getFocusedKeyboardWidgetProperty(), previousFocus.get());
+    }
+
+    TEST_F(DesktopInputTests, TouchDownHidesTheCurrentTooltip)
+    {
+        MouseInfo snapshot{{10, 10}, false, false, false, 0.0F};
+        MyraEnvironment::setMouseInfoGetterProperty([&] { return snapshot; });
+        MyraEnvironment::setDownKeysGetterProperty([](MyraEnvironment::DownKeys &keys) { keys.fill(false); });
+
+        Desktop desktop;
+        desktop.setBoundsFetcherProperty([] { return Rectangle(0, 0, 100, 80); });
+        auto owner = std::make_shared<Widget>();
+        owner->setTooltipProperty(std::string("details"));
+        auto tooltip = std::make_shared<Widget>();
+        tooltip->setWidthProperty(20);
+        tooltip->setHeightProperty(10);
+        MyraEnvironment::setTooltipCreatorProperty([tooltip](Widget &) { return tooltip; });
+        desktop.AddWidget(owner);
+        desktop.UpdateLayout();
+        desktop.ShowTooltip(*owner, Point(10, 30));
+        ASSERT_EQ(desktop.getTooltipProperty(), tooltip);
+
+        snapshot.IsLeftButtonDown = true;
+        desktop.UpdateInput();
+        desktop.ProcessWidgetInput();
+        InputEventsManager::ProcessEvents();
+
+        EXPECT_EQ(desktop.getTooltipProperty(), nullptr);
+        EXPECT_FALSE(tooltip->getVisibleProperty());
+        EXPECT_FALSE(tooltip->getIsPlacedProperty());
     }
 
     TEST_F(DesktopInputTests, TreeViewPointerSelectsRowsAndPreservesThePinnedDoubleClickCondition)

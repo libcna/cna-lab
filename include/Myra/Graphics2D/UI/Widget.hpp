@@ -451,6 +451,7 @@ namespace Myra::Graphics2D::UI
         Events::MyraEventHandler::Token dragMovedToken_ = Events::MyraEventHandler::InvalidToken;
         Events::MyraEventHandler::Token dragUpToken_ = Events::MyraEventHandler::InvalidToken;
         std::optional<std::chrono::steady_clock::time_point> lastTouchDown_;
+        std::optional<std::chrono::steady_clock::time_point> lastMouseMovement_;
         Microsoft::Xna::Framework::Point lastLocalTouchPosition_{};
         std::optional<Microsoft::Xna::Framework::Point> localMousePosition_;
         std::optional<Microsoft::Xna::Framework::Point> localTouchPosition_;
