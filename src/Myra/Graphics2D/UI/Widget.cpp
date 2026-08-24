@@ -58,6 +58,7 @@ namespace Myra::Graphics2D::UI
 
     Widget::~Widget()
     {
+        UnsubscribeDragEvents();
         ClearChildren();
     }
 
@@ -1149,6 +1150,7 @@ namespace Myra::Graphics2D::UI
         {
             return;
         }
+        UnsubscribeDragEvents();
         std::exception_ptr pendingException;
         if (desktop_ != nullptr)
         {
@@ -1166,6 +1168,17 @@ namespace Myra::Graphics2D::UI
         if (desktop_ != nullptr)
         {
             InvalidateMeasure();
+        }
+        try
+        {
+            SubscribeDragEvents();
+        }
+        catch (...)
+        {
+            if (!pendingException)
+            {
+                pendingException = std::current_exception();
+            }
         }
 
         const std::vector<std::shared_ptr<Widget>> snapshot = children_;

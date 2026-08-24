@@ -6,8 +6,11 @@
 // 0d79b939310bfe1d00b21803fe15e291caf60aa1. See NOTICE.md and UPSTREAM_MANIFEST.md.
 #include "Myra/Graphics2D/UI/Widget.hpp"
 
+#include <algorithm>
 #include <chrono>
 #include <cstdint>
+#include <limits>
+#include <stdexcept>
 #include <utility>
 
 #include "Myra/Graphics2D/UI/Desktop.hpp"
@@ -18,7 +21,37 @@
 
 namespace Myra::Graphics2D::UI
 {
+    namespace
+    {
+        [[nodiscard]] int CheckedDragAdd(const int left, const int right)
+        {
+            const std::int64_t result = static_cast<std::int64_t>(left) + right;
+            if (result < std::numeric_limits<int>::min() || result > std::numeric_limits<int>::max())
+            {
+                throw std::overflow_error("Widget drag position is outside the integer range.");
+            }
+            return static_cast<int>(result);
+        }
+
+        [[nodiscard]] int CheckedDragSubtract(const int left, const int right)
+        {
+            const std::int64_t result = static_cast<std::int64_t>(left) - right;
+            if (result < std::numeric_limits<int>::min() || result > std::numeric_limits<int>::max())
+            {
+                throw std::overflow_error("Widget drag bounds are outside the integer range.");
+            }
+            return static_cast<int>(result);
+        }
+
+        [[nodiscard]] bool HasDragDirection(const DragDirection value, const DragDirection direction) noexcept
+        {
+            return (static_cast<int>(value) & static_cast<int>(direction)) == static_cast<int>(direction);
+        }
+    } // namespace
+
     using Microsoft::Xna::Framework::Point;
+    using Microsoft::Xna::Framework::Rectangle;
+    using Microsoft::Xna::Framework::Vector2;
     using Microsoft::Xna::Framework::Input::Keys;
 
     bool Widget::getIsMouseInsideProperty() const noexcept
@@ -143,6 +176,169 @@ namespace Myra::Graphics2D::UI
 
         lastTouchDown_ = now;
         lastLocalTouchPosition_ = touchPosition;
+    }
+
+    void Widget::SubscribeDragEvents()
+    {
+        UnsubscribeDragEvents();
+        if (desktop_ == nullptr || !getIsDraggableProperty())
+        {
+            return;
+        }
+
+        std::shared_ptr<Widget> retainedTarget;
+        if (parent_ != nullptr)
+        {
+            const auto iterator = std::find_if(parent_->children_.begin(), parent_->children_.end(),
+                                               [this](const auto &child) { return child.get() == this; });
+            if (iterator != parent_->children_.end())
+            {
+                retainedTarget = *iterator;
+            }
+        }
+        else
+        {
+            for (SharpRuntime::intcs index = 0; index < desktop_->widgets_.getCountProperty(); ++index)
+            {
+                const std::shared_ptr<Widget> &root = desktop_->widgets_.getItem(index);
+                if (root.get() == this)
+                {
+                    retainedTarget = root;
+                    break;
+                }
+            }
+        }
+        if (!retainedTarget)
+        {
+            throw std::logic_error("A placed draggable widget is missing from its owning collection.");
+        }
+
+        const auto moved = [retainedTarget](void *, Events::MyraEventArgs &) { retainedTarget->ProcessDragMoved(); };
+        const auto released = [retainedTarget](void *, Events::MyraEventArgs &) { retainedTarget->EndDrag(); };
+
+        try
+        {
+            if (parent_ != nullptr)
+            {
+                dragSubscriptionParent_ = parent_;
+                dragMovedToken_ = parent_->TouchMoved.Add(moved);
+                dragUpToken_ = parent_->TouchUp.Add(released);
+            }
+            else
+            {
+                dragSubscriptionDesktop_ = desktop_;
+                dragMovedToken_ = desktop_->TouchMoved.Add(moved);
+                dragUpToken_ = desktop_->TouchUp.Add(released);
+            }
+        }
+        catch (...)
+        {
+            UnsubscribeDragEvents();
+            throw;
+        }
+    }
+
+    void Widget::UnsubscribeDragEvents() noexcept
+    {
+        try
+        {
+            if (dragSubscriptionParent_ != nullptr)
+            {
+                static_cast<void>(dragSubscriptionParent_->TouchMoved.Remove(dragMovedToken_));
+                static_cast<void>(dragSubscriptionParent_->TouchUp.Remove(dragUpToken_));
+            }
+            else if (dragSubscriptionDesktop_ != nullptr)
+            {
+                static_cast<void>(dragSubscriptionDesktop_->TouchMoved.Remove(dragMovedToken_));
+                static_cast<void>(dragSubscriptionDesktop_->TouchUp.Remove(dragUpToken_));
+            }
+        }
+        catch (...)
+        {
+        }
+
+        dragSubscriptionParent_ = nullptr;
+        dragSubscriptionDesktop_ = nullptr;
+        dragMovedToken_ = Events::MyraEventHandler::InvalidToken;
+        dragUpToken_ = Events::MyraEventHandler::InvalidToken;
+        EndDrag();
+    }
+
+    void Widget::BeginDrag()
+    {
+        EndDrag();
+        if (desktop_ == nullptr || dragHandle_ == nullptr || !desktop_->getTouchPositionProperty())
+        {
+            return;
+        }
+
+        const std::shared_ptr<Widget> retainedHandle = desktop_->RetainWidget(dragHandle_);
+        if (!retainedHandle || !retainedHandle->getIsTouchInsideProperty())
+        {
+            return;
+        }
+
+        ITransformable *const parentTransform =
+            parent_ != nullptr ? static_cast<ITransformable *>(parent_) : static_cast<ITransformable *>(desktop_);
+        const Point &touchPosition = *desktop_->getTouchPositionProperty();
+        dragStartPosition_ =
+            parentTransform->ToLocal(Vector2(static_cast<float>(touchPosition.X), static_cast<float>(touchPosition.Y)));
+        dragStartLeftTop_ = Point(left_, top_);
+    }
+
+    void Widget::ProcessDragMoved()
+    {
+        if (!dragStartPosition_ || !getIsDraggableProperty() || desktop_ == nullptr ||
+            !desktop_->getTouchPositionProperty())
+        {
+            return;
+        }
+
+        ITransformable *const parentTransform =
+            parent_ != nullptr ? static_cast<ITransformable *>(parent_) : static_cast<ITransformable *>(desktop_);
+        const Point &touchPosition = *desktop_->getTouchPositionProperty();
+        const Vector2 newPosition =
+            parentTransform->ToLocal(Vector2(static_cast<float>(touchPosition.X), static_cast<float>(touchPosition.Y)));
+        const Vector2 delta = newPosition - *dragStartPosition_;
+
+        int newLeft = left_;
+        int newTop = top_;
+        if (HasDragDirection(dragDirection_, DragDirection::Horizontal))
+        {
+            newLeft = CheckedDragAdd(dragStartLeftTop_.X, Utility::Mathematics::TruncateToInt(delta.X));
+        }
+        if (HasDragDirection(dragDirection_, DragDirection::Vertical))
+        {
+            newTop = CheckedDragAdd(dragStartLeftTop_.Y, Utility::Mathematics::TruncateToInt(delta.Y));
+        }
+
+        const Rectangle parentBounds =
+            parent_ != nullptr ? parent_->getActualBoundsProperty() : desktop_->getInternalBoundsProperty();
+        const Rectangle bounds = getBoundsProperty();
+        if (newLeft < 0)
+        {
+            newLeft = 0;
+        }
+        if (static_cast<std::int64_t>(newLeft) + bounds.Width > parentBounds.Width)
+        {
+            newLeft = CheckedDragSubtract(parentBounds.Width, bounds.Width);
+        }
+        if (newTop < 0)
+        {
+            newTop = 0;
+        }
+        if (static_cast<std::int64_t>(newTop) + bounds.Height > parentBounds.Height)
+        {
+            newTop = CheckedDragSubtract(parentBounds.Height, bounds.Height);
+        }
+
+        setLeftProperty(newLeft);
+        setTopProperty(newTop);
+    }
+
+    void Widget::EndDrag() noexcept
+    {
+        dragStartPosition_.reset();
     }
 
     bool Widget::getAcceptsMouseWheelProperty() const noexcept
@@ -290,6 +486,7 @@ namespace Myra::Graphics2D::UI
             {
                 desktop_->setFocusedKeyboardWidgetProperty(this);
             }
+            BeginDrag();
             OnTouchDown();
             Utility::EventsExtensions::Invoke(TouchDown, this, eventType);
             break;

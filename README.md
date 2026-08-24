@@ -17,7 +17,9 @@ dispatches retained global events, repeats keys, moves Tab focus, and routes
 keys to menus or the focused widget. Reverse-Z widget hit testing now tracks
 local mouse/touch transitions, input fall-through, hover visuals, touch focus,
 the deepest wheel target, and upstream-compatible local double-click timing.
-Cursor/tooltip and capture/drag,
+Generic Widget dragging now honors in-tree handles, direction flags, parent/
+Desktop capture, release reset, and bounds clamping. Cursor/tooltip and
+control-specific capture/drag,
 Desktop rendering, context menus, styles, fonts/rich text, most controls, Grid
 selection/input, and the full upstream widget catalog are not implemented yet. Primitive, optional,
 explicitly mapped enum, and audited geometry codecs drive registry-backed XML

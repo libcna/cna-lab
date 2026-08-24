@@ -388,6 +388,11 @@ namespace Myra::Graphics2D::UI
         void setLocalTouchPositionProperty(
             std::optional<Microsoft::Xna::Framework::Point> value);
         void ProcessDoubleClick(Microsoft::Xna::Framework::Point touchPosition);
+        void SubscribeDragEvents();
+        void UnsubscribeDragEvents() noexcept;
+        void BeginDrag();
+        void ProcessDragMoved();
+        void EndDrag() noexcept;
         void setIsKeyboardFocusedProperty(bool value);
         void SetDesktop(Desktop* value);
         void UpdateTransform();
@@ -436,6 +441,12 @@ namespace Myra::Graphics2D::UI
         Microsoft::Xna::Framework::Vector2 transformOrigin_{0.5F, 0.5F};
         float rotation_ = 0.0F;
         Widget* dragHandle_ = nullptr;
+        std::optional<Microsoft::Xna::Framework::Vector2> dragStartPosition_;
+        Microsoft::Xna::Framework::Point dragStartLeftTop_{};
+        Widget* dragSubscriptionParent_ = nullptr;
+        Desktop* dragSubscriptionDesktop_ = nullptr;
+        Events::MyraEventHandler::Token dragMovedToken_ = Events::MyraEventHandler::InvalidToken;
+        Events::MyraEventHandler::Token dragUpToken_ = Events::MyraEventHandler::InvalidToken;
         std::optional<std::chrono::steady_clock::time_point> lastTouchDown_;
         Microsoft::Xna::Framework::Point lastLocalTouchPosition_{};
         std::optional<Microsoft::Xna::Framework::Point> localMousePosition_;

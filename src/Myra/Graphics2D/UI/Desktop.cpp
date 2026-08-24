@@ -651,6 +651,7 @@ namespace Myra::Graphics2D::UI
 
     void Desktop::ForceDetachForDestruction(Widget &root) noexcept
     {
+        root.UnsubscribeDragEvents();
         if (root.desktop_ == this)
         {
             root.desktop_ = nullptr;

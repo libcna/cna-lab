@@ -7,6 +7,7 @@
 
 #include <algorithm>
 #include <array>
+#include <limits>
 #include <memory>
 #include <optional>
 #include <string>
@@ -30,6 +31,7 @@ namespace
     using Myra::Graphics2D::IBrush;
     using Myra::Graphics2D::RenderContext;
     using Myra::Graphics2D::UI::Desktop;
+    using Myra::Graphics2D::UI::DragDirection;
     using Myra::Graphics2D::UI::HorizontalMenu;
     using Myra::Graphics2D::UI::InputEventsManager;
     using Myra::Graphics2D::UI::InputEventType;
@@ -553,6 +555,172 @@ namespace
         EXPECT_EQ(doubleClicks, 1);
         click(Point(25, 22));
         EXPECT_EQ(doubleClicks, 2);
+    }
+
+    TEST_F(DesktopInputTests, RootDragKeepsDesktopCaptureAndClampsToItsBounds)
+    {
+        MouseInfo snapshot{{5, 5}, false, false, false, 0.0F};
+        MyraEnvironment::setMouseInfoGetterProperty([&] { return snapshot; });
+        MyraEnvironment::setDownKeysGetterProperty([](MyraEnvironment::DownKeys &keys) { keys.fill(false); });
+
+        Desktop desktop;
+        desktop.setBoundsFetcherProperty([] { return Rectangle(0, 0, 100, 80); });
+        auto root = std::make_shared<Widget>();
+        root->setWidthProperty(20);
+        root->setHeightProperty(10);
+        root->setDragDirectionProperty(DragDirection::Both);
+        desktop.AddWidget(root);
+        desktop.UpdateLayout();
+
+        snapshot.IsLeftButtonDown = true;
+        desktop.UpdateInput();
+        desktop.ProcessWidgetInput();
+        InputEventsManager::ProcessEvents();
+
+        snapshot.Position = Point(35, 25);
+        desktop.UpdateInput();
+        desktop.ProcessWidgetInput();
+        InputEventsManager::ProcessEvents();
+        EXPECT_EQ(root->getLeftProperty(), 30);
+        EXPECT_EQ(root->getTopProperty(), 20);
+
+        snapshot.Position = Point(200, 200);
+        desktop.UpdateInput();
+        desktop.ProcessWidgetInput();
+        InputEventsManager::ProcessEvents();
+        EXPECT_EQ(root->getLeftProperty(), 80);
+        EXPECT_EQ(root->getTopProperty(), 70);
+
+        snapshot.IsLeftButtonDown = false;
+        desktop.UpdateInput();
+        desktop.ProcessWidgetInput();
+        InputEventsManager::ProcessEvents();
+
+        snapshot.Position = Point(0, 0);
+        desktop.UpdateInput();
+        desktop.ProcessWidgetInput();
+        InputEventsManager::ProcessEvents();
+        snapshot.IsLeftButtonDown = true;
+        desktop.UpdateInput();
+        desktop.ProcessWidgetInput();
+        InputEventsManager::ProcessEvents();
+        snapshot.Position = Point(10, 10);
+        desktop.UpdateInput();
+        desktop.ProcessWidgetInput();
+        InputEventsManager::ProcessEvents();
+        EXPECT_EQ(root->getLeftProperty(), 80);
+        EXPECT_EQ(root->getTopProperty(), 70);
+        snapshot.IsLeftButtonDown = false;
+    }
+
+    TEST_F(DesktopInputTests, DragHandleGatesMovementAndDirectionRestrictsTheUpdatedAxis)
+    {
+        MouseInfo snapshot{{20, 20}, false, false, false, 0.0F};
+        MyraEnvironment::setMouseInfoGetterProperty([&] { return snapshot; });
+        MyraEnvironment::setDownKeysGetterProperty([](MyraEnvironment::DownKeys &keys) { keys.fill(false); });
+
+        Desktop desktop;
+        desktop.setBoundsFetcherProperty([] { return Rectangle(0, 0, 100, 80); });
+        auto root = std::make_shared<Panel>();
+        auto draggable = std::make_shared<Panel>();
+        draggable->setWidthProperty(40);
+        draggable->setHeightProperty(30);
+        draggable->setDragDirectionProperty(DragDirection::Horizontal);
+        auto handle = std::make_shared<Widget>();
+        handle->setWidthProperty(10);
+        handle->setHeightProperty(10);
+        draggable->AddWidget(handle);
+        draggable->setDragHandleProperty(handle.get());
+        root->AddWidget(draggable);
+        desktop.AddWidget(root);
+        desktop.UpdateLayout();
+
+        const auto setTouch = [&](const Point position, const bool down)
+        {
+            snapshot.Position = position;
+            snapshot.IsLeftButtonDown = down;
+            desktop.UpdateInput();
+            desktop.ProcessWidgetInput();
+            InputEventsManager::ProcessEvents();
+        };
+
+        setTouch(Point(20, 20), true);
+        setTouch(Point(30, 25), true);
+        EXPECT_EQ(draggable->getLeftProperty(), 0);
+        EXPECT_EQ(draggable->getTopProperty(), 0);
+        setTouch(Point(30, 25), false);
+
+        setTouch(Point(5, 5), true);
+        setTouch(Point(25, 20), true);
+        EXPECT_EQ(draggable->getLeftProperty(), 20);
+        EXPECT_EQ(draggable->getTopProperty(), 0);
+        setTouch(Point(25, 20), false);
+    }
+
+    TEST_F(DesktopInputTests, ReentrantRemovalCancelsACapturedDragWithoutDanglingCallbacks)
+    {
+        MouseInfo snapshot{{5, 5}, false, false, false, 0.0F};
+        MyraEnvironment::setMouseInfoGetterProperty([&] { return snapshot; });
+        MyraEnvironment::setDownKeysGetterProperty([](MyraEnvironment::DownKeys &keys) { keys.fill(false); });
+
+        Desktop desktop;
+        desktop.setBoundsFetcherProperty([] { return Rectangle(0, 0, 100, 80); });
+        auto root = std::make_shared<Widget>();
+        root->setWidthProperty(20);
+        root->setHeightProperty(10);
+        root->setDragDirectionProperty(DragDirection::Both);
+        Widget *const rawRoot = root.get();
+        std::weak_ptr<Widget> weakRoot = root;
+        desktop.TouchMoved +=
+            [&](void *, Myra::Events::MyraEventArgs &) { static_cast<void>(desktop.RemoveWidget(rawRoot)); };
+        desktop.AddWidget(root);
+        desktop.UpdateLayout();
+
+        snapshot.IsLeftButtonDown = true;
+        desktop.UpdateInput();
+        desktop.ProcessWidgetInput();
+        InputEventsManager::ProcessEvents();
+        root.reset();
+
+        snapshot.Position = Point(30, 20);
+        desktop.UpdateInput();
+        desktop.ProcessWidgetInput();
+        InputEventsManager::ProcessEvents();
+
+        EXPECT_EQ(desktop.getWidgetsProperty().getCountProperty(), 0);
+        static_cast<void>(desktop.getChildrenCopyProperty());
+        EXPECT_TRUE(weakRoot.expired());
+    }
+
+    TEST_F(DesktopInputTests, DragRejectsOverflowingPositionInsteadOfWrapping)
+    {
+        MouseInfo snapshot{{0, 0}, false, false, false, 0.0F};
+        MyraEnvironment::setMouseInfoGetterProperty([&] { return snapshot; });
+        MyraEnvironment::setDownKeysGetterProperty([](MyraEnvironment::DownKeys &keys) { keys.fill(false); });
+
+        Desktop desktop;
+        desktop.setBoundsFetcherProperty([] { return Rectangle(0, 0, 10'000, 100); });
+        desktop.setTransformOriginProperty({0.0F, 0.0F});
+        desktop.setScaleProperty({0.5F, 0.5F});
+        auto root = std::make_shared<Widget>();
+        root->setLeftProperty(std::numeric_limits<int>::max() - 2'000);
+        root->setWidthProperty(1'000);
+        root->setHeightProperty(50);
+        root->setDragDirectionProperty(DragDirection::Horizontal);
+        desktop.AddWidget(root);
+        desktop.UpdateLayout();
+
+        snapshot.Position = root->ToGlobal(Point(500, 25));
+        snapshot.IsLeftButtonDown = true;
+        desktop.UpdateInput();
+        desktop.ProcessWidgetInput();
+        InputEventsManager::ProcessEvents();
+
+        snapshot.Position.X += 2'000;
+        desktop.UpdateInput();
+        desktop.ProcessWidgetInput();
+        EXPECT_THROW(InputEventsManager::ProcessEvents(), std::overflow_error);
+        InputEventsManager::ProcessEvents();
     }
 
     TEST_F(DesktopInputTests, QueuedChildTransitionSurvivesRemovalByAnEarlierParentCallback)
