@@ -129,4 +129,23 @@ namespace
         EXPECT_EQ(tree.getSubNodesCountProperty(), 0);
         EXPECT_EQ(tree.getTotalNodesCountProperty(), 0);
     }
+
+    TEST(TreeViewTests, RetainedMarkBecomesInertAfterItsNodeIsDestroyed)
+    {
+        TreeView tree;
+        auto root = tree.AddSubNode(std::make_shared<Widget>());
+        static_cast<void>(root->AddSubNode(std::make_shared<Widget>()));
+        const auto mark = root->getMarkProperty();
+        const auto childPanel = root->getChildNodesStackPanelProperty();
+        root->setIsExpandedProperty(true);
+        ASSERT_TRUE(childPanel->getVisibleProperty());
+        const std::weak_ptr<TreeViewNode> weakRoot = root;
+
+        tree.RemoveAllSubNodes();
+        root.reset();
+        ASSERT_TRUE(weakRoot.expired());
+        mark->DoClick();
+        EXPECT_FALSE(mark->getIsPressedProperty());
+        EXPECT_TRUE(childPanel->getVisibleProperty());
+    }
 } // namespace

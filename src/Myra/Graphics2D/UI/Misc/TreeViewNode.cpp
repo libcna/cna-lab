@@ -17,9 +17,10 @@
 namespace Myra::Graphics2D::UI
 {
     TreeViewNode::TreeViewNode(TreeView *const topTree)
-        : topTree_(topTree), mark_(std::make_shared<ToggleButton>()),
+        : callbackState_(std::make_shared<CallbackState>()), topTree_(topTree), mark_(std::make_shared<ToggleButton>()),
           childNodesStackPanel_(std::make_shared<VerticalStackPanel>())
     {
+        callbackState_->owner = this;
         layout_.setColumnSpacingProperty(2);
         layout_.setRowSpacingProperty(2);
         setChildrenLayoutProperty(&layout_);
@@ -34,8 +35,14 @@ namespace Myra::Graphics2D::UI
         mark_->setHorizontalAlignmentProperty(HorizontalAlignment::Left);
         mark_->setVerticalAlignmentProperty(VerticalAlignment::Center);
         mark_->setContentProperty(std::make_shared<Image>());
-        mark_->PressedChanged += [this](void *, Events::MyraEventArgs &)
-        { childNodesStackPanel_->setVisibleProperty(mark_->getIsPressedProperty()); };
+        markPressedToken_ = mark_->PressedChanged.Add(
+            [callbackState = callbackState_](void *, Events::MyraEventArgs &)
+            {
+                if (TreeViewNode *const owner = callbackState->owner)
+                {
+                    owner->OnMarkPressedChanged();
+                }
+            });
         AddChild(mark_);
 
         childNodesStackPanel_->setVisibleProperty(false);
@@ -43,6 +50,12 @@ namespace Myra::Graphics2D::UI
         Grid::SetRow(*childNodesStackPanel_, 1);
         AddChild(childNodesStackPanel_);
         UpdateMark();
+    }
+
+    TreeViewNode::~TreeViewNode()
+    {
+        callbackState_->owner = nullptr;
+        static_cast<void>(mark_->PressedChanged.Remove(markPressedToken_));
     }
 
     bool TreeViewNode::getIsExpandedProperty() const noexcept
@@ -235,5 +248,10 @@ namespace Myra::Graphics2D::UI
             topTree_->RegisterSubtree(subNode);
         }
         UpdateMark();
+    }
+
+    void TreeViewNode::OnMarkPressedChanged()
+    {
+        childNodesStackPanel_->setVisibleProperty(mark_->getIsPressedProperty());
     }
 } // namespace Myra::Graphics2D::UI

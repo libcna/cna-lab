@@ -11,10 +11,13 @@
 #include <utility>
 
 #include "Myra/Graphics2D/UI/Containers/Grid.hpp"
+#include "Myra/Graphics2D/UI/Desktop.hpp"
 #include "Myra/Utility/EventsExtensions.hpp"
 
 namespace Myra::Graphics2D::UI
 {
+    using Microsoft::Xna::Framework::Point;
+    using Microsoft::Xna::Framework::Rectangle;
     using Microsoft::Xna::Framework::Input::Keys;
 
     TreeView::TreeView()
@@ -53,6 +56,11 @@ namespace Myra::Graphics2D::UI
         }
         selectedNode_ = std::move(value);
         Utility::EventsExtensions::Invoke(SelectionChanged, this, InputEventType::SelectionChanged);
+    }
+
+    TreeViewNode *TreeView::getHoverRowProperty() const noexcept
+    {
+        return hoverRow_;
     }
 
     std::shared_ptr<TreeViewNode> TreeView::AddSubNode(std::shared_ptr<Widget> content)
@@ -216,6 +224,65 @@ namespace Myra::Graphics2D::UI
         }
     }
 
+    void TreeView::OnMouseMoved()
+    {
+        Widget::OnMouseMoved();
+        hoverRow_ = nullptr;
+        Desktop *const desktop = getDesktopProperty();
+        if (desktop != nullptr)
+        {
+            SetHoverRow(desktop->getMousePositionProperty());
+        }
+    }
+
+    void TreeView::OnMouseLeft()
+    {
+        Widget::OnMouseLeft();
+        hoverRow_ = nullptr;
+    }
+
+    void TreeView::OnTouchDown()
+    {
+        Widget::OnTouchDown();
+        Desktop *const desktop = getDesktopProperty();
+        if (desktop == nullptr || !desktop->getTouchPositionProperty())
+        {
+            return;
+        }
+
+        SetHoverRow(*desktop->getTouchPositionProperty());
+        TreeViewNode *const hover = hoverRow_;
+        if (hover == nullptr || !hover->rowVisible_)
+        {
+            return;
+        }
+        const auto iterator =
+            std::find_if(allNodes_.begin(), allNodes_.end(), [hover](const auto &node) { return node.get() == hover; });
+        if (iterator != allNodes_.end())
+        {
+            setSelectedNodeProperty(*iterator);
+        }
+    }
+
+    void TreeView::OnTouchDoubleClick()
+    {
+        Widget::OnTouchDoubleClick();
+        TreeViewNode *const hover = hoverRow_;
+        const auto iterator =
+            std::find_if(allNodes_.begin(), allNodes_.end(), [hover](const auto &node) { return node.get() == hover; });
+        if (iterator == allNodes_.end() || !(*iterator)->rowVisible_)
+        {
+            return;
+        }
+
+        const std::shared_ptr<ToggleButton> mark = (*iterator)->mark_;
+        // Preserve the selected upstream's inverted mark-hit condition.
+        if (mark->getVisibleProperty() && !mark->getIsTouchInsideProperty())
+        {
+            mark->DoClick();
+        }
+    }
+
     void TreeView::InternalArrange()
     {
         Widget::InternalArrange();
@@ -352,6 +419,32 @@ namespace Myra::Graphics2D::UI
             if (const auto node = std::dynamic_pointer_cast<TreeViewNode>(root))
             {
                 UpdateRowVisibility(node);
+            }
+        }
+    }
+
+    Rectangle TreeView::BuildRowRect(TreeViewNode &node)
+    {
+        const Point rowPosition = ToLocal(node.ToGlobal(node.getActualBoundsProperty().getLocationProperty()));
+        const Rectangle actualBounds = getActualBoundsProperty();
+        return Rectangle(actualBounds.X, rowPosition.Y, actualBounds.Width, node.getContentHeightProperty());
+    }
+
+    void TreeView::SetHoverRow(const Point position)
+    {
+        if (!ContainsGlobalPoint(position))
+        {
+            return;
+        }
+
+        const Point localPosition = ToLocal(position);
+        const std::vector<std::shared_ptr<TreeViewNode>> snapshot = allNodes_;
+        for (const std::shared_ptr<TreeViewNode> &node : snapshot)
+        {
+            if (node->topTree_ == this && node->rowVisible_ && BuildRowRect(*node).Contains(localPosition))
+            {
+                hoverRow_ = node.get();
+                return;
             }
         }
     }

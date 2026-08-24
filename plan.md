@@ -80,8 +80,8 @@ behavioral redesign.
 
 ### 1.4 Whole-port completion and remaining-effort estimate
 
-Checkpoint: 2026-08-24, after P7-004b/P7-005b. The mechanical backlog count is
-**181/325 checked tasks (55.7%)**. The count is useful for
+Checkpoint: 2026-08-24, after P7-016b. The mechanical backlog count is
+**182/326 checked tasks (55.8%)**. The count is useful for
 auditing plan state but is
 not a parity percentage: small foundation subtasks and large end-to-end
 features each count once, while the remaining font/text, Desktop/input,
@@ -102,13 +102,13 @@ are planning ranges rather than a delivery promise.
 | Phase 4 — MML/XML | 31/36 | 40–80 |
 | Phase 5 — Widget/Desktop/input | 41/48 | 0–0 |
 | Phase 6 — controls/editing | 21/48 | 108–180 |
-| Phase 7 — selectors/windows/dialogs | 18/36 | 168–280 |
+| Phase 7 — selectors/windows/dialogs | 19/37 | 162–270 |
 | Phase 8 — styles/default skin | 0/14 | 140–240 |
 | Phase 9 — file/data/property grids | 1/21 | 180–320 |
 | Phase 10 — parity/release | 0/28 | 140–240 |
-| **Whole remaining technical port** | **181/325 complete** | **1,020–1,800** |
+| **Whole remaining technical port** | **182/326 complete** | **1,014–1,790** |
 
-For scheduling, use **about 1,410 focused hours remaining** as the midpoint,
+For scheduling, use **about 1,402 focused hours remaining** as the midpoint,
 with **1,100–2,000 hours** as the sensible rounded range. This assumes prompt
 human decisions for P3-004 and P0-015b, no newly discovered upstream/CNA
 architectural blocker, and continued reuse of the existing tested foundations.
@@ -570,7 +570,8 @@ are green, and the build uses no more than three parallel jobs.
 - [x] P7-014 Port `Misc/ITreeViewNode.cs`.
 - [x] P7-015a Port the style-independent `TreeViewNode` core: retained content and ordered child-node hierarchy, parent links, expand/collapse mark visibility, grid/stack layout, removal, and deep exact-type cloning. Keep stylesheet mark application and MML metadata in P7-015/P8-004.
 - [ ] P7-015 Port `Misc/TreeViewNode.cs`.
-- [x] P7-016a Port the style-independent `TreeView` core: retained top-level/all-node registry, selection events, expand-path/traversal/find APIs, parent-child keyboard navigation, subtree removal, row-visibility maintenance, and deep tree cloning. Keep Desktop mouse/touch hit testing, hover/selection brush rendering, styles, and MML metadata in P5-016/P7-016/P8-004.
+- [x] P7-016a Port the style-independent `TreeView` core: retained top-level/all-node registry, selection events, expand-path/traversal/find APIs, parent-child keyboard navigation, subtree removal, row-visibility maintenance, and deep tree cloning. Desktop mouse/touch row interaction arrived in P7-016b; keep hover/selection brush rendering, styles, and MML metadata in P7-016/P8-004.
+- [x] P7-016b Port `TreeView` pointer interaction: derive visible row rectangles through composed transforms, update/clear mouse hover, select touched rows, and preserve the selected upstream's inverted expand-mark double-click condition. A detachable tokenized mark callback keeps publicly retained expand buttons safe after node destruction (`DEV-076`).
 - [ ] P7-016 Port `Misc/TreeView.cs`.
 - [ ] P7-017 Port `Misc/Window.cs`.
 - [ ] P7-018 Port `Misc/Dialog.cs` and modal focus/callback lifetime.

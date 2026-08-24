@@ -22,7 +22,7 @@ namespace Myra::Graphics2D::UI
     {
       public:
         explicit TreeViewNode(TreeView *topTree = nullptr);
-        ~TreeViewNode() override = default;
+        ~TreeViewNode() override;
 
         [[nodiscard]] bool getIsExpandedProperty() const noexcept;
         void setIsExpandedProperty(bool value);
@@ -50,14 +50,22 @@ namespace Myra::Graphics2D::UI
       private:
         friend class TreeView;
 
-        void AddRetainedSubNode(std::shared_ptr<TreeViewNode> subNode);
+        struct CallbackState
+        {
+            TreeViewNode *owner = nullptr;
+        };
 
+        void AddRetainedSubNode(std::shared_ptr<TreeViewNode> subNode);
+        void OnMarkPressedChanged();
+
+        std::shared_ptr<CallbackState> callbackState_;
         GridLayout layout_;
         TreeView *topTree_ = nullptr;
         TreeViewNode *parentNode_ = nullptr;
         std::shared_ptr<ToggleButton> mark_;
         std::shared_ptr<VerticalStackPanel> childNodesStackPanel_;
         std::shared_ptr<Widget> content_;
+        Events::MyraEventHandler::Token markPressedToken_ = Events::MyraEventHandler::InvalidToken;
         bool rowVisible_ = false;
     };
 } // namespace Myra::Graphics2D::UI

@@ -18,6 +18,7 @@
 #include "Myra/Graphics2D/IBrush.hpp"
 #include "Myra/Graphics2D/UI/Containers/Panel.hpp"
 #include "Myra/Graphics2D/UI/InputEventsManager.hpp"
+#include "Myra/Graphics2D/UI/Misc/TreeView.hpp"
 #include "Myra/Graphics2D/UI/Selectors/HorizontalMenu.hpp"
 #include "Myra/Graphics2D/UI/Selectors/MenuItem.hpp"
 #include "Myra/MyraEnvironment.hpp"
@@ -41,6 +42,7 @@ namespace
     using Myra::Graphics2D::UI::MouseCursorType;
     using Myra::Graphics2D::UI::MouseInfo;
     using Myra::Graphics2D::UI::Panel;
+    using Myra::Graphics2D::UI::TreeView;
     using Myra::Graphics2D::UI::Widget;
 
     class KeyProbeWidget final : public Widget
@@ -414,6 +416,51 @@ namespace
         EXPECT_EQ(closedCalls, 2);
         EXPECT_EQ(desktop.getContextMenuProperty(), nullptr);
         EXPECT_EQ(desktop.getFocusedKeyboardWidgetProperty(), previousFocus.get());
+    }
+
+    TEST_F(DesktopInputTests, TreeViewPointerSelectsRowsAndPreservesThePinnedDoubleClickCondition)
+    {
+        MouseInfo snapshot{{0, 0}, false, false, false, 0.0F};
+        MyraEnvironment::setMouseInfoGetterProperty([&] { return snapshot; });
+        MyraEnvironment::setDownKeysGetterProperty([](MyraEnvironment::DownKeys &keys) { keys.fill(false); });
+
+        Desktop desktop;
+        UseFixedBounds(desktop);
+        const auto tree = std::make_shared<TreeView>();
+        const auto rootContent = std::make_shared<Widget>();
+        rootContent->setWidthProperty(80);
+        rootContent->setHeightProperty(20);
+        const auto root = tree->AddSubNode(rootContent);
+        const auto childContent = std::make_shared<Widget>();
+        childContent->setWidthProperty(80);
+        childContent->setHeightProperty(20);
+        static_cast<void>(root->AddSubNode(childContent));
+        const auto secondContent = std::make_shared<Widget>();
+        secondContent->setWidthProperty(80);
+        secondContent->setHeightProperty(20);
+        const auto second = tree->AddSubNode(secondContent);
+        root->setIsExpandedProperty(true);
+        desktop.AddWidget(tree);
+        desktop.UpdateLayout();
+
+        const Point rootPosition = root->ToGlobal(Point(10, 5));
+        snapshot = {rootPosition, true, false, false, 0.0F};
+        desktop.UpdateInput();
+        tree->OnTouchDown();
+        EXPECT_EQ(tree->getHoverRowProperty(), root.get());
+        EXPECT_EQ(tree->getSelectedNodeProperty(), root);
+
+        tree->OnTouchDoubleClick();
+        EXPECT_FALSE(root->getIsExpandedProperty());
+        desktop.UpdateLayout();
+
+        const Point secondPosition = second->ToGlobal(Point(10, 5));
+        snapshot = {secondPosition, false, false, false, 0.0F};
+        desktop.UpdateInput();
+        tree->OnMouseMoved();
+        EXPECT_EQ(tree->getHoverRowProperty(), second.get());
+        tree->OnMouseLeft();
+        EXPECT_EQ(tree->getHoverRowProperty(), nullptr);
     }
 
     TEST_F(DesktopInputTests, HitTestingTracksLocalMouseAndTouchTransitionsAndFocus)

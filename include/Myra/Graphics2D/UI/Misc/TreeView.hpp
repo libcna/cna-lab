@@ -33,6 +33,7 @@ namespace Myra::Graphics2D::UI
         [[nodiscard]] int getTotalNodesCountProperty() const noexcept;
         [[nodiscard]] std::shared_ptr<TreeViewNode> getSelectedNodeProperty() const;
         void setSelectedNodeProperty(std::shared_ptr<TreeViewNode> value);
+        [[nodiscard]] TreeViewNode *getHoverRowProperty() const noexcept;
 
         [[nodiscard]] std::shared_ptr<TreeViewNode> AddSubNode(std::shared_ptr<Widget> content) override;
         [[nodiscard]] std::shared_ptr<TreeViewNode> GetSubNode(int index) const override;
@@ -43,6 +44,10 @@ namespace Myra::Graphics2D::UI
         [[nodiscard]] std::shared_ptr<TreeViewNode> FindNode(const NodePredicate &predicate) const;
 
         void OnKeyDown(Microsoft::Xna::Framework::Input::Keys key) override;
+        void OnMouseMoved() override;
+        void OnMouseLeft() override;
+        void OnTouchDown() override;
+        void OnTouchDoubleClick() override;
 
       protected:
         void InternalArrange() override;
@@ -58,6 +63,8 @@ namespace Myra::Graphics2D::UI
         void UnregisterSubtree(TreeViewNode *node);
         void AddRetainedRootNode(std::shared_ptr<TreeViewNode> node);
         void RefreshRowVisibility();
+        [[nodiscard]] Microsoft::Xna::Framework::Rectangle BuildRowRect(TreeViewNode &node);
+        void SetHoverRow(Microsoft::Xna::Framework::Point position);
 
         StackPanelLayout layout_{Orientation::Vertical};
         std::vector<std::shared_ptr<TreeViewNode>> allNodes_;
