@@ -83,6 +83,20 @@ namespace Myra::Graphics2D::UI
         RebuildDisplay();
     }
 
+    void ListView::SetWidget(const std::size_t index, std::shared_ptr<Widget> widget)
+    {
+        if (!widget)
+        {
+            throw std::invalid_argument("A ListView widget cannot be null.");
+        }
+        if (index >= widgets_.size())
+        {
+            throw std::out_of_range("ListView widget index is outside the collection.");
+        }
+        widgets_[index] = std::move(widget);
+        RebuildDisplay();
+    }
+
     bool ListView::RemoveWidget(const Widget *const widget)
     {
         const auto iterator =
@@ -91,19 +105,52 @@ namespace Myra::Graphics2D::UI
         {
             return false;
         }
-        if (*iterator == selectedItem_)
+        const bool wasSelected = *iterator == selectedItem_;
+        widgets_.erase(iterator);
+        RebuildDisplay();
+        if (wasSelected)
         {
             setSelectedItemProperty(nullptr);
         }
-        widgets_.erase(iterator);
-        RebuildDisplay();
         return true;
+    }
+
+    void ListView::RemoveWidgetAt(const std::size_t index)
+    {
+        if (index >= widgets_.size())
+        {
+            throw std::out_of_range("ListView widget index is outside the collection.");
+        }
+        const bool wasSelected = widgets_[index] == selectedItem_;
+        widgets_.erase(widgets_.begin() + static_cast<std::ptrdiff_t>(index));
+        RebuildDisplay();
+        if (wasSelected)
+        {
+            setSelectedItemProperty(nullptr);
+        }
     }
 
     void ListView::ClearWidgets()
     {
         widgets_.clear();
         RebuildDisplay();
+    }
+
+    int ListView::IndexOfWidget(const Widget *const widget) const
+    {
+        const auto iterator =
+            std::find_if(widgets_.begin(), widgets_.end(), [widget](const auto &item) { return item.get() == widget; });
+        if (iterator == widgets_.end())
+        {
+            return -1;
+        }
+        return CheckedListIndex(static_cast<std::size_t>(std::distance(widgets_.begin(), iterator)));
+    }
+
+    bool ListView::ContainsWidget(const Widget *const widget) const noexcept
+    {
+        return std::any_of(widgets_.begin(), widgets_.end(),
+                           [widget](const auto &item) { return item.get() == widget; });
     }
 
     std::shared_ptr<ScrollViewer> ListView::getScrollViewerProperty() const
@@ -282,6 +329,10 @@ namespace Myra::Graphics2D::UI
                 }
             });
         buttonSubscriptions_.push_back({button, token});
+        if (button->getContentProperty() == selectedItem_)
+        {
+            button->setIsPressedProperty(true);
+        }
         return button;
     }
 

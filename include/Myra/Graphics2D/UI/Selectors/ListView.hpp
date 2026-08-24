@@ -33,8 +33,12 @@ namespace Myra::Graphics2D::UI
         [[nodiscard]] const std::vector<std::shared_ptr<Widget>> &getWidgetsProperty() const noexcept override;
         void AddWidget(std::shared_ptr<Widget> widget) override;
         void InsertWidget(std::size_t index, std::shared_ptr<Widget> widget);
+        void SetWidget(std::size_t index, std::shared_ptr<Widget> widget);
         [[nodiscard]] bool RemoveWidget(const Widget *widget) override;
+        void RemoveWidgetAt(std::size_t index);
         void ClearWidgets();
+        [[nodiscard]] int IndexOfWidget(const Widget *widget) const;
+        [[nodiscard]] bool ContainsWidget(const Widget *widget) const noexcept;
 
         [[nodiscard]] std::shared_ptr<ScrollViewer> getScrollViewerProperty() const;
         [[nodiscard]] SelectionMode getSelectionModeProperty() const noexcept;

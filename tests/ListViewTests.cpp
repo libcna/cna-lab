@@ -7,6 +7,7 @@
 
 #include <any>
 #include <memory>
+#include <stdexcept>
 #include <string>
 #include <typeindex>
 
@@ -105,6 +106,55 @@ namespace
         EXPECT_NE(clone->getWidgetsProperty()[1], first);
         EXPECT_EQ(clone->getSelectionModeProperty(), SelectionMode::Multiple);
         EXPECT_EQ(clone->getSelectedItemProperty(), nullptr);
+    }
+
+    TEST(ListViewTests, ExposesTheMutableCollectionAdapterContract)
+    {
+        ListView listView;
+        const auto first = std::make_shared<Widget>();
+        const auto selected = std::make_shared<Widget>();
+        const auto replacement = std::make_shared<Widget>();
+        listView.AddWidget(first);
+        listView.AddWidget(selected);
+
+        EXPECT_EQ(listView.IndexOfWidget(first.get()), 0);
+        EXPECT_EQ(listView.IndexOfWidget(selected.get()), 1);
+        EXPECT_EQ(listView.IndexOfWidget(replacement.get()), -1);
+        EXPECT_TRUE(listView.ContainsWidget(selected.get()));
+        EXPECT_FALSE(listView.ContainsWidget(replacement.get()));
+        EXPECT_FALSE(listView.ContainsWidget(nullptr));
+
+        listView.setSelectedItemProperty(selected);
+        listView.InsertWidget(0, replacement);
+        EXPECT_EQ(listView.getSelectedIndexProperty(), 2);
+        auto *selectedButton = dynamic_cast<ListViewButton *>(selected->getParentProperty());
+        ASSERT_NE(selectedButton, nullptr);
+        EXPECT_TRUE(selectedButton->getIsPressedProperty());
+
+        const auto setItem = std::make_shared<Widget>();
+        listView.SetWidget(1, setItem);
+        EXPECT_EQ(listView.getWidgetsProperty()[1], setItem);
+        EXPECT_EQ(listView.IndexOfWidget(first.get()), -1);
+        EXPECT_EQ(first->getParentProperty(), nullptr);
+        selectedButton = dynamic_cast<ListViewButton *>(selected->getParentProperty());
+        ASSERT_NE(selectedButton, nullptr);
+        EXPECT_TRUE(selectedButton->getIsPressedProperty());
+
+        int selectedChanges = 0;
+        listView.SelectedIndexChanged += [&](void *, Myra::Events::MyraEventArgs &)
+        {
+            ++selectedChanges;
+            EXPECT_EQ(listView.IndexOfWidget(selected.get()), -1);
+            EXPECT_EQ(listView.getWidgetsProperty().size(), 2U);
+        };
+        listView.RemoveWidgetAt(2);
+        EXPECT_EQ(selectedChanges, 1);
+        EXPECT_EQ(listView.getSelectedItemProperty(), nullptr);
+        EXPECT_EQ(selected->getParentProperty(), nullptr);
+
+        EXPECT_THROW(listView.SetWidget(2, std::make_shared<Widget>()), std::out_of_range);
+        EXPECT_THROW(listView.SetWidget(0, nullptr), std::invalid_argument);
+        EXPECT_THROW(listView.RemoveWidgetAt(2), std::out_of_range);
     }
 
     TEST(ListViewTests, KeyboardAndClicksSkipSeparatorsAndCloseOnlyTheActiveDropdown)

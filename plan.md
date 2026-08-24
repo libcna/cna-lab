@@ -80,8 +80,8 @@ behavioral redesign.
 
 ### 1.4 Whole-port completion and remaining-effort estimate
 
-Checkpoint: 2026-08-24, after P6-013c. The mechanical backlog count is
-**198/342 checked tasks (57.9%)**. The count is useful for
+Checkpoint: 2026-08-24, after P7-004. The mechanical backlog count is
+**199/342 checked tasks (58.2%)**. The count is useful for
 auditing plan state but is
 not a parity percentage: small foundation subtasks and large end-to-end
 features each count once, while the remaining font/text, Desktop/input,
@@ -102,11 +102,11 @@ are planning ranges rather than a delivery promise.
 | Phase 4 — MML/XML | 31/36 | 40–80 |
 | Phase 5 — Widget/Desktop/input | 44/51 | 0–0 |
 | Phase 6 — controls/editing | 26/53 | 96–158 |
-| Phase 7 — selectors/windows/dialogs | 27/45 | 142–232 |
+| Phase 7 — selectors/windows/dialogs | 28/45 | 142–232 |
 | Phase 8 — styles/default skin | 0/14 | 140–240 |
 | Phase 9 — file/data/property grids | 1/21 | 180–320 |
 | Phase 10 — parity/release | 0/28 | 140–240 |
-| **Whole remaining technical port** | **198/342 complete** | **982–1,730** |
+| **Whole remaining technical port** | **199/342 complete** | **982–1,730** |
 
 For scheduling, use **about 1,356 focused hours remaining** as the midpoint,
 with **1,000–2,000 hours** as the sensible rounded range. This assumes prompt
@@ -555,10 +555,10 @@ are green, and the build uses no more than three parallel jobs.
 - [x] P7-001 Port selector interfaces: `ISelector.cs` and `ISelectorItem.cs`.
 - [x] P7-002 Port `Selectors/Selector.cs` generic selection behavior.
 - [x] P7-003 Port `Selectors/ListViewButton.cs`.
-- [x] P7-004a Port the style-independent `ListView` core: retained ScrollViewer/stack layout, widget wrapping and collection mutation, single/multiple selection state, click selection, scroll forwarding, and exact-type cloning. Desktop dropdown closure and keyboard navigation arrived in P7-004b and MML metadata in P7-004c; keep styles in P7-004/P8-004.
+- [x] P7-004a Port the style-independent `ListView` core: retained ScrollViewer/stack layout, widget wrapping and collection mutation, single/multiple selection state, click selection, scroll forwarding, and exact-type cloning. Desktop dropdown closure and keyboard navigation arrived in P7-004b and MML metadata in P7-004c; keep styles in P8-003.
 - [x] P7-004b Port `ListView` dropdown interaction: pressed items close only an active matching Desktop context menu, Up/Down navigation skips separators and scrolls the selection into view, and Enter closes the dropdown. Tokenized wrapper callbacks and a detachable callback-state proxy prevent dangling dispatch after rebuild, destruction, or reentrant owner removal (`DEV-075`).
 - [x] P7-004c Register the style-independent `ListView` MML surface: implicit logical `Widgets` content, `SelectionMode` codec/default, and XML-ignored internal ScrollViewer/selection state. Round trips preserve concrete logical children without exposing the internal `ListViewButton` wrappers.
-- [ ] P7-004 Port `Selectors/ListView.cs` collection adapters and virtual behavior.
+- [x] P7-004 Complete `Selectors/ListView.cs` collection adapters: explicit C++ `SetWidget`, `RemoveWidgetAt`, `IndexOfWidget`, and `ContainsWidget` operations complement the shared read-only widget view, selection visuals survive wrapper rebuilds, and removal events observe the already-updated collection (`DEV-084`). The inherited virtual key/wheel behavior is complete; styles remain P8-003.
 - [x] P7-005a Port the style-independent `ComboView` core: retained toggle/list ownership, delegated item and selection APIs, selection-event forwarding, initial selection on expansion, selected-content cloning, measure/arrange sizing, and exact-type cloning. Desktop dropdown display/closure and keyboard delegation arrived in P7-005b and MML metadata in P7-005c; keep the Label placeholder/style in P6-002/P7-005/P8-004.
 - [x] P7-005b Port `ComboView` Desktop dropdown integration: size and open the retained ListView below the border box, delegate keys, unpress on an outside context close, and unsubscribe exactly across Desktop transfer/destruction. Retained external subscriptions, tokenized internal callbacks, and callback-state invalidation keep reentrant selection removal and externally retained children safe (`DEV-075`).
 - [x] P7-005c Register the style-independent `ComboView` MML surface: nullable `DropdownMaximumHeight`, `SelectionMode`, implicit logical `Widgets` content, and XML-ignored expanded/list/selection state. Round trips preserve concrete logical children without exposing the internal ListView or its button wrappers.
