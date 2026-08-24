@@ -24,6 +24,7 @@
 #include "Myra/Graphics2D/UI/Containers/Grid.hpp"
 #include "Myra/Graphics2D/UI/Containers/Panel.hpp"
 #include "Myra/Graphics2D/UI/Containers/Proportion.hpp"
+#include "Myra/Graphics2D/UI/Containers/ScrollViewer.hpp"
 #include "Myra/Graphics2D/UI/Containers/SplitPane.hpp"
 #include "Myra/Graphics2D/UI/Containers/StackPanel.hpp"
 #include "Myra/Graphics2D/UI/Project.hpp"
@@ -77,6 +78,7 @@ namespace Myra::MML
         using Graphics2D::UI::ProportionCollection;
         using Graphics2D::UI::ProportionType;
         using Graphics2D::UI::RadioButton;
+        using Graphics2D::UI::ScrollViewer;
         using Graphics2D::UI::SeparatorWidget;
         using Graphics2D::UI::Slider;
         using Graphics2D::UI::SplitPane;
@@ -89,6 +91,7 @@ namespace Myra::MML
         using Graphics2D::UI::VerticalSplitPane;
         using Graphics2D::UI::VerticalStackPanel;
         using Graphics2D::UI::Widget;
+        using Microsoft::Xna::Framework::Point;
         using Microsoft::Xna::Framework::Vector2;
 
         template <typename T> struct IsOptional : std::false_type
@@ -550,6 +553,80 @@ namespace Myra::MML
             return descriptor;
         }
 
+        TypeDescriptor MakeScrollViewerDescriptor()
+        {
+            TypeDescriptor descriptor(
+                "ScrollViewer", typeid(ScrollViewer), []
+                { return std::static_pointer_cast<void>(std::make_shared<ScrollViewer>()); }, typeid(ContentControl));
+            descriptor.EnableBaseTypeAccess<ScrollViewer, ContentControl>();
+            descriptor.EnableBaseObjectAccess<ScrollViewer>();
+
+            PropertyMetadata scrollMaximumMetadata;
+            scrollMaximumMetadata.XmlIgnore = true;
+            descriptor.AddProperty(PropertyDescriptor(
+                "ScrollMaximum", typeid(Point), [](const void *object)
+                { return std::any(static_cast<const ScrollViewer *>(object)->getScrollMaximumProperty()); }, {},
+                std::nullopt, std::move(scrollMaximumMetadata)));
+            PropertyMetadata scrollPositionMetadata;
+            scrollPositionMetadata.XmlIgnore = true;
+            descriptor.AddProperty(MakeScalarProperty<ScrollViewer, Point>(
+                "ScrollPosition", [](const ScrollViewer &object) { return object.getScrollPositionProperty(); },
+                [](ScrollViewer &object, const Point value) { object.setScrollPositionProperty(value); }, Point(),
+                std::move(scrollPositionMetadata)));
+
+            const auto addImage = [&descriptor](std::string name, auto getter, auto setter)
+            {
+                PropertyMetadata metadata;
+                metadata.ExternalAsset = true;
+                descriptor.AddProperty(MakeScalarProperty<ScrollViewer, std::shared_ptr<Graphics2D::IImage>>(
+                    std::move(name), std::move(getter), std::move(setter), nullptr, std::move(metadata)));
+            };
+            addImage(
+                "HorizontalScrollBackground",
+                [](const ScrollViewer &object) { return object.getHorizontalScrollBackgroundProperty(); },
+                [](ScrollViewer &object, const std::shared_ptr<Graphics2D::IImage> &value)
+                { object.setHorizontalScrollBackgroundProperty(value); });
+            addImage(
+                "HorizontalScrollKnob",
+                [](const ScrollViewer &object) { return object.getHorizontalScrollKnobProperty(); },
+                [](ScrollViewer &object, const std::shared_ptr<Graphics2D::IImage> &value)
+                { object.setHorizontalScrollKnobProperty(value); });
+            addImage(
+                "VerticalScrollBackground",
+                [](const ScrollViewer &object) { return object.getVerticalScrollBackgroundProperty(); },
+                [](ScrollViewer &object, const std::shared_ptr<Graphics2D::IImage> &value)
+                { object.setVerticalScrollBackgroundProperty(value); });
+            addImage(
+                "VerticalScrollKnob", [](const ScrollViewer &object) { return object.getVerticalScrollKnobProperty(); },
+                [](ScrollViewer &object, const std::shared_ptr<Graphics2D::IImage> &value)
+                { object.setVerticalScrollKnobProperty(value); });
+
+            descriptor.AddProperty(MakeScalarProperty<ScrollViewer, int>(
+                "ScrollMultiplier", [](const ScrollViewer &object) { return object.getScrollMultiplierProperty(); },
+                [](ScrollViewer &object, const int value) { object.setScrollMultiplierProperty(value); }, 10));
+            descriptor.AddProperty(MakeScalarProperty<ScrollViewer, bool>(
+                "ShowHorizontalScrollBar", [](const ScrollViewer &object)
+                { return object.getShowHorizontalScrollBarProperty(); }, [](ScrollViewer &object, const bool value)
+                { object.setShowHorizontalScrollBarProperty(value); }, true));
+            descriptor.AddProperty(MakeScalarProperty<ScrollViewer, bool>(
+                "ShowVerticalScrollBar",
+                [](const ScrollViewer &object) { return object.getShowVerticalScrollBarProperty(); },
+                [](ScrollViewer &object, const bool value) { object.setShowVerticalScrollBarProperty(value); }, true));
+            descriptor.AddProperty(MakeScalarProperty<ScrollViewer, HorizontalAlignment>(
+                "HorizontalAlignment",
+                [](const ScrollViewer &object) { return object.getHorizontalAlignmentProperty(); },
+                [](ScrollViewer &object, const HorizontalAlignment value)
+                { object.setHorizontalAlignmentProperty(value); }, HorizontalAlignment::Stretch));
+            descriptor.AddProperty(MakeScalarProperty<ScrollViewer, VerticalAlignment>(
+                "VerticalAlignment", [](const ScrollViewer &object) { return object.getVerticalAlignmentProperty(); },
+                [](ScrollViewer &object, const VerticalAlignment value) { object.setVerticalAlignmentProperty(value); },
+                VerticalAlignment::Stretch));
+            descriptor.AddProperty(MakeScalarProperty<ScrollViewer, bool>(
+                "ClipToBounds", [](const ScrollViewer &object) { return object.getClipToBoundsProperty(); },
+                [](ScrollViewer &object, const bool value) { object.setClipToBoundsProperty(value); }, true));
+            return descriptor;
+        }
+
         TypeDescriptor MakeButtonBaseDescriptor()
         {
             TypeDescriptor descriptor("ButtonBase", typeid(ButtonBase), {}, typeid(ContentControl));
@@ -854,6 +931,7 @@ namespace Myra::MML
         registry.Register(MakeConcreteSliderDescriptor<VerticalSlider>("VerticalSlider", HorizontalAlignment::Left,
                                                                        VerticalAlignment::Stretch));
         registry.Register(MakeContentControlDescriptor());
+        registry.Register(MakeScrollViewerDescriptor());
         registry.Register(MakeButtonBaseDescriptor());
         registry.Register(MakeButtonDescriptor());
         registry.Register(MakeToggleButtonDescriptor());

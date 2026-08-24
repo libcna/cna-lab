@@ -16,6 +16,7 @@
 #include "Myra/Graphics2D/UI/Containers/Grid.hpp"
 #include "Myra/Graphics2D/UI/Containers/Panel.hpp"
 #include "Myra/Graphics2D/UI/Containers/Proportion.hpp"
+#include "Myra/Graphics2D/UI/Containers/ScrollViewer.hpp"
 #include "Myra/Graphics2D/UI/Containers/StackPanel.hpp"
 #include "Myra/MML/RegisterMyraTypes.hpp"
 #include "Myra/MML/ValueCodecRegistry.hpp"
@@ -29,6 +30,7 @@ namespace
     using Myra::Graphics2D::UI::Project;
     using Myra::Graphics2D::UI::Proportion;
     using Myra::Graphics2D::UI::ProportionType;
+    using Myra::Graphics2D::UI::ScrollViewer;
     using Myra::Graphics2D::UI::VerticalStackPanel;
     using Myra::Graphics2D::UI::Widget;
     using Myra::MML::TypeDescriptor;
@@ -134,6 +136,17 @@ namespace
         const std::string saved = project->ToXml(registry, codecs);
         EXPECT_NE(saved.find("<VerticalStackPanel Spacing=\"7\">"), std::string::npos);
         EXPECT_EQ(saved.find("VerticalBox"), std::string::npos);
+
+        const std::shared_ptr<Project> scrollProject = Project::LoadFromXml(
+            "<Project><ScrollPane><Panel Width=\"23\" /></ScrollPane></Project>", registry, codecs);
+        const auto *scrollViewer = dynamic_cast<const ScrollViewer *>(scrollProject->getRootProperty().get());
+        ASSERT_NE(scrollViewer, nullptr);
+        const auto scrollContent = std::dynamic_pointer_cast<Panel>(scrollViewer->getContentProperty());
+        ASSERT_NE(scrollContent, nullptr);
+        EXPECT_EQ(scrollContent->getWidthProperty(), 23);
+        const std::string savedScrollProject = scrollProject->ToXml(registry, codecs);
+        EXPECT_NE(savedScrollProject.find("<ScrollViewer>"), std::string::npos);
+        EXPECT_EQ(savedScrollProject.find("ScrollPane"), std::string::npos);
     }
 
     TEST(ProjectTests, RejectsANonProjectDocument)

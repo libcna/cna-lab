@@ -5,17 +5,26 @@
 
 #include <gtest/gtest.h>
 
+#include <any>
 #include <limits>
 #include <memory>
 #include <stdexcept>
+#include <string>
+#include <typeindex>
 #include <utility>
 
 #include "Microsoft/Xna/Framework/Color.hpp"
 #include "Myra/Graphics2D/IImage.hpp"
+#include "Myra/Graphics2D/UI/Containers/Panel.hpp"
 #include "Myra/Graphics2D/UI/Desktop.hpp"
 #include "Myra/Graphics2D/UI/InputEventsManager.hpp"
 #include "Myra/Graphics2D/UI/Widget.hpp"
+#include "Myra/MML/LoadContext.hpp"
+#include "Myra/MML/RegisterMyraTypes.hpp"
+#include "Myra/MML/SaveContext.hpp"
+#include "Myra/MML/ValueCodecRegistry.hpp"
 #include "Myra/MyraEnvironment.hpp"
+#include "System/Xml/XmlDocument.hpp"
 
 namespace
 {
@@ -27,8 +36,14 @@ namespace
     using Myra::Graphics2D::UI::Desktop;
     using Myra::Graphics2D::UI::InputEventsManager;
     using Myra::Graphics2D::UI::MouseInfo;
+    using Myra::Graphics2D::UI::Panel;
     using Myra::Graphics2D::UI::ScrollViewer;
     using Myra::Graphics2D::UI::Widget;
+    using Myra::MML::LoadContext;
+    using Myra::MML::PropertyDescriptor;
+    using Myra::MML::SaveContext;
+    using Myra::MML::TypeDescriptor;
+    using Myra::MML::ValueCodecRegistry;
 
     class InputProviderGuard final
     {
@@ -161,6 +176,128 @@ namespace
         EXPECT_FALSE(clone->getShowHorizontalScrollBarProperty());
         EXPECT_FALSE(clone->getShowVerticalScrollBarProperty());
         EXPECT_EQ(clone->getScrollMultiplierProperty(), 17);
+    }
+
+    TEST(ScrollViewerTests, RegistersAndRoundTripsContentAndExternalImageMml)
+    {
+        const Myra::MML::TypeRegistry registry = Myra::MML::CreateMyraTypeRegistry();
+        const TypeDescriptor *descriptor = registry.FindByType(typeid(ScrollViewer));
+        ASSERT_NE(descriptor, nullptr);
+        EXPECT_TRUE(descriptor->getCanCreateProperty());
+        ASSERT_TRUE(descriptor->getBaseTypeProperty().has_value());
+        EXPECT_EQ(*descriptor->getBaseTypeProperty(), std::type_index(typeid(Myra::Graphics2D::UI::ContentControl)));
+
+        const PropertyDescriptor *content = registry.FindPropertyByName(typeid(ScrollViewer), "Content");
+        const PropertyDescriptor *scrollMaximum = registry.FindPropertyByName(typeid(ScrollViewer), "ScrollMaximum");
+        const PropertyDescriptor *scrollPosition = registry.FindPropertyByName(typeid(ScrollViewer), "ScrollPosition");
+        const PropertyDescriptor *horizontalBackground =
+            registry.FindPropertyByName(typeid(ScrollViewer), "HorizontalScrollBackground");
+        const PropertyDescriptor *horizontalAlignment =
+            registry.FindPropertyByName(typeid(ScrollViewer), "HorizontalAlignment");
+        const PropertyDescriptor *verticalAlignment =
+            registry.FindPropertyByName(typeid(ScrollViewer), "VerticalAlignment");
+        const PropertyDescriptor *clipToBounds = registry.FindPropertyByName(typeid(ScrollViewer), "ClipToBounds");
+        ASSERT_NE(content, nullptr);
+        ASSERT_NE(scrollMaximum, nullptr);
+        ASSERT_NE(scrollPosition, nullptr);
+        ASSERT_NE(horizontalBackground, nullptr);
+        ASSERT_NE(horizontalAlignment, nullptr);
+        ASSERT_NE(verticalAlignment, nullptr);
+        ASSERT_NE(clipToBounds, nullptr);
+        EXPECT_TRUE(content->getMetadataProperty().Content);
+        EXPECT_TRUE(scrollMaximum->getMetadataProperty().XmlIgnore);
+        EXPECT_TRUE(scrollPosition->getMetadataProperty().XmlIgnore);
+        EXPECT_TRUE(horizontalBackground->getMetadataProperty().ExternalAsset);
+        EXPECT_TRUE(horizontalBackground->getCanBeNullProperty());
+        EXPECT_EQ(
+            std::any_cast<Myra::Graphics2D::UI::HorizontalAlignment>(*horizontalAlignment->getDefaultValueProperty()),
+            Myra::Graphics2D::UI::HorizontalAlignment::Stretch);
+        EXPECT_EQ(std::any_cast<Myra::Graphics2D::UI::VerticalAlignment>(*verticalAlignment->getDefaultValueProperty()),
+                  Myra::Graphics2D::UI::VerticalAlignment::Stretch);
+        EXPECT_TRUE(std::any_cast<bool>(*clipToBounds->getDefaultValueProperty()));
+
+        const auto horizontalBackgroundImage = std::make_shared<TestImage>(Point(11, 12));
+        const auto horizontalKnobImage = std::make_shared<TestImage>(Point(13, 14));
+        const auto verticalBackgroundImage = std::make_shared<TestImage>(Point(15, 16));
+        const auto verticalKnobImage = std::make_shared<TestImage>(Point(17, 18));
+        const ValueCodecRegistry codecs = ValueCodecRegistry::CreateDefault();
+        LoadContext loader(registry, codecs);
+        loader.LoadExternalAsset = [&](const PropertyDescriptor &, const std::string &assetName) -> std::any
+        {
+            if (assetName == "atlas:hbg")
+            {
+                return std::shared_ptr<IImage>(horizontalBackgroundImage);
+            }
+            if (assetName == "atlas:hknob")
+            {
+                return std::shared_ptr<IImage>(horizontalKnobImage);
+            }
+            if (assetName == "atlas:vbg")
+            {
+                return std::shared_ptr<IImage>(verticalBackgroundImage);
+            }
+            if (assetName == "atlas:vknob")
+            {
+                return std::shared_ptr<IImage>(verticalKnobImage);
+            }
+            throw std::invalid_argument("Unexpected ScrollViewer test asset.");
+        };
+
+        System::Xml::XmlDocument document;
+        document.LoadXml("<ScrollViewer ScrollMultiplier=\"17\" ShowHorizontalScrollBar=\"False\" "
+                         "ShowVerticalScrollBar=\"False\" HorizontalScrollBackground=\"atlas:hbg\" "
+                         "HorizontalScrollKnob=\"atlas:hknob\" VerticalScrollBackground=\"atlas:vbg\" "
+                         "VerticalScrollKnob=\"atlas:vknob\"><Panel Width=\"25\"/></ScrollViewer>");
+        const Myra::MML::LoadedObject loaded = loader.CreateAndLoad(*document.getDocumentElementProperty());
+        EXPECT_EQ(loaded.Type, typeid(ScrollViewer));
+        const auto *viewer = static_cast<const ScrollViewer *>(loaded.Value.get());
+        EXPECT_EQ(viewer->getScrollMultiplierProperty(), 17);
+        EXPECT_FALSE(viewer->getShowHorizontalScrollBarProperty());
+        EXPECT_FALSE(viewer->getShowVerticalScrollBarProperty());
+        EXPECT_EQ(viewer->getHorizontalScrollBackgroundProperty(), horizontalBackgroundImage);
+        EXPECT_EQ(viewer->getHorizontalScrollKnobProperty(), horizontalKnobImage);
+        EXPECT_EQ(viewer->getVerticalScrollBackgroundProperty(), verticalBackgroundImage);
+        EXPECT_EQ(viewer->getVerticalScrollKnobProperty(), verticalKnobImage);
+        const auto loadedPanel = std::dynamic_pointer_cast<Panel>(viewer->getContentProperty());
+        ASSERT_NE(loadedPanel, nullptr);
+        EXPECT_EQ(loadedPanel->getWidthProperty(), 25);
+
+        SaveContext saver(registry, codecs);
+        saver.SaveExternalAsset = [&](const PropertyDescriptor &, const std::any &value)
+        {
+            const std::shared_ptr<IImage> &image = std::any_cast<const std::shared_ptr<IImage> &>(value);
+            if (image == horizontalBackgroundImage)
+            {
+                return std::string("atlas:hbg");
+            }
+            if (image == horizontalKnobImage)
+            {
+                return std::string("atlas:hknob");
+            }
+            if (image == verticalBackgroundImage)
+            {
+                return std::string("atlas:vbg");
+            }
+            if (image == verticalKnobImage)
+            {
+                return std::string("atlas:vknob");
+            }
+            throw std::invalid_argument("Unexpected ScrollViewer image during save.");
+        };
+        const std::string xml = saver.ToXml(viewer, typeid(ScrollViewer));
+        EXPECT_NE(xml.find("ScrollMultiplier=\"17\""), std::string::npos);
+        EXPECT_NE(xml.find("ShowHorizontalScrollBar=\"False\""), std::string::npos);
+        EXPECT_NE(xml.find("ShowVerticalScrollBar=\"False\""), std::string::npos);
+        EXPECT_NE(xml.find("HorizontalScrollBackground=\"atlas:hbg\""), std::string::npos);
+        EXPECT_NE(xml.find("HorizontalScrollKnob=\"atlas:hknob\""), std::string::npos);
+        EXPECT_NE(xml.find("VerticalScrollBackground=\"atlas:vbg\""), std::string::npos);
+        EXPECT_NE(xml.find("VerticalScrollKnob=\"atlas:vknob\""), std::string::npos);
+        EXPECT_NE(xml.find("<Panel Width=\"25\""), std::string::npos);
+        EXPECT_EQ(xml.find("ScrollMaximum="), std::string::npos);
+        EXPECT_EQ(xml.find("ScrollPosition="), std::string::npos);
+        EXPECT_EQ(xml.find("HorizontalAlignment="), std::string::npos);
+        EXPECT_EQ(xml.find("VerticalAlignment="), std::string::npos);
+        EXPECT_EQ(xml.find("ClipToBounds="), std::string::npos);
     }
 
     TEST(ScrollViewerTests, DesktopThumbDragTracksOutsideBoundsAndGlobalReleaseStopsCapture)

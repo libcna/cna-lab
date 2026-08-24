@@ -80,8 +80,8 @@ behavioral redesign.
 
 ### 1.4 Whole-port completion and remaining-effort estimate
 
-Checkpoint: 2026-08-24, after P6-019c. The mechanical backlog count is
-**185/329 checked tasks (56.2%)**. The count is useful for
+Checkpoint: 2026-08-24, after P6-018b. The mechanical backlog count is
+**186/330 checked tasks (56.4%)**. The count is useful for
 auditing plan state but is
 not a parity percentage: small foundation subtasks and large end-to-end
 features each count once, while the remaining font/text, Desktop/input,
@@ -101,14 +101,14 @@ are planning ranges rather than a delivery promise.
 | Phase 3 — font/text/assets | 4/21 | 180–300 |
 | Phase 4 — MML/XML | 31/36 | 40–80 |
 | Phase 5 — Widget/Desktop/input | 41/48 | 0–0 |
-| Phase 6 — controls/editing | 23/50 | 98–162 |
+| Phase 6 — controls/editing | 24/51 | 96–158 |
 | Phase 7 — selectors/windows/dialogs | 20/38 | 154–256 |
 | Phase 8 — styles/default skin | 0/14 | 140–240 |
 | Phase 9 — file/data/property grids | 1/21 | 180–320 |
 | Phase 10 — parity/release | 0/28 | 140–240 |
-| **Whole remaining technical port** | **185/329 complete** | **996–1,758** |
+| **Whole remaining technical port** | **186/330 complete** | **994–1,754** |
 
-For scheduling, use **about 1,377 focused hours remaining** as the midpoint,
+For scheduling, use **about 1,374 focused hours remaining** as the midpoint,
 with **1,000–2,000 hours** as the sensible rounded range. This assumes prompt
 human decisions for P3-004 and P0-015b, no newly discovered upstream/CNA
 architectural blocker, and continued reuse of the existing tested foundations.
@@ -526,7 +526,8 @@ are green, and the build uses no more than three parallel jobs.
 - [x] P6-016b Restore Grid's observable proportion collection and retained-proportion invalidation semantics.
 - [ ] P6-016 Port `Containers/Grid.cs` selection, style, debug render, and input.
 - [x] P6-017 Port `Containers/Proportion.cs`.
-- [x] P6-018a Port the style-independent `ScrollViewer` core: retained single content, scrollbar geometry, scrolling/clamping, direct wheel scrolling, optional image thumbs, exact-type cloning, and render traversal. Desktop thumb drag capture and scrollbar input fall-through arrived in P5-019c; keep stylesheet application and MML metadata in P6-018/P8-004.
+- [x] P6-018a Port the style-independent `ScrollViewer` core: retained single content, scrollbar geometry, scrolling/clamping, direct wheel scrolling, optional image thumbs, exact-type cloning, and render traversal. Desktop thumb drag capture and scrollbar input fall-through arrived in P5-019c and MML metadata in P6-018b; keep stylesheet application in P6-018/P8-004.
+- [x] P6-018b Register the concrete `ScrollViewer` MML surface: inherited implicit content, four nullable external scrollbar images, scroll multiplier and visibility flags, stretch/clipping default overrides, and XML-ignored maximum/current positions. Round-trip caller-provided image handles and nested widget content without styles, and activate Project's existing legacy `ScrollPane` alias.
 - [ ] P6-018 Port `Containers/ScrollViewer.cs`.
 - [x] P6-019a Port the style-independent `SplitPane` core and both orientations: retained logical widget collection, grid-separated handles, proportions/split positions, reset events, removal, and exact-type deep cloning. Desktop drag/cursor control arrived in P6-019b and MML/container fidelity in P6-019c; keep handle-style dimensions/visuals in P6-019/P6-020/P8-004.
 - [x] P6-019b Port the style-independent `SplitPane` interaction slice: horizontal/vertical handles resize their adjacent proportions, preserve the selected multi-handle cell-offset mapping, track movement through Desktop outside local bounds, switch/restore the cursor, stop on global release or detach, and ignore invalid zero/negative available extents. Retained Desktop callbacks plus detachable tokenized handle callbacks keep reentrant removal, reset, and externally retained handles safe; widened geometry and epsilon-deduplicated dual routing are recorded in `DEV-078`. Keep `HandleStyle` dimensions/visuals in P6-019/P6-020/P8-004.
