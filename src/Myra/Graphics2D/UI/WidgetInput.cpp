@@ -559,4 +559,9 @@ namespace Myra::Graphics2D::UI
     {
         Utility::EventsExtensions::Invoke(KeyUp, this, key, InputEventType::KeyUp);
     }
+
+    void Widget::OnChar(const char16_t character)
+    {
+        Utility::EventsExtensions::Invoke(Char, this, character, InputEventType::CharInput);
+    }
 } // namespace Myra::Graphics2D::UI

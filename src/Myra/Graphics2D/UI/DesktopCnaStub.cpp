@@ -18,6 +18,13 @@ namespace Myra::Graphics2D::UI
         throw std::logic_error("The default desktop bounds fetcher requires Myra-CNA to be linked with a CNA target.");
     }
 
+    void Desktop::InitializeTextInput() {}
+
+    void Desktop::DisposeTextInput() noexcept
+    {
+        textInputToken_.reset();
+    }
+
     void Desktop::Render()
     {
         throw std::logic_error(MissingLinkedCnaMessage);

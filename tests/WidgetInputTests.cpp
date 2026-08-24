@@ -81,6 +81,12 @@ namespace
             Widget::OnKeyUp(key);
         }
 
+        void OnChar(const char16_t character) override
+        {
+            calls_.emplace_back("hook:Char");
+            Widget::OnChar(character);
+        }
+
         void EmitKeyDown(const Keys key) { FireKeyDown(key); }
 
     private:
@@ -186,6 +192,29 @@ namespace
                              "hook:KeyDown", "event:KeyDown",
                              "hook:KeyUp", "event:KeyUp", "event:KeyDown"}));
         EXPECT_EQ(keys, (std::vector<Keys>{Keys::OemPlus, Keys::Escape, Keys::NumPad7}));
+    }
+
+    TEST(WidgetInputTests, CharacterCallbackForwardsTheExactUtf16CodeUnitAndEventType)
+    {
+        std::vector<std::string> calls;
+        RecordingKeyWidget widget(calls);
+        std::vector<char16_t> characters;
+        widget.Char += [&](void *sender, GenericEventArgs<char16_t> &arguments)
+        {
+            EXPECT_EQ(sender, &widget);
+            EXPECT_EQ(arguments.getEventTypeProperty(), InputEventType::CharInput);
+            calls.emplace_back("event:Char");
+            characters.push_back(arguments.getDataProperty());
+        };
+
+        widget.OnChar(u'\u00e9');
+        widget.OnChar(static_cast<char16_t>(0xd83d));
+        widget.OnChar(static_cast<char16_t>(0xde00));
+
+        EXPECT_EQ(calls, (std::vector<std::string>{"hook:Char", "event:Char", "hook:Char", "event:Char", "hook:Char",
+                                                   "event:Char"}));
+        EXPECT_EQ(characters,
+                  (std::vector<char16_t>{u'\u00e9', static_cast<char16_t>(0xd83d), static_cast<char16_t>(0xde00)}));
     }
 
     TEST(WidgetInputTests, QueuedDispatchRetainsAWidgetUntilItsEventCompletes)

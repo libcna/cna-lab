@@ -36,6 +36,14 @@ namespace Myra::Graphics2D::UI
         }
     }
 
+    void Desktop::InputProcessor::ProcessChar(const char16_t character)
+    {
+        if (owner_ != nullptr)
+        {
+            owner_->OnChar(character);
+        }
+    }
+
     const Point &Desktop::getPreviousMousePositionProperty() const noexcept
     {
         return previousMousePosition_;
@@ -248,6 +256,24 @@ namespace Myra::Graphics2D::UI
         {
             HideContextMenu();
         }
+    }
+
+    void Desktop::OnChar(const char16_t character)
+    {
+        if (IsMenuBarActive())
+        {
+            return;
+        }
+
+        Widget *const target = focusedKeyboardWidget_;
+        const std::shared_ptr<Widget> retainedTarget = RetainWidget(target);
+        if (target != nullptr && target == focusedKeyboardWidget_)
+        {
+            target->OnChar(character);
+        }
+        static_cast<void>(retainedTarget);
+
+        Utility::EventsExtensions::Invoke(Char, character, InputEventType::CharInput);
     }
 
     void Desktop::FocusNextWidget()

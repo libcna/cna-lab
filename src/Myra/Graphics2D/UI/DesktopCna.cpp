@@ -12,6 +12,7 @@
 #include <vector>
 
 #include "Microsoft/Xna/Framework/Color.hpp"
+#include "Microsoft/Xna/Framework/Input/TextInputEXT.hpp"
 #include "Myra/Graphics2D/IBrush.hpp"
 #include "Myra/Graphics2D/RenderContext.hpp"
 #include "Myra/Graphics2D/UI/InputEventsManager.hpp"
@@ -28,6 +29,26 @@ namespace Myra::Graphics2D::UI
     {
         const Microsoft::Xna::Framework::Point size = Utility::CrossEngineStuff::getViewSizeProperty();
         return {0, 0, size.X, size.Y};
+    }
+
+    void Desktop::InitializeTextInput()
+    {
+        using Microsoft::Xna::Framework::Input::TextInputEXT;
+        TextInputEXT::StartTextInput();
+        const std::shared_ptr<InputProcessor> processor = inputProcessor_;
+        textInputToken_ =
+            TextInputEXT::TextInput.Add([processor](const char16_t character) { processor->ProcessChar(character); });
+    }
+
+    void Desktop::DisposeTextInput() noexcept
+    {
+        if (!textInputToken_)
+        {
+            return;
+        }
+        // The selected FNA Desktop removes its handler but does not globally stop text input.
+        Microsoft::Xna::Framework::Input::TextInputEXT::TextInput.Remove(*textInputToken_);
+        textInputToken_.reset();
     }
 
     void Desktop::Render()

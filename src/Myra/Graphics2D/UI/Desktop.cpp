@@ -70,6 +70,7 @@ namespace Myra::Graphics2D::UI
     {
         widgets_.CollectionChanged.push_back([this](auto *, const auto &) { OnWidgetsChanged(); });
         KeyDownHandler = [this](const Microsoft::Xna::Framework::Input::Keys key) { OnKeyDown(key); };
+        InitializeTextInput();
     }
 
     Desktop::~Desktop()
@@ -124,6 +125,7 @@ namespace Myra::Graphics2D::UI
             return;
         }
         disposed_ = true;
+        DisposeTextInput();
         DisposeGraphicsResources();
     }
 

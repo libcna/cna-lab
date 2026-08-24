@@ -70,6 +70,7 @@ namespace Myra::Graphics2D::UI
         Events::MyraEventHandlerT<Events::GenericEventArgs<float>> MouseWheelChanged;
         Events::MyraEventHandlerT<Events::GenericEventArgs<Microsoft::Xna::Framework::Input::Keys>> KeyUp;
         Events::MyraEventHandlerT<Events::GenericEventArgs<Microsoft::Xna::Framework::Input::Keys>> KeyDown;
+        Events::MyraEventHandlerT<Events::GenericEventArgs<char16_t>> Char;
         std::function<void(Microsoft::Xna::Framework::Input::Keys)> KeyDownHandler;
 
         [[nodiscard]] const BoundsFetcher &getBoundsFetcherProperty() const noexcept;
@@ -122,6 +123,7 @@ namespace Myra::Graphics2D::UI
         /** @brief Hit-tests the current pointer snapshot and queues widget input transitions. */
         void ProcessWidgetInput();
         void OnKeyDown(Microsoft::Xna::Framework::Input::Keys key);
+        void OnChar(char16_t character);
 
         /** @brief Runs the selected upstream layout/input/event/layout/visual frame pipeline. */
         void Render();
@@ -176,6 +178,7 @@ namespace Myra::Graphics2D::UI
             explicit InputProcessor(Desktop &owner) noexcept;
             void Detach() noexcept;
             void ProcessEvent(InputEventType eventType) override;
+            void ProcessChar(char16_t character);
 
           private:
             Desktop *owner_;
@@ -186,6 +189,8 @@ namespace Myra::Graphics2D::UI
         void SynchronizeRootsOnce();
         void ReconcileContextMenuOwnership();
         void ReconcileTooltipOwnership();
+        void InitializeTextInput();
+        void DisposeTextInput() noexcept;
         void DisposeGraphicsResources();
         void RemoveWidgetFromPreviousOwner(const std::shared_ptr<Widget> &widget);
         [[nodiscard]] std::shared_ptr<Widget> RetainWidget(const Widget *widget) const;
@@ -254,5 +259,6 @@ namespace Myra::Graphics2D::UI
         int repeatKeyDownIntervalInMs_ = 50;
         std::optional<std::chrono::steady_clock::time_point> lastKeyDown_;
         int keyDownCount_ = 0;
+        std::optional<std::uint64_t> textInputToken_;
     };
 } // namespace Myra::Graphics2D::UI

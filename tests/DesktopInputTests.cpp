@@ -15,6 +15,7 @@
 
 #include "CNA/Platform/PlatformException.hpp"
 #include "Microsoft/Xna/Framework/Color.hpp"
+#include "Microsoft/Xna/Framework/Input/TextInputEXT.hpp"
 #include "Myra/Graphics2D/IBrush.hpp"
 #include "Myra/Graphics2D/UI/Containers/Panel.hpp"
 #include "Myra/Graphics2D/UI/InputEventsManager.hpp"
@@ -50,6 +51,7 @@ namespace
       public:
         std::vector<Keys> keysDown;
         std::vector<Keys> keysUp;
+        std::vector<char16_t> characters;
 
         void OnKeyDown(const Keys key) override
         {
@@ -61,6 +63,12 @@ namespace
         {
             keysUp.push_back(key);
             Widget::OnKeyUp(key);
+        }
+
+        void OnChar(const char16_t character) override
+        {
+            characters.push_back(character);
+            Widget::OnChar(character);
         }
     };
 
@@ -330,6 +338,73 @@ namespace
         desktop.OnKeyDown(Keys::Right);
         EXPECT_EQ(menu->getHoverIndexProperty(), 0);
         EXPECT_EQ(focused->keysDown, (std::vector<Keys>{Keys::A, Keys::A}));
+    }
+
+    TEST_F(DesktopInputTests, TextInputCodeUnitsRouteToFocusAndDesktopUnlessTheMenuIsActive)
+    {
+        using Microsoft::Xna::Framework::Input::TextInputEXT;
+
+        MyraEnvironment::DownKeys keys{};
+        MyraEnvironment::setDownKeysGetterProperty([&](MyraEnvironment::DownKeys &destination) { destination = keys; });
+
+        Desktop desktop;
+        UseFixedBounds(desktop);
+        auto root = std::make_shared<Panel>();
+        auto focused = std::make_shared<KeyProbeWidget>();
+        focused->setAcceptsKeyboardFocusProperty(true);
+        auto menu = std::make_shared<HorizontalMenu>();
+        menu->getItemsProperty().Add(std::make_shared<MenuItem>("file", "&File"));
+        root->AddWidget(focused);
+        root->AddWidget(menu);
+        desktop.AddWidget(root);
+        desktop.UpdateLayout();
+        focused->SetKeyboardFocus();
+
+        std::vector<std::string> order;
+        focused->Char += [&](void *, GenericEventArgs<char16_t> &) { order.emplace_back("widget"); };
+        std::vector<char16_t> globalCharacters;
+        desktop.Char += [&](void *sender, GenericEventArgs<char16_t> &arguments)
+        {
+            EXPECT_EQ(sender, nullptr);
+            EXPECT_EQ(arguments.getEventTypeProperty(), InputEventType::CharInput);
+            order.emplace_back("desktop");
+            globalCharacters.push_back(arguments.getDataProperty());
+        };
+
+        TextInputEXT::INTERNAL_OnTextInput(u'\u00e9');
+        TextInputEXT::INTERNAL_OnTextInput(static_cast<char16_t>(0xd83d));
+        TextInputEXT::INTERNAL_OnTextInput(static_cast<char16_t>(0xde00));
+        EXPECT_EQ(focused->characters,
+                  (std::vector<char16_t>{u'\u00e9', static_cast<char16_t>(0xd83d), static_cast<char16_t>(0xde00)}));
+        EXPECT_EQ(globalCharacters, focused->characters);
+        EXPECT_EQ(order, (std::vector<std::string>{"widget", "desktop", "widget", "desktop", "widget", "desktop"}));
+
+        keys[static_cast<std::size_t>(Keys::LeftAlt)] = true;
+        desktop.UpdateKeyboardInput();
+        TextInputEXT::INTERNAL_OnTextInput(u'x');
+        EXPECT_EQ(globalCharacters.size(), 3U);
+        EXPECT_EQ(focused->characters.size(), 3U);
+
+        desktop.Dispose();
+        TextInputEXT::INTERNAL_OnTextInput(u'y');
+        EXPECT_EQ(globalCharacters.size(), 3U);
+        EXPECT_EQ(focused->characters.size(), 3U);
+    }
+
+    TEST_F(DesktopInputTests, SnapshottedTextInputCallbackBecomesHarmlessAfterReentrantDesktopDestruction)
+    {
+        using Microsoft::Xna::Framework::Input::TextInputEXT;
+
+        auto first = std::make_unique<Desktop>();
+        auto destroyed = std::make_unique<Desktop>();
+        int destroyedCalls = 0;
+        destroyed->Char += [&](void *, GenericEventArgs<char16_t> &) { ++destroyedCalls; };
+        first->Char += [&](void *, GenericEventArgs<char16_t> &) { destroyed.reset(); };
+
+        TextInputEXT::INTERNAL_OnTextInput(u'z');
+
+        EXPECT_EQ(destroyed, nullptr);
+        EXPECT_EQ(destroyedCalls, 0);
     }
 
     TEST_F(DesktopInputTests, ContextMenuOutsideTouchCanCancelAndEscapeClosesAfterFocusedRouting)

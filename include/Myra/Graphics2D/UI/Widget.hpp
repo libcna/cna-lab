@@ -84,6 +84,7 @@ namespace Myra::Graphics2D::UI
             Events::GenericEventArgs<Microsoft::Xna::Framework::Input::Keys>> KeyUp;
         Events::MyraEventHandlerT<
             Events::GenericEventArgs<Microsoft::Xna::Framework::Input::Keys>> KeyDown;
+        Events::MyraEventHandlerT<Events::GenericEventArgs<char16_t>> Char;
         Events::MyraEventHandler KeyboardFocusChanged;
         Events::MyraEventHandler PlacedChanged;
         Events::MyraEventHandler PressedChanged;
@@ -304,6 +305,7 @@ namespace Myra::Graphics2D::UI
         virtual void OnTouchDoubleClick();
         virtual void OnKeyDown(Microsoft::Xna::Framework::Input::Keys key);
         virtual void OnKeyUp(Microsoft::Xna::Framework::Input::Keys key);
+        virtual void OnChar(char16_t character);
         virtual void OnLostKeyboardFocus();
         virtual void OnGotKeyboardFocus();
         virtual void OnPressedChanged();
