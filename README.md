@@ -9,9 +9,11 @@ The project is an incomplete but validated retained-mode UI port. Its current
 surface includes the Widget tree/layout/rendering kernel, Grid and stack layout,
 MML metadata and XML project loading, CNA SpriteBatch rendering primitives,
 images/atlases/brushes, separators, progress bars, and style-independent
-Button/ToggleButton/CheckButtonBase interaction cores. Desktop integration,
-styles, fonts/rich text, most controls, Grid selection/input, and the full
-upstream widget catalog are not implemented yet. Primitive, optional,
+Button/ToggleButton/CheckButtonBase interaction cores. The Desktop now owns and
+lays out retained roots, propagates placement and transforms, maintains stable
+Z-order and focus, and exposes traversal/menu/modal queries. Desktop input,
+rendering, context menus/tooltips, styles, fonts/rich text, most controls, Grid
+selection/input, and the full upstream widget catalog are not implemented yet. Primitive, optional,
 explicitly mapped enum, and audited geometry codecs drive registry-backed XML
 loading/saving with defaults, skips, legacy/XML names, explicit external-asset
 callbacks, attached properties, BaseObject user data, and recursive

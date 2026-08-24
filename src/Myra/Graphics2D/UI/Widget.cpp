@@ -2,13 +2,15 @@
 // Copyright (c) 2026 Robert Vokáč and Myra-CNA contributors.
 // Portions derived from MyraUI/Myra, MIT License,
 // Copyright (c) 2017-2020 The Myra Team.
-// Ported from: src/Myra/Graphics2D/UI/Widget.cs and src/Myra/Graphics2D/UI/Widget.Children.cs at 0d79b939310bfe1d00b21803fe15e291caf60aa1.
+// Ported from: src/Myra/Graphics2D/UI/Widget.cs, src/Myra/Graphics2D/UI/Widget.Children.cs,
+// and src/Myra/Graphics2D/UI/Widget.Input.cs at 0d79b939310bfe1d00b21803fe15e291caf60aa1.
 // See NOTICE.md and UPSTREAM_MANIFEST.md.
 #include "Myra/Graphics2D/UI/Widget.hpp"
 
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <exception>
 #include <limits>
 #include <numbers>
 #include <stdexcept>
@@ -16,6 +18,7 @@
 #include <utility>
 
 #include "Myra/Graphics2D/IBrush.hpp"
+#include "Myra/Graphics2D/UI/Desktop.hpp"
 #include "Myra/Utility/EventsExtensions.hpp"
 #include "Myra/Utility/Mathematics.hpp"
 #include "Myra/Utility/UIUtils.hpp"
@@ -277,6 +280,10 @@ namespace Myra::Graphics2D::UI
         {
             parent_->childrenDirty_ = true;
         }
+        else if (desktop_ != nullptr)
+        {
+            desktop_->InvalidateWidgetsOrder();
+        }
         InvalidateMeasure();
     }
 
@@ -461,6 +468,10 @@ namespace Myra::Graphics2D::UI
 
     bool Widget::getIsKeyboardFocusedProperty() const noexcept { return isKeyboardFocused_; }
 
+    bool Widget::getIsPlacedProperty() const noexcept { return desktop_ != nullptr; }
+
+    Desktop* Widget::getDesktopProperty() const noexcept { return desktop_; }
+
     void Widget::setIsKeyboardFocusedProperty(const bool value)
     {
         if (value == isKeyboardFocused_)
@@ -580,11 +591,29 @@ namespace Myra::Graphics2D::UI
         {
             return;
         }
-        if (child->parent_ != nullptr)
+        while (child->parent_ != nullptr || child->desktop_ != nullptr)
         {
-            static_cast<void>(child->parent_->RemoveChild(child.get()));
+            if (child->parent_ == this)
+            {
+                return;
+            }
+            if (child->parent_ != nullptr)
+            {
+                Widget* const oldParent = child->parent_;
+                if (!oldParent->RemoveChild(child.get()))
+                {
+                    throw std::logic_error("A widget parent did not retain its reported child.");
+                }
+            }
+            else
+            {
+                Desktop* const oldDesktop = child->desktop_;
+                if (!oldDesktop->RemoveWidget(child.get()))
+                {
+                    throw std::logic_error("A widget desktop did not retain its reported root.");
+                }
+            }
         }
-
         std::shared_ptr<Widget> retained = std::move(child);
         children_.push_back(retained);
         childrenDirty_ = true;
@@ -637,6 +666,23 @@ namespace Myra::Graphics2D::UI
         {
             static_cast<void>(parent_->RemoveChild(this));
         }
+    }
+
+    void Widget::RemoveFromDesktop()
+    {
+        if (desktop_ != nullptr && parent_ == nullptr)
+        {
+            static_cast<void>(desktop_->RemoveWidget(this));
+        }
+    }
+
+    void Widget::SetKeyboardFocus()
+    {
+        if (desktop_ == nullptr)
+        {
+            throw std::logic_error("Keyboard focus requires a widget attached to a desktop.");
+        }
+        desktop_->setFocusedKeyboardWidgetProperty(this);
     }
 
     std::shared_ptr<Widget> Widget::Clone() const
@@ -915,6 +961,10 @@ namespace Myra::Graphics2D::UI
         {
             parent_->InvalidateMeasure();
         }
+        else if (desktop_ != nullptr)
+        {
+            desktop_->InvalidateLayout();
+        }
     }
 
     void Widget::InvalidateArrange() noexcept
@@ -951,6 +1001,11 @@ namespace Myra::Graphics2D::UI
     void Widget::OnPressedChanged()
     {
         Utility::EventsExtensions::Invoke(PressedChanged, this, InputEventType::PressedChanged);
+    }
+
+    void Widget::OnPlacedChanged()
+    {
+        Utility::EventsExtensions::Invoke(PlacedChanged, this, InputEventType::PlacedChanged);
     }
 
     bool Widget::UseOverBackground() const noexcept
@@ -1021,6 +1076,7 @@ namespace Myra::Graphics2D::UI
     void Widget::OnChildAdded(Widget& child)
     {
         child.parent_ = this;
+        child.SetDesktop(desktop_);
         child.InvalidateTransform();
     }
 
@@ -1028,6 +1084,16 @@ namespace Myra::Graphics2D::UI
     {
         if (child.parent_ == this)
         {
+            try
+            {
+                child.SetDesktop(nullptr);
+            }
+            catch (...)
+            {
+                child.parent_ = nullptr;
+                child.InvalidateTransform();
+                throw;
+            }
             child.parent_ = nullptr;
             child.InvalidateTransform();
         }
@@ -1077,6 +1143,67 @@ namespace Myra::Graphics2D::UI
         }
     }
 
+    void Widget::SetDesktop(Desktop* const value)
+    {
+        if (desktop_ == value)
+        {
+            return;
+        }
+        std::exception_ptr pendingException;
+        if (desktop_ != nullptr)
+        {
+            try
+            {
+                desktop_->ClearFocusForDetaching(*this);
+            }
+            catch (...)
+            {
+                pendingException = std::current_exception();
+            }
+        }
+        desktop_ = value;
+        InvalidateTransform();
+        if (desktop_ != nullptr)
+        {
+            InvalidateMeasure();
+        }
+
+        const std::vector<std::shared_ptr<Widget>> snapshot = children_;
+        for (const std::shared_ptr<Widget>& child : snapshot)
+        {
+            if (child->parent_ != this)
+            {
+                continue;
+            }
+            try
+            {
+                child->SetDesktop(value);
+            }
+            catch (...)
+            {
+                if (!pendingException)
+                {
+                    pendingException = std::current_exception();
+                }
+            }
+        }
+        try
+        {
+            OnPlacedChanged();
+        }
+        catch (...)
+        {
+            if (!pendingException)
+            {
+                pendingException = std::current_exception();
+            }
+        }
+        if (pendingException)
+        {
+            std::rethrow_exception(pendingException);
+        }
+    }
+
     const Graphics2D::Transform& Widget::getTransformProperty()
     {
         UpdateTransform();
@@ -1104,6 +1231,12 @@ namespace Myra::Graphics2D::UI
             Graphics2D::Transform parentTransform = parent_->getTransformProperty();
             parentTransform.AddTransform(localTransform);
             transform_ = std::move(parentTransform);
+        }
+        else if (desktop_ != nullptr)
+        {
+            Graphics2D::Transform desktopTransform = desktop_->getTransformProperty();
+            desktopTransform.AddTransform(localTransform);
+            transform_ = std::move(desktopTransform);
         }
         else
         {

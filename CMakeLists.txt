@@ -53,6 +53,7 @@ add_library(MYRA_CNA STATIC
     src/Myra/Graphics2D/Thickness.cpp
     src/Myra/Graphics2D/UI/ContentControl.cpp
     src/Myra/Graphics2D/UI/Container.cpp
+    src/Myra/Graphics2D/UI/Desktop.cpp
     src/Myra/Graphics2D/UI/Containers/Panel.cpp
     src/Myra/Graphics2D/UI/Containers/Grid.cpp
     src/Myra/Graphics2D/UI/Containers/Proportion.cpp
@@ -270,11 +271,13 @@ if(MYRA_CNA_CNA_LINKED)
         src/Myra/Graphics2D/TextureAtlases/TextureRegionAtlas.cpp
         src/Myra/Graphics2D/TextureAtlases/TintedRegion.cpp
         src/Myra/Graphics2D/UI/WidgetRender.cpp
+        src/Myra/Graphics2D/UI/DesktopCna.cpp
         src/Myra/MyraEnvironmentCna.cpp
         src/Myra/Utility/CrossEngineStuff.cpp
     )
 else()
     target_sources(MYRA_CNA PRIVATE
+        src/Myra/Graphics2D/UI/DesktopCnaStub.cpp
         src/Myra/Graphics2D/UI/WidgetRenderStub.cpp
     )
 endif()

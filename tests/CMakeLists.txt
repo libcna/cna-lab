@@ -44,6 +44,7 @@ if(MYRA_CNA_CNA_LINKED)
         ComparisonHelpersTests.cpp
         CrossEngineStuffTests.cpp
         DefaultAssetsTests.cpp
+        DesktopTests.cpp
         GridLayoutTests.cpp
         IHasColorTests.cpp
         ImageTests.cpp
@@ -107,6 +108,7 @@ else()
             "myra-cna: tests require CNA Point.cpp and Rectangle.cpp under '${MYRA_CNA_CNA_DIR}'.")
     endif()
     target_sources(myra_cna_unit_tests PRIVATE
+        DesktopStubTests.cpp
         ThicknessRectangleTests.cpp
         "${_myra_cna_point_source}"
         "${_myra_cna_rectangle_source}"

@@ -39,6 +39,7 @@
 #include "Myra/Graphics2D/UI/Enums.hpp"
 #include "Myra/Graphics2D/UI/File/FileDialogMode.hpp"
 #include "Myra/Graphics2D/UI/Container.hpp"
+#include "Myra/Graphics2D/UI/Desktop.hpp"
 #include "Myra/Graphics2D/UI/ContentControl.hpp"
 #include "Myra/Graphics2D/UI/Containers/Panel.hpp"
 #include "Myra/Graphics2D/UI/Containers/Grid.hpp"

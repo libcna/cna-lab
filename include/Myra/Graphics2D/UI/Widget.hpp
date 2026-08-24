@@ -82,6 +82,7 @@ namespace Myra::Graphics2D::UI
         Events::MyraEventHandlerT<
             Events::GenericEventArgs<Microsoft::Xna::Framework::Input::Keys>> KeyDown;
         Events::MyraEventHandler KeyboardFocusChanged;
+        Events::MyraEventHandler PlacedChanged;
         Events::MyraEventHandler PressedChanged;
         Events::MyraEventHandlerT<Events::ValueChangingEventArgs<bool>> PressedChangingByUser;
 
@@ -171,6 +172,8 @@ namespace Myra::Graphics2D::UI
         [[nodiscard]] bool getAcceptsKeyboardFocusProperty() const noexcept;
         void setAcceptsKeyboardFocusProperty(bool value) noexcept;
         [[nodiscard]] bool getIsKeyboardFocusedProperty() const noexcept;
+        [[nodiscard]] bool getIsPlacedProperty() const noexcept;
+        [[nodiscard]] Desktop* getDesktopProperty() const noexcept;
 
         [[nodiscard]] const Microsoft::Xna::Framework::Vector2& getScaleProperty() const noexcept;
         void setScaleProperty(Microsoft::Xna::Framework::Vector2 value);
@@ -198,6 +201,8 @@ namespace Myra::Graphics2D::UI
         [[nodiscard]] bool RemoveChild(const Widget* child);
         void ClearChildren();
         void RemoveFromParent();
+        void RemoveFromDesktop();
+        void SetKeyboardFocus();
 
         /** @brief Creates a deep copy using the dynamic type's virtual factory. */
         [[nodiscard]] std::shared_ptr<Widget> Clone() const;
@@ -339,6 +344,7 @@ namespace Myra::Graphics2D::UI
         void FireKeyDown(Microsoft::Xna::Framework::Input::Keys key);
         virtual void InternalArrange();
         virtual void OnVisibleChanged();
+        virtual void OnPlacedChanged();
         virtual void OnChildAdded(Widget& child);
         virtual void OnChildRemoved(Widget& child);
         [[nodiscard]] Microsoft::Xna::Framework::Rectangle getBorderBoundsProperty() const;
@@ -360,6 +366,7 @@ namespace Myra::Graphics2D::UI
         [[nodiscard]] const Graphics2D::Transform& getTransformProperty();
         void ProcessEvent(InputEventType eventType) override;
         void setIsKeyboardFocusedProperty(bool value);
+        void SetDesktop(Desktop* value);
         void UpdateTransform();
         void UpdateChildren();
         void FireLocationChanged();
