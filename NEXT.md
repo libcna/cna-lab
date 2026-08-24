@@ -3,8 +3,8 @@
 ## Current state
 
 - Active branch: `develop`.
-- Current committed baseline `a548c06` (`feat: register scroll viewer mml`)
-  completes P6-018b. The repository checkpoint described by this handoff also completes P6-006a/
+- Current committed baseline `6830e26` (`feat: register list view mml`)
+  completes P7-004c. The repository checkpoint described by this handoff also completes P6-006a/
   P6-006b's style-independent abstract `CheckButtonBase` and parent-hover image,
   P6-007a's concrete
   `CheckButton`, P6-008a's direct-sibling `RadioButton` behavior, P6-018a/P6-018b's
@@ -14,8 +14,9 @@
   style-independent `Slider` core, P7-001/P7-002's generic selector contracts
   and collection-backed selection core, P7-003's `ListViewButton` grouping,
   P7-004a/P7-004b/P7-004c's collection-backed `ListView` core, dropdown keyboard/
-  close behavior, and MML round trips, P7-005a/P7-005b's retained ComboView core and Desktop dropdown
-  lifecycle, P7-006/P7-008's menu-item contracts and separator state, P7-007a's
+  close behavior, and MML round trips, P7-005a/P7-005b/P7-005c's retained
+  ComboView core, Desktop dropdown lifecycle, and MML round trips,
+  P7-006/P7-008's menu-item contracts and separator state, P7-007a's
   MenuItem data core, P7-009a's retained menu/navigation core, P7-010a/P7-011a's
   horizontal/vertical menu navigation, P7-012a's TabItem data core, P7-013a/
   P7-013b's TabControl core, closeable headers, and callback lifetime, P7-014's
@@ -157,7 +158,8 @@ and a manifest entry. The current ported surface includes:
   node pointers outlive the loader (`DEV-028`, `DEV-042`).
 - A central `RegisterMyraTypes` table for all currently ported MML objects:
   `BaseObject`, `Widget`, abstract content/container/stack bases, `Panel`,
-  Grid, `ScrollViewer`, `ListView`, horizontal/vertical stack panels and split panes, `Image`, the
+  Grid, `ScrollViewer`, `ListView`, `ComboView`, horizontal/vertical stack panels and split panes,
+  `Image`, the
   abstract/concrete
   separator and ProgressBar hierarchies, `ButtonBase`, concrete `Button` and
   `ToggleButton`, `Proportion`, `ExportOptions`, and `Project`. It records
@@ -399,8 +401,8 @@ capture remain open. `UPSTREAM_MANIFEST.md` records this per source.
 
 ## Whole-port progress estimate
 
-As of 2026-08-24 after P7-004c, `plan.md` has **187/331 checked tasks
-(56.5%)**. Equal checkbox counting overstates
+As of 2026-08-24 after P7-005c, `plan.md` has **188/332 checked tasks
+(56.6%)**. Equal checkbox counting overstates
 end-user parity because the
 largest remaining workstreams are font/rich text, Desktop/input, most controls,
 styles/default assets, selectors/windows/dialogs, DataGrid/PropertyGrid, and the
@@ -408,8 +410,8 @@ exhaustive release gate. The feature-weighted estimate is therefore **about
 30–35% of the complete Myra-CNA port**.
 
 All currently known technical work through P10-028 is estimated at
-**992–1,750 focused implementation/validation hours remaining**; use about
-**1,371 hours** as the planning midpoint or **1,000–2,000 hours** as the rounded
+**990–1,746 focused implementation/validation hours remaining**; use about
+**1,368 hours** as the planning midpoint or **1,000–2,000 hours** as the rounded
 range. This includes code, tests, documentation, integration, and the known
 project-owned test-fixture work. It assumes P3-004 and P0-015b receive prompt
 human decisions and excludes idle waiting/legal-review time. Choosing wholly
@@ -440,14 +442,14 @@ cmake -S ../cna -B build-cna-parent \
 CCACHE_DISABLE=1 cmake --build build-cna-parent --parallel 3
 ctest --test-dir build-cna-parent/_myra_cna \
   --output-on-failure --parallel 3
-# 353/353 tests passed with current modular CNA/sharp-runtime
+# 354/354 tests passed with current modular CNA/sharp-runtime
 
 ASAN_OPTIONS=detect_leaks=0 CCACHE_DISABLE=1 \
   cmake --build build-sanitize-parent --parallel 3
 ASAN_OPTIONS=detect_leaks=0 UBSAN_OPTIONS=print_stacktrace=1 \
   ctest --test-dir build-sanitize-parent/_myra_cna \
   --output-on-failure --parallel 3
-# 353/353 tests passed with ASan address checks and UBSan
+# 354/354 tests passed with ASan address checks and UBSan
 
 # focused CheckButtonBase/ButtonBase/registry/codec validation: 19/19 passed
 
@@ -484,6 +486,9 @@ ASAN_OPTIONS=detect_leaks=0 UBSAN_OPTIONS=print_stacktrace=1 \
 
 # P7-004c ListView MML slice: focused linked 5/5; broad default 67/67,
 # linked SOFTWARE 353/353, and ASan+UBSan 353/353 passed
+
+# P7-005c ComboView MML slice: focused linked 5/5; broad default 67/67,
+# linked SOFTWARE 354/354, and ASan+UBSan 354/354 passed
 
 # P5-010b Widget hit-test core: focused DesktopInput 9/9 and related input/
 # scrolling subset 17/17; broad default 66/66, linked SOFTWARE 311/311, and
@@ -638,7 +643,7 @@ was disabled because LeakSanitizer cannot run under this environment's
    P0-016a's original PNG/BMFont/stylesheet replacements only when their
    affected asset tests become implementable.
 4. P0-023, P5-008i, P5-010a, P5-010b, P5-010c, P5-010d, P5-012, P5-016a, P5-016b, P5-017a, P5-019a, P5-019b, P5-019c, P6-001a, P6-003a, P6-004a, P6-005a,
-   P6-006a, P6-006b, P6-007a, P6-008a, P6-009a, P6-018a, P6-018b, P6-019a, P6-019b, P6-019c, P6-021a, P6-022a, P7-001–P7-003, P7-004a, P7-004b, P7-004c, P7-005a, P7-005b, P7-006, P7-008, P7-012a–P7-016a, and P7-016b are complete. Keep full
+   P6-006a, P6-006b, P6-007a, P6-008a, P6-009a, P6-018a, P6-018b, P6-019a, P6-019b, P6-019c, P6-021a, P6-022a, P7-001–P7-003, P7-004a, P7-004b, P7-004c, P7-005a, P7-005b, P7-005c, P7-006, P7-008, P7-012a–P7-016a, and P7-016b are complete. Keep full
    P6-006/P6-007/P6-008 style work in P8-003, and keep Slider's
    remaining stylesheet work in P6-022/P8-005; do not reopen P6-005's Label/style-
    dependent remainder before P6-002/P8-003. TreeView now owns a reciprocal node
@@ -794,6 +799,12 @@ was disabled because LeakSanitizer cannot run under this environment's
   child/selection-mode MML round trips. Its internal ScrollViewer, selection,
   and `ListViewButton` wrappers stay out of serialized output. Stylesheet
   construction/application remains P7-004/P8-004.
+- `ComboView` is complete for P7-005a/P7-005b's style-independent collection,
+  selection, measurement, keyboard, and Desktop dropdown behavior plus
+  P7-005c's height/selection-mode/logical-child MML round trips. Expanded,
+  internal ListView, selection, and wrapper state stay out of serialized output.
+  Label-backed placeholder visuals and stylesheet integration remain
+  P6-002/P7-005/P8-004.
 - `SplitPane` is complete for P6-019a's style-independent ownership/layout core,
   P6-019b's horizontal/vertical handle drag, Desktop-wide movement and
   release capture, cursor switching, multi-handle offsets, and native-safe
@@ -852,7 +863,10 @@ HEADLESS and SDL_RENDERER-on-Xvfb each passed the 44/44 graphics subset and full
 172/172 suite at the P2-022 milestone. The current SDL_RENDERER tree, including
 the explicit display smoke and all work since then, passes 199/199 on Xvfb.
 The current default, linked SOFTWARE, and ASan+UBSan suites pass
-67/67, 353/353, and 353/353 respectively. P7-004c passes all 5/5 focused
+67/67, 354/354, and 354/354 respectively. P7-005c passes all 5/5 focused
+ComboView tests, including nullable height, selection mode, implicit logical
+widget content, internal-state exclusion, and wrapper-free save output.
+P7-004c passes all 5/5 focused
 ListView tests, including `SelectionMode`, implicit logical widget content,
 internal-state exclusion, and wrapper-free save output. P6-018b passes all 8/8 focused
 ScrollViewer tests, including implicit content and four external image round
@@ -930,8 +944,8 @@ tooltip/control-specific drag paths and replacement fixtures likewise. If P3-004
 approved, begin with P3-005's narrow abstraction and P3-006's explicit index-domain contract
 before introducing rasterizer code. P4-019 remains open only for future widget types,
 while caller-provided external-asset callbacks are already usable. P5-010b,
-P5-010c, P5-010d, P5-012, P5-016a, P5-016b, P5-017a, P5-019a, P5-019b, and P5-019c are complete. P7-004b/P7-004c/P7-005b complete the dependency-safe
-ListView/ComboView dropdown, keyboard, and ListView MML slices, P7-016b completes TreeView row
+P5-010c, P5-010d, P5-012, P5-016a, P5-016b, P5-017a, P5-019a, P5-019b, and P5-019c are complete. P7-004b/P7-004c/P7-005b/P7-005c complete the dependency-safe
+ListView/ComboView dropdown, keyboard, and MML slices, P7-016b completes TreeView row
 pointer interaction, and P7-013b completes closeable TabControl headers plus
 native callback detachment. P6-019b completes SplitPane's dependency-safe drag,
 cursor, and native lifetime slice, while P6-019c restores its `Container`

@@ -80,8 +80,8 @@ behavioral redesign.
 
 ### 1.4 Whole-port completion and remaining-effort estimate
 
-Checkpoint: 2026-08-24, after P7-004c. The mechanical backlog count is
-**187/331 checked tasks (56.5%)**. The count is useful for
+Checkpoint: 2026-08-24, after P7-005c. The mechanical backlog count is
+**188/332 checked tasks (56.6%)**. The count is useful for
 auditing plan state but is
 not a parity percentage: small foundation subtasks and large end-to-end
 features each count once, while the remaining font/text, Desktop/input,
@@ -102,13 +102,13 @@ are planning ranges rather than a delivery promise.
 | Phase 4 — MML/XML | 31/36 | 40–80 |
 | Phase 5 — Widget/Desktop/input | 41/48 | 0–0 |
 | Phase 6 — controls/editing | 24/51 | 96–158 |
-| Phase 7 — selectors/windows/dialogs | 21/39 | 152–252 |
+| Phase 7 — selectors/windows/dialogs | 22/40 | 150–248 |
 | Phase 8 — styles/default skin | 0/14 | 140–240 |
 | Phase 9 — file/data/property grids | 1/21 | 180–320 |
 | Phase 10 — parity/release | 0/28 | 140–240 |
-| **Whole remaining technical port** | **187/331 complete** | **992–1,750** |
+| **Whole remaining technical port** | **188/332 complete** | **990–1,746** |
 
-For scheduling, use **about 1,371 focused hours remaining** as the midpoint,
+For scheduling, use **about 1,368 focused hours remaining** as the midpoint,
 with **1,000–2,000 hours** as the sensible rounded range. This assumes prompt
 human decisions for P3-004 and P0-015b, no newly discovered upstream/CNA
 architectural blocker, and continued reuse of the existing tested foundations.
@@ -550,12 +550,13 @@ are green, and the build uses no more than three parallel jobs.
 - [x] P7-001 Port selector interfaces: `ISelector.cs` and `ISelectorItem.cs`.
 - [x] P7-002 Port `Selectors/Selector.cs` generic selection behavior.
 - [x] P7-003 Port `Selectors/ListViewButton.cs`.
-- [x] P7-004a Port the style-independent `ListView` core: retained ScrollViewer/stack layout, widget wrapping and collection mutation, single/multiple selection state, click selection, scroll forwarding, and exact-type cloning. Desktop dropdown closure and keyboard navigation arrived in P7-004b; keep styles and MML metadata in P7-004/P8-004.
+- [x] P7-004a Port the style-independent `ListView` core: retained ScrollViewer/stack layout, widget wrapping and collection mutation, single/multiple selection state, click selection, scroll forwarding, and exact-type cloning. Desktop dropdown closure and keyboard navigation arrived in P7-004b and MML metadata in P7-004c; keep styles in P7-004/P8-004.
 - [x] P7-004b Port `ListView` dropdown interaction: pressed items close only an active matching Desktop context menu, Up/Down navigation skips separators and scrolls the selection into view, and Enter closes the dropdown. Tokenized wrapper callbacks and a detachable callback-state proxy prevent dangling dispatch after rebuild, destruction, or reentrant owner removal (`DEV-075`).
 - [x] P7-004c Register the style-independent `ListView` MML surface: implicit logical `Widgets` content, `SelectionMode` codec/default, and XML-ignored internal ScrollViewer/selection state. Round trips preserve concrete logical children without exposing the internal `ListViewButton` wrappers.
 - [ ] P7-004 Port `Selectors/ListView.cs` collection adapters and virtual behavior.
-- [x] P7-005a Port the style-independent `ComboView` core: retained toggle/list ownership, delegated item and selection APIs, selection-event forwarding, initial selection on expansion, selected-content cloning, measure/arrange sizing, and exact-type cloning. Desktop dropdown display/closure and keyboard delegation arrived in P7-005b; keep the Label placeholder/style and MML metadata in P6-002/P7-005/P8-004.
+- [x] P7-005a Port the style-independent `ComboView` core: retained toggle/list ownership, delegated item and selection APIs, selection-event forwarding, initial selection on expansion, selected-content cloning, measure/arrange sizing, and exact-type cloning. Desktop dropdown display/closure and keyboard delegation arrived in P7-005b and MML metadata in P7-005c; keep the Label placeholder/style in P6-002/P7-005/P8-004.
 - [x] P7-005b Port `ComboView` Desktop dropdown integration: size and open the retained ListView below the border box, delegate keys, unpress on an outside context close, and unsubscribe exactly across Desktop transfer/destruction. Retained external subscriptions, tokenized internal callbacks, and callback-state invalidation keep reentrant selection removal and externally retained children safe (`DEV-075`).
+- [x] P7-005c Register the style-independent `ComboView` MML surface: nullable `DropdownMaximumHeight`, `SelectionMode`, implicit logical `Widgets` content, and XML-ignored expanded/list/selection state. Round trips preserve concrete logical children without exposing the internal ListView or its button wrappers.
 - [ ] P7-005 Port `Selectors/ComboView.cs`.
 - [x] P7-006 Port `Selectors/IMenuItem.cs`.
 - [x] P7-007a Port the style-independent `MenuItem` data core: text/mnemonic and marker-free display state, image/shortcut/tag metadata, enabled/index/owner state, constructors, and change/selection events. Keep retained Label/Image widgets, rich-text mnemonic colour, stylesheet integration, and MML metadata in P3-004/P6-002/P7-007/P8-006.

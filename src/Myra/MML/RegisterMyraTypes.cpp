@@ -44,6 +44,7 @@
 #include "Myra/Graphics2D/UI/Simple/SeparatorWidget.hpp"
 #include "Myra/Graphics2D/UI/Simple/ToggleButton.hpp"
 #include "Myra/Graphics2D/UI/Simple/VerticalSeparator.hpp"
+#include "Myra/Graphics2D/UI/Selectors/ComboView.hpp"
 #include "Myra/Graphics2D/UI/Selectors/ListView.hpp"
 #include "Myra/Graphics2D/UI/Widget.hpp"
 
@@ -57,6 +58,7 @@ namespace Myra::MML
         using Graphics2D::UI::CheckButton;
         using Graphics2D::UI::CheckButtonBase;
         using Graphics2D::UI::CheckPosition;
+        using Graphics2D::UI::ComboView;
         using Graphics2D::UI::Container;
         using Graphics2D::UI::ContentControl;
         using Graphics2D::UI::DragDirection;
@@ -676,6 +678,64 @@ namespace Myra::MML
             return descriptor;
         }
 
+        TypeDescriptor MakeComboViewDescriptor()
+        {
+            TypeDescriptor descriptor(
+                "ComboView", typeid(ComboView),
+                [] { return std::static_pointer_cast<void>(std::make_shared<ComboView>()); }, typeid(Widget));
+            descriptor.EnableBaseTypeAccess<ComboView, Widget>();
+            descriptor.EnableBaseObjectAccess<ComboView>();
+
+            descriptor.AddProperty(MakeScalarProperty<ComboView, std::optional<int>>(
+                "DropdownMaximumHeight",
+                [](const ComboView &object) { return object.getDropdownMaximumHeightProperty(); },
+                [](ComboView &object, const std::optional<int> &value)
+                { object.setDropdownMaximumHeightProperty(value); }, std::optional<int>(300)));
+            descriptor.AddProperty(MakeScalarProperty<ComboView, SelectionMode>(
+                "SelectionMode", [](const ComboView &object) { return object.getSelectionModeProperty(); },
+                [](ComboView &object, const SelectionMode value) { object.setSelectionModeProperty(value); },
+                SelectionMode::Single));
+
+            PropertyMetadata widgetsMetadata;
+            widgetsMetadata.Content = true;
+            descriptor.AddProperty(PropertyDescriptor(
+                "Widgets", typeid(std::vector<std::shared_ptr<Widget>>), {}, {}, std::nullopt,
+                std::move(widgetsMetadata), {}, {},
+                ComplexPropertyAdapter::Sequence(
+                    typeid(Widget), [](void *object, const std::shared_ptr<void> &value)
+                    { static_cast<ComboView *>(object)->AddWidget(AsWidget(value)); }, [](const void *object)
+                    { return EnumerateWidgets(static_cast<const ComboView *>(object)->getWidgetsProperty()); })));
+
+            PropertyMetadata expandedMetadata;
+            expandedMetadata.XmlIgnore = true;
+            descriptor.AddProperty(PropertyDescriptor(
+                "IsExpanded", typeid(bool), [](const void *object)
+                { return std::any(static_cast<const ComboView *>(object)->getIsExpandedProperty()); }, {}, std::nullopt,
+                std::move(expandedMetadata)));
+
+            PropertyMetadata listViewMetadata;
+            listViewMetadata.XmlIgnore = true;
+            descriptor.AddProperty(PropertyDescriptor(
+                "ListView", typeid(std::shared_ptr<ListView>), [](const void *object)
+                { return std::any(static_cast<const ComboView *>(object)->getListViewProperty()); }, {}, std::nullopt,
+                std::move(listViewMetadata)));
+
+            PropertyMetadata selectedIndexMetadata;
+            selectedIndexMetadata.XmlIgnore = true;
+            descriptor.AddProperty(PropertyDescriptor(
+                "SelectedIndex", typeid(std::optional<int>), [](const void *object)
+                { return std::any(static_cast<const ComboView *>(object)->getSelectedIndexProperty()); }, {},
+                std::nullopt, std::move(selectedIndexMetadata)));
+
+            PropertyMetadata selectedItemMetadata;
+            selectedItemMetadata.XmlIgnore = true;
+            descriptor.AddProperty(PropertyDescriptor(
+                "SelectedItem", typeid(std::shared_ptr<Widget>), [](const void *object)
+                { return std::any(static_cast<const ComboView *>(object)->getSelectedItemProperty()); }, {},
+                std::nullopt, std::move(selectedItemMetadata)));
+            return descriptor;
+        }
+
         TypeDescriptor MakeButtonBaseDescriptor()
         {
             TypeDescriptor descriptor("ButtonBase", typeid(ButtonBase), {}, typeid(ContentControl));
@@ -982,6 +1042,7 @@ namespace Myra::MML
         registry.Register(MakeContentControlDescriptor());
         registry.Register(MakeScrollViewerDescriptor());
         registry.Register(MakeListViewDescriptor());
+        registry.Register(MakeComboViewDescriptor());
         registry.Register(MakeButtonBaseDescriptor());
         registry.Register(MakeButtonDescriptor());
         registry.Register(MakeToggleButtonDescriptor());

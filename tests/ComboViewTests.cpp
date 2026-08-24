@@ -5,10 +5,22 @@
 
 #include <gtest/gtest.h>
 
+#include <any>
 #include <memory>
+#include <optional>
+#include <string>
+#include <typeindex>
 
+#include "Myra/Graphics2D/UI/Containers/Panel.hpp"
 #include "Myra/Graphics2D/UI/Desktop.hpp"
+#include "Myra/Graphics2D/UI/Selectors/ListViewButton.hpp"
+#include "Myra/Graphics2D/UI/Simple/HorizontalSeparator.hpp"
 #include "Myra/Graphics2D/UI/Widget.hpp"
+#include "Myra/MML/LoadContext.hpp"
+#include "Myra/MML/RegisterMyraTypes.hpp"
+#include "Myra/MML/SaveContext.hpp"
+#include "Myra/MML/ValueCodecRegistry.hpp"
+#include "System/Xml/XmlDocument.hpp"
 
 namespace
 {
@@ -17,9 +29,17 @@ namespace
     using Microsoft::Xna::Framework::Input::Keys;
     using Myra::Graphics2D::UI::ComboView;
     using Myra::Graphics2D::UI::Desktop;
+    using Myra::Graphics2D::UI::HorizontalSeparator;
     using Myra::Graphics2D::UI::InputEventType;
+    using Myra::Graphics2D::UI::ListViewButton;
+    using Myra::Graphics2D::UI::Panel;
     using Myra::Graphics2D::UI::SelectionMode;
     using Myra::Graphics2D::UI::Widget;
+    using Myra::MML::LoadContext;
+    using Myra::MML::PropertyDescriptor;
+    using Myra::MML::SaveContext;
+    using Myra::MML::TypeDescriptor;
+    using Myra::MML::ValueCodecRegistry;
 
     TEST(ComboViewTests, SelectsTheFirstItemWhenExpandedAndForwardsTheListEvent)
     {
@@ -153,5 +173,67 @@ namespace
         listView->setSelectedIndexProperty(0);
         retainedButton->DoClick();
         EXPECT_EQ(selectionCalls, 1);
+    }
+
+    TEST(ComboViewTests, RegistersAndRoundTripsLogicalWidgetsAndConfigurationMml)
+    {
+        const Myra::MML::TypeRegistry registry = Myra::MML::CreateMyraTypeRegistry();
+        const TypeDescriptor *descriptor = registry.FindByType(typeid(ComboView));
+        ASSERT_NE(descriptor, nullptr);
+        EXPECT_TRUE(descriptor->getCanCreateProperty());
+        ASSERT_TRUE(descriptor->getBaseTypeProperty().has_value());
+        EXPECT_EQ(*descriptor->getBaseTypeProperty(), std::type_index(typeid(Widget)));
+
+        const PropertyDescriptor *widgets = registry.FindPropertyByName(typeid(ComboView), "Widgets");
+        const PropertyDescriptor *maximumHeight =
+            registry.FindPropertyByName(typeid(ComboView), "DropdownMaximumHeight");
+        const PropertyDescriptor *selectionMode = registry.FindPropertyByName(typeid(ComboView), "SelectionMode");
+        const PropertyDescriptor *expanded = registry.FindPropertyByName(typeid(ComboView), "IsExpanded");
+        const PropertyDescriptor *listView = registry.FindPropertyByName(typeid(ComboView), "ListView");
+        const PropertyDescriptor *selectedIndex = registry.FindPropertyByName(typeid(ComboView), "SelectedIndex");
+        const PropertyDescriptor *selectedItem = registry.FindPropertyByName(typeid(ComboView), "SelectedItem");
+        ASSERT_NE(widgets, nullptr);
+        ASSERT_NE(maximumHeight, nullptr);
+        ASSERT_NE(selectionMode, nullptr);
+        ASSERT_NE(expanded, nullptr);
+        ASSERT_NE(listView, nullptr);
+        ASSERT_NE(selectedIndex, nullptr);
+        ASSERT_NE(selectedItem, nullptr);
+        EXPECT_TRUE(widgets->getMetadataProperty().Content);
+        EXPECT_EQ(std::any_cast<std::optional<int>>(*maximumHeight->getDefaultValueProperty()), 300);
+        EXPECT_EQ(std::any_cast<SelectionMode>(*selectionMode->getDefaultValueProperty()), SelectionMode::Single);
+        EXPECT_TRUE(expanded->getMetadataProperty().XmlIgnore);
+        EXPECT_TRUE(listView->getMetadataProperty().XmlIgnore);
+        EXPECT_TRUE(selectedIndex->getMetadataProperty().XmlIgnore);
+        EXPECT_TRUE(selectedItem->getMetadataProperty().XmlIgnore);
+
+        const ValueCodecRegistry codecs = ValueCodecRegistry::CreateDefault();
+        LoadContext loader(registry, codecs);
+        System::Xml::XmlDocument document;
+        document.LoadXml("<ComboView DropdownMaximumHeight=\"87\" SelectionMode=\"Multiple\">"
+                         "<Panel Height=\"29\"/><HorizontalSeparator/></ComboView>");
+        const Myra::MML::LoadedObject loaded = loader.CreateAndLoad(*document.getDocumentElementProperty());
+        ASSERT_EQ(loaded.Type, typeid(ComboView));
+        const auto *comboView = static_cast<const ComboView *>(loaded.Value.get());
+        EXPECT_EQ(comboView->getDropdownMaximumHeightProperty(), 87);
+        EXPECT_EQ(comboView->getSelectionModeProperty(), SelectionMode::Multiple);
+        ASSERT_EQ(comboView->getWidgetsProperty().size(), 2U);
+        const auto panel = std::dynamic_pointer_cast<Panel>(comboView->getWidgetsProperty()[0]);
+        ASSERT_NE(panel, nullptr);
+        EXPECT_EQ(panel->getHeightProperty(), 29);
+        EXPECT_NE(std::dynamic_pointer_cast<HorizontalSeparator>(comboView->getWidgetsProperty()[1]), nullptr);
+        EXPECT_NE(dynamic_cast<ListViewButton *>(panel->getParentProperty()), nullptr);
+
+        SaveContext saver(registry, codecs);
+        const std::string xml = saver.ToXml(comboView, typeid(ComboView));
+        EXPECT_NE(xml.find("DropdownMaximumHeight=\"87\""), std::string::npos);
+        EXPECT_NE(xml.find("SelectionMode=\"Multiple\""), std::string::npos);
+        EXPECT_NE(xml.find("<Panel Height=\"29\""), std::string::npos);
+        EXPECT_NE(xml.find("<HorizontalSeparator"), std::string::npos);
+        EXPECT_EQ(xml.find("ListViewButton"), std::string::npos);
+        EXPECT_EQ(xml.find("IsExpanded="), std::string::npos);
+        EXPECT_EQ(xml.find("ListView="), std::string::npos);
+        EXPECT_EQ(xml.find("SelectedIndex="), std::string::npos);
+        EXPECT_EQ(xml.find("SelectedItem="), std::string::npos);
     }
 } // namespace
