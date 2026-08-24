@@ -20,7 +20,7 @@
 namespace Myra::Graphics2D::UI
 {
     /** @brief Abstract container that divides its logical widget collection with splitter handles. */
-    class SplitPane : public Widget, public IContainer
+    class SplitPane : public Container
     {
       public:
         ~SplitPane() override;

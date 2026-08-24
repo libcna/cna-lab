@@ -7,27 +7,59 @@
 
 #include <memory>
 #include <stdexcept>
+#include <string>
+#include <typeindex>
+#include <type_traits>
 #include <utility>
 
+#include "Microsoft/Xna/Framework/Color.hpp"
+#include "Microsoft/Xna/Framework/Point.hpp"
 #include "Microsoft/Xna/Framework/Rectangle.hpp"
+#include "Myra/Graphics2D/IBrush.hpp"
+#include "Myra/Graphics2D/UI/Container.hpp"
+#include "Myra/Graphics2D/UI/Containers/Panel.hpp"
 #include "Myra/Graphics2D/UI/Desktop.hpp"
 #include "Myra/Graphics2D/UI/InputEventType.hpp"
 #include "Myra/Graphics2D/UI/InputEventsManager.hpp"
 #include "Myra/Graphics2D/UI/MouseInfo.hpp"
 #include "Myra/Graphics2D/UI/Simple/Button.hpp"
 #include "Myra/Graphics2D/UI/Widget.hpp"
+#include "Myra/MML/LoadContext.hpp"
+#include "Myra/MML/RegisterMyraTypes.hpp"
+#include "Myra/MML/SaveContext.hpp"
+#include "Myra/MML/ValueCodecRegistry.hpp"
 #include "Myra/MyraEnvironment.hpp"
+#include "System/Xml/XmlDocument.hpp"
 
 namespace
 {
+    using Myra::Graphics2D::UI::HorizontalAlignment;
     using Myra::Graphics2D::UI::HorizontalSplitPane;
     using Myra::Graphics2D::UI::InputEventsManager;
     using Myra::Graphics2D::UI::InputEventType;
     using Myra::Graphics2D::UI::MouseCursorType;
     using Myra::Graphics2D::UI::MouseInfo;
     using Myra::Graphics2D::UI::Orientation;
+    using Myra::Graphics2D::UI::Panel;
+    using Myra::Graphics2D::UI::SplitPane;
+    using Myra::Graphics2D::UI::VerticalAlignment;
     using Myra::Graphics2D::UI::VerticalSplitPane;
     using Myra::Graphics2D::UI::Widget;
+    using Myra::MML::LoadContext;
+    using Myra::MML::SaveContext;
+    using Myra::MML::TypeDescriptor;
+    using Myra::MML::ValueCodecRegistry;
+
+    static_assert(std::is_base_of_v<Myra::Graphics2D::UI::Container, SplitPane>);
+
+    class NullBrush final : public Myra::Graphics2D::IBrush
+    {
+      public:
+        void Draw(Myra::Graphics2D::RenderContext &, Microsoft::Xna::Framework::Rectangle,
+                  Microsoft::Xna::Framework::Color) const override
+        {
+        }
+    };
 
     class InputProviderGuard final
     {
@@ -84,6 +116,17 @@ namespace
         desktop.UpdateInput();
         desktop.ProcessWidgetInput();
         InputEventsManager::ProcessEvents();
+    }
+
+    TEST(SplitPaneTests, InheritsContainerDefaultsAndBackgroundInputBehavior)
+    {
+        HorizontalSplitPane splitPane;
+        EXPECT_EQ(splitPane.getHorizontalAlignmentProperty(), HorizontalAlignment::Stretch);
+        EXPECT_EQ(splitPane.getVerticalAlignmentProperty(), VerticalAlignment::Stretch);
+        EXPECT_TRUE(splitPane.InputFallsThrough(Microsoft::Xna::Framework::Point(3, 4)));
+
+        splitPane.setBackgroundProperty(std::make_shared<NullBrush>());
+        EXPECT_FALSE(splitPane.InputFallsThrough(Microsoft::Xna::Framework::Point(3, 4)));
     }
 
     TEST(SplitPaneTests, BuildsTheLogicalWidgetsAndInterspersedHandleLayout)
@@ -160,6 +203,59 @@ namespace
         source.ClearWidgets();
         EXPECT_TRUE(source.getWidgetsProperty().empty());
         EXPECT_TRUE(source.getChildrenProperty().empty());
+    }
+
+    TEST(SplitPaneTests, RegistersAndRoundTripsImplicitWidgetContentMml)
+    {
+        const Myra::MML::TypeRegistry registry = Myra::MML::CreateMyraTypeRegistry();
+        const TypeDescriptor *splitPaneDescriptor = registry.FindByType(typeid(SplitPane));
+        const TypeDescriptor *horizontalDescriptor = registry.FindByType(typeid(HorizontalSplitPane));
+        const TypeDescriptor *verticalDescriptor = registry.FindByType(typeid(VerticalSplitPane));
+        ASSERT_NE(splitPaneDescriptor, nullptr);
+        ASSERT_NE(horizontalDescriptor, nullptr);
+        ASSERT_NE(verticalDescriptor, nullptr);
+        EXPECT_FALSE(splitPaneDescriptor->getCanCreateProperty());
+        ASSERT_TRUE(splitPaneDescriptor->getBaseTypeProperty().has_value());
+        EXPECT_EQ(*splitPaneDescriptor->getBaseTypeProperty(),
+                  std::type_index(typeid(Myra::Graphics2D::UI::Container)));
+        EXPECT_TRUE(horizontalDescriptor->getCanCreateProperty());
+        EXPECT_TRUE(verticalDescriptor->getCanCreateProperty());
+
+        const auto *orientation = registry.FindPropertyByName(typeid(HorizontalSplitPane), "Orientation");
+        const auto *widgets = registry.FindPropertyByName(typeid(HorizontalSplitPane), "Widgets");
+        ASSERT_NE(orientation, nullptr);
+        ASSERT_NE(widgets, nullptr);
+        EXPECT_TRUE(orientation->getMetadataProperty().XmlIgnore);
+        EXPECT_TRUE(widgets->getMetadataProperty().Content);
+
+        const ValueCodecRegistry codecs = ValueCodecRegistry::CreateDefault();
+        LoadContext loader(registry, codecs);
+        System::Xml::XmlDocument document;
+        document.LoadXml("<HorizontalSplitPane><Panel Width=\"20\"/><VerticalSplitPane><Panel Height=\"30\"/>"
+                         "</VerticalSplitPane></HorizontalSplitPane>");
+        const Myra::MML::LoadedObject loaded = loader.CreateAndLoad(*document.getDocumentElementProperty());
+        EXPECT_EQ(loaded.Type, typeid(HorizontalSplitPane));
+        const auto *horizontal = static_cast<const HorizontalSplitPane *>(loaded.Value.get());
+        ASSERT_EQ(horizontal->getWidgetsProperty().size(), 2U);
+        const auto first = std::dynamic_pointer_cast<Panel>(horizontal->getWidgetsProperty()[0]);
+        const auto nested = std::dynamic_pointer_cast<VerticalSplitPane>(horizontal->getWidgetsProperty()[1]);
+        ASSERT_NE(first, nullptr);
+        ASSERT_NE(nested, nullptr);
+        ASSERT_EQ(nested->getWidgetsProperty().size(), 1U);
+        const auto nestedPanel = std::dynamic_pointer_cast<Panel>(nested->getWidgetsProperty()[0]);
+        ASSERT_NE(nestedPanel, nullptr);
+        EXPECT_EQ(first->getWidthProperty(), 20);
+        EXPECT_EQ(nestedPanel->getHeightProperty(), 30);
+
+        const SaveContext saver(registry, codecs);
+        const std::string xml = saver.ToXml(horizontal, typeid(HorizontalSplitPane));
+        EXPECT_NE(xml.find("<HorizontalSplitPane>"), std::string::npos);
+        EXPECT_NE(xml.find("<Panel Width=\"20\""), std::string::npos);
+        EXPECT_NE(xml.find("<VerticalSplitPane>"), std::string::npos);
+        EXPECT_NE(xml.find("<Panel Height=\"30\""), std::string::npos);
+        EXPECT_EQ(xml.find("Orientation="), std::string::npos);
+        EXPECT_EQ(xml.find("HorizontalAlignment="), std::string::npos);
+        EXPECT_EQ(xml.find("VerticalAlignment="), std::string::npos);
     }
 
     TEST(SplitPaneTests, HorizontalHandleDragUpdatesAdjacentProportionsOnceAndReleasesGlobally)

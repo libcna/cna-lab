@@ -24,6 +24,7 @@
 #include "Myra/Graphics2D/UI/Containers/Grid.hpp"
 #include "Myra/Graphics2D/UI/Containers/Panel.hpp"
 #include "Myra/Graphics2D/UI/Containers/Proportion.hpp"
+#include "Myra/Graphics2D/UI/Containers/SplitPane.hpp"
 #include "Myra/Graphics2D/UI/Containers/StackPanel.hpp"
 #include "Myra/Graphics2D/UI/Project.hpp"
 #include "Myra/Graphics2D/UI/Range/HorizontalProgressBar.hpp"
@@ -63,6 +64,7 @@ namespace Myra::MML
         using Graphics2D::UI::HorizontalProgressBar;
         using Graphics2D::UI::HorizontalSeparator;
         using Graphics2D::UI::HorizontalSlider;
+        using Graphics2D::UI::HorizontalSplitPane;
         using Graphics2D::UI::HorizontalStackPanel;
         using Graphics2D::UI::Image;
         using Graphics2D::UI::ImageResizeMode;
@@ -77,12 +79,14 @@ namespace Myra::MML
         using Graphics2D::UI::RadioButton;
         using Graphics2D::UI::SeparatorWidget;
         using Graphics2D::UI::Slider;
+        using Graphics2D::UI::SplitPane;
         using Graphics2D::UI::StackPanel;
         using Graphics2D::UI::ToggleButton;
         using Graphics2D::UI::VerticalAlignment;
         using Graphics2D::UI::VerticalProgressBar;
         using Graphics2D::UI::VerticalSeparator;
         using Graphics2D::UI::VerticalSlider;
+        using Graphics2D::UI::VerticalSplitPane;
         using Graphics2D::UI::VerticalStackPanel;
         using Graphics2D::UI::Widget;
         using Microsoft::Xna::Framework::Vector2;
@@ -709,6 +713,30 @@ namespace Myra::MML
             return descriptor;
         }
 
+        TypeDescriptor MakeSplitPaneDescriptor()
+        {
+            TypeDescriptor descriptor("SplitPane", typeid(SplitPane), {}, typeid(Container));
+            descriptor.EnableBaseTypeAccess<SplitPane, Container>();
+            descriptor.EnableBaseObjectAccess<SplitPane>();
+            PropertyMetadata orientationMetadata;
+            orientationMetadata.XmlIgnore = true;
+            descriptor.AddProperty(PropertyDescriptor(
+                "Orientation", typeid(Orientation), [](const void *object)
+                { return std::any(static_cast<const SplitPane *>(object)->getOrientationProperty()); }, {},
+                std::nullopt, std::move(orientationMetadata)));
+            return descriptor;
+        }
+
+        template <typename T> TypeDescriptor MakeConcreteSplitPaneDescriptor(std::string name)
+        {
+            TypeDescriptor descriptor(
+                std::move(name), typeid(T), [] { return std::static_pointer_cast<void>(std::make_shared<T>()); },
+                typeid(SplitPane));
+            descriptor.template EnableBaseTypeAccess<T, SplitPane>();
+            descriptor.template EnableBaseObjectAccess<T>();
+            return descriptor;
+        }
+
         TypeDescriptor MakeStackPanelDescriptor()
         {
             TypeDescriptor descriptor("StackPanel", typeid(StackPanel), {}, typeid(Container));
@@ -836,6 +864,9 @@ namespace Myra::MML
         registry.Register(MakeProportionDescriptor());
         registry.Register(MakePanelDescriptor());
         registry.Register(MakeGridDescriptor());
+        registry.Register(MakeSplitPaneDescriptor());
+        registry.Register(MakeConcreteSplitPaneDescriptor<HorizontalSplitPane>("HorizontalSplitPane"));
+        registry.Register(MakeConcreteSplitPaneDescriptor<VerticalSplitPane>("VerticalSplitPane"));
         registry.Register(MakeStackPanelDescriptor());
         registry.Register(MakeConcreteStackPanelDescriptor<HorizontalStackPanel>("HorizontalStackPanel"));
         registry.Register(MakeConcreteStackPanelDescriptor<VerticalStackPanel>("VerticalStackPanel"));
