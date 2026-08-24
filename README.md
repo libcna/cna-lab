@@ -209,6 +209,11 @@ When another parent project already supplies target `CNA`, add Myra-CNA after
 CNA; the `MYRA_CNA` target links it automatically. The driver above handles the
 current CNA layout, whose umbrella target is created later in its top-level
 configure pass, and also declares Myra's direct `SharpRuntime::Xml` dependency.
+The default CTest suite also configures `tests/consumer-parent` as an isolated
+parent project: it defines the CNA/Xml target contract first, adds Myra-CNA as a
+subdirectory, compiles the complete linked source selection, and links and runs
+an umbrella-header consumer through `Myra::CNA`. The regular linked SOFTWARE
+matrix supplies the real CNA and sharp-runtime libraries for runtime coverage.
 
 ## Minimal usage
 

@@ -145,6 +145,21 @@ if(TARGET myra_cna_minimal)
         TIMEOUT 10)
 endif()
 
+if(NOT MYRA_CNA_CNA_LINKED)
+    add_test(
+        NAME myra_cna_parent_consumer
+        COMMAND "${CMAKE_COMMAND}"
+            "-DMYRA_CNA_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
+            "-DCNA_SOURCE_DIR=${MYRA_CNA_CNA_DIR}"
+            "-DSHARP_RUNTIME_SOURCE_DIR=${MYRA_CNA_SHARP_RUNTIME_DIR}"
+            "-DBINARY_DIR=${CMAKE_CURRENT_BINARY_DIR}/parent-consumer-build"
+            -P "${PROJECT_SOURCE_DIR}/cmake/RunParentConsumerTest.cmake"
+    )
+    set_tests_properties(myra_cna_parent_consumer PROPERTIES
+        LABELS "Consumer;ParentTarget"
+        TIMEOUT 180)
+endif()
+
 if(MYRA_CNA_CNA_LINKED
    AND MYRA_CNA_CNA_GRAPHICS_BACKEND STREQUAL "SDL_RENDERER")
     add_executable(myra_cna_sdlrenderer_smoke SdlRendererSmoke.cpp)
