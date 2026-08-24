@@ -35,6 +35,8 @@ namespace
             MyraEnvironment::setDisableClippingProperty(false);
             MyraEnvironment::setSetMouseCursorFromWidgetProperty(true);
             MyraEnvironment::setDefaultMouseCursorTypeProperty(MouseCursorType::Arrow);
+            MyraEnvironment::setDoubleClickIntervalInMsProperty(500);
+            MyraEnvironment::setDoubleClickRadiusProperty(2);
             MyraEnvironment::setMouseInfoGetterProperty(std::move(mouseInfoGetter_));
             MyraEnvironment::setDownKeysGetterProperty(std::move(downKeysGetter_));
         }
@@ -55,6 +57,8 @@ namespace
         EXPECT_TRUE(MyraEnvironment::getSetMouseCursorFromWidgetProperty());
         EXPECT_EQ(MyraEnvironment::getMouseCursorTypeProperty(), MouseCursorType::Arrow);
         EXPECT_EQ(MyraEnvironment::getDefaultMouseCursorTypeProperty(), MouseCursorType::Arrow);
+        EXPECT_EQ(MyraEnvironment::getDoubleClickIntervalInMsProperty(), 500);
+        EXPECT_EQ(MyraEnvironment::getDoubleClickRadiusProperty(), 2);
     }
 
     TEST_F(MyraEnvironmentSettingsTests, StoresEachConfigurationSettingIndependently)
@@ -67,6 +71,8 @@ namespace
         MyraEnvironment::setDisableClippingProperty(true);
         MyraEnvironment::setSetMouseCursorFromWidgetProperty(false);
         MyraEnvironment::setDefaultMouseCursorTypeProperty(MouseCursorType::Hand);
+        MyraEnvironment::setDoubleClickIntervalInMsProperty(275);
+        MyraEnvironment::setDoubleClickRadiusProperty(7);
 
         EXPECT_EQ(MyraEnvironment::getEventHandlingModelProperty(), EventHandlingStrategy::EventBubbling);
         EXPECT_TRUE(MyraEnvironment::getDrawWidgetsFramesProperty());
@@ -76,6 +82,8 @@ namespace
         EXPECT_TRUE(MyraEnvironment::getDisableClippingProperty());
         EXPECT_FALSE(MyraEnvironment::getSetMouseCursorFromWidgetProperty());
         EXPECT_EQ(MyraEnvironment::getDefaultMouseCursorTypeProperty(), MouseCursorType::Hand);
+        EXPECT_EQ(MyraEnvironment::getDoubleClickIntervalInMsProperty(), 275);
+        EXPECT_EQ(MyraEnvironment::getDoubleClickRadiusProperty(), 7);
     }
 
     TEST_F(MyraEnvironmentSettingsTests, StoresInjectableMouseAndKeyboardSnapshotProviders)

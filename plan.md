@@ -80,8 +80,8 @@ behavioral redesign.
 
 ### 1.4 Whole-port completion and remaining-effort estimate
 
-Checkpoint: 2026-08-24, after P5-010b. The mechanical backlog count is
-**172/316 checked tasks (54.4%)**. The count is useful for
+Checkpoint: 2026-08-24, after P5-010c. The mechanical backlog count is
+**173/317 checked tasks (54.6%)**. The count is useful for
 auditing plan state but is
 not a parity percentage: small foundation subtasks and large end-to-end
 features each count once, while the remaining font/text, Desktop/input,
@@ -100,15 +100,15 @@ are planning ranges rather than a delivery promise.
 | Phase 2 — CNA graphics | 20/24 | 24–48 |
 | Phase 3 — font/text/assets | 4/21 | 180–300 |
 | Phase 4 — MML/XML | 31/36 | 40–80 |
-| Phase 5 — Widget/Desktop/input | 35/42 | 40–72 |
+| Phase 5 — Widget/Desktop/input | 36/43 | 36–64 |
 | Phase 6 — controls/editing | 20/47 | 110–184 |
 | Phase 7 — selectors/windows/dialogs | 16/34 | 180–300 |
 | Phase 8 — styles/default skin | 0/14 | 140–240 |
 | Phase 9 — file/data/property grids | 1/21 | 180–320 |
 | Phase 10 — parity/release | 0/28 | 140–240 |
-| **Whole remaining technical port** | **172/316 complete** | **1,074–1,896** |
+| **Whole remaining technical port** | **173/317 complete** | **1,070–1,888** |
 
-For scheduling, use **about 1,485 focused hours remaining** as the midpoint,
+For scheduling, use **about 1,479 focused hours remaining** as the midpoint,
 with **1,100–2,000 hours** as the sensible rounded range. This assumes prompt
 human decisions for P3-004 and P0-015b, no newly discovered upstream/CNA
 architectural blocker, and continued reuse of the existing tested foundations.
@@ -462,8 +462,9 @@ are green, and the build uses no more than three parallel jobs.
 - [ ] P5-008 Port `Graphics2D/UI/Widget.cs` properties/defaults/invalidation/render traversal.
 - [x] P5-009a Implement explicit child ownership, reparenting, and stable Z-index snapshots from `Widget.Children.cs`.
 - [x] P5-009 Port `Graphics2D/UI/Widget.Children.cs` with explicit ownership, reparenting, recursive queries, typed ID lookup, visibility-aware counts, and cycle rejection.
-- [x] P5-010a Port the Desktop-independent Widget input hook/event surface needed by controls: virtual mouse/touch/key callbacks and CNA `Keys` event forwarding. Pointer dispatch preserves upstream hook-before-event ordering, while direct key callbacks raise typed events. Hit testing, queued position transitions, wheel targeting, and basic hover visuals arrived in P5-010b; keep cursor/tooltip, double-click timing, and drag/capture in P5-010/P5-016/P5-017, with character-index semantics gated on P3-006.
-- [x] P5-010b Port Widget local mouse/touch positions and Desktop hit-test propagation: parent-clipped reverse-Z traversal, capture/bubble-compatible queued enter/leave/move/down/up transitions, transparent-container fall-through, modal blocking, hover visual selection, touch focus, and deepest accepting wheel targeting. Exact retained widget targets keep queued callbacks safe across reentrant tree removal, and `ProcessWidgetInput` exposes the pre-render staging seam until Desktop rendering lands (`DEV-065`). Keep cursor/tooltip, double-click timing, drag/capture, context-menu interaction, and character input in their existing tasks.
+- [x] P5-010a Port the Desktop-independent Widget input hook/event surface needed by controls: virtual mouse/touch/key callbacks and CNA `Keys` event forwarding. Pointer dispatch preserves upstream hook-before-event ordering, while direct key callbacks raise typed events. Hit testing, queued position transitions, wheel targeting, basic hover visuals, and double-click timing arrived in P5-010b/P5-010c; keep cursor/tooltip and drag/capture in P5-010/P5-016/P5-017, with character-index semantics gated on P3-006.
+- [x] P5-010b Port Widget local mouse/touch positions and Desktop hit-test propagation: parent-clipped reverse-Z traversal, capture/bubble-compatible queued enter/leave/move/down/up transitions, transparent-container fall-through, modal blocking, hover visual selection, touch focus, and deepest accepting wheel targeting. Exact retained widget targets keep queued callbacks safe across reentrant tree removal, and `ProcessWidgetInput` exposes the pre-render staging seam until Desktop rendering lands (`DEV-065`). Double-click timing arrived in P5-010c; keep cursor/tooltip, drag/capture, context-menu interaction, and character input in their existing tasks.
+- [x] P5-010c Port Widget double-click timing and the `MyraEnvironment` interval/radius settings: preserve the selected upstream's 500 ms and two-pixel defaults, strict interval comparison, inclusive per-axis radius, TouchDown-before-TouchDoubleClick order, pair reset, and failed-tap origin replacement. Use a monotonic C++ clock and widened coordinate differences so wall-clock changes and signed overflow cannot corrupt recognition (`DEV-066`).
 - [ ] P5-010 Port `Graphics2D/UI/Widget.Input.cs` bubbling/capturing/hover/drag semantics.
 - [x] P5-011a Port `ContentControl`'s abstract `IContent` contract and inherited MML content adapter; its former deep-copy dependency is now completed by P5-011/P5-008h.
 - [x] P5-011 Port `Graphics2D/UI/ContentControl.cs`, including its deep-copy behavior after Widget cloning exists. Nullable content is preserved safely during cloning (`DEV-041`).
@@ -474,7 +475,7 @@ are green, and the build uses no more than three parallel jobs.
 - [x] P5-015 Port `Graphics2D/UI/Layouts/GridLayout.cs`.
 - [x] P5-016a Port the dependency-safe `Desktop` retained-root core: validated observable ownership and cross-parent/Desktop transfer, recursive placed-state propagation, stable root Z-order, bounds/layout and menu discovery, traversal/find/count/modal queries, composed transforms, and cancellable focus changes with forced detach cleanup (`DEV-011`, `DEV-061`, `DEV-062`). The unlinked bootstrap supplies an explicit default-bounds diagnostic (`DEV-063`). Keep context menus, tooltips, rendering/disposal resources, input polling/routing, and style defaults in P5-016/P5-017/P5-018/P8-002.
 - [ ] P5-016 Port `Graphics2D/UI/Desktop.cs` widget ordering, layout, focus, menus, tooltip, dispose.
-- [x] P5-017a Port the dependency-safe Desktop input snapshot and keyboard-routing core: injectable CNA/default mouse and fixed key-state providers, previous/current pointer state, mouse-emulated touch transitions, cumulative wheel deltas, retained global event queueing, key up/down/repeat, Tab focus traversal, and menu/focused-widget routing. A detachable retained queue proxy keeps stack-owned Desktop lifetimes safe (`DEV-064`). Widget hit testing/position propagation and basic wheel targeting arrived in P5-010b; keep cursor/tooltip, double-click generation, pointer capture/drag, and context-menu interaction in P5-010/P5-016/P5-017/P5-019/P5-021.
+- [x] P5-017a Port the dependency-safe Desktop input snapshot and keyboard-routing core: injectable CNA/default mouse and fixed key-state providers, previous/current pointer state, mouse-emulated touch transitions, cumulative wheel deltas, retained global event queueing, key up/down/repeat, Tab focus traversal, and menu/focused-widget routing. A detachable retained queue proxy keeps stack-owned Desktop lifetimes safe (`DEV-064`). Widget hit testing/position propagation and basic wheel targeting arrived in P5-010b, and Widget-local double-click recognition arrived in P5-010c; keep cursor/tooltip, pointer capture/drag, and context-menu interaction in P5-010/P5-016/P5-017/P5-019/P5-021.
 - [ ] P5-017 Port `Graphics2D/UI/Desktop.Input.cs` against CNA keyboard/mouse/touch snapshots.
 - [ ] P5-018 Add CNA `TextInputEXT` subscription lifecycle to Desktop/TextBox focus transitions.
 - [ ] P5-019 Implement correct wheel deltas and pointer capture using previous input states.

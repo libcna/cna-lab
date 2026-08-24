@@ -6,10 +6,13 @@
 // 0d79b939310bfe1d00b21803fe15e291caf60aa1. See NOTICE.md and UPSTREAM_MANIFEST.md.
 #include "Myra/Graphics2D/UI/Widget.hpp"
 
+#include <chrono>
+#include <cstdint>
 #include <utility>
 
 #include "Myra/Graphics2D/UI/Desktop.hpp"
 #include "Myra/Graphics2D/UI/InputContext.hpp"
+#include "Myra/MyraEnvironment.hpp"
 #include "Myra/Utility/EventsExtensions.hpp"
 #include "Myra/Utility/Mathematics.hpp"
 
@@ -95,8 +98,15 @@ namespace Myra::Graphics2D::UI
 
         if (localTouchPosition_ && !oldValue)
         {
-            QueueInputEvent(desktop_->getPreviousTouchPositionProperty() ? InputEventType::TouchEntered
-                                                                         : InputEventType::TouchDown);
+            if (desktop_->getPreviousTouchPositionProperty())
+            {
+                QueueInputEvent(InputEventType::TouchEntered);
+            }
+            else
+            {
+                QueueInputEvent(InputEventType::TouchDown);
+                ProcessDoubleClick(*localTouchPosition_);
+            }
         }
         else if (!localTouchPosition_ && oldValue)
         {
@@ -106,6 +116,33 @@ namespace Myra::Graphics2D::UI
         {
             QueueInputEvent(InputEventType::TouchMoved);
         }
+    }
+
+    void Widget::ProcessDoubleClick(const Point touchPosition)
+    {
+        const auto now = std::chrono::steady_clock::now();
+        if (lastTouchDown_)
+        {
+            const std::int64_t deltaX =
+                static_cast<std::int64_t>(touchPosition.X) - static_cast<std::int64_t>(lastLocalTouchPosition_.X);
+            const std::int64_t deltaY =
+                static_cast<std::int64_t>(touchPosition.Y) - static_cast<std::int64_t>(lastLocalTouchPosition_.Y);
+            const std::int64_t distanceX = deltaX < 0 ? -deltaX : deltaX;
+            const std::int64_t distanceY = deltaY < 0 ? -deltaY : deltaY;
+            const int radius = MyraEnvironment::getDoubleClickRadiusProperty();
+
+            if (now - *lastTouchDown_ <
+                    std::chrono::milliseconds(MyraEnvironment::getDoubleClickIntervalInMsProperty()) &&
+                radius >= 0 && distanceX <= radius && distanceY <= radius)
+            {
+                lastTouchDown_.reset();
+                QueueInputEvent(InputEventType::TouchDoubleClick);
+                return;
+            }
+        }
+
+        lastTouchDown_ = now;
+        lastLocalTouchPosition_ = touchPosition;
     }
 
     bool Widget::getAcceptsMouseWheelProperty() const noexcept

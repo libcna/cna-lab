@@ -5,6 +5,7 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <array>
 #include <memory>
 #include <optional>
@@ -105,6 +106,8 @@ namespace
         {
             oldMouseInfoGetter_ = MyraEnvironment::getMouseInfoGetterProperty();
             oldDownKeysGetter_ = MyraEnvironment::getDownKeysGetterProperty();
+            oldDoubleClickInterval_ = MyraEnvironment::getDoubleClickIntervalInMsProperty();
+            oldDoubleClickRadius_ = MyraEnvironment::getDoubleClickRadiusProperty();
             MyraEnvironment::setEventHandlingModelProperty(Myra::Events::EventHandlingStrategy::EventCapturing);
         }
 
@@ -114,6 +117,8 @@ namespace
             MyraEnvironment::setEventHandlingModelProperty(Myra::Events::EventHandlingStrategy::EventCapturing);
             MyraEnvironment::setMouseInfoGetterProperty(std::move(oldMouseInfoGetter_));
             MyraEnvironment::setDownKeysGetterProperty(std::move(oldDownKeysGetter_));
+            MyraEnvironment::setDoubleClickIntervalInMsProperty(oldDoubleClickInterval_);
+            MyraEnvironment::setDoubleClickRadiusProperty(oldDoubleClickRadius_);
         }
 
         static void UseFixedBounds(Desktop &desktop)
@@ -124,6 +129,8 @@ namespace
       private:
         MyraEnvironment::MouseInfoGetter oldMouseInfoGetter_;
         MyraEnvironment::DownKeysGetter oldDownKeysGetter_;
+        int oldDoubleClickInterval_ = 0;
+        int oldDoubleClickRadius_ = 0;
     };
 
     TEST_F(DesktopInputTests, MouseSnapshotsQueueTouchMovementAndWheelEventsInUpstreamOrder)
@@ -451,6 +458,101 @@ namespace
         EXPECT_TRUE(parentDeltas.empty());
         EXPECT_EQ(childDeltas, (std::vector<float>{120.0F}));
         EXPECT_EQ(eventDeltas, (std::vector<float>{120.0F}));
+    }
+
+    TEST_F(DesktopInputTests, DoubleClickQueuesAfterTouchDownAndResetsAfterEachPair)
+    {
+        MouseInfo snapshot{{10, 10}, false, false, false, 0.0F};
+        MyraEnvironment::setMouseInfoGetterProperty([&] { return snapshot; });
+        MyraEnvironment::setDownKeysGetterProperty([](MyraEnvironment::DownKeys &keys) { keys.fill(false); });
+        MyraEnvironment::setDoubleClickIntervalInMsProperty(500);
+        MyraEnvironment::setDoubleClickRadiusProperty(2);
+
+        Desktop desktop;
+        desktop.setBoundsFetcherProperty([] { return Rectangle(0, 0, 100, 80); });
+        auto root = std::make_shared<Panel>();
+        desktop.AddWidget(root);
+        desktop.UpdateLayout();
+
+        std::vector<InputEventType> calls;
+        root->TouchDown +=
+            [&](void *, Myra::Events::MyraEventArgs &arguments) { calls.push_back(arguments.getEventTypeProperty()); };
+        root->TouchUp +=
+            [&](void *, Myra::Events::MyraEventArgs &arguments) { calls.push_back(arguments.getEventTypeProperty()); };
+        root->TouchDoubleClick +=
+            [&](void *, Myra::Events::MyraEventArgs &arguments) { calls.push_back(arguments.getEventTypeProperty()); };
+
+        const auto click = [&](const Point position)
+        {
+            snapshot.Position = position;
+            snapshot.IsLeftButtonDown = true;
+            desktop.UpdateInput();
+            desktop.ProcessWidgetInput();
+            InputEventsManager::ProcessEvents();
+            snapshot.IsLeftButtonDown = false;
+            desktop.UpdateInput();
+            desktop.ProcessWidgetInput();
+            InputEventsManager::ProcessEvents();
+        };
+
+        click(Point(10, 10));
+        EXPECT_EQ(calls, (std::vector<InputEventType>{InputEventType::TouchDown, InputEventType::TouchUp}));
+
+        calls.clear();
+        click(Point(10, 10));
+        EXPECT_EQ(calls, (std::vector<InputEventType>{InputEventType::TouchDown, InputEventType::TouchDoubleClick,
+                                                      InputEventType::TouchUp}));
+
+        calls.clear();
+        click(Point(10, 10));
+        click(Point(10, 10));
+        EXPECT_EQ(std::count(calls.begin(), calls.end(), InputEventType::TouchDoubleClick), 1);
+
+        calls.clear();
+        MyraEnvironment::setDoubleClickIntervalInMsProperty(0);
+        click(Point(10, 10));
+        click(Point(10, 10));
+        EXPECT_EQ(std::count(calls.begin(), calls.end(), InputEventType::TouchDoubleClick), 0);
+    }
+
+    TEST_F(DesktopInputTests, DoubleClickRadiusIsInclusiveAndFailedTapBecomesTheNextOrigin)
+    {
+        MouseInfo snapshot{{10, 10}, false, false, false, 0.0F};
+        MyraEnvironment::setMouseInfoGetterProperty([&] { return snapshot; });
+        MyraEnvironment::setDownKeysGetterProperty([](MyraEnvironment::DownKeys &keys) { keys.fill(false); });
+        MyraEnvironment::setDoubleClickIntervalInMsProperty(60'000);
+        MyraEnvironment::setDoubleClickRadiusProperty(2);
+
+        Desktop desktop;
+        desktop.setBoundsFetcherProperty([] { return Rectangle(0, 0, 100, 80); });
+        auto root = std::make_shared<Panel>();
+        desktop.AddWidget(root);
+        desktop.UpdateLayout();
+
+        int doubleClicks = 0;
+        root->TouchDoubleClick += [&](void *, Myra::Events::MyraEventArgs &) { ++doubleClicks; };
+        const auto click = [&](const Point position)
+        {
+            snapshot.Position = position;
+            snapshot.IsLeftButtonDown = true;
+            desktop.UpdateInput();
+            desktop.ProcessWidgetInput();
+            InputEventsManager::ProcessEvents();
+            snapshot.IsLeftButtonDown = false;
+            desktop.UpdateInput();
+            desktop.ProcessWidgetInput();
+            InputEventsManager::ProcessEvents();
+        };
+
+        click(Point(10, 10));
+        click(Point(12, 12));
+        EXPECT_EQ(doubleClicks, 1);
+
+        click(Point(20, 20));
+        click(Point(23, 20));
+        EXPECT_EQ(doubleClicks, 1);
+        click(Point(25, 22));
+        EXPECT_EQ(doubleClicks, 2);
     }
 
     TEST_F(DesktopInputTests, QueuedChildTransitionSurvivesRemovalByAnEarlierParentCallback)

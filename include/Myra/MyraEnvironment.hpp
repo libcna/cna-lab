@@ -86,6 +86,11 @@ namespace Myra
         [[nodiscard]] static const DownKeysGetter &getDownKeysGetterProperty() noexcept;
         static void setDownKeysGetterProperty(DownKeysGetter value);
 
+        [[nodiscard]] static int getDoubleClickIntervalInMsProperty() noexcept;
+        static void setDoubleClickIntervalInMsProperty(int value) noexcept;
+        [[nodiscard]] static int getDoubleClickRadiusProperty() noexcept;
+        static void setDoubleClickRadiusProperty(int value) noexcept;
+
         /** @brief Reads the current CNA mouse snapshot relative to the active viewport. */
         [[nodiscard]] static Graphics2D::UI::MouseInfo DefaultMouseInfoGetter();
         /** @brief Reads the current CNA keyboard snapshot into the fixed upstream key domain. */
@@ -127,6 +132,8 @@ namespace Myra
         static Graphics2D::UI::MouseCursorType defaultMouseCursorType_;
         static MouseInfoGetter mouseInfoGetter_;
         static DownKeysGetter downKeysGetter_;
+        static int doubleClickIntervalInMs_;
+        static int doubleClickRadius_;
         static Microsoft::Xna::Framework::Game *game_;
         static Microsoft::Xna::Framework::Graphics::GraphicsDevice *graphicsDevice_;
         static std::optional<std::size_t> gameDisposedToken_;

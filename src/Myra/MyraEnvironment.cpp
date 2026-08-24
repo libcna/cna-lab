@@ -26,6 +26,8 @@ namespace Myra
     MyraEnvironment::MouseInfoGetter MyraEnvironment::mouseInfoGetter_;
     MyraEnvironment::DownKeysGetter MyraEnvironment::downKeysGetter_;
 #endif
+    int MyraEnvironment::doubleClickIntervalInMs_ = 500;
+    int MyraEnvironment::doubleClickRadius_ = 2;
 
     Events::EventHandlingStrategy MyraEnvironment::getEventHandlingModelProperty() noexcept
     {
@@ -130,5 +132,25 @@ namespace Myra
     void MyraEnvironment::setDownKeysGetterProperty(DownKeysGetter value)
     {
         downKeysGetter_ = std::move(value);
+    }
+
+    int MyraEnvironment::getDoubleClickIntervalInMsProperty() noexcept
+    {
+        return doubleClickIntervalInMs_;
+    }
+
+    void MyraEnvironment::setDoubleClickIntervalInMsProperty(const int value) noexcept
+    {
+        doubleClickIntervalInMs_ = value;
+    }
+
+    int MyraEnvironment::getDoubleClickRadiusProperty() noexcept
+    {
+        return doubleClickRadius_;
+    }
+
+    void MyraEnvironment::setDoubleClickRadiusProperty(const int value) noexcept
+    {
+        doubleClickRadius_ = value;
     }
 } // namespace Myra
