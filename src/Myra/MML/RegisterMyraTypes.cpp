@@ -45,7 +45,10 @@
 #include "Myra/Graphics2D/UI/Simple/ToggleButton.hpp"
 #include "Myra/Graphics2D/UI/Simple/VerticalSeparator.hpp"
 #include "Myra/Graphics2D/UI/Selectors/ComboView.hpp"
+#include "Myra/Graphics2D/UI/Selectors/IMenuItem.hpp"
 #include "Myra/Graphics2D/UI/Selectors/ListView.hpp"
+#include "Myra/Graphics2D/UI/Selectors/MenuItem.hpp"
+#include "Myra/Graphics2D/UI/Selectors/MenuSeparator.hpp"
 #include "Myra/Graphics2D/UI/Selectors/TabControl.hpp"
 #include "Myra/Graphics2D/UI/Selectors/TabItem.hpp"
 #include "Myra/Graphics2D/UI/Widget.hpp"
@@ -74,7 +77,12 @@ namespace Myra::MML
         using Graphics2D::UI::HorizontalStackPanel;
         using Graphics2D::UI::Image;
         using Graphics2D::UI::ImageResizeMode;
+        using Graphics2D::UI::IMenuItem;
         using Graphics2D::UI::ListView;
+        using Graphics2D::UI::Menu;
+        using Graphics2D::UI::MenuItem;
+        using Graphics2D::UI::MenuItemCollection;
+        using Graphics2D::UI::MenuSeparator;
         using Graphics2D::UI::MouseCursorType;
         using Graphics2D::UI::Orientation;
         using Graphics2D::UI::Panel;
@@ -149,6 +157,11 @@ namespace Myra::MML
             return std::shared_ptr<Proportion>(value, static_cast<Proportion *>(value.get()));
         }
 
+        [[nodiscard]] std::shared_ptr<IMenuItem> AsMenuItemInterface(const std::shared_ptr<void> &value)
+        {
+            return std::shared_ptr<IMenuItem>(value, static_cast<IMenuItem *>(value.get()));
+        }
+
         [[nodiscard]] std::shared_ptr<TabItem> AsTabItem(const std::shared_ptr<void> &value)
         {
             return std::shared_ptr<TabItem>(value, static_cast<TabItem *>(value.get()));
@@ -192,6 +205,24 @@ namespace Myra::MML
                 else
                 {
                     result.emplace_back(nullptr, typeid(TabItem));
+                }
+            }
+            return result;
+        }
+
+        [[nodiscard]] std::vector<RegisteredObjectView> EnumerateMenuItems(const MenuItemCollection &values)
+        {
+            std::vector<RegisteredObjectView> result;
+            result.reserve(static_cast<std::size_t>(values.getCountProperty()));
+            for (const std::shared_ptr<IMenuItem> &value : values)
+            {
+                if (value)
+                {
+                    result.emplace_back(dynamic_cast<const void *>(value.get()), typeid(*value));
+                }
+                else
+                {
+                    result.emplace_back(nullptr, typeid(IMenuItem));
                 }
             }
             return result;
@@ -864,6 +895,99 @@ namespace Myra::MML
             return descriptor;
         }
 
+        TypeDescriptor MakeIMenuItemDescriptor()
+        {
+            TypeDescriptor descriptor("IMenuItem", typeid(IMenuItem));
+            descriptor.AddProperty(MakeScalarProperty<IMenuItem, std::optional<std::string>>(
+                "Id", [](const IMenuItem &object) { return object.getIdProperty(); },
+                [](IMenuItem &object, const std::optional<std::string> &value) { object.setIdProperty(value); },
+                std::nullopt));
+
+            const auto addIgnored = [&descriptor](std::string name, std::type_index type, auto getter)
+            {
+                PropertyMetadata metadata;
+                metadata.XmlIgnore = true;
+                descriptor.AddProperty(PropertyDescriptor(std::move(name), type, std::move(getter), {}, std::nullopt,
+                                                          std::move(metadata)));
+            };
+            addIgnored("Menu", typeid(Menu *), [](const void *object)
+                       { return std::any(static_cast<const IMenuItem *>(object)->getMenuProperty()); });
+            addIgnored("UnderscoreChar", typeid(std::optional<char>), [](const void *object)
+                       { return std::any(static_cast<const IMenuItem *>(object)->getUnderscoreCharProperty()); });
+            addIgnored("Index", typeid(int), [](const void *object)
+                       { return std::any(static_cast<const IMenuItem *>(object)->getIndexProperty()); });
+            return descriptor;
+        }
+
+        TypeDescriptor MakeMenuItemDescriptor()
+        {
+            TypeDescriptor descriptor(
+                "MenuItem", typeid(MenuItem),
+                [] { return std::static_pointer_cast<void>(std::make_shared<MenuItem>()); }, typeid(IMenuItem));
+            descriptor.EnableBaseTypeAccess<MenuItem, IMenuItem>();
+            descriptor.EnableBaseObjectAccess<MenuItem>();
+
+            descriptor.AddProperty(MakeScalarProperty<MenuItem, std::optional<std::string>>(
+                "Text", [](const MenuItem &object) { return object.getTextProperty(); },
+                [](MenuItem &object, const std::optional<std::string> &value) { object.setTextProperty(value); },
+                std::nullopt));
+            PropertyMetadata imageMetadata;
+            imageMetadata.ExternalAsset = true;
+            descriptor.AddProperty(MakeScalarProperty<MenuItem, std::shared_ptr<Graphics2D::IImage>>(
+                "Image", [](const MenuItem &object) { return object.getImageProperty(); },
+                [](MenuItem &object, const std::shared_ptr<Graphics2D::IImage> &value)
+                { object.setImageProperty(value); }, nullptr, std::move(imageMetadata)));
+            descriptor.AddProperty(MakeScalarProperty<MenuItem, std::optional<std::string>>(
+                "ShortcutText", [](const MenuItem &object) { return object.getShortcutTextProperty(); },
+                [](MenuItem &object, const std::optional<std::string> &value)
+                { object.setShortcutTextProperty(value); }, std::nullopt));
+
+            PropertyMetadata itemsMetadata;
+            itemsMetadata.Content = true;
+            descriptor.AddProperty(PropertyDescriptor(
+                "Items", typeid(MenuItemCollection), {}, {}, std::nullopt, std::move(itemsMetadata), {}, {},
+                ComplexPropertyAdapter::Sequence(
+                    typeid(IMenuItem), [](void *object, const std::shared_ptr<void> &value)
+                    { static_cast<MenuItem *>(object)->getItemsProperty().Add(AsMenuItemInterface(value)); },
+                    [](const void *object)
+                    { return EnumerateMenuItems(static_cast<const MenuItem *>(object)->getItemsProperty()); })));
+
+            const auto addIgnored = [&descriptor](std::string name, std::type_index type, auto getter)
+            {
+                PropertyMetadata metadata;
+                metadata.XmlIgnore = true;
+                descriptor.AddProperty(PropertyDescriptor(std::move(name), type, std::move(getter), {}, std::nullopt,
+                                                          std::move(metadata)));
+            };
+            addIgnored("Tag", typeid(std::any),
+                       [](const void *object)
+                       {
+                           return std::any(std::in_place_type<std::any>,
+                                           static_cast<const MenuItem *>(object)->getTagProperty());
+                       });
+            addIgnored("Enabled", typeid(bool), [](const void *object)
+                       { return std::any(static_cast<const MenuItem *>(object)->getEnabledProperty()); });
+            addIgnored("CanOpen", typeid(bool), [](const void *object)
+                       { return std::any(static_cast<const MenuItem *>(object)->getCanOpenProperty()); });
+            return descriptor;
+        }
+
+        TypeDescriptor MakeMenuSeparatorDescriptor()
+        {
+            TypeDescriptor descriptor(
+                "MenuSeparator", typeid(MenuSeparator),
+                [] { return std::static_pointer_cast<void>(std::make_shared<MenuSeparator>()); }, typeid(IMenuItem));
+            descriptor.EnableBaseTypeAccess<MenuSeparator, IMenuItem>();
+
+            PropertyMetadata idMetadata;
+            idMetadata.XmlIgnore = true;
+            descriptor.AddProperty(MakeScalarProperty<MenuSeparator, std::optional<std::string>>(
+                "Id", [](const MenuSeparator &object) { return object.getIdProperty(); },
+                [](MenuSeparator &object, const std::optional<std::string> &value) { object.setIdProperty(value); },
+                std::nullopt, std::move(idMetadata)));
+            return descriptor;
+        }
+
         TypeDescriptor MakeButtonBaseDescriptor()
         {
             TypeDescriptor descriptor("ButtonBase", typeid(ButtonBase), {}, typeid(ContentControl));
@@ -1150,6 +1274,9 @@ namespace Myra::MML
     void RegisterMyraTypes(TypeRegistry &registry)
     {
         registry.Register(MakeBaseObjectDescriptor());
+        registry.Register(MakeIMenuItemDescriptor());
+        registry.Register(MakeMenuItemDescriptor());
+        registry.Register(MakeMenuSeparatorDescriptor());
         registry.Register(MakeWidgetDescriptor());
         registry.Register(MakeImageDescriptor());
         registry.Register(MakeSeparatorWidgetDescriptor());

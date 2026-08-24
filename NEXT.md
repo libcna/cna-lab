@@ -3,8 +3,8 @@
 ## Current state
 
 - Active branch: `develop`.
-- Current committed baseline `26618eb` (`feat: register tab item mml`)
-  completes P7-012b. The repository checkpoint described by this handoff also completes P6-006a/
+- Current committed baseline `2860927` (`feat: register tab control mml`)
+  completes P7-013c. The repository checkpoint described by this handoff also completes P6-006a/
   P6-006b's style-independent abstract `CheckButtonBase` and parent-hover image,
   P6-007a's concrete
   `CheckButton`, P6-008a's direct-sibling `RadioButton` behavior, P6-018a/P6-018b's
@@ -16,8 +16,8 @@
   P7-004a/P7-004b/P7-004c's collection-backed `ListView` core, dropdown keyboard/
   close behavior, and MML round trips, P7-005a/P7-005b/P7-005c's retained
   ComboView core, Desktop dropdown lifecycle, and MML round trips,
-  P7-006/P7-008's menu-item contracts and separator state, P7-007a's
-  MenuItem data core, P7-009a's retained menu/navigation core, P7-010a/P7-011a's
+  P7-006/P7-008's menu-item contracts and separator state, P7-007a/P7-007b's
+  MenuItem data and MML core, P7-009a's retained menu/navigation core, P7-010a/P7-011a's
   horizontal/vertical menu navigation, P7-012a/P7-012b's TabItem data and MML core, P7-013a/
   P7-013b/P7-013c's TabControl core, closeable headers, callback lifetime, and MML round trips, P7-014's
   tree-node contract, P7-015a/P7-016a's TreeView node
@@ -158,7 +158,8 @@ and a manifest entry. The current ported surface includes:
   node pointers outlive the loader (`DEV-028`, `DEV-042`).
 - A central `RegisterMyraTypes` table for all currently ported MML objects:
   `BaseObject`, `Widget`, abstract content/container/stack bases, `Panel`,
-  Grid, `ScrollViewer`, `ListView`, `ComboView`, `TabItem`, `TabControl`, horizontal/vertical stack panels and
+  Grid, `ScrollViewer`, `ListView`, `ComboView`, abstract `IMenuItem`, concrete
+  `MenuItem`/`MenuSeparator`, `TabItem`, `TabControl`, horizontal/vertical stack panels and
   split panes, `Image`, the
   abstract/concrete
   separator and ProgressBar hierarchies, `ButtonBase`, concrete `Button` and
@@ -401,8 +402,8 @@ capture remain open. `UPSTREAM_MANIFEST.md` records this per source.
 
 ## Whole-port progress estimate
 
-As of 2026-08-24 after P7-013c, `plan.md` has **190/334 checked tasks
-(56.9%)**. Equal checkbox counting overstates
+As of 2026-08-24 after P7-007b, `plan.md` has **191/335 checked tasks
+(57.0%)**. Equal checkbox counting overstates
 end-user parity because the
 largest remaining workstreams are font/rich text, Desktop/input, most controls,
 styles/default assets, selectors/windows/dialogs, DataGrid/PropertyGrid, and the
@@ -410,8 +411,8 @@ exhaustive release gate. The feature-weighted estimate is therefore **about
 30–35% of the complete Myra-CNA port**.
 
 All currently known technical work through P10-028 is estimated at
-**986–1,738 focused implementation/validation hours remaining**; use about
-**1,362 hours** as the planning midpoint or **1,000–2,000 hours** as the rounded
+**984–1,734 focused implementation/validation hours remaining**; use about
+**1,359 hours** as the planning midpoint or **1,000–2,000 hours** as the rounded
 range. This includes code, tests, documentation, integration, and the known
 project-owned test-fixture work. It assumes P3-004 and P0-015b receive prompt
 human decisions and excludes idle waiting/legal-review time. Choosing wholly
@@ -442,14 +443,14 @@ cmake -S ../cna -B build-cna-parent \
 CCACHE_DISABLE=1 cmake --build build-cna-parent --parallel 3
 ctest --test-dir build-cna-parent/_myra_cna \
   --output-on-failure --parallel 3
-# 356/356 tests passed with current modular CNA/sharp-runtime
+# 357/357 tests passed with current modular CNA/sharp-runtime
 
 ASAN_OPTIONS=detect_leaks=0 CCACHE_DISABLE=1 \
   cmake --build build-sanitize-parent --parallel 3
 ASAN_OPTIONS=detect_leaks=0 UBSAN_OPTIONS=print_stacktrace=1 \
   ctest --test-dir build-sanitize-parent/_myra_cna \
   --output-on-failure --parallel 3
-# 356/356 tests passed with ASan address checks and UBSan
+# 357/357 tests passed with ASan address checks and UBSan
 
 # focused CheckButtonBase/ButtonBase/registry/codec validation: 19/19 passed
 
@@ -495,6 +496,9 @@ ASAN_OPTIONS=detect_leaks=0 UBSAN_OPTIONS=print_stacktrace=1 \
 
 # P7-013c TabControl MML slice: focused linked 6/6; broad default 67/67,
 # linked SOFTWARE 356/356, and ASan+UBSan 356/356 passed
+
+# P7-007b menu-item MML slice: focused linked 3/3 (broader registry/menu 13/13);
+# broad default 67/67, linked SOFTWARE 357/357, and ASan+UBSan 357/357 passed
 
 # P5-010b Widget hit-test core: focused DesktopInput 9/9 and related input/
 # scrolling subset 17/17; broad default 66/66, linked SOFTWARE 311/311, and
@@ -649,7 +653,7 @@ was disabled because LeakSanitizer cannot run under this environment's
    P0-016a's original PNG/BMFont/stylesheet replacements only when their
    affected asset tests become implementable.
 4. P0-023, P5-008i, P5-010a, P5-010b, P5-010c, P5-010d, P5-012, P5-016a, P5-016b, P5-017a, P5-019a, P5-019b, P5-019c, P6-001a, P6-003a, P6-004a, P6-005a,
-   P6-006a, P6-006b, P6-007a, P6-008a, P6-009a, P6-018a, P6-018b, P6-019a, P6-019b, P6-019c, P6-021a, P6-022a, P7-001–P7-003, P7-004a, P7-004b, P7-004c, P7-005a, P7-005b, P7-005c, P7-006, P7-008, P7-012a, P7-012b, P7-013a, P7-013b, P7-013c, P7-014, P7-015a, P7-016a, and P7-016b are complete. Keep full
+   P6-006a, P6-006b, P6-007a, P6-008a, P6-009a, P6-018a, P6-018b, P6-019a, P6-019b, P6-019c, P6-021a, P6-022a, P7-001–P7-003, P7-004a, P7-004b, P7-004c, P7-005a, P7-005b, P7-005c, P7-006, P7-007a, P7-007b, P7-008, P7-012a, P7-012b, P7-013a, P7-013b, P7-013c, P7-014, P7-015a, P7-016a, and P7-016b are complete. Keep full
    P6-006/P6-007/P6-008 style work in P8-003, and keep Slider's
    remaining stylesheet work in P6-022/P8-005; do not reopen P6-005's Label/style-
    dependent remainder before P6-002/P8-003. TreeView now owns a reciprocal node
@@ -811,6 +815,13 @@ was disabled because LeakSanitizer cannot run under this environment's
   internal ListView, selection, and wrapper state stay out of serialized output.
   Label-backed placeholder visuals and stylesheet integration remain
   P6-002/P7-005/P8-004.
+- `IMenuItem`, `MenuItem`, and `MenuSeparator` now have P7-007b's explicit MML
+  hierarchy. It preserves MenuItem identity, nullable text/shortcut, external
+  image, and heterogeneous implicit nested items while excluding owner/index,
+  mnemonic, enabled/can-open, tag, and internal separator/submenu state. The
+  registry flattens BaseObject identity onto the interface branch required for
+  exact multiple-inheritance pointer adjustment. Color/ShortcutColor and
+  Label/rich-text/style visuals remain P3-004/P6-002/P7-007/P8-006.
 - `TabItem` now has P7-012b's `BaseObject`-derived MML descriptor for identity,
   optional text/height, and implicit widget content. Tag, image, spacing, and
   selection remain runtime-only like upstream. `Color` is deliberately absent
@@ -881,7 +892,11 @@ HEADLESS and SDL_RENDERER-on-Xvfb each passed the 44/44 graphics subset and full
 172/172 suite at the P2-022 milestone. The current SDL_RENDERER tree, including
 the explicit display smoke and all work since then, passes 199/199 on Xvfb.
 The current default, linked SOFTWARE, and ASan+UBSan suites pass
-67/67, 356/356, and 356/356 respectively. P7-013c passes all 6/6 focused
+67/67, 357/357, and 357/357 respectively. P7-007b passes all 3/3 focused
+MenuItem tests (and the broader registry/menu subset 13/13), including the
+abstract interface hierarchy, exact heterogeneous pointer adjustment, nested
+ownership/index reconstruction, external images, ignored runtime state, and
+blocked colour/internal-visual exclusion. P7-013c passes all 6/6 focused
 TabControl tests, including the exact position codec, effective inherited
 defaults, implicit logical TabItems, nested content, runtime-only selection,
 and internal-wrapper exclusion. P7-012b passes all 4/4 focused
@@ -969,7 +984,8 @@ approved, begin with P3-005's narrow abstraction and P3-006's explicit index-dom
 before introducing rasterizer code. P4-019 remains open only for future widget types,
 while caller-provided external-asset callbacks are already usable. P5-010b,
 P5-010c, P5-010d, P5-012, P5-016a, P5-016b, P5-017a, P5-019a, P5-019b, and P5-019c are complete. P7-004b/P7-004c/P7-005b/P7-005c complete the dependency-safe
-ListView/ComboView dropdown, keyboard, and MML slices; P7-012b adds TabItem's
+ListView/ComboView dropdown, keyboard, and MML slices; P7-007b adds the
+dependency-safe heterogeneous menu-item data MML surface; P7-012b adds TabItem's
 dependency-safe MML surface; P7-016b completes TreeView row
 pointer interaction; and P7-013b/P7-013c complete closeable TabControl headers,
 native callback detachment, and the dependency-safe MML surface. P6-019b completes SplitPane's dependency-safe drag,
