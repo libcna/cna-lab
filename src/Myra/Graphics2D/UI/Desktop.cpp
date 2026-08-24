@@ -8,6 +8,7 @@
 
 #include <algorithm>
 #include <exception>
+#include <limits>
 #include <numbers>
 #include <stdexcept>
 #include <utility>
@@ -19,6 +20,18 @@
 
 namespace Myra::Graphics2D::UI
 {
+    namespace
+    {
+        [[nodiscard]] int CheckedContextPosition(const std::int64_t value)
+        {
+            if (value < std::numeric_limits<int>::min() || value > std::numeric_limits<int>::max())
+            {
+                throw std::overflow_error("Context-menu position is outside the supported integer range.");
+            }
+            return static_cast<int>(value);
+        }
+    } // namespace
+
     using Microsoft::Xna::Framework::Point;
     using Microsoft::Xna::Framework::Rectangle;
     using Microsoft::Xna::Framework::Vector2;
@@ -61,6 +74,8 @@ namespace Myra::Graphics2D::UI
     Desktop::~Desktop()
     {
         destroying_ = true;
+        contextMenu_.reset();
+        previousKeyboardFocus_.reset();
         inputProcessor_->Detach();
         try
         {
@@ -123,6 +138,7 @@ namespace Myra::Graphics2D::UI
         {
             return;
         }
+        HideContextMenu();
         widgets_.Clear();
         if (value)
         {
@@ -183,12 +199,144 @@ namespace Myra::Graphics2D::UI
 
     void Desktop::ClearWidgets()
     {
+        HideContextMenu();
         widgets_.Clear();
     }
 
     HorizontalMenu *Desktop::getMenuBarProperty() const noexcept
     {
         return menuBar_;
+    }
+
+    std::shared_ptr<Widget> Desktop::getContextMenuProperty() const
+    {
+        return contextMenu_;
+    }
+
+    void Desktop::ShowContextMenu(std::shared_ptr<Widget> menu, Point position)
+    {
+        HideContextMenu();
+        if (contextMenu_ || !menu)
+        {
+            return;
+        }
+
+        position = ToLocal(position);
+        FixOverWidgetPosition(*menu, position);
+        if (contextMenu_)
+        {
+            return;
+        }
+
+        contextMenu_ = menu;
+        menu->setVisibleProperty(true);
+        if (contextMenu_ != menu)
+        {
+            return;
+        }
+        AddWidget(menu);
+        if (contextMenu_ != menu || menu->desktop_ != this)
+        {
+            return;
+        }
+
+        if (menu->getAcceptsKeyboardFocusProperty())
+        {
+            if (const std::shared_ptr<Widget> previous = RetainWidget(focusedKeyboardWidget_))
+            {
+                previousKeyboardFocus_ = previous;
+            }
+            setFocusedKeyboardWidgetProperty(menu.get());
+        }
+    }
+
+    void Desktop::HideContextMenu()
+    {
+        const std::shared_ptr<Widget> menu = contextMenu_;
+        if (!menu)
+        {
+            return;
+        }
+
+        // Clear the public state before callbacks so a callback can safely show a replacement.
+        contextMenu_.reset();
+        std::exception_ptr pendingException;
+        try
+        {
+            static_cast<void>(RemoveWidget(menu.get()));
+        }
+        catch (...)
+        {
+            pendingException = std::current_exception();
+        }
+        try
+        {
+            menu->setVisibleProperty(false);
+        }
+        catch (...)
+        {
+            if (!pendingException)
+            {
+                pendingException = std::current_exception();
+            }
+        }
+        try
+        {
+            Utility::EventsExtensions::Invoke(ContextMenuClosed, menu.get(), InputEventType::ContextMenuClosing);
+        }
+        catch (...)
+        {
+            if (!pendingException)
+            {
+                pendingException = std::current_exception();
+            }
+        }
+
+        if (!contextMenu_)
+        {
+            const std::shared_ptr<Widget> previous = previousKeyboardFocus_.lock();
+            previousKeyboardFocus_.reset();
+            if (previous && previous->desktop_ == this)
+            {
+                try
+                {
+                    setFocusedKeyboardWidgetProperty(previous.get());
+                }
+                catch (...)
+                {
+                    if (!pendingException)
+                    {
+                        pendingException = std::current_exception();
+                    }
+                }
+            }
+        }
+
+        if (pendingException)
+        {
+            std::rethrow_exception(pendingException);
+        }
+    }
+
+    void Desktop::FixOverWidgetPosition(Widget &widget, Point position)
+    {
+        widget.setHorizontalAlignmentProperty(HorizontalAlignment::Left);
+        widget.setVerticalAlignmentProperty(VerticalAlignment::Top);
+
+        const Rectangle layoutBounds = getLayoutBoundsProperty();
+        const Point measure = widget.Measure(Point(layoutBounds.Width, layoutBounds.Height));
+        const int right = layoutBounds.getRightProperty();
+        const int bottom = layoutBounds.getBottomProperty();
+        if (static_cast<std::int64_t>(position.X) + measure.X > right)
+        {
+            position.X = CheckedContextPosition(static_cast<std::int64_t>(right) - measure.X);
+        }
+        if (static_cast<std::int64_t>(position.Y) + measure.Y > bottom)
+        {
+            position.Y = CheckedContextPosition(static_cast<std::int64_t>(bottom) - measure.Y);
+        }
+        widget.setLeftProperty(position.X);
+        widget.setTopProperty(position.Y);
     }
 
     const Rectangle &Desktop::getInternalBoundsProperty() const noexcept
@@ -447,6 +595,7 @@ namespace Myra::Graphics2D::UI
             return;
         }
         SynchronizeRoots();
+        ReconcileContextMenuOwnership();
     }
 
     void Desktop::SynchronizeRoots()
@@ -533,6 +682,46 @@ namespace Myra::Graphics2D::UI
             }
         }
         attachedRoots_ = std::move(current);
+        if (pendingException)
+        {
+            std::rethrow_exception(pendingException);
+        }
+    }
+
+    void Desktop::ReconcileContextMenuOwnership()
+    {
+        const std::shared_ptr<Widget> menu = contextMenu_;
+        if (!menu || (menu->parent_ == nullptr && menu->desktop_ == this))
+        {
+            return;
+        }
+
+        contextMenu_.reset();
+        const std::shared_ptr<Widget> previous = previousKeyboardFocus_.lock();
+        previousKeyboardFocus_.reset();
+        std::exception_ptr pendingException;
+        try
+        {
+            menu->setVisibleProperty(false);
+        }
+        catch (...)
+        {
+            pendingException = std::current_exception();
+        }
+        if (previous && previous->desktop_ == this && focusedKeyboardWidget_ == nullptr)
+        {
+            try
+            {
+                setFocusedKeyboardWidgetProperty(previous.get());
+            }
+            catch (...)
+            {
+                if (!pendingException)
+                {
+                    pendingException = std::current_exception();
+                }
+            }
+        }
         if (pendingException)
         {
             std::rethrow_exception(pendingException);

@@ -58,6 +58,8 @@ namespace Myra::Graphics2D::UI
 
         Events::MyraEventHandlerT<Events::CancellableEventArgsT<Widget *>> WidgetLosingKeyboardFocus;
         Events::MyraEventHandlerT<Events::GenericEventArgs<Widget *>> WidgetGotKeyboardFocus;
+        Events::MyraEventHandlerT<Events::CancellableEventArgsT<Widget *>> ContextMenuClosing;
+        Events::MyraEventHandlerT<Events::GenericEventArgs<Widget *>> ContextMenuClosed;
         Events::MyraEventHandler MouseMoved;
         Events::MyraEventHandler TouchMoved;
         Events::MyraEventHandler TouchDown;
@@ -83,6 +85,9 @@ namespace Myra::Graphics2D::UI
         void ClearWidgets();
 
         [[nodiscard]] HorizontalMenu *getMenuBarProperty() const noexcept;
+        [[nodiscard]] std::shared_ptr<Widget> getContextMenuProperty() const;
+        void ShowContextMenu(std::shared_ptr<Widget> menu, Microsoft::Xna::Framework::Point position);
+        void HideContextMenu();
         [[nodiscard]] const Microsoft::Xna::Framework::Rectangle &getInternalBoundsProperty() const noexcept;
         [[nodiscard]] Microsoft::Xna::Framework::Rectangle getLayoutBoundsProperty() const;
 
@@ -164,6 +169,7 @@ namespace Myra::Graphics2D::UI
         void OnWidgetsChanged();
         void SynchronizeRoots();
         void SynchronizeRootsOnce();
+        void ReconcileContextMenuOwnership();
         void RemoveWidgetFromPreviousOwner(const std::shared_ptr<Widget> &widget);
         [[nodiscard]] std::shared_ptr<Widget> RetainWidget(const Widget *widget) const;
         [[nodiscard]] bool ContainsWidget(const Widget &root, const Widget *target) const;
@@ -173,6 +179,8 @@ namespace Myra::Graphics2D::UI
         void FocusNextWidget();
         [[nodiscard]] static bool CanFocusWidget(const Widget &widget) noexcept;
         [[nodiscard]] bool IsMenuBarActive() const noexcept;
+        void InputOnTouchDown();
+        void FixOverWidgetPosition(Widget &widget, Microsoft::Xna::Framework::Point position);
         void setMousePositionProperty(Microsoft::Xna::Framework::Point value);
         void setTouchPositionProperty(std::optional<Microsoft::Xna::Framework::Point> value);
         void setMouseWheelDeltaProperty(float value);
@@ -192,6 +200,8 @@ namespace Myra::Graphics2D::UI
         Microsoft::Xna::Framework::Rectangle internalBounds_;
         HorizontalMenu *menuBar_ = nullptr;
         Widget *focusedKeyboardWidget_ = nullptr;
+        std::shared_ptr<Widget> contextMenu_;
+        std::weak_ptr<Widget> previousKeyboardFocus_;
         std::shared_ptr<InputProcessor> inputProcessor_;
         std::shared_ptr<Graphics2D::IBrush> background_;
         float opacity_ = 1.0F;

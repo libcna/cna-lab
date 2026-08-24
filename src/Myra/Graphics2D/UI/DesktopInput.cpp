@@ -232,16 +232,22 @@ namespace Myra::Graphics2D::UI
                 menu->OnKeyDown(key);
             }
             static_cast<void>(retainedMenu);
-            return;
+        }
+        else
+        {
+            Widget *const target = focusedKeyboardWidget_;
+            const std::shared_ptr<Widget> retainedTarget = RetainWidget(target);
+            if (target != nullptr && target == focusedKeyboardWidget_)
+            {
+                target->OnKeyDown(key);
+            }
+            static_cast<void>(retainedTarget);
         }
 
-        Widget *const target = focusedKeyboardWidget_;
-        const std::shared_ptr<Widget> retainedTarget = RetainWidget(target);
-        if (target != nullptr && target == focusedKeyboardWidget_)
+        if (key == Keys::Escape && contextMenu_)
         {
-            target->OnKeyDown(key);
+            HideContextMenu();
         }
-        static_cast<void>(retainedTarget);
     }
 
     void Desktop::FocusNextWidget()
@@ -298,6 +304,23 @@ namespace Myra::Graphics2D::UI
     {
         return menuBar_ != nullptr && (menuBar_->getOpenMenuItemProperty() != nullptr || IsKeyDown(Keys::LeftAlt) ||
                                        IsKeyDown(Keys::RightAlt));
+    }
+
+    void Desktop::InputOnTouchDown()
+    {
+        const std::shared_ptr<Widget> menu = contextMenu_;
+        if (!menu || menu->getIsTouchInsideProperty())
+        {
+            return;
+        }
+
+        Events::CancellableEventArgsT<Widget *> arguments(menu.get(), InputEventType::ContextMenuClosing);
+        ContextMenuClosing.Invoke(nullptr, arguments);
+        if (arguments.Cancel || contextMenu_ != menu)
+        {
+            return;
+        }
+        HideContextMenu();
     }
 
     void Desktop::setMousePositionProperty(const Point value)
@@ -361,6 +384,7 @@ namespace Myra::Graphics2D::UI
             Utility::EventsExtensions::Invoke(TouchMoved, this, eventType);
             break;
         case InputEventType::TouchDown:
+            InputOnTouchDown();
             Utility::EventsExtensions::Invoke(TouchDown, this, eventType);
             break;
         case InputEventType::TouchUp:

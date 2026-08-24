@@ -22,9 +22,11 @@ namespace
     using Myra::Events::CancellableEventArgsT;
     using Myra::Events::GenericEventArgs;
     using Myra::Graphics2D::UI::Desktop;
+    using Myra::Graphics2D::UI::HorizontalAlignment;
     using Myra::Graphics2D::UI::HorizontalMenu;
     using Myra::Graphics2D::UI::InputEventType;
     using Myra::Graphics2D::UI::Panel;
+    using Myra::Graphics2D::UI::VerticalAlignment;
     using Myra::Graphics2D::UI::Widget;
 
     class ProbeWidget final : public Widget
@@ -305,6 +307,124 @@ namespace
         EXPECT_FALSE(first->getIsKeyboardFocusedProperty());
         EXPECT_FALSE(first->getIsPlacedProperty());
         EXPECT_EQ(first->getParentProperty(), nullptr);
+    }
+
+    TEST(DesktopTests, ContextMenuPositionsOwnsAndRestoresFocusAcrossReplacementAndClosing)
+    {
+        Desktop desktop;
+        UseFixedBounds(desktop, Rectangle(20, 30, 200, 100));
+        auto root = std::make_shared<ProbeWidget>();
+        root->setAcceptsKeyboardFocusProperty(true);
+        desktop.AddWidget(root);
+        desktop.UpdateLayout();
+        root->SetKeyboardFocus();
+
+        auto first = std::make_shared<ProbeWidget>(Point(30, 20));
+        first->setVisibleProperty(false);
+        first->setAcceptsKeyboardFocusProperty(true);
+        desktop.ShowContextMenu(first, Point(210, 120));
+
+        EXPECT_EQ(desktop.getContextMenuProperty(), first);
+        EXPECT_EQ(desktop.getWidgetsProperty().getCountProperty(), 2);
+        EXPECT_EQ(first->getDesktopProperty(), &desktop);
+        EXPECT_TRUE(first->getVisibleProperty());
+        EXPECT_EQ(first->getHorizontalAlignmentProperty(), HorizontalAlignment::Left);
+        EXPECT_EQ(first->getVerticalAlignmentProperty(), VerticalAlignment::Top);
+        EXPECT_EQ(first->getLeftProperty(), 170);
+        EXPECT_EQ(first->getTopProperty(), 80);
+        EXPECT_EQ(desktop.getFocusedKeyboardWidgetProperty(), first.get());
+
+        Widget *closedMenu = nullptr;
+        InputEventType closedType = InputEventType::None;
+        void *closedSender = first.get();
+        desktop.ContextMenuClosed += [&](void *sender, GenericEventArgs<Widget *> &arguments)
+        {
+            closedSender = sender;
+            closedMenu = arguments.getDataProperty();
+            closedType = arguments.getEventTypeProperty();
+        };
+
+        auto second = std::make_shared<ProbeWidget>(Point(40, 25));
+        second->setAcceptsKeyboardFocusProperty(true);
+        desktop.ShowContextMenu(second, Point(25, 35));
+        EXPECT_EQ(closedMenu, first.get());
+        EXPECT_EQ(closedSender, nullptr);
+        EXPECT_EQ(closedType, InputEventType::ContextMenuClosing);
+        EXPECT_FALSE(first->getVisibleProperty());
+        EXPECT_FALSE(first->getIsPlacedProperty());
+        EXPECT_EQ(desktop.getContextMenuProperty(), second);
+        EXPECT_EQ(second->getLeftProperty(), 5);
+        EXPECT_EQ(second->getTopProperty(), 5);
+        EXPECT_EQ(desktop.getFocusedKeyboardWidgetProperty(), second.get());
+
+        desktop.HideContextMenu();
+        EXPECT_EQ(desktop.getContextMenuProperty(), nullptr);
+        EXPECT_FALSE(second->getVisibleProperty());
+        EXPECT_FALSE(second->getIsPlacedProperty());
+        EXPECT_EQ(desktop.getWidgetsProperty().getCountProperty(), 1);
+        EXPECT_EQ(desktop.getFocusedKeyboardWidgetProperty(), root.get());
+        EXPECT_EQ(closedMenu, second.get());
+
+        desktop.ShowContextMenu(second, Point(20, 30));
+        EXPECT_TRUE(desktop.RemoveWidget(second.get()));
+        EXPECT_EQ(desktop.getContextMenuProperty(), nullptr);
+        EXPECT_FALSE(second->getVisibleProperty());
+        EXPECT_EQ(desktop.getFocusedKeyboardWidgetProperty(), root.get());
+
+        auto oversized = std::make_shared<ProbeWidget>(Point(250, 130));
+        desktop.ShowContextMenu(oversized, Point(20, 30));
+        EXPECT_EQ(oversized->getLeftProperty(), -50);
+        EXPECT_EQ(oversized->getTopProperty(), -30);
+        desktop.HideContextMenu();
+
+        desktop.ShowContextMenu(first, Point(20, 30));
+        desktop.setRootProperty(std::make_shared<ProbeWidget>());
+        EXPECT_EQ(desktop.getContextMenuProperty(), nullptr);
+        EXPECT_FALSE(first->getIsPlacedProperty());
+        EXPECT_EQ(desktop.getWidgetsProperty().getCountProperty(), 1);
+    }
+
+    TEST(DesktopTests, ContextMenuClosedCallbackCanInstallAReplacementWithoutLosingOriginalFocus)
+    {
+        Desktop desktop;
+        UseFixedBounds(desktop);
+        auto root = std::make_shared<ProbeWidget>();
+        root->setAcceptsKeyboardFocusProperty(true);
+        auto first = std::make_shared<ProbeWidget>();
+        auto replacement = std::make_shared<ProbeWidget>();
+        first->setAcceptsKeyboardFocusProperty(true);
+        replacement->setAcceptsKeyboardFocusProperty(true);
+        desktop.AddWidget(root);
+        desktop.UpdateLayout();
+        root->SetKeyboardFocus();
+        desktop.ShowContextMenu(first, Point(10, 10));
+
+        int closedCalls = 0;
+        desktop.ContextMenuClosed += [&](void *, GenericEventArgs<Widget *> &arguments)
+        {
+            ++closedCalls;
+            if (arguments.getDataProperty() == first.get())
+            {
+                desktop.ShowContextMenu(replacement, Point(20, 20));
+            }
+        };
+
+        desktop.HideContextMenu();
+        EXPECT_EQ(closedCalls, 1);
+        EXPECT_EQ(desktop.getContextMenuProperty(), replacement);
+        EXPECT_EQ(desktop.getFocusedKeyboardWidgetProperty(), replacement.get());
+        EXPECT_FALSE(first->getIsPlacedProperty());
+
+        desktop.HideContextMenu();
+        EXPECT_EQ(closedCalls, 2);
+        EXPECT_EQ(desktop.getContextMenuProperty(), nullptr);
+        EXPECT_EQ(desktop.getFocusedKeyboardWidgetProperty(), root.get());
+
+        desktop.ContextMenuClosed.Clear();
+        desktop.ShowContextMenu(first, Point(10, 10));
+        EXPECT_TRUE(desktop.RemoveWidget(root.get()));
+        desktop.HideContextMenu();
+        EXPECT_EQ(desktop.getFocusedKeyboardWidgetProperty(), nullptr);
     }
 
     TEST(DesktopTests, DesktopTransformComposesWithRootWidgetCoordinates)

@@ -21,7 +21,8 @@
   P5-019a's generic Widget drag capture, P5-019b's Button/Slider Desktop capture
   and wheel slice, P5-019c's ScrollViewer thumb capture/input slice, P5-012's
   complete Container contract, P5-016a's retained-root
-  Desktop ownership/layout/focus core, P5-017a's Desktop snapshot and keyboard
+  Desktop ownership/layout/focus core, P5-016b's ownership-safe context-menu
+  lifecycle, P5-017a's Desktop snapshot and keyboard
   routing core, and P0-023's
   compatibility with current modular
   CNA/sharp-runtime checkouts. `CheckButton` now carries its `IsChecked` and
@@ -386,14 +387,14 @@ and a manifest entry. The current ported surface includes:
 The widget work is deliberately partial: drawing traversal and Desktop
 placement/layout/focus plus global snapshot/keyboard routing, local pointer
 propagation, hit testing, fall-through, touch focus, basic hover visuals, and
-wheel targeting are complete. Tooltip and context-menu integration,
+wheel targeting are complete. Context-menu integration is complete. Tooltip,
 Desktop rendering/style defaults, text input, and remaining control-specific
 capture remain open. `UPSTREAM_MANIFEST.md` records this per source.
 
 ## Whole-port progress estimate
 
-As of 2026-08-24 after P6-006b, `plan.md` has **178/322 checked tasks
-(55.3%)**. Equal checkbox counting overstates
+As of 2026-08-24 after P5-016b, `plan.md` has **179/323 checked tasks
+(55.4%)**. Equal checkbox counting overstates
 end-user parity because the
 largest remaining workstreams are font/rich text, Desktop/input, most controls,
 styles/default assets, selectors/windows/dialogs, DataGrid/PropertyGrid, and the
@@ -401,8 +402,8 @@ exhaustive release gate. The feature-weighted estimate is therefore **about
 30–35% of the complete Myra-CNA port**.
 
 All currently known technical work through P10-028 is estimated at
-**1,042–1,834 focused implementation/validation hours remaining**; use about
-**1,438 hours** as the planning midpoint or **1,100–2,000 hours** as the rounded
+**1,032–1,820 focused implementation/validation hours remaining**; use about
+**1,426 hours** as the planning midpoint or **1,100–2,000 hours** as the rounded
 range. This includes code, tests, documentation, integration, and the known
 project-owned test-fixture work. It assumes P3-004 and P0-015b receive prompt
 human decisions and excludes idle waiting/legal-review time. Choosing wholly
@@ -433,14 +434,14 @@ cmake -S ../cna -B build-cna-parent \
 CCACHE_DISABLE=1 cmake --build build-cna-parent --parallel 3
 ctest --test-dir build-cna-parent/_myra_cna \
   --output-on-failure --parallel 3
-# 331/331 tests passed with current modular CNA/sharp-runtime
+# 335/335 tests passed with current modular CNA/sharp-runtime
 
 ASAN_OPTIONS=detect_leaks=0 CCACHE_DISABLE=1 \
   cmake --build build-sanitize-parent --parallel 3
 ASAN_OPTIONS=detect_leaks=0 UBSAN_OPTIONS=print_stacktrace=1 \
   ctest --test-dir build-sanitize-parent/_myra_cna \
   --output-on-failure --parallel 3
-# 331/331 tests passed with ASan address checks and UBSan
+# 335/335 tests passed with ASan address checks and UBSan
 
 # focused CheckButtonBase/ButtonBase/registry/codec validation: 19/19 passed
 
@@ -452,6 +453,9 @@ ASAN_OPTIONS=detect_leaks=0 UBSAN_OPTIONS=print_stacktrace=1 \
 
 # P5-017a Desktop input core: focused linked and ASan+UBSan DesktopInput 4/4;
 # broad default 66/66, linked SOFTWARE 306/306, and ASan+UBSan 306/306 passed
+
+# P5-016b Desktop context-menu lifecycle: focused Desktop+DesktopInput 27/27;
+# broad default 67/67, linked SOFTWARE 335/335, and ASan+UBSan 335/335 passed
 
 # P5-010b Widget hit-test core: focused DesktopInput 9/9 and related input/
 # scrolling subset 17/17; broad default 66/66, linked SOFTWARE 311/311, and
@@ -477,7 +481,7 @@ ASAN_OPTIONS=detect_leaks=0 UBSAN_OPTIONS=print_stacktrace=1 \
 # 329/329, and ASan+UBSan 329/329 passed
 
 # P6-006b CheckImageInternal parent-hover slice: focused CheckButtonBase 8/8;
-# broad default 67/67, linked SOFTWARE 331/331, and ASan+UBSan 331/331 passed
+# broad default 67/67, linked SOFTWARE 335/335, and ASan+UBSan 335/335 passed
 
 # focused UIUtils validation after that broad run: 3/3 passed
 # focused PathUtils validation after that broad run: 3/3 passed
@@ -605,7 +609,7 @@ was disabled because LeakSanitizer cannot run under this environment's
 3. P0-016 is complete. Keep every upstream test binary unbundled; execute
    P0-016a's original PNG/BMFont/stylesheet replacements only when their
    affected asset tests become implementable.
-4. P0-023, P5-008i, P5-010a, P5-010b, P5-010c, P5-010d, P5-012, P5-016a, P5-017a, P5-019a, P5-019b, P5-019c, P6-001a, P6-003a, P6-004a, P6-005a,
+4. P0-023, P5-008i, P5-010a, P5-010b, P5-010c, P5-010d, P5-012, P5-016a, P5-016b, P5-017a, P5-019a, P5-019b, P5-019c, P6-001a, P6-003a, P6-004a, P6-005a,
    P6-006a, P6-006b, P6-007a, P6-008a, P6-009a, P6-018a, P6-019a, P6-021a, P6-022a, P7-001–P7-005a, P7-006, P7-008, and P7-012a–P7-016a are complete. Keep full
    P6-006/P6-007/P6-008 style work in P8-003, and keep Slider's
    remaining stylesheet work in P6-022/P8-005; do not reopen P6-005's Label/style-
@@ -805,7 +809,10 @@ HEADLESS and SDL_RENDERER-on-Xvfb each passed the 44/44 graphics subset and full
 172/172 suite at the P2-022 milestone. The current SDL_RENDERER tree, including
 the explicit display smoke and all work since then, passes 199/199 on Xvfb.
 The current default, linked SOFTWARE, and ASan+UBSan suites pass
-67/67, 331/331, and 331/331 respectively. P6-006b passes all 8/8 focused
+67/67, 335/335, and 335/335 respectively. P5-016b passes all 27/27 focused
+Desktop/DesktopInput tests, including global/local positioning and selected
+edge fitting, focus restoration, cancellable outside touch, Escape ordering,
+direct collection removal, and reentrant replacement. P6-006b passes all 8/8 focused
 CheckButtonBase tests, including parent-hover, state priority, cloning, and
 detached fallback. P5-010d passes 2/2 focused linked cursor-routing tests plus
 1/1 deferred-linkage cursor mapping test. P5-019c passes its focused 8/8
@@ -861,11 +868,11 @@ tooltip/control-specific drag paths and replacement fixtures likewise. If P3-004
 approved, begin with P3-005's narrow abstraction and P3-006's explicit index-domain contract
 before introducing rasterizer code. P4-019 remains open only for future widget types,
 while caller-provided external-asset callbacks are already usable. P5-010b,
-P5-010c, P5-010d, P5-012, P5-016a, P5-017a, P5-019a, P5-019b, and P5-019c are complete. The P7-017 audit confirmed that a faithful Window still
+P5-010c, P5-010d, P5-012, P5-016a, P5-016b, P5-017a, P5-019a, P5-019b, and P5-019c are complete. The P7-017 audit confirmed that a faithful Window still
 needs Label even though the Desktop placement/focus/removal foundation now
-exists. Audit the remaining P5 input gaps before selecting the next coherent
-dependency-safe milestone: DataGrid capture waits for its Phase 9 control, while
-the now-populated Menu/Widget foundation may permit a Desktop context-menu lifecycle slice.
-Context menus, tooltips,
+exists. The Desktop context-menu lifecycle is now complete, so the next
+dependency-safe consumer candidate is ComboView's dropdown integration; audit
+its exact selected-upstream ownership and event behavior before implementation.
+DataGrid capture still waits for its Phase 9 control. Tooltips,
 Desktop rendering/style defaults, and text input remain in their downstream
 tasks.

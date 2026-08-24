@@ -28,6 +28,7 @@ namespace
     using Microsoft::Xna::Framework::Rectangle;
     using Microsoft::Xna::Framework::Input::Keys;
     using Myra::MyraEnvironment;
+    using Myra::Events::CancellableEventArgsT;
     using Myra::Events::GenericEventArgs;
     using Myra::Graphics2D::IBrush;
     using Myra::Graphics2D::RenderContext;
@@ -318,6 +319,101 @@ namespace
         desktop.OnKeyDown(Keys::Right);
         EXPECT_EQ(menu->getHoverIndexProperty(), 0);
         EXPECT_EQ(focused->keysDown, (std::vector<Keys>{Keys::A, Keys::A}));
+    }
+
+    TEST_F(DesktopInputTests, ContextMenuOutsideTouchCanCancelAndEscapeClosesAfterFocusedRouting)
+    {
+        MouseInfo snapshot{{0, 0}, false, false, false, 0.0F};
+        MyraEnvironment::setMouseInfoGetterProperty([&] { return snapshot; });
+        MyraEnvironment::setDownKeysGetterProperty([](MyraEnvironment::DownKeys &keys) { keys.fill(false); });
+
+        Desktop desktop;
+        desktop.setBoundsFetcherProperty([] { return Rectangle(0, 0, 100, 80); });
+        auto root = std::make_shared<Panel>();
+        auto previousFocus = std::make_shared<KeyProbeWidget>();
+        previousFocus->setWidthProperty(5);
+        previousFocus->setHeightProperty(5);
+        previousFocus->setAcceptsKeyboardFocusProperty(true);
+        root->AddWidget(previousFocus);
+        desktop.AddWidget(root);
+        desktop.UpdateLayout();
+        previousFocus->SetKeyboardFocus();
+
+        auto menu = std::make_shared<KeyProbeWidget>();
+        menu->setWidthProperty(30);
+        menu->setHeightProperty(20);
+        menu->setAcceptsKeyboardFocusProperty(true);
+        desktop.ShowContextMenu(menu, Point(10, 10));
+        desktop.UpdateLayout();
+
+        bool cancelClosing = false;
+        int closingCalls = 0;
+        int closedCalls = 0;
+        std::vector<std::string> order;
+        desktop.ContextMenuClosing += [&](void *sender, CancellableEventArgsT<Widget *> &arguments)
+        {
+            EXPECT_EQ(sender, nullptr);
+            EXPECT_EQ(arguments.getDataProperty(), menu.get());
+            EXPECT_EQ(arguments.getEventTypeProperty(), InputEventType::ContextMenuClosing);
+            ++closingCalls;
+            order.emplace_back("closing");
+            arguments.Cancel = cancelClosing;
+        };
+        desktop.ContextMenuClosed += [&](void *sender, GenericEventArgs<Widget *> &arguments)
+        {
+            EXPECT_EQ(sender, nullptr);
+            EXPECT_EQ(arguments.getDataProperty(), menu.get());
+            ++closedCalls;
+            order.emplace_back("closed");
+        };
+        desktop.TouchDown += [&](void *, Myra::Events::MyraEventArgs &) { order.emplace_back("desktop-down"); };
+
+        const auto setTouch = [&](const Point position, const bool down)
+        {
+            snapshot.Position = position;
+            snapshot.IsLeftButtonDown = down;
+            desktop.UpdateInput();
+            desktop.ProcessWidgetInput();
+            InputEventsManager::ProcessEvents();
+        };
+
+        setTouch(Point(15, 15), true);
+        EXPECT_EQ(closingCalls, 0);
+        EXPECT_EQ(order, (std::vector<std::string>{"desktop-down"}));
+        EXPECT_EQ(desktop.getContextMenuProperty(), menu);
+        setTouch(Point(15, 15), false);
+
+        order.clear();
+        cancelClosing = true;
+        setTouch(Point(80, 60), true);
+        EXPECT_EQ(closingCalls, 1);
+        EXPECT_EQ(closedCalls, 0);
+        EXPECT_EQ(order, (std::vector<std::string>{"closing", "desktop-down"}));
+        EXPECT_EQ(desktop.getContextMenuProperty(), menu);
+        EXPECT_EQ(desktop.getFocusedKeyboardWidgetProperty(), menu.get());
+        setTouch(Point(80, 60), false);
+
+        order.clear();
+        cancelClosing = false;
+        setTouch(Point(80, 60), true);
+        EXPECT_EQ(closingCalls, 2);
+        EXPECT_EQ(closedCalls, 1);
+        EXPECT_EQ(order, (std::vector<std::string>{"closing", "closed", "desktop-down"}));
+        EXPECT_EQ(desktop.getContextMenuProperty(), nullptr);
+        EXPECT_EQ(desktop.getFocusedKeyboardWidgetProperty(), previousFocus.get());
+        setTouch(Point(80, 60), false);
+
+        desktop.ShowContextMenu(menu, Point(10, 10));
+        std::vector<Keys> globalDown;
+        desktop.KeyDown +=
+            [&](void *, GenericEventArgs<Keys> &arguments) { globalDown.push_back(arguments.getDataProperty()); };
+        desktop.OnKeyDown(Keys::Escape);
+        EXPECT_EQ(globalDown, (std::vector<Keys>{Keys::Escape}));
+        EXPECT_EQ(menu->keysDown, (std::vector<Keys>{Keys::Escape}));
+        EXPECT_EQ(closingCalls, 2);
+        EXPECT_EQ(closedCalls, 2);
+        EXPECT_EQ(desktop.getContextMenuProperty(), nullptr);
+        EXPECT_EQ(desktop.getFocusedKeyboardWidgetProperty(), previousFocus.get());
     }
 
     TEST_F(DesktopInputTests, HitTestingTracksLocalMouseAndTouchTransitionsAndFocus)
