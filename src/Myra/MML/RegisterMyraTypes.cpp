@@ -45,12 +45,14 @@
 #include "Myra/Graphics2D/UI/Simple/ToggleButton.hpp"
 #include "Myra/Graphics2D/UI/Simple/VerticalSeparator.hpp"
 #include "Myra/Graphics2D/UI/Selectors/ComboView.hpp"
+#include "Myra/Graphics2D/UI/Selectors/HorizontalMenu.hpp"
 #include "Myra/Graphics2D/UI/Selectors/IMenuItem.hpp"
 #include "Myra/Graphics2D/UI/Selectors/ListView.hpp"
 #include "Myra/Graphics2D/UI/Selectors/MenuItem.hpp"
 #include "Myra/Graphics2D/UI/Selectors/MenuSeparator.hpp"
 #include "Myra/Graphics2D/UI/Selectors/TabControl.hpp"
 #include "Myra/Graphics2D/UI/Selectors/TabItem.hpp"
+#include "Myra/Graphics2D/UI/Selectors/VerticalMenu.hpp"
 #include "Myra/Graphics2D/UI/Widget.hpp"
 
 namespace Myra::MML
@@ -70,6 +72,7 @@ namespace Myra::MML
         using Graphics2D::UI::ExportOptions;
         using Graphics2D::UI::Grid;
         using Graphics2D::UI::HorizontalAlignment;
+        using Graphics2D::UI::HorizontalMenu;
         using Graphics2D::UI::HorizontalProgressBar;
         using Graphics2D::UI::HorizontalSeparator;
         using Graphics2D::UI::HorizontalSlider;
@@ -103,6 +106,7 @@ namespace Myra::MML
         using Graphics2D::UI::TabSelectorPosition;
         using Graphics2D::UI::ToggleButton;
         using Graphics2D::UI::VerticalAlignment;
+        using Graphics2D::UI::VerticalMenu;
         using Graphics2D::UI::VerticalProgressBar;
         using Graphics2D::UI::VerticalSeparator;
         using Graphics2D::UI::VerticalSlider;
@@ -988,6 +992,63 @@ namespace Myra::MML
             return descriptor;
         }
 
+        TypeDescriptor MakeMenuDescriptor()
+        {
+            TypeDescriptor descriptor("Menu", typeid(Menu), {}, typeid(Widget));
+            descriptor.EnableBaseTypeAccess<Menu, Widget>();
+            descriptor.EnableBaseObjectAccess<Menu>();
+
+            PropertyMetadata itemsMetadata;
+            itemsMetadata.Content = true;
+            descriptor.AddProperty(PropertyDescriptor(
+                "Items", typeid(MenuItemCollection), {}, {}, std::nullopt, std::move(itemsMetadata), {}, {},
+                ComplexPropertyAdapter::Sequence(
+                    typeid(IMenuItem), [](void *object, const std::shared_ptr<void> &value)
+                    { static_cast<Menu *>(object)->getItemsProperty().Add(AsMenuItemInterface(value)); },
+                    [](const void *object)
+                    { return EnumerateMenuItems(static_cast<const Menu *>(object)->getItemsProperty()); })));
+            descriptor.AddProperty(MakeScalarProperty<Menu, bool>(
+                "HoverIndexCanBeNull", [](const Menu &object) { return object.getHoverIndexCanBeNullProperty(); },
+                [](Menu &object, const bool value) { object.setHoverIndexCanBeNullProperty(value); }, true));
+
+            const auto addIgnored = [&descriptor](std::string name, std::type_index type, auto getter)
+            {
+                PropertyMetadata metadata;
+                metadata.XmlIgnore = true;
+                descriptor.AddProperty(PropertyDescriptor(std::move(name), type, std::move(getter), {}, std::nullopt,
+                                                          std::move(metadata)));
+            };
+            addIgnored("Orientation", typeid(Orientation), [](const void *object)
+                       { return std::any(static_cast<const Menu *>(object)->getOrientationProperty()); });
+            addIgnored("IsOpen", typeid(bool), [](const void *object)
+                       { return std::any(static_cast<const Menu *>(object)->getIsOpenProperty()); });
+            addIgnored("HoverIndex", typeid(std::optional<int>), [](const void *object)
+                       { return std::any(static_cast<const Menu *>(object)->getHoverIndexProperty()); });
+            addIgnored("SelectedIndex", typeid(std::optional<int>), [](const void *object)
+                       { return std::any(static_cast<const Menu *>(object)->getSelectedIndexProperty()); });
+            return descriptor;
+        }
+
+        template <typename T>
+        TypeDescriptor MakeConcreteMenuDescriptor(std::string name, const HorizontalAlignment horizontalDefault,
+                                                  const VerticalAlignment verticalDefault)
+        {
+            TypeDescriptor descriptor(
+                std::move(name), typeid(T), [] { return std::static_pointer_cast<void>(std::make_shared<T>()); },
+                typeid(Menu));
+            descriptor.template EnableBaseTypeAccess<T, Menu>();
+            descriptor.template EnableBaseObjectAccess<T>();
+            descriptor.AddProperty(MakeScalarProperty<T, HorizontalAlignment>(
+                "HorizontalAlignment", [](const T &object) { return object.getHorizontalAlignmentProperty(); },
+                [](T &object, const HorizontalAlignment value) { object.setHorizontalAlignmentProperty(value); },
+                horizontalDefault));
+            descriptor.AddProperty(MakeScalarProperty<T, VerticalAlignment>(
+                "VerticalAlignment", [](const T &object) { return object.getVerticalAlignmentProperty(); },
+                [](T &object, const VerticalAlignment value) { object.setVerticalAlignmentProperty(value); },
+                verticalDefault));
+            return descriptor;
+        }
+
         TypeDescriptor MakeButtonBaseDescriptor()
         {
             TypeDescriptor descriptor("ButtonBase", typeid(ButtonBase), {}, typeid(ContentControl));
@@ -1278,6 +1339,11 @@ namespace Myra::MML
         registry.Register(MakeMenuItemDescriptor());
         registry.Register(MakeMenuSeparatorDescriptor());
         registry.Register(MakeWidgetDescriptor());
+        registry.Register(MakeMenuDescriptor());
+        registry.Register(MakeConcreteMenuDescriptor<HorizontalMenu>("HorizontalMenu", HorizontalAlignment::Stretch,
+                                                                     VerticalAlignment::Top));
+        registry.Register(MakeConcreteMenuDescriptor<VerticalMenu>("VerticalMenu", HorizontalAlignment::Left,
+                                                                   VerticalAlignment::Top));
         registry.Register(MakeImageDescriptor());
         registry.Register(MakeSeparatorWidgetDescriptor());
         registry.Register(MakeConcreteSeparatorDescriptor<HorizontalSeparator>(

@@ -80,8 +80,8 @@ behavioral redesign.
 
 ### 1.4 Whole-port completion and remaining-effort estimate
 
-Checkpoint: 2026-08-24, after P7-007b. The mechanical backlog count is
-**191/335 checked tasks (57.0%)**. The count is useful for
+Checkpoint: 2026-08-24, after P7-009b. The mechanical backlog count is
+**192/336 checked tasks (57.1%)**. The count is useful for
 auditing plan state but is
 not a parity percentage: small foundation subtasks and large end-to-end
 features each count once, while the remaining font/text, Desktop/input,
@@ -102,13 +102,13 @@ are planning ranges rather than a delivery promise.
 | Phase 4 — MML/XML | 31/36 | 40–80 |
 | Phase 5 — Widget/Desktop/input | 41/48 | 0–0 |
 | Phase 6 — controls/editing | 24/51 | 96–158 |
-| Phase 7 — selectors/windows/dialogs | 25/43 | 144–236 |
+| Phase 7 — selectors/windows/dialogs | 26/44 | 142–232 |
 | Phase 8 — styles/default skin | 0/14 | 140–240 |
 | Phase 9 — file/data/property grids | 1/21 | 180–320 |
 | Phase 10 — parity/release | 0/28 | 140–240 |
-| **Whole remaining technical port** | **191/335 complete** | **984–1,734** |
+| **Whole remaining technical port** | **192/336 complete** | **982–1,730** |
 
-For scheduling, use **about 1,359 focused hours remaining** as the midpoint,
+For scheduling, use **about 1,356 focused hours remaining** as the midpoint,
 with **1,000–2,000 hours** as the sensible rounded range. This assumes prompt
 human decisions for P3-004 and P0-015b, no newly discovered upstream/CNA
 architectural blocker, and continued reuse of the existing tested foundations.
@@ -563,11 +563,12 @@ are green, and the build uses no more than three parallel jobs.
 - [x] P7-007b Register the dependency-safe menu-item MML data surface: abstract `IMenuItem` identity/runtime metadata, concrete `MenuItem` text/shortcut/external-image properties and implicit heterogeneous nested items, and concrete `MenuSeparator` with upstream-ignored identity. Flatten `MenuItem`'s BaseObject identity onto the interface branch needed for exact C++ pointer adjustment; keep blocked Color/ShortcutColor and internal submenu/separator visuals absent.
 - [ ] P7-007 Port `Selectors/MenuItem.cs`.
 - [x] P7-008 Port `Selectors/MenuSeparator.cs`.
-- [x] P7-009a Port the style-independent `Menu` core: observable retained item collection, owner/index synchronization, nested `VerticalMenu` ownership, recursive id lookup, logical hover/selection/open state, close/click behavior, mnemonic/Enter/Space handling, and separator-skipping navigation. Keep Grid widget composition, measured cells, Label/Image visual wiring, selection brushes, styles, Desktop context menus, and MML metadata in P5-016/P6-002/P6-016/P7-009/P8-006.
+- [x] P7-009a Port the style-independent `Menu` core: observable retained item collection, owner/index synchronization, nested `VerticalMenu` ownership, recursive id lookup, logical hover/selection/open state, close/click behavior, mnemonic/Enter/Space handling, and separator-skipping navigation. MML metadata arrived in P7-009b; keep Grid widget composition, measured cells, Label/Image visual wiring, selection brushes, styles, and Desktop context menus in P5-016/P6-002/P6-016/P7-009/P8-006.
+- [x] P7-009b Register the dependency-safe abstract `Menu` and concrete `HorizontalMenu`/`VerticalMenu` MML hierarchy: implicit heterogeneous logical items, `HoverIndexCanBeNull`, exact concrete alignment defaults, and XML-ignored orientation/open/hover/selection state. Keep the unported font/color/selection-brush/label-alignment/style properties and internal Grid/submenus absent.
 - [ ] P7-009 Port `Selectors/Menu.cs`.
-- [x] P7-010a Port `HorizontalMenu`'s style-independent orientation, alignment defaults, and Left/Right navigation.
+- [x] P7-010a Port `HorizontalMenu`'s style-independent orientation, alignment defaults, and Left/Right navigation. Its concrete MML registration arrived in P7-009b.
 - [ ] P7-010 Port `Selectors/HorizontalMenu.cs`.
-- [x] P7-011a Port `VerticalMenu`'s style-independent orientation, alignment defaults, and Up/Down navigation.
+- [x] P7-011a Port `VerticalMenu`'s style-independent orientation, alignment defaults, and Up/Down navigation. Its concrete MML registration arrived in P7-009b.
 - [ ] P7-011 Port `Selectors/VerticalMenu.cs`.
 - [x] P7-012a Port the style-independent `TabItem` data core: retained optional text/content/image/tag/height state, identifier/change and selection events, `ToString`, and clone behavior. MML metadata arrived in P7-012b; keep text color and ListViewButton/Label visual wiring in P3-004/P6-002/P7-012/P7-013/P8-004.
 - [x] P7-012b Register the dependency-safe `TabItem` MML surface over `BaseObject`: optional text/height, implicit widget content, and XML-ignored tag/image/spacing/selection state. Keep `Color` absent until the P3 font/text type is approved and ported.
