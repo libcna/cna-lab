@@ -80,8 +80,8 @@ behavioral redesign.
 
 ### 1.4 Whole-port completion and remaining-effort estimate
 
-Checkpoint: 2026-08-24, after P7-004. The mechanical backlog count is
-**199/342 checked tasks (58.2%)**. The count is useful for
+Checkpoint: 2026-08-24, after P1-022. The mechanical backlog count is
+**200/342 checked tasks (58.5%)**. The count is useful for
 auditing plan state but is
 not a parity percentage: small foundation subtasks and large end-to-end
 features each count once, while the remaining font/text, Desktop/input,
@@ -96,7 +96,7 @@ are planning ranges rather than a delivery promise.
 | Phase | Checked tasks | Estimated focused hours remaining |
 | --- | ---: | ---: |
 | Phase 0 — legal/assets/harness | 23/26 | 24–80 |
-| Phase 1 — shared runtime | 22/23 | 16–32 |
+| Phase 1 — shared runtime | 23/23 | 0–0 |
 | Phase 2 — CNA graphics | 20/24 | 24–48 |
 | Phase 3 — font/text/assets | 4/21 | 180–300 |
 | Phase 4 — MML/XML | 31/36 | 40–80 |
@@ -106,9 +106,9 @@ are planning ranges rather than a delivery promise.
 | Phase 8 — styles/default skin | 0/14 | 140–240 |
 | Phase 9 — file/data/property grids | 1/21 | 180–320 |
 | Phase 10 — parity/release | 0/28 | 140–240 |
-| **Whole remaining technical port** | **199/342 complete** | **982–1,730** |
+| **Whole remaining technical port** | **200/342 complete** | **966–1,698** |
 
-For scheduling, use **about 1,356 focused hours remaining** as the midpoint,
+For scheduling, use **about 1,332 focused hours remaining** as the midpoint,
 with **1,000–2,000 hours** as the sensible rounded range. This assumes prompt
 human decisions for P3-004 and P0-015b, no newly discovered upstream/CNA
 architectural blocker, and continued reuse of the existing tested foundations.
@@ -348,7 +348,7 @@ are green, and the build uses no more than three parallel jobs.
 - [x] P1-019 Port `Utility/EventsExtensions.cs` with removable subscriptions.
 - [x] P1-020 Resolve internal `Utility/CurrentPlatform.cs` without translation: FileDialog will use CNA `getCurrentPlatform()`/`getCurrentDesktopOS()` and TextBox will use CNA Clipboard, avoiding an unnecessary MonoGame-derived platform shim.
 - [x] P1-021 Port `Utility/InputExtension.cs` with MonoGame.Extended dual attribution.
-- [ ] P1-022 Translate upstream unit tests for all Phase 1 types.
+- [x] P1-022 Translate and complete regression coverage for all Phase 1 types. The pinned `EventsTests.cs` hit/miss, capture/bubble, and stop-propagation matrix runs against the real Desktop/Panel/Button tree; focused suites cover every event argument/handler, Thickness, Transform, ColorHSV, CrossEngineStuff, Mathematics, PathUtils, Rest, StringUtils, UIUtils, EventsExtensions, and InputExtension surface.
 
 ### Phase 2 — direct CNA environment and graphics primitives
 

@@ -3,8 +3,9 @@
 ## Current state
 
 - Active branch: `develop`.
-- Current committed baseline `3af6ecd` (`feat: render stack panel debug lines`)
-  completes P6-013c. The repository checkpoint described by this handoff also completes P6-006a/
+- Current committed baseline `7ceccac` (`feat: complete list view collection adapter`)
+  completes P7-004. The repository checkpoint described by this handoff also completes P1-022's
+  complete Phase 1 regression coverage and P6-006a/
   P6-006b's style-independent abstract `CheckButtonBase` and parent-hover image,
   P6-007a's concrete
   `CheckButton`, P6-008a's direct-sibling `RadioButton` behavior, P6-018a/P6-018b's
@@ -101,7 +102,9 @@ and a manifest entry. The current ported surface includes:
   no upstream test binary was copied;
 - event arguments, multicast handlers, a propagation manager whose capture and
   bubble queues retain processors through dispatch/filtering, and invocation
-  helpers (`DEV-039`);
+  helpers (`DEV-039`). P1-022 closes Phase 1 with targeted coverage for every
+  translated runtime type and the exact six pinned Desktop/Panel/Button event
+  propagation scenarios;
 - `Thickness`, `Transform`, `Mathematics`, `ColorHSV`, and string helpers;
 - MML `BaseObject`, `IItemWithId`, and `IHasColor`;
 - UI contracts, `Widget`'s layout/transform kernel and complete child-tree API,
@@ -429,8 +432,8 @@ capture remain open. `UPSTREAM_MANIFEST.md` records this per source.
 
 ## Whole-port progress estimate
 
-As of 2026-08-24 after P7-004, `plan.md` has **199/342 checked tasks
-(58.2%)**. Equal checkbox counting overstates
+As of 2026-08-24 after P1-022, `plan.md` has **200/342 checked tasks
+(58.5%)**. Equal checkbox counting overstates
 end-user parity because the
 largest remaining workstreams are font/rich text, Desktop/input, most controls,
 styles/default assets, selectors/windows/dialogs, DataGrid/PropertyGrid, and the
@@ -438,8 +441,8 @@ exhaustive release gate. The feature-weighted estimate is therefore **about
 30–35% of the complete Myra-CNA port**.
 
 All currently known technical work through P10-028 is estimated at
-**982–1,730 focused implementation/validation hours remaining**; use about
-**1,356 hours** as the planning midpoint or **1,000–2,000 hours** as the rounded
+**966–1,698 focused implementation/validation hours remaining**; use about
+**1,332 hours** as the planning midpoint or **1,000–2,000 hours** as the rounded
 range. This includes code, tests, documentation, integration, and the known
 project-owned test-fixture work. It assumes P3-004 and P0-015b receive prompt
 human decisions and excludes idle waiting/legal-review time. Choosing wholly
@@ -470,14 +473,18 @@ cmake -S ../cna -B build-cna-parent \
 CCACHE_DISABLE=1 cmake --build build-cna-parent --parallel 3
 ctest --test-dir build-cna-parent/_myra_cna \
   --output-on-failure --parallel 3
-# 376/376 tests passed with current modular CNA/sharp-runtime
+# 377/377 tests passed with current modular CNA/sharp-runtime
 
 ASAN_OPTIONS=detect_leaks=0 CCACHE_DISABLE=1 \
   cmake --build build-sanitize-parent --parallel 3
 ASAN_OPTIONS=detect_leaks=0 UBSAN_OPTIONS=print_stacktrace=1 \
   ctest --test-dir build-sanitize-parent/_myra_cna \
   --output-on-failure --parallel 3
-# 376/376 tests passed with ASan address checks and UBSan
+# 377/377 tests passed with ASan address checks and UBSan
+
+# P1-022 Phase 1 test completion: exact pinned event matrix linked and
+# ASan+UBSan 1/1; broad default 67/67, linked SOFTWARE 377/377, and
+# ASan+UBSan 377/377 passed
 
 # P7-004 ListView collection-adapter completion: focused linked 6/6;
 # broad default 67/67, linked SOFTWARE 376/376, and ASan+UBSan 376/376 passed
@@ -703,7 +710,7 @@ was disabled because LeakSanitizer cannot run under this environment's
 3. P0-016 is complete. Keep every upstream test binary unbundled; execute
    P0-016a's original PNG/BMFont/stylesheet replacements only when their
    affected asset tests become implementable.
-4. P0-023, P5-008i, P5-010a, P5-010b, P5-010c, P5-010d, P5-012, P5-016a, P5-016b, P5-016c, P5-016d, P5-017a, P5-018a, P5-019a, P5-019b, P5-019c, P6-001a, P6-003a, P6-004a, P6-005a,
+4. P0-023, P1-022, P5-008i, P5-010a, P5-010b, P5-010c, P5-010d, P5-012, P5-016a, P5-016b, P5-016c, P5-016d, P5-017a, P5-018a, P5-019a, P5-019b, P5-019c, P6-001a, P6-003a, P6-004a, P6-005a,
    P6-006a, P6-006b, P6-007a, P6-008a, P6-009a, P6-013c, P6-016c, P6-018a, P6-018b, P6-019a, P6-019b, P6-019c, P6-021a, P6-022a, P7-001–P7-004, P7-005a, P7-005b, P7-005c, P7-006, P7-007a, P7-007b, P7-008, P7-009a, P7-009b, P7-010a, P7-011a, P7-012a, P7-012b, P7-013a, P7-013b, P7-013c, P7-014, P7-015a, P7-016a, P7-016b, and P7-016c are complete. Keep full
    P6-006/P6-007/P6-008 style work in P8-003, and keep Slider's
    remaining stylesheet work in P6-022/P8-005; do not reopen P6-005's Label/style-
@@ -971,7 +978,9 @@ HEADLESS and SDL_RENDERER-on-Xvfb each passed the 44/44 graphics subset and full
 172/172 suite at the P2-022 milestone. The current SDL_RENDERER tree, including
 the explicit display smoke and all work since then, passes 199/199 on Xvfb.
 The current default, linked SOFTWARE, and ASan+UBSan suites pass
-67/67, 376/376, and 376/376 respectively. P7-004 passes all 6/6 focused
+67/67, 377/377, and 377/377 respectively. P1-022 closes Phase 1 with the exact
+six-scenario pinned event propagation matrix plus targeted coverage for every
+translated Phase 1 runtime type. P7-004 passes all 6/6 focused
 ListView tests, including the complete explicit collection adapter and selected
 visual restoration across wrapper rebuilds. P6-013c passes all 6/6 focused
 StackPanel tests in both linked configurations, covering both divider axes,
@@ -1086,6 +1095,8 @@ P0-015 completed the default-resource provenance audit. The exact Inter font is
 OFL-cleared but still unbundled; the VisUI-derived atlas is explicitly
 `needs_human` P0-015b. P0-016 subsequently classified all 35 test assets without
 copying them and opened P0-016a for behavior-equivalent project-owned fixtures.
+P1-022 completes Phase 1's translated upstream and type-specific regression
+coverage, including the exact event propagation matrix.
 P6-006a/P6-006b/P6-007a/P6-008a are complete; their remaining styles stay in
 P8. Do not reopen P6-005's Label/style-dependent remainder
 until P6-002/P8-003 are implementable. The dependency-safe tooltip lifecycle is

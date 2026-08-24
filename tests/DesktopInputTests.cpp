@@ -22,6 +22,7 @@
 #include "Myra/Graphics2D/UI/Misc/TreeView.hpp"
 #include "Myra/Graphics2D/UI/Selectors/HorizontalMenu.hpp"
 #include "Myra/Graphics2D/UI/Selectors/MenuItem.hpp"
+#include "Myra/Graphics2D/UI/Simple/Button.hpp"
 #include "Myra/MyraEnvironment.hpp"
 
 namespace
@@ -34,6 +35,7 @@ namespace
     using Myra::Events::GenericEventArgs;
     using Myra::Graphics2D::IBrush;
     using Myra::Graphics2D::RenderContext;
+    using Myra::Graphics2D::UI::Button;
     using Myra::Graphics2D::UI::Desktop;
     using Myra::Graphics2D::UI::DragDirection;
     using Myra::Graphics2D::UI::HorizontalMenu;
@@ -177,6 +179,90 @@ namespace
         Point oldTooltipOffset_;
         MyraEnvironment::TooltipCreator oldTooltipCreator_;
     };
+
+    TEST_F(DesktopInputTests, MatchesEveryPinnedUpstreamEventPropagationScenario)
+    {
+        struct Scenario
+        {
+            const char *Name;
+            Myra::Events::EventHandlingStrategy Strategy;
+            Point Position;
+            bool StopAtPanel;
+            std::vector<std::string> Expected;
+        };
+
+        const std::array scenarios{
+            Scenario{"capturing hit",
+                     Myra::Events::EventHandlingStrategy::EventCapturing,
+                     Point(35, 35),
+                     false,
+                     {"desktop", "panel", "button"}},
+            Scenario{"bubbling hit",
+                     Myra::Events::EventHandlingStrategy::EventBubbling,
+                     Point(35, 35),
+                     false,
+                     {"button", "panel", "desktop"}},
+            Scenario{"capturing miss",
+                     Myra::Events::EventHandlingStrategy::EventCapturing,
+                     Point(100, 100),
+                     false,
+                     {"desktop", "panel"}},
+            Scenario{"bubbling miss",
+                     Myra::Events::EventHandlingStrategy::EventBubbling,
+                     Point(100, 100),
+                     false,
+                     {"panel", "desktop"}},
+            Scenario{"capturing stop",
+                     Myra::Events::EventHandlingStrategy::EventCapturing,
+                     Point(35, 35),
+                     true,
+                     {"desktop", "panel"}},
+            Scenario{"bubbling stop",
+                     Myra::Events::EventHandlingStrategy::EventBubbling,
+                     Point(35, 35),
+                     true,
+                     {"button", "panel"}},
+        };
+
+        for (const Scenario &scenario : scenarios)
+        {
+            SCOPED_TRACE(scenario.Name);
+            MyraEnvironment::setEventHandlingModelProperty(scenario.Strategy);
+            MouseInfo snapshot{scenario.Position, true, false, false, 0.0F};
+            MyraEnvironment::setMouseInfoGetterProperty([&snapshot] { return snapshot; });
+            MyraEnvironment::setDownKeysGetterProperty([](MyraEnvironment::DownKeys &keys) { keys.fill(false); });
+
+            Desktop desktop;
+            UseFixedBounds(desktop);
+            auto panel = std::make_shared<Panel>();
+            auto button = std::make_shared<Button>();
+            button->setLeftProperty(10);
+            button->setTopProperty(10);
+            button->setWidthProperty(50);
+            button->setHeightProperty(50);
+            panel->AddWidget(button);
+            desktop.AddWidget(panel);
+            desktop.UpdateLayout();
+
+            std::vector<std::string> calls;
+            desktop.TouchDown += [&](void *, Myra::Events::MyraEventArgs &) { calls.emplace_back("desktop"); };
+            panel->TouchDown += [&](void *, Myra::Events::MyraEventArgs &arguments)
+            {
+                calls.emplace_back("panel");
+                if (scenario.StopAtPanel)
+                {
+                    arguments.StopPropagation();
+                }
+            };
+            button->TouchDown += [&](void *, Myra::Events::MyraEventArgs &) { calls.emplace_back("button"); };
+
+            desktop.UpdateInput();
+            desktop.ProcessWidgetInput();
+            InputEventsManager::ProcessEvents();
+
+            EXPECT_EQ(calls, scenario.Expected);
+        }
+    }
 
     TEST_F(DesktopInputTests, MouseSnapshotsQueueTouchMovementAndWheelEventsInUpstreamOrder)
     {
