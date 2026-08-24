@@ -17,6 +17,7 @@
 #include "Myra/Graphics2D/UI/Enums.hpp"
 #include "Myra/Graphics2D/UI/File/FileDialogMode.hpp"
 #include "Myra/Graphics2D/UI/Selectors/ISelector.hpp"
+#include "Myra/Graphics2D/UI/Selectors/TabControl.hpp"
 #include "Myra/Graphics2D/UI/Simple/CheckButtonBase.hpp"
 #include "Myra/Graphics2D/UI/Simple/Image.hpp"
 #include "Myra/Graphics2D/UI/Widget.hpp"
@@ -325,6 +326,11 @@ namespace Myra::MML
         RegisterEnumAndOptional<Graphics2D::UI::SelectionMode>(registry,
             {{"Single", Graphics2D::UI::SelectionMode::Single},
                 {"Multiple", Graphics2D::UI::SelectionMode::Multiple}});
+        RegisterEnumAndOptional<Graphics2D::UI::TabSelectorPosition>(
+            registry, {{"Top", Graphics2D::UI::TabSelectorPosition::Top},
+                       {"Right", Graphics2D::UI::TabSelectorPosition::Right},
+                       {"Bottom", Graphics2D::UI::TabSelectorPosition::Bottom},
+                       {"Left", Graphics2D::UI::TabSelectorPosition::Left}});
         RegisterEnumAndOptional<Graphics2D::UI::File::FileDialogMode>(registry,
             {{"OpenFile", Graphics2D::UI::File::FileDialogMode::OpenFile},
                 {"SaveFile", Graphics2D::UI::File::FileDialogMode::SaveFile},

@@ -46,6 +46,7 @@
 #include "Myra/Graphics2D/UI/Simple/VerticalSeparator.hpp"
 #include "Myra/Graphics2D/UI/Selectors/ComboView.hpp"
 #include "Myra/Graphics2D/UI/Selectors/ListView.hpp"
+#include "Myra/Graphics2D/UI/Selectors/TabControl.hpp"
 #include "Myra/Graphics2D/UI/Selectors/TabItem.hpp"
 #include "Myra/Graphics2D/UI/Widget.hpp"
 
@@ -89,7 +90,9 @@ namespace Myra::MML
         using Graphics2D::UI::Slider;
         using Graphics2D::UI::SplitPane;
         using Graphics2D::UI::StackPanel;
+        using Graphics2D::UI::TabControl;
         using Graphics2D::UI::TabItem;
+        using Graphics2D::UI::TabSelectorPosition;
         using Graphics2D::UI::ToggleButton;
         using Graphics2D::UI::VerticalAlignment;
         using Graphics2D::UI::VerticalProgressBar;
@@ -146,6 +149,11 @@ namespace Myra::MML
             return std::shared_ptr<Proportion>(value, static_cast<Proportion *>(value.get()));
         }
 
+        [[nodiscard]] std::shared_ptr<TabItem> AsTabItem(const std::shared_ptr<void> &value)
+        {
+            return std::shared_ptr<TabItem>(value, static_cast<TabItem *>(value.get()));
+        }
+
         [[nodiscard]] std::vector<RegisteredObjectView>
         EnumerateWidgets(const std::vector<std::shared_ptr<Widget>> &values)
         {
@@ -169,6 +177,24 @@ namespace Myra::MML
         {
             return value ? std::vector<RegisteredObjectView>{{dynamic_cast<const void *>(value.get()), typeid(*value)}}
                          : std::vector<RegisteredObjectView>();
+        }
+
+        [[nodiscard]] std::vector<RegisteredObjectView> EnumerateTabItems(const TabControl::ItemCollection &values)
+        {
+            std::vector<RegisteredObjectView> result;
+            result.reserve(static_cast<std::size_t>(values.getCountProperty()));
+            for (const std::shared_ptr<TabItem> &value : values)
+            {
+                if (value)
+                {
+                    result.emplace_back(dynamic_cast<const void *>(value.get()), typeid(*value));
+                }
+                else
+                {
+                    result.emplace_back(nullptr, typeid(TabItem));
+                }
+            }
+            return result;
         }
 
         [[nodiscard]] std::vector<RegisteredObjectView> EnumerateExportOptions(const ExportOptions &value)
@@ -785,6 +811,59 @@ namespace Myra::MML
             return descriptor;
         }
 
+        TypeDescriptor MakeTabControlDescriptor()
+        {
+            TypeDescriptor descriptor(
+                "TabControl", typeid(TabControl),
+                [] { return std::static_pointer_cast<void>(std::make_shared<TabControl>()); }, typeid(Widget));
+            descriptor.EnableBaseTypeAccess<TabControl, Widget>();
+            descriptor.EnableBaseObjectAccess<TabControl>();
+
+            PropertyMetadata itemsMetadata;
+            itemsMetadata.Content = true;
+            descriptor.AddProperty(PropertyDescriptor(
+                "Items", typeid(TabControl::ItemCollection), {}, {}, std::nullopt, std::move(itemsMetadata), {}, {},
+                ComplexPropertyAdapter::Sequence(
+                    typeid(TabItem), [](void *object, const std::shared_ptr<void> &value)
+                    { static_cast<TabControl *>(object)->getItemsProperty().Add(AsTabItem(value)); },
+                    [](const void *object)
+                    { return EnumerateTabItems(static_cast<const TabControl *>(object)->getItemsProperty()); })));
+
+            const auto addIgnored = [&descriptor](std::string name, std::type_index type, auto getter)
+            {
+                PropertyMetadata metadata;
+                metadata.XmlIgnore = true;
+                descriptor.AddProperty(PropertyDescriptor(std::move(name), type, std::move(getter), {}, std::nullopt,
+                                                          std::move(metadata)));
+            };
+            addIgnored("SelectionMode", typeid(SelectionMode), [](const void *object)
+                       { return std::any(static_cast<const TabControl *>(object)->getSelectionModeProperty()); });
+            addIgnored("SelectedIndex", typeid(std::optional<int>), [](const void *object)
+                       { return std::any(static_cast<const TabControl *>(object)->getSelectedIndexProperty()); });
+            addIgnored("SelectedItem", typeid(std::shared_ptr<TabItem>), [](const void *object)
+                       { return std::any(static_cast<const TabControl *>(object)->getSelectedItemProperty()); });
+
+            descriptor.AddProperty(MakeScalarProperty<TabControl, HorizontalAlignment>(
+                "HorizontalAlignment", [](const TabControl &object) { return object.getHorizontalAlignmentProperty(); },
+                [](TabControl &object, const HorizontalAlignment value)
+                { object.setHorizontalAlignmentProperty(value); }, HorizontalAlignment::Left));
+            descriptor.AddProperty(MakeScalarProperty<TabControl, VerticalAlignment>(
+                "VerticalAlignment", [](const TabControl &object) { return object.getVerticalAlignmentProperty(); },
+                [](TabControl &object, const VerticalAlignment value) { object.setVerticalAlignmentProperty(value); },
+                VerticalAlignment::Top));
+            descriptor.AddProperty(MakeScalarProperty<TabControl, TabSelectorPosition>(
+                "TabSelectorPosition", [](const TabControl &object) { return object.getTabSelectorPositionProperty(); },
+                [](TabControl &object, const TabSelectorPosition value)
+                { object.setTabSelectorPositionProperty(value); }, TabSelectorPosition::Top));
+            descriptor.AddProperty(MakeScalarProperty<TabControl, bool>(
+                "CloseableTabs", [](const TabControl &object) { return object.getCloseableTabsProperty(); },
+                [](TabControl &object, const bool value) { object.setCloseableTabsProperty(value); }, false));
+            descriptor.AddProperty(MakeScalarProperty<TabControl, bool>(
+                "ClipToBounds", [](const TabControl &object) { return object.getClipToBoundsProperty(); },
+                [](TabControl &object, const bool value) { object.setClipToBoundsProperty(value); }, true));
+            return descriptor;
+        }
+
         TypeDescriptor MakeButtonBaseDescriptor()
         {
             TypeDescriptor descriptor("ButtonBase", typeid(ButtonBase), {}, typeid(ContentControl));
@@ -1093,6 +1172,7 @@ namespace Myra::MML
         registry.Register(MakeListViewDescriptor());
         registry.Register(MakeComboViewDescriptor());
         registry.Register(MakeTabItemDescriptor());
+        registry.Register(MakeTabControlDescriptor());
         registry.Register(MakeButtonBaseDescriptor());
         registry.Register(MakeButtonDescriptor());
         registry.Register(MakeToggleButtonDescriptor());
