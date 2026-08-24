@@ -45,6 +45,7 @@ if(MYRA_CNA_CNA_LINKED)
         CrossEngineStuffTests.cpp
         DefaultAssetsTests.cpp
         DesktopInputTests.cpp
+        DesktopRenderTests.cpp
         DesktopTests.cpp
         GridLayoutTests.cpp
         IHasColorTests.cpp

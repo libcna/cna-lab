@@ -42,6 +42,7 @@ namespace
             MyraEnvironment::setTooltipDelayInMsProperty(500);
             MyraEnvironment::setTooltipOffsetProperty({0, 20});
             MyraEnvironment::setTooltipCreatorProperty(std::move(tooltipCreator_));
+            MyraEnvironment::setEnableModalDarkeningProperty(false);
             MyraEnvironment::setMouseInfoGetterProperty(std::move(mouseInfoGetter_));
             MyraEnvironment::setDownKeysGetterProperty(std::move(downKeysGetter_));
         }
@@ -68,6 +69,7 @@ namespace
         EXPECT_EQ(MyraEnvironment::getTooltipDelayInMsProperty(), 500);
         EXPECT_EQ(MyraEnvironment::getTooltipOffsetProperty(), Microsoft::Xna::Framework::Point(0, 20));
         EXPECT_FALSE(MyraEnvironment::getTooltipCreatorProperty());
+        EXPECT_FALSE(MyraEnvironment::getEnableModalDarkeningProperty());
     }
 
     TEST_F(MyraEnvironmentSettingsTests, StoresEachConfigurationSettingIndependently)
@@ -85,6 +87,7 @@ namespace
         MyraEnvironment::setTooltipDelayInMsProperty(125);
         MyraEnvironment::setTooltipOffsetProperty({4, 9});
         MyraEnvironment::setTooltipCreatorProperty([](Myra::Graphics2D::UI::Widget &) { return nullptr; });
+        MyraEnvironment::setEnableModalDarkeningProperty(true);
 
         EXPECT_EQ(MyraEnvironment::getEventHandlingModelProperty(), EventHandlingStrategy::EventBubbling);
         EXPECT_TRUE(MyraEnvironment::getDrawWidgetsFramesProperty());
@@ -99,6 +102,7 @@ namespace
         EXPECT_EQ(MyraEnvironment::getTooltipDelayInMsProperty(), 125);
         EXPECT_EQ(MyraEnvironment::getTooltipOffsetProperty(), Microsoft::Xna::Framework::Point(4, 9));
         EXPECT_TRUE(MyraEnvironment::getTooltipCreatorProperty());
+        EXPECT_TRUE(MyraEnvironment::getEnableModalDarkeningProperty());
     }
 
     TEST_F(MyraEnvironmentSettingsTests, StoresInjectableMouseAndKeyboardSnapshotProviders)

@@ -28,11 +28,13 @@
 #include "Myra/Graphics2D/UI/ITransformable.hpp"
 #include "Myra/Graphics2D/UI/MouseInfo.hpp"
 #include "Myra/Graphics2D/UI/Widget.hpp"
+#include "System/IDisposable.hpp"
 #include "System/Collections/ObjectModel/ObservableCollection.hpp"
 
 namespace Myra::Graphics2D
 {
     class IBrush;
+    class RenderContext;
 }
 
 namespace Myra::Graphics2D::UI
@@ -40,7 +42,7 @@ namespace Myra::Graphics2D::UI
     class HorizontalMenu;
 
     /** @brief Owns, lays out, transforms, and focuses the root widgets of a Myra UI tree. */
-    class Desktop final : public ITransformable
+    class Desktop final : public ITransformable, public System::IDisposable
     {
       public:
         using WidgetCollection = System::Collections::ObjectModel::ObservableCollection<std::shared_ptr<Widget>>;
@@ -121,6 +123,13 @@ namespace Myra::Graphics2D::UI
         void ProcessWidgetInput();
         void OnKeyDown(Microsoft::Xna::Framework::Input::Keys key);
 
+        /** @brief Runs the selected upstream layout/input/event/layout/visual frame pipeline. */
+        void Render();
+        /** @brief Renders the background and visible roots through the retained graphics context. */
+        void RenderVisual();
+        [[nodiscard]] bool getIsDisposedProperty() const noexcept;
+        void Dispose() override;
+
         [[nodiscard]] float getOpacityProperty() const noexcept;
         void setOpacityProperty(float value) noexcept;
         [[nodiscard]] const Microsoft::Xna::Framework::Vector2 &getScaleProperty() const noexcept;
@@ -152,6 +161,7 @@ namespace Myra::Graphics2D::UI
 
       private:
         friend class Widget;
+        friend struct DesktopTestAccess;
 
         class ValidatedWidgetCollection final : public WidgetCollection
         {
@@ -176,6 +186,7 @@ namespace Myra::Graphics2D::UI
         void SynchronizeRootsOnce();
         void ReconcileContextMenuOwnership();
         void ReconcileTooltipOwnership();
+        void DisposeGraphicsResources();
         void RemoveWidgetFromPreviousOwner(const std::shared_ptr<Widget> &widget);
         [[nodiscard]] std::shared_ptr<Widget> RetainWidget(const Widget *widget) const;
         [[nodiscard]] bool ContainsWidget(const Widget &root, const Widget *target) const;
@@ -212,6 +223,7 @@ namespace Myra::Graphics2D::UI
         std::weak_ptr<Widget> previousKeyboardFocus_;
         std::shared_ptr<InputProcessor> inputProcessor_;
         std::shared_ptr<Graphics2D::IBrush> background_;
+        std::shared_ptr<Graphics2D::RenderContext> renderContext_;
         float opacity_ = 1.0F;
         Microsoft::Xna::Framework::Vector2 scale_{1.0F, 1.0F};
         Microsoft::Xna::Framework::Vector2 transformOrigin_{0.5F, 0.5F};
@@ -222,6 +234,7 @@ namespace Myra::Graphics2D::UI
         bool synchronizingRoots_ = false;
         bool rootsResyncRequested_ = false;
         bool destroying_ = false;
+        bool disposed_ = false;
         bool focusChanging_ = false;
         bool focusClearedDuringCallback_ = false;
         bool pendingFocusChange_ = false;

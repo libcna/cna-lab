@@ -7,8 +7,29 @@
 
 namespace Myra::Graphics2D::UI
 {
+    namespace
+    {
+        constexpr const char *MissingLinkedCnaMessage =
+            "Desktop rendering requires Myra-CNA to be linked with a CNA target.";
+    }
+
     Microsoft::Xna::Framework::Rectangle Desktop::DefaultBoundsFetcher()
     {
         throw std::logic_error("The default desktop bounds fetcher requires Myra-CNA to be linked with a CNA target.");
+    }
+
+    void Desktop::Render()
+    {
+        throw std::logic_error(MissingLinkedCnaMessage);
+    }
+
+    void Desktop::RenderVisual()
+    {
+        throw std::logic_error(MissingLinkedCnaMessage);
+    }
+
+    void Desktop::DisposeGraphicsResources()
+    {
+        renderContext_.reset();
     }
 } // namespace Myra::Graphics2D::UI

@@ -18,6 +18,7 @@
 
 namespace Microsoft::Xna::Framework
 {
+    struct Color;
     class Game;
 
     namespace Graphics
@@ -106,6 +107,11 @@ namespace Myra
         [[nodiscard]] static const TooltipCreator &getTooltipCreatorProperty() noexcept;
         static void setTooltipCreatorProperty(TooltipCreator value);
 
+        [[nodiscard]] static bool getEnableModalDarkeningProperty() noexcept;
+        static void setEnableModalDarkeningProperty(bool value) noexcept;
+        [[nodiscard]] static const Microsoft::Xna::Framework::Color &getDarkeningColorProperty();
+        static void setDarkeningColorProperty(Microsoft::Xna::Framework::Color value);
+
         /** @brief Reads the current CNA mouse snapshot relative to the active viewport. */
         [[nodiscard]] static Graphics2D::UI::MouseInfo DefaultMouseInfoGetter();
         /** @brief Reads the current CNA keyboard snapshot into the fixed upstream key domain. */
@@ -152,6 +158,8 @@ namespace Myra
         static int tooltipDelayInMs_;
         static Microsoft::Xna::Framework::Point tooltipOffset_;
         static TooltipCreator tooltipCreator_;
+        static bool enableModalDarkening_;
+        static Microsoft::Xna::Framework::Color darkeningColor_;
         static Microsoft::Xna::Framework::Game *game_;
         static Microsoft::Xna::Framework::Graphics::GraphicsDevice *graphicsDevice_;
         static std::optional<std::size_t> gameDisposedToken_;

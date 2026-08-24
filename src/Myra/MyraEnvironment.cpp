@@ -31,6 +31,7 @@ namespace Myra
     int MyraEnvironment::tooltipDelayInMs_ = 500;
     Microsoft::Xna::Framework::Point MyraEnvironment::tooltipOffset_{0, 20};
     MyraEnvironment::TooltipCreator MyraEnvironment::tooltipCreator_;
+    bool MyraEnvironment::enableModalDarkening_ = false;
 
     Events::EventHandlingStrategy MyraEnvironment::getEventHandlingModelProperty() noexcept
     {
@@ -198,5 +199,15 @@ namespace Myra
     void MyraEnvironment::setTooltipCreatorProperty(TooltipCreator value)
     {
         tooltipCreator_ = std::move(value);
+    }
+
+    bool MyraEnvironment::getEnableModalDarkeningProperty() noexcept
+    {
+        return enableModalDarkening_;
+    }
+
+    void MyraEnvironment::setEnableModalDarkeningProperty(const bool value) noexcept
+    {
+        enableModalDarkening_ = value;
     }
 } // namespace Myra

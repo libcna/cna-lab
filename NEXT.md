@@ -3,7 +3,7 @@
 ## Current state
 
 - Active branch: `develop`.
-- Current committed baseline `32f7db8` (`feat: register menu mml`)
+- Current committed baseline `237c9f4` (`feat: add tooltip lifecycle`)
   completes P7-009b. The repository checkpoint described by this handoff also completes P6-006a/
   P6-006b's style-independent abstract `CheckButtonBase` and parent-hover image,
   P6-007a's concrete
@@ -30,6 +30,7 @@
   complete Container contract, P5-016a's retained-root
   Desktop ownership/layout/focus core, P5-016b's ownership-safe context-menu
   lifecycle, P5-016c's injectable tooltip timing/overlay lifecycle,
+  P5-016d's CNA-linked frame/render/disposal pipeline,
   P5-017a's Desktop snapshot and keyboard
   routing core, and P0-023's
   compatibility with current modular
@@ -347,7 +348,12 @@ and a manifest entry. The current ported surface includes:
   `DEV-070`). ScrollViewer's image-thumb consumer slice is also complete
   (`DEV-071`, `DEV-072`). Widget-driven cursor routing is complete (`DEV-073`).
   P5-016c completes dependency-safe tooltip creation/positioning/dismissal through
-  an injectable creator and a weak exact-owner link (`DEV-079`). Native text input,
+  an injectable creator and a weak exact-owner link (`DEV-079`). P5-016d now
+  supplies the complete frame order and visual pass: lazy retained context,
+  transform/scissor/opacity, background and stable root rendering, modal
+  darkening, exception-safe device-state restoration, and idempotent disposal.
+  The active context survives reentrant disposal, while deferred-linkage calls
+  report the missing CNA dependency explicitly (`DEV-080`). Native text input,
   the default Label/style-backed tooltip creator, and the remaining
   control-specific capture paths remain open.
 - `ButtonBase` now supplies the abstract style-independent press/click state
@@ -404,14 +410,15 @@ The widget work is deliberately partial: drawing traversal and Desktop
 placement/layout/focus plus global snapshot/keyboard routing, local pointer
 propagation, hit testing, fall-through, touch focus, basic hover visuals, and
 wheel targeting are complete. Context-menu and dependency-safe tooltip integration
-are complete. The Label/style-backed default tooltip creator, Desktop rendering/
-style defaults, text input, and remaining control-specific
+are complete. The Desktop frame/render/disposal pipeline is complete. The
+Label/style-backed default tooltip creator, Desktop style defaults, text input,
+and remaining control-specific
 capture remain open. `UPSTREAM_MANIFEST.md` records this per source.
 
 ## Whole-port progress estimate
 
-As of 2026-08-24 after P5-016c, `plan.md` has **193/337 checked tasks
-(57.3%)**. Equal checkbox counting overstates
+As of 2026-08-24 after P5-016d, `plan.md` has **194/338 checked tasks
+(57.4%)**. Equal checkbox counting overstates
 end-user parity because the
 largest remaining workstreams are font/rich text, Desktop/input, most controls,
 styles/default assets, selectors/windows/dialogs, DataGrid/PropertyGrid, and the
@@ -451,14 +458,14 @@ cmake -S ../cna -B build-cna-parent \
 CCACHE_DISABLE=1 cmake --build build-cna-parent --parallel 3
 ctest --test-dir build-cna-parent/_myra_cna \
   --output-on-failure --parallel 3
-# 361/361 tests passed with current modular CNA/sharp-runtime
+# 363/363 tests passed with current modular CNA/sharp-runtime
 
 ASAN_OPTIONS=detect_leaks=0 CCACHE_DISABLE=1 \
   cmake --build build-sanitize-parent --parallel 3
 ASAN_OPTIONS=detect_leaks=0 UBSAN_OPTIONS=print_stacktrace=1 \
   ctest --test-dir build-sanitize-parent/_myra_cna \
   --output-on-failure --parallel 3
-# 361/361 tests passed with ASan address checks and UBSan
+# 363/363 tests passed with ASan address checks and UBSan
 
 # focused CheckButtonBase/ButtonBase/registry/codec validation: 19/19 passed
 
@@ -513,6 +520,9 @@ ASAN_OPTIONS=detect_leaks=0 UBSAN_OPTIONS=print_stacktrace=1 \
 
 # P5-016c tooltip lifecycle: focused linked and ASan+UBSan 5/5;
 # broad default 67/67, linked SOFTWARE 361/361, and ASan+UBSan 361/361 passed
+
+# P5-016d Desktop render/dispose pipeline: focused linked and ASan+UBSan 2/2;
+# broad default 67/67, linked SOFTWARE 363/363, and ASan+UBSan 363/363 passed
 
 # P5-010b Widget hit-test core: focused DesktopInput 9/9 and related input/
 # scrolling subset 17/17; broad default 66/66, linked SOFTWARE 311/311, and
@@ -666,13 +676,14 @@ was disabled because LeakSanitizer cannot run under this environment's
 3. P0-016 is complete. Keep every upstream test binary unbundled; execute
    P0-016a's original PNG/BMFont/stylesheet replacements only when their
    affected asset tests become implementable.
-4. P0-023, P5-008i, P5-010a, P5-010b, P5-010c, P5-010d, P5-012, P5-016a, P5-016b, P5-016c, P5-017a, P5-019a, P5-019b, P5-019c, P6-001a, P6-003a, P6-004a, P6-005a,
+4. P0-023, P5-008i, P5-010a, P5-010b, P5-010c, P5-010d, P5-012, P5-016a, P5-016b, P5-016c, P5-016d, P5-017a, P5-019a, P5-019b, P5-019c, P6-001a, P6-003a, P6-004a, P6-005a,
    P6-006a, P6-006b, P6-007a, P6-008a, P6-009a, P6-018a, P6-018b, P6-019a, P6-019b, P6-019c, P6-021a, P6-022a, P7-001–P7-003, P7-004a, P7-004b, P7-004c, P7-005a, P7-005b, P7-005c, P7-006, P7-007a, P7-007b, P7-008, P7-009a, P7-009b, P7-010a, P7-011a, P7-012a, P7-012b, P7-013a, P7-013b, P7-013c, P7-014, P7-015a, P7-016a, and P7-016b are complete. Keep full
    P6-006/P6-007/P6-008 style work in P8-003, and keep Slider's
    remaining stylesheet work in P6-022/P8-005; do not reopen P6-005's Label/style-
    dependent remainder before P6-002/P8-003. TreeView now owns a reciprocal node
-   registry and selection/key core; Desktop mouse/touch hit testing, hover/brush
-   rendering, styles, and MML registration remain P5-016/P7-016/P8-004. Choose
+   registry and selection/key core; Desktop mouse/touch hit testing and render
+   orchestration are complete, while TreeView hover/brush styles and MML
+   registration remain P7-016/P8-004. Choose
    the next dependency-safe widget milestone only after an upstream/source and
    registry audit. TabItem currently stops before Color/Label/Button wiring;
    those paths remain P3-004/P6-002/P7-012/P7-013/P8-004.
@@ -917,7 +928,11 @@ HEADLESS and SDL_RENDERER-on-Xvfb each passed the 44/44 graphics subset and full
 172/172 suite at the P2-022 milestone. The current SDL_RENDERER tree, including
 the explicit display smoke and all work since then, passes 199/199 on Xvfb.
 The current default, linked SOFTWARE, and ASan+UBSan suites pass
-67/67, 361/361, and 361/361 respectively. P5-016c passes all 5/5 focused tooltip
+67/67, 363/363, and 363/363 respectively. P5-016d passes all 2/2 focused Desktop
+render tests in both linked configurations, covering frame relayout order,
+background/stable-Z/modal rendering, transform/scissor/opacity state,
+exception cleanup, reentrant disposal, and idempotent resource release. P5-016c
+passes all 5/5 focused tooltip
 configuration/Desktop/input/render tests in both linked configurations, including
 strict stationary-hover timing, offset/fitting, owner detach, direct overlay
 removal, mouse leave, touch dismissal, and the intentionally absent Label-backed
@@ -1017,7 +1032,7 @@ control-specific drag paths, and replacement fixtures. If P3-004 is later
 approved, begin with P3-005's narrow abstraction and P3-006's explicit index-domain contract
 before introducing rasterizer code. P4-019 remains open only for future widget types,
 while caller-provided external-asset callbacks are already usable. P5-010b,
-P5-010c, P5-010d, P5-012, P5-016a, P5-016b, P5-016c, P5-017a, P5-019a, P5-019b, and P5-019c are complete. P7-004b/P7-004c/P7-005b/P7-005c complete the dependency-safe
+P5-010c, P5-010d, P5-012, P5-016a, P5-016b, P5-016c, P5-016d, P5-017a, P5-019a, P5-019b, and P5-019c are complete. P7-004b/P7-004c/P7-005b/P7-005c complete the dependency-safe
 ListView/ComboView dropdown, keyboard, and MML slices; P7-007b/P7-009b add the
 dependency-safe heterogeneous menu-item and concrete menu MML surfaces; P7-012b adds TabItem's
 dependency-safe MML surface; P7-016b completes TreeView row
@@ -1033,5 +1048,5 @@ exists. Menu/Desktop submenu placement still waits for the unported visual
 item-grid/Label composition; audit the remaining style-independent simple
 controls and input consumers before choosing the next dependency-safe slice.
 DataGrid capture still waits for its Phase 9 control. The default Label/style
-tooltip creator, Desktop rendering/style defaults, and text input remain in
+tooltip creator, Desktop style defaults, and text input remain in
 their downstream tasks.

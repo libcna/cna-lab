@@ -13,11 +13,13 @@
 #include <stdexcept>
 
 #include "CNA/Platform/PlatformException.hpp"
+#include "Microsoft/Xna/Framework/Color.hpp"
 #include "Microsoft/Xna/Framework/Game.hpp"
 #include "Microsoft/Xna/Framework/Graphics/GraphicsDevice.hpp"
 
 namespace
 {
+    using Microsoft::Xna::Framework::Color;
     using Microsoft::Xna::Framework::Game;
     using Myra::MyraEnvironment;
     using Myra::Graphics2D::UI::MouseCursorType;
@@ -43,7 +45,12 @@ namespace
       protected:
         void SetUp() override { MyraEnvironment::ClearGame(); }
 
-        void TearDown() override { MyraEnvironment::ClearGame(); }
+        void TearDown() override
+        {
+            MyraEnvironment::setEnableModalDarkeningProperty(false);
+            MyraEnvironment::setDarkeningColorProperty(Color(0, 0, 0, 192));
+            MyraEnvironment::ClearGame();
+        }
     };
 
     TEST_F(MyraEnvironmentTests, RejectsGraphicsAccessBeforeAGameIsConfigured)
@@ -60,6 +67,13 @@ namespace
 
         EXPECT_EQ(&MyraEnvironment::getGameProperty(), &game);
         EXPECT_EQ(&MyraEnvironment::getGraphicsDeviceProperty(), &game.getGraphicsDeviceProperty());
+        EXPECT_FALSE(MyraEnvironment::getEnableModalDarkeningProperty());
+        EXPECT_EQ(MyraEnvironment::getDarkeningColorProperty(), Color(0, 0, 0, 192));
+
+        MyraEnvironment::setEnableModalDarkeningProperty(true);
+        MyraEnvironment::setDarkeningColorProperty(Color(7, 11, 13, 17));
+        EXPECT_TRUE(MyraEnvironment::getEnableModalDarkeningProperty());
+        EXPECT_EQ(MyraEnvironment::getDarkeningColorProperty(), Color(7, 11, 13, 17));
 
         const std::size_t disposedSubscriptions = game.Disposed.Size();
         const std::size_t deviceSubscriptions = game.getGraphicsDeviceProperty().Disposing.Size();

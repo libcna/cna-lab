@@ -8,6 +8,7 @@
 
 #include <stdexcept>
 
+#include "Microsoft/Xna/Framework/Color.hpp"
 #include "Microsoft/Xna/Framework/Game.hpp"
 #include "Microsoft/Xna/Framework/Graphics/GraphicsDevice.hpp"
 #include "Microsoft/Xna/Framework/Graphics/Viewport.hpp"
@@ -67,12 +68,23 @@ namespace Myra
 
     Microsoft::Xna::Framework::Game *MyraEnvironment::game_ = nullptr;
     Microsoft::Xna::Framework::Graphics::GraphicsDevice *MyraEnvironment::graphicsDevice_ = nullptr;
+    Microsoft::Xna::Framework::Color MyraEnvironment::darkeningColor_{0, 0, 0, 192};
     std::optional<std::size_t> MyraEnvironment::gameDisposedToken_;
     std::optional<std::size_t> MyraEnvironment::graphicsDeviceDisposingToken_;
 
     void MyraEnvironment::ApplyMouseCursorType(const Graphics2D::UI::MouseCursorType value)
     {
         Microsoft::Xna::Framework::Input::Mouse::SetCursor(ResolveMouseCursor(value));
+    }
+
+    const Microsoft::Xna::Framework::Color &MyraEnvironment::getDarkeningColorProperty()
+    {
+        return darkeningColor_;
+    }
+
+    void MyraEnvironment::setDarkeningColorProperty(const Microsoft::Xna::Framework::Color value)
+    {
+        darkeningColor_ = value;
     }
 
     Graphics2D::UI::MouseInfo MyraEnvironment::DefaultMouseInfoGetter()

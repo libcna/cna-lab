@@ -75,6 +75,7 @@ namespace Myra::Graphics2D::UI
     Desktop::~Desktop()
     {
         destroying_ = true;
+        Dispose();
         contextMenu_.reset();
         tooltip_.reset();
         tooltipOwner_.reset();
@@ -109,6 +110,21 @@ namespace Myra::Graphics2D::UI
                 }
             }
         }
+    }
+
+    bool Desktop::getIsDisposedProperty() const noexcept
+    {
+        return disposed_;
+    }
+
+    void Desktop::Dispose()
+    {
+        if (disposed_)
+        {
+            return;
+        }
+        disposed_ = true;
+        DisposeGraphicsResources();
     }
 
     const Desktop::BoundsFetcher &Desktop::getBoundsFetcherProperty() const noexcept

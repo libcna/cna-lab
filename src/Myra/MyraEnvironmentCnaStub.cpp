@@ -8,8 +8,20 @@
 
 #include <stdexcept>
 
+#include "Microsoft/Xna/Framework/Color.hpp"
+
 namespace Myra
 {
+    const Microsoft::Xna::Framework::Color &MyraEnvironment::getDarkeningColorProperty()
+    {
+        throw std::logic_error("The modal darkening color requires Myra-CNA to be linked with a CNA target.");
+    }
+
+    void MyraEnvironment::setDarkeningColorProperty(Microsoft::Xna::Framework::Color)
+    {
+        throw std::logic_error("The modal darkening color requires Myra-CNA to be linked with a CNA target.");
+    }
+
     void MyraEnvironment::ApplyMouseCursorType(const Graphics2D::UI::MouseCursorType value)
     {
         using Graphics2D::UI::MouseCursorType;
