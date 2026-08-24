@@ -47,6 +47,7 @@ if(MYRA_CNA_CNA_LINKED)
         DesktopInputTests.cpp
         DesktopRenderTests.cpp
         DesktopTests.cpp
+        GridTests.cpp
         GridLayoutTests.cpp
         IHasColorTests.cpp
         ImageTests.cpp

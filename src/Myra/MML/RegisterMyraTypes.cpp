@@ -71,6 +71,7 @@ namespace Myra::MML
         using Graphics2D::UI::DragDirection;
         using Graphics2D::UI::ExportOptions;
         using Graphics2D::UI::Grid;
+        using Graphics2D::UI::GridSelectionMode;
         using Graphics2D::UI::HorizontalAlignment;
         using Graphics2D::UI::HorizontalMenu;
         using Graphics2D::UI::HorizontalProgressBar;
@@ -1183,6 +1184,9 @@ namespace Myra::MML
                 typeid(Container));
             descriptor.EnableBaseTypeAccess<Grid, Container>();
             descriptor.EnableBaseObjectAccess<Grid>();
+            descriptor.AddProperty(MakeScalarProperty<Grid, bool>(
+                "ShowGridLines", [](const Grid &object) { return object.getShowGridLinesProperty(); },
+                [](Grid &object, const bool value) { object.setShowGridLinesProperty(value); }, false));
             descriptor.AddProperty(MakeScalarProperty<Grid, int>(
                 "ColumnSpacing", [](const Grid &object) { return object.getColumnSpacingProperty(); },
                 [](Grid &object, const int value) { object.setColumnSpacingProperty(value); }, 0));
@@ -1209,6 +1213,50 @@ namespace Myra::MML
                 { return static_cast<Grid *>(object)->getRowsProportionsProperty(); },
                 [](const void *object) -> const ProportionCollection &
                 { return static_cast<const Grid *>(object)->getRowsProportionsProperty(); }));
+            PropertyMetadata selectionBackgroundMetadata;
+            selectionBackgroundMetadata.ExternalAsset = true;
+            descriptor.AddProperty(MakeScalarProperty<Grid, std::shared_ptr<Graphics2D::IBrush>>(
+                "SelectionBackground", [](const Grid &object) { return object.getSelectionBackgroundProperty(); },
+                [](Grid &object, const std::shared_ptr<Graphics2D::IBrush> &value)
+                { object.setSelectionBackgroundProperty(value); }, nullptr, std::move(selectionBackgroundMetadata)));
+            PropertyMetadata selectionHoverBackgroundMetadata;
+            selectionHoverBackgroundMetadata.ExternalAsset = true;
+            descriptor.AddProperty(MakeScalarProperty<Grid, std::shared_ptr<Graphics2D::IBrush>>(
+                "SelectionHoverBackground",
+                [](const Grid &object) { return object.getSelectionHoverBackgroundProperty(); },
+                [](Grid &object, const std::shared_ptr<Graphics2D::IBrush> &value)
+                { object.setSelectionHoverBackgroundProperty(value); }, nullptr,
+                std::move(selectionHoverBackgroundMetadata)));
+            descriptor.AddProperty(MakeScalarProperty<Grid, GridSelectionMode>(
+                "GridSelectionMode", [](const Grid &object) { return object.getGridSelectionModeProperty(); },
+                [](Grid &object, const GridSelectionMode value) { object.setGridSelectionModeProperty(value); },
+                GridSelectionMode::None));
+            descriptor.AddProperty(MakeScalarProperty<Grid, bool>(
+                "HoverIndexCanBeNull", [](const Grid &object) { return object.getHoverIndexCanBeNullProperty(); },
+                [](Grid &object, const bool value) { object.setHoverIndexCanBeNullProperty(value); }, true));
+            descriptor.AddProperty(MakeScalarProperty<Grid, bool>(
+                "CanSelectNothing", [](const Grid &object) { return object.getCanSelectNothingProperty(); },
+                [](Grid &object, const bool value) { object.setCanSelectNothingProperty(value); }, false));
+
+            const auto addRuntimeIndex = [&descriptor](std::string name, auto getter, auto setter)
+            {
+                PropertyMetadata metadata;
+                metadata.XmlIgnore = true;
+                descriptor.AddProperty(MakeScalarProperty<Grid, std::optional<int>>(
+                    std::move(name), std::move(getter), std::move(setter), std::nullopt, std::move(metadata)));
+            };
+            addRuntimeIndex(
+                "HoverRowIndex", [](const Grid &object) { return object.getHoverRowIndexProperty(); },
+                [](Grid &object, const std::optional<int> &value) { object.setHoverRowIndexProperty(value); });
+            addRuntimeIndex(
+                "HoverColumnIndex", [](const Grid &object) { return object.getHoverColumnIndexProperty(); },
+                [](Grid &object, const std::optional<int> &value) { object.setHoverColumnIndexProperty(value); });
+            addRuntimeIndex(
+                "SelectedRowIndex", [](const Grid &object) { return object.getSelectedRowIndexProperty(); },
+                [](Grid &object, const std::optional<int> &value) { object.setSelectedRowIndexProperty(value); });
+            addRuntimeIndex(
+                "SelectedColumnIndex", [](const Grid &object) { return object.getSelectedColumnIndexProperty(); },
+                [](Grid &object, const std::optional<int> &value) { object.setSelectedColumnIndexProperty(value); });
             return descriptor;
         }
 
