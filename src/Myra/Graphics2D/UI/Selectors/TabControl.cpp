@@ -10,14 +10,17 @@
 #include <stdexcept>
 #include <utility>
 
+#include "Myra/Graphics2D/UI/Containers/StackPanel.hpp"
+#include "Myra/Graphics2D/UI/Simple/Button.hpp"
 #include "Myra/Graphics2D/UI/Simple/Image.hpp"
 
 namespace Myra::Graphics2D::UI
 {
     TabControl::TabControl()
-        : Selector<Grid, TabItem>(std::make_shared<Grid>()), buttonsGrid_(std::make_shared<Grid>()),
-          contentPanel_(std::make_shared<Panel>())
+        : Selector<Grid, TabItem>(std::make_shared<Grid>()), callbackState_(std::make_shared<CallbackState>()),
+          buttonsGrid_(std::make_shared<Grid>()), contentPanel_(std::make_shared<Panel>())
     {
+        callbackState_->owner = this;
         setHorizontalAlignmentProperty(HorizontalAlignment::Left);
         setVerticalAlignmentProperty(VerticalAlignment::Top);
         setClipToBoundsProperty(true);
@@ -34,6 +37,8 @@ namespace Myra::Graphics2D::UI
 
     TabControl::~TabControl()
     {
+        callbackState_->owner = nullptr;
+        ClearButtonSubscriptions();
         ClearItemSubscriptions();
     }
 
@@ -52,6 +57,16 @@ namespace Myra::Graphics2D::UI
         UpdateSelectorPosition();
     }
 
+    bool TabControl::getCloseableTabsProperty() const noexcept
+    {
+        return closeableTabs_;
+    }
+
+    void TabControl::setCloseableTabsProperty(const bool value) noexcept
+    {
+        closeableTabs_ = value;
+    }
+
     std::shared_ptr<Grid> TabControl::getButtonsGridProperty() const
     {
         return buttonsGrid_;
@@ -65,6 +80,7 @@ namespace Myra::Graphics2D::UI
     void TabControl::Reset()
     {
         ClearItemSubscriptions();
+        ClearButtonSubscriptions();
         buttons_.clear();
         buttonsGrid_->ClearChildren();
         contentPanel_->ClearChildren();
@@ -122,6 +138,7 @@ namespace Myra::Graphics2D::UI
             throw std::invalid_argument("TabControl copy source must be a TabControl.");
         }
         setTabSelectorPositionProperty(tabControl->tabSelectorPosition_);
+        setCloseableTabsProperty(tabControl->closeableTabs_);
         for (const std::shared_ptr<TabItem> &item : tabControl->getItemsProperty())
         {
             getItemsProperty().Add(item->Clone());
@@ -174,29 +191,77 @@ namespace Myra::Graphics2D::UI
 
     void TabControl::RebuildButtons()
     {
+        ClearButtonSubscriptions();
         buttons_.clear();
         buttonsGrid_->ClearChildren();
-        for (int index = 0; index < getItemsProperty().getCountProperty(); ++index)
+        try
         {
-            const std::shared_ptr<TabItem> item = getItemsProperty().getItem(index);
-            const auto image = std::make_shared<Image>();
-            image->setRenderableProperty(item->getImageProperty());
-            const auto button = std::make_shared<ListViewButton>();
-            button->setHorizontalAlignmentProperty(HorizontalAlignment::Stretch);
-            button->setVerticalAlignmentProperty(VerticalAlignment::Stretch);
-            button->setHeightProperty(item->getHeightProperty());
-            button->setButtonsContainerProperty(buttonsGrid_.get());
-            button->setContentProperty(image);
-            button->Click += [this, item](void *, Events::MyraEventArgs &)
+            for (int index = 0; index < getItemsProperty().getCountProperty(); ++index)
             {
-                const int itemIndex = getItemsProperty().IndexOf(item);
-                if (itemIndex >= 0)
+                const std::shared_ptr<TabItem> item = getItemsProperty().getItem(index);
+                const auto image = std::make_shared<Image>();
+                image->setRenderableProperty(item->getImageProperty());
+                const auto button = std::make_shared<ListViewButton>();
+                button->setHorizontalAlignmentProperty(HorizontalAlignment::Stretch);
+                button->setVerticalAlignmentProperty(VerticalAlignment::Stretch);
+                button->setHeightProperty(item->getHeightProperty());
+                button->setButtonsContainerProperty(buttonsGrid_.get());
+                button->setContentProperty(image);
+
+                const std::weak_ptr<TabItem> weakItem = item;
+                const Events::MyraEventHandler::Token selectToken = button->Click.Add(
+                    [callbackState = callbackState_, weakItem](void *, Events::MyraEventArgs &)
+                    {
+                        const std::shared_ptr<TabItem> selectedItem = weakItem.lock();
+                        TabControl *const owner = callbackState->owner;
+                        if (!selectedItem || owner == nullptr)
+                        {
+                            return;
+                        }
+                        const int itemIndex = owner->getItemsProperty().IndexOf(selectedItem);
+                        if (itemIndex >= 0)
+                        {
+                            owner->setSelectedIndexProperty(itemIndex);
+                        }
+                    });
+                buttonSubscriptions_.push_back({button, selectToken});
+                buttons_.push_back(button);
+
+                if (!closeableTabs_)
                 {
-                    setSelectedIndexProperty(itemIndex);
+                    buttonsGrid_->AddWidget(button);
+                    continue;
                 }
-            };
-            buttons_.push_back(button);
-            buttonsGrid_->AddWidget(button);
+
+                const auto header = std::make_shared<HorizontalStackPanel>();
+                header->setTagProperty(item);
+                header->AddWidget(button);
+                StackPanel::SetProportionType(*button, ProportionType::Fill);
+
+                const auto closeButton = std::make_shared<Button>();
+                closeButton->setContentProperty(std::make_shared<Image>());
+                closeButton->setHorizontalAlignmentProperty(HorizontalAlignment::Right);
+                const Events::MyraEventHandler::Token closeToken = closeButton->Click.Add(
+                    [callbackState = callbackState_, weakItem](void *, Events::MyraEventArgs &)
+                    {
+                        const std::shared_ptr<TabItem> closingItem = weakItem.lock();
+                        TabControl *const owner = callbackState->owner;
+                        if (closingItem && owner != nullptr)
+                        {
+                            static_cast<void>(owner->getItemsProperty().Remove(closingItem));
+                        }
+                    });
+                buttonSubscriptions_.push_back({closeButton, closeToken});
+                header->AddWidget(closeButton);
+                buttonsGrid_->AddWidget(header);
+            }
+        }
+        catch (...)
+        {
+            ClearButtonSubscriptions();
+            buttons_.clear();
+            buttonsGrid_->ClearChildren();
+            throw;
         }
         UpdateButtonsGrid();
         OnSelectedItemChanged();
@@ -206,10 +271,11 @@ namespace Myra::Graphics2D::UI
     {
         const bool vertical =
             tabSelectorPosition_ == TabSelectorPosition::Left || tabSelectorPosition_ == TabSelectorPosition::Right;
-        for (std::size_t index = 0; index < buttons_.size(); ++index)
+        const std::vector<std::shared_ptr<Widget>> &headers = buttonsGrid_->getWidgetsProperty();
+        for (std::size_t index = 0; index < headers.size(); ++index)
         {
-            Grid::SetColumn(*buttons_[index], vertical ? 0 : static_cast<int>(index));
-            Grid::SetRow(*buttons_[index], vertical ? static_cast<int>(index) : 0);
+            Grid::SetColumn(*headers[index], vertical ? 0 : static_cast<int>(index));
+            Grid::SetRow(*headers[index], vertical ? static_cast<int>(index) : 0);
         }
     }
 
@@ -233,11 +299,20 @@ namespace Myra::Graphics2D::UI
         }
         TabItem *const itemAddress = item.get();
         const Events::MyraEventHandler::Token token = item->Changed.Add(
-            [this, itemAddress](void *, Events::MyraEventArgs &)
+            [callbackState = callbackState_, itemAddress](void *, Events::MyraEventArgs &)
             {
-                if (getSelectedItemProperty().get() == itemAddress)
+                TabControl *const owner = callbackState->owner;
+                if (owner == nullptr)
                 {
-                    UpdateContent();
+                    return;
+                }
+                if (owner->getSelectedItemProperty().get() == itemAddress)
+                {
+                    owner->UpdateContent();
+                }
+                if (callbackState->owner == owner)
+                {
+                    owner->InvalidateMeasure();
                 }
             });
         itemSubscriptions_.push_back({item, token});
@@ -263,5 +338,24 @@ namespace Myra::Graphics2D::UI
             static_cast<void>(subscription.item->Changed.Remove(subscription.token));
         }
         itemSubscriptions_.clear();
+    }
+
+    void TabControl::ClearButtonSubscriptions() noexcept
+    {
+        for (const std::shared_ptr<ListViewButton> &button : buttons_)
+        {
+            button->setButtonsContainerProperty(nullptr);
+        }
+        for (const ButtonSubscription &subscription : buttonSubscriptions_)
+        {
+            try
+            {
+                static_cast<void>(subscription.button->Click.Remove(subscription.token));
+            }
+            catch (...)
+            {
+            }
+        }
+        buttonSubscriptions_.clear();
     }
 } // namespace Myra::Graphics2D::UI

@@ -11,6 +11,7 @@
 
 #include "Myra/Graphics2D/UI/Containers/Grid.hpp"
 #include "Myra/Graphics2D/UI/Containers/Panel.hpp"
+#include "Myra/Graphics2D/UI/Simple/ButtonBase.hpp"
 #include "Myra/Graphics2D/UI/Selectors/ListViewButton.hpp"
 #include "Myra/Graphics2D/UI/Selectors/Selector.hpp"
 #include "Myra/Graphics2D/UI/Selectors/TabItem.hpp"
@@ -35,6 +36,8 @@ namespace Myra::Graphics2D::UI
 
         [[nodiscard]] TabSelectorPosition getTabSelectorPositionProperty() const noexcept;
         void setTabSelectorPositionProperty(TabSelectorPosition value);
+        [[nodiscard]] bool getCloseableTabsProperty() const noexcept;
+        void setCloseableTabsProperty(bool value) noexcept;
         [[nodiscard]] std::shared_ptr<Grid> getButtonsGridProperty() const;
         [[nodiscard]] std::shared_ptr<Panel> getContentPanelProperty() const;
 
@@ -54,6 +57,12 @@ namespace Myra::Graphics2D::UI
         void AddItemSubscription(const std::shared_ptr<TabItem> &item);
         void RemoveItemSubscription(const TabItem *item);
         void ClearItemSubscriptions();
+        void ClearButtonSubscriptions() noexcept;
+
+        struct CallbackState
+        {
+            TabControl *owner = nullptr;
+        };
 
         struct ItemSubscription
         {
@@ -61,10 +70,19 @@ namespace Myra::Graphics2D::UI
             Events::MyraEventHandler::Token token = Events::MyraEventHandler::InvalidToken;
         };
 
+        struct ButtonSubscription
+        {
+            std::shared_ptr<ButtonBase> button;
+            Events::MyraEventHandler::Token token = Events::MyraEventHandler::InvalidToken;
+        };
+
+        std::shared_ptr<CallbackState> callbackState_;
         std::shared_ptr<Grid> buttonsGrid_;
         std::shared_ptr<Panel> contentPanel_;
         std::vector<std::shared_ptr<ListViewButton>> buttons_;
         std::vector<ItemSubscription> itemSubscriptions_;
+        std::vector<ButtonSubscription> buttonSubscriptions_;
         TabSelectorPosition tabSelectorPosition_ = TabSelectorPosition::Top;
+        bool closeableTabs_ = false;
     };
 } // namespace Myra::Graphics2D::UI
