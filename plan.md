@@ -80,8 +80,8 @@ behavioral redesign.
 
 ### 1.4 Whole-port completion and remaining-effort estimate
 
-Checkpoint: 2026-08-24, after P7-005c. The mechanical backlog count is
-**188/332 checked tasks (56.6%)**. The count is useful for
+Checkpoint: 2026-08-24, after P7-012b. The mechanical backlog count is
+**189/333 checked tasks (56.8%)**. The count is useful for
 auditing plan state but is
 not a parity percentage: small foundation subtasks and large end-to-end
 features each count once, while the remaining font/text, Desktop/input,
@@ -102,13 +102,13 @@ are planning ranges rather than a delivery promise.
 | Phase 4 — MML/XML | 31/36 | 40–80 |
 | Phase 5 — Widget/Desktop/input | 41/48 | 0–0 |
 | Phase 6 — controls/editing | 24/51 | 96–158 |
-| Phase 7 — selectors/windows/dialogs | 22/40 | 150–248 |
+| Phase 7 — selectors/windows/dialogs | 23/41 | 148–244 |
 | Phase 8 — styles/default skin | 0/14 | 140–240 |
 | Phase 9 — file/data/property grids | 1/21 | 180–320 |
 | Phase 10 — parity/release | 0/28 | 140–240 |
-| **Whole remaining technical port** | **188/332 complete** | **990–1,746** |
+| **Whole remaining technical port** | **189/333 complete** | **988–1,742** |
 
-For scheduling, use **about 1,368 focused hours remaining** as the midpoint,
+For scheduling, use **about 1,365 focused hours remaining** as the midpoint,
 with **1,000–2,000 hours** as the sensible rounded range. This assumes prompt
 human decisions for P3-004 and P0-015b, no newly discovered upstream/CNA
 architectural blocker, and continued reuse of the existing tested foundations.
@@ -568,7 +568,8 @@ are green, and the build uses no more than three parallel jobs.
 - [ ] P7-010 Port `Selectors/HorizontalMenu.cs`.
 - [x] P7-011a Port `VerticalMenu`'s style-independent orientation, alignment defaults, and Up/Down navigation.
 - [ ] P7-011 Port `Selectors/VerticalMenu.cs`.
-- [x] P7-012a Port the style-independent `TabItem` data core: retained optional text/content/image/tag/height state, identifier/change and selection events, `ToString`, and clone behavior. Keep text color, ListViewButton/Label visual wiring, TabControl integration, and MML metadata in P3-004/P6-002/P7-012/P7-013/P8-004.
+- [x] P7-012a Port the style-independent `TabItem` data core: retained optional text/content/image/tag/height state, identifier/change and selection events, `ToString`, and clone behavior. MML metadata arrived in P7-012b; keep text color and ListViewButton/Label visual wiring in P3-004/P6-002/P7-012/P7-013/P8-004.
+- [x] P7-012b Register the dependency-safe `TabItem` MML surface over `BaseObject`: optional text/height, implicit widget content, and XML-ignored tag/image/spacing/selection state. Keep `Color` absent until the P3 font/text type is approved and ported.
 - [ ] P7-012 Port `Selectors/TabItem.cs`.
 - [x] P7-013a Port the style-independent `TabControl` core: retained item/button/content ownership, first-item and click selection, selected-content replacement, TabItem content-change subscriptions, four selector positions, removal, and deep cloning. Keep Label/text/color visuals, close-button styling, stylesheet integration, and MML metadata in P3-004/P6-002/P7-013/P8-004.
 - [x] P7-013b Port `TabControl.CloseableTabs` structure and native callback safety: wrap selector buttons with a close button, remove the exact item, preserve closeable headers through cloning, invalidate layout on item changes, and detach every rebuilt/destroyed selector, close, and item callback. A token ledger plus detachable callback-state proxy keeps externally retained buttons and already-snapshotted handlers inert (`DEV-077`). Keep Label/text/color visuals, close-button styling, stylesheet integration, and MML metadata in P3-004/P6-002/P7-013/P8-004.

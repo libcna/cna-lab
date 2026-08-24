@@ -46,6 +46,7 @@
 #include "Myra/Graphics2D/UI/Simple/VerticalSeparator.hpp"
 #include "Myra/Graphics2D/UI/Selectors/ComboView.hpp"
 #include "Myra/Graphics2D/UI/Selectors/ListView.hpp"
+#include "Myra/Graphics2D/UI/Selectors/TabItem.hpp"
 #include "Myra/Graphics2D/UI/Widget.hpp"
 
 namespace Myra::MML
@@ -88,6 +89,7 @@ namespace Myra::MML
         using Graphics2D::UI::Slider;
         using Graphics2D::UI::SplitPane;
         using Graphics2D::UI::StackPanel;
+        using Graphics2D::UI::TabItem;
         using Graphics2D::UI::ToggleButton;
         using Graphics2D::UI::VerticalAlignment;
         using Graphics2D::UI::VerticalProgressBar;
@@ -736,6 +738,53 @@ namespace Myra::MML
             return descriptor;
         }
 
+        TypeDescriptor MakeTabItemDescriptor()
+        {
+            TypeDescriptor descriptor(
+                "TabItem", typeid(TabItem), [] { return std::static_pointer_cast<void>(std::make_shared<TabItem>()); },
+                typeid(BaseObject));
+            descriptor.EnableBaseTypeAccess<TabItem, BaseObject>();
+            descriptor.EnableBaseObjectAccess<TabItem>();
+
+            descriptor.AddProperty(MakeScalarProperty<TabItem, std::optional<std::string>>(
+                "Text", [](const TabItem &object) { return object.getTextProperty(); },
+                [](TabItem &object, const std::optional<std::string> &value) { object.setTextProperty(value); },
+                std::nullopt));
+            PropertyMetadata contentMetadata;
+            contentMetadata.Content = true;
+            descriptor.AddProperty(PropertyDescriptor(
+                "Content", typeid(std::shared_ptr<Widget>), {}, {}, std::nullopt, std::move(contentMetadata), {}, {},
+                ComplexPropertyAdapter::SingleWritable(
+                    typeid(Widget), [](void *object, const std::shared_ptr<void> &value)
+                    { static_cast<TabItem *>(object)->setContentProperty(AsWidget(value)); }, [](const void *object)
+                    { return EnumerateWidget(static_cast<const TabItem *>(object)->getContentProperty()); })));
+            descriptor.AddProperty(MakeScalarProperty<TabItem, std::optional<int>>(
+                "Height", [](const TabItem &object) { return object.getHeightProperty(); },
+                [](TabItem &object, const std::optional<int> &value) { object.setHeightProperty(value); },
+                std::nullopt));
+
+            const auto addIgnored = [&descriptor](std::string name, std::type_index type, auto getter)
+            {
+                PropertyMetadata metadata;
+                metadata.XmlIgnore = true;
+                descriptor.AddProperty(PropertyDescriptor(std::move(name), type, std::move(getter), {}, std::nullopt,
+                                                          std::move(metadata)));
+            };
+            addIgnored("Tag", typeid(std::any),
+                       [](const void *object)
+                       {
+                           return std::any(std::in_place_type<std::any>,
+                                           static_cast<const TabItem *>(object)->getTagProperty());
+                       });
+            addIgnored("Image", typeid(std::shared_ptr<Graphics2D::IImage>), [](const void *object)
+                       { return std::any(static_cast<const TabItem *>(object)->getImageProperty()); });
+            addIgnored("ImageTextSpacing", typeid(int), [](const void *object)
+                       { return std::any(static_cast<const TabItem *>(object)->getImageTextSpacingProperty()); });
+            addIgnored("IsSelected", typeid(bool), [](const void *object)
+                       { return std::any(static_cast<const TabItem *>(object)->getIsSelectedProperty()); });
+            return descriptor;
+        }
+
         TypeDescriptor MakeButtonBaseDescriptor()
         {
             TypeDescriptor descriptor("ButtonBase", typeid(ButtonBase), {}, typeid(ContentControl));
@@ -1043,6 +1092,7 @@ namespace Myra::MML
         registry.Register(MakeScrollViewerDescriptor());
         registry.Register(MakeListViewDescriptor());
         registry.Register(MakeComboViewDescriptor());
+        registry.Register(MakeTabItemDescriptor());
         registry.Register(MakeButtonBaseDescriptor());
         registry.Register(MakeButtonDescriptor());
         registry.Register(MakeToggleButtonDescriptor());
