@@ -4,8 +4,9 @@
 
 - Active branch: `develop`.
 - Pushed commit `ba98d62` (`Implement ToggleButton interaction core`) completes
-  P6-005a. The repository HEAD described by this handoff also completes P6-006a's
-  style-independent abstract `CheckButtonBase`, P6-007a's concrete
+  P6-005a. The repository HEAD described by this handoff also completes P6-006a/
+  P6-006b's style-independent abstract `CheckButtonBase` and parent-hover image,
+  P6-007a's concrete
   `CheckButton`, P6-008a's direct-sibling `RadioButton` behavior, P6-018a's
   style-independent `ScrollViewer` core, P6-019a's split-pane core, P6-022a's
   style-independent `Slider` core, P7-001/P7-002's generic selector contracts
@@ -370,8 +371,9 @@ and a manifest entry. The current ported surface includes:
   a `CheckPosition` codec, and MML metadata. Direct images refresh with pressed
   state and survive cloning (`DEV-050`), and spacing changes invalidate cached
   measurement (`DEV-051`). The selected upstream quirk allowing Space while
-  read-only remains covered; hover-derived visual selection and styles remain
-  explicitly deferred.
+  read-only remains covered; P6-006b adds the internal image's parent-hover,
+  pressed/disabled precedence, clone preservation, and detached fallback.
+  Styles remain explicitly deferred.
 - Checked float-to-integer conversion for layout/transform values and checked Grid
   spacing/size/location accumulation. Grid now rejects non-finite/out-of-range
   proportions and non-positive spans deterministically, while restoring upstream's
@@ -384,14 +386,14 @@ and a manifest entry. The current ported surface includes:
 The widget work is deliberately partial: drawing traversal and Desktop
 placement/layout/focus plus global snapshot/keyboard routing, local pointer
 propagation, hit testing, fall-through, touch focus, basic hover visuals, and
-wheel targeting are complete. Tooltip/cursor and context-menu integration,
+wheel targeting are complete. Tooltip and context-menu integration,
 Desktop rendering/style defaults, text input, and remaining control-specific
 capture remain open. `UPSTREAM_MANIFEST.md` records this per source.
 
 ## Whole-port progress estimate
 
-As of 2026-08-24 after P5-010d, `plan.md` has **177/321 checked tasks
-(55.1%)**. Equal checkbox counting overstates
+As of 2026-08-24 after P6-006b, `plan.md` has **178/322 checked tasks
+(55.3%)**. Equal checkbox counting overstates
 end-user parity because the
 largest remaining workstreams are font/rich text, Desktop/input, most controls,
 styles/default assets, selectors/windows/dialogs, DataGrid/PropertyGrid, and the
@@ -399,8 +401,8 @@ exhaustive release gate. The feature-weighted estimate is therefore **about
 30–35% of the complete Myra-CNA port**.
 
 All currently known technical work through P10-028 is estimated at
-**1,044–1,838 focused implementation/validation hours remaining**; use about
-**1,441 hours** as the planning midpoint or **1,100–2,000 hours** as the rounded
+**1,042–1,834 focused implementation/validation hours remaining**; use about
+**1,438 hours** as the planning midpoint or **1,100–2,000 hours** as the rounded
 range. This includes code, tests, documentation, integration, and the known
 project-owned test-fixture work. It assumes P3-004 and P0-015b receive prompt
 human decisions and excludes idle waiting/legal-review time. Choosing wholly
@@ -431,14 +433,14 @@ cmake -S ../cna -B build-cna-parent \
 CCACHE_DISABLE=1 cmake --build build-cna-parent --parallel 3
 ctest --test-dir build-cna-parent/_myra_cna \
   --output-on-failure --parallel 3
-# 329/329 tests passed with current modular CNA/sharp-runtime
+# 331/331 tests passed with current modular CNA/sharp-runtime
 
 ASAN_OPTIONS=detect_leaks=0 CCACHE_DISABLE=1 \
   cmake --build build-sanitize-parent --parallel 3
 ASAN_OPTIONS=detect_leaks=0 UBSAN_OPTIONS=print_stacktrace=1 \
   ctest --test-dir build-sanitize-parent/_myra_cna \
   --output-on-failure --parallel 3
-# 329/329 tests passed with ASan address checks and UBSan
+# 331/331 tests passed with ASan address checks and UBSan
 
 # focused CheckButtonBase/ButtonBase/registry/codec validation: 19/19 passed
 
@@ -473,6 +475,9 @@ ASAN_OPTIONS=detect_leaks=0 UBSAN_OPTIONS=print_stacktrace=1 \
 # P5-010d Widget cursor routing: focused linked cursor transitions 2/2 and
 # deferred-linkage cursor mapping 1/1; broad default 67/67, linked SOFTWARE
 # 329/329, and ASan+UBSan 329/329 passed
+
+# P6-006b CheckImageInternal parent-hover slice: focused CheckButtonBase 8/8;
+# broad default 67/67, linked SOFTWARE 331/331, and ASan+UBSan 331/331 passed
 
 # focused UIUtils validation after that broad run: 3/3 passed
 # focused PathUtils validation after that broad run: 3/3 passed
@@ -601,8 +606,8 @@ was disabled because LeakSanitizer cannot run under this environment's
    P0-016a's original PNG/BMFont/stylesheet replacements only when their
    affected asset tests become implementable.
 4. P0-023, P5-008i, P5-010a, P5-010b, P5-010c, P5-010d, P5-012, P5-016a, P5-017a, P5-019a, P5-019b, P5-019c, P6-001a, P6-003a, P6-004a, P6-005a,
-   P6-006a, P6-007a, P6-008a, P6-009a, P6-018a, P6-019a, P6-021a, P6-022a, P7-001–P7-005a, P7-006, P7-008, and P7-012a–P7-016a are complete. Keep full
-   P6-006/P6-007/P6-008 hover/style work in P5-010/P8-003, and keep Slider's
+   P6-006a, P6-006b, P6-007a, P6-008a, P6-009a, P6-018a, P6-019a, P6-021a, P6-022a, P7-001–P7-005a, P7-006, P7-008, and P7-012a–P7-016a are complete. Keep full
+   P6-006/P6-007/P6-008 style work in P8-003, and keep Slider's
    remaining stylesheet work in P6-022/P8-005; do not reopen P6-005's Label/style-
    dependent remainder before P6-002/P8-003. TreeView now owns a reciprocal node
    registry and selection/key core; Desktop mouse/touch hit testing, hover/brush
@@ -757,10 +762,10 @@ was disabled because LeakSanitizer cannot run under this environment's
   intentionally preserved: touch interaction honors `ReadOnly`, but Space
   still toggles a read-only control; disabled controls reject both paths.
 - `CheckButtonBase` and concrete `CheckButton` are complete only for their
-  P6-006a/P6-007a style-independent cores.
+  P6-006a/P6-006b/P6-007a style-independent cores.
   Its public direct images, layout, input, cloning, enum codec, and MML metadata
-  are usable, but `CheckImageInternal` cannot inherit the parent's hover state
-  until P5-010 adds `IsMouseInside`; style construction/application remains
+  are usable, and `CheckImageInternal` now inherits the parent's hover state
+  with detached self-hover fallback; style construction/application remains
   P6-006/P6-007/P6-008/P8-003. `RadioButton` now has its style-independent
   direct-sibling selection core, cloning, and MML registration; its stylesheet
   construction/application remains deferred.
@@ -800,8 +805,10 @@ HEADLESS and SDL_RENDERER-on-Xvfb each passed the 44/44 graphics subset and full
 172/172 suite at the P2-022 milestone. The current SDL_RENDERER tree, including
 the explicit display smoke and all work since then, passes 199/199 on Xvfb.
 The current default, linked SOFTWARE, and ASan+UBSan suites pass
-67/67, 329/329, and 329/329 respectively. P5-010d passes 2/2 focused linked
-cursor-routing tests plus 1/1 deferred-linkage cursor mapping test. P5-019c passes its focused 8/8
+67/67, 331/331, and 331/331 respectively. P6-006b passes all 8/8 focused
+CheckButtonBase tests, including parent-hover, state priority, cloning, and
+detached fallback. P5-010d passes 2/2 focused linked cursor-routing tests plus
+1/1 deferred-linkage cursor mapping test. P5-019c passes its focused 8/8
 ScrollViewer/deepest-wheel subset, including both thumb orientations,
 out-of-bounds movement, global release, frame fall-through, reentrant removal,
 and checked arithmetic. P5-019b passes all 11/11 Slider
@@ -847,9 +854,8 @@ P0-015 completed the default-resource provenance audit. The exact Inter font is
 OFL-cleared but still unbundled; the VisUI-derived atlas is explicitly
 `needs_human` P0-015b. P0-016 subsequently classified all 35 test assets without
 copying them and opened P0-016a for behavior-equivalent project-owned fixtures.
-P6-006a/P6-007a/P6-008a are complete; P5-010b now provides `IsMouseInside`, so
-their dependency-safe `CheckImageInternal` hover override can be audited as a
-possible next slice while their styles remain in P8. Do not reopen P6-005's Label/style-dependent remainder
+P6-006a/P6-006b/P6-007a/P6-008a are complete; their remaining styles stay in
+P8. Do not reopen P6-005's Label/style-dependent remainder
 until P6-002/P8-003 are implementable. Defer the remaining Desktop-driven
 tooltip/control-specific drag paths and replacement fixtures likewise. If P3-004 is later
 approved, begin with P3-005's narrow abstraction and P3-006's explicit index-domain contract
@@ -859,7 +865,7 @@ P5-010c, P5-010d, P5-012, P5-016a, P5-017a, P5-019a, P5-019b, and P5-019c are co
 needs Label even though the Desktop placement/focus/removal foundation now
 exists. Audit the remaining P5 input gaps before selecting the next coherent
 dependency-safe milestone: DataGrid capture waits for its Phase 9 control, while
-the CheckButton hover-image override or another downstream interaction slice may now be available.
+the now-populated Menu/Widget foundation may permit a Desktop context-menu lifecycle slice.
 Context menus, tooltips,
 Desktop rendering/style defaults, and text input remain in their downstream
 tasks.

@@ -80,8 +80,8 @@ behavioral redesign.
 
 ### 1.4 Whole-port completion and remaining-effort estimate
 
-Checkpoint: 2026-08-24, after P5-010d. The mechanical backlog count is
-**177/321 checked tasks (55.1%)**. The count is useful for
+Checkpoint: 2026-08-24, after P6-006b. The mechanical backlog count is
+**178/322 checked tasks (55.3%)**. The count is useful for
 auditing plan state but is
 not a parity percentage: small foundation subtasks and large end-to-end
 features each count once, while the remaining font/text, Desktop/input,
@@ -101,14 +101,14 @@ are planning ranges rather than a delivery promise.
 | Phase 3 — font/text/assets | 4/21 | 180–300 |
 | Phase 4 — MML/XML | 31/36 | 40–80 |
 | Phase 5 — Widget/Desktop/input | 40/47 | 10–14 |
-| Phase 6 — controls/editing | 20/47 | 110–184 |
+| Phase 6 — controls/editing | 21/48 | 108–180 |
 | Phase 7 — selectors/windows/dialogs | 16/34 | 180–300 |
 | Phase 8 — styles/default skin | 0/14 | 140–240 |
 | Phase 9 — file/data/property grids | 1/21 | 180–320 |
 | Phase 10 — parity/release | 0/28 | 140–240 |
-| **Whole remaining technical port** | **177/321 complete** | **1,044–1,838** |
+| **Whole remaining technical port** | **178/322 complete** | **1,042–1,834** |
 
-For scheduling, use **about 1,441 focused hours remaining** as the midpoint,
+For scheduling, use **about 1,438 focused hours remaining** as the midpoint,
 with **1,100–2,000 hours** as the sensible rounded range. This assumes prompt
 human decisions for P3-004 and P0-015b, no newly discovered upstream/CNA
 architectural blocker, and continued reuse of the existing tested foundations.
@@ -501,11 +501,12 @@ are green, and the build uses no more than three parallel jobs.
 - [ ] P6-004 Port `Simple/Button.cs`.
 - [x] P6-005a Port the style-independent `ToggleButton` core: `IsToggled`, the exact `IsToggledChanged` alias of `PressedChanged`, single-content layout, persistent touch toggling/click arming, Space-key toggling, cancelable user changes, exact-type cloning, and MML registration/round trips. Preserve the selected upstream behavior that Space can toggle while `ReadOnly` (but not while disabled); keep stylesheet construction/dictionary lookup and Label-dependent `CreateTextButton` in P6-002/P6-005/P8-003.
 - [ ] P6-005 Port `Simple/ToggleButton.cs`.
-- [x] P6-006a Port the style-independent `CheckButtonBase` core: check-position/content layout, spacing, retained checked/unchecked renderables, read-only check image, touch/Space toggling, exact clone state, `CheckPosition` codec, and abstract MML metadata. Preserve the selected upstream read-only keyboard quirk, while correcting omitted visual-state refresh/clone backing handles (`DEV-050`) and stale measurement after spacing changes (`DEV-051`). Keep `CheckImageInternal` hover selection for P5-010 and stylesheet application for P6-006/P8-003.
+- [x] P6-006a Port the style-independent `CheckButtonBase` core: check-position/content layout, spacing, retained checked/unchecked renderables, read-only check image, touch/Space toggling, exact clone state, `CheckPosition` codec, and abstract MML metadata. Preserve the selected upstream read-only keyboard quirk, while correcting omitted visual-state refresh/clone backing handles (`DEV-050`) and stale measurement after spacing changes (`DEV-051`). The internal image's parent-hover selection arrived in P6-006b; keep stylesheet application for P6-006/P8-003.
+- [x] P6-006b Port `CheckImageInternal.UseOverBackground`: while attached, the check image selects its over visual from the parent check button's hover state rather than its smaller own bounds; when detached, it falls back to its own hover. Preserve Widget visual precedence so pressed and disabled images still override hover, and retain the dynamic behavior through CheckButtonBase cloning.
 - [ ] P6-006 Port `Simple/CheckButtonBase.cs`.
-- [x] P6-007a Port the style-independent concrete `CheckButton` core: `IsChecked`, its exact `PressedChanged` event alias, exact-type cloning, and MML metadata/round trips. Keep stylesheet construction and dictionary lookup for P6-007/P8-003.
+- [x] P6-007a Port the style-independent concrete `CheckButton` core: `IsChecked`, its exact `PressedChanged` event alias, exact-type cloning, and MML metadata/round trips. It inherits the P6-006b parent-hover check image; keep stylesheet construction and dictionary lookup for P6-007/P8-003.
 - [ ] P6-007 Port `Simple/CheckButton.cs`.
-- [x] P6-008a Port the style-independent `RadioButton` core: direct-sibling exclusive selection, last-selected preservation, exact-type cloning, and MML type/content round trips. Preserve upstream's XML-ignored `IsPressed`; keep stylesheet construction and dictionary lookup for P6-008/P8-003.
+- [x] P6-008a Port the style-independent `RadioButton` core: direct-sibling exclusive selection, last-selected preservation, exact-type cloning, and MML type/content round trips. Preserve upstream's XML-ignored `IsPressed`; it inherits the P6-006b parent-hover check image, while stylesheet construction and dictionary lookup remain P6-008/P8-003.
 - [ ] P6-008 Port `Simple/RadioButton.cs`.
 - [x] P6-009a Port the style-independent separator hierarchy core: thickness/orientation measurement, concrete alignment defaults, inherited image rendering, exact-type cloning, and MML metadata. Dynamic `Thickness` changes invalidate the cached measurement (`DEV-047`). Keep stylesheet constructors/application in P6-009–P6-011/P8-004.
 - [ ] P6-009 Port `Simple/SeparatorWidget.cs`.

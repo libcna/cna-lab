@@ -102,9 +102,7 @@ namespace Myra::Graphics2D::UI
         return check_;
     }
 
-    void CheckButtonBase::InternalOnTouchUp()
-    {
-    }
+    void CheckButtonBase::InternalOnTouchUp() {}
 
     void CheckButtonBase::InternalOnTouchDown()
     {
@@ -131,10 +129,10 @@ namespace Myra::Graphics2D::UI
         }
     }
 
-    void CheckButtonBase::CopyFrom(const Widget& source)
+    void CheckButtonBase::CopyFrom(const Widget &source)
     {
         ButtonBase::CopyFrom(source);
-        const auto* const checkButton = dynamic_cast<const CheckButtonBase*>(&source);
+        const auto *const checkButton = dynamic_cast<const CheckButtonBase *>(&source);
         if (checkButton == nullptr)
         {
             throw std::invalid_argument("CheckButtonBase copy source must be a CheckButtonBase.");
@@ -155,20 +153,20 @@ namespace Myra::Graphics2D::UI
 
         switch (checkPosition_)
         {
-            case CheckPosition::Left:
-                AddChild(check);
-                if (content)
-                {
-                    AddChild(content);
-                }
-                break;
-            case CheckPosition::Right:
-                if (content)
-                {
-                    AddChild(content);
-                }
-                AddChild(check);
-                break;
+        case CheckPosition::Left:
+            AddChild(check);
+            if (content)
+            {
+                AddChild(content);
+            }
+            break;
+        case CheckPosition::Right:
+            if (content)
+            {
+                AddChild(content);
+            }
+            AddChild(check);
+            break;
         }
     }
 
@@ -177,13 +175,19 @@ namespace Myra::Graphics2D::UI
         check_->setRenderableProperty(getIsPressedProperty() ? checkedImage_ : uncheckedImage_);
     }
 
-    void CheckButtonBase::CheckImageInternal::CopyFromImage(const Image& source)
+    void CheckButtonBase::CheckImageInternal::CopyFromImage(const Image &source)
     {
         Image::CopyFrom(source);
+    }
+
+    bool CheckButtonBase::CheckImageInternal::UseOverBackground() const noexcept
+    {
+        const Widget *const parent = getParentProperty();
+        return parent == nullptr ? getIsMouseInsideProperty() : parent->getIsMouseInsideProperty();
     }
 
     std::shared_ptr<Widget> CheckButtonBase::CheckImageInternal::CreateCloneInstance() const
     {
         return std::make_shared<CheckImageInternal>();
     }
-}
+} // namespace Myra::Graphics2D::UI

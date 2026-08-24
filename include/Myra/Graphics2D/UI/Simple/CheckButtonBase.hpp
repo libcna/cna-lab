@@ -30,7 +30,7 @@ namespace Myra::Graphics2D::UI
     /** @brief Non-publicly constructible core shared by check and radio buttons. */
     class CheckButtonBase : public ButtonBase
     {
-    public:
+      public:
         ~CheckButtonBase() override = default;
 
         [[nodiscard]] CheckPosition getCheckPositionProperty() const noexcept;
@@ -49,20 +49,21 @@ namespace Myra::Graphics2D::UI
         void OnPressedChanged() override;
         void OnKeyDown(Microsoft::Xna::Framework::Input::Keys key) override;
 
-    protected:
+      protected:
         CheckButtonBase();
 
         void InternalOnTouchUp() override;
         void InternalOnTouchDown() override;
-        void CopyFrom(const Widget& source) override;
+        void CopyFrom(const Widget &source) override;
 
-    private:
+      private:
         class CheckImageInternal final : public Image
         {
-        public:
-            void CopyFromImage(const Image& source);
+          public:
+            void CopyFromImage(const Image &source);
 
-        protected:
+          protected:
+            [[nodiscard]] bool UseOverBackground() const noexcept override;
             [[nodiscard]] std::shared_ptr<Widget> CreateCloneInstance() const override;
         };
 
@@ -76,4 +77,4 @@ namespace Myra::Graphics2D::UI
         std::shared_ptr<Graphics2D::IImage> checkedImage_;
         std::shared_ptr<Graphics2D::IImage> uncheckedImage_;
     };
-}
+} // namespace Myra::Graphics2D::UI
