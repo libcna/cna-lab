@@ -3,9 +3,9 @@
 ## Current state
 
 - Active branch: `develop`.
-- Current committed baseline `a5d0330` (`test: verify parent target consumer integration`)
-  completes P10-024. The repository checkpoint described by this handoff also
-  completes P9-019's finite user-type registry compatibility boundary,
+- Current committed baseline `c557fad` (`docs: define finite registry compatibility boundary`)
+  completes P9-019. The repository checkpoint described by this handoff also
+  completes P3-021's explicit, tested no-default-skin configuration,
   along with P1-022's
   complete Phase 1 regression coverage and P6-006a/
   P6-006b's style-independent abstract `CheckButtonBase` and parent-hover image,
@@ -434,8 +434,8 @@ capture remain open. `UPSTREAM_MANIFEST.md` records this per source.
 
 ## Whole-port progress estimate
 
-As of 2026-08-24 after P9-019, `plan.md` has **204/342 checked tasks
-(59.6%)**. Equal checkbox counting overstates
+As of 2026-08-24 after P3-021, `plan.md` has **205/342 checked tasks
+(59.9%)**. Equal checkbox counting overstates
 end-user parity because the
 largest remaining workstreams are font/rich text, Desktop/input, most controls,
 styles/default assets, selectors/windows/dialogs, DataGrid/PropertyGrid, and the
@@ -443,8 +443,8 @@ exhaustive release gate. The feature-weighted estimate is therefore **about
 30–35% of the complete Myra-CNA port**.
 
 All currently known technical work through P10-028 is estimated at
-**948–1,664 focused implementation/validation hours remaining**; use about
-**1,306 hours** as the planning midpoint or **1,000–2,000 hours** as the rounded
+**944–1,656 focused implementation/validation hours remaining**; use about
+**1,300 hours** as the planning midpoint or **1,000–2,000 hours** as the rounded
 range. This includes code, tests, documentation, integration, and the known
 project-owned test-fixture work. It assumes P3-004 and P0-015b receive prompt
 human decisions and excludes idle waiting/legal-review time. Choosing wholly
@@ -475,14 +475,18 @@ cmake -S ../cna -B build-cna-parent \
 CCACHE_DISABLE=1 cmake --build build-cna-parent --parallel 3
 ctest --test-dir build-cna-parent/_myra_cna \
   --output-on-failure --parallel 3
-# 378/378 tests passed with current modular CNA/sharp-runtime
+# 379/379 tests passed with current modular CNA/sharp-runtime
 
 ASAN_OPTIONS=detect_leaks=0 CCACHE_DISABLE=1 \
   cmake --build build-sanitize-parent --parallel 3
 ASAN_OPTIONS=detect_leaks=0 UBSAN_OPTIONS=print_stacktrace=1 \
   ctest --test-dir build-sanitize-parent/_myra_cna \
   --output-on-failure --parallel 3
-# 378/378 tests passed with ASan address checks and UBSan
+# 379/379 tests passed with ASan address checks and UBSan
+
+# P3-021 explicit no-default-skin gate: focused linked 1/1; enabling the
+# unavailable skin fails with the documented P3-004/P0-015b diagnostic;
+# broad default 69/69, linked SOFTWARE 379/379, and ASan+UBSan 379/379 passed
 
 # P10-024 parent-target consumer: clean configure/build/run passed; broad
 # default 69/69, linked SOFTWARE 378/378, and ASan+UBSan 378/378 passed
@@ -718,12 +722,14 @@ was disabled because LeakSanitizer cannot run under this environment's
    and shaping choices in `docs/font-audit.md` are explicitly approved.
 2. Treat P0-015b as `needs_human`: do not copy the VisUI-derived skin atlas or
    raw artwork. Inter itself is provenance-cleared under OFL but packaging waits
-   for P3-004/P3-020.
+   for P3-004/P3-020. P3-021 is complete: keep
+   `MYRA_CNA_ENABLE_DEFAULT_SKIN=OFF` and preserve the public
+   `MYRA_CNA_NO_DEFAULT_SKIN=1` contract until both blockers are resolved.
 3. P0-016 is complete. Keep every upstream test binary unbundled; execute
    P0-016a's original PNG/BMFont/stylesheet replacements only when their
    affected asset tests become implementable.
 4. P0-023, P1-022, P5-008i, P5-010a, P5-010b, P5-010c, P5-010d, P5-012, P5-016a, P5-016b, P5-016c, P5-016d, P5-017a, P5-018a, P5-019a, P5-019b, P5-019c, P6-001a, P6-003a, P6-004a, P6-005a,
-   P6-006a, P6-006b, P6-007a, P6-008a, P6-009a, P6-013c, P6-016c, P6-018a, P6-018b, P6-019a, P6-019b, P6-019c, P6-021a, P6-022a, P7-001–P7-004, P7-005a, P7-005b, P7-005c, P7-006, P7-007a, P7-007b, P7-008, P7-009a, P7-009b, P7-010a, P7-011a, P7-012a, P7-012b, P7-013a, P7-013b, P7-013c, P7-014, P7-015a, P7-016a, P7-016b, P7-016c, P9-019, P10-019, P10-024, and P10-026 are complete. Keep full
+   P6-006a, P6-006b, P6-007a, P6-008a, P6-009a, P6-013c, P6-016c, P6-018a, P6-018b, P6-019a, P6-019b, P6-019c, P6-021a, P6-022a, P7-001–P7-004, P7-005a, P7-005b, P7-005c, P7-006, P7-007a, P7-007b, P7-008, P7-009a, P7-009b, P7-010a, P7-011a, P7-012a, P7-012b, P7-013a, P7-013b, P7-013c, P7-014, P7-015a, P7-016a, P7-016b, P7-016c, P3-021, P9-019, P10-019, P10-024, and P10-026 are complete. Keep full
    P6-006/P6-007/P6-008 style work in P8-003, and keep Slider's
    remaining stylesheet work in P6-022/P8-005; do not reopen P6-005's Label/style-
    dependent remainder before P6-002/P8-003. TreeView now owns a reciprocal node
@@ -990,7 +996,10 @@ HEADLESS and SDL_RENDERER-on-Xvfb each passed the 44/44 graphics subset and full
 172/172 suite at the P2-022 milestone. The current SDL_RENDERER tree, including
 the explicit display smoke and all work since then, passes 199/199 on Xvfb.
 The current default, linked SOFTWARE, and ASan+UBSan suites pass
-69/69, 378/378, and 378/378 respectively. P10-024 adds a clean isolated
+69/69, 379/379, and 379/379 respectively. P3-021 makes the no-default-skin
+mode explicit, rejects unavailable opt-in with the two governing blockers, and
+proves that unstyled widgets plus font-independent `SolidBrush` rendering need
+no bundled visual asset. P10-024 adds a clean isolated
 parent-target configure/build/run gate for `add_subdirectory` and `Myra::CNA`.
 P9-019 documents the finite registry boundary for arbitrary application types
 without weakening the required built-in Myra inventory.
@@ -1144,3 +1153,14 @@ controls and input consumers before choosing the next dependency-safe slice.
 DataGrid capture still waits for its Phase 9 control. The default Label/style
 tooltip creator, Desktop style defaults, and TextBox edit/index semantics remain in
 their downstream tasks.
+
+For the next fresh context, do not reopen P6-010/P6-011 or P6-020 merely to
+rename already ported concrete specialisations: their remaining meaningful work
+is style-bound. Do not claim P10-025 against the current modular CNA checkout,
+which intentionally must remain the top-level project; that task needs a
+compatible legacy checkout or a future CNA integration change. The strongest
+currently unblocked starting audit is P9-012/P9-013: inspect the pinned
+`Record`/`ReflectionRecord` sources and define a coherent explicit-descriptor
+record boundary before translating adapters. If that audit exposes a missing
+prerequisite, record it in the plan and choose another style-independent Phase 9
+slice rather than inventing reflection or weakening the P9-019 registry rules.

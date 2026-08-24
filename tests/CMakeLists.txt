@@ -63,6 +63,7 @@ if(MYRA_CNA_CNA_LINKED)
         MyraEnvironmentTests.cpp
         MyraTypeRegistryTests.cpp
         NinePatchRegionTests.cpp
+        NoDefaultSkinTests.cpp
         PanelTests.cpp
         ProjectTests.cpp
         ProportionTests.cpp

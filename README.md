@@ -113,6 +113,8 @@ See
 No font library, skin, or copied upstream binary asset is currently bundled.
 The dependency-free configuration is a compile/test aid; applications that
 render or use CNA-backed platform behavior need the linked CNA configuration.
+The default font/skin configuration is explicitly off and keeps all
+font-independent primitives available without bundled visual assets.
 
 ## Build
 
@@ -124,6 +126,18 @@ cmake -S . -B build
 cmake --build build --parallel 3
 ctest --test-dir build --output-on-failure --parallel 3
 ```
+
+The equivalent explicit no-default-skin configuration is:
+
+```bash
+cmake -S . -B build -DMYRA_CNA_ENABLE_DEFAULT_SKIN=OFF
+```
+
+`MYRA_CNA_ENABLE_DEFAULT_SKIN=ON` intentionally fails configuration until the
+P3-004 font choice and P0-015b skin-artwork decision are resolved. In the safe
+default mode, `Myra::CNA` publicly defines `MYRA_CNA_NO_DEFAULT_SKIN=1`; linked
+tests construct unstyled widgets and draw a `SolidBrush` through the generated
+1x1 white region without reading any font or skin file.
 
 Here “headers-only compile-check mode” describes dependency resolution, not the
 shape of Myra-CNA itself: `Myra::CNA` is still a compiled static library. This

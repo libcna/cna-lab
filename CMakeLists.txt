@@ -22,6 +22,15 @@ option(MYRA_CNA_ENABLE_FORMAT_TARGETS
        "Add myra_cna_format/check_format targets when clang-format is available" ON)
 option(MYRA_CNA_ENABLE_IWYU
        "Run include-what-you-use while compiling the MYRA_CNA library" OFF)
+option(MYRA_CNA_ENABLE_DEFAULT_SKIN
+       "Enable Myra-CNA's bundled default font and skin assets" OFF)
+
+if(MYRA_CNA_ENABLE_DEFAULT_SKIN)
+    message(FATAL_ERROR
+        "myra-cna: the bundled default skin is unavailable until P3-004 selects "
+        "the font implementation and P0-015b resolves the skin artwork. "
+        "Configure with MYRA_CNA_ENABLE_DEFAULT_SKIN=OFF.")
+endif()
 
 function(myra_cna_enable_strict_warnings target)
     if(MSVC)
@@ -117,6 +126,7 @@ target_include_directories(MYRA_CNA
         "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
 )
 target_compile_features(MYRA_CNA PUBLIC cxx_std_23)
+target_compile_definitions(MYRA_CNA PUBLIC MYRA_CNA_NO_DEFAULT_SKIN=1)
 myra_cna_enable_strict_warnings(MYRA_CNA)
 
 if(MYRA_CNA_ENABLE_IWYU)

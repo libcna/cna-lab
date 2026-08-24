@@ -80,8 +80,8 @@ behavioral redesign.
 
 ### 1.4 Whole-port completion and remaining-effort estimate
 
-Checkpoint: 2026-08-24, after P9-019. The mechanical backlog count is
-**204/342 checked tasks (59.6%)**. The count is useful for
+Checkpoint: 2026-08-24, after P3-021. The mechanical backlog count is
+**205/342 checked tasks (59.9%)**. The count is useful for
 auditing plan state but is
 not a parity percentage: small foundation subtasks and large end-to-end
 features each count once, while the remaining font/text, Desktop/input,
@@ -98,7 +98,7 @@ are planning ranges rather than a delivery promise.
 | Phase 0 — legal/assets/harness | 23/26 | 24–80 |
 | Phase 1 — shared runtime | 23/23 | 0–0 |
 | Phase 2 — CNA graphics | 20/24 | 24–48 |
-| Phase 3 — font/text/assets | 4/21 | 180–300 |
+| Phase 3 — font/text/assets | 5/21 | 176–292 |
 | Phase 4 — MML/XML | 31/36 | 40–80 |
 | Phase 5 — Widget/Desktop/input | 44/51 | 0–0 |
 | Phase 6 — controls/editing | 26/53 | 96–158 |
@@ -106,9 +106,9 @@ are planning ranges rather than a delivery promise.
 | Phase 8 — styles/default skin | 0/14 | 140–240 |
 | Phase 9 — file/data/property grids | 2/21 | 176–312 |
 | Phase 10 — parity/release | 3/28 | 126–214 |
-| **Whole remaining technical port** | **204/342 complete** | **948–1,664** |
+| **Whole remaining technical port** | **205/342 complete** | **944–1,656** |
 
-For scheduling, use **about 1,306 focused hours remaining** as the midpoint,
+For scheduling, use **about 1,300 focused hours remaining** as the midpoint,
 with **1,000–2,000 hours** as the sensible rounded range. This assumes prompt
 human decisions for P3-004 and P0-015b, no newly discovered upstream/CNA
 architectural blocker, and continued reuse of the existing tested foundations.
@@ -399,7 +399,7 @@ are green, and the build uses no more than three parallel jobs.
 - [x] P3-018 Record `MyraAssetManagerExtensions.PlatformAgnostic.cs` as an inactive conditional source in the FNA/CNA manifest; do not create a parallel platform-agnostic API.
 - [ ] P3-019 Complete `DefaultAssets.cs`: the font-independent white-region cache is already P2-015; port stylesheet selection only after the style core exists, and do not bind it to the blocked VisUI atlas before P0-015b.
 - [ ] P3-020 Package the audited Inter font only after P3-004 selects the font implementation and preserve its full OFL notice; package a default skin only after P0-015b, then verify every path case-sensitively.
-- [ ] P3-021 Provide and test a documented no-default-skin configuration while P0-015b remains unresolved; font-independent primitives must continue to work without bundled visual assets.
+- [x] P3-021 Provide and test a documented no-default-skin configuration while P0-015b remains unresolved. `MYRA_CNA_ENABLE_DEFAULT_SKIN` now defaults to `OFF`, the public target defines `MYRA_CNA_NO_DEFAULT_SKIN=1`, and premature opt-in fails with the exact P3-004/P0-015b blockers. The linked smoke test constructs unstyled widgets and renders a `SolidBrush` through the generated white region without reading bundled font or skin assets.
 
 ### Phase 4 — MML metadata and XML foundation
 
