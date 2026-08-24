@@ -1,7 +1,5 @@
-source 'https://rubygems.org'
+source "https://rubygems.org"
 
-# Core binding dependency (assuming local for now)
-# gem 'cna-ruby', path: '../cna-ruby'
-
-gem 'opal', '~> 1.7'
-gem 'rake'
+# Development only. Package qualification installs and runs the exact built gem
+# in an isolated GEM_HOME without this path dependency.
+gem "cna-ruby", path: "../cna-ruby"
