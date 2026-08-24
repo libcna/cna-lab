@@ -20,7 +20,7 @@ namespace Myra::Graphics2D::UI
     class Slider : public Widget
     {
       public:
-        ~Slider() override = default;
+        ~Slider() override;
 
         Events::MyraEventHandlerT<Events::ValueChangedEventArgs<float>> ValueChanged;
         Events::MyraEventHandlerT<Events::ValueChangedEventArgs<float>> ValueChangedByUser;
@@ -38,9 +38,14 @@ namespace Myra::Graphics2D::UI
         void setWheelStepProperty(float value) noexcept;
         [[nodiscard]] std::shared_ptr<Button> getImageButtonProperty() const;
 
+        void OnTouchDown() override;
+        void OnMouseWheel(float delta) override;
+
       protected:
         Slider();
+        [[nodiscard]] bool getAcceptsMouseWheelProperty() const noexcept override;
         void InternalArrange() override;
+        void OnPlacedChanged() override;
         void CopyFrom(const Widget &source) override;
 
       private:
@@ -48,6 +53,10 @@ namespace Myra::Graphics2D::UI
         void setHint(int value);
         [[nodiscard]] int getMaxHint() const;
         void SyncHintWithValue();
+        void UpdateHint();
+        void SubscribeDesktopTouchMoved();
+        void UnsubscribeDesktopTouchMoved() noexcept;
+        void DesktopTouchMoved();
 
         SingleItemLayout<Button> layout_;
         float minimum_ = 0.0F;
@@ -55,5 +64,7 @@ namespace Myra::Graphics2D::UI
         float value_ = 0.0F;
         float wheelStep_ = 1.0F;
         bool wheelAdjustment_ = false;
+        Desktop *touchMovedSubscriptionDesktop_ = nullptr;
+        Events::MyraEventHandler::Token touchMovedToken_ = Events::MyraEventHandler::InvalidToken;
     };
 } // namespace Myra::Graphics2D::UI

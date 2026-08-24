@@ -9,13 +9,20 @@
 #include <any>
 #include <limits>
 #include <memory>
+#include <stdexcept>
 #include <string>
 #include <typeindex>
+#include <utility>
 
+#include "Microsoft/Xna/Framework/Rectangle.hpp"
 #include "Myra/Events/ValueChangedEventArgs.hpp"
+#include "Myra/Graphics2D/UI/Desktop.hpp"
+#include "Myra/Graphics2D/UI/InputEventsManager.hpp"
+#include "Myra/Graphics2D/UI/MouseInfo.hpp"
 #include "Myra/Graphics2D/UI/Range/Slider.hpp"
 #include "Myra/Graphics2D/UI/Simple/Button.hpp"
 #include "Myra/Graphics2D/UI/Simple/Image.hpp"
+#include "Myra/MyraEnvironment.hpp"
 #include "Myra/MML/LoadContext.hpp"
 #include "Myra/MML/RegisterMyraTypes.hpp"
 #include "Myra/MML/SaveContext.hpp"
@@ -25,9 +32,12 @@
 namespace
 {
     using Myra::Events::ValueChangedEventArgs;
+    using Myra::Graphics2D::UI::Desktop;
     using Myra::Graphics2D::UI::HorizontalAlignment;
     using Myra::Graphics2D::UI::HorizontalSlider;
     using Myra::Graphics2D::UI::Image;
+    using Myra::Graphics2D::UI::InputEventsManager;
+    using Myra::Graphics2D::UI::MouseInfo;
     using Myra::Graphics2D::UI::Orientation;
     using Myra::Graphics2D::UI::Slider;
     using Myra::Graphics2D::UI::VerticalAlignment;
@@ -38,6 +48,38 @@ namespace
     using Myra::MML::TypeDescriptor;
     using Myra::MML::TypeRegistry;
     using Myra::MML::ValueCodecRegistry;
+
+    class InputProviderGuard final
+    {
+      public:
+        InputProviderGuard()
+            : mouseInfoGetter_(Myra::MyraEnvironment::getMouseInfoGetterProperty()),
+              downKeysGetter_(Myra::MyraEnvironment::getDownKeysGetterProperty()),
+              eventHandlingModel_(Myra::MyraEnvironment::getEventHandlingModelProperty())
+        {
+            Myra::MyraEnvironment::setEventHandlingModelProperty(Myra::Events::EventHandlingStrategy::EventCapturing);
+        }
+
+        ~InputProviderGuard()
+        {
+            InputEventsManager::ProcessEvents();
+            Myra::MyraEnvironment::setMouseInfoGetterProperty(std::move(mouseInfoGetter_));
+            Myra::MyraEnvironment::setDownKeysGetterProperty(std::move(downKeysGetter_));
+            Myra::MyraEnvironment::setEventHandlingModelProperty(eventHandlingModel_);
+        }
+
+      private:
+        Myra::MyraEnvironment::MouseInfoGetter mouseInfoGetter_;
+        Myra::MyraEnvironment::DownKeysGetter downKeysGetter_;
+        Myra::Events::EventHandlingStrategy eventHandlingModel_;
+    };
+
+    void PumpInput(Desktop &desktop)
+    {
+        desktop.UpdateInput();
+        desktop.ProcessWidgetInput();
+        InputEventsManager::ProcessEvents();
+    }
 
     TEST(SliderTests, ConcreteDefaultsAndRetainedKnobsMatchTheSelectedSurface)
     {
@@ -115,6 +157,16 @@ namespace
         EXPECT_EQ(slider.getImageButtonProperty()->getLeftProperty(), 0);
     }
 
+    TEST(SliderTests, RejectsAnOverflowingKnobTravelRangeDeterministically)
+    {
+        HorizontalSlider slider;
+        slider.getImageButtonProperty()->setWidthProperty(std::numeric_limits<int>::min());
+        slider.getImageButtonProperty()->setHeightProperty(1);
+
+        EXPECT_THROW(slider.Arrange(Microsoft::Xna::Framework::Rectangle(0, 0, std::numeric_limits<int>::max(), 20)),
+                     std::overflow_error);
+    }
+
     TEST(SliderTests, ClonePreservesConcreteStateAndDeepCopiesTheKnob)
     {
         VerticalSlider source;
@@ -138,6 +190,204 @@ namespace
         EXPECT_TRUE(clone->getImageButtonProperty()->getReadOnlyProperty());
         EXPECT_NE(clone->getImageButtonProperty()->getContentProperty(),
                   source.getImageButtonProperty()->getContentProperty());
+
+        clone->getImageButtonProperty()->setIsPressedProperty(true);
+        clone->getImageButtonProperty()->OnTouchLeft();
+        EXPECT_TRUE(clone->getImageButtonProperty()->getIsPressedProperty());
+    }
+
+    TEST(SliderTests, DesktopWheelRoutingPreservesUserAndGeneralEventSemantics)
+    {
+        InputProviderGuard guard;
+        MouseInfo snapshot{{50, 10}, false, false, false, -120.0F};
+        Myra::MyraEnvironment::setMouseInfoGetterProperty([&] { return snapshot; });
+        Myra::MyraEnvironment::setDownKeysGetterProperty([](Myra::MyraEnvironment::DownKeys &keys)
+                                                         { keys.fill(false); });
+
+        Desktop desktop;
+        desktop.setBoundsFetcherProperty([] { return Microsoft::Xna::Framework::Rectangle(0, 0, 120, 40); });
+        auto slider = std::make_shared<HorizontalSlider>();
+        slider->setWidthProperty(100);
+        slider->setHeightProperty(20);
+        slider->setMinimumProperty(0.0F);
+        slider->setMaximumProperty(10.0F);
+        slider->setValueProperty(5.0F);
+        slider->setWheelAdjustmentProperty(true);
+        slider->setWheelStepProperty(2.0F);
+        slider->getImageButtonProperty()->setWidthProperty(10);
+        slider->getImageButtonProperty()->setHeightProperty(10);
+
+        int generalCalls = 0;
+        int userCalls = 0;
+        slider->ValueChanged += [&](void *, ValueChangedEventArgs<float> &arguments)
+        {
+            ++generalCalls;
+            EXPECT_EQ(arguments.getOldValueProperty(), 5.0F);
+            EXPECT_EQ(arguments.getNewValueProperty(), 3.0F);
+        };
+        slider->ValueChangedByUser += [&](void *, ValueChangedEventArgs<float> &arguments)
+        {
+            ++userCalls;
+            EXPECT_EQ(arguments.getOldValueProperty(), 5.0F);
+            EXPECT_EQ(arguments.getNewValueProperty(), 3.0F);
+        };
+
+        desktop.AddWidget(slider);
+        desktop.UpdateLayout();
+        PumpInput(desktop);
+
+        EXPECT_EQ(slider->getValueProperty(), 3.0F);
+        EXPECT_EQ(generalCalls, 2);
+        EXPECT_EQ(userCalls, 1);
+
+        slider->setWheelAdjustmentProperty(false);
+        snapshot.Wheel = -240.0F;
+        PumpInput(desktop);
+        EXPECT_EQ(slider->getValueProperty(), 3.0F);
+        EXPECT_EQ(generalCalls, 2);
+        EXPECT_EQ(userCalls, 1);
+    }
+
+    TEST(SliderTests, DragTracksTheDesktopOutsideTheSliderAndGlobalReleaseStopsCapture)
+    {
+        InputProviderGuard guard;
+        MouseInfo snapshot{{50, 10}, true, false, false, 0.0F};
+        Myra::MyraEnvironment::setMouseInfoGetterProperty([&] { return snapshot; });
+        Myra::MyraEnvironment::setDownKeysGetterProperty([](Myra::MyraEnvironment::DownKeys &keys)
+                                                         { keys.fill(false); });
+
+        Desktop desktop;
+        desktop.setBoundsFetcherProperty([] { return Microsoft::Xna::Framework::Rectangle(0, 0, 120, 40); });
+        auto slider = std::make_shared<HorizontalSlider>();
+        slider->setWidthProperty(100);
+        slider->setHeightProperty(20);
+        slider->getImageButtonProperty()->setWidthProperty(10);
+        slider->getImageButtonProperty()->setHeightProperty(10);
+        int generalCalls = 0;
+        int userCalls = 0;
+        slider->ValueChanged += [&](void *, ValueChangedEventArgs<float> &) { ++generalCalls; };
+        slider->ValueChangedByUser += [&](void *, ValueChangedEventArgs<float> &) { ++userCalls; };
+        desktop.AddWidget(slider);
+        desktop.UpdateLayout();
+
+        PumpInput(desktop);
+        EXPECT_FLOAT_EQ(slider->getValueProperty(), 50.0F);
+        EXPECT_EQ(slider->getImageButtonProperty()->getLeftProperty(), 45);
+        EXPECT_TRUE(slider->getImageButtonProperty()->getIsPressedProperty());
+        EXPECT_EQ(generalCalls, 1);
+        EXPECT_EQ(userCalls, 1);
+
+        snapshot.Position = {115, 10};
+        PumpInput(desktop);
+        EXPECT_FLOAT_EQ(slider->getValueProperty(), 100.0F);
+        EXPECT_EQ(slider->getImageButtonProperty()->getLeftProperty(), 90);
+        EXPECT_TRUE(slider->getImageButtonProperty()->getIsPressedProperty());
+        EXPECT_EQ(generalCalls, 2);
+        EXPECT_EQ(userCalls, 2);
+
+        snapshot.IsLeftButtonDown = false;
+        PumpInput(desktop);
+        EXPECT_FALSE(slider->getImageButtonProperty()->getIsPressedProperty());
+
+        snapshot.IsLeftButtonDown = true;
+        PumpInput(desktop);
+        snapshot.Position = {10, 10};
+        PumpInput(desktop);
+        EXPECT_FLOAT_EQ(slider->getValueProperty(), 100.0F);
+        EXPECT_EQ(generalCalls, 2);
+        EXPECT_EQ(userCalls, 2);
+        snapshot.IsLeftButtonDown = false;
+        PumpInput(desktop);
+    }
+
+    TEST(SliderTests, VerticalTouchUsesTheYCoordinateAndKnobHeight)
+    {
+        InputProviderGuard guard;
+        MouseInfo snapshot{{10, 73}, true, false, false, 0.0F};
+        Myra::MyraEnvironment::setMouseInfoGetterProperty([&] { return snapshot; });
+        Myra::MyraEnvironment::setDownKeysGetterProperty([](Myra::MyraEnvironment::DownKeys &keys)
+                                                         { keys.fill(false); });
+
+        Desktop desktop;
+        desktop.setBoundsFetcherProperty([] { return Microsoft::Xna::Framework::Rectangle(0, 0, 40, 120); });
+        auto slider = std::make_shared<VerticalSlider>();
+        slider->setWidthProperty(20);
+        slider->setHeightProperty(100);
+        slider->getImageButtonProperty()->setWidthProperty(10);
+        slider->getImageButtonProperty()->setHeightProperty(10);
+        desktop.AddWidget(slider);
+        desktop.UpdateLayout();
+
+        PumpInput(desktop);
+        EXPECT_EQ(slider->getImageButtonProperty()->getTopProperty(), 68);
+        EXPECT_FLOAT_EQ(slider->getValueProperty(), 68.0F * 100.0F / 90.0F);
+
+        snapshot.IsLeftButtonDown = false;
+        PumpInput(desktop);
+    }
+
+    TEST(SliderTests, ReentrantMoveRemovalInvalidatesTheRetainedSliderCallbackSafely)
+    {
+        InputProviderGuard guard;
+        MouseInfo snapshot{{50, 10}, true, false, false, 0.0F};
+        Myra::MyraEnvironment::setMouseInfoGetterProperty([&] { return snapshot; });
+        Myra::MyraEnvironment::setDownKeysGetterProperty([](Myra::MyraEnvironment::DownKeys &keys)
+                                                         { keys.fill(false); });
+
+        Desktop desktop;
+        desktop.setBoundsFetcherProperty([] { return Microsoft::Xna::Framework::Rectangle(0, 0, 120, 40); });
+        auto slider = std::make_shared<HorizontalSlider>();
+        slider->setWidthProperty(100);
+        slider->setHeightProperty(20);
+        slider->getImageButtonProperty()->setWidthProperty(10);
+        slider->getImageButtonProperty()->setHeightProperty(10);
+        Slider *const rawSlider = slider.get();
+        const std::weak_ptr<Slider> weakSlider = slider;
+        desktop.TouchMoved +=
+            [&](void *, Myra::Events::MyraEventArgs &) { static_cast<void>(desktop.RemoveWidget(rawSlider)); };
+        desktop.AddWidget(slider);
+        desktop.UpdateLayout();
+        PumpInput(desktop);
+        slider.reset();
+
+        snapshot.Position = {80, 10};
+        PumpInput(desktop);
+        EXPECT_EQ(desktop.getWidgetsProperty().getCountProperty(), 0);
+        static_cast<void>(desktop.getChildrenCopyProperty());
+        EXPECT_TRUE(weakSlider.expired());
+    }
+
+    TEST(SliderTests, ReentrantReleaseRemovalInvalidatesTheRetainedKnobCallbackSafely)
+    {
+        InputProviderGuard guard;
+        MouseInfo snapshot{{50, 10}, true, false, false, 0.0F};
+        Myra::MyraEnvironment::setMouseInfoGetterProperty([&] { return snapshot; });
+        Myra::MyraEnvironment::setDownKeysGetterProperty([](Myra::MyraEnvironment::DownKeys &keys)
+                                                         { keys.fill(false); });
+
+        Desktop desktop;
+        desktop.setBoundsFetcherProperty([] { return Microsoft::Xna::Framework::Rectangle(0, 0, 120, 40); });
+        auto slider = std::make_shared<HorizontalSlider>();
+        slider->setWidthProperty(100);
+        slider->setHeightProperty(20);
+        slider->getImageButtonProperty()->setWidthProperty(10);
+        slider->getImageButtonProperty()->setHeightProperty(10);
+        Slider *const rawSlider = slider.get();
+        const std::weak_ptr<Slider> weakSlider = slider;
+        const std::weak_ptr<Myra::Graphics2D::UI::Button> weakKnob = slider->getImageButtonProperty();
+        desktop.TouchUp +=
+            [&](void *, Myra::Events::MyraEventArgs &) { static_cast<void>(desktop.RemoveWidget(rawSlider)); };
+        desktop.AddWidget(slider);
+        desktop.UpdateLayout();
+        PumpInput(desktop);
+        slider.reset();
+
+        snapshot.IsLeftButtonDown = false;
+        PumpInput(desktop);
+        EXPECT_EQ(desktop.getWidgetsProperty().getCountProperty(), 0);
+        static_cast<void>(desktop.getChildrenCopyProperty());
+        EXPECT_TRUE(weakSlider.expired());
+        EXPECT_TRUE(weakKnob.expired());
     }
 
     TEST(SliderTests, RegistersAndRoundTripsTheConcreteRangeMml)

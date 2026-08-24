@@ -1120,6 +1120,29 @@ namespace Myra::Graphics2D::UI
         suppressInvalidateMeasure_ = value;
     }
 
+    std::shared_ptr<Widget> Widget::RetainSelf() const
+    {
+        if (parent_ != nullptr)
+        {
+            const auto iterator = std::find_if(parent_->children_.begin(), parent_->children_.end(),
+                                               [this](const auto &child) { return child.get() == this; });
+            return iterator != parent_->children_.end() ? *iterator : nullptr;
+        }
+        if (desktop_ == nullptr)
+        {
+            return nullptr;
+        }
+        for (SharpRuntime::intcs index = 0; index < desktop_->widgets_.getCountProperty(); ++index)
+        {
+            const std::shared_ptr<Widget> &root = desktop_->widgets_.getItem(index);
+            if (root.get() == this)
+            {
+                return root;
+            }
+        }
+        return nullptr;
+    }
+
     void Widget::SetIsPressedByUser(const bool value)
     {
         if (value != isPressed_ && PressedChangingByUser)

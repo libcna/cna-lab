@@ -371,6 +371,9 @@ namespace Myra::Graphics2D::UI
         [[nodiscard]] bool getSuppressInvalidateMeasureProperty() const noexcept;
         void setSuppressInvalidateMeasureProperty(bool value) noexcept;
 
+        /** @brief Retains this widget through its current parent/Desktop owner. */
+        [[nodiscard]] std::shared_ptr<Widget> RetainSelf() const;
+
         /** @brief Constructs an empty instance of this widget's exact dynamic type. */
         [[nodiscard]] virtual std::shared_ptr<Widget> CreateCloneInstance() const;
 

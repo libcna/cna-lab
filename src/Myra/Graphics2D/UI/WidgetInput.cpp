@@ -6,7 +6,6 @@
 // 0d79b939310bfe1d00b21803fe15e291caf60aa1. See NOTICE.md and UPSTREAM_MANIFEST.md.
 #include "Myra/Graphics2D/UI/Widget.hpp"
 
-#include <algorithm>
 #include <chrono>
 #include <cstdint>
 #include <limits>
@@ -186,28 +185,7 @@ namespace Myra::Graphics2D::UI
             return;
         }
 
-        std::shared_ptr<Widget> retainedTarget;
-        if (parent_ != nullptr)
-        {
-            const auto iterator = std::find_if(parent_->children_.begin(), parent_->children_.end(),
-                                               [this](const auto &child) { return child.get() == this; });
-            if (iterator != parent_->children_.end())
-            {
-                retainedTarget = *iterator;
-            }
-        }
-        else
-        {
-            for (SharpRuntime::intcs index = 0; index < desktop_->widgets_.getCountProperty(); ++index)
-            {
-                const std::shared_ptr<Widget> &root = desktop_->widgets_.getItem(index);
-                if (root.get() == this)
-                {
-                    retainedTarget = root;
-                    break;
-                }
-            }
-        }
+        const std::shared_ptr<Widget> retainedTarget = RetainSelf();
         if (!retainedTarget)
         {
             throw std::logic_error("A placed draggable widget is missing from its owning collection.");

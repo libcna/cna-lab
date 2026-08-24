@@ -22,7 +22,7 @@ namespace Myra::Graphics2D::UI
     {
     public:
         Button();
-        ~Button() override = default;
+        ~Button() override;
 
         [[nodiscard]] std::shared_ptr<Widget> getContentProperty() const override;
         void setContentProperty(std::shared_ptr<Widget> value) override;
@@ -33,13 +33,20 @@ namespace Myra::Graphics2D::UI
     protected:
         void InternalOnTouchUp() override;
         void InternalOnTouchDown() override;
+        void OnPlacedChanged() override;
         [[nodiscard]] std::shared_ptr<Widget> CreateCloneInstance() const override;
 
     private:
         friend class Slider;
         friend class SplitPane;
 
+        void SubscribeDesktopTouchUp();
+        void UnsubscribeDesktopTouchUp() noexcept;
+        void DesktopTouchUp();
+
         SingleItemLayout<Widget> layout_;
         bool releaseOnTouchLeft_ = true;
+        Desktop* touchUpSubscriptionDesktop_ = nullptr;
+        Events::MyraEventHandler::Token touchUpToken_ = Events::MyraEventHandler::InvalidToken;
     };
 }
