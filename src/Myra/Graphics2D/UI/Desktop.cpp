@@ -52,14 +52,16 @@ namespace Myra::Graphics2D::UI
         WidgetCollection::SetItem(index, item);
     }
 
-    Desktop::Desktop() : boundsFetcher_(DefaultBoundsFetcher)
+    Desktop::Desktop() : boundsFetcher_(DefaultBoundsFetcher), inputProcessor_(std::make_shared<InputProcessor>(*this))
     {
         widgets_.CollectionChanged.push_back([this](auto *, const auto &) { OnWidgetsChanged(); });
+        KeyDownHandler = [this](const Microsoft::Xna::Framework::Input::Keys key) { OnKeyDown(key); };
     }
 
     Desktop::~Desktop()
     {
         destroying_ = true;
+        inputProcessor_->Detach();
         try
         {
             ChangeFocus(nullptr, false);

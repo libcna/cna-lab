@@ -10,6 +10,9 @@
 
 #include "Microsoft/Xna/Framework/Game.hpp"
 #include "Microsoft/Xna/Framework/Graphics/GraphicsDevice.hpp"
+#include "Microsoft/Xna/Framework/Graphics/Viewport.hpp"
+#include "Microsoft/Xna/Framework/Input/ButtonState.hpp"
+#include "Microsoft/Xna/Framework/Input/Keyboard.hpp"
 #include "Microsoft/Xna/Framework/Input/Mouse.hpp"
 #include "Microsoft/Xna/Framework/Input/MouseCursor.hpp"
 #include "Myra/DefaultAssets.hpp"
@@ -20,15 +23,15 @@ namespace Myra
 {
     namespace
     {
-        using Myra::Graphics2D::UI::MouseCursorType;
         using Microsoft::Xna::Framework::Input::MouseCursor;
+        using Myra::Graphics2D::UI::MouseCursorType;
 
-        constexpr const char* MissingGameMessage =
+        constexpr const char *MissingGameMessage =
             "MyraEnvironment.Game is not set. Set it to the caller-owned Game instance before using Myra.";
-        constexpr const char* DisposedDeviceMessage =
+        constexpr const char *DisposedDeviceMessage =
             "MyraEnvironment.GraphicsDevice is disposed. Configure a live Game before using graphics features.";
 
-        [[nodiscard]] MouseCursor& ResolveMouseCursor(const MouseCursorType value)
+        [[nodiscard]] MouseCursor &ResolveMouseCursor(const MouseCursorType value)
         {
             switch (value)
             {
@@ -60,15 +63,14 @@ namespace Myra
 
             throw std::invalid_argument("Could not map the requested Myra mouse cursor type.");
         }
-    }
+    } // namespace
 
-    Microsoft::Xna::Framework::Game* MyraEnvironment::game_ = nullptr;
-    Microsoft::Xna::Framework::Graphics::GraphicsDevice* MyraEnvironment::graphicsDevice_ = nullptr;
+    Microsoft::Xna::Framework::Game *MyraEnvironment::game_ = nullptr;
+    Microsoft::Xna::Framework::Graphics::GraphicsDevice *MyraEnvironment::graphicsDevice_ = nullptr;
     std::optional<std::size_t> MyraEnvironment::gameDisposedToken_;
     std::optional<std::size_t> MyraEnvironment::graphicsDeviceDisposingToken_;
 
-    void MyraEnvironment::setMouseCursorTypeProperty(
-        const Graphics2D::UI::MouseCursorType value)
+    void MyraEnvironment::setMouseCursorTypeProperty(const Graphics2D::UI::MouseCursorType value)
     {
         if (mouseCursorType_ == value)
         {
@@ -81,7 +83,34 @@ namespace Myra
         Microsoft::Xna::Framework::Input::Mouse::SetCursor(ResolveMouseCursor(value));
     }
 
-    Microsoft::Xna::Framework::Game& MyraEnvironment::getGameProperty()
+    Graphics2D::UI::MouseInfo MyraEnvironment::DefaultMouseInfoGetter()
+    {
+        using Microsoft::Xna::Framework::Input::ButtonState;
+
+        const Microsoft::Xna::Framework::Input::MouseState state = Microsoft::Xna::Framework::Input::Mouse::GetState();
+        const Microsoft::Xna::Framework::Graphics::Viewport &viewport =
+            getGraphicsDeviceProperty().getViewportProperty();
+        const bool isActive = getGameProperty().getIsActiveProperty();
+        return {
+            {state.getXProperty() - viewport.getXProperty(), state.getYProperty() - viewport.getYProperty()},
+            isActive && state.getLeftButtonProperty() == ButtonState::Pressed,
+            isActive && state.getMiddleButtonProperty() == ButtonState::Pressed,
+            isActive && state.getRightButtonProperty() == ButtonState::Pressed,
+            static_cast<float>(state.getScrollWheelValueProperty()),
+        };
+    }
+
+    void MyraEnvironment::DefaultDownKeysGetter(DownKeys &keys)
+    {
+        const Microsoft::Xna::Framework::Input::KeyboardState state =
+            Microsoft::Xna::Framework::Input::Keyboard::GetState();
+        for (std::size_t index = 0; index < keys.size(); ++index)
+        {
+            keys[index] = state.IsKeyDown(static_cast<Microsoft::Xna::Framework::Input::Keys>(index));
+        }
+    }
+
+    Microsoft::Xna::Framework::Game &MyraEnvironment::getGameProperty()
     {
         if (game_ == nullptr)
         {
@@ -90,9 +119,9 @@ namespace Myra
         return *game_;
     }
 
-    void MyraEnvironment::setGameProperty(Microsoft::Xna::Framework::Game& value)
+    void MyraEnvironment::setGameProperty(Microsoft::Xna::Framework::Game &value)
     {
-        Microsoft::Xna::Framework::Graphics::GraphicsDevice& device = value.getGraphicsDeviceProperty();
+        Microsoft::Xna::Framework::Graphics::GraphicsDevice &device = value.getGraphicsDeviceProperty();
         if (device.getIsDisposedProperty())
         {
             throw std::invalid_argument(
@@ -122,8 +151,7 @@ namespace Myra
         }
     }
 
-    Microsoft::Xna::Framework::Graphics::GraphicsDevice&
-        MyraEnvironment::getGraphicsDeviceProperty()
+    Microsoft::Xna::Framework::Graphics::GraphicsDevice &MyraEnvironment::getGraphicsDeviceProperty()
     {
         if (game_ == nullptr || graphicsDevice_ == nullptr)
         {
@@ -141,8 +169,8 @@ namespace Myra
     {
         DefaultAssets::Dispose();
 
-        Microsoft::Xna::Framework::Game* const oldGame = game_;
-        Microsoft::Xna::Framework::Graphics::GraphicsDevice* const oldDevice = graphicsDevice_;
+        Microsoft::Xna::Framework::Game *const oldGame = game_;
+        Microsoft::Xna::Framework::Graphics::GraphicsDevice *const oldDevice = graphicsDevice_;
         const std::optional<std::size_t> oldGameToken = gameDisposedToken_;
         const std::optional<std::size_t> oldDeviceToken = graphicsDeviceDisposingToken_;
 
@@ -161,22 +189,21 @@ namespace Myra
         }
     }
 
-    void MyraEnvironment::OnGameDisposed(System::Object* sender, const System::EventArgs& eventArgs)
+    void MyraEnvironment::OnGameDisposed(System::Object *sender, const System::EventArgs &eventArgs)
     {
-        (void) eventArgs;
-        if (game_ != nullptr && sender == static_cast<System::Object*>(game_))
+        (void)eventArgs;
+        if (game_ != nullptr && sender == static_cast<System::Object *>(game_))
         {
             ClearGame();
         }
     }
 
-    void MyraEnvironment::OnGraphicsDeviceDisposing(
-        System::Object* sender, const System::EventArgs& eventArgs)
+    void MyraEnvironment::OnGraphicsDeviceDisposing(System::Object *sender, const System::EventArgs &eventArgs)
     {
-        (void) eventArgs;
-        if (graphicsDevice_ != nullptr && sender == static_cast<System::Object*>(graphicsDevice_))
+        (void)eventArgs;
+        if (graphicsDevice_ != nullptr && sender == static_cast<System::Object *>(graphicsDevice_))
         {
             ClearGame();
         }
     }
-}
+} // namespace Myra

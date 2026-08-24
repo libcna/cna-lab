@@ -16,7 +16,8 @@
   horizontal/vertical menu navigation, P7-012a's TabItem data core, P7-013a's
   TabControl core, P7-014's tree-node contract, P7-015a/P7-016a's TreeView node
   and tree cores, P5-012's complete Container contract, P5-016a's retained-root
-  Desktop ownership/layout/focus core, and P0-023's
+  Desktop ownership/layout/focus core, P5-017a's Desktop snapshot and keyboard
+  routing core, and P0-023's
   compatibility with current modular
   CNA/sharp-runtime checkouts. `CheckButton` now carries its `IsChecked` and
   `PressedChanged` event aliases, exact clone factory, and MML registration;
@@ -296,6 +297,14 @@ and a manifest entry. The current ported surface includes:
   ownership contract. Desktop hit testing/positions, wheel state,
   tooltip/cursor/hover behavior, double-click detection, drag tracking, and
   character input remain in their dependency tasks.
+- Desktop now polls injectable mouse and fixed-domain keyboard providers whose
+  linked defaults read CNA frame snapshots. It tracks previous/current pointer
+  and mouse-emulated touch state, cumulative wheel deltas, key transitions and
+  repeats, moves focus on Tab, and gives an active menu priority over the
+  focused widget. Global pointer events queue a retained detachable processor,
+  so dispatch after a stack-owned Desktop is destroyed is a safe no-op
+  (`DEV-064`). Widget hit testing/position transitions, native text input,
+  hover/cursor/tooltip, double-click generation, capture, and drag remain open.
 - `ButtonBase` now supplies the abstract style-independent press/click state
   machine used by future button controls: `ReadOnly`, `DoClick`, internal touch
   hooks, `Click`, pressed-state cloning, and MML metadata. Clones retain
@@ -331,15 +340,15 @@ and a manifest entry. The current ported surface includes:
   and Widget opacity rejects NaN as well as out-of-range finite values.
 
 The widget work is deliberately partial: drawing traversal and Desktop
-placement/layout/focus propagation are complete, while hover/tooltip and
-context-menu integration, Desktop rendering/style defaults, hit testing, and
-input polling/dispatch remain open. `UPSTREAM_MANIFEST.md` records this per
-source.
+placement/layout/focus plus global snapshot/keyboard routing are complete,
+while hover/tooltip and context-menu integration, Desktop rendering/style
+defaults, widget hit testing, pointer propagation, text input, and drag remain
+open. `UPSTREAM_MANIFEST.md` records this per source.
 
 ## Whole-port progress estimate
 
-As of 2026-08-24 after P5-016a, `plan.md` has **170/314 checked tasks
-(54.1%)**. Equal checkbox counting overstates
+As of 2026-08-24 after P5-017a, `plan.md` has **171/315 checked tasks
+(54.3%)**. Equal checkbox counting overstates
 end-user parity because the
 largest remaining workstreams are font/rich text, Desktop/input, most controls,
 styles/default assets, selectors/windows/dialogs, DataGrid/PropertyGrid, and the
@@ -347,8 +356,8 @@ exhaustive release gate. The feature-weighted estimate is therefore **about
 30–35% of the complete Myra-CNA port**.
 
 All currently known technical work through P10-028 is estimated at
-**1,094–1,932 focused implementation/validation hours remaining**; use about
-**1,513 hours** as the planning midpoint or **1,100–2,000 hours** as the rounded
+**1,084–1,914 focused implementation/validation hours remaining**; use about
+**1,499 hours** as the planning midpoint or **1,100–2,000 hours** as the rounded
 range. This includes code, tests, documentation, integration, and the known
 project-owned test-fixture work. It assumes P3-004 and P0-015b receive prompt
 human decisions and excludes idle waiting/legal-review time. Choosing wholly
@@ -369,7 +378,7 @@ all tests that existed at that checkpoint:
 ```bash
 cmake --build build --parallel 3
 ctest --test-dir build --output-on-failure --parallel 3
-# 65/65 tests passed
+# 66/66 tests passed
 
 cmake -S ../cna -B build-cna-parent \
   -DCMAKE_PROJECT_CNA_INCLUDE="$PWD/cmake/AddMyraCnaToCnaBuild.cmake" \
@@ -379,14 +388,14 @@ cmake -S ../cna -B build-cna-parent \
 CCACHE_DISABLE=1 cmake --build build-cna-parent --parallel 3
 ctest --test-dir build-cna-parent/_myra_cna \
   --output-on-failure --parallel 3
-# 301/301 tests passed with current modular CNA/sharp-runtime
+# 306/306 tests passed with current modular CNA/sharp-runtime
 
 ASAN_OPTIONS=detect_leaks=0 CCACHE_DISABLE=1 \
   cmake --build build-sanitize-parent --parallel 3
 ASAN_OPTIONS=detect_leaks=0 UBSAN_OPTIONS=print_stacktrace=1 \
   ctest --test-dir build-sanitize-parent/_myra_cna \
   --output-on-failure --parallel 3
-# 301/301 tests passed with ASan address checks and UBSan
+# 306/306 tests passed with ASan address checks and UBSan
 
 # focused CheckButtonBase/ButtonBase/registry/codec validation: 19/19 passed
 
@@ -395,6 +404,9 @@ ASAN_OPTIONS=detect_leaks=0 UBSAN_OPTIONS=print_stacktrace=1 \
 
 # P5-016a Desktop core: focused Desktop 7/7 and Desktop+Widget 24/24 passed;
 # broad default 65/65, linked SOFTWARE 301/301, and ASan+UBSan 301/301 passed
+
+# P5-017a Desktop input core: focused linked and ASan+UBSan DesktopInput 4/4;
+# broad default 66/66, linked SOFTWARE 306/306, and ASan+UBSan 306/306 passed
 
 # focused UIUtils validation after that broad run: 3/3 passed
 # focused PathUtils validation after that broad run: 3/3 passed
@@ -522,7 +534,7 @@ was disabled because LeakSanitizer cannot run under this environment's
 3. P0-016 is complete. Keep every upstream test binary unbundled; execute
    P0-016a's original PNG/BMFont/stylesheet replacements only when their
    affected asset tests become implementable.
-4. P0-023, P5-008i, P5-010a, P5-012, P5-016a, P6-001a, P6-003a, P6-004a, P6-005a,
+4. P0-023, P5-008i, P5-010a, P5-012, P5-016a, P5-017a, P6-001a, P6-003a, P6-004a, P6-005a,
    P6-006a, P6-007a, P6-008a, P6-009a, P6-018a, P6-019a, P6-021a, P6-022a, P7-001–P7-005a, P7-006, P7-008, and P7-012a–P7-016a are complete. Keep full
    P6-006/P6-007/P6-008 hover/style work in P5-010/P8-003, and keep Slider's
    Desktop drag/wheel/style work in P5-016/P5-019/P8-005; do not reopen P6-005's Label/style-
@@ -712,7 +724,7 @@ HEADLESS and SDL_RENDERER-on-Xvfb each passed the 44/44 graphics subset and full
 172/172 suite at the P2-022 milestone. The current SDL_RENDERER tree, including
 the explicit display smoke and all work since then, passes 199/199 on Xvfb.
 The current default, linked SOFTWARE, and ASan+UBSan suites pass
-65/65, 301/301, and 301/301 respectively. P6-006a passes all 19/19 focused
+66/66, 306/306, and 306/306 respectively. P6-006a passes all 19/19 focused
 CheckButtonBase/ButtonBase/registry/codec tests in the linked build; those paths
 are also covered by the complete sanitised run. P6-005a previously passed all
 13/13 focused ToggleButton/ButtonBase/registry tests. P6-004a previously passed all
@@ -752,10 +764,11 @@ until P6-002/P8-003 are implementable. Defer the Desktop-driven hit-test/
 hover/drag path and replacement fixtures likewise. If P3-004 is later
 approved, begin with P3-005's narrow abstraction and P3-006's explicit index-domain contract
 before introducing rasterizer code. P4-019 remains open only for future widget types,
-while caller-provided external-asset callbacks are already usable. P5-012 and
-P5-016a are complete. The P7-017 audit confirmed that a faithful Window still
+while caller-provided external-asset callbacks are already usable. P5-012,
+P5-016a, and P5-017a are complete. The P7-017 audit confirmed that a faithful Window still
 needs Label even though the Desktop placement/focus/removal foundation now
-exists. The next coherent dependency-safe target should therefore extend the
-Desktop/Widget input kernel (P5-010/P5-017) or another audited non-font
-milestone; context menus, tooltips, Desktop rendering/style defaults, text
-input, and drag behavior remain in their existing downstream tasks.
+exists. The next coherent dependency-safe target should therefore add Widget
+pointer position transitions and Desktop hit-test propagation
+(P5-010/P5-017/P5-021), followed by wheel targeting/capture where the audited
+ownership contract permits. Context menus, tooltips, Desktop rendering/style
+defaults, text input, and drag behavior remain in their downstream tasks.

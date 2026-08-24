@@ -36,6 +36,7 @@
 #include "Myra/Graphics2D/UI/InputEventType.hpp"
 #include "Myra/Graphics2D/UI/InputContext.hpp"
 #include "Myra/Graphics2D/UI/InputEventsManager.hpp"
+#include "Myra/Graphics2D/UI/MouseInfo.hpp"
 #include "Myra/Graphics2D/UI/Enums.hpp"
 #include "Myra/Graphics2D/UI/File/FileDialogMode.hpp"
 #include "Myra/Graphics2D/UI/Container.hpp"

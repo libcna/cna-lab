@@ -6,6 +6,8 @@
 // See NOTICE.md and UPSTREAM_MANIFEST.md.
 #pragma once
 
+#include <array>
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <functional>
@@ -17,11 +19,13 @@
 #include "Microsoft/Xna/Framework/Point.hpp"
 #include "Microsoft/Xna/Framework/Rectangle.hpp"
 #include "Microsoft/Xna/Framework/Vector2.hpp"
+#include "Microsoft/Xna/Framework/Input/Keys.hpp"
 #include "Myra/Events/CancellableEventArgsT.hpp"
 #include "Myra/Events/GenericEventArgs.hpp"
 #include "Myra/Events/MyraEventHandler.hpp"
 #include "Myra/Graphics2D/Transform.hpp"
 #include "Myra/Graphics2D/UI/ITransformable.hpp"
+#include "Myra/Graphics2D/UI/MouseInfo.hpp"
 #include "Myra/Graphics2D/UI/Widget.hpp"
 #include "System/Collections/ObjectModel/ObservableCollection.hpp"
 
@@ -53,6 +57,15 @@ namespace Myra::Graphics2D::UI
 
         Events::MyraEventHandlerT<Events::CancellableEventArgsT<Widget *>> WidgetLosingKeyboardFocus;
         Events::MyraEventHandlerT<Events::GenericEventArgs<Widget *>> WidgetGotKeyboardFocus;
+        Events::MyraEventHandler MouseMoved;
+        Events::MyraEventHandler TouchMoved;
+        Events::MyraEventHandler TouchDown;
+        Events::MyraEventHandler TouchUp;
+        Events::MyraEventHandler TouchDoubleClick;
+        Events::MyraEventHandlerT<Events::GenericEventArgs<float>> MouseWheelChanged;
+        Events::MyraEventHandlerT<Events::GenericEventArgs<Microsoft::Xna::Framework::Input::Keys>> KeyUp;
+        Events::MyraEventHandlerT<Events::GenericEventArgs<Microsoft::Xna::Framework::Input::Keys>> KeyDown;
+        std::function<void(Microsoft::Xna::Framework::Input::Keys)> KeyDownHandler;
 
         [[nodiscard]] const BoundsFetcher &getBoundsFetcherProperty() const noexcept;
         void setBoundsFetcherProperty(BoundsFetcher value);
@@ -74,6 +87,26 @@ namespace Myra::Graphics2D::UI
 
         [[nodiscard]] Widget *getFocusedKeyboardWidgetProperty() const noexcept;
         void setFocusedKeyboardWidgetProperty(Widget *value);
+
+        [[nodiscard]] const Microsoft::Xna::Framework::Point &getPreviousMousePositionProperty() const noexcept;
+        [[nodiscard]] const std::optional<Microsoft::Xna::Framework::Point> &
+        getPreviousTouchPositionProperty() const noexcept;
+        [[nodiscard]] const Microsoft::Xna::Framework::Point &getMousePositionProperty() const noexcept;
+        [[nodiscard]] const std::optional<Microsoft::Xna::Framework::Point> &getTouchPositionProperty() const noexcept;
+        [[nodiscard]] bool getIsTouchDownProperty() const noexcept;
+        [[nodiscard]] float getMouseWheelDeltaProperty() const noexcept;
+        [[nodiscard]] const std::array<bool, 0xff> &getDownKeysProperty() const noexcept;
+        [[nodiscard]] int getRepeatKeyDownStartInMsProperty() const noexcept;
+        void setRepeatKeyDownStartInMsProperty(int value) noexcept;
+        [[nodiscard]] int getRepeatKeyDownIntervalInMsProperty() const noexcept;
+        void setRepeatKeyDownIntervalInMsProperty(int value) noexcept;
+        [[nodiscard]] bool IsKeyDown(Microsoft::Xna::Framework::Input::Keys key) const;
+        [[nodiscard]] static bool getIsMobileProperty() noexcept;
+
+        void UpdateMouseInput();
+        void UpdateKeyboardInput();
+        void UpdateInput();
+        void OnKeyDown(Microsoft::Xna::Framework::Input::Keys key);
 
         [[nodiscard]] float getOpacityProperty() const noexcept;
         void setOpacityProperty(float value) noexcept;
@@ -114,6 +147,17 @@ namespace Myra::Graphics2D::UI
             void SetItem(SharpRuntime::intcs index, const std::shared_ptr<Widget> &item) override;
         };
 
+        class InputProcessor final : public IInputEventsProcessor
+        {
+          public:
+            explicit InputProcessor(Desktop &owner) noexcept;
+            void Detach() noexcept;
+            void ProcessEvent(InputEventType eventType) override;
+
+          private:
+            Desktop *owner_;
+        };
+
         void OnWidgetsChanged();
         void SynchronizeRoots();
         void SynchronizeRootsOnce();
@@ -123,6 +167,14 @@ namespace Myra::Graphics2D::UI
         void ClearFocusForDetaching(Widget &root);
         void ForceDetachForDestruction(Widget &root) noexcept;
         void ChangeFocus(Widget *value, bool allowCancellation);
+        void FocusNextWidget();
+        [[nodiscard]] static bool CanFocusWidget(const Widget &widget) noexcept;
+        [[nodiscard]] bool IsMenuBarActive() const noexcept;
+        void setMousePositionProperty(Microsoft::Xna::Framework::Point value);
+        void setTouchPositionProperty(std::optional<Microsoft::Xna::Framework::Point> value);
+        void setMouseWheelDeltaProperty(float value);
+        void QueueInputEvent(InputEventType eventType);
+        void ProcessInputEvent(InputEventType eventType);
         void InvalidateTransform();
         void InvalidateWidgetsOrder() noexcept;
         void UpdateTransform();
@@ -137,6 +189,7 @@ namespace Myra::Graphics2D::UI
         Microsoft::Xna::Framework::Rectangle internalBounds_;
         HorizontalMenu *menuBar_ = nullptr;
         Widget *focusedKeyboardWidget_ = nullptr;
+        std::shared_ptr<InputProcessor> inputProcessor_;
         std::shared_ptr<Graphics2D::IBrush> background_;
         float opacity_ = 1.0F;
         Microsoft::Xna::Framework::Vector2 scale_{1.0F, 1.0F};
@@ -154,5 +207,17 @@ namespace Myra::Graphics2D::UI
         Widget *pendingFocus_ = nullptr;
         std::uint64_t layoutInvalidationVersion_ = 0;
         std::optional<Graphics2D::Transform> transform_;
+        MouseInfo lastMouseInfo_;
+        std::array<bool, 0xff> downKeys_{};
+        std::array<bool, 0xff> lastDownKeys_{};
+        Microsoft::Xna::Framework::Point previousMousePosition_;
+        std::optional<Microsoft::Xna::Framework::Point> previousTouchPosition_;
+        Microsoft::Xna::Framework::Point mousePosition_;
+        std::optional<Microsoft::Xna::Framework::Point> touchPosition_;
+        float mouseWheelDelta_ = 0.0F;
+        int repeatKeyDownStartInMs_ = 500;
+        int repeatKeyDownIntervalInMs_ = 50;
+        std::optional<std::chrono::steady_clock::time_point> lastKeyDown_;
+        int keyDownCount_ = 0;
     };
 } // namespace Myra::Graphics2D::UI

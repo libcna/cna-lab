@@ -6,20 +6,26 @@
 // See NOTICE.md and UPSTREAM_MANIFEST.md.
 #include "Myra/MyraEnvironment.hpp"
 
+#include <utility>
+
 namespace Myra
 {
-    Events::EventHandlingStrategy MyraEnvironment::eventHandlingModel_ =
-        Events::EventHandlingStrategy::EventCapturing;
+    Events::EventHandlingStrategy MyraEnvironment::eventHandlingModel_ = Events::EventHandlingStrategy::EventCapturing;
     bool MyraEnvironment::drawWidgetsFrames_ = false;
     bool MyraEnvironment::drawKeyboardFocusedWidgetFrame_ = false;
     bool MyraEnvironment::drawMouseHoveredWidgetFrame_ = false;
     bool MyraEnvironment::drawTextGlyphsFrames_ = false;
     bool MyraEnvironment::disableClipping_ = false;
     bool MyraEnvironment::setMouseCursorFromWidget_ = true;
-    Graphics2D::UI::MouseCursorType MyraEnvironment::mouseCursorType_ =
-        Graphics2D::UI::MouseCursorType::Arrow;
-    Graphics2D::UI::MouseCursorType MyraEnvironment::defaultMouseCursorType_ =
-        Graphics2D::UI::MouseCursorType::Arrow;
+    Graphics2D::UI::MouseCursorType MyraEnvironment::mouseCursorType_ = Graphics2D::UI::MouseCursorType::Arrow;
+    Graphics2D::UI::MouseCursorType MyraEnvironment::defaultMouseCursorType_ = Graphics2D::UI::MouseCursorType::Arrow;
+#ifdef MYRA_CNA_HAS_CNA_TARGET
+    MyraEnvironment::MouseInfoGetter MyraEnvironment::mouseInfoGetter_ = MyraEnvironment::DefaultMouseInfoGetter;
+    MyraEnvironment::DownKeysGetter MyraEnvironment::downKeysGetter_ = MyraEnvironment::DefaultDownKeysGetter;
+#else
+    MyraEnvironment::MouseInfoGetter MyraEnvironment::mouseInfoGetter_;
+    MyraEnvironment::DownKeysGetter MyraEnvironment::downKeysGetter_;
+#endif
 
     Events::EventHandlingStrategy MyraEnvironment::getEventHandlingModelProperty() noexcept
     {
@@ -101,9 +107,28 @@ namespace Myra
         return defaultMouseCursorType_;
     }
 
-    void MyraEnvironment::setDefaultMouseCursorTypeProperty(
-        const Graphics2D::UI::MouseCursorType value) noexcept
+    void MyraEnvironment::setDefaultMouseCursorTypeProperty(const Graphics2D::UI::MouseCursorType value) noexcept
     {
         defaultMouseCursorType_ = value;
     }
-}
+
+    const MyraEnvironment::MouseInfoGetter &MyraEnvironment::getMouseInfoGetterProperty() noexcept
+    {
+        return mouseInfoGetter_;
+    }
+
+    void MyraEnvironment::setMouseInfoGetterProperty(MouseInfoGetter value)
+    {
+        mouseInfoGetter_ = std::move(value);
+    }
+
+    const MyraEnvironment::DownKeysGetter &MyraEnvironment::getDownKeysGetterProperty() noexcept
+    {
+        return downKeysGetter_;
+    }
+
+    void MyraEnvironment::setDownKeysGetterProperty(DownKeysGetter value)
+    {
+        downKeysGetter_ = std::move(value);
+    }
+} // namespace Myra

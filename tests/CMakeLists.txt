@@ -44,6 +44,7 @@ if(MYRA_CNA_CNA_LINKED)
         ComparisonHelpersTests.cpp
         CrossEngineStuffTests.cpp
         DefaultAssetsTests.cpp
+        DesktopInputTests.cpp
         DesktopTests.cpp
         GridLayoutTests.cpp
         IHasColorTests.cpp

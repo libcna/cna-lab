@@ -80,8 +80,8 @@ behavioral redesign.
 
 ### 1.4 Whole-port completion and remaining-effort estimate
 
-Checkpoint: 2026-08-24, after P5-016a. The mechanical backlog count is
-**170/314 checked tasks (54.1%)**. The count is useful for
+Checkpoint: 2026-08-24, after P5-017a. The mechanical backlog count is
+**171/315 checked tasks (54.3%)**. The count is useful for
 auditing plan state but is
 not a parity percentage: small foundation subtasks and large end-to-end
 features each count once, while the remaining font/text, Desktop/input,
@@ -100,15 +100,15 @@ are planning ranges rather than a delivery promise.
 | Phase 2 — CNA graphics | 20/24 | 24–48 |
 | Phase 3 — font/text/assets | 4/21 | 180–300 |
 | Phase 4 — MML/XML | 31/36 | 40–80 |
-| Phase 5 — Widget/Desktop/input | 33/40 | 60–108 |
+| Phase 5 — Widget/Desktop/input | 34/41 | 50–90 |
 | Phase 6 — controls/editing | 20/47 | 110–184 |
 | Phase 7 — selectors/windows/dialogs | 16/34 | 180–300 |
 | Phase 8 — styles/default skin | 0/14 | 140–240 |
 | Phase 9 — file/data/property grids | 1/21 | 180–320 |
 | Phase 10 — parity/release | 0/28 | 140–240 |
-| **Whole remaining technical port** | **170/314 complete** | **1,094–1,932** |
+| **Whole remaining technical port** | **171/315 complete** | **1,084–1,914** |
 
-For scheduling, use **about 1,513 focused hours remaining** as the midpoint,
+For scheduling, use **about 1,499 focused hours remaining** as the midpoint,
 with **1,100–2,000 hours** as the sensible rounded range. This assumes prompt
 human decisions for P3-004 and P0-015b, no newly discovered upstream/CNA
 architectural blocker, and continued reuse of the existing tested foundations.
@@ -473,6 +473,7 @@ are green, and the build uses no more than three parallel jobs.
 - [x] P5-015 Port `Graphics2D/UI/Layouts/GridLayout.cs`.
 - [x] P5-016a Port the dependency-safe `Desktop` retained-root core: validated observable ownership and cross-parent/Desktop transfer, recursive placed-state propagation, stable root Z-order, bounds/layout and menu discovery, traversal/find/count/modal queries, composed transforms, and cancellable focus changes with forced detach cleanup (`DEV-011`, `DEV-061`, `DEV-062`). The unlinked bootstrap supplies an explicit default-bounds diagnostic (`DEV-063`). Keep context menus, tooltips, rendering/disposal resources, input polling/routing, and style defaults in P5-016/P5-017/P5-018/P8-002.
 - [ ] P5-016 Port `Graphics2D/UI/Desktop.cs` widget ordering, layout, focus, menus, tooltip, dispose.
+- [x] P5-017a Port the dependency-safe Desktop input snapshot and keyboard-routing core: injectable CNA/default mouse and fixed key-state providers, previous/current pointer state, mouse-emulated touch transitions, cumulative wheel deltas, retained global event queueing, key up/down/repeat, Tab focus traversal, and menu/focused-widget routing. A detachable retained queue proxy keeps stack-owned Desktop lifetimes safe (`DEV-064`). Keep widget hit testing/position propagation, hover/cursor/tooltip, double-click generation, pointer capture/drag, and context-menu interaction in P5-010/P5-016/P5-017/P5-019/P5-021.
 - [ ] P5-017 Port `Graphics2D/UI/Desktop.Input.cs` against CNA keyboard/mouse/touch snapshots.
 - [ ] P5-018 Add CNA `TextInputEXT` subscription lifecycle to Desktop/TextBox focus transitions.
 - [ ] P5-019 Implement correct wheel deltas and pointer capture using previous input states.

@@ -8,19 +8,26 @@
 
 #include <gtest/gtest.h>
 
+#include <utility>
+
 namespace
 {
+    using Myra::MyraEnvironment;
     using Myra::Events::EventHandlingStrategy;
     using Myra::Graphics2D::UI::MouseCursorType;
-    using Myra::MyraEnvironment;
 
     class MyraEnvironmentSettingsTests : public testing::Test
     {
-    protected:
+      protected:
+        void SetUp() override
+        {
+            mouseInfoGetter_ = MyraEnvironment::getMouseInfoGetterProperty();
+            downKeysGetter_ = MyraEnvironment::getDownKeysGetterProperty();
+        }
+
         void TearDown() override
         {
-            MyraEnvironment::setEventHandlingModelProperty(
-                EventHandlingStrategy::EventCapturing);
+            MyraEnvironment::setEventHandlingModelProperty(EventHandlingStrategy::EventCapturing);
             MyraEnvironment::setDrawWidgetsFramesProperty(false);
             MyraEnvironment::setDrawKeyboardFocusedWidgetFrameProperty(false);
             MyraEnvironment::setDrawMouseHoveredWidgetFrameProperty(false);
@@ -28,14 +35,18 @@ namespace
             MyraEnvironment::setDisableClippingProperty(false);
             MyraEnvironment::setSetMouseCursorFromWidgetProperty(true);
             MyraEnvironment::setDefaultMouseCursorTypeProperty(MouseCursorType::Arrow);
+            MyraEnvironment::setMouseInfoGetterProperty(std::move(mouseInfoGetter_));
+            MyraEnvironment::setDownKeysGetterProperty(std::move(downKeysGetter_));
         }
+
+      private:
+        MyraEnvironment::MouseInfoGetter mouseInfoGetter_;
+        MyraEnvironment::DownKeysGetter downKeysGetter_;
     };
 
     TEST_F(MyraEnvironmentSettingsTests, UsesTheUpstreamConfigurationDefaults)
     {
-        EXPECT_EQ(
-            MyraEnvironment::getEventHandlingModelProperty(),
-            EventHandlingStrategy::EventCapturing);
+        EXPECT_EQ(MyraEnvironment::getEventHandlingModelProperty(), EventHandlingStrategy::EventCapturing);
         EXPECT_FALSE(MyraEnvironment::getDrawWidgetsFramesProperty());
         EXPECT_FALSE(MyraEnvironment::getDrawKeyboardFocusedWidgetFrameProperty());
         EXPECT_FALSE(MyraEnvironment::getDrawMouseHoveredWidgetFrameProperty());
@@ -57,9 +68,7 @@ namespace
         MyraEnvironment::setSetMouseCursorFromWidgetProperty(false);
         MyraEnvironment::setDefaultMouseCursorTypeProperty(MouseCursorType::Hand);
 
-        EXPECT_EQ(
-            MyraEnvironment::getEventHandlingModelProperty(),
-            EventHandlingStrategy::EventBubbling);
+        EXPECT_EQ(MyraEnvironment::getEventHandlingModelProperty(), EventHandlingStrategy::EventBubbling);
         EXPECT_TRUE(MyraEnvironment::getDrawWidgetsFramesProperty());
         EXPECT_TRUE(MyraEnvironment::getDrawKeyboardFocusedWidgetFrameProperty());
         EXPECT_TRUE(MyraEnvironment::getDrawMouseHoveredWidgetFrameProperty());
@@ -68,4 +77,31 @@ namespace
         EXPECT_FALSE(MyraEnvironment::getSetMouseCursorFromWidgetProperty());
         EXPECT_EQ(MyraEnvironment::getDefaultMouseCursorTypeProperty(), MouseCursorType::Hand);
     }
-}
+
+    TEST_F(MyraEnvironmentSettingsTests, StoresInjectableMouseAndKeyboardSnapshotProviders)
+    {
+        MyraEnvironment::setMouseInfoGetterProperty(
+            [] { return Myra::Graphics2D::UI::MouseInfo{{3, 5}, true, false, true, 12.0F}; });
+        MyraEnvironment::setDownKeysGetterProperty(
+            [](MyraEnvironment::DownKeys &keys)
+            {
+                keys.fill(false);
+                keys[17] = true;
+            });
+
+        const Myra::Graphics2D::UI::MouseInfo mouseInfo = MyraEnvironment::getMouseInfoGetterProperty()();
+        EXPECT_EQ(mouseInfo.Position, Microsoft::Xna::Framework::Point(3, 5));
+        EXPECT_TRUE(mouseInfo.IsLeftButtonDown);
+        EXPECT_TRUE(mouseInfo.IsRightButtonDown);
+        EXPECT_FLOAT_EQ(mouseInfo.Wheel, 12.0F);
+
+        MyraEnvironment::DownKeys keys{};
+        MyraEnvironment::getDownKeysGetterProperty()(keys);
+        EXPECT_TRUE(keys[17]);
+
+        MyraEnvironment::setMouseInfoGetterProperty({});
+        MyraEnvironment::setDownKeysGetterProperty({});
+        EXPECT_FALSE(MyraEnvironment::getMouseInfoGetterProperty());
+        EXPECT_FALSE(MyraEnvironment::getDownKeysGetterProperty());
+    }
+} // namespace

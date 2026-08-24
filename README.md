@@ -11,7 +11,10 @@ MML metadata and XML project loading, CNA SpriteBatch rendering primitives,
 images/atlases/brushes, separators, progress bars, and style-independent
 Button/ToggleButton/CheckButtonBase interaction cores. The Desktop now owns and
 lays out retained roots, propagates placement and transforms, maintains stable
-Z-order and focus, and exposes traversal/menu/modal queries. Desktop input,
+Z-order and focus, and exposes traversal/menu/modal queries. Its input core
+polls injectable CNA mouse/key snapshots, tracks pointer/touch/wheel state,
+dispatches retained global events, repeats keys, moves Tab focus, and routes
+keys to menus or the focused widget. Desktop widget hit testing/hover/drag,
 rendering, context menus/tooltips, styles, fonts/rich text, most controls, Grid
 selection/input, and the full upstream widget catalog are not implemented yet. Primitive, optional,
 explicitly mapped enum, and audited geometry codecs drive registry-backed XML
@@ -57,8 +60,9 @@ The CNA-linked configuration also has a checked, non-owning
 `MyraEnvironment` Game/GraphicsDevice contract. Normal CNA disposal and RAII
 destruction clear it automatically; custom lifetime arrangements must call
 `MyraEnvironment::ClearGame()` before invalidating their game. The environment
-also exposes the upstream event/debug/clipping settings and maps all twelve
-Myra cursor types to CNA stock cursors.
+also exposes the upstream event/debug/clipping settings, injectable input
+providers with CNA-backed defaults, and maps all twelve Myra cursor types to
+CNA stock cursors.
 The same configuration now includes the graphics-only `RenderContext`, its
 rectangle/polygon/line/point/circle/arc helpers, retained texture regions
 (colored, tinted, nine-patch, and XML atlases), a lifecycle-safe 1x1 default

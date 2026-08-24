@@ -6,11 +6,14 @@
 // See NOTICE.md and UPSTREAM_MANIFEST.md.
 #pragma once
 
+#include <array>
 #include <cstddef>
+#include <functional>
 #include <optional>
 
 #include "Myra/Events/EventHandlingStrategy.hpp"
 #include "Myra/Graphics2D/UI/Enums.hpp"
+#include "Myra/Graphics2D/UI/MouseInfo.hpp"
 
 namespace Microsoft::Xna::Framework
 {
@@ -20,13 +23,13 @@ namespace Microsoft::Xna::Framework
     {
         class GraphicsDevice;
     }
-}
+} // namespace Microsoft::Xna::Framework
 
 namespace System
 {
     class EventArgs;
     class Object;
-}
+} // namespace System
 
 namespace Myra
 {
@@ -40,7 +43,12 @@ namespace Myra
      */
     class MyraEnvironment final
     {
-    public:
+      public:
+        static constexpr std::size_t KeyStateCount = 0xff;
+        using DownKeys = std::array<bool, KeyStateCount>;
+        using MouseInfoGetter = std::function<Graphics2D::UI::MouseInfo()>;
+        using DownKeysGetter = std::function<void(DownKeys &)>;
+
         MyraEnvironment() = delete;
 
         [[nodiscard]] static Events::EventHandlingStrategy getEventHandlingModelProperty() noexcept;
@@ -70,13 +78,21 @@ namespace Myra
         /** @brief Maps and applies a Myra cursor type through CNA Mouse::SetCursor. */
         static void setMouseCursorTypeProperty(Graphics2D::UI::MouseCursorType value);
 
-        [[nodiscard]] static Graphics2D::UI::MouseCursorType
-            getDefaultMouseCursorTypeProperty() noexcept;
-        static void setDefaultMouseCursorTypeProperty(
-            Graphics2D::UI::MouseCursorType value) noexcept;
+        [[nodiscard]] static Graphics2D::UI::MouseCursorType getDefaultMouseCursorTypeProperty() noexcept;
+        static void setDefaultMouseCursorTypeProperty(Graphics2D::UI::MouseCursorType value) noexcept;
+
+        [[nodiscard]] static const MouseInfoGetter &getMouseInfoGetterProperty() noexcept;
+        static void setMouseInfoGetterProperty(MouseInfoGetter value);
+        [[nodiscard]] static const DownKeysGetter &getDownKeysGetterProperty() noexcept;
+        static void setDownKeysGetterProperty(DownKeysGetter value);
+
+        /** @brief Reads the current CNA mouse snapshot relative to the active viewport. */
+        [[nodiscard]] static Graphics2D::UI::MouseInfo DefaultMouseInfoGetter();
+        /** @brief Reads the current CNA keyboard snapshot into the fixed upstream key domain. */
+        static void DefaultDownKeysGetter(DownKeys &keys);
 
         /** @brief Returns the configured non-owning Game reference. */
-        [[nodiscard]] static Microsoft::Xna::Framework::Game& getGameProperty();
+        [[nodiscard]] static Microsoft::Xna::Framework::Game &getGameProperty();
 
         /**
          * @brief Selects the caller-owned Game used by Myra.
@@ -85,11 +101,10 @@ namespace Myra
          * instance. Passing a reference makes upstream's non-null requirement
          * explicit in the C++ API.
          */
-        static void setGameProperty(Microsoft::Xna::Framework::Game& value);
+        static void setGameProperty(Microsoft::Xna::Framework::Game &value);
 
         /** @brief Returns the live GraphicsDevice belonging to the configured Game. */
-        [[nodiscard]] static Microsoft::Xna::Framework::Graphics::GraphicsDevice&
-            getGraphicsDeviceProperty();
+        [[nodiscard]] static Microsoft::Xna::Framework::Graphics::GraphicsDevice &getGraphicsDeviceProperty();
 
         /**
          * @brief Detaches lifecycle subscriptions and clears the non-owning Game reference.
@@ -100,7 +115,7 @@ namespace Myra
          */
         static void ClearGame() noexcept;
 
-    private:
+      private:
         static Events::EventHandlingStrategy eventHandlingModel_;
         static bool drawWidgetsFrames_;
         static bool drawKeyboardFocusedWidgetFrame_;
@@ -110,12 +125,14 @@ namespace Myra
         static bool setMouseCursorFromWidget_;
         static Graphics2D::UI::MouseCursorType mouseCursorType_;
         static Graphics2D::UI::MouseCursorType defaultMouseCursorType_;
-        static Microsoft::Xna::Framework::Game* game_;
-        static Microsoft::Xna::Framework::Graphics::GraphicsDevice* graphicsDevice_;
+        static MouseInfoGetter mouseInfoGetter_;
+        static DownKeysGetter downKeysGetter_;
+        static Microsoft::Xna::Framework::Game *game_;
+        static Microsoft::Xna::Framework::Graphics::GraphicsDevice *graphicsDevice_;
         static std::optional<std::size_t> gameDisposedToken_;
         static std::optional<std::size_t> graphicsDeviceDisposingToken_;
 
-        static void OnGameDisposed(System::Object* sender, const System::EventArgs& eventArgs);
-        static void OnGraphicsDeviceDisposing(System::Object* sender, const System::EventArgs& eventArgs);
+        static void OnGameDisposed(System::Object *sender, const System::EventArgs &eventArgs);
+        static void OnGraphicsDeviceDisposing(System::Object *sender, const System::EventArgs &eventArgs);
     };
-}
+} // namespace Myra
