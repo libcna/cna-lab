@@ -80,8 +80,8 @@ behavioral redesign.
 
 ### 1.4 Whole-port completion and remaining-effort estimate
 
-Checkpoint: 2026-08-24, after P10-024. The mechanical backlog count is
-**203/342 checked tasks (59.4%)**. The count is useful for
+Checkpoint: 2026-08-24, after P9-019. The mechanical backlog count is
+**204/342 checked tasks (59.6%)**. The count is useful for
 auditing plan state but is
 not a parity percentage: small foundation subtasks and large end-to-end
 features each count once, while the remaining font/text, Desktop/input,
@@ -104,11 +104,11 @@ are planning ranges rather than a delivery promise.
 | Phase 6 — controls/editing | 26/53 | 96–158 |
 | Phase 7 — selectors/windows/dialogs | 28/45 | 142–232 |
 | Phase 8 — styles/default skin | 0/14 | 140–240 |
-| Phase 9 — file/data/property grids | 1/21 | 180–320 |
+| Phase 9 — file/data/property grids | 2/21 | 176–312 |
 | Phase 10 — parity/release | 3/28 | 126–214 |
-| **Whole remaining technical port** | **203/342 complete** | **952–1,672** |
+| **Whole remaining technical port** | **204/342 complete** | **948–1,664** |
 
-For scheduling, use **about 1,312 focused hours remaining** as the midpoint,
+For scheduling, use **about 1,306 focused hours remaining** as the midpoint,
 with **1,000–2,000 hours** as the sensible rounded range. This assumes prompt
 human decisions for P3-004 and P0-015b, no newly discovered upstream/CNA
 architectural blocker, and continued reuse of the existing tested foundations.
@@ -635,7 +635,7 @@ are green, and the build uses no more than three parallel jobs.
 - [ ] P9-016 Port `CollectionEditor.cs`.
 - [ ] P9-017 Port `PropertyGrid.cs` onto TypeRegistry and collection adapters.
 - [ ] P9-018 Port `MML/AttachedPropertiesRegistry.cs` tests into PropertyGrid/MML tests.
-- [ ] P9-019 Document the finite registry requirement as a C++ deviation only where user-defined runtime reflection was possible in C#.
+- [x] P9-019 Document the finite registry requirement as a C++ deviation only where user-defined runtime reflection was possible in C#. `DEV-002` now distinguishes the mandatory complete built-in Myra inventory from explicit per-registry user-type extension, enumerates every required descriptor/codec/adapter category, and requires deterministic unsupported diagnostics rather than silent reflection fallback.
 - [ ] P9-020 Add tests for every PropertyGrid editor, custom value, collection editor, and registered property type.
 - [ ] P9-021 Translate `DataGridTests.cs` and `CustomTests.cs`.
 

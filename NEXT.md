@@ -3,9 +3,9 @@
 ## Current state
 
 - Active branch: `develop`.
-- Current committed baseline `35ee080` (`test: verify headers-only integration mode`)
-  completes P10-026. The repository checkpoint described by this handoff also
-  completes P10-024's isolated parent-target `add_subdirectory` consumer gate,
+- Current committed baseline `a5d0330` (`test: verify parent target consumer integration`)
+  completes P10-024. The repository checkpoint described by this handoff also
+  completes P9-019's finite user-type registry compatibility boundary,
   along with P1-022's
   complete Phase 1 regression coverage and P6-006a/
   P6-006b's style-independent abstract `CheckButtonBase` and parent-hover image,
@@ -434,8 +434,8 @@ capture remain open. `UPSTREAM_MANIFEST.md` records this per source.
 
 ## Whole-port progress estimate
 
-As of 2026-08-24 after P10-024, `plan.md` has **203/342 checked tasks
-(59.4%)**. Equal checkbox counting overstates
+As of 2026-08-24 after P9-019, `plan.md` has **204/342 checked tasks
+(59.6%)**. Equal checkbox counting overstates
 end-user parity because the
 largest remaining workstreams are font/rich text, Desktop/input, most controls,
 styles/default assets, selectors/windows/dialogs, DataGrid/PropertyGrid, and the
@@ -443,8 +443,8 @@ exhaustive release gate. The feature-weighted estimate is therefore **about
 30–35% of the complete Myra-CNA port**.
 
 All currently known technical work through P10-028 is estimated at
-**952–1,672 focused implementation/validation hours remaining**; use about
-**1,312 hours** as the planning midpoint or **1,000–2,000 hours** as the rounded
+**948–1,664 focused implementation/validation hours remaining**; use about
+**1,306 hours** as the planning midpoint or **1,000–2,000 hours** as the rounded
 range. This includes code, tests, documentation, integration, and the known
 project-owned test-fixture work. It assumes P3-004 and P0-015b receive prompt
 human decisions and excludes idle waiting/legal-review time. Choosing wholly
@@ -723,7 +723,7 @@ was disabled because LeakSanitizer cannot run under this environment's
    P0-016a's original PNG/BMFont/stylesheet replacements only when their
    affected asset tests become implementable.
 4. P0-023, P1-022, P5-008i, P5-010a, P5-010b, P5-010c, P5-010d, P5-012, P5-016a, P5-016b, P5-016c, P5-016d, P5-017a, P5-018a, P5-019a, P5-019b, P5-019c, P6-001a, P6-003a, P6-004a, P6-005a,
-   P6-006a, P6-006b, P6-007a, P6-008a, P6-009a, P6-013c, P6-016c, P6-018a, P6-018b, P6-019a, P6-019b, P6-019c, P6-021a, P6-022a, P7-001–P7-004, P7-005a, P7-005b, P7-005c, P7-006, P7-007a, P7-007b, P7-008, P7-009a, P7-009b, P7-010a, P7-011a, P7-012a, P7-012b, P7-013a, P7-013b, P7-013c, P7-014, P7-015a, P7-016a, P7-016b, P7-016c, P10-019, P10-024, and P10-026 are complete. Keep full
+   P6-006a, P6-006b, P6-007a, P6-008a, P6-009a, P6-013c, P6-016c, P6-018a, P6-018b, P6-019a, P6-019b, P6-019c, P6-021a, P6-022a, P7-001–P7-004, P7-005a, P7-005b, P7-005c, P7-006, P7-007a, P7-007b, P7-008, P7-009a, P7-009b, P7-010a, P7-011a, P7-012a, P7-012b, P7-013a, P7-013b, P7-013c, P7-014, P7-015a, P7-016a, P7-016b, P7-016c, P9-019, P10-019, P10-024, and P10-026 are complete. Keep full
    P6-006/P6-007/P6-008 style work in P8-003, and keep Slider's
    remaining stylesheet work in P6-022/P8-005; do not reopen P6-005's Label/style-
    dependent remainder before P6-002/P8-003. TreeView now owns a reciprocal node
@@ -992,6 +992,8 @@ the explicit display smoke and all work since then, passes 199/199 on Xvfb.
 The current default, linked SOFTWARE, and ASan+UBSan suites pass
 69/69, 378/378, and 378/378 respectively. P10-024 adds a clean isolated
 parent-target configure/build/run gate for `add_subdirectory` and `Myra::CNA`.
+P9-019 documents the finite registry boundary for arbitrary application types
+without weakening the required built-in Myra inventory.
 P10-019 completes the README contract
 and its minimal consumer builds/runs in both headers-only and linked CNA modes.
 P10-026 turns that integration boundary into an output-checked CTest and keeps

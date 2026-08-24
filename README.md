@@ -44,6 +44,11 @@ stylesheet-aware object construction, and code generation remain unimplemented
 dependencies. Dependency-safe single-object helpers already preserve legacy and
 proportion-property tags, owning load results, scalar-only source replacement,
 and parent attached-property context.
+User-defined C++ types are not discovered automatically: applications register
+their factories, properties, adapters, metadata, and finite codecs before MML
+or future DataGrid/PropertyGrid use. Missing registration is an explicit
+unsupported-type error, not a silent reflection fallback. The exact extension
+contract is documented under [DEV-002](docs/cpp-deviations.md#finite-application-registry-boundary).
 The widget tree also provides stable Z-ordered recursive enumeration, typed and
 untyped descendant lookup, visibility-aware counts, reparenting, and ownership-cycle
 rejection. `EnsureWidgetById` adds a throwing non-null lookup for generated UI

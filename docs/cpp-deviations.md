@@ -4,6 +4,37 @@ This document records only necessary, tested differences from the selected
 upstream `Myra.FNA.Core` behavior. A difference is not accepted merely because
 it is more convenient in C++.
 
+## Finite application registry boundary
+
+`DEV-002` is not permission to omit a known Myra type, property, event, enum
+value, or metadata rule. The pinned built-in compatibility surface remains a
+closed inventory: every ported MML type must be added to
+`RegisterMyraTypes.cpp`, and P4-019/P10-003–P10-007 track completeness and
+behavioral coverage.
+
+The unavoidable deviation applies where upstream C# discovers arbitrary
+application types at runtime. Myra-CNA does not scan C++ classes, fields,
+properties, attributes, or constructors and does not route through the
+nonfunctional sharp-runtime reflection stubs. Before MML, DataGrid, or
+PropertyGrid can consume a user-defined type, the application must explicitly
+register all of the following applicable pieces in the registry instance it
+passes to that subsystem:
+
+- the C++ type, XML name, non-null factory, and already-registered direct base;
+- typed property getters/setters, defaults, names, and supported Myra metadata;
+- single, sequence, dictionary, content, or external-asset adapters;
+- scalar and finite enum codecs, including every accepted textual enum value;
+- future DataGrid item and PropertyGrid editor descriptors required by the
+  corresponding Phase 9 feature.
+
+Registration is per explicit registry, occurs before use, and is the only
+discovery mechanism. Missing types, bases, codecs, or adapters produce an
+unsupported/registration diagnostic; they must not be silently skipped or
+treated as if runtime reflection had succeeded. The existing custom `Animal`/
+`Dog` registry tests demonstrate the supported user extension path, while MML
+tests cover unsupported complex properties and unregistered XML types. Phase 9
+will reuse this boundary rather than create a second reflection facade.
+
 | ID | Upstream behavior | C++ mapping | Rationale | Test | Status |
 | --- | --- | --- | --- | --- | --- |
 | DEV-001 | C# properties | `getXProperty()` / `setXProperty()` | Established CNA/sharp-runtime C++ surface convention; behavior remains equivalent. | API inventory | Planned |
