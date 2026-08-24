@@ -1,5 +1,5 @@
 module github.com/openeggbert/cna-go-template
 
-go 1.21
+go 1.22
 
-require github.com/openeggbert/cna-go v1.0.0-preview
+require github.com/openeggbert/cna-go v0.0.0

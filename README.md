@@ -1,57 +1,22 @@
-# cna-go-template
+# CNA-Go Linux desktop canary
 
-> **Status: In progress - NOT YET FUNCTIONAL**
+This repository is a deliberately small Foundation 1 consumer. It exercises a
+real CNA-owned game loop, tick-exact lifecycle callbacks, native viewport and
+clear, native PNG decoding, SpriteBatch drawing, keyboard polling, and normal
+native exit. It contains no ContentManager/XNB, effect/3D, renderer-name guess,
+or capability placeholder.
 
+The checked-in `go.work` is the development workflow and resolves the sibling
+`../cna-go` checkout. CNA-Go is not published yet. Isolated qualification must
+instead replace `github.com/openeggbert/cna-go` with an extracted, audited CNA-Go
+source artifact; it must not use this workspace file or the development tree.
 
-Modern template for CNA applications using the Go programming language.
+The runtime requires cgo and an exact CNA C ABI 0.7.0 shared library:
 
-## Features
-
-- **Adaptive Rendering**: Automatically switches between a 3D rotating cube (3D capable) and a bouncing 2D logo (2D only).
-- **Renderer Banner**: Displays the name of the active graphics renderer during the first 5 seconds.
-- **Cross-Platform**: Designed to run on Windows, Linux, macOS, Android, iOS, and Web (WebAssembly).
-- **XNA 4.0 API Style**: Uses PascalCase for methods and follows familiar XNA 4.0 patterns.
-
-## Getting Started
-
-### Prerequisites
-
-- [Go 1.21+](https://golang.org/dl/)
-- For Android: [gomobile](https://pkg.go.dev/golang.org/x/mobile/cmd/gomobile)
-
-### Building and Running
-
-#### Desktop (Windows, Linux, macOS)
-```bash
-go run ./cmd/desktop
+```sh
+CNA_NATIVE_LIBRARY=/absolute/path/to/libcna_c_api.so go run ./cmd/desktop --frames 60
+CNA_NATIVE_LIBRARY=/absolute/path/to/libcna_c_api.so go run ./cmd/desktop --frames 600
 ```
 
-#### Web (WebAssembly)
-```bash
-GOOS=js GOARCH=wasm go build -o game.wasm ./cmd/wasm
-```
-
-#### Android
-```bash
-gomobile build -target=android ./android
-```
-
-### Automation
-
-The template supports a "smoke test" mode which runs for a few frames and then exits. This is useful for CI/CD pipelines.
-
-```bash
-go run ./cmd/desktop --smoke-test
-```
-
-## Project Structure
-
-- `game/`: Shared game logic (`HelloGame.go`).
-- `cmd/desktop/`: Entry point for desktop platforms.
-- `cmd/wasm/`: Entry point for WebAssembly.
-- `android/`: Entry point for Android (gomobile).
-- `Content/`: Asset files (textures, etc.).
-
-## License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+Only Linux amd64 desktop is targeted by Foundation 1. Windows, macOS, Android,
+iOS, and Web/Wasm remain unqualified future work.
