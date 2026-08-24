@@ -15,6 +15,11 @@
 #include "Myra/Graphics2D/UI/Misc/ITreeViewNode.hpp"
 #include "Myra/Graphics2D/UI/Misc/TreeViewNode.hpp"
 
+namespace Myra::Graphics2D
+{
+    class IBrush;
+}
+
 namespace Myra::Graphics2D::UI
 {
     /** @brief Hierarchical owner of expandable TreeViewNode roots and selection state. */
@@ -33,6 +38,10 @@ namespace Myra::Graphics2D::UI
         [[nodiscard]] int getTotalNodesCountProperty() const noexcept;
         [[nodiscard]] std::shared_ptr<TreeViewNode> getSelectedNodeProperty() const;
         void setSelectedNodeProperty(std::shared_ptr<TreeViewNode> value);
+        [[nodiscard]] std::shared_ptr<Graphics2D::IBrush> getSelectionBackgroundProperty() const;
+        void setSelectionBackgroundProperty(std::shared_ptr<Graphics2D::IBrush> value);
+        [[nodiscard]] std::shared_ptr<Graphics2D::IBrush> getSelectionHoverBackgroundProperty() const;
+        void setSelectionHoverBackgroundProperty(std::shared_ptr<Graphics2D::IBrush> value);
         [[nodiscard]] TreeViewNode *getHoverRowProperty() const noexcept;
 
         [[nodiscard]] std::shared_ptr<TreeViewNode> AddSubNode(std::shared_ptr<Widget> content) override;
@@ -51,11 +60,13 @@ namespace Myra::Graphics2D::UI
 
       protected:
         void InternalArrange() override;
+        void InternalRender(Graphics2D::RenderContext &context) override;
         [[nodiscard]] std::shared_ptr<Widget> CreateCloneInstance() const override;
         void CopyFrom(const Widget &source) override;
 
       private:
         friend class TreeViewNode;
+        friend struct TreeViewTestAccess;
 
         static bool IterateNode(const std::shared_ptr<TreeViewNode> &node, const NodePredicate &action);
         static void UpdateRowVisibility(const std::shared_ptr<TreeViewNode> &node);
@@ -69,6 +80,8 @@ namespace Myra::Graphics2D::UI
         StackPanelLayout layout_{Orientation::Vertical};
         std::vector<std::shared_ptr<TreeViewNode>> allNodes_;
         std::shared_ptr<TreeViewNode> selectedNode_;
+        std::shared_ptr<Graphics2D::IBrush> selectionBackground_;
+        std::shared_ptr<Graphics2D::IBrush> selectionHoverBackground_;
         TreeViewNode *hoverRow_ = nullptr;
     };
 } // namespace Myra::Graphics2D::UI

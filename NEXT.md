@@ -3,8 +3,8 @@
 ## Current state
 
 - Active branch: `develop`.
-- Current committed baseline `e30173d` (`feat: add desktop render pipeline`)
-  completes P7-009b. The repository checkpoint described by this handoff also completes P6-006a/
+- Current committed baseline `6366a12` (`feat: add desktop character input`)
+  completes P5-018a. The repository checkpoint described by this handoff also completes P6-006a/
   P6-006b's style-independent abstract `CheckButtonBase` and parent-hover image,
   P6-007a's concrete
   `CheckButton`, P6-008a's direct-sibling `RadioButton` behavior, P6-018a/P6-018b's
@@ -22,7 +22,8 @@
   P7-012a/P7-012b's TabItem data and MML core, P7-013a/
   P7-013b/P7-013c's TabControl core, closeable headers, callback lifetime, and MML round trips, P7-014's
   tree-node contract, P7-015a/P7-016a's TreeView node
-  and tree cores, P7-016b's Desktop row pointer interaction, P5-010b's Widget
+  and tree cores, P7-016b's Desktop row pointer interaction, P7-016c's
+  selection/hover row-brush rendering, P5-010b's Widget
   hit-test core, P5-010c's double-click timing,
   P5-010d's Widget/ancestor/default cursor routing,
   P5-019a's generic Widget drag capture, P5-019b's Button/Slider Desktop capture
@@ -422,8 +423,8 @@ capture remain open. `UPSTREAM_MANIFEST.md` records this per source.
 
 ## Whole-port progress estimate
 
-As of 2026-08-24 after P5-018a, `plan.md` has **195/339 checked tasks
-(57.5%)**. Equal checkbox counting overstates
+As of 2026-08-24 after P7-016c, `plan.md` has **196/340 checked tasks
+(57.6%)**. Equal checkbox counting overstates
 end-user parity because the
 largest remaining workstreams are font/rich text, Desktop/input, most controls,
 styles/default assets, selectors/windows/dialogs, DataGrid/PropertyGrid, and the
@@ -463,14 +464,14 @@ cmake -S ../cna -B build-cna-parent \
 CCACHE_DISABLE=1 cmake --build build-cna-parent --parallel 3
 ctest --test-dir build-cna-parent/_myra_cna \
   --output-on-failure --parallel 3
-# 366/366 tests passed with current modular CNA/sharp-runtime
+# 368/368 tests passed with current modular CNA/sharp-runtime
 
 ASAN_OPTIONS=detect_leaks=0 CCACHE_DISABLE=1 \
   cmake --build build-sanitize-parent --parallel 3
 ASAN_OPTIONS=detect_leaks=0 UBSAN_OPTIONS=print_stacktrace=1 \
   ctest --test-dir build-sanitize-parent/_myra_cna \
   --output-on-failure --parallel 3
-# 366/366 tests passed with ASan address checks and UBSan
+# 368/368 tests passed with ASan address checks and UBSan
 
 # focused CheckButtonBase/ButtonBase/registry/codec validation: 19/19 passed
 
@@ -531,6 +532,9 @@ ASAN_OPTIONS=detect_leaks=0 UBSAN_OPTIONS=print_stacktrace=1 \
 
 # P5-018a CNA character-input lifecycle: focused linked and ASan+UBSan 3/3;
 # broad default 67/67, linked SOFTWARE 366/366, and ASan+UBSan 366/366 passed
+
+# P7-016c TreeView row-brush rendering: focused linked and ASan+UBSan 6/6;
+# broad default 67/67, linked SOFTWARE 368/368, and ASan+UBSan 368/368 passed
 
 # P5-010b Widget hit-test core: focused DesktopInput 9/9 and related input/
 # scrolling subset 17/17; broad default 66/66, linked SOFTWARE 311/311, and
@@ -685,13 +689,16 @@ was disabled because LeakSanitizer cannot run under this environment's
    P0-016a's original PNG/BMFont/stylesheet replacements only when their
    affected asset tests become implementable.
 4. P0-023, P5-008i, P5-010a, P5-010b, P5-010c, P5-010d, P5-012, P5-016a, P5-016b, P5-016c, P5-016d, P5-017a, P5-018a, P5-019a, P5-019b, P5-019c, P6-001a, P6-003a, P6-004a, P6-005a,
-   P6-006a, P6-006b, P6-007a, P6-008a, P6-009a, P6-018a, P6-018b, P6-019a, P6-019b, P6-019c, P6-021a, P6-022a, P7-001–P7-003, P7-004a, P7-004b, P7-004c, P7-005a, P7-005b, P7-005c, P7-006, P7-007a, P7-007b, P7-008, P7-009a, P7-009b, P7-010a, P7-011a, P7-012a, P7-012b, P7-013a, P7-013b, P7-013c, P7-014, P7-015a, P7-016a, and P7-016b are complete. Keep full
+   P6-006a, P6-006b, P6-007a, P6-008a, P6-009a, P6-018a, P6-018b, P6-019a, P6-019b, P6-019c, P6-021a, P6-022a, P7-001–P7-003, P7-004a, P7-004b, P7-004c, P7-005a, P7-005b, P7-005c, P7-006, P7-007a, P7-007b, P7-008, P7-009a, P7-009b, P7-010a, P7-011a, P7-012a, P7-012b, P7-013a, P7-013b, P7-013c, P7-014, P7-015a, P7-016a, P7-016b, and P7-016c are complete. Keep full
    P6-006/P6-007/P6-008 style work in P8-003, and keep Slider's
    remaining stylesheet work in P6-022/P8-005; do not reopen P6-005's Label/style-
    dependent remainder before P6-002/P8-003. TreeView now owns a reciprocal node
-   registry and selection/key core; Desktop mouse/touch hit testing and render
-   orchestration are complete, while TreeView hover/brush styles and MML
-   registration remain P7-016/P8-004. Choose
+   registry and selection/key core; Desktop mouse/touch hit testing and
+   TreeView hover/selection row rendering are complete, while tree stylesheet
+   construction/application remains P7-016/P8-006. The pinned reflection-visible
+   upstream API exposes neither a public logical-node `[Content]` collection nor
+   a public parameterless `TreeViewNode` constructor, so no invented node MML
+   surface is claimed. Choose
    the next dependency-safe widget milestone only after an upstream/source and
    registry audit. TabItem currently stops before Color/Label/Button wiring;
    those paths remain P3-004/P6-002/P7-012/P7-013/P8-004.
@@ -936,9 +943,12 @@ HEADLESS and SDL_RENDERER-on-Xvfb each passed the 44/44 graphics subset and full
 172/172 suite at the P2-022 milestone. The current SDL_RENDERER tree, including
 the explicit display smoke and all work since then, passes 199/199 on Xvfb.
 The current default, linked SOFTWARE, and ASan+UBSan suites pass
-67/67, 366/366, and 366/366 respectively. P5-018a passes all 3/3 focused
-character-input tests in both linked configurations, including direct Widget
-event typing, exact UTF-16 surrogate-unit order, focus/global routing,
+67/67, 368/368, and 368/368 respectively. P7-016c passes all 6/6 focused
+TreeView tests in both linked configurations, covering exact row geometry and
+priority, hover fallback/suppression, visibility, cloning, and reentrant
+brush/tree removal. P5-018a passes all 3/3 focused character-input tests in both
+linked configurations, including direct Widget event typing, exact UTF-16
+surrogate-unit order, focus/global routing,
 active-menu suppression, idempotent unsubscribe, and reentrant destruction of
 an already-snapshotted Desktop subscriber. P5-016d passes all 2/2 focused Desktop
 render tests in both linked configurations, covering frame relayout order,
@@ -978,10 +988,13 @@ out-of-bounds capture/global release, cursor restoration, degenerate geometry,
 reset/destruction detachment, and reentrant removal. P7-013b passes all 5/5 focused
 TabControl tests, including closeable header selection/removal, rebuild
 detachment, clone structure, and retained-button lifetime invalidation.
-P7-016b passes all 5/5 focused
-TreeView/DesktopInput tests, including transformed visible-row selection,
-mouse hover/leave, the pinned double-click condition, and retained-mark
-lifetime invalidation. P7-004b/P7-005b pass all 8/8 focused
+P7-016c passes all 6/6 focused TreeView tests, including full-width row
+geometry, hover-before-selection priority, hover-only fallback, same-row
+suppression, hidden-selection exclusion, clone brush identity, and reentrant
+brush/tree removal. P7-016b passes all 5/5 focused TreeView/DesktopInput tests,
+including transformed visible-row selection, mouse hover/leave, the pinned
+double-click condition, and retained-mark lifetime invalidation.
+P7-004b/P7-005b pass all 8/8 focused
 ListView/ComboView tests, including dropdown placement/focus, separator-skipping
 navigation, Enter/click close, detached wrapper callbacks, and reentrant owner
 destruction. P5-016b passes all 27/27 focused
@@ -1047,8 +1060,8 @@ while caller-provided external-asset callbacks are already usable. P5-010b,
 P5-010c, P5-010d, P5-012, P5-016a, P5-016b, P5-016c, P5-016d, P5-017a, P5-018a, P5-019a, P5-019b, and P5-019c are complete. P7-004b/P7-004c/P7-005b/P7-005c complete the dependency-safe
 ListView/ComboView dropdown, keyboard, and MML slices; P7-007b/P7-009b add the
 dependency-safe heterogeneous menu-item and concrete menu MML surfaces; P7-012b adds TabItem's
-dependency-safe MML surface; P7-016b completes TreeView row
-pointer interaction; and P7-013b/P7-013c complete closeable TabControl headers,
+dependency-safe MML surface; P7-016b/P7-016c complete TreeView row pointer
+interaction and brush rendering; and P7-013b/P7-013c complete closeable TabControl headers,
 native callback detachment, and the dependency-safe MML surface. P6-019b completes SplitPane's dependency-safe drag,
 cursor, and native lifetime slice, while P6-019c restores its `Container`
 hierarchy and MML surface; only its style remainder stays open. P6-018b likewise

@@ -10,6 +10,7 @@
 #include <stdexcept>
 #include <utility>
 
+#include "Myra/Graphics2D/IBrush.hpp"
 #include "Myra/Graphics2D/UI/Containers/Grid.hpp"
 #include "Myra/Graphics2D/UI/Desktop.hpp"
 #include "Myra/Utility/EventsExtensions.hpp"
@@ -56,6 +57,26 @@ namespace Myra::Graphics2D::UI
         }
         selectedNode_ = std::move(value);
         Utility::EventsExtensions::Invoke(SelectionChanged, this, InputEventType::SelectionChanged);
+    }
+
+    std::shared_ptr<Graphics2D::IBrush> TreeView::getSelectionBackgroundProperty() const
+    {
+        return selectionBackground_;
+    }
+
+    void TreeView::setSelectionBackgroundProperty(std::shared_ptr<Graphics2D::IBrush> value)
+    {
+        selectionBackground_ = std::move(value);
+    }
+
+    std::shared_ptr<Graphics2D::IBrush> TreeView::getSelectionHoverBackgroundProperty() const
+    {
+        return selectionHoverBackground_;
+    }
+
+    void TreeView::setSelectionHoverBackgroundProperty(std::shared_ptr<Graphics2D::IBrush> value)
+    {
+        selectionHoverBackground_ = std::move(value);
     }
 
     TreeViewNode *TreeView::getHoverRowProperty() const noexcept
@@ -289,6 +310,45 @@ namespace Myra::Graphics2D::UI
         RefreshRowVisibility();
     }
 
+    void TreeView::InternalRender(Graphics2D::RenderContext &context)
+    {
+        const auto retainHoverRow = [this]() -> std::shared_ptr<TreeViewNode>
+        {
+            const auto iterator = std::find_if(allNodes_.begin(), allNodes_.end(),
+                                               [this](const auto &node) { return node.get() == hoverRow_; });
+            return iterator == allNodes_.end() ? nullptr : *iterator;
+        };
+
+        if (selectionBackground_)
+        {
+            const std::shared_ptr<TreeViewNode> hover = retainHoverRow();
+            const std::shared_ptr<TreeViewNode> selectedBeforeHover = selectedNode_;
+            const std::shared_ptr<Graphics2D::IBrush> hoverBackground = selectionHoverBackground_;
+            if (hover && hover != selectedBeforeHover && hoverBackground)
+            {
+                Graphics2D::IBrushExtensions::Draw(*hoverBackground, context, BuildRowRect(*hover));
+            }
+
+            const std::shared_ptr<TreeViewNode> selected = selectedNode_;
+            const std::shared_ptr<Graphics2D::IBrush> selectionBackground = selectionBackground_;
+            if (selected && selected->rowVisible_ && selectionBackground)
+            {
+                Graphics2D::IBrushExtensions::Draw(*selectionBackground, context, BuildRowRect(*selected));
+            }
+        }
+        else
+        {
+            const std::shared_ptr<TreeViewNode> hover = retainHoverRow();
+            const std::shared_ptr<Graphics2D::IBrush> hoverBackground = selectionHoverBackground_;
+            if (hover && hoverBackground)
+            {
+                Graphics2D::IBrushExtensions::Draw(*hoverBackground, context, BuildRowRect(*hover));
+            }
+        }
+
+        Widget::InternalRender(context);
+    }
+
     std::shared_ptr<Widget> TreeView::CreateCloneInstance() const
     {
         return std::make_shared<TreeView>();
@@ -302,6 +362,9 @@ namespace Myra::Graphics2D::UI
         {
             throw std::invalid_argument("TreeView copy source must be a TreeView.");
         }
+
+        selectionBackground_ = treeView->selectionBackground_;
+        selectionHoverBackground_ = treeView->selectionHoverBackground_;
 
         for (const std::shared_ptr<Widget> &root : treeView->getChildrenProperty())
         {
