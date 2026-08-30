@@ -1,4 +1,4 @@
-import { Color, GameTime, GetRuntimeStatus, TimeSpan, Vector2 } from "cna-ts";
+import { Color, GameTime, GetRuntimeStatus, LoadWasmBackend, TimeSpan, Vector2 } from "cna-ts";
 
 import { HelloGame } from "./HelloGame.js";
 
@@ -11,7 +11,7 @@ function addStatus(list: HTMLDListElement, label: string, value: string, state?:
   list.append(term, detail);
 }
 
-function startCanary(): void {
+function startCanary(): HTMLDListElement {
   const host = document.querySelector<HTMLElement>("#app");
   if (!host) throw new Error("Missing #app host element");
 
@@ -50,8 +50,70 @@ function startCanary(): void {
   const note = document.createElement("small");
   note.textContent = runtime.IsAvailable
     ? "A real backend is available; Game.Run can be enabled by the generated project."
-    : "This canary does not fake frames or graphics while no packaged CNA WebAssembly backend exists.";
+    : "Pass ?wasm=<url to cna_c_api.mjs> to run real frames on the CNA WebAssembly runtime.";
   host.append(title, explanation, list, note);
+  return list;
 }
 
-startCanary();
+/**
+ * The browser runtime path. A browser owns its event loop, so frames come from
+ * requestAnimationFrame and IsFixedTimeStep is off: with a fixed timestep CNA waits out the
+ * remainder of each frame, which inside a frame callback is a busy wait.
+ *
+ * Nothing about HelloGame changes between here and the Node canary. It is the same XNA Game.
+ */
+async function startWebAssemblyRuntime(list: HTMLDListElement, moduleUrl: string): Promise<void> {
+  const targetFrames = Number(new URLSearchParams(location.search).get("frames") ?? "60");
+  const canvas = document.createElement("canvas");
+  canvas.id = "canvas";
+  canvas.width = 320;
+  canvas.height = 240;
+  document.querySelector("#app")?.append(canvas);
+  const factory = (await import(/* @vite-ignore */ moduleUrl)).default as
+    (options?: object) => Promise<object>;
+  const status = await LoadWasmBackend({ Factory: factory, FactoryOptions: { canvas } });
+
+  const game = new HelloGame();
+  game.IsFixedTimeStep = false;
+  game.NativeFrameTarget = targetFrames;
+  await new Promise<void>((resolve, reject) => {
+    const pump = (): void => {
+      try {
+        game.RunOneFrame();
+        if (game.DrawCount >= targetFrames) {
+          resolve();
+          return;
+        }
+        requestAnimationFrame(pump);
+      } catch (error) {
+        reject(error instanceof Error ? error : new Error(String(error)));
+      }
+    };
+    requestAnimationFrame(pump);
+  });
+  game.Dispose();
+
+  addStatus(list, "CNA WebAssembly runtime", `${status.Backend}, ABI ${status.AbiVersion ?? "unknown"}`, "pass");
+  addStatus(list, "Real browser frames", `${game.DrawCount} drawn, ${game.UpdateCount} updated`, "pass");
+  addStatus(list, "Deterministic disposal", game.NativeResourcesDisposed ? "verified" : "failed",
+    game.NativeResourcesDisposed ? "pass" : "blocked");
+  const harness = globalThis as unknown as { __cnaTemplateResult?: unknown };
+  harness.__cnaTemplateResult = {
+    status: "ok",
+    backend: status.Backend,
+    abiVersion: status.AbiVersion,
+    frames: game.DrawCount,
+    updates: game.UpdateCount,
+    disposed: game.NativeResourcesDisposed,
+  };
+}
+
+const list = startCanary();
+const wasmModuleUrl = new URLSearchParams(location.search).get("wasm");
+if (wasmModuleUrl) {
+  startWebAssemblyRuntime(list, wasmModuleUrl).catch((error: unknown) => {
+    addStatus(list, "CNA WebAssembly runtime", String(error), "blocked");
+    const harness = globalThis as unknown as { __cnaTemplateResult?: unknown };
+    harness.__cnaTemplateResult = { status: "failed", error: String(error) };
+  });
+}
