@@ -16,8 +16,14 @@ when an explicit Node CNA backend is loaded, runs `Game`, uploads an embedded PN
 | Node CNA runtime | opt-in Linux HEADLESS 2D drawing verified | public `Texture2D.FromStream` and `SpriteBatch`; explicit CNA library and bridge |
 | Browser CNA runtime | opt-in WebGL2 runtime verified | 60 and 600 real frames in headless Chromium against a `cna_c_api` WebAssembly module |
 | Modern CNA extensions | opt-in runtime services verified | platform, renderer selection and log through `cna-ts/extensions/runtime` |
+| Modern CNA host devices | opt-in host readers verified | cores, power state and camera inventory through `cna-ts/extensions/devices`, read from inside a running game |
+| Modern CNA compiled content | opt-in `.cnb` round trip verified | a texture encoded by CNA's own writer, parsed back and its pixels compared, through `cna-ts/extensions/content` |
 | Electron | planned | no runtime or build claim |
 | Android / iOS | planned | no WebView/native runtime or build claim |
+
+The extensions smoke stays a canary rather than a showcase: one device enumeration result, one CNB
+texture round trip and one modern pipeline value read from CNA. `HelloGame` itself is untouched by
+all of it, which is the point of the extensions living on separate subpaths.
 
 The old `cna-js` package, Electron, and Capacitor are not dependencies. A browser bundle alone is
 still not described as CNA runtime support: the browser row above is a frame count from a real
