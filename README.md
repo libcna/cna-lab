@@ -20,9 +20,28 @@ one decodes to PNG and the other to a deterministic 135-byte Windows XNB v5
 asset. The starter does not yet claim SpriteFont XNB, gamepad/touch, 3D, Model,
 or renderer capability support.
 
+`--extensions-smoke` is a separate, opt-in mode that exercises the CNA
+extension surface -- the capabilities CNA has and XNA 4.0 never did. It prints
+the platform, the renderer and that backend's category and maturity, writes one
+message through CNA's logger, reports whether this build carries the extended
+graphics layer, and reads CNA's own defaults for the render pipeline and a
+physically based material. It is deliberately not part of `HelloGame`: the
+starter stays an XNA program an XNA developer recognizes, and nothing in
+`HelloGame` imports a CNA extension.
+
+What the smoke proves is narrow and honest: the extension packages compile
+against the published artifact from outside the binding, the JNI routes behind
+them exist, the availability query answers rather than guesses, and a build
+without the extended layer says `NOT_SUPPORTED` rather than doing something
+else. It does not claim any rendering happened.
+
+```bash
+./gradlew :game:run -PcnaRepository=/path/to/repo --args=--extensions-smoke
+```
+
 | Target | Status |
 | --- | --- |
-| Linux x86-64, HEADLESS CNA 0.7.0 | Runtime verified (60 and 600 frames) |
+| Linux x86-64, HEADLESS CNA 0.20.0 | Runtime verified (60 frames, 600 frames, extensions smoke) |
 | Windows desktop | Planned; no runtime evidence in this repository |
 | macOS desktop | Planned; no runtime evidence in this repository |
 | Android | Planned; the old non-running Activity scaffold was removed |

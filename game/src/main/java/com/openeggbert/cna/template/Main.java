@@ -10,6 +10,15 @@ public final class Main {
     }
 
     public static void main(String[] arguments) {
+        if (isExtensionsSmoke(arguments)) {
+            try {
+                ExtensionsSmoke.run();
+            } catch (RuntimeException | LinkageError failure) {
+                failure.printStackTrace(System.err);
+                System.exit(1);
+            }
+            return;
+        }
         int frames = parseFrameLimit(arguments);
         try (HelloGame game = new HelloGame(frames)) {
             game.Run();
@@ -17,6 +26,21 @@ public final class Main {
             failure.printStackTrace(System.err);
             System.exit(1);
         }
+    }
+
+    /**
+     * Reports whether the caller asked for the CNA extension smoke.
+     *
+     * <p>It is a separate mode rather than part of the game loop, so the starter itself stays an
+     * XNA program with nothing CNA-specific in it.
+     */
+    static boolean isExtensionsSmoke(String[] arguments) {
+        for (String argument : arguments) {
+            if ("--extensions-smoke".equals(argument)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     static int parseFrameLimit(String[] arguments) {

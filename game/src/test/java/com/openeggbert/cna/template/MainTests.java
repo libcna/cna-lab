@@ -7,7 +7,9 @@ import java.util.Base64;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 final class MainTests {
 
@@ -18,6 +20,14 @@ final class MainTests {
         assertEquals(600, Main.parseFrameLimit(new String[] {"--stability-test"}));
         assertEquals(17, Main.parseFrameLimit(new String[] {"--frames", "17"}));
         assertEquals(23, Main.parseFrameLimit(new String[] {"--frames=23"}));
+    }
+
+    @Test
+    void RecognizesTheOptInExtensionsSmoke() {
+        // The extension smoke is a separate mode, so the starter itself stays an XNA program.
+        assertTrue(Main.isExtensionsSmoke(new String[] {"--extensions-smoke"}));
+        assertFalse(Main.isExtensionsSmoke(new String[] {"--smoke-test"}));
+        assertFalse(Main.isExtensionsSmoke(new String[] {}));
     }
 
     @Test
