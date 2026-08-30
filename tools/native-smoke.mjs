@@ -71,11 +71,24 @@ if (extensionsSmoke) {
   // Structural presence is not availability: the routes exist in every CNA build and answer
   // NOT_SUPPORTED where the layer was compiled out, so the truthful branch is reported either way.
   const layer = IsGraphicsExtensionLayerAvailable();
+
+  const { CreatePbrMaterial, CreateRenderPipelineSettings, RenderQuality, TonemappingMode } =
+    await import("cna-ts/extensions/graphics");
+  // Pure value operations: CNA documents these as answering in either build.
+  const material = CreatePbrMaterial();
+  assert.ok(material.RoughnessFactor >= 0 && material.RoughnessFactor <= 1);
+  assert.equal(material.AlbedoColor.A, 255);
+  const pipelineSettings = CreateRenderPipelineSettings();
+  assert.ok(pipelineSettings.Exposure > 0);
+  assert.ok(Object.values(TonemappingMode).includes(pipelineSettings.TonemappingMode));
+  assert.ok(Object.values(RenderQuality).includes(pipelineSettings.RenderQuality));
   console.log(
     `CNA_TS_EXTENSIONS_RUNTIME=PASS PLATFORM=${platform.Name} ` +
     `SELECTED=${GraphicsRendererType[selection.Selected] ?? selection.Selected} ` +
     `AVAILABLE=${available.map((renderer) => renderer.Name).join("|")} ` +
     `FALLBACKS=${RendererSelection.GetFallbacks().length} ` +
-    `GRAPHICS_EXTENSION_LAYER=${layer ? "AVAILABLE" : "NOT_SUPPORTED_BACKEND"}`,
+    `GRAPHICS_EXTENSION_LAYER=${layer ? "AVAILABLE" : "NOT_SUPPORTED_BACKEND"} ` +
+    `PBR_DEFAULTS=PASS TONEMAPPING=${TonemappingMode[pipelineSettings.TonemappingMode]} ` +
+    `RENDER_QUALITY=${RenderQuality[pipelineSettings.RenderQuality]}`,
   );
 }

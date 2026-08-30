@@ -66,7 +66,9 @@ Open the dev server with `?wasm=<url to cna_c_api.mjs>` to do the same by hand.
 The default `HelloGame` touches nothing outside `Microsoft.Xna.Framework`, which is the point of
 the modern surface living on its own subpath. The extension smoke asks CNA which host it is on,
 which renderer it selected, what else it could run, and whether the extended graphics layer is
-compiled in -- reporting the truthful `NOT_SUPPORTED_BACKEND` branch where it is not.
+compiled in -- reporting the truthful `NOT_SUPPORTED_BACKEND` branch where it is not. It also reads
+CNA's own PBR material and render-pipeline defaults, which are pure value operations that answer in
+either build.
 
 ```bash
 CNA_NATIVE_LIBRARY=/absolute/path/to/libcna_c_api.so \
