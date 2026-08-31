@@ -31,7 +31,14 @@ import org.openeggbert.cna.extensions.graphics.ShaderEffectFactory;
 import org.openeggbert.cna.extensions.graphics.TransparentDrawList;
 import org.openeggbert.cna.extensions.graphics.FrustumCuller;
 import org.openeggbert.cna.extensions.graphics.LightProbe;
+import org.openeggbert.cna.extensions.graphics.AutoExposure;
+import org.openeggbert.cna.extensions.graphics.ComputeShader;
+import org.openeggbert.cna.extensions.graphics.GpuTimer;
+import org.openeggbert.cna.extensions.graphics.GraphicsCapability;
 import org.openeggbert.cna.extensions.graphics.LodGroup;
+import org.openeggbert.cna.extensions.graphics.MemoryBarrier;
+import org.openeggbert.cna.extensions.graphics.RendererCapabilities;
+import org.openeggbert.cna.extensions.graphics.StorageBuffer;
 import org.openeggbert.cna.extensions.graphics.PbrMaterial;
 import org.openeggbert.cna.extensions.graphics.RenderPipeline;
 import org.openeggbert.cna.extensions.graphics.RenderPipelineFrameStatistics;
@@ -257,11 +264,79 @@ final class ExtensionsSmoke {
             try {
                 material(getGame().getGraphicsDevice());
                 shaderCache(getGame().getGraphicsDevice());
+                gpu(getGame().getGraphicsDevice());
             } catch (RuntimeException | LinkageError problem) {
                 failure = problem;
             }
         }
     }
+
+    /**
+     * What this renderer can do, and one dispatch where it can.
+     *
+     * <p>Deliberately the shortest thing that is not a claim about a call succeeding. Where the
+     * renderer has compute, four known numbers go to the GPU and come back doubled, and the
+     * canary checks them; where it does not, it says so and moves on. A game that needs to know
+     * which of the two it is on asks exactly these questions.
+     */
+    private static void gpu(GraphicsDevice device) {
+        System.out.println("cna-java-template: renderer");
+        System.out.println("  name             " + RendererCapabilities.getRendererName(device));
+        boolean compute = RendererCapabilities.supports(device, GraphicsCapability.ComputeShaders);
+        System.out.println("  compute shaders  " + compute);
+        System.out.println("  indirect draw    "
+                + RendererCapabilities.supports(device, GraphicsCapability.IndirectDraw));
+        try (GpuTimer timer = GpuTimer.create(device)) {
+            System.out.println("  gpu timer        " + timer.isSupported()
+                    + (timer.isSupported() ? "" : " (" + timer.getUnsupportedReason() + ")"));
+        }
+        System.out.println("  auto exposure    " + AutoExposure.isSupported(device));
+        if (!compute) {
+            return;
+        }
+        int[] input = {3, 5, 11, 19};
+        try (StorageBuffer source = StorageBuffer.ofElements(device, input.length, Integer.BYTES);
+                StorageBuffer result = StorageBuffer.ofElements(device, input.length,
+                        Integer.BYTES);
+                ComputeShader doubler = ComputeShader.compile(device, DOUBLER)) {
+            java.nio.ByteBuffer upload = StorageBuffer.allocate(input.length * Integer.BYTES);
+            for (int value : input) {
+                upload.putInt(value);
+            }
+            source.setElements(upload.array(), input.length, Integer.BYTES);
+            doubler.bindStorageBuffer(0, source);
+            doubler.bindStorageBuffer(1, result);
+            doubler.dispatch(1, 1, 1);
+            doubler.barrier(MemoryBarrier.ShaderStorage, MemoryBarrier.BufferUpdate);
+
+            byte[] readback = new byte[input.length * Integer.BYTES];
+            result.getElements(readback, input.length, Integer.BYTES);
+            java.nio.ByteBuffer values =
+                    java.nio.ByteBuffer.wrap(readback).order(java.nio.ByteOrder.LITTLE_ENDIAN);
+            StringBuilder shown = new StringBuilder();
+            for (int index = 0; index < input.length; index++) {
+                int got = values.getInt();
+                if (got != input[index] * 2) {
+                    throw new IllegalStateException("the GPU returned " + got + " for "
+                            + input[index] + ", not " + input[index] * 2);
+                }
+                shown.append(index == 0 ? "" : " ").append(got);
+            }
+            System.out.println("  compute result   " + shown + " (each input doubled)");
+        }
+    }
+
+    /** Doubles each element of one storage buffer into another, in the dialect CNA's own uses. */
+    private static final String DOUBLER = String.join("\n",
+            "#version 310 es",
+            "layout(local_size_x = 4) in;",
+            "layout(std430, binding = 0) readonly buffer Source { int source_values[]; };",
+            "layout(std430, binding = 1) writeonly buffer Result { int result_values[]; };",
+            "void main() {",
+            "    uint index = gl_GlobalInvocationID.x;",
+            "    result_values[index] = source_values[index] * 2;",
+            "}",
+            "");
 
     /** One glTF material, bridged into the effect that draws it. */
     private static void material(GraphicsDevice device) {

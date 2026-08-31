@@ -47,4 +47,18 @@ run {
             systemProperty name, value
         }
     }
+    // The same problem one layer out: a fresh JVM inherits the Gradle daemon's environment, not
+    // the shell's. CNA_GRAPHICS_RENDERER is how a multi-renderer build is told which renderer to
+    // use, and the display variables are how a GPU renderer is pointed at a virtual display
+    // instead of someone's desktop. WAYLAND_DISPLAY is blanked alongside an X11 display, because
+    // SDL prefers Wayland whenever that variable is set.
+    ['CNA_GRAPHICS_RENDERER', 'DISPLAY', 'SDL_VIDEODRIVER', 'WAYLAND_DISPLAY'].each { name ->
+        String value = System.getenv(name)
+        if (value != null) {
+            environment name, value
+        }
+    }
+    if (System.getenv('DISPLAY') && !System.getenv('WAYLAND_DISPLAY')) {
+        environment 'WAYLAND_DISPLAY', ''
+    }
 }
