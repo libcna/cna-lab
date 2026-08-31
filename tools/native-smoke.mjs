@@ -140,6 +140,67 @@ if (extensionsSmoke) {
     authored.Dispose();
   }
 
+  // One CNB model, built and read back. The model is CNB's largest schema and this is the smallest
+  // useful thing to do with it: two bones in a hierarchy, encoded by CNA's own writer, decoded, and
+  // the child's parent link read back. A template is not a showcase, so it stops there.
+  const { CnbModelData } = await import("cna-ts/extensions/content");
+  const { Matrix } = await import("cna-ts");
+  const rig = CnbModelData.Create();
+  let rigImage;
+  try {
+    rig.AddBone("root", -1, Matrix.Identity);
+    rig.AddBone("child", 0, Matrix.CreateScale(2));
+    rigImage = rig.Encode("Template/Rig");
+  } finally {
+    rig.Dispose();
+  }
+  const rigDocument = CnbDocument.Parse(rigImage, "Template/Rig.cnb");
+  let rigEvidence;
+  try {
+    assert.equal(rigDocument.AssetType, CnbAssetType.Model);
+    const model = CnbModelData.Decode(rigDocument);
+    try {
+      const child = model.GetBone(1);
+      assert.equal(child.Name, "child");
+      assert.equal(child.Parent, 0);
+      assert.equal(child.Transform.M11, 2);
+      rigEvidence = `${model.Shape.BoneCount} bones, child parent ${child.Parent}`;
+    } finally {
+      model.Dispose();
+    }
+  } finally {
+    rigDocument.Dispose();
+  }
+
+  // The extended input layer, which on a build machine has nothing attached -- and that is the
+  // answer being reported. A template that printed a controller count it had invented would be
+  // worse than one that prints zero.
+  const { Haptics, Joysticks } = await import("cna-ts/extensions/input");
+  const { Color, Game, GraphicsDeviceManager } = await import("cna-ts");
+  // A joystick list is a property of a platform a game opened, so it needs a live one. This is a
+  // throwaway game in the smoke tool rather than a hook on HelloGame, which stays the small
+  // truthful canary it is meant to be.
+  let joystickCount = "-";
+  let hapticCount = "-";
+  const inputGame = new (class extends Game {
+    constructor() {
+      super();
+      this.manager = new GraphicsDeviceManager(this);
+    }
+    LoadContent() {
+      joystickCount = String(Joysticks.Count);
+      hapticCount = String(Haptics.Count);
+      super.LoadContent();
+    }
+    Draw(gameTime) {
+      this.GraphicsDevice.Clear(Color.CornflowerBlue);
+      this.Exit();
+      super.Draw(gameTime);
+    }
+  })();
+  await inputGame.Run();
+  inputGame.Dispose();
+
   // One modern pipeline property, read from CNA rather than guessed: a higher quality tier costs
   // more bloom iterations, and the engine is what decides how many.
   const { BloomPass } = await import("cna-ts/extensions/graphics");
@@ -152,7 +213,8 @@ if (extensionsSmoke) {
     `CORES=${host?.LogicalCpuCoreCount ?? "-"} POWER=${host ? PowerState[host.Power.State] : "-"} ` +
     `CAMERAS=${cameras ? `${cameras.Devices.length}${cameras.IsSupported ? "" : " (unsupported)"}` : "-"}`,
   );
-  console.log(`CNA_TS_EXTENSIONS_CNB=PASS CHUNKS=${cnbEvidence} BLOOM_LOW_HIGH=${bloomLow}/${bloomHigh}`);
+  console.log(`CNA_TS_EXTENSIONS_CNB=PASS CHUNKS=${cnbEvidence} MODEL=${rigEvidence} BLOOM_LOW_HIGH=${bloomLow}/${bloomHigh}`);
+  console.log(`CNA_TS_EXTENSIONS_INPUT=PASS JOYSTICKS=${joystickCount} HAPTICS=${hapticCount}`);
   console.log(
     `CNA_TS_EXTENSIONS_RUNTIME=PASS PLATFORM=${platform.Name} ` +
     `SELECTED=${GraphicsRendererType[selection.Selected] ?? selection.Selected} ` +
