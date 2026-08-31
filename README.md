@@ -11,7 +11,8 @@ The checked-in `go.work` is the development workflow and resolves the sibling
 instead replace `github.com/openeggbert/cna-go` with an extracted, audited CNA-Go
 source artifact; it must not use this workspace file or the development tree.
 
-The runtime requires cgo and an exact CNA C ABI 0.7.0 shared library:
+The runtime requires cgo and an admitted CNA C ABI shared library — major 0
+with minor 21 or newer, qualified at 0.21.0:
 
 ```sh
 CNA_NATIVE_LIBRARY=/absolute/path/to/libcna_c_api.so go run ./cmd/desktop --frames 60
