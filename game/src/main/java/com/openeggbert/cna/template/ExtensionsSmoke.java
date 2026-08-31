@@ -17,7 +17,18 @@ import org.openeggbert.cna.extensions.devices.InputDeviceKind;
 import org.openeggbert.cna.extensions.devices.InputDevices;
 import org.openeggbert.cna.extensions.graphics.ExtensionNotSupportedException;
 import org.openeggbert.cna.extensions.graphics.GraphicsExtension;
+import Microsoft.Xna.Framework.BoundingBox;
+import Microsoft.Xna.Framework.Color;
+import Microsoft.Xna.Framework.GraphicsDeviceManager;
+import Microsoft.Xna.Framework.Matrix;
+import Microsoft.Xna.Framework.Vector3;
+import org.openeggbert.cna.extensions.graphics.DirectionalLight;
+import org.openeggbert.cna.extensions.graphics.FrustumCuller;
+import org.openeggbert.cna.extensions.graphics.LightProbe;
+import org.openeggbert.cna.extensions.graphics.LodGroup;
 import org.openeggbert.cna.extensions.graphics.PbrMaterial;
+import org.openeggbert.cna.extensions.graphics.RenderPipeline;
+import org.openeggbert.cna.extensions.graphics.RenderPipelineFrameStatistics;
 import org.openeggbert.cna.extensions.graphics.RenderPipelineSettings;
 import org.openeggbert.cna.extensions.graphics.TonemappingMode;
 import org.openeggbert.cna.extensions.runtime.CnaLogger;
@@ -122,9 +133,108 @@ final class ExtensionsSmoke {
             }
             System.out.println("  post-process effect NOT_SUPPORTED, as this build reports");
         }
+        engine();
         devices();
         content();
         System.out.println("cna-java-template: extensions smoke passed");
+    }
+
+    /**
+     * Four small things from CNA's engine layer, three of which need no device at all.
+     *
+     * <p>Deliberately small. The point is that an external consumer can reach the engine layer
+     * and get an answer back, not to build a scene: one LOD selection, one culled box, one
+     * light's defaults, one probe's irradiance, and one real pipeline frame reporting what it
+     * cost.
+     */
+    private static void engine() {
+        System.out.println("cna-java-template: engine layer");
+        System.out.println("  revision         " + GraphicsExtension.getEngineLayerVersion());
+
+        // Level of detail: two thresholds, and the group picks by distance.
+        try (LodGroup lod = LodGroup.create()) {
+            lod.addLevel(10.0f);
+            lod.addLevel(50.0f);
+            System.out.println("  lod at 5 units   level " + lod.selectIndex(5.0f)
+                    + ", at 30 units level " + lod.selectIndex(30.0f));
+        }
+
+        // Culling: one box in front of the camera and one behind it.
+        try (FrustumCuller culler = FrustumCuller.create()) {
+            culler.setCamera(
+                    Matrix.CreateLookAt(new Vector3(0f, 0f, 10f), new Vector3(0f, 0f, 0f),
+                            new Vector3(0f, 1f, 0f)),
+                    Matrix.CreatePerspectiveFieldOfView(1.0f, 1.0f, 1.0f, 100.0f));
+            List<BoundingBox> boxes = List.of(
+                    new BoundingBox(new Vector3(-1f, -1f, -1f), new Vector3(1f, 1f, 1f)),
+                    new BoundingBox(new Vector3(-1f, -1f, 39f), new Vector3(1f, 1f, 41f)));
+            System.out.println("  visible boxes    "
+                    + Arrays.toString(culler.cullBoxes(boxes)) + " of 2");
+        }
+
+        DirectionalLight sun = DirectionalLight.createDefault();
+        System.out.println("  default sun      direction " + sun.getDirection()
+                + ", intensity " + sun.getIntensity());
+
+        // Indirect light: a probe holding only its constant term lights every normal alike.
+        try (LightProbe probe = LightProbe.create()) {
+            probe.setCoefficient(0, new Vector3(1f, 1f, 1f));
+            System.out.println("  probe irradiance " + probe.getIrradiance(new Vector3(0f, 1f, 0f)));
+        }
+
+        pipelineFrame();
+    }
+
+    /** One real pipeline frame, which is the only part of the engine smoke that needs a device. */
+    private static void pipelineFrame() {
+        try (Game game = new Game()) {
+            new GraphicsDeviceManager(game);
+            PipelineReport report = new PipelineReport(game);
+            game.getComponents().add(report);
+            game.RunOneFrame();
+            if (report.failure != null) {
+                throw new IllegalStateException("engine smoke failed", report.failure);
+            }
+            if (!report.ran) {
+                throw new IllegalStateException("engine smoke never ran");
+            }
+        }
+    }
+
+    /** Runs one pipeline frame from inside Update, where the graphics device is reachable. */
+    private static final class PipelineReport extends GameComponent {
+
+        private boolean ran;
+        private Throwable failure;
+
+        private PipelineReport(Game game) {
+            super(game);
+        }
+
+        @Override
+        public void Update(GameTime gameTime) {
+            super.Update(gameTime);
+            if (ran) {
+                return;
+            }
+            ran = true;
+            try (RenderPipeline pipeline = RenderPipeline.create(getGame().getGraphicsDevice())) {
+                pipeline.resize(320, 240);
+                pipeline.setCamera(
+                        Matrix.CreateLookAt(new Vector3(0f, 0f, 4f), new Vector3(0f, 0f, 0f),
+                                new Vector3(0f, 1f, 0f)),
+                        Matrix.CreatePerspectiveFieldOfView(1.0f, 4f / 3f, 0.5f, 200.0f),
+                        0.5f, 200.0f);
+                pipeline.begin(Color.CornflowerBlue);
+                pipeline.end();
+                RenderPipelineFrameStatistics statistics = pipeline.getStatistics();
+                System.out.println("  pipeline frame   " + statistics.passesRun()
+                        + " passes, " + statistics.targetSwitches() + " target switches, "
+                        + statistics.gpuMemoryEstimateBytes() + " estimated bytes");
+            } catch (RuntimeException | LinkageError problem) {
+                failure = problem;
+            }
+        }
     }
 
     /**
