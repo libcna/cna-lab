@@ -19,10 +19,16 @@ import org.openeggbert.cna.extensions.graphics.ExtensionNotSupportedException;
 import org.openeggbert.cna.extensions.graphics.GraphicsExtension;
 import Microsoft.Xna.Framework.BoundingBox;
 import Microsoft.Xna.Framework.Color;
+import Microsoft.Xna.Framework.Graphics.Effect;
+import Microsoft.Xna.Framework.Graphics.GraphicsDevice;
 import Microsoft.Xna.Framework.GraphicsDeviceManager;
 import Microsoft.Xna.Framework.Matrix;
 import Microsoft.Xna.Framework.Vector3;
 import org.openeggbert.cna.extensions.graphics.DirectionalLight;
+import org.openeggbert.cna.extensions.graphics.GltfMaterialSource;
+import org.openeggbert.cna.extensions.graphics.PbrEffect;
+import org.openeggbert.cna.extensions.graphics.ShaderEffectFactory;
+import org.openeggbert.cna.extensions.graphics.TransparentDrawList;
 import org.openeggbert.cna.extensions.graphics.FrustumCuller;
 import org.openeggbert.cna.extensions.graphics.LightProbe;
 import org.openeggbert.cna.extensions.graphics.LodGroup;
@@ -182,6 +188,19 @@ final class ExtensionsSmoke {
             System.out.println("  probe irradiance " + probe.getIrradiance(new Vector3(0f, 1f, 0f)));
         }
 
+        // Transparency: three boxes submitted nearest first, drawn farthest first.
+        try (TransparentDrawList transparent = TransparentDrawList.create()) {
+            for (float distance : new float[] {2f, 30f, 10f}) {
+                transparent.submit(new BoundingBox(
+                        new Vector3(-0.5f, -0.5f, -distance - 0.5f),
+                        new Vector3(0.5f, 0.5f, -distance + 0.5f)), () -> { });
+            }
+            System.out.println("  back to front    " + Arrays.toString(
+                    transparent.getSortedOrder(Matrix.CreateLookAt(new Vector3(0f, 0f, 0f),
+                            new Vector3(0f, 0f, -1f), new Vector3(0f, 1f, 0f))))
+                    + " of 3 submitted near first");
+        }
+
         pipelineFrame();
     }
 
@@ -233,9 +252,47 @@ final class ExtensionsSmoke {
                         + statistics.gpuMemoryEstimateBytes() + " estimated bytes");
             } catch (RuntimeException | LinkageError problem) {
                 failure = problem;
+                return;
+            }
+            try {
+                material(getGame().getGraphicsDevice());
+                shaderCache(getGame().getGraphicsDevice());
+            } catch (RuntimeException | LinkageError problem) {
+                failure = problem;
             }
         }
     }
+
+    /** One glTF material, bridged into the effect that draws it. */
+    private static void material(GraphicsDevice device) {
+        GltfMaterialSource source = new GltfMaterialSource();
+        source.setMetallicFactor(0.25f);
+        source.setRoughnessFactor(0.75f);
+        source.setIor(1.45f);
+        try (PbrEffect effect = new PbrEffect(device)) {
+            effect.applyMaterial(source.build());
+            System.out.println("  pbr material     metallic " + effect.getMetallicFactor()
+                    + ", roughness " + effect.getRoughnessFactor()
+                    + ", ior " + effect.getIor());
+        }
+    }
+
+    /** The named shader cache, which is the only route from source to an Effect. */
+    private static void shaderCache(GraphicsDevice device) {
+        try (ShaderEffectFactory factory = ShaderEffectFactory.create(device)) {
+            Effect first = factory.acquire("tint", VERTEX_SOURCE, FRAGMENT_SOURCE);
+            Effect second = factory.acquire("tint", VERTEX_SOURCE, FRAGMENT_SOURCE);
+            System.out.println("  shader cache     two acquires, "
+                    + factory.getCompileCount() + " compile");
+            first.Dispose();
+            second.Dispose();
+        }
+    }
+
+    private static final String VERTEX_SOURCE =
+            "attribute vec4 a_position;\nvoid main() { gl_Position = a_position; }\n";
+    private static final String FRAGMENT_SOURCE =
+            "void main() { gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0); }\n";
 
     /**
      * Builds content the way a build step would, with no window and no device.
