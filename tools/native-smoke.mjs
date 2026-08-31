@@ -172,16 +172,55 @@ if (extensionsSmoke) {
     rigDocument.Dispose();
   }
 
+  // CNB's writers: a container for an asset type CNA has no schema for, which is what a game
+  // compiling its own data does. Written and read back in memory -- a .cnb is bytes until
+  // something loads it, and this stays out of the filesystem entirely.
+  const { CnbByteWriter, CnbWriter } = await import("cna-ts/extensions/content");
+  const payloadWriter = new CnbByteWriter();
+  let customPayload;
+  try {
+    payloadWriter.WriteUInt32(0xC0FFEE).WriteString("template").WriteSingle(1.5);
+    customPayload = payloadWriter.ToArray();
+  } finally {
+    payloadWriter.Dispose();
+  }
+  const customChunk = CnbFormat.MakeChunkId("tmpl");
+  const customWriter = new CnbWriter(4242, 1);
+  let customImage;
+  try {
+    customWriter.SetMetadata("Template.Custom", "Custom/One");
+    customWriter.AddChunk(customChunk, customPayload);
+    customImage = customWriter.Build();
+  } finally {
+    customWriter.Dispose();
+  }
+  const customDocument = CnbDocument.Parse(customImage, "Custom/One.cnb");
+  let customEvidence;
+  try {
+    assert.equal(customDocument.AssetType, 4242);
+    assert.equal(customDocument.Metadata.ContentName, "Custom/One");
+    const index = customDocument.Chunks.findIndex((chunk) => chunk.RawId === customChunk);
+    assert.ok(index >= 0, "the game's own chunk is in the table of contents");
+    assert.deepEqual([...customDocument.ReadChunk(index)], [...customPayload]);
+    customEvidence = `${customPayload.length}B in a ${customImage.length}B container`;
+  } finally {
+    customDocument.Dispose();
+  }
+
   // The extended input layer, which on a build machine has nothing attached -- and that is the
   // answer being reported. A template that printed a controller count it had invented would be
   // worse than one that prints zero.
   const { Haptics, Joysticks } = await import("cna-ts/extensions/input");
+  const { GraphicsCapability, GraphicsDeviceCapabilities } =
+    await import("cna-ts/extensions/graphics");
   const { Color, Game, GraphicsDeviceManager } = await import("cna-ts");
   // A joystick list is a property of a platform a game opened, so it needs a live one. This is a
   // throwaway game in the smoke tool rather than a hook on HelloGame, which stays the small
   // truthful canary it is meant to be.
   let joystickCount = "-";
   let hapticCount = "-";
+  let computeSupported = false;
+  let capabilityCount = 0;
   const inputGame = new (class extends Game {
     constructor() {
       super();
@@ -190,6 +229,17 @@ if (extensionsSmoke) {
     LoadContent() {
       joystickCount = String(Joysticks.Count);
       hapticCount = String(Haptics.Count);
+      // What this renderer can actually do, asked rather than assumed. XNA had GraphicsProfile, a
+      // two-value tier standing in for a capability list; CNA answers per capability, and a
+      // template that printed "compute: yes" on a headless build would be worse than one that
+      // prints the honest answer.
+      computeSupported = GraphicsDeviceCapabilities.Supports(
+        this.GraphicsDevice, GraphicsCapability.ComputeShaders,
+      );
+      capabilityCount = Object.values(GraphicsCapability)
+        .filter((value) => typeof value === "number")
+        .filter((value) => GraphicsDeviceCapabilities.Supports(this.GraphicsDevice, value))
+        .length;
       super.LoadContent();
     }
     Draw(gameTime) {
@@ -213,8 +263,12 @@ if (extensionsSmoke) {
     `CORES=${host?.LogicalCpuCoreCount ?? "-"} POWER=${host ? PowerState[host.Power.State] : "-"} ` +
     `CAMERAS=${cameras ? `${cameras.Devices.length}${cameras.IsSupported ? "" : " (unsupported)"}` : "-"}`,
   );
-  console.log(`CNA_TS_EXTENSIONS_CNB=PASS CHUNKS=${cnbEvidence} MODEL=${rigEvidence} BLOOM_LOW_HIGH=${bloomLow}/${bloomHigh}`);
-  console.log(`CNA_TS_EXTENSIONS_INPUT=PASS JOYSTICKS=${joystickCount} HAPTICS=${hapticCount}`);
+  console.log(`CNA_TS_EXTENSIONS_CNB=PASS CHUNKS=${cnbEvidence} MODEL=${rigEvidence} CUSTOM=${customEvidence} BLOOM_LOW_HIGH=${bloomLow}/${bloomHigh}`);
+  console.log(
+    `CNA_TS_EXTENSIONS_INPUT=PASS JOYSTICKS=${joystickCount} HAPTICS=${hapticCount} ` +
+    `COMPUTE=${computeSupported ? "SUPPORTED" : "NOT_SUPPORTED_RENDERER"} ` +
+    `CAPABILITIES=${capabilityCount}/19`,
+  );
   console.log(
     `CNA_TS_EXTENSIONS_RUNTIME=PASS PLATFORM=${platform.Name} ` +
     `SELECTED=${GraphicsRendererType[selection.Selected] ?? selection.Selected} ` +
