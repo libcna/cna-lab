@@ -35,13 +35,26 @@ them exist, the availability query answers rather than guesses, and a build
 without the extended layer says `NOT_SUPPORTED` rather than doing something
 else. It does not claim any rendering happened.
 
+It also builds content the way a build step would, outside the game entirely:
+it writes a `.cnb` texture with CNA's own encoder, reads it back and compares
+the pixels, and imports a WAV written from that format's published layout. None
+of that needs a window, a device or a frame, which is the point -- it is the
+half of a content pipeline that runs before a game exists.
+
 ```bash
-./gradlew :game:run -PcnaRepository=/path/to/repo --args=--extensions-smoke
+./gradlew :game:run -PcnaRepository=/path/to/repo \
+    -Dcna.java.jniLibrary=/path/to/libcna_java_jni.so \
+    -Dcna.native.library=/path/to/libcna_c_api.so \
+    --args=--extensions-smoke
 ```
+
+Gradle's `run` starts a fresh JVM, so the two library properties have to be
+forwarded rather than inherited; `game/build.gradle` does that. Leave them out
+only if both libraries are already on the system library path.
 
 | Target | Status |
 | --- | --- |
-| Linux x86-64, HEADLESS CNA 0.20.0 | Runtime verified (60 frames, 600 frames, extensions smoke) |
+| Linux x86-64, HEADLESS CNA 0.21.0 | Runtime verified (60 frames, 600 frames, extensions smoke incl. content) |
 | Windows desktop | Planned; no runtime evidence in this repository |
 | macOS desktop | Planned; no runtime evidence in this repository |
 | Android | Planned; the old non-running Activity scaffold was removed |

@@ -5,6 +5,13 @@ import Microsoft.Xna.Framework.Game;
 import Microsoft.Xna.Framework.GameComponent;
 import Microsoft.Xna.Framework.GameTime;
 import Microsoft.Xna.Framework.PlayerIndex;
+import org.openeggbert.cna.extensions.content.Cnb;
+import org.openeggbert.cna.extensions.content.CnbDocument;
+import org.openeggbert.cna.extensions.content.CnbImport;
+import org.openeggbert.cna.extensions.content.CnbReadLimits;
+import org.openeggbert.cna.extensions.content.CnbSoundEffectData;
+import org.openeggbert.cna.extensions.content.CnbSoundEffectInfo;
+import org.openeggbert.cna.extensions.content.CnbTextureData;
 import org.openeggbert.cna.extensions.devices.InputDeviceInfo;
 import org.openeggbert.cna.extensions.devices.InputDeviceKind;
 import org.openeggbert.cna.extensions.devices.InputDevices;
@@ -34,7 +41,10 @@ import org.openeggbert.cna.extensions.sensors.Sensor;
 import org.openeggbert.cna.extensions.sensors.SensorDeviceInfo;
 import org.openeggbert.cna.extensions.sensors.SensorDevices;
 
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -47,6 +57,9 @@ import java.util.List;
  * published artifact, that the JNI routes behind them exist, that the availability query answers
  * rather than guesses, and that a build without the extended graphics layer says so rather than
  * doing something else. It does not claim any rendering happened.
+
+ * <p>The content half runs outside the game on purpose, because that is where a build step runs:
+ * writing a {@code .cnb} and importing a WAV need no window, no device and no frame.
  *
  * <p>The device half needs a running game, because that is where CNA's host platform lives, so
  * it runs one frame and reports from inside it. <strong>It must pass on a machine with no
@@ -110,7 +123,73 @@ final class ExtensionsSmoke {
             System.out.println("  post-process effect NOT_SUPPORTED, as this build reports");
         }
         devices();
+        content();
         System.out.println("cna-java-template: extensions smoke passed");
+    }
+
+    /**
+     * Builds content the way a build step would, with no window and no device.
+     *
+     * <p>Outside a game on purpose: this is the half of the content pipeline that runs before a
+     * game exists. A WAV an artist hands over becomes a compiled sound, a texture becomes a
+     * {@code .cnb} file, and the file reads back as the picture that went in -- none of which
+     * needs a graphics or audio backend, which is exactly what makes it usable in a build.
+     */
+    private static void content() {
+        System.out.println("cna-java-template: content");
+
+        byte[] pixels = {
+            (byte) 0xFF, 0x00, 0x00, (byte) 0xFF,
+            0x00, (byte) 0xFF, 0x00, (byte) 0xFF,
+            0x00, 0x00, (byte) 0xFF, (byte) 0xFF,
+            (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF,
+        };
+        byte[] file;
+        try (CnbTextureData texture = CnbTextureData.ofRgba8(2, 2, pixels)) {
+            file = Cnb.encodeTexture2D(texture, "textures/four-pixels");
+        }
+        System.out.println("  encoded a Texture2D .cnb of " + file.length + " bytes");
+        try (CnbDocument document = CnbDocument.parse(
+                     file, "four-pixels.cnb", CnbReadLimits.standard());
+             CnbTextureData decoded = document.decodeTexture2D()) {
+            System.out.println("  asset type " + document.getAssetType().getName()
+                    + ", " + decoded.getInfo().Width() + "x" + decoded.getInfo().Height());
+            if (!Arrays.equals(pixels, decoded.readLevel(0, 0))) {
+                throw new IllegalStateException("the .cnb round trip changed the pixels");
+            }
+        }
+
+        try (CnbSoundEffectData sound = CnbImport.wav(wav(), "template.wav")) {
+            CnbSoundEffectInfo info = sound.getInfo();
+            System.out.println("  imported a WAV: " + info.Format() + " "
+                    + info.SampleRate() + "Hz x" + info.Channels()
+                    + ", " + info.FrameCount() + " frames");
+            if (info.FrameCount() != 8) {
+                throw new IllegalStateException("the WAV importer lost frames");
+            }
+        }
+    }
+
+    /** Eight frames of 16-bit mono PCM, written from the WAV layout. */
+    private static byte[] wav() {
+        ByteBuffer buffer = ByteBuffer.allocate(44 + 16).order(ByteOrder.LITTLE_ENDIAN);
+        buffer.put(new byte[] {'R', 'I', 'F', 'F'});
+        buffer.putInt(36 + 16);
+        buffer.put(new byte[] {'W', 'A', 'V', 'E'});
+        buffer.put(new byte[] {'f', 'm', 't', ' '});
+        buffer.putInt(16);
+        buffer.putShort((short) 1);
+        buffer.putShort((short) 1);
+        buffer.putInt(22050);
+        buffer.putInt(22050 * 2);
+        buffer.putShort((short) 2);
+        buffer.putShort((short) 16);
+        buffer.put(new byte[] {'d', 'a', 't', 'a'});
+        buffer.putInt(16);
+        for (int frame = 0; frame < 8; frame++) {
+            buffer.putShort((short) (frame * 4000 - 16000));
+        }
+        return buffer.array();
     }
 
     /** Runs one frame and reports what the host actually has. */

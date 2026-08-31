@@ -35,3 +35,16 @@ test {
 application {
     mainClass = 'com.openeggbert.cna.template.Main'
 }
+
+// Gradle's `run` starts a fresh JVM, so a -D on the Gradle command line does not reach the game.
+// The two properties that say where the native libraries are have to be forwarded explicitly,
+// or the starter fails with UnsatisfiedLinkError on a machine where they are not installed
+// system-wide -- which is every machine that has just built CNA from source.
+run {
+    ['cna.java.jniLibrary', 'cna.native.library'].each { name ->
+        String value = System.getProperty(name)
+        if (value != null) {
+            systemProperty name, value
+        }
+    }
+}
