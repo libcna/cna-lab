@@ -35,6 +35,7 @@ import org.openeggbert.cna.extensions.graphics.AutoExposure;
 import org.openeggbert.cna.extensions.graphics.ComputeShader;
 import org.openeggbert.cna.extensions.graphics.GpuTimer;
 import org.openeggbert.cna.extensions.graphics.GraphicsCapability;
+import org.openeggbert.cna.extensions.graphics.GraphicsRenderer;
 import org.openeggbert.cna.extensions.graphics.LodGroup;
 import org.openeggbert.cna.extensions.graphics.MemoryBarrier;
 import org.openeggbert.cna.extensions.graphics.RendererCapabilities;
@@ -282,6 +283,11 @@ final class ExtensionsSmoke {
     private static void gpu(GraphicsDevice device) {
         System.out.println("cna-java-template: renderer");
         System.out.println("  name             " + RendererCapabilities.getRendererName(device));
+        // What this build could have run on, asked of the library rather than assumed. Worth
+        // printing in a canary because naming a renderer that is not on this list in
+        // CNA_GRAPHICS_RENDERER aborts the JVM while the native library loads, with no Java
+        // frame in which to explain itself.
+        System.out.println("  build has        " + GraphicsRenderer.available());
         boolean compute = RendererCapabilities.supports(device, GraphicsCapability.ComputeShaders);
         System.out.println("  compute shaders  " + compute);
         System.out.println("  indirect draw    "
