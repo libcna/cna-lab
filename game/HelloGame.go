@@ -78,14 +78,9 @@ func (g *HelloGame) LoadContent(_ *framework.Game) error {
 	if closeErr != nil {
 		return closeErr
 	}
-	g.logoWidth, err = g.logo.Width()
-	if err != nil {
-		return err
-	}
-	g.logoHeight, err = g.logo.Height()
-	if err != nil {
-		return err
-	}
+	// Width and Height are plain field reads in XNA and in CNA-Go, so neither
+	// carries an error: the texture's description is cached at construction.
+	g.logoWidth, g.logoHeight = g.logo.Width(), g.logo.Height()
 	viewport, err := device.Viewport()
 	if err != nil {
 		return err
@@ -143,10 +138,10 @@ func (g *HelloGame) Draw(host *framework.Game, _ framework.GameTime) error {
 func (g *HelloGame) UnloadContent(_ *framework.Game) error {
 	var batchErr, textureErr, managerErr error
 	if g.spriteBatch != nil {
-		batchErr = g.spriteBatch.Dispose(true)
+		batchErr = g.spriteBatch.DisposeByBoolean(true)
 	}
 	if g.logo != nil {
-		textureErr = g.logo.Dispose(true)
+		textureErr = g.logo.DisposeByBoolean(true)
 	}
 	if g.manager != nil {
 		managerErr = g.manager.Dispose(true)
