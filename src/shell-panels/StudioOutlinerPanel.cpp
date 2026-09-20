@@ -444,6 +444,44 @@ namespace CNA::Studio
         return plan;
     }
 
+    std::vector<StudioContextMenuItem> studioOutlinerMenuItems(const SceneDocument& scene,
+                                                               const std::vector<Uuid>& selection)
+    {
+        if (selection.empty()) { return {}; }
+
+        const StudioEntity* primary = scene.findEntity(selection.back());
+        if (primary == nullptr) { return {}; }
+
+        // Attach needs two: one to be the parent and at least one to go under it. It is the row
+        // that turns on and off as a user works, which is exactly why it is greyed rather than
+        // dropped -- a menu that grew a row when a second entity was selected would be a menu whose
+        // other rows move under the pointer.
+        const bool canAttach = selection.size() > 1;
+
+        // Detach needs something that is not already a root, for the same reason a command that
+        // changes nothing is refused: an undo entry that undoes nothing is history a user stops
+        // trusting.
+        const bool canDetach = std::any_of(selection.begin(), selection.end(), [&](const Uuid& id) {
+            const StudioEntity* entity = scene.findEntity(id);
+            return entity != nullptr && entity->getParentId().isValid();
+        });
+
+        // The state rows say what the click will *do* rather than what the state *is*, and they
+        // read the primary selection -- the entity the user right-clicked, since a right-click
+        // outside the selection selects the row first. "Hide" on a selection that is half hidden
+        // is then a statement about the row under the pointer rather than a guess about the rest.
+        return {StudioContextMenuItem{"Rename", true, "F2"},
+                StudioContextMenuItem{"Duplicate", true, "Ctrl+D"},
+                StudioContextMenuItem{},
+                StudioContextMenuItem{primary->isEnabled() ? "Hide" : "Show", true, {}},
+                StudioContextMenuItem{isEntityLockedItself(*primary) ? "Unlock" : "Lock", true, {}},
+                StudioContextMenuItem{},
+                StudioContextMenuItem{"Attach to Last Selected", canAttach, {}},
+                StudioContextMenuItem{"Detach", canDetach, {}},
+                StudioContextMenuItem{},
+                StudioContextMenuItem{"Delete", true, "Delete"}};
+    }
+
     bool studioBeginOutlinerRename(const SceneDocument& scene, const Uuid& entityId,
                                    StudioTreeState& state)
     {
@@ -548,6 +586,106 @@ namespace CNA::Studio
         const StudioTreeResult tree = studioTreeRows(frame, view, rows, state, window);
         studioEndScroll(frame);
         result.rowsDrawn = tree.rowsDrawn;
+
+        // --- The right-click menu (`plan.md` STUDIO-13007) ----------------------------------
+        //
+        // Described here, above everything that returns early below: a menu is a widget like any
+        // other and has to be described in both passes of every frame, so a frame that took a
+        // different path out of this function would close it. The panel's own menu rather than the
+        // shell's, because its rows are about the row under the pointer and registering "Lock" as
+        // an application action would put it in the command palette, where there is no pointer.
+        const WidgetId menuId = frame.ids().make("outlinermenu");
+
+        if (frame.isInputPass() && tree.rightClicked.has_value()
+            && *tree.rightClicked < rows.size())
+        {
+            const Uuid id = Uuid::parse(rows[*tree.rightClicked].id);
+            if (id.isValid())
+            {
+                // A right-click *inside* the selection leaves it alone; one outside it replaces it
+                // with the row under the pointer. That is what every list does, and it resolves the
+                // tension the tree records at `StudioTreeResult::rightClicked`: the menu has to act
+                // on something containing the row the user aimed at, and it must not throw away a
+                // multi-row selection they built on purpose.
+                const std::vector<Uuid>& current = context.getSelection();
+                if (std::find(current.begin(), current.end(), id) == current.end())
+                {
+                    context.select(id);
+                    state.setSelectionAnchor(rows[*tree.rightClicked].id);
+                    result.selectionChanged = true;
+                }
+
+                studioOpenContextMenu(frame, menuId, frame.input().mouseX, frame.input().mouseY);
+            }
+        }
+
+        const std::vector<StudioContextMenuItem> menu =
+            studioOutlinerMenuItems(scene, context.getSelection());
+
+        // Dispatched on the label rather than the index, because the rows change with what is
+        // selected: an index that meant Hide in one menu and Delete in another is the kind of
+        // off-by-one that removes the wrong entity.
+        const int chosen = studioContextMenu(frame, menuId, menu);
+        const std::string_view picked = chosen >= 0
+                && static_cast<std::size_t>(chosen) < menu.size()
+            ? std::string_view{menu[static_cast<std::size_t>(chosen)].label}
+            : std::string_view{};
+
+        if (!picked.empty())
+        {
+            const std::vector<Uuid> targets = context.getSelection();
+
+            if (picked == "Rename")
+            {
+                (void)studioBeginOutlinerRename(scene, context.getPrimarySelection(), state);
+            }
+            else if (picked == "Hide" || picked == "Show")
+            {
+                // One entry for the whole row set, because the user chose once. The asked-for
+                // state comes from the row they aimed at, so a half-hidden selection ends up
+                // agreeing with it rather than each entity flipping to its own opposite.
+                const bool enable = picked == "Show";
+                auto batch = std::make_unique<CompositeCommand>(enable ? "Show" : "Hide");
+                for (const Uuid& id : targets)
+                {
+                    auto command =
+                        std::make_unique<SetEntityEnabledCommand>(context.getScene(), id, enable);
+                    if (command->isValid()) { batch->add(std::move(command)); }
+                }
+                if (!batch->isEmpty())
+                {
+                    context.execute(std::move(batch));
+                    result.visibilityChanged = true;
+                }
+            }
+            else if (picked == "Lock" || picked == "Unlock")
+            {
+                const bool lock = picked == "Lock";
+                auto batch = std::make_unique<CompositeCommand>(lock ? "Lock" : "Unlock");
+                for (const Uuid& id : targets)
+                {
+                    auto command =
+                        std::make_unique<SetEntityLockedCommand>(context.getScene(), id, lock);
+                    if (command->isValid()) { batch->add(std::move(command)); }
+                }
+                if (!batch->isEmpty())
+                {
+                    context.execute(std::move(batch));
+                    result.lockChanged = true;
+                    result.lockedEntity = context.getPrimarySelection();
+                    result.lockedNow = lock;
+                }
+            }
+            else if (picked == "Duplicate") { result.requestedAction = "studio.edit.duplicate"; }
+            else if (picked == "Delete") { result.requestedAction = "studio.edit.delete"; }
+            else if (picked == "Attach to Last Selected")
+            {
+                result.requestedAction = "studio.entity.attach";
+            }
+            else if (picked == "Detach") { result.requestedAction = "studio.entity.detach"; }
+
+            return result;
+        }
 
         if (tree.renamed.has_value())
         {

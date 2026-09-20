@@ -80,6 +80,21 @@ namespace CNA::Studio
          */
         bool lockChanged = false;
 
+        /**
+         * @brief An action the shell should invoke, chosen from the right-click menu.
+         *
+         * `plan.md` STUDIO-13007. Reported rather than run here, for the rows that are *already*
+         * application actions: Delete, Duplicate, Attach and Detach each carry their own enable
+         * predicate and their own line in the log, and a second implementation in this panel would
+         * be a second set of rules to keep in step with the menu bar's. Panels report; the binder
+         * acts.
+         *
+         * The rows that are not actions -- rename, hide, lock -- are done here, because they are
+         * document commands about the row under the pointer and registering them would put
+         * "Lock 'Crate'" in the command palette, where there is no pointer and nothing under it.
+         */
+        std::string requestedAction;
+
         /** @brief Which entity it was, and what it became. Meaningless unless @ref lockChanged. */
         Uuid lockedEntity;
 
@@ -193,6 +208,25 @@ namespace CNA::Studio
                                                         const StudioTreeState& state,
                                                         const StudioOutlinerFilter& filter,
                                                         const Uuid& from, const Uuid& to);
+
+    /**
+     * @brief The rows of the World Outliner's right-click menu, for @p selection.
+     *
+     * `plan.md` STUDIO-13007. A CNA-free function of the document and what is selected, so what the
+     * menu *offers* can be asserted without opening one.
+     *
+     * Rows that cannot be used are greyed rather than left out: a menu that changes length
+     * depending on what is selected is one where a user aims at Delete from muscle memory and hits
+     * Duplicate. Attach is the one that turns on and off often, because it needs two entities.
+     *
+     * The labels of the state rows say what the click will *do* rather than what the state *is* --
+     * "Lock" on an unlocked entity -- because a label a user has to invert to use is a label they
+     * misread once and then distrust.
+     *
+     * Empty for an empty selection: the menu belongs to a row, and there is no row.
+     */
+    [[nodiscard]] std::vector<StudioContextMenuItem> studioOutlinerMenuItems(
+        const SceneDocument& scene, const std::vector<Uuid>& selection);
 
     /**
      * @brief Which of a row's toggles is which (`plan.md` STUDIO-13005).

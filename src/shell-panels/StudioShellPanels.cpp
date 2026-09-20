@@ -1256,6 +1256,16 @@ namespace CNA::Studio
             // Said out loud, because a refused drop is a tree that did not change and a successful
             // one on a collapsed parent can be too -- the row moves inside something the user
             // cannot see. Without a line here the two are the same picture (STUDIO-07058).
+            // A row the menu offered and this panel deliberately did not run (STUDIO-13007).
+            // Delete, Duplicate, Attach and Detach are application actions already: they carry
+            // their own enable predicate and their own line in the log, and a second copy of that
+            // logic inside the panel would be a second set of rules to keep in step with the menu
+            // bar's. Panels report; the binder acts.
+            if (!outliner.requestedAction.empty())
+            {
+                (void)shell_->actions().invoke(outliner.requestedAction);
+            }
+
             // A lock is the change a user is most likely to make by accident and then wonder
             // about, because what it does is make the viewport go quiet under their pointer
             // (STUDIO-13005). Said out loud, so the reason is on screen rather than deduced.

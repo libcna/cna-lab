@@ -514,6 +514,242 @@ CNA_STUDIO_TEST(ShiftClickingTakesTheRunAndControlClickingTakesOneMoreRow)
     CNA_STUDIO_EXPECT(selected(fixture.player));
 }
 
+/**
+ * What the World Outliner's menu offers (`plan.md` STUDIO-13007).
+ *
+ * The tree has reported `rightClicked` since it was written and the panel ignored it: there was no
+ * menu at all, so every one of these operations was reachable only from the menu bar or a shortcut
+ * a user has to already know. A CNA-free function of the document and the selection, so what the
+ * menu offers can be asserted without opening one.
+ */
+CNA_STUDIO_TEST(TheOutlinerMenuOffersTheRowsThatApplyAndGreysTheRestOut)
+{
+    Fixture fixture;
+    const SceneDocument& scene = fixture.context.getScene();
+
+    // No row, no menu: the menu belongs to the thing the pointer is on.
+    CNA_STUDIO_EXPECT(studioOutlinerMenuItems(scene, {}).empty());
+    CNA_STUDIO_EXPECT(studioOutlinerMenuItems(scene, {Uuid::generate()}).empty());
+
+    const auto rowFor = [](const std::vector<StudioContextMenuItem>& items,
+                           std::string_view label) -> const StudioContextMenuItem* {
+        for (const StudioContextMenuItem& item : items)
+        {
+            if (item.label == label) { return &item; }
+        }
+        return nullptr;
+    };
+
+    // One root selected: everything is there, and the two that need more than that are greyed.
+    const std::vector<StudioContextMenuItem> one = studioOutlinerMenuItems(scene, {fixture.camera});
+    CNA_STUDIO_EXPECT(rowFor(one, "Rename") != nullptr);
+    CNA_STUDIO_EXPECT(rowFor(one, "Duplicate") != nullptr);
+    CNA_STUDIO_EXPECT(rowFor(one, "Delete") != nullptr);
+
+    // Attach needs two entities and Detach needs one that is not already a root. Greyed rather
+    // than dropped: a menu that grew a row when a second entity was selected would be a menu whose
+    // other rows move under the pointer between one opening and the next.
+    CNA_STUDIO_EXPECT(rowFor(one, "Attach to Last Selected") != nullptr);
+    CNA_STUDIO_EXPECT(!rowFor(one, "Attach to Last Selected")->enabled);
+    CNA_STUDIO_EXPECT(!rowFor(one, "Detach")->enabled);
+
+    const std::vector<StudioContextMenuItem> two =
+        studioOutlinerMenuItems(scene, {fixture.camera, fixture.player});
+    CNA_STUDIO_EXPECT(two.size() == one.size());
+    CNA_STUDIO_EXPECT(rowFor(two, "Attach to Last Selected")->enabled);
+    CNA_STUDIO_EXPECT(!rowFor(two, "Detach")->enabled);
+
+    // Weapon is Player's child, so it has something to be detached from.
+    CNA_STUDIO_EXPECT(rowFor(studioOutlinerMenuItems(scene, {fixture.weapon}), "Detach")->enabled);
+
+    // The state rows say what the click will *do*, read off the row the user aimed at, because a
+    // label a user has to invert to use is one they misread once and then distrust.
+    CNA_STUDIO_EXPECT(rowFor(one, "Hide") != nullptr);
+    CNA_STUDIO_EXPECT(rowFor(one, "Lock") != nullptr);
+
+    fixture.context.getScene().findEntityForEdit(fixture.camera)->setEnabled(false);
+    fixture.context.getScene().findEntityForEdit(fixture.camera)
+        ->setStudioState(kStudioLockedKey, PropertyValue{true});
+
+    const std::vector<StudioContextMenuItem> flipped =
+        studioOutlinerMenuItems(scene, {fixture.camera});
+    CNA_STUDIO_EXPECT(rowFor(flipped, "Show") != nullptr);
+    CNA_STUDIO_EXPECT(rowFor(flipped, "Unlock") != nullptr);
+    CNA_STUDIO_EXPECT(rowFor(flipped, "Hide") == nullptr);
+    CNA_STUDIO_EXPECT(rowFor(flipped, "Lock") == nullptr);
+
+    // The menu never changes length, whatever is selected and whatever state it is in: a user
+    // aiming at Delete from muscle memory must not hit Duplicate.
+    CNA_STUDIO_EXPECT(flipped.size() == one.size());
+}
+
+/**
+ * And a right-click opens it on the row under the pointer (`plan.md` STUDIO-13007).
+ */
+CNA_STUDIO_TEST(ARightClickOutsideTheSelectionTakesTheRowAndInsideItLeavesTheSelectionAlone)
+{
+    Fixture fixture;
+    StudioTreeState state;
+
+    // A multi-row selection the user built on purpose, not containing Main Camera.
+    fixture.context.setSelection({fixture.weapon, fixture.shield});
+
+    const std::unique_ptr<StudioShell> shell = shellShowingTheOutliner();
+
+    UiRect panelBounds;
+    CNA_STUDIO_EXPECT(shell->setPanelContent("outliner",
+        [&](StudioFrame& frame, const UiRect& bounds) {
+            (void)studioOutlinerPanel(frame, bounds, fixture.context, state);
+            if (frame.isDrawPass()) { panelBounds = bounds; }
+        }));
+
+    shell->renderFrame(at(-1.0f, -1.0f));
+    CNA_STUDIO_EXPECT(!panelBounds.isEmpty());
+
+    const auto rightAt = [&](float x, float y, bool down) {
+        UiInputState input = at(x, y);
+        input.setMouseDown(UiMouseButton::Right, down);
+        return input;
+    };
+
+    // Swept rather than assuming a row height, so a metric change cannot turn this into a case
+    // that right-clicks empty space and passes for the wrong reason. Stopped at the first row that
+    // answers, because the menu it opens takes every press after it -- a sweep that carried on
+    // would be clicking the menu and would pass whatever the panel did.
+    float cameraY = -1.0f;
+    for (float y = panelBounds.top() + 4.0f; y < panelBounds.top() + 120.0f && cameraY < 0.0f;
+         y += 4.0f)
+    {
+        const float x = panelBounds.left() + 24.0f;
+        shell->renderFrame(rightAt(x, y, false));
+        shell->renderFrame(rightAt(x, y, true));
+        shell->renderFrame(rightAt(x, y, false));
+
+        const std::vector<Uuid>& now = fixture.context.getSelection();
+        if (now.size() == 1 && now.front() == fixture.camera) { cameraY = y; }
+    }
+
+    // Right-clicking a row outside the selection selects it: the menu has to act on something
+    // containing the row the user aimed at, or Delete removes what they were not pointing at.
+    CNA_STUDIO_EXPECT(cameraY > 0.0f);
+
+    // The menu is open and holding the input. Dismissed before the second half, or every press
+    // below would land on it and the case would pass without the panel doing anything at all.
+    UiInputState escape = at(panelBounds.centerX(), panelBounds.centerY());
+    escape.setKeyDown(UiKey::Escape, true);
+    shell->renderFrame(escape);
+    shell->renderFrame(at(panelBounds.centerX(), panelBounds.centerY()));
+
+    // The same row, now *inside* the selection: the selection is left exactly as it is. This is
+    // the half that stops a menu throwing away a multi-row selection a user built on purpose.
+    fixture.context.setSelection({fixture.camera, fixture.player});
+
+    const float x = panelBounds.left() + 24.0f;
+    shell->renderFrame(rightAt(x, cameraY, false));
+    shell->renderFrame(rightAt(x, cameraY, true));
+    shell->renderFrame(rightAt(x, cameraY, false));
+
+    CNA_STUDIO_EXPECT_EQ(fixture.context.getSelection().size(), std::size_t{2});
+    CNA_STUDIO_EXPECT(fixture.context.getSelection().front() == fixture.camera);
+}
+
+/**
+ * And choosing a row does the thing (`plan.md` STUDIO-13007).
+ *
+ * Both halves of the dispatch: the rows that are document commands are run here, and the rows that
+ * are already application actions are *reported* for the shell to invoke. Delete, Duplicate, Attach
+ * and Detach each carry their own enable predicate and their own line in the log, and a second copy
+ * of that logic in this panel would be a second set of rules to keep in step with the menu bar's.
+ */
+CNA_STUDIO_TEST(ChoosingAMenuRowRunsTheCommandOrReportsTheAction)
+{
+    Fixture fixture;
+    StudioTreeState state;
+
+    const std::unique_ptr<StudioShell> shell = shellShowingTheOutliner();
+
+    StudioOutlinerResult last;
+    UiRect panelBounds;
+    CNA_STUDIO_EXPECT(shell->setPanelContent("outliner",
+        [&](StudioFrame& frame, const UiRect& bounds) {
+            const StudioOutlinerResult result =
+                studioOutlinerPanel(frame, bounds, fixture.context, state);
+            if (frame.isInputPass() && !result.requestedAction.empty()) { last = result; }
+            if (frame.isInputPass() && result.lockChanged) { last = result; }
+            if (frame.isDrawPass()) { panelBounds = bounds; }
+        }));
+
+    shell->renderFrame(at(-1.0f, -1.0f));
+    CNA_STUDIO_EXPECT(!panelBounds.isEmpty());
+
+    const float x = panelBounds.left() + 24.0f;
+
+    const auto rightAt = [&](float px, float py, bool down) {
+        UiInputState input = at(px, py);
+        input.setMouseDown(UiMouseButton::Right, down);
+        return input;
+    };
+
+    // Main Camera's row, found the way the case above finds it.
+    float rowY = -1.0f;
+    for (float y = panelBounds.top() + 4.0f; y < panelBounds.top() + 120.0f && rowY < 0.0f;
+         y += 4.0f)
+    {
+        shell->renderFrame(rightAt(x, y, false));
+        shell->renderFrame(rightAt(x, y, true));
+        shell->renderFrame(rightAt(x, y, false));
+
+        const std::vector<Uuid>& now = fixture.context.getSelection();
+        if (now.size() == 1 && now.front() == fixture.camera) { rowY = y; }
+    }
+    CNA_STUDIO_EXPECT(rowY > 0.0f);
+
+    // The menu's corner is at the point that opened it, so its rows run downwards from there. One
+    // click per opening, re-opening each time: a sweep that clicked twice into one menu would be
+    // choosing a row and then clicking wherever the closed menu used to be.
+    bool locked = false;
+    bool askedToDelete = false;
+    for (float offset = 4.0f; offset < 260.0f && !(locked && askedToDelete); offset += 4.0f)
+    {
+        // Dismissed, so each iteration starts from a menu opened at the same place.
+        UiInputState escape = at(panelBounds.centerX(), panelBounds.bottom() - 4.0f);
+        escape.setKeyDown(UiKey::Escape, true);
+        shell->renderFrame(escape);
+        shell->renderFrame(at(panelBounds.centerX(), panelBounds.bottom() - 4.0f));
+
+        while (fixture.context.getHistory().canUndo())
+        {
+            CNA_STUDIO_EXPECT(fixture.context.getHistory().undo());
+        }
+        fixture.context.select(fixture.camera);
+
+        shell->renderFrame(rightAt(x, rowY, false));
+        shell->renderFrame(rightAt(x, rowY, true));
+        shell->renderFrame(rightAt(x, rowY, false));
+
+        // Cleared here rather than at the top of the iteration: the menu's body is deferred to the
+        // end of the frame, so the row it resolves is reported by the *next* call -- and a reset
+        // before the right-click above would be throwing away the answer to the click below.
+        last = StudioOutlinerResult{};
+
+        const float y = rowY + offset;
+        shell->renderFrame(at(x + 20.0f, y, /*leftDown=*/true));
+        shell->renderFrame(at(x + 20.0f, y));
+        shell->renderFrame(at(x + 20.0f, y));
+
+        if (last.lockChanged && last.lockedNow) { locked = true; }
+        if (last.requestedAction == "studio.edit.delete") { askedToDelete = true; }
+    }
+
+    // Lock is a document command and is run here: the row the user aimed at is locked, through the
+    // history like every other edit.
+    CNA_STUDIO_EXPECT(locked);
+
+    // Delete is an application action and is reported rather than run: the panel names it and the
+    // binder invokes it, which is what keeps one implementation of "what Delete means".
+    CNA_STUDIO_EXPECT(askedToDelete);
+}
+
 CNA_STUDIO_TEST(AnEmptyOutlinerSaysWhichEmptyItIs)
 {
     // "No project is open" and "this scene is empty" call for different next actions. A panel that

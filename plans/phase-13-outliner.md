@@ -6,7 +6,7 @@
 
 **Exit criteria.** A scene with tens of thousands of entities browses and edits smoothly.
 
-**Progress:** 7 of 12 complete `███████░░░░░`
+**Progress:** 8 of 12 complete `████████░░░░`
 
 | Id | Task | Status | Depends on |
 |----|------|:------:|------------|
@@ -16,7 +16,7 @@
 | `STUDIO-13004` | Drag to reparent | ✅ | `STUDIO-03023` |
 | `STUDIO-13005` | Visibility and lock toggles | ✅ | `STUDIO-13001` |
 | `STUDIO-13006` | Rename, duplicate and delete | ✅ | `STUDIO-13001` |
-| `STUDIO-13007` | Context menu | ⬜ | `STUDIO-06005` |
+| `STUDIO-13007` | Context menu | ✅ | `STUDIO-06005` |
 | `STUDIO-13008` | Folder and group organisation | ⬜ | `STUDIO-13001` |
 | `STUDIO-13009` | Prefab status indication | ⬜ | `STUDIO-13001` |
 | `STUDIO-13010` | Type icons and component warnings | ⬜ | `STUDIO-13001` |
@@ -325,6 +325,58 @@ whole on one Ctrl+Z. The duplicate case was written before the fix and failed by
 old code, which is how the defect was established rather than assumed. Checked afterwards by causing
 both failures — duplicate back on the raw selection, and delete taking only the first id. Each fails
 by name.
+
+### `STUDIO-13007` — Context menu
+
+**Acceptance.** Right-clicking a row offers what can be done to it, and doing it from there is the
+same operation as doing it from anywhere else.
+
+**The tree had reported `rightClicked` since it was written and the panel ignored it.** There was no
+menu at all: every operation on an entity was reachable only from the menu bar, or from a shortcut a
+user has to already know. The Content Browser has had one since `STUDIO-09009`; this is the same
+shape for the Outliner.
+
+**A right-click outside the selection takes the row; inside it, the selection is left alone.** That
+resolves the tension the tree records at `StudioTreeResult::rightClicked` — a menu has to act on
+something containing the row the user aimed at, or Delete removes what they were not pointing at,
+and it must not throw away a multi-row selection they built on purpose. Every list does it this way
+and the reason is the same in all of them.
+
+**The rows are a CNA-free function of the document and the selection**, so what the menu *offers*
+can be asserted without opening one. Rows that cannot be used are greyed rather than left out: a
+menu that changes length with the selection is one where a user aiming at Delete from muscle memory
+hits Duplicate. Attach is the row that turns on and off as a user works — it needs two entities —
+which is exactly why dropping it would be worst. Detach needs something that is not already a root,
+for the reason a command that changes nothing is refused everywhere else.
+
+The state rows say what the click will **do** rather than what the state **is**: "Lock" on an
+unlocked entity, "Show" on a hidden one. A label a user has to invert to use is one they misread
+once and then distrust. They read the primary selection — the row the right-click landed on — so a
+half-hidden selection ends up agreeing with the row the user aimed at rather than each entity
+flipping to its own opposite.
+
+**The dispatch is split, and the split is the rule.** Rename, Hide and Lock are document commands
+about the row under the pointer, so the panel runs them: registering "Lock 'Crate'" as an
+application action would put it in the command palette, where there is no pointer and nothing under
+it. Delete, Duplicate, Attach and Detach already **are** application actions, each with its own
+enable predicate and its own line in the log, so the panel reports the id and the binder invokes it
+— a second implementation here would be a second set of rules to keep in step with the menu bar's.
+Panels report; the binder acts.
+
+**The menu is described above everything in the panel that returns early.** A menu is a widget like
+any other and has to be described in both passes of every frame, so a frame that took a different
+path out of `studioOutlinerPanel` — a toggle clicked, a drop landed — would have closed it.
+
+**Verification.** `tests/StudioOutlinerPanelTests.cpp`:
+`TheOutlinerMenuOffersTheRowsThatApplyAndGreysTheRestOut` pins the rows, the two that grey out and
+when, the state labels flipping with the entity, an empty selection giving no menu, and the menu
+never changing length. `ARightClickOutsideTheSelectionTakesTheRowAndInsideItLeavesTheSelectionAlone`
+drives real right-clicks through the shell for both halves, dismissing the menu in between —
+without that the second half would be clicking the open menu and passing whatever the panel did,
+which is how the first draft of it passed. `ChoosingAMenuRowRunsTheCommandOrReportsTheAction` clicks
+the rows themselves, one click per opening, and pins both halves of the dispatch: Lock is run here,
+Delete is reported. Checked by causing two failures — a right-click that never takes the row, and a
+Delete row that reports nothing. Each fails by name.
 
 ### `STUDIO-13011` — Virtualisation for large worlds
 
