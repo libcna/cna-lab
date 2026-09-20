@@ -2,6 +2,7 @@
 #include "CNA/Studio/Scene/SceneCommands.hpp"
 
 #include "CNA/Studio/Scene/BuiltinComponents.hpp"
+#include "CNA/Studio/Scene/SceneTransform.hpp"
 
 #include <unordered_map>
 
@@ -225,17 +226,62 @@ namespace CNA::Studio
     ReparentEntityCommand::ReparentEntityCommand(SceneDocument& document, Uuid entityId, Uuid newParentId)
         : document_(&document), entityId_(entityId), newParentId_(newParentId)
     {
-        if (const StudioEntity* entity = document_->findEntity(entityId_)) { oldParentId_ = entity->getParentId(); }
+        const StudioEntity* entity = document_->findEntity(entityId_);
+        if (entity == nullptr) { return; }
+
+        oldParentId_ = entity->getParentId();
+
+        // Where it is now, so both execute() and undo() can put it back there. An entity with no
+        // transform has nowhere to be and nothing to preserve, which is the `hasTransform_` case --
+        // a grouping node under a rig is exactly as much of a grouping node under the world.
+        if (entity->findComponent(BuiltinComponentIds::kTransform) == nullptr) { return; }
+        if (const std::optional<WorldTransform> world = computeWorldTransform(*document_, entityId_))
+        {
+            startWorld_ = *world;
+            hasTransform_ = true;
+        }
+    }
+
+    void ReparentEntityCommand::placeUnder(const Uuid& parentId)
+    {
+        if (!hasTransform_) { return; }
+
+        StudioEntity* entity = document_->findEntityForEdit(entityId_);
+        if (entity == nullptr) { return; }
+
+        StudioComponent* transform = entity->findComponent(BuiltinComponentIds::kTransform);
+        if (transform == nullptr) { return; }
+
+        // A root's parent is the identity, which is what an absent parent resolves to: its world
+        // transform *is* its local one, and the same arithmetic covers both cases without a branch.
+        WorldTransform parent;
+        if (parentId.isValid())
+        {
+            const std::optional<WorldTransform> parentWorld =
+                computeWorldTransform(*document_, parentId);
+            if (parentWorld) { parent = *parentWorld; }
+        }
+
+        const WorldTransform local = localTransformUnder(startWorld_, parent);
+        transform->setProperty("position", PropertyValue{local.position});
+        transform->setProperty("rotation", PropertyValue{local.rotation});
+        transform->setProperty("scale", PropertyValue{local.scale});
     }
 
     void ReparentEntityCommand::execute()
     {
         document_->reparentEntity(entityId_, newParentId_);
+
+        // After the move, not before: the new parent's world transform is what the local one is
+        // measured against, and asking for it while the entity is still elsewhere would be asking
+        // about a hierarchy that no longer exists by the time the answer is used.
+        placeUnder(newParentId_);
     }
 
     void ReparentEntityCommand::undo()
     {
         document_->reparentEntity(entityId_, oldParentId_);
+        placeUnder(oldParentId_);
     }
 
     std::string ReparentEntityCommand::getDescription() const

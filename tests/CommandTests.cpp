@@ -14,6 +14,9 @@
 #include "CNA/Studio/Scene/BuiltinComponents.hpp"
 #include "CNA/Studio/Scene/SceneCommands.hpp"
 #include "CNA/Studio/Scene/SceneDocument.hpp"
+#include "CNA/Studio/Scene/SceneTransform.hpp"
+
+#include <cmath>
 
 using namespace CNA::Studio;
 
@@ -220,6 +223,123 @@ CNA_STUDIO_TEST(RenameAndReparentCommandsUndo)
     CNA_STUDIO_EXPECT(scene.findEntity(child)->getParentId() == parent);
     history.undo();
     CNA_STUDIO_EXPECT(!scene.findEntity(child)->getParentId().isValid());
+}
+
+/**
+ * A reparent leaves the entity where it is in the world (`plan.md` STUDIO-12010).
+ *
+ * An entity's stored position, rotation and scale are relative to its parent, so moving it under a
+ * different one and leaving the numbers alone moves the *object* -- across the level, if the new
+ * parent is somewhere else. This used to do exactly that, so dropping a prop onto a moved rig in
+ * the Outliner teleported it. The numbers are the implementation and the object is what the user is
+ * looking at, so the object is what stays still.
+ *
+ * The parent here is moved, turned and scaled together, because each of the three is a separate
+ * chance to get the inverse wrong and a parent that is only moved would catch none of them.
+ */
+CNA_STUDIO_TEST(AReparentLeavesTheEntityWhereItIsInTheWorld)
+{
+    const ComponentRegistry registry = makeRegistry();
+    SceneDocument scene;
+    CommandHistory history;
+
+    const Uuid rig = scene.addEntity(makeEntity(registry, "Rig"));
+    StudioComponent* rigTransform =
+        scene.findEntityForEdit(rig)->findComponent(BuiltinComponentIds::kTransform);
+    rigTransform->setProperty("position", PropertyValue{StudioVector3{100.0f, -40.0f, 25.0f}});
+    rigTransform->setProperty("scale", PropertyValue{StudioVector3{2.0f, 2.0f, 2.0f}});
+
+    // A quarter turn about Z, so the parent's rotation is a real one rather than the identity that
+    // makes every inverse look correct.
+    const float eighth = 0.39269908f;  // pi / 8: half the angle, as a quaternion takes it
+    rigTransform->setProperty(
+        "rotation", PropertyValue{StudioQuaternion{0.0f, 0.0f, std::sin(eighth), std::cos(eighth)}});
+
+    const Uuid prop = scene.addEntity(makeEntity(registry, "Crate"));
+    StudioComponent* propTransform =
+        scene.findEntityForEdit(prop)->findComponent(BuiltinComponentIds::kTransform);
+    propTransform->setProperty("position", PropertyValue{StudioVector3{10.0f, 20.0f, -5.0f}});
+    propTransform->setProperty("scale", PropertyValue{StudioVector3{3.0f, 3.0f, 3.0f}});
+
+    const std::optional<WorldTransform> before = computeWorldTransform(scene, prop);
+    CNA_STUDIO_EXPECT(before.has_value());
+    if (!before) { return; }
+
+    history.execute(std::make_unique<ReparentEntityCommand>(scene, prop, rig));
+    CNA_STUDIO_EXPECT(scene.findEntity(prop)->getParentId() == rig);
+
+    const std::optional<WorldTransform> after = computeWorldTransform(scene, prop);
+    CNA_STUDIO_EXPECT(after.has_value());
+    if (!after) { return; }
+
+    const auto near = [](float a, float b) { return std::fabs(a - b) < 0.01f; };
+    CNA_STUDIO_EXPECT(near(after->position.x, before->position.x));
+    CNA_STUDIO_EXPECT(near(after->position.y, before->position.y));
+    CNA_STUDIO_EXPECT(near(after->position.z, before->position.z));
+    CNA_STUDIO_EXPECT(near(after->scale.x, before->scale.x));
+    CNA_STUDIO_EXPECT(near(after->rotation.z, before->rotation.z));
+    CNA_STUDIO_EXPECT(near(after->rotation.w, before->rotation.w));
+
+    // The *numbers* did change, which is the other half of the claim: an implementation that left
+    // them alone and happened to pass the world check would be one where the parent was identity.
+    const StudioVector3 local =
+        scene.findEntity(prop)->findComponent(BuiltinComponentIds::kTransform)
+            ->getProperty("position").get<StudioVector3>();
+    CNA_STUDIO_EXPECT(!near(local.x, 10.0f) || !near(local.y, 20.0f));
+
+    // And undo puts back the parent *and* the numbers, so the entity is where it was and stored the
+    // way it was -- a file saved after an undo has to match one saved before the command.
+    history.undo();
+    CNA_STUDIO_EXPECT(!scene.findEntity(prop)->getParentId().isValid());
+
+    const StudioVector3 restored =
+        scene.findEntity(prop)->findComponent(BuiltinComponentIds::kTransform)
+            ->getProperty("position").get<StudioVector3>();
+    CNA_STUDIO_EXPECT(near(restored.x, 10.0f));
+    CNA_STUDIO_EXPECT(near(restored.y, 20.0f));
+    CNA_STUDIO_EXPECT(near(restored.z, -5.0f));
+
+    const StudioVector3 restoredScale =
+        scene.findEntity(prop)->findComponent(BuiltinComponentIds::kTransform)
+            ->getProperty("scale").get<StudioVector3>();
+    CNA_STUDIO_EXPECT(near(restoredScale.x, 3.0f));
+}
+
+/**
+ * A parent with a zero scale flattens the space its child lives in (`plan.md` STUDIO-12010).
+ *
+ * There is then no local number that puts the child back where it was, because every local number
+ * multiplies to the same place. Keeping the world value is the closest thing to "where it was" that
+ * exists -- and it is what the child gets back the moment the parent is given a size again, which a
+ * division that produced an infinity or a NaN would not be.
+ */
+CNA_STUDIO_TEST(AReparentUnderAFlattenedParentStaysFinite)
+{
+    const ComponentRegistry registry = makeRegistry();
+    SceneDocument scene;
+    CommandHistory history;
+
+    const Uuid flat = scene.addEntity(makeEntity(registry, "Flattened"));
+    scene.findEntityForEdit(flat)->findComponent(BuiltinComponentIds::kTransform)
+        ->setProperty("scale", PropertyValue{StudioVector3{1.0f, 0.0f, 1.0f}});
+
+    const Uuid prop = scene.addEntity(makeEntity(registry, "Crate"));
+    scene.findEntityForEdit(prop)->findComponent(BuiltinComponentIds::kTransform)
+        ->setProperty("position", PropertyValue{StudioVector3{4.0f, 7.0f, 0.0f}});
+
+    history.execute(std::make_unique<ReparentEntityCommand>(scene, prop, flat));
+
+    const StudioVector3 local =
+        scene.findEntity(prop)->findComponent(BuiltinComponentIds::kTransform)
+            ->getProperty("position").get<StudioVector3>();
+    CNA_STUDIO_EXPECT(std::isfinite(local.x));
+    CNA_STUDIO_EXPECT(std::isfinite(local.y));
+    CNA_STUDIO_EXPECT(std::isfinite(local.z));
+
+    // The axis that survived is exact; the flattened one keeps its world value, which is what the
+    // child comes back to when the parent is given a size again.
+    CNA_STUDIO_EXPECT(std::fabs(local.x - 4.0f) < 0.01f);
+    CNA_STUDIO_EXPECT(std::fabs(local.y - 7.0f) < 0.01f);
 }
 
 CNA_STUDIO_TEST(SetPropertyCommandUndoesToTheOriginalValue)

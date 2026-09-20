@@ -325,6 +325,17 @@ namespace CNA::Studio
         command("studio.edit.delete", "Delete",
                 "Delete the selection.", C::Edit, chord(UiKey::Delete));
 
+        // Parenting from the viewport (`plan.md` STUDIO-12010). Unbound, for the reason the six
+        // standard views are: there is no chord every editor agrees on -- Unreal's Ctrl+P and
+        // Shift+P are the nearest thing, and neither key is in this editor's vocabulary at all --
+        // and inventing a scheme nobody knows is worse than a menu entry somebody can bind for
+        // themselves, which the shortcut editor lets them do.
+        command("studio.entity.attach", "Attach to Last Selected",
+                "Make every other selected entity a child of the one selected last.", C::Edit,
+                StudioShortcut{});
+        command("studio.entity.detach", "Detach",
+                "Make the selected entities roots, where they are.", C::Edit, StudioShortcut{});
+
         command("studio.view.focusSelected", "Focus Selected",
                 "Move the viewport camera to frame the selection.", C::View, chord(UiKey::F));
         command("studio.view.toggleGrid", "Show Grid",

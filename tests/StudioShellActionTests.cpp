@@ -453,3 +453,109 @@ CNA_STUDIO_TEST(APlacedAssetBecomesAnEntityThatUsesItAndUndoesInOneStep)
     }
     CNA_STUDIO_EXPECT(explained);
 }
+
+/**
+ * Attach makes the last-selected entity the parent, and Detach undoes the grouping (STUDIO-12010).
+ *
+ * The *last* selected is the parent, which is the rule every editor with this command uses: a user
+ * builds the group by clicking the pieces and finishes on the thing they all belong to. Both
+ * commands go through the history as one entry, because reorganising a hierarchy one entity at a
+ * time on Ctrl+Z would put the scene through arrangements it was never actually in.
+ */
+CNA_STUDIO_TEST(AttachParentsToTheLastSelectedAndDetachTakesItBack)
+{
+    Fixture fixture;
+
+    const auto add = [&](const std::string& name) {
+        StudioEntity entity{Uuid::generate(), name};
+        StudioComponent transform{BuiltinComponentIds::kTransform};
+        transform.applyDefaults(*fixture.context.getComponentRegistry()
+                                     .find(BuiltinComponentIds::kTransform));
+        entity.addComponent(std::move(transform));
+        const Uuid id = entity.getId();
+        fixture.context.getScene().addEntity(std::move(entity));
+        return id;
+    };
+
+    const Uuid crate = add("Crate");
+    const Uuid barrel = add("Barrel");
+    const Uuid rig = add("Rig");
+
+    // One entity selected is not a grouping: there is nothing to attach it to.
+    fixture.context.select(crate);
+    fixture.shell->renderFrame(at(-1.0f, -1.0f));
+    CNA_STUDIO_EXPECT(!fixture.shell->actions().isEnabled("studio.entity.attach"));
+
+    // And nothing selected has a parent yet, so Detach has nothing to take back either.
+    CNA_STUDIO_EXPECT(!fixture.shell->actions().isEnabled("studio.entity.detach"));
+
+    fixture.context.toggleSelection(barrel);
+    fixture.context.toggleSelection(rig);
+    fixture.shell->renderFrame(at(-1.0f, -1.0f));
+    CNA_STUDIO_EXPECT(fixture.shell->actions().isEnabled("studio.entity.attach"));
+
+    fixture.shell->invoke("studio.entity.attach");
+
+    CNA_STUDIO_EXPECT(fixture.context.getScene().findEntity(crate)->getParentId() == rig);
+    CNA_STUDIO_EXPECT(fixture.context.getScene().findEntity(barrel)->getParentId() == rig);
+    CNA_STUDIO_EXPECT(!fixture.context.getScene().findEntity(rig)->getParentId().isValid());
+
+    // One entry for the whole grouping, and undoing it takes both children back at once.
+    fixture.shell->invoke("studio.edit.undo");
+    CNA_STUDIO_EXPECT(!fixture.context.getScene().findEntity(crate)->getParentId().isValid());
+    CNA_STUDIO_EXPECT(!fixture.context.getScene().findEntity(barrel)->getParentId().isValid());
+
+    fixture.shell->invoke("studio.edit.redo");
+    CNA_STUDIO_EXPECT(fixture.context.getScene().findEntity(crate)->getParentId() == rig);
+
+    // Detach lights up now that something is parented, and puts them back as roots.
+    fixture.context.select(crate);
+    fixture.context.toggleSelection(barrel);
+    fixture.shell->renderFrame(at(-1.0f, -1.0f));
+    CNA_STUDIO_EXPECT(fixture.shell->actions().isEnabled("studio.entity.detach"));
+
+    fixture.shell->invoke("studio.entity.detach");
+    CNA_STUDIO_EXPECT(!fixture.context.getScene().findEntity(crate)->getParentId().isValid());
+    CNA_STUDIO_EXPECT(!fixture.context.getScene().findEntity(barrel)->getParentId().isValid());
+}
+
+/**
+ * Attach refuses to make an entity its own descendant (`plan.md` STUDIO-12010).
+ *
+ * The document rejects the cycle anyway and leaves the scene untouched, so pushing the command
+ * would be harmless -- and would put an undo entry on the stack that undoes nothing, which is the
+ * kind of history that makes a user stop trusting Ctrl+Z. It is checked here for the same reason
+ * the Outliner's drag checks it, and the user is told rather than left to wonder.
+ */
+CNA_STUDIO_TEST(AttachRefusesToMakeAnEntityItsOwnDescendant)
+{
+    Fixture fixture;
+
+    const auto add = [&](const std::string& name) {
+        StudioEntity entity{Uuid::generate(), name};
+        StudioComponent transform{BuiltinComponentIds::kTransform};
+        transform.applyDefaults(*fixture.context.getComponentRegistry()
+                                     .find(BuiltinComponentIds::kTransform));
+        entity.addComponent(std::move(transform));
+        const Uuid id = entity.getId();
+        fixture.context.getScene().addEntity(std::move(entity));
+        return id;
+    };
+
+    const Uuid root = add("Root");
+    const Uuid child = add("Child");
+    fixture.context.getScene().reparentEntity(child, root);
+
+    // Selecting the root last asks for the root to become a child of its own child.
+    fixture.context.select(root);
+    fixture.context.toggleSelection(child);
+    fixture.shell->renderFrame(at(-1.0f, -1.0f));
+
+    const std::size_t before = fixture.context.getHistory().getCursor();
+    fixture.shell->invoke("studio.entity.attach");
+
+    // Nothing moved and nothing was recorded: a refused action leaves no entry to undo.
+    CNA_STUDIO_EXPECT(fixture.context.getScene().findEntity(child)->getParentId() == root);
+    CNA_STUDIO_EXPECT(!fixture.context.getScene().findEntity(root)->getParentId().isValid());
+    CNA_STUDIO_EXPECT_EQ(fixture.context.getHistory().getCursor(), before);
+}

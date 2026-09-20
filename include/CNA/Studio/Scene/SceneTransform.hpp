@@ -67,6 +67,27 @@ namespace CNA::Studio
     /** @brief Rotates @p vector by @p rotation. */
     [[nodiscard]] StudioVector3 rotate(const StudioQuaternion& rotation, const StudioVector3& vector);
 
+    /**
+     * @brief Returns the local transform an entity needs under @p parent to sit at @p world.
+     *
+     * `plan.md` STUDIO-12010. The inverse of the composition `computeWorldTransform` performs, and
+     * what a reparent needs: an entity's stored transform is relative to its parent, so moving it
+     * under a different one without rewriting it leaves the *numbers* alone and moves the *object*
+     * -- across the level, if the new parent is somewhere else. Every editor keeps the object
+     * still and changes the numbers, because the object is the thing the user is looking at.
+     *
+     * A parent with a zero scale on some axis cannot be divided out; that axis keeps the world
+     * value, which is the closest thing to "where it was" that exists when the parent has flattened
+     * the space the child lives in.
+     *
+     * Exact when the parent's scale is uniform, and the closest a position/rotation/scale transform
+     * can come when it is not: a rotated child under a non-uniformly scaled parent is a shear, and
+     * such a transform cannot hold one. The same limitation the scale gizmo documents, in the same
+     * words, because it is the same limitation.
+     */
+    [[nodiscard]] WorldTransform localTransformUnder(const WorldTransform& world,
+                                                     const WorldTransform& parent);
+
     /** @brief Returns a rotation of @p radians about the Z axis — the only axis 2D editing uses. */
     [[nodiscard]] StudioQuaternion quaternionFromZRotation(float radians);
 

@@ -170,6 +170,94 @@ namespace CNA::Studio
                                 : "Deleted " + std::to_string(doomed.size()) + " entities.");
              });
 
+        // Parenting from the viewport (`plan.md` STUDIO-12010). The *last* selected entity is the
+        // parent, which is the rule every editor with this command uses: a user builds the group by
+        // clicking the pieces and finishes on the thing they all belong to.
+        bind("studio.entity.attach",
+             [&context] { return context.getSelection().size() > 1; },
+             [&context, &log] {
+                 const std::vector<Uuid>& selection = context.getSelection();
+                 if (selection.size() < 2) { return; }
+
+                 const Uuid parent = selection.back();
+                 const StudioEntity* parentEntity = context.getScene().findEntity(parent);
+                 if (parentEntity == nullptr) { return; }
+
+                 auto batch = std::make_unique<CompositeCommand>("Attach to '"
+                                                                 + parentEntity->getName() + "'");
+                 std::size_t refused = 0;
+
+                 for (std::size_t index = 0; index + 1 < selection.size(); ++index)
+                 {
+                     const Uuid& child = selection[index];
+                     if (context.getScene().findEntity(child) == nullptr) { continue; }
+
+                     // Already there is not an edit, and an ancestor of the target cannot become
+                     // its child -- the document refuses the cycle and would leave an undo entry
+                     // that undoes nothing, which is the history that makes a user stop trusting
+                     // Ctrl+Z.
+                     if (context.getScene().findEntity(child)->getParentId() == parent) { continue; }
+                     if (context.getScene().isAncestorOf(child, parent))
+                     {
+                         ++refused;
+                         continue;
+                     }
+
+                     batch->add(std::make_unique<ReparentEntityCommand>(context.getScene(), child,
+                                                                        parent));
+                 }
+
+                 if (refused > 0)
+                 {
+                     log.append(LogSeverity::Warning,
+                                "Skipped " + std::to_string(refused)
+                                    + (refused == 1 ? " entity that is" : " entities that are")
+                                    + " above '" + parentEntity->getName()
+                                    + "': an entity cannot be its own descendant.");
+                 }
+
+                 if (batch->isEmpty()) { return; }
+
+                 const std::size_t moved = batch->getCount();
+                 context.execute(std::move(batch));
+                 log.append(LogSeverity::Info,
+                            "Attached " + std::to_string(moved)
+                                + (moved == 1 ? " entity to '" : " entities to '")
+                                + parentEntity->getName() + "'.");
+             });
+
+        bind("studio.entity.detach",
+             [&context] {
+                 const std::vector<Uuid>& selection = context.getSelection();
+                 return std::any_of(selection.begin(), selection.end(), [&context](const Uuid& id) {
+                     const StudioEntity* entity = context.getScene().findEntity(id);
+                     return entity != nullptr && entity->getParentId().isValid();
+                 });
+             },
+             [&context, &log] {
+                 auto batch = std::make_unique<CompositeCommand>("Detach");
+
+                 for (const Uuid& id : context.getSelection())
+                 {
+                     const StudioEntity* entity = context.getScene().findEntity(id);
+                     if (entity == nullptr || !entity->getParentId().isValid()) { continue; }
+
+                     // The nil parent makes it a root, and the command keeps it where it is: a
+                     // detach that moved the object would be one a user has to undo and redo by
+                     // hand every time they reorganise a hierarchy.
+                     batch->add(
+                         std::make_unique<ReparentEntityCommand>(context.getScene(), id, Uuid{}));
+                 }
+
+                 if (batch->isEmpty()) { return; }
+
+                 const std::size_t moved = batch->getCount();
+                 context.execute(std::move(batch));
+                 log.append(LogSeverity::Info,
+                            "Detached " + std::to_string(moved)
+                                + (moved == 1 ? " entity." : " entities."));
+             });
+
         bind("studio.file.saveAll",
              [&context] { return context.hasProject(); },
              [&context, &log] {

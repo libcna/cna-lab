@@ -21,6 +21,7 @@
 
 #include "CNA/Studio/Core/StudioCommand.hpp"
 #include "CNA/Studio/Scene/SceneDocument.hpp"
+#include "CNA/Studio/Scene/SceneTransform.hpp"
 
 namespace CNA::Studio
 {
@@ -155,12 +156,19 @@ namespace CNA::Studio
     };
 
     /**
-     * @brief Moves an entity under a new parent.
+     * @brief Moves an entity under a new parent, leaving it where it is in the world.
      *
      * Passing the nil Uuid as the new parent makes the entity a root. A move that would create a
      * cycle is rejected by SceneDocument and leaves the document unchanged, so pushing such a
      * command is harmless -- but callers should check first, because a no-op undo entry is
      * confusing to the user.
+     *
+     * **The local transform is rewritten so the world one does not change** (`plan.md`
+     * STUDIO-12010). An entity's stored position, rotation and scale are relative to its parent, so
+     * moving it under a different one and leaving the numbers alone moves the *object* -- across
+     * the level, if the new parent is somewhere else. This used to do exactly that, so dropping a
+     * prop onto a moved rig in the Outliner teleported it. The numbers are the implementation and
+     * the object is what the user is looking at, so the object is what stays still.
      */
     class ReparentEntityCommand final : public StudioCommand
     {
@@ -172,10 +180,23 @@ namespace CNA::Studio
         [[nodiscard]] std::string getDescription() const override;
 
     private:
+        /** @brief Rewrites the entity's transform so its world one matches `startWorld_`. */
+        void placeUnder(const Uuid& parentId);
+
         SceneDocument* document_;
         Uuid entityId_;
         Uuid newParentId_;
         Uuid oldParentId_;
+
+        /**
+         * @brief Where the entity was in the world when the command was built.
+         *
+         * Held rather than recomputed on undo: by then the entity is under the *new* parent, and
+         * asking where it is would answer with where this command put it -- which is the same
+         * place, until a later command in the same undo group moves the new parent.
+         */
+        WorldTransform startWorld_;
+        bool hasTransform_ = false;
     };
 
     /**

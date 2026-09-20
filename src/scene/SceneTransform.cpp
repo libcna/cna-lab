@@ -191,6 +191,41 @@ namespace CNA::Studio
         return world;
     }
 
+    WorldTransform localTransformUnder(const WorldTransform& world, const WorldTransform& parent)
+    {
+        // The conjugate is the inverse for a unit quaternion, and every rotation this editor stores
+        // is one: they come from `quaternionFromAxisAngle`, from Euler conversion, or from
+        // multiplying two of those. Normalising here would hide a bug rather than fix one.
+        const StudioQuaternion inverseParent{-parent.rotation.x, -parent.rotation.y,
+                                             -parent.rotation.z, parent.rotation.w};
+
+        WorldTransform local;
+        local.rotation = multiply(inverseParent, world.rotation);
+
+        // A zero on an axis cannot be divided out: the parent has flattened the space the child
+        // lives in, and there is no local number that puts the child back where it was. Keeping the
+        // world value is the closest thing to "where it was" that exists, and it is what the child
+        // gets back the moment the parent is given a size again.
+        const auto divide = [](float value, float by) { return by == 0.0f ? value : value / by; };
+
+        local.scale = StudioVector3{divide(world.scale.x, parent.scale.x),
+                                    divide(world.scale.y, parent.scale.y),
+                                    divide(world.scale.z, parent.scale.z)};
+
+        // Undo the parent's translation, then its rotation, then its scale -- the reverse of the
+        // order `computeWorldTransform` applies them in, which is what makes this its inverse
+        // rather than merely its opposite-looking arithmetic.
+        const StudioVector3 offset{world.position.x - parent.position.x,
+                                   world.position.y - parent.position.y,
+                                   world.position.z - parent.position.z};
+        const StudioVector3 unrotated = rotate(inverseParent, offset);
+
+        local.position = StudioVector3{divide(unrotated.x, parent.scale.x),
+                                       divide(unrotated.y, parent.scale.y),
+                                       divide(unrotated.z, parent.scale.z)};
+        return local;
+    }
+
     StudioMatrix toWorldMatrix(const WorldTransform& transform)
     {
         return multiply(multiply(createScale(transform.scale),

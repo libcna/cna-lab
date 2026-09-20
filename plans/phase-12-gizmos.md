@@ -6,7 +6,7 @@
 
 **Exit criteria.** Transforming objects feels precise and predictable, and every drag is exactly one undo entry.
 
-**Progress:** 8 of 11 complete `████████░░░░`
+**Progress:** 9 of 11 complete `█████████░░░`
 
 | Id | Task | Status | Depends on |
 |----|------|:------:|------------|
@@ -19,7 +19,7 @@
 | `STUDIO-12007` | Snapping: grid, angle and scale increments | ✅ | `STUDIO-12001` |
 | `STUDIO-12008` | One undo entry per drag, returning exactly to the drag start | ✅ | `STUDIO-12001` |
 | `STUDIO-12009` | Box selection | ✅ | `STUDIO-11006` |
-| `STUDIO-12010` | Duplicate, delete, parent and reparent from the viewport | ⬜ | `STUDIO-12005` |
+| `STUDIO-12010` | Duplicate, delete, parent and reparent from the viewport | ✅ | `STUDIO-12005` |
 | `STUDIO-12011` | Drag and drop placement from the Content Browser into the scene | ⬜ | `STUDIO-09008` |
 
 ## Acceptance and verification
@@ -290,6 +290,59 @@ entry. Added: a uniform drag grows both entities on all three axes by the same f
 them apart from the pivot, and a plane drag grows two axes by one factor across the selection while
 the third stays at one. Checked by causing it — the three-condition mapping restored fails six
 assertions across both halves, by name.
+
+### `STUDIO-12010` — Duplicate, delete, parent and reparent from the viewport
+
+**Acceptance.** An entity picked in the viewport can be duplicated, deleted, parented and unparented
+without leaving it — and a reparent leaves the object where it is.
+
+**Two of the four already worked, and finding that out was the task's first half.** Ctrl+D and
+Delete are shell commands that act on the *selection*, and the viewport is one of the things that
+sets it: both take the selection's roots, batch into one undo entry, and act wherever the user
+picked. Nothing was needed for those but to check they were true.
+
+**A reparent moved the object, which is the defect this task existed to find.** An entity's stored
+position, rotation and scale are relative to its parent, so moving it under a different one and
+leaving the numbers alone moves the *object* — across the level, if the new parent is somewhere
+else. Dropping a prop onto a moved rig in the Outliner teleported it. The numbers are the
+implementation and the object is what the user is looking at, so the object is what stays still:
+`ReparentEntityCommand` now captures the world transform at the press and rewrites the local one on
+both execute and undo.
+
+**`localTransformUnder` is the inverse of the composition `computeWorldTransform` performs**, in the
+reverse order — undo the parent's translation, then its rotation, then its scale. Exact when the
+parent's scale is uniform, and the closest a position/rotation/scale transform can come when it is
+not: a rotated child under a non-uniformly scaled parent is a shear, and such a transform cannot
+hold one. The same limitation the scale gizmo documents, because it is the same limitation.
+
+**A parent with a zero scale flattens the space its child lives in.** There is then no local number
+that puts the child back, because every local number multiplies to the same place. Keeping the world
+value on that axis is the closest thing to "where it was" that exists — and it is what the child
+gets back the moment the parent is given a size again, which an infinity or a NaN would not be.
+
+**Attach and Detach are the viewport's half of parenting.** The *last* selected entity is the
+parent, which is the rule every editor with this command uses: a user builds the group by clicking
+the pieces and finishes on the thing they all belong to. Both are one undo entry, because
+reorganising a hierarchy one entity at a time on Ctrl+Z would put the scene through arrangements it
+was never actually in. An entity that is already there is skipped, and one that is an *ancestor* of
+the target is refused and said so: the document rejects the cycle anyway and leaves the scene
+untouched, so pushing the command would be harmless and would leave an undo entry that undoes
+nothing.
+
+**Both are unbound**, for the reason the six standard views are: Unreal's Ctrl+P and Shift+P are the
+nearest thing to an agreed chord and neither key is in this editor's vocabulary at all, so a menu
+entry somebody can bind for themselves beats a third scheme nobody knows.
+
+**Verification.** `tests/CommandTests.cpp`: a reparent under a parent that is moved, turned *and*
+scaled leaves the world transform unchanged while the stored numbers do change — the second half
+matters, because an implementation that left them alone would pass the first against an identity
+parent; and undo restores the parent and the numbers, so a file saved after an undo matches one
+saved before. Plus the flattened parent staying finite. `tests/StudioShellActionTests.cpp`: Attach
+greys out under one selection, parents to the last selected, undoes and redoes as one entry; Detach
+greys out until something is parented and takes them back; and an attach that would make an entity
+its own descendant moves nothing and records nothing. Checked by causing four: no rewrite, a
+division by a zero scale, the first selected as parent, and the cycle check dropped. Each fails by
+name.
 
 ### `STUDIO-12007` — Snapping: grid, angle and scale increments
 
