@@ -33,6 +33,7 @@
 
 #include <cstddef>
 #include <string>
+#include <unordered_set>
 #include <string_view>
 #include <vector>
 
@@ -109,6 +110,44 @@ namespace CNA::Studio
     inline constexpr std::string_view kStudioEntityDragType = "entity";
 
     /**
+     * @brief Which entities a search keeps, worked out once for a whole frame.
+     *
+     * `plan.md` STUDIO-13002. Filtering a *tree* is not filtering a list: a row that matches is
+     * useless without the path that leads to it, so the kept set is the matches **and every
+     * ancestor of a match**. The two are kept apart so a row can be drawn as what it is -- the
+     * thing the user searched for, or the way to it.
+     *
+     * Computed once and handed to both the count and the window, for the reason the hierarchy is:
+     * a scene of fifty thousand entities walked twice a frame is a scene filtered twice a frame.
+     */
+    struct StudioOutlinerFilter
+    {
+        /** @brief False when no search is in force, in which case the sets are empty and unused. */
+        bool active = false;
+
+        /** @brief The entities to show: the matches, and the ancestors that lead to one. */
+        std::unordered_set<Uuid> kept;
+
+        /** @brief Just the matches, so the path to one can be dimmed rather than read as a hit. */
+        std::unordered_set<Uuid> matched;
+    };
+
+    /**
+     * @brief Returns the filter @p text describes over @p scene.
+     *
+     * Case-insensitive substring over the entity's name, which is what a name search means and what
+     * the Content Browser's own search already does. Empty text returns an inactive filter rather
+     * than one that matches everything -- "no filter" and "a filter nothing failed" are the same
+     * picture and different costs, and only one of them should walk the scene.
+     *
+     * An entity whose *name* does not match is kept when any descendant's does. That is the whole
+     * of the difference from filtering a list, and it is why this cannot be a predicate the walk
+     * applies row by row: whether to keep a node depends on what is underneath it.
+     */
+    [[nodiscard]] StudioOutlinerFilter studioOutlinerFilter(const SceneDocument& scene,
+                                                            std::string_view text);
+
+    /**
      * @brief Starts renaming @p entityId in the outliner, if it is in the scene.
      *
      * Here rather than on `StudioTreeState` because the state knows nothing about entities: it
@@ -146,7 +185,8 @@ namespace CNA::Studio
      * @return The number of visible rows.
      */
     [[nodiscard]] std::size_t studioOutlinerRowCount(const SceneDocument& scene,
-                                                     const StudioTreeState& state);
+                                                     const StudioTreeState& state,
+                                                     const StudioOutlinerFilter& filter = {});
 
     /**
      * @brief The rows at `[first, first + count)` of the flattened scene.
@@ -164,11 +204,12 @@ namespace CNA::Studio
      */
     [[nodiscard]] std::vector<StudioTreeRow> studioOutlinerRowWindow(
         const SceneDocument& scene, const std::vector<Uuid>& selection,
-        const StudioTreeState& state, std::size_t first, std::size_t count);
+        const StudioTreeState& state, std::size_t first, std::size_t count,
+        const StudioOutlinerFilter& filter = {});
 
-    [[nodiscard]] std::vector<StudioTreeRow> studioOutlinerRows(const SceneDocument& scene,
-                                                                const std::vector<Uuid>& selection,
-                                                                const StudioTreeState& state);
+    [[nodiscard]] std::vector<StudioTreeRow> studioOutlinerRows(
+        const SceneDocument& scene, const std::vector<Uuid>& selection,
+        const StudioTreeState& state, const StudioOutlinerFilter& filter = {});
 
     /**
      * @brief Draws the World Outliner and applies what the user clicked.
@@ -180,5 +221,6 @@ namespace CNA::Studio
      * @return What happened.
      */
     StudioOutlinerResult studioOutlinerPanel(StudioFrame& frame, const UiRect& bounds,
-                                             StudioContext& context, StudioTreeState& state);
+                                             StudioContext& context, StudioTreeState& state,
+                                             std::string* search = nullptr);
 }

@@ -758,6 +758,16 @@ namespace CNA::Studio
         bool framedIn3D_ = false;
 
         StudioTreeState outlinerState_;
+
+        /**
+         * @brief What the Outliner's search box holds (`plan.md` STUDIO-13002).
+         *
+         * Here rather than on the tree state, because the tree widget knows nothing about entities
+         * and a search over names is a question about them. Kept between frames so typing survives
+         * a scene change -- a user who searched for "spawn", opened another scene and found the box
+         * cleared would have to remember what they were looking for.
+         */
+        std::string outlinerSearch_;
         StudioContentBrowserState contentState_;
 
         /**

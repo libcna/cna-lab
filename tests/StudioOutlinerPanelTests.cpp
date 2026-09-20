@@ -173,6 +173,103 @@ CNA_STUDIO_TEST(ATreeStartsOpenRatherThanMakingTheUserFindItsContents)
                          std::size_t{4});
 }
 
+/**
+ * A search keeps what matches and the path that leads to it (`plan.md` STUDIO-13002).
+ *
+ * Filtering a *tree* is not filtering a list. A row that matches is useless without the ancestors
+ * above it: "Weapon" on its own says nothing about which of the four Players it belongs to, and a
+ * tree that showed matches at depth zero would be inventing a hierarchy the scene does not have.
+ */
+CNA_STUDIO_TEST(ASearchKeepsTheMatchesAndThePathToThem)
+{
+    Fixture fixture;
+    StudioTreeState state;
+
+    // No filter is not a filter that matches everything: the two are the same picture and
+    // different costs, and an inactive one walks nothing.
+    const StudioOutlinerFilter none = studioOutlinerFilter(fixture.context.getScene(), "");
+    CNA_STUDIO_EXPECT(!none.active);
+    CNA_STUDIO_EXPECT(none.kept.empty());
+
+    const StudioOutlinerFilter weapon =
+        studioOutlinerFilter(fixture.context.getScene(), "weapon");
+    CNA_STUDIO_EXPECT(weapon.active);
+
+    // The match, and the parent that leads to it. Not the siblings, and not the other root.
+    CNA_STUDIO_EXPECT_EQ(weapon.kept.size(), std::size_t{2});
+    CNA_STUDIO_EXPECT(weapon.kept.find(fixture.weapon) != weapon.kept.end());
+    CNA_STUDIO_EXPECT(weapon.kept.find(fixture.player) != weapon.kept.end());
+    CNA_STUDIO_EXPECT(weapon.kept.find(fixture.shield) == weapon.kept.end());
+    CNA_STUDIO_EXPECT(weapon.kept.find(fixture.camera) == weapon.kept.end());
+
+    // And the two sets are kept apart: the parent is the way to the match, not a match.
+    CNA_STUDIO_EXPECT_EQ(weapon.matched.size(), std::size_t{1});
+    CNA_STUDIO_EXPECT(weapon.matched.find(fixture.weapon) != weapon.matched.end());
+
+    const std::vector<StudioTreeRow> rows =
+        studioOutlinerRows(fixture.context.getScene(), {}, state, weapon);
+    CNA_STUDIO_EXPECT_EQ(rows.size(), std::size_t{2});
+    CNA_STUDIO_EXPECT_EQ(rows.front().label, std::string{"Player"});
+    CNA_STUDIO_EXPECT_EQ(rows.back().label, std::string{"Weapon"});
+
+    // The path is dimmed and the match is not, so the eye can tell which row it searched for --
+    // and dimmed rather than disabled, because a path the user cannot click is one they have to
+    // clear the search to walk.
+    CNA_STUDIO_EXPECT(rows.front().muted);
+    CNA_STUDIO_EXPECT(!rows.back().muted);
+    CNA_STUDIO_EXPECT(rows.front().enabled);
+
+    // The depth is the scene's, not the filter's: a match shown at depth zero would be a hierarchy
+    // the document does not have.
+    CNA_STUDIO_EXPECT_EQ(rows.back().depth, 1);
+
+    // Case-insensitive, which is what a name search means.
+    CNA_STUDIO_EXPECT_EQ(studioOutlinerFilter(fixture.context.getScene(), "WEAPON").matched.size(),
+                         std::size_t{1});
+
+    // A substring rather than a whole name, so a user types what they remember.
+    CNA_STUDIO_EXPECT_EQ(studioOutlinerFilter(fixture.context.getScene(), "ea").matched.size(),
+                         std::size_t{1});
+
+    // And nothing matching keeps nothing, rather than falling back to the whole scene.
+    const StudioOutlinerFilter nothing =
+        studioOutlinerFilter(fixture.context.getScene(), "nosuchthing");
+    CNA_STUDIO_EXPECT(nothing.active);
+    CNA_STUDIO_EXPECT(nothing.kept.empty());
+    CNA_STUDIO_EXPECT_EQ(studioOutlinerRowCount(fixture.context.getScene(), state, nothing),
+                         std::size_t{0});
+}
+
+/**
+ * A search opens the branches it needs, whatever the user had collapsed (`plan.md` STUDIO-13002).
+ *
+ * A match hidden inside a closed branch is a match the search did not find, as far as anybody
+ * looking at the screen can tell -- and asking the user to go and open the branch is asking them to
+ * find the thing they were searching for.
+ */
+CNA_STUDIO_TEST(ASearchReachesIntoBranchesTheUserHadClosed)
+{
+    Fixture fixture;
+    StudioTreeState state;
+
+    // Closed, so without the search Weapon is not on screen at all.
+    state.setExpanded(fixture.player.toString(), false);
+    CNA_STUDIO_EXPECT_EQ(studioOutlinerRowCount(fixture.context.getScene(), state), std::size_t{2});
+
+    const StudioOutlinerFilter weapon =
+        studioOutlinerFilter(fixture.context.getScene(), "weapon");
+    const std::vector<StudioTreeRow> rows =
+        studioOutlinerRows(fixture.context.getScene(), {}, state, weapon);
+
+    CNA_STUDIO_EXPECT_EQ(rows.size(), std::size_t{2});
+    CNA_STUDIO_EXPECT_EQ(rows.back().label, std::string{"Weapon"});
+
+    // And the collapse is not thrown away: clearing the search leaves the tree as the user left it,
+    // rather than as the search needed it.
+    CNA_STUDIO_EXPECT(!state.isExpanded(fixture.player.toString()));
+    CNA_STUDIO_EXPECT_EQ(studioOutlinerRowCount(fixture.context.getScene(), state), std::size_t{2});
+}
+
 CNA_STUDIO_TEST(TheOutlinerMarksWhatIsSelected)
 {
     Fixture fixture;

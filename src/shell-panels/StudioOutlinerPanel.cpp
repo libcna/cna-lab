@@ -96,13 +96,19 @@ namespace CNA::Studio
                   const std::unordered_map<Uuid, std::vector<Uuid>>& hierarchy,
                   const Uuid& id, int depth,
                   const std::vector<Uuid>& selection, const StudioTreeState& state,
-                  std::size_t& index, std::size_t first, std::size_t last,
-                  std::vector<StudioTreeRow>* out)
+                  const StudioOutlinerFilter& filter, std::size_t& index, std::size_t first,
+                  std::size_t last, std::vector<StudioTreeRow>* out)
         {
             constexpr int kMaxDepth = 64;
 
             const StudioEntity* entity = scene.findEntity(id);
             if (entity == nullptr || depth > kMaxDepth) { return; }
+
+            // Not kept by the search: neither this row nor anything under it, because the kept set
+            // already holds every ancestor of every match -- so a node outside it has no match
+            // anywhere below and the whole subtree can be skipped without descending
+            // (`plan.md` STUDIO-13002).
+            if (filter.active && filter.kept.find(id) == filter.kept.end()) { return; }
 
             const auto found = hierarchy.find(id);
             const std::vector<Uuid>& children =
@@ -123,12 +129,15 @@ namespace CNA::Studio
                 // tree until the user closes something -- never formats the id at all. Counting
                 // twenty thousand entities was building forty thousand thirty-six-character
                 // strings a frame to ask a set that was empty.
-                if (state.collapsedCount() == 0 || state.isExpanded(id.toString()))
+                // While a search is in force every kept row is open, whatever the user collapsed:
+                // a match hidden inside a closed branch is a match the search did not find, as far
+                // as anybody looking at the screen can tell.
+                if (filter.active || state.collapsedCount() == 0 || state.isExpanded(id.toString()))
                 {
                     for (const Uuid& child : children)
                     {
-                        walk(scene, hierarchy, child, depth + 1, selection, state, index, first,
-                             last, out);
+                        walk(scene, hierarchy, child, depth + 1, selection, state, filter, index,
+                             first, last, out);
                         if (out != nullptr && index >= last) { return; }
                     }
                 }
@@ -142,6 +151,11 @@ namespace CNA::Studio
             row.hasChildren = !children.empty();
             row.selected = std::find(selection.begin(), selection.end(), id) != selection.end();
             row.enabled = entity->isEnabled();
+
+            // Kept but not matched: this row is the *way* to a match rather than one itself.
+            // Dimmed and still fully clickable, which is exactly what `muted` is for -- a path
+            // the user cannot click is a path they have to close the search to walk.
+            row.muted = filter.active && filter.matched.find(id) == filter.matched.end();
             row.icon = iconFor(*entity);
 
             // `STUDIO-35060`. An outliner where hiding an entity means selecting it, finding the
@@ -183,20 +197,32 @@ namespace CNA::Studio
             out->push_back(std::move(row));
 
             // The row's own id, already formatted just above, rather than a second `toString()`.
-            if (state.collapsedCount() != 0 && !state.isExpanded(out->back().id)) { return; }
+            if (!filter.active && state.collapsedCount() != 0 && !state.isExpanded(out->back().id))
+            {
+                return;
+            }
             for (const Uuid& child : children)
             {
-                walk(scene, hierarchy, child, depth + 1, selection, state, index, first, last, out);
+                walk(scene, hierarchy, child, depth + 1, selection, state, filter, index, first,
+                     last, out);
                 if (index >= last) { return; }
             }
+        }
+
+        /** @brief ASCII lower-case, which is what a name search needs and all the atlas carries. */
+        char lowerAscii(char character)
+        {
+            return (character >= 'A' && character <= 'Z')
+                       ? static_cast<char>(character - 'A' + 'a')
+                       : character;
         }
 
         /** @brief Walks every root of @p scene, and answers how many rows there were. */
         std::size_t walkRoots(const SceneDocument& scene,
                               const std::unordered_map<Uuid, std::vector<Uuid>>& hierarchy,
                               const std::vector<Uuid>& selection, const StudioTreeState& state,
-                              std::size_t first, std::size_t last,
-                              std::vector<StudioTreeRow>* out)
+                              const StudioOutlinerFilter& filter, std::size_t first,
+                              std::size_t last, std::vector<StudioTreeRow>* out)
         {
             // The nil Uuid's entry is the roots, so this also replaces `getRootEntities()` --
             // which is the same scan under another name.
@@ -206,25 +232,68 @@ namespace CNA::Studio
             std::size_t index = 0;
             for (const Uuid& root : roots->second)
             {
-                walk(scene, hierarchy, root, 0, selection, state, index, first, last, out);
+                walk(scene, hierarchy, root, 0, selection, state, filter, index, first, last, out);
                 if (out != nullptr && index >= last) { break; }
             }
             return index;
         }
     }
 
-    std::size_t studioOutlinerRowCount(const SceneDocument& scene, const StudioTreeState& state)
+    StudioOutlinerFilter studioOutlinerFilter(const SceneDocument& scene, std::string_view text)
+    {
+        StudioOutlinerFilter filter;
+        if (text.empty()) { return filter; }
+
+        filter.active = true;
+
+        std::string needle;
+        needle.reserve(text.size());
+        for (const char character : text) { needle.push_back(lowerAscii(character)); }
+
+        // Every match first, then the paths to them. Two passes rather than one recursive descent,
+        // because whether to keep a node depends on what is *underneath* it and a walk down cannot
+        // know that until it has come back up -- while walking *up* from each match is one step per
+        // ancestor and visits nothing that is not on a path.
+        for (const StudioEntity& entity : scene.getEntities())
+        {
+            std::string name;
+            name.reserve(entity.getName().size());
+            for (const char character : entity.getName()) { name.push_back(lowerAscii(character)); }
+
+            if (name.find(needle) == std::string::npos) { continue; }
+
+            filter.matched.insert(entity.getId());
+
+            for (Uuid at = entity.getId(); at.isValid();)
+            {
+                // `insert` answers whether it was new, so a path already walked stops here: with a
+                // hundred matches under one root, the root is reached once rather than a hundred
+                // times.
+                if (!filter.kept.insert(at).second) { break; }
+
+                const StudioEntity* node = scene.findEntity(at);
+                if (node == nullptr) { break; }
+                at = node->getParentId();
+            }
+        }
+
+        return filter;
+    }
+
+    std::size_t studioOutlinerRowCount(const SceneDocument& scene, const StudioTreeState& state,
+                                       const StudioOutlinerFilter& filter)
     {
         // Once for the whole walk (STUDIO-30013): `getChildrenByParent` is a pass over the scene,
         // and asking for it per node is what made this O(n^2) in the first place.
-        return walkRoots(scene, scene.getChildrenByParent(), {}, state, 0,
+        return walkRoots(scene, scene.getChildrenByParent(), {}, state, filter, 0,
                          std::numeric_limits<std::size_t>::max(), nullptr);
     }
 
     std::vector<StudioTreeRow> studioOutlinerRowWindow(const SceneDocument& scene,
                                                        const std::vector<Uuid>& selection,
                                                        const StudioTreeState& state,
-                                                       std::size_t first, std::size_t count)
+                                                       std::size_t first, std::size_t count,
+                                                       const StudioOutlinerFilter& filter)
     {
         if (count == 0) { return {}; }
 
@@ -234,16 +303,18 @@ namespace CNA::Studio
         const std::size_t last = count == std::numeric_limits<std::size_t>::max()
             ? count
             : first + count;
-        (void)walkRoots(scene, scene.getChildrenByParent(), selection, state, first, last, &rows);
+        (void)walkRoots(scene, scene.getChildrenByParent(), selection, state, filter, first, last,
+                        &rows);
         return rows;
     }
 
     std::vector<StudioTreeRow> studioOutlinerRows(const SceneDocument& scene,
                                                   const std::vector<Uuid>& selection,
-                                                  const StudioTreeState& state)
+                                                  const StudioTreeState& state,
+                                                  const StudioOutlinerFilter& filter)
     {
         return studioOutlinerRowWindow(scene, selection, state, 0,
-                                       std::numeric_limits<std::size_t>::max());
+                                       std::numeric_limits<std::size_t>::max(), filter);
     }
 
     bool studioBeginOutlinerRename(const SceneDocument& scene, const Uuid& entityId,
@@ -257,7 +328,8 @@ namespace CNA::Studio
     }
 
     StudioOutlinerResult studioOutlinerPanel(StudioFrame& frame, const UiRect& bounds,
-                                             StudioContext& context, StudioTreeState& state)
+                                             StudioContext& context, StudioTreeState& state,
+                                             std::string* search)
     {
         StudioOutlinerResult result;
 
@@ -271,7 +343,38 @@ namespace CNA::Studio
             ? std::string_view{"This scene has no entities yet."}
             : std::string_view{"No project is open."};
 
+        // A third empty, and it needs saying apart from the other two: a search that matches
+        // nothing looks exactly like an empty scene, and a user who cannot tell them apart starts
+        // wondering where their level went rather than clearing the box.
+        const std::string_view noMatches{"Nothing here matches that."};
+
         if (bounds.width <= 0.0f || bounds.height <= 0.0f) { return result; }
+
+        // The search field, and the tree below whatever is left (`plan.md` STUDIO-13002). A caller
+        // that passes nothing gets the panel exactly as it was, which is what keeps every existing
+        // test and the headless paths meaning what they meant.
+        UiRect treeBounds = bounds;
+        if (search != nullptr)
+        {
+            const float pad = static_cast<float>(theme.metric(StudioMetric::SpacingSmall));
+            const float height = static_cast<float>(theme.metric(StudioMetric::ControlHeight));
+            const UiRect field{bounds.x + pad, bounds.y + pad, bounds.width - pad * 2.0f, height};
+
+            if (field.width > 0.0f && field.height + pad * 2.0f < bounds.height)
+            {
+                StudioTextFieldOptions options;
+                options.placeholder = "Search entities";
+                options.font = StudioFontRole::BodySmall;
+                (void)studioTextField(frame, frame.ids().make("outliner.search"), field, *search,
+                                      options);
+
+                treeBounds = UiRect{bounds.x, field.bottom() + pad, bounds.width,
+                                    bounds.height - (field.bottom() + pad - bounds.y)};
+            }
+        }
+
+        const StudioOutlinerFilter filter =
+            search != nullptr ? studioOutlinerFilter(scene, *search) : StudioOutlinerFilter{};
 
         // Derived once and shared by the count and the window (STUDIO-13011), and since
         // STUDIO-30011 the document keeps it between frames -- so a scene nobody has changed is
@@ -282,7 +385,7 @@ namespace CNA::Studio
         // The count first, then the window. Counting walks the tree and builds nothing, which is
         // the difference between a scene of fifty thousand entities costing fifty thousand
         // increments and costing fifty thousand rows of three strings each, twice a frame.
-        const std::size_t total = walkRoots(scene, hierarchy, {}, state, 0,
+        const std::size_t total = walkRoots(scene, hierarchy, {}, state, filter, 0,
                                             std::numeric_limits<std::size_t>::max(), nullptr);
         result.rowsTotal = total;
 
@@ -292,9 +395,10 @@ namespace CNA::Studio
             {
                 studioDrawText(
                     frame,
-                    bounds.inset(UiEdges{static_cast<float>(theme.metric(
+                    treeBounds.inset(UiEdges{static_cast<float>(theme.metric(
                         StudioMetric::SpacingMedium))}),
-                    empty, StudioFontRole::Body, theme.color(StudioColorRole::TextSecondary));
+                    filter.active ? noMatches : empty, StudioFontRole::Body,
+                    theme.color(StudioColorRole::TextSecondary));
             }
             return result;
         }
@@ -304,13 +408,13 @@ namespace CNA::Studio
         scroll.wheelStep = studioTreeRowHeight(theme) * 3.0f;
 
         const StudioScrollResult view =
-            studioBeginScroll(frame, frame.ids().make("treescroll"), bounds, scroll);
+            studioBeginScroll(frame, frame.ids().make("treescroll"), treeBounds, scroll);
 
         const StudioTreeWindow window = studioTreeWindow(view, total, theme);
 
         std::vector<StudioTreeRow> rows;
         rows.reserve(window.rowCount);
-        (void)walkRoots(scene, hierarchy, context.getSelection(), state, window.firstRow,
+        (void)walkRoots(scene, hierarchy, context.getSelection(), state, filter, window.firstRow,
                         window.firstRow + window.rowCount, &rows);
         result.rowsBuilt = rows.size();
 

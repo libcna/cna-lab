@@ -1238,7 +1238,7 @@ namespace CNA::Studio
         // document model rather than a log.
         shell.setPanelContent("outliner", [this](StudioFrame& frame, const UiRect& bounds) {
             const StudioOutlinerResult outliner =
-                studioOutlinerPanel(frame, bounds, context_, outlinerState_);
+                studioOutlinerPanel(frame, bounds, context_, outlinerState_, &outlinerSearch_);
             if (frame.isDrawPass())
             {
                 counts_.outlinerRowsDrawn = outliner.rowsDrawn;
