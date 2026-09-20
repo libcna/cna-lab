@@ -69,6 +69,14 @@ namespace
         return entity;
     }
 
+    /** @brief The `GizmoAxis3D` for ring or arm @p index, which the library keeps to itself. */
+    GizmoAxis3D axis3DForTest(std::size_t index)
+    {
+        if (index == 0) { return GizmoAxis3D::X; }
+        if (index == 1) { return GizmoAxis3D::Y; }
+        return GizmoAxis3D::Z;
+    }
+
     /** @brief Returns a unique scratch directory for a test that touches the filesystem. */
     std::filesystem::path makeScratchDirectory(const std::string& name)
     {
@@ -3126,6 +3134,98 @@ CNA_STUDIO_TEST(EntitiesThatDrawNothingGetABadgeRatherThanACube)
                                         far.front().to.x - far.front().from.x));
 
     static_cast<void>(emptyId);
+}
+
+/**
+ * A rotate ring shows its front half only (`plan.md` STUDIO-12002).
+ *
+ * Three full circles drawn over each other are a tangle, and the half of a ring on the far side of
+ * the object turns the opposite way on screen from the half in front -- so a press that lands on
+ * the back reads as the gizmo working backwards. Hiding it makes the three rings read as a ball,
+ * and makes the only grabbable half the one whose direction matches the drag.
+ */
+CNA_STUDIO_TEST(ARotateRingShowsAndIsGrabbedOnItsFrontHalfOnly)
+{
+    ComponentRegistry registry = makeRegistry();
+    SceneDocument scene;
+    const Uuid entityId = scene.addEntity(makeEntity(registry, "Crate", 0.0f, 0.0f));
+
+    StudioCamera3D camera = makeCamera();
+    camera.setPivot(StudioVector3{});
+    camera.setYaw(0.6f);
+    camera.setPitch(0.4f);
+    camera.setDistance(100.0f);
+
+    const std::optional<RotateGizmo3DLayout> layout =
+        computeRotateGizmo3DLayout(scene, camera, entityId);
+    CNA_STUDIO_EXPECT(layout.has_value());
+    if (!layout) { return; }
+
+    const StudioVector3 towardsEye = normalize(subtract(camera.getEye(), layout->origin));
+
+    std::size_t tested = 0;
+    for (std::size_t index = 0; index < 3; ++index)
+    {
+        const std::vector<StudioVector2>& ring = layout->rings[index];
+        if (ring.empty()) { continue; }
+
+        // An arc, not a circle: a tilted ring keeps about half of its samples and is left open.
+        CNA_STUDIO_EXPECT(ring.size() < static_cast<std::size_t>(kRotateGizmo3DSamples));
+        CNA_STUDIO_EXPECT(ring.size() > 4);
+
+        const StudioVector3 normal = layout->axes[index];
+
+        // The nearest and furthest points *on this ring*: the in-plane component of the direction
+        // to the eye, and its opposite. Computed from the normal alone rather than from the ring's
+        // own basis, which is private to the layout and arbitrary anyway.
+        const StudioVector3 inPlane =
+            subtract(towardsEye, scale(normal, dot(towardsEye, normal)));
+        if (length(inPlane) < 0.1f) { continue; }
+
+        const StudioVector3 unit = normalize(inPlane);
+        const std::optional<StudioVector2> nearest =
+            camera.worldToScreen(add(layout->origin, scale(unit, layout->radius)));
+        const std::optional<StudioVector2> furthest =
+            camera.worldToScreen(add(layout->origin, scale(unit, -layout->radius)));
+        CNA_STUDIO_EXPECT(nearest.has_value() && furthest.has_value());
+        if (!nearest || !furthest) { continue; }
+
+        // The front of the ring is this ring's to grab...
+        CNA_STUDIO_EXPECT(hitTestRotateGizmo3D(*layout, *nearest) == axis3DForTest(index));
+
+        // ...and the back of it is not. Not "is None", because a ring's far side can pass close to
+        // another ring's near side -- what matters is that the hidden half is no longer a handle
+        // for the ring it belongs to.
+        CNA_STUDIO_EXPECT(hitTestRotateGizmo3D(*layout, *furthest) != axis3DForTest(index));
+        ++tested;
+    }
+
+    CNA_STUDIO_EXPECT(tested > 0);
+
+    // A ring seen face-on keeps the whole of itself. Every one of its samples is level with the
+    // centre, so none of them is behind it, and cutting one arbitrarily in half would leave the one
+    // ring the user can see best looking broken.
+    StudioCamera3D straight = makeCamera();
+    straight.setPivot(StudioVector3{});
+    straight.setYaw(0.0f);
+    straight.setPitch(0.0f);
+    straight.setDistance(100.0f);
+
+    const std::optional<RotateGizmo3DLayout> faceOn =
+        computeRotateGizmo3DLayout(scene, straight, entityId);
+    CNA_STUDIO_EXPECT(faceOn.has_value());
+    if (!faceOn) { return; }
+
+    // Looking down -Z: the Z ring lies across the view and the other two are edge-on, which the
+    // layout already drops rather than drawing a line through the middle of the gizmo.
+    CNA_STUDIO_EXPECT(faceOn->rings[0].empty());
+    CNA_STUDIO_EXPECT(faceOn->rings[1].empty());
+    CNA_STUDIO_EXPECT_EQ(faceOn->rings[2].size(),
+                         static_cast<std::size_t>(kRotateGizmo3DSamples) + 1);
+
+    // Closed: the last sample is the first again, so the circle has no gap in it.
+    CNA_STUDIO_EXPECT(cameraNearlyEqual(faceOn->rings[2].front().x, faceOn->rings[2].back().x, 0.01f));
+    CNA_STUDIO_EXPECT(cameraNearlyEqual(faceOn->rings[2].front().y, faceOn->rings[2].back().y, 0.01f));
 }
 
 CNA_STUDIO_TEST(TheThreeDimensionalRotateRingsAreGrabbedWhereTheyAreDrawn)

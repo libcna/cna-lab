@@ -415,24 +415,89 @@ namespace CNA::Studio
 
             const auto [planeX, planeY] = makePlaneBasis(layout.axes[index]);
 
-            std::vector<StudioVector2> ring;
-            ring.reserve(static_cast<std::size_t>(kRotateGizmo3DSamples) + 1);
+            // The far half of a ring is hidden, so three rings read as a ball rather than as three
+            // ellipses drawn over each other (`plan.md` STUDIO-12002). Measured against the *gizmo
+            // centre* rather than against the eye's distance to each point, which is what makes a
+            // ring seen face-on keep all of itself: every one of its samples is then the same
+            // distance out as the centre, so none of them is behind it, and cutting one arbitrarily
+            // in half would leave the one ring the user can see best looking broken.
+            const StudioVector3 towardsEye =
+                camera.getProjection() == CameraProjection::Orthographic
+                    ? scale(camera.getForward(), -1.0f)
+                    : normalize(subtract(camera.getEye(), layout.origin));
 
-            for (int sample = 0; sample <= kRotateGizmo3DSamples; ++sample)
+            // Sampled over a full turn without the closing duplicate: the visible set is one
+            // contiguous arc in *cyclic* order and may straddle the seam, so the run is found on
+            // the circle rather than on the array.
+            std::vector<StudioVector2> screenSamples;
+            std::vector<bool> frontFacing;
+            screenSamples.reserve(static_cast<std::size_t>(kRotateGizmo3DSamples));
+            frontFacing.reserve(static_cast<std::size_t>(kRotateGizmo3DSamples));
+
+            bool anyBehindEye = false;
+            for (int sample = 0; sample < kRotateGizmo3DSamples; ++sample)
             {
                 const float angle = 6.2831853f * static_cast<float>(sample)
                                     / static_cast<float>(kRotateGizmo3DSamples);
-                const StudioVector3 point =
-                    add(layout.origin, add(scale(planeX, std::cos(angle) * layout.radius),
-                                           scale(planeY, std::sin(angle) * layout.radius)));
+                const StudioVector3 offset = add(scale(planeX, std::cos(angle) * layout.radius),
+                                                 scale(planeY, std::sin(angle) * layout.radius));
+                const std::optional<StudioVector2> screen =
+                    camera.worldToScreen(add(layout.origin, offset));
 
-                const std::optional<StudioVector2> screen = camera.worldToScreen(point);
+                // A sample behind the eye is not a place the user can grab, so it is not on the
+                // polyline the hit-test measures against -- a fabricated point would be somewhere
+                // a press appeared to land and nothing happened.
+                if (!screen)
+                {
+                    anyBehindEye = true;
+                    screenSamples.push_back(StudioVector2{});
+                    frontFacing.push_back(false);
+                    continue;
+                }
 
-                // A sample behind the eye ends the ring rather than wrapping to a wrong pixel: the
-                // polyline is what the hit-test measures against, so a fabricated point would be a
-                // place the user could grab and nothing would happen.
-                if (!screen) { break; }
-                ring.push_back(*screen);
+                // A hair under zero rather than at it, so a face-on ring -- where every sample is
+                // level with the centre and the dot product is zero up to rounding -- keeps all of
+                // itself rather than losing whichever half the arithmetic happened to round down.
+                screenSamples.push_back(*screen);
+                frontFacing.push_back(dot(offset, towardsEye) >= -layout.radius * 0.001f);
+            }
+
+            const std::size_t count = screenSamples.size();
+            std::size_t visible = 0;
+            for (const bool front : frontFacing) { visible += front ? 1u : 0u; }
+
+            if (visible == 0) { continue; }
+
+            std::vector<StudioVector2> ring;
+            ring.reserve(visible + 1);
+
+            if (visible == count && !anyBehindEye)
+            {
+                // Face-on: the whole circle, closed, exactly as it was before there was a front
+                // half to speak of.
+                ring = screenSamples;
+                ring.push_back(screenSamples.front());
+            }
+            else
+            {
+                // Start just after the last hidden sample, so the arc is walked in one run even
+                // when it straddles the seam of the sampling order.
+                std::size_t start = 0;
+                for (std::size_t offset = 0; offset < count; ++offset)
+                {
+                    if (!frontFacing[offset] && frontFacing[(offset + 1) % count])
+                    {
+                        start = (offset + 1) % count;
+                        break;
+                    }
+                }
+
+                for (std::size_t step = 0; step < count; ++step)
+                {
+                    const std::size_t at = (start + step) % count;
+                    if (!frontFacing[at]) { break; }
+                    ring.push_back(screenSamples[at]);
+                }
             }
 
             if (ring.size() >= 2) { layout.rings[index] = std::move(ring); }

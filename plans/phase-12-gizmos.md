@@ -6,12 +6,12 @@
 
 **Exit criteria.** Transforming objects feels precise and predictable, and every drag is exactly one undo entry.
 
-**Progress:** 2 of 11 complete `██░░░░░░░░░░`
+**Progress:** 3 of 11 complete `███░░░░░░░░░`
 
 | Id | Task | Status | Depends on |
 |----|------|:------:|------------|
 | `STUDIO-12001` | Translate gizmo | ✅ | `STUDIO-11006` |
-| `STUDIO-12002` | Rotate gizmo | ⬜ | `STUDIO-11006` |
+| `STUDIO-12002` | Rotate gizmo | ✅ | `STUDIO-11006` |
 | `STUDIO-12003` | Scale gizmo | ⬜ | `STUDIO-11006` |
 | `STUDIO-12004` | Local and world transform spaces | ⬜ | `STUDIO-12001` |
 | `STUDIO-12005` | Multi-selection transforms about a shared pivot | ⬜ | `STUDIO-12001` |
@@ -70,6 +70,47 @@ move, the third does not, snapping rounds the two and leaves the third, an edge-
 pointed away both refuse, and the ordinary intersection is where the geometry says. Checked by
 causing both: planes tested before the arms makes the X drag unreachable, and a drag that leaves the
 plane fails three assertions including the one that names the third axis.
+
+### `STUDIO-12002` — Rotate gizmo
+
+**Acceptance.** An entity can be turned about any of the three axes, in either space, snapped or
+free, as one entity or as a selection — and the rings read as a ball rather than as three ellipses
+drawn over each other.
+
+**Most of it was already there and one thing was not.** Three rings, sampled and projected so that
+what is drawn is exactly what can be grabbed; an angle measured on the ring's own plane from the
+press rather than accumulated frame to frame; the delta wrapped into (-π, π] so dragging across the
+seam does not spin the entity; world-space turns stored in the parent's frame; a shared axis for a
+whole selection so twenty entities cannot drift apart. What was missing is that every ring drew
+**all** of itself.
+
+**The far half of a ring turns the opposite way on screen from the near half**, because it is the
+same circle seen from behind. So a press that landed on the back of a ring read as the gizmo working
+backwards — and three full circles over each other made landing there easy, because at any angle
+worth working at, two of them cross the third twice.
+
+**Hidden against the gizmo's centre, not against the eye's distance to each point.** That is the
+choice that makes a ring seen *face-on* keep the whole of itself: all of its samples are then level
+with the centre, none of them is behind it, and a rule written against raw depth would cut the one
+ring the user can see best arbitrarily in half. The comparison carries a small negative tolerance
+for exactly that case, where the dot product is zero up to rounding.
+
+**The visible set is one contiguous arc in cyclic order, and it can straddle the seam** of the
+sampling, so the run is found on the circle rather than on the array. A face-on ring keeps the
+closing sample and stays a closed circle; a tilted one becomes an open arc and is drawn and
+hit-tested as one.
+
+**A ring seen edge-on is still dropped entirely**, as it was: it would project to a line through the
+centre, overlap the other two, and its plane is then nearly parallel to the cursor ray, so a drag on
+it has no angle to measure.
+
+**Verification.** `tests/SceneTests.cpp`: a tilted ring keeps an arc rather than a circle; the point
+on it nearest the eye is a grab on that ring and the point furthest is not — asserted as "not this
+ring" rather than "nothing", because a ring's hidden half can pass close to another ring's visible
+one and what matters is that it has stopped being a handle for its own. And a face-on ring keeps
+every sample and stays closed, while the two edge-on ones are absent. Checked by causing both:
+keeping the back half fails the arc and the grab assertions on all three rings, and a tolerance of
+the wrong sign empties the face-on ring entirely.
 
 ### `STUDIO-12009` — Box selection
 
