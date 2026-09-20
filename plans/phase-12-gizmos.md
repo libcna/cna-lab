@@ -6,7 +6,7 @@
 
 **Exit criteria.** Transforming objects feels precise and predictable, and every drag is exactly one undo entry.
 
-**Progress:** 7 of 11 complete `███████░░░░░`
+**Progress:** 8 of 11 complete `████████░░░░`
 
 | Id | Task | Status | Depends on |
 |----|------|:------:|------------|
@@ -14,7 +14,7 @@
 | `STUDIO-12002` | Rotate gizmo | ✅ | `STUDIO-11006` |
 | `STUDIO-12003` | Scale gizmo | ✅ | `STUDIO-11006` |
 | `STUDIO-12004` | Local and world transform spaces | ✅ | `STUDIO-12001` |
-| `STUDIO-12005` | Multi-selection transforms about a shared pivot | ⬜ | `STUDIO-12001` |
+| `STUDIO-12005` | Multi-selection transforms about a shared pivot | ✅ | `STUDIO-12001` |
 | `STUDIO-12006` | Pivot editing | ⬜ | `STUDIO-12005` |
 | `STUDIO-12007` | Snapping: grid, angle and scale increments | ✅ | `STUDIO-12001` |
 | `STUDIO-12008` | One undo entry per drag, returning exactly to the drag start | ✅ | `STUDIO-12001` |
@@ -254,6 +254,42 @@ stays live under Rotate, refuses under Scale, and the space the user chose is st
 way back. `tests/ViewportTests.cpp` already pins the arithmetic -- a local layout's arms follow the
 entity's rotation and a world layout's do not. Checked by causing it: a toggle enabled everywhere
 fails by name.
+
+### `STUDIO-12005` — Multi-selection transforms about a shared pivot
+
+**Acceptance.** A selection of several entities drags, turns and resizes as one arrangement about
+their shared pivot, in one undo entry — and every handle that works on one entity works on many.
+
+**The mechanism was there and one third of it was dead.** `MultiTransform3D` captures the
+selection's *roots* at the press — a child carried by a selected parent would otherwise be
+transformed twice — holds each one's start transform so every frame is measured from the press
+rather than the last, and turns a gesture into a list of edits applied as a single command. The
+gizmos hand it the *gesture* rather than their own answer: `getWorldDelta`, `getDeltaAngle`,
+`getFactor` exist so that twenty entities cannot each solve the cursor against their own handle and
+drift apart.
+
+**The uniform scale handle did nothing on a multi-selection.** The multi path built its per-axis
+factors with three conditions — is this X, is this Y, is this Z — so the centre handle, which is
+neither, produced a factor of one on every axis. The drag ran, changed nothing, and reported
+nothing. That is the quietest way for a manipulator to be broken: no error, no movement, and a user
+who concludes the selection is somehow locked. It is also the commonest scale there is.
+
+**The plane handles inherited the same hole the day they were added** (`STUDIO-12003`), which is the
+argument for the fix being one shared function rather than a fourth and fifth condition.
+`gizmoScaleFactors` maps a handle and a factor to the three numbers, and both the single-entity path
+and the multi-selection path now go through it — so the next handle added cannot be dead on one side
+and alive on the other.
+
+**A group resizes about the pivot rather than in place**, which is what the case asserts alongside
+the sizes: two entities that grew without moving apart would overlap each other, and the offsets
+have to grow along the same axes the sizes do.
+
+**Verification.** `tests/StudioViewport3DTests.cpp`: the translate and rotate halves were already
+pinned — both entities move by the same amount, turn about the shared pivot, and land in one undo
+entry. Added: a uniform drag grows both entities on all three axes by the same factor and pushes
+them apart from the pivot, and a plane drag grows two axes by one factor across the selection while
+the third stays at one. Checked by causing it — the three-condition mapping restored fails six
+assertions across both halves, by name.
 
 ### `STUDIO-12007` — Snapping: grid, angle and scale increments
 

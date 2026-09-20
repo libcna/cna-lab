@@ -200,6 +200,25 @@ namespace CNA::Studio
         }
     }
 
+    StudioVector3 gizmoScaleFactors(GizmoAxis3D axis, float factor)
+    {
+        switch (axis)
+        {
+            case GizmoAxis3D::X: return StudioVector3{factor, 1.0f, 1.0f};
+            case GizmoAxis3D::Y: return StudioVector3{1.0f, factor, 1.0f};
+            case GizmoAxis3D::Z: return StudioVector3{1.0f, 1.0f, factor};
+            case GizmoAxis3D::All: return StudioVector3{factor, factor, factor};
+            case GizmoAxis3D::XY: return StudioVector3{factor, factor, 1.0f};
+            case GizmoAxis3D::YZ: return StudioVector3{1.0f, factor, factor};
+            case GizmoAxis3D::ZX: return StudioVector3{factor, 1.0f, factor};
+            case GizmoAxis3D::None: break;
+        }
+
+        // Nothing grabbed is nothing scaled, rather than everything scaled by an accidental
+        // factor: a caller multiplying by this leaves its subject exactly as it was.
+        return StudioVector3{1.0f, 1.0f, 1.0f};
+    }
+
     const char* toString(GizmoAxis3D axis)
     {
         switch (axis)
@@ -931,39 +950,18 @@ namespace CNA::Studio
     {
         if (!isActive()) { return std::nullopt; }
 
+        if (axis_ == GizmoAxis3D::None) { return std::nullopt; }
+
         const float factor = getFactor(layout, cursor, snap);
 
-        StudioVector3 result = startLocalScale_;
-        switch (axis_)
-        {
-            case GizmoAxis3D::X: result.x = keepScalable(startLocalScale_.x * factor); break;
-            case GizmoAxis3D::Y: result.y = keepScalable(startLocalScale_.y * factor); break;
-            case GizmoAxis3D::Z: result.z = keepScalable(startLocalScale_.z * factor); break;
-            case GizmoAxis3D::All:
-                result = StudioVector3{keepScalable(startLocalScale_.x * factor),
-                                       keepScalable(startLocalScale_.y * factor),
-                                       keepScalable(startLocalScale_.z * factor)};
-                break;
-
-            // One factor on both of the plane's axes, and the third left exactly alone
-            // (`plan.md` STUDIO-12003). Not two independent factors, which is what two arm drags
-            // give and is a different operation -- "twice as wide and twice as deep, same height"
-            // is the thing this handle exists to say in one drag.
-            case GizmoAxis3D::XY:
-                result.x = keepScalable(startLocalScale_.x * factor);
-                result.y = keepScalable(startLocalScale_.y * factor);
-                break;
-            case GizmoAxis3D::YZ:
-                result.y = keepScalable(startLocalScale_.y * factor);
-                result.z = keepScalable(startLocalScale_.z * factor);
-                break;
-            case GizmoAxis3D::ZX:
-                result.z = keepScalable(startLocalScale_.z * factor);
-                result.x = keepScalable(startLocalScale_.x * factor);
-                break;
-
-            case GizmoAxis3D::None: return std::nullopt;
-        }
+        // The same mapping the multi-selection path uses (`plan.md` STUDIO-12005), so one entity
+        // and twenty cannot disagree about which axes a handle touches. A plane handle puts **one**
+        // factor on both of its axes and leaves the third alone, which is not what two arm drags
+        // give and is the operation it exists for (`plan.md` STUDIO-12003).
+        const StudioVector3 factors = gizmoScaleFactors(axis_, factor);
+        const StudioVector3 result{keepScalable(startLocalScale_.x * factors.x),
+                                   keepScalable(startLocalScale_.y * factors.y),
+                                   keepScalable(startLocalScale_.z * factors.z)};
 
         // Unchanged is not an edit: an undo entry restoring the size the entity already was costs
         // the user a Ctrl+Z to reach a change they can see.

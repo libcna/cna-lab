@@ -412,13 +412,14 @@ namespace CNA::Studio
                 if (!layout) { return false; }
 
                 const float factor = state.scale3D.getFactor(*layout, pointer, snap);
-                const GizmoAxis3D axis = state.scale3D.getAxis();
-                // The grabbed arm's own factor, one on the other two -- exactly the 2D scale
-                // gizmo's rule, generalised from two axes to three.
-                const StudioVector3 perAxis{axis == GizmoAxis3D::X ? factor : 1.0f,
-                                            axis == GizmoAxis3D::Y ? factor : 1.0f,
-                                            axis == GizmoAxis3D::Z ? factor : 1.0f};
-                edits = state.multi3D.scale(scene, layout->axes, perAxis);
+
+                // The same mapping the single-entity path uses (`plan.md` STUDIO-12005). This line
+                // used to read only X, Y and Z, so the centre handle and -- once they existed --
+                // the plane handles produced a factor of one on every axis: the drag ran, changed
+                // nothing, and reported nothing, which is the quietest way for a manipulator to be
+                // broken.
+                edits = state.multi3D.scale(scene, layout->axes,
+                                            gizmoScaleFactors(state.scale3D.getAxis(), factor));
             }
 
             if (edits.empty()) { return false; }

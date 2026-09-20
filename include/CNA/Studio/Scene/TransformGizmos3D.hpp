@@ -68,6 +68,20 @@ namespace CNA::Studio
         ZX
     };
 
+    /**
+     * @brief Returns the per-axis factors a scale drag of @p factor on @p axis describes.
+     *
+     * `plan.md` STUDIO-12005. One mapping, because two things need it and a second copy is a second
+     * answer: `ScaleGizmo3DDrag::update` applies it to one entity's own scale, and the
+     * multi-selection path applies it to a whole selection about a shared pivot. They *had*
+     * disagreed -- the multi path read only X, Y and Z, so the centre handle produced factors of
+     * one on every axis and a uniform drag across a selection silently did nothing.
+     *
+     * Ones on the axes the drag does not touch, so a caller can multiply componentwise without
+     * knowing which handle was grabbed.
+     */
+    [[nodiscard]] StudioVector3 gizmoScaleFactors(GizmoAxis3D axis, float factor);
+
     /** @brief Returns true when @p axis names a plane rather than a single arm. */
     [[nodiscard]] constexpr bool isGizmoPlane(GizmoAxis3D axis)
     {

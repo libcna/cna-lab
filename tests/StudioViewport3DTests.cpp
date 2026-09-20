@@ -744,6 +744,105 @@ CNA_STUDIO_TEST(ATranslateDragOnAMultiSelectionMovesEveryEntityAsOneUndoEntry)
         0.0f);
 }
 
+/**
+ * A uniform scale on a multi-selection resizes it, and used to do nothing (STUDIO-12005).
+ *
+ * The multi path built its per-axis factors from X, Y and Z alone, so the centre handle -- the
+ * commonest scale there is -- produced a factor of one on every axis. The drag ran, changed
+ * nothing, and reported nothing: the quietest way for a manipulator to be broken, because there is
+ * no error and no movement and the user concludes the selection is somehow locked.
+ *
+ * The plane handles inherited the same hole the day they were added, which is why the mapping is
+ * now one function shared with the single-entity path rather than a condition written twice.
+ */
+CNA_STUDIO_TEST(AUniformOrPlaneScaleOnAMultiSelectionResizesIt)
+{
+    Fixture fixture;
+    const Uuid farEntity = [&] {
+        for (const StudioEntity& entity : fixture.context.getScene().getEntities())
+        {
+            if (entity.getName() == "Far") { return entity.getId(); }
+        }
+        return Uuid{};
+    }();
+    CNA_STUDIO_EXPECT(farEntity.isValid());
+
+    fixture.context.select(fixture.nearEntity);
+    fixture.context.toggleSelection(farEntity);
+    fixture.state.mode = GizmoMode::Scale;
+
+    fixture.camera.setPivot(StudioVector3{20.0f, 0.0f, 0.0f});
+    fixture.camera.setDistance(60.0f);
+    fixture.run(away());
+
+    const auto scaleOf = [&](const Uuid& id) {
+        return fixture.context.getScene().findEntity(id)
+            ->findComponent("CNA.Transform")->getProperty("scale").get<StudioVector3>();
+    };
+    const auto positionOf = [&](const Uuid& id) {
+        return fixture.context.getScene().findEntity(id)
+            ->findComponent("CNA.Transform")->getProperty("position").get<StudioVector3>();
+    };
+
+    const StudioVector3 pivot{20.0f, 0.0f, 0.0f};
+    const auto layout =
+        computeScaleGizmo3DLayout(fixture.context.getScene(), fixture.camera, farEntity, pivot);
+    CNA_STUDIO_EXPECT(layout.has_value());
+    if (!layout) { return; }
+
+    // The centre handle: a press a few pixels off the origin, so the ratio it divides by is not
+    // zero, then dragged well out.
+    const StudioVector2 grab{layout->screenOrigin.x + 8.0f, layout->screenOrigin.y};
+    fixture.dragVia({grab,
+                     StudioVector2{layout->screenOrigin.x + 12.0f, layout->screenOrigin.y},
+                     StudioVector2{layout->screenOrigin.x + 16.0f, layout->screenOrigin.y}});
+
+    // Both grew, on all three axes, by the same factor -- and both moved away from the shared
+    // pivot, because a group that resized in place would overlap itself.
+    CNA_STUDIO_EXPECT(scaleOf(fixture.nearEntity).x > 1.5f);
+    CNA_STUDIO_EXPECT(scaleOf(fixture.nearEntity).y > 1.5f);
+    CNA_STUDIO_EXPECT(scaleOf(fixture.nearEntity).z > 1.5f);
+    CNA_STUDIO_EXPECT_EQ(scaleOf(fixture.nearEntity).x, scaleOf(farEntity).x);
+    CNA_STUDIO_EXPECT(positionOf(fixture.nearEntity).x < 0.0f);
+    CNA_STUDIO_EXPECT(positionOf(farEntity).x > 40.0f);
+
+    // And a plane handle: two axes by one factor, the third untouched, across the whole selection.
+    Fixture planar;
+    const Uuid planarFar = [&] {
+        for (const StudioEntity& entity : planar.context.getScene().getEntities())
+        {
+            if (entity.getName() == "Far") { return entity.getId(); }
+        }
+        return Uuid{};
+    }();
+    planar.context.select(planar.nearEntity);
+    planar.context.toggleSelection(planarFar);
+    planar.state.mode = GizmoMode::Scale;
+    planar.camera.setPivot(StudioVector3{20.0f, 0.0f, 0.0f});
+    planar.camera.setDistance(60.0f);
+    planar.run(away());
+
+    const auto planarLayout =
+        computeScaleGizmo3DLayout(planar.context.getScene(), planar.camera, planarFar, pivot);
+    CNA_STUDIO_EXPECT(planarLayout.has_value());
+    if (!planarLayout) { return; }
+
+    const StudioVector2 centre = planarLayout->planes[0].getScreenCenter();
+    const StudioVector2 outward{
+        planarLayout->screenOrigin.x + (centre.x - planarLayout->screenOrigin.x) * 1.8f,
+        planarLayout->screenOrigin.y + (centre.y - planarLayout->screenOrigin.y) * 1.8f};
+    planar.dragVia({centre,
+                    StudioVector2{(centre.x + outward.x) * 0.5f, (centre.y + outward.y) * 0.5f},
+                    outward});
+
+    const StudioVector3 grown = planar.context.getScene().findEntity(planar.nearEntity)
+                                    ->findComponent("CNA.Transform")
+                                    ->getProperty("scale").get<StudioVector3>();
+    CNA_STUDIO_EXPECT(grown.x > 1.2f);
+    CNA_STUDIO_EXPECT_EQ(grown.x, grown.y);
+    CNA_STUDIO_EXPECT_EQ(grown.z, 1.0f);
+}
+
 CNA_STUDIO_TEST(ARotateDragOnAMultiSelectionTurnsEveryEntityAboutTheSharedPivot)
 {
     // The rotate half of the same mechanism: a group turns as one arrangement, carried around its
