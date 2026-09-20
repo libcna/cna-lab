@@ -299,9 +299,17 @@ namespace CNA::Studio
                      return;
                  }
 
-                 // Snapshotted, because the copies are selected as they are made and iterating the
-                 // live selection would duplicate the copies as well.
-                 const std::vector<Uuid> sources = context.getSelection();
+                 // Roots only, and the same helper Delete uses (`plan.md` STUDIO-13006). A
+                 // `DuplicateEntityCommand` copies an entity *and its whole subtree*, so
+                 // duplicating a rig and one of its selected bones produced a copy of the rig with
+                 // a copy of the bone inside it **and** a second loose bone standing beside it.
+                 // Delete has taken the roots only since `STUDIO-07047`, for exactly this reason;
+                 // this iterated the raw selection.
+                 //
+                 // Snapshotted for a second reason too: the copies are selected as they are made,
+                 // and iterating the live selection would duplicate the copies as well.
+                 const std::vector<Uuid> sources =
+                     findSelectionRoots(context.getScene(), context.getSelection());
                  if (sources.empty()) { return; }
 
                  // One entry for the whole action, for the reason Delete has one: duplicating five

@@ -6,7 +6,7 @@
 
 **Exit criteria.** A scene with tens of thousands of entities browses and edits smoothly.
 
-**Progress:** 6 of 12 complete `██████░░░░░░`
+**Progress:** 7 of 12 complete `███████░░░░░`
 
 | Id | Task | Status | Depends on |
 |----|------|:------:|------------|
@@ -15,7 +15,7 @@
 | `STUDIO-13003` | Multi-selection, shift-range and Ctrl-additive | ✅ | `STUDIO-13001` |
 | `STUDIO-13004` | Drag to reparent | ✅ | `STUDIO-03023` |
 | `STUDIO-13005` | Visibility and lock toggles | ✅ | `STUDIO-13001` |
-| `STUDIO-13006` | Rename, duplicate and delete | ⬜ | `STUDIO-13001` |
+| `STUDIO-13006` | Rename, duplicate and delete | ✅ | `STUDIO-13001` |
 | `STUDIO-13007` | Context menu | ⬜ | `STUDIO-06005` |
 | `STUDIO-13008` | Folder and group organisation | ⬜ | `STUDIO-13001` |
 | `STUDIO-13009` | Prefab status indication | ⬜ | `STUDIO-13001` |
@@ -287,6 +287,44 @@ triangle through a real frame, which is the only way the defect above is visible
 Checked by causing five failures — the row described first again, 2D picking ignoring the lock, a
 lock that does not inherit, undo writing `false` instead of removing the key, and 3D picking
 ignoring the lock. Each fails by name.
+
+### `STUDIO-13006` — Rename, duplicate and delete
+
+**Acceptance.** All three reachable from the Outliner, all three undoable, all three meaning the
+whole selection rather than one of it.
+
+**Rename was complete**, and is the best-covered gesture in the panel: F2 raises the Outliner before
+starting the edit, typing replaces the name rather than appending, Enter commits through a
+`RenameEntityCommand`, Escape abandons, the same name is not a change, an empty name is refused,
+clicking inside the field places the caret rather than reselecting, and clicking another row commits
+the way every other field does. Eleven cases in `tests/StudioRenameTests.cpp`, all driving real
+frames. Nothing to add.
+
+**Delete was correct and half-covered.** It has taken the selection's *roots* since `STUDIO-07047` —
+a delete removes the whole subtree, so a selected descendant of a selected entity is already
+accounted for and asking for it separately would push a command that finds nothing — and it is one
+`CompositeCommand`, because one press of Delete is one press of Ctrl+Z. Only the single-entity case
+was tested, which is the one where the rule cannot fail.
+
+**Duplicate had the same rule and did not apply it.** `DuplicateEntityCommand` copies an entity
+*and its whole subtree*, and the action iterated the raw selection — so duplicating a rig together
+with one of its selected bones produced a copy of the rig, with a copy of the bone inside it, **and
+a second loose bone standing beside it**. Five entities where four were wanted, and the extra one
+parented to nothing in particular.
+
+That is the same defect in the same shape as `STUDIO-13004`'s drag set, found the same week and
+fixed with the same helper: a selection of entities is never a list of things to act on until the
+descendants have been dropped out of it, because in a hierarchy an operation on a parent is already
+an operation on its children.
+
+**Verification.** `tests/StudioShellActionTests.cpp`:
+`DuplicatingAParentAndItsChildCopiesTheParentOnce` pins four entities rather than five, one selected
+copy rather than two, and one undo entry; `DeleteTakesTheWholeSelectionAndTheSubtreesUnderIt` pins
+that a selection of a rig, a bone inside it and an unrelated root empties the scene and comes back
+whole on one Ctrl+Z. The duplicate case was written before the fix and failed by name against the
+old code, which is how the defect was established rather than assumed. Checked afterwards by causing
+both failures — duplicate back on the raw selection, and delete taking only the first id. Each fails
+by name.
 
 ### `STUDIO-13011` — Virtualisation for large worlds
 

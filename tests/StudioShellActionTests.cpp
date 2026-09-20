@@ -143,6 +143,83 @@ CNA_STUDIO_TEST(DeletingAnEntityIsUndoable)
     CNA_STUDIO_EXPECT(fixture.context.getScene().findEntity(fixture.entity) != nullptr);
 }
 
+/**
+ * Delete takes every selected entity and one undo entry (`plan.md` STUDIO-13006, `STUDIO-07047`).
+ *
+ * The single-entity case above has been covered since the action existed; the multi-selection rule
+ * it was written for had not. Deleting one of a selection of five and clearing the selection is the
+ * shape of bug a user reports as "Delete only sometimes works", because which one survived depended
+ * on the order they clicked.
+ */
+CNA_STUDIO_TEST(DeleteTakesTheWholeSelectionAndTheSubtreesUnderIt)
+{
+    Fixture fixture;
+
+    StudioEntity boneEntity{Uuid::generate(), "Bone"};
+    boneEntity.setParentId(fixture.entity);
+    const Uuid bone = boneEntity.getId();
+    fixture.context.getScene().addEntity(std::move(boneEntity));
+
+    StudioEntity otherEntity{Uuid::generate(), "Prop"};
+    const Uuid other = otherEntity.getId();
+    fixture.context.getScene().addEntity(std::move(otherEntity));
+
+    CNA_STUDIO_EXPECT_EQ(fixture.context.getScene().getEntities().size(), std::size_t{3});
+
+    // The rig, the bone inside it, and an unrelated root. The bone is already accounted for by its
+    // parent, so asking to delete it separately would push a command that finds nothing.
+    fixture.context.setSelection({fixture.entity, bone, other});
+    fixture.shell->invoke("studio.edit.delete");
+
+    CNA_STUDIO_EXPECT(fixture.context.getScene().getEntities().empty());
+    CNA_STUDIO_EXPECT(fixture.context.getSelection().empty());
+
+    // One press of Delete is one press of Ctrl+Z, and everything comes back -- including the bone,
+    // which came out through its parent rather than on its own.
+    fixture.shell->invoke("studio.edit.undo");
+    CNA_STUDIO_EXPECT_EQ(fixture.context.getScene().getEntities().size(), std::size_t{3});
+    CNA_STUDIO_EXPECT_EQ(fixture.context.getScene().getChildren(fixture.entity).size(),
+                         std::size_t{1});
+}
+
+/**
+ * Duplicate takes the selection's roots, not every id in it (`plan.md` STUDIO-13006).
+ *
+ * `DuplicateEntityCommand` copies an entity *and its whole subtree*, so a selection holding both a
+ * rig and one of its bones was duplicated as: a copy of the rig, with a copy of the bone inside it,
+ * **and** a second loose copy of the bone beside the rig. Delete has taken the roots only since
+ * `STUDIO-07047` and for exactly this reason; Duplicate iterated the raw selection.
+ */
+CNA_STUDIO_TEST(DuplicatingAParentAndItsChildCopiesTheParentOnce)
+{
+    Fixture fixture;
+
+    StudioEntity boneEntity{Uuid::generate(), "Bone"};
+    boneEntity.setParentId(fixture.entity);
+    const Uuid bone = boneEntity.getId();
+    fixture.context.getScene().addEntity(std::move(boneEntity));
+
+    CNA_STUDIO_EXPECT_EQ(fixture.context.getScene().getEntities().size(), std::size_t{2});
+
+    // Both selected, which is what a Ctrl-click or a shift-range through the Outliner produces.
+    fixture.context.setSelection({fixture.entity, bone});
+    fixture.shell->invoke("studio.edit.duplicate");
+
+    // Two more entities, not three: the copy of the rig and the copy of the bone inside it. A
+    // third would be the loose bone standing beside the rig it does not belong to.
+    CNA_STUDIO_EXPECT_EQ(fixture.context.getScene().getEntities().size(), std::size_t{4});
+
+    // And the copy that was made is a root with one child, not two roots.
+    const std::vector<Uuid>& copies = fixture.context.getSelection();
+    CNA_STUDIO_EXPECT_EQ(copies.size(), std::size_t{1});
+    CNA_STUDIO_EXPECT_EQ(fixture.context.getScene().getChildren(copies.front()).size(),
+                         std::size_t{1});
+
+    // One entry for the whole action, as Delete has: the user pressed Ctrl+D once.
+    fixture.shell->invoke("studio.edit.undo");
+    CNA_STUDIO_EXPECT_EQ(fixture.context.getScene().getEntities().size(), std::size_t{2});
+}
+
 CNA_STUDIO_TEST(EveryActionTheShellInvokesEitherRunsOrIsRefusedOutLoud)
 {
     // The failure this guards against is a menu with rows that quietly do nothing: an id a menu
