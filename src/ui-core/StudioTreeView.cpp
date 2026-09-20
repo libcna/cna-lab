@@ -201,8 +201,8 @@ namespace CNA::Studio
             if (frame.isInputPass() && interaction.clicked && !result.toggled.has_value())
             {
                 result.clicked = slot;
-                result.additive = frame.input().modifiers.control
-                               || frame.input().modifiers.shift;
+                result.additive = frame.input().modifiers.control;
+                result.rangeSelect = frame.input().modifiers.shift;
             }
 
             if (frame.isInputPass() && interaction.rightClicked)

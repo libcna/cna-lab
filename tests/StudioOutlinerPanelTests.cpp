@@ -24,6 +24,7 @@
 #include "CNA/Studio/StudioContext.hpp"
 #include "CNA/Studio/UiCore/StudioShell.hpp"
 
+#include <algorithm>
 #include <memory>
 #include <string>
 #include <vector>
@@ -324,6 +325,192 @@ CNA_STUDIO_TEST(ClickingARowSelectsItThroughTheContext)
     CNA_STUDIO_EXPECT(selectedSomething);
     CNA_STUDIO_EXPECT_EQ(fixture.context.getSelection().size(), std::size_t{1});
     CNA_STUDIO_EXPECT(fixture.context.getSelection().front() == fixture.camera);
+}
+
+/**
+ * Shift takes a range and Ctrl takes one more row (`plan.md` STUDIO-13003).
+ *
+ * The tree reported the two as one flag, so Shift was a second spelling of Control -- which turns
+ * the gesture every list in every application uses for "that many" into one that picks up a single
+ * row. They are different questions: one asks for one more, the other for everything between here
+ * and where the user last clicked.
+ */
+CNA_STUDIO_TEST(AShiftRangeTakesEverythingBetweenTheAnchorAndTheClick)
+{
+    Fixture fixture;
+    StudioTreeState state;
+
+    // Display order for this scene is Main Camera, Player, Shield, Weapon: parents before their
+    // children, and siblings in the scene's own order, which sorts by name rather than by when
+    // they were added. Asserted rather than assumed, because a range is *defined* by that order
+    // and a reader who guessed the insertion order would mis-read every expectation below.
+    const std::vector<StudioTreeRow> shownRows =
+        studioOutlinerRows(fixture.context.getScene(), {}, state);
+    CNA_STUDIO_EXPECT_EQ(shownRows.size(), std::size_t{4});
+    CNA_STUDIO_EXPECT_EQ(shownRows[2].label, std::string{"Shield"});
+    CNA_STUDIO_EXPECT_EQ(shownRows[3].label, std::string{"Weapon"});
+
+    const std::vector<Uuid> all = studioOutlinerRange(
+        fixture.context.getScene(), state, {}, fixture.camera, fixture.weapon);
+    CNA_STUDIO_EXPECT_EQ(all.size(), std::size_t{4});
+    CNA_STUDIO_EXPECT(all.front() == fixture.camera);
+    CNA_STUDIO_EXPECT(all.back() == fixture.weapon);
+
+    // A range crossing a hierarchy boundary is still contiguous *on the screen*: Player and the
+    // first of its children, and not the second.
+    const std::vector<Uuid> part = studioOutlinerRange(
+        fixture.context.getScene(), state, {}, fixture.player, fixture.shield);
+    CNA_STUDIO_EXPECT_EQ(part.size(), std::size_t{2});
+    CNA_STUDIO_EXPECT(part.front() == fixture.player);
+    CNA_STUDIO_EXPECT(part.back() == fixture.shield);
+
+    // Either end may be the earlier one: a user drags a selection upwards as often as downwards.
+    const std::vector<Uuid> backwards = studioOutlinerRange(
+        fixture.context.getScene(), state, {}, fixture.shield, fixture.player);
+    CNA_STUDIO_EXPECT_EQ(backwards.size(), std::size_t{2});
+    CNA_STUDIO_EXPECT(backwards.front() == fixture.player);
+
+    // One row is a range of one, and the same row twice is not a mistake to refuse.
+    CNA_STUDIO_EXPECT_EQ(studioOutlinerRange(fixture.context.getScene(), state, {}, fixture.player,
+                                             fixture.player)
+                             .size(),
+                         std::size_t{1});
+
+    // A row hidden inside a closed branch is not between the two as far as anybody looking can
+    // tell, so it is not in the range -- and with the branch closed, an end inside it is not a
+    // range at all.
+    state.setExpanded(fixture.player.toString(), false);
+    CNA_STUDIO_EXPECT_EQ(
+        studioOutlinerRange(fixture.context.getScene(), state, {}, fixture.camera, fixture.player)
+            .size(),
+        std::size_t{2});
+    CNA_STUDIO_EXPECT(
+        studioOutlinerRange(fixture.context.getScene(), state, {}, fixture.camera, fixture.shield)
+            .empty());
+    state.setExpanded(fixture.player.toString(), true);
+
+    // And a search narrows what "between" means, for the same reason: the range is over what is
+    // shown, not over what exists.
+    const StudioOutlinerFilter filter =
+        studioOutlinerFilter(fixture.context.getScene(), "weapon");
+    const std::vector<Uuid> filtered = studioOutlinerRange(
+        fixture.context.getScene(), state, filter, fixture.player, fixture.weapon);
+    CNA_STUDIO_EXPECT_EQ(filtered.size(), std::size_t{2});
+    CNA_STUDIO_EXPECT(
+        studioOutlinerRange(fixture.context.getScene(), state, filter, fixture.camera,
+                            fixture.weapon)
+            .empty());
+
+    // An unknown id is no range rather than a guess.
+    CNA_STUDIO_EXPECT(
+        studioOutlinerRange(fixture.context.getScene(), state, {}, Uuid{}, fixture.weapon).empty());
+}
+
+/**
+ * The two modifiers reach the panel as two questions (`plan.md` STUDIO-13003).
+ *
+ * The case above tests what a range *is*; this one tests that a user pressing Shift gets one. They
+ * are separate gates on purpose: the tree reported Shift and Control as a single `additive` flag,
+ * so a range function that worked perfectly was never called, and the whole feature was dead with
+ * every assertion above it passing.
+ */
+CNA_STUDIO_TEST(ShiftClickingTakesTheRunAndControlClickingTakesOneMoreRow)
+{
+    Fixture fixture;
+    StudioTreeState state;
+
+    const std::unique_ptr<StudioShell> shell = shellShowingTheOutliner();
+
+    std::vector<StudioTreeRow> rows;
+    UiRect panelBounds;
+    CNA_STUDIO_EXPECT(shell->setPanelContent("outliner",
+        [&](StudioFrame& frame, const UiRect& bounds) {
+            (void)studioOutlinerPanel(frame, bounds, fixture.context, state);
+            if (frame.isDrawPass())
+            {
+                panelBounds = bounds;
+                rows = studioOutlinerRows(fixture.context.getScene(),
+                                          fixture.context.getSelection(), state);
+            }
+        }));
+
+    shell->renderFrame(at(-1.0f, -1.0f));
+    CNA_STUDIO_EXPECT(!panelBounds.isEmpty());
+    CNA_STUDIO_EXPECT_EQ(rows.size(), std::size_t{4});
+
+    // By label rather than by index: the display order is the document's, and a hard-coded row
+    // number would click a different entity the day something is renamed.
+    const auto rowY = [&](std::string_view label) {
+        const float rowHeight =
+            static_cast<float>(shell->theme().metric(StudioMetric::RowHeight));
+        for (std::size_t i = 0; i < rows.size(); ++i)
+        {
+            if (rows[i].label == label)
+            {
+                return panelBounds.top() + (static_cast<float>(i) + 0.5f) * rowHeight;
+            }
+        }
+        return -1.0f;
+    };
+
+    const auto clickRow = [&](std::string_view label, bool control, bool shift) {
+        const float y = rowY(label);
+        CNA_STUDIO_EXPECT(y > 0.0f);
+        UiInputState down = at(panelBounds.centerX(), y, /*leftDown=*/true);
+        down.modifiers.control = control;
+        down.modifiers.shift = shift;
+        UiInputState up = at(panelBounds.centerX(), y, /*leftDown=*/false);
+        up.modifiers.control = control;
+        up.modifiers.shift = shift;
+        shell->renderFrame(down);
+        shell->renderFrame(up);
+    };
+
+    const auto selected = [&](const Uuid& id) {
+        const std::vector<Uuid>& current = fixture.context.getSelection();
+        return std::find(current.begin(), current.end(), id) != current.end();
+    };
+
+    // A plain click sets the anchor the range will be measured from.
+    clickRow("Main Camera", /*control=*/false, /*shift=*/false);
+    CNA_STUDIO_EXPECT_EQ(fixture.context.getSelection().size(), std::size_t{1});
+
+    // Shift takes everything down to here, which is the whole point: four rows from one gesture,
+    // where a flag conflated with Control would have left two.
+    clickRow("Weapon", /*control=*/false, /*shift=*/true);
+    CNA_STUDIO_EXPECT_EQ(fixture.context.getSelection().size(), std::size_t{4});
+    CNA_STUDIO_EXPECT(selected(fixture.camera));
+    CNA_STUDIO_EXPECT(selected(fixture.player));
+    CNA_STUDIO_EXPECT(selected(fixture.shield));
+    CNA_STUDIO_EXPECT(selected(fixture.weapon));
+
+    // The anchor did not move, so a second Shift-click measures from the same place rather than
+    // from the far end of the first run -- shortening the selection instead of extending it.
+    clickRow("Player", /*control=*/false, /*shift=*/true);
+    CNA_STUDIO_EXPECT_EQ(fixture.context.getSelection().size(), std::size_t{2});
+    CNA_STUDIO_EXPECT(selected(fixture.camera));
+    CNA_STUDIO_EXPECT(selected(fixture.player));
+
+    // Control takes one more row and leaves the run alone, and clicking it again gives it back.
+    clickRow("Weapon", /*control=*/true, /*shift=*/false);
+    CNA_STUDIO_EXPECT_EQ(fixture.context.getSelection().size(), std::size_t{3});
+    CNA_STUDIO_EXPECT(selected(fixture.weapon));
+    clickRow("Weapon", /*control=*/true, /*shift=*/false);
+    CNA_STUDIO_EXPECT_EQ(fixture.context.getSelection().size(), std::size_t{2});
+    CNA_STUDIO_EXPECT(!selected(fixture.weapon));
+
+    // Control moved the anchor to the row it touched, so Ctrl+Shift from there adds a second run
+    // to the first rather than replacing it.
+    clickRow("Shield", /*control=*/true, /*shift=*/false);
+    clickRow("Weapon", /*control=*/true, /*shift=*/true);
+    CNA_STUDIO_EXPECT_EQ(fixture.context.getSelection().size(), std::size_t{4});
+    CNA_STUDIO_EXPECT(selected(fixture.camera));
+    CNA_STUDIO_EXPECT(selected(fixture.weapon));
+
+    // And a plain click ends it: one row, everything else dropped.
+    clickRow("Player", /*control=*/false, /*shift=*/false);
+    CNA_STUDIO_EXPECT_EQ(fixture.context.getSelection().size(), std::size_t{1});
+    CNA_STUDIO_EXPECT(selected(fixture.player));
 }
 
 CNA_STUDIO_TEST(AnEmptyOutlinerSaysWhichEmptyItIs)

@@ -12,10 +12,12 @@
       32,
       32,
       32
-    ]
+    ],
+    "animationCount": 0,
+    "skippedPrimitives": 0
   },
   "sourceStamp": {
     "size": 3058,
-    "modifiedTime": -4651811818
+    "modifiedTime": -4648275348
   }
 }

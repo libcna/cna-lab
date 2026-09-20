@@ -7,10 +7,12 @@
     "pixelSize": [
       32,
       32
-    ]
+    ],
+    "sourceFormat": "PNG",
+    "sourceAlpha": true
   },
   "sourceStamp": {
     "size": 216,
-    "modifiedTime": -4651907708
+    "modifiedTime": -4648275497
   }
 }

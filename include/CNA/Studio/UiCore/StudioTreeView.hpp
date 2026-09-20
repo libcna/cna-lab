@@ -239,6 +239,20 @@ namespace CNA::Studio
         /** @brief Records that the rename field now has focus. */
         void clearRenameStarting() { renameStarting_ = false; }
 
+        /**
+         * @brief The row a range selection measures from (`plan.md` STUDIO-13003).
+         *
+         * Here rather than beside the selection, because it is a property of the *interaction*
+         * rather than of what is selected: a user who Ctrl-clicks four rows and then Shift-clicks a
+         * fifth means "from the fourth", not "from whichever of the four the list happens to hold
+         * first". Set by every click that is not a Shift one, so the anchor is always the last
+         * place the user deliberately went.
+         */
+        [[nodiscard]] const std::string& getSelectionAnchor() const { return anchor_; }
+
+        /** @brief Sets the row a range selection measures from. */
+        void setSelectionAnchor(std::string_view id) { anchor_ = std::string{id}; }
+
     private:
         // Collapsed rather than expanded, so the default is open and an unknown id needs no entry.
         std::set<std::string> collapsed_;
@@ -246,6 +260,7 @@ namespace CNA::Studio
         std::string renaming_;
         std::string renameText_;
         bool renameStarting_ = false;
+        std::string anchor_;
     };
 
     /** @brief What the user did to a tree this frame. */
@@ -267,8 +282,26 @@ namespace CNA::Studio
          */
         std::optional<std::size_t> rightClicked;
 
-        /** @brief Whether the click asked to add to the selection rather than replace it. */
+        /**
+         * @brief Whether the click asked to add to the selection rather than replace it.
+         *
+         * Control alone. Shift is reported by @ref rangeSelect and the two are *not* the same
+         * question (`plan.md` STUDIO-13003): one asks for one more row, the other for everything
+         * between here and where the user last clicked.
+         */
         bool additive = false;
+
+        /**
+         * @brief Whether the click asked for everything between the anchor and this row.
+         *
+         * Shift. Reported apart from @ref additive because conflating them makes Shift a second
+         * spelling of Control -- which is what this tree did, and which turns the gesture every
+         * list in every application uses for "that many" into one that picks up a single row.
+         *
+         * Both at once is "add the range": Control-Shift is how a user builds a selection out of
+         * several runs, and refusing it would make them pick the second run one row at a time.
+         */
+        bool rangeSelect = false;
 
         /** @brief How many rows were actually drawn. */
         std::size_t rowsDrawn = 0;

@@ -97,7 +97,8 @@ namespace CNA::Studio
                   const Uuid& id, int depth,
                   const std::vector<Uuid>& selection, const StudioTreeState& state,
                   const StudioOutlinerFilter& filter, std::size_t& index, std::size_t first,
-                  std::size_t last, std::vector<StudioTreeRow>* out)
+                  std::size_t last, std::vector<StudioTreeRow>* out,
+                  std::vector<Uuid>* outIds = nullptr)
         {
             constexpr int kMaxDepth = 64;
 
@@ -137,7 +138,7 @@ namespace CNA::Studio
                     for (const Uuid& child : children)
                     {
                         walk(scene, hierarchy, child, depth + 1, selection, state, filter, index,
-                             first, last, out);
+                             first, last, out, outIds);
                         if (out != nullptr && index >= last) { return; }
                     }
                 }
@@ -196,6 +197,11 @@ namespace CNA::Studio
 
             out->push_back(std::move(row));
 
+            // The same traversal answers both questions (`plan.md` STUDIO-13003). A second walk
+            // with its own copy of the filter-and-expansion rules is a second walk free to drift,
+            // and the day it did a Shift-range would select rows that are not on the screen.
+            if (outIds != nullptr) { outIds->push_back(id); }
+
             // The row's own id, already formatted just above, rather than a second `toString()`.
             if (!filter.active && state.collapsedCount() != 0 && !state.isExpanded(out->back().id))
             {
@@ -204,7 +210,7 @@ namespace CNA::Studio
             for (const Uuid& child : children)
             {
                 walk(scene, hierarchy, child, depth + 1, selection, state, filter, index, first,
-                     last, out);
+                     last, out, outIds);
                 if (index >= last) { return; }
             }
         }
@@ -222,7 +228,8 @@ namespace CNA::Studio
                               const std::unordered_map<Uuid, std::vector<Uuid>>& hierarchy,
                               const std::vector<Uuid>& selection, const StudioTreeState& state,
                               const StudioOutlinerFilter& filter, std::size_t first,
-                              std::size_t last, std::vector<StudioTreeRow>* out)
+                              std::size_t last, std::vector<StudioTreeRow>* out,
+                              std::vector<Uuid>* outIds = nullptr)
         {
             // The nil Uuid's entry is the roots, so this also replaces `getRootEntities()` --
             // which is the same scan under another name.
@@ -232,7 +239,8 @@ namespace CNA::Studio
             std::size_t index = 0;
             for (const Uuid& root : roots->second)
             {
-                walk(scene, hierarchy, root, 0, selection, state, filter, index, first, last, out);
+                walk(scene, hierarchy, root, 0, selection, state, filter, index, first, last, out,
+                     outIds);
                 if (out != nullptr && index >= last) { break; }
             }
             return index;
@@ -315,6 +323,35 @@ namespace CNA::Studio
     {
         return studioOutlinerRowWindow(scene, selection, state, 0,
                                        std::numeric_limits<std::size_t>::max(), filter);
+    }
+
+    std::vector<Uuid> studioOutlinerRange(const SceneDocument& scene, const StudioTreeState& state,
+                                          const StudioOutlinerFilter& filter, const Uuid& from,
+                                          const Uuid& to)
+    {
+        if (!from.isValid() || !to.isValid()) { return {}; }
+        if (from == to) { return scene.findEntity(from) != nullptr ? std::vector<Uuid>{from}
+                                                                   : std::vector<Uuid>{}; }
+
+        // The rows are built and thrown away: the ids come out of the same traversal, and adding a
+        // build-nothing mode would be a second set of rules to keep in step with the first for the
+        // sake of a gesture a user makes a few times a minute.
+        std::vector<StudioTreeRow> rows;
+        std::vector<Uuid> shown;
+        (void)walkRoots(scene, scene.getChildrenByParent(), {}, state, filter, 0,
+                        std::numeric_limits<std::size_t>::max(), &rows, &shown);
+
+        const auto first = std::find(shown.begin(), shown.end(), from);
+        const auto second = std::find(shown.begin(), shown.end(), to);
+
+        // Either end off the screen means no range: a user cannot have meant "everything between
+        // here and a row that is not shown", and guessing which rows they did mean would be worse
+        // than doing nothing.
+        if (first == shown.end() || second == shown.end()) { return {}; }
+
+        const auto low = first <= second ? first : second;
+        const auto high = first <= second ? second : first;
+        return std::vector<Uuid>{low, high + 1};
     }
 
     bool studioBeginOutlinerRename(const SceneDocument& scene, const Uuid& entityId,
@@ -507,8 +544,42 @@ namespace CNA::Studio
                 // Through the context, which is what the viewport, the inspector and the gizmos
                 // all read. A panel with its own idea of what is selected disagrees with the rest
                 // of the editor the moment anything else changes it.
-                if (tree.additive) { context.toggleSelection(id); }
-                else { context.select(id); }
+                const Uuid anchor = Uuid::parse(state.getSelectionAnchor());
+                const std::vector<Uuid> range =
+                    tree.rangeSelect ? studioOutlinerRange(scene, state, filter, anchor, id)
+                                     : std::vector<Uuid>{};
+
+                if (!range.empty())
+                {
+                    // Control *and* Shift adds the run to what is already selected, which is how a
+                    // selection is built out of several of them. Shift alone replaces, exactly as
+                    // a plain click does.
+                    std::vector<Uuid> merged = tree.additive ? context.getSelection()
+                                                             : std::vector<Uuid>{};
+                    for (const Uuid& member : range)
+                    {
+                        if (std::find(merged.begin(), merged.end(), member) == merged.end())
+                        {
+                            merged.push_back(member);
+                        }
+                    }
+                    context.setSelection(std::move(merged));
+
+                    // The anchor stays where it was: a user extending a run by shift-clicking
+                    // further down means "from the same place, further", and moving it would make
+                    // the second shift-click measure from the first one's far end.
+                }
+                else if (tree.additive)
+                {
+                    context.toggleSelection(id);
+                    state.setSelectionAnchor(row.id);
+                }
+                else
+                {
+                    context.select(id);
+                    state.setSelectionAnchor(row.id);
+                }
+
                 result.selectionChanged = true;
             }
         }

@@ -148,6 +148,27 @@ namespace CNA::Studio
                                                             std::string_view text);
 
     /**
+     * @brief Returns the entities from @p from to @p to inclusive, in the order they are shown.
+     *
+     * `plan.md` STUDIO-13003. What a Shift-click means: everything between where the user last
+     * clicked and where they just clicked, as they see it -- which is display order, not document
+     * order and not hierarchy order. A range taken in document order would select entities that are
+     * not between the two on the screen, which is the one thing the gesture promises.
+     *
+     * Either end may be the earlier one; the pair is normalised here rather than at the call site.
+     * Rows hidden by a collapsed branch or by a search are not in the range, because they are not
+     * between the two as far as anybody looking can tell -- and that is guaranteed rather than
+     * arranged, because this walks the tree with the same function that builds the rows.
+     *
+     * Empty when either end is not currently shown: a range with no visible end is not a range the
+     * user can have meant.
+     */
+    [[nodiscard]] std::vector<Uuid> studioOutlinerRange(const SceneDocument& scene,
+                                                        const StudioTreeState& state,
+                                                        const StudioOutlinerFilter& filter,
+                                                        const Uuid& from, const Uuid& to);
+
+    /**
      * @brief Starts renaming @p entityId in the outliner, if it is in the scene.
      *
      * Here rather than on `StudioTreeState` because the state knows nothing about entities: it
