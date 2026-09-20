@@ -68,6 +68,51 @@ namespace CNA::Studio
         }
 
         /**
+         * @brief Fills @p planes with the three squares for a gizmo of @p armLength at @p origin.
+         *
+         * One builder for the translate and scale gizmos both, because the two want the same three
+         * squares in the same places: a user who has learnt where the XY handle is under W should
+         * find it there under R as well, and two copies of this arithmetic is two chances for them
+         * to disagree by a few pixels.
+         */
+        void buildPlaneHandles(std::array<GizmoPlaneHandle3D, 3>& planes,
+                               const StudioCamera3D& camera, const StudioVector3& origin,
+                               const std::array<StudioVector3, 3>& axes, float armLength)
+        {
+            const float inner = armLength * kGizmo3DPlaneInner;
+            const float outer = armLength * kGizmo3DPlaneOuter;
+
+            for (std::size_t index = 0; index < 3; ++index)
+            {
+                const StudioVector3& u = axes[index];
+                const StudioVector3& v = axes[(index + 1) % 3];
+
+                GizmoPlaneHandle3D& plane = planes[index];
+                plane.normal = axes[(index + 2) % 3];
+                plane.u = u;
+                plane.v = v;
+                plane.corners = {add(origin, add(scale(u, inner), scale(v, inner))),
+                                 add(origin, add(scale(u, outer), scale(v, inner))),
+                                 add(origin, add(scale(u, outer), scale(v, outer))),
+                                 add(origin, add(scale(u, inner), scale(v, outer)))};
+
+                plane.visible = true;
+                for (std::size_t corner = 0; corner < 4; ++corner)
+                {
+                    const std::optional<StudioVector2> projected =
+                        camera.worldToScreen(plane.corners[corner]);
+
+                    // All four or none: a quad with one corner behind the eye projects to a shape
+                    // that is not the quad, and both drawing it and hit-testing it would be about a
+                    // square that is not there.
+                    if (!projected) { plane.visible = false; break; }
+                    plane.screenCorners[corner] = *projected;
+                }
+            }
+        }
+
+
+        /**
          * @brief Returns where @p ray meets the plane through @p origin, as an angle in its basis.
          *
          * Nothing when the ray runs along the plane -- a ring seen exactly edge-on, where the
@@ -216,36 +261,7 @@ namespace CNA::Studio
 
         // The three plane handles (`plan.md` STUDIO-12001). XY, YZ and ZX, in that order, so the
         // handle at index `i` is the one whose normal is arm `(i + 2) % 3` -- XY's normal is Z.
-        const float inner = layout.armLength * kGizmo3DPlaneInner;
-        const float outer = layout.armLength * kGizmo3DPlaneOuter;
-
-        for (std::size_t index = 0; index < 3; ++index)
-        {
-            const StudioVector3& u = layout.axes[index];
-            const StudioVector3& v = layout.axes[(index + 1) % 3];
-
-            TranslateGizmo3DLayout::Plane& plane = layout.planes[index];
-            plane.normal = layout.axes[(index + 2) % 3];
-            plane.u = u;
-            plane.v = v;
-            plane.corners = {add(layout.origin, add(scale(u, inner), scale(v, inner))),
-                             add(layout.origin, add(scale(u, outer), scale(v, inner))),
-                             add(layout.origin, add(scale(u, outer), scale(v, outer))),
-                             add(layout.origin, add(scale(u, inner), scale(v, outer)))};
-
-            plane.visible = true;
-            for (std::size_t corner = 0; corner < 4; ++corner)
-            {
-                const std::optional<StudioVector2> projected =
-                    camera.worldToScreen(plane.corners[corner]);
-
-                // All four or none: a quad with one corner behind the eye projects to a shape that
-                // is not the quad, and both drawing it and hit-testing it would be about a square
-                // that is not there.
-                if (!projected) { plane.visible = false; break; }
-                plane.screenCorners[corner] = *projected;
-            }
-        }
+        buildPlaneHandles(layout.planes, camera, layout.origin, layout.axes, layout.armLength);
 
         return layout;
     }
@@ -321,7 +337,7 @@ namespace CNA::Studio
 
         for (std::size_t index = 0; index < 3; ++index)
         {
-            const TranslateGizmo3DLayout::Plane& plane = layout.planes[index];
+            const GizmoPlaneHandle3D& plane = layout.planes[index];
             if (!plane.visible) { continue; }
             if (!containsPoint(plane.screenCorners, screenPoint)) { continue; }
 
@@ -356,7 +372,7 @@ namespace CNA::Studio
         // will leave alone, and that is the thing a user is choosing between the three of them.
         for (std::size_t index = 0; index < 3; ++index)
         {
-            const TranslateGizmo3DLayout::Plane& plane = layout.planes[index];
+            const GizmoPlaneHandle3D& plane = layout.planes[index];
             if (!plane.visible) { continue; }
 
             const bool highlighted = active == planeAt(index);
@@ -712,6 +728,12 @@ namespace CNA::Studio
                                                         layout.screenOrigin.y + offset.y / pixels * drawn};
         }
 
+        // The same three squares the translate gizmo has, in the same places (`plan.md`
+        // STUDIO-12003). Built from the *unfloored* arm length, so that the handle sits where its
+        // two axes really are rather than where their arms were redrawn to stay grabbable -- a
+        // square pulled in with a foreshortened arm would say the plane is somewhere it is not.
+        buildPlaneHandles(layout.planes, camera, layout.origin, layout.axes, layout.armLength);
+
         return layout;
     }
 
@@ -749,6 +771,21 @@ namespace CNA::Studio
             }
         }
 
+        // The planes last, as on the translate gizmo: an arm is a line and a plane is an area, so a
+        // press within a few pixels of an arm is far more likely to be aimed at it. Here it is a
+        // guard rather than a rule that fires -- this gizmo checks its end handles before anything
+        // else, and the squares start a quarter of the way out on both of their axes, so no camera
+        // angle tried puts one over an arm (`plan.md` STUDIO-12003). On the translate gizmo, whose
+        // arms are only a line, the same ordering *is* load-bearing.
+        if (best != GizmoAxis3D::None) { return best; }
+
+        for (std::size_t index = 0; index < 3; ++index)
+        {
+            const GizmoPlaneHandle3D& plane = layout.planes[index];
+            if (!plane.visible) { continue; }
+            if (containsPoint(plane.screenCorners, screenPoint)) { return planeAt(index); }
+        }
+
         return best;
     }
 
@@ -756,7 +793,7 @@ namespace CNA::Studio
                                                        GizmoAxis3D active)
     {
         std::vector<WireSegment> segments;
-        segments.reserve(19);
+        segments.reserve(31);
 
         for (std::size_t index = 0; index < 3; ++index)
         {
@@ -774,6 +811,25 @@ namespace CNA::Studio
             segments.push_back(WireSegment{layout.screenOrigin, layout.screenHandles[index], color,
                                            thickness});
             appendSquare(segments, layout.screenHandles[index], layout.handleExtent, color, thickness);
+        }
+
+        // The plane handles, outlined, in the colour of the axis they leave out -- the XY square
+        // is blue, for Z (`plan.md` STUDIO-12003). The same shape, place and colouring the
+        // translate gizmo uses, because a user who has learnt one has learnt the other.
+        for (std::size_t index = 0; index < 3; ++index)
+        {
+            const GizmoPlaneHandle3D& plane = layout.planes[index];
+            if (!plane.visible) { continue; }
+
+            const bool highlighted = active == planeAt(index);
+            const StudioColor color = highlighted ? kActiveColor : kAxisColors[(index + 2) % 3];
+
+            for (std::size_t corner = 0; corner < 4; ++corner)
+            {
+                segments.push_back(WireSegment{plane.screenCorners[corner],
+                                               plane.screenCorners[(corner + 1) % 4], color,
+                                               highlighted ? 2.0f : 1.0f});
+            }
         }
 
         // Last, so it draws over the arms that start underneath it -- which is also the order the
@@ -809,6 +865,22 @@ namespace CNA::Studio
             // Radially: the uniform handle has no axis, so how far out the cursor is, in any
             // direction, is the whole of what it can be measuring.
             distance = std::hypot(offset.x, offset.y);
+        }
+        else if (isGizmoPlane(grabbed))
+        {
+            // Along the diagonal out to the square's centre, which is what "outwards" means for a
+            // handle that sits between two arms -- and which reads exactly as a user expects: drag
+            // away from the object to grow both of the plane's axes, towards it to shrink them.
+            const std::size_t index =
+                grabbed == GizmoAxis3D::XY ? 0 : (grabbed == GizmoAxis3D::YZ ? 1 : 2);
+            const StudioVector2 centre = layout.planes[index].getScreenCenter();
+            const StudioVector2 diagonal{centre.x - layout.screenOrigin.x,
+                                         centre.y - layout.screenOrigin.y};
+            const float pixels = std::hypot(diagonal.x, diagonal.y);
+            if (pixels <= 0.0f) { return false; }
+
+            direction = StudioVector2{diagonal.x / pixels, diagonal.y / pixels};
+            distance = offset.x * direction.x + offset.y * direction.y;
         }
         else
         {
@@ -873,12 +945,23 @@ namespace CNA::Studio
                                        keepScalable(startLocalScale_.z * factor)};
                 break;
 
-            // A scale gizmo has no plane handles -- scaling "in a plane" is two independent factors
-            // and the two arms already say so -- so these cannot be grabbed here and mean nothing
-            // if they somehow arrive (`plan.md` STUDIO-12001).
+            // One factor on both of the plane's axes, and the third left exactly alone
+            // (`plan.md` STUDIO-12003). Not two independent factors, which is what two arm drags
+            // give and is a different operation -- "twice as wide and twice as deep, same height"
+            // is the thing this handle exists to say in one drag.
             case GizmoAxis3D::XY:
+                result.x = keepScalable(startLocalScale_.x * factor);
+                result.y = keepScalable(startLocalScale_.y * factor);
+                break;
             case GizmoAxis3D::YZ:
+                result.y = keepScalable(startLocalScale_.y * factor);
+                result.z = keepScalable(startLocalScale_.z * factor);
+                break;
             case GizmoAxis3D::ZX:
+                result.z = keepScalable(startLocalScale_.z * factor);
+                result.x = keepScalable(startLocalScale_.x * factor);
+                break;
+
             case GizmoAxis3D::None: return std::nullopt;
         }
 
@@ -969,7 +1052,7 @@ namespace CNA::Studio
         {
             const std::size_t planeIndex =
                 grabbed == GizmoAxis3D::XY ? 0 : (grabbed == GizmoAxis3D::YZ ? 1 : 2);
-            const TranslateGizmo3DLayout::Plane& plane = layout.planes[planeIndex];
+            const GizmoPlaneHandle3D& plane = layout.planes[planeIndex];
 
             // Where the press pointed, so the entity slides with the cursor rather than jumping so
             // its origin sits under it -- the same promise `startParameter_` makes for an arm.

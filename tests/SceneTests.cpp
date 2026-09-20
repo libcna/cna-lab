@@ -2815,7 +2815,7 @@ CNA_STUDIO_TEST(TheTranslateGizmoHasAPlaneHandleForEachPairOfArms)
     }
 
     // The middle of the XY square is a grab on that plane.
-    const auto centreOf = [](const TranslateGizmo3DLayout::Plane& plane) {
+    const auto centreOf = [](const GizmoPlaneHandle3D& plane) {
         StudioVector2 total;
         for (const StudioVector2& corner : plane.screenCorners)
         {
@@ -3549,6 +3549,114 @@ CNA_STUDIO_TEST(AThreeDimensionalScaleDragIsARatioOfScreenDistances)
     // grab was, so a grab at the centre would scale by infinity. The press falls through instead.
     ScaleGizmo3DDrag atCentre;
     CNA_STUDIO_EXPECT(!atCentre.begin(scene, *layout, entityId, layout->screenOrigin));
+}
+
+/**
+ * The scale gizmo has plane handles, and one factor is the point of them (`plan.md` STUDIO-12003).
+ *
+ * "Twice as wide and twice as deep, same height" is a single thing a user wants and had no handle
+ * for. Two arm drags give two *independent* factors, which is a different operation and cannot be
+ * made into this one without typing numbers -- the ratio each drag produces depends on where along
+ * its own arm the cursor went, and getting two of them to agree by eye is not a thing anybody does.
+ */
+CNA_STUDIO_TEST(AScalePlaneHandleMultipliesTwoAxesByOneFactor)
+{
+    ComponentRegistry registry = makeRegistry();
+    SceneDocument scene;
+    const Uuid entityId = scene.addEntity(makeEntity(registry, "Crate", 0.0f, 0.0f));
+
+    StudioCamera3D camera = makeCamera();
+    camera.setPivot(StudioVector3{});
+    camera.setYaw(0.6f);
+    camera.setPitch(0.4f);
+    camera.setDistance(300.0f);
+
+    const std::optional<ScaleGizmo3DLayout> layout =
+        computeScaleGizmo3DLayout(scene, camera, entityId);
+    CNA_STUDIO_EXPECT(layout.has_value());
+    if (!layout) { return; }
+
+    // Three squares, in the same places the translate gizmo puts them -- a user who has learnt
+    // where the XY handle is under W finds it there under R as well.
+    const std::optional<TranslateGizmo3DLayout> translate =
+        computeTranslateGizmo3DLayout(scene, camera, entityId);
+    CNA_STUDIO_EXPECT(translate.has_value());
+    if (!translate) { return; }
+
+    for (std::size_t index = 0; index < 3; ++index)
+    {
+        CNA_STUDIO_EXPECT(layout->planes[index].visible);
+        CNA_STUDIO_EXPECT(cameraNearlyEqual(layout->planes[index].getScreenCenter().x,
+                                            translate->planes[index].getScreenCenter().x, 0.01f));
+        CNA_STUDIO_EXPECT(cameraNearlyEqual(layout->planes[index].getScreenCenter().y,
+                                            translate->planes[index].getScreenCenter().y, 0.01f));
+    }
+
+    const StudioVector2 centre = layout->planes[0].getScreenCenter();
+    CNA_STUDIO_EXPECT(hitTestScaleGizmo3D(*layout, centre) == GizmoAxis3D::XY);
+    CNA_STUDIO_EXPECT(hitTestScaleGizmo3D(*layout, layout->planes[1].getScreenCenter())
+                      == GizmoAxis3D::YZ);
+    CNA_STUDIO_EXPECT(hitTestScaleGizmo3D(*layout, layout->planes[2].getScreenCenter())
+                      == GizmoAxis3D::ZX);
+
+    // The arms and the centre still win where they are: the squares are offset, and a plane that
+    // swallowed an arm's own length would be a handle that took away three others.
+    CNA_STUDIO_EXPECT(hitTestScaleGizmo3D(*layout, layout->screenOrigin) == GizmoAxis3D::All);
+    CNA_STUDIO_EXPECT(hitTestScaleGizmo3D(*layout, layout->screenHandles[0]) == GizmoAxis3D::X);
+
+    // And along an arm's line, away from its end square. This one is a guard rather than a gate:
+    // the squares start a quarter of the way out on *both* of their axes, so on this gizmo -- whose
+    // end handles are checked before anything else anyway -- no camera angle tried here projects a
+    // square over an arm. It is asserted because the guard is cheap and the day a handle size
+    // changes is the day it starts mattering.
+    const StudioVector2 alongX{
+        layout->screenOrigin.x + (layout->screenHandles[0].x - layout->screenOrigin.x) * 0.5f,
+        layout->screenOrigin.y + (layout->screenHandles[0].y - layout->screenOrigin.y) * 0.5f};
+    CNA_STUDIO_EXPECT(hitTestScaleGizmo3D(*layout, alongX) == GizmoAxis3D::X);
+
+    ScaleGizmo3DDrag drag;
+    CNA_STUDIO_EXPECT(drag.begin(scene, *layout, entityId, centre));
+    CNA_STUDIO_EXPECT(drag.getAxis() == GizmoAxis3D::XY);
+
+    // Not moved is no edit, as every other handle promises.
+    CNA_STUDIO_EXPECT(!drag.update(*layout, centre, GizmoSnap{}).has_value());
+
+    // Twice as far out along the diagonal is twice the size -- on **both** of the plane's axes, by
+    // the same factor, and not at all on the third.
+    const StudioVector2 twiceOut{layout->screenOrigin.x + (centre.x - layout->screenOrigin.x) * 2.0f,
+                                 layout->screenOrigin.y + (centre.y - layout->screenOrigin.y) * 2.0f};
+    const std::optional<StudioVector3> doubled = drag.update(*layout, twiceOut, GizmoSnap{});
+    CNA_STUDIO_EXPECT(doubled.has_value());
+    if (!doubled) { return; }
+
+    CNA_STUDIO_EXPECT(cameraNearlyEqual(doubled->x, 2.0f, 0.01f));
+    CNA_STUDIO_EXPECT(cameraNearlyEqual(doubled->y, 2.0f, 0.01f));
+    CNA_STUDIO_EXPECT(cameraNearlyEqual(doubled->z, 1.0f, 0.001f));
+
+    // The same factor on both, which is the whole claim: equal to each other, not merely both
+    // bigger. An implementation that measured each axis separately would fail exactly here.
+    CNA_STUDIO_EXPECT(cameraNearlyEqual(doubled->x, doubled->y, 0.0001f));
+
+    // And the other two planes leave their own third axis alone.
+    ScaleGizmo3DDrag yz;
+    const StudioVector2 yzCentre = layout->planes[1].getScreenCenter();
+    CNA_STUDIO_EXPECT(yz.begin(scene, *layout, entityId, yzCentre));
+    const std::optional<StudioVector3> grown = yz.update(
+        *layout, StudioVector2{layout->screenOrigin.x + (yzCentre.x - layout->screenOrigin.x) * 2.0f,
+                               layout->screenOrigin.y + (yzCentre.y - layout->screenOrigin.y) * 2.0f},
+        GizmoSnap{});
+    CNA_STUDIO_EXPECT(grown.has_value());
+    if (grown)
+    {
+        CNA_STUDIO_EXPECT(cameraNearlyEqual(grown->x, 1.0f, 0.001f));
+        CNA_STUDIO_EXPECT(cameraNearlyEqual(grown->y, grown->z, 0.0001f));
+        CNA_STUDIO_EXPECT(grown->y > 1.5f);
+    }
+
+    // Drawn as well as grabbed: three arms with their squares, the centre square, and three plane
+    // outlines of four segments each.
+    const std::vector<WireSegment> segments = buildScaleGizmo3DSegments(*layout);
+    CNA_STUDIO_EXPECT_EQ(segments.size(), std::size_t{31});
 }
 
 CNA_STUDIO_TEST(AThreeDimensionalTurnIsAppliedInTheWorldRatherThanTheEntitysOwnFrame)

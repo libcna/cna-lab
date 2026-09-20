@@ -78,6 +78,48 @@ namespace CNA::Studio
     [[nodiscard]] const char* toString(GizmoAxis3D axis);
 
     /**
+     * @brief One plane handle: a square offset from the origin along two of the three arms.
+     *
+     * Offset rather than cornered at the origin, and that is the whole of why the arms and the
+     * planes do not fight each other for a press: the square starts a quarter of the way out, so
+     * every pixel of an arm's own length is still the arm's.
+     *
+     * Shared by the translate and scale gizmos, which want the same square for different reasons --
+     * one moves in the plane, the other resizes along both of its axes by one factor -- and would
+     * otherwise each carry a copy free to drift from the other about where the square is.
+     */
+    struct GizmoPlaneHandle3D
+    {
+        /** @brief The axis *not* in the plane, which is the plane's normal. */
+        StudioVector3 normal;
+
+        /** @brief The two in-plane arm directions, for constraining and snapping a drag. */
+        StudioVector3 u;
+        StudioVector3 v;
+
+        /** @brief The square's four world corners, in order round it. */
+        std::array<StudioVector3, 4> corners{};
+
+        /** @brief The same four in viewport pixels. */
+        std::array<StudioVector2, 4> screenCorners{};
+
+        /** @brief False when any corner is behind the eye: a half-projected quad is not a quad. */
+        bool visible = false;
+
+        /** @brief The square's centre in viewport pixels, which is where a drag measures from. */
+        [[nodiscard]] StudioVector2 getScreenCenter() const
+        {
+            StudioVector2 total;
+            for (const StudioVector2& corner : screenCorners)
+            {
+                total.x += corner.x * 0.25f;
+                total.y += corner.y * 0.25f;
+            }
+            return total;
+        }
+    };
+
+    /**
      * @brief Where the 3D translate gizmo is, in the world and on the screen.
      *
      * Both, because the two halves need different ones: a drag is solved in the world, where the
@@ -109,32 +151,6 @@ namespace CNA::Studio
         float grabTolerance = 8.0f;
 
         /**
-         * @brief One plane handle: a square offset from the origin along two of the three arms.
-         *
-         * Offset rather than cornered at the origin, and that is the whole of why the arms and the
-         * planes do not fight each other for a press: the square starts a quarter of the way out,
-         * so every pixel of an arm's own length is still the arm's.
-         */
-        struct Plane
-        {
-            /** @brief The axis *not* in the plane, which is the plane's normal. */
-            StudioVector3 normal;
-
-            /** @brief The two in-plane arm directions, for constraining and snapping a drag. */
-            StudioVector3 u;
-            StudioVector3 v;
-
-            /** @brief The square's four world corners, in order round it. */
-            std::array<StudioVector3, 4> corners{};
-
-            /** @brief The same four in viewport pixels. */
-            std::array<StudioVector2, 4> screenCorners{};
-
-            /** @brief False when any corner is behind the eye: a half-projected quad is not a quad. */
-            bool visible = false;
-        };
-
-        /**
          * @brief The XY, YZ and ZX handles, in that order.
          *
          * `plan.md` STUDIO-12001. Three rather than one, because which plane a user wants is the
@@ -142,7 +158,7 @@ namespace CNA::Studio
          * slide an object along whatever the camera happened to be looking at, which is not a
          * direction anything in the scene is laid out along.
          */
-        std::array<Plane, 3> planes{};
+        std::array<GizmoPlaneHandle3D, 3> planes{};
     };
 
     /** @brief How far along an arm the plane handles begin, as a fraction of its length. */
@@ -399,6 +415,21 @@ namespace CNA::Studio
 
         /** @brief How far from an arm, in pixels, still counts as grabbing it. */
         float grabTolerance = 7.0f;
+
+        /**
+         * @brief The XY, YZ and ZX handles, in that order (`plan.md` STUDIO-12003).
+         *
+         * The same three squares the translate gizmo has, in the same places, so a user who has
+         * learnt where the XY handle is under W finds it there under R as well. What a drag on one
+         * *means* is different: translate slides in the plane, and scale multiplies both of the
+         * plane's axes by **one** factor.
+         *
+         * That one factor is the whole reason these exist. Two arm drags give two *independent*
+         * factors, which is not the same operation and cannot be made into it without typing
+         * numbers -- "twice as wide and twice as deep, same height" is a single thing a user wants
+         * and had no handle for.
+         */
+        std::array<GizmoPlaneHandle3D, 3> planes{};
     };
 
     /**

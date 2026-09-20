@@ -6,13 +6,13 @@
 
 **Exit criteria.** Transforming objects feels precise and predictable, and every drag is exactly one undo entry.
 
-**Progress:** 3 of 11 complete `███░░░░░░░░░`
+**Progress:** 4 of 11 complete `████░░░░░░░░`
 
 | Id | Task | Status | Depends on |
 |----|------|:------:|------------|
 | `STUDIO-12001` | Translate gizmo | ✅ | `STUDIO-11006` |
 | `STUDIO-12002` | Rotate gizmo | ✅ | `STUDIO-11006` |
-| `STUDIO-12003` | Scale gizmo | ⬜ | `STUDIO-11006` |
+| `STUDIO-12003` | Scale gizmo | ✅ | `STUDIO-11006` |
 | `STUDIO-12004` | Local and world transform spaces | ⬜ | `STUDIO-12001` |
 | `STUDIO-12005` | Multi-selection transforms about a shared pivot | ⬜ | `STUDIO-12001` |
 | `STUDIO-12006` | Pivot editing | ⬜ | `STUDIO-12005` |
@@ -111,6 +111,56 @@ one and what matters is that it has stopped being a handle for its own. And a fa
 every sample and stays closed, while the two edge-on ones are absent. Checked by causing both:
 keeping the back half fails the arc and the grab assertions on all three rings, and a tolerance of
 the wrong sign empties the face-on ring entirely.
+
+### `STUDIO-12003` — Scale gizmo
+
+**Acceptance.** An entity can be resized along one axis, on two at once by one factor, or on all
+three — snapped or free, as one entity or as a selection — and a drag can flip it without ever
+landing on zero.
+
+**Most of it was already there and one claim in it was wrong.** Three arms ending in handles, a
+centre handle for the uniform case, a factor that is a *ratio* of screen distances rather than a
+difference (the only measure of a unitless quantity that means the same at every camera distance),
+snapping applied to the shared factor so a selection stays in proportion, `keepScalable` so a drag
+through the origin flips the entity — which XNA's negative scale supports and a user may well mean
+— without landing on zero, where it would be invisible *and* unclickable. Arms are never dropped
+and never refuse, because a scale is a ratio of screen distances and the screen always has one; a
+foreshortened arm shortens to a floor and fades instead, which keeps it separately grabbable from
+the centre handle.
+
+**What was missing is a plane handle, and the comment claiming it was not needed was mine and was
+wrong.** `STUDIO-12001` left a note saying scaling "in a plane" is two independent factors and the
+two arms already say so. Two arm drags give two factors that are independent *and unequal* — each is
+a ratio of how far along its own arm the cursor went, and getting two of them to agree by eye is not
+something anybody does. "Twice as wide and twice as deep, same height" is one operation, and it had
+no handle. The note is corrected in place rather than left standing.
+
+**One factor on both of the plane's axes.** That is the whole content of the handle and the
+assertion that matters: the case checks the two results are equal *to each other*, not merely that
+both grew, because an implementation measuring each axis separately passes everything else.
+
+**The same three squares, in the same places as the translate gizmo's**, built by one shared
+function — a user who has learnt where the XY handle is under W finds it there under R. What a drag
+on one *means* differs, and that is the only difference: translate slides in the plane, scale
+multiplies both of its axes.
+
+**Built from the unfloored arm length.** The arms are redrawn to a minimum so their handles stay
+clear of the centre one; a square pulled in with a foreshortened arm would be saying the plane is
+somewhere it is not.
+
+**The ordering guard is a guard, not a gate.** The planes are tried after the arms, as on the
+translate gizmo. There it fires: those arms are bare lines and a square does project over one. Here
+the end handles are checked before anything else and the squares start a quarter of the way out on
+*both* their axes, so no camera angle tried puts a square over an arm — the guard is kept because it
+is cheap and because the day a handle size changes is the day it starts mattering, and the plan says
+so rather than the test claiming a gate it does not have.
+
+**Verification.** `tests/SceneTests.cpp`: three squares in the same screen positions as the
+translate gizmo's; each is a grab on its own plane; the centre and the arm handles still win where
+they are. And the drag: not-moved is no edit; twice out along the diagonal doubles *both* of the
+plane's axes and leaves the third at one; the two results are equal to each other; the YZ handle
+leaves X alone; and the gizmo draws thirty-one segments. Checked by causing it — one axis of the
+pair scaled by a different factor fails three assertions, including the one that names the claim.
 
 ### `STUDIO-12009` — Box selection
 
