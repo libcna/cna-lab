@@ -67,21 +67,27 @@ namespace CNA::Studio
             state.dragHasEdited = true;
         }
 
-        /** @brief How much a drag rounds by while the snap modifier is held. */
-        GizmoSnap snapFor(const StudioContext& context, const StudioCamera2D& camera, bool held)
+        /** @brief How much a snapped drag rounds by, out of the project's settings. */
+        GizmoSnap snapFor(const StudioContext& context, const StudioCamera2D& camera, bool snapping)
         {
-            if (!held) { return {}; }
+            if (!snapping) { return {}; }
 
             GizmoSnap snap;
-            // The project's own step when it declares one, and the visible grid when it does not:
-            // a project laid out on a 16-pixel tile grid says so once rather than having every
-            // user zoom until the drawn grid happens to agree.
-            const float projectStep = context.hasProject() ? context.getProject().getGridSnap() : 0.0f;
+            // The project's own steps when it declares them, and the editor's defaults when it does
+            // not: a project laid out on a 16-pixel tile grid, or on thirty-degree facings, says so
+            // once rather than having every user match it by eye (`plan.md` STUDIO-12007).
+            const Project* project = context.hasProject() ? &context.getProject() : nullptr;
+
+            const float projectStep = project != nullptr ? project->getGridSnap() : 0.0f;
             snap.translate = projectStep > 0.0f
                 ? projectStep
                 : chooseGridSpacing(camera.getZoom(), kGridTargetPixels);
-            snap.rotate = kDefaultRotationSnap;
-            snap.scale = kDefaultScaleSnap;
+
+            const float angleStep = project != nullptr ? project->getAngleSnap() : 0.0f;
+            snap.rotate = angleStep > 0.0f ? angleStep : kDefaultRotationSnap;
+
+            const float scaleStep = project != nullptr ? project->getScaleSnap() : 0.0f;
+            snap.scale = scaleStep > 0.0f ? scaleStep : kDefaultScaleSnap;
             return snap;
         }
 
@@ -286,20 +292,28 @@ namespace CNA::Studio
         // -----------------------------------------------------------------------------------
 
         /** @brief How much a 3D drag rounds by while the snap modifier is held. */
-        GizmoSnap snapFor3D(const StudioContext& context, bool held)
+        GizmoSnap snapFor3D(const StudioContext& context, bool snapping)
         {
-            if (!held) { return {}; }
+            if (!snapping) { return {}; }
 
             GizmoSnap snap;
             // The project's own step when it declares one. Unlike the 2D gizmo, a 3D translate
             // has no on-screen grid to fall back to -- the visible floor is a decision of
             // STUDIO-35051, not of this one -- so an undeclared step lands on one world unit,
             // which is the increment every one of this project's own example scenes is authored
-            // on.
-            const float projectStep = context.hasProject() ? context.getProject().getGridSnap() : 0.0f;
+            // on. The angle and scale steps come from the same place the 2D gizmo takes them
+            // (`plan.md` STUDIO-12007): they are properties of how a project is authored, not of
+            // which viewport it is being authored in.
+            const Project* project = context.hasProject() ? &context.getProject() : nullptr;
+
+            const float projectStep = project != nullptr ? project->getGridSnap() : 0.0f;
             snap.translate = projectStep > 0.0f ? projectStep : 1.0f;
-            snap.rotate = kDefaultRotationSnap;
-            snap.scale = kDefaultScaleSnap;
+
+            const float angleStep = project != nullptr ? project->getAngleSnap() : 0.0f;
+            snap.rotate = angleStep > 0.0f ? angleStep : kDefaultRotationSnap;
+
+            const float scaleStep = project != nullptr ? project->getScaleSnap() : 0.0f;
+            snap.scale = scaleStep > 0.0f ? scaleStep : kDefaultScaleSnap;
             return snap;
         }
 
@@ -927,7 +941,9 @@ namespace CNA::Studio
         if (!frame.isInputPass()) { return result; }
 
         // --- Manipulate -------------------------------------------------------------------------
-        const GizmoSnap snap = snapFor(context, camera, frame.input().modifiers.control);
+        const GizmoSnap snap = snapFor(
+            context, camera,
+            studioIsSnapping(state.snapping, frame.input().modifiers.control));
 
         if (state.dragging())
         {
@@ -1175,7 +1191,7 @@ namespace CNA::Studio
         // `studioViewportGestureFor` below -- so a gizmo handle under the cursor has to be tried
         // *before* a press is allowed to arm one, or an object could never be dragged without
         // first switching schemes.
-        const GizmoSnap snap3D = snapFor3D(context, chord.control);
+        const GizmoSnap snap3D = snapFor3D(context, studioIsSnapping(state.snapping, chord.control));
         if (state.dragging3D())
         {
             if (!chord.left)

@@ -22,8 +22,10 @@
 #include "CNA/Studio/ShellPanels/StudioViewportPanel.hpp"
 #include "CNA/Studio/StudioContext.hpp"
 #include "CNA/Studio/UiCore/StudioShell.hpp"
+#include "CNA/Studio/Project/Project.hpp"
 
 #include <cmath>
+#include <filesystem>
 #include <string>
 #include <vector>
 
@@ -914,6 +916,117 @@ CNA_STUDIO_TEST(ABandInThreeDGoesWhereALeftDragAlreadyMeansSelect)
     CNA_STUDIO_EXPECT_EQ(studio.context.getSelection().size(), std::size_t{1});
     studio.clickAt(nearAt->x, nearAt->y, /*control=*/true);
     CNA_STUDIO_EXPECT(studio.context.getSelection().empty());
+}
+
+/**
+ * Snapping is a state as well as a held key, and the steps are the project's (STUDIO-12007).
+ *
+ * Ctrl was the only way to snap, so a user laying out a level on a grid held it for every drag of
+ * the day; and the angle and scale steps were constants in the editor, which suits most projects
+ * and suits an isometric one badly. Both halves here: the toggle, and the steps coming out of the
+ * project rather than out of the code.
+ *
+ * The modifier **inverts** the toggle rather than repeating it, which is the part worth a case. With
+ * snapping on, Ctrl is the momentary escape for the one placement that has to sit off the grid --
+ * and a modifier that merely repeated the setting would leave no way to make that placement but to
+ * turn snapping off and remember to turn it back on.
+ */
+CNA_STUDIO_TEST(SnappingIsAStateAndTheModifierInvertsIt)
+{
+    CNA_STUDIO_EXPECT(studioIsSnapping(/*snapToggle=*/false, /*modifierHeld=*/true));
+    CNA_STUDIO_EXPECT(studioIsSnapping(/*snapToggle=*/true, /*modifierHeld=*/false));
+    CNA_STUDIO_EXPECT(!studioIsSnapping(/*snapToggle=*/false, /*modifierHeld=*/false));
+    CNA_STUDIO_EXPECT(!studioIsSnapping(/*snapToggle=*/true, /*modifierHeld=*/true));
+
+    Fixture fixture;
+    fixture.context.select(fixture.nearEntity);
+    fixture.state.mode = GizmoMode::Translate;
+    fixture.run(away());
+
+    // A project with a five-unit grid, so a snapped drag lands on a multiple of five and a free one
+    // does not. Five rather than one, because one is what an undeclared project falls back to and a
+    // case that used it would pass whether the setting was read or not.
+    const std::filesystem::path root =
+        std::filesystem::temp_directory_path() / ("cna-snap3d-" + Uuid::generate().toString());
+    std::filesystem::create_directories(root);
+    fixture.context.getProject() = Project::createDefault("Snapped", root.generic_string());
+    CNA_STUDIO_EXPECT(
+        fixture.context.getProject().saveToFile((root / "Snapped.cnaproject").generic_string()));
+    fixture.context.getProject().setGridSnap(5.0f);
+
+    const auto positionX = [&] {
+        return fixture.context.getScene().findEntity(fixture.nearEntity)
+            ->findComponent("CNA.Transform")->getProperty("position").get<StudioVector3>().x;
+    };
+
+    const auto layout = computeTranslateGizmo3DLayout(fixture.context.getScene(), fixture.camera,
+                                                      fixture.nearEntity);
+    CNA_STUDIO_EXPECT(layout.has_value());
+    if (!layout) { return; }
+
+    const StudioVector2 grab = layout->screenTips[0];
+
+    // Snapping off and no modifier: free, and the awkward distance stays awkward.
+    fixture.dragVia({grab, StudioVector2{grab.x + 37.0f, grab.y}});
+    const float free = positionX();
+    CNA_STUDIO_EXPECT(free != 0.0f);
+    CNA_STUDIO_EXPECT(std::abs(std::fmod(free, 5.0f)) > 0.001f);
+
+    // Snapping on, still no modifier: the same gesture now lands on a multiple of five.
+    fixture.state.snapping = true;
+    fixture.dragVia({grab, StudioVector2{grab.x + 37.0f, grab.y}});
+    const float snapped = positionX();
+    CNA_STUDIO_EXPECT(std::abs(std::fmod(snapped, 5.0f)) < 0.001f);
+
+    std::filesystem::remove_all(root);
+}
+
+/**
+ * The Snap command is checkable and says which state it is in (`plan.md` STUDIO-12007).
+ *
+ * A viewport where a drag rounds and one where it does not look identical until the drag happens,
+ * so a user who cannot see which they are in finds out by placing something wrong.
+ */
+CNA_STUDIO_TEST(TheSnapCommandShowsWhetherDragsAreRounding)
+{
+    StudioContext context;
+    StudioLog log;
+    StudioShell shell;
+    shell.resetLayout();
+
+    StudioCamera2D camera;
+    StudioCamera3D camera3D;
+    StudioShellPanels panels{shell, context, log};
+    panels.setViewportServices(camera, camera3D, {});
+
+    UiInputState input;
+    input.displayWidth = 1280.0f;
+    input.displayHeight = 720.0f;
+    shell.renderFrame(input);
+
+    // Off by default, which is what the editor did when Ctrl was the only way to snap.
+    CNA_STUDIO_EXPECT(!shell.actions().isChecked("studio.view.snap"));
+
+    const StudioAction* snap = shell.actions().find("studio.view.snap");
+    CNA_STUDIO_EXPECT(snap != nullptr && snap->run != nullptr);
+    if (snap == nullptr || snap->run == nullptr) { return; }
+
+    snap->run();
+    shell.renderFrame(input);
+    CNA_STUDIO_EXPECT(shell.actions().isChecked("studio.view.snap"));
+
+    // And it survives a change of view: the 2D and 3D gizmos both round, so a user switching
+    // between them keeps the setting they chose rather than finding it reset.
+    const StudioAction* toThreeD = shell.actions().find("studio.view.3d");
+    CNA_STUDIO_EXPECT(toThreeD != nullptr && toThreeD->run != nullptr);
+    if (toThreeD == nullptr || toThreeD->run == nullptr) { return; }
+    toThreeD->run();
+    shell.renderFrame(input);
+    CNA_STUDIO_EXPECT(shell.actions().isChecked("studio.view.snap"));
+
+    snap->run();
+    shell.renderFrame(input);
+    CNA_STUDIO_EXPECT(!shell.actions().isChecked("studio.view.snap"));
 }
 
 /**

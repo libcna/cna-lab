@@ -215,6 +215,31 @@ namespace CNA::Studio
         /** @brief Sets the snap step. Negative values are refused; zero restores the visible grid. */
         void setGridSnap(float step);
 
+        /**
+         * @brief Returns the angle a snapped turn rounds to in radians, or 0 for the default.
+         *
+         * `plan.md` STUDIO-12007. Fifteen degrees suits most things and suits isometric work
+         * badly: a project laid out on thirty-degree or forty-five-degree facings wants to say so
+         * once, exactly as one laid out on a sixteen-pixel tile grid does. Zero means the editor's
+         * own default, which is what every project written before this setting existed means.
+         */
+        [[nodiscard]] float getAngleSnap() const { return angleSnap_; }
+
+        /** @brief Sets the angle step in radians. Negative is refused; zero restores the default. */
+        void setAngleSnap(float radians);
+
+        /**
+         * @brief Returns the factor a snapped resize rounds to, or 0 for the default.
+         *
+         * Tenths suit a project whose art is authored at one scale and badly suit one built out of
+         * pieces that double -- and a step of 0.25 or 0.5 is as ordinary a house rule as a tile
+         * size. Zero means the editor's own default.
+         */
+        [[nodiscard]] float getScaleSnap() const { return scaleSnap_; }
+
+        /** @brief Sets the scale step. Negative is refused; zero restores the default. */
+        void setScaleSnap(float step);
+
         /** @brief Replaces the layer list. An empty list is refused, leaving the previous one. */
         void setLayers(std::vector<std::string> layers);
 
@@ -269,6 +294,8 @@ namespace CNA::Studio
 
         /** @brief World units a snapped drag rounds to. Zero means the viewport's visible grid. */
         float gridSnap_ = 0.0f;
+        float angleSnap_ = 0.0f;
+        float scaleSnap_ = 0.0f;
         std::vector<std::string> modules_{"cna-core"};
         std::vector<std::string> plugins_;
     };

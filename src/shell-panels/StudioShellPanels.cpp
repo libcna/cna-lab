@@ -632,6 +632,25 @@ namespace CNA::Studio
         // X, which the prototype has and the native shell did not (docs/MIGRATION-INVENTORY.md).
         // A toggle rather than two commands, as it is there: there are two spaces, and a toggle
         // needs no second binding to get back.
+        // Snapping, as a state the toolbar can show (`plan.md` STUDIO-12007). Not disabled in any
+        // view: the 2D and 3D gizmos both round, and so does the game view's absence of one --
+        // which is to say a user switching views keeps the setting they chose.
+        if (const StudioAction* existing = shell.actions().find("studio.view.snap");
+            existing != nullptr)
+        {
+            StudioAction action = *existing;
+            action.checkable = true;
+            action.isChecked = [this] { return viewportState_.snapping; };
+            action.run = [this] {
+                viewportState_.snapping = !viewportState_.snapping;
+                log_.append(LogSeverity::Trace,
+                            viewportState_.snapping
+                                ? "Snapping on. Hold Ctrl while dragging to place something off it."
+                                : "Snapping off. Hold Ctrl while dragging to snap.");
+            };
+            shell.actions().add(std::move(action));
+        }
+
         if (const StudioAction* existing = shell.actions().find("studio.view.toggleGizmoSpace"))
         {
             StudioAction action = *existing;

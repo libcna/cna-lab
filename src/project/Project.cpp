@@ -90,6 +90,12 @@ namespace CNA::Studio
         // zero is exactly the behaviour of a project that has never heard of the setting.
         if (gridSnap_ > 0.0f) { json.set("gridSnap", JsonValue{static_cast<double>(gridSnap_)}); }
 
+        // Written only when set, for the same reason `gridSnap` is: a key that appeared in every
+        // file the moment the editor learnt about it would rewrite every project in a repository
+        // on first open, which is a diff nobody asked for and cannot read.
+        if (angleSnap_ > 0.0f) { json.set("angleSnap", JsonValue{static_cast<double>(angleSnap_)}); }
+        if (scaleSnap_ > 0.0f) { json.set("scaleSnap", JsonValue{static_cast<double>(scaleSnap_)}); }
+
         JsonValue modules = JsonValue::makeArray();
         for (const std::string& module : modules_) { modules.append(JsonValue{module}); }
         json.set("modules", std::move(modules));
@@ -115,6 +121,21 @@ namespace CNA::Studio
         // meaning, and rounding to it would move an entity to a coordinate nothing else agrees on.
         if (step < 0.0f) { return; }
         gridSnap_ = step;
+    }
+
+    void Project::setAngleSnap(float radians)
+    {
+        // Refused rather than clamped, exactly as the grid step is: a negative angle is not a
+        // smaller one, it is a value with no meaning, and rounding to it would turn an entity to a
+        // facing nothing else in the project agrees on.
+        if (radians < 0.0f) { return; }
+        angleSnap_ = radians;
+    }
+
+    void Project::setScaleSnap(float step)
+    {
+        if (step < 0.0f) { return; }
+        scaleSnap_ = step;
     }
 
     void Project::setLayers(std::vector<std::string> layers)
@@ -261,6 +282,8 @@ namespace CNA::Studio
         // Absent in every project written before the setting existed, and absent again in any
         // project that never sets it, so the fallback is the behaviour those files already had.
         gridSnap_ = std::max(0.0f, document["gridSnap"].asFloat(0.0f));
+        angleSnap_ = std::max(0.0f, document["angleSnap"].asFloat(0.0f));
+        scaleSnap_ = std::max(0.0f, document["scaleSnap"].asFloat(0.0f));
 
         layers_.clear();
         for (const JsonValue& layer : document["layers"].getElements())

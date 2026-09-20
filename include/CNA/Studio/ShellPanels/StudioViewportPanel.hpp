@@ -390,6 +390,16 @@ namespace CNA::Studio
         /** @brief Whether the translate gizmo's arms follow the world axes or the entity's own. */
         GizmoSpace space = GizmoSpace::World;
 
+        /**
+         * @brief Whether drags snap without a modifier being held (`plan.md` STUDIO-12007).
+         *
+         * Off by default, which is what the editor did when Ctrl was the only way to snap. With it
+         * on, Ctrl *inverts* it rather than repeating it -- so the modifier is "the other one"
+         * either way round, and a user who works snapped all day has a momentary escape for the one
+         * placement that has to sit off the grid.
+         */
+        bool snapping = false;
+
         TranslateGizmoDrag translate;
         RotateGizmoDrag rotate;
         ScaleGizmoDrag scale;
@@ -643,6 +653,18 @@ namespace CNA::Studio
 
     /** @brief Returns true when a press from @p from to @p to has become a band rather than a click. */
     [[nodiscard]] bool studioIsBoxSelectDrag(const StudioVector2& from, const StudioVector2& to);
+
+    /**
+     * @brief Returns whether this drag rounds, given the toggle and the modifier (STUDIO-12007).
+     *
+     * The modifier inverts the toggle rather than repeating it. With snapping off, Ctrl snaps, as
+     * it always has; with snapping on, Ctrl is the momentary escape -- one placement that has to
+     * sit off the grid, without turning the setting off and forgetting to turn it back on.
+     */
+    [[nodiscard]] constexpr bool studioIsSnapping(bool snapToggle, bool modifierHeld)
+    {
+        return snapToggle != modifierHeld;
+    }
 
     /**
      * @brief Returns the band to draw over a viewport of @p bounds, or nothing.

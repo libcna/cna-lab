@@ -424,6 +424,14 @@ namespace CNA::Studio
                 "Fill the rectangle a drag encloses.", C::View, StudioShortcut{},
                 /*checkable=*/true);
 
+        // Snapping as a state rather than only as a held key (`plan.md` STUDIO-12007). Checkable,
+        // because a viewport where a drag rounds and a viewport where it does not look identical
+        // until the drag happens -- and a user who cannot see which they are in finds out by
+        // placing something wrong.
+        command("studio.view.snap", "Snap",
+                "Round drags to the project's grid, angle and scale steps.", C::View,
+                StudioShortcut{}, /*checkable=*/true);
+
         command("studio.view.toggleGizmoSpace", "Toggle Gizmo Space",
                 "Switch the gizmo between world and local space.", C::View, chord(UiKey::X));
         command("studio.view.scale", "Scale",

@@ -1853,6 +1853,49 @@ CNA_STUDIO_TEST(TheGridSnapIsAnAdditiveFieldThatOlderProjectsSimplyLack)
     CNA_STUDIO_EXPECT(!reloaded.toJson().contains("gridSnap"));
 }
 
+/**
+ * A project declares its angle and scale steps, as it already declares its grid (STUDIO-12007).
+ *
+ * Fifteen degrees and tenths were constants in the editor, which suits most projects and suits an
+ * isometric one badly: a game laid out on thirty-degree facings, or built out of pieces that
+ * double, wants to say so once rather than have every user match it by eye. The same shape as
+ * `gridSnap` in every respect, deliberately -- zero means the editor's default, negatives are
+ * refused, and the keys stay out of the file until they are set.
+ */
+CNA_STUDIO_TEST(AProjectDeclaresItsAngleAndScaleStepsOrTakesTheDefaults)
+{
+    Project project;
+
+    // Zero is not "no snapping": it is "use the editor's own step", which is what every project
+    // written before these settings existed means.
+    CNA_STUDIO_EXPECT_EQ(project.getAngleSnap(), 0.0f);
+    CNA_STUDIO_EXPECT_EQ(project.getScaleSnap(), 0.0f);
+    CNA_STUDIO_EXPECT(!project.toJson().contains("angleSnap"));
+    CNA_STUDIO_EXPECT(!project.toJson().contains("scaleSnap"));
+
+    const float thirtyDegrees = 3.14159265358979323846f / 6.0f;
+    project.setAngleSnap(thirtyDegrees);
+    project.setScaleSnap(0.25f);
+
+    Project reloaded;
+    CNA_STUDIO_EXPECT(reloaded.loadFromJson(project.toJson()).succeeded);
+    CNA_STUDIO_EXPECT(std::fabs(reloaded.getAngleSnap() - thirtyDegrees) < 0.0001f);
+    CNA_STUDIO_EXPECT(std::fabs(reloaded.getScaleSnap() - 0.25f) < 0.0001f);
+
+    // Negative is refused rather than clamped, exactly as the grid step is: a negative angle is not
+    // a smaller one, it is a value with no meaning.
+    reloaded.setAngleSnap(-1.0f);
+    reloaded.setScaleSnap(-1.0f);
+    CNA_STUDIO_EXPECT(std::fabs(reloaded.getAngleSnap() - thirtyDegrees) < 0.0001f);
+    CNA_STUDIO_EXPECT(std::fabs(reloaded.getScaleSnap() - 0.25f) < 0.0001f);
+
+    // Zero puts the defaults back and takes the keys out of the file with them.
+    reloaded.setAngleSnap(0.0f);
+    reloaded.setScaleSnap(0.0f);
+    CNA_STUDIO_EXPECT(!reloaded.toJson().contains("angleSnap"));
+    CNA_STUDIO_EXPECT(!reloaded.toJson().contains("scaleSnap"));
+}
+
 CNA_STUDIO_TEST(SettingTheGridSnapUndoesAndReachesTheFile)
 {
     const std::filesystem::path root =

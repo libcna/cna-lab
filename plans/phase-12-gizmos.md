@@ -6,7 +6,7 @@
 
 **Exit criteria.** Transforming objects feels precise and predictable, and every drag is exactly one undo entry.
 
-**Progress:** 5 of 11 complete `█████░░░░░░░`
+**Progress:** 6 of 11 complete `██████░░░░░░`
 
 | Id | Task | Status | Depends on |
 |----|------|:------:|------------|
@@ -16,7 +16,7 @@
 | `STUDIO-12004` | Local and world transform spaces | ⬜ | `STUDIO-12001` |
 | `STUDIO-12005` | Multi-selection transforms about a shared pivot | ⬜ | `STUDIO-12001` |
 | `STUDIO-12006` | Pivot editing | ⬜ | `STUDIO-12005` |
-| `STUDIO-12007` | Snapping: grid, angle and scale increments | ⬜ | `STUDIO-12001` |
+| `STUDIO-12007` | Snapping: grid, angle and scale increments | ✅ | `STUDIO-12001` |
 | `STUDIO-12008` | One undo entry per drag, returning exactly to the drag start | ✅ | `STUDIO-12001` |
 | `STUDIO-12009` | Box selection | ✅ | `STUDIO-11006` |
 | `STUDIO-12010` | Duplicate, delete, parent and reparent from the viewport | ⬜ | `STUDIO-12005` |
@@ -223,6 +223,46 @@ with the panel. `tests/StudioViewport3DTests.cpp`: the band is the left drag und
 Ctrl+left under Studio's, where the plain drag still orbits. Checked by causing four: enclosure
 instead of overlap, two projected corners instead of eight, no threshold, and Ctrl+left orbiting in
 Studio's scheme. Each fails by name.
+
+### `STUDIO-12007` — Snapping: grid, angle and scale increments
+
+**Acceptance.** A drag rounds to the project's own grid, angle and scale steps, and snapping is a
+state a user can see rather than a key they hold all day.
+
+**The rounding worked and two thirds of the task did not exist.** `GizmoSnap` carries all three
+steps and every drag path applies them — the translate result is snapped rather than the movement,
+the rotate delta is snapped as an angle, the scale factor is snapped as the quantity a whole
+selection shares. What was missing: only the *grid* step was a project setting, and snapping
+happened only while Ctrl was held.
+
+**Fifteen degrees and tenths were constants in the editor.** That suits most projects and suits an
+isometric one badly: a game laid out on thirty-degree facings, or built out of pieces that double,
+wants to say so once, exactly as one laid out on a sixteen-pixel tile grid already could.
+`angleSnap` and `scaleSnap` join `gridSnap` and take its shape in every respect — zero means the
+editor's default, negatives are refused rather than clamped, and the keys stay out of the file until
+they are set, so the first save of every existing project is not a diff that says nothing.
+
+**Both viewports read the same settings**, because how a project is authored is not a property of
+which viewport it is being authored in. The one difference is the fallback the 3D view already had:
+it has no on-screen grid to borrow a step from, so an undeclared project lands on one world unit.
+
+**Snapping is a state, and the modifier inverts it.** Ctrl was the only way to snap, so a user
+laying out a level on a grid held it for every drag of the day. With the toggle off, Ctrl still
+snaps, exactly as before. With it on, Ctrl is the *momentary escape* — the one placement that has to
+sit off the grid — which is the part worth a case: a modifier that merely repeated the setting would
+leave no way to make that placement but to turn snapping off and remember to turn it back on.
+
+**Checkable, and not disabled in any view.** A viewport where a drag rounds and one where it does
+not look identical until the drag happens, so a user who cannot see which they are in finds out by
+placing something wrong. And the setting survives switching views, because both gizmos round.
+
+**Verification.** `tests/ProjectAndAssetTests.cpp`: the two new settings round-trip, refuse
+negatives, and stay out of the file until set. `tests/StudioViewport3DTests.cpp`: the four cases of
+toggle-against-modifier; the same gesture lands on an awkward number free and on a multiple of five
+snapped, with five chosen precisely because one is the undeclared fallback and a case using it would
+pass whether the setting was read or not; and the command is checked, unchecked and survives a view
+change. Checked by causing both: a modifier that repeats the toggle instead of inverting it, and a
+3D snap that ignores the project's step. Each fails by name.
 
 ### `STUDIO-12008` — One undo entry per drag, returning exactly to the drag start
 
