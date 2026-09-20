@@ -6,7 +6,7 @@
 
 **Exit criteria.** Transforming objects feels precise and predictable, and every drag is exactly one undo entry.
 
-**Progress:** 4 of 11 complete `████░░░░░░░░`
+**Progress:** 5 of 11 complete `█████░░░░░░░`
 
 | Id | Task | Status | Depends on |
 |----|------|:------:|------------|
@@ -17,7 +17,7 @@
 | `STUDIO-12005` | Multi-selection transforms about a shared pivot | ⬜ | `STUDIO-12001` |
 | `STUDIO-12006` | Pivot editing | ⬜ | `STUDIO-12005` |
 | `STUDIO-12007` | Snapping: grid, angle and scale increments | ⬜ | `STUDIO-12001` |
-| `STUDIO-12008` | One undo entry per drag, returning exactly to the drag start | ⬜ | `STUDIO-12001` |
+| `STUDIO-12008` | One undo entry per drag, returning exactly to the drag start | ✅ | `STUDIO-12001` |
 | `STUDIO-12009` | Box selection | ✅ | `STUDIO-11006` |
 | `STUDIO-12010` | Duplicate, delete, parent and reparent from the viewport | ⬜ | `STUDIO-12005` |
 | `STUDIO-12011` | Drag and drop placement from the Content Browser into the scene | ⬜ | `STUDIO-09008` |
@@ -226,5 +226,33 @@ Studio's scheme. Each fails by name.
 
 ### `STUDIO-12008` — One undo entry per drag, returning exactly to the drag start
 
-**Acceptance.** Carried forward from the prototype and retested through the Studio UI
+**Acceptance.** Carried forward from the prototype and retested through the Studio UI.
+
+**The mechanism was there and one of its two gates was not.** A drag's first edit is a `NewEntry`
+and every one after it is a `MergeWithPrevious`; `SetPropertyCommand::mergeWith` adopts the newer
+command's final value and **keeps its own original** as the undo target; and an edit that would
+write the value the document already holds writes nothing, so grabbing a handle and thinking better
+of it leaves no entry to undo.
+
+**What was missing is a case that could see any of it.** The three 3D cases that said "as one undo
+entry" drove the pointer from the grab to the target in a *single jump*, so the drag committed
+exactly once — one entry out of one edit, with the merge never running. That says nothing about the
+mechanism that turns sixty edits into one, and sixty entries is what a user gets when it breaks. The
+2D side already had a proper case; the 3D side did not, and its comment claimed otherwise.
+
+**The half a merge gets wrong is the undo target.** Adopting the newer command's *old* value as well
+as its new one gives an undo that goes back to the previous frame. On a single jump that is
+indistinguishable from correct; on a real drag it leaves the entity a pixel from where it started,
+with nothing left on the stack to fix it.
+
+**Undone is not gone.** The case asserts the history's *cursor* rather than its entry count: an
+undone entry stays on the stack as a redo target, so counting entries would say the undo had not
+happened. Redo puts the whole drag back in one step, which is the other half of "one entry" and the
+half a per-frame stack makes unusable.
+
+**Verification.** `tests/StudioViewport3DTests.cpp`: a `dragVia` helper that presses, moves through
+five intermediate points and releases; the drag is one entry, undo returns to exactly where it
+began, redo restores it; and a press on a handle that goes nowhere leaves the stack untouched.
+Checked by causing both halves: dropping the merge gives five entries and an undo that lands
+mid-drag, and a merge that adopts the newer old value leaves the entity short of its start.
 

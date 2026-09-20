@@ -113,6 +113,29 @@ namespace
             run(released);
         }
 
+        /**
+         * @brief A press at the first point, a move through each of the rest, and a release.
+         *
+         * What `dragTo` is not: it moves the pointer in a single jump, so a drag through it commits
+         * exactly once and the *merge* -- the mechanism that makes a drag one undo entry rather
+         * than sixty -- never runs at all. A case that wants to say "one entry" has to make more
+         * than one edit first (`plan.md` STUDIO-12008).
+         */
+        void dragVia(const std::vector<StudioVector2>& points)
+        {
+            if (points.size() < 2) { return; }
+
+            run(at(points.front().x, points.front().y));
+            run(at(points.front().x, points.front().y, /*leftDown=*/true));
+
+            for (std::size_t index = 1; index < points.size(); ++index)
+            {
+                run(at(points[index].x, points[index].y, /*leftDown=*/true));
+            }
+
+            run(at(points.back().x, points.back().y));
+        }
+
         /** @brief A press and release in the same place, which is a click. */
         void clickAt(float x, float y, bool control = false)
         {
@@ -891,4 +914,89 @@ CNA_STUDIO_TEST(ABandInThreeDGoesWhereALeftDragAlreadyMeansSelect)
     CNA_STUDIO_EXPECT_EQ(studio.context.getSelection().size(), std::size_t{1});
     studio.clickAt(nearAt->x, nearAt->y, /*control=*/true);
     CNA_STUDIO_EXPECT(studio.context.getSelection().empty());
+}
+
+/**
+ * A drag of many frames is one undo entry, and undoing it returns to where the drag began.
+ *
+ * `plan.md` STUDIO-12008, and the reason this case exists beside the three that already say "as one
+ * undo entry": those drive the pointer in a single jump, so the drag commits exactly once and the
+ * *merge* never runs. One entry out of one edit says nothing about the mechanism that turns sixty
+ * edits into one, and sixty entries is what a user gets when it breaks.
+ *
+ * The second half is the half a merge gets wrong. Adopting the newer command's old value as well as
+ * its new one leaves an undo that goes back to the *previous frame* -- which looks right on the one
+ * jump these cases used to make, and on a real drag leaves the entity a pixel from where it started
+ * with nothing left on the stack to fix it.
+ */
+CNA_STUDIO_TEST(ADragOfManyFramesIsOneEntryAndUndoReturnsToWhereItBegan)
+{
+    Fixture fixture;
+    fixture.context.select(fixture.nearEntity);
+    fixture.state.mode = GizmoMode::Translate;
+    fixture.run(away());
+
+    const auto position = [&] {
+        return fixture.context.getScene().findEntity(fixture.nearEntity)
+            ->findComponent("CNA.Transform")->getProperty("position").get<StudioVector3>();
+    };
+
+    const StudioVector3 start = position();
+
+    const auto layout = computeTranslateGizmo3DLayout(fixture.context.getScene(), fixture.camera,
+                                                      fixture.nearEntity);
+    CNA_STUDIO_EXPECT(layout.has_value());
+    if (!layout) { return; }
+
+    const std::size_t before = fixture.context.getHistory().getCursor();
+    const StudioVector2 grab = layout->screenTips[0];
+
+    // Six frames of movement, which is six edits and would be six entries without the merge.
+    fixture.dragVia({grab,
+                     StudioVector2{grab.x + 8.0f, grab.y},
+                     StudioVector2{grab.x + 17.0f, grab.y},
+                     StudioVector2{grab.x + 25.0f, grab.y},
+                     StudioVector2{grab.x + 34.0f, grab.y},
+                     StudioVector2{grab.x + 40.0f, grab.y}});
+
+    CNA_STUDIO_EXPECT(position().x != start.x);
+    CNA_STUDIO_EXPECT_EQ(fixture.context.getHistory().getCursor(), before + 1);
+
+    // All the way back, not back one frame.
+    CNA_STUDIO_EXPECT(fixture.context.getHistory().undo());
+    CNA_STUDIO_EXPECT_EQ(position().x, start.x);
+    CNA_STUDIO_EXPECT_EQ(position().y, start.y);
+    CNA_STUDIO_EXPECT_EQ(position().z, start.z);
+
+    // The cursor rather than the count: an undone entry stays on the stack as a redo target, so
+    // counting entries would say the undo had not happened. Redo puts the whole drag back, which is
+    // the other half of "one entry" and the half a per-frame stack makes unusable.
+    CNA_STUDIO_EXPECT_EQ(fixture.context.getHistory().getCursor(), before);
+    CNA_STUDIO_EXPECT(fixture.context.getHistory().redo());
+    CNA_STUDIO_EXPECT(position().x != start.x);
+}
+
+/**
+ * A press on a handle that goes nowhere leaves nothing on the undo stack (`plan.md` STUDIO-12008).
+ *
+ * Grabbing a handle and thinking better of it is an ordinary thing to do, and an entry that undoes
+ * nothing is worse than a wrong one: the user cannot tell how many more times to press Ctrl+Z.
+ */
+CNA_STUDIO_TEST(APressOnAHandleThatGoesNowhereLeavesNoUndoEntry)
+{
+    Fixture fixture;
+    fixture.context.select(fixture.nearEntity);
+    fixture.state.mode = GizmoMode::Translate;
+    fixture.run(away());
+
+    const auto layout = computeTranslateGizmo3DLayout(fixture.context.getScene(), fixture.camera,
+                                                      fixture.nearEntity);
+    CNA_STUDIO_EXPECT(layout.has_value());
+    if (!layout) { return; }
+
+    const std::size_t before = fixture.context.getHistory().getCursor();
+    const StudioVector2 grab = layout->screenTips[0];
+
+    fixture.dragVia({grab, grab, grab});
+    CNA_STUDIO_EXPECT_EQ(fixture.context.getHistory().getCursor(), before);
 }
