@@ -6,7 +6,7 @@
 
 **Exit criteria.** Transforming objects feels precise and predictable, and every drag is exactly one undo entry.
 
-**Progress:** 9 of 11 complete `█████████░░░`
+**Progress:** 10 of 11 complete `██████████░░`
 
 | Id | Task | Status | Depends on |
 |----|------|:------:|------------|
@@ -20,7 +20,7 @@
 | `STUDIO-12008` | One undo entry per drag, returning exactly to the drag start | ✅ | `STUDIO-12001` |
 | `STUDIO-12009` | Box selection | ✅ | `STUDIO-11006` |
 | `STUDIO-12010` | Duplicate, delete, parent and reparent from the viewport | ✅ | `STUDIO-12005` |
-| `STUDIO-12011` | Drag and drop placement from the Content Browser into the scene | ⬜ | `STUDIO-09008` |
+| `STUDIO-12011` | Drag and drop placement from the Content Browser into the scene | ✅ | `STUDIO-09008` |
 
 ## Acceptance and verification
 
@@ -343,6 +343,39 @@ greys out until something is parented and takes them back; and an attach that wo
 its own descendant moves nothing and records nothing. Checked by causing four: no rewrite, a
 division by a zero scale, the first selected as parent, and the cycle check dropped. Each fails by
 name.
+
+### `STUDIO-12011` — Drag and drop placement from the Content Browser into the scene
+
+**Acceptance.** An asset dragged out of the Content Browser and let go over either viewport becomes
+an entity there.
+
+**Half of it shipped with `STUDIO-09008` and the other half did nothing.** The 2D view has accepted
+drops since then — it highlights while a drag is over it, reports where the pointer was in world
+units, and the shell turns that into an entity. The 3D view accepted *nothing*: no highlight, no
+placement, no explanation. The gesture simply died, which reads as the Content Browser being broken
+rather than as the view not supporting it.
+
+**A drop lands on the grid's own plane**, whichever of the two the user has chosen. The grid is the
+only landmark a 3D view has, so a thing dropped onto it is a thing standing somewhere the user can
+see. A fixed depth would put the entity in mid-air at a distance nobody chose, and the origin would
+put it under whatever is already there — which is precisely the complaint the 2D case was written
+against.
+
+**When the ray does not reach that plane, the drop lands in front of the camera**, at the distance
+it is orbiting at. That happens looking edge-on to the plane or away from it, and the alternative is
+refusing a drop the user has already committed to. Somewhere they can see it and drag it from is all
+a drop has to promise.
+
+**The viewport reports and the shell acts**, exactly as the 2D path does: the panel does not know
+what an asset becomes, and a panel that created entities would be one that had to know about
+textures, models, prefabs and whatever comes next.
+
+**Verification.** `tests/StudioViewport3DTests.cpp`: the landing point is on z = 0 for the scene
+plane and y = 0 for the ground one, tracks the cursor rather than merely lying on the plane, and
+stays finite and in front of the eye when the ray never reaches it. And the panel end to end — a
+drag begun over it is reported with the asset's id and the panel's own landing point, and nothing
+reaches the scene from the panel. Checked by causing both: a panel that ignores the drop, and a
+landing point that always takes the fallback. Each fails by name.
 
 ### `STUDIO-12007` — Snapping: grid, angle and scale increments
 

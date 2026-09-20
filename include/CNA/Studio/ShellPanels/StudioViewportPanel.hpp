@@ -655,6 +655,24 @@ namespace CNA::Studio
     [[nodiscard]] bool studioIsBoxSelectDrag(const StudioVector2& from, const StudioVector2& to);
 
     /**
+     * @brief Returns where a drop at @p pointer lands in the 3D view (`plan.md` STUDIO-12011).
+     *
+     * **On the grid's own plane**, whichever the user has chosen, because the grid is the only
+     * landmark a 3D view has and a thing dropped onto it is a thing standing somewhere the user can
+     * see. Dropping at a fixed depth instead would put an entity in mid-air at a distance nobody
+     * chose, and dropping at the origin would put it under whatever is already there.
+     *
+     * **When the ray does not meet that plane, the drop lands in front of the camera** -- at the
+     * orbit distance, along the ray. That happens when the view is edge-on to the plane or looking
+     * away from it, and the alternative is refusing a drop the user has already committed to. In
+     * front of the camera is somewhere they can see it and drag it from, which is all a drop has to
+     * promise.
+     */
+    [[nodiscard]] StudioVector3 studioDropPoint3D(const StudioCamera3D& camera,
+                                                  const StudioVector2& pointer,
+                                                  bool onGroundPlane);
+
+    /**
      * @brief Returns whether this drag rounds, given the toggle and the modifier (STUDIO-12007).
      *
      * The modifier inverts the toggle rather than repeating it. With snapping off, Ctrl snaps, as

@@ -784,6 +784,29 @@ namespace CNA::Studio
         }
     }
 
+    StudioVector3 studioDropPoint3D(const StudioCamera3D& camera, const StudioVector2& pointer,
+                                    bool onGroundPlane)
+    {
+        const WorldRay ray = camera.screenToRay(pointer);
+
+        // The plane the grid is drawn on: the scene's own XY at z = 0, or a floor at y = 0. The
+        // same choice `GridPlane` makes, because a drop that landed on a plane the user is not
+        // looking at would be a drop they have to go and find.
+        const StudioVector3 normal = onGroundPlane ? StudioVector3{0.0f, 1.0f, 0.0f}
+                                                   : StudioVector3{0.0f, 0.0f, 1.0f};
+
+        if (const std::optional<StudioVector3> hit =
+                intersectRayWithPlane(ray, StudioVector3{}, normal))
+        {
+            return *hit;
+        }
+
+        // Edge-on to the plane, or looking away from it. In front of the camera at the distance it
+        // is orbiting at, which is where the user is already looking -- rather than refusing a drop
+        // they have committed to, or putting the entity at the origin under whatever is there.
+        return add(ray.origin, scale(ray.direction, camera.getDistance()));
+    }
+
     bool studioIsBoxSelectDrag(const StudioVector2& from, const StudioVector2& to)
     {
         // Either axis, not the diagonal distance: a band dragged straight across is a band, and
@@ -1146,6 +1169,28 @@ namespace CNA::Studio
         const StudioVector2 pointer{router.mouseX() - bounds.left(), router.mouseY() - bounds.top()};
 
         result.pointerInside = surface.hovered;
+
+        // Dropping an asset into the 3D view puts one in the scene where it landed (`plan.md`
+        // STUDIO-12011). The 2D view has accepted drops since STUDIO-09008 and this one accepted
+        // nothing at all -- no highlight, no placement, no explanation. Described in both passes,
+        // for the reason the 2D one is: the draw pass needs the same answer to draw the highlight
+        // that the input pass used to decide it.
+        {
+            const StudioFrame::StudioDropResult drop = frame.acceptDrop(
+                frame.ids().make("viewport3d.drop"), bounds, std::string{kStudioAssetDragType});
+
+            if (drop.hovered && frame.isDrawPass())
+            {
+                frame.drawList().strokeRect(
+                    bounds, frame.theme().color(StudioColorRole::Accent),
+                    static_cast<float>(frame.theme().metric(StudioMetric::FocusRingWidth)));
+            }
+            if (drop.dropped)
+            {
+                result.assetDropped = Uuid::parse(drop.value);
+                result.assetDropPosition = studioDropPoint3D(camera, pointer, state.gridOnGroundPlane);
+            }
+        }
 
         if (!frame.isInputPass()) { return result; }
 

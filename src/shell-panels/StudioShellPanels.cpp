@@ -1037,6 +1037,14 @@ namespace CNA::Studio
 
                 forwardToPlayer(view3D.pointerInside);
 
+                // Where it was let go, on the grid's own plane, and as a root entity -- dropping
+                // into the world says where and says nothing about what it should be under
+                // (`plan.md` STUDIO-12011).
+                if (view3D.assetDropped.isValid())
+                {
+                    (void)placeDroppedAsset(view3D.assetDropped, view3D.assetDropPosition, Uuid{});
+                }
+
                 if (!view3D.selectionChanged) { return; }
                 ++counts_.viewportSelections;
                 if (const StudioEntity* entity = context_.getScene().findEntity(view3D.picked))

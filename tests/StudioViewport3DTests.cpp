@@ -1086,6 +1086,126 @@ CNA_STUDIO_TEST(TheGizmoSpaceToggleRefusesWhileScaling)
 }
 
 /**
+ * The 3D panel accepts an asset drop, and accepted nothing at all (`plan.md` STUDIO-12011).
+ *
+ * The 2D view has taken drops since `STUDIO-09008`. Dragging the same asset into the 3D view gave
+ * no highlight, no placement and no explanation -- the gesture simply died, which reads as the
+ * Content Browser being broken rather than as the view not supporting it.
+ */
+CNA_STUDIO_TEST(TheThreeDimensionalPanelAcceptsAnAssetDrop)
+{
+    Fixture fixture;
+    fixture.camera.setPivot(StudioVector3{});
+    fixture.camera.setYaw(0.0f);
+    fixture.camera.setPitch(0.9f);
+    fixture.camera.setDistance(200.0f);
+    fixture.run(away());
+
+    const Uuid texture = Uuid::generate();
+    {
+        AssetRecord record;
+        record.id = texture;
+        record.sourcePath = "Assets/hero.png";
+        record.type = AssetType::Texture2D;
+        CNA_STUDIO_EXPECT(fixture.context.getAssets().add(std::move(record)));
+    }
+
+    StudioFrame::StudioDragPayload payload;
+    payload.type = std::string{kStudioAssetDragType};
+    payload.value = texture.toString();
+    payload.label = "hero.png";
+
+    // Away from the centre, so "where it was let go" is distinguishable from "at the origin".
+    const float x = kWidth * 0.3f;
+    const float y = kHeight * 0.6f;
+
+    fixture.run(at(x, y, /*leftDown=*/true));
+    CNA_STUDIO_EXPECT(fixture.frame.beginDrag(fixture.frame.ids().make("source"), payload));
+
+    fixture.run(at(x, y, /*leftDown=*/true));
+    fixture.run(at(x, y));
+
+    CNA_STUDIO_EXPECT(fixture.last.assetDropped.isValid());
+    CNA_STUDIO_EXPECT_EQ(fixture.last.assetDropped.toString(), texture.toString());
+
+    // On the scene's own plane, and where the panel's own function says -- not recomputed a second
+    // way here, which would be a test that agrees with itself rather than with the panel.
+    const StudioVector3 expected = studioDropPoint3D(
+        fixture.camera, StudioVector2{x - fixture.body.left(), y - fixture.body.top()},
+        fixture.state.gridOnGroundPlane);
+    CNA_STUDIO_EXPECT_EQ(fixture.last.assetDropPosition.x, expected.x);
+    CNA_STUDIO_EXPECT_EQ(fixture.last.assetDropPosition.y, expected.y);
+    CNA_STUDIO_EXPECT_EQ(fixture.last.assetDropPosition.z, expected.z);
+
+    // Reported rather than acted on: the viewport does not know what an asset becomes, and nothing
+    // reached the scene from here. The same division the 2D view makes.
+    CNA_STUDIO_EXPECT_EQ(fixture.context.getHistory().getCount(), std::size_t{0});
+}
+
+/**
+ * A drop into the 3D view lands on the grid's own plane (`plan.md` STUDIO-12011).
+ *
+ * The grid is the only landmark a 3D view has, so a thing dropped onto it is a thing standing
+ * somewhere the user can see. A fixed depth would put the entity in mid-air at a distance nobody
+ * chose, and the origin would put it under whatever is already there.
+ */
+CNA_STUDIO_TEST(ADropIntoTheThreeDimensionalViewLandsOnTheGridsPlane)
+{
+    StudioCamera3D camera;
+    camera.setViewportSize(StudioVector2{kWidth, kHeight});
+    camera.setPivot(StudioVector3{});
+    camera.setYaw(0.0f);
+    camera.setPitch(0.9f);  // Looking down at the scene plane, so a ray through it has an answer.
+    camera.setDistance(200.0f);
+
+    const StudioVector2 centre{kWidth * 0.5f, kHeight * 0.5f};
+    const StudioVector3 onScene = studioDropPoint3D(camera, centre, /*onGroundPlane=*/false);
+
+    // The scene's own XY plane is z = 0, which is where sprites, tilemaps and the 2D camera's whole
+    // world live -- so a drop there is a drop into the plane the rest of the editor is authored on.
+    CNA_STUDIO_EXPECT(std::abs(onScene.z) < 0.01f);
+
+    // And it is *where the cursor is*, not merely somewhere on the plane: a point to the right of
+    // the centre lands to the right of one at the centre.
+    const StudioVector3 rightOfCentre =
+        studioDropPoint3D(camera, StudioVector2{centre.x + 120.0f, centre.y}, false);
+    CNA_STUDIO_EXPECT(std::abs(rightOfCentre.z) < 0.01f);
+    CNA_STUDIO_EXPECT(rightOfCentre.x > onScene.x + 1.0f);
+
+    // The ground plane is the other choice, and it is y = 0 rather than z = 0.
+    StudioCamera3D above;
+    above.setViewportSize(StudioVector2{kWidth, kHeight});
+    above.setPivot(StudioVector3{});
+    above.setYaw(0.0f);
+    above.setPitch(1.2f);
+    above.setDistance(200.0f);
+
+    const StudioVector3 onGround = studioDropPoint3D(above, centre, /*onGroundPlane=*/true);
+    CNA_STUDIO_EXPECT(std::abs(onGround.y) < 0.01f);
+
+    // Looking *away* from the plane, the ray never reaches it. Rather than refusing a drop the user
+    // has already committed to, it lands in front of the camera at the distance it is orbiting at
+    // -- somewhere they can see it and drag it from, which is all a drop has to promise.
+    StudioCamera3D away;
+    away.setViewportSize(StudioVector2{kWidth, kHeight});
+    away.setPivot(StudioVector3{0.0f, 0.0f, 400.0f});
+    away.setYaw(3.14159265f);  // Turned right round, so the eye is past the plane looking outwards.
+    away.setPitch(0.0f);
+    away.setDistance(100.0f);
+
+    const StudioVector3 ahead = studioDropPoint3D(away, centre, /*onGroundPlane=*/false);
+    CNA_STUDIO_EXPECT(std::isfinite(ahead.x));
+    CNA_STUDIO_EXPECT(std::isfinite(ahead.y));
+    CNA_STUDIO_EXPECT(std::isfinite(ahead.z));
+
+    // In front of the eye rather than behind it, which is the whole of the fallback's promise.
+    const StudioVector3 toDrop{ahead.x - away.getEye().x, ahead.y - away.getEye().y,
+                               ahead.z - away.getEye().z};
+    const StudioVector3 forward = away.getForward();
+    CNA_STUDIO_EXPECT(toDrop.x * forward.x + toDrop.y * forward.y + toDrop.z * forward.z > 0.0f);
+}
+
+/**
  * Snapping is a state as well as a held key, and the steps are the project's (STUDIO-12007).
  *
  * Ctrl was the only way to snap, so a user laying out a level on a grid held it for every drag of
