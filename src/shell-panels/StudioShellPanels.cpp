@@ -1261,6 +1261,21 @@ namespace CNA::Studio
                 log_.append(LogSeverity::Warning,
                             "An entity cannot be moved inside one of its own children.");
             }
+            else if (outliner.reparented)
+            {
+                // The success needs a line for the same reason the refusal does, which is what the
+                // note above says and what this was missing: a drop onto a collapsed parent moves
+                // the row inside something the user cannot see, so the tree afterwards looks like
+                // the tree before with rows deleted. The count is the point (STUDIO-13004) -- a
+                // drag that started on a selection moves all of it, and this is where a user finds
+                // out whether it took the one row they were pointing at or the twelve they had
+                // chosen.
+                log_.append(LogSeverity::Info,
+                            outliner.reparentedCount == 1
+                                ? std::string{"Moved 1 entity."}
+                                : "Moved " + std::to_string(outliner.reparentedCount)
+                                      + " entities.");
+            }
 
             if (!outliner.selectionChanged) { return; }
 

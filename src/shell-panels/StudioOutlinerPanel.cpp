@@ -12,6 +12,7 @@
 #include "CNA/Studio/Scene/SceneDocument.hpp"
 #include "CNA/Studio/Scene/SceneCommands.hpp"
 #include "CNA/Studio/StudioContext.hpp"
+#include "CNA/Studio/Core/StudioCommand.hpp"
 
 #include <memory>
 
@@ -354,6 +355,74 @@ namespace CNA::Studio
         return std::vector<Uuid>{low, high + 1};
     }
 
+    std::vector<Uuid> studioOutlinerDragSet(const SceneDocument& scene,
+                                            const std::vector<Uuid>& selection, const Uuid& dragged)
+    {
+        if (!dragged.isValid() || scene.findEntity(dragged) == nullptr) { return {}; }
+
+        // A drag that starts on a row outside the selection moves that row alone. It does not
+        // silently take the selection with it: the user is pointing at something they have not
+        // selected, and moving forty entities they cannot see highlighted would be the worst kind
+        // of surprise -- one whose result is off the screen.
+        if (std::find(selection.begin(), selection.end(), dragged) == selection.end())
+        {
+            return {dragged};
+        }
+
+        std::vector<Uuid> moving;
+        moving.reserve(selection.size());
+        for (const Uuid& id : selection)
+        {
+            if (!id.isValid() || scene.findEntity(id) == nullptr) { continue; }
+
+            // Already coming with its parent. Reparenting it as well would pull it out of the
+            // thing it is travelling with and leave it a sibling, which is the opposite of what
+            // dragging a parent and its child together looks like it should do.
+            const bool underAnotherMember =
+                std::any_of(selection.begin(), selection.end(), [&](const Uuid& other) {
+                    return other != id && scene.isAncestorOf(other, id);
+                });
+            if (underAnotherMember) { continue; }
+
+            moving.push_back(id);
+        }
+
+        return moving;
+    }
+
+    StudioReparentPlan studioOutlinerReparentPlan(const SceneDocument& scene,
+                                                  const std::vector<Uuid>& moving,
+                                                  const Uuid& parent)
+    {
+        StudioReparentPlan plan;
+
+        // The nil parent is the root, which is a real destination rather than a missing one: it is
+        // what a detach means. Anything else has to exist, or the drop landed on a row the scene no
+        // longer has and doing nothing is the only honest answer.
+        if (parent.isValid() && scene.findEntity(parent) == nullptr) { return plan; }
+
+        for (const Uuid& id : moving)
+        {
+            if (!id.isValid() || scene.findEntity(id) == nullptr) { continue; }
+
+            // Checked here rather than left to the document. `reparentEntity` rejects a cycle and
+            // leaves the scene untouched, so pushing the command would be *harmless* -- and would
+            // put an undo entry on the stack that undoes nothing.
+            if (id == parent || (parent.isValid() && scene.isAncestorOf(id, parent)))
+            {
+                plan.refused = true;
+                plan.entities.clear();
+                return plan;
+            }
+
+            if (scene.findEntity(id)->getParentId() == parent) { continue; }
+
+            plan.entities.push_back(id);
+        }
+
+        return plan;
+    }
+
     bool studioBeginOutlinerRename(const SceneDocument& scene, const Uuid& entityId,
                                    StudioTreeState& state)
     {
@@ -507,26 +576,39 @@ namespace CNA::Studio
 
             const Uuid child = Uuid::parse(tree.droppedValue);
 
-            if (child.isValid() && parent.isValid() && child != parent)
+            // The whole selection when the drag started on part of it (`plan.md` STUDIO-13004).
+            // A user who has just shift-selected forty entities and drags one of them means all
+            // forty; an outliner that moved the one row under the pointer would make them repeat
+            // the gesture thirty-nine times.
+            const std::vector<Uuid> moving =
+                studioOutlinerDragSet(context.getScene(), context.getSelection(), child);
+            const StudioReparentPlan plan =
+                studioOutlinerReparentPlan(context.getScene(), moving, parent);
+
+            if (plan.refused) { result.reparentRefused = true; }
+            else if (!plan.entities.empty())
             {
-                // Checked here rather than left to the document. `reparentEntity` rejects a cycle
-                // and leaves the scene untouched, so pushing the command would be *harmless* --
-                // and would put an undo entry on the stack that undoes nothing, which is the kind
-                // of history that makes a user stop trusting Ctrl+Z.
-                if (context.getScene().isAncestorOf(child, parent))
+                // Through the history, like every other edit, and one entry for the whole drop:
+                // a gesture the user made once is a gesture one Ctrl+Z puts back. The children of
+                // each entity come with it because they are found *through* it, so there is
+                // nothing else to record.
+                auto batch = std::make_unique<CompositeCommand>(
+                    plan.entities.size() == 1
+                        ? std::string{"Reparent entity"}
+                        : "Reparent " + std::to_string(plan.entities.size()) + " entities");
+                for (const Uuid& id : plan.entities)
                 {
-                    result.reparentRefused = true;
+                    // Each command reads the entity's world transform as it is built, which is
+                    // before any of them runs. Safe here because nothing in the set moves anything
+                    // else in it: descendants of a moving entity were left out of the set, and a
+                    // target underneath one of them is the cycle the plan already refused.
+                    batch->add(std::make_unique<ReparentEntityCommand>(context.getScene(), id,
+                                                                      parent));
                 }
-                else if (context.getScene().findEntity(child) != nullptr
-                         && context.getScene().findEntity(parent) != nullptr)
-                {
-                    // Through the history, like every other edit. One entry for the whole move:
-                    // the children come with their parent because they are found through it, so
-                    // there is nothing else to record.
-                    context.execute(std::make_unique<ReparentEntityCommand>(
-                        context.getScene(), child, parent));
-                    result.reparented = true;
-                }
+                context.execute(std::move(batch));
+
+                result.reparented = true;
+                result.reparentedCount = plan.entities.size();
             }
             return result;
         }

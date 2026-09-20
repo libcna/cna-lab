@@ -725,6 +725,180 @@ CNA_STUDIO_TEST(DroppingARowOnAnotherReparentsItAsOneUndoEntry)
                          std::size_t{2});
 }
 
+/**
+ * A drag moves the selection it started on (`plan.md` STUDIO-13004).
+ *
+ * The drop path reparented the one entity the payload named, so a user who had just shift-selected
+ * forty and dragged one of them moved one and left thirty-nine -- with the drag preview saying
+ * nothing about which it would be. The decision is a CNA-free function over the scene, so the rule
+ * can be asserted without a frame, a shell or a drag.
+ */
+CNA_STUDIO_TEST(ADragTakesTheWholeSelectionWhenItStartsOnPartOfIt)
+{
+    Fixture fixture;
+    const SceneDocument& scene = fixture.context.getScene();
+
+    // Nothing selected, or a row outside the selection: the drag is that row alone. It does not
+    // quietly take a selection the user is not pointing at, whose result would be off the screen.
+    CNA_STUDIO_EXPECT_EQ(studioOutlinerDragSet(scene, {}, fixture.player).size(), std::size_t{1});
+    const std::vector<Uuid> outside =
+        studioOutlinerDragSet(scene, {fixture.weapon, fixture.shield}, fixture.camera);
+    CNA_STUDIO_EXPECT_EQ(outside.size(), std::size_t{1});
+    CNA_STUDIO_EXPECT(outside.front() == fixture.camera);
+
+    // Starting on part of the selection takes all of it, in selection order.
+    const std::vector<Uuid> whole =
+        studioOutlinerDragSet(scene, {fixture.weapon, fixture.shield}, fixture.shield);
+    CNA_STUDIO_EXPECT_EQ(whole.size(), std::size_t{2});
+    CNA_STUDIO_EXPECT(whole.front() == fixture.weapon);
+    CNA_STUDIO_EXPECT(whole.back() == fixture.shield);
+
+    // A child selected alongside its parent is left out: it is already coming, and reparenting it
+    // as well would tear it out of the thing it is travelling with and leave it a sibling.
+    const std::vector<Uuid> withChild =
+        studioOutlinerDragSet(scene, {fixture.player, fixture.weapon}, fixture.player);
+    CNA_STUDIO_EXPECT_EQ(withChild.size(), std::size_t{1});
+    CNA_STUDIO_EXPECT(withChild.front() == fixture.player);
+
+    // Including when the drag started *on* the child: the parent is what moves either way, because
+    // which row the pointer was over does not change what the selection contains.
+    const std::vector<Uuid> fromChild =
+        studioOutlinerDragSet(scene, {fixture.player, fixture.weapon}, fixture.weapon);
+    CNA_STUDIO_EXPECT_EQ(fromChild.size(), std::size_t{1});
+    CNA_STUDIO_EXPECT(fromChild.front() == fixture.player);
+
+    // An entity the scene does not have is not something to drag.
+    CNA_STUDIO_EXPECT(studioOutlinerDragSet(scene, {}, Uuid::generate()).empty());
+    CNA_STUDIO_EXPECT(studioOutlinerDragSet(scene, {}, Uuid{}).empty());
+}
+
+/**
+ * What a drop would do is decided before anything is done (`plan.md` STUDIO-13004).
+ */
+CNA_STUDIO_TEST(AReparentPlanRefusesTheWholeDropRatherThanMovingSomeOfIt)
+{
+    Fixture fixture;
+    const SceneDocument& scene = fixture.context.getScene();
+
+    // The ordinary case: two roots onto a third parent.
+    const StudioReparentPlan ordinary =
+        studioOutlinerReparentPlan(scene, {fixture.weapon, fixture.shield}, fixture.camera);
+    CNA_STUDIO_EXPECT(!ordinary.refused);
+    CNA_STUDIO_EXPECT_EQ(ordinary.entities.size(), std::size_t{2});
+
+    // One member that would make a ring refuses the whole gesture rather than moving the other.
+    // A drag that moved four of five would leave a hierarchy the user did not ask for and cannot
+    // see the shape of, and one Ctrl+Z would not be an obvious way back to what they had.
+    const StudioReparentPlan ring =
+        studioOutlinerReparentPlan(scene, {fixture.camera, fixture.player}, fixture.weapon);
+    CNA_STUDIO_EXPECT(ring.refused);
+    CNA_STUDIO_EXPECT(ring.entities.empty());
+
+    // Dropping something onto itself is the same refusal.
+    CNA_STUDIO_EXPECT(studioOutlinerReparentPlan(scene, {fixture.player}, fixture.player).refused);
+
+    // An entity already directly under the target is a no-op, not a conflict: it drops out of the
+    // plan and the rest still move. An undo entry that undoes nothing is history a user stops
+    // trusting.
+    const StudioReparentPlan partly =
+        studioOutlinerReparentPlan(scene, {fixture.weapon, fixture.camera}, fixture.player);
+    CNA_STUDIO_EXPECT(!partly.refused);
+    CNA_STUDIO_EXPECT_EQ(partly.entities.size(), std::size_t{1});
+    CNA_STUDIO_EXPECT(partly.entities.front() == fixture.camera);
+
+    // And a set that is *entirely* no-ops is nothing to do rather than a refusal: the two are
+    // different answers and the panel says different things about them.
+    const StudioReparentPlan nothing =
+        studioOutlinerReparentPlan(scene, {fixture.weapon}, fixture.player);
+    CNA_STUDIO_EXPECT(!nothing.refused);
+    CNA_STUDIO_EXPECT(nothing.entities.empty());
+
+    // The nil parent is the root, which is a real destination -- it is what a detach means.
+    const StudioReparentPlan toRoot = studioOutlinerReparentPlan(scene, {fixture.weapon}, Uuid{});
+    CNA_STUDIO_EXPECT(!toRoot.refused);
+    CNA_STUDIO_EXPECT_EQ(toRoot.entities.size(), std::size_t{1});
+
+    // A target the scene no longer has is nothing to do rather than a guess.
+    CNA_STUDIO_EXPECT(
+        studioOutlinerReparentPlan(scene, {fixture.weapon}, Uuid::generate()).entities.empty());
+}
+
+/**
+ * And the whole move is one undo entry (`plan.md` STUDIO-13004).
+ */
+CNA_STUDIO_TEST(ADropThatMovesASelectionIsOneUndoEntry)
+{
+    Fixture fixture;
+    StudioTreeState state;
+
+    // Weapon and Shield are Player's children; selected together and dropped on Main Camera they
+    // both become its children, and one Ctrl+Z puts both back.
+    fixture.context.setSelection({fixture.weapon, fixture.shield});
+    const std::size_t before = fixture.context.getHistory().getCursor();
+
+    const std::unique_ptr<StudioShell> shell = shellShowingTheOutliner();
+
+    std::vector<StudioTreeRow> rows;
+    StudioOutlinerResult last;
+    UiRect panelBounds;
+    CNA_STUDIO_EXPECT(shell->setPanelContent("outliner",
+        [&](StudioFrame& frame, const UiRect& bounds) {
+            const StudioOutlinerResult result =
+                studioOutlinerPanel(frame, bounds, fixture.context, state);
+            if (frame.isInputPass()) { last = result; }
+            if (frame.isDrawPass())
+            {
+                panelBounds = bounds;
+                rows = studioOutlinerRows(fixture.context.getScene(),
+                                          fixture.context.getSelection(), state);
+            }
+        }));
+
+    shell->renderFrame(at(-1.0f, -1.0f));
+    CNA_STUDIO_EXPECT(!panelBounds.isEmpty());
+
+    const float rowHeight = static_cast<float>(shell->theme().metric(StudioMetric::RowHeight));
+    float onto = -1.0f;
+    for (std::size_t i = 0; i < rows.size(); ++i)
+    {
+        if (rows[i].label == "Main Camera")
+        {
+            onto = panelBounds.top() + (static_cast<float>(i) + 0.5f) * rowHeight;
+        }
+    }
+    CNA_STUDIO_EXPECT(onto > 0.0f);
+
+    // The payload names one entity, as a drag always does. What it *moves* is the selection it
+    // started on, which is the whole of this case.
+    StudioFrame::StudioDragPayload payload;
+    payload.type = std::string{kStudioEntityDragType};
+    payload.value = fixture.weapon.toString();
+    payload.label = "Weapon";
+
+    shell->renderFrame(at(panelBounds.centerX(), onto, /*leftDown=*/true));
+    CNA_STUDIO_EXPECT(shell->frame().beginDrag(shell->frame().ids().make("source"), payload));
+    shell->renderFrame(at(panelBounds.centerX(), onto, /*leftDown=*/true));
+    shell->renderFrame(at(panelBounds.centerX(), onto));
+
+    CNA_STUDIO_EXPECT(last.reparented);
+    CNA_STUDIO_EXPECT(!last.reparentRefused);
+    CNA_STUDIO_EXPECT_EQ(last.reparentedCount, std::size_t{2});
+
+    const std::vector<Uuid> moved = fixture.context.getScene().getChildren(fixture.camera);
+    CNA_STUDIO_EXPECT_EQ(moved.size(), std::size_t{2});
+    CNA_STUDIO_EXPECT(fixture.context.getScene().getChildren(fixture.player).empty());
+
+    // One entry for the gesture the user made once, and undoing it puts both back under Player.
+    CNA_STUDIO_EXPECT_EQ(fixture.context.getHistory().getCursor(), before + 1);
+    CNA_STUDIO_EXPECT(fixture.context.getHistory().undo());
+    CNA_STUDIO_EXPECT(fixture.context.getScene().getChildren(fixture.camera).empty());
+    CNA_STUDIO_EXPECT_EQ(fixture.context.getScene().getChildren(fixture.player).size(),
+                         std::size_t{2});
+    CNA_STUDIO_EXPECT(fixture.context.getHistory().redo());
+    CNA_STUDIO_EXPECT_EQ(fixture.context.getScene().getChildren(fixture.camera).size(),
+                         std::size_t{2});
+}
+
 CNA_STUDIO_TEST(ADropThatWouldMakeACycleIsRefusedWithoutAnUndoEntry)
 {
     // `reparentEntity` rejects the cycle itself and leaves the scene untouched, so pushing the

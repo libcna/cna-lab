@@ -6,14 +6,14 @@
 
 **Exit criteria.** A scene with tens of thousands of entities browses and edits smoothly.
 
-**Progress:** 4 of 12 complete `████░░░░░░░░`
+**Progress:** 5 of 12 complete `█████░░░░░░░`
 
 | Id | Task | Status | Depends on |
 |----|------|:------:|------------|
 | `STUDIO-13001` | Nested entity tree with expand and collapse | ✅ | `STUDIO-07006` |
 | `STUDIO-13002` | Search and filter | ✅ | `STUDIO-13001` |
 | `STUDIO-13003` | Multi-selection, shift-range and Ctrl-additive | ✅ | `STUDIO-13001` |
-| `STUDIO-13004` | Drag to reparent | ⬜ | `STUDIO-03023` |
+| `STUDIO-13004` | Drag to reparent | ✅ | `STUDIO-03023` |
 | `STUDIO-13005` | Visibility and lock toggles | ⬜ | `STUDIO-13001` |
 | `STUDIO-13006` | Rename, duplicate and delete | ⬜ | `STUDIO-13001` |
 | `STUDIO-13007` | Context menu | ⬜ | `STUDIO-06005` |
@@ -141,7 +141,67 @@ ignores the collapse and the filter, and an anchor that moves on a Shift-click. 
 
 ### `STUDIO-13004` — Drag to reparent
 
-**Acceptance.** Cycles are rejected; the operation is one undo entry
+**Acceptance.** Cycles are rejected; the operation is one undo entry.
+
+**The drop path existed and moved one entity.** Dragging a row onto another reparented it, refused a
+cycle and recorded one undo entry, all of it tested since `STUDIO-07058` — and the payload names a
+single id, so a user who had just shift-selected forty entities (`STUDIO-13003`, landed the commit
+before) and dragged one of them moved one and left thirty-nine. That is what this task was.
+
+**A drag moves the selection it started on, and only the row otherwise.** Starting on a row that is
+*not* selected moves that row alone: the user is pointing at something they have not highlighted,
+and quietly taking forty others with it would be a surprise whose result is off the screen.
+
+**Descendants of a moving entity are left out of the set**, because they are already coming. An
+entity travels with its parent, and reparenting a selected child as well would tear it out of the
+thing it is moving with and leave it a sibling. Selecting a parent and its child is therefore a drag
+of the parent — from either row, because which one the pointer was over does not change what the
+selection contains.
+
+**One member that cannot move refuses the whole drop.** A drag that moved four of five would leave a
+hierarchy the user did not ask for, cannot see the shape of, and would not obviously get back with
+one Ctrl+Z. A member already directly under the target is *not* that case: it is a no-op, so it
+drops out of the plan and the others still move. An entirely-no-op set is nothing to do rather than
+a refusal, and the panel says different things about the two.
+
+**The decision is a CNA-free function over the scene** — `studioOutlinerDragSet` and
+`studioOutlinerReparentPlan` — so what a drop *means* can be asserted without a frame, a shell or a
+drag, and only carrying it out needs the editor.
+
+**One `CompositeCommand` for the whole drop.** A gesture the user made once is a gesture one Ctrl+Z
+puts back. Each `ReparentEntityCommand` reads its entity's world transform as it is *built*, before
+any of them runs, which is safe here precisely because of the two rules above: nothing in the set
+moves anything else in it, since descendants were excluded and a target underneath a moving entity
+is the cycle the plan refuses.
+
+**The success is announced, not just the refusal.** The binder already warned about a refused drop,
+with a note saying a successful drop onto a collapsed parent is the same picture — the row moves
+inside something the user cannot see, so the tree afterwards looks like the tree before with rows
+missing. It warned about one and said nothing about the other. It reports the count now, which is
+also where a user finds out whether the drag took the one row they were pointing at or the twelve
+they had chosen.
+
+**Not done: dropping on the panel background to unparent.** The tree reports drops on *rows*, so
+there is no drag gesture for "make this a root" — `studio.entity.detach` (`STUDIO-07058`) is the
+only way, from the menu or its shortcut. Adding a background target means a drop area that exists
+only when the rows do not fill the viewport, which is a gesture that works sometimes; left out
+deliberately rather than overlooked, and recorded here so the next reader does not re-find it as a
+defect. `studioOutlinerReparentPlan` already treats the nil parent as a real destination, so the
+decision half is in place if the gesture is ever wanted.
+
+**Verification.** `tests/StudioOutlinerPanelTests.cpp`, three cases beside the two that were already
+there. `ADragTakesTheWholeSelectionWhenItStartsOnPartOfIt` pins the set: nothing selected and a row
+outside the selection each give one; starting on part of it gives all of it in selection order; a
+child selected with its parent is left out from either end; an entity the scene does not have is not
+something to drag. `AReparentPlanRefusesTheWholeDropRatherThanMovingSomeOfIt` pins the plan: the
+ordinary case, a ring refusing everything rather than moving the innocent member, a drop onto
+itself, a no-op member dropping out while the rest move, an all-no-op set that is not a refusal, the
+nil parent as a destination, and a target the scene no longer has.
+`ADropThatMovesASelectionIsOneUndoEntry` drives a real drag through the shell and pins that two
+entities move, that the count is reported, and that one Ctrl+Z puts both back and one Ctrl+Y returns
+them. Checked by causing four failures — a drag set that ignores the selection, one that keeps
+descendants, a plan that moves the members it can instead of refusing, and a command per entity
+instead of one batch. Each fails by name.
 
 ### `STUDIO-13011` — Virtualisation for large worlds
 

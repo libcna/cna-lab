@@ -78,6 +78,16 @@ namespace CNA::Studio
         bool reparented = false;
 
         /**
+         * @brief How many entities the drop moved (`plan.md` STUDIO-13004).
+         *
+         * One for the ordinary drag, and the size of the selection for a drag that started on part
+         * of it. Reported so the shell can say which it was: "Reparented 12 entities" is the only
+         * confirmation a user gets that the drop took the selection and not just the row they were
+         * pointing at.
+         */
+        std::size_t reparentedCount = 0;
+
+        /**
          * @brief An asset was dropped on a row, and is to be put in the scene. Input pass only.
          *
          * `plan.md` STUDIO-09008. Reported rather than acted on here, because what an asset
@@ -167,6 +177,67 @@ namespace CNA::Studio
                                                         const StudioTreeState& state,
                                                         const StudioOutlinerFilter& filter,
                                                         const Uuid& from, const Uuid& to);
+
+    /**
+     * @brief What a drag starting on @p dragged actually moves.
+     *
+     * `plan.md` STUDIO-13004. A drag picks up the whole selection when it starts on part of it, and
+     * only the row it started on otherwise -- which is what every list does, and what a user who
+     * has just selected forty entities means when they drag one of them.
+     *
+     * **Descendants of a moving entity are left out**, because they are already coming: an entity
+     * travels with its parent, and reparenting a child as well would tear it out of the parent it
+     * is moving with and leave it a sibling. A selection of a parent and its child is therefore a
+     * drag of the parent, not of two things.
+     *
+     * @param scene The scene, for the ancestry.
+     * @param selection What is currently selected.
+     * @param dragged The entity the drag started on.
+     * @return The entities to move, in selection order; empty when @p dragged is not in the scene.
+     */
+    [[nodiscard]] std::vector<Uuid> studioOutlinerDragSet(const SceneDocument& scene,
+                                                          const std::vector<Uuid>& selection,
+                                                          const Uuid& dragged);
+
+    /** @brief What dropping a set of entities onto one parent would do. */
+    struct StudioReparentPlan
+    {
+        /**
+         * @brief The entities that would actually move.
+         *
+         * Entities already directly under the target are left out: they are a no-op, not a
+         * conflict, and an undo entry that undoes nothing is the kind of history a user stops
+         * trusting.
+         */
+        std::vector<Uuid> entities;
+
+        /**
+         * @brief Whether the drop is refused outright.
+         *
+         * True when *any* member of the set cannot go under the target -- it is the target, or it
+         * is one of the target's ancestors and the move would make the tree a ring. The whole
+         * gesture is refused rather than the offending members dropped, because a drag that moved
+         * four of five entities would leave a hierarchy the user did not ask for and cannot see
+         * the shape of, and one Ctrl+Z would not be an obvious way back.
+         */
+        bool refused = false;
+    };
+
+    /**
+     * @brief Works out what dropping @p moving onto @p parent would do.
+     *
+     * `plan.md` STUDIO-13004. A CNA-free function so the rule can be asserted without a frame,
+     * a shell or a drag: what a drop *means* is a question about the scene, and only carrying it
+     * out is a question about the editor.
+     *
+     * @param scene The scene.
+     * @param moving The entities being dragged, from @ref studioOutlinerDragSet.
+     * @param parent The entity they were dropped on. Nil makes them roots.
+     * @return The plan. Both empty and not refused means there is nothing to do.
+     */
+    [[nodiscard]] StudioReparentPlan studioOutlinerReparentPlan(const SceneDocument& scene,
+                                                                const std::vector<Uuid>& moving,
+                                                                const Uuid& parent);
 
     /**
      * @brief Starts renaming @p entityId in the outliner, if it is in the scene.
