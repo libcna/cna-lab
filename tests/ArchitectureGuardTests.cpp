@@ -287,6 +287,98 @@ CNA_STUDIO_TEST(TheNativeStudioUiIsCnaFree)
     CNA_STUDIO_EXPECT_EQ(violations, std::size_t{0});
 }
 
+/**
+ * Every change to the edited scene is a command (`plan.md` STUDIO-13012, D-06).
+ *
+ * The rule the undo stack rests on. A panel that wrote to the document directly would make one
+ * change Ctrl+Z cannot reach -- and a user who finds *one* such change stops trusting undo for all
+ * of them, which costs far more than the edit.
+ *
+ * It was already true when this guard was written: nothing in `src/shell-panels`, `src/ui-core` or
+ * `src/viewport` touches `SceneDocument`'s mutating API. That is exactly when a guard is worth
+ * adding -- a rule with no violations is cheap to enforce and expensive to restore once it has one.
+ *
+ * The allow-list is closed and every entry carries its reason, so adding to it is a decision
+ * somebody makes in review rather than a pattern that quietly stops complaining.
+ */
+CNA_STUDIO_TEST(OnlyCommandsChangeTheEditedScene)
+{
+    struct Allowed
+    {
+        const char* path;
+        const char* why;
+    };
+
+    // Matched as a suffix of the relative path, so the separator style of the host does not decide
+    // whether the guard works.
+    static constexpr Allowed kAllowed[] = {
+        {"src/scene/SceneDocument.cpp", "the document's own implementation"},
+        {"src/scene/SceneCommands.cpp", "the commands themselves"},
+        {"src/scene/PrefabCommands.cpp", "the prefab commands"},
+        {"src/scene/Tilemap.cpp", "PaintTilesCommand's read-modify-write of one stroke"},
+        {"src/context/PrefabWorkflow.cpp", "CreatePrefabCommand and its undo"},
+        {"src/context/StudioContext.cpp",
+         "the default camera of a brand-new scene, before there is a document to undo into"},
+        {"src/app/Main.cpp",
+         "benchmark scenario setup; routing it through the history would be measuring the history"},
+        {"src/player/PlayerHost.cpp",
+         "the player's own runtime scene, which is not the document being edited"},
+    };
+
+    // `clear()` is deliberately not among these: it is too common a method name to scan for
+    // textually, and a document cleared outside a command is a whole-file operation rather than an
+    // edit -- opening or closing a scene, which is not what undo is for.
+    static constexpr const char* kMutators[] = {
+        "findEntityForEdit", "addEntity", "removeEntityRecursive", "reparentEntity",
+    };
+
+    std::size_t violations = 0;
+    std::size_t allowedSeen = 0;
+
+    for (const SourceFile& file : collectSources({"src"}))
+    {
+        const auto endsWith = [&file](const char* suffix) {
+            const std::string tail{suffix};
+            return file.relativePath.size() >= tail.size()
+                && file.relativePath.compare(file.relativePath.size() - tail.size(), tail.size(),
+                                             tail)
+                    == 0;
+        };
+
+        const Allowed* exemption = nullptr;
+        for (const Allowed& entry : kAllowed)
+        {
+            if (endsWith(entry.path)) { exemption = &entry; }
+        }
+
+        const std::string code = stripCommentsAndStrings(file.text);
+        bool mutates = false;
+        for (const char* mutator : kMutators)
+        {
+            const std::size_t position = code.find(mutator);
+            if (position == std::string::npos) { continue; }
+            mutates = true;
+
+            if (exemption != nullptr) { continue; }
+
+            ++violations;
+            CnaStudioTest::reportFailure(__FILE__, __LINE__,
+                file.relativePath + ":" + std::to_string(lineOf(code, position)) + " calls '"
+                + std::string{mutator}
+                + "' on the scene. Every change to the edited document goes through a "
+                  "StudioCommand (ANALYSIS.md D-06), or it is a change Ctrl+Z cannot reach.");
+        }
+
+        if (exemption != nullptr && mutates) { ++allowedSeen; }
+    }
+
+    CNA_STUDIO_EXPECT_EQ(violations, std::size_t{0});
+
+    // The allow-list is checked against reality too. An entry whose file no longer mutates anything
+    // is an exemption nobody needs, and a list that only ever grows is one that stops being read.
+    CNA_STUDIO_EXPECT_EQ(allowedSeen, std::size(kAllowed));
+}
+
 CNA_STUDIO_TEST(EverySourceFileCarriesItsLicenceIdentifier)
 {
     // A house rule matching CNA's own, and the kind that decays silently without a check.

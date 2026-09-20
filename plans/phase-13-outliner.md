@@ -6,7 +6,7 @@
 
 **Exit criteria.** A scene with tens of thousands of entities browses and edits smoothly.
 
-**Progress:** 10 of 12 complete `██████████░░`
+**Progress:** 11 of 12 complete `███████████░`
 
 | Id | Task | Status | Depends on |
 |----|------|:------:|------------|
@@ -21,7 +21,7 @@
 | `STUDIO-13009` | Prefab status indication | ✅ | `STUDIO-13001` |
 | `STUDIO-13010` | Type icons and component warnings | ✅ | `STUDIO-13001` |
 | `STUDIO-13011` | Virtualisation for large worlds | ✅ | `STUDIO-30010` |
-| `STUDIO-13012` | Every mutation goes through a command | ⬜ | `STUDIO-02035` |
+| `STUDIO-13012` | Every mutation goes through a command | ✅ | `STUDIO-02035` |
 
 ## Acceptance and verification
 
@@ -456,6 +456,40 @@ carries a transform **and** a camera, because a transform alone is an "empty ent
 already reports — a subject that started marked could not show the mark appearing, which is how the
 first draft of it failed. Checked by causing two failures — the last issue winning instead of the
 worst, and a cache that never refreshes after the first frame. Each fails by name.
+
+### `STUDIO-13012` — Every mutation goes through a command
+
+**Acceptance.** No panel writes to the document directly, and something other than review keeps it
+that way.
+
+**It was already true, and that is exactly when a guard is worth adding.** Nothing in
+`src/shell-panels`, `src/ui-core` or `src/viewport` touches `SceneDocument`'s mutating API — the
+audit that opened this task found no violation to fix. A rule with no violations is cheap to
+enforce and expensive to restore once it has one, and this is the rule the undo stack rests on: a
+panel that wrote to the document directly would make one change Ctrl+Z cannot reach, and a user who
+finds *one* such change stops trusting undo for all of them.
+
+**A closed allow-list, every entry carrying its reason.** Eight files may call the mutators, and
+each says why: the document's own implementation, the three files where the commands live,
+`CreatePrefabCommand` and its undo, the default camera of a brand-new scene (before there is a
+document to undo into), the benchmark's scenario setup (routing it through the history would be
+measuring the history), and the player's own runtime scene, which is not the document being edited.
+Adding to that list is a decision somebody makes in review rather than a pattern that quietly stops
+complaining.
+
+**The list is checked against reality in both directions.** A file that mutates and is not on it
+fails; an entry whose file no longer mutates anything also fails, because an exemption nobody needs
+is how a list stops being read.
+
+**`clear()` is deliberately not scanned for.** It is too common a method name to match textually,
+and a document cleared outside a command is a whole-file operation — opening or closing a scene —
+rather than an edit, which is not what undo is for. Said here rather than left as a gap somebody
+finds later and mistakes for an oversight.
+
+**Verification.** `tests/ArchitectureGuardTests.cpp`: `OnlyCommandsChangeTheEditedScene`. Checked by
+causing both failures — a `findEntityForEdit` planted in the Outliner's menu dispatch, which the
+guard reported with its file, line and the rule; and a stale entry added to the allow-list, which
+the second assertion caught. Each fails by name.
 
 ### `STUDIO-13011` — Virtualisation for large worlds
 
