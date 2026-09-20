@@ -656,6 +656,18 @@ namespace CNA::Studio
             StudioAction action = *existing;
             action.checkable = true;
             action.isChecked = [this] { return viewportState_.space == GizmoSpace::Local; };
+
+            // Refused where it means nothing (`plan.md` STUDIO-12004). Scale is always local --
+            // a non-uniform scale in world space needs a shear, which a
+            // position/rotation/scale transform cannot express -- so neither scale gizmo takes a
+            // space at all, and pressing X while scaling used to flip the check and change
+            // nothing on screen. Disabled rather than hidden, like every other command here that
+            // does not apply: a user who went looking for it should find it and see why.
+            action.isEnabled = [this] {
+                return viewportState_.mode == GizmoMode::Translate
+                    || viewportState_.mode == GizmoMode::Rotate;
+            };
+
             action.run = [this] {
                 viewportState_.space = viewportState_.space == GizmoSpace::World
                     ? GizmoSpace::Local : GizmoSpace::World;

@@ -6,14 +6,14 @@
 
 **Exit criteria.** Transforming objects feels precise and predictable, and every drag is exactly one undo entry.
 
-**Progress:** 6 of 11 complete `██████░░░░░░`
+**Progress:** 7 of 11 complete `███████░░░░░`
 
 | Id | Task | Status | Depends on |
 |----|------|:------:|------------|
 | `STUDIO-12001` | Translate gizmo | ✅ | `STUDIO-11006` |
 | `STUDIO-12002` | Rotate gizmo | ✅ | `STUDIO-11006` |
 | `STUDIO-12003` | Scale gizmo | ✅ | `STUDIO-11006` |
-| `STUDIO-12004` | Local and world transform spaces | ⬜ | `STUDIO-12001` |
+| `STUDIO-12004` | Local and world transform spaces | ✅ | `STUDIO-12001` |
 | `STUDIO-12005` | Multi-selection transforms about a shared pivot | ⬜ | `STUDIO-12001` |
 | `STUDIO-12006` | Pivot editing | ⬜ | `STUDIO-12005` |
 | `STUDIO-12007` | Snapping: grid, angle and scale increments | ✅ | `STUDIO-12001` |
@@ -223,6 +223,37 @@ with the panel. `tests/StudioViewport3DTests.cpp`: the band is the left drag und
 Ctrl+left under Studio's, where the plain drag still orbits. Checked by causing four: enclosure
 instead of overlap, two projected corners instead of eight, no threshold, and Ctrl+left orbiting in
 Studio's scheme. Each fails by name.
+
+### `STUDIO-12004` — Local and world transform spaces
+
+**Acceptance.** The translate and rotate gizmos work in either space, the user can switch between
+them, and the one gizmo that has no space says so rather than pretending.
+
+**The substance was there and one thing lied.** `GizmoSpace` runs through both translate gizmos and
+both rotate ones: in World the arms are the world's axes and a drag along X moves the entity right
+whatever it is doing; in Local they follow the entity's own, which is what somebody placing
+something inside a rotated rig wants. `X` toggles it, the toggle is checkable so a toolbar can show
+which space is live, and any drag in flight ends with the space that owned it -- a translate
+half-finished in world space would otherwise keep writing world deltas into a local transform.
+
+**Scale has no space, and the toggle used to accept the press anyway.** A non-uniform scale in world
+space needs a shear, which a position/rotation/scale transform cannot express, so *neither* scale
+gizmo takes a `GizmoSpace` at all -- both say so in their own documentation. Pressing X while
+scaling flipped the check and changed nothing on screen. A control that responds and does nothing is
+worse than one that refuses, because the user has no way to tell which of the two just happened.
+
+**Disabled rather than hidden**, which is the rule the rest of this shell already follows for the
+3D-only commands and the ground-plane toggle: somebody who went looking for it should find it and
+see why it is greyed out.
+
+**The chosen space survives the trip through Scale**, so switching to Scale and back does not
+quietly reset it -- the setting belongs to the user, not to the mode that happened to be active.
+
+**Verification.** `tests/StudioViewport3DTests.cpp`: the toggle is live and works under Translate,
+stays live under Rotate, refuses under Scale, and the space the user chose is still theirs on the
+way back. `tests/ViewportTests.cpp` already pins the arithmetic -- a local layout's arms follow the
+entity's rotation and a world layout's do not. Checked by causing it: a toggle enabled everywhere
+fails by name.
 
 ### `STUDIO-12007` — Snapping: grid, angle and scale increments
 

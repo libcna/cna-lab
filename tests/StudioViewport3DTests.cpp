@@ -919,6 +919,74 @@ CNA_STUDIO_TEST(ABandInThreeDGoesWhereALeftDragAlreadyMeansSelect)
 }
 
 /**
+ * The space toggle refuses in Scale mode, where it means nothing (`plan.md` STUDIO-12004).
+ *
+ * Scale is always local: a non-uniform scale in world space needs a shear, which a
+ * position/rotation/scale transform cannot express, so neither scale gizmo takes a space at all.
+ * Pressing X while scaling used to flip the check and change nothing on screen -- a control that
+ * responds and does nothing is worse than one that refuses, because the user has no way to tell
+ * which of the two just happened.
+ */
+CNA_STUDIO_TEST(TheGizmoSpaceToggleRefusesWhileScaling)
+{
+    StudioContext context;
+    StudioLog log;
+    StudioShell shell;
+    shell.resetLayout();
+
+    StudioCamera2D camera;
+    StudioCamera3D camera3D;
+    StudioShellPanels panels{shell, context, log};
+    panels.setViewportServices(camera, camera3D, {});
+
+    UiInputState input;
+    input.displayWidth = 1280.0f;
+    input.displayHeight = 720.0f;
+    shell.renderFrame(input);
+
+    // Translate is the default, and there the toggle is live and does what it says.
+    CNA_STUDIO_EXPECT(shell.actions().isEnabled("studio.view.toggleGizmoSpace"));
+    CNA_STUDIO_EXPECT(!shell.actions().isChecked("studio.view.toggleGizmoSpace"));
+
+    const StudioAction* space = shell.actions().find("studio.view.toggleGizmoSpace");
+    CNA_STUDIO_EXPECT(space != nullptr && space->run != nullptr);
+    if (space == nullptr || space->run == nullptr) { return; }
+
+    space->run();
+    shell.renderFrame(input);
+    CNA_STUDIO_EXPECT(shell.actions().isChecked("studio.view.toggleGizmoSpace"));
+    CNA_STUDIO_EXPECT(panels.viewportSpace() == GizmoSpace::Local);
+
+    // Rotate keeps it: a turn about the entity's own axes is a different turn from one about the
+    // world's, and which of the two a user wants is exactly what this asks.
+    const StudioAction* rotate = shell.actions().find("studio.view.rotate");
+    CNA_STUDIO_EXPECT(rotate != nullptr && rotate->run != nullptr);
+    if (rotate == nullptr || rotate->run == nullptr) { return; }
+    rotate->run();
+    shell.renderFrame(input);
+    CNA_STUDIO_EXPECT(shell.actions().isEnabled("studio.view.toggleGizmoSpace"));
+
+    // Scale refuses it, and the space the user had chosen is still theirs when they come back.
+    const StudioAction* scale = shell.actions().find("studio.view.scale");
+    CNA_STUDIO_EXPECT(scale != nullptr && scale->run != nullptr);
+    if (scale == nullptr || scale->run == nullptr) { return; }
+    scale->run();
+    shell.renderFrame(input);
+
+    CNA_STUDIO_EXPECT(!shell.actions().isEnabled("studio.view.toggleGizmoSpace"));
+    CNA_STUDIO_EXPECT(panels.viewportSpace() == GizmoSpace::Local);
+
+    const StudioAction* translate = shell.actions().find("studio.view.translate");
+    CNA_STUDIO_EXPECT(translate != nullptr && translate->run != nullptr);
+    if (translate == nullptr || translate->run == nullptr) { return; }
+    translate->run();
+    shell.renderFrame(input);
+
+    CNA_STUDIO_EXPECT(shell.actions().isEnabled("studio.view.toggleGizmoSpace"));
+    CNA_STUDIO_EXPECT(panels.viewportSpace() == GizmoSpace::Local);
+}
+
+/**
  * Snapping is a state as well as a held key, and the steps are the project's (STUDIO-12007).
  *
  * Ctrl was the only way to snap, so a user laying out a level on a grid held it for every drag of
