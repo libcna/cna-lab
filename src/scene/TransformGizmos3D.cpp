@@ -1086,8 +1086,23 @@ namespace CNA::Studio
     }
 
     std::optional<StudioVector3> computeSelectionPivot3D(const SceneDocument& scene,
-                                                          const std::vector<Uuid>& entityIds)
+                                                          const std::vector<Uuid>& entityIds,
+                                                          StudioPivotMode mode)
     {
+        if (mode == StudioPivotMode::Active)
+        {
+            // The last that has a transform, exactly as the 2D form resolves it.
+            for (auto entityId = entityIds.rbegin(); entityId != entityIds.rend(); ++entityId)
+            {
+                if (const std::optional<WorldTransform> world =
+                        computeWorldTransform(scene, *entityId))
+                {
+                    return world->position;
+                }
+            }
+            return std::nullopt;
+        }
+
         StudioVector3 total;
         std::size_t counted = 0;
 

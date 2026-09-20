@@ -632,6 +632,31 @@ namespace CNA::Studio
         // X, which the prototype has and the native shell did not (docs/MIGRATION-INVENTORY.md).
         // A toggle rather than two commands, as it is there: there are two spaces, and a toggle
         // needs no second binding to get back.
+        // Where a multi-selection pivots (`plan.md` STUDIO-12006). Exclusive and checkable, and
+        // live in every view: a mode is a preference rather than a property of the current
+        // selection, so it does not flicker as the user picks and unpicks things.
+        for (const auto& [id, pivot] :
+             {std::pair{"studio.view.pivot.center", StudioPivotMode::Center},
+              std::pair{"studio.view.pivot.active", StudioPivotMode::Active}})
+        {
+            const StudioAction* existing = shell.actions().find(id);
+            if (existing == nullptr) { continue; }
+
+            StudioAction action = *existing;
+            action.checkable = true;
+            action.isChecked = [this, pivot] { return viewportState_.pivotMode == pivot; };
+            action.run = [this, pivot] {
+                if (viewportState_.pivotMode == pivot) { return; }
+                viewportState_.pivotMode = pivot;
+
+                // Any drag in flight ends with the pivot that owned it, for the same reason a
+                // space change does: a turn half-finished about the centre would keep writing
+                // angles measured from a point the gizmo has left.
+                viewportState_.endDrag();
+            };
+            shell.actions().add(std::move(action));
+        }
+
         // Snapping, as a state the toolbar can show (`plan.md` STUDIO-12007). Not disabled in any
         // view: the 2D and 3D gizmos both round, and so does the game view's absence of one --
         // which is to say a user switching views keeps the setting they chose.

@@ -745,6 +745,130 @@ CNA_STUDIO_TEST(ATranslateDragOnAMultiSelectionMovesEveryEntityAsOneUndoEntry)
 }
 
 /**
+ * A selection can turn about the entity selected last, not only about the middle (STUDIO-12006).
+ *
+ * Two different intentions, and neither is a rounding of the other: "arrange these relative to each
+ * other" wants the middle of them, and "put these where that one is" wants that one. `Active` is
+ * also the only mode under which a rotation leaves *something* exactly where it was, which is what
+ * makes it the one to reach for when placing a part against a fixed feature.
+ *
+ * The centre of the bounding box is deliberately not a third mode: it moves when an entity is
+ * merely rotated, so a user turning one piece of a group would watch the group's pivot drift under
+ * them. That reasoning predates this task and is left standing.
+ */
+CNA_STUDIO_TEST(APivotModeChoosesBetweenTheMiddleAndTheLastSelected)
+{
+    Fixture fixture;
+    const Uuid farEntity = [&] {
+        for (const StudioEntity& entity : fixture.context.getScene().getEntities())
+        {
+            if (entity.getName() == "Far") { return entity.getId(); }
+        }
+        return Uuid{};
+    }();
+    CNA_STUDIO_EXPECT(farEntity.isValid());
+
+    const std::vector<Uuid> selection{fixture.nearEntity, farEntity};
+
+    // Near is at the origin and Far is at x = 40, so the middle is x = 20 and the last selected is
+    // x = 40 -- two answers that cannot be confused for each other.
+    const std::optional<StudioVector3> centre =
+        computeSelectionPivot3D(fixture.context.getScene(), selection, StudioPivotMode::Center);
+    CNA_STUDIO_EXPECT(centre.has_value());
+    if (centre) { CNA_STUDIO_EXPECT(std::abs(centre->x - 20.0f) < 0.01f); }
+
+    const std::optional<StudioVector3> active =
+        computeSelectionPivot3D(fixture.context.getScene(), selection, StudioPivotMode::Active);
+    CNA_STUDIO_EXPECT(active.has_value());
+    if (active) { CNA_STUDIO_EXPECT(std::abs(active->x - 40.0f) < 0.01f); }
+
+    // Reversed, the active answer follows the order and the centre does not -- which is the whole
+    // difference between "which of them" and "where are they".
+    const std::vector<Uuid> reversed{farEntity, fixture.nearEntity};
+    const std::optional<StudioVector3> reversedActive =
+        computeSelectionPivot3D(fixture.context.getScene(), reversed, StudioPivotMode::Active);
+    CNA_STUDIO_EXPECT(reversedActive.has_value());
+    if (reversedActive) { CNA_STUDIO_EXPECT(std::abs(reversedActive->x) < 0.01f); }
+
+    const std::optional<StudioVector3> reversedCentre =
+        computeSelectionPivot3D(fixture.context.getScene(), reversed, StudioPivotMode::Center);
+    CNA_STUDIO_EXPECT(reversedCentre.has_value());
+    if (reversedCentre) { CNA_STUDIO_EXPECT(std::abs(reversedCentre->x - 20.0f) < 0.01f); }
+
+    // Center is the default, so every existing caller keeps meaning what it meant.
+    const std::optional<StudioVector3> byDefault =
+        computeSelectionPivot3D(fixture.context.getScene(), selection);
+    CNA_STUDIO_EXPECT(byDefault.has_value());
+    if (byDefault) { CNA_STUDIO_EXPECT(std::abs(byDefault->x - 20.0f) < 0.01f); }
+
+    CNA_STUDIO_EXPECT_EQ(std::string{toString(StudioPivotMode::Active)}, std::string{"Active"});
+}
+
+/**
+ * Under Active, a turn leaves the last-selected entity exactly where it is (`plan.md` STUDIO-12006).
+ *
+ * Which is the point of the mode, and the thing the centre cannot do: about the middle, *every*
+ * member moves. Driven through the panel rather than through the pivot function alone, because the
+ * claim is about what a drag does and the drag is what carries the mode.
+ */
+CNA_STUDIO_TEST(TurningAboutTheActivePivotLeavesThatEntityWhereItIs)
+{
+    Fixture fixture;
+    const Uuid farEntity = [&] {
+        for (const StudioEntity& entity : fixture.context.getScene().getEntities())
+        {
+            if (entity.getName() == "Far") { return entity.getId(); }
+        }
+        return Uuid{};
+    }();
+
+    fixture.context.select(fixture.nearEntity);
+    fixture.context.toggleSelection(farEntity);
+    fixture.state.mode = GizmoMode::Rotate;
+    fixture.state.pivotMode = StudioPivotMode::Active;
+
+    fixture.camera.setPivot(StudioVector3{20.0f, 0.0f, 0.0f});
+    fixture.camera.setDistance(120.0f);
+    fixture.run(away());
+
+    const auto positionOf = [&](const Uuid& id) {
+        return fixture.context.getScene().findEntity(id)
+            ->findComponent("CNA.Transform")->getProperty("position").get<StudioVector3>();
+    };
+
+    // The gizmo sits on Far, because Far was selected last.
+    const StudioVector3 pivot{40.0f, 0.0f, 0.0f};
+    const auto layout = computeRotateGizmo3DLayout(fixture.context.getScene(), fixture.camera,
+                                                   farEntity, GizmoSpace::World, pivot);
+    CNA_STUDIO_EXPECT(layout.has_value());
+    if (!layout) { return; }
+
+    // The Z ring, which is close to face-on from this camera and so has an angle to measure.
+    const std::vector<StudioVector2>& ring = layout->rings[2];
+    CNA_STUDIO_EXPECT(!ring.empty());
+    if (ring.empty()) { return; }
+
+    const std::size_t before = fixture.context.getHistory().getCursor();
+    const StudioVector2 grab = ring[ring.size() / 4];
+    const StudioVector2 to = ring[ring.size() / 2];
+    fixture.dragVia({grab, StudioVector2{(grab.x + to.x) * 0.5f, (grab.y + to.y) * 0.5f}, to});
+
+    // The drag happened at all, which is the first thing to establish: a panel that ignored the
+    // pivot mode would put its gizmo at the middle, the press on the ring drawn about Far would
+    // miss it entirely, and every assertion below would pass by nothing having moved.
+    CNA_STUDIO_EXPECT_EQ(fixture.context.getHistory().getCursor(), before + 1);
+
+    // Far did not move, and Near did: a turn about one of them is a turn that leaves that one
+    // alone, which is the whole reason to pick this mode.
+    const StudioVector3 farAfter = positionOf(farEntity);
+    CNA_STUDIO_EXPECT(std::abs(farAfter.x - 40.0f) < 0.01f);
+    CNA_STUDIO_EXPECT(std::abs(farAfter.y) < 0.01f);
+
+    const StudioVector3 nearAfter = positionOf(fixture.nearEntity);
+    CNA_STUDIO_EXPECT(std::abs(nearAfter.x) > 0.5f || std::abs(nearAfter.y) > 0.5f);
+}
+
+/**
  * A uniform scale on a multi-selection resizes it, and used to do nothing (STUDIO-12005).
  *
  * The multi path built its per-axis factors from X, Y and Z alone, so the centre handle -- the

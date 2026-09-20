@@ -59,13 +59,13 @@ mapping is in [`docs/LEGACY-EDITOR-TASK-MAP.md`](docs/LEGACY-EDITOR-TASK-MAP.md)
 
 ## Global progress
 
-**329 of 579 tasks complete** `██████████████░░░░░░░░░░░`  56.8%
+**330 of 579 tasks complete** `██████████████░░░░░░░░░░░`  57.0%
 
 | Status | Count |
 |--------|------:|
-| ✅ Complete | 329 |
+| ✅ Complete | 330 |
 | 🔄 In progress | 8 |
-| ⬜ Not started | 234 |
+| ⬜ Not started | 233 |
 | ⛔ Deferred | 3 |
 | 🔬 Blocked | 4 |
 | ⊘ Superseded | 1 |
@@ -93,7 +93,7 @@ mapping is in [`docs/LEGACY-EDITOR-TASK-MAP.md`](docs/LEGACY-EDITOR-TASK-MAP.md)
 | 9 | [Content Browser 2](plans/phase-09-content-browser.md) | `STUDIO-09NNN` | ⬜ | 17 | 17 | `██████████` |
 | 10 | [Asset pipeline and importing](plans/phase-10-asset-pipeline.md) | `STUDIO-10NNN` | ⬜ | 15 | 11 | `███████░░░` |
 | 11 | [3D viewport 2](plans/phase-11-viewport.md) | `STUDIO-11NNN` | 🔄 | 15 | 14 | `█████████░` |
-| 12 | [Selection and gizmos 2](plans/phase-12-gizmos.md) | `STUDIO-12NNN` | ⬜ | 11 | 10 | `█████████░` |
+| 12 | [Selection and gizmos 2](plans/phase-12-gizmos.md) | `STUDIO-12NNN` | ⬜ | 11 | 11 | `██████████` |
 | 13 | [World Outliner 2](plans/phase-13-outliner.md) | `STUDIO-13NNN` | ⬜ | 12 | 1 | `░░░░░░░░░░` |
 | 14 | [Details Inspector 2](plans/phase-14-inspector.md) | `STUDIO-14NNN` | ⬜ | 18 | 0 | `░░░░░░░░░░` |
 | 15 | [C++ gameplay component workflow](plans/phase-15-cpp-gameplay.md) | `STUDIO-15NNN` | ⬜ | 12 | 0 | `░░░░░░░░░░` |

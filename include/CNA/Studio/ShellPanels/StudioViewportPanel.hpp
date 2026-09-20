@@ -391,6 +391,16 @@ namespace CNA::Studio
         GizmoSpace space = GizmoSpace::World;
 
         /**
+         * @brief Where a multi-selection's gizmo sits (`plan.md` STUDIO-12006).
+         *
+         * `Center` by default, which is what the editor did when there was no choice. Means
+         * nothing for a selection of one -- an entity's own pivot is its own position either way --
+         * which is why the commands that set it stay live rather than flickering with the
+         * selection: a mode is a preference, not a property of what happens to be picked.
+         */
+        StudioPivotMode pivotMode = StudioPivotMode::Center;
+
+        /**
          * @brief Whether drags snap without a modifier being held (`plan.md` STUDIO-12007).
          *
          * Off by default, which is what the editor did when Ctrl was the only way to snap. With it

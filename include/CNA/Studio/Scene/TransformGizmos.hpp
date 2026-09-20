@@ -435,17 +435,51 @@ namespace CNA::Studio
     }
 
     /**
-     * @brief Returns the shared pivot for @p entityIds: the average of their world positions.
+     * @brief Where a gizmo on a multi-selection sits, and what a turn or a resize happens about.
      *
-     * What a gizmo on a multi-selection sits at. The average rather than the first entity's
-     * position, because a pivot that jumps as the selection order changes is one a user cannot
-     * predict; and rather than the centre of the bounding box, because that moves when an entity is
-     * *rotated* without anything having been asked to move.
-     *
-     * Returns nothing when no selected entity has a transform.
+     * `plan.md` STUDIO-12006. Two answers, because they are two different intentions and neither is
+     * a rounding of the other: "arrange these relative to each other" wants the middle of them, and
+     * "put these where that one is" wants that one.
      */
-    [[nodiscard]] std::optional<StudioVector2> computeSelectionPivot(const SceneDocument& scene,
-                                                                     const std::vector<Uuid>& entityIds);
+    enum class StudioPivotMode
+    {
+        /**
+         * @brief The average of the selection's world positions. The default.
+         *
+         * The average rather than the first entity's position, because a pivot that jumps as the
+         * selection order changes is one a user cannot predict.
+         */
+        Center,
+
+        /**
+         * @brief The last-selected entity's own origin.
+         *
+         * Unity calls this Pivot and Blender calls it Active Element, and both put it beside the
+         * centre for the same reason: a user assembling a group clicks the pieces and finishes on
+         * the one everything should turn about. It is also the only mode under which a rotation
+         * leaves *something* exactly where it was, which is what makes it the one to reach for when
+         * placing a part against a fixed feature.
+         */
+        Active
+    };
+
+    /** @brief Returns the stable name of @p mode, for a menu row and for tests. */
+    [[nodiscard]] const char* toString(StudioPivotMode mode);
+
+    /**
+     * @brief Returns the shared pivot for @p entityIds under @p mode.
+     *
+     * The centre of the bounding box is deliberately *not* offered as a third: it moves when an
+     * entity is merely *rotated*, with nothing having been asked to move, so a user turning one
+     * piece of a group would watch the whole group's pivot drift under them.
+     *
+     * Returns nothing when no selected entity has a transform. Under `Active`, the last entity in
+     * @p entityIds that *has* one -- a selection ending on something untransformable still has a
+     * pivot, rather than the gizmo vanishing.
+     */
+    [[nodiscard]] std::optional<StudioVector2> computeSelectionPivot(
+        const SceneDocument& scene, const std::vector<Uuid>& entityIds,
+        StudioPivotMode mode = StudioPivotMode::Center);
 
     /**
      * @brief Returns the entities in @p entityIds that no other selected entity is an ancestor of.

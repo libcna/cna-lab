@@ -6,7 +6,7 @@
 
 **Exit criteria.** Transforming objects feels precise and predictable, and every drag is exactly one undo entry.
 
-**Progress:** 10 of 11 complete `██████████░░`
+**Progress:** 11 of 11 complete `████████████`
 
 | Id | Task | Status | Depends on |
 |----|------|:------:|------------|
@@ -15,7 +15,7 @@
 | `STUDIO-12003` | Scale gizmo | ✅ | `STUDIO-11006` |
 | `STUDIO-12004` | Local and world transform spaces | ✅ | `STUDIO-12001` |
 | `STUDIO-12005` | Multi-selection transforms about a shared pivot | ✅ | `STUDIO-12001` |
-| `STUDIO-12006` | Pivot editing | ⬜ | `STUDIO-12005` |
+| `STUDIO-12006` | Pivot editing | ✅ | `STUDIO-12005` |
 | `STUDIO-12007` | Snapping: grid, angle and scale increments | ✅ | `STUDIO-12001` |
 | `STUDIO-12008` | One undo entry per drag, returning exactly to the drag start | ✅ | `STUDIO-12001` |
 | `STUDIO-12009` | Box selection | ✅ | `STUDIO-11006` |
@@ -376,6 +376,44 @@ stays finite and in front of the eye when the ray never reaches it. And the pane
 drag begun over it is reported with the asset's id and the panel's own landing point, and nothing
 reaches the scene from the panel. Checked by causing both: a panel that ignores the drop, and a
 landing point that always takes the fallback. Each fails by name.
+
+### `STUDIO-12006` — Pivot editing
+
+**Acceptance.** A user chooses what a multi-selection turns and resizes about, and both viewports
+answer the same way.
+
+**Two modes, because they are two intentions and neither is a rounding of the other.** "Arrange
+these relative to each other" wants the middle of them; "put these where that one is" wants that
+one. `Center` is the average of the selection's world positions and is what the editor did when
+there was no choice, so it stays the default and every existing caller keeps meaning what it meant.
+`Active` is the last-selected entity's own origin — Unity's Pivot, Blender's Active Element.
+
+**`Active` is the only mode under which a rotation leaves something exactly where it was**, which is
+what makes it the one to reach for when placing a part against a fixed feature. About the middle,
+*every* member moves.
+
+**The last that has a transform, walked backwards**, so a selection ending on something
+untransformable still has a pivot rather than the gizmo vanishing because the user happened to
+finish on a node with nothing to place.
+
+**The centre of the bounding box is deliberately not a third mode.** That reasoning predates this
+task and is left standing: the bounds centre moves when an entity is merely *rotated*, with nothing
+having been asked to move, so a user turning one piece of a group would watch the group's pivot
+drift under them. A mode whose own documentation has to warn about that is a feature with a
+footnote.
+
+**Live in every view, and exclusive.** A mode is a preference rather than a property of the current
+selection, so the commands do not flicker as the user picks and unpicks things; and a drag in flight
+ends with the pivot that owned it, for the same reason a space change ends one — a turn
+half-finished about the centre would keep writing angles measured from a point the gizmo has left.
+
+**Verification.** `tests/StudioViewport3DTests.cpp`: the two modes give x = 20 and x = 40 for the
+same pair of entities, `Active` follows the selection order while `Center` does not, and `Center` is
+what an unqualified call returns. And through the panel: a turn under `Active` leaves the
+last-selected entity exactly where it is while the other moves. That case asserts the drag
+*happened* before asserting what it did — a panel ignoring the mode puts its gizmo at the middle,
+the press on the ring drawn about the active entity misses entirely, and everything else would pass
+by nothing having moved. Checked by causing it: the panel dropping the mode fails both, by name.
 
 ### `STUDIO-12007` — Snapping: grid, angle and scale increments
 

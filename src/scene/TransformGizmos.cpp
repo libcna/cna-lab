@@ -503,9 +503,36 @@ namespace CNA::Studio
         return scale;
     }
 
-    std::optional<StudioVector2> computeSelectionPivot(const SceneDocument& scene,
-                                                       const std::vector<Uuid>& entityIds)
+    const char* toString(StudioPivotMode mode)
     {
+        switch (mode)
+        {
+            case StudioPivotMode::Center: return "Center";
+            case StudioPivotMode::Active: return "Active";
+        }
+        return "Center";
+    }
+
+    std::optional<StudioVector2> computeSelectionPivot(const SceneDocument& scene,
+                                                       const std::vector<Uuid>& entityIds,
+                                                       StudioPivotMode mode)
+    {
+        if (mode == StudioPivotMode::Active)
+        {
+            // The last that *has* a transform, walked backwards: a selection ending on something
+            // untransformable still has a pivot, rather than the gizmo vanishing because the user
+            // happened to finish on a node with nothing to place.
+            for (auto entityId = entityIds.rbegin(); entityId != entityIds.rend(); ++entityId)
+            {
+                if (const std::optional<WorldTransform> world =
+                        computeWorldTransform(scene, *entityId))
+                {
+                    return StudioVector2{world->position.x, world->position.y};
+                }
+            }
+            return std::nullopt;
+        }
+
         StudioVector2 total;
         std::size_t counted = 0;
 

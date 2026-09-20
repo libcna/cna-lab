@@ -534,17 +534,17 @@ namespace CNA::Studio
     };
 
     /**
-     * @brief Returns the shared pivot for @p entityIds: the average of their world positions.
+     * @brief Returns the shared pivot for @p entityIds under @p mode.
      *
-     * The 3D form of `computeSelectionPivot`, and the same choice for the same reasons: the average
-     * rather than the first entity's position, because a pivot that jumps as the selection order
-     * changes is one a user cannot predict; and rather than the centre of the bounding box, because
-     * that moves when an entity is merely *rotated*, with nothing having been asked to move.
+     * The 3D form of `computeSelectionPivot`, taking the same `StudioPivotMode` and answering it
+     * the same way -- a user who set the pivot mode in one viewport and found the other ignoring it
+     * would have half a setting.
      *
      * Returns nothing when no selected entity has a transform.
      */
-    [[nodiscard]] std::optional<StudioVector3> computeSelectionPivot3D(const SceneDocument& scene,
-                                                                        const std::vector<Uuid>& entityIds);
+    [[nodiscard]] std::optional<StudioVector3> computeSelectionPivot3D(
+        const SceneDocument& scene, const std::vector<Uuid>& entityIds,
+        StudioPivotMode mode = StudioPivotMode::Center);
 
     /**
      * @brief The selection-wide half of a 3D drag.

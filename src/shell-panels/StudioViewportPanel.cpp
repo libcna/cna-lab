@@ -106,7 +106,7 @@ namespace CNA::Studio
             // positions, and the renderer draws it there. Hit-testing anywhere else would mean
             // grabbing a gizmo that is not where it is drawn.
             const std::optional<StudioVector2> pivot = selection.size() > 1
-                ? computeSelectionPivot(scene, selection)
+                ? computeSelectionPivot(scene, selection, state.pivotMode)
                 : std::nullopt;
 
             bool began = false;
@@ -332,7 +332,8 @@ namespace CNA::Studio
             // the fact, unlike the 2D ones: there is no equivalent of `placeGizmoAt` here because
             // none is needed.
             const std::optional<StudioVector3> pivot =
-                selection.size() > 1 ? computeSelectionPivot3D(scene, selection) : std::nullopt;
+                selection.size() > 1 ? computeSelectionPivot3D(scene, selection, state.pivotMode)
+                                     : std::nullopt;
 
             bool began = false;
             switch (state.mode)

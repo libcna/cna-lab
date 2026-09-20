@@ -439,6 +439,16 @@ namespace CNA::Studio
         // because a viewport where a drag rounds and a viewport where it does not look identical
         // until the drag happens -- and a user who cannot see which they are in finds out by
         // placing something wrong.
+        // Where a multi-selection turns and resizes about (`plan.md` STUDIO-12006). Exclusive and
+        // checkable, like the shading modes: the two give different results from the same drag, and
+        // a user who cannot see which is set finds out by turning a group the wrong way round.
+        command("studio.view.pivot.center", "Pivot: Center",
+                "Turn and resize a selection about the middle of it.", C::View, StudioShortcut{},
+                /*checkable=*/true);
+        command("studio.view.pivot.active", "Pivot: Active",
+                "Turn and resize a selection about the entity selected last.", C::View,
+                StudioShortcut{}, /*checkable=*/true);
+
         command("studio.view.snap", "Snap",
                 "Round drags to the project's grid, angle and scale steps.", C::View,
                 StudioShortcut{}, /*checkable=*/true);
