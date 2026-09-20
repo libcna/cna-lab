@@ -6,7 +6,7 @@
 
 **Exit criteria.** A scene with tens of thousands of entities browses and edits smoothly.
 
-**Progress:** 5 of 12 complete `█████░░░░░░░`
+**Progress:** 6 of 12 complete `██████░░░░░░`
 
 | Id | Task | Status | Depends on |
 |----|------|:------:|------------|
@@ -14,7 +14,7 @@
 | `STUDIO-13002` | Search and filter | ✅ | `STUDIO-13001` |
 | `STUDIO-13003` | Multi-selection, shift-range and Ctrl-additive | ✅ | `STUDIO-13001` |
 | `STUDIO-13004` | Drag to reparent | ✅ | `STUDIO-03023` |
-| `STUDIO-13005` | Visibility and lock toggles | ⬜ | `STUDIO-13001` |
+| `STUDIO-13005` | Visibility and lock toggles | ✅ | `STUDIO-13001` |
 | `STUDIO-13006` | Rename, duplicate and delete | ⬜ | `STUDIO-13001` |
 | `STUDIO-13007` | Context menu | ⬜ | `STUDIO-06005` |
 | `STUDIO-13008` | Folder and group organisation | ⬜ | `STUDIO-13001` |
@@ -202,6 +202,91 @@ entities move, that the count is reported, and that one Ctrl+Z puts both back an
 them. Checked by causing four failures — a drag set that ignores the selection, one that keeps
 descendants, a plan that moves the members it can instead of refusing, and a command per entity
 instead of one batch. Each fails by name.
+
+### `STUDIO-13005` — Visibility and lock toggles
+
+**Acceptance.** A row can hide its entity and lock it; a locked entity cannot be picked or moved in
+the viewport; both go through the history.
+
+**Visibility existed. Lock did not exist anywhere** — no field, no key, no accessor, nothing in any
+picker. The eye came in with `STUDIO-35060`; this is the second button and everything behind it.
+
+**A lock is editor state, not a runtime property.** It lives in the entity's studio state
+(`Scene/SceneLock.hpp`, key `"locked"`), which the runtime scene compiler drops wholesale
+(ANALYSIS.md D-07). The finished game has no notion of a thing the designer told the editor to keep
+its hands off, so a field beside `enabled` would be shipping an authoring decision into the build —
+and `enabled` is a real runtime property, which is why the two are not the same kind of flag however
+alike the two buttons look. Absent means unlocked, so a scene written before this reads back exactly
+as it was and an unlocked entity costs nothing to store. It round-trips through the scene file for
+free, which is the point of putting it there, and is asserted anyway.
+
+**A lock inherits downwards.** That is the whole reason to have one: a designer locks the finished
+level geometry once, at the group, rather than forty times at the pieces. The walk goes *upwards*
+from the entity and stops at the first lock — one step per ancestor, where marking a subtree would
+cost the whole scene on every pick — and is bounded by the document's acyclicity invariant.
+
+**Every way into the viewport honours it**: the 2D ray pick, the 2D band, the 3D ray pick and the 3D
+band, each a separate loop that needs the rule of its own. The 2D **icon** pass needs it twice over,
+because it runs last and *overrides* whatever the sprite pass found: without the check there, a
+locked camera's icon would take a click the first loop had already refused — and take it from the
+unlocked sprite behind it.
+
+**And the gizmos refuse it**, on both the input and the drawing side. A lock that stopped a click
+but not a drag would be half a lock, because the Outliner can still select a locked entity and that
+is exactly the path a user takes to unlock it — so the selection reaching a gizmo routinely contains
+things that must not move. The filter is inside `beginGizmoDrag`, not at its call sites, so the
+anchor and the multi-drag agree: `selection.back()` is what the manipulator is built around, and
+building it around an entity the drag then refuses to move is the same bug somewhere subtler. The
+renderer drops the same entities, because a manipulator drawn over something a press cannot grab is
+a control that does nothing when clicked — the user tries, nothing moves, and the reason is
+invisible.
+
+**The row's toggle became a list.** One set of fields was never going to hold the second button, and
+two is where that becomes obvious. Fixed order on every row — eye, then lock — so a user learns one
+column rather than hunting for whichever button a given row happens to carry. The row shows the
+entity's *own* lock rather than the inherited one: a child of a locked group is out of reach in the
+viewport, but a button whose click does not change what it is showing is a broken button.
+
+#### The row's small controls could not be clicked at all
+
+Found while wiring the lock up, and it is the larger half of this task.
+
+`StudioInputRouter::interact` gives a press to the **first** widget described under the pointer: it
+sets `active_` there and then, and every widget described afterwards at the same point returns an
+empty interaction until the button comes back up. `studioTreeRows` described the row — one widget
+covering the whole line — and *then* the disclosure triangle and the trailing toggle, under a
+comment claiming the later of two overlapping widgets wins the click. That is the opposite of what
+the router does. **Expanding a branch by clicking its triangle and hiding an entity by clicking its
+eye were both dead in the editor**, in every tree in the application, and had been since each was
+written.
+
+Nothing caught it because no case had ever pressed one through a frame: the expansion tests set
+`StudioTreeState` directly and the eye's test read the row's fields. Both features were verified at
+the level below the one they were broken at.
+
+The controls are described before the row now. Only the *description* moves — the drawing stays
+where it was, because the row's background is painted over everything above it and a triangle drawn
+early vanishes under the alternating fill. That was the reason the drawing was deferred in the first
+place, and deferring the interaction with it is how the two got conflated.
+
+This repairs `STUDIO-13001`'s expand-and-collapse and `STUDIO-35060`'s visibility toggle as a side
+effect. Neither is re-opened: both were ticked for work that was done and correct, above a widget
+that never delivered the press.
+
+**Verification.** `tests/ViewportTests.cpp`: a locked entity in front loses the click to the
+unlocked one behind it, a band takes only the unlocked one, a lock on the parent reaches the child
+while the child's own flag stays clear, and a locked entity's icon is not a way around any of it.
+`tests/SceneTests.cpp`: both 3D paths leave it alone; the command is refused when it would change
+nothing and undoes back to *absent* rather than to `"locked": false`, because a scene where
+everything the user ever clicked carries the key is a diff nobody can read; and a lock survives the
+JSON round trip. `tests/StudioOutlinerPanelTests.cpp`: the row carries two toggles in that order
+with the lock reading the entity's own flag; clicking the lock is one undo entry and does *not* also
+select the row; and `TheDisclosureTriangleAndTheRowButtonsTakeAPressAheadOfTheRow` presses a
+triangle through a real frame, which is the only way the defect above is visible at all.
+
+Checked by causing five failures — the row described first again, 2D picking ignoring the lock, a
+lock that does not inherit, undo writing `false` instead of removing the key, and 3D picking
+ignoring the lock. Each fails by name.
 
 ### `STUDIO-13011` — Virtualisation for large worlds
 

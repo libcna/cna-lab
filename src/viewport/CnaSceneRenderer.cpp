@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MS-PL
 #include "CNA/Studio/Viewport/CnaSceneRenderer.hpp"
 
+#include "CNA/Studio/Scene/SceneLock.hpp"
+
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -1108,16 +1110,22 @@ namespace CNA::Studio
         // put several overlapping manipulators on screen with no way to tell which one a press
         // would grab. Manipulating a whole multi-selection needs a shared pivot first, and is a
         // separate piece of work (plan.md ED-200's multi-select).
-        if (!selection.empty())
+        //
+        // Locked entities are dropped first (`plan.md` STUDIO-13005). A manipulator drawn over
+        // something a press cannot grab is a control that does nothing when clicked, which is worse
+        // than no control: the user tries, nothing moves, and the reason is invisible. The input
+        // side refuses the same entities, so the two agree about what is draggable.
+        const std::vector<Uuid> movable = withoutLocked(scene, selection);
+        if (!movable.empty())
         {
-            const Uuid& gizmoTarget = selection.front();
+            const Uuid& gizmoTarget = movable.front();
 
             // With several entities selected the gizmo sits on their shared pivot -- the average of
             // their positions -- and manipulates all of them about it. The layout is still computed
             // for the primary selection, so its arms follow that entity's rotation in local space;
             // only the origin moves.
             const std::optional<StudioVector2> pivot =
-                selection.size() > 1 ? computeSelectionPivot(scene, selection) : std::nullopt;
+                movable.size() > 1 ? computeSelectionPivot(scene, movable) : std::nullopt;
 
             switch (gizmoMode)
             {

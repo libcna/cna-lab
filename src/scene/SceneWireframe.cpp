@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MS-PL
 #include "CNA/Studio/Scene/SceneWireframe.hpp"
 
+#include "CNA/Studio/Scene/SceneLock.hpp"
+
 #include <algorithm>
 #include <unordered_map>
 #include <cmath>
@@ -849,6 +851,11 @@ namespace CNA::Studio
         {
             if (!entity.isEnabled()) { continue; }
 
+            // A locked entity is deliberately out of reach (`plan.md` STUDIO-13005). A band that
+            // swept it up would be the easiest way to move the level geometry somebody locked
+            // precisely so it would stop moving.
+            if (isEntityLocked(scene, entity.getId())) { continue; }
+
             const std::optional<WorldBounds3D> bounds =
                 computeEntityBounds3D(scene, entity.getId(), sizeProvider, meshProvider);
             if (!bounds) { continue; }
@@ -948,6 +955,12 @@ namespace CNA::Studio
         for (const StudioEntity& entity : scene.getEntities())
         {
             if (!entity.isEnabled()) { continue; }
+
+            // And a locked one is out of reach (`plan.md` STUDIO-13005): clicking is how everything
+            // in the viewport gets selected, so a lock a ray could step over would be a lock that
+            // does nothing. The Outliner still selects it, which is what keeps it reachable to
+            // unlock again.
+            if (isEntityLocked(scene, entity.getId())) { continue; }
 
             const std::optional<WorldBounds3D> bounds =
                 computeEntityBounds3D(scene, entity.getId(), sizeProvider, meshProvider);

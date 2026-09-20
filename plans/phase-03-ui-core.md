@@ -536,23 +536,38 @@ works, a menu closing when a dialog opens, and About being a real dialog whose t
 splitting the code by hand, and the shape that used to be a trap is either impossible or fails a
 test naming the widget.
 
-**Not a preference. It has happened three times, and twice in one session.** A tree row is one
-widget covering the whole line, so anything that has to win the click against the row must be
-described *before* the row — and is therefore drawn before it, and painted over by it.
+**Not a preference. It has happened four times.** A tree row is one widget covering the whole line,
+so anything that has to win the click against the row must be described *before* the row — and is
+therefore drawn before it, and painted over by it.
 
 | | How it presented |
 |---|---|
 | The disclosure triangle | Expandable rows lost their triangle **on alternate lines only**, because the alternating fill is what covered it. Read as a data problem |
 | The outliner's visibility toggle (`STUDIO-35060`) | As **nothing at all**. The click toggled, the tooltip appeared, two unit tests passed, and the eye was never once on screen |
 | The Details panel's asset inspector (`STUDIO-07045`) | Written correctly, and covered only because the earlier two had made it a thing to check |
+| Both of the first two again, as *clicks* (`STUDIO-13005`) | The fix for the drawing was applied to the **description** as well, so the triangle and the eye moved below the row entirely. `StudioInputRouter` gives a press to the first widget described under the pointer, so neither could be clicked — in any tree in the application, from the day each was written |
 
 The second is the one that matters: a feature that works and cannot be seen is worse than a missing
 one, because nothing reports it. It was found by reading a 1920×1080 capture while writing a handoff.
 
-**The fix so far is a rule and two guards, which is one guard per *instance*.** `STUDIO-35063` asserts
-the outliner's toggle ordering on emitted geometry, and `STUDIO-07045` added a rasterising one for
-the asset inspector. Both are real and both are retrospective: they defend the two places somebody
-already got wrong, and the next widget on a row starts from the same trap.
+**The fourth is the same trap sprung by the fix for the first.** The rule as stated above is right
+and was written down here, and the code did the opposite: the drawing had to be deferred, so the
+whole block was deferred, and the two halves — *when a widget is described* and *when it is painted*
+— were conflated by the very change that was meant to separate them. A rule in a plan file is not a
+guard. Nothing failed, because every case for both features tested the level below the one they were
+broken at: the expansion cases set `StudioTreeState` directly and the eye's case read the row's
+fields.
+
+**The fix so far is a rule and three guards, which is one guard per *instance*.** `STUDIO-35063`
+asserts the outliner's toggle ordering on emitted geometry, `STUDIO-07045` added a rasterising one
+for the asset inspector, and `STUDIO-13005` added
+`TheDisclosureTriangleAndTheRowButtonsTakeAPressAheadOfTheRow`, which presses a triangle and a
+toggle through a real frame. All three are real and all three are retrospective: they defend the
+places somebody already got wrong, and the next widget on a row starts from the same trap.
+
+The third guard is the one that generalises least badly, because it asserts the *behaviour* — that a
+press reaches the control — rather than the ordering that happens to produce it today. A geometry
+assertion says the toggle is drawn over the fill; only a press says it can be used.
 
 **What this task is for**, stated as a question rather than a design: the draw list is emitted in
 call order and that is also description order, so the two are the same thing. Separating them is

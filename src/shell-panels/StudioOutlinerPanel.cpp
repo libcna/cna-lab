@@ -11,6 +11,7 @@
 #include "CNA/Studio/Scene/BuiltinComponents.hpp"
 #include "CNA/Studio/Scene/SceneDocument.hpp"
 #include "CNA/Studio/Scene/SceneCommands.hpp"
+#include "CNA/Studio/Scene/SceneLock.hpp"
 #include "CNA/Studio/StudioContext.hpp"
 #include "CNA/Studio/Core/StudioCommand.hpp"
 
@@ -168,10 +169,30 @@ namespace CNA::Studio
             // field, and inventing one would put a presentation concern into the document format,
             // where it would then have to be migrated, validated and exported -- and it would be a
             // second thing that hides an entity, which is one too many.
-            row.toggleIcon = StudioIcon::Visible;
-            row.toggleOffIcon = StudioIcon::Hidden;
-            row.toggleOn = entity->isEnabled();
-            row.toggleTooltip = entity->isEnabled() ? "Hide this entity" : "Show this entity";
+            // The eye first and the lock second, in that order on every row (`plan.md`
+            // STUDIO-13005): a user learns one column rather than hunting for whichever button a
+            // given row happens to carry. Indices here are what `studioOutlinerToggle` names.
+            StudioRowToggle visibility;
+            visibility.icon = StudioIcon::Visible;
+            visibility.offIcon = StudioIcon::Hidden;
+            visibility.on = entity->isEnabled();
+            visibility.tooltip = entity->isEnabled() ? "Hide this entity" : "Show this entity";
+
+            // The row's *own* lock, not the inherited one. A child of a locked group is out of
+            // reach in the viewport, but its button has to show and change what the entity itself
+            // says -- a button whose click does not change what it is showing is a broken button,
+            // and unlocking a child that was never locked would do nothing visible.
+            const bool locked = isEntityLockedItself(*entity);
+            StudioRowToggle lock;
+            lock.icon = StudioIcon::Unlock;
+            lock.offIcon = StudioIcon::Lock;
+
+            // `on` is *un*locked, because the shared rule is "shown while hovered or while off" and
+            // the rows worth marking at a glance are the locked ones. The eye reads the same way.
+            lock.on = !locked;
+            lock.tooltip = locked ? "Unlock this entity" : "Lock this entity";
+
+            row.toggles = {std::move(visibility), std::move(lock)};
 
             // `STUDIO-07058`. Every row is both a drag source and a drop target, because
             // rearranging a hierarchy is dragging one entity onto another and both roles belong to
@@ -550,9 +571,25 @@ namespace CNA::Studio
                 // Through the history, like every other edit, and *before* the click below is
                 // considered: a press on the toggle is not a press on the row, and handling both
                 // would hide an entity and select it in one gesture.
-                context.execute(std::make_unique<SetEntityEnabledCommand>(
-                    context.getScene(), id, !entity->isEnabled()));
-                result.visibilityChanged = true;
+                if (tree.toggledRowActionIndex == studioOutlinerLockToggle)
+                {
+                    const bool wanted = !isEntityLockedItself(*entity);
+                    auto command =
+                        std::make_unique<SetEntityLockedCommand>(context.getScene(), id, wanted);
+                    if (command->isValid())
+                    {
+                        context.execute(std::move(command));
+                        result.lockChanged = true;
+                        result.lockedEntity = id;
+                        result.lockedNow = wanted;
+                    }
+                }
+                else
+                {
+                    context.execute(std::make_unique<SetEntityEnabledCommand>(
+                        context.getScene(), id, !entity->isEnabled()));
+                    result.visibilityChanged = true;
+                }
             }
             return result;
         }

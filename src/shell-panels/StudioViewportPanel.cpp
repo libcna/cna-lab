@@ -6,6 +6,8 @@
 
 #include "CNA/Studio/ShellPanels/StudioViewportPanel.hpp"
 
+#include "CNA/Studio/Scene/SceneLock.hpp"
+
 #include "CNA/Studio/ShellPanels/StudioContentBrowser.hpp"
 
 #include "CNA/Studio/Project/Project.hpp"
@@ -96,10 +98,22 @@ namespace CNA::Studio
          * @return True when a drag began, meaning the press must not also pick.
          */
         bool beginGizmoDrag(StudioContext& context, StudioCamera2D& camera,
-                            StudioViewportState& state, const std::vector<Uuid>& selection,
+                            StudioViewportState& state, const std::vector<Uuid>& wholeSelection,
                             const StudioVector2& pointer)
         {
             const SceneDocument& scene = context.getScene();
+
+            // Locked entities are dropped before anything else (`plan.md` STUDIO-13005). A lock
+            // that stopped a click but not a drag would be half a lock: the Outliner can still
+            // select a locked entity, and that is the path a user takes to unlock it -- so the
+            // selection reaching a gizmo routinely contains things that must not move.
+            //
+            // Filtered here rather than at the two call sites so the anchor and the multi-drag
+            // agree: `selection.back()` is what the manipulator is built around, and building it
+            // around an entity the drag then refuses to move is the same bug in a subtler place.
+            const std::vector<Uuid> selection = withoutLocked(scene, wholeSelection);
+            if (selection.empty()) { return false; }
+
             const Uuid entityId = selection.back();
 
             // A selection of more than one puts the manipulator at the *average* of their
@@ -322,10 +336,18 @@ namespace CNA::Studio
          * @return True when a drag began, meaning the press must not also orbit or select.
          */
         bool beginGizmoDrag3D(StudioContext& context, const StudioCamera3D& camera,
-                              StudioViewportState& state, const std::vector<Uuid>& selection,
+                              StudioViewportState& state,
+                              const std::vector<Uuid>& wholeSelection,
                               const StudioVector2& pointer)
         {
             const SceneDocument& scene = context.getScene();
+
+            // The same rule the 2D path has, for the same reason: a locked entity can be selected
+            // from the Outliner -- that is how it gets unlocked -- so a selection arriving here
+            // routinely contains things that must not move.
+            const std::vector<Uuid> selection = withoutLocked(scene, wholeSelection);
+            if (selection.empty()) { return false; }
+
             const Uuid entityId = selection.back();
 
             // The 3D layout functions take the pivot directly rather than being relocated after

@@ -156,6 +156,50 @@ namespace CNA::Studio
     };
 
     /**
+     * @brief Locks or unlocks an entity against being picked and moved in the viewport.
+     *
+     * `plan.md` STUDIO-13005. A command like every other document change (D-06) and for the same
+     * reason `SetEntityEnabledCommand` is one: a lock the user flicked by mistake is a lock they
+     * cannot undo their way out of, and the entity they can no longer click is also the one they
+     * can no longer reach to unlock -- except through the Outliner, which is a thing they have to
+     * know rather than a thing Ctrl+Z tells them.
+     *
+     * The flag lives in the entity's studio state (`Scene/SceneLock.hpp`), so this writes there
+     * rather than to a field: locking is an authoring decision and the finished game has no notion
+     * of it.
+     */
+    class SetEntityLockedCommand final : public StudioCommand
+    {
+    public:
+        SetEntityLockedCommand(SceneDocument& document, Uuid entityId, bool locked);
+
+        void execute() override;
+        void undo() override;
+        [[nodiscard]] std::string getDescription() const override;
+        [[nodiscard]] std::string getMergeKey() const override;
+        bool mergeWith(const StudioCommand& newer) override;
+
+        /** @brief False when the entity is not in the document, or already in the asked-for state. */
+        [[nodiscard]] bool isValid() const { return valid_; }
+
+    private:
+        SceneDocument* document_;
+        Uuid entityId_;
+        bool locked_ = false;
+        bool wasLocked_ = false;
+
+        /**
+         * @brief Whether the key was there at all before this ran.
+         *
+         * Undoing back to *absent* rather than to `false`: absent is what an untouched entity looks
+         * like, and a scene where every entity the user ever glanced at carries `"locked": false`
+         * is a diff nobody can read.
+         */
+        bool hadKey_ = false;
+        bool valid_ = false;
+    };
+
+    /**
      * @brief Moves an entity under a new parent, leaving it where it is in the world.
      *
      * Passing the nil Uuid as the new parent makes the entity a root. A move that would create a

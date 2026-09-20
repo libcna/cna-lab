@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MS-PL
 #include "CNA/Studio/Scene/SceneCommands.hpp"
 
+#include "CNA/Studio/Scene/SceneLock.hpp"
+
 #include "CNA/Studio/Scene/BuiltinComponents.hpp"
 #include "CNA/Studio/Scene/SceneTransform.hpp"
 
@@ -220,6 +222,66 @@ namespace CNA::Studio
         if (other == nullptr || other->entityId_ != entityId_) { return false; }
         // Keep this command's original state -- the undo target -- and adopt the newer one.
         enabled_ = other->enabled_;
+        return true;
+    }
+
+    SetEntityLockedCommand::SetEntityLockedCommand(SceneDocument& document, Uuid entityId,
+                                                   bool locked)
+        : document_(&document), entityId_(entityId), locked_(locked)
+    {
+        const StudioEntity* entity = document_->findEntity(entityId_);
+        if (entity == nullptr) { return; }
+
+        hadKey_ = entity->getStudioState().find(kStudioLockedKey) != entity->getStudioState().end();
+        wasLocked_ = isEntityLockedItself(*entity);
+
+        // A command that changes nothing is refused rather than executed, for the reason every
+        // other one is: an undo stack with no-ops in it makes Ctrl+Z appear to do nothing, and the
+        // user cannot tell how many more to press.
+        valid_ = wasLocked_ != locked_;
+    }
+
+    void SetEntityLockedCommand::execute()
+    {
+        StudioEntity* entity = document_->findEntityForEdit(entityId_);
+        if (entity == nullptr) { return; }
+
+        // Locking writes the key; unlocking removes it rather than writing `false`. Absent is what
+        // an untouched entity looks like, and a scene file where everything the user ever clicked
+        // carries `"locked": false` is a diff nobody can read.
+        if (locked_) { entity->setStudioState(kStudioLockedKey, PropertyValue{true}); }
+        else { (void)entity->removeStudioState(kStudioLockedKey); }
+    }
+
+    void SetEntityLockedCommand::undo()
+    {
+        StudioEntity* entity = document_->findEntityForEdit(entityId_);
+        if (entity == nullptr) { return; }
+
+        // Back to what was there, key and all: an entity that carried an explicit `false` before
+        // this ran gets it back, because undo restores the document rather than tidying it.
+        if (!hadKey_) { (void)entity->removeStudioState(kStudioLockedKey); }
+        else { entity->setStudioState(kStudioLockedKey, PropertyValue{wasLocked_}); }
+    }
+
+    std::string SetEntityLockedCommand::getDescription() const
+    {
+        const StudioEntity* entity = document_->findEntity(entityId_);
+        const std::string name = entity != nullptr ? entity->getName() : std::string{"entity"};
+        return (locked_ ? "Lock '" : "Unlock '") + name + "'";
+    }
+
+    std::string SetEntityLockedCommand::getMergeKey() const
+    {
+        return "locked:" + entityId_.toString();
+    }
+
+    bool SetEntityLockedCommand::mergeWith(const StudioCommand& newer)
+    {
+        const auto* other = dynamic_cast<const SetEntityLockedCommand*>(&newer);
+        if (other == nullptr || other->entityId_ != entityId_) { return false; }
+        // Keep this command's original state -- the undo target -- and adopt the newer one.
+        locked_ = other->locked_;
         return true;
     }
 

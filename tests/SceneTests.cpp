@@ -19,6 +19,8 @@
 #include "CNA/Studio/Scene/SceneLighting.hpp"
 #include "CNA/Studio/Scene/SceneModels.hpp"
 #include "CNA/Studio/Scene/SceneSprites3D.hpp"
+#include "CNA/Studio/Scene/EntityJson.hpp"
+#include "CNA/Studio/Scene/SceneLock.hpp"
 #include "CNA/Studio/Scene/SceneWireframe.hpp"
 #include "CNA/Studio/Scene/TransformGizmos3D.hpp"
 #include "CNA/Studio/Scene/SceneCommands.hpp"
@@ -2163,6 +2165,105 @@ namespace
  * same mistake `transformBounds3D` exists to avoid, one projection further along, and the case that
  * catches it is a camera looking at a corner.
  */
+/**
+ * The 3D picker honours a lock too (`plan.md` STUDIO-13005).
+ *
+ * Both 3D paths, because they are separate loops over the scene and a rule applied to one of them
+ * is a lock that holds for a click and not for a band -- which is the easier of the two ways to
+ * move something somebody locked precisely so it would stop moving.
+ */
+CNA_STUDIO_TEST(TheThreeDimensionalPickerLeavesLockedEntitiesAlone)
+{
+    ComponentRegistry registry = makeRegistry();
+    SceneDocument scene;
+
+    const Uuid near = scene.addEntity(makeSpriteEntity(registry, "Near", 0.0f, 0.0f));
+    const Uuid far = scene.addEntity(makeSpriteEntity(registry, "Far", 400.0f, 0.0f));
+
+    StudioCamera3D camera = makeCamera();
+    camera.setPivot(StudioVector3{});
+    camera.setDistance(700.0f);
+
+    const SpriteSizeProvider sizes = [](const Uuid&) { return StudioVector2{60.0f, 60.0f}; };
+
+    const std::optional<WorldBounds3D> bounds = computeEntityBounds3D(scene, near, sizes);
+    CNA_STUDIO_EXPECT(bounds.has_value());
+    if (!bounds) { return; }
+    const std::optional<StudioVector2> at = camera.worldToScreen(bounds->getCenter());
+    CNA_STUDIO_EXPECT(at.has_value());
+    if (!at) { return; }
+
+    CNA_STUDIO_EXPECT(pickEntityAt3D(scene, camera, *at, sizes) == near);
+
+    scene.findEntityForEdit(near)->setStudioState(kStudioLockedKey, PropertyValue{true});
+    CNA_STUDIO_EXPECT(!pickEntityAt3D(scene, camera, *at, sizes).isValid());
+
+    // The band is a second loop and needs the rule of its own.
+    const std::vector<Uuid> banded = pickEntitiesIn3D(
+        scene, camera, StudioVector2{0.0f, 0.0f}, StudioVector2{1600.0f, 900.0f}, sizes);
+    CNA_STUDIO_EXPECT_EQ(banded.size(), std::size_t{1});
+    CNA_STUDIO_EXPECT(banded.front() == far);
+}
+
+/**
+ * A lock lives in the studio state and is a command like everything else (`plan.md` STUDIO-13005).
+ */
+CNA_STUDIO_TEST(LockingAnEntityIsUndoableAndLeavesNothingBehindWhenUndone)
+{
+    ComponentRegistry registry = makeRegistry();
+    SceneDocument scene;
+
+    const Uuid entityId = scene.addEntity(makeSpriteEntity(registry, "Crate", 0.0f, 0.0f));
+    CNA_STUDIO_EXPECT(!isEntityLocked(scene, entityId));
+
+    SetEntityLockedCommand lock{scene, entityId, true};
+    CNA_STUDIO_EXPECT(lock.isValid());
+    lock.execute();
+    CNA_STUDIO_EXPECT(isEntityLocked(scene, entityId));
+    CNA_STUDIO_EXPECT(isEntityLockedItself(*scene.findEntity(entityId)));
+
+    // Undo puts the key back the way it was, which for an entity nobody had touched means *gone*.
+    // Writing `"locked": false` instead would leave the flag on every entity the user ever clicked
+    // and make the scene file's diff unreadable.
+    lock.undo();
+    CNA_STUDIO_EXPECT(!isEntityLocked(scene, entityId));
+    CNA_STUDIO_EXPECT(scene.findEntity(entityId)->getStudioState().find(kStudioLockedKey)
+                      == scene.findEntity(entityId)->getStudioState().end());
+
+    // A command that changes nothing is refused rather than executed: an undo stack with no-ops in
+    // it makes Ctrl+Z appear to do nothing, and the user cannot tell how many more to press.
+    CNA_STUDIO_EXPECT(!SetEntityLockedCommand(scene, entityId, false).isValid());
+    lock.execute();
+    CNA_STUDIO_EXPECT(!SetEntityLockedCommand(scene, entityId, true).isValid());
+    CNA_STUDIO_EXPECT(SetEntityLockedCommand(scene, entityId, false).isValid());
+
+    // An entity the scene does not have is not something to lock.
+    CNA_STUDIO_EXPECT(!SetEntityLockedCommand(scene, Uuid::generate(), true).isValid());
+}
+
+/**
+ * And it survives a round trip through the scene file (`plan.md` STUDIO-13005).
+ *
+ * Free, because the studio state already round-trips -- which is the reason the flag lives there
+ * and not beside `enabled`. Asserted anyway: "free" is a claim about a mechanism somewhere else,
+ * and a lock that quietly dropped on save would be the kind of loss a user finds a week later.
+ */
+CNA_STUDIO_TEST(ALockSurvivesBeingSavedAndLoaded)
+{
+    ComponentRegistry registry = makeRegistry();
+    SceneDocument scene;
+
+    const Uuid entityId = scene.addEntity(makeSpriteEntity(registry, "Crate", 0.0f, 0.0f));
+    scene.findEntityForEdit(entityId)->setStudioState(kStudioLockedKey, PropertyValue{true});
+
+    std::vector<std::string> warnings;
+    const StudioEntity read =
+        entityFromJson(entityToJson(*scene.findEntity(entityId)), registry, warnings);
+
+    CNA_STUDIO_EXPECT(warnings.empty());
+    CNA_STUDIO_EXPECT(isEntityLockedItself(read));
+}
+
 CNA_STUDIO_TEST(ABandInThreeDimensionsSweepsWhatTheCameraCanSee)
 {
     ComponentRegistry registry = makeRegistry();

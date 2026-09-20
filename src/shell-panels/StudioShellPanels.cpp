@@ -1256,6 +1256,21 @@ namespace CNA::Studio
             // Said out loud, because a refused drop is a tree that did not change and a successful
             // one on a collapsed parent can be too -- the row moves inside something the user
             // cannot see. Without a line here the two are the same picture (STUDIO-07058).
+            // A lock is the change a user is most likely to make by accident and then wonder
+            // about, because what it does is make the viewport go quiet under their pointer
+            // (STUDIO-13005). Said out loud, so the reason is on screen rather than deduced.
+            if (outliner.lockChanged)
+            {
+                const StudioEntity* touched = context_.getScene().findEntity(outliner.lockedEntity);
+                const std::string name =
+                    touched != nullptr ? touched->getName() : std::string{"entity"};
+                log_.append(LogSeverity::Info,
+                            outliner.lockedNow
+                                ? "Locked '" + name + "'. It can no longer be picked or moved in "
+                                                      "the viewport."
+                                : "Unlocked '" + name + "'.");
+            }
+
             if (outliner.reparentRefused)
             {
                 log_.append(LogSeverity::Warning,

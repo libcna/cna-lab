@@ -20,6 +20,7 @@
 #include "CNA/Studio/Scene/BuiltinComponents.hpp"
 
 #include "CNA/Studio/ShellPanels/StudioContentBrowser.hpp"
+#include "CNA/Studio/Scene/SceneLock.hpp"
 #include "CNA/Studio/ShellPanels/StudioOutlinerPanel.hpp"
 #include "CNA/Studio/StudioContext.hpp"
 #include "CNA/Studio/UiCore/StudioShell.hpp"
@@ -596,16 +597,257 @@ CNA_STUDIO_TEST(EveryOutlinerRowCarriesAVisibilityToggle)
     };
 
     CNA_STUDIO_EXPECT(rowFor(visible) != nullptr);
-    CNA_STUDIO_EXPECT(rowFor(visible)->toggleIcon == StudioIcon::Visible);
-    CNA_STUDIO_EXPECT(rowFor(visible)->toggleOffIcon == StudioIcon::Hidden);
-    CNA_STUDIO_EXPECT(rowFor(visible)->toggleOn);
+
+    // The eye is the *first* toggle on every row and the lock is the second, in that order
+    // (`plan.md` STUDIO-13005). Asserted, because the panel's click path turns the reported index
+    // back into a meaning and a swap here would hide an entity when the user asked to lock it.
+    CNA_STUDIO_EXPECT_EQ(rowFor(visible)->toggles.size(), std::size_t{2});
+    const StudioRowToggle& eye = rowFor(visible)->toggles[studioOutlinerVisibilityToggle];
+    CNA_STUDIO_EXPECT(eye.icon == StudioIcon::Visible);
+    CNA_STUDIO_EXPECT(eye.offIcon == StudioIcon::Hidden);
+    CNA_STUDIO_EXPECT(eye.on);
 
     // The pair has to be one drawing with one difference or the control reads as two unrelated
     // states rather than as on and off, and the tooltip says what the click will *do* rather than
     // what the state *is* -- "Hidden" on a button is a label a user has to invert to use.
-    CNA_STUDIO_EXPECT(!rowFor(hidden)->toggleOn);
-    CNA_STUDIO_EXPECT_EQ(rowFor(visible)->toggleTooltip, std::string{"Hide this entity"});
-    CNA_STUDIO_EXPECT_EQ(rowFor(hidden)->toggleTooltip, std::string{"Show this entity"});
+    CNA_STUDIO_EXPECT(!rowFor(hidden)->toggles[studioOutlinerVisibilityToggle].on);
+    CNA_STUDIO_EXPECT_EQ(eye.tooltip, std::string{"Hide this entity"});
+    CNA_STUDIO_EXPECT_EQ(rowFor(hidden)->toggles[studioOutlinerVisibilityToggle].tooltip,
+                         std::string{"Show this entity"});
+}
+
+/**
+ * The small controls on a row can actually be pressed (`plan.md` STUDIO-13005).
+ *
+ * `StudioInputRouter` gives a press to the **first** widget described under the pointer -- it sets
+ * `active_` there and then, and every widget described afterwards at the same point gets an empty
+ * interaction until the button comes back up. The row covers the whole line, so the disclosure
+ * triangle and the trailing toggles, both described after it, could never be clicked: expanding a
+ * branch by its triangle and hiding an entity by its eye were dead in the editor, under a comment
+ * claiming the later of two overlapping widgets wins.
+ *
+ * Nothing caught it because no case ever pressed one through a frame: the expansion tests set the
+ * state directly and the eye's test read the row's fields. So this one presses them, which is the
+ * only way this class of bug is visible at all.
+ */
+CNA_STUDIO_TEST(TheDisclosureTriangleAndTheRowButtonsTakeAPressAheadOfTheRow)
+{
+    Fixture fixture;
+    StudioTreeState state;
+
+    const std::unique_ptr<StudioShell> shell = shellShowingTheOutliner();
+
+    StudioOutlinerResult last;
+    UiRect panelBounds;
+    CNA_STUDIO_EXPECT(shell->setPanelContent("outliner",
+        [&](StudioFrame& frame, const UiRect& bounds) {
+            const StudioOutlinerResult result =
+                studioOutlinerPanel(frame, bounds, fixture.context, state);
+            if (frame.isInputPass()) { last = result; }
+            if (frame.isDrawPass()) { panelBounds = bounds; }
+        }));
+
+    shell->renderFrame(at(-1.0f, -1.0f));
+    CNA_STUDIO_EXPECT(!panelBounds.isEmpty());
+
+    // Player has two children and starts open, so its triangle is the one to press.
+    CNA_STUDIO_EXPECT(state.isExpanded(fixture.player.toString()));
+    CNA_STUDIO_EXPECT_EQ(studioOutlinerRows(fixture.context.getScene(), {}, state).size(),
+                         std::size_t{4});
+
+    // Swept rather than computed: the triangle is an indent wide at the row's left edge, and the
+    // rows do not start at the panel's first pixel. The sweep presses somewhere on the row at each
+    // step, which is exactly the collision this case exists to rule out -- if the row were taking
+    // the press, the tree would never close.
+    bool collapsed = false;
+    for (float probeY = panelBounds.top() + 2.0f;
+         probeY < panelBounds.top() + 120.0f && !collapsed; probeY += 2.0f)
+    {
+        for (float x = panelBounds.left() + 2.0f; x < panelBounds.left() + 40.0f && !collapsed;
+             x += 2.0f)
+        {
+            shell->renderFrame(at(x, probeY, /*leftDown=*/true));
+            shell->renderFrame(at(x, probeY));
+            collapsed = !state.isExpanded(fixture.player.toString());
+        }
+    }
+
+    CNA_STUDIO_EXPECT(collapsed);
+    CNA_STUDIO_EXPECT_EQ(studioOutlinerRows(fixture.context.getScene(), {}, state).size(),
+                         std::size_t{2});
+}
+
+/**
+ * The lock is the row's second button (`plan.md` STUDIO-13005).
+ *
+ * The eye was the only one, and it was one *field* rather than one entry in a list -- so a second
+ * button meant either a parallel set of fields or this. Two is where that choice becomes obvious;
+ * the order is fixed so a user learns one column rather than hunting per row.
+ */
+CNA_STUDIO_TEST(TheLockToggleShowsAndChangesTheEntitysOwnLock)
+{
+    Fixture fixture;
+    StudioTreeState state;
+
+    const auto rowFor = [&](const Uuid& id) {
+        const std::vector<StudioTreeRow> rows =
+            studioOutlinerRows(fixture.context.getScene(), {}, state);
+        for (const StudioTreeRow& row : rows)
+        {
+            if (row.id == id.toString()) { return row; }
+        }
+        return StudioTreeRow{};
+    };
+
+    StudioTreeRow row = rowFor(fixture.player);
+    CNA_STUDIO_EXPECT_EQ(row.toggles.size(), std::size_t{2});
+
+    // `on` is *un*locked, because the widget's shared rule is "drawn while hovered or while off"
+    // and the rows worth marking at a glance are the locked ones. The eye reads the same way.
+    CNA_STUDIO_EXPECT(row.toggles[studioOutlinerLockToggle].on);
+    CNA_STUDIO_EXPECT(row.toggles[studioOutlinerLockToggle].icon == StudioIcon::Unlock);
+    CNA_STUDIO_EXPECT(row.toggles[studioOutlinerLockToggle].offIcon == StudioIcon::Lock);
+    CNA_STUDIO_EXPECT_EQ(row.toggles[studioOutlinerLockToggle].tooltip,
+                         std::string{"Lock this entity"});
+
+    fixture.context.getScene().findEntityForEdit(fixture.player)
+        ->setStudioState(kStudioLockedKey, PropertyValue{true});
+
+    row = rowFor(fixture.player);
+    CNA_STUDIO_EXPECT(!row.toggles[studioOutlinerLockToggle].on);
+    CNA_STUDIO_EXPECT_EQ(row.toggles[studioOutlinerLockToggle].tooltip,
+                         std::string{"Unlock this entity"});
+
+    // The row shows the entity's *own* lock, not the one it inherits. A child of a locked group is
+    // out of reach in the viewport, but a button whose click does not change what it is showing is
+    // a broken button -- and unlocking a child that was never locked would do nothing visible.
+    const StudioTreeRow child = rowFor(fixture.weapon);
+    CNA_STUDIO_EXPECT(isEntityLocked(fixture.context.getScene(), fixture.weapon));
+    CNA_STUDIO_EXPECT(child.toggles[studioOutlinerLockToggle].on);
+}
+
+/**
+ * And clicking it goes through the history (`plan.md` STUDIO-13005, D-06).
+ */
+CNA_STUDIO_TEST(ClickingTheLockToggleIsAnUndoableCommandAndNotAlsoASelection)
+{
+    Fixture fixture;
+    StudioTreeState state;
+
+    const std::unique_ptr<StudioShell> shell = shellShowingTheOutliner();
+
+    std::vector<StudioTreeRow> rows;
+    StudioOutlinerResult last;
+    UiRect panelBounds;
+    CNA_STUDIO_EXPECT(shell->setPanelContent("outliner",
+        [&](StudioFrame& frame, const UiRect& bounds) {
+            const StudioOutlinerResult result =
+                studioOutlinerPanel(frame, bounds, fixture.context, state);
+            if (frame.isInputPass()) { last = result; }
+            if (frame.isDrawPass())
+            {
+                panelBounds = bounds;
+                rows = studioOutlinerRows(fixture.context.getScene(),
+                                          fixture.context.getSelection(), state);
+            }
+        }));
+
+    shell->renderFrame(at(-1.0f, -1.0f));
+    CNA_STUDIO_EXPECT(!panelBounds.isEmpty());
+
+    CNA_STUDIO_EXPECT_EQ(rows.size(), std::size_t{4});
+
+    // The first row's y, found by clicking near the left edge and seeing what got selected, rather
+    // than computed from the panel's top: the tree does not start at the panel's first pixel, and
+    // a test that assumed it did would press slightly the wrong line -- or, in the first draft of
+    // this one, the row instead of the button on it.
+    float rowTop = -1.0f;
+    for (float probeY = panelBounds.top() + 2.0f; probeY < panelBounds.top() + 120.0f;
+         probeY += 2.0f)
+    {
+        const float x = panelBounds.left() + 24.0f;
+        shell->renderFrame(at(x, probeY, /*leftDown=*/true));
+        shell->renderFrame(at(x, probeY));
+        if (!fixture.context.getSelection().empty()
+            && fixture.context.getSelection().front() == fixture.camera)
+        {
+            rowTop = probeY;
+            break;
+        }
+    }
+    CNA_STUDIO_EXPECT(rowTop > 0.0f);
+
+    // The middle of the row, not its first line. A toggle is an icon centred in the row and a good
+    // deal shorter than it, so the y at which the *row* starts answering is above the button --
+    // which is how the first draft of this swept the whole width and found nothing.
+    const float y =
+        rowTop + static_cast<float>(shell->theme().metric(StudioMetric::RowHeight)) * 0.5f;
+
+    fixture.context.clearSelection();
+
+    // Found by sweeping inwards from the right-hand edge rather than computed from the metrics,
+    // because the row's right edge is the *scroll region's* and not the panel's -- a test that
+    // assumed otherwise would click the row and pass for the wrong reason, which is exactly what
+    // the first draft of this did. Sweeping also pins the thing that actually matters: which
+    // button is where. The eye is outermost and the lock is next in, on every row.
+    float eyeX = -1.0f;
+    float lockX = -1.0f;
+    for (float x = panelBounds.right() - 1.0f; x > panelBounds.centerX(); x -= 2.0f)
+    {
+        StudioOutlinerResult probe;
+        last = StudioOutlinerResult{};
+        shell->renderFrame(at(x, y, /*leftDown=*/true));
+        shell->renderFrame(at(x, y));
+        probe = last;
+
+        // Undone immediately, so the sweep leaves the scene as it found it and the assertions
+        // below are about one click rather than about however many the sweep happened to land.
+        if (probe.visibilityChanged)
+        {
+            if (eyeX < 0.0f) { eyeX = x; }
+            CNA_STUDIO_EXPECT(fixture.context.getHistory().undo());
+        }
+        if (probe.lockChanged)
+        {
+            if (lockX < 0.0f) { lockX = x; }
+            CNA_STUDIO_EXPECT(fixture.context.getHistory().undo());
+        }
+        if (eyeX > 0.0f && lockX > 0.0f) { break; }
+    }
+
+    CNA_STUDIO_EXPECT(eyeX > 0.0f);
+    CNA_STUDIO_EXPECT(lockX > 0.0f);
+    CNA_STUDIO_EXPECT(eyeX > lockX);
+
+    // Whatever the sweep did has been undone, so the history is where it started.
+    fixture.context.getHistory().clear();
+    const std::size_t sweptTo = fixture.context.getHistory().getCursor();
+    CNA_STUDIO_EXPECT(!isEntityLocked(fixture.context.getScene(), fixture.camera));
+    CNA_STUDIO_EXPECT(fixture.context.getScene().findEntity(fixture.camera)->isEnabled());
+
+    // The sweep pressed the row itself at every x between the two buttons, so it has a selection
+    // on it. Cleared, because the assertion below is that a press on a *toggle* does not also
+    // select -- and it would pass for the wrong reason over a selection somebody else made.
+    fixture.context.clearSelection();
+
+    last = StudioOutlinerResult{};
+    shell->renderFrame(at(lockX, y, /*leftDown=*/true));
+    shell->renderFrame(at(lockX, y));
+
+    CNA_STUDIO_EXPECT(last.lockChanged);
+    CNA_STUDIO_EXPECT(last.lockedNow);
+    CNA_STUDIO_EXPECT(last.lockedEntity == fixture.camera);
+    CNA_STUDIO_EXPECT(isEntityLocked(fixture.context.getScene(), fixture.camera));
+
+    // A press on the toggle is not a press on the row: handling both would lock an entity and
+    // select it in one gesture.
+    CNA_STUDIO_EXPECT(fixture.context.getSelection().empty());
+    CNA_STUDIO_EXPECT(!last.selectionChanged);
+
+    // Through the history, like every other edit.
+    CNA_STUDIO_EXPECT_EQ(fixture.context.getHistory().getCursor(), sweptTo + 1);
+    CNA_STUDIO_EXPECT(fixture.context.getHistory().undo());
+    CNA_STUDIO_EXPECT(!isEntityLocked(fixture.context.getScene(), fixture.camera));
 }
 
 CNA_STUDIO_TEST(EveryOutlinerRowIsBothADragSourceAndADropTarget)

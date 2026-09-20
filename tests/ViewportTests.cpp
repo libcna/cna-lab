@@ -16,6 +16,7 @@
 #include <cmath>
 
 #include "CNA/Studio/Scene/BuiltinComponents.hpp"
+#include "CNA/Studio/Scene/SceneLock.hpp"
 #include "CNA/Studio/Scene/StudioCamera2D.hpp"
 #include "CNA/Studio/Scene/StudioIcons.hpp"
 #include "CNA/Studio/Scene/GameCamera.hpp"
@@ -394,6 +395,84 @@ CNA_STUDIO_TEST(PickingIgnoresDisabledEntities)
     // The disabled entity is in front, so picking it would be the natural bug.
     CNA_STUDIO_EXPECT(pickEntityAt(scene, camera, camera.worldToScreen(StudioVector2{50.0f, 50.0f}),
                                    kNoSizes).entityId == visible);
+}
+
+/**
+ * A lock is a lock against the viewport (`plan.md` STUDIO-13005).
+ *
+ * Clicking is how everything in the viewport gets selected, so a lock a click could step over would
+ * be a lock that does nothing at all. The Outliner still selects a locked entity, which is what
+ * keeps it reachable to unlock again.
+ */
+CNA_STUDIO_TEST(PickingIgnoresLockedEntities)
+{
+    const ComponentRegistry registry = makeRegistry();
+    SceneDocument scene;
+
+    const Uuid locked = addEntity(scene, registry, "Locked", 0.0f, 0.0f);
+    addSprite(scene, registry, locked, 100, 100, 0.1f);
+
+    const Uuid free = addEntity(scene, registry, "Free", 0.0f, 0.0f);
+    addSprite(scene, registry, free, 100, 100, 0.9f);
+
+    StudioCamera2D camera;
+    camera.setViewportSize(StudioVector2{800.0f, 600.0f});
+    camera.setCenter(StudioVector2{50.0f, 50.0f});
+
+    const StudioVector2 onBoth = camera.worldToScreen(StudioVector2{50.0f, 50.0f});
+
+    // Unlocked, the front one wins -- so picking it once the lock is on would be the natural bug.
+    CNA_STUDIO_EXPECT(pickEntityAt(scene, camera, onBoth, kNoSizes).entityId == locked);
+
+    scene.findEntityForEdit(locked)->setStudioState(kStudioLockedKey, PropertyValue{true});
+    CNA_STUDIO_EXPECT(pickEntityAt(scene, camera, onBoth, kNoSizes).entityId == free);
+
+    // And a band does not sweep it up either, which is the easier way to move something somebody
+    // locked precisely so it would stop moving.
+    const std::vector<Uuid> banded =
+        pickEntitiesIn(scene, camera, StudioVector2{0.0f, 0.0f}, StudioVector2{800.0f, 600.0f},
+                       kNoSizes);
+    CNA_STUDIO_EXPECT_EQ(banded.size(), std::size_t{1});
+    CNA_STUDIO_EXPECT(banded.front() == free);
+
+    // Locking the parent locks the child, which is the whole reason to have a lock: a designer
+    // locks the finished geometry once, at the group, not forty times at the pieces.
+    scene.findEntityForEdit(locked)->removeStudioState(kStudioLockedKey);
+    const Uuid group = addEntity(scene, registry, "Group", 0.0f, 0.0f);
+    CNA_STUDIO_EXPECT(scene.reparentEntity(free, group));
+    scene.findEntityForEdit(group)->setStudioState(kStudioLockedKey, PropertyValue{true});
+
+    CNA_STUDIO_EXPECT(isEntityLocked(scene, free));
+    CNA_STUDIO_EXPECT(!isEntityLockedItself(*scene.findEntity(free)));
+    CNA_STUDIO_EXPECT(pickEntityAt(scene, camera, onBoth, kNoSizes).entityId == locked);
+}
+
+/**
+ * And an icon is not a way around it (`plan.md` STUDIO-13005).
+ *
+ * The icon pass runs last and *overrides* whatever the sprite pass found, because icons are editor
+ * artefacts drawn on top. Skipping the lock there would let a locked camera take a click the first
+ * loop had already refused -- and take it from the unlocked sprite behind it.
+ */
+CNA_STUDIO_TEST(ALockedEntitysIconIsNotPickableEither)
+{
+    const ComponentRegistry registry = makeRegistry();
+    SceneDocument scene;
+
+    const Uuid camera3d = addEntity(scene, registry, "Main Camera", 0.0f, 0.0f);
+    StudioComponent lens{BuiltinComponentIds::kCamera};
+    lens.applyDefaults(*registry.find(BuiltinComponentIds::kCamera));
+    scene.findEntityForEdit(camera3d)->addComponent(std::move(lens));
+
+    StudioCamera2D camera;
+    camera.setViewportSize(StudioVector2{800.0f, 600.0f});
+    camera.setCenter(StudioVector2{0.0f, 0.0f});
+
+    const StudioVector2 onIcon = camera.worldToScreen(StudioVector2{0.0f, 0.0f});
+    CNA_STUDIO_EXPECT(pickEntityAt(scene, camera, onIcon, kNoSizes).entityId == camera3d);
+
+    scene.findEntityForEdit(camera3d)->setStudioState(kStudioLockedKey, PropertyValue{true});
+    CNA_STUDIO_EXPECT(!pickEntityAt(scene, camera, onIcon, kNoSizes).entityId.isValid());
 }
 
 CNA_STUDIO_TEST(PickingHonoursParentTransforms)

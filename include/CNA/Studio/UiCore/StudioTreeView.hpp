@@ -41,6 +41,28 @@
 
 namespace CNA::Studio
 {
+    /**
+     * @brief One of a tree row's trailing buttons.
+     *
+     * Drawn only while the row is hovered or the toggle is *off*, which is what every outliner that
+     * has one does: a column of forty identical eyes is a column of noise, and the rows that matter
+     * are the ones that are not in the default state.
+     */
+    struct StudioRowToggle
+    {
+        /** @brief What to draw while @ref on. */
+        StudioIcon icon = StudioIcon::None;
+
+        /** @brief What to draw instead while @ref on is false. `None` keeps @ref icon. */
+        StudioIcon offIcon = StudioIcon::None;
+
+        /** @brief The toggle's state. */
+        bool on = true;
+
+        /** @brief Hover help. */
+        std::string tooltip;
+    };
+
     /** @brief One visible row of a tree. */
     struct StudioTreeRow
     {
@@ -139,26 +161,18 @@ namespace CNA::Studio
         std::vector<std::string> dropTypes;
 
         /**
-         * @brief A toggle at the right-hand end of the row, or `None` for no toggle.
+         * @brief The toggles at the right-hand end of the row, outermost last.
          *
          * `STUDIO-35060`. An outliner where hiding an entity means selecting it, finding the
          * Details panel and unticking a box is one where nobody hides anything — and hiding things
          * is how a large scene is worked on at all. The affordance has to be *on the row*.
          *
-         * Drawn only while the row is hovered or the toggle is off, which is what every outliner
-         * that has one does: a column of forty identical eyes is a column of noise, and the rows
-         * that matter are the ones that are *not* in the default state.
+         * A list rather than one set of fields (`plan.md` STUDIO-13005), because the eye was never
+         * going to be the only one: lock is the second and the two belong side by side, in a fixed
+         * order, so a user learns one column rather than hunting for whichever button a row
+         * happens to carry.
          */
-        StudioIcon toggleIcon = StudioIcon::None;
-
-        /** @brief What to draw instead while @ref toggleOn is false. `None` keeps @ref toggleIcon. */
-        StudioIcon toggleOffIcon = StudioIcon::None;
-
-        /** @brief The toggle's state. */
-        bool toggleOn = true;
-
-        /** @brief Hover help for the toggle. */
-        std::string toggleTooltip;
+        std::vector<StudioRowToggle> toggles;
     };
 
     /**
@@ -308,6 +322,15 @@ namespace CNA::Studio
 
         /** @brief Index of the row whose trailing toggle was clicked. Input pass only. */
         std::optional<std::size_t> toggledRowAction;
+
+        /**
+         * @brief Which of that row's toggles it was, as an index into `StudioTreeRow::toggles`.
+         *
+         * Meaningless unless @ref toggledRowAction is set. Reported rather than left for the caller
+         * to work out from the pointer position, because the row knows which button it drew where
+         * and a caller re-deriving it would be a second layout to keep in step with the first.
+         */
+        std::size_t toggledRowActionIndex = 0;
 
         /** @brief Index of the row a payload was dropped on. Input pass only. */
         std::optional<std::size_t> dropped;

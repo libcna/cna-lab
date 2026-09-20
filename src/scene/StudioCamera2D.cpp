@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MS-PL
 #include "CNA/Studio/Scene/StudioCamera2D.hpp"
 
+#include "CNA/Studio/Scene/SceneLock.hpp"
+
 #include <algorithm>
 #include <cmath>
 #include <limits>
@@ -100,6 +102,12 @@ namespace CNA::Studio
             // user is looking at, so clicking where it would be must not select it.
             if (!entity.isEnabled()) { continue; }
 
+            // And a locked one is part of the scene and deliberately out of reach (`plan.md`
+            // STUDIO-13005): a lock a click could step over would be a lock that does nothing,
+            // since clicking is how everything in the viewport gets selected. The Outliner still
+            // selects it, which is what keeps it reachable to unlock.
+            if (isEntityLocked(scene, entity.getId())) { continue; }
+
             const std::optional<WorldBounds2D> bounds =
                 computeEntityBounds2D(scene, entity.getId(), sizeProvider);
             if (!bounds || !bounds->contains(result.worldPoint)) { continue; }
@@ -128,6 +136,10 @@ namespace CNA::Studio
         // without either needing to know how the other sorts.
         for (const StudioIconPlacement& icon : collectStudioIcons(scene, camera))
         {
+            // Locked here too, and not only in the loop above: this pass *overrides* whatever the
+            // sprite pass found, so skipping it would let a locked camera's icon take a click the
+            // first loop had already refused -- and take it away from the unlocked sprite behind.
+            if (isEntityLocked(scene, icon.entityId)) { continue; }
             if (hitTestStudioIcon(icon.center, screenPoint)) { result.entityId = icon.entityId; }
         }
 
@@ -149,9 +161,12 @@ namespace CNA::Studio
 
         for (const StudioEntity& entity : scene.getEntities())
         {
-            // The same rule the click picker has: a disabled entity is not part of the scene the
-            // user is looking at, so a band drawn over where it would be must not take it.
+            // The same two rules the click picker has: a disabled entity is not part of the scene
+            // the user is looking at, and a locked one is deliberately out of reach. A band that
+            // swept up locked entities would be the easiest way to move the level geometry
+            // somebody locked precisely so it would stop moving.
             if (!entity.isEnabled()) { continue; }
+            if (isEntityLocked(scene, entity.getId())) { continue; }
 
             const std::optional<WorldBounds2D> bounds =
                 computeEntityBounds2D(scene, entity.getId(), sizeProvider);

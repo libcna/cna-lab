@@ -71,6 +71,22 @@ namespace CNA::Studio
         bool visibilityChanged = false;
 
         /**
+         * @brief Whether an entity was locked or unlocked from its row this frame. Input pass only.
+         *
+         * `plan.md` STUDIO-13005. Reported apart from @ref visibilityChanged because the two rows
+         * of buttons do different things and the shell says different things about them -- and
+         * because a lock is the change a user is most likely to make by accident and then wonder
+         * about, the viewport having gone quiet under their pointer.
+         */
+        bool lockChanged = false;
+
+        /** @brief Which entity it was, and what it became. Meaningless unless @ref lockChanged. */
+        Uuid lockedEntity;
+
+        /** @brief The state the entity was put into. @see lockedEntity */
+        bool lockedNow = false;
+
+        /**
          * @brief Whether an entity was reparented by a drag this frame. Input pass only.
          *
          * `STUDIO-07058`.
@@ -177,6 +193,18 @@ namespace CNA::Studio
                                                         const StudioTreeState& state,
                                                         const StudioOutlinerFilter& filter,
                                                         const Uuid& from, const Uuid& to);
+
+    /**
+     * @brief Which of a row's toggles is which (`plan.md` STUDIO-13005).
+     *
+     * The tree reports the index it drew, and the panel has to turn that back into a meaning. Named
+     * constants rather than a bare 0 and 1 at the comparison, because the two are in a fixed order
+     * on every row and a reader of the click path should not have to count the builder's pushes.
+     */
+    inline constexpr std::size_t studioOutlinerVisibilityToggle = 0;
+
+    /** @brief The lock button's index in a row's toggles. @see studioOutlinerVisibilityToggle */
+    inline constexpr std::size_t studioOutlinerLockToggle = 1;
 
     /**
      * @brief What a drag starting on @p dragged actually moves.

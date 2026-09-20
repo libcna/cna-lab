@@ -352,9 +352,11 @@ CNA_STUDIO_TEST(ARowsTrailingToggleIsDrawnOverTheRowFillRatherThanUnderIt)
     row.label = "Key Light";
     // Off rather than on, so the toggle is shown without needing the pointer on the row: what is
     // being tested is the paint order, and hovering is a second thing that can fail.
-    row.toggleIcon = StudioIcon::Visible;
-    row.toggleOffIcon = StudioIcon::Hidden;
-    row.toggleOn = false;
+    StudioRowToggle eye;
+    eye.icon = StudioIcon::Visible;
+    eye.offIcon = StudioIcon::Hidden;
+    eye.on = false;
+    row.toggles = {eye};
     // Selected, so the row draws the largest fill it has. An alternating fill would do, but the
     // selection fill is the one that covers every pixel of the line.
     row.selected = true;

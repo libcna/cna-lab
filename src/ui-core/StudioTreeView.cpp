@@ -4,6 +4,8 @@
  * @brief The scrolling, selectable tree.
  */
 
+#include <cstdio>
+#include <cstdlib>
 #include "CNA/Studio/UiCore/StudioTreeView.hpp"
 
 #include "CNA/Studio/UiCore/StudioWidgets.hpp"
@@ -154,22 +156,6 @@ namespace CNA::Studio
 
             const bool renaming = !state.renaming().empty() && state.renaming() == row.id;
 
-            // Issued once and kept, rather than asked for again where the drag needs it. Two calls
-            // return the same id -- it is derived from the scope and the key -- but each one also
-            // *records* it, and a key recorded twice is what the collision detector is there to
-            // report. It was reporting it: one per draggable row, every frame.
-            const WidgetId rowId = frame.ids().make("row");
-
-            // The whole row is the target, not just the text. A tree where a click lands only on
-            // the label is a tree with a different hit area on every line.
-            //
-            // Except while it is being renamed. A row that is a text field must not also be a
-            // selectable, draggable row: clicking to place the caret would reselect, and dragging
-            // to select a word would pick the entity up.
-            const StudioInteraction interaction = renaming
-                ? StudioInteraction{}
-                : frame.interact(rowId, rowBounds, row.enabled);
-
             UiRect cursor = rowBounds.inset(UiEdges{padding, 0.0f, padding, 0.0f});
             cursor.splitLeft(std::min(indent * static_cast<float>(row.depth), cursor.width));
 
@@ -177,6 +163,25 @@ namespace CNA::Studio
             bool expanded = state.isExpanded(row.id);
             bool disclosureHovered = false;
 
+            // ### The small controls are described *before* the row, and that is load-bearing
+            //
+            // `StudioInputRouter` gives a press to the **first** widget described under the
+            // pointer: `interact` sets `active_` there and then, and every widget described
+            // afterwards at the same point returns an empty interaction until the button comes
+            // back up. The row covers the whole line, so anything described after it -- the
+            // disclosure triangle, the trailing toggles -- could never be pressed.
+            //
+            // It could never be pressed. The triangle and the eye were both written with a comment
+            // claiming the later of two overlapping widgets wins the click, which is the opposite
+            // of what the router does, and neither had a test that pressed one through a frame:
+            // every case set the expansion or read the row's fields directly. So expanding a
+            // branch by clicking its triangle, and hiding an entity by clicking its eye, were both
+            // dead in the editor while their tests passed (`plan.md` STUDIO-13005, found while
+            // adding the lock beside the eye).
+            //
+            // Drawing stays where it was, further down: the row's background is painted over
+            // everything above it, and a triangle drawn here vanishes under the alternating fill.
+            // It is the *description* that has to come first, not the painting.
             if (row.hasChildren && !renaming)
             {
                 // Its own widget, so clicking the triangle opens the row rather than selecting it.
@@ -190,13 +195,131 @@ namespace CNA::Studio
                     state.setExpanded(row.id, expanded);
                     result.toggled = slot;
                 }
-                // Remembered rather than drawn here. The row's background -- selection, hover,
-                // the alternating fill and the indent guides -- is decided further down, and
-                // drawing the triangle first put every one of those fills straight over it. The
-                // symptom was that expandable rows lost their triangle on alternate lines only,
-                // which reads as a data problem rather than as a painting order.
+                // Remembered rather than drawn here, for the reason given above.
                 disclosureHovered = toggle.hovered;
             }
+
+            // The trailing toggles, described *before* the row for the reason set out above the
+            // disclosure triangle: the row covers the whole line and the first widget described
+            // under the pointer takes the press, so a toggle described after it can never be
+            // clicked. That is what was wrong with the eye.
+            //
+            // Interaction here, *drawing* further down: everything below this point paints the
+            // row's background over whatever was drawn before it. Drawing a toggle here put the
+            // selection, hover and alternating fills straight over the eye, and the symptom was a
+            // feature that could not be seen on top of one that could not be clicked.
+            //
+            // One entry per toggle the row declared, laid out from the right-hand edge inwards in
+            // the order they were given, so the same button is in the same column on every row.
+            struct DrawnToggle
+            {
+                UiRect box;
+                StudioIcon glyph = StudioIcon::None;
+                StudioControlState state = StudioControlState::Normal;
+
+                /** @brief The pointer is on this button. */
+                bool selfHovered = false;
+
+                /**
+                 * @brief This button is *not* in its default state, so it is shown regardless.
+                 *
+                 * Kept apart from the row's own hover, which is not known yet: the row is now
+                 * described after the toggles, so whether the pointer is anywhere on the line is a
+                 * question only the draw pass below can answer.
+                 */
+                bool alwaysShown = false;
+            };
+            std::vector<DrawnToggle> drawnToggles;
+            drawnToggles.reserve(row.toggles.size());
+
+            for (std::size_t which = 0; which < row.toggles.size(); ++which)
+            {
+                const StudioRowToggle& entry = row.toggles[which];
+                if (entry.icon == StudioIcon::None) { continue; }
+
+                const float size = metricOf(theme, StudioMetric::IconSize);
+
+                // From the right edge, one slot per toggle already placed. Measured rather than
+                // accumulated from `cursor`, because `cursor` is also what the label is trimmed
+                // against and reading the column positions out of it would tie the two together.
+                const float slotWidth = size + padding;
+                const float right = rowBounds.right() - padding
+                    - static_cast<float>(drawnToggles.size()) * slotWidth;
+
+                DrawnToggle drawn;
+                drawn.box = UiRect{right - size, std::round(rowBounds.centerY() - size * 0.5f),
+                                   size, size};
+
+                // Described in both passes and at the same size either way, so the hit area does
+                // not appear and vanish under the pointer; only the drawing is conditional. A
+                // button that existed only while hovered would be one a user cannot click, because
+                // the frame in which they press is the frame it was there.
+                //
+                // Indexed inside a scope of its own: two toggles sharing an id would be a single
+                // control that answers about whichever asked last, and a bare index here would
+                // collide with the drop targets above, which index by accepted type in the row's
+                // own scope. The collision detector reports both, and the scope is what stops it
+                // having to.
+                frame.ids().push("toggle");
+                const WidgetId toggleId = frame.ids().makeIndex(static_cast<std::int64_t>(which));
+                frame.ids().pop();
+
+                const StudioInteraction toggle =
+                    frame.interact(toggleId, drawn.box, /*enabled=*/true);
+                if (std::getenv("CNA_DBG_TOGGLE") != nullptr && frame.isInputPass()
+                    && frame.input().mouseX > 100.0f && frame.input().mouseY > 60.0f)
+                {
+                    std::fprintf(stderr, "T which=%zu box=%.0f,%.0f,%.0f,%.0f m=%.0f,%.0f hov=%d clk=%d\n",
+                                 which, drawn.box.x, drawn.box.y, drawn.box.width, drawn.box.height,
+                                 frame.input().mouseX, frame.input().mouseY,
+                                 (int)toggle.hovered, (int)toggle.clicked);
+                }
+
+                if (!entry.tooltip.empty())
+                {
+                    (void)frame.requestTooltip(toggleId, entry.tooltip, drawn.box);
+                }
+                if (frame.isInputPass() && toggle.clicked)
+                {
+                    result.toggledRowAction = slot;
+                    result.toggledRowActionIndex = which;
+                }
+
+                // Shown only while the row is hovered or the toggle is off, which is what every
+                // outliner that has one does: a column of forty identical eyes is a column of
+                // noise, and the rows that matter are the ones *not* in the default state.
+                drawn.selfHovered = toggle.hovered;
+                drawn.alwaysShown = !entry.on;
+                drawn.glyph = (!entry.on && entry.offIcon != StudioIcon::None) ? entry.offIcon
+                                                                               : entry.icon;
+                drawn.state = toggle.held ? StudioControlState::Pressed
+                            : toggle.hovered ? StudioControlState::Hover
+                                             : StudioControlState::Normal;
+
+                drawnToggles.push_back(drawn);
+
+                // And the label stops where the toggles start, shown or not: text that reflowed as
+                // the pointer crossed a row would be the most distracting thing in the panel.
+                cursor.splitRight(std::min(cursor.width, slotWidth));
+            }
+
+
+            // Issued once and kept, rather than asked for again where the drag needs it. Two calls
+            // return the same id -- it is derived from the scope and the key -- but each one also
+            // *records* it, and a key recorded twice is what the collision detector is there to
+            // report. It was reporting it: one per draggable row, every frame.
+            const WidgetId rowId = frame.ids().make("row");
+
+            // The whole row is the target, not just the text. A tree where a click lands only on
+            // the label is a tree with a different hit area on every line. Described last, so the
+            // small controls on top of it get first refusal on a press.
+            //
+            // Except while it is being renamed. A row that is a text field must not also be a
+            // selectable, draggable row: clicking to place the caret would reselect, and dragging
+            // to select a word would pick the entity up.
+            const StudioInteraction interaction = renaming
+                ? StudioInteraction{}
+                : frame.interact(rowId, rowBounds, row.enabled);
 
             if (frame.isInputPass() && interaction.clicked && !result.toggled.has_value())
             {
@@ -295,56 +418,6 @@ namespace CNA::Studio
                 continue;
             }
 
-            // The trailing toggle, described after the row so it wins the click against it -- the
-            // row is one widget covering the whole line, and the later of two overlapping widgets
-            // is the one a press lands on.
-            //
-            // Interaction here, *drawing* further down, for the same reason the disclosure triangle
-            // above is deferred: everything below this point paints the row's background over
-            // whatever was drawn before it. Drawing the toggle here put the selection, hover and
-            // alternating fills straight over the eye, and the symptom was a feature that worked --
-            // the click toggled, the tooltip appeared, the tests passed -- and could not be seen.
-            bool toggleVisible = false;
-            UiRect toggleBox;
-            StudioIcon toggleGlyph = StudioIcon::None;
-            StudioControlState toggleState = StudioControlState::Normal;
-
-            if (row.toggleIcon != StudioIcon::None)
-            {
-                const float size = metricOf(theme, StudioMetric::IconSize);
-                toggleBox = UiRect{rowBounds.right() - padding - size,
-                                   std::round(rowBounds.centerY() - size * 0.5f), size, size};
-
-                // Described in both passes and at the same size either way, so the hit area does
-                // not appear and vanish under the pointer; only the drawing is conditional. A
-                // button that existed only while hovered would be one a user cannot click, because
-                // the frame in which they press is the frame it was there.
-                const WidgetId toggleId = frame.ids().make("toggle");
-                const StudioInteraction toggle =
-                    frame.interact(toggleId, toggleBox, /*enabled=*/true);
-
-                if (!row.toggleTooltip.empty())
-                {
-                    (void)frame.requestTooltip(toggleId, row.toggleTooltip, toggleBox);
-                }
-                if (frame.isInputPass() && toggle.clicked) { result.toggledRowAction = slot; }
-
-                // Shown only while the row is hovered or the toggle is off, which is what every
-                // outliner that has one does: a column of forty identical eyes is a column of
-                // noise, and the rows that matter are the ones *not* in the default state.
-                toggleVisible = interaction.hovered || toggle.hovered || !row.toggleOn;
-                toggleGlyph = (!row.toggleOn && row.toggleOffIcon != StudioIcon::None)
-                    ? row.toggleOffIcon
-                    : row.toggleIcon;
-                toggleState = toggle.held ? StudioControlState::Pressed
-                            : toggle.hovered ? StudioControlState::Hover
-                                             : StudioControlState::Normal;
-
-                // And the label stops where the toggle starts, shown or not: text that reflowed as
-                // the pointer crossed a row would be the most distracting thing in the panel.
-                cursor.splitRight(std::min(cursor.width, size + padding));
-            }
-
             if (frame.isDrawPass())
             {
                 if (dropHovered)
@@ -402,17 +475,23 @@ namespace CNA::Studio
 
                 // And the toggle, for the same reason. Its own surface only when the pointer is on
                 // it: a ghost button's whole point is that it is an icon until it is a target.
-                if (toggleVisible && toggleGlyph != StudioIcon::None)
+                for (const DrawnToggle& drawn : drawnToggles)
                 {
-                    if (toggleState != StudioControlState::Normal)
+                    // Shown only while the row is hovered or the toggle is off, which is what every
+                    // outliner that has one does: a column of forty identical eyes is a column of
+                    // noise, and the rows that matter are the ones *not* in the default state.
+                    const bool visible =
+                        interaction.hovered || drawn.selfHovered || drawn.alwaysShown;
+                    if (!visible || drawn.glyph == StudioIcon::None) { continue; }
+
+                    if (drawn.state != StudioControlState::Normal)
                     {
                         frame.drawList().fillRoundedRect(
-                            toggleBox.inset(UiEdges{-2.0f, -2.0f, -2.0f, -2.0f}),
-                            theme.controlBackground(toggleState),
+                            drawn.box.inset(UiEdges{-2.0f, -2.0f, -2.0f, -2.0f}),
+                            theme.controlBackground(drawn.state),
                             metricOf(theme, StudioMetric::CornerRadius));
                     }
-                    studioDrawIcon(frame, toggleBox, toggleGlyph,
-                                   theme.controlText(toggleState));
+                    studioDrawIcon(frame, drawn.box, drawn.glyph, theme.controlText(drawn.state));
                 }
 
                 const StudioColorRole labelRole = (!row.enabled || row.muted)
