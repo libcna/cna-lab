@@ -1237,12 +1237,34 @@ namespace CNA::Studio
         // The World Outliner (STUDIO-07006), the second ported panel and the first that reads the
         // document model rather than a log.
         shell.setPanelContent("outliner", [this](StudioFrame& frame, const UiRect& bounds) {
-            const StudioOutlinerResult outliner =
-                studioOutlinerPanel(frame, bounds, context_, outlinerState_, &outlinerSearch_);
+            // Which entities are broken (STUDIO-13010). Recomputed only when the document has
+            // changed, because `validateScene` walks the whole of it and the Outliner is
+            // virtualised for scenes of fifty thousand entities (STUDIO-13011) -- validating every
+            // frame would put back the exact cost that task removed.
+            //
+            // The history's cursor is the signal, and it is an *exact* one rather than a heuristic:
+            // every document mutation is a command (D-06), so there is no edit that could move the
+            // scene without moving the cursor. Undo and redo move it too, which is right -- they
+            // change the scene as much as anything else does.
+            if (frame.isInputPass())
+            {
+                const std::size_t cursor = context_.getHistory().getCursor();
+                if (cursor != validatedAt_ || !validatedOnce_)
+                {
+                    outlinerIssues_ = studioOutlinerIssues(
+                        validateScene(context_.getScene(), context_.getComponentRegistry()));
+                    validatedAt_ = cursor;
+                    validatedOnce_ = true;
+                }
+            }
+
+            const StudioOutlinerResult outliner = studioOutlinerPanel(
+                frame, bounds, context_, outlinerState_, &outlinerSearch_, outlinerIssues_);
             if (frame.isDrawPass())
             {
                 counts_.outlinerRowsDrawn = outliner.rowsDrawn;
                 counts_.outlinerRowsTotal = outliner.rowsTotal;
+                counts_.outlinerRowsMarked = outliner.rowsMarked;
             }
 
             // An asset dropped on a row goes into the scene under it (STUDIO-09008). At the origin

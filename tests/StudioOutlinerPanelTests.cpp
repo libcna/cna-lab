@@ -20,8 +20,11 @@
 #include "CNA/Studio/Scene/BuiltinComponents.hpp"
 
 #include "CNA/Studio/ShellPanels/StudioContentBrowser.hpp"
+#include "CNA/Studio/Scene/PrefabDocument.hpp"
 #include "CNA/Studio/Scene/SceneLock.hpp"
 #include "CNA/Studio/ShellPanels/StudioOutlinerPanel.hpp"
+#include "CNA/Studio/ShellPanels/StudioShellPanels.hpp"
+#include "CNA/Studio/Scene/SceneCommands.hpp"
 #include "CNA/Studio/StudioContext.hpp"
 #include "CNA/Studio/UiCore/StudioShell.hpp"
 
@@ -748,6 +751,241 @@ CNA_STUDIO_TEST(ChoosingAMenuRowRunsTheCommandOrReportsTheAction)
     // Delete is an application action and is reported rather than run: the panel names it and the
     // binder invokes it, which is what keeps one implementation of "what Delete means".
     CNA_STUDIO_EXPECT(askedToDelete);
+}
+
+/**
+ * A prefab instance says so, and says how far it goes (`plan.md` STUDIO-13009).
+ *
+ * The links have been on the entities since `STUDIO-19xxx` -- `kPrefabAsset` on the instance root
+ * and `kPrefabEntity` on every entity of it -- and the Outliner showed none of it. An editor where
+ * a user cannot tell a prefab instance from an ordinary subtree is one where they edit the instance
+ * expecting the prefab to change, or edit around it expecting it not to.
+ */
+CNA_STUDIO_TEST(TheOutlinerMarksAPrefabInstanceAndItsWholeExtent)
+{
+    Fixture fixture;
+    StudioTreeState state;
+    SceneDocument& scene = fixture.context.getScene();
+
+    const auto rowFor = [&](const Uuid& id) {
+        for (const StudioTreeRow& row : studioOutlinerRows(scene, {}, state))
+        {
+            if (row.id == id.toString()) { return row; }
+        }
+        return StudioTreeRow{};
+    };
+
+    // Nothing is a prefab yet: the type icon is drawn in the ordinary secondary colour, and the
+    // detail column says what the entity carries.
+    CNA_STUDIO_EXPECT(rowFor(fixture.player).iconRole == StudioColorRole::TextSecondary);
+    CNA_STUDIO_EXPECT(rowFor(fixture.player).detail != std::string{"Prefab"});
+
+    // Player becomes an instance root and Weapon one of its entities; Shield is left out, so the
+    // case can tell "the whole subtree" from "everything under the root".
+    scene.findEntityForEdit(fixture.player)
+        ->setStudioState(PrefabKeys::kPrefabAsset, PropertyValue{Uuid::generate().toString()});
+    scene.findEntityForEdit(fixture.player)
+        ->setStudioState(PrefabKeys::kPrefabEntity, PropertyValue{Uuid::generate().toString()});
+    scene.findEntityForEdit(fixture.weapon)
+        ->setStudioState(PrefabKeys::kPrefabEntity, PropertyValue{Uuid::generate().toString()});
+
+    // The accent runs through every entity of the instance, because the question a user has is how
+    // far it goes -- a mark on the root alone answers only "is this one".
+    CNA_STUDIO_EXPECT(rowFor(fixture.player).iconRole == StudioColorRole::Accent);
+    CNA_STUDIO_EXPECT(rowFor(fixture.weapon).iconRole == StudioColorRole::Accent);
+
+    // And not through what is merely nearby: Shield is a sibling of Weapon and no part of it.
+    CNA_STUDIO_EXPECT(rowFor(fixture.shield).iconRole == StudioColorRole::TextSecondary);
+    CNA_STUDIO_EXPECT(rowFor(fixture.camera).iconRole == StudioColorRole::TextSecondary);
+
+    // Only the root carries the asset link, so only the root names the thing.
+    CNA_STUDIO_EXPECT_EQ(rowFor(fixture.player).detail, std::string{"Prefab"});
+    CNA_STUDIO_EXPECT(rowFor(fixture.player).detailRole == StudioColorRole::Accent);
+    CNA_STUDIO_EXPECT(rowFor(fixture.weapon).detail != std::string{"Prefab"});
+
+    // The type icon is kept and only its colour changes: a prefab instance holding a mesh is still
+    // a mesh, and the icon is the thing a user scans the column for. Compared against a row that
+    // is not a prefab and carries the same components, so this says "unchanged" rather than naming
+    // whichever glyph the fixture's entities happen to get.
+    CNA_STUDIO_EXPECT(rowFor(fixture.player).icon == rowFor(fixture.shield).icon);
+    CNA_STUDIO_EXPECT(rowFor(fixture.weapon).icon == rowFor(fixture.shield).icon);
+}
+
+/**
+ * A broken entity says so on its row (`plan.md` STUDIO-13010).
+ *
+ * The type icons have been there since `STUDIO-35030`; the warnings had not. An editor where the
+ * only way to learn an entity is broken is to open a second panel and read a list is one where
+ * nobody finds out until the game does.
+ */
+CNA_STUDIO_TEST(TheOutlinerMarksTheEntitiesThatHaveAProblem)
+{
+    Fixture fixture;
+    StudioTreeState state;
+    const SceneDocument& scene = fixture.context.getScene();
+
+    // Grouped from what the validator already produces, so there is one definition of "a problem"
+    // and the Outliner and the Problems panel cannot disagree about it.
+    std::vector<SceneIssue> raw;
+
+    SceneIssue sceneWide;
+    sceneWide.severity = SceneIssue::Severity::Error;
+    sceneWide.ruleId = "duplicate-primary-camera";
+    raw.push_back(sceneWide);
+
+    SceneIssue warning;
+    warning.severity = SceneIssue::Severity::Warning;
+    warning.ruleId = "empty-sprite";
+    warning.entityId = fixture.player;
+    raw.push_back(warning);
+
+    SceneIssue second;
+    second.severity = SceneIssue::Severity::Warning;
+    second.ruleId = "no-collider";
+    second.entityId = fixture.player;
+    raw.push_back(second);
+
+    SceneIssue error;
+    error.severity = SceneIssue::Severity::Error;
+    error.ruleId = "missing-asset";
+    error.entityId = fixture.weapon;
+    raw.push_back(error);
+
+    const StudioOutlinerIssues issues = studioOutlinerIssues(raw);
+
+    // A scene-wide issue has no entity and therefore no row: hanging "two primary cameras" on one
+    // of the two would name a culprit the rule does not have.
+    CNA_STUDIO_EXPECT_EQ(issues.byEntity.size(), std::size_t{2});
+    CNA_STUDIO_EXPECT_EQ(issues.byEntity.at(fixture.player).count, std::size_t{2});
+    CNA_STUDIO_EXPECT(issues.byEntity.at(fixture.player).worst == SceneIssue::Severity::Warning);
+    CNA_STUDIO_EXPECT(issues.byEntity.at(fixture.weapon).worst == SceneIssue::Severity::Error);
+
+    const auto rowFor = [&](const Uuid& id) {
+        for (const StudioTreeRow& row : studioOutlinerRows(scene, {}, state, {}, issues))
+        {
+            if (row.id == id.toString()) { return row; }
+        }
+        return StudioTreeRow{};
+    };
+
+    // The count rather than the message: the message belongs to the Problems panel, which has the
+    // width for it. This column's job is to make the user go and look.
+    CNA_STUDIO_EXPECT_EQ(rowFor(fixture.player).detail, std::string{"2 warnings"});
+    CNA_STUDIO_EXPECT(rowFor(fixture.player).detailRole == StudioColorRole::Warning);
+    CNA_STUDIO_EXPECT(rowFor(fixture.player).icon == StudioIcon::Warning);
+    CNA_STUDIO_EXPECT(rowFor(fixture.player).iconRole == StudioColorRole::Warning);
+
+    CNA_STUDIO_EXPECT_EQ(rowFor(fixture.weapon).detail, std::string{"1 error"});
+    CNA_STUDIO_EXPECT(rowFor(fixture.weapon).icon == StudioIcon::Error);
+    CNA_STUDIO_EXPECT(rowFor(fixture.weapon).iconRole == StudioColorRole::Error);
+
+    // And an entity with nothing wrong is untouched, in both columns.
+    CNA_STUDIO_EXPECT(rowFor(fixture.shield).iconRole == StudioColorRole::TextSecondary);
+    CNA_STUDIO_EXPECT(rowFor(fixture.shield).detail != std::string{"1 error"});
+
+    // The worst wins, so one error among four warnings reads as an error. A row reporting the
+    // *last* issue found would change colour when an unrelated rule was added to the validator.
+    SceneIssue alsoError;
+    alsoError.severity = SceneIssue::Severity::Error;
+    alsoError.ruleId = "broken-reference";
+    alsoError.entityId = fixture.player;
+    raw.push_back(alsoError);
+
+    // And a further warning *after* it does not demote the row. Ordered this way on purpose: with
+    // the error last, "the worst wins" and "the last one wins" give the same answer, and a case
+    // that only tested that ordering would pass over either rule.
+    SceneIssue trailing;
+    trailing.severity = SceneIssue::Severity::Warning;
+    trailing.ruleId = "unused-material";
+    trailing.entityId = fixture.player;
+    raw.push_back(trailing);
+
+    const StudioOutlinerIssues worse = studioOutlinerIssues(raw);
+    CNA_STUDIO_EXPECT(worse.byEntity.at(fixture.player).worst == SceneIssue::Severity::Error);
+    CNA_STUDIO_EXPECT_EQ(worse.byEntity.at(fixture.player).count, std::size_t{4});
+
+    // A problem outranks the prefab mark: "this came from a prefab" is useful and "this does not
+    // work" is urgent, and a row can say only one thing in the colour a user scans for.
+    fixture.context.getScene().findEntityForEdit(fixture.weapon)
+        ->setStudioState(PrefabKeys::kPrefabEntity, PropertyValue{Uuid::generate().toString()});
+    fixture.context.getScene().findEntityForEdit(fixture.weapon)
+        ->setStudioState(PrefabKeys::kPrefabAsset, PropertyValue{Uuid::generate().toString()});
+
+    CNA_STUDIO_EXPECT(rowFor(fixture.weapon).iconRole == StudioColorRole::Error);
+    CNA_STUDIO_EXPECT_EQ(rowFor(fixture.weapon).detail, std::string{"1 error"});
+
+    // With no issues supplied the rows are exactly what they were, which is what keeps every
+    // existing caller -- and the headless paths -- meaning what they meant.
+    bool anyMarked = false;
+    for (const StudioTreeRow& row : studioOutlinerRows(scene, {}, state))
+    {
+        if (row.icon == StudioIcon::Warning || row.icon == StudioIcon::Error) { anyMarked = true; }
+    }
+    CNA_STUDIO_EXPECT(!anyMarked);
+}
+
+/**
+ * The shell revalidates when the scene changes, and not per frame (`plan.md` STUDIO-13010).
+ *
+ * `validateScene` walks the whole document, and the Outliner is virtualised for fifty thousand
+ * entities (`STUDIO-13011`) -- validating every frame would put back the exact cost that task
+ * removed. The command history's cursor is the signal, and under D-06 it is an *exact* one: every
+ * document mutation is a command, so there is no edit that could move the scene without moving it.
+ */
+CNA_STUDIO_TEST(TheShellRevalidatesTheOutlinerWhenTheSceneChangesAndNotEveryFrame)
+{
+    StudioContext context;
+    StudioLog log;
+
+    // A transform *and* a camera, because a transform on its own is an "empty entity" and the
+    // validator already says so -- a subject that starts marked could not show the mark appearing.
+    // The camera also stops the scene-wide "no primary camera" rule firing, which has no row to
+    // sit on but would be noise in a case about rows.
+    StudioEntity subject{Uuid::generate(), "Main Camera"};
+    const Uuid entityId = subject.getId();
+    StudioComponent transform{BuiltinComponentIds::kTransform};
+    transform.applyDefaults(*context.getComponentRegistry().find(BuiltinComponentIds::kTransform));
+    subject.addComponent(std::move(transform));
+    StudioComponent lens{BuiltinComponentIds::kCamera};
+    lens.applyDefaults(*context.getComponentRegistry().find(BuiltinComponentIds::kCamera));
+    subject.addComponent(std::move(lens));
+    context.getScene().addEntity(std::move(subject));
+
+    auto shell = std::make_unique<StudioShell>(StudioTheme::dark());
+    shell->resetLayout();
+    StudioShellPanels panels{*shell, context, log};
+    CNA_STUDIO_EXPECT(shell->openPanel("outliner"));
+    CNA_STUDIO_EXPECT(shell->activatePanel("outliner"));
+
+    UiInputState away;
+    away.displayWidth = 1280.0f;
+    away.displayHeight = 720.0f;
+    away.mouseX = -1.0f;
+    away.mouseY = -1.0f;
+
+    // Read through `counts()`, which is where the binder already reports what its panels did --
+    // rather than through a hatch into its private state, which would be a second surface to keep
+    // in step with the first and would assert about the cache instead of about the rows.
+    shell->renderFrame(away);
+    CNA_STUDIO_EXPECT_EQ(panels.counts().outlinerRowsMarked, std::size_t{0});
+    CNA_STUDIO_EXPECT_EQ(panels.counts().outlinerRowsTotal, std::size_t{1});
+
+    // A Sprite Renderer with no texture draws nothing, which `validateScene` reports as
+    // `sprite-without-texture`. Added through a command, because that is the only way the document
+    // is ever changed -- and therefore the only thing the cache has to notice.
+    auto sprite = std::make_unique<AddComponentCommand>(
+        context.getScene(), context.getComponentRegistry(), entityId,
+        std::string{BuiltinComponentIds::kSpriteRenderer});
+    context.execute(std::move(sprite));
+
+    shell->renderFrame(away);
+    CNA_STUDIO_EXPECT_EQ(panels.counts().outlinerRowsMarked, std::size_t{1});
+
+    // And undoing it clears the mark: undo moves the cursor too, which is right, because it
+    // changes the scene as much as anything else does.
+    CNA_STUDIO_EXPECT(context.getHistory().undo());
+    shell->renderFrame(away);
+    CNA_STUDIO_EXPECT_EQ(panels.counts().outlinerRowsMarked, std::size_t{0});
 }
 
 CNA_STUDIO_TEST(AnEmptyOutlinerSaysWhichEmptyItIs)

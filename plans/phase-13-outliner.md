@@ -6,7 +6,7 @@
 
 **Exit criteria.** A scene with tens of thousands of entities browses and edits smoothly.
 
-**Progress:** 8 of 12 complete `████████░░░░`
+**Progress:** 10 of 12 complete `██████████░░`
 
 | Id | Task | Status | Depends on |
 |----|------|:------:|------------|
@@ -18,8 +18,8 @@
 | `STUDIO-13006` | Rename, duplicate and delete | ✅ | `STUDIO-13001` |
 | `STUDIO-13007` | Context menu | ✅ | `STUDIO-06005` |
 | `STUDIO-13008` | Folder and group organisation | ⬜ | `STUDIO-13001` |
-| `STUDIO-13009` | Prefab status indication | ⬜ | `STUDIO-13001` |
-| `STUDIO-13010` | Type icons and component warnings | ⬜ | `STUDIO-13001` |
+| `STUDIO-13009` | Prefab status indication | ✅ | `STUDIO-13001` |
+| `STUDIO-13010` | Type icons and component warnings | ✅ | `STUDIO-13001` |
 | `STUDIO-13011` | Virtualisation for large worlds | ✅ | `STUDIO-30010` |
 | `STUDIO-13012` | Every mutation goes through a command | ⬜ | `STUDIO-02035` |
 
@@ -377,6 +377,85 @@ which is how the first draft of it passed. `ChoosingAMenuRowRunsTheCommandOrRepo
 the rows themselves, one click per opening, and pins both halves of the dispatch: Lock is run here,
 Delete is reported. Checked by causing two failures — a right-click that never takes the row, and a
 Delete row that reports nothing. Each fails by name.
+
+### `STUDIO-13009` — Prefab status indication
+
+**Acceptance.** A user can tell a prefab instance from an ordinary subtree, and can see where it
+ends.
+
+**The links were on the entities and the Outliner showed none of it.** `kPrefabAsset` sits on the
+instance root and `kPrefabEntity` on every entity of the instance, both in studio state. An editor
+where a user cannot tell the two apart is one where they edit the instance expecting the prefab to
+change, or edit around it expecting it not to.
+
+**The accent runs through the whole instance, not only its root.** The question a user actually has
+is "how far does this go" — a mark on the root alone answers "is this one", which they can usually
+guess from the name. Marking every entity of the instance is also simply true: all of it came from
+the prefab.
+
+**The type icon is kept and only its colour changes.** A prefab instance holding a mesh is still a
+mesh, and the icon is the thing the eye scans the column for; replacing it would trade the fact a
+user scans for against one they can read in the detail column anyway.
+
+**Only the root names it**, because only the root carries the asset link — and the component count
+is the less useful of the two facts about an entity that came out of a prefab.
+
+**Verification.** `tests/StudioOutlinerPanelTests.cpp`:
+`TheOutlinerMarksAPrefabInstanceAndItsWholeExtent` pins the accent on the root *and* on a member,
+its absence on a sibling that is no part of the instance and on an unrelated root, "Prefab" on the
+root alone, and the type icon unchanged — compared against a row carrying the same components
+rather than against a named glyph, so the assertion says "unchanged" rather than naming whatever
+the fixture happens to get. Checked by marking only the root: the member's assertion fails by name.
+
+### `STUDIO-13010` — Type icons and component warnings
+
+**Acceptance.** A row says what its entity *is*, and says when something about it is wrong.
+
+**The icons existed; the warnings did not.** `iconFor` has mapped components to glyphs since
+`STUDIO-35030` — camera, light, mesh, sprite, audio, and a plain entity for a transform and nothing
+else, because a blank where every other row has a picture reads as a row that failed to load. The
+other half of the task was missing entirely: the only way to learn an entity was broken was to open
+the Problems panel and read a list.
+
+**The count, not the message.** The message belongs to the Problems panel, which has the width for
+it and a row per issue. This column's job is to make the user go and look.
+
+**The worst severity wins**, so one error among four warnings reads as an error. A row that reported
+the *last* issue found would change colour when an unrelated rule was added to the validator — and
+the case that pins this puts a warning **after** the error on purpose, because with the error last
+"the worst wins" and "the last one wins" give the same answer, and the first draft of the gate
+passed over either rule.
+
+**A problem outranks the prefab mark.** "This came from a prefab" is useful and "this does not work"
+is urgent, and a row can say only one thing in the colour a user scans for.
+
+**Scene-wide issues are dropped**, because there is no row to put them on: hanging "two primary
+cameras" on one of the two would name a culprit the rule does not have.
+
+**The panel is handed the issues rather than computing them, and that is the whole of the cost
+story.** `validateScene` walks the entire document and this panel is virtualised for fifty thousand
+entities (`STUDIO-13011`); validating per frame would put back the exact cost that task removed. The
+shell recomputes when the command history's **cursor** moves, which under D-06 — every document
+mutation is a command — is an *exact* "has the scene changed" signal rather than a heuristic. Undo
+and redo move it too, which is right: they change the scene as much as anything else does.
+
+**`StudioOutlinerResult::rowsMarked`** reports how many of the built rows carry a problem, and the
+shell copies it into `counts()` beside the other panel numbers. Without it, "the Outliner is marking
+things" is invisible from outside the panel, and a marking that silently stopped working would look
+exactly like a clean scene.
+
+**Verification.** `tests/StudioOutlinerPanelTests.cpp`:
+`TheOutlinerMarksTheEntitiesThatHaveAProblem` pins the grouping (scene-wide issues dropped, counts
+per entity, worst-wins with the warning last), both severities on the row in both columns, an
+untouched row for an entity with nothing wrong, the problem outranking the prefab mark, and — with
+no issues supplied — rows exactly as they were, which is what keeps every existing caller and the
+headless paths meaning what they meant.
+`TheShellRevalidatesTheOutlinerWhenTheSceneChangesAndNotEveryFrame` drives the real binder: a
+component added through a command makes the mark appear, and undoing it clears it. Its subject
+carries a transform **and** a camera, because a transform alone is an "empty entity" the validator
+already reports — a subject that started marked could not show the mark appearing, which is how the
+first draft of it failed. Checked by causing two failures — the last issue winning instead of the
+worst, and a cache that never refreshes after the first frame. Each fails by name.
 
 ### `STUDIO-13011` — Virtualisation for large worlds
 

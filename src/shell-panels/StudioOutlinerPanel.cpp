@@ -11,6 +11,7 @@
 #include "CNA/Studio/Scene/BuiltinComponents.hpp"
 #include "CNA/Studio/Scene/SceneDocument.hpp"
 #include "CNA/Studio/Scene/SceneCommands.hpp"
+#include "CNA/Studio/Scene/PrefabDocument.hpp"
 #include "CNA/Studio/Scene/SceneLock.hpp"
 #include "CNA/Studio/StudioContext.hpp"
 #include "CNA/Studio/Core/StudioCommand.hpp"
@@ -98,7 +99,8 @@ namespace CNA::Studio
                   const std::unordered_map<Uuid, std::vector<Uuid>>& hierarchy,
                   const Uuid& id, int depth,
                   const std::vector<Uuid>& selection, const StudioTreeState& state,
-                  const StudioOutlinerFilter& filter, std::size_t& index, std::size_t first,
+                  const StudioOutlinerFilter& filter,
+                  const StudioOutlinerIssues& issues, std::size_t& index, std::size_t first,
                   std::size_t last, std::vector<StudioTreeRow>* out,
                   std::vector<Uuid>* outIds = nullptr)
         {
@@ -139,8 +141,8 @@ namespace CNA::Studio
                 {
                     for (const Uuid& child : children)
                     {
-                        walk(scene, hierarchy, child, depth + 1, selection, state, filter, index,
-                             first, last, out, outIds);
+                        walk(scene, hierarchy, child, depth + 1, selection, state, filter, issues,
+                             index, first, last, out, outIds);
                         if (out != nullptr && index >= last) { return; }
                     }
                 }
@@ -160,6 +162,20 @@ namespace CNA::Studio
             // the user cannot click is a path they have to close the search to walk.
             row.muted = filter.active && filter.matched.find(id) == filter.matched.end();
             row.icon = iconFor(*entity);
+
+            // Prefab status (`plan.md` STUDIO-13009). The accent runs through *every* entity of an
+            // instance, not only its root, because the question a user actually has is "how far
+            // does this instance go" -- and a mark on the root alone answers "is this one", which
+            // they can already guess from the name.
+            //
+            // The type icon is kept and only its colour changes: a prefab instance holding a mesh
+            // is still a mesh, and replacing the icon would trade the fact they scan for against
+            // one they can read in the detail column.
+            if (entity->getStudioState().find(PrefabKeys::kPrefabEntity)
+                != entity->getStudioState().end())
+            {
+                row.iconRole = StudioColorRole::Accent;
+            }
 
             // `STUDIO-35060`. An outliner where hiding an entity means selecting it, finding the
             // Details panel and unticking a box is one where nobody hides anything -- and hiding
@@ -217,6 +233,43 @@ namespace CNA::Studio
                 row.detail = std::to_string(entity->getComponents().size()) + " components";
             }
 
+            // A problem outranks everything above (`plan.md` STUDIO-13010). A prefab instance
+            // with a broken reference in it is a *broken* row first: "this came from a prefab" is
+            // useful and "this does not work" is urgent, and a row can only say one thing in the
+            // colour a user scans for.
+            //
+            // The count rather than the message, because the message belongs to the Problems
+            // panel, which has the width for it and a row per issue. This column's job is to make
+            // the user go and look.
+            const auto problem = issues.byEntity.find(id);
+            const bool broken = problem != issues.byEntity.end();
+
+            // And the instance's root says what it is, over the component summary (STUDIO-13009).
+            // Only the root carries the asset link, so only the root can name the thing -- and the
+            // component count is the less useful of the two facts about an entity that came out of
+            // a prefab, because editing its components is the decision the user is being warned
+            // about rather than informed of.
+            if (entity->getStudioState().find(PrefabKeys::kPrefabAsset)
+                != entity->getStudioState().end())
+            {
+                row.detail = "Prefab";
+                row.detailRole = StudioColorRole::Accent;
+            }
+
+            if (broken)
+            {
+                const bool isError = problem->second.worst == SceneIssue::Severity::Error;
+                const StudioColorRole role =
+                    isError ? StudioColorRole::Error : StudioColorRole::Warning;
+
+                row.icon = isError ? StudioIcon::Error : StudioIcon::Warning;
+                row.iconRole = role;
+                row.detail = std::to_string(problem->second.count)
+                    + (problem->second.count == 1 ? (isError ? " error" : " warning")
+                                                  : (isError ? " errors" : " warnings"));
+                row.detailRole = role;
+            }
+
             out->push_back(std::move(row));
 
             // The same traversal answers both questions (`plan.md` STUDIO-13003). A second walk
@@ -231,8 +284,8 @@ namespace CNA::Studio
             }
             for (const Uuid& child : children)
             {
-                walk(scene, hierarchy, child, depth + 1, selection, state, filter, index, first,
-                     last, out, outIds);
+                walk(scene, hierarchy, child, depth + 1, selection, state, filter, issues, index,
+                     first, last, out, outIds);
                 if (index >= last) { return; }
             }
         }
@@ -249,7 +302,8 @@ namespace CNA::Studio
         std::size_t walkRoots(const SceneDocument& scene,
                               const std::unordered_map<Uuid, std::vector<Uuid>>& hierarchy,
                               const std::vector<Uuid>& selection, const StudioTreeState& state,
-                              const StudioOutlinerFilter& filter, std::size_t first,
+                              const StudioOutlinerFilter& filter,
+                              const StudioOutlinerIssues& issues, std::size_t first,
                               std::size_t last, std::vector<StudioTreeRow>* out,
                               std::vector<Uuid>* outIds = nullptr)
         {
@@ -261,7 +315,7 @@ namespace CNA::Studio
             std::size_t index = 0;
             for (const Uuid& root : roots->second)
             {
-                walk(scene, hierarchy, root, 0, selection, state, filter, index, first, last, out,
+                walk(scene, hierarchy, root, 0, selection, state, filter, issues, index, first, last, out,
                      outIds);
                 if (out != nullptr && index >= last) { break; }
             }
@@ -315,7 +369,7 @@ namespace CNA::Studio
     {
         // Once for the whole walk (STUDIO-30013): `getChildrenByParent` is a pass over the scene,
         // and asking for it per node is what made this O(n^2) in the first place.
-        return walkRoots(scene, scene.getChildrenByParent(), {}, state, filter, 0,
+        return walkRoots(scene, scene.getChildrenByParent(), {}, state, filter, {}, 0,
                          std::numeric_limits<std::size_t>::max(), nullptr);
     }
 
@@ -323,7 +377,8 @@ namespace CNA::Studio
                                                        const std::vector<Uuid>& selection,
                                                        const StudioTreeState& state,
                                                        std::size_t first, std::size_t count,
-                                                       const StudioOutlinerFilter& filter)
+                                                       const StudioOutlinerFilter& filter,
+                                                       const StudioOutlinerIssues& issues)
     {
         if (count == 0) { return {}; }
 
@@ -333,7 +388,8 @@ namespace CNA::Studio
         const std::size_t last = count == std::numeric_limits<std::size_t>::max()
             ? count
             : first + count;
-        (void)walkRoots(scene, scene.getChildrenByParent(), selection, state, filter, first, last,
+        (void)walkRoots(scene, scene.getChildrenByParent(), selection, state, filter, issues,
+                        first, last,
                         &rows);
         return rows;
     }
@@ -341,10 +397,11 @@ namespace CNA::Studio
     std::vector<StudioTreeRow> studioOutlinerRows(const SceneDocument& scene,
                                                   const std::vector<Uuid>& selection,
                                                   const StudioTreeState& state,
-                                                  const StudioOutlinerFilter& filter)
+                                                  const StudioOutlinerFilter& filter,
+                                                  const StudioOutlinerIssues& issues)
     {
         return studioOutlinerRowWindow(scene, selection, state, 0,
-                                       std::numeric_limits<std::size_t>::max(), filter);
+                                       std::numeric_limits<std::size_t>::max(), filter, issues);
     }
 
     std::vector<Uuid> studioOutlinerRange(const SceneDocument& scene, const StudioTreeState& state,
@@ -360,7 +417,7 @@ namespace CNA::Studio
         // sake of a gesture a user makes a few times a minute.
         std::vector<StudioTreeRow> rows;
         std::vector<Uuid> shown;
-        (void)walkRoots(scene, scene.getChildrenByParent(), {}, state, filter, 0,
+        (void)walkRoots(scene, scene.getChildrenByParent(), {}, state, filter, {}, 0,
                         std::numeric_limits<std::size_t>::max(), &rows, &shown);
 
         const auto first = std::find(shown.begin(), shown.end(), from);
@@ -444,6 +501,31 @@ namespace CNA::Studio
         return plan;
     }
 
+    StudioOutlinerIssues studioOutlinerIssues(const std::vector<SceneIssue>& issues)
+    {
+        StudioOutlinerIssues grouped;
+        for (const SceneIssue& issue : issues)
+        {
+            // Scene-wide issues have no entity and therefore no row to sit on. Dropped rather than
+            // attached to something arbitrary: "two primary cameras" is about the scene, and
+            // hanging it on one of the two would name a culprit the rule does not have.
+            if (!issue.entityId.isValid()) { continue; }
+
+            StudioOutlinerIssues::Entry& entry = grouped.byEntity[issue.entityId];
+            const bool first = entry.count == 0;
+            ++entry.count;
+
+            // The worst wins, so a row carrying one error and four warnings reads as an error. A
+            // row that reported the *last* issue found would change colour when an unrelated rule
+            // was added to the validator.
+            if (first || issue.severity == SceneIssue::Severity::Error)
+            {
+                entry.worst = issue.severity;
+            }
+        }
+        return grouped;
+    }
+
     std::vector<StudioContextMenuItem> studioOutlinerMenuItems(const SceneDocument& scene,
                                                                const std::vector<Uuid>& selection)
     {
@@ -494,7 +576,8 @@ namespace CNA::Studio
 
     StudioOutlinerResult studioOutlinerPanel(StudioFrame& frame, const UiRect& bounds,
                                              StudioContext& context, StudioTreeState& state,
-                                             std::string* search)
+                                             std::string* search,
+                                             const StudioOutlinerIssues& issues)
     {
         StudioOutlinerResult result;
 
@@ -550,7 +633,7 @@ namespace CNA::Studio
         // The count first, then the window. Counting walks the tree and builds nothing, which is
         // the difference between a scene of fifty thousand entities costing fifty thousand
         // increments and costing fifty thousand rows of three strings each, twice a frame.
-        const std::size_t total = walkRoots(scene, hierarchy, {}, state, filter, 0,
+        const std::size_t total = walkRoots(scene, hierarchy, {}, state, filter, {}, 0,
                                             std::numeric_limits<std::size_t>::max(), nullptr);
         result.rowsTotal = total;
 
@@ -579,9 +662,14 @@ namespace CNA::Studio
 
         std::vector<StudioTreeRow> rows;
         rows.reserve(window.rowCount);
-        (void)walkRoots(scene, hierarchy, context.getSelection(), state, filter, window.firstRow,
+        (void)walkRoots(scene, hierarchy, context.getSelection(), state, filter, issues,
+                        window.firstRow,
                         window.firstRow + window.rowCount, &rows);
         result.rowsBuilt = rows.size();
+        result.rowsMarked = static_cast<std::size_t>(
+            std::count_if(rows.begin(), rows.end(), [](const StudioTreeRow& row) {
+                return row.icon == StudioIcon::Warning || row.icon == StudioIcon::Error;
+            }));
 
         const StudioTreeResult tree = studioTreeRows(frame, view, rows, state, window);
         studioEndScroll(frame);

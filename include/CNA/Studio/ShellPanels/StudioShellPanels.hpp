@@ -38,6 +38,7 @@
 #include "CNA/Studio/ShellPanels/StudioComparisonPanel.hpp"
 #include "CNA/Studio/ShellPanels/StudioComparisonService.hpp"
 #include "CNA/Studio/ShellPanels/StudioDiagnosticsPanel.hpp"
+#include "CNA/Studio/ShellPanels/StudioOutlinerPanel.hpp"
 #include "CNA/Studio/ShellPanels/StudioHistoryPanel.hpp"
 #include "CNA/Studio/ShellPanels/StudioLayersPanel.hpp"
 #include "CNA/Studio/ShellPanels/StudioBuildService.hpp"
@@ -182,6 +183,9 @@ namespace CNA::Studio
     {
         std::size_t outlinerRowsDrawn = 0;
         std::size_t outlinerRowsTotal = 0;
+
+        /** @brief How many Outliner rows are marked as broken (`plan.md` STUDIO-13010). */
+        std::size_t outlinerRowsMarked = 0;
         std::size_t detailsRowsDrawn = 0;
         std::size_t contentRowsDrawn = 0;
 
@@ -768,6 +772,20 @@ namespace CNA::Studio
          * cleared would have to remember what they were looking for.
          */
         std::string outlinerSearch_;
+
+        /**
+         * @brief Which entities the Outliner should mark as broken (`plan.md` STUDIO-13010).
+         *
+         * Cached rather than computed per frame: `validateScene` walks the whole document and the
+         * Outliner is virtualised for fifty thousand entities. @ref validatedAt_ is the command
+         * history's cursor when this was last built, which under D-06 -- every mutation is a
+         * command -- is an exact "has the scene changed" signal rather than a heuristic.
+         */
+        StudioOutlinerIssues outlinerIssues_;
+        std::size_t validatedAt_ = 0;
+
+        /** @brief False until the first validation, so an empty history still gets one. */
+        bool validatedOnce_ = false;
         StudioContentBrowserState contentState_;
 
         /**

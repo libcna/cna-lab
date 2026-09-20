@@ -27,12 +27,14 @@
 #pragma once
 
 #include "CNA/Studio/Core/Uuid.hpp"
+#include "CNA/Studio/Scene/SceneValidation.hpp"
 #include "CNA/Studio/UiCore/StudioFrame.hpp"
 #include "CNA/Studio/UiCore/StudioTreeView.hpp"
 #include "CNA/Studio/UiCore/UiRect.hpp"
 
 #include <cstddef>
 #include <string>
+#include <unordered_map>
 #include <unordered_set>
 #include <string_view>
 #include <vector>
@@ -60,6 +62,16 @@ namespace CNA::Studio
          * the frame building rows nobody would see. This is the number that says otherwise.
          */
         std::size_t rowsBuilt = 0;
+
+        /**
+         * @brief How many of those rows carry a problem (`plan.md` STUDIO-13010).
+         *
+         * Of the rows *built*, so it counts what the user can see rather than what the scene
+         * holds -- the Problems panel answers the second question and has the room to. Reported
+         * because "the Outliner is marking things" is otherwise invisible from outside the panel,
+         * and a marking that silently stopped working would look exactly like a clean scene.
+         */
+        std::size_t rowsMarked = 0;
 
         /** @brief Whether the selection changed this frame. Input pass only. */
         bool selectionChanged = false;
@@ -208,6 +220,40 @@ namespace CNA::Studio
                                                         const StudioTreeState& state,
                                                         const StudioOutlinerFilter& filter,
                                                         const Uuid& from, const Uuid& to);
+
+    /**
+     * @brief Which entities have a problem, and how bad the worst one is.
+     *
+     * `plan.md` STUDIO-13010. Handed to the panel rather than computed by it, because
+     * `validateScene` walks the whole document and the Outliner is virtualised for scenes of fifty
+     * thousand entities (`STUDIO-13011`) -- a per-frame validation would put back exactly the cost
+     * that task removed.
+     *
+     * The caller recomputes it when the scene changes, which under D-06 is exactly when the
+     * command history's cursor moves: every document mutation is a command, so there is no edit
+     * that could slip past a check on the cursor.
+     */
+    struct StudioOutlinerIssues
+    {
+        /** @brief How many problems each entity has, and the worst severity among them. */
+        struct Entry
+        {
+            std::size_t count = 0;
+            SceneIssue::Severity worst = SceneIssue::Severity::Warning;
+        };
+
+        std::unordered_map<Uuid, Entry> byEntity;
+
+        [[nodiscard]] bool empty() const { return byEntity.empty(); }
+    };
+
+    /**
+     * @brief Groups @p issues by the entity at fault.
+     *
+     * Scene-wide issues -- the ones with no entity -- are dropped: they belong to the Problems
+     * panel, and there is no row here to put them on.
+     */
+    [[nodiscard]] StudioOutlinerIssues studioOutlinerIssues(const std::vector<SceneIssue>& issues);
 
     /**
      * @brief The rows of the World Outliner's right-click menu, for @p selection.
@@ -359,11 +405,12 @@ namespace CNA::Studio
     [[nodiscard]] std::vector<StudioTreeRow> studioOutlinerRowWindow(
         const SceneDocument& scene, const std::vector<Uuid>& selection,
         const StudioTreeState& state, std::size_t first, std::size_t count,
-        const StudioOutlinerFilter& filter = {});
+        const StudioOutlinerFilter& filter = {}, const StudioOutlinerIssues& issues = {});
 
     [[nodiscard]] std::vector<StudioTreeRow> studioOutlinerRows(
         const SceneDocument& scene, const std::vector<Uuid>& selection,
-        const StudioTreeState& state, const StudioOutlinerFilter& filter = {});
+        const StudioTreeState& state, const StudioOutlinerFilter& filter = {},
+        const StudioOutlinerIssues& issues = {});
 
     /**
      * @brief Draws the World Outliner and applies what the user clicked.
@@ -372,9 +419,13 @@ namespace CNA::Studio
      * @param bounds The panel's content rectangle.
      * @param context The editor. Its scene is read; its selection is written.
      * @param state Expansion state, owned by the caller so it survives the frame.
+     * @param search The search box's text, or nullptr for no search box.
+     * @param issues Which entities have a problem (`plan.md` STUDIO-13010). Supplied rather than
+     *        computed here; see @ref StudioOutlinerIssues for why.
      * @return What happened.
      */
     StudioOutlinerResult studioOutlinerPanel(StudioFrame& frame, const UiRect& bounds,
                                              StudioContext& context, StudioTreeState& state,
-                                             std::string* search = nullptr);
+                                             std::string* search = nullptr,
+                                             const StudioOutlinerIssues& issues = {});
 }
