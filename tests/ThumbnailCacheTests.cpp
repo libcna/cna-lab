@@ -14,6 +14,8 @@
 
 #include "CNA/Studio/Assets/AssetDatabase.hpp"
 #include "CNA/Studio/Assets/ThumbnailCache.hpp"
+#include "CNA/Studio/Assets/MaterialDocument.hpp"
+#include "CNA/Studio/Core/Json.hpp"
 #include "CNA/Studio/Core/StudioJobs.hpp"
 #include "CNA/Studio/ShellPanels/StudioShellPanels.hpp"
 #include "CNA/Studio/StudioContext.hpp"
@@ -53,6 +55,12 @@ namespace
         ScopedProject& operator=(const ScopedProject&) = delete;
 
         [[nodiscard]] std::string root() const { return path_.generic_string(); }
+
+        /** @brief Writes @p text, for the file formats that are text rather than pixels. */
+        void writeText(const std::string& relative, const std::string& text) const
+        {
+            write(relative, std::vector<unsigned char>{text.begin(), text.end()});
+        }
 
         void write(const std::string& relative, const std::vector<unsigned char>& bytes) const
         {
@@ -816,4 +824,92 @@ CNA_STUDIO_TEST(DroppingAThumbnailTellsWhoeverUploadedIt)
     // never made.
     cache.invalidate(id);
     CNA_STUDIO_EXPECT_EQ(released.size(), std::size_t{1});
+}
+
+/**
+ * @brief STUDIO-19007: a material gets a thumbnail too, rendered rather than decoded.
+ *
+ * The cache's gate was `studioCanDecodeImageExtension`, so a `.cnamaterial` was skipped and a
+ * folder of forty materials was forty identical icons. The whole of the change is a second kind of
+ * work in the same job: read the document, draw the sphere, file it exactly as a decoded image.
+ */
+CNA_STUDIO_TEST(AMaterialGetsARenderedThumbnailRatherThanNone)
+{
+    ScopedProject project{"material"};
+
+    MaterialDocument material;
+    material.name = "Stone";
+    material.diffuseColor = StudioVector3{0.2f, 0.4f, 0.9f};
+    project.writeText("Assets/Stone.cnamaterial", Json::write(material.toJson(), true));
+
+    AssetDatabase assets;
+    assets.setProjectRoot(project.root());
+    CNA_STUDIO_EXPECT(assets.scan("Assets").succeeded);
+
+    const AssetRecord* record = assets.findByPath("Assets/Stone.cnamaterial");
+    CNA_STUDIO_EXPECT(record != nullptr);
+    if (record == nullptr) { return; }
+    CNA_STUDIO_EXPECT(record->type == AssetType::Material);
+
+    StudioJobSystem jobs{StudioJobMode::Immediate};
+    StudioThumbnailCache cache;
+
+    cache.setWanted({record->id});
+    CNA_STUDIO_EXPECT_EQ(cache.pump(jobs, assets), std::size_t{1});
+
+    jobs.waitForIdle();
+    jobs.drain();
+
+    const StudioThumbnail* thumbnail = cache.find(record->id);
+    CNA_STUDIO_EXPECT(thumbnail != nullptr);
+    if (thumbnail == nullptr) { return; }
+
+    // Square at the full edge, unlike a decoded image, which keeps its own proportions.
+    CNA_STUDIO_EXPECT_EQ(thumbnail->width, StudioThumbnailCache::kThumbnailEdge);
+    CNA_STUDIO_EXPECT_EQ(thumbnail->height, StudioThumbnailCache::kThumbnailEdge);
+
+    // The sphere, and the material's own colour: blue here, so the centre's blue channel leads.
+    const std::uint32_t middle = StudioThumbnailCache::kThumbnailEdge / 2;
+    const std::size_t centre =
+        (static_cast<std::size_t>(middle) * thumbnail->width + middle) * 4u;
+    CNA_STUDIO_EXPECT_EQ(int{thumbnail->pixels[centre + 3]}, 255);
+    CNA_STUDIO_EXPECT(thumbnail->pixels[centre + 2] > thumbnail->pixels[centre + 0]);
+
+    // And nothing in the corner, which is what makes it a ball on the card rather than a tile.
+    CNA_STUDIO_EXPECT_EQ(int{thumbnail->pixels[3]}, 0);
+
+    CNA_STUDIO_EXPECT_EQ(cache.getGeneratedCount(), std::uint64_t{1});
+
+    // Not made twice, exactly as an image is not: the content hash covers a material file like any
+    // other, so editing the material is what invalidates it.
+    CNA_STUDIO_EXPECT_EQ(cache.pump(jobs, assets), std::size_t{0});
+}
+
+/** @brief A material this build cannot read fails once and is not retried for ever. */
+CNA_STUDIO_TEST(AnUnreadableMaterialIsACachedFailureLikeABrokenImage)
+{
+    ScopedProject project{"badmaterial"};
+    project.writeText("Assets/Broken.cnamaterial", "{ this is not json");
+
+    AssetDatabase assets;
+    assets.setProjectRoot(project.root());
+    CNA_STUDIO_EXPECT(assets.scan("Assets").succeeded);
+
+    const AssetRecord* record = assets.findByPath("Assets/Broken.cnamaterial");
+    CNA_STUDIO_EXPECT(record != nullptr);
+    if (record == nullptr) { return; }
+
+    StudioJobSystem jobs{StudioJobMode::Immediate};
+    StudioThumbnailCache cache;
+
+    cache.setWanted({record->id});
+    CNA_STUDIO_EXPECT_EQ(cache.pump(jobs, assets), std::size_t{1});
+    jobs.waitForIdle();
+    jobs.drain();
+
+    CNA_STUDIO_EXPECT(cache.find(record->id) == nullptr);
+
+    // The failure is cached, which is the whole point: a file that is not really a material would
+    // otherwise be parsed again on every pump, for ever.
+    CNA_STUDIO_EXPECT_EQ(cache.pump(jobs, assets), std::size_t{0});
 }

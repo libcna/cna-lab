@@ -6,7 +6,7 @@
 
 **Exit criteria.** A property-based material editor good enough that a node graph is an addition rather than a rescue.
 
-**Progress:** 6 of 9 complete `████████░░░░`
+**Progress:** 7 of 9 complete `█████████░░░`
 
 | Id | Task | Status | Depends on |
 |----|------|:------:|------------|
@@ -16,7 +16,7 @@
 | `STUDIO-19004` | Transparency modes | ✅ | `STUDIO-19001` |
 | `STUDIO-19005` | Material instances and parameter overrides | ⬜ | `STUDIO-19001` |
 | `STUDIO-19006` | Live material preview in the viewport | ⬜ | `STUDIO-11011` |
-| `STUDIO-19007` | Material preview thumbnail rendering | ⬜ | `STUDIO-09003` |
+| `STUDIO-19007` | Material preview thumbnail rendering | ✅ | `STUDIO-09003` |
 | `STUDIO-19008` | Renderer capability diagnostics for materials | ✅ | `STUDIO-02021` |
 | `STUDIO-19009` | Material assignment to mesh entities | ✅ | `STUDIO-19001` |
 
@@ -350,6 +350,82 @@ name.
 and the grid edits it as a list of structures, which is not the same as picking a material for a
 part off the model in the viewport. Nothing here previews the assignment before it is made
 (`STUDIO-19006`), and nothing draws a material's thumbnail in the picker (`STUDIO-19007`).
+
+### `STUDIO-19007` — Material preview thumbnail rendering
+
+**Acceptance.** A `.cnamaterial` in the Content Browser looks like the material, not like a file
+icon.
+
+**Forty materials were forty identical rows.** The thumbnail cache's gate was
+`studioCanDecodeImageExtension`, so a material was skipped and told apart only by its name — which
+is the one thing about a material a user did not derive from how it looks.
+
+**A sphere, because it shows every parameter this format has except the maps.** Base colour,
+roughness, metalness and emission are all legible on a lit ball at 128 pixels, and none of them is
+legible on a flat swatch.
+
+**On the CPU, and that is a decision rather than a shortcut.** The thumbnail cache does its work on
+a *worker thread*, where there is no graphics device and must not be one; a GPU preview would need
+a device, a render target and a pass, and would simply be absent in the headless build. Studio
+already rasterises its entire UI in software in that build, so a shaded sphere is well inside what
+this project does on a worker — and the preview is then identical in every configuration.
+
+**The maps are not sampled, and the plan says so rather than implying otherwise.** A material whose
+appearance is mostly its base-colour texture previews as a plain sphere of its factor colour.
+Sampling would mean decoding a second image on the worker and resolving its path through a database
+this function deliberately cannot see; what it buys is a better thumbnail for textured materials
+and nothing at all for the untextured ones — which are the ones a user is most likely to have
+several of and least able to tell apart. It is the obvious next step and it is not this row.
+
+**Transparent corners rather than a background colour.** The browser's card is whatever the theme
+says it is; a thumbnail with its own grey corners is a grey square in the light theme and a
+different grey square in the dark one. And a `Blend` material is drawn *over* that transparency, so
+a glass material previews as a faint sphere — the one property of a material a flat swatch cannot
+show at all.
+
+**The shading needed a normalisation term, which the first version did not have, and the case that
+found it is the reason it exists.** A dielectric's reflectance is 0.04, so without normalising the
+Blinn-Phong lobe the difference between a mirror and a matte surface was about ten levels out of
+255: the preview could not show roughness, which is half of what it is for. Worse, it had the sign
+of the effect backwards — a sharper highlight spreads the *same* reflectance over fewer pixels, so
+a smooth material rendered as a dimmer picture than a rough one.
+
+**The normalisation is softened and capped, and both are preview decisions stated as such.** The
+exact factor for a mirror-smooth material is around a hundred, which does not brighten the
+highlight so much as saturate every channel across a quarter of the sphere — and a sphere whose
+highlight is white to the edges tells a user nothing about its colour, which is what they came to
+the thumbnail for. The square root keeps roughness's *ordering* intact while leaving the hue
+readable, and the cap holds the sharpest materials to a bright spot rather than a bleached one. A
+thumbnail is a picture rather than a render, and this is the one place that difference is spent.
+
+**`loadMaterialFile` was split out of `loadMaterialDocument`** so the worker has a reader that
+needs no database: the asset database and the document cache belong to the main thread, and a
+worker reaching into either is the crossing that whole class is written to avoid. Still one reader
+— the database's half is resolving an id to a path, and it then calls this.
+
+**Verification.** `tests/StudioMaterialEditorTests.cpp` — a sphere with transparent corners, an
+opaque centre in the material's own colour, and an antialiased rim; a smooth material's highlight
+brighter than a matte one's, a metal's brighter than a dielectric's, and emission lifting the
+unlit side; and `Blend` previewing see-through while `Opaque` and `Mask` with the same alpha
+factor do not.
+`tests/ThumbnailCacheTests.cpp` — a material producing a square thumbnail through the real cache,
+not made twice, and an unreadable material becoming a cached failure rather than a parse on every
+pump.
+Checked by causing each: materials skipped by the cache again, the coverage term dropped, and the
+alpha mode ignored each fail by name.
+
+**Two of the breaks needed the cases strengthened first, and that is worth recording.** Removing
+the silhouette's early-out changed nothing, because the coverage term already zeroes those pixels;
+removing the coverage term changed nothing either, because the early-out already skips them. The
+two were redundant *with each other*, so the corner assertions gated the pair and neither alone —
+which is why there is now a case for the antialiased rim, a thing only the coverage term can
+produce. The early-out is labelled in the source as the optimisation it is.
+
+**And the metal case was wrong twice before it was right.** Its first draft read the blue channel
+at the brightest pixel and had the sign backwards — a red metal reflects *more* blue than a
+dielectric's near-colourless 0.04, not less — and its second still read a single pixel, whose core
+saturates on both. What a metal actually looks like is a far brighter reflection, and that is what
+it asserts.
 
 ### `STUDIO-19008` — Renderer capability diagnostics for materials
 

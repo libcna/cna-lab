@@ -20,6 +20,7 @@
 
 #include "CNA/Studio/Assets/AssetDatabase.hpp"
 #include "CNA/Studio/Assets/MaterialCapabilities.hpp"
+#include "CNA/Studio/Assets/MaterialPreview.hpp"
 #include "CNA/Studio/Assets/MaterialDocument.hpp"
 #include "CNA/Studio/Core/Json.hpp"
 #include "CNA/Studio/ShellPanels/StudioContentBrowser.hpp"
@@ -806,4 +807,177 @@ CNA_STUDIO_TEST(TheMaterialEditorNamesWhatThisBuildCannotDraw)
     fixture.effect = "PbrEffect";
     fixture.settle();
     CNA_STUDIO_EXPECT_EQ(withWarnings, fixture.last.rowsDrawn + 3);
+}
+
+// ------------------------------------------------------------------------------------------------
+// Material preview (STUDIO-19007)
+// ------------------------------------------------------------------------------------------------
+
+namespace
+{
+    /** @brief The RGBA of one pixel of a preview. */
+    struct PreviewPixel
+    {
+        int r = 0;
+        int g = 0;
+        int b = 0;
+        int a = 0;
+    };
+
+    [[nodiscard]] PreviewPixel pixelAt(const StudioThumbnail& image, std::uint32_t x,
+                                       std::uint32_t y)
+    {
+        const std::size_t offset = (static_cast<std::size_t>(y) * image.width + x) * 4u;
+        if (offset + 3 >= image.pixels.size()) { return {}; }
+        return PreviewPixel{int{image.pixels[offset]}, int{image.pixels[offset + 1]},
+                            int{image.pixels[offset + 2]}, int{image.pixels[offset + 3]}};
+    }
+
+    /** @brief The brightest pixel's total, which is where a highlight lands. */
+    [[nodiscard]] int brightestTotal(const StudioThumbnail& image)
+    {
+        int best = 0;
+        for (std::size_t offset = 0; offset + 3 < image.pixels.size(); offset += 4)
+        {
+            if (image.pixels[offset + 3] == 0) { continue; }
+            const int total = int{image.pixels[offset]} + int{image.pixels[offset + 1]}
+                              + int{image.pixels[offset + 2]};
+            best = std::max(best, total);
+        }
+        return best;
+    }
+}
+
+/**
+ * @brief A material previews as a sphere with transparent corners, not a square of colour.
+ *
+ * A `.cnamaterial` in the Content Browser was a generic icon, so a folder of forty materials was
+ * forty identical rows told apart only by name -- which is the one thing about a material a user
+ * did not derive from how it looks.
+ */
+CNA_STUDIO_TEST(AMaterialPreviewsAsASphereWithNothingInTheCorners)
+{
+    MaterialDocument material;
+    material.diffuseColor = StudioVector3{0.85f, 0.2f, 0.2f};
+
+    const StudioThumbnail preview = studioRenderMaterialPreview(material, 64);
+    CNA_STUDIO_EXPECT_EQ(preview.width, std::uint32_t{64});
+    CNA_STUDIO_EXPECT_EQ(preview.height, std::uint32_t{64});
+    CNA_STUDIO_EXPECT_EQ(preview.pixels.size(), std::size_t{64 * 64 * 4});
+
+    // Transparent rather than a colour: the browser's card is whatever the theme says, and a
+    // thumbnail with its own grey corners would be a grey square in the light theme and a
+    // different grey square in the dark one.
+    CNA_STUDIO_EXPECT_EQ(pixelAt(preview, 0, 0).a, 0);
+    CNA_STUDIO_EXPECT_EQ(pixelAt(preview, 63, 0).a, 0);
+    CNA_STUDIO_EXPECT_EQ(pixelAt(preview, 0, 63).a, 0);
+    CNA_STUDIO_EXPECT_EQ(pixelAt(preview, 63, 63).a, 0);
+
+    // And the middle is the material: opaque, and the colour it was given rather than a grey.
+    const PreviewPixel centre = pixelAt(preview, 32, 32);
+    CNA_STUDIO_EXPECT_EQ(centre.a, 255);
+    CNA_STUDIO_EXPECT(centre.r > centre.g);
+    CNA_STUDIO_EXPECT(centre.r > centre.b);
+
+    // The rim is antialiased rather than a staircase: somewhere on the silhouette there is a
+    // pixel that is neither fully inside nor fully outside. Asserted because the coverage term is
+    // the only thing that produces one -- the early-out that skips pixels beyond the sphere
+    // already makes the *corners* transparent, so without this the two are redundant and the
+    // antialiasing could be removed with nothing noticing.
+    bool partial = false;
+    for (std::size_t offset = 3; offset < preview.pixels.size(); offset += 4)
+    {
+        const int alpha = int{preview.pixels[offset]};
+        if (alpha > 0 && alpha < 255) { partial = true; }
+    }
+    CNA_STUDIO_EXPECT(partial);
+
+    // An empty request is an empty image rather than a crash or a one-pixel one.
+    CNA_STUDIO_EXPECT(studioRenderMaterialPreview(material, 0).isEmpty());
+}
+
+/**
+ * @brief The preview shows the parameters, which is the only reason to render one.
+ *
+ * Each case is a pair that differs in one parameter, because "the sphere is lit" is a claim a
+ * constant-colour disc satisfies. What a thumbnail has to do is let a user tell two materials
+ * apart at a glance, and these are the four ways this format can differ.
+ */
+CNA_STUDIO_TEST(AMaterialPreviewShowsRoughnessMetalnessAndEmission)
+{
+    MaterialDocument smooth;
+    smooth.diffuseColor = StudioVector3{0.5f, 0.5f, 0.5f};
+    smooth.roughness = 0.05f;
+
+    MaterialDocument rough = smooth;
+    rough.roughness = 1.0f;
+
+    // A smooth surface concentrates its highlight, so its brightest pixel is brighter than a
+    // matte one's -- which is what a user reads "shiny" from.
+    CNA_STUDIO_EXPECT(brightestTotal(studioRenderMaterialPreview(smooth, 64))
+                      > brightestTotal(studioRenderMaterialPreview(rough, 64)));
+
+    // A metal reflects its own colour and a dielectric reflects white, which is the one line of
+    // the PBR model that survives the trip to Blinn-Phong. On a red material the difference is
+    // visible in the highlight's *hue*, not its brightness.
+    MaterialDocument metal;
+    metal.diffuseColor = StudioVector3{0.8f, 0.1f, 0.1f};
+    metal.metallic = 1.0f;
+    metal.roughness = 0.1f;
+
+    MaterialDocument dielectric = metal;
+    dielectric.metallic = 0.0f;
+
+    const StudioThumbnail metalImage = studioRenderMaterialPreview(metal, 64);
+    const StudioThumbnail plasticImage = studioRenderMaterialPreview(dielectric, 64);
+
+    // The defining difference, asserted as brightness rather than as hue. A metal's reflectance
+    // *is* its base colour -- 0.8 here -- while a dielectric's is 0.04, so the metal reflects
+    // twenty times as much light and its highlight is far brighter.
+    //
+    // Two earlier drafts of this case read the blue channel at the brightest pixel, and both were
+    // wrong: the first had the sign backwards, because a red metal reflects more blue than a
+    // dielectric's near-colourless 0.04, not less; and the core of the highlight saturates on
+    // both, so a single pixel says nothing either way.
+    CNA_STUDIO_EXPECT(brightestTotal(metalImage) > brightestTotal(plasticImage));
+
+    // Emission lifts the *unlit* side, which is the half of a sphere nothing else reaches.
+    MaterialDocument dark;
+    dark.diffuseColor = StudioVector3{0.1f, 0.1f, 0.1f};
+
+    MaterialDocument glowing = dark;
+    glowing.emissiveColor = StudioVector3{0.0f, 0.6f, 0.0f};
+
+    const StudioThumbnail darkImage = studioRenderMaterialPreview(dark, 64);
+    const StudioThumbnail glowImage = studioRenderMaterialPreview(glowing, 64);
+
+    // The far corner of the lit sphere, away from the key light: bottom-right, since the light is
+    // up and to the left.
+    CNA_STUDIO_EXPECT(pixelAt(glowImage, 42, 42).g > pixelAt(darkImage, 42, 42).g + 40);
+}
+
+/** @brief A see-through material previews see-through, which a flat swatch cannot show at all. */
+CNA_STUDIO_TEST(ABlendedMaterialPreviewsAsATransparentSphere)
+{
+    MaterialDocument glass;
+    glass.diffuseColor = StudioVector3{0.6f, 0.7f, 0.9f};
+    glass.alphaMode = MeshAlphaMode::Blend;
+    glass.alpha = 0.3f;
+
+    const StudioThumbnail preview = studioRenderMaterialPreview(glass, 64);
+    const PreviewPixel centre = pixelAt(preview, 32, 32);
+    CNA_STUDIO_EXPECT(centre.a > 0);
+    CNA_STUDIO_EXPECT(centre.a < 128);
+
+    // An opaque material with the same alpha *factor* is solid: the mode is what decides, not the
+    // number, which is the same rule the renderer follows (`plan.md` STUDIO-19004).
+    MaterialDocument solid = glass;
+    solid.alphaMode = MeshAlphaMode::Opaque;
+    CNA_STUDIO_EXPECT_EQ(pixelAt(studioRenderMaterialPreview(solid, 64), 32, 32).a, 255);
+
+    // And a masked one too: a cut-out is solid everywhere its map keeps, and the preview has no
+    // map to cut against.
+    MaterialDocument masked = glass;
+    masked.alphaMode = MeshAlphaMode::Mask;
+    CNA_STUDIO_EXPECT_EQ(pixelAt(studioRenderMaterialPreview(masked, 64), 32, 32).a, 255);
 }

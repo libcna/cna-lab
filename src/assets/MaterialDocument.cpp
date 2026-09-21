@@ -131,16 +131,9 @@ namespace CNA::Studio
         return true;
     }
 
-    MaterialLoadProblem loadMaterialDocument(const AssetDatabase& assets, const Uuid& assetId,
-                                             MaterialDocument& out)
+    MaterialLoadProblem loadMaterialFile(const std::string& absolutePath, MaterialDocument& out)
     {
-        const AssetRecord* record = assets.find(assetId);
-        if (record == nullptr || record->type != AssetType::Material)
-        {
-            return MaterialLoadProblem::NotAMaterial;
-        }
-
-        std::ifstream stream{assets.resolvePath(record->sourcePath)};
+        std::ifstream stream{absolutePath};
         if (!stream) { return MaterialLoadProblem::Unreadable; }
 
         const std::string text{std::istreambuf_iterator<char>{stream},
@@ -155,5 +148,19 @@ namespace CNA::Studio
 
         out = std::move(loaded);
         return MaterialLoadProblem::None;
+    }
+
+    MaterialLoadProblem loadMaterialDocument(const AssetDatabase& assets, const Uuid& assetId,
+                                             MaterialDocument& out)
+    {
+        const AssetRecord* record = assets.find(assetId);
+        if (record == nullptr || record->type != AssetType::Material)
+        {
+            return MaterialLoadProblem::NotAMaterial;
+        }
+
+        // The database's half is resolving the id to a file; reading it is the same code either
+        // way, which is what this file's header means by one reader.
+        return loadMaterialFile(assets.resolvePath(record->sourcePath), out);
     }
 }

@@ -158,6 +158,19 @@ namespace CNA::Studio
      *         file, an unreadable one and one this build is too old for are three different
      *         messages, and only the last of them means "do not offer to overwrite it".
      */
+    /**
+     * @brief Reads the material at @p absolutePath.
+     *
+     * The half of `loadMaterialDocument` that does not need a database, split out for the
+     * thumbnail worker (`plan.md` STUDIO-19007): that runs off the frame, where the asset
+     * database and the document cache are the main thread's and must not be touched. Still one
+     * reader -- `loadMaterialDocument` resolves an id to a path and then calls this.
+     *
+     * @param out Filled in on success; untouched otherwise, so a caller's defaults survive.
+     */
+    [[nodiscard]] MaterialLoadProblem loadMaterialFile(const std::string& absolutePath,
+                                                       MaterialDocument& out);
+
     [[nodiscard]] MaterialLoadProblem loadMaterialDocument(const AssetDatabase& assets,
                                                            const Uuid& assetId,
                                                            MaterialDocument& out);

@@ -12,6 +12,7 @@
 
 #include "CNA/Studio/Assets/AssetDatabase.hpp"
 #include "CNA/Studio/Assets/ImageDecode.hpp"
+#include "CNA/Studio/Assets/MaterialPreview.hpp"
 #include "CNA/Studio/Core/Sha256.hpp"
 
 namespace CNA::Studio
@@ -195,7 +196,12 @@ namespace CNA::Studio
 
             const AssetRecord* record = assets.find(id);
             if (record == nullptr || record->sourcePath.empty()) { continue; }
-            if (!studioCanDecodeImageExtension(record->sourcePath)) { continue; }
+
+            // Two kinds of thumbnail now: an image is decoded and shrunk, and a material is drawn
+            // (`plan.md` STUDIO-19007). Everything else has no picture to make and is skipped, as
+            // it always was.
+            const bool isMaterial = record->type == AssetType::Material;
+            if (!isMaterial && !studioCanDecodeImageExtension(record->sourcePath)) { continue; }
 
             const std::string settings = settingsFingerprint(record->importerSettings);
 
@@ -230,7 +236,7 @@ namespace CNA::Studio
 
             const StudioJobId job = jobs.submit(
                 "Thumbnail " + relative,
-                [absolute, settings, produced, ok, content, reused,
+                [absolute, settings, produced, ok, content, reused, isMaterial,
                  registry](StudioJobContext& context) {
                     if (context.isCancelled()) { return; }
 
@@ -258,6 +264,31 @@ namespace CNA::Studio
                             *reused = *ok;
                             return;
                         }
+                    }
+
+                    if (isMaterial)
+                    {
+                        // Read here rather than through `AssetDocumentCache`: that cache is the
+                        // main thread's, and a worker reaching into it would be the one crossing
+                        // this whole class is written to avoid. The file is small and the content
+                        // hash above already read it once.
+                        MaterialDocument document;
+                        if (loadMaterialFile(absolute, document) != MaterialLoadProblem::None)
+                        {
+                            context.fail("The material could not be read.");
+                            return;
+                        }
+                        if (context.isCancelled()) { return; }
+
+                        *produced = studioRenderMaterialPreview(document, kThumbnailEdge);
+                        *ok = !produced->isEmpty();
+
+                        if (*ok && !content->empty())
+                        {
+                            const std::lock_guard<std::mutex> lock{registry->mutex};
+                            registry->byKey[sharingKey(*content, settings)] = *produced;
+                        }
+                        return;
                     }
 
                     const StudioImageDecodeResult decoded = studioDecodeImageFile(absolute);
