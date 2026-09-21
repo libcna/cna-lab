@@ -3529,6 +3529,18 @@ namespace
                 const WidgetId menuId = frame.ids().make("propertymenu");
                 const StudioInteraction labelHit = frame.interact(menuId, parts.label);
 
+                // What the descriptor says this property is for (`plan.md` STUDIO-14016). The
+                // field has been on `PropertyDescriptor` since the model existed and no panel had
+                // ever shown it, so a plugin author's documentation reached nobody.
+                //
+                // On the label rather than the control: the label is the part a user points at
+                // when they are asking *what is this*, and a tooltip over a field they are about
+                // to type into is one that covers the thing they are typing.
+                if (!property.tooltip.empty())
+                {
+                    (void)frame.requestTooltip(menuId, property.tooltip, parts.label);
+                }
+
                 if (frame.isInputPass() && labelHit.rightClicked)
                 {
                     studioOpenContextMenu(frame, menuId, frame.input().mouseX,

@@ -6,7 +6,7 @@
 
 **Exit criteria.** Every property type a component can declare is editable, validated and undoable.
 
-**Progress:** 7 of 18 complete `████░░░░░░░░`
+**Progress:** 8 of 18 complete `█████░░░░░░░`
 
 | Id | Task | Status | Depends on |
 |----|------|:------:|------------|
@@ -25,7 +25,7 @@
 | `STUDIO-14013` | Revert and apply prefab overrides | ⬜ | `STUDIO-14012` |
 | `STUDIO-14014` | Copy and paste property values | ✅ | `STUDIO-03025` |
 | `STUDIO-14015` | Validation warnings shown inline | ✅ | `STUDIO-14001` |
-| `STUDIO-14016` | Tooltips and documentation from descriptor metadata | ⬜ | `STUDIO-03021` |
+| `STUDIO-14016` | Tooltips and documentation from descriptor metadata | ✅ | `STUDIO-03021` |
 | `STUDIO-14017` | Multi-selection editing where the semantics are unambiguous | ✅ | `STUDIO-14001` |
 | `STUDIO-14018` | Responsive with very large property counts | ⬜ | `STUDIO-30010` |
 
@@ -149,6 +149,27 @@ nothing names showing nothing.
 extra rows drawn *and* measured, and that an issue naming a component the entity does not carry is
 nobody's row. Checked by causing both failures — the measure not counting them, and the draw not
 drawing them. Each fails by name.
+
+### `STUDIO-14016` — Tooltips and documentation from descriptor metadata
+
+**Acceptance.** What a descriptor says a property is for reaches the person editing it.
+
+**`PropertyDescriptor::tooltip` had been on the model since it existed and no panel had ever shown
+it.** Whatever a plugin author wrote there reached nobody — the Details panel did not request a
+tooltip anywhere at all.
+
+**On the label, not the control.** The label is the part a user points at when they are asking *what
+is this*, and a tooltip over a field they are about to type into covers the thing they are typing.
+It reuses the widget id the row's menu already has, which is right: the label *is* the row's
+identity.
+
+**Verification.** `tests/StudioDetailsPanelTests.cpp`: `APropertysTooltipComesFromItsDescriptor`
+registers a component whose property carries documentation, sets the tooltip delay to zero — the
+delay is a setting precisely so a case can reach the shown state — and sweeps the label column for
+it. It looks for the *wanted* text rather than the first tooltip found: the component header's fold
+triangle sits in the same column and says "Collapse", which is a perfectly good tooltip and not this
+one, and the first draft stopped there and failed for that reason. Checked by removing the request;
+it fails by name.
 
 ### `STUDIO-14017` — Multi-selection editing where the semantics are unambiguous
 

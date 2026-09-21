@@ -604,6 +604,69 @@ CNA_STUDIO_TEST(AComponentCanBeAddedToTheSelectedEntityAndUndone)
  * then find refuses them. The *component* grid did not look at the flag at all, so a plugin
  * declaring a computed field got a fully editable one.
  */
+/**
+ * A descriptor's documentation reaches the user (`plan.md` STUDIO-14016).
+ *
+ * `PropertyDescriptor::tooltip` has been on the model since it existed and no panel had ever shown
+ * it, so whatever a plugin author wrote there reached nobody. On the *label* rather than the
+ * control: the label is the part a user points at when they are asking what something is, and a
+ * tooltip over a field they are about to type into covers the thing they are typing.
+ */
+CNA_STUDIO_TEST(APropertysTooltipComesFromItsDescriptor)
+{
+    StudioContext context;
+
+    ComponentDescriptor descriptor;
+    descriptor.typeId = "Test.Documented";
+    descriptor.displayName = "Documented";
+    {
+        PropertyDescriptor documented;
+        documented.name = "drag";
+        documented.displayName = "Drag";
+        documented.type = PropertyType::Float;
+        documented.defaultValue = PropertyValue{0.5f};
+        documented.tooltip = "How much the air slows this down.";
+        descriptor.properties.push_back(std::move(documented));
+    }
+    CNA_STUDIO_EXPECT(context.getComponentRegistry().registerComponent(descriptor));
+
+    StudioEntity subject{Uuid::generate(), "Widget"};
+    StudioComponent component{"Test.Documented"};
+    component.applyDefaults(*context.getComponentRegistry().find("Test.Documented"));
+    subject.getComponents().push_back(std::move(component));
+    const Uuid entity = subject.getId();
+    context.getScene().addEntity(std::move(subject));
+    context.select(entity);
+
+    Harness harness{context};
+
+    // No waiting: the delay is a setting precisely so a case can reach the shown state.
+    harness.shell->frame().setTooltipDelay(0.0f);
+
+    // Swept down the label column, because a computed coordinate becomes a hover over nothing the
+    // first time a metric moves. Looking for the *wanted* text rather than stopping at the first
+    // tooltip found: the component header's fold triangle sits in the same column and says
+    // "Collapse", which is a perfectly good tooltip and not this one.
+    bool found = false;
+    for (float y = harness.bounds.top() + 2.0f;
+         y < harness.bounds.bottom() - 2.0f && !found; y += 2.0f)
+    {
+        for (const float offset : {16.0f, 40.0f, 64.0f})
+        {
+            const float x = harness.bounds.left() + offset;
+            harness.shell->renderFrame(at(x, y));
+            harness.shell->renderFrame(at(x, y));
+            if (harness.shell->frame().tooltip().text == "How much the air slows this down.")
+            {
+                found = true;
+                break;
+            }
+        }
+    }
+
+    CNA_STUDIO_EXPECT(found);
+}
+
 CNA_STUDIO_TEST(AReadOnlyComponentPropertyIsDrawnAsTextRatherThanAControl)
 {
     StudioContext context;
