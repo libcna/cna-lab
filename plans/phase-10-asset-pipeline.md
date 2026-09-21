@@ -6,7 +6,7 @@
 
 **Exit criteria.** Each supported category imports, reimports without losing settings, and reports failure usefully.
 
-**Progress:** 12 of 15 complete `█████████░░░`
+**Progress:** 13 of 15 complete `██████████░░`
 
 | Id | Task | Status | Depends on |
 |----|------|:------:|------------|
@@ -19,7 +19,7 @@
 | `STUDIO-10007` | Material assets | ✅ | `STUDIO-19001` |
 | `STUDIO-10008` | Shader and effect assets | ⬜ | `STUDIO-22001` |
 | `STUDIO-10009` | Animation import | ⬜ | `STUDIO-10004` |
-| `STUDIO-10010` | Environment map import and processing | 🔄 | `STUDIO-20001` |
+| `STUDIO-10010` | Environment map import and processing | ✅ | `STUDIO-20001` |
 | `STUDIO-10011` | Import jobs are cancellable and report progress accurately | ✅ | `STUDIO-30001` |
 | `STUDIO-10012` | Provenance record for every third-party dependency | ✅ | — |
 | `STUDIO-10013` | A failed import reports why, and does not leave a half-imported asset | ✅ | `STUDIO-10011` |
@@ -645,11 +645,12 @@ add up whatever the edges say, and the id guard only cares that ids are unique.
 **Acceptance.** A panorama becomes the three textures an image-based light needs, the editor says
 what that will cost before it is paid, and nothing is offered that the renderer cannot use.
 
-**🔄 In progress. The asset, its settings and the prediction are in; creating one from the editor
-and running the processing are not.** Split that way deliberately, because it is the same order
-`.cnamaterial` arrived in: `ED-403` made a material an asset the database recognised, tracked and
-resolved, and `STUDIO-10007` — five phases later — added the action that could produce the first
-file. The half that exists is the half everything else rests on.
+**✅ Done. A `.cnaenv` can be made, edited, inspected and tracked, and the editor says what its
+settings will produce before the cost is paid.** It landed in two commits, and the split is worth
+recording because it is the same order `.cnamaterial` arrived in: the asset, its settings and the
+prediction first, then the action that can produce the first file and the panel that edits it.
+`ED-403` and `STUDIO-10007` were five phases apart for exactly that reason, and the gap between
+them is what a document type looks like when it is complete for everybody who already has one.
 
 **What CNA offers, read before anything was written this time.** `CNA::Graphics::EnvironmentProcessor`
 converts an equirectangular panorama to a cube, convolves it to an irradiance cube, prefilters it
@@ -688,6 +689,26 @@ past one texel. That last is not a wasted level: `mipForRoughness(roughness, mip
 roughness across the levels a cube *claims* to have, so a count that lies makes every roughness
 read the wrong mip, which looks like reflections sharpening as a surface gets rougher.
 
+**Making one, and editing it.** `New Environment Map` writes into the folder the Content Browser
+is standing in, falling back to the project's asset directory at the top — the whole substance of
+the action, and the same one `STUDIO-10007` found: an action that always wrote to `Assets` is right
+in the one case the user is already looking at it, and its failure elsewhere is not an error, it is
+somebody pressing the row twice and concluding it does nothing. It goes through
+`SetEnvironmentMapCommand` like every other document mutation (D-06), so undo takes the file back
+rather than leaving the folder filling with things already undone.
+
+The Inspector's editor is `studioMaterialEditor`'s shape for the same reasons — a file rather than
+the scene, an edit that rewrites it through the history, and a file this build cannot parse refused
+rather than shown as an editable form over content it would overwrite with less. What is different
+is the second half: it also shows what the settings *produce* — the resolved sizes, the memory, the
+sample count and every note. The BRDF table's own two numbers appear only when the table is on,
+which is `STUDIO-12004`'s doctrine applied to an asset editor.
+
+**The panorama's size is read from the panorama, never copied into the `.cnaenv`.** A sky
+re-exported at a different resolution has to change what the environment map derives, and a size
+stored beside the reference would be stale the moment it did — the same rule that keeps the texture
+plan out of its own sidecar.
+
 **Verification.** `tests/EnvironmentMapTests.cpp` —
 `AnUnsetFaceSizeFollowsThePanoramaRatherThanAFixedNumber` (zero is a ratio, still bounded, and an
 unmeasured panorama says so while every other answer survives),
@@ -702,12 +723,25 @@ one side by side, which is what makes the square worth pointing at),
 default and not a zero — zero here asks for a one-texel irradiance cube and a chain with no mips,
 so a careless reader would not degrade an old file, it would empty it).
 
-**What this row is not, yet.** There is no `New Environment Map` action and no Inspector editor, so
-a `.cnaenv` has to be written by hand — exactly the state a `.cnamaterial` was in between `ED-403`
-and `STUDIO-10007`. Nothing calls `EnvironmentProcessor`: the textures are described and not yet
-generated. And nothing uses them, which is `STUDIO-20005` — a sky in the scene, drawn behind the
-geometry and lighting it. Those three land together, because the processing has no consumer without
-the last of them and dead GPU code is worse than none.
+And `tests/StudioEnvironmentMapEditorTests.cpp` —
+`TheNewEnvironmentMapActionWritesOneWhereTheBrowserIsStanding` (the folder, the menu entry, the
+handler, the rescan, the selection, the second name and the undo),
+`TheEnvironmentMapEditorShowsWhatTheSettingsWillProduce` (including that re-measuring the panorama
+changes the derived face size, which is what "read, never copied" means in a case),
+`TheBrdfTablesOwnNumbersAreNotOfferedWhenTheTableIsOff`,
+`AnUnreadableEnvironmentMapIsRefusedRatherThanDefaulted` (and leaves the file alone), and
+`AnEnvironmentMapEditGoesThroughACommandAndUndoes`.
+
+Checked by causing each: the action named by no menu, the action with no handler bound, the asset
+inspector with no branch for the type, a panorama whose measured size is never read, and an undo
+that leaves a created file behind — all five fail by name, and the first is caught twice, because
+`TheMenuBarNamesEveryCommandTheRegistryCarries` was already watching for it.
+
+**What this row is not.** Nothing calls `EnvironmentProcessor` yet: the textures are described,
+predicted and costed, and not generated. That is `STUDIO-20005` — the row with a consumer, where a
+sky is put in a scene, drawn behind the geometry and used to light it. The processing lands there
+rather than here because GPU code with no consumer is worse than none, and because the only honest
+way to test a generated cube is to look at what it lights.
 
 ### `STUDIO-10011` — Import jobs are cancellable and report progress accurately
 

@@ -2660,6 +2660,343 @@ namespace
         return result;
     }
 
+    /**
+     * @brief The panorama's measured size, read from its own asset record (`plan.md` STUDIO-10010).
+     *
+     * A texture's pixel size is an importer *fact*, written into its sidecar as `pixelSize` when
+     * the file is measured -- which is where the texture plan a few rows down reads it from too.
+     * Read rather than copied into the `.cnaenv`: a panorama that is re-exported at a different
+     * resolution must change what the environment map derives, and a size stored beside the
+     * reference would be the stale-number problem this whole family of plans exists to avoid.
+     */
+    StudioEnvironmentMapSource studioEnvironmentPanoramaSource(const AssetDatabase& assets,
+                                                               const Uuid& panorama)
+    {
+        StudioEnvironmentMapSource source;
+        if (!panorama.isValid()) { return source; }
+
+        const AssetRecord* record = assets.find(panorama);
+        if (record == nullptr || record->type != AssetType::Texture2D) { return source; }
+
+        const JsonValue& measured = record->importerSettings["pixelSize"];
+        if (measured.isNull()) { return source; }
+
+        const StudioVector2 pixels =
+            PropertyValue::fromJson(measured, PropertyType::Vector2).get<StudioVector2>();
+        source.width = static_cast<int>(pixels.x);
+        source.height = static_cast<int>(pixels.y);
+        return source;
+    }
+
+    /**
+     * @brief The environment map asset editor: what a `.cnaenv` holds, edited in place.
+     *
+     * `plan.md` STUDIO-10010, and the shape is `studioMaterialEditor`'s because the problem is the
+     * same one: the document is a *file*, every edit rewrites it through a command that keeps the
+     * previous bytes, and a file this build cannot read is refused rather than shown as an
+     * editable form over content it would overwrite with less.
+     *
+     * What is different is the second half. A material's editor shows what the material *is*; this
+     * one also shows what its settings will *produce* -- the resolved sizes, the memory, the
+     * sample count, and every note explaining a number the editor had to change. That is the whole
+     * value of the row: the processing runs on the CPU and the sample count is the only figure on
+     * screen that tells a user their last edit cost four times as much.
+     */
+    StudioDetailsResult studioEnvironmentMapEditor(StudioFrame& frame, UiRect& area,
+                                                   StudioContext& context,
+                                                   const AssetRecord& record)
+    {
+        StudioDetailsResult result;
+        const StudioTheme& theme = frame.theme();
+
+        const float rowHeight = std::max(metricOf(theme, StudioMetric::ControlHeight),
+                                         metricOf(theme, StudioMetric::MinimumHitTarget));
+        const float spacing = metricOf(theme, StudioMetric::SpacingXSmall);
+
+        const auto nextRow = [&]() {
+            const UiRect row = area.splitTop(rowHeight);
+            area.splitTop(spacing);
+            ++result.rowsDrawn;
+            return row;
+        };
+
+        const auto say = [&](const UiRect& box, const std::string& text, StudioColorRole role) {
+            if (frame.isDrawPass())
+            {
+                studioDrawText(frame, box,
+                               studioTruncateText(frame, theme.font(StudioFontRole::Body), text,
+                                                  box.width),
+                               StudioFontRole::Body, theme.color(role));
+            }
+        };
+
+        EnvironmentMapDocument environment;
+        const EnvironmentMapLoadProblem problem =
+            loadEnvironmentMapDocument(context.getAssets(), record.id, environment);
+
+        if (problem != EnvironmentMapLoadProblem::None)
+        {
+            say(nextRow(),
+                problem == EnvironmentMapLoadProblem::Unreadable
+                    ? "This environment map's file cannot be opened."
+                    : "This environment map was written by a newer Studio, or is not valid JSON.",
+                StudioColorRole::Warning);
+            return result;
+        }
+
+        {
+            const UiRect row = nextRow();
+            if (frame.isDrawPass())
+            {
+                studioDrawText(frame, row, "Environment Map", StudioFontRole::Subheading,
+                               theme.color(StudioColorRole::TextPrimary));
+            }
+        }
+
+        frame.ids().push("environment");
+
+        // Collected and applied once at the end, for the reason the material editor does it: each
+        // one rewrites the file, and two writes in one frame would put two entries in the history
+        // for one keystroke.
+        std::optional<EnvironmentMapDocument> edited;
+        std::string editedField;
+
+        {
+            const PropertyRow parts = splitRow(theme, nextRow());
+            say(parts.label, "Name", StudioColorRole::TextSecondary);
+            ++result.environmentFields;
+
+            std::string name = environment.name;
+            StudioTextFieldOptions options;
+            options.selectAllOnFocus = true;
+            if (studioTextField(frame, frame.ids().make("name"), parts.control, name, options)
+                    .committed
+                && name != environment.name)
+            {
+                EnvironmentMapDocument next = environment;
+                next.name = name;
+                edited = next;
+                editedField = "name";
+            }
+        }
+
+        // The panorama, as an ordinary typed asset slot -- so it picks, filters and takes a drop
+        // exactly as every other reference in the editor does, and offers only textures.
+        {
+            const PropertyRow parts = splitRow(theme, nextRow());
+            say(parts.label, "Panorama", StudioColorRole::TextSecondary);
+            ++result.environmentFields;
+
+            frame.ids().push("panorama");
+            const StudioPropertyEditContext editing{&context, Uuid{}, std::string{"Texture2D"},
+                                                    0.0, 0.0, Uuid{}};
+            const StudioPropertyEditResult change = studioPropertyEditor(
+                frame, parts.control,
+                PropertyValue{PropertyValue::AssetReference{environment.panorama}}, {}, editing);
+            frame.ids().pop();
+
+            result.assetChoicesOffered += change.assetChoices;
+            if (change.refusedDrop) { ++result.dropsRefused; }
+
+            if (change.edited.has_value() && !edited.has_value())
+            {
+                EnvironmentMapDocument next = environment;
+                next.panorama = change.edited->get<PropertyValue::AssetReference>().id;
+                edited = next;
+                editedField = "panorama";
+            }
+        }
+
+        struct CountField
+        {
+            const char* id;
+            const char* label;
+            int StudioEnvironmentMapImportSettings::*member;
+            double minimum;
+            double maximum;
+        };
+
+        // Face Size alone starts at zero, because zero is a real answer here -- "a quarter of the
+        // panorama's width" -- rather than a missing one. Every other field's floor is its own,
+        // and the ranges are the ones the plan clamps to, so the control refuses what the plan
+        // would otherwise have to report as a note.
+        static const CountField kCounts[] = {
+            {"face-size", "Face Size", &StudioEnvironmentMapImportSettings::faceSize, 0.0,
+             static_cast<double>(kMaximumEnvironmentFaceSize)},
+            {"irradiance-size", "Irradiance Size",
+             &StudioEnvironmentMapImportSettings::irradianceSize,
+             static_cast<double>(kMinimumEnvironmentIrradianceSize),
+             static_cast<double>(kMaximumEnvironmentIrradianceSize)},
+            {"irradiance-samples", "Irradiance Samples",
+             &StudioEnvironmentMapImportSettings::irradianceSamples,
+             static_cast<double>(kMinimumEnvironmentSampleCount),
+             static_cast<double>(kMaximumEnvironmentSampleCount)},
+            {"specular-size", "Specular Size",
+             &StudioEnvironmentMapImportSettings::specularBaseSize,
+             static_cast<double>(kMinimumEnvironmentSpecularSize),
+             static_cast<double>(kMaximumEnvironmentSpecularSize)},
+            {"specular-mips", "Specular Mips",
+             &StudioEnvironmentMapImportSettings::specularMipCount, 1.0,
+             static_cast<double>(kMaximumEnvironmentMipCount)},
+            {"specular-samples", "Specular Samples",
+             &StudioEnvironmentMapImportSettings::specularSamples,
+             static_cast<double>(kMinimumEnvironmentSampleCount),
+             static_cast<double>(kMaximumEnvironmentSampleCount)},
+        };
+
+        for (const CountField& field : kCounts)
+        {
+            const PropertyRow parts = splitRow(theme, nextRow());
+            say(parts.label, field.label, StudioColorRole::TextSecondary);
+            ++result.environmentFields;
+
+            frame.ids().push(field.id);
+            const StudioPropertyEditContext editing{&context, Uuid{}, {}, field.minimum,
+                                                    field.maximum, Uuid{}};
+            const StudioPropertyEditResult change = studioPropertyEditor(
+                frame, parts.control,
+                PropertyValue{static_cast<std::int64_t>(environment.settings.*field.member)}, {},
+                editing);
+            frame.ids().pop();
+
+            if (change.edited.has_value() && !edited.has_value())
+            {
+                EnvironmentMapDocument next = environment;
+                next.settings.*field.member = static_cast<int>(change.edited->get<std::int64_t>(
+                    static_cast<std::int64_t>(environment.settings.*field.member)));
+                edited = next;
+                editedField = field.label;
+            }
+        }
+
+        {
+            const PropertyRow parts = splitRow(theme, nextRow());
+            say(parts.label, "BRDF Table", StudioColorRole::TextSecondary);
+            ++result.environmentFields;
+
+            frame.ids().push("brdf");
+            const StudioPropertyEditContext editing{&context, Uuid{}, {}, 0.0, 0.0, Uuid{}};
+            const StudioPropertyEditResult change = studioPropertyEditor(
+                frame, parts.control, PropertyValue{environment.settings.generateBrdfLut}, {},
+                editing);
+            frame.ids().pop();
+
+            if (change.edited.has_value() && !edited.has_value())
+            {
+                EnvironmentMapDocument next = environment;
+                next.settings.generateBrdfLut =
+                    change.edited->get<bool>(environment.settings.generateBrdfLut);
+                edited = next;
+                editedField = "BRDF Table";
+            }
+        }
+
+        // The table's own two numbers, only where they mean something -- the same rule the alpha
+        // cutoff follows above, and the doctrine `STUDIO-12004` set: a control that takes a value
+        // and does nothing with it is worse than one that is not there.
+        if (environment.settings.generateBrdfLut)
+        {
+            static const CountField kTable[] = {
+                {"brdf-size", "BRDF Table Size",
+                 &StudioEnvironmentMapImportSettings::brdfLutSize,
+                 static_cast<double>(kMinimumEnvironmentSpecularSize),
+                 static_cast<double>(kMaximumEnvironmentSpecularSize)},
+                {"brdf-samples", "BRDF Table Samples",
+                 &StudioEnvironmentMapImportSettings::brdfLutSamples,
+                 static_cast<double>(kMinimumEnvironmentSampleCount),
+                 static_cast<double>(kMaximumEnvironmentSampleCount)},
+            };
+
+            for (const CountField& field : kTable)
+            {
+                const PropertyRow parts = splitRow(theme, nextRow());
+                say(parts.label, field.label, StudioColorRole::TextSecondary);
+                ++result.environmentFields;
+
+                frame.ids().push(field.id);
+                const StudioPropertyEditContext editing{&context, Uuid{}, {}, field.minimum,
+                                                        field.maximum, Uuid{}};
+                const StudioPropertyEditResult change = studioPropertyEditor(
+                    frame, parts.control,
+                    PropertyValue{static_cast<std::int64_t>(environment.settings.*field.member)},
+                    {}, editing);
+                frame.ids().pop();
+
+                if (change.edited.has_value() && !edited.has_value())
+                {
+                    EnvironmentMapDocument next = environment;
+                    next.settings.*field.member =
+                        static_cast<int>(change.edited->get<std::int64_t>(
+                            static_cast<std::int64_t>(environment.settings.*field.member)));
+                    edited = next;
+                    editedField = field.label;
+                }
+            }
+        }
+
+        // What those settings produce, recomputed every frame and stored nowhere -- for the reason
+        // the texture plan gives: a sidecar holding a resolved face size would carry a number that
+        // disagrees with the box above it the moment somebody changes the panorama.
+        result.environmentPlan = studioPlanEnvironmentMapImport(
+            environment.settings,
+            studioEnvironmentPanoramaSource(context.getAssets(), environment.panorama));
+
+        const StudioEnvironmentMapPlan& plan = result.environmentPlan;
+
+        {
+            const PropertyRow parts = splitRow(theme, nextRow());
+            say(parts.label, "Generates", StudioColorRole::TextSecondary);
+            say(parts.control,
+                plan.faceSize > 0
+                    ? std::to_string(plan.faceSize) + " px cube, "
+                          + std::to_string(plan.irradianceSize) + " px irradiance, "
+                          + std::to_string(plan.specularBaseSize) + " px specular x "
+                          + std::to_string(plan.specularMipCount)
+                    : std::string{"nothing yet -- no panorama, and no face size to derive"},
+                StudioColorRole::TextPrimary);
+        }
+
+        {
+            const PropertyRow parts = splitRow(theme, nextRow());
+            say(parts.label, "Memory", StudioColorRole::TextSecondary);
+            say(parts.control, std::to_string(plan.estimatedBytes / 1024) + " KB",
+                StudioColorRole::TextPrimary);
+        }
+
+        {
+            const PropertyRow parts = splitRow(theme, nextRow());
+            say(parts.label, "Processing", StudioColorRole::TextSecondary);
+
+            // Millions of samples, not seconds. Seconds would be a guess about the machine this
+            // runs on; the sample count is arithmetic, and it is the figure that quadruples when
+            // Irradiance Samples doubles -- which is the thing a user cannot otherwise see.
+            say(parts.control,
+                std::to_string(plan.estimatedSamples / 1'000'000ULL) + "M samples on the CPU",
+                StudioColorRole::TextPrimary);
+        }
+
+        for (const std::string& note : plan.notes)
+        {
+            const UiRect row = nextRow();
+            say(row, note, StudioColorRole::Warning);
+            (void)frame.requestTooltip(frame.ids().make("note"), note, row);
+            ++result.environmentNotes;
+        }
+
+        frame.ids().pop();
+
+        if (edited.has_value())
+        {
+            auto command = std::make_unique<SetEnvironmentMapCommand>(
+                context.getAssets().resolvePath(record.sourcePath), *edited, editedField);
+            context.execute(std::move(command), MergePolicy::MergeWithPrevious);
+            result.edited = true;
+            result.editedProperty = fileNameOf(record.sourcePath) + "." + editedField;
+        }
+
+        return result;
+    }
+
     StudioDetailsResult studioAssetInspector(StudioFrame& frame, const UiRect& area,
                                              StudioContext& context, const Uuid& assetId,
                                              const StudioDetailsServices& services)
@@ -2765,6 +3102,13 @@ namespace
                                  // alternative is reading the material a second time every frame
                                  // purely to count its problems.
                                  + (record->type == AssetType::Material ? 17u + 5u : 0u)
+                                 // The environment editor's heading, eleven fields at their
+                                 // maximum -- the two BRDF rows counted as though they are always
+                                 // there -- the three derived lines, and room for every note the
+                                 // plan can produce. Reserved at the maximum for the reason the
+                                 // material's is: an extent that shrank as a user unticked the
+                                 // BRDF table would move the rows under their pointer.
+                                 + (record->type == AssetType::EnvironmentMap ? 15u + 8u : 0u)
                                  + (properties != nullptr ? properties->size() : 0)
                                  + textureRows + dependencyRows + relinkRows
                                  // The File group: its heading, Size and Modified.
@@ -2951,6 +3295,22 @@ namespace
             result.dropsRefused += material.dropsRefused;
             result.edited = material.edited;
             result.editedProperty = material.editedProperty;
+        }
+        else if (record->type == AssetType::EnvironmentMap)
+        {
+            // The editor's own document too (`plan.md` STUDIO-10010), so the same branch rather
+            // than an importer form: a `.cnaenv` has no importer, and an empty settings section
+            // would read as a fault when the truth is that its settings are in the file.
+            const StudioDetailsResult environment =
+                studioEnvironmentMapEditor(frame, cursor, context, *record);
+            result.rowsDrawn += environment.rowsDrawn;
+            result.environmentFields = environment.environmentFields;
+            result.environmentNotes = environment.environmentNotes;
+            result.environmentPlan = environment.environmentPlan;
+            result.assetChoicesOffered += environment.assetChoicesOffered;
+            result.dropsRefused += environment.dropsRefused;
+            result.edited = environment.edited;
+            result.editedProperty = environment.editedProperty;
         }
         else if (properties == nullptr || properties->empty())
         {

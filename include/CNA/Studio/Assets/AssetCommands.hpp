@@ -16,6 +16,7 @@
 #include <string_view>
 
 #include "CNA/Studio/Assets/AssetDatabase.hpp"
+#include "CNA/Studio/Assets/EnvironmentMapDocument.hpp"
 #include "CNA/Studio/Assets/MaterialDocument.hpp"
 #include "CNA/Studio/Core/StudioCommand.hpp"
 #include "CNA/Studio/Core/PropertyValue.hpp"
@@ -250,6 +251,49 @@ namespace CNA::Studio
     private:
         std::string absolutePath_;
         MaterialDocument newMaterial_;
+
+        /** @brief The bytes that were there before, replayed verbatim by undo. */
+        std::string previousText_;
+        bool existedBefore_ = false;
+        bool succeeded_ = false;
+        std::string fieldName_;
+    };
+
+    /**
+     * @brief Writes a `.cnaenv` file (`plan.md` STUDIO-10010).
+     *
+     * `SetMaterialCommand` with an environment map in it, and the duplication is deliberate rather
+     * than a missed template. The two documents share a *shape* -- a file, a field name, previous
+     * bytes, a merge key -- and nothing else: their fields differ, their descriptions differ, and
+     * a common base would have to be generic over the document type to say "Set material colour"
+     * and "Set environment Face Size" in the same sentence. Two forty-line commands that each read
+     * straight through are worth more here than one that reads through a type parameter.
+     *
+     * Undo rewrites the previous contents rather than deleting the file, which is the only correct
+     * answer for an *edit* -- and deleting is the only correct answer for a create, which is why
+     * `existedBefore` records which this was.
+     *
+     * Merges per field, so dragging a slider is one undo entry and changing a second setting
+     * afterwards is another.
+     */
+    class SetEnvironmentMapCommand final : public StudioCommand
+    {
+    public:
+        SetEnvironmentMapCommand(std::string absolutePath, EnvironmentMapDocument environment,
+                                 std::string fieldName);
+
+        void execute() override;
+        void undo() override;
+        [[nodiscard]] std::string getDescription() const override;
+        [[nodiscard]] std::string getMergeKey() const override;
+        bool mergeWith(const StudioCommand& newer) override;
+
+        /** @brief False when the file could not be written, so the caller can say so. */
+        [[nodiscard]] bool succeeded() const { return succeeded_; }
+
+    private:
+        std::string absolutePath_;
+        EnvironmentMapDocument newEnvironment_;
 
         /** @brief The bytes that were there before, replayed verbatim by undo. */
         std::string previousText_;

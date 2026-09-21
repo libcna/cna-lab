@@ -1633,6 +1633,68 @@ namespace CNA::Studio
             shell.actions().add(std::move(action));
         }
 
+        // The same act for an environment map (`plan.md` STUDIO-10010), and deliberately the same
+        // shape: the folder the browser is standing in, a name nothing else has, a command so it
+        // undoes, a rescan so the database sees it, and a selection so the user is looking at what
+        // they just asked for. Written out rather than factored with New Material above -- the two
+        // differ in their document type, their extension and their default name, which is three of
+        // the five lines that matter, and a helper taking all three back as parameters would be
+        // longer than either.
+        if (const StudioAction* existing = shell.actions().find("studio.asset.newEnvironmentMap");
+            existing != nullptr)
+        {
+            StudioAction action = *existing;
+            action.isEnabled = [this] { return context_.hasProject(); };
+            action.run = [this] {
+                const std::string root = context_.getAssets().getProjectRoot();
+                if (root.empty()) { return; }
+
+                const std::string assetDirectory = context_.getProject().getAssetDirectory();
+                const std::string folder =
+                    contentState_.folder.empty() ? assetDirectory : contentState_.folder;
+
+                EnvironmentMapDocument environment;
+                std::string relative;
+                std::string absolute;
+                for (int attempt = 0; attempt < 1000; ++attempt)
+                {
+                    environment.name = attempt == 0
+                                           ? "New Environment Map"
+                                           : "New Environment Map " + std::to_string(attempt + 1);
+                    relative = folder + "/" + environment.name + ".cnaenv";
+                    absolute = context_.getAssets().resolvePath(relative);
+
+                    std::error_code taken;
+                    if (context_.getAssets().findByPath(relative) == nullptr
+                        && !std::filesystem::exists(absolute, taken))
+                    {
+                        break;
+                    }
+                }
+
+                context_.execute(std::make_unique<SetEnvironmentMapCommand>(
+                    absolute, environment, std::string{"create"}));
+
+                // Asked of the file rather than of the command, which belongs to the history the
+                // moment it is handed over and may already have been merged or trimmed away.
+                std::error_code wrote;
+                if (!std::filesystem::exists(absolute, wrote))
+                {
+                    log_.append(LogSeverity::Error, "Could not write '" + relative + "'.");
+                    return;
+                }
+
+                (void)context_.getAssets().scan(assetDirectory);
+                if (const AssetRecord* record = context_.getAssets().findByPath(relative))
+                {
+                    context_.selectAsset(record->id);
+                }
+
+                log_.append(LogSeverity::Info, "Created '" + relative + "'.");
+            };
+            shell.actions().add(std::move(action));
+        }
+
         // Build and Package, which the Build panel and the exporter can both already do. Bound
         // here rather than with the document commands because the process they drive is this
         // object's: two BuildProcesses would be two builds racing for one output directory.

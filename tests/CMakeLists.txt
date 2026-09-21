@@ -34,6 +34,7 @@ add_executable(cna-studio-tests
     StudioDetailsPanelTests.cpp
     StudioAudioPreviewTests.cpp
     StudioSpritePreviewTests.cpp
+    StudioEnvironmentMapEditorTests.cpp
     StudioMaterialEditorTests.cpp
     StudioPrefabSectionTests.cpp
     StudioShellActionTests.cpp

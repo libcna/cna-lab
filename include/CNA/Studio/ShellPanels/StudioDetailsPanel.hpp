@@ -38,6 +38,7 @@
 
 #include "CNA/Studio/Assets/AssetDependencies.hpp"
 #include "CNA/Studio/Assets/AssetDocumentCache.hpp"
+#include "CNA/Studio/Assets/EnvironmentMapImport.hpp"
 #include "CNA/Studio/Assets/TextureImport.hpp"
 #include "CNA/Studio/Core/PropertyValue.hpp"
 #include "CNA/Studio/Core/Uuid.hpp"
@@ -382,6 +383,27 @@ namespace CNA::Studio
          * failure a test can name.
          */
         std::size_t materialFields = 0;
+
+        /** @brief Editable rows the environment map editor drew (`plan.md` STUDIO-10010). */
+        std::size_t environmentFields = 0;
+
+        /**
+         * @brief Notes the environment map's plan produced, one row each.
+         *
+         * Counted separately from the fields because they are the part that is *supposed* to be
+         * empty: a plan with no notes is a user whose numbers were used as typed, and a case that
+         * asserts a count of zero there is asserting something worth asserting.
+         */
+        std::size_t environmentNotes = 0;
+
+        /**
+         * @brief What the selected environment map's settings resolve to, recomputed each frame.
+         *
+         * Reported rather than stored, exactly as @ref texturePlan is: this is a derivation of the
+         * document and the panorama's measured size, and a copy kept anywhere else would be a
+         * number free to disagree with the controls above it.
+         */
+        StudioEnvironmentMapPlan environmentPlan;
 
         /**
          * @brief How many dependency rows the asset inspector drew, both directions together.

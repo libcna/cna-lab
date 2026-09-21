@@ -277,6 +277,59 @@ namespace CNA::Studio
         return true;
     }
 
+    SetEnvironmentMapCommand::SetEnvironmentMapCommand(std::string absolutePath,
+                                                       EnvironmentMapDocument environment,
+                                                       std::string fieldName)
+        : absolutePath_(std::move(absolutePath)), newEnvironment_(std::move(environment)),
+          fieldName_(std::move(fieldName))
+    {
+        // Captured at construction rather than at execute(), so a command built, executed, undone
+        // and redone replays the same original bytes every time.
+        if (const std::optional<std::string> existing = readWholeFile(absolutePath_))
+        {
+            previousText_ = *existing;
+            existedBefore_ = true;
+        }
+    }
+
+    void SetEnvironmentMapCommand::execute()
+    {
+        succeeded_ = writeWholeFile(absolutePath_, Json::write(newEnvironment_.toJson(), true));
+    }
+
+    void SetEnvironmentMapCommand::undo()
+    {
+        if (!existedBefore_)
+        {
+            std::error_code error;
+            std::filesystem::remove(absolutePath_, error);
+            return;
+        }
+
+        writeWholeFile(absolutePath_, previousText_);
+    }
+
+    std::string SetEnvironmentMapCommand::getDescription() const
+    {
+        return existedBefore_ ? "Set environment map " + fieldName_ : "Create environment map";
+    }
+
+    std::string SetEnvironmentMapCommand::getMergeKey() const
+    {
+        return "environment:" + absolutePath_ + ":" + fieldName_;
+    }
+
+    bool SetEnvironmentMapCommand::mergeWith(const StudioCommand& newer)
+    {
+        const auto* other = dynamic_cast<const SetEnvironmentMapCommand*>(&newer);
+        if (other == nullptr || other->absolutePath_ != absolutePath_) { return false; }
+
+        // The newer value wins and this command keeps its *own* previousText_, so one Ctrl+Z goes
+        // back to before the whole drag rather than to the middle of it.
+        newEnvironment_ = other->newEnvironment_;
+        return true;
+    }
+
     // --- Rename, duplicate and delete (STUDIO-09009) ---------------------------------------------
 
     namespace

@@ -303,6 +303,13 @@ namespace CNA::Studio
         // worth more to things people do every minute.
         command("studio.asset.newMaterial", "New Material",
                 "Create a material asset in the current folder.", C::File, StudioShortcut{});
+        // `plan.md` STUDIO-10010, and the same gap `STUDIO-10007` closed for materials: the
+        // database recognises a `.cnaenv`, the Inspector edits it and the dependency scan follows
+        // its panorama, and until this nothing could write the first one. No shortcut, for the
+        // reason New Material has none.
+        command("studio.asset.newEnvironmentMap", "New Environment Map",
+                "Create an environment map asset in the current folder.", C::File,
+                StudioShortcut{});
         // Ctrl+O, not Ctrl+D: Ctrl+D is Duplicate in the prototype and in every editor that has a
         // duplicate, and taking it for Open would silently repurpose a key people press all day.
         command("studio.file.openProject", "Open Project...",
