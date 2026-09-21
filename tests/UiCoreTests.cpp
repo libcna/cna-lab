@@ -10,10 +10,13 @@
 
 #include "TestHarness.hpp"
 
+#include "CNA/Studio/UiCore/StudioFrame.hpp"
 #include "CNA/Studio/UiCore/StudioTheme.hpp"
+#include "CNA/Studio/UiCore/StudioWidgets.hpp"
 #include "CNA/Studio/UiCore/WidgetId.hpp"
 #include "CNA/Studio/UiCore/WidgetStateStore.hpp"
 
+#include <cmath>
 #include <set>
 #include <string>
 
@@ -524,4 +527,212 @@ CNA_STUDIO_TEST(WidgetStateIsKeyedByIdentitySoTwoWidgetsDoNotShareIt)
 
     CNA_STUDIO_EXPECT_EQ(store.get(a).scrollY, 100.0f);
     CNA_STUDIO_EXPECT_EQ(store.get(b).scrollY, 5.0f);
+}
+
+// ------------------------------------------------------------------------------------------------
+// Slider (STUDIO-19003)
+// ------------------------------------------------------------------------------------------------
+
+namespace
+{
+    UiInputState sliderAt(float x, float y, bool leftDown = false)
+    {
+        UiInputState input;
+        input.displayWidth = 640.0f;
+        input.displayHeight = 480.0f;
+        input.mouseX = x;
+        input.mouseY = y;
+        input.mouseInWindow = true;
+        input.setMouseDown(UiMouseButton::Left, leftDown);
+        return input;
+    }
+
+    /** @brief One slider over a known rectangle, driven a frame at a time. */
+    struct SliderFixture
+    {
+        StudioFrame frame{StudioTheme::dark()};
+        UiRect bounds{40.0f, 60.0f, 200.0f, 24.0f};
+        float value = 0.5f;
+        StudioSliderOptions options;
+        StudioWidgetResult last;
+
+        void run(const UiInputState& input)
+        {
+            runStudioFrame(frame, input, [&](StudioFrame& f) {
+                const StudioWidgetResult result =
+                    studioSlider(f, f.ids().make("slider"), bounds, value, options);
+                if (f.isInputPass()) { last = result; }
+            });
+        }
+
+        void settle() { run(sliderAt(400.0f, 400.0f)); }
+
+        /**
+         * @brief Presses at @p x on the track, which is the gesture that jumps to a point.
+         *
+         * Inset by a pixel at the caller's request rather than clamped here: a rectangle's right
+         * edge is *outside* it, so a press at `bounds.right()` hovers nothing and a case that did
+         * that would pass by never reaching the widget at all.
+         */
+        void pressAt(float x)
+        {
+            run(sliderAt(x, bounds.centerY()));
+            run(sliderAt(x, bounds.centerY(), /*leftDown=*/true));
+        }
+
+        /** @brief Holds the press and moves the pointer to @p x, wherever that is. */
+        void dragTo(float x)
+        {
+            run(sliderAt(x, bounds.centerY(), /*leftDown=*/true));
+        }
+
+        void release(float x)
+        {
+            run(sliderAt(x, bounds.centerY()));
+        }
+
+        /** @brief Presses @p key with the pointer parked away from the track. */
+        void key(UiKey pressed)
+        {
+            UiInputState input = sliderAt(400.0f, 400.0f);
+            input.setKeyDown(pressed, true);
+            run(input);
+            run(sliderAt(400.0f, 400.0f));
+        }
+    };
+}
+
+CNA_STUDIO_TEST(ClickingASlidersTrackJumpsToThatPointRatherThanStepping)
+{
+    // A slider is a position, and the gesture that says "put it here" should put it there. A
+    // control that stepped towards the click would take five presses to cross its own track.
+    SliderFixture fixture;
+    fixture.settle();
+
+    fixture.pressAt(fixture.bounds.left());
+    CNA_STUDIO_EXPECT(fixture.value <= 0.05f);
+    CNA_STUDIO_EXPECT(fixture.last.changed);
+
+    fixture.release(400.0f);
+    fixture.pressAt(fixture.bounds.right() - 1.0f);
+    CNA_STUDIO_EXPECT(fixture.value >= 0.95f);
+
+    // And the middle is the middle, which is the assertion that catches a thumb-width the
+    // arithmetic forgot to account for at both ends.
+    fixture.release(400.0f);
+    fixture.pressAt(fixture.bounds.centerX());
+    CNA_STUDIO_EXPECT(std::fabs(fixture.value - 0.5f) < 0.06f);
+}
+
+CNA_STUDIO_TEST(ASliderClampsRatherThanRefusingAndNeverWritesOutsideItsRange)
+{
+    // A value out of range arrives from a hand-edited file and from an older build. Refusing to
+    // show it would leave the user unable to see what is wrong, let alone fix it -- so the thumb
+    // pins and the value is left alone until they move it.
+    SliderFixture fixture;
+    fixture.value = 7.0f;
+    fixture.settle();
+    CNA_STUDIO_EXPECT_EQ(fixture.value, 7.0f);
+    CNA_STUDIO_EXPECT(!fixture.last.changed);
+
+    // The first drag brings it into range and cannot take it back out.
+    fixture.pressAt(fixture.bounds.right() - 1.0f);
+    CNA_STUDIO_EXPECT(fixture.value <= 1.0f);
+    CNA_STUDIO_EXPECT(fixture.value >= 0.0f);
+
+    // And a drag that leaves the widget entirely still cannot take it out of range. Driven as a
+    // real drag rather than as a press at a far-off point, because a press out there hovers
+    // nothing -- a case written that way would pass by never reaching the slider at all, which is
+    // how the first draft of this one passed while the clamp did nothing.
+    fixture.release(400.0f);
+    fixture.pressAt(fixture.bounds.centerX());
+    fixture.dragTo(fixture.bounds.left() - 500.0f);
+    CNA_STUDIO_EXPECT(fixture.value >= 0.0f);
+    CNA_STUDIO_EXPECT(fixture.value <= 0.05f);
+
+    fixture.dragTo(fixture.bounds.right() + 500.0f);
+    CNA_STUDIO_EXPECT(fixture.value <= 1.0f);
+    CNA_STUDIO_EXPECT(fixture.value >= 0.95f);
+}
+
+CNA_STUDIO_TEST(ASliderWithAStepLandsOnStopsAndNeverPastTheEnd)
+{
+    // A step that does not divide the range is the case worth pinning: rounding to a multiple can
+    // put the last stop past the maximum, and a slider that wrote 1.05 into a 0..1 property would
+    // be the thing this control exists to prevent.
+    // 0.4 rather than a step that divides the range, deliberately: rounding 1.0 to a multiple of
+    // 0.4 gives 1.2, so this is the value the re-clamp exists for. A step of 0.3 rounds *down* to
+    // 0.9 and never reaches the clamp at all, which is how the first draft of this case passed
+    // with the re-clamp removed.
+    SliderFixture fixture;
+    fixture.options.step = 0.4f;
+    fixture.settle();
+
+    fixture.pressAt(fixture.bounds.right() - 1.0f);
+    CNA_STUDIO_EXPECT(fixture.value <= 1.0f);
+    CNA_STUDIO_EXPECT(fixture.value >= 0.0f);
+
+    fixture.release(400.0f);
+    fixture.pressAt(fixture.bounds.left() + fixture.bounds.width * 0.5f);
+
+    // On a stop: 0, 0.4, 0.8 or the clamped end.
+    const float remainder = std::fabs(std::fmod(fixture.value, 0.4f));
+    CNA_STUDIO_EXPECT(remainder < 0.01f || std::fabs(remainder - 0.4f) < 0.01f
+                      || fixture.value == 1.0f);
+}
+
+CNA_STUDIO_TEST(ASliderWithNoRangeIsDrawnAndTakesNothing)
+{
+    // A property whose descriptor declares `minimum == maximum` is a fixed thing. Drawn rather
+    // than skipped, so the row looks like what it is instead of silently vanishing -- and inert,
+    // because there is nothing to choose.
+    SliderFixture fixture;
+    fixture.options.minimum = 1.0f;
+    fixture.options.maximum = 1.0f;
+    fixture.value = 1.0f;
+    fixture.settle();
+
+    fixture.pressAt(fixture.bounds.right() - 1.0f);
+    CNA_STUDIO_EXPECT_EQ(fixture.value, 1.0f);
+    CNA_STUDIO_EXPECT(!fixture.last.changed);
+    CNA_STUDIO_EXPECT_EQ(fixture.frame.phaseViolations(), std::size_t{0});
+}
+
+CNA_STUDIO_TEST(TheArrowsNudgeASliderAndCannotPushItPastEitherEnd)
+{
+    // The gesture a pointer cannot do precisely, and the one place the clamp inside `commit` is
+    // load-bearing: a drag's value is already derived from a clamped fraction, so a nudge is the
+    // only way to ask for a value outside the range. A first draft of these cases drove only the
+    // pointer, and removing the clamp broke nothing.
+    SliderFixture fixture;
+    fixture.settle();
+
+    // Focused by clicking it, which is how a user reaches it before typing.
+    fixture.pressAt(fixture.bounds.centerX());
+    fixture.release(fixture.bounds.centerX());
+
+    const float afterClick = fixture.value;
+    fixture.key(UiKey::RightArrow);
+    CNA_STUDIO_EXPECT(fixture.value > afterClick);
+
+    // A hundredth of the range where no step is declared, so a 0..1 property moves in hundredths.
+    CNA_STUDIO_EXPECT(fixture.value - afterClick < 0.02f);
+
+    fixture.key(UiKey::LeftArrow);
+    CNA_STUDIO_EXPECT(std::fabs(fixture.value - afterClick) < 0.001f);
+
+    // End and Home are the ends themselves.
+    fixture.key(UiKey::End);
+    CNA_STUDIO_EXPECT_EQ(fixture.value, 1.0f);
+
+    // And nudging past one is refused rather than written: this is what the clamp is for.
+    fixture.key(UiKey::RightArrow);
+    fixture.key(UiKey::RightArrow);
+    CNA_STUDIO_EXPECT_EQ(fixture.value, 1.0f);
+
+    fixture.key(UiKey::Home);
+    CNA_STUDIO_EXPECT_EQ(fixture.value, 0.0f);
+    fixture.key(UiKey::LeftArrow);
+    fixture.key(UiKey::LeftArrow);
+    CNA_STUDIO_EXPECT_EQ(fixture.value, 0.0f);
 }

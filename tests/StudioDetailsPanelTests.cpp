@@ -2959,3 +2959,80 @@ CNA_STUDIO_TEST(ATypedSlotRefusesAnAssetOfTheWrongKindAndTakesTheRightOne)
     CNA_STUDIO_EXPECT(context.getHistory().undo());
     CNA_STUDIO_EXPECT(!materialSlot().isValid());
 }
+
+// ------------------------------------------------------------------------------------------------
+// Ranged numeric properties (STUDIO-19003)
+// ------------------------------------------------------------------------------------------------
+
+/**
+ * @brief A property that declares a range gets a slider, and the field beside it clamps.
+ *
+ * `PropertyDescriptor::minimum` and `maximum` have existed since descriptors did, and the field's
+ * own comment said "the inspector may present a slider instead of a text field". Eight built-in
+ * properties declare a range -- a sound's volume, a camera's field of view, a tile map's columns --
+ * and nothing read either one: every one of them was a text box a user could type 4000 into.
+ *
+ * Driven through the real panel, because the claim is that the grid *reads* the descriptor. A
+ * panel that ignored it would pass a test of the slider perfectly.
+ */
+CNA_STUDIO_TEST(ARangedPropertyGetsASliderAndTheFieldBesideItClamps)
+{
+    StudioContext context;
+
+    ComponentDescriptor descriptor;
+    descriptor.typeId = "Test.Ranged";
+    descriptor.displayName = "Ranged";
+    {
+        PropertyDescriptor bounded;
+        bounded.name = "volume";
+        bounded.displayName = "Volume";
+        bounded.type = PropertyType::Float;
+        bounded.defaultValue = PropertyValue{0.5f};
+        bounded.minimum = 0.0;
+        bounded.maximum = 1.0;
+        descriptor.properties.push_back(std::move(bounded));
+    }
+    CNA_STUDIO_EXPECT(context.getComponentRegistry().registerComponent(descriptor));
+
+    StudioEntity subject{Uuid::generate(), "Speaker"};
+    StudioComponent component{"Test.Ranged"};
+    component.applyDefaults(*context.getComponentRegistry().find("Test.Ranged"));
+    subject.getComponents().push_back(std::move(component));
+    const Uuid entity = subject.getId();
+    context.getScene().addEntity(std::move(subject));
+    context.select(entity);
+
+    Harness harness{context};
+
+    const auto volume = [&context, entity] {
+        return context.getScene().findEntity(entity)
+            ->findComponent("Test.Ranged")->getProperty("volume").get<float>();
+    };
+    CNA_STUDIO_EXPECT_EQ(volume(), 0.5f);
+
+    // Swept down the *left* of the control column, which is where the slider's track is. A press
+    // near the left end asks for a value near the minimum; without a slider the same press lands
+    // in a text field and changes nothing at all.
+    bool moved = false;
+    for (float y = harness.bounds.top() + 4.0f;
+         y < harness.bounds.bottom() - 4.0f && !moved; y += 4.0f)
+    {
+        const float x = harness.bounds.left() + harness.bounds.width * 0.45f;
+        harness.click(x, y);
+        moved = volume() < 0.4f;
+    }
+
+    if (!moved)
+    {
+        CnaStudioTest::reportFailure(__FILE__, __LINE__,
+            "no press on the control column moved a ranged property, so it has no slider.");
+        return;
+    }
+
+    CNA_STUDIO_EXPECT(volume() >= 0.0f);
+    CNA_STUDIO_EXPECT(volume() <= 1.0f);
+
+    // Through the history like every other edit: a slider is not a second way to reach the
+    // document, it is a second way to reach the same command.
+    CNA_STUDIO_EXPECT(context.getHistory().canUndo());
+}

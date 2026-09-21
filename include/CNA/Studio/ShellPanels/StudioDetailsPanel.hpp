@@ -429,6 +429,20 @@ namespace CNA::Studio
          * the descriptor belongs to whoever laid the row out.
          */
         std::string assetType;
+
+        /**
+         * @brief The inclusive range a numeric property declares, from its descriptor.
+         *
+         * `plan.md` STUDIO-19003. When `minimum < maximum` the editor draws a slider beside the
+         * field instead of a field alone, and clamps what the field commits. Equal ends mean no
+         * range was declared, which is what every property without one has always been.
+         *
+         * Carried here rather than read from a descriptor inside the editor, for the reason
+         * `assetType` is: the editor is given a `PropertyValue` and the descriptor belongs to
+         * whoever laid the row out.
+         */
+        double minimum = 0.0;
+        double maximum = 0.0;
     };
 
     /**

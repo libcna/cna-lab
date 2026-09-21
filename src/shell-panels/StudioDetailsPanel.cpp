@@ -1508,16 +1508,60 @@ namespace
         }
         else if (value.getType() == PropertyType::Float)
         {
+            // A declared range gets a slider and the number beside it, rather than one or the
+            // other (`plan.md` STUDIO-19003). The slider is the gesture and the field is the
+            // precision, and a control that offered only the first would make "exactly 0.25"
+            // something a user has to aim for.
+            UiRect field = control;
+            const bool ranged = editing.maximum > editing.minimum;
+            if (ranged)
+            {
+                const float spacing = metricOf(frame.theme(), StudioMetric::SpacingSmall);
+                const float numberWidth =
+                    std::min(control.width * 0.4f, metricOf(frame.theme(), StudioMetric::ControlHeight) * 3.0f);
+                field = control;
+                const UiRect sliderBounds =
+                    field.splitLeft(std::max(0.0f, control.width - numberWidth - spacing));
+                field.splitLeft(std::min(spacing, field.width));
+
+                float slid = value.get<float>();
+                StudioSliderOptions sliderOptions;
+                sliderOptions.minimum = static_cast<float>(editing.minimum);
+                sliderOptions.maximum = static_cast<float>(editing.maximum);
+                if (studioSlider(frame, frame.ids().make("slider"), sliderBounds, slid,
+                                 sliderOptions)
+                        .changed)
+                {
+                    result.edited = PropertyValue{slid};
+
+                    // A drag, so the caller merges it into one undo entry the way a scrub is --
+                    // otherwise dragging a volume across the panel is forty presses of Ctrl+Z.
+                    result.dragging = true;
+                }
+            }
+
             std::string text = formatFloat(value.get<float>());
             StudioTextFieldOptions options;
             options.font = StudioFontRole::Monospace;
             options.selectAllOnFocus = true;
-            if (studioTextField(frame, frame.ids().make("value"), control, text,
+            if (studioTextField(frame, frame.ids().make("value"), field, text,
                                 options)
                     .committed)
             {
                 float parsed = 0.0f;
-                if (parseFloat(text, parsed)) { result.edited = PropertyValue{parsed}; }
+                if (parseFloat(text, parsed))
+                {
+                    // Clamped to the declared range, because the field beside a slider has to
+                    // mean the same thing the slider does. The *document* still does not enforce
+                    // it -- a hand-edited file out of range opens and is shown pinned, which is
+                    // what `PropertyDescriptor` promises.
+                    if (ranged)
+                    {
+                        parsed = std::clamp(parsed, static_cast<float>(editing.minimum),
+                                            static_cast<float>(editing.maximum));
+                    }
+                    result.edited = PropertyValue{parsed};
+                }
             }
         }
         else if (value.getType() == PropertyType::Integer)
@@ -2222,6 +2266,7 @@ namespace
             const char* label;
             float MaterialDocument::*member;
         };
+        // All three are normalised, and all three were text boxes a user could type 400 into.
         static const ScalarField kScalars[] = {
             {"metallic", "Metallic", &MaterialDocument::metallic},
             {"roughness", "Roughness", &MaterialDocument::roughness},
@@ -2235,8 +2280,8 @@ namespace
             ++result.materialFields;
 
             frame.ids().push(field.id);
-            // A scalar, so there is no asset kind to declare.
-            const StudioPropertyEditContext editing{&context, Uuid{}, {}};
+            // No asset kind, and the range every one of these has by definition (STUDIO-19003).
+            const StudioPropertyEditContext editing{&context, Uuid{}, {}, 0.0, 1.0};
             const StudioPropertyEditResult change = studioPropertyEditor(
                 frame, parts.control, PropertyValue{material.*field.member}, {}, editing);
             frame.ids().pop();
@@ -2281,7 +2326,7 @@ namespace
             ++result.materialFields;
 
             frame.ids().push("alpha-cutoff");
-            const StudioPropertyEditContext editing{&context, Uuid{}, {}};
+            const StudioPropertyEditContext editing{&context, Uuid{}, {}, 0.0, 1.0};
             const StudioPropertyEditResult change = studioPropertyEditor(
                 frame, parts.control, PropertyValue{material.alphaCutoff}, {}, editing);
             frame.ids().pop();
@@ -2766,14 +2811,16 @@ namespace
                     // same row allocator. An importer setting that is a list is a list, and giving it
                     // a second editor here would be the drift `STUDIO-07045` extracted this code to
                     // avoid.
-                    const StudioPropertyEditContext editing{&context, Uuid{}, property.assetType};
+                    const StudioPropertyEditContext editing{&context, Uuid{}, property.assetType,
+                                                            property.minimum, property.maximum};
                     const CompoundEditResult compound =
                         compoundPropertyEditor(frame, parts.control, nextRow, value, editing);
                     edit.edited = compound.edited;
                 }
                 else
                 {
-                    const StudioPropertyEditContext editing{&context, Uuid{}, property.assetType};
+                    const StudioPropertyEditContext editing{&context, Uuid{}, property.assetType,
+                                                            property.minimum, property.maximum};
                     edit = studioPropertyEditor(frame, parts.control, value, property.enumOptions,
                                                 editing);
                 }
@@ -3801,7 +3848,8 @@ namespace
 
                 // The kind this slot takes, from the component's own descriptor: the field has
                 // been declared since descriptors existed and was read by nothing (STUDIO-19009).
-                const StudioPropertyEditContext editing{&context, entityId, property.assetType};
+                const StudioPropertyEditContext editing{&context, entityId, property.assetType,
+                                                        property.minimum, property.maximum};
 
                 // Lists and structures claim rows of their own (STUDIO-07054). Everything else is
                 // a control in the one rect the row already gave it.

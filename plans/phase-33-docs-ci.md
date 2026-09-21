@@ -69,6 +69,13 @@ that has been switched off with extra steps.
 deliberately; nothing has regressed. What is broken is the gate's ability to tell a regression from
 a busy afternoon, which matters most on the day something really does regress.
 
+**Seen again while validating `STUDIO-19003`**, which is worth recording because it is the case
+this row predicts. The same scenario read 8470.6 µs and failed the gate on one run and passed on
+the next from the same binary, with every other scenario inside its budget both times — and the
+change being validated adds a widget to the property grid and touches nothing the content grid
+draws. Within the 7635–8599 µs spread measured above. Two readings a minute apart, one red and one
+green, is the whole of the problem in one line.
+
 ### `STUDIO-33026` — A test waiting on a worker counts completions, not frames
 
 **Found while doing `STUDIO-10003`**: `ThumbnailCacheTests`'

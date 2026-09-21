@@ -226,6 +226,21 @@ namespace
                    + metricOf(frame.theme(), StudioMetric::SpacingSmall);
         }
 
+        /**
+         * @brief A point inside the *number* of a ranged scalar row.
+         *
+         * A property with a declared range draws a slider and the number beside it
+         * (`plan.md` STUDIO-19003), so the left of the control column is now the slider's track
+         * and a click there sets the value by position rather than focusing the field. Near the
+         * right edge rather than at it, because the field ends where the column does.
+         */
+        [[nodiscard]] float numberFieldX() const
+        {
+            const UiRect area =
+                bounds.inset(UiEdges{metricOf(frame.theme(), StudioMetric::SpacingSmall)});
+            return area.right() - 20.0f;
+        }
+
         /** @brief The material as the file currently holds it. */
         [[nodiscard]] MaterialDocument onDisk() const
         {
@@ -274,9 +289,10 @@ CNA_STUDIO_TEST(EditingAMaterialRewritesItsFileAndUndoPutsTheBytesBack)
     CNA_STUDIO_EXPECT(!before.empty());
     CNA_STUDIO_EXPECT_EQ(fixture.onDisk().roughness, 0.6f);
 
-    // The Roughness field: one box across the whole control column.
+    // The Roughness *number*, which since STUDIO-19003 shares the control column with a slider:
+    // the left of that column is the track, and clicking it sets the value by position.
     const UiRect box = fixture.row(kRoughnessRow);
-    const float x = fixture.controlLeft() + 20.0f;
+    const float x = fixture.numberFieldX();
     fixture.replace(x, box.centerY(), {u'0', u'.', u'2'});
 
     CNA_STUDIO_EXPECT_EQ(fixture.onDisk().roughness, 0.2f);

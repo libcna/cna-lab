@@ -402,6 +402,125 @@ namespace CNA::Studio
         return result;
     }
 
+    StudioWidgetResult studioSlider(StudioFrame& frame, WidgetId id, const UiRect& bounds,
+                                    float& value, const StudioSliderOptions& options)
+    {
+        const StudioTheme& theme = frame.theme();
+
+        // A range with no width is a control with nothing to choose. Drawn rather than skipped, so
+        // a property whose descriptor declares `minimum == maximum` looks like the fixed thing it
+        // is instead of a row that silently vanished.
+        const bool usable = options.enabled && options.maximum > options.minimum;
+
+        StudioWidgetResult result =
+            interactControl(frame, id, bounds, usable, /*focusable=*/true, StudioCursor::Arrow);
+
+        if (!options.tooltip.empty())
+        {
+            (void)frame.requestTooltip(id, options.tooltip, bounds);
+        }
+
+        const float span = options.maximum - options.minimum;
+
+        // Where the thumb sits, before any edit: clamped so an out-of-range value -- from a
+        // hand-edited file or an older build -- pins to an end rather than drawing outside the
+        // track. The *value* is left alone until the user moves it; showing it wrong and silently
+        // correcting it are both worse than showing it pinned.
+        const auto fractionOf = [&](float from) {
+            if (span <= 0.0f) { return 0.0f; }
+            return std::clamp((from - options.minimum) / span, 0.0f, 1.0f);
+        };
+
+        const float thumbSize = std::min(metricOf(theme, StudioMetric::IconSizeSmall), bounds.height);
+        const float travel = std::max(bounds.width - thumbSize, 0.0f);
+
+        const auto commit = [&](float proposed) {
+            float next = std::clamp(proposed, options.minimum, options.maximum);
+            if (options.step > 0.0f)
+            {
+                // Rounded to a stop and clamped again: a step that does not divide the range would
+                // otherwise put the last stop past the maximum.
+                next = options.minimum + std::round((next - options.minimum) / options.step)
+                                             * options.step;
+                next = std::clamp(next, options.minimum, options.maximum);
+            }
+            if (next == value) { return; }
+            value = next;
+            result.changed = true;
+        };
+
+        if (frame.isInputPass() && usable)
+        {
+            // Press *and* drag both set the value from where the pointer is, so clicking the track
+            // jumps there. A slider is a position, and the gesture that says "put it here" should.
+            if (result.interaction.pressed || result.interaction.held)
+            {
+                const float from = bounds.left() + thumbSize * 0.5f;
+                const float fraction =
+                    travel > 0.0f ? std::clamp((frame.input().mouseX - from) / travel, 0.0f, 1.0f)
+                                  : 0.0f;
+                commit(options.minimum + fraction * span);
+            }
+
+            // The arrows nudge, which is the gesture a pointer cannot do precisely. By the step
+            // where there is one and by a hundredth of the range where there is not, so a slider
+            // over 0..1 moves in hundredths and one over 1..179 degrees moves in degrees.
+            if (result.interaction.focused)
+            {
+                const float nudge = options.step > 0.0f ? options.step : span * 0.01f;
+                if (frame.router().keyPressed(UiKey::LeftArrow)) { commit(value - nudge); }
+                if (frame.router().keyPressed(UiKey::RightArrow)) { commit(value + nudge); }
+                if (frame.router().keyPressed(UiKey::Home)) { commit(options.minimum); }
+                if (frame.router().keyPressed(UiKey::End)) { commit(options.maximum); }
+            }
+        }
+
+        if (!frame.isDrawPass()) { return result; }
+
+        const StudioControlState state = resolveState(result.interaction, /*selected=*/false);
+        const float fraction = fractionOf(value);
+        const float radius = metricOf(theme, StudioMetric::CornerRadius);
+
+        // The track, thinner than the row so the thumb reads as riding on it rather than as a
+        // second box inside a first.
+        const float trackHeight = std::max(metricOf(theme, StudioMetric::SeparatorThickness) * 3.0f,
+                                           4.0f);
+        const UiRect track{bounds.left(), bounds.top() + (bounds.height - trackHeight) * 0.5f,
+                           bounds.width, trackHeight};
+        frame.drawList().fillRoundedRect(track, theme.color(StudioColorRole::ScrollbarTrack),
+                                         trackHeight * 0.5f);
+
+        // The filled portion, so the value is readable without reading the thumb's position
+        // against the ends -- which is the thing a slider is bad at and a number is good at.
+        const float filledWidth = thumbSize * 0.5f + fraction * travel;
+        if (filledWidth > 0.0f)
+        {
+            frame.drawList().fillRoundedRect(
+                UiRect{track.left(), track.top(), filledWidth, track.height},
+                usable ? theme.accent(state) : theme.color(StudioColorRole::ControlBackgroundDisabled),
+                trackHeight * 0.5f);
+        }
+
+        const UiRect thumb{bounds.left() + fraction * travel,
+                           bounds.top() + (bounds.height - thumbSize) * 0.5f, thumbSize, thumbSize};
+        frame.drawList().fillRoundedRect(
+            thumb,
+            usable ? theme.color(result.interaction.held ? StudioColorRole::ScrollbarThumbHover
+                                                         : StudioColorRole::ScrollbarThumb)
+                   : theme.color(StudioColorRole::ControlBackgroundDisabled),
+            std::min(radius, thumbSize * 0.5f));
+        frame.drawList().strokeRect(thumb, theme.color(StudioColorRole::Border),
+                                    metricOf(theme, StudioMetric::BorderWidth));
+
+        if (result.interaction.focused)
+        {
+            frame.drawList().strokeRect(bounds, theme.color(StudioColorRole::Accent),
+                                        metricOf(theme, StudioMetric::FocusRingWidth));
+        }
+
+        return result;
+    }
+
     StudioWidgetResult studioCheckbox(StudioFrame& frame, WidgetId id, const UiRect& bounds,
                                       std::string_view label, bool& checked, bool enabled)
     {

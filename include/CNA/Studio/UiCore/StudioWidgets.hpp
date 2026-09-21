@@ -276,6 +276,53 @@ namespace CNA::Studio
                                     std::string_view label, bool& checked,
                                     const StudioButtonOptions& options = {});
 
+    /** @brief How a slider is drawn and what it will accept. */
+    struct StudioSliderOptions
+    {
+        /** @brief The low end of the range. */
+        float minimum = 0.0f;
+
+        /** @brief The high end. A slider whose ends are equal draws its track and takes nothing. */
+        float maximum = 1.0f;
+
+        /**
+         * @brief Round the value to a multiple of this, or 0 for continuous.
+         *
+         * Applied after the clamp, so a step that does not divide the range still cannot produce a
+         * value outside it -- the last stop before the maximum is a stop, and the maximum is one.
+         */
+        float step = 0.0f;
+
+        bool enabled = true;
+
+        /** @brief Shown beside the pointer while it rests on the track. */
+        std::string tooltip;
+    };
+
+    /**
+     * @brief A bounded numeric control: a track, a filled portion and a thumb.
+     *
+     * `plan.md` STUDIO-19003. `PropertyDescriptor` has carried a `minimum` and a `maximum` since
+     * descriptors existed and said in its own comment that "the inspector may present a slider
+     * instead of a text field". Eight built-in properties declare a range -- a sound's volume, a
+     * camera's field of view, a tile map's columns -- and nothing read either field: every one of
+     * them was a text box a user could type 4000 into.
+     *
+     * **Clamped, never refused.** A value outside the range arrives from a hand-edited file and
+     * from an older build, and a control that refused to show it would leave the user unable to
+     * see what is wrong, let alone fix it. The thumb pins to whichever end it is past and the
+     * first drag brings the value into range.
+     *
+     * **Clicking the track jumps to that point** rather than stepping towards it. A slider is a
+     * position, and the gesture that says "put it here" should put it there; nudging belongs to
+     * the arrow keys, which move by `step` or by a hundredth of the range.
+     *
+     * @param value Read for the thumb's position and written when the user moves it.
+     * @return `changed` when @p value was written this frame; `interaction.held` while dragging.
+     */
+    StudioWidgetResult studioSlider(StudioFrame& frame, WidgetId id, const UiRect& bounds,
+                                    float& value, const StudioSliderOptions& options = {});
+
     /**
      * @brief A checkbox: a square indicator and a label beside it.
      *

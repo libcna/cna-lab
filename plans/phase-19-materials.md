@@ -6,13 +6,13 @@
 
 **Exit criteria.** A property-based material editor good enough that a node graph is an addition rather than a rescue.
 
-**Progress:** 4 of 9 complete `█████░░░░░░░`
+**Progress:** 5 of 9 complete `██████░░░░░░`
 
 | Id | Task | Status | Depends on |
 |----|------|:------:|------------|
 | `STUDIO-19001` | PBR material asset model | ✅ | — |
 | `STUDIO-19002` | Texture slots: base colour, normal, roughness, metalness, emissive, occlusion | ✅ | `STUDIO-19001` |
-| `STUDIO-19003` | Scalar and vector material parameters | ⬜ | `STUDIO-19001` |
+| `STUDIO-19003` | Scalar and vector material parameters | ✅ | `STUDIO-19001` |
 | `STUDIO-19004` | Transparency modes | ✅ | `STUDIO-19001` |
 | `STUDIO-19005` | Material instances and parameter overrides | ⬜ | `STUDIO-19001` |
 | `STUDIO-19006` | Live material preview in the viewport | ⬜ | `STUDIO-11011` |
@@ -149,6 +149,68 @@ older maps and for neither of the new ones.
 picker (`STUDIO-19007`). The glTF importer still reads only the packed occlusion form and warns
 about a separate one — reading it belongs to `STUDIO-10004`; what this row makes possible is an
 *authored* material naming an occlusion map of its own.
+
+### `STUDIO-19003` — Scalar and vector material parameters
+
+**Acceptance.** A material's numbers are edited as the numbers they are: the normalised ones are
+bounded, a drag sets them and the field beside it means the same thing the drag does.
+
+**The vectors were already right and the scalars were text boxes.** Base colour and emissive have
+been colour rows since the editor existed; metallic, roughness and alpha were fields a user could
+type 400 into, and did not have to — `metallic = 4` is what a slipped decimal point produces, it
+is written to the file, and the only symptom is a model that looks wrong.
+
+**`PropertyDescriptor` had the answer and nothing read it.** `minimum` and `maximum` have existed
+since descriptors did, and the field's own comment said "the inspector may present a slider instead
+of a text field". Eight built-in properties declare a range — a sound's volume and pan, a camera's
+field of view, a tile map's columns and rows, a sprite's layer depth — and **both fields were read
+by nothing**. This is the third of these found in a row, after `assetType` (`STUDIO-19009`) and the
+null-context fallback: a rule written down, believed, and absent.
+
+**So there is a slider, and it is a widget rather than a material feature.** `studioSlider` lives
+in `cna-studio-ui-core` beside the button and the checkbox, so every ranged property in the editor
+gets one — the material's three, the sound's volume, the camera's field of view — rather than the
+material editor growing a control of its own that nothing else can use.
+
+**Clamped, never refused.** A value outside the range arrives from a hand-edited file and from an
+older build. A control that refused to show it would leave the user unable to see what is wrong,
+let alone fix it, so the thumb pins to whichever end it is past and the value is left alone until
+they move it. The *document* still does not enforce the range, which is exactly what
+`PropertyDescriptor` promises.
+
+**Clicking the track jumps there.** A slider is a position, and the gesture that says "put it here"
+should put it there; a control that stepped towards the click would take five presses to cross its
+own track. Nudging belongs to the arrow keys — by the declared step, or by a hundredth of the range
+where there is none — with Home and End for the ends.
+
+**The number stays.** A slider is the gesture and the field is the precision: a control that
+offered only the first would make "exactly 0.25" something a user has to aim for. The field clamps
+to the same range, because a number beside a slider has to mean what the slider means.
+
+**A drag through the slider is one undo entry.** It reports `dragging` exactly as a scrub does, so
+the caller merges it — otherwise dragging a volume across the panel is forty presses of Ctrl+Z.
+
+**Verification.** `tests/UiCoreTests.cpp` — a click jumping to its point at both ends and the
+middle; an out-of-range value shown rather than corrected, and a drag that leaves the widget
+entirely still unable to write outside the range; a step landing on stops and never past the end;
+a range with no width drawn and inert; and the arrows nudging by a hundredth with Home and End at
+the ends.
+`tests/StudioDetailsPanelTests.cpp` — a property declaring a range getting a slider in the real
+component grid, clamped, and undoable.
+Checked by causing each: the grid dropping the descriptor's range, the slider not clamping, the
+track taking no pointer input, and the step rounding not re-clamped each fail by name.
+
+**Two of those breaks passed at first, and the cases were rewritten rather than the breaks
+explained away.** The clamp inside the commit is only load-bearing on the *keyboard* path — a
+drag's value is already derived from a clamped fraction — so the pointer-only cases never reached
+it; the arrow-key case exists for that reason. And a step of 0.3 over 0..1 rounds *down* to 0.9 and
+never overshoots, so the step case now uses 0.4, where rounding 1.0 gives 1.2 and the re-clamp is
+the only thing between that and a 0..1 property holding 1.2.
+
+**A third thing worth recording.** The first draft of the clamp case pressed at `bounds.right()`
+and at points 500 pixels outside the widget. A rectangle's right edge is *outside* it, so those
+presses hovered nothing: the case passed by never reaching the slider at all. It drives a real
+drag now, which is both the honest gesture and the one that can fail.
 
 ### `STUDIO-19004` — Transparency modes
 
