@@ -110,9 +110,15 @@ same container. The counted columns were again identical to the last green run
 time*, so a compile taking four cores for the duration is exactly the interference the median is
 least able to reject.
 
+**Confirmed by re-running it on an idle machine, which is what makes this occurrence the useful
+one.** The same binary, nothing else running: `outliner-20000-deep` read 7271.8 µs and
+`outliner-20000-all-selected` 7639.5, both comfortably inside 8333, with the counted columns
+unchanged from the red run to the digit. The whole difference between failing and passing was the
+compile, and the code was identical on both sides.
+
 That makes the case rather than weakening it. The previous three occurrences left open whether
-something slow was happening on most frames; this one names a competing workload, and the gate
-still cannot tell it from a regression. **The procedural lesson is separate and smaller: run the
+something slow was happening on most frames; this one names the competing workload, removes it, and
+watches the gate change its mind. **The procedural lesson is separate and smaller: run the
 benchmark on its own.** It has been added to the validation notes, and it is a workaround for the
 gate rather than a fix for it — a measurement that is only valid when nothing else is running is a
 measurement CI cannot trust either.
