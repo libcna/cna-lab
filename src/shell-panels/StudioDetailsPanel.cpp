@@ -2902,6 +2902,62 @@ namespace
         return result;
     }
 
+    std::vector<std::string> studioSharedComponents(const SceneDocument& scene,
+                                                    const std::vector<Uuid>& selection)
+    {
+        if (selection.empty()) { return {}; }
+
+        // The last selected entity is the one the panel is built around, so its order is the one
+        // the user sees. A list that reordered itself as the selection grew would be one they
+        // cannot learn.
+        const StudioEntity* primary = scene.findEntity(selection.back());
+        if (primary == nullptr) { return {}; }
+
+        std::vector<std::string> shared;
+        for (const StudioComponent& component : primary->getComponents())
+        {
+            const std::string& typeId = component.getTypeId();
+
+            // Already counted. A non-unique component the primary carries twice is one section in
+            // the list, because the panel draws sections per type and two with one name would be
+            // two controls a user cannot tell apart.
+            if (std::find(shared.begin(), shared.end(), typeId) != shared.end()) { continue; }
+
+            const bool everyone =
+                std::all_of(selection.begin(), selection.end(), [&](const Uuid& id) {
+                    const StudioEntity* entity = scene.findEntity(id);
+                    return entity != nullptr && entity->findComponent(typeId) != nullptr;
+                });
+            if (everyone) { shared.push_back(typeId); }
+        }
+        return shared;
+    }
+
+    std::optional<PropertyValue> studioSharedPropertyValue(const SceneDocument& scene,
+                                                           const std::vector<Uuid>& selection,
+                                                           const std::string& componentTypeId,
+                                                           const std::string& propertyName,
+                                                           const ComponentDescriptor* descriptor)
+    {
+        std::optional<PropertyValue> shared;
+        for (const Uuid& id : selection)
+        {
+            const StudioEntity* entity = scene.findEntity(id);
+            if (entity == nullptr) { continue; }
+
+            const StudioComponent* component = entity->findComponent(componentTypeId);
+            if (component == nullptr) { return std::nullopt; }
+
+            // Through the descriptor's default, so an entity that never wrote the property and one
+            // that wrote the default agree -- which they do, as far as the game is concerned, and
+            // an editor that said otherwise would be reporting a difference nothing can see.
+            const PropertyValue value = component->getPropertyOrDefault(propertyName, descriptor);
+            if (!shared) { shared = value; }
+            else if (!(*shared == value)) { return std::nullopt; }
+        }
+        return shared;
+    }
+
     std::string studioCopyPropertyText(const PropertyValue& value)
     {
         // Compact rather than pretty: a clipboard is one line in a text field as often as it is a
@@ -3028,7 +3084,20 @@ namespace
         }
 
         const Uuid entityId = entity->getId();
-        result.componentCount = entity->getComponents().size();
+
+        // With several entities selected, only the components *all* of them carry (`plan.md`
+        // STUDIO-14017). A component only some of them have has no unambiguous answer to what
+        // editing it should do, and picking one silently is how a user loses work they did not
+        // know they were doing.
+        const std::vector<std::string> sharedComponents =
+            studioSharedComponents(context.getScene(), selection);
+        const auto isShared = [&sharedComponents](const std::string& typeId) {
+            return std::find(sharedComponents.begin(), sharedComponents.end(), typeId)
+                != sharedComponents.end();
+        };
+
+        result.componentCount = sharedComponents.size();
+        result.entitiesEdited = selection.size();
 
         // Every row measured before any is drawn, because the scroll view has to know how tall the
         // content is before it can decide whether it needs a bar.
@@ -3036,6 +3105,8 @@ namespace
             std::size_t rows = 0;
             for (const StudioComponent& component : entity->getComponents())
             {
+                if (!isShared(component.getTypeId())) { continue; }
+
                 ++rows;  // the component's own header, which is there whether it is open or not
 
                 // A closed section is its heading and nothing else. Counted the same way it is
@@ -3171,6 +3242,11 @@ namespace
         for (const StudioComponent& component : entity->getComponents())
         {
             const std::size_t componentIndex = nextComponentIndex++;
+
+            // Counted the same way it is measured above, in the same words: the scroll view is
+            // sized from that count and the two disagreeing is a panel that scrolls past its own
+            // last control.
+            if (!isShared(component.getTypeId())) { continue; }
             const ComponentDescriptor* descriptor =
                 context.getComponentRegistry().find(component.getTypeId());
 
@@ -3473,9 +3549,33 @@ namespace
                     // pixels is one undo entry rather than forty. The chain is closed by
                     // `endInteraction` on the first frame nothing is being dragged, which is what
                     // stops two separate drags of the same field from folding into each other.
-                    context.execute(std::make_unique<SetPropertyCommand>(
-                        context.getScene(), entityId, component.getTypeId(), property.name,
-                        *edited),
+                    // Every selected entity, not just the one the panel is built around
+                    // (`plan.md` STUDIO-14017). The section is only shown when all of them carry
+                    // the component, so there is no question of which this means.
+                    //
+                    // One entry for the whole edit, because the user typed once. A command per
+                    // entity would be five presses of Ctrl+Z to undo one keystroke, and -- worse --
+                    // would undo them one at a time, leaving the scene in arrangements that never
+                    // existed. The same bargain `TransformEntitiesCommand` strikes for a gizmo.
+                    //
+                    // The batch carries a merge key so a scrub folds into one entry the way a
+                    // single command does: a drag is one gesture whether it moves one entity or
+                    // five, and forty entries is forty presses of Ctrl+Z the user cannot count.
+                    auto batch = std::make_unique<CompositeCommand>(
+                        selection.size() == 1
+                            ? "Set " + property.name
+                            : "Set " + property.name + " on " + std::to_string(selection.size())
+                                  + " entities",
+                        "property:" + component.getTypeId() + "." + property.name);
+                    for (const Uuid& target : selection)
+                    {
+                        if (context.getScene().findEntity(target) == nullptr) { continue; }
+                        batch->add(std::make_unique<SetPropertyCommand>(
+                            context.getScene(), target, component.getTypeId(), property.name,
+                            *edited));
+                    }
+
+                    context.execute(std::move(batch),
                         editResult.dragging && !reset.has_value()
                             ? MergePolicy::MergeWithPrevious
                             : MergePolicy::NewEntry);

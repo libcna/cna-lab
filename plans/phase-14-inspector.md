@@ -6,7 +6,7 @@
 
 **Exit criteria.** Every property type a component can declare is editable, validated and undoable.
 
-**Progress:** 4 of 18 complete `██░░░░░░░░░░`
+**Progress:** 5 of 18 complete `███░░░░░░░░░`
 
 | Id | Task | Status | Depends on |
 |----|------|:------:|------------|
@@ -26,7 +26,7 @@
 | `STUDIO-14014` | Copy and paste property values | ✅ | `STUDIO-03025` |
 | `STUDIO-14015` | Validation warnings shown inline | ⬜ | `STUDIO-14001` |
 | `STUDIO-14016` | Tooltips and documentation from descriptor metadata | ⬜ | `STUDIO-03021` |
-| `STUDIO-14017` | Multi-selection editing where the semantics are unambiguous | ⬜ | `STUDIO-14001` |
+| `STUDIO-14017` | Multi-selection editing where the semantics are unambiguous | ✅ | `STUDIO-14001` |
 | `STUDIO-14018` | Responsive with very large property counts | ⬜ | `STUDIO-30010` |
 
 ## Acceptance and verification
@@ -111,6 +111,61 @@ menu through the shell, copies, changes the value underneath, pastes it back and
 re-seeds the clipboard before each paste attempt, because the sweep passes over Copy on its way to
 Paste — without that it would copy the *new* value and then paste it, and pass while proving
 nothing. Checked by causing the round-trip check to stop happening; it fails by name.
+
+### `STUDIO-14017` — Multi-selection editing where the semantics are unambiguous
+
+**Acceptance.** An edit made with several entities selected reaches all of them, as one undo entry,
+and is only offered where it means one thing.
+
+**The Inspector showed the last selected entity and edited only it**, saying nothing about the rest.
+A user who selected five crates and set their scale changed one and found out later.
+
+**The components shown are the intersection, not the union.** A component only some of them carry is
+exactly the case the task's own title excludes: there is no unambiguous answer to what editing it
+should do, and picking one silently is how a user loses work they did not know they were doing. In
+the last selected entity's order, because that is the entity the panel is built around and a list
+that reordered itself as the selection grew would be one a user cannot learn. A selection of one is
+that entity's own components, which is what makes this the only path rather than a second one for
+the multi case.
+
+**A value is only shared when they agree**, through the descriptor's default — an entity that never
+wrote the property and one that wrote the default agree, because they do as far as the game is
+concerned, and reporting a difference nothing can see would be worse than useless.
+
+**One edit, one undo entry, for the whole selection.** A command per entity would be five presses of
+Ctrl+Z to undo one keystroke and, worse, would undo them one at a time, leaving the scene in
+arrangements that never existed — the same bargain `TransformEntitiesCommand` strikes for a gizmo.
+
+#### `CompositeCommand` gained a merge key, and the scrub case gained the assertion that needed it
+
+Wrapping the edit in a batch quietly removed the fold a scrub depends on (`STUDIO-07055`): a
+`CompositeCommand` had no merge key, so every frame of a drag would have been its own undo entry.
+**Nothing caught it.** `DraggingANumericFieldScrubsTheValueWithoutTypingIntoIt` pinned "something is
+undoable" and one `undo()`, which passes just as well for forty entries.
+
+Adding the count assertion was not enough either: the harness delivers a drag in *one frame* on
+purpose, so it produces a single command and an implementation with no merge key at all passes.
+The case now drags over eight frames — and against that, removing the key gives twelve entries where
+there should be one. A merge is not testable by a gesture that never needs one.
+
+The composite's merge is all-or-nothing and checked before anything changes: a batch half-merged
+with the one after it is an undo entry that reverses some of a gesture and not the rest, which is
+worse than an entry per frame because it looks like it worked.
+
+**Not done: a "multiple values" indicator.** Where the entities disagree the editor still shows the
+primary's value. `studioSharedPropertyValue` answers the question and is tested; what is missing is
+a mixed state in the editors themselves, which is a change to every property editor rather than to
+the panel. Recorded rather than left for the next reader to find as a defect.
+
+**Verification.** `tests/StudioDetailsPanelTests.cpp`:
+`TheInspectorShowsOnlyTheComponentsEveryoneSelectedHas` pins the intersection, the order, the
+single-entity case, an empty selection and a stale id.
+`ASharedPropertyValueIsNothingWhenTheEntitiesDisagree` pins agreement, disagreement, the
+unwritten-versus-explicit-default case and an entity without the component at all.
+`EditingAPropertyOverASelectionChangesAllOfThemInOneStep` drives a real scrub over three entities
+and pins that all three move and one Ctrl+Z takes all three back. Checked by causing three failures
+— the edit reaching only the primary, the component list taking the union, and the value ignoring
+disagreement — plus the merge-key break above. Each fails by name.
 
 ### `STUDIO-14012` — Reset to default
 

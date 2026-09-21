@@ -160,6 +160,26 @@ namespace
             shell->renderFrame(at(x + dx, y, false));
             shell->renderFrame(at(x + dx, y, false));
         }
+
+        /**
+         * @brief The same gesture delivered over @p steps frames, as a real pointer delivers it.
+         *
+         * The one-frame @ref drag above cannot exercise the *merge* at all: it produces a single
+         * command, so an implementation with no merge key at all passes it. Only a drag that lands
+         * a command per frame can say whether they fold into one undo entry (`STUDIO-07055`).
+         */
+        void dragOverFrames(float x, float y, float dx, int steps)
+        {
+            shell->renderFrame(at(x, y, false));
+            shell->renderFrame(at(x, y, true));
+            for (int step = 1; step <= steps; ++step)
+            {
+                const float moved = dx * static_cast<float>(step) / static_cast<float>(steps);
+                shell->renderFrame(at(x + moved, y, true));
+            }
+            shell->renderFrame(at(x + dx, y, false));
+            shell->renderFrame(at(x + dx, y, false));
+        }
     };
 }
 
@@ -564,6 +584,182 @@ CNA_STUDIO_TEST(AComponentCanBeAddedToTheSelectedEntityAndUndone)
  * a `PropertyValue` looks like -- a second encoding invented for the clipboard would be a second
  * thing to keep in step with the first, and the first is the one that has to survive a release.
  */
+/**
+ * The Inspector over several entities (`plan.md` STUDIO-14017).
+ *
+ * It showed the *last* selected entity and edited only it, saying nothing about the rest -- so a
+ * user who selected five crates and set their scale changed one, and found out later.
+ */
+CNA_STUDIO_TEST(TheInspectorShowsOnlyTheComponentsEveryoneSelectedHas)
+{
+    StudioContext context;
+
+    const auto add = [&context](const char* name, std::vector<const char*> types) {
+        StudioEntity subject{Uuid::generate(), name};
+        for (const char* type : types)
+        {
+            StudioComponent component{type};
+            if (const ComponentDescriptor* descriptor = context.getComponentRegistry().find(type))
+            {
+                component.applyDefaults(*descriptor);
+            }
+            subject.getComponents().push_back(std::move(component));
+        }
+        const Uuid id = subject.getId();
+        context.getScene().addEntity(std::move(subject));
+        return id;
+    };
+
+    const Uuid both = add("Both", {"CNA.Transform", "CNA.SpriteRenderer"});
+    const Uuid transformOnly = add("TransformOnly", {"CNA.Transform"});
+
+    // Selected alone, the entity's own components -- which is what makes this the only path rather
+    // than a second one for the multi case.
+    const std::vector<std::string> alone = studioSharedComponents(context.getScene(), {both});
+    CNA_STUDIO_EXPECT_EQ(alone.size(), std::size_t{2});
+
+    // Together, the intersection. A component only one of them has is exactly the case the task's
+    // title excludes: there is no unambiguous answer to what editing it should do.
+    const std::vector<std::string> shared =
+        studioSharedComponents(context.getScene(), {both, transformOnly});
+    CNA_STUDIO_EXPECT_EQ(shared.size(), std::size_t{1});
+    CNA_STUDIO_EXPECT_EQ(shared.front(), std::string{"CNA.Transform"});
+
+    // In the last selected entity's order, because that is the entity the panel is built around.
+    const std::vector<std::string> reversed =
+        studioSharedComponents(context.getScene(), {transformOnly, both});
+    CNA_STUDIO_EXPECT_EQ(reversed.size(), std::size_t{1});
+
+    // An empty selection has nothing to show, and an id the scene has lost is not a component
+    // everybody has.
+    CNA_STUDIO_EXPECT(studioSharedComponents(context.getScene(), {}).empty());
+    CNA_STUDIO_EXPECT(
+        studioSharedComponents(context.getScene(), {both, Uuid::generate()}).empty());
+}
+
+/**
+ * And a value is only shown when they agree (`plan.md` STUDIO-14017).
+ *
+ * A field reading 3 over five entities of which four are 7 is a field that lies, and the user finds
+ * out by overwriting the four.
+ */
+CNA_STUDIO_TEST(ASharedPropertyValueIsNothingWhenTheEntitiesDisagree)
+{
+    StudioContext context;
+    const ComponentDescriptor* descriptor =
+        context.getComponentRegistry().find("CNA.Transform");
+    CNA_STUDIO_EXPECT(descriptor != nullptr);
+
+    const auto add = [&context, descriptor](const StudioVector3& position) {
+        StudioEntity subject{Uuid::generate(), "Crate"};
+        StudioComponent transform{"CNA.Transform"};
+        transform.applyDefaults(*descriptor);
+        transform.setProperty("position", PropertyValue{position});
+        subject.getComponents().push_back(std::move(transform));
+        const Uuid id = subject.getId();
+        context.getScene().addEntity(std::move(subject));
+        return id;
+    };
+
+    const Uuid first = add(StudioVector3{1.0f, 0.0f, 0.0f});
+    const Uuid same = add(StudioVector3{1.0f, 0.0f, 0.0f});
+    const Uuid different = add(StudioVector3{9.0f, 0.0f, 0.0f});
+
+    const auto sharedOf = [&](const std::vector<Uuid>& selection) {
+        return studioSharedPropertyValue(context.getScene(), selection, "CNA.Transform",
+                                         "position", descriptor);
+    };
+
+    CNA_STUDIO_EXPECT(sharedOf({first}).has_value());
+    CNA_STUDIO_EXPECT(sharedOf({first, same}).has_value());
+    CNA_STUDIO_EXPECT(sharedOf({first, same})->get<StudioVector3>().x == 1.0f);
+    CNA_STUDIO_EXPECT(!sharedOf({first, different}).has_value());
+
+    // An entity that never wrote the property and one that wrote the default agree, because they
+    // do as far as the game is concerned -- reporting a difference nothing can see would be worse
+    // than useless.
+    StudioEntity bare{Uuid::generate(), "Bare"};
+    bare.getComponents().push_back(StudioComponent{"CNA.Transform"});
+    const Uuid unwritten = bare.getId();
+    context.getScene().addEntity(std::move(bare));
+
+    StudioEntity explicitDefault{Uuid::generate(), "Explicit"};
+    StudioComponent written{"CNA.Transform"};
+    written.applyDefaults(*descriptor);
+    explicitDefault.getComponents().push_back(std::move(written));
+    const Uuid wrote = explicitDefault.getId();
+    context.getScene().addEntity(std::move(explicitDefault));
+
+    CNA_STUDIO_EXPECT(sharedOf({unwritten, wrote}).has_value());
+
+    // An entity without the component at all is not a disagreement, it is an absence -- and the
+    // panel does not offer the section for it in the first place.
+    StudioEntity nothing{Uuid::generate(), "Nothing"};
+    const Uuid without = nothing.getId();
+    context.getScene().addEntity(std::move(nothing));
+    CNA_STUDIO_EXPECT(!sharedOf({first, without}).has_value());
+}
+
+/**
+ * And an edit reaches every one of them, as one undo entry (`plan.md` STUDIO-14017).
+ */
+CNA_STUDIO_TEST(EditingAPropertyOverASelectionChangesAllOfThemInOneStep)
+{
+    StudioContext context;
+    const ComponentDescriptor* descriptor = context.getComponentRegistry().find("CNA.Transform");
+    CNA_STUDIO_EXPECT(descriptor != nullptr);
+
+    std::vector<Uuid> crates;
+    for (int i = 0; i < 3; ++i)
+    {
+        StudioEntity subject{Uuid::generate(), "Crate " + std::to_string(i)};
+        StudioComponent transform{"CNA.Transform"};
+        transform.applyDefaults(*descriptor);
+        transform.setProperty("position", PropertyValue{StudioVector3{1.0f, 2.0f, 3.0f}});
+        subject.getComponents().push_back(std::move(transform));
+        crates.push_back(subject.getId());
+        context.getScene().addEntity(std::move(subject));
+    }
+    context.setSelection(crates);
+
+    Harness harness{context};
+    CNA_STUDIO_EXPECT_EQ(harness.last.entitiesEdited, std::size_t{3});
+
+    const auto positionOf = [&context](const Uuid& id) {
+        return context.getScene().findEntity(id)
+            ->findComponent("CNA.Transform")->getProperty("position").get<StudioVector3>();
+    };
+
+    // The same sweep the single-entity scrub case uses.
+    bool scrubbed = false;
+    for (float y = harness.bounds.top() + 20.0f;
+         y < harness.bounds.top() + 200.0f && !scrubbed; y += 6.0f)
+    {
+        const float columnLeft = harness.bounds.left() + harness.bounds.width * 0.40f;
+        const float x = columnLeft + (harness.bounds.right() - columnLeft) * 0.5f;
+        harness.drag(x, y, 40.0f);
+        scrubbed = positionOf(crates.front()).y != 2.0f;
+    }
+    CNA_STUDIO_EXPECT(scrubbed);
+
+    // All three, not the one the panel is built around. They started equal, so they end equal.
+    const StudioVector3 moved = positionOf(crates.front());
+    CNA_STUDIO_EXPECT(moved.y > 2.0f);
+    for (const Uuid& crate : crates)
+    {
+        CNA_STUDIO_EXPECT_EQ(positionOf(crate).y, moved.y);
+    }
+
+    // And one press of Ctrl+Z takes all three back: the user typed once. Three commands would be
+    // three presses and -- worse -- would undo one at a time, leaving arrangements that never
+    // existed.
+    CNA_STUDIO_EXPECT(context.getHistory().undo());
+    for (const Uuid& crate : crates)
+    {
+        CNA_STUDIO_EXPECT_EQ(positionOf(crate).y, 2.0f);
+    }
+}
+
 CNA_STUDIO_TEST(APropertyValueSurvivesBeingCopiedAndPastedBack)
 {
     const auto roundTrips = [](const PropertyValue& value, PropertyType type) {
@@ -1107,6 +1303,8 @@ CNA_STUDIO_TEST(DraggingANumericFieldScrubsTheValueWithoutTypingIntoIt)
     // than by computing a pixel, so a metric change does not turn this into a test that drags
     // empty space and passes.
     bool scrubbed = false;
+    float scrubX = 0.0f;
+    float scrubY = 0.0f;
     for (float y = harness.bounds.top() + 20.0f;
          y < harness.bounds.top() + 200.0f && !scrubbed; y += 6.0f)
     {
@@ -1115,6 +1313,7 @@ CNA_STUDIO_TEST(DraggingANumericFieldScrubsTheValueWithoutTypingIntoIt)
 
         harness.drag(x, y, 40.0f);
         scrubbed = fixture.position().y != before.y;
+        if (scrubbed) { scrubX = x; scrubY = y; }
     }
 
     CNA_STUDIO_EXPECT(scrubbed);
@@ -1130,6 +1329,26 @@ CNA_STUDIO_TEST(DraggingANumericFieldScrubsTheValueWithoutTypingIntoIt)
     CNA_STUDIO_EXPECT(fixture.context.getHistory().canUndo());
     CNA_STUDIO_EXPECT(fixture.context.getHistory().undo());
     CNA_STUDIO_EXPECT_EQ(fixture.position().y, before.y);
+
+    // One drag is *one* entry (`STUDIO-07055`). Measured over a single further drag on the row the
+    // sweep found, rather than over the sweep itself -- the sweep scrubs whatever rows it passes
+    // on the way and its entry count says nothing about the merge.
+    //
+    // This was never asserted at all. The case pinned "something is undoable" and one `undo()`,
+    // which passes just as well for forty entries, so a change that stopped the merge working
+    // would have gone unnoticed -- and one nearly did: wrapping the edit in a `CompositeCommand`
+    // for STUDIO-14017 removed the merge key the fold depends on, and nothing here complained.
+    const std::size_t settled = fixture.context.getHistory().getCursor();
+    const StudioVector3 beforeSecond = fixture.position();
+
+    // Over eight frames, because the one-frame drag above produces a single command and therefore
+    // cannot say anything about the fold: an implementation with no merge key at all passes it.
+    harness.dragOverFrames(scrubX, scrubY, 40.0f, 8);
+
+    CNA_STUDIO_EXPECT(fixture.position().y != beforeSecond.y);
+    CNA_STUDIO_EXPECT_EQ(fixture.context.getHistory().getCursor(), settled + 1);
+    CNA_STUDIO_EXPECT(fixture.context.getHistory().undo());
+    CNA_STUDIO_EXPECT_EQ(fixture.position().y, beforeSecond.y);
 }
 
 // ------------------------------------------------------------------------------------------------

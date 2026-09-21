@@ -258,6 +258,15 @@ namespace CNA::Studio
         /** @brief How many were pasted from it. @see propertiesCopied */
         std::size_t propertiesPasted = 0;
 
+        /**
+         * @brief How many entities this panel is editing (`plan.md` STUDIO-14017).
+         *
+         * One for the ordinary case and the size of the selection otherwise. Reported so the shell
+         * can say so: an edit that silently reached five entities is as surprising as one that
+         * silently reached one of five.
+         */
+        std::size_t entitiesEdited = 0;
+
 
         /** @brief How many property rows were drawn. */
         std::size_t rowsDrawn = 0;
@@ -478,6 +487,45 @@ namespace CNA::Studio
                                                   const PropertyValue& value,
                                                   const std::vector<std::string>& enumOptions,
                                                   const StudioPropertyEditContext& editing);
+
+    /**
+     * @brief The component types every entity in @p selection carries, in the last one's order.
+     *
+     * `plan.md` STUDIO-14017. The Inspector shows one entity's components and, with several
+     * selected, showed the *last* one's and edited only it -- so a user who selected five crates
+     * and set their scale changed one and was told nothing.
+     *
+     * The intersection rather than the union, because a component only some of them have is
+     * exactly the case the task's own title excludes: there is no unambiguous answer to what
+     * editing it should do, and picking one silently is how a user loses work they did not know
+     * they were doing.
+     *
+     * In the *last* selected entity's order, because that is the entity the panel is built around
+     * and a list that reordered itself as the selection grew would be one a user cannot learn.
+     *
+     * A selection of one is that entity's own components, which is what makes this the only path
+     * rather than a second one for the multi case.
+     */
+    [[nodiscard]] std::vector<std::string> studioSharedComponents(const SceneDocument& scene,
+                                                                  const std::vector<Uuid>& selection);
+
+    /**
+     * @brief The value every selected entity gives @p propertyName, when they agree.
+     *
+     * `plan.md` STUDIO-14017. Nothing when they differ, which is the case the editor must not show
+     * a single number for: a field reading 3 over five entities of which four are 7 is a field that
+     * lies, and the user finds out by overwriting the four.
+     *
+     * @param scene The scene.
+     * @param selection The entities being edited.
+     * @param componentTypeId Which component.
+     * @param propertyName Which property of it.
+     * @param descriptor The component's descriptor, for defaults; may be null.
+     */
+    [[nodiscard]] std::optional<PropertyValue> studioSharedPropertyValue(
+        const SceneDocument& scene, const std::vector<Uuid>& selection,
+        const std::string& componentTypeId, const std::string& propertyName,
+        const ComponentDescriptor* descriptor);
 
     /**
      * @brief The clipboard text for @p value.

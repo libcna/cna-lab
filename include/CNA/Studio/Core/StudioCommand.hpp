@@ -78,7 +78,17 @@ namespace CNA::Studio
     class CompositeCommand final : public StudioCommand
     {
     public:
-        explicit CompositeCommand(std::string description) : description_(std::move(description)) {}
+        /**
+         * @param description What the history shows for the whole batch.
+         * @param mergeKey Non-empty to let consecutive batches fold into one entry, the way a
+         *        single continuous command does (`plan.md` STUDIO-14017). A batch is exactly what
+         *        a scrub over a multi-selection produces -- one per frame -- and without this each
+         *        frame of a forty-pixel drag would be its own undo entry.
+         */
+        explicit CompositeCommand(std::string description, std::string mergeKey = {})
+            : description_(std::move(description)), mergeKey_(std::move(mergeKey))
+        {
+        }
 
         /** @brief Adds a command. Ignores null, so a caller can add the result of a failed build. */
         void add(std::unique_ptr<StudioCommand> command)
@@ -106,9 +116,44 @@ namespace CNA::Studio
 
         [[nodiscard]] std::string getDescription() const override { return description_; }
 
+        [[nodiscard]] std::string getMergeKey() const override { return mergeKey_; }
+
+        /**
+         * @brief Folds @p newer into this batch, command by command.
+         *
+         * All or nothing, and checked before anything is changed: a batch half-merged with the one
+         * after it is an undo entry that reverses some of a gesture and not the rest, which is
+         * worse than an entry per frame because it looks like it worked.
+         */
+        bool mergeWith(const StudioCommand& newer) override
+        {
+            if (mergeKey_.empty()) { return false; }
+
+            const auto* other = dynamic_cast<const CompositeCommand*>(&newer);
+            if (other == nullptr || other->mergeKey_ != mergeKey_) { return false; }
+
+            // A batch whose shape changed is a different gesture -- an entity left the selection,
+            // or one of them lost the component -- and folding the two would leave the earlier
+            // batch's extra commands with nothing to reverse them.
+            if (other->commands_.size() != commands_.size()) { return false; }
+
+            for (std::size_t index = 0; index < commands_.size(); ++index)
+            {
+                const std::string key = commands_[index]->getMergeKey();
+                if (key.empty() || key != other->commands_[index]->getMergeKey()) { return false; }
+            }
+
+            for (std::size_t index = 0; index < commands_.size(); ++index)
+            {
+                if (!commands_[index]->mergeWith(*other->commands_[index])) { return false; }
+            }
+            return true;
+        }
+
     private:
         std::vector<std::unique_ptr<StudioCommand>> commands_;
         std::string description_;
+        std::string mergeKey_;
     };
 
     /** @brief Whether a pushed command may collapse into the previous one. */
