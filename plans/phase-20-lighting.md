@@ -6,18 +6,48 @@
 
 **Exit criteria.** The viewport and the game preview agree, and no light type exists in Studio that the runtime cannot render.
 
-**Progress:** 7 of 8 complete `██████████░░`
+**Progress:** 4 of 8 complete `██████░░░░░░`
 
 | Id | Task | Status | Depends on |
 |----|------|:------:|------------|
 | `STUDIO-20001` | Directional light authoring | ✅ | `STUDIO-19001` |
 | `STUDIO-20002` | Point light authoring | ✅ | `STUDIO-20001` |
-| `STUDIO-20003` | Spot light authoring | ✅ | `STUDIO-20001` |
+| `STUDIO-20003` | Spot light authoring | 🔄 | `STUDIO-20001` |
 | `STUDIO-20004` | Ambient and environment lighting | ✅ | `STUDIO-20001` |
 | `STUDIO-20005` | Sky and environment map authoring | ⬜ | `STUDIO-10010` |
-| `STUDIO-20006` | Shadow configuration | ✅ | `STUDIO-20001` |
+| `STUDIO-20006` | Shadow configuration | 🔄 | `STUDIO-20001` |
 | `STUDIO-20007` | Viewport lighting matches the game preview as closely as the runtime allows | ✅ | `STUDIO-20001` |
-| `STUDIO-20008` | No light type is offered that the runtime cannot render | ✅ | `STUDIO-20001` |
+| `STUDIO-20008` | No light type is offered that the runtime cannot render | 🔄 | `STUDIO-20001` |
+
+## A correction, and it affects four rows below
+
+**`STUDIO-20002`, `STUDIO-20003`, `STUDIO-20006` and `STUDIO-20008` were written against a false
+belief about what CNA can do, and three of them have been reopened.**
+
+The belief was that `IEffectLights` — an ambient colour and three directional lights — is the whole
+of CNA's lighting, so that a point light must be approximated, a spot light's cone cannot exist,
+and shadows are impossible. Everything in that sentence is true of `IEffectLights`, which is the
+*XNA 4.0* interface, and Studio's model pass uses nothing else. It is false of **CNA**, whose own
+additions live in the CNAEXT layer:
+
+| What was believed impossible | What CNA actually offers |
+|---|---|
+| A point or spot light | `PbrEffect::setPunctualLightEXT`, a `PunctualLightEXT` with position, direction, range and **inner and outer cone angles** — one shadowed punctual light per draw, beside the three directional slots |
+| A shadow | `PbrEffect` implements `IShadowReceiverEXT`; the CNAEXT engine layer ships `CNA::Graphics::ShadowMap`, with cascades, quality levels and rigid and skinned caster effects |
+| Environment lighting | `PbrEffect::setImageBasedLightEXT`, taking irradiance and prefiltered specular cubes and a BRDF LUT |
+
+**Two CNA gaps were filed in error and are withdrawn** — `G-13` and `G-14` in
+[`docs/CNA-GAPS.md`](../docs/CNA-GAPS.md), kept and marked rather than deleted. The error was
+reading Studio's own code to decide what CNA lacks. The register exists to report CNA's rough
+edges; filing a gap against a feature that exists costs its maintainers time and tells Studio's own
+readers something false.
+
+**What survives and what does not.** The editor-side work in those rows stands: the archetype
+presets, the Point and Spot rows, the overlay that stopped drawing an aim arrow on a point light,
+the conditional-property mechanism, and the validation plumbing are all correct and all still
+wanted. What was wrong is the *justification* — "the renderer cannot" — and the conclusions drawn
+from it. The two validation rules now say what Studio does rather than what CNA cannot, and they
+are temporary by construction: each becomes silent when the work below lands.
 
 ## Acceptance and verification
 
@@ -140,8 +170,12 @@ disagreeing with the Inspector about a spot light's range, a preset naming a pro
 exist, and one naming an enumeration value that does not exist all fail by name.
 
 **What this row is not.** There is no falloff *curve* — `falloffAt` is what ED-404 wrote and this
-row did not change it — no per-light shadow settings (`STUDIO-20006`), and no warning yet that
-`IEffectLights` takes only three lights at a time, which is `STUDIO-20008`.
+row did not change it — and no per-light shadow settings (`STUDIO-20006`).
+
+**And a correction.** A point light is approximated here as a directional light aimed at what is
+being drawn, which this row described as forced by the API. It is forced by *Studio's use* of the
+API: CNA's `PbrEffect::setPunctualLightEXT` takes a real point light. Drawing one is
+`STUDIO-20003`'s reopened work, and this row's authoring half is unaffected by the correction.
 
 ### `STUDIO-20003` — Spot light authoring
 
@@ -154,29 +188,50 @@ third exactly as it does for a point light while the second follows the entity's
 archetype is one preset — `kind` set to `Spot` — because the three kinds are one component
 (`STUDIO-20002`).
 
-**The cone is not approximated, because it cannot be.** `IEffectLights` has an ambient colour and
-three *directional* slots and nowhere to put an angle; there is no seam for an effect of one's own
-(`G-12`); so a spot light is drawn exactly as a point light is. Recorded as **CNA gap G-13**.
+**🔄 Reopened. The paragraph that used to sit here was wrong.** It said the cone "cannot be"
+approximated because `IEffectLights` has nowhere to put an angle. `IEffectLights` does not, and
+**CNA does**: `PbrEffect::setPunctualLightEXT` takes a `PunctualLightEXT` carrying position,
+direction, range, `InnerAngle`, `OuterAngle` and a shadow map of its own — one such light per draw,
+beside the three directional slots. The gap filed against CNA over this (`G-13`) is withdrawn.
 
-**No `coneAngle` field was added, and that is the decision this row turns on.** Studio could
-declare one on `CNA.Light` — the scene loader carries the component's properties through to a game
-untouched, so a game *could* read it. What Studio could not do is draw it, and a field the editor
-offers, cannot show, and nothing in CNA reads is the shape this session has spent three tasks
-removing: a rule written down and honoured by nobody. A game that wants a cone has a better
-answer already, which is a component of its own that Studio carries the same way.
+**What shipped is still right as far as it goes**, and it is the authoring half: a Spot Light row
+in the Entity menu, the preset mechanism that makes a kind expressible, and an overlay and
+Inspector that tell the truth about which of a light's fields this *viewport* currently uses.
+
+**What remains is the renderer half**, and it is Studio's work rather than CNA's:
+
+1. `SceneLighting` reduces every light to three directional slots. It needs a second output — the
+   one punctual light, chosen per drawn object the way the three brightest already are — so that a
+   point light stops being a directional light aimed at its target and a spot light gets its cone.
+2. `CNA.Light` then needs the two cone angles it has never had, because at that point they are
+   values the renderer reads rather than a field nobody honours.
+3. `CnaModelPass` applies it through `setPunctualLightEXT`, which it already has a `PbrEffect*` to
+   call. `BasicEffect` does not implement the extension, so the capability report
+   (`STUDIO-19008`'s) is where a build drawing through it says so.
+
+Until that lands, `validateScene` reports `spot-light-cone-not-rendered`, and the rule now says
+what Studio draws rather than what CNA cannot.
 
 ### `STUDIO-20008` — No light type is offered that the runtime cannot render
 
 **Acceptance.** Where the editor offers a light this renderer cannot draw faithfully, it says so
 on the light, in the report a user already reads — not in a header.
 
-**Read as "say so" rather than as "remove it".** The literal reading of the row is that `Spot`
-should come out of `CNA.Light`'s kinds. That was rejected: the kind has been in the descriptor
-since Phase 1, scenes already hold spot lights, and a game reading the loader's carried components
-can implement a cone for itself. Deleting a kind over a limitation of *one renderer* would break
-those scenes and forbid something Studio has no business forbidding. `SceneLighting.hpp` had
-already written down where the answer belongs — "the Validation panel is where that should be said
-to a user rather than here" — and this is that.
+**🔄 Reopened, because the row's own title is now reachable rather than aspirational.** Both
+limits below are Studio's rather than CNA's: `PbrEffect` takes a punctual light with a cone
+(`STUDIO-20003`) and can sample a shadow (`STUDIO-20006`), so "no light type is offered that the
+runtime cannot render" stops being a disclosure exercise and becomes a statement Studio can simply
+make true. The rules stay until it is, and they now say what Studio draws rather than what CNA
+cannot — but this row closes when there is nothing left to disclose about the spot light, not
+before.
+
+**Read as "say so" rather than as "remove it", and that part holds.** The literal reading of the
+row is that `Spot` should come out of `CNA.Light`'s kinds. That was rejected: the kind has been in
+the descriptor since Phase 1, scenes already hold spot lights, and a game reading the loader's
+carried components can implement a cone for itself. Deleting a kind would break those scenes and
+forbid something Studio has no business forbidding. `SceneLighting.hpp` had already written down
+where the answer belongs — "the Validation panel is where that should be said to a user rather than
+here" — and this is that.
 
 **Two rules, and the second is the one that took thought.**
 
@@ -272,25 +327,33 @@ fog, the environment's other half, is ED-407's and unchanged here.
 **Acceptance.** A user is not offered shadow settings that nothing honours — or, where the settings
 already exist and are carried through to a game, they are told plainly that the editor draws none.
 
-**Studio has offered shadow configuration since Phase 1 and has never drawn a shadow.**
-`CNA.ModelRenderer` carries `castShadows` and `receiveShadows`, both defaulting to **true**, both
-editable in the Inspector, and read by nothing in Studio or in CNA. A user has been able to turn a
-model's shadow off since the component existed and no picture has ever changed. Recorded as **CNA
-gap G-14**, and filed red rather than amber: every other gap in that register is something Studio
-cannot show as well as it would like, and this is a feature the editor has advertised for its whole
-existence and never once delivered.
+**🔄 Reopened. The two paragraphs that used to follow were wrong**, and so was the CNA gap they
+rested on. They said neither effect takes a shadow map and there is no seam for one that could.
+`PbrEffect` implements `IShadowReceiverEXT` — `setShadowMapEXT`, `setLightViewProjectionEXT`,
+`setShadowsEnabledEXT`, a depth bias — and the CNAEXT engine layer ships
+`CNA::Graphics::ShadowMap`, which renders from a directional light, fits an orthographic volume to
+the scene bounds, hands back rigid and skinned caster effects, and reports `isSupported()` where a
+renderer cannot manage it. There are cascades and quality levels. `G-14` is withdrawn.
 
-**So the row's answer is not "add shadow settings".** `IEffectLights` describes lights and nothing
-about occlusion; neither `BasicEffect` nor `PbrEffect` takes a shadow map or a light-space matrix;
-and there is no seam for an effect that could (`G-12`). A shadow-map resolution, a bias or a
-cascade count would each be a field the editor offers, cannot show, and nothing in CNA reads —
-which is exactly what was refused for a spot light's cone angle in `STUDIO-20003`. Adding more of
-what is already broken is not configuration; it is more surface.
+**Studio has offered shadow configuration since Phase 1 and has never drawn a shadow**, which is
+the part that was true. `CNA.ModelRenderer` carries `castShadows` and `receiveShadows`, both
+defaulting to true, both editable, and read by nothing **in Studio**. A user has been able to turn
+a model's shadow off since the component existed and no picture has ever changed.
 
-**Nor is it "remove the two flags".** They are in scenes already, and the loader carries a
-component's properties through to a game untouched — a game that renders its own shadow pass can
-read them today. Deleting them would break those scenes to make Studio's promise true, which is the
-wrong trade in the same direction `STUDIO-20008` rejected for the spot light.
+**The real work, now that the API is known:**
+
+1. A shadow pass in `cna-studio-viewport`, around the model batch it already builds: `begin` with
+   the scene's brightest directional light and the batch's world bounds, draw the casters with the
+   caster effect, `end`.
+2. `castShadows` decides what goes into that pass and `receiveShadows` decides whether a draw gets
+   `setShadowsEnabledEXT(true)` — at which point both flags mean what they say.
+3. `isSupported()` and the `BasicEffect` path are where a build that cannot do it says so, through
+   the capability report rather than by drawing something misleading.
+4. Only then is *configuration* worth adding — a quality level belongs in the project or the scene
+   environment, not on every light, and it should arrive with the pass that honours it.
+
+Until that lands, `validateScene` reports `shadows-not-rendered`, and the rule now says what Studio
+draws rather than what CNA cannot.
 
 **What is left is to say so, once, where it costs something.** `validateScene` reports
 `shadows-not-rendered` for a scene that is actually set up to want a shadow: an enabled light and
@@ -309,10 +372,10 @@ reach a game that may well honour them — what is wrong is only what the editor
 Checked by causing each: the rule firing more than once, and the rule dropping its "something
 actually casts" condition, both fail by name.
 
-**What this row is not.** There is no shadow in the viewport and this row does not pretend there
-could be one on this renderer. There is no per-light shadow setting, no bias, no resolution and no
-cascade — all of which would be the surface this row exists to refuse. If `G-12`'s effect seam ever
-lands, this becomes a real feature row and the flags are already in the document waiting for it.
+**What this row is not, yet.** There is no shadow in the viewport. There is no per-light shadow
+setting, no bias, no resolution and no cascade — and none of those should arrive before the pass
+that honours them, which is the one thing the original version of this entry got right for the
+wrong reason.
 
 ### `STUDIO-20007` — Viewport lighting matches the game preview as closely as the runtime allows
 

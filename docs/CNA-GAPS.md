@@ -17,7 +17,11 @@ reporting it.
 | `libcna/sharp-runtime` | `next` | `0c82d9b888bdf5f7d5663c77942f339bcb2a7445` | 2026-09-14 |
 
 The gaps numbered G-01 … G-05 were recorded against an **older** CNA revision by the CNA Editor
-prototype; G-06 through G-14 are new, filed by CNA Studio. All five of the inherited ones were
+prototype; G-06 through G-14 are new, filed by CNA Studio. **G-13 and G-14 were filed in error
+and are withdrawn**: both asserted that CNA lacks something it has, because they were written from
+`IEffectLights` — the XNA 4.0 interface Studio's model pass happens to use — without reading the
+CNAEXT layer where CNA puts its own additions. They are kept, marked and corrected rather than
+deleted. All five of the inherited ones were
 re-verified against the commit above as part of the CNA Studio bootstrap; two have since been fixed
 upstream and are kept here, marked closed, so the record stays honest.
 
@@ -28,6 +32,7 @@ upstream and are kept here, marked closed, so the record stays honest.
 | 🔴 | Open — confirmed against the audited commit |
 | 🟡 | Narrowed — the blocking part is fixed, something smaller remains |
 | ✅ | Closed — fixed upstream, verified against the audited commit |
+| ⊘ | Withdrawn — filed in error; the entry is kept, marked, and says what was actually true |
 
 ---
 
@@ -339,7 +344,32 @@ says which one it cannot give and why, and the sixth has a real if lesser answer
 
 ---
 
-## 🟡 G-13 — `IEffectLights` has three directional lights and no spot cone
+## ⊘ G-13 — WITHDRAWN: filed in error. CNA has point and spot lights, with cones and shadows
+
+**This entry was wrong and is kept rather than deleted, because a register that quietly loses its
+mistakes is a register nobody can audit.** The claim below — that a spot light's cone has nowhere
+to go — is false. `PbrEffect` implements a CNAEXT extension, `setPunctualLightEXT`, taking a
+`PunctualLightEXT` with a **position, direction, range, `InnerAngle`, `OuterAngle`** and its own
+shadow map or cube. One shadowed punctual light per draw, beside the three directional slots, and
+CNA's own documentation calls that a deliberate ceiling rather than an omission.
+
+**How the error happened, because that is the part worth keeping.** `IEffectLights` is the
+*XNA 4.0* interface, and everything the entry says about it is true. CNA's additions live in
+CNAEXT — `PunctualLightEXT`, `IShadowReceiverEXT`, `ImageBasedLightEXT` — and Studio's model pass
+uses none of them, so reading Studio's own code gave a complete and completely misleading picture.
+The lesson is the one this register exists for and I inverted: **check what the API offers before
+writing down what it lacks.** A gap filed against a feature that exists costs CNA's maintainers
+time and tells Studio's own readers something false.
+
+**What is actually true**, and it is Studio's to fix rather than CNA's: Studio draws every light
+through `IEffectLights` alone, so a point light is approximated as a directional one aimed at what
+is being drawn and a spot light's cone is not drawn at all. That is a *Studio* limitation, tracked
+by `plan.md` STUDIO-20002, STUDIO-20003 and STUDIO-20008, which this error sent in the wrong
+direction and which have been reopened.
+
+The original entry follows, unedited.
+
+## 🟡 G-13 (as filed, and wrong) — `IEffectLights` has three directional lights and no spot cone
 
 **New, filed by CNA Studio, found by `STUDIO-20001` … `STUDIO-20003`.**
 
@@ -361,7 +391,24 @@ after a build.
 
 ---
 
-## 🔴 G-14 — Nothing in CNA can draw a shadow
+## ⊘ G-14 — WITHDRAWN: filed in error. CNA draws shadows
+
+**Wrong in its title and in every row, and kept for the same reason G-13 is.** `PbrEffect`
+implements `IShadowReceiverEXT` — `setShadowMapEXT`, `setLightViewProjectionEXT`,
+`setShadowsEnabledEXT`, a depth bias — and the CNAEXT engine layer ships
+`CNA::Graphics::ShadowMap`, which renders the scene from a directional light, fits an orthographic
+volume to the scene bounds, hands back a caster effect (rigid and skinned), and reports
+`isSupported()` on a renderer that cannot manage it. There are cascades (`ShadowCascadeStateEXT`)
+and quality levels. None of this is missing.
+
+**What is actually true**: `CNA.ModelRenderer`'s `castShadows` and `receiveShadows` have been
+editable since Phase 1 and are read by nothing **in Studio**. The viewport runs no shadow pass and
+attaches no shadow map. That is a Studio gap and `plan.md` STUDIO-20006 has been reopened for it,
+with the CNA API it should be built on named rather than declared absent.
+
+The original entry follows, unedited.
+
+## 🔴 G-14 (as filed, and wrong) — Nothing in CNA can draw a shadow
 
 **New, filed by CNA Studio, found by `STUDIO-20006`.**
 

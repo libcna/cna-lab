@@ -33,6 +33,15 @@
  *   rather than nearest or first-in-document: a distant sun matters more to how a model looks than
  *   a dim lamp beside it, and document order is not something a user arranges deliberately.
  *
+ * **A correction, added by `plan.md` STUDIO-20006.** Everything above is true of
+ * `IEffectLights` and is *not* true of CNA. CNA's own additions live in its CNAEXT layer:
+ * `PbrEffect::setPunctualLightEXT` takes a point or spot light with a position, a range and inner
+ * and outer cone angles, `IShadowReceiverEXT` lets an effect sample a shadow map, and
+ * `CNA::Graphics::ShadowMap` generates one. This file reduces to three directional slots because
+ * that is what Studio's model pass currently uses, which is a decision this module made and can
+ * unmake -- not a ceiling the framework imposes. Two CNA gaps were filed against that
+ * misunderstanding and have been withdrawn (`docs/CNA-GAPS.md` G-13, G-14).
+ *
  * When a scene has no enabled light at all, `computeEffectLighting` says so through
  * `EffectLighting::useDefaultLighting` and the renderer calls XNA's own `EnableDefaultLighting()`.
  * That is a decision, not a fallback for its own sake: a scene with no lights rendered black looks

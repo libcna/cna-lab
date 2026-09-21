@@ -148,12 +148,17 @@ namespace CNA::Studio
          * invisible from inside the editor: the scene is legal, the viewport draws something, and
          * what it draws is not what the user asked for.
          *
-         * **A spot light's cone is not modelled at all.** `IEffectLights` has an ambient colour
-         * and three *directional* lights and nowhere to put a cone angle, so Studio draws a spot
-         * light exactly as it draws a point light: aimed at whatever is being lit, dimmed by
-         * range. Reported per light rather than once for the scene, because the answer is
-         * per-light -- one may be standing in for a lamp and be fine as a point light, and another
-         * may be the spotlight the level is built around. Recorded as CNA gap G-13.
+         * **A spot light's cone is not modelled at all -- by Studio.** `SceneLighting` reduces
+         * every light to the three *directional* slots `IEffectLights` offers, which have nowhere
+         * to put a cone angle, so a spot light is drawn exactly as a point light is: aimed at
+         * whatever is being lit, dimmed by range. CNA itself can do better, and this comment used
+         * to say otherwise: `PbrEffect::setPunctualLightEXT` takes a point or spot light with
+         * inner and outer cone angles and a shadow of its own. Using it is `plan.md`
+         * STUDIO-20003, reopened; until then this reports what the viewport actually draws.
+         *
+         * Reported per light rather than once for the scene, because the answer is per-light --
+         * one may be standing in for a lamp and be fine as a point light, and another may be the
+         * spotlight the level is built around.
          *
          * **Only three lights reach any one object.** `computeEffectLighting` picks the three
          * brightest where the object is, which is the right answer for a level with twenty lamps
@@ -210,9 +215,10 @@ namespace CNA::Studio
          *
          * `plan.md` STUDIO-20006. `CNA.ModelRenderer` has carried `castShadows` and
          * `receiveShadows` since Phase 1, both defaulting to true, both editable in the Inspector
-         * -- and read by nothing anywhere. `IEffectLights` has an ambient colour and three
-         * directional slots; neither `BasicEffect` nor `PbrEffect` takes a shadow map, and there
-         * is no seam for an effect that could (`G-12`). Recorded as CNA gap G-14.
+         * -- and read by nothing **in Studio**. CNA can draw shadows: `PbrEffect` implements
+         * `IShadowReceiverEXT` and the CNAEXT engine layer ships `CNA::Graphics::ShadowMap`. What
+         * is missing is the viewport's shadow pass, which is Studio's to write and is why that row
+         * is open rather than closed.
          *
          * **Once for the scene, not once per model.** The flags default to *on*, so a per-entity
          * rule would fire on every model in every project forever -- which is the shape of a rule
@@ -249,9 +255,9 @@ namespace CNA::Studio
             issue.severity = SceneIssue::Severity::Warning;
             issue.ruleId = "shadows-not-rendered";
             issue.message =
-                "This build draws no shadows: the effect has no shadow map. Cast Shadows and "
-                "Receive Shadows are carried in the scene for a game to read and change nothing "
-                "in the editor.";
+                "Studio draws no shadows yet: its viewport runs no shadow pass and attaches no "
+                "shadow map, though CNA's effects can sample one. Cast Shadows and Receive "
+                "Shadows are carried in the scene and change nothing in the editor.";
             issues.push_back(std::move(issue));
         }
 
