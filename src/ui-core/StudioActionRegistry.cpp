@@ -79,6 +79,7 @@ namespace CNA::Studio
         {
             case StudioActionCategory::File:    return "File";
             case StudioActionCategory::Edit:    return "Edit";
+            case StudioActionCategory::Entity:  return "Entity";
             case StudioActionCategory::View:    return "View";
             case StudioActionCategory::Project: return "Project";
             case StudioActionCategory::Build:   return "Build";
@@ -334,26 +335,55 @@ namespace CNA::Studio
         command("studio.edit.delete", "Delete",
                 "Delete the selection.", C::Edit, chord(UiKey::Delete));
 
+        // Creating an entity, which the editor could not do at all until `plan.md` STUDIO-13013:
+        // every entity in every scene arrived from a file, a prefab, an asset dropped into the
+        // viewport, or the one camera New Scene builds. `CreateEntityCommand` had existed since
+        // Phase 2 and no menu, button or chord reached it.
+        //
+        // The ids end in the archetype id that `studioEntityArchetypes()` carries, and
+        // `EveryEntityArchetypeHasAMenuRowAndEveryRowAnArchetype` holds the two lists together --
+        // the *labels* live here, where every other command's label lives, and the components each
+        // one gets live there, where the document facts live.
+        //
+        // No chords, including for the empty one. Unity and Godot both put Create Empty on
+        // Ctrl+Shift+N and that chord is New Project here -- taking it would silently repurpose a
+        // key somebody's hands already know, which is the thing the New Project comment above is
+        // about. The shortcut editor binds these for anybody who wants them, and a chord per kind
+        // would spend six of the chords left on six things a user does rarely.
+        command("studio.entity.create.empty", "Create Empty",
+                "Add an entity with a transform and nothing else.", C::Entity, StudioShortcut{});
+        command("studio.entity.create.camera", "Create Camera",
+                "Add a camera the game can render through.", C::Entity, StudioShortcut{});
+        command("studio.entity.create.light.directional", "Create Directional Light",
+                "Add a light with a direction and no position, like the sun.", C::Entity,
+                StudioShortcut{});
+        command("studio.entity.create.sprite", "Create Sprite",
+                "Add a 2D sprite renderer with no texture yet.", C::Entity, StudioShortcut{});
+        command("studio.entity.create.model", "Create Model",
+                "Add a 3D model renderer with no mesh yet.", C::Entity, StudioShortcut{});
+        command("studio.entity.create.audio", "Create Audio Source",
+                "Add a sound the game can play from a place.", C::Entity, StudioShortcut{});
+
         // Parenting from the viewport (`plan.md` STUDIO-12010). Unbound, for the reason the six
         // standard views are: there is no chord every editor agrees on -- Unreal's Ctrl+P and
         // Shift+P are the nearest thing, and neither key is in this editor's vocabulary at all --
         // and inventing a scheme nobody knows is worse than a menu entry somebody can bind for
         // themselves, which the shortcut editor lets them do.
         command("studio.entity.attach", "Attach to Last Selected",
-                "Make every other selected entity a child of the one selected last.", C::Edit,
+                "Make every other selected entity a child of the one selected last.", C::Entity,
                 StudioShortcut{});
         command("studio.entity.detach", "Detach",
-                "Make the selected entities roots, where they are.", C::Edit, StudioShortcut{});
+                "Make the selected entities roots, where they are.", C::Entity, StudioShortcut{});
 
         // Ctrl+G and Ctrl+Shift+G, as in every editor that groups anything (`plan.md`
         // STUDIO-13008). Distinct from Attach: Attach puts the selection under one of *itself*,
         // which needs a thing to be the parent; Group makes the parent, which is what a user wants
         // when the parent does not exist yet.
         command("studio.entity.group", "Group",
-                "Put the selected entities under a new empty parent.", C::Edit,
+                "Put the selected entities under a new empty parent.", C::Entity,
                 chord(UiKey::G, mods(true)));
         command("studio.entity.ungroup", "Ungroup",
-                "Move the selected groups' children up and remove the groups.", C::Edit,
+                "Move the selected groups' children up and remove the groups.", C::Entity,
                 chord(UiKey::G, mods(true, true)));
 
         command("studio.view.focusSelected", "Focus Selected",

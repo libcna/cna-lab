@@ -15,6 +15,7 @@
 
 #include "CNA/Studio/ShellPanels/StudioShellActions.hpp"
 #include "CNA/Studio/Scene/BuiltinComponents.hpp"
+#include "CNA/Studio/Scene/EntityArchetypes.hpp"
 #include "CNA/Studio/Assets/AssetDatabase.hpp"
 #include "CNA/Studio/ShellPanels/StudioShellPanels.hpp"
 #include "CNA/Studio/Scene/SceneCommands.hpp"
@@ -761,4 +762,143 @@ CNA_STUDIO_TEST(AttachRefusesToMakeAnEntityItsOwnDescendant)
     CNA_STUDIO_EXPECT(fixture.context.getScene().findEntity(child)->getParentId() == root);
     CNA_STUDIO_EXPECT(!fixture.context.getScene().findEntity(root)->getParentId().isValid());
     CNA_STUDIO_EXPECT_EQ(fixture.context.getHistory().getCursor(), before);
+}
+
+// ------------------------------------------------------------------------------------------------
+// Creating an entity (STUDIO-13013)
+// ------------------------------------------------------------------------------------------------
+
+/**
+ * @brief The editor can add an entity to a scene, which until now it could not.
+ *
+ * Studio could rename, duplicate, delete, group, ungroup, reparent, hide and lock an entity. Every
+ * entity in every scene arrived from a file, from a prefab, from an asset dropped into the
+ * viewport, or from the single camera `newScene` builds — and `CreateEntityCommand` had existed
+ * since Phase 2 with no menu, no button and no chord reaching it. A user who wanted a light had to
+ * write one into the `.cnascene` by hand.
+ */
+CNA_STUDIO_TEST(CreatingAnEntityAddsItSelectsItAndUndoesInOnePress)
+{
+    Fixture fixture;
+
+    const std::size_t before = fixture.context.getScene().getEntities().size();
+    CNA_STUDIO_EXPECT(fixture.shell->actions().isEnabled("studio.entity.create.light.directional"));
+
+    fixture.shell->invoke("studio.entity.create.light.directional");
+
+    const std::vector<StudioEntity>& entities = fixture.context.getScene().getEntities();
+    CNA_STUDIO_EXPECT_EQ(entities.size(), before + 1);
+
+    // Selected, like Duplicate and like the asset drop: the next thing a user does is move or
+    // rename what they just added, and a selection left on the old entity sends the first of those
+    // to the wrong place.
+    const Uuid created = fixture.context.getPrimarySelection();
+    CNA_STUDIO_EXPECT(created != fixture.entity);
+
+    const StudioEntity* light = fixture.context.getScene().findEntity(created);
+    CNA_STUDIO_EXPECT(light != nullptr);
+    if (light == nullptr) { return; }
+
+    CNA_STUDIO_EXPECT_EQ(light->getName(), std::string{"Directional Light"});
+    CNA_STUDIO_EXPECT(light->findComponent(BuiltinComponentIds::kLight) != nullptr);
+
+    // And a transform, which the archetype does not name and every archetype gets: an entity with
+    // no transform has no position, cannot be picked in the viewport, and cannot be a parent that
+    // means anything.
+    CNA_STUDIO_EXPECT(light->findComponent(BuiltinComponentIds::kTransform) != nullptr);
+
+    // A root, not a child of whatever happened to be selected. Parenting to the selection is a
+    // surprise a user cannot see until they move the parent.
+    CNA_STUDIO_EXPECT(!light->getParentId().isValid());
+
+    // Through the history like every other mutation (`plan.md` STUDIO-13012), and as one entry: a
+    // create that took two presses to undo would be a create a user stops trusting.
+    CNA_STUDIO_EXPECT(fixture.shell->actions().isEnabled("studio.edit.undo"));
+    fixture.shell->invoke("studio.edit.undo");
+    CNA_STUDIO_EXPECT_EQ(fixture.context.getScene().getEntities().size(), before);
+
+    fixture.shell->invoke("studio.edit.redo");
+    CNA_STUDIO_EXPECT_EQ(fixture.context.getScene().getEntities().size(), before + 1);
+}
+
+/** @brief An empty is empty, and every other archetype is its own component plus a transform. */
+CNA_STUDIO_TEST(EveryArchetypeBuildsWhatItNamesAndNothingElse)
+{
+    StudioContext context;
+
+    for (const StudioEntityArchetype& archetype : studioEntityArchetypes())
+    {
+        const StudioEntity entity =
+            studioMakeArchetypeEntity(archetype, context.getComponentRegistry());
+
+        CNA_STUDIO_EXPECT(entity.getId().isValid());
+        CNA_STUDIO_EXPECT_EQ(entity.getName(), archetype.name);
+        CNA_STUDIO_EXPECT(entity.findComponent(BuiltinComponentIds::kTransform) != nullptr);
+
+        // Its own components and no others: the count is the transform plus what it names, so an
+        // archetype that quietly gained a component would fail here rather than in a scene.
+        CNA_STUDIO_EXPECT_EQ(entity.getComponents().size(), archetype.components.size() + 1);
+
+        for (const std::string& typeId : archetype.components)
+        {
+            // Registered, not merely spelled. A component the registry does not carry has no
+            // properties, draws as an empty section and means nothing to the runtime -- and a
+            // typo in this table would produce exactly that, silently.
+            CNA_STUDIO_EXPECT(context.getComponentRegistry().find(typeId) != nullptr);
+            CNA_STUDIO_EXPECT(entity.findComponent(typeId) != nullptr);
+        }
+    }
+
+    // The empty one is the row that is always the right answer, and it is genuinely empty.
+    const StudioEntityArchetype* empty = studioFindEntityArchetype("empty");
+    CNA_STUDIO_EXPECT(empty != nullptr);
+    if (empty != nullptr) { CNA_STUDIO_EXPECT(empty->components.empty()); }
+
+    CNA_STUDIO_EXPECT(studioFindEntityArchetype("no-such-archetype") == nullptr);
+}
+
+/**
+ * @brief The archetype table and the Entity menu are one list held in two modules.
+ *
+ * The labels live in the action registry, where every other command's label lives; the components
+ * live in the archetype table, where the document facts live. Neither can name a kind the other
+ * does not: an archetype with no menu row is a kind nobody can make, and a menu row with no
+ * archetype is a row that creates nothing.
+ */
+CNA_STUDIO_TEST(EveryEntityArchetypeHasAMenuRowAndEveryRowAnArchetype)
+{
+    StudioActionRegistry registry;
+    registerCoreStudioActions(registry);
+
+    static constexpr std::string_view kPrefix = "studio.entity.create.";
+
+    for (const StudioEntityArchetype& archetype : studioEntityArchetypes())
+    {
+        const std::string id = std::string{kPrefix} + archetype.id;
+        const StudioAction* action = registry.find(id);
+        if (action == nullptr)
+        {
+            CnaStudioTest::reportFailure(__FILE__, __LINE__,
+                "archetype '" + archetype.id + "' has no '" + id + "' command.");
+            continue;
+        }
+
+        // A label and a description, because the menu shows one and the shortcut editor the other.
+        CNA_STUDIO_EXPECT(!action->label.empty());
+        CNA_STUDIO_EXPECT(!action->description.empty());
+    }
+
+    for (const StudioAction& action : registry.commands())
+    {
+        if (action.id.rfind(kPrefix, 0) != 0) { continue; }
+        const std::string archetypeId = action.id.substr(kPrefix.size());
+        if (studioFindEntityArchetype(archetypeId) == nullptr)
+        {
+            CnaStudioTest::reportFailure(__FILE__, __LINE__,
+                "'" + action.id + "' names no archetype, so it would create nothing.");
+        }
+    }
+
+    // A scan that matched nothing would agree with everything.
+    CNA_STUDIO_EXPECT(studioEntityArchetypes().size() >= 5);
 }

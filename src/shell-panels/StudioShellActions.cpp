@@ -10,6 +10,7 @@
 #include "CNA/Studio/ShellPanels/StudioContentBrowser.hpp"
 #include "CNA/Studio/Scene/SceneCommands.hpp"
 #include "CNA/Studio/Scene/BuiltinComponents.hpp"
+#include "CNA/Studio/Scene/EntityArchetypes.hpp"
 #include "CNA/Studio/Scene/TransformGizmos3D.hpp"
 #include "CNA/Studio/Scene/SceneTransform.hpp"
 #include "CNA/Studio/Scene/TransformGizmos.hpp"
@@ -172,6 +173,42 @@ namespace CNA::Studio
                                 ? "Deleted '" + name + "'."
                                 : "Deleted " + std::to_string(doomed.size()) + " entities.");
              });
+
+        // Creating an entity (`plan.md` STUDIO-13013). One binding per archetype rather than one
+        // per kind hand-written: which components a kind gets is the archetype table's answer, and
+        // a second answer here is how two ways of making the same thing come to differ.
+        for (const StudioEntityArchetype& archetype : studioEntityArchetypes())
+        {
+            const std::string id = "studio.entity.create." + archetype.id;
+            bind(id.c_str(),
+                 // A scene is always open -- `newScene` builds one at startup -- so this is
+                 // enabled whenever the shell is. There is deliberately no "needs a project"
+                 // condition: a user trying out the editor before creating a project can still
+                 // build a scene, and refusing them would be refusing the first thing they try.
+                 [] { return true; },
+                 // The archetype is *copied* into the handler rather than referenced. The table
+                 // it comes from has static storage duration, so a reference would in fact
+                 // outlive the loop -- but a binding whose correctness rests on that is one that
+                 // breaks silently the day the table stops being static, and a copy of six small
+                 // structs buys the question away.
+                 [&context, &log, archetype] {
+                     auto command = std::make_unique<CreateEntityCommand>(
+                         context.getScene(),
+                         studioMakeArchetypeEntity(archetype, context.getComponentRegistry()));
+
+                     // Read before the move, and used after: the id is assigned at construction
+                     // precisely so the caller can select what it just made.
+                     const Uuid created = command->getEntityId();
+                     const std::string name = archetype.name;
+                     context.execute(std::move(command));
+
+                     // Selected, like Duplicate and like the asset drop, because the next thing a
+                     // user does is almost always move or rename what they just added.
+                     context.select(created);
+                     log.append(LogSeverity::Info,
+                                "Created '" + name + "' at the origin.  Undo with Ctrl+Z.");
+                 });
+        }
 
         // Parenting from the viewport (`plan.md` STUDIO-12010). The *last* selected entity is the
         // parent, which is the rule every editor with this command uses: a user builds the group by

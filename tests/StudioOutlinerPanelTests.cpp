@@ -14,6 +14,10 @@
 
 #include "TestHarness.hpp"
 
+#include <filesystem>
+#include <fstream>
+#include <system_error>
+
 #include <tuple>
 
 #include "CNA/Studio/Scene/AssetDrop.hpp"
@@ -1908,4 +1912,80 @@ CNA_STUDIO_TEST(DroppingAnAssetOnARowReportsItRatherThanReadingAsAReparent)
     // because what an asset *becomes* is a decision the binder makes with the viewport.
     CNA_STUDIO_EXPECT(!last.reparented);
     CNA_STUDIO_EXPECT_EQ(fixture.context.getHistory().getCount(), before);
+}
+
+/**
+ * @brief Each empty state says which one it is, and the empty scene says what to do about it.
+ *
+ * `plan.md` STUDIO-13013. The three blank panels look identical, and each calls for a different
+ * next move: open a project, add an entity, or clear the search box. A user who cannot tell them
+ * apart starts wondering where their level went.
+ *
+ * The scene line now names the Entity menu, which is new -- until this task there was nothing to
+ * name, because the editor could not create an entity at all. A sentence that stops at "this is
+ * empty" is the whole answer only while nothing can be done about it.
+ */
+CNA_STUDIO_TEST(EachEmptyOutlinerSaysWhichEmptyItIsAndWhereToGoNext)
+{
+    StudioContext context;
+    StudioTreeState state;
+    std::string search;
+
+    const std::unique_ptr<StudioShell> shell = shellShowingTheOutliner();
+
+    StudioOutlinerResult last;
+    CNA_STUDIO_EXPECT(shell->setPanelContent("outliner",
+        [&](StudioFrame& frame, const UiRect& bounds) {
+            const StudioOutlinerResult result =
+                studioOutlinerPanel(frame, bounds, context, state, &search);
+            if (frame.isDrawPass()) { last = result; }
+        }));
+
+    // No project: the answer is not "add an entity", because there is nowhere to put one.
+    shell->renderFrame(at(-1.0f, -1.0f));
+    CNA_STUDIO_EXPECT_EQ(last.emptyMessage, std::string{"No project is open."});
+
+    // A real `.cnaproject` on disk, because `hasProject()` reads the path the open set -- there is
+    // no back door that makes a context *look* like it has one, which is the point of D-08 holding
+    // for the project file too.
+    const std::filesystem::path root =
+        std::filesystem::temp_directory_path() / "cna-studio-outliner-empty";
+    std::error_code code;
+    std::filesystem::remove_all(root, code);
+    std::filesystem::create_directories(root / "Assets", code);
+    {
+        std::ofstream stream{root / "Game.cnaproject", std::ios::binary};
+        stream << R"({"formatVersion":1,"name":"Empty","kind":"CnaNative"})";
+    }
+    CNA_STUDIO_EXPECT(context.openProject((root / "Game.cnaproject").generic_string()));
+    CNA_STUDIO_EXPECT(context.hasProject());
+
+    // Opening a project loads its startup scene, and this one has none -- so the scene is whatever
+    // the open left behind. Emptied here, because this case is about the sentence a user sees in
+    // an empty one.
+    context.newScene("Empty");
+    while (!context.getScene().getEntities().empty())
+    {
+        (void)context.getScene().removeEntityRecursive(
+            context.getScene().getEntities().front().getId());
+    }
+
+    shell->renderFrame(at(-1.0f, -1.0f));
+    CNA_STUDIO_EXPECT(last.emptyMessage.find("no entities yet") != std::string::npos);
+    CNA_STUDIO_EXPECT(last.emptyMessage.find("Entity menu") != std::string::npos);
+
+    // A search that matches nothing is its own answer, and stays its own answer in a scene that
+    // does have entities -- which is the case the other two cannot cover.
+    addEntity(context.getScene(), "Player");
+    search = "zzz";
+    shell->renderFrame(at(-1.0f, -1.0f));
+    CNA_STUDIO_EXPECT_EQ(last.emptyMessage, std::string{"Nothing here matches that."});
+
+    // And a panel that drew a tree reports no message at all, rather than the last one it chose.
+    search.clear();
+    shell->renderFrame(at(-1.0f, -1.0f));
+    CNA_STUDIO_EXPECT(last.emptyMessage.empty());
+    CNA_STUDIO_EXPECT(last.rowsDrawn > 0);
+
+    std::filesystem::remove_all(root, code);
 }

@@ -149,13 +149,44 @@ namespace CNA::Studio
                       "studio.file.quit"}},
             {"Edit", {"studio.edit.undo", "studio.edit.redo", sep,
                       "studio.edit.rename", "studio.edit.duplicate", "studio.edit.delete"}},
-            // Shading and the debug views as submenus rather than nine more rows: they are two
-            // exclusive groups, and a flat View menu of nine radio rows is one a user has to read
-            // rather than aim at. Both groups had no menu at all until STUDIO-11011 -- they were
-            // registered, bound, tested and reachable from nothing, which is the same as not being
-            // there.
+            // `plan.md` STUDIO-13013. Two things at once, and they are the same thing: the editor
+            // had no way to *create* an entity, and the four actions it did have for arranging
+            // them -- Group, Ungroup, Attach, Detach -- were filed under Edit and named by no
+            // menu at all. Two of those were reachable only by a chord nobody can discover and two
+            // only from the World Outliner's context menu.
+            //
+            // The create rows first and the arranging rows after, because that is the order a
+            // user does them in. Create Empty leads: it is the one that is always the right
+            // answer, and a user who wants something this list does not offer builds it from an
+            // empty and the Add Component menu.
+            {"Entity", {"studio.entity.create.empty", sep,
+                        "studio.entity.create.camera",
+                        "studio.entity.create.light.directional",
+                        "studio.entity.create.sprite", "studio.entity.create.model",
+                        "studio.entity.create.audio", sep,
+                        "studio.entity.group", "studio.entity.ungroup", sep,
+                        "studio.entity.attach", "studio.entity.detach"}},
+            // Six submenus rather than twenty-six more rows: each is an exclusive group, and a
+            // flat View menu of that many radio rows is one a user has to read rather than aim at.
+            //
+            // Every one of them was registered and named by no menu before the task that added it.
+            // Shading and Debug View until STUDIO-11011; Viewport, Standard Views, Bounds, Pivot
+            // and Snap until `plan.md` STUDIO-13013's menu guard counted seventeen such commands
+            // in one pass. Some had a chord and were therefore discoverable only by reading the
+            // source; the rest were not reachable at all, which is the same as not being there.
             {"View", {"studio.view.focusSelected", "studio.view.toggleGrid",
-                      "studio.view.gridOnGroundPlane", sep,
+                      "studio.view.gridOnGroundPlane", "studio.view.snap", sep,
+                      StudioMenuEntry::submenu("Viewport",
+                          {StudioMenuEntry{"studio.view.2d"},
+                           StudioMenuEntry{"studio.view.3d"},
+                           StudioMenuEntry{"studio.view.game"}}),
+                      StudioMenuEntry::submenu("Standard Views",
+                          {StudioMenuEntry{"studio.view.front"},
+                           StudioMenuEntry{"studio.view.back"},
+                           StudioMenuEntry{"studio.view.left"},
+                           StudioMenuEntry{"studio.view.right"},
+                           StudioMenuEntry{"studio.view.top"},
+                           StudioMenuEntry{"studio.view.bottom"}}),
                       StudioMenuEntry::submenu("Shading",
                           {StudioMenuEntry{"studio.view.shading.shaded"},
                            StudioMenuEntry{"studio.view.shading.wireframe"},
@@ -167,9 +198,18 @@ namespace CNA::Studio
                            StudioMenuEntry{"studio.view.debug.metallic"},
                            StudioMenuEntry{"studio.view.debug.roughness"},
                            StudioMenuEntry{"studio.view.debug.normals"}}),
+                      StudioMenuEntry::submenu("Bounds",
+                          {StudioMenuEntry{"studio.view.bounds.off"},
+                           StudioMenuEntry{"studio.view.bounds.selected"},
+                           StudioMenuEntry{"studio.view.bounds.all"},
+                           StudioMenuEntry{"studio.view.bounds.spheres"}}),
                       sep,
                       "studio.view.translate", "studio.view.rotate", "studio.view.scale",
-                      "studio.view.toggleGizmoSpace", sep,
+                      "studio.view.toggleGizmoSpace",
+                      StudioMenuEntry::submenu("Pivot",
+                          {StudioMenuEntry{"studio.view.pivot.center"},
+                           StudioMenuEntry{"studio.view.pivot.active"}}),
+                      sep,
                       "studio.view.tool.select", "studio.view.tool.paint",
                       "studio.view.tool.erase", "studio.view.tool.pick",
                       "studio.view.tool.fill"}},
@@ -184,6 +224,10 @@ namespace CNA::Studio
             // row is in the same place in a shell with no panels as in one with ten.
             {"Window", {StudioMenuEntry::submenu(std::string{kStudioPanelMenuLabel}, {}),
                         StudioMenuEntry::submenu(std::string{kStudioLayoutMenuLabel}, {}),
+                        // Beside the layout list rather than inside it: the submenu is filled at
+                        // run time with the layouts that exist, and a Save row among them would be
+                        // a row that moves as a user saves layouts.
+                        "studio.window.saveLayoutAs",
                         std::string{kStudioMenuSeparatorId},
                         // Before Reset Layout, and greyed out until there is something to recover.
                         // The two are the same kind of answer at different costs, and a user whose

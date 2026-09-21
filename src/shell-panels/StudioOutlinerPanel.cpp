@@ -594,8 +594,13 @@ namespace CNA::Studio
         // Two empties, said apart. "No scene is open" and "this scene is empty" call for different
         // next actions, and a panel that gave the same words for both would send half its readers
         // looking in the wrong place.
+        //
+        // And the scene one names where to go next (`plan.md` STUDIO-13013). It stopped at "This
+        // scene has no entities yet." while that was the whole answer -- there was no way to add
+        // one -- and became half an answer the moment there was, because a menu somebody has not
+        // opened is a menu they do not know about.
         const std::string_view empty = context.hasProject()
-            ? std::string_view{"This scene has no entities yet."}
+            ? std::string_view{"This scene has no entities yet.  Add one from the Entity menu."}
             : std::string_view{"No project is open."};
 
         // A third empty, and it needs saying apart from the other two: a search that matches
@@ -646,13 +651,19 @@ namespace CNA::Studio
 
         if (total == 0)
         {
+            // Chosen once and both said and reported, so a caller reading the result is reading
+            // the sentence the user is looking at rather than a second guess at which of the
+            // three it should have been.
+            const std::string_view message = filter.active ? noMatches : empty;
+            result.emptyMessage = std::string{message};
+
             if (frame.isDrawPass())
             {
                 studioDrawText(
                     frame,
                     treeBounds.inset(UiEdges{static_cast<float>(theme.metric(
                         StudioMetric::SpacingMedium))}),
-                    filter.active ? noMatches : empty, StudioFontRole::Body,
+                    message, StudioFontRole::Body,
                     theme.color(StudioColorRole::TextSecondary));
             }
             return result;

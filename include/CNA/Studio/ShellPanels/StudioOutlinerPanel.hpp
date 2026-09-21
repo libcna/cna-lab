@@ -73,6 +73,20 @@ namespace CNA::Studio
          */
         std::size_t rowsMarked = 0;
 
+        /**
+         * @brief What the panel said instead of a tree, or empty when it drew one.
+         *
+         * `plan.md` STUDIO-13013. Reported rather than only drawn, for the reason every other
+         * number here is: "the empty state says something useful" is exactly the claim that
+         * passes while the panel prints a sentence that was true before the editor could create
+         * anything and is only half an answer now that it can.
+         *
+         * Three different sentences, and the differences matter: no project, an empty scene, and
+         * a search that matches nothing all look identical in a blank panel, and each calls for a
+         * different next move.
+         */
+        std::string emptyMessage;
+
         /** @brief Whether the selection changed this frame. Input pass only. */
         bool selectionChanged = false;
 

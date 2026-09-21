@@ -12,6 +12,7 @@
 
 #include "CNA/Studio/UiCore/StudioActionRegistry.hpp"
 #include "CNA/Studio/UiCore/StudioInputRouter.hpp"
+#include "CNA/Studio/UiCore/StudioShell.hpp"
 #include "CNA/Studio/UiCore/WidgetId.hpp"
 
 #include <set>
@@ -649,18 +650,71 @@ CNA_STUDIO_TEST(EveryCoreCommandLandsInANamedMenu)
     StudioActionRegistry registry;
     registerCoreStudioActions(registry);
 
+    // Over the enum rather than a hand-written list of its values, which is what this loop used to
+    // be. A list like that agrees with the enum exactly until somebody adds a category -- and then
+    // it silently stops counting a whole menu's commands, which is the failure this test exists to
+    // catch happening to the test itself. `Help` is last and stays last for that reason.
     std::size_t total = 0;
-    for (const StudioActionCategory category :
-         {StudioActionCategory::File, StudioActionCategory::Edit, StudioActionCategory::View,
-          StudioActionCategory::Project, StudioActionCategory::Build, StudioActionCategory::Play,
-          StudioActionCategory::Tools, StudioActionCategory::Window, StudioActionCategory::Help})
+    for (int value = 0; value <= static_cast<int>(StudioActionCategory::Help); ++value)
     {
+        const auto category = static_cast<StudioActionCategory>(value);
         CNA_STUDIO_EXPECT(!studioActionCategoryName(category).empty());
         total += registry.inCategory(category).size();
     }
     // Every command is reachable from some menu. One that is in no category is invocable only by
     // a shortcut nobody can discover.
     CNA_STUDIO_EXPECT_EQ(total, registry.size());
+}
+
+/**
+ * @brief The menu bar names every command the registry carries.
+ *
+ * `plan.md` STUDIO-13013. `EveryCoreCommandLandsInANamedMenu` above checks that each command has
+ * a *category*, which is the weaker claim -- and the gap between the two was twenty-one commands
+ * wide. Four of those turned up by hand while the Entity menu was being written (Group, Ungroup,
+ * Attach and Detach, all filed under Edit and named by nothing); this test found the other
+ * seventeen in one pass: the three viewport modes, the six standard views, the four bounds modes,
+ * the two pivot modes, Snap and Save Layout As. Some were reachable only by a chord a user would
+ * have to read the source to learn, and the rest were not reachable at all. The category said
+ * they were in a menu. They were not.
+ *
+ * Only this direction. The reverse -- a menu row naming a command the registry does not carry --
+ * is `EveryActionTheShellInvokesEitherRunsOrIsRefusedOutLoud` in `StudioShellActionTests.cpp`,
+ * and two tests asserting one thing is one test that gets deleted as a duplicate and one claim
+ * that quietly goes unchecked.
+ */
+CNA_STUDIO_TEST(TheMenuBarNamesEveryCommandTheRegistryCarries)
+{
+    StudioActionRegistry registry;
+    registerCoreStudioActions(registry);
+
+    std::set<std::string> named;
+    const auto collect = [&named](const auto& self, const std::vector<StudioMenuEntry>& entries)
+        -> void {
+        for (const StudioMenuEntry& entry : entries)
+        {
+            // Recursive, because a submenu is where a command hides from this check just as a
+            // dead row hides from the other one.
+            if (!entry.rows.empty()) { self(self, entry.rows); }
+            if (entry.id.empty() || entry.isSeparator()) { continue; }
+            named.insert(entry.id);
+        }
+    };
+
+    for (const StudioMenuDefinition& menu : StudioShell::defaultMenus())
+    {
+        collect(collect, menu.entries);
+    }
+
+    for (const StudioAction& command : registry.commands())
+    {
+        if (named.count(command.id) != 0) { continue; }
+        CnaStudioTest::reportFailure(__FILE__, __LINE__,
+            "'" + command.id + "' is registered and no menu names it.");
+    }
+
+    // A scan that found no rows would agree with everything.
+    CNA_STUDIO_EXPECT(named.size() >= 40);
 }
 
 CNA_STUDIO_TEST(ShortcutsRenderInTheConventionalOrder)

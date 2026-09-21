@@ -59,19 +59,19 @@ mapping is in [`docs/LEGACY-EDITOR-TASK-MAP.md`](docs/LEGACY-EDITOR-TASK-MAP.md)
 
 ## Global progress
 
-**371 of 580 tasks complete** `███████████████░░░░░░░░░░`  64.0%
+**372 of 581 tasks complete** `████████████████░░░░░░░░░`  64.0%
 
 | Status | Count |
 |--------|------:|
-| ✅ Complete | 371 |
+| ✅ Complete | 372 |
 | 🔄 In progress | 8 |
 | ⬜ Not started | 193 |
 | ⛔ Deferred | 3 |
 | 🔬 Blocked | 4 |
 | ⊘ Superseded | 1 |
-| **Total** | **580** |
+| **Total** | **581** |
 
-> **On the task count.** 580 tasks are decomposed today. That is not the final number: the
+> **On the task count.** 581 tasks are decomposed today. That is not the final number: the
 > programme is expected to reach the low thousands as the later phases are broken down on approach.
 > Tasks are added when the work is understood well enough to state a completion condition — never
 > to reach a number. A phase whose detail is still coarse says so by having few rows, which is
@@ -94,7 +94,7 @@ mapping is in [`docs/LEGACY-EDITOR-TASK-MAP.md`](docs/LEGACY-EDITOR-TASK-MAP.md)
 | 10 | [Asset pipeline and importing](plans/phase-10-asset-pipeline.md) | `STUDIO-10NNN` | 🔄 | 15 | 12 | `████████░░` |
 | 11 | [3D viewport 2](plans/phase-11-viewport.md) | `STUDIO-11NNN` | ✅ | 15 | 15 | `██████████` |
 | 12 | [Selection and gizmos 2](plans/phase-12-gizmos.md) | `STUDIO-12NNN` | ✅ | 11 | 11 | `██████████` |
-| 13 | [World Outliner 2](plans/phase-13-outliner.md) | `STUDIO-13NNN` | ✅ | 12 | 12 | `██████████` |
+| 13 | [World Outliner 2](plans/phase-13-outliner.md) | `STUDIO-13NNN` | ✅ | 13 | 13 | `██████████` |
 | 14 | [Details Inspector 2](plans/phase-14-inspector.md) | `STUDIO-14NNN` | ✅ | 18 | 18 | `██████████` |
 | 15 | [C++ gameplay component workflow](plans/phase-15-cpp-gameplay.md) | `STUDIO-15NNN` | ⬜ | 12 | 0 | `░░░░░░░░░░` |
 | 16 | [Play In Editor 2](plans/phase-16-play-in-editor.md) | `STUDIO-16NNN` | 🔄 | 18 | 4 | `██░░░░░░░░` |

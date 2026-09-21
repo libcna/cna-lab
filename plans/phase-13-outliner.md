@@ -6,7 +6,7 @@
 
 **Exit criteria.** A scene with tens of thousands of entities browses and edits smoothly.
 
-**Progress:** 12 of 12 complete `████████████`
+**Progress:** 13 of 13 complete `████████████`
 
 | Id | Task | Status | Depends on |
 |----|------|:------:|------------|
@@ -22,6 +22,7 @@
 | `STUDIO-13010` | Type icons and component warnings | ✅ | `STUDIO-13001` |
 | `STUDIO-13011` | Virtualisation for large worlds | ✅ | `STUDIO-30010` |
 | `STUDIO-13012` | Every mutation goes through a command | ✅ | `STUDIO-02035` |
+| `STUDIO-13013` | Creating an entity from the editor | ✅ | `STUDIO-13012` |
 
 ## Acceptance and verification
 
@@ -593,3 +594,84 @@ panel already derives it once and shares it between the count and the window; ma
 at all is `STUDIO-30011`, which is about exactly this and is where it belongs. `STUDIO-30020` is the
 benchmark that says so with a number.
 
+
+### `STUDIO-13013` — Creating an entity from the editor
+
+**Acceptance.** A user can add an entity to the open scene, from a menu, in one undoable step, and
+the new entity is selected when it arrives.
+
+**The editor could not create an entity.** It could rename, duplicate, delete, group, ungroup,
+reparent, hide and lock one. Every entity in every scene had arrived from a `.cnascene` file, from
+a prefab, from an asset dropped into the viewport, or from the single camera `newScene` builds —
+and `CreateEntityCommand` had existed since Phase 2, with two callers and no menu, no button and
+no chord reaching it. A user who wanted a light wrote one into the scene file by hand.
+
+This row is new. Nothing in the thirty-six phase files claimed to provide it: the gap was not a
+task that slipped, it was a task nobody wrote. It is filed here because adding an entity to the
+scene is a hierarchy operation and the World Outliner owns the hierarchy — which is also why
+`STUDIO-13012`, "every mutation goes through a command", is the dependency that matters.
+
+**An archetype is a row of data, not a function.** `studioEntityArchetypes()` carries an id, the
+entity's name, and which component type ids go on it; everything else about a kind comes from
+somewhere that already knows it. The menu label and the one-line description live in the action
+registry, where every other command's do. The component defaults come from the descriptor. Nothing
+in the table sets a property, which is why there is no point or spot light row yet: both need
+`kind` preset, and that mechanism should arrive with the first thing that needs it
+(`STUDIO-20002`, `STUDIO-20003`) rather than sit unused. Six kinds — Empty, Camera, Directional
+Light, Sprite, Model, Audio Source — and every one of them gets a `CNA.Transform`, because an
+entity without one has no position, cannot be picked in the viewport, and cannot be a parent that
+means anything.
+
+The archetype list and the action list live in different modules, so a test ties them:
+`EveryEntityArchetypeHasAMenuRowAndEveryRowAnArchetype` fails either way round. An archetype with
+no command is a kind nobody can make; a `studio.entity.create.*` command with no archetype is a
+menu row that creates nothing.
+
+**At the origin, at the scene root, and selected.** Not parented to whatever was selected — that
+is a surprise a user cannot see until they move the parent. Not placed in front of the camera
+either, which is what the asset drop does: the action binding has the context and the log and no
+viewport camera, and reaching one through a new seam is a bigger change than this row. `F` (Focus
+Selected) brings the camera to the new entity, and the log line says where it went.
+
+**The Entity menu, and the four commands that had no menu at all.** There was nowhere to put a
+Create row: the menu bar had File, Edit, View, Project, Build, Play, Tools, Window and Help.
+Adding one turned up the second half of this task — `studio.entity.group`, `ungroup`, `attach`
+and `detach` were filed under the Edit *category* and named by no menu. Group and Ungroup were
+reachable only by a chord a user would have to read the source to learn; Attach and Detach only
+from this panel's context menu. They are Entity commands and now say so.
+
+**The guard that found seventeen more, making twenty-one in all.** `EveryCoreCommandLandsInANamedMenu` checked that every
+command has a *category*, which is the weaker claim, and it walked a hand-written list of the
+categories — so adding one silently stopped it counting a whole menu. Both are fixed: it walks the
+enum, and `TheMenuBarNamesEveryCommandTheRegistryCarries` checks the claim the comment was making.
+That found seventeen commands in no menu: the three viewport modes, the six standard views, the
+four bounds modes, the two pivot modes, Snap and Save Layout As. All seventeen now have rows —
+grouped into Viewport, Standard Views, Bounds and Pivot submenus, for the reason Shading and Debug
+View already were. The reverse direction is left to
+`EveryActionTheShellInvokesEitherRunsOrIsRefusedOutLoud`, which already had it; two tests asserting
+one thing is one test that gets deleted as a duplicate and one claim that quietly goes unchecked.
+
+**The empty Outliner now says where to go.** "This scene has no entities yet." was the whole
+answer while nothing could be done about it. `StudioOutlinerResult::emptyMessage` reports whichever
+of the three empties the panel chose, so the sentence is checkable rather than only drawn — the
+three look identical in a blank panel and call for three different next moves.
+
+**Verification.** `tests/StudioShellActionTests.cpp` —
+`CreatingAnEntityAddsItSelectsItAndUndoesInOnePress` (added, selected, a root, with its transform,
+one undo entry, redo brings it back), `EveryArchetypeBuildsWhatItNamesAndNothingElse` (the count is
+the transform plus what it names, and every component id is one the registry carries rather than
+one that is merely spelled), and `EveryEntityArchetypeHasAMenuRowAndEveryRowAnArchetype`.
+`tests/StudioInteractionTests.cpp` — the two menu guards.
+`tests/StudioOutlinerPanelTests.cpp` — `EachEmptyOutlinerSaysWhichEmptyItIsAndWhereToGoNext`, over
+a real `.cnaproject` on disk because `hasProject()` has no back door.
+
+Checked by causing each: archetypes losing their transform, a create row dropped from the menu, an
+archetype with no command, a command with no archetype, creation not selecting what it made, a
+category with no name, and the empty line losing its next step all fail by name.
+
+**What this row is not.** There is no Create row in the Outliner's context menu — right-clicking
+empty space still offers nothing, because `studioOutlinerMenuItems` returns nothing without a
+selection and submenus are not something `StudioContextMenuItem` can express. There is no
+placement in front of the viewport camera, no "create as a child of the selection" modifier, and
+no unique naming: two entities called "Light" are two entities called "Light", which is the
+editor's existing behaviour and is right, because an entity is its id and never its name (D-08).

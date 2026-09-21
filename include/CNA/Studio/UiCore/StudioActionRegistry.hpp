@@ -68,6 +68,16 @@ namespace CNA::Studio
     {
         File,
         Edit,
+
+        /**
+         * @brief Making, grouping and parenting entities (`plan.md` STUDIO-13013).
+         *
+         * Its own category rather than more of Edit, because Edit had become the place actions
+         * went when nowhere else fitted: Group, Ungroup, Attach and Detach were all filed there
+         * and `StudioShell::defaultMenus` named none of them, so two were reachable only by a
+         * chord nobody can discover and creation did not exist at all.
+         */
+        Entity,
         View,
         Project,
         Build,
