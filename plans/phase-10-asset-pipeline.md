@@ -19,7 +19,7 @@
 | `STUDIO-10007` | Material assets | ✅ | `STUDIO-19001` |
 | `STUDIO-10008` | Shader and effect assets | ⬜ | `STUDIO-22001` |
 | `STUDIO-10009` | Animation import | ⬜ | `STUDIO-10004` |
-| `STUDIO-10010` | Environment map import and processing | ⬜ | `STUDIO-20001` |
+| `STUDIO-10010` | Environment map import and processing | 🔄 | `STUDIO-20001` |
 | `STUDIO-10011` | Import jobs are cancellable and report progress accurately | ✅ | `STUDIO-30001` |
 | `STUDIO-10012` | Provenance record for every third-party dependency | ✅ | — |
 | `STUDIO-10013` | A failed import reports why, and does not leave a half-imported asset | ✅ | `STUDIO-10011` |
@@ -639,6 +639,75 @@ rather than what it needs. `EveryDependencyNamesARealTaskAndNoneOfThemFormACycle
 `tests/ArchitectureGuardTests.cpp` reads every phase table and fails on both kinds. Until it
 existed the dependency column was the one part of the plan nothing checked: the arithmetic guards
 add up whatever the edges say, and the id guard only cares that ids are unique.
+
+### `STUDIO-10010` — Environment map import and processing
+
+**Acceptance.** A panorama becomes the three textures an image-based light needs, the editor says
+what that will cost before it is paid, and nothing is offered that the renderer cannot use.
+
+**🔄 In progress. The asset, its settings and the prediction are in; creating one from the editor
+and running the processing are not.** Split that way deliberately, because it is the same order
+`.cnamaterial` arrived in: `ED-403` made a material an asset the database recognised, tracked and
+resolved, and `STUDIO-10007` — five phases later — added the action that could produce the first
+file. The half that exists is the half everything else rests on.
+
+**What CNA offers, read before anything was written this time.** `CNA::Graphics::EnvironmentProcessor`
+converts an equirectangular panorama to a cube, convolves it to an irradiance cube, prefilters it
+into a per-roughness specular chain, and generates the split-sum BRDF table — and
+`ImageBasedLightEXT` names all four as the things a lit effect samples. None of it is missing, and
+the reason that sentence is in the plan at all is `G-13` and `G-14`: two gaps filed against CNA
+because one type's header had been read as if it were the API.
+
+**It is an asset of its own rather than a setting on the panorama's file.** The obvious shape would
+have been a second importer on a `.png`, and it was rejected on a fact rather than on taste:
+**nothing in Studio can change an asset's importer.** `defaultImporterFor` maps a type to one
+importer, the Inspector reads `AssetRecord::importerId` and never writes it, and no command exists
+that would. Building this row on a gesture that does not exist would have meant inventing the
+gesture first, and "change this file's importer" is a bigger and more dangerous thing than a sky.
+
+It is also the truer division. A panorama is an ordinary texture — decoded, measurable,
+previewable, and quite possibly used as a background elsewhere in the same project. The cube size,
+the irradiance convolution and the prefiltered chain are not properties of that image; they are
+properties of the *sky*, and two skies at different qualities from one panorama is an ordinary
+thing to want and impossible if the settings live on the file.
+
+**The prediction is the substance, and it is a sample count rather than a number of seconds.** The
+processing runs on the CPU — CNA says why: a render-to-cube version would need float render
+targets, cube render targets and custom effects all present, and the processor has to work on
+renderers that have none of them. So the numbers a user types are multiplied into arithmetic that
+runs from imperceptible to minutes, and **irradiance is the sharp edge: its sample count is per
+*axis*, so the cost is its square.** Going from 32 to 64 is four times the work, which is the
+single most surprising thing in the whole dialogue and the reason the figure is shown at all.
+Seconds would be a guess about a machine this process is not running on; a sample count is
+arithmetic, and it is the thing that actually quadrupled.
+
+**Every bound the editor applies is a bound the user is told about.** A clamp that changed a number
+while the field kept showing what was typed is the failure this file exists to prevent, so each one
+produces a note — including the one nobody would think to check, a specular mip count that runs
+past one texel. That last is not a wasted level: `mipForRoughness(roughness, mipCount)` spreads
+roughness across the levels a cube *claims* to have, so a count that lies makes every roughness
+read the wrong mip, which looks like reflections sharpening as a surface gets rougher.
+
+**Verification.** `tests/EnvironmentMapTests.cpp` —
+`AnUnsetFaceSizeFollowsThePanoramaRatherThanAFixedNumber` (zero is a ratio, still bounded, and an
+unmeasured panorama says so while every other answer survives),
+`EveryClampedSettingSaysSoRatherThanChangingQuietly` (six fields in both directions, and a default
+plan with no notes at all — a list that is never empty is a list nobody reads),
+`ASpecularChainIsShortenedRatherThanClaimingLevelsItCannotHave`,
+`TheEstimatedCostSquaresWithIrradianceSamplesAndScalesWithSpecularOnes` (the square and the linear
+one side by side, which is what makes the square worth pointing at),
+`TheBrdfTableIsOptionalBecauseEveryEnvironmentMapGeneratesTheSameOne`,
+`AnOddlyShapedPanoramaIsAcceptedAndReported`, and
+`AnEnvironmentMapDocumentRoundTripsThroughJson` (including that an absent setting is the declared
+default and not a zero — zero here asks for a one-texel irradiance cube and a chain with no mips,
+so a careless reader would not degrade an old file, it would empty it).
+
+**What this row is not, yet.** There is no `New Environment Map` action and no Inspector editor, so
+a `.cnaenv` has to be written by hand — exactly the state a `.cnamaterial` was in between `ED-403`
+and `STUDIO-10007`. Nothing calls `EnvironmentProcessor`: the textures are described and not yet
+generated. And nothing uses them, which is `STUDIO-20005` — a sky in the scene, drawn behind the
+geometry and lighting it. Those three land together, because the processing has no consumer without
+the last of them and dead GPU code is worse than none.
 
 ### `STUDIO-10011` — Import jobs are cancellable and report progress accurately
 

@@ -5,6 +5,7 @@
 #include <functional>
 #include <utility>
 
+#include "CNA/Studio/Assets/EnvironmentMapDocument.hpp"
 #include "CNA/Studio/Assets/MaterialDocument.hpp"
 #include "CNA/Studio/Scene/PrefabDocument.hpp"
 #include "CNA/Studio/Scene/SceneDocument.hpp"
@@ -203,6 +204,31 @@ namespace CNA::Studio
                         AssetUsage usage = holder;
                         usage.propertyName = field;
                         add(target, std::move(usage));
+                        ++scan.referencesFound;
+                    }
+                    break;
+                }
+                case AssetType::EnvironmentMap:
+                {
+                    // `plan.md` STUDIO-10010. A sky references exactly one thing, and it is the
+                    // reference a user is most likely to break: deleting the panorama leaves an
+                    // environment map that loads, validates and lights nothing. Recorded here so
+                    // "what uses this texture" answers with the sky as well as with the materials.
+                    EnvironmentMapDocument environment;
+                    if (loadEnvironmentMapDocument(assets, asset->id, environment)
+                        != EnvironmentMapLoadProblem::None)
+                    {
+                        scan.warnings.push_back("could not read environment map '"
+                                                + asset->sourcePath + "'");
+                        break;
+                    }
+                    ++scan.filesRead;
+
+                    if (environment.panorama.isValid())
+                    {
+                        AssetUsage usage = holder;
+                        usage.propertyName = "panorama";
+                        add(environment.panorama, std::move(usage));
                         ++scan.referencesFound;
                     }
                     break;

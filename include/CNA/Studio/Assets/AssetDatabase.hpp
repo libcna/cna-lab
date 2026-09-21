@@ -59,6 +59,16 @@ namespace CNA::Studio
         Prefab,
         /** @brief A `.cnamaterial`: an authored material a `ModelRenderer` can override with. */
         Material,
+
+        /**
+         * @brief A `.cnaenv`: one equirectangular panorama, and what to process it into.
+         *
+         * `plan.md` STUDIO-10010. Authored by the editor like a material rather than imported like
+         * a texture, and `EnvironmentMapDocument.hpp` says why: the panorama is an ordinary
+         * `Texture2D` that a project may use for other things, while the cube size, the irradiance
+         * convolution and the prefiltered chain belong to the sky rather than to the image.
+         */
+        EnvironmentMap,
         /** @brief Any file the project wants tracked verbatim, e.g. a JSON data table. */
         RawData
     };

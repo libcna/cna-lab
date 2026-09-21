@@ -101,6 +101,22 @@ a scenario the change cannot reach at all (it alters the scene model batch's lig
 outliner scenario builds no model batch). Recorded rather than re-argued: three occurrences now,
 two scenarios, and the same evidence each time.
 
+**And a fourth, during `STUDIO-20006`, where the cause is known rather than inferred.** Both
+outliner scenarios went over together — `outliner-20000-deep` at 8613.0 µs and
+`outliner-20000-all-selected` at 8708.4 — on a run that overlapped a `-j4` compile started in the
+same container. The counted columns were again identical to the last green run
+(`21.0  12287.0  1.0  20.0  6076.4  316.9  19.18x` and
+`21.0  12911.0  1.0  20.0  6385.1  333.0  19.17x`), and the benchmark reports a *median frame
+time*, so a compile taking four cores for the duration is exactly the interference the median is
+least able to reject.
+
+That makes the case rather than weakening it. The previous three occurrences left open whether
+something slow was happening on most frames; this one names a competing workload, and the gate
+still cannot tell it from a regression. **The procedural lesson is separate and smaller: run the
+benchmark on its own.** It has been added to the validation notes, and it is a workaround for the
+gate rather than a fix for it — a measurement that is only valid when nothing else is running is a
+measurement CI cannot trust either.
+
 ### `STUDIO-33026` — A test waiting on a worker counts completions, not frames
 
 **Found while doing `STUDIO-10003`**: `ThumbnailCacheTests`'

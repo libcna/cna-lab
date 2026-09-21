@@ -258,7 +258,13 @@ viewport toolbar:
 ```
 
 Measure what a frame of UI costs each render backend (`STUDIO-04028`). Needs no CNA, no GPU and no
-window; `=NAME` selects scenarios by substring:
+window; `=NAME` selects scenarios by substring.
+
+**Run it on its own.** The budget gate compares a *median frame time* against fixed microseconds
+(`STUDIO-33027`), so a compile or a test suite sharing the machine puts scenarios that sit near
+their budget over it — with the counted columns beside them identical, which is how you tell that
+case from a regression. That is a workaround for the gate rather than a property of the benchmark,
+and the row says what the real fix would be:
 
 ```bash
 ./build/cna-studio --ui-benchmark --ui-benchmark-frames=60 \

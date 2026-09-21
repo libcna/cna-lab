@@ -242,6 +242,12 @@ namespace CNA::Studio
             case AssetType::Texture2D:   return StudioIcon::Texture;
             case AssetType::Model:       return StudioIcon::Mesh;
             case AssetType::Material:    return StudioIcon::Material;
+
+            // The lamp, and deliberately not a new icon. This mapping is coarse on purpose -- the
+            // comment above says a song and a sound effect share a speaker because the question an
+            // icon answers is "is this audio" -- and the question an environment map answers is
+            // "is this lighting".
+            case AssetType::EnvironmentMap: return StudioIcon::Light;
             case AssetType::SoundEffect:
             case AssetType::Song:        return StudioIcon::Audio;
             case AssetType::Scene:       return StudioIcon::Scene;

@@ -44,6 +44,7 @@ add_executable(cna-studio-tests
     AudioImportTests.cpp
     FontImportTests.cpp
     ImportJobTests.cpp
+    EnvironmentMapTests.cpp
     TextureImportTests.cpp
     DerivedDataTests.cpp
     ImageDecodeTests.cpp

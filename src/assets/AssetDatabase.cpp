@@ -20,7 +20,7 @@ namespace CNA::Studio
             const char* name;
         };
 
-        constexpr std::array<AssetTypeName, 12> kAssetTypeNames{{
+        constexpr std::array<AssetTypeName, 13> kAssetTypeNames{{
             {AssetType::Unknown, "Unknown"},
             {AssetType::Texture2D, "Texture2D"},
             {AssetType::SpriteFont, "SpriteFont"},
@@ -32,6 +32,7 @@ namespace CNA::Studio
             {AssetType::Scene, "Scene"},
             {AssetType::Prefab, "Prefab"},
             {AssetType::Material, "Material"},
+            {AssetType::EnvironmentMap, "EnvironmentMap"},
             {AssetType::RawData, "RawData"},
         }};
 
@@ -102,6 +103,7 @@ namespace CNA::Studio
         if (extension == ".cnascene") { return AssetType::Scene; }
         if (extension == ".cnaprefab") { return AssetType::Prefab; }
         if (extension == ".cnamaterial") { return AssetType::Material; }
+        if (extension == ".cnaenv") { return AssetType::EnvironmentMap; }
         if (extension == ".json" || extension == ".xml" || extension == ".txt" || extension == ".csv")
         {
             return AssetType::RawData;
@@ -130,6 +132,11 @@ namespace CNA::Studio
             // Same reasoning as a prefab: a `.cnamaterial` is the editor's own output, read
             // directly, so there is nothing to import and no settings to offer for importing it.
             case AssetType::Material: return {};
+
+            // And a `.cnaenv` likewise. Its settings are real and are edited -- they are simply in
+            // the document rather than in the sidecar, because what they configure is the
+            // *processing* of a panorama this asset only points at, not the reading of a file.
+            case AssetType::EnvironmentMap: return {};
             case AssetType::RawData: return "CNA.RawDataImporter";
             case AssetType::Unknown: return {};
         }

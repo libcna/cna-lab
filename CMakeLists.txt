@@ -195,6 +195,8 @@ add_library(cna-studio-assets STATIC
     src/assets/AudioImport.cpp
     src/assets/FontImport.cpp
     src/assets/ImportJobs.cpp
+    src/assets/EnvironmentMapImport.cpp
+    src/assets/EnvironmentMapDocument.cpp
     src/assets/MaterialDocument.cpp
     src/assets/MaterialCapabilities.cpp
     src/assets/MaterialPreview.cpp

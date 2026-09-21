@@ -64,8 +64,8 @@ mapping is in [`docs/LEGACY-EDITOR-TASK-MAP.md`](docs/LEGACY-EDITOR-TASK-MAP.md)
 | Status | Count |
 |--------|------:|
 | ✅ Complete | 379 |
-| 🔄 In progress | 8 |
-| ⬜ Not started | 186 |
+| 🔄 In progress | 9 |
+| ⬜ Not started | 185 |
 | ⛔ Deferred | 3 |
 | 🔬 Blocked | 4 |
 | ⊘ Superseded | 1 |
