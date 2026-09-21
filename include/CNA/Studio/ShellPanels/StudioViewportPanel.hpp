@@ -28,6 +28,7 @@
 #include "CNA/Studio/Scene/Tilemap.hpp"
 #include "CNA/Studio/Scene/TransformGizmos.hpp"
 #include "CNA/Studio/Scene/TransformGizmos3D.hpp"
+#include "CNA/Studio/Scene/SceneDebugView.hpp"
 #include "CNA/Studio/Scene/SceneWireframe.hpp"
 #include "CNA/Studio/UiCore/StudioActionRegistry.hpp"
 #include "CNA/Studio/UiCore/StudioPreferences.hpp"
@@ -165,11 +166,10 @@ namespace CNA::Studio
      * @param meshProvider Passed by value and moved in: the caller builds one per frame, and a
      *        reference would invite holding one that outlives the frame it was made for.
      */
-    [[nodiscard]] WireframeOptions studioViewportWireframeOptions(StudioViewportShading shading,
-                                                                  bool gridOnGroundPlane,
-                                                                  BoundsDisplay boundsOverlay,
-                                                                  bool boundingSpheres,
-                                                                  MeshProvider meshProvider = {});
+    [[nodiscard]] WireframeOptions studioViewportWireframeOptions(
+        StudioViewportShading shading, bool gridOnGroundPlane, BoundsDisplay boundsOverlay,
+        bool boundingSpheres, MeshProvider meshProvider = {},
+        StudioDebugView debugView = StudioDebugView::None);
 
     enum class StudioViewportTool
     {
@@ -271,6 +271,16 @@ namespace CNA::Studio
          * toggle beside them.
          */
         StudioViewportShading shading = StudioViewportShading::Shaded;
+
+        /**
+         * @brief What the 3D view colours surfaces by (`plan.md` STUDIO-11011).
+         *
+         * Beside the shading mode rather than folded into it, because the two are different
+         * questions -- "solid or edges" and "what colour is the surface" -- and they compose. A
+         * user looking at roughness in shaded-wireframe is not doing anything odd, and making them
+         * give up the wireframe to see a channel would be a restriction with no reason behind it.
+         */
+        StudioDebugView debugView = StudioDebugView::None;
 
         /**
          * @brief Which entities get their bounding volume drawn over them (`plan.md` STUDIO-11008).
@@ -506,6 +516,22 @@ namespace CNA::Studio
      */
     void studioViewportToolOverlay(StudioFrame& frame, const UiRect& bounds,
                                    StudioViewportState& state);
+
+    /**
+     * @brief Names the active debug view over the image, or draws nothing in `None`.
+     *
+     * The same argument the tool overlay is written for. A scene drawn in Roughness is grey, and
+     * so is a scene whose textures failed to import; a scene in Unlit is flat, and so is a scene
+     * whose lights were deleted. The overlay is the only thing that tells a user which of the two
+     * they are looking at, and without it a debug view left on is a bug report.
+     *
+     * Bottom-left rather than top-left, where the toolbar and the tool overlay already are: three
+     * things stacked in one corner is a corner nobody reads.
+     *
+     * @return The rectangle drawn, or an empty one when there was nothing to say.
+     */
+    UiRect studioViewportDebugOverlay(StudioFrame& frame, const UiRect& bounds,
+                                      StudioDebugView view);
 
     /** @brief One control on the viewport toolbar. */
     struct StudioViewportToolbarItem

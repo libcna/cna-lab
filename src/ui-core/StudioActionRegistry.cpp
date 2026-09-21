@@ -422,6 +422,30 @@ namespace CNA::Studio
                 "Draw solid geometry with its edges over it.", C::View, StudioShortcut{},
                 /*checkable=*/true);
 
+        // What the 3D view colours a surface by (`plan.md` STUDIO-11011). A second exclusive
+        // group rather than three more shading modes, because it answers a different question and
+        // the two compose: roughness in shaded-wireframe is a reasonable thing to be looking at.
+        // No shortcuts: a debug view is something a user turns on to answer a question and off
+        // again, and a key that silently recoloured the scene would be a bug report.
+        command("studio.view.debug.none", "Default",
+                "Draw the scene as it is authored.", C::View, StudioShortcut{},
+                /*checkable=*/true);
+        command("studio.view.debug.unlit", "Unlit",
+                "Draw base colour with the lights ignored.", C::View, StudioShortcut{},
+                /*checkable=*/true);
+        command("studio.view.debug.lighting", "Lighting Only",
+                "Draw the lights over a white surface.", C::View, StudioShortcut{},
+                /*checkable=*/true);
+        command("studio.view.debug.metallic", "Metallic",
+                "Draw metalness as grey, black to white.", C::View, StudioShortcut{},
+                /*checkable=*/true);
+        command("studio.view.debug.roughness", "Roughness",
+                "Draw roughness as grey, black to white.", C::View, StudioShortcut{},
+                /*checkable=*/true);
+        command("studio.view.debug.normals", "Normals",
+                "Draw each surface normal, coloured by the way it points.", C::View,
+                StudioShortcut{}, /*checkable=*/true);
+
         // The bounds overlay (`plan.md` STUDIO-11008). Three exclusive checkable entries for the
         // *which entities* question and one plain toggle for the sphere, because the two are
         // independent: a user asking "how big is the volume I am clicking" and one asking "how

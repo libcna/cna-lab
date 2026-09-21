@@ -17,7 +17,7 @@ reporting it.
 | `libcna/sharp-runtime` | `next` | `0c82d9b888bdf5f7d5663c77942f339bcb2a7445` | 2026-09-14 |
 
 The gaps numbered G-01 … G-05 were recorded against an **older** CNA revision by the CNA Editor
-prototype; G-06 through G-11 are new, filed by CNA Studio. All five of the inherited ones were
+prototype; G-06 through G-12 are new, filed by CNA Studio. All five of the inherited ones were
 re-verified against the commit above as part of the CNA Studio bootstrap; two have since been fixed
 upstream and are kept here, marked closed, so the record stays honest.
 
@@ -315,3 +315,24 @@ work Studio does on every frame; what reaches the GPU is 24 bytes a vertex after
 ratio between the two render backends is the same under either measure, because both build the same
 array and differ only in how often they hand it over — which is why this gap changes the absolute
 numbers in `docs/UI-RENDER-PATH.md` and not the conclusion drawn from them.
+
+---
+
+## 🟡 G-12 — There is no seam for an effect of one's own, so a renderer cannot write a debug buffer
+
+**New, filed by CNA Studio, found by `STUDIO-11011`.**
+
+| Field | Value |
+|-------|-------|
+| Affected API | `Microsoft::Xna::Framework::Graphics::BasicEffect`; `PbrEffect`; the absence of `Effect` as a public base a caller can implement or load a compiled shader into |
+| Current behaviour | The two built-in effects are the whole of what a CNA program can draw a mesh with. Both compute a lit or unlit surface from a material; neither can be asked to output something that is not a shaded colour, and there is no public way to supply a vertex or fragment program |
+| Expected behaviour | XNA's own `Effect` is loadable from a compiled shader and subclassable, which is how every XNA editor wrote a G-buffer, a depth view or a normal view. CNA's effect set being fixed is a reasonable simplification; the seam being absent is what makes a whole class of editor view impossible rather than merely inconvenient |
+| Studio impact | Narrow and specific. Studio's material debug views — unlit, lighting only, metalness, roughness — are all expressible as a material and a lighting environment, so they cost nothing and needed no seam. A **normal buffer** is not: colouring each pixel by its interpolated surface normal is a fragment program and nothing else. A viewport that can show roughness but not normals is what this gap looks like from the outside |
+| Workaround | Taken, and it is a different picture rather than the same one. Studio draws each vertex normal as a segment coloured by the direction it points (`appendMeshNormals`, in the `n * 0.5 + 0.5` convention every normal map is written in). That answers the questions a normal buffer is opened for — inverted faces, split seams, an importer mirror that did not take — and it is a picture of the data rather than of a shader. It is not a substitute: it samples vertices, not pixels, and it says nothing about interpolation across a face |
+| Rejected workaround | Uploading a second vertex buffer per model, coloured per vertex by its normal, and drawing it through `BasicEffect` with vertex colours. It would look like a normal buffer and would double the GPU memory of every mesh in the project, permanently, for a view nobody leaves on. Studio is not entitled to spend a user's memory on its own convenience |
+| Suggested fix | Either make `Effect` public and loadable, or add the two or three debug outputs to `PbrEffect` as a mode — `Normal`, `Depth` and one channel selector would cover what an editor needs without opening the shader pipeline at all |
+| Test needed in CNA | A scene drawn with a normal-output effect whose centre pixel reads the surface normal of the triangle under it, so the output is checked rather than looked at |
+
+**Why this is amber rather than red.** Nothing is broken and nothing draws wrongly; a category of
+editor view is simply unavailable. Studio ships five debug views of the six a user might expect,
+says which one it cannot give and why, and the sixth has a real if lesser answer in its place.

@@ -4856,3 +4856,239 @@ CNA_STUDIO_TEST(SelectionRootsAnswerTheSameWayWhateverTheSelectionCosts)
 
     CNA_STUDIO_EXPECT(findSelectionRoots(scene, {}).empty());
 }
+
+// ------------------------------------------------------------------------------------------------
+// Debug views (STUDIO-11011)
+// ------------------------------------------------------------------------------------------------
+
+/**
+ * @brief Each view is the channel it names, and the pair Unlit/Lighting Only really is a pair.
+ *
+ * The decision function on its own, because that is the whole of what a debug view is: everything
+ * downstream draws an ordinary `SceneModelBatch` and has no idea one of these is on.
+ */
+CNA_STUDIO_TEST(EachDebugViewDrawsTheChannelItNamesAndNothingElse)
+{
+    MeshMaterial source;
+    source.diffuseColor = StudioVector3{0.8f, 0.2f, 0.1f};
+    source.emissiveColor = StudioVector3{0.3f, 0.3f, 0.3f};
+    source.specularColor = StudioVector3{0.5f, 0.5f, 0.5f};
+    source.specularPower = 32.0f;
+    source.metallic = 0.75f;
+    source.roughness = 0.25f;
+    source.diffuseTexturePath = "textures/crate.png";
+
+    // None changes nothing, so a caller can apply this unconditionally rather than branching.
+    const MeshMaterial none = studioDebugMaterial(StudioDebugView::None, source);
+    CNA_STUDIO_EXPECT(none.diffuseColor.x == source.diffuseColor.x);
+    CNA_STUDIO_EXPECT_EQ(none.diffuseTexturePath, source.diffuseTexturePath);
+    CNA_STUDIO_EXPECT(none.emissiveColor.x == source.emissiveColor.x);
+
+    // Unlit is the albedo: the base colour and its map, with the emission dropped. Keeping the
+    // emission would make an emissive surface the brightest albedo in the scene, which is the one
+    // reading this view exists to rule out.
+    const MeshMaterial unlit = studioDebugMaterial(StudioDebugView::Unlit, source);
+    CNA_STUDIO_EXPECT(unlit.diffuseColor.x == source.diffuseColor.x);
+    CNA_STUDIO_EXPECT_EQ(unlit.diffuseTexturePath, source.diffuseTexturePath);
+    CNA_STUDIO_EXPECT(unlit.emissiveColor.x == 0.0f);
+
+    // Lighting Only is its complement: white, no map, so what is left on screen is the light.
+    const MeshMaterial lighting = studioDebugMaterial(StudioDebugView::LightingOnly, source);
+    CNA_STUDIO_EXPECT(lighting.diffuseColor.x == 1.0f);
+    CNA_STUDIO_EXPECT(lighting.diffuseColor.y == 1.0f);
+    CNA_STUDIO_EXPECT(lighting.diffuseTexturePath.empty());
+
+    // The highlight survives, because a specular response is light and dropping it would hide the
+    // half of the lighting that is hardest to get right.
+    CNA_STUDIO_EXPECT(lighting.specularColor.x == source.specularColor.x);
+    CNA_STUDIO_EXPECT(lighting.specularPower == source.specularPower);
+
+    // The channels are grey, and they are each other's opposite on this material -- which is what
+    // catches the one mistake worth catching here, the two reading the same field.
+    const MeshMaterial metallic = studioDebugMaterial(StudioDebugView::Metallic, source);
+    const MeshMaterial roughness = studioDebugMaterial(StudioDebugView::Roughness, source);
+    CNA_STUDIO_EXPECT(std::fabs(metallic.diffuseColor.x - 0.75f) < 0.001f);
+    CNA_STUDIO_EXPECT(metallic.diffuseColor.x == metallic.diffuseColor.z);
+    CNA_STUDIO_EXPECT(std::fabs(roughness.diffuseColor.x - 0.25f) < 0.001f);
+    CNA_STUDIO_EXPECT(roughness.diffuseColor.x == roughness.diffuseColor.z);
+
+    // No maps on a channel view: a number multiplied by a picture is a picture.
+    CNA_STUDIO_EXPECT(metallic.diffuseTexturePath.empty());
+    CNA_STUDIO_EXPECT(roughness.diffuseTexturePath.empty());
+}
+
+/**
+ * @brief Only the two lit views keep the scene's lights; the rest are drawn flat.
+ *
+ * Flat is not a flag the renderer is told about -- it is a white ambient with no directional
+ * lights, which both effects already compute to the base colour exactly. That is what lets the
+ * whole feature stay CNA-free, and it is worth a case of its own because the obvious shortcut,
+ * leaving `useDefaultLighting` set, would put XNA's three-point rig back over the channel.
+ */
+CNA_STUDIO_TEST(ADebugViewKeepsTheLightsOnlyWhereTheyAreThePoint)
+{
+    EffectLighting scene;
+    scene.useDefaultLighting = false;
+    scene.ambientColor = StudioVector3{0.1f, 0.1f, 0.12f};
+    scene.lightCount = 2;
+
+    CNA_STUDIO_EXPECT(studioDebugViewIsLit(StudioDebugView::None));
+    CNA_STUDIO_EXPECT(studioDebugViewIsLit(StudioDebugView::LightingOnly));
+    CNA_STUDIO_EXPECT(!studioDebugViewIsLit(StudioDebugView::Unlit));
+    CNA_STUDIO_EXPECT(!studioDebugViewIsLit(StudioDebugView::Metallic));
+    CNA_STUDIO_EXPECT(!studioDebugViewIsLit(StudioDebugView::Roughness));
+    CNA_STUDIO_EXPECT(!studioDebugViewIsLit(StudioDebugView::Normals));
+
+    CNA_STUDIO_EXPECT_EQ(studioDebugLighting(StudioDebugView::None, scene).lightCount,
+                         std::size_t{2});
+    CNA_STUDIO_EXPECT_EQ(studioDebugLighting(StudioDebugView::LightingOnly, scene).lightCount,
+                         std::size_t{2});
+
+    const EffectLighting flat = studioDebugLighting(StudioDebugView::Roughness, scene);
+    CNA_STUDIO_EXPECT_EQ(flat.lightCount, std::size_t{0});
+    CNA_STUDIO_EXPECT(flat.ambientColor.x == 1.0f);
+    CNA_STUDIO_EXPECT(flat.ambientColor.y == 1.0f);
+    CNA_STUDIO_EXPECT(flat.ambientColor.z == 1.0f);
+
+    // The one that would otherwise slip through: XNA's own rig, put back over the channel by a
+    // `useDefaultLighting` nobody cleared.
+    CNA_STUDIO_EXPECT(!flat.useDefaultLighting);
+}
+
+/** @brief The normal colour is the convention every normal map is written in. */
+CNA_STUDIO_TEST(ANormalSegmentIsColouredTheWayANormalMapIs)
+{
+    // +X is red, +Y green, +Z blue, and the negatives are the same channels at zero -- which is
+    // what makes an inverted face obvious rather than merely different.
+    CNA_STUDIO_EXPECT_EQ(int{studioNormalColor(StudioVector3{1.0f, 0.0f, 0.0f}).r}, 255);
+    CNA_STUDIO_EXPECT_EQ(int{studioNormalColor(StudioVector3{-1.0f, 0.0f, 0.0f}).r}, 0);
+    CNA_STUDIO_EXPECT_EQ(int{studioNormalColor(StudioVector3{0.0f, 1.0f, 0.0f}).g}, 255);
+    CNA_STUDIO_EXPECT_EQ(int{studioNormalColor(StudioVector3{0.0f, 0.0f, 1.0f}).b}, 255);
+
+    // Normalised first, so a normal of any length lands on the same colour as the unit one. A
+    // reader that skipped this would colour an unnormalised mesh by its vertex scale.
+    CNA_STUDIO_EXPECT_EQ(int{studioNormalColor(StudioVector3{7.0f, 0.0f, 0.0f}).r}, 255);
+
+    // A degenerate normal is mid-grey rather than a division by zero, because a mesh with one is
+    // exactly what somebody opens this view to find.
+    const StudioColor degenerate = studioNormalColor(StudioVector3{0.0f, 0.0f, 0.0f});
+    CNA_STUDIO_EXPECT(degenerate.r > 120 && degenerate.r < 136);
+}
+
+/**
+ * @brief A channel is resolved per part, so a model of several materials is right about each.
+ *
+ * The mistake this rules out is the cheap implementation: take the model's first material, show
+ * its number everywhere. On a single-material crate that is correct, which is why it would ship.
+ */
+CNA_STUDIO_TEST(AChannelViewReadsEachPartsOwnMaterialRatherThanTheFirstOne)
+{
+    MeshData mesh = makeTinyMesh();
+    mesh.parts[0].name = "Body";
+    mesh.parts[0].materialIndex = 0;
+
+    MeshPart second = mesh.parts[0];
+    second.name = "Trim";
+    second.materialIndex = 1;
+    mesh.parts.push_back(std::move(second));
+
+    MeshMaterial body;
+    body.roughness = 0.2f;
+    MeshMaterial trim;
+    trim.roughness = 0.9f;
+    mesh.materials = {body, trim};
+
+    ModelDraw draw;
+    draw.mesh = &mesh;
+    draw.lighting.lightCount = 3;
+
+    applyDebugViewToDraw(StudioDebugView::Roughness, draw);
+
+    CNA_STUDIO_EXPECT_EQ(draw.partMaterials.size(), std::size_t{2});
+    CNA_STUDIO_EXPECT_EQ(draw.partMaterials[0].first, std::string{"Body"});
+    CNA_STUDIO_EXPECT(std::fabs(draw.partMaterials[0].second.diffuseColor.x - 0.2f) < 0.001f);
+    CNA_STUDIO_EXPECT_EQ(draw.partMaterials[1].first, std::string{"Trim"});
+    CNA_STUDIO_EXPECT(std::fabs(draw.partMaterials[1].second.diffuseColor.x - 0.9f) < 0.001f);
+
+    // And the lights go with it, in the same pass, so a channel is never multiplied by whatever
+    // happens to be shining on it.
+    CNA_STUDIO_EXPECT_EQ(draw.lighting.lightCount, std::size_t{0});
+}
+
+/**
+ * @brief The channel reports the material that would have been drawn, override and all.
+ *
+ * An entity whose `ModelRenderer` overrides its model's material is looking at the override, and a
+ * roughness view that read past it to the model's own would answer a question nobody asked.
+ */
+CNA_STUDIO_TEST(AChannelViewFollowsTheOverrideTheRendererWouldHaveDrawn)
+{
+    MeshData mesh = makeTinyMesh();
+    mesh.parts[0].name = "Body";
+    mesh.parts[0].materialIndex = 0;
+
+    MeshMaterial own;
+    own.metallic = 0.0f;
+    mesh.materials = {own};
+
+    MeshMaterial override;
+    override.metallic = 1.0f;
+
+    ModelDraw draw;
+    draw.mesh = &mesh;
+    draw.materialOverride = override;
+
+    applyDebugViewToDraw(StudioDebugView::Metallic, draw);
+
+    CNA_STUDIO_EXPECT_EQ(draw.partMaterials.size(), std::size_t{1});
+    CNA_STUDIO_EXPECT(draw.partMaterials[0].second.diffuseColor.x == 1.0f);
+
+    // A per-part override is more specific still, and wins over the model-wide one -- the same
+    // order the renderer resolves in.
+    ModelDraw perPart;
+    perPart.mesh = &mesh;
+    perPart.materialOverride = override;
+    MeshMaterial trim;
+    trim.metallic = 0.5f;
+    perPart.partMaterials.emplace_back("Body", trim);
+
+    applyDebugViewToDraw(StudioDebugView::Metallic, perPart);
+    CNA_STUDIO_EXPECT(std::fabs(perPart.partMaterials[0].second.diffuseColor.x - 0.5f) < 0.001f);
+}
+
+/** @brief The batch builder applies the view, so the whole feature is one argument to one call. */
+CNA_STUDIO_TEST(TheModelBatchCarriesTheDebugViewItWasAskedFor)
+{
+    const ComponentRegistry registry = makeRegistry();
+    SceneDocument scene;
+    MeshData mesh = makeTinyMesh();
+    mesh.parts[0].name = "Body";
+    mesh.parts[0].materialIndex = 0;
+
+    MeshMaterial material;
+    material.diffuseColor = StudioVector3{0.9f, 0.1f, 0.1f};
+    material.metallic = 1.0f;
+    mesh.materials = {material};
+
+    const Uuid modelId = Uuid::generate();
+    StudioEntity entity = makeEntity(registry, "Crate", 0.0f, 0.0f);
+    addModelRenderer(registry, entity, modelId);
+    scene.addEntity(std::move(entity));
+
+    StudioCamera3D camera;
+    camera.setViewportSize(StudioVector2{800.0f, 600.0f});
+    const MeshProvider provider = [&](const Uuid& id) { return id == modelId ? &mesh : nullptr; };
+
+    // Default: untouched, so every existing caller keeps meaning what it meant.
+    const SceneModelBatch plain = buildSceneModelBatch(scene, camera, provider);
+    CNA_STUDIO_EXPECT_EQ(plain.draws.size(), std::size_t{1});
+    CNA_STUDIO_EXPECT(plain.draws[0].partMaterials.empty());
+    CNA_STUDIO_EXPECT(!plain.draws[0].materialOverride.has_value());
+
+    const SceneModelBatch metallic =
+        buildSceneModelBatch(scene, camera, provider, {}, {}, StudioDebugView::Metallic);
+    CNA_STUDIO_EXPECT_EQ(metallic.draws.size(), std::size_t{1});
+    CNA_STUDIO_EXPECT_EQ(metallic.draws[0].partMaterials.size(), std::size_t{1});
+    CNA_STUDIO_EXPECT(metallic.draws[0].partMaterials[0].second.diffuseColor.x == 1.0f);
+    CNA_STUDIO_EXPECT_EQ(metallic.draws[0].lighting.lightCount, std::size_t{0});
+}

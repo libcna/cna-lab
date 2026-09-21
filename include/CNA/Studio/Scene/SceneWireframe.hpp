@@ -188,6 +188,30 @@ namespace CNA::Studio
         bool drawLightGizmos = true;
 
         /**
+         * @brief Draw a segment per vertex normal, coloured by the direction it points.
+         *
+         * `plan.md` STUDIO-11011, and the honest half of that row: CNA exposes `BasicEffect` and
+         * `PbrEffect` and no seam for an effect of one's own, so there is no way to write a normal
+         * *buffer* and Studio is not entitled to invent one (gap G-12). The normals themselves,
+         * drawn, answer the questions a normal buffer is opened for -- inverted faces, split
+         * seams, an importer mirror that did not take -- and they are a picture of the data rather
+         * than of a shader nobody has.
+         *
+         * Off by default: on a scene of any size this is a segment per vertex, which is the one
+         * overlay here that can reach `maxSegments` on a single model.
+         */
+        bool drawMeshNormals = false;
+
+        /**
+         * @brief How long a normal segment is, as a fraction of the model's largest extent.
+         *
+         * A fraction rather than a length in world units, because the alternative is an overlay
+         * that is invisible on a chair and a forest of spikes on a terrain -- the two models a
+         * user is most likely to switch between while looking for the same defect.
+         */
+        float meshNormalLength = 0.06f;
+
+        /**
          * @brief Which entities get their bounding box drawn over them (`plan.md` STUDIO-11008).
          *
          * `None` by default, because the overlay's job is to answer a question -- why did my click
@@ -360,6 +384,31 @@ namespace CNA::Studio
                                 const MeshData& mesh, const StudioMatrix& world,
                                 const StudioColor& color, float thickness, std::size_t budget,
                                 bool& outTruncated);
+
+    /**
+     * @brief Appends a segment per vertex normal of @p mesh, placed by @p world.
+     *
+     * Each segment is coloured by the direction its normal points, in the `n * 0.5 + 0.5`
+     * convention every normal map is written in (`studioNormalColor`), so the overlay reads the
+     * same way a normal map does to anyone who has opened one.
+     *
+     * The normal is rotated by @p world and the *position* is transformed by it, which is not the
+     * same operation: a normal carries no translation, and adding one would sweep every normal in
+     * the scene towards the origin as the model moved away from it. A non-uniform scale bends a
+     * normal in a way this does not correct, and the plan says so rather than implying otherwise
+     * -- the inverse-transpose belongs to the renderer that shades with it, and an overlay that
+     * silently disagreed with the shading would be worse than one that visibly matches it.
+     *
+     * @param lengthFraction How long a segment is, as a fraction of @p mesh's largest extent.
+     * @param budget The most segments this call may add. Vertices are sampled at a stride when the
+     *        mesh has more, for the reason `appendMeshEdges` gives: a sparse whole model is a
+     *        picture of the model, and a complete corner of one is a picture of the budget.
+     * @return The number of segments appended.
+     */
+    std::size_t appendMeshNormals(std::vector<WireSegment>& segments, const StudioCamera3D& camera,
+                                  const MeshData& mesh, const StudioMatrix& world,
+                                  float lengthFraction, float thickness, std::size_t budget,
+                                  bool& outTruncated);
 
     /**
      * @brief Returns everything the 3D viewport draws for @p scene.

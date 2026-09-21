@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MS-PL
 #include "CNA/Studio/Scene/SceneWireframe.hpp"
 
+#include "CNA/Studio/Scene/SceneDebugView.hpp"
 #include "CNA/Studio/Scene/SceneLock.hpp"
 
 #include <algorithm>
@@ -413,6 +414,64 @@ namespace CNA::Studio
         return drawn;
     }
 
+    std::size_t appendMeshNormals(std::vector<WireSegment>& segments, const StudioCamera3D& camera,
+                                  const MeshData& mesh, const StudioMatrix& world,
+                                  float lengthFraction, float thickness, std::size_t budget,
+                                  bool& outTruncated)
+    {
+        if (budget == 0)
+        {
+            outTruncated = true;
+            return 0;
+        }
+
+        // A fraction of the model's largest extent, so the overlay is legible on a chair and on a
+        // terrain without a setting between them. A model with no extent at all -- every vertex at
+        // one point, which a degenerate import does produce -- gets a unit length rather than zero,
+        // because zero-length normals are indistinguishable from no normals and the user came here
+        // to find out which.
+        const StudioVector3 extent = subtract(mesh.boundsMax, mesh.boundsMin);
+        const float largest = std::max({extent.x, extent.y, extent.z, 0.0f});
+        const float length = largest > 1e-4f ? largest * lengthFraction : 1.0f;
+
+        const std::size_t vertices = mesh.getVertexCount();
+        const std::size_t stride = vertices > budget ? (vertices + budget - 1) / budget : 1;
+        if (stride > 1) { outTruncated = true; }
+
+        std::size_t drawn = 0;
+        for (const MeshPart& part : mesh.parts)
+        {
+            for (std::size_t index = 0; index < part.vertices.size(); index += stride)
+            {
+                if (drawn >= budget)
+                {
+                    outTruncated = true;
+                    return drawn;
+                }
+
+                const MeshVertex& vertex = part.vertices[index];
+
+                // The direction is rotated and the point is transformed: a normal has no position
+                // and a position is not a direction. See the header for the inverse-transpose this
+                // deliberately does not apply.
+                const StudioVector3 from = transformPosition(world, vertex.position);
+                const StudioVector3 direction = transformDirection(world, vertex.normal);
+                const StudioVector3 to =
+                    add(from, scale(normalize(direction), length));
+
+                const std::optional<std::pair<StudioVector2, StudioVector2>> projected =
+                    projectSegment(camera, from, to);
+                if (!projected) { continue; }
+
+                segments.push_back(WireSegment{projected->first, projected->second,
+                                               studioNormalColor(direction), thickness});
+                ++drawn;
+            }
+        }
+
+        return drawn;
+    }
+
     std::optional<std::pair<StudioVector2, StudioVector2>> projectSegment(const StudioCamera3D& camera,
                                                                           const StudioVector3& from,
                                                                           const StudioVector3& to)
@@ -753,6 +812,27 @@ namespace CNA::Studio
             // the outline is the *only* thing marking it, and a selection a user cannot see is one
             // they lose track of (`plan.md` STUDIO-11007).
             const bool wantsEdges = options.drawMeshEdges || (selected && options.drawSelectionOutline);
+
+            // The normals are appended *before* that branch and outside it, deliberately. The
+            // mesh branch below ends in a `continue`, so folding normals into `wantsEdges` would
+            // have made turning the view on take an entity down a different path and lose whatever
+            // the old one drew -- the box around a model, in the Shaded mode where this view is
+            // used. An overlay that removes things while it adds one is an overlay nobody can
+            // read. This way it is additive in every mode (`plan.md` STUDIO-11011).
+            if (options.drawMeshNormals)
+            {
+                if (const MeshData* normalsMesh = findEntityMesh(entity, options.meshProvider);
+                    normalsMesh != nullptr && !normalsMesh->isEmpty())
+                {
+                    if (const std::optional<WorldTransform> normalsWorld =
+                            computeWorldTransform(scene, entity.getId()))
+                    {
+                        appendMeshNormals(result.segments, camera, *normalsMesh,
+                                          toWorldMatrix(*normalsWorld), options.meshNormalLength,
+                                          1.0f, remaining(), result.truncated);
+                    }
+                }
+            }
 
             if (const MeshData* mesh =
                     wantsEdges ? findEntityMesh(entity, options.meshProvider) : nullptr;

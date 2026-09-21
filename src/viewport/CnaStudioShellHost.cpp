@@ -965,7 +965,7 @@ namespace CNA::Studio
                 const WireframeOptions wireframeOptions = studioViewportWireframeOptions(
                     panels_->viewportShading(), panels_->viewportGridOnGroundPlane(),
                     panels_->viewportBoundsOverlay(), panels_->viewportBoundingSpheres(),
-                    context_->makeMeshProvider());
+                    context_->makeMeshProvider(), panels_->viewportDebugView());
 
                 const StudioShadingPlan shading = studioShadingPlan(panels_->viewportShading());
 
@@ -978,7 +978,8 @@ namespace CNA::Studio
                         ? buildSceneModelBatch(context_->getScene(), camera,
                                                context_->makeMeshProvider(),
                                                context_->getSelection(),
-                                               context_->makeMaterialProvider())
+                                               context_->makeMaterialProvider(),
+                                               panels_->viewportDebugView())
                         : SceneModelBatch{};
 
                 // Sprites as quads in the scene's own plane. `SpriteBatch` cannot draw the

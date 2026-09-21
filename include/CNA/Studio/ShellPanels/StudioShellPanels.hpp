@@ -478,6 +478,12 @@ namespace CNA::Studio
             return viewportState_.shading;
         }
 
+        /** @brief What the 3D view colours surfaces by (`plan.md` STUDIO-11011). */
+        [[nodiscard]] StudioDebugView viewportDebugView() const
+        {
+            return viewportState_.debugView;
+        }
+
         /** @brief Which entities get their bounding volume drawn (`plan.md` STUDIO-11008). */
         [[nodiscard]] BoundsDisplay viewportBoundsOverlay() const
         {

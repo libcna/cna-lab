@@ -149,8 +149,25 @@ namespace CNA::Studio
                       "studio.file.quit"}},
             {"Edit", {"studio.edit.undo", "studio.edit.redo", sep,
                       "studio.edit.rename", "studio.edit.duplicate", "studio.edit.delete"}},
+            // Shading and the debug views as submenus rather than nine more rows: they are two
+            // exclusive groups, and a flat View menu of nine radio rows is one a user has to read
+            // rather than aim at. Both groups had no menu at all until STUDIO-11011 -- they were
+            // registered, bound, tested and reachable from nothing, which is the same as not being
+            // there.
             {"View", {"studio.view.focusSelected", "studio.view.toggleGrid",
                       "studio.view.gridOnGroundPlane", sep,
+                      StudioMenuEntry::submenu("Shading",
+                          {StudioMenuEntry{"studio.view.shading.shaded"},
+                           StudioMenuEntry{"studio.view.shading.wireframe"},
+                           StudioMenuEntry{"studio.view.shading.shadedWireframe"}}),
+                      StudioMenuEntry::submenu("Debug View",
+                          {StudioMenuEntry{"studio.view.debug.none"},
+                           StudioMenuEntry{"studio.view.debug.unlit"},
+                           StudioMenuEntry{"studio.view.debug.lighting"},
+                           StudioMenuEntry{"studio.view.debug.metallic"},
+                           StudioMenuEntry{"studio.view.debug.roughness"},
+                           StudioMenuEntry{"studio.view.debug.normals"}}),
+                      sep,
                       "studio.view.translate", "studio.view.rotate", "studio.view.scale",
                       "studio.view.toggleGizmoSpace", sep,
                       "studio.view.tool.select", "studio.view.tool.paint",

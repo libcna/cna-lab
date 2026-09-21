@@ -9,10 +9,47 @@
 
 namespace CNA::Studio
 {
+    void applyDebugViewToDraw(StudioDebugView debugView, ModelDraw& draw)
+    {
+        if (debugView == StudioDebugView::None || draw.mesh == nullptr) { return; }
+
+        // The renderer's own resolution order, so a channel reports the material that would have
+        // been drawn rather than the one the model shipped with.
+        const auto resolve = [&draw](const MeshPart& part) -> MeshMaterial {
+            for (const auto& [name, material] : draw.partMaterials)
+            {
+                if (name == part.name) { return material; }
+            }
+            if (draw.materialOverride.has_value()) { return *draw.materialOverride; }
+
+            const bool named = part.materialIndex >= 0
+                               && static_cast<std::size_t>(part.materialIndex)
+                                      < draw.mesh->materials.size();
+            return named ? draw.mesh->materials[static_cast<std::size_t>(part.materialIndex)]
+                         : MeshMaterial{};
+        };
+
+        std::vector<std::pair<std::string, MeshMaterial>> replaced;
+        replaced.reserve(draw.mesh->parts.size());
+        for (const MeshPart& part : draw.mesh->parts)
+        {
+            replaced.emplace_back(part.name, studioDebugMaterial(debugView, resolve(part)));
+        }
+
+        // The per-part list carries the answer, and the model-wide override is set to the same
+        // view of a default material so that a part the list does not name -- one whose name is
+        // empty, which the importer does produce -- is still drawn in the debug view rather than
+        // in its own colours beside it.
+        draw.partMaterials = std::move(replaced);
+        draw.materialOverride = studioDebugMaterial(debugView, MeshMaterial{});
+        draw.lighting = studioDebugLighting(debugView, draw.lighting);
+    }
+
     SceneModelBatch buildSceneModelBatch(const SceneDocument& scene, const StudioCamera3D& camera,
                                          const MeshProvider& meshProvider,
                                          const std::vector<Uuid>& selection,
-                                         const MaterialProvider& materialProvider)
+                                         const MaterialProvider& materialProvider,
+                                         StudioDebugView debugView)
     {
         SceneModelBatch batch;
         batch.environment = scene.getEnvironment();
@@ -106,6 +143,9 @@ namespace CNA::Studio
 
             draw.selected =
                 std::find(selection.begin(), selection.end(), entity.getId()) != selection.end();
+
+            // Last, so it sees the materials every other rule has already resolved (STUDIO-11011).
+            applyDebugViewToDraw(debugView, draw);
 
             batch.triangleCount += mesh->getTriangleCount();
             batch.draws.push_back(draw);

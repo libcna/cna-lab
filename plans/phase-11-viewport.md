@@ -6,7 +6,7 @@
 
 **Exit criteria.** A user can navigate a real scene comfortably and see what they are authoring, without regressing the existing 2D workflow.
 
-**Progress:** 14 of 15 complete `███████████░`
+**Progress:** 15 of 15 complete `████████████`
 
 | Id | Task | Status | Depends on |
 |----|------|:------:|------------|
@@ -20,7 +20,7 @@
 | `STUDIO-11008` | Bounds and collision debug visualisation | ✅ | `STUDIO-11006` |
 | `STUDIO-11009` | Icons and billboards for entities with no geometry | ✅ | `STUDIO-11006` |
 | `STUDIO-11010` | Wireframe mode | ✅ | `STUDIO-11001` |
-| `STUDIO-11011` | Lighting modes, unlit mode, normal and material debug views | ⬜ | `STUDIO-19001` |
+| `STUDIO-11011` | Lighting modes, unlit mode, normal and material debug views | ✅ | `STUDIO-19001` |
 | `STUDIO-11012` | Camera preview and game view | ✅ | `STUDIO-11001` |
 | `STUDIO-11013` | Preserve the existing 2D viewport workflow without regression | ✅ | `STUDIO-07009` |
 | `STUDIO-11014` | A new CNA-native project opens directly into a 3D world viewport | ✅ | `STUDIO-11001`, `STUDIO-08006` |
@@ -299,6 +299,93 @@ choice to make. `tests/ModelImportTests.cpp` pins that `drawMeshEdges = false` r
 to the box — the same segment count as an entity with no mesh at all. Checked by causing both: a
 Wireframe plan that keeps textured sprites, and a wireframe that ignores `drawMeshEdges`, each fail
 by name.
+
+### `STUDIO-11011` — Lighting modes, unlit mode, normal and material debug views
+
+**Acceptance.** The 3D view can be asked what colour a surface is by, rather than only how it is
+drawn: the albedo alone, the lighting alone, metalness, roughness, and the surface normals. Each is
+named on screen while it is on, and each is reachable from a menu.
+
+**A debug view is not a shading mode and is not three more of them.** `StudioViewportShading`
+answers "solid, edges, or both"; this answers "what colour is the surface". They are different
+questions and they compose, so they are two exclusive groups and a user switching to Roughness
+keeps whatever shading they were working in. Folding the two into one enum would have made every
+channel view also a decision about wireframes, which is a restriction with no reason behind it.
+
+**The whole feature is a material and a lighting environment, and that is what keeps it CNA-free.**
+`studioDebugMaterial` and `studioDebugLighting` produce an ordinary `SceneModelBatch`: the renderer
+draws it exactly as it draws any other and there is no debug branch in the model pass at all. Unlit
+is not a flag the effect is told about — it is a white ambient with no directional lights, which
+`BasicEffect` and `PbrEffect` both already compute to a flat albedo. A channel view is a material
+whose base colour *is* the channel. The one line of wiring is an argument on
+`buildSceneModelBatch`, defaulted so every existing caller keeps meaning what it meant.
+
+**Resolved per part, because a model of several materials has several answers.** The cheap version
+— take the model's first material and show its number everywhere — is correct on a single-material
+crate, which is exactly why it would ship. The resolution order is the renderer's own (the per-part
+override, then the model override, then the part's own material), so what a channel reports is what
+would have been drawn rather than what the model shipped with.
+
+**Unlit and Lighting Only are a pair and that is the point of having both.** A model that looks
+wrong is either wrong in its texture or wrong in its lighting. The two views separate the question
+without needing a second scene to compare against, which is why Unlit keeps the base-colour map and
+drops the emission, and Lighting Only drops every map and keeps the specular response.
+
+**The normal view is the honest answer to something CNA cannot do, and the plan says so.** A true
+normal buffer — every pixel coloured by its interpolated surface normal — is a fragment program,
+and CNA exposes `BasicEffect` and `PbrEffect` and no seam for an effect of one's own. That is filed
+as **gap G-12** rather than worked around invisibly. What Studio draws instead is the normals
+themselves, one segment per vertex, each coloured by the direction it points in the
+`n * 0.5 + 0.5` convention every normal map is written in. It answers the questions a normal buffer
+is opened for — inverted faces, split seams, an importer mirror that did not take — and it is a
+picture of the data rather than of a shader nobody has. It is not the same picture: it samples
+vertices, not pixels, and says nothing about interpolation across a face.
+
+**The workaround that was rejected is worth recording too.** A second vertex buffer per model,
+coloured per vertex by its normal and drawn through `BasicEffect`, would look like a normal buffer.
+It would also double the GPU memory of every mesh in the project, permanently, for a view nobody
+leaves on. Studio is not entitled to spend a user's memory on its own convenience.
+
+**The overlay is additive, and the first draft was not.** Folding the normals into the wireframe's
+`wantsEdges` condition sent a model entity down the mesh branch, which ends in a `continue` — so
+turning the view on drew three normals and silently took away the box the entity had. An overlay
+that removes things while it adds one is an overlay nobody can read. The normals are appended
+before that branch and outside it, so the view is additive in every shading mode.
+
+**Both groups had no menu at all before this task.** `STUDIO-11010` registered three shading modes,
+bound them, tested them, and named them from nothing: they were reachable only by invoking an id.
+The suite was green, because the existing guard asks whether every menu row names a real action and
+never the other way round. They are in a **Shading** submenu now and the debug views in a **Debug
+View** one beside it, and a case asserts that every id in both is named by some menu.
+
+**A viewport in a debug view says so.** The same argument the tool overlay is written for: a scene
+drawn in Roughness is grey, and so is a scene whose textures failed to import; a scene in Unlit is
+flat, and so is a scene whose lights were deleted. Bottom-left, because the toolbar and the tool
+overlay are both in the top-left and three things stacked in one corner is a corner nobody reads.
+Nothing at all in the default, because an overlay permanently on screen is chrome over the thing
+the viewport exists to show.
+
+**Something noticed and deliberately not changed.** `WireframeOptions::drawEntityBounds` says
+"Draw a box per entity" and in fact gates the whole per-entity pass — mesh edges, selection
+outlines and now normals with it. The editor never sets it false so nothing is wrong on screen, but
+a first draft of the normals case set it to isolate them and measured nothing at all. Renaming it
+belongs to whoever next has a reason to touch that loop; the case now says why it leaves it on.
+
+**Verification.** `tests/SceneTests.cpp` — each view is the channel it names, with metalness and
+roughness opposite on one material so the two reading the same field is caught; only the two lit
+views keep the lights, and a flat one clears `useDefaultLighting` so XNA's own rig is not put back
+over the channel; the normal colour is the convention, normalised, with a degenerate normal grey
+rather than a division; a channel is resolved per part and follows the override the renderer would
+have drawn; and the batch builder carries it, untouched by default.
+`tests/ModelImportTests.cpp` — one segment per vertex, alive in the Shaded mode, each segment
+equal to its own vertex normal's colour, and the budget sampled and reported.
+`tests/StudioViewportPanelTests.cpp` — every id in both groups is named by a menu; choosing a view
+is exclusive, keeps the shading, reaches the wireframe options and is greyed out in 2D; and the
+overlay appears, sits bottom-left, and says nothing in the default.
+Checked by causing each: roughness reading metalness, `useDefaultLighting` left set, every part
+taking the first material, one overlay colour for every normal, the submenu removed, and the
+overlay drawn unconditionally each fail by name. A seventh -- dropping the debug view on the way to
+the wireframe options -- does not compile, because the parameter goes unused under `-Werror`.
 
 ### `STUDIO-11008` — Bounds and collision debug visualisation
 

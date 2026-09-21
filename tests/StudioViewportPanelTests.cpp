@@ -1455,3 +1455,140 @@ CNA_STUDIO_TEST(AnAssetDroppedIntoTheViewLandsWhereItWasLetGo)
     // reached the scene from here.
     CNA_STUDIO_EXPECT_EQ(fixture.context.getHistory().getCount(), std::size_t{0});
 }
+
+// ------------------------------------------------------------------------------------------------
+// Debug views (STUDIO-11011)
+// ------------------------------------------------------------------------------------------------
+
+CNA_STUDIO_TEST(EveryShadingModeAndDebugViewIsReachableFromTheViewMenu)
+{
+    // Both groups were registered, bound, tested and named by no menu at all until STUDIO-11011.
+    // A user could not reach a shading mode from the running editor, and the suite was green --
+    // because nothing here asks the question the other way round. The existing guard checks that
+    // every menu row names a real action, which passes perfectly for an action offered nowhere.
+    StudioShell shell;
+    shell.resetLayout();
+
+    std::vector<std::string> offered;
+    const auto collect = [&](auto&& self, const std::vector<StudioMenuEntry>& entries) -> void {
+        for (const StudioMenuEntry& entry : entries)
+        {
+            if (entry.isSubmenu()) { self(self, entry.rows); continue; }
+            if (!entry.isSeparator()) { offered.push_back(entry.id); }
+        }
+    };
+    for (const StudioMenuDefinition& menu : shell.menus()) { collect(collect, menu.entries); }
+
+    const auto names = [&](std::string_view id) {
+        return std::find(offered.begin(), offered.end(), id) != offered.end();
+    };
+
+    for (const char* id : {"studio.view.shading.shaded", "studio.view.shading.wireframe",
+                           "studio.view.shading.shadedWireframe"})
+    {
+        if (!names(id))
+        {
+            CnaStudioTest::reportFailure(__FILE__, __LINE__,
+                std::string{"no menu names '"} + id + "', so a user cannot reach it.");
+        }
+    }
+
+    for (const char* id : {"studio.view.debug.none", "studio.view.debug.unlit",
+                           "studio.view.debug.lighting", "studio.view.debug.metallic",
+                           "studio.view.debug.roughness", "studio.view.debug.normals"})
+    {
+        if (!names(id))
+        {
+            CnaStudioTest::reportFailure(__FILE__, __LINE__,
+                std::string{"no menu names '"} + id + "', so a user cannot reach it.");
+        }
+    }
+}
+
+CNA_STUDIO_TEST(ChoosingADebugViewIsExclusiveKeepsTheShadingAndIsDeadInTwoDimensions)
+{
+    // The three claims the binding makes. The second is the one worth a case: a user switching to
+    // Roughness has not asked to leave the wireframe they were working in, and a debug view folded
+    // into the shading enum would have taken it away from them.
+    StudioContext context;
+    StudioLog log;
+    StudioShell shell;
+    shell.resetLayout();
+
+    StudioCamera2D camera;
+    StudioCamera3D camera3D;
+    StudioShellPanels panels{shell, context, log};
+    panels.setViewportServices(camera, camera3D, {});
+
+    shell.invoke("studio.view.3d");
+    shell.invoke("studio.view.shading.shadedWireframe");
+    CNA_STUDIO_EXPECT(shell.actions().isChecked("studio.view.debug.none"));
+
+    shell.invoke("studio.view.debug.roughness");
+    CNA_STUDIO_EXPECT(shell.actions().isChecked("studio.view.debug.roughness"));
+    CNA_STUDIO_EXPECT(!shell.actions().isChecked("studio.view.debug.none"));
+    CNA_STUDIO_EXPECT(panels.viewportDebugView() == StudioDebugView::Roughness);
+
+    // The shading is untouched: two questions, two answers.
+    CNA_STUDIO_EXPECT(shell.actions().isChecked("studio.view.shading.shadedWireframe"));
+    CNA_STUDIO_EXPECT(panels.viewportShading() == StudioViewportShading::ShadedWireframe);
+
+    // Exclusive: choosing another replaces it rather than adding to it.
+    shell.invoke("studio.view.debug.normals");
+    CNA_STUDIO_EXPECT(!shell.actions().isChecked("studio.view.debug.roughness"));
+    CNA_STUDIO_EXPECT(panels.viewportDebugView() == StudioDebugView::Normals);
+
+    // And the options the 3D view is built with follow, which is the only thing that makes any of
+    // the above visible on screen.
+    CNA_STUDIO_EXPECT(studioViewportWireframeOptions(panels.viewportShading(), false,
+                                                     BoundsDisplay::None, false, {},
+                                                     panels.viewportDebugView())
+                          .drawMeshNormals);
+    CNA_STUDIO_EXPECT(!studioViewportWireframeOptions(panels.viewportShading(), false,
+                                                      BoundsDisplay::None, false, {},
+                                                      StudioDebugView::Roughness)
+                           .drawMeshNormals);
+
+    // Greyed out in the 2D view, where there are no meshes and no choice to make -- drawn
+    // unavailable rather than hidden, like the shading modes beside them.
+    shell.invoke("studio.view.2d");
+    CNA_STUDIO_EXPECT(!shell.actions().isEnabled("studio.view.debug.roughness"));
+    CNA_STUDIO_EXPECT(!shell.actions().isEnabled("studio.view.debug.none"));
+}
+
+CNA_STUDIO_TEST(TheViewportSaysWhichDebugViewIsOnAndSaysNothingInTheDefault)
+{
+    // A scene drawn in Roughness is grey, and so is a scene whose textures failed to import. The
+    // overlay is the only thing that tells a user which of the two they are looking at.
+    StudioShell shell{StudioTheme::dark()};
+    shell.resetLayout();
+
+    const UiRect bounds{0.0f, 0.0f, 640.0f, 480.0f};
+    UiRect defaultStrip;
+    UiRect roughnessStrip;
+
+    runStudioFrame(shell.frame(), UiInputState{}, [&](StudioFrame& frame) {
+        defaultStrip = studioViewportDebugOverlay(frame, bounds, StudioDebugView::None);
+        roughnessStrip = studioViewportDebugOverlay(frame, bounds, StudioDebugView::Roughness);
+    });
+
+    // Nothing at all in the default, because an overlay permanently on screen is chrome over the
+    // thing the viewport exists to show.
+    CNA_STUDIO_EXPECT(defaultStrip.isEmpty());
+
+    CNA_STUDIO_EXPECT(!roughnessStrip.isEmpty());
+
+    // Bottom-left: the toolbar and the tool overlay are both in the top-left, and three things
+    // stacked in one corner is a corner nobody reads.
+    CNA_STUDIO_EXPECT(roughnessStrip.bottom() <= bounds.bottom());
+    CNA_STUDIO_EXPECT(roughnessStrip.top() > bounds.centerY());
+    CNA_STUDIO_EXPECT(roughnessStrip.left() < bounds.centerX());
+
+    // A viewport too small for the strip gets none rather than a clipped one.
+    UiRect tiny;
+    runStudioFrame(shell.frame(), UiInputState{}, [&](StudioFrame& frame) {
+        tiny = studioViewportDebugOverlay(frame, UiRect{0.0f, 0.0f, 640.0f, 4.0f},
+                                          StudioDebugView::Roughness);
+    });
+    CNA_STUDIO_EXPECT(tiny.isEmpty());
+}

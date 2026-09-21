@@ -928,6 +928,30 @@ namespace CNA::Studio
             shell.actions().add(std::move(action));
         }
 
+        // What the 3D view colours surfaces by (`plan.md` STUDIO-11011). The same shape as the
+        // shading group above and deliberately a separate one: the two questions compose, so a
+        // user switching to Roughness keeps whatever shading they were working in.
+        for (const auto& [id, view] :
+             {std::pair{"studio.view.debug.none", StudioDebugView::None},
+              std::pair{"studio.view.debug.unlit", StudioDebugView::Unlit},
+              std::pair{"studio.view.debug.lighting", StudioDebugView::LightingOnly},
+              std::pair{"studio.view.debug.metallic", StudioDebugView::Metallic},
+              std::pair{"studio.view.debug.roughness", StudioDebugView::Roughness},
+              std::pair{"studio.view.debug.normals", StudioDebugView::Normals}})
+        {
+            const StudioAction* existing = shell.actions().find(id);
+            if (existing == nullptr) { continue; }
+
+            StudioAction action = *existing;
+            action.checkable = true;
+            action.isChecked = [this, view] { return viewportState_.debugView == view; };
+            action.isEnabled = [this] {
+                return viewportState_.view == StudioViewportView::ThreeD;
+            };
+            action.run = [this, view] { viewportState_.debugView = view; };
+            shell.actions().add(std::move(action));
+        }
+
         // The bounds overlay (`plan.md` STUDIO-11008). Exclusive and checkable, exactly as the
         // shading modes above: three answers to one question, and the toolbar has to show which.
         for (const auto& [id, display] :
@@ -1093,6 +1117,7 @@ namespace CNA::Studio
             // described for the same reason and in the same place.
             studioViewportToolbar(frame, bounds, shell_->actions());
             studioViewportToolOverlay(frame, bounds, viewportState_);
+            studioViewportDebugOverlay(frame, bounds, viewportState_.debugView);
             studioViewportSelectionOverlay(frame, bounds, viewportState_);
 
             forwardToPlayer(viewport.pointerInside);

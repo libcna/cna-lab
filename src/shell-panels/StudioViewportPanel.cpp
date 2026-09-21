@@ -1543,6 +1543,36 @@ namespace CNA::Studio
         frame.ids().pop();
     }
 
+    UiRect studioViewportDebugOverlay(StudioFrame& frame, const UiRect& bounds,
+                                      StudioDebugView view)
+    {
+        if (bounds.isEmpty() || view == StudioDebugView::None) { return UiRect{}; }
+
+        const StudioTheme& theme = frame.theme();
+        const float pad = static_cast<float>(theme.metric(StudioMetric::SpacingSmall));
+        const float rowHeight = static_cast<float>(theme.metric(StudioMetric::ControlHeight));
+
+        const std::string text = std::string{studioDebugViewName(view)} + " view";
+
+        // Wide enough for the longest name rather than measured: the strip is a fixed label and a
+        // width that changed as the user cycled the views would be a box that jumps about.
+        const float width = std::min(bounds.width - pad * 2.0f, 200.0f);
+        if (width <= 0.0f || rowHeight + pad * 2.0f > bounds.height) { return UiRect{}; }
+
+        const UiRect strip{bounds.x + pad, bounds.bottom() - pad - rowHeight, width, rowHeight};
+
+        if (frame.isDrawPass())
+        {
+            frame.drawList().fillRect(strip, theme.color(StudioColorRole::PopupBackground));
+            frame.drawList().strokeRect(strip, theme.color(StudioColorRole::Border),
+                                        static_cast<float>(theme.metric(StudioMetric::BorderWidth)));
+            studioDrawText(frame, strip.inset(UiEdges{pad, 0.0f}), text, StudioFontRole::Body,
+                           theme.color(StudioColorRole::TextPrimary));
+        }
+
+        return strip;
+    }
+
     const std::vector<StudioViewportToolbarItem>& studioViewportToolbarItems()
     {
         // Ordered as the work is: which projection, then what a drag does, then what it does it in,
@@ -1708,7 +1738,8 @@ namespace CNA::Studio
                                                     bool gridOnGroundPlane,
                                                     BoundsDisplay boundsOverlay,
                                                     bool boundingSpheres,
-                                                    MeshProvider meshProvider)
+                                                    MeshProvider meshProvider,
+                                                    StudioDebugView debugView)
     {
         WireframeOptions options;
 
@@ -1718,6 +1749,11 @@ namespace CNA::Studio
         options.gridPlane = gridOnGroundPlane ? GridPlane::Ground : GridPlane::SceneXY;
 
         options.drawMeshEdges = studioShadingPlan(shading).meshEdges;
+
+        // The normal overlay is the Normals view and nothing else turns it on (STUDIO-11011). It
+        // is a segment per vertex, so a scene left in it permanently would be paying a wireframe
+        // the size of its geometry every frame.
+        options.drawMeshNormals = studioDebugViewDrawsNormals(debugView);
         options.boundsOverlay = boundsOverlay;
         options.drawBoundingSpheres = boundingSpheres;
 

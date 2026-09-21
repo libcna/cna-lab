@@ -36,6 +36,7 @@
 #include "CNA/Studio/Core/Uuid.hpp"
 #include "CNA/Studio/Scene/StudioCamera3D.hpp"
 #include "CNA/Studio/Scene/SceneEnvironment.hpp"
+#include "CNA/Studio/Scene/SceneDebugView.hpp"
 #include "CNA/Studio/Scene/SceneLighting.hpp"
 
 namespace CNA::Studio
@@ -171,11 +172,26 @@ namespace CNA::Studio
      * but no transform is skipped too: there is nowhere to put it, and the origin is not a guess
      * this function is entitled to make.
      */
-    [[nodiscard]] SceneModelBatch buildSceneModelBatch(const SceneDocument& scene,
-                                                       const StudioCamera3D& camera,
-                                                       const MeshProvider& meshProvider,
-                                                       const std::vector<Uuid>& selection = {},
-                                                       const MaterialProvider& materialProvider = {});
+    [[nodiscard]] SceneModelBatch buildSceneModelBatch(
+        const SceneDocument& scene, const StudioCamera3D& camera, const MeshProvider& meshProvider,
+        const std::vector<Uuid>& selection = {}, const MaterialProvider& materialProvider = {},
+        StudioDebugView debugView = StudioDebugView::None);
+
+    /**
+     * @brief Rewrites @p draw for @p debugView, resolving each part's material first.
+     *
+     * Separate from the batch builder and exposed, because it is the whole of what a debug view
+     * *is* (`plan.md` STUDIO-11011) and a test that went through the builder would be asserting it
+     * through a scene, a camera and two providers. A no-op for `StudioDebugView::None`.
+     *
+     * Per part rather than per model: metalness and roughness belong to a material, a model of
+     * several parts has several, and a channel view that showed the first part's number over all
+     * of them would be a picture that is right about one part and confidently wrong about the
+     * rest. The resolution order is the renderer's own -- the per-part override, then the model
+     * override, then the part's own material -- so what a channel reports is what would have been
+     * drawn.
+     */
+    void applyDebugViewToDraw(StudioDebugView debugView, ModelDraw& draw);
 
     /**
      * @brief Returns the mesh @p entity's `ModelRenderer` names, or nullptr when there is none.

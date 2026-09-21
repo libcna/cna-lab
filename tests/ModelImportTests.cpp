@@ -38,6 +38,7 @@
 #include "CNA/Studio/Core/Uuid.hpp"
 #include "CNA/Studio/Scene/BuiltinComponents.hpp"
 #include "CNA/Studio/Scene/SceneDocument.hpp"
+#include "CNA/Studio/Scene/SceneDebugView.hpp"
 #include "CNA/Studio/Scene/SceneWireframe.hpp"
 
 using namespace CNA::Studio;
@@ -1425,4 +1426,94 @@ CNA_STUDIO_TEST(AnEmptyMeshReportsEmptyBoundsRatherThanAPointAtTheOrigin)
 
     CNA_STUDIO_EXPECT(nearlyEqual(atOrigin.boundsMin, StudioVector3{}));
     CNA_STUDIO_EXPECT(nearlyEqual(atOrigin.boundsMax, StudioVector3{}));
+}
+
+/**
+ * @brief STUDIO-11011: the Normals view draws the normals, in the Shaded mode where a user works.
+ *
+ * Two things worth pinning and one of them nearly shipped broken. The segments are one per vertex
+ * and coloured by direction, which is the whole overlay; and the mesh block that produces them is
+ * entered at all when nothing else wants mesh edges. `drawMeshEdges` is false in the Shaded mode
+ * and the mesh block used to be gated on it, so the overlay would have been alive only in the two
+ * wireframe modes and only over a selected entity -- which is to say dead in the mode the Normals
+ * view exists for.
+ */
+CNA_STUDIO_TEST(TheNormalsOverlayDrawsOneSegmentPerVertexAndIsAliveInTheShadedMode)
+{
+    const std::filesystem::path directory = makeScratchDirectory("meshnormals");
+    const ModelImportResult imported = loadModel(writeGltf(directory, makeTriangleFixture()).string());
+    CNA_STUDIO_EXPECT(imported.succeeded);
+
+    const Uuid modelId = Uuid::generate();
+
+    StudioEntity prop{Uuid::generate(), "Prop"};
+    prop.addComponent(StudioComponent{BuiltinComponentIds::kTransform});
+    StudioComponent renderer{BuiltinComponentIds::kModelRenderer};
+    renderer.setProperty("model", PropertyValue{PropertyValue::AssetReference{modelId}});
+    prop.addComponent(std::move(renderer));
+
+    SceneDocument scene;
+    scene.addEntity(std::move(prop));
+
+    StudioCamera3D camera;
+    camera.setViewportSize(StudioVector2{640.0f, 480.0f});
+    camera.frame(WorldBounds3D{StudioVector3{-2.0f, -2.0f, -2.0f}, StudioVector3{2.0f, 2.0f, 2.0f}});
+
+    const SpriteSizeProvider sizes = [](const Uuid&) { return StudioVector2{0.0f, 0.0f}; };
+
+    // The Shaded mode exactly: no grid, no mesh edges, nothing selected. `drawEntityBounds` stays
+    // on because it is what it says only in its own doc comment -- it gates the whole per-entity
+    // pass, mesh edges and outlines and normals with it, and the editor never turns it off. A
+    // first draft of this case set it false to isolate the normals and measured nothing at all.
+    WireframeOptions options;
+    options.drawGrid = false;
+    options.drawMeshEdges = false;
+    options.meshProvider = [&](const Uuid& id) -> const MeshData* {
+        return id == modelId ? &imported.mesh : nullptr;
+    };
+
+    const WireframeResult off = buildSceneWireframe(scene, camera, {}, sizes, options);
+
+    options.drawMeshNormals = true;
+    const WireframeResult on = buildSceneWireframe(scene, camera, {}, sizes, options);
+
+    // One per vertex. A triangle has three, and unlike an edge a normal is never shared.
+    CNA_STUDIO_EXPECT_EQ(on.segments.size() - off.segments.size(),
+                         imported.mesh.getVertexCount());
+    CNA_STUDIO_EXPECT(!on.truncated);
+
+    // Coloured by the direction each one points, rather than in one overlay colour: the colour is
+    // the information, and a single-colour hedgehog answers "are there normals" and not "which way
+    // do they face". Asserted as equality against each vertex's own normal rather than as "not
+    // grey" -- a first draft checked only that some channel differed from the others, which the
+    // ordinary entity colour satisfies, so painting every segment in it passed.
+    //
+    // The entity is at the origin with an identity transform, so the world normal is the mesh's.
+    const MeshPart& part = imported.mesh.parts[0];
+    for (std::size_t index = 0; index < part.vertices.size(); ++index)
+    {
+        const StudioColor expected = studioNormalColor(part.vertices[index].normal);
+        if (on.segments[index].color != expected)
+        {
+            CnaStudioTest::reportFailure(__FILE__, __LINE__,
+                "normal segment " + std::to_string(index) + " is not its own normal's colour.");
+        }
+    }
+
+    // The budget is respected the way every other mesh overlay respects it: sampled at a stride
+    // and reported, rather than a frame spent on one model. Measured as the difference again,
+    // because `maxSegments` is a per-entity ceiling rather than a hard cap on the result -- the
+    // box this entity is drawn in afterwards is not budgeted and would swamp a total.
+    options.maxSegments = 2;
+    const WireframeResult tightOn = buildSceneWireframe(scene, camera, {}, sizes, options);
+
+    WireframeOptions tightOptions = options;
+    tightOptions.drawMeshNormals = false;
+    const WireframeResult tightOff = buildSceneWireframe(scene, camera, {}, sizes, tightOptions);
+
+    CNA_STUDIO_EXPECT(tightOn.segments.size() - tightOff.segments.size() <= std::size_t{2});
+    CNA_STUDIO_EXPECT(tightOn.segments.size() > tightOff.segments.size());
+    CNA_STUDIO_EXPECT(tightOn.truncated);
+
+    std::filesystem::remove_all(directory);
 }
