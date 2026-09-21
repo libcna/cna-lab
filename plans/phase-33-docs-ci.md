@@ -6,7 +6,7 @@
 
 **Exit criteria.** A new contributor can build, test and extend Studio from the documentation alone.
 
-**Progress:** 12 of 23 complete `██████░░░░░░`
+**Progress:** 13 of 24 complete `██████░░░░░░`
 
 | Id | Task | Status | Depends on |
 |----|------|:------:|------------|
@@ -33,6 +33,7 @@
 | `STUDIO-33021` | CI matrix: Linux, Windows, macOS as infrastructure allows | ⬜ | — |
 | `STUDIO-33026` | A test waiting on a worker counts completions, not frames | ✅ | `STUDIO-30001` |
 | `STUDIO-33027` | The benchmark's budget gate is an absolute-time assertion | ⬜ | `STUDIO-04028` |
+| `STUDIO-33028` | The roadmap's phase status markers are checked against its phase files | ✅ | `STUDIO-33018` |
 
 ## Acceptance and verification
 
@@ -316,3 +317,46 @@ phase at all, which would otherwise pass every check by saying nothing.
 
 **Verification.** `TheHandoffsOwnArithmeticMatchesThePhaseFiles`, checked by changing a count in the
 handoff and watching it name the phase
+
+### `STUDIO-33028` — The roadmap's phase status markers are checked against its phase files
+
+**Acceptance.** `plan.md`'s phase table cannot say a phase is finished when it is not, or unstarted
+when it is done, and the test fails naming the phase that disagrees.
+
+**Every other cell in that row was derived and checked; the status was typed.** `STUDIO-33018`
+checks each row's task count and complete count against the file it links to, and `STUDIO-33019`
+checks `HANDOFF.md` against the same source. Neither reads the status column, and neither does the
+script that recomputes the rest of the row — so it was the one cell in the table that drifted as
+tasks were ticked. By the time anybody looked, **seven of thirty-six rows disagreed with the counts
+printed two cells to their right**: phases 9, 12, 13, 14 and 19 were complete and marked not
+started, phase 11 was complete and marked in progress, and phase 10 was twelve of fifteen and
+marked not started.
+
+That is the same failure `STUDIO-33018` was written for, one column across — and the more expensive
+one, because the counts are read as arithmetic and the status is read as a claim. A reader skimming
+the table for what is left to do would have skipped five finished phases and found three unfinished
+tasks in phase 10 they had been told were not begun.
+
+**The rule was not invented here; it was read off the rows that were right.** Twenty-nine of the
+thirty-six already agreed with it, which is the evidence that this is what the column always meant:
+
+- **✅** when every task is complete or superseded. A superseded task is work later work made moot,
+  so it leaves nothing to do — which is what `STUDIO-07001`'s retirement established when that
+  status was added, and why phase 7 is correctly ✅ at forty-five of forty-six.
+- **⬜** when no task is complete and none is in progress. A deferred or blocked task does not start
+  a phase: it is work that is still there and still not begun, which is why phases 15, 25 and 27
+  stay ⬜ despite each holding one.
+- **🔄** otherwise, including a phase with everything done but one thing blocked — phase 5, at
+  fourteen of fifteen with the fifteenth blocked. The blocker is why it is not finished, not a
+  reason to call it finished.
+
+**Verification.** `EveryPhasesStatusMarkerAgreesWithItsOwnTaskList` in
+`tests/ArchitectureGuardTests.cpp`, with the same `rowsChecked >= 30` positive control the
+neighbouring guards carry — a scan that matched no rows would agree with everything. Checked by
+causing it: written before the seven rows were corrected, it failed naming all seven and nothing
+else.
+
+**What this row is not.** The *phase file's* own `**Progress:**` header carries a bar and a count
+and no status marker, so there is nothing there to check. And no test can hold the phase table's
+prose — the phase name, the id range, the purpose — to anything; this checks the one cell in it
+that is a fact about the file beside it.

@@ -996,6 +996,72 @@ CNA_STUDIO_TEST(TheMasterPlanTableAgreesWithEveryPhaseFile)
     }
 }
 
+/**
+ * @brief Each phase row's status marker says what that phase's own task list says.
+ *
+ * `plan.md` STUDIO-33028. The status column is the first thing anybody reads off that table --
+ * it is what a ⬜ beside a finished phase costs, and what an ✅ beside an unfinished one costs
+ * more. Every *other* cell in the row was already derived from the phase file and checked here;
+ * the status was the one left to a person, and by the time anybody looked seven of thirty-six
+ * rows disagreed with the counts printed two cells to their right. Two phases were complete and
+ * marked not started; one was complete and marked in progress.
+ *
+ * The rule is the one the thirty-six rows already agreed on before this was written, read off the
+ * twenty-nine that were right:
+ *
+ * - **✅** when every task is complete or superseded. A superseded task is work that later work
+ *   made moot, so it leaves nothing to do -- which is exactly what `STUDIO-07001`'s retirement
+ *   established when that status was added.
+ * - **⬜** when no task is complete and none is in progress. A deferred or blocked task does not
+ *   start a phase: it is work that is still there and still not begun.
+ * - **🔄** otherwise, which includes a phase with everything done but one thing blocked. The
+ *   blocker is the reason it is not finished, not a reason to call it finished.
+ */
+CNA_STUDIO_TEST(EveryPhasesStatusMarkerAgreesWithItsOwnTaskList)
+{
+    std::size_t rowsChecked = 0;
+
+    for (const std::string& line : splitLines(readFileOrEmpty(sourceRoot() / "plan.md")))
+    {
+        const std::vector<std::string> cells = tableCells(line);
+
+        // | N | [Name](plans/phase-NN-….md) | `STUDIO-NNNNN` | status | tasks | complete | bar |
+        if (cells.size() < 4) { continue; }
+        const std::size_t linkStart = cells[1].find("(plans/");
+        if (linkStart == std::string::npos) { continue; }
+
+        const std::size_t linkEnd = cells[1].find(')', linkStart);
+        const std::string relative = cells[1].substr(linkStart + 1, linkEnd - linkStart - 1);
+
+        const std::vector<PlanTask> tasks = readPhaseTasks(sourceRoot() / relative);
+        if (tasks.empty()) { continue; }
+
+        std::size_t settled = 0;
+        std::size_t started = 0;
+        for (const PlanTask& task : tasks)
+        {
+            if (task.status == "✅") { ++settled; ++started; }
+            else if (task.status == "⊘") { ++settled; }
+            else if (task.status == "🔄") { ++started; }
+        }
+
+        const std::string expected = (settled == tasks.size()) ? "✅"
+                                     : (started == 0)          ? "⬜"
+                                                               : "🔄";
+
+        ++rowsChecked;
+        if (cells[3] != expected)
+        {
+            CnaStudioTest::reportFailure(__FILE__, __LINE__,
+                "plan.md marks " + relative + " '" + cells[3] + "', but its task list is "
+                + expected + ".");
+        }
+    }
+
+    // A scan that matched no rows would agree with everything.
+    CNA_STUDIO_EXPECT(rowsChecked >= 30);
+}
+
 CNA_STUDIO_TEST(ThePlansStatusBreakdownAddsUpAndMatchesThePhaseFiles)
 {
     // Found stale, by five tasks and by a total that did not add up to its own bottom row:
