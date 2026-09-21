@@ -6,7 +6,7 @@
 
 **Exit criteria.** Every property type a component can declare is editable, validated and undoable.
 
-**Progress:** 8 of 18 complete `█████░░░░░░░`
+**Progress:** 9 of 18 complete `██████░░░░░░`
 
 | Id | Task | Status | Depends on |
 |----|------|:------:|------------|
@@ -27,7 +27,7 @@
 | `STUDIO-14015` | Validation warnings shown inline | ✅ | `STUDIO-14001` |
 | `STUDIO-14016` | Tooltips and documentation from descriptor metadata | ✅ | `STUDIO-03021` |
 | `STUDIO-14017` | Multi-selection editing where the semantics are unambiguous | ✅ | `STUDIO-14001` |
-| `STUDIO-14018` | Responsive with very large property counts | ⬜ | `STUDIO-30010` |
+| `STUDIO-14018` | Responsive with very large property counts | ✅ | `STUDIO-30010` |
 
 ## Acceptance and verification
 
@@ -149,6 +149,43 @@ nothing names showing nothing.
 extra rows drawn *and* measured, and that an issue naming a component the entity does not carry is
 nobody's row. Checked by causing both failures — the measure not counting them, and the draw not
 drawing them. Each fails by name.
+
+### `STUDIO-14018` — Responsive with very large property counts
+
+**Acceptance.** A component declaring hundreds of properties costs what one declaring ten costs, per
+visible row.
+
+**The third instance of the same defect**, after the World Outliner (`STUDIO-13011`) and the Content
+Browser (`STUDIO-09016`): a panel whose *drawing* is clipped and whose *work* is not. The clip stops
+the pixels; only culling stops a row being laid out, text-truncated and described. Measured before
+it was fixed — a component with four hundred properties described four hundred rows, twice a frame,
+to show a few tens.
+
+**A degenerate row is not a visible row, and that is the whole of the bug the first attempt had.**
+`UiRect::splitTop` clamps rather than overflowing, so once the content is taller than the view every
+further row comes back as a **zero-height rect pinned to the bottom edge** — which passes any test
+of pure intersection. The first version of the cull therefore culled *nothing at all*, and the case
+said so.
+
+**A margin of one row either side**, so a row half in view is whole: a control clipped at the
+viewport's edge must still be hit-testable where it is drawn.
+
+**Lists and structures are never culled.** They claim further rows of their own through `nextRow`,
+and skipping one would leave the cursor short and every row beneath it drawn in the wrong place.
+They are also the rare ones; the case this exists for is a component declaring hundreds of plain
+fields.
+
+**`rowsCulled` is reported beside `rowsDrawn`.** `rowsDrawn` counts every row the cursor advanced
+past — which is what the scroll region is sized against and what tells `STUDIO-14001`'s folding case
+that a section closed. It is *not* a measure of work, and a case that used it as one would pass over
+a panel doing all of it. The difference between the two is what the panel actually described.
+
+**Verification.** `tests/StudioDetailsPanelTests.cpp`:
+`AComponentWithHundredsOfPropertiesOnlyBuildsTheRowsOnScreen` registers a component with four
+hundred properties and pins that the measure still sees all of them — the scroll region needs the
+height, and counting descriptors is cheap — while what is described stays under eighty. Checked by
+removing the degenerate-row rule, which is exactly the way the first attempt failed; it fails by
+name.
 
 ### `STUDIO-14016` — Tooltips and documentation from descriptor metadata
 

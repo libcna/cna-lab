@@ -612,6 +612,55 @@ CNA_STUDIO_TEST(AComponentCanBeAddedToTheSelectedEntityAndUndone)
  * control: the label is the part a user points at when they are asking what something is, and a
  * tooltip over a field they are about to type into covers the thing they are typing.
  */
+/**
+ * The Inspector over a component with a great many properties (`plan.md` STUDIO-14018).
+ *
+ * The same shape of defect the World Outliner had (`STUDIO-13011`) and the Content Browser before
+ * it (`STUDIO-09016`): a panel whose *drawing* is clipped but whose *work* is not. The clip stops
+ * the pixels; only culling stops the rows being measured, laid out and described.
+ */
+CNA_STUDIO_TEST(AComponentWithHundredsOfPropertiesOnlyBuildsTheRowsOnScreen)
+{
+    StudioContext context;
+
+    ComponentDescriptor descriptor;
+    descriptor.typeId = "Test.Huge";
+    descriptor.displayName = "Huge";
+    for (int i = 0; i < 400; ++i)
+    {
+        PropertyDescriptor field;
+        field.name = "field" + std::to_string(i);
+        field.displayName = "Field " + std::to_string(i);
+        field.type = PropertyType::Float;
+        field.defaultValue = PropertyValue{0.0f};
+        descriptor.properties.push_back(std::move(field));
+    }
+    CNA_STUDIO_EXPECT(context.getComponentRegistry().registerComponent(descriptor));
+
+    StudioEntity subject{Uuid::generate(), "Monster"};
+    StudioComponent component{"Test.Huge"};
+    component.applyDefaults(*context.getComponentRegistry().find("Test.Huge"));
+    subject.getComponents().push_back(std::move(component));
+    const Uuid entity = subject.getId();
+    context.getScene().addEntity(std::move(subject));
+    context.select(entity);
+
+    Harness harness{context};
+
+    // The scroll region has to know how tall the content is, so *measuring* four hundred rows is
+    // unavoidable and cheap -- it is a loop over descriptors with no allocation in it.
+    CNA_STUDIO_EXPECT(harness.last.rowsMeasured >= std::size_t{400});
+
+    // Laying them out is the part that is not. A panel a few hundred pixels tall shows a few tens
+    // of rows; the rest would be described, measured and text-truncated for a clip to throw away.
+    //
+    // `rowsDrawn` counts every row the cursor advanced past -- which is what the scroll region is
+    // sized against, and what tells the folding case whether a section closed. It is not a measure
+    // of work. The difference is.
+    CNA_STUDIO_EXPECT(harness.last.rowsDrawn >= std::size_t{400});
+    CNA_STUDIO_EXPECT(harness.last.rowsDrawn - harness.last.rowsCulled <= std::size_t{80});
+}
+
 CNA_STUDIO_TEST(APropertysTooltipComesFromItsDescriptor)
 {
     StudioContext context;

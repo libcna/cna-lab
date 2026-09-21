@@ -245,6 +245,17 @@ namespace CNA::Studio
         std::size_t rowsMeasured = 0;
 
         /**
+         * @brief How many rows were laid out and then skipped, being off screen (STUDIO-14018).
+         *
+         * @ref rowsDrawn counts every row the cursor advanced past, which is what the scroll
+         * region is sized against and what tells a caller whether a section folded. It is *not* a
+         * measure of work: a row off the top of the viewport still advances the cursor. The
+         * difference between the two is what the panel actually described, and that is the number
+         * that has to stay bounded however many properties a component declares.
+         */
+        std::size_t rowsCulled = 0;
+
+        /**
          * @brief How many properties were reset to their default this frame (`plan.md` STUDIO-14012).
          *
          * Input pass only. Reported apart from @ref edited because a reset is the one edit a user

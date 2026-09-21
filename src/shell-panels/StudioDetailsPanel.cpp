@@ -3203,6 +3203,27 @@ namespace
             ++result.rowsDrawn;
             return row;
         };
+        // Whether a row is anywhere near the scroll region (`plan.md` STUDIO-14018).
+        //
+        // The same shape of defect the World Outliner had (`STUDIO-13011`) and the Content Browser
+        // before it (`STUDIO-09016`): the clip stops the *pixels* of an off-screen row, and
+        // nothing stops the work of producing them. A component declaring four hundred properties
+        // -- which a plugin may perfectly well do -- had four hundred rows measured, laid out,
+        // text-truncated and described every pass, twice a frame, to show forty.
+        //
+        // A margin of one row either side, so a row half in view is whole: a control clipped at
+        // the viewport's edge must still be hit-testable where it is drawn, and a test of pure
+        // intersection would drop the row a user is looking at the top half of.
+        const auto rowVisible = [&view, rowHeight](const UiRect& row) {
+            // A row the cursor had no room left for is not a row. `splitTop` clamps rather than
+            // overflowing, so once the content is taller than the view every further row comes
+            // back as a zero-height rect pinned to the bottom edge -- which passes any test of
+            // pure intersection, and is why the first version of this culled nothing at all.
+            if (row.height <= 0.0f) { return false; }
+
+            return row.bottom() >= view.viewport.top() - rowHeight
+                && row.top() <= view.viewport.bottom() + rowHeight;
+        };
 
         // --- The entity itself -------------------------------------------------------------
         {
@@ -3466,11 +3487,29 @@ namespace
 
             for (const PropertyDescriptor& property : *properties)
             {
-                PropertyRow parts = splitRow(theme, nextRow());
+                const UiRect propertyRow = nextRow();
+                const PropertyValue value = component.getPropertyOrDefault(property.name, descriptor);
+
+                // Off screen (`plan.md` STUDIO-14018): the cursor has already moved past it, which
+                // is all the scroll region needs. Everything below would be describing a widget
+                // nobody can see.
+                //
+                // A list or a structure is the exception -- it claims further rows of its own
+                // through `nextRow`, and skipping it would leave the cursor short and every row
+                // under it drawn in the wrong place. Those keep their full path, and they are also
+                // the rare ones: the case this exists for is a component declaring hundreds of
+                // plain fields.
+                const bool compound = value.getType() == PropertyType::List
+                    || value.getType() == PropertyType::Structure;
+                if (!rowVisible(propertyRow) && !compound)
+                {
+                    ++result.rowsCulled;
+                    continue;
+                }
+
+                PropertyRow parts = splitRow(theme, propertyRow);
                 const std::string& label =
                     property.displayName.empty() ? property.name : property.displayName;
-
-                const PropertyValue value = component.getPropertyOrDefault(property.name, descriptor);
 
                 frame.ids().push(component.getTypeId());
                 frame.ids().push(property.name);
