@@ -252,6 +252,12 @@ namespace CNA::Studio
          */
         std::size_t propertiesReset = 0;
 
+        /** @brief How many property values were copied to the clipboard (`plan.md` STUDIO-14014). */
+        std::size_t propertiesCopied = 0;
+
+        /** @brief How many were pasted from it. @see propertiesCopied */
+        std::size_t propertiesPasted = 0;
+
 
         /** @brief How many property rows were drawn. */
         std::size_t rowsDrawn = 0;
@@ -472,6 +478,36 @@ namespace CNA::Studio
                                                   const PropertyValue& value,
                                                   const std::vector<std::string>& enumOptions,
                                                   const StudioPropertyEditContext& editing);
+
+    /**
+     * @brief The clipboard text for @p value.
+     *
+     * `plan.md` STUDIO-14014. JSON, and the same JSON a scene file holds, because that is already
+     * the one definition of what a `PropertyValue` looks like written down -- a second encoding
+     * invented for the clipboard would be a second thing to keep in step with the first, and the
+     * first is the one that has to survive a release.
+     *
+     * Plain text on purpose: a user who copies a position and pastes it into a bug report, a chat
+     * window or a script should get something readable, and one who pastes a readable thing back
+     * should be understood.
+     */
+    [[nodiscard]] std::string studioCopyPropertyText(const PropertyValue& value);
+
+    /**
+     * @brief Reads @p text back as a property of type @p expected, or nothing.
+     *
+     * `plan.md` STUDIO-14014. Refuses text that is not JSON, and text that parses to a value of a
+     * different kind: pasting a colour into a number is a mistake, and coercing it would produce a
+     * value the user did not ask for in a field they were not looking at. Refusing says so at the
+     * moment they can still do something about it.
+     *
+     * @param text What the clipboard holds.
+     * @param expected The type the target property declares.
+     * @param elementType For a list, what its elements are; ignored otherwise.
+     */
+    [[nodiscard]] std::optional<PropertyValue> studioPastedProperty(
+        std::string_view text, PropertyType expected,
+        PropertyType elementType = PropertyType::None);
 
     /** @brief One entry of the Inspector's Add Component list. */
     struct StudioComponentChoice

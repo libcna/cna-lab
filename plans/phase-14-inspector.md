@@ -6,7 +6,7 @@
 
 **Exit criteria.** Every property type a component can declare is editable, validated and undoable.
 
-**Progress:** 3 of 18 complete `██░░░░░░░░░░`
+**Progress:** 4 of 18 complete `██░░░░░░░░░░`
 
 | Id | Task | Status | Depends on |
 |----|------|:------:|------------|
@@ -23,7 +23,7 @@
 | `STUDIO-14011` | Read-only data display | ⬜ | `STUDIO-14001` |
 | `STUDIO-14012` | Reset to default | ✅ | `STUDIO-14001` |
 | `STUDIO-14013` | Revert and apply prefab overrides | ⬜ | `STUDIO-14012` |
-| `STUDIO-14014` | Copy and paste property values | ⬜ | `STUDIO-03025` |
+| `STUDIO-14014` | Copy and paste property values | ✅ | `STUDIO-03025` |
 | `STUDIO-14015` | Validation warnings shown inline | ⬜ | `STUDIO-14001` |
 | `STUDIO-14016` | Tooltips and documentation from descriptor metadata | ⬜ | `STUDIO-03021` |
 | `STUDIO-14017` | Multi-selection editing where the semantics are unambiguous | ⬜ | `STUDIO-14001` |
@@ -65,6 +65,52 @@ carries is not offered, every entry names a registered type and carries the id i
 label is the category and the display name with the fallback when there is no category, and an
 entity with nothing on it is offered exactly one more. Checked by causing the unique-exclusion to
 stop happening; it fails by name.
+
+### `STUDIO-14014` — Copy and paste property values
+
+**Acceptance.** A property's value can be taken to the clipboard and put into another, and a paste
+of the wrong thing is refused rather than coerced.
+
+**Nothing existed.** The clipboard seam has been there since `STUDIO-03025` and the text fields use
+it for their own text; no property value had ever been on it.
+
+**The clipboard text is the same JSON a scene file holds.** That is already the one written-down
+definition of what a `PropertyValue` looks like, and it is the one that has to survive a release — a
+second encoding invented for the clipboard would be a second thing to keep in step with the first.
+Compact rather than pretty, because a clipboard is a line in a chat window as often as a paste into
+an editor, and readable on purpose: a user who copies a position into a bug report should get
+something they can read, and one who pastes a readable thing back should be understood.
+
+**The round trip is the whole of the check, and it has to be.** `PropertyValue::fromJson` is
+forgiving by design — a scene file holding a number where a vector belongs should load rather than
+refuse, so it hands back the type's own zero — which means a colour pasted into a float would arrive
+as a perfectly valid *nothing*. Comparing the result's type against the expected one would be a
+check that can never fire, because `fromJson` always answers in the type it was asked for; a first
+version had exactly that line, and breaking it changed no test. It was removed rather than left
+looking like a safeguard.
+
+**The menu is on the label, not the row.** The row is mostly editor, and a target covering it would
+take the press before the fields inside it got one — the router gives a press to the first widget
+described under the pointer, which is the defect the World Outliner's rows had (`STUDIO-13005`). The
+label is the one part of a property row that is not already a control.
+
+**A menu rather than more buttons.** Reset earns its place in the label column because its
+*presence* means something; three ghost buttons on every row would say nothing and cost the width
+that makes labels readable. Reset is in the menu as well, so a user who learns one surface has both.
+
+**Paste is greyed when the clipboard holds nothing that fits**, which is the same rule every other
+menu in the editor follows: a row that is absent tells the user less than one that is present and
+unavailable.
+
+**Verification.** `tests/StudioDetailsPanelTests.cpp`:
+`APropertyValueSurvivesBeingCopiedAndPastedBack` round-trips nine property types and pins the text
+as single-line and readable. `PastingSomethingThatIsNotThePropertysKindIsRefused` pins prose, empty
+text, malformed JSON, a valid value of the wrong kind, a number where a vector belongs, and a
+property with no declared type. `APropertyValueIsCopiedAndPastedThroughTheRowsMenu` drives the real
+menu through the shell, copies, changes the value underneath, pastes it back and undoes that. It
+re-seeds the clipboard before each paste attempt, because the sweep passes over Copy on its way to
+Paste — without that it would copy the *new* value and then paste it, and pass while proving
+nothing. Checked by causing the round-trip check to stop happening; it fails by name.
 
 ### `STUDIO-14012` — Reset to default
 

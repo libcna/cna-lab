@@ -6,6 +6,8 @@
 
 #include "CNA/Studio/ShellPanels/StudioDetailsPanel.hpp"
 
+#include "CNA/Studio/Core/Json.hpp"
+
 #include "CNA/Studio/Assets/AudioImport.hpp"
 #include "CNA/Studio/Assets/AssetRelink.hpp"
 #include "CNA/Studio/Project/RecoveryStore.hpp"
@@ -2900,6 +2902,42 @@ namespace
         return result;
     }
 
+    std::string studioCopyPropertyText(const PropertyValue& value)
+    {
+        // Compact rather than pretty: a clipboard is one line in a text field as often as it is a
+        // paste into an editor, and a position that arrives as four lines of indentation is one a
+        // user has to tidy before they can use it.
+        return Json::write(value.toJson(), /*pretty=*/false);
+    }
+
+    std::optional<PropertyValue> studioPastedProperty(std::string_view text, PropertyType expected,
+                                                      PropertyType elementType)
+    {
+        if (expected == PropertyType::None) { return std::nullopt; }
+
+        const JsonParseResult parsed = Json::parse(text);
+        if (!parsed.succeeded) { return std::nullopt; }
+
+        // Read *as the target's type* rather than inferred and then compared. `fromJson` is what
+        // the scene loader uses, so a pasted value is read by exactly the code that reads a saved
+        // one -- and it always answers in the type it was asked for, which is why comparing the
+        // result's type against `expected` would be a check that can never fire.
+        const PropertyValue value = PropertyValue::fromJson(parsed.value, expected, elementType);
+
+        // The round trip is the whole of the check, and it has to be. `fromJson` is forgiving by
+        // design -- a scene file holding a number where a vector belongs should load rather than
+        // refuse, so it hands back the type's own zero -- which means a colour pasted into a float
+        // would arrive as a perfectly valid nothing. A value that does not write back to what was
+        // pasted was not the value that text described, and applying it would put something the
+        // user did not copy into a field they were not looking at.
+        if (studioCopyPropertyText(value) != Json::write(parsed.value, /*pretty=*/false))
+        {
+            return std::nullopt;
+        }
+
+        return value;
+    }
+
     std::vector<StudioComponentChoice> studioAddComponentChoices(const ComponentRegistry& registry,
                                                                  const StudioEntity& entity)
     {
@@ -3302,6 +3340,8 @@ namespace
                 const bool overridden = descriptor != nullptr && !property.readOnly
                     && !property.defaultValue.isEmpty() && value != property.defaultValue;
 
+                // Named for what it carries rather than for the button: the row's menu can put a
+                // pasted value here too, and both take the same path to the history below.
                 std::optional<PropertyValue> reset;
                 if (overridden)
                 {
@@ -3325,6 +3365,65 @@ namespace
                     {
                         reset = property.defaultValue;
                     }
+                }
+
+                // --- The row's menu (`plan.md` STUDIO-14014) ----------------------------------
+                //
+                // On the *label*, not the row. The row is mostly editor, and a target covering it
+                // would take the press before the fields inside it got one -- the router gives a
+                // press to the first widget described under the pointer, which is the defect the
+                // World Outliner's rows had (STUDIO-13005). The label is the one part of a property
+                // row that is not already a control.
+                //
+                // A menu rather than more buttons: Reset already earns a place in the label column
+                // because its presence *means* something, and three ghost buttons on every row
+                // would say nothing and cost the width that makes labels readable.
+                const WidgetId menuId = frame.ids().make("propertymenu");
+                const StudioInteraction labelHit = frame.interact(menuId, parts.label);
+
+                if (frame.isInputPass() && labelHit.rightClicked)
+                {
+                    studioOpenContextMenu(frame, menuId, frame.input().mouseX,
+                                          frame.input().mouseY);
+                }
+
+                const bool pastable =
+                    studioPastedProperty(frame.clipboardText(), property.type,
+                                         property.elementType).has_value()
+                    && !property.readOnly;
+
+                const std::vector<StudioContextMenuItem> rowMenu{
+                    StudioContextMenuItem{"Copy Value", true, "Ctrl+C"},
+                    StudioContextMenuItem{"Paste Value", pastable, "Ctrl+V"},
+                    StudioContextMenuItem{},
+                    StudioContextMenuItem{"Reset to Default", overridden, {}}};
+
+                // Dispatched on the label rather than the index, for the reason every other menu in
+                // the editor is: a row that meant Copy in one menu and Reset in another is the kind
+                // of off-by-one that overwrites a value the user was keeping.
+                const int rowChoice = studioContextMenu(frame, menuId, rowMenu);
+                const std::string_view rowPicked =
+                    rowChoice >= 0 && static_cast<std::size_t>(rowChoice) < rowMenu.size()
+                        ? std::string_view{rowMenu[static_cast<std::size_t>(rowChoice)].label}
+                        : std::string_view{};
+
+                if (rowPicked == "Copy Value")
+                {
+                    frame.setClipboardText(studioCopyPropertyText(value));
+                    ++result.propertiesCopied;
+                }
+                else if (rowPicked == "Paste Value")
+                {
+                    if (const std::optional<PropertyValue> pasted = studioPastedProperty(
+                            frame.clipboardText(), property.type, property.elementType))
+                    {
+                        reset = pasted;
+                        ++result.propertiesPasted;
+                    }
+                }
+                else if (rowPicked == "Reset to Default" && overridden)
+                {
+                    reset = property.defaultValue;
                 }
 
                 if (frame.isDrawPass())
@@ -3360,7 +3459,7 @@ namespace
                 // is cheaper than relying on that staying true.
                 const std::optional<PropertyValue>& edited =
                     reset.has_value() ? reset : editResult.edited;
-                if (reset.has_value()) { ++result.propertiesReset; }
+                if (reset.has_value() && rowPicked != "Paste Value") { ++result.propertiesReset; }
                 frame.ids().pop();
                 frame.ids().pop();
 

@@ -557,6 +557,163 @@ CNA_STUDIO_TEST(AComponentCanBeAddedToTheSelectedEntityAndUndone)
  * and wanted 1 again had to know the default and retype it, and for a colour or a quaternion they
  * would have had to guess.
  */
+/**
+ * A property value round-trips through text (`plan.md` STUDIO-14014).
+ *
+ * The same JSON a scene file holds, because that is already the one written-down definition of what
+ * a `PropertyValue` looks like -- a second encoding invented for the clipboard would be a second
+ * thing to keep in step with the first, and the first is the one that has to survive a release.
+ */
+CNA_STUDIO_TEST(APropertyValueSurvivesBeingCopiedAndPastedBack)
+{
+    const auto roundTrips = [](const PropertyValue& value, PropertyType type) {
+        const std::optional<PropertyValue> back =
+            studioPastedProperty(studioCopyPropertyText(value), type);
+        return back.has_value() && *back == value;
+    };
+
+    CNA_STUDIO_EXPECT(roundTrips(PropertyValue{3.5f}, PropertyType::Float));
+    CNA_STUDIO_EXPECT(roundTrips(PropertyValue{std::int64_t{42}}, PropertyType::Integer));
+    CNA_STUDIO_EXPECT(roundTrips(PropertyValue{true}, PropertyType::Boolean));
+    CNA_STUDIO_EXPECT(roundTrips(PropertyValue{std::string{"hello"}}, PropertyType::String));
+    CNA_STUDIO_EXPECT(
+        roundTrips(PropertyValue{StudioVector2{1.0f, 2.0f}}, PropertyType::Vector2));
+    CNA_STUDIO_EXPECT(
+        roundTrips(PropertyValue{StudioVector3{1.0f, 2.0f, 3.0f}}, PropertyType::Vector3));
+    CNA_STUDIO_EXPECT(roundTrips(PropertyValue{StudioColor{10, 20, 30, 40}}, PropertyType::Color));
+    CNA_STUDIO_EXPECT(roundTrips(PropertyValue{StudioQuaternion{0.0f, 0.7071f, 0.0f, 0.7071f}},
+                                 PropertyType::Quaternion));
+    CNA_STUDIO_EXPECT(
+        roundTrips(PropertyValue{StudioRectangle{1, 2, 3, 4}}, PropertyType::Rectangle));
+
+    // Plain text, and readable: a user who copies a position into a bug report or a script should
+    // get something they can read, and one who pastes a readable thing back should be understood.
+    const std::string text = studioCopyPropertyText(PropertyValue{StudioVector3{1.0f, 2.0f, 3.0f}});
+    CNA_STUDIO_EXPECT(text.find('1') != std::string::npos);
+    CNA_STUDIO_EXPECT(text.find('\n') == std::string::npos);
+}
+
+/**
+ * And a paste of the wrong thing is refused (`plan.md` STUDIO-14014).
+ *
+ * Pasting a colour into a number is a mistake, and coercing it would put a value the user did not
+ * ask for into a field they were not looking at. Refusing says so while they can still do something
+ * about it.
+ */
+CNA_STUDIO_TEST(PastingSomethingThatIsNotThePropertysKindIsRefused)
+{
+    // Not JSON at all: the most ordinary case, because the clipboard usually holds prose.
+    CNA_STUDIO_EXPECT(!studioPastedProperty("hello world", PropertyType::Float).has_value());
+    CNA_STUDIO_EXPECT(!studioPastedProperty("", PropertyType::Float).has_value());
+    CNA_STUDIO_EXPECT(!studioPastedProperty("{ unterminated", PropertyType::Vector3).has_value());
+
+    // JSON, and a perfectly good value -- of the wrong kind. A vector's text read as a float is
+    // the case that would silently produce a zero.
+    const std::string vector =
+        studioCopyPropertyText(PropertyValue{StudioVector3{1.0f, 2.0f, 3.0f}});
+    CNA_STUDIO_EXPECT(!studioPastedProperty(vector, PropertyType::Float).has_value());
+    CNA_STUDIO_EXPECT(!studioPastedProperty(vector, PropertyType::Boolean).has_value());
+    CNA_STUDIO_EXPECT(studioPastedProperty(vector, PropertyType::Vector3).has_value());
+
+    // A number where a vector belongs. `fromJson` is forgiving by design, so the round-trip check
+    // is what catches this rather than the type comparison.
+    CNA_STUDIO_EXPECT(!studioPastedProperty("7", PropertyType::Vector3).has_value());
+
+    // And a property with no declared type has nothing to check against, so nothing is accepted.
+    CNA_STUDIO_EXPECT(!studioPastedProperty("7", PropertyType::None).has_value());
+}
+
+/**
+ * And the row's menu carries it (`plan.md` STUDIO-14014).
+ *
+ * On the *label*, not the row: the row is mostly editor, and a target covering it would take the
+ * press before the fields inside it got one -- the router gives a press to the first widget
+ * described under the pointer, which is the defect the World Outliner's rows had (STUDIO-13005).
+ */
+CNA_STUDIO_TEST(APropertyValueIsCopiedAndPastedThroughTheRowsMenu)
+{
+    Fixture fixture;
+    Harness harness{fixture.context};
+
+    const StudioVector3 original = fixture.position();
+    CNA_STUDIO_EXPECT(std::fabs(original.x - 1.0f) < 0.001f);
+
+    const auto rightClick = [&](float x, float y) {
+        UiInputState down = at(x, y);
+        down.setMouseDown(UiMouseButton::Right, true);
+        harness.shell->renderFrame(at(x, y));
+        harness.shell->renderFrame(down);
+        harness.shell->renderFrame(at(x, y));
+    };
+
+    const auto dismiss = [&] {
+        UiInputState escape = at(harness.bounds.centerX(), harness.bounds.bottom() - 4.0f);
+        escape.setKeyDown(UiKey::Escape, true);
+        harness.shell->renderFrame(escape);
+        harness.shell->renderFrame(at(harness.bounds.centerX(), harness.bounds.bottom() - 4.0f));
+    };
+
+    // The label column of whichever row carries the position. Swept, because a computed coordinate
+    // becomes a click on nothing the first time a metric moves. One menu per attempt: a sweep that
+    // kept clicking into an open menu would be choosing rows rather than opening them.
+    const float labelX = harness.bounds.left() + 16.0f;
+    bool copied = false;
+    float rowY = -1.0f;
+    for (float y = harness.bounds.top() + 4.0f;
+         y < harness.bounds.bottom() - 4.0f && !copied; y += 4.0f)
+    {
+        dismiss();
+        rightClick(labelX, y);
+
+        // The menu's corner is at the point that opened it, so its rows run downwards from there.
+        for (float offset = 4.0f; offset < 120.0f && !copied; offset += 4.0f)
+        {
+            harness.click(labelX + 20.0f, y + offset);
+            harness.shell->renderFrame(at(labelX + 20.0f, y + offset));
+            if (harness.last.propertiesCopied > 0) { copied = true; rowY = y; }
+        }
+    }
+
+    CNA_STUDIO_EXPECT(copied);
+    CNA_STUDIO_EXPECT(rowY > 0.0f);
+
+    // What went on the clipboard is the value, readable, and nothing was edited by copying it.
+    CNA_STUDIO_EXPECT_EQ(harness.shell->frame().clipboardText(),
+                         studioCopyPropertyText(PropertyValue{original}));
+    CNA_STUDIO_EXPECT(!fixture.context.getHistory().canUndo());
+
+    // Move it somewhere else, so a paste that did nothing would be visible.
+    dismiss();
+    fixture.context.execute(std::make_unique<SetPropertyCommand>(
+        fixture.context.getScene(), fixture.entity, "CNA.Transform", "position",
+        PropertyValue{StudioVector3{9.0f, 9.0f, 9.0f}}));
+    harness.shell->renderFrame(at(-1.0f, -1.0f));
+    CNA_STUDIO_EXPECT(std::fabs(fixture.position().x - 9.0f) < 0.001f);
+
+    // And paste it back from the same menu, on the same row. The clipboard is re-seeded before
+    // each attempt because the sweep passes over Copy on its way to Paste -- without this it would
+    // copy the *new* value and then paste that, and the case would pass while proving nothing.
+    const std::string wanted = studioCopyPropertyText(PropertyValue{original});
+    bool pasted = false;
+    for (float offset = 4.0f; offset < 120.0f && !pasted; offset += 4.0f)
+    {
+        dismiss();
+        harness.shell->frame().setClipboardText(wanted);
+        rightClick(labelX, rowY);
+        harness.click(labelX + 20.0f, rowY + offset);
+        harness.shell->renderFrame(at(labelX + 20.0f, rowY + offset));
+        pasted = harness.last.propertiesPasted > 0;
+    }
+
+    CNA_STUDIO_EXPECT(pasted);
+    CNA_STUDIO_EXPECT(std::fabs(fixture.position().x - original.x) < 0.001f);
+
+    // Through the history, like every other edit: a paste is a change, and pasting the wrong thing
+    // is exactly the mistake a menu makes easy.
+    CNA_STUDIO_EXPECT(fixture.context.getHistory().undo());
+    CNA_STUDIO_EXPECT(std::fabs(fixture.position().x - 9.0f) < 0.001f);
+}
+
 CNA_STUDIO_TEST(AnOverriddenComponentPropertyCanBeResetToItsDefault)
 {
     Fixture fixture;
