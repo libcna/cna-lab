@@ -6,7 +6,7 @@
 
 **Exit criteria.** The viewport and the game preview agree, and no light type exists in Studio that the runtime cannot render.
 
-**Progress:** 6 of 8 complete `█████████░░░`
+**Progress:** 7 of 8 complete `██████████░░`
 
 | Id | Task | Status | Depends on |
 |----|------|:------:|------------|
@@ -15,16 +15,22 @@
 | `STUDIO-20003` | Spot light authoring | ✅ | `STUDIO-20001` |
 | `STUDIO-20004` | Ambient and environment lighting | ✅ | `STUDIO-20001` |
 | `STUDIO-20005` | Sky and environment map authoring | ⬜ | `STUDIO-10010` |
-| `STUDIO-20006` | Shadow configuration | 🔄 | `STUDIO-20001` |
+| `STUDIO-20006` | Shadow configuration | ✅ | `STUDIO-20001` |
 | `STUDIO-20007` | Viewport lighting matches the game preview as closely as the runtime allows | ✅ | `STUDIO-20001` |
 | `STUDIO-20008` | No light type is offered that the runtime cannot render | ✅ | `STUDIO-20001` |
 
 ## A correction, and it affects four rows below
 
 **`STUDIO-20002`, `STUDIO-20003`, `STUDIO-20006` and `STUDIO-20008` were written against a false
-belief about what CNA can do.** Three were reopened; `STUDIO-20003` and `STUDIO-20008` have since
-been closed again by doing the work the correction revealed, and `STUDIO-20006` is still open
-because Studio's shadow pass has yet to be written.
+belief about what CNA can do.** Three were reopened, and all three have since been closed again by
+doing the work the correction revealed: a real punctual light in the effect, a drawn spot cone, and
+a shadow pass in the viewport.
+
+The belief cost a second defect on the way out, which is worth recording beside the first. The
+punctual light `STUDIO-20003` added was sent through `PbrEffect`, because `PbrEffect` was the
+header that had been read — and `BasicEffect` implements the same `IShadowReceiverEXT` interface
+while being the effect this build actually draws with. The feature shipped switched off on the only
+path anybody runs. **Reading one type's header is not reading the API**, in either direction.
 
 The belief was that `IEffectLights` — an ambient colour and three directional lights — is the whole
 of CNA's lighting, so that a point light must be approximated, a spot light's cone cannot exist,
@@ -50,11 +56,13 @@ the conditional-property mechanism, and the validation plumbing are all correct 
 wanted. What was wrong is the *justification* — "the renderer cannot" — and the conclusions drawn
 from it.
 
-Of the two validation rules the mistake produced, `spot-light-cone-not-rendered` is **gone**: the
-cone is drawn now, and where it is not the effect says so through `studioLightCapabilityIssues`
-rather than a document report that cannot know which effect a build uses. `shadows-not-rendered`
-remains, reworded to say what Studio does rather than what CNA cannot, and it is temporary by
-construction — it goes silent when `STUDIO-20006` lands.
+Both validation rules the mistake produced are gone. `spot-light-cone-not-rendered` went first:
+the cone is drawn now, and where it is not the effect says so through
+`studioLightCapabilityIssues` rather than a document report that cannot know which effect a build
+uses. `shadows-not-rendered` went with `STUDIO-20006` — the editor draws shadows, so a rule saying
+it does not was simply false. What replaced it is narrower and still true:
+`shadows-need-a-directional-light`, because the pass renders from a sun and Studio does not drive
+CNA's cube and spot maps yet.
 
 ## Acceptance and verification
 
@@ -118,7 +126,8 @@ condition failing closed instead of open, a condition naming a sibling that does
 asking for a value the sibling cannot hold, and the archetype arriving with no `CNA.Light` on it
 all fail by name.
 
-**What this row is not.** No shadow casting (`STUDIO-20006`), no sun-angle or time-of-day widget,
+**What this row is not.** No shadow casting — that is `STUDIO-20006`, which has since landed —
+no sun-angle or time-of-day widget,
 and no light gizmo beyond the aim line and badge the wireframe already draws — a directional light
 has no handle to drag that the rotate gizmo does not already give it. The three-light cap that
 `IEffectLights` imposes is reported to nobody yet; that is `STUDIO-20008`.
@@ -369,57 +378,97 @@ fog, the environment's other half, is ED-407's and unchanged here.
 ### `STUDIO-20006` — Shadow configuration
 
 **Acceptance.** A user is not offered shadow settings that nothing honours — or, where the settings
-already exist and are carried through to a game, they are told plainly that the editor draws none.
+already exist and are carried through to a game, they are told plainly what the editor draws.
 
-**🔄 Reopened. The two paragraphs that used to follow were wrong**, and so was the CNA gap they
-rested on. They said neither effect takes a shadow map and there is no seam for one that could.
-`PbrEffect` implements `IShadowReceiverEXT` — `setShadowMapEXT`, `setLightViewProjectionEXT`,
-`setShadowsEnabledEXT`, a depth bias — and the CNAEXT engine layer ships
+**✅ Done. The viewport draws shadows, and `castShadows` / `receiveShadows` finally decide
+something.** Both have been editable since Phase 1, both default to true, both are serialised, and
+until this row neither changed a pixel. A user has been able to turn a model's shadow off for the
+whole of the editor's existence and watch nothing happen.
+
+**The row was reopened once, because the CNA gap it rested on was filed in error.** The original
+entry said neither effect takes a shadow map and there is no seam for one that could. `PbrEffect`
+implements `IShadowReceiverEXT` — `setShadowMapEXT`, `setLightViewProjectionEXT`,
+`setShadowsEnabledEXT`, a depth bias, a filter radius — and the CNAEXT engine layer ships
 `CNA::Graphics::ShadowMap`, which renders from a directional light, fits an orthographic volume to
 the scene bounds, hands back rigid and skinned caster effects, and reports `isSupported()` where a
-renderer cannot manage it. There are cascades and quality levels. `G-14` is withdrawn.
+renderer cannot manage it. `G-14` is withdrawn, and the lesson is recorded there: **check what the
+API offers before writing down what it lacks.**
 
-**Studio has offered shadow configuration since Phase 1 and has never drawn a shadow**, which is
-the part that was true. `CNA.ModelRenderer` carries `castShadows` and `receiveShadows`, both
-defaulting to true, both editable, and read by nothing **in Studio**. A user has been able to turn
-a model's shadow off since the component existed and no picture has ever changed.
+**And the same mistake, found a second time while building the fix.** `applyLighting` reached for
+`PbrEffect` to send the punctual light `STUDIO-20003` added, because `PbrEffect` was the header
+that had been read. `BasicEffect` implements `IShadowReceiverEXT` too — and `kPreferPbrEffect` is
+**false**, so `BasicEffect` is the path every build actually takes. The feature had shipped
+switched off on the only path anybody runs, and nothing said so. Both the punctual light and the
+shadow map now go through `Impl::shadowReceiver()`, and a guard test refuses any `pbr->set…EXT(`
+in the file by name.
 
-**The real work, now that the API is known:**
+**The decision is a CNA-free function and the device call is wiring**, as everywhere else:
 
-1. A shadow pass in `cna-studio-viewport`, around the model batch it already builds: `begin` with
-   the scene's brightest directional light and the batch's world bounds, draw the casters with the
-   caster effect, `end`.
-2. `castShadows` decides what goes into that pass and `receiveShadows` decides whether a draw gets
-   `setShadowsEnabledEXT(true)` — at which point both flags mean what they say.
-3. `isSupported()` and the `BasicEffect` path are where a build that cannot do it says so, through
-   the capability report rather than by drawing something misleading.
-4. Only then is *configuration* worth adding — a quality level belongs in the project or the scene
-   environment, not on every light, and it should arrive with the pass that honours it.
+- `SceneShadows.hpp` / `.cpp` compute a `SceneShadowPlan` — which light, which draws, and the world
+  bounds to fit the projection to. The brightest enabled **directional** light wins, by the same
+  rule and for the same reason `computeEffectLighting` fills its three slots.
+- The bounds are the **casters'**, not the scene's. A volume twice the size it needs is a quarter
+  of the effective resolution, so a distant skybox entity would otherwise halve the shadow quality
+  of everything a user can see.
+- The plan is a field of `SceneModelBatch`, filled by `buildSceneModelBatch`, **not** recomputed by
+  the viewport. Two places working out which entity casts is two answers that can disagree, and
+  this way a test asserts that a *document* produces a shadow plan with no device in the room.
+- `CnaModelPass::renderShadowMap` takes the batch alone and reads `batch.shadows`. A plan passed
+  beside a batch is a plan a caller can get out of step with it.
 
-Until that lands, `validateScene` reports `shadows-not-rendered`, and the rule now says what Studio
-draws rather than what CNA cannot.
+**Three device facts that are not obvious and are why the pass is shaped as it is.**
 
-**What is left is to say so, once, where it costs something.** `validateScene` reports
-`shadows-not-rendered` for a scene that is actually set up to want a shadow: an enabled light and
-an enabled model renderer that says it casts. A scene with no light casts none on any renderer and
-a scene with no model has nothing to cast one, so neither says anything. And it is reported **once
-for the scene rather than once per model**, because the flags default to on: a per-entity rule would
-fire on every model in every project forever, which is the shape of a rule people configure their
-way out of and then stop reading.
+1. **`ShadowMap::end` restores the back buffer**, not whatever was bound before it. So the pass
+   runs *before* `CnaSceneRenderer` binds the scene's target. Called after, the rest of the frame
+   would draw into the window — a defect whose symptom is the editor's chrome flickering, nowhere
+   near the shadow code. A guard test compares the two positions in the source.
+2. **Generating a map and sampling one are different capabilities.** `ShadowMap::isSupported()`
+   answers the first; `GraphicsDevice::SupportsShadowSamplingEXT()` answers the second, and CNA's
+   own shadow example checks both because on Vulkan the first is true and the second is false —
+   where applying a shadow-sampling effect does not draw an unshadowed picture, it crashes
+   mid-draw. A refusal is latched, because `ShadowMap`'s constructor allocates a target of up to
+   2048 square *before* `isSupported` can be asked.
+3. **Casters are drawn with `CullMode::None`.** The scene pass culls counter-clockwise because the
+   *camera's* projection mirrors Y; the light's view-projection is CNA's own and mirrors nothing,
+   so that reasoning does not carry over — and a caster that is a single unclosed surface, which
+   plenty of imported geometry is, casts nothing when either side is culled.
 
-**Verification.** `tests/SceneTests.cpp` —
-`AConfiguredShadowIsReportedBecauseThisBuildDrawsNone`: one issue for a scene that wants a shadow,
-still one for a scene with five models, and nothing for a scene with no light, no model, or a model
-that says it does not cast. A Warning rather than an Error, because the scene is legal and the flags
-reach a game that may well honour them — what is wrong is only what the editor shows.
+**The world matrix goes up through `uWorld`.** `getCasterEffect()` returns a raw `ShaderEffect`
+precisely so an app with its own transforms can place its casters, and `applyCaster()` resets that
+uniform to identity — so the world is uploaded *after* it, not before. This is the documented
+pattern; CNA's own `cnaext_shadowmap_test` uses it.
 
-Checked by causing each: the rule firing more than once, and the rule dropping its "something
-actually casts" condition, both fail by name.
+**The validation rule narrowed rather than disappeared.** `shadows-not-rendered` said the editor
+drew no shadows, which stopped being true. What survived is `shadows-need-a-directional-light`: the
+pass renders from a sun, and a room lit only by lamps has casters, receivers and no shadow. CNA
+ships `CubeShadowMap` and `SpotShadowMap` for a point light's cube and a spot's frustum; Studio
+does not drive them yet, and that is a Studio row rather than a CNA gap. Still once for the scene
+rather than once per model — the flags default to on, and a per-entity rule would fire on every
+model in every project forever.
 
-**What this row is not, yet.** There is no shadow in the viewport. There is no per-light shadow
-setting, no bias, no resolution and no cascade — and none of those should arrive before the pass
-that honours them, which is the one thing the original version of this entry got right for the
-wrong reason.
+**Verification.** `tests/SceneTests.cpp` — `TheShadowPlanFollowsTheCastAndReceiveFlags` (both flags
+read off `buildSceneModelBatch(...).shadows`, so the wiring is covered as well as the arithmetic;
+unticking Cast Shadows empties the map, unticking Receive Shadows does not),
+`TheShadowPlanPicksTheBrightestDirectionalLightAndIgnoresTheOthers` (a point light plans nothing, a
+dim sun does, a brighter one takes over, the direction is unit length), and
+`AShadowWantedFromALampIsReportedBecauseThePassNeedsASun`.
+
+The device half cannot be asserted headlessly, so it is guarded by a source scan honest about being
+one: `TheShadowPlanTheBatchCarriesIsWhatTheDeviceHalfRenders` in
+`tests/ArchitectureGuardTests.cpp`, covering generation, attachment, the `pbr->set…EXT(` refusal,
+and the ordering against the render target bind.
+
+Checked by causing each: the builder not attaching the plan, the renderer never calling the pass,
+the pass called after the target bind, and an EXT setter reached through `PbrEffect` — all four
+fail by name, as does the validation rule losing its "and no sun" condition.
+
+**What this row is not.** There is no shadow *quality* setting: the map is Medium (1024 square),
+which is the size CNA's default depth bias is documented as tuned for, and a control that traded
+acne against peter-panning on a user's behalf without offering them the choice would be worse than
+the constant. When a setting arrives it belongs in the project or the scene environment rather than
+on every light, and `kShadowQuality` is the one line it replaces. There are no cascades, no cube
+or spot shadows, and no shadow from a blended surface — the map stores one distance per texel and
+has nowhere to put "half blocked", so a window casts a solid shadow rather than none.
 
 ### `STUDIO-20007` — Viewport lighting matches the game preview as closely as the runtime allows
 

@@ -197,35 +197,55 @@ namespace CNA::Studio
         }
 
         /**
-         * @brief Reports that this build draws no shadows, where a scene is set up to want them.
+         * @brief Reports a scene wanting shadows from a light the editor's pass cannot use.
          *
-         * `plan.md` STUDIO-20006. `CNA.ModelRenderer` has carried `castShadows` and
-         * `receiveShadows` since Phase 1, both defaulting to true, both editable in the Inspector
-         * -- and read by nothing **in Studio**. CNA can draw shadows: `PbrEffect` implements
-         * `IShadowReceiverEXT` and the CNAEXT engine layer ships `CNA::Graphics::ShadowMap`. What
-         * is missing is the viewport's shadow pass, which is Studio's to write and is why that row
-         * is open rather than closed.
+         * `plan.md` STUDIO-20006. This rule used to say that Studio drew no shadows at all, which
+         * was true when it was written and stopped being true when the shadow pass landed. What is
+         * still true is narrower and more useful: **the pass renders from a directional light**.
+         * `ShadowMap` fits an orthographic volume to the scene, which is what a sun's shadow is;
+         * a point light's is a cube of six faces and a spot's is a perspective frustum, and CNA
+         * ships `CubeShadowMap` and `SpotShadowMap` for exactly those. Studio does not drive them
+         * yet, so a room lit only by lamps has casters, receivers, and no shadow.
          *
          * **Once for the scene, not once per model.** The flags default to *on*, so a per-entity
          * rule would fire on every model in every project forever -- which is the shape of a rule
-         * people configure their way out of and then stop reading. This is a fact about the
-         * build, so it is reported as one.
+         * people configure their way out of and then stop reading. This is a fact about the light
+         * rig, so it is reported as one.
          *
-         * **And only where it costs something.** A scene with no light casts no shadows on any
-         * renderer, and a scene with no model has nothing to cast one; in both cases the flags are
-         * as meaningless as the rule would be. The report appears when a scene is actually set up
-         * to want a shadow: an enabled light, and an enabled model renderer that says it casts.
+         * **And only where it costs something.** A scene with no light at all casts no shadow on
+         * any renderer and a scene with no caster has nothing to cast one; in neither case has the
+         * user asked for something they are not getting. The report appears when a scene has an
+         * enabled light, an enabled model renderer that says it casts, and no enabled *directional*
+         * light for the pass to render from.
          */
         void checkShadows(const SceneDocument& scene, std::vector<SceneIssue>& issues)
         {
             bool light = false;
+            bool directional = false;
             bool caster = false;
 
             for (const StudioEntity& entity : scene.getEntities())
             {
                 if (!isEffectivelyEnabled(scene, entity)) { continue; }
 
-                if (entity.findComponent(BuiltinComponentIds::kLight) != nullptr) { light = true; }
+                const StudioComponent* lightComponent =
+                    entity.findComponent(BuiltinComponentIds::kLight);
+                if (lightComponent != nullptr)
+                {
+                    light = true;
+
+                    // Through the same parser the lighting reduction uses, so "Directional" is
+                    // spelled once. An unrecognised kind reads as Directional there, and reading
+                    // it as one here too is what keeps the rule from firing on a scene a newer
+                    // Studio wrote that this build lights perfectly well.
+                    if (parseSceneLightKind(lightComponent->getProperty("kind")
+                                           .get<PropertyValue::EnumValue>()
+                                           .name)
+                        == SceneLightKind::Directional)
+                    {
+                        directional = true;
+                    }
+                }
 
                 const StudioComponent* renderer =
                     entity.findComponent(BuiltinComponentIds::kModelRenderer);
@@ -235,15 +255,16 @@ namespace CNA::Studio
                 }
             }
 
-            if (!light || !caster) { return; }
+            if (!light || !caster || directional) { return; }
 
             SceneIssue issue;
             issue.severity = SceneIssue::Severity::Warning;
-            issue.ruleId = "shadows-not-rendered";
+            issue.ruleId = "shadows-need-a-directional-light";
             issue.message =
-                "Studio draws no shadows yet: its viewport runs no shadow pass and attaches no "
-                "shadow map, though CNA's effects can sample one. Cast Shadows and Receive "
-                "Shadows are carried in the scene and change nothing in the editor.";
+                "This scene casts no shadows: Studio's shadow pass renders from a directional "
+                "light and there is no enabled one. Point and spot lights carry their own shadow "
+                "in CNA, which the editor does not generate yet. Add a directional light, or "
+                "untick Cast Shadows on the models that will not cast one.";
             issues.push_back(std::move(issue));
         }
 

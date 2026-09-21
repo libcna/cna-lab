@@ -39,6 +39,7 @@
 #include "CNA/Studio/Scene/SceneEnvironment.hpp"
 #include "CNA/Studio/Scene/SceneDebugView.hpp"
 #include "CNA/Studio/Scene/SceneLighting.hpp"
+#include "CNA/Studio/Scene/SceneShadows.hpp"
 
 namespace CNA::Studio
 {
@@ -82,6 +83,18 @@ namespace CNA::Studio
          * long as the scene's lights.
          */
         EffectLighting lighting;
+
+        /**
+         * @brief Whether this model is drawn into the shadow map (`plan.md` STUDIO-20006).
+         *
+         * `CNA.ModelRenderer::castShadows`, which has been editable since Phase 1 and read by
+         * nothing. Carried per draw rather than looked up again by the pass, for the reason every
+         * other field here is: the pass is device code and deciding things is not its job.
+         */
+        bool castsShadow = true;
+
+        /** @brief Whether this model samples the shadow map. `receiveShadows`. @see castsShadow */
+        bool receivesShadow = true;
 
         /**
          * @brief The material asset a `ModelRenderer` overrides its model's own with, or none.
@@ -149,6 +162,17 @@ namespace CNA::Studio
          * repeated once per entity with nothing able to make them differ.
          */
         SceneEnvironment environment;
+
+        /**
+         * @brief What this batch's shadow pass should draw (`plan.md` STUDIO-20006).
+         *
+         * On the batch rather than computed by the viewport, for the reason `viewProjection` is:
+         * the casters' bounds and the draws are the same arithmetic over the same list, and two
+         * places working it out is two answers that can disagree about which entity casts. It also
+         * means a test can assert that a document produces a shadow plan without a device, which
+         * is the whole point of building the batch in a CNA-free module.
+         */
+        SceneShadowPlan shadows;
 
         /** @brief Entities that name a model whose geometry is not available yet. */
         std::size_t pendingMeshes = 0;

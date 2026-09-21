@@ -10,6 +10,7 @@
 #include <optional>
 #include <vector>
 
+#include "Microsoft/Xna/Framework/BoundingBox.hpp"
 #include "Microsoft/Xna/Framework/Color.hpp"
 #include "Microsoft/Xna/Framework/Matrix.hpp"
 #include "Microsoft/Xna/Framework/Vector2.hpp"
@@ -25,6 +26,7 @@
 #include "Microsoft/Xna/Framework/Graphics/DirectionalLight.hpp"
 #include "Microsoft/Xna/Framework/Graphics/GraphicsDevice.hpp"
 #include "Microsoft/Xna/Framework/Graphics/IEffectFog.hpp"
+#include "Microsoft/Xna/Framework/Graphics/IShadowReceiverEXT.hpp"
 #include "Microsoft/Xna/Framework/Graphics/IndexBuffer.hpp"
 #include "Microsoft/Xna/Framework/Graphics/IndexElementSize.hpp"
 #include "Microsoft/Xna/Framework/Graphics/PbrEffect.hpp"
@@ -32,9 +34,14 @@
 #include "Microsoft/Xna/Framework/Graphics/PrimitiveType.hpp"
 #include "Microsoft/Xna/Framework/Graphics/RasterizerState.hpp"
 #include "Microsoft/Xna/Framework/Graphics/SamplerState.hpp"
+#include "Microsoft/Xna/Framework/Graphics/ShaderEffect.hpp"
 #include "Microsoft/Xna/Framework/Graphics/Texture2D.hpp"
 #include "Microsoft/Xna/Framework/Graphics/VertexBuffer.hpp"
 #include "Microsoft/Xna/Framework/Graphics/VertexPositionNormalTexture.hpp"
+
+#include "CNA/Graphics/DirectionalLightEXT.hpp"
+#include "CNA/Graphics/ShadowMap.hpp"
+#include "CNA/Graphics/ShadowQuality.hpp"
 
 #include "CNA/Studio/Assets/AssetDatabase.hpp"
 
@@ -73,6 +80,17 @@ namespace CNA::Studio
          * when CNA's changes; nothing else has to move.
          */
         constexpr bool kPreferPbrEffect = false;
+
+        /**
+         * @brief The shadow map's resolution, as CNA spells it (`plan.md` STUDIO-20006).
+         *
+         * Medium, which is 1024 square with a 1-texel filter. Chosen rather than defaulted: the
+         * depth bias CNA ships is documented as tuned for this size, so anything else trades a
+         * sharper shadow for one that either stripes its own caster or floats away from it, and
+         * neither is a trade an editor should make on a user's behalf without offering the choice.
+         * When STUDIO-20006 grows a quality setting, this constant is what it replaces.
+         */
+        constexpr CNA::Graphics::ShadowQuality kShadowQuality = CNA::Graphics::ShadowQuality::Medium;
 
         /**
          * @brief Converts one of the editor's matrices to XNA's.
@@ -114,6 +132,31 @@ namespace CNA::Studio
         std::unique_ptr<XnaGraphics::PbrEffect> pbr;
         std::unique_ptr<XnaGraphics::BasicEffect> basic;
         std::string effectName{"none"};
+
+        /**
+         * @brief The scene's shadow map, or null where this build cannot generate one.
+         *
+         * `plan.md` STUDIO-20006. Constructed on the first pass that needs it rather than in
+         * `initialize`: a 2D project never asks for one, and a render target of up to 2048 square
+         * is not worth holding for a viewport that will never draw into it.
+         */
+        std::unique_ptr<CNA::Graphics::ShadowMap> shadows;
+
+        /** @brief True while @ref shadows holds a map generated for the frame being drawn. */
+        bool shadowsLive = false;
+
+        /**
+         * @brief Set once this device has been found unable to shadow, so it is asked only once.
+         *
+         * `ShadowMap`'s constructor allocates a render target of up to 2048 square *before*
+         * `isSupported` can be asked, so a pass that reconstructed it every frame to re-ask would
+         * allocate and free that target sixty times a second on exactly the renderers that can do
+         * nothing with it.
+         */
+        bool shadowsRefused = false;
+
+        /** @brief Draws put into the map by the last @ref renderShadowMap, for the stats. */
+        std::size_t shadowCasters = 0;
 
         /** @brief One upload per model asset, drawn once per entity that names it. */
         struct GpuPart
@@ -291,6 +334,23 @@ namespace CNA::Studio
             fog->setFogEndProperty(environment.fogEnd);
         }
 
+        /**
+         * @brief Whichever effect this build has, as the interface the CNA extensions live behind.
+         *
+         * `BasicEffect` implements `IShadowReceiverEXT` exactly as `PbrEffect` does -- punctual
+         * lights and shadow maps both -- so neither is a PBR-only feature and reaching them
+         * through the concrete `PbrEffect` would silently switch them off on the path this build
+         * actually takes (`kPreferPbrEffect` is false). That mistake was made here once already,
+         * for the same reason the withdrawn gaps G-13 and G-14 were filed: reading one type's
+         * header and concluding something about the API.
+         */
+        [[nodiscard]] XnaGraphics::IShadowReceiverEXT* shadowReceiver() const
+        {
+            if (pbr != nullptr) { return static_cast<XnaGraphics::IShadowReceiverEXT*>(pbr.get()); }
+            if (basic != nullptr) { return static_cast<XnaGraphics::IShadowReceiverEXT*>(basic.get()); }
+            return nullptr;
+        }
+
         /** @brief Applies @p lighting to whichever effect this build has. */
         void applyLighting(const EffectLighting& lighting)
         {
@@ -337,11 +397,11 @@ namespace CNA::Studio
             }
 
             // And the one real point or spot light, through CNA's own extension (`plan.md`
-            // STUDIO-20003). `BasicEffect` does not implement it, so a build drawing through that
-            // effect is lit by the three slots above alone -- which is what every object got
-            // before this, and is why the light is *also* offered to the directional reduction
-            // when this branch cannot run.
-            if (pbr == nullptr) { return; }
+            // STUDIO-20003). `IShadowReceiverEXT` rather than `PbrEffect`, because both effects
+            // implement it -- an earlier draft reached for the concrete type and switched the
+            // feature off on the only path this build takes.
+            XnaGraphics::IShadowReceiverEXT* receiver = shadowReceiver();
+            if (receiver == nullptr) { return; }
 
             XnaGraphics::PunctualLightEXT punctual;
             if (lighting.hasPunctual)
@@ -360,7 +420,39 @@ namespace CNA::Studio
             // Set even when there is none: `Kind::None` leaves every other field inert, and an
             // effect is reused across draws -- a lamp left attached from the previous model would
             // light one that is nowhere near it.
-            pbr->setPunctualLightEXT(punctual);
+            receiver->setPunctualLightEXT(punctual);
+        }
+
+        /**
+         * @brief Points the effect at this frame's shadow map, or takes it away (STUDIO-20006).
+         *
+         * Per draw, because `receiveShadows` is per draw -- and *both* ways for the same reason
+         * the punctual light is set even when there is none: one effect is reused across every
+         * model in the batch, so a map left attached from the previous draw would shadow a model
+         * whose author switched shadows off.
+         */
+        void applyShadows(bool receives)
+        {
+            XnaGraphics::IShadowReceiverEXT* receiver = shadowReceiver();
+            if (receiver == nullptr) { return; }
+
+            const bool on = receives && shadowsLive && shadows != nullptr;
+            receiver->setShadowsEnabledEXT(on);
+            if (!on)
+            {
+                receiver->setShadowMapEXT(nullptr);
+                return;
+            }
+
+            receiver->setShadowMapEXT(shadows->getShadowTexture());
+            receiver->setLightViewProjectionEXT(shadows->getLightViewProjection());
+
+            // Both taken from the map rather than chosen here. The filter radius is the one the
+            // map's own resolution was tuned for, and the bias trades shadow acne against a
+            // shadow that detaches from its caster -- numbers with no defensible value that is
+            // not the generator's, which is why `ShadowMap` publishes them at all.
+            receiver->setShadowFilterRadiusEXT(shadows->getFilterRadius());
+            receiver->setShadowDepthBiasEXT(shadows->getDepthBias());
         }
 
         // `applyMaterial` lived here and resolved a part's material itself -- the per-part
@@ -547,6 +639,14 @@ namespace CNA::Studio
         impl_->textures.clear();
         impl_->failedTextures.clear();
         impl_->whiteTexel.reset();
+
+        // Before the device pointer goes: the map owns a render target created against it, and a
+        // `shutdown` that left one behind would outlive the device it was made from.
+        impl_->shadows.reset();
+        impl_->shadowsLive = false;
+        impl_->shadowsRefused = false;
+        impl_->shadowCasters = 0;
+
         impl_->pbr.reset();
         impl_->basic.reset();
         impl_->effectName = "none";
@@ -633,6 +733,13 @@ namespace CNA::Studio
             // Sprites are fogged too. A sprite that stayed crisp in a scene where the models faded
             // would look like it was floating in front of the fog rather than standing in it.
             impl_->applyFog(batch.environment);
+
+            // And not shadowed, for the same reason `applySpriteMaterial` turns lighting off: a
+            // sprite is a flat quad facing the camera, and nothing in the document says whether it
+            // receives -- `receiveShadows` belongs to `CNA.ModelRenderer`. Said out loud rather
+            // than left to the last model's state, which is the effect's and carries over.
+            impl_->applyShadows(false);
+
             impl_->applySpriteMaterial(quad.tint, texture);
             impl_->applyEffect();
 
@@ -649,6 +756,164 @@ namespace CNA::Studio
         device.setDepthStencilStateProperty(XnaGraphics::DepthStencilState::None);
         device.setBlendStateProperty(XnaGraphics::BlendState::AlphaBlend);
         return stats;
+    }
+
+    std::size_t CnaModelPass::renderShadowMap(const SceneModelBatch& batch)
+    {
+        const SceneShadowPlan& plan = batch.shadows;
+
+        // First, and whatever happens below. Every early return from here is a frame with no map,
+        // and `applyShadows` reads this flag to decide whether to attach one -- so clearing it up
+        // front is what stops a scene whose sun was just deleted from keeping yesterday's shadows.
+        impl_->shadowsLive = false;
+        impl_->shadowCasters = 0;
+
+        if (!isReady() || !plan.enabled || plan.casterBounds.isEmpty()) { return 0; }
+        if (impl_->shadowsRefused) { return 0; }
+
+        XnaGraphics::GraphicsDevice& device = *impl_->device;
+
+        // Two capabilities, and they are genuinely different questions: `ShadowMap::isSupported`
+        // asks whether this renderer can *generate* a map, and this asks whether its lit shaders
+        // can *sample* one. CNA's own shadow example checks both and says why -- on Vulkan the
+        // first is true and the second is false, and applying a shadow-sampling effect there does
+        // not render an unshadowed picture, it crashes mid-draw. Generating a map nothing can read
+        // would also be a full render target's worth of work per frame for no pixels.
+        if (!device.SupportsShadowSamplingEXT())
+        {
+            impl_->shadowsRefused = true;
+            impl_->shadows.reset();
+            return 0;
+        }
+
+        if (impl_->shadows == nullptr)
+        {
+            try
+            {
+                impl_->shadows = std::make_unique<CNA::Graphics::ShadowMap>(device, kShadowQuality);
+            }
+            catch (const std::exception&)
+            {
+                // A target that will not allocate is a device problem, and the honest response is
+                // a scene without shadows rather than a viewport that stops.
+                impl_->shadowsRefused = true;
+                impl_->shadows.reset();
+                return 0;
+            }
+
+            if (!impl_->shadows->isSupported())
+            {
+                impl_->shadowsRefused = true;
+                impl_->shadows.reset();
+                return 0;
+            }
+        }
+
+        CNA::Graphics::ShadowMap& map = *impl_->shadows;
+
+        CNA::Graphics::DirectionalLightEXT sun;
+        sun.Direction = toXna(plan.direction);
+
+        // The plan's colour already carries the intensity, so the light's own multiplier stays at
+        // one rather than applying it twice. Neither reaches the map -- a shadow caster writes
+        // distance and nothing else -- but `begin` takes the light whole and a field left wrong
+        // because it is currently unread is a field that is wrong when something reads it.
+        sun.Color = toXna(plan.color);
+        sun.Intensity = 1.0f;
+        sun.CastsShadows = true;
+
+        const Xna::BoundingBox bounds{toXna(plan.casterBounds.min), toXna(plan.casterBounds.max)};
+
+        try
+        {
+            map.begin(sun, bounds);
+        }
+        catch (const std::exception&)
+        {
+            return 0;
+        }
+
+        std::size_t casters = 0;
+
+        try
+        {
+            // Both faces, which is what CNA's own example draws its casters with. The scene pass
+            // culls counter-clockwise because the *camera's* projection mirrors Y; the light's
+            // view-projection is CNA's own and mirrors nothing, so that reasoning does not carry
+            // over -- and a caster that is a single unclosed surface, which plenty of imported
+            // geometry is, casts nothing at all when either side is culled.
+            XnaGraphics::RasterizerState rasterizer;
+            rasterizer.setCullModeProperty(XnaGraphics::CullMode::None);
+            device.setRasterizerStateProperty(rasterizer);
+            device.setDepthStencilStateProperty(XnaGraphics::DepthStencilState::Default);
+            device.setBlendStateProperty(XnaGraphics::BlendState::Opaque);
+
+            XnaGraphics::ShaderEffect* caster = map.getCasterEffect();
+
+            for (const ModelDraw& draw : batch.draws)
+            {
+                if (!draw.castsShadow || draw.mesh == nullptr) { continue; }
+
+                // Counted into a statistics object that is thrown away: a buffer uploaded here is
+                // the same buffer the shading pass draws from, and reporting it twice would make
+                // `buffersCreated` say a model was uploaded two frames running.
+                ModelPassStats uploads;
+                Impl::GpuModel* model = impl_->resolveModel(draw.modelId, *draw.mesh, uploads);
+                if (model == nullptr || model->parts.empty()) { continue; }
+
+                // `applyCaster` re-binds the effect and re-uploads the light matrix, then resets
+                // the world matrix to identity -- so the world goes up after it, not before. The
+                // uniform is the documented way to place a caster: `getCasterEffect` returns a
+                // raw `ShaderEffect` precisely so that an app with its own transforms can use it.
+                if (caster != nullptr)
+                {
+                    map.applyCaster();
+                    const Xna::Matrix world = toXna(draw.world);
+                    caster->SetUniformMat4("uWorld", &world.M11);
+                }
+
+                for (const Impl::GpuPart& part : model->parts)
+                {
+                    // Every part, whatever its alpha mode. A blended pane's shadow is a question
+                    // this editor cannot answer honestly -- the map stores one distance per texel
+                    // and has nowhere to put "half blocked" -- and a window that casts a solid
+                    // shadow is a smaller lie than a wall that casts none because its glass was
+                    // modelled as one part of it.
+                    device.SetVertexBuffer(part.vertices.get());
+                    device.setIndicesProperty(part.indices.get());
+                    device.DrawIndexedPrimitives(XnaGraphics::PrimitiveType::TriangleList, 0, 0,
+                                                 part.vertexCount, 0, part.triangleCount);
+                }
+
+                ++casters;
+            }
+        }
+        catch (const std::exception&)
+        {
+            // Closed below whatever happened in here: `begin` throws on a pass that is already
+            // open, so a pass left open by an exception is a viewport that never shadows again.
+            casters = 0;
+        }
+
+        try
+        {
+            map.end();
+        }
+        catch (const std::exception&)
+        {
+            return 0;
+        }
+
+        // Left as `render` expects to find it -- it sets its own rasteriser and depth state, but
+        // the sprite pass and the wireframe overlay both run against whatever is current, and
+        // `None` is what every other pass in this file leaves behind.
+        device.setDepthStencilStateProperty(XnaGraphics::DepthStencilState::None);
+
+        if (casters == 0) { return 0; }
+
+        impl_->shadowsLive = true;
+        impl_->shadowCasters = casters;
+        return casters;
     }
 
     ModelPassStats CnaModelPass::render(const SceneModelBatch& batch)
@@ -704,6 +969,7 @@ namespace CNA::Studio
 
                 impl_->applyMatrices(draw.world, batch.view, batch.projection);
                 impl_->applyLighting(draw.lighting);
+                impl_->applyShadows(draw.receivesShadow);
                 impl_->applyFog(batch.environment);
 
                 for (const Impl::GpuPart& part : model->parts)
@@ -736,6 +1002,11 @@ namespace CNA::Studio
 
         drawPass(order.opaque, /*blendedPass=*/false);
         drawPass(order.blended, /*blendedPass=*/true);
+
+        // Recorded by `renderShadowMap`, reported here: the shadow pass runs before this one and
+        // returns its own count, but the Diagnostics panel is given one `ModelPassStats` for the
+        // frame and a second number arriving separately is a number that can go missing.
+        stats.shadowCasters = impl_->shadowCasters;
 
         // Left as the caller found it. The wireframe drawn over this is a `SpriteBatch` pass, and
         // a SpriteBatch that inherits a depth test compares against depths no sprite ever wrote --

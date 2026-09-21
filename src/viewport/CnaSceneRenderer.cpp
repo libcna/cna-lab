@@ -736,6 +736,12 @@ namespace CNA::Studio
         if (impl_->device == nullptr || impl_->spriteBatch == nullptr) { return modelStats; }
         if (width <= 0 || height <= 0) { return modelStats; }
 
+        // Before anything binds this pass's target, because `ShadowMap::end` restores the *back
+        // buffer* rather than whatever was bound when it started (`plan.md` STUDIO-20006). Run
+        // inside the block below it would hand the rest of the frame a window to draw into, and
+        // the scene would arrive on screen underneath the editor instead of in its panel.
+        impl_->modelPass.renderShadowMap(models);
+
         // With depth, unlike every other pass this class runs.
         impl_->ensureTarget(width, height, true);
         impl_->device->SetRenderTarget(impl_->target.get());

@@ -401,10 +401,17 @@ volume to the scene bounds, hands back a caster effect (rigid and skinned), and 
 `isSupported()` on a renderer that cannot manage it. There are cascades (`ShadowCascadeStateEXT`)
 and quality levels. None of this is missing.
 
-**What is actually true**: `CNA.ModelRenderer`'s `castShadows` and `receiveShadows` have been
-editable since Phase 1 and are read by nothing **in Studio**. The viewport runs no shadow pass and
-attaches no shadow map. That is a Studio gap and `plan.md` STUDIO-20006 has been reopened for it,
-with the CNA API it should be built on named rather than declared absent.
+**What is actually true**: `CNA.ModelRenderer`'s `castShadows` and `receiveShadows` had been
+editable since Phase 1 and were read by nothing **in Studio**. That was a Studio gap, `plan.md`
+STUDIO-20006 was reopened for it, and it is now closed: `CnaModelPass::renderShadowMap` drives
+`CNA::Graphics::ShadowMap` from the batch's own shadow plan, and both flags decide something. Also
+corrected on the way: `BasicEffect` implements `IShadowReceiverEXT` exactly as `PbrEffect` does, so
+neither shadows nor punctual lights are a PBR-only feature — a second instance of the reading error
+that produced this entry, caught by a guard test rather than by a picture.
+
+What Studio still does not drive is `CubeShadowMap` and `SpotShadowMap`, so a scene lit only by
+lamps casts nothing; `validateScene` reports `shadows-need-a-directional-light` and says so. That
+is a Studio row, not a CNA gap.
 
 The original entry follows, unedited.
 

@@ -12,19 +12,6 @@ namespace CNA::Studio
 {
     namespace
     {
-        /** @brief Returns the light kind @p name spells, defaulting to Directional. */
-        SceneLightKind parseLightKind(const std::string& name)
-        {
-            if (name == "Point") { return SceneLightKind::Point; }
-            if (name == "Spot") { return SceneLightKind::Spot; }
-
-            // Directional for anything unrecognised, rather than skipping the light. A scene
-            // written by a newer Studio with a fourth kind in it should still light something:
-            // the wrong kind of light is a visible, correctable state, and no light at all reads
-            // as the component being ignored.
-            return SceneLightKind::Directional;
-        }
-
         /** @brief Returns @p color scaled by @p intensity and @p falloff, in 0..1 components. */
         StudioVector3 toLinearScaled(const StudioColor& color, float intensity, float falloff)
         {
@@ -100,6 +87,15 @@ namespace CNA::Studio
 
     bool sceneLightUsesRange(SceneLightKind kind) { return sceneLightUsesPosition(kind); }
 
+    SceneLightKind parseSceneLightKind(std::string_view name)
+    {
+        if (name == "Point") { return SceneLightKind::Point; }
+        if (name == "Spot") { return SceneLightKind::Spot; }
+
+        // Directional for anything unrecognised; the header says why.
+        return SceneLightKind::Directional;
+    }
+
     std::vector<SceneLight> collectSceneLights(const SceneDocument& scene)
     {
         std::vector<SceneLight> lights;
@@ -117,7 +113,7 @@ namespace CNA::Studio
 
             SceneLight light;
             light.entityId = entity.getId();
-            light.kind = parseLightKind(
+            light.kind = parseSceneLightKind(
                 component->getProperty("kind").get<PropertyValue::EnumValue>().name);
             light.position = transform->position;
             light.direction =

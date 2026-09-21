@@ -173,6 +173,13 @@ namespace CNA::Studio
             // is the commonest scene there is. Flagged only when the user has actually changed it,
             // so an untouched scene still looks exactly like an XNA one with no lights.
             draw.lighting.ambientOverridesDefault = sceneAmbient != SceneEnvironment{}.ambientColor;
+
+            // The two flags a user has been able to set since Phase 1 and nothing has ever read
+            // (`plan.md` STUDIO-20006). Defaulted true, so a scene written before the shadow pass
+            // existed behaves as a scene where everything casts and receives -- which is what its
+            // author was told when they left the boxes ticked.
+            draw.castsShadow = renderer->getProperty("castShadows").get<bool>(true);
+            draw.receivesShadow = renderer->getProperty("receiveShadows").get<bool>(true);
             // The override, when the entity names one and it can be resolved. An entity pointing at
             // a material that has not loaded draws with its model's own rather than not at all --
             // the same answer `MeshProvider` returning nullptr gets from the mesh side.
@@ -219,6 +226,10 @@ namespace CNA::Studio
             batch.triangleCount += mesh->getTriangleCount();
             batch.draws.push_back(draw);
         }
+
+        // Last, because it reads every draw this loop produced -- which light shadows the scene is
+        // a question about the lights, and what it has to cover is a question about the draws.
+        batch.shadows = planSceneShadows(batch, lights);
 
         return batch;
     }

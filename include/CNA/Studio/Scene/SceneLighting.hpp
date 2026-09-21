@@ -55,6 +55,7 @@
 
 #include <array>
 #include <cstddef>
+#include <string_view>
 #include <vector>
 
 #include "CNA/Studio/Core/StudioMath.hpp"
@@ -74,6 +75,21 @@ namespace CNA::Studio
 
     /** @brief Returns the stable name of @p kind, matching the descriptor's enum options. */
     [[nodiscard]] const char* toString(SceneLightKind kind);
+
+    /**
+     * @brief Returns the kind @p name spells, and Directional for anything it does not.
+     *
+     * The inverse of @ref toString, and public for the same reason that is: the spelling of a
+     * light's kind has to be one answer. `validateScene` asks the same question the lighting
+     * reduction does, and a second `if (name == "Point")` somewhere else is how a fourth kind
+     * comes to be understood by one of them and not the other.
+     *
+     * **Directional for anything unrecognised, rather than nothing.** A scene written by a newer
+     * Studio with a kind this build has never heard of should still light something: the wrong
+     * kind of light is a visible, correctable state, while no light at all reads as the component
+     * having been ignored.
+     */
+    [[nodiscard]] SceneLightKind parseSceneLightKind(std::string_view name);
 
     /**
      * @brief Which of a light's fields mean anything for @p kind (`plan.md` STUDIO-20002).

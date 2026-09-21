@@ -17,6 +17,7 @@
 #include "CNA/Studio/Scene/BuiltinComponents.hpp"
 #include "CNA/Studio/Scene/EntityArchetypes.hpp"
 #include "CNA/Studio/Assets/MaterialCapabilities.hpp"
+#include "CNA/Studio/Scene/SceneShadows.hpp"
 #include "CNA/Studio/Scene/StudioCamera3D.hpp"
 #include "CNA/Studio/Scene/SceneLighting.hpp"
 #include "CNA/Studio/Scene/SceneModels.hpp"
@@ -5882,29 +5883,30 @@ CNA_STUDIO_TEST(TheScenesAmbientIsAppliedEvenWhenNothingLightsTheScene)
 }
 
 /**
- * @brief The editor already offered shadow configuration and nothing drew a shadow.
+ * @brief A scene lit only by lamps is told why its casters cast nothing.
  *
- * `plan.md` STUDIO-20006. `CNA.ModelRenderer` has carried `castShadows` and `receiveShadows`
- * since Phase 1, both defaulting to true, both editable in the Inspector — and read by nothing
- * anywhere in Studio or in CNA. `IEffectLights` has an ambient colour and three directional slots;
- * neither effect takes a shadow map and there is no seam for one that could. Recorded as CNA gap
- * G-14.
+ * `plan.md` STUDIO-20006. This test used to assert that the editor drew no shadows at all, which
+ * was true until the shadow pass landed. What replaced it is the limitation that survived: the
+ * pass renders from a *directional* light, because `ShadowMap` fits an orthographic volume to the
+ * scene. A point light's shadow is a cube and a spot's is a frustum; CNA ships `CubeShadowMap` and
+ * `SpotShadowMap` for both and Studio does not drive them yet.
  *
  * Reported once for the scene rather than once per model, because the flags default to *on*: a
  * per-entity rule would fire on every model in every project forever, which is the shape of a rule
  * people configure their way out of and then stop reading.
  */
-CNA_STUDIO_TEST(AConfiguredShadowIsReportedBecauseThisBuildDrawsNone)
+CNA_STUDIO_TEST(AShadowWantedFromALampIsReportedBecauseThePassNeedsASun)
 {
     const ComponentRegistry registry = makeRegistry();
+    static const char* const kRule = "shadows-need-a-directional-light";
 
-    const auto sceneWith = [&registry](bool light, bool model, bool casts) {
+    const auto sceneWith = [&registry](const char* lightKind, bool model, bool casts) {
         SceneDocument scene;
-        if (light)
+        if (lightKind != nullptr)
         {
-            StudioEntity sun = makeEntity(registry, "Sun", 0.0f, 0.0f);
-            addLight(registry, sun, "Directional", 1.0f, 0.0f);
-            scene.addEntity(std::move(sun));
+            StudioEntity lamp = makeEntity(registry, "Lamp", 0.0f, 0.0f);
+            addLight(registry, lamp, lightKind, 1.0f, 10.0f);
+            scene.addEntity(std::move(lamp));
         }
         if (model)
         {
@@ -5917,34 +5919,179 @@ CNA_STUDIO_TEST(AConfiguredShadowIsReportedBecauseThisBuildDrawsNone)
         return scene;
     };
 
-    // A scene actually set up to want a shadow: a light, and a model that says it casts one.
-    const SceneDocument wanting = sceneWith(true, true, true);
-    CNA_STUDIO_EXPECT_EQ(countRule(validateScene(wanting, registry), "shadows-not-rendered"),
+    // A room lit by a lamp, with a model that says it casts: the user has asked for a shadow and
+    // is not getting one, which is the whole of what this rule is for.
+    const SceneDocument lamplit = sceneWith("Point", true, true);
+    CNA_STUDIO_EXPECT_EQ(countRule(validateScene(lamplit, registry), kRule), std::size_t{1});
+
+    // A spot light is the same answer for a different reason -- its shadow is a frustum rather
+    // than a cube -- and the rule does not need to distinguish them to be right.
+    CNA_STUDIO_EXPECT_EQ(countRule(validateScene(sceneWith("Spot", true, true), registry), kRule),
                          std::size_t{1});
 
-    // Once, not once per model: the fact is about the build.
-    SceneDocument crowded = sceneWith(true, true, true);
+    // Once, not once per model: the fact is about the light rig.
+    SceneDocument crowded = sceneWith("Point", true, true);
     for (int i = 0; i < 4; ++i)
     {
         StudioEntity extra = makeEntity(registry, "Crate " + std::to_string(i), 0.0f, 0.0f);
         addModelRenderer(registry, extra, Uuid::generate());
         crowded.addEntity(std::move(extra));
     }
-    CNA_STUDIO_EXPECT_EQ(countRule(validateScene(crowded, registry), "shadows-not-rendered"),
-                         std::size_t{1});
+    CNA_STUDIO_EXPECT_EQ(countRule(validateScene(crowded, registry), kRule), std::size_t{1});
+
+    // **And silent the moment a sun is added**, which is the assertion that would have failed
+    // before the shadow pass existed and is the reason this rule could be narrowed rather than
+    // deleted: the editor now draws the shadow it is describing.
+    SceneDocument withSun = sceneWith("Point", true, true);
+    StudioEntity sun = makeEntity(registry, "Sun", 0.0f, 0.0f);
+    addLight(registry, sun, "Directional", 1.0f, 0.0f);
+    withSun.addEntity(std::move(sun));
+    CNA_STUDIO_EXPECT_EQ(countRule(validateScene(withSun, registry), kRule), std::size_t{0});
 
     // And only where it costs something. A scene with no light casts no shadow on any renderer,
     // a scene with no model has nothing to cast one, and a model that says it does not cast is a
     // user who has already answered the question.
-    for (const SceneDocument& quiet : {sceneWith(false, true, true), sceneWith(true, false, true),
-                                       sceneWith(true, true, false)})
+    for (const SceneDocument& quiet : {sceneWith(nullptr, true, true), sceneWith("Point", false, true),
+                                       sceneWith("Point", true, false)})
     {
-        CNA_STUDIO_EXPECT_EQ(countRule(validateScene(quiet, registry), "shadows-not-rendered"),
-                             std::size_t{0});
+        CNA_STUDIO_EXPECT_EQ(countRule(validateScene(quiet, registry), kRule), std::size_t{0});
     }
 
-    // A warning rather than an error: the scene is legal and the flags are carried through to a
-    // game that may well draw shadows itself. What is wrong is only what the *editor* shows.
-    CNA_STUDIO_EXPECT_EQ(countIssues(validateScene(wanting, registry),
+    // A warning rather than an error: the scene is legal, and the flags are carried through to a
+    // game that may well drive CNA's cube and spot maps itself.
+    CNA_STUDIO_EXPECT_EQ(countIssues(validateScene(lamplit, registry),
                                      SceneIssue::Severity::Error), std::size_t{0});
+}
+
+// ------------------------------------------------------------------------------------------------
+// The shadow plan (STUDIO-20006)
+// ------------------------------------------------------------------------------------------------
+
+/**
+ * @brief Cast Shadows and Receive Shadows finally decide something.
+ *
+ * `plan.md` STUDIO-20006. Both have been editable since Phase 1 and read by nothing: a user has
+ * been able to turn a model's shadow off since the component existed and no picture has ever
+ * changed. They now reach the draw, and `planSceneShadows` turns them into the two decisions a
+ * shadow pass needs — what goes in the map, and what it is fitted to.
+ */
+CNA_STUDIO_TEST(TheShadowPlanFollowsTheCastAndReceiveFlags)
+{
+    const ComponentRegistry registry = makeRegistry();
+    const MeshData mesh = makeTinyMesh();
+    const Uuid modelId = Uuid::generate();
+
+    StudioCamera3D camera;
+    camera.setViewportSize(StudioVector2{800.0f, 600.0f});
+    const MeshProvider provider = [&](const Uuid& queried) {
+        return queried == modelId ? &mesh : nullptr;
+    };
+
+    SceneDocument scene;
+    StudioEntity sun = makeEntity(registry, "Sun", 0.0f, 0.0f);
+    addLight(registry, sun, "Directional", 1.0f, 0.0f);
+    scene.addEntity(std::move(sun));
+
+    StudioEntity crate = makeEntity(registry, "Crate", 0.0f, 0.0f);
+    addModelRenderer(registry, crate, modelId);
+    const Uuid crateId = scene.addEntity(std::move(crate));
+
+    // Read off the batch rather than by calling `planSceneShadows` beside it, so this covers the
+    // wiring as well as the arithmetic: the viewport is handed a batch and nothing else, and a
+    // plan that the builder forgot to attach is a scene that draws no shadows however right the
+    // function computing it is.
+    const auto plan = [&] { return buildSceneModelBatch(scene, camera, provider).shadows; };
+
+    // The default is both on, which is what a scene written before this existed was promised.
+    const SceneShadowPlan both = plan();
+    CNA_STUDIO_EXPECT(both.enabled);
+    CNA_STUDIO_EXPECT_EQ(both.casters, std::size_t{1});
+    CNA_STUDIO_EXPECT_EQ(both.receivers, std::size_t{1});
+    CNA_STUDIO_EXPECT(!both.casterBounds.isEmpty());
+
+    // Unticking Cast Shadows takes the model out of the map, and with nothing left to put in it
+    // the pass is not worth running at all.
+    StudioComponent* renderer =
+        scene.findEntityForEdit(crateId)->findComponent(BuiltinComponentIds::kModelRenderer);
+    renderer->setProperty("castShadows", PropertyValue{false});
+
+    const SceneShadowPlan noCasters = plan();
+    CNA_STUDIO_EXPECT(!noCasters.enabled);
+    CNA_STUDIO_EXPECT_EQ(noCasters.casters, std::size_t{0});
+
+    // It still *receives*, which is a different question: a model that is shadowed by others and
+    // casts none of its own is an ordinary thing to want.
+    CNA_STUDIO_EXPECT_EQ(noCasters.receivers, std::size_t{1});
+
+    // And unticking Receive Shadows leaves the map being generated: what goes into it is not
+    // decided by who reads it, and a user who unticks the last receiver should not silently
+    // change what the casters do.
+    renderer->setProperty("castShadows", PropertyValue{true});
+    renderer->setProperty("receiveShadows", PropertyValue{false});
+
+    const SceneShadowPlan noReceivers = plan();
+    CNA_STUDIO_EXPECT(noReceivers.enabled);
+    CNA_STUDIO_EXPECT_EQ(noReceivers.casters, std::size_t{1});
+    CNA_STUDIO_EXPECT_EQ(noReceivers.receivers, std::size_t{0});
+}
+
+/** @brief The map is generated from the brightest directional light, and from nothing else. */
+CNA_STUDIO_TEST(TheShadowPlanPicksTheBrightestDirectionalLightAndIgnoresTheOthers)
+{
+    const ComponentRegistry registry = makeRegistry();
+    const MeshData mesh = makeTinyMesh();
+    const Uuid modelId = Uuid::generate();
+
+    StudioCamera3D camera;
+    camera.setViewportSize(StudioVector2{800.0f, 600.0f});
+    const MeshProvider provider = [&](const Uuid& queried) {
+        return queried == modelId ? &mesh : nullptr;
+    };
+
+    SceneDocument scene;
+    StudioEntity crate = makeEntity(registry, "Crate", 0.0f, 0.0f);
+    addModelRenderer(registry, crate, modelId);
+    scene.addEntity(std::move(crate));
+
+    const auto plan = [&] { return buildSceneModelBatch(scene, camera, provider).shadows; };
+
+    // A point light has its own shadow in CNA's punctual extension -- a cube of six faces -- and
+    // is not what an orthographic map fitted to the scene describes. So it generates nothing here.
+    StudioEntity lamp = makeEntity(registry, "Lamp", 0.0f, 0.0f);
+    addLight(registry, lamp, "Point", 5.0f, 100.0f);
+    scene.addEntity(std::move(lamp));
+    CNA_STUDIO_EXPECT(!plan().enabled);
+
+    // A dim sun does, and its direction is the one the map is rendered along.
+    StudioEntity dim = makeEntity(registry, "Fill", 0.0f, 0.0f);
+    addLight(registry, dim, "Directional", 0.2f, 0.0f, StudioColor{255, 0, 0, 255});
+    scene.addEntity(std::move(dim));
+
+    const SceneShadowPlan withFill = plan();
+    CNA_STUDIO_EXPECT(withFill.enabled);
+    CNA_STUDIO_EXPECT(withFill.color.x > withFill.color.y);
+
+    // And a brighter one takes over, by the same rule the three effect slots use: brightness, not
+    // document order, because document order is not something a user arranges deliberately.
+    StudioEntity bright = makeEntity(registry, "Sun", 0.0f, 0.0f);
+    addLight(registry, bright, "Directional", 1.0f, 0.0f, StudioColor{0, 255, 0, 255});
+    scene.addEntity(std::move(bright));
+
+    const SceneShadowPlan withSun = plan();
+    CNA_STUDIO_EXPECT(withSun.enabled);
+    CNA_STUDIO_EXPECT(withSun.color.y > withSun.color.x);
+
+    // The direction is unit length, because the pass builds a view matrix from it.
+    const float len = std::sqrt(withSun.direction.x * withSun.direction.x
+                                + withSun.direction.y * withSun.direction.y
+                                + withSun.direction.z * withSun.direction.z);
+    CNA_STUDIO_EXPECT(cameraNearlyEqual(len, 1.0f, 0.001f));
+
+    // A scene with no light at all plans nothing, which is the 2D case and most of the 3D ones
+    // before somebody adds a sun.
+    SceneDocument bare;
+    StudioEntity lone = makeEntity(registry, "Crate", 0.0f, 0.0f);
+    addModelRenderer(registry, lone, modelId);
+    bare.addEntity(std::move(lone));
+    CNA_STUDIO_EXPECT(!buildSceneModelBatch(bare, camera, provider).shadows.enabled);
 }

@@ -44,6 +44,7 @@
 
 #include "CNA/Studio/Core/Uuid.hpp"
 #include "CNA/Studio/Scene/SceneModels.hpp"
+#include "CNA/Studio/Scene/SceneShadows.hpp"
 #include "CNA/Studio/Scene/SceneSprites3D.hpp"
 
 namespace Microsoft::Xna::Framework::Graphics
@@ -73,6 +74,15 @@ namespace CNA::Studio
 
         /** @brief Sprite quads drawn after the models, blended back to front. */
         std::size_t spritesDrawn = 0;
+
+        /**
+         * @brief Draws rendered into the shadow map, which is zero whenever no map was generated.
+         *
+         * Reported for the same reason @ref effect is: whether this build shadows at all depends
+         * on the renderer, and "why are there no shadows on this machine" should have an answer in
+         * the Diagnostics panel rather than in a screenshot comparison.
+         */
+        std::size_t shadowCasters = 0;
 
         /**
          * @brief Which effect the pass is using: "PbrEffect", "BasicEffect", or "none".
@@ -136,6 +146,30 @@ namespace CNA::Studio
             const SceneSpriteBatch3D& sprites, const SceneModelBatch& batch,
             const std::function<Microsoft::Xna::Framework::Graphics::Texture2D*(const Uuid&)>&
                 resolveTexture);
+
+        /**
+         * @brief Renders @p batch's casters into the shadow map, before @ref render (STUDIO-20006).
+         *
+         * Called *outside* the render target the models are drawn into, because the pass binds and
+         * restores its own -- `ShadowMap::end` rebinds the back buffer rather than whatever was
+         * there before, so a call made inside the scene's target would leave the rest of the frame
+         * drawing into the window. The map it produces is attached to every receiving draw by
+         * @ref render, so the two calls are one operation split by what they bind rather than two
+         * features.
+         *
+         * Takes the batch alone and reads `SceneModelBatch::shadows`, rather than taking a plan
+         * beside it: a plan and a batch passed separately are two things a caller can get out of
+         * step, and the answer to "which of these draws casts" has to be the one the batch was
+         * built with.
+         *
+         * Draws nothing, and releases whatever was there, when the plan is not `enabled`, when the
+         * device cannot generate maps (`ShadowMap::isSupported`), or when it cannot *sample* one
+         * (`GraphicsDevice::SupportsShadowSamplingEXT`). A stale map left attached would shadow
+         * the scene with the arrangement it had two edits ago, which is worse than no shadow.
+         *
+         * @return How many draws were rendered into the map.
+         */
+        std::size_t renderShadowMap(const SceneModelBatch& batch);
 
         /** @brief Drops the GPU buffers for @p assetId, or all of them when it is nil. */
         void invalidateModel(const Uuid& assetId);

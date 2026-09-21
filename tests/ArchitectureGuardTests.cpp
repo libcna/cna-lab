@@ -760,6 +760,117 @@ CNA_STUDIO_TEST(TheModelPassReadsEveryFieldTheLightingReductionFillsIn)
     }
 }
 
+/**
+ * @brief The shadow plan the batch carries is what the device half actually renders.
+ *
+ * `plan.md` STUDIO-20006. The plan itself is arithmetic over a document and is tested against one
+ * in `SceneTests.cpp`; what cannot be tested there is whether anything *calls* the device with it,
+ * because the call is `ShadowMap::begin` and CI has no device. So this reads the source, exactly
+ * as the lighting guard above does, and for the same reason: `castShadows` and `receiveShadows`
+ * were editable, serialised, defaulted to true and read by nothing for nineteen phases.
+ */
+CNA_STUDIO_TEST(TheShadowPlanTheBatchCarriesIsWhatTheDeviceHalfRenders)
+{
+    std::ifstream passFile{sourceRoot() / "src" / "viewport" / "CnaModelPass.cpp", std::ios::binary};
+    const std::string pass{std::istreambuf_iterator<char>{passFile},
+                           std::istreambuf_iterator<char>{}};
+    CNA_STUDIO_EXPECT(!pass.empty());
+
+    // Generating the map, and attaching it. Both halves, because either alone is a pass that
+    // costs a render target per frame and changes no pixel.
+    static const char* const kGenerates[] = {
+        "ShadowMap", "SupportsShadowSamplingEXT", "begin(", "applyCaster", "castsShadow",
+    };
+    static const char* const kAttaches[] = {
+        "setShadowMapEXT", "setLightViewProjectionEXT", "setShadowsEnabledEXT", "receivesShadow",
+    };
+
+    for (const char* mention : kGenerates)
+    {
+        if (pass.find(mention) == std::string::npos)
+        {
+            CnaStudioTest::reportFailure(__FILE__, __LINE__,
+                std::string{"CnaModelPass.cpp never mentions '"} + mention
+                + "', so the batch carries a shadow plan that nothing renders into a map.");
+        }
+    }
+    for (const char* mention : kAttaches)
+    {
+        if (pass.find(mention) == std::string::npos)
+        {
+            CnaStudioTest::reportFailure(__FILE__, __LINE__,
+                std::string{"CnaModelPass.cpp never mentions '"} + mention
+                + "', so a shadow map is generated and no draw ever samples it.");
+        }
+    }
+
+    // **The CNA extensions go through `IShadowReceiverEXT`, never through `PbrEffect`.** Both
+    // effects implement that interface -- punctual lights and shadow maps alike -- and this build
+    // draws through `BasicEffect` (`kPreferPbrEffect` is false). So reaching an EXT setter through
+    // the concrete `pbr` pointer compiles, passes review, and switches the feature off on the only
+    // path anybody runs. That is exactly how STUDIO-20003 first shipped, and it is the same
+    // mistake as the withdrawn gaps G-13 and G-14: one type's header read as if it were the API.
+    if (pass.find("pbr->set") != std::string::npos
+        && pass.find("EXT(") != std::string::npos)
+    {
+        std::size_t at = pass.find("pbr->set");
+        while (at != std::string::npos)
+        {
+            const std::size_t end = pass.find('(', at);
+            if (end != std::string::npos
+                && pass.compare(end - 3, 3, "EXT") == 0)
+            {
+                CnaStudioTest::reportFailure(__FILE__, __LINE__,
+                    "CnaModelPass.cpp reaches a CNA extension through the concrete PbrEffect ('"
+                    + pass.substr(at, end - at)
+                    + "'). BasicEffect implements IShadowReceiverEXT too, and this build draws "
+                      "through BasicEffect, so that call never runs. Use shadowReceiver().");
+            }
+            at = pass.find("pbr->set", at + 1);
+        }
+    }
+
+    // And the ordering the whole thing rests on: `ShadowMap::end` restores the *back buffer*, not
+    // whatever was bound when the pass started, so the shadow pass has to run before the scene's
+    // target is bound. Called after it, the rest of the frame draws into the window -- a defect
+    // whose symptom is the editor's own chrome flickering, nowhere near the shadow code.
+    std::ifstream rendererFile{sourceRoot() / "src" / "viewport" / "CnaSceneRenderer.cpp",
+                               std::ios::binary};
+    const std::string renderer{std::istreambuf_iterator<char>{rendererFile},
+                               std::istreambuf_iterator<char>{}};
+    CNA_STUDIO_EXPECT(!renderer.empty());
+
+    const std::size_t shadowCall = renderer.find("renderShadowMap");
+    if (shadowCall == std::string::npos)
+    {
+        CnaStudioTest::reportFailure(__FILE__, __LINE__,
+            "CnaSceneRenderer.cpp never calls renderShadowMap, so the 3D view draws no shadows "
+            "however complete the pass below it is.");
+    }
+    else
+    {
+        const std::size_t bind = renderer.find("SetRenderTarget(impl_->target.get())", shadowCall);
+        const std::size_t earlierBind = renderer.rfind("SetRenderTarget(impl_->target.get())",
+                                                       shadowCall);
+        CNA_STUDIO_EXPECT(bind != std::string::npos);
+
+        // There are earlier binds in this file -- the 2D pass has one -- so "no bind before it"
+        // is not the question. The question is whether the *next* thing after the shadow call is
+        // the bind rather than the other way round, within the same function, which is what the
+        // distance to each side measures.
+        const std::size_t forward = bind - shadowCall;
+        const std::size_t backward =
+            earlierBind == std::string::npos ? forward + 1 : shadowCall - earlierBind;
+        if (backward < forward)
+        {
+            CnaStudioTest::reportFailure(__FILE__, __LINE__,
+                "CnaSceneRenderer.cpp calls renderShadowMap after binding the scene's render "
+                "target. ShadowMap::end restores the back buffer, so everything drawn afterwards "
+                "goes to the window instead of the viewport's texture.");
+        }
+    }
+}
+
 CNA_STUDIO_TEST(NoStudioCodeHardCodesARendererName)
 {
     // `docs/ARCHITECTURE.md` §2.2 and the roadmap's rule against hard-coding today's renderer
