@@ -24,6 +24,7 @@
  */
 
 #include "CNA/Studio/Core/StudioMath.hpp"
+#include "CNA/Studio/Core/Uuid.hpp"
 
 namespace CNA::Studio
 {
@@ -56,13 +57,58 @@ namespace CNA::Studio
         float fogStart = 400.0f;
         float fogEnd = 1600.0f;
 
+        /**
+         * @brief The `.cnaenv` this scene's sky comes from, or nil for no sky (STUDIO-20005).
+         *
+         * A reference by id rather than a panorama by path, for the reason every other asset
+         * reference in the editor is one (D-08) -- and to the *environment map* rather than to the
+         * panorama directly, because the sizes and sample counts a panorama is processed with
+         * belong to the sky rather than to the image, and two scenes may want one image at two
+         * qualities.
+         */
+        Uuid environmentMap;
+
+        /**
+         * @brief Multiplies both the sky's brightness and the light it casts.
+         *
+         * One number for both, because they are one thing: a sky twice as bright lights the scene
+         * twice as much, and a pair of sliders that could disagree would let a user author a room
+         * lit by a sky that is not there.
+         */
+        float environmentIntensity = 1.0f;
+
+        /**
+         * @brief How far the sky is turned about the world's Y axis, **in degrees**.
+         *
+         * Degrees here and radians in `SceneSkyPlan`, which is the split `CNA.Light`'s cone angles
+         * use: a person types degrees, every trigonometric consumer wants radians, and the
+         * conversion happens once where the document is read.
+         */
+        float environmentYaw = 0.0f;
+
+        /** @brief Whether the sky is drawn behind the scene. */
+        bool showSky = true;
+
+        /**
+         * @brief Whether the environment lights the scene.
+         *
+         * Separate from @ref showSky because CNA separates them -- `Skybox::draw` puts the cube on
+         * screen and `setImageBasedLightEXT` makes it light things -- and because each is worth
+         * wanting alone: a backdrop that must not tint the scene, or image-based lighting in a room
+         * whose windows show no sky.
+         */
+        bool lightFromEnvironment = true;
+
         /** @brief True when this is exactly the default, so a scene need not write it. */
         [[nodiscard]] bool isDefault() const
         {
             const SceneEnvironment fresh;
             return ambientColor == fresh.ambientColor && fogEnabled == fresh.fogEnabled
                    && fogColor == fresh.fogColor && fogStart == fresh.fogStart
-                   && fogEnd == fresh.fogEnd;
+                   && fogEnd == fresh.fogEnd && environmentMap == fresh.environmentMap
+                   && environmentIntensity == fresh.environmentIntensity
+                   && environmentYaw == fresh.environmentYaw && showSky == fresh.showSky
+                   && lightFromEnvironment == fresh.lightFromEnvironment;
         }
     };
 }

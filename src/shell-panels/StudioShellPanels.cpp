@@ -9,6 +9,7 @@
 #include "CNA/Studio/ShellPanels/StudioPluginMenus.hpp"
 
 #include "CNA/Studio/Assets/AssetCommands.hpp"
+#include "CNA/Studio/Assets/EnvironmentMapDocument.hpp"
 #include "CNA/Studio/Assets/AssetDatabase.hpp"
 #include "CNA/Studio/Assets/AssetShortcuts.hpp"
 #include "CNA/Studio/Project/Project.hpp"
@@ -1440,6 +1441,32 @@ namespace CNA::Studio
             details_services.dependencies =
                 frame.isInputPass() ? dependencyIndex() : &dependencies_;
             details_services.documents = &context_.getDocuments();
+
+            // The sky's chain, answered by the database this object holds (`plan.md`
+            // STUDIO-20005). `planSceneSky` is in `cna-studio-scene`, which links neither the
+            // database nor the asset module, so the three facts it needs come back as plain data.
+            details_services.skySource = [this](const Uuid& id) {
+                SceneSkySource source;
+                const AssetRecord* record = context_.getAssets().find(id);
+                if (record == nullptr || record->type != AssetType::EnvironmentMap)
+                {
+                    return source;
+                }
+                source.found = true;
+
+                EnvironmentMapDocument document;
+                if (loadEnvironmentMapDocument(context_.getAssets(), id, document)
+                    != EnvironmentMapLoadProblem::None)
+                {
+                    return source;
+                }
+                source.readable = true;
+                source.panorama = document.panorama;
+
+                const AssetRecord* sky = context_.getAssets().find(document.panorama);
+                source.panoramaIsTexture = sky != nullptr && sky->type == AssetType::Texture2D;
+                return source;
+            };
 
             const StudioDetailsResult details =
                 studioDetailsPanel(frame, bounds, context_, details_services, &detailsState_,

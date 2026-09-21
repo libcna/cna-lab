@@ -18,6 +18,7 @@
 #include "CNA/Studio/Scene/EntityArchetypes.hpp"
 #include "CNA/Studio/Assets/MaterialCapabilities.hpp"
 #include "CNA/Studio/Scene/SceneShadows.hpp"
+#include "CNA/Studio/Scene/SceneSky.hpp"
 #include "CNA/Studio/Scene/StudioCamera3D.hpp"
 #include "CNA/Studio/Scene/SceneLighting.hpp"
 #include "CNA/Studio/Scene/SceneModels.hpp"
@@ -6094,4 +6095,238 @@ CNA_STUDIO_TEST(TheShadowPlanPicksTheBrightestDirectionalLightAndIgnoresTheOther
     addModelRenderer(registry, lone, modelId);
     bare.addEntity(std::move(lone));
     CNA_STUDIO_EXPECT(!buildSceneModelBatch(bare, camera, provider).shadows.enabled);
+}
+
+// ------------------------------------------------------------------------------------------------
+// The sky (STUDIO-20005)
+// ------------------------------------------------------------------------------------------------
+
+/**
+ * @brief Five ways for a sky to be missing, and the editor says which one.
+ *
+ * `plan.md` STUDIO-20005. A scene names an environment map, the environment map names a panorama,
+ * the panorama is a texture -- three references, and every break in the chain looks identical in
+ * the viewport. A user who has set a sky and sees nothing deserves to be told which link is gone.
+ */
+CNA_STUDIO_TEST(EveryBrokenLinkInTheSkysChainIsNamedRatherThanReportedAsNoSky)
+{
+    SceneEnvironment environment;
+    const Uuid map = Uuid::generate();
+
+    // A scene that names none, which is most scenes and is not a fault.
+    CNA_STUDIO_EXPECT(planSceneSky(environment, {}).problem == SceneSkyProblem::NoEnvironmentMap);
+    CNA_STUDIO_EXPECT(describeSceneSkyProblem(SceneSkyProblem::NoEnvironmentMap).empty());
+
+    environment.environmentMap = map;
+
+    // No provider at all is a caller with no database -- a headless panel -- and answering
+    // "found nothing" is what that honestly is rather than a crash or a false resolution.
+    CNA_STUDIO_EXPECT(planSceneSky(environment, {}).problem
+                      == SceneSkyProblem::EnvironmentMapMissing);
+
+    const auto answering = [](SceneSkySource source) {
+        return [source](const Uuid&) { return source; };
+    };
+
+    SceneSkySource source;
+    CNA_STUDIO_EXPECT(planSceneSky(environment, answering(source)).problem
+                      == SceneSkyProblem::EnvironmentMapMissing);
+
+    source.found = true;
+    CNA_STUDIO_EXPECT(planSceneSky(environment, answering(source)).problem
+                      == SceneSkyProblem::EnvironmentMapUnreadable);
+
+    source.readable = true;
+    CNA_STUDIO_EXPECT(planSceneSky(environment, answering(source)).problem
+                      == SceneSkyProblem::NoPanorama);
+
+    source.panorama = Uuid::generate();
+    CNA_STUDIO_EXPECT(planSceneSky(environment, answering(source)).problem
+                      == SceneSkyProblem::PanoramaMissing);
+
+    source.panoramaIsTexture = true;
+    const SceneSkyPlan resolved = planSceneSky(environment, answering(source));
+    CNA_STUDIO_EXPECT(resolved.problem == SceneSkyProblem::None);
+    CNA_STUDIO_EXPECT(resolved.isUsable());
+    CNA_STUDIO_EXPECT(resolved.panorama == source.panorama);
+    CNA_STUDIO_EXPECT(resolved.environmentMap == map);
+
+    // Every problem but the first has something to say, because every one of them is a state the
+    // user did not choose. The first is silent on purpose: a sentence shown by every 2D project
+    // is a sentence nobody reads.
+    for (const SceneSkyProblem problem :
+         {SceneSkyProblem::EnvironmentMapMissing, SceneSkyProblem::EnvironmentMapUnreadable,
+          SceneSkyProblem::NoPanorama, SceneSkyProblem::PanoramaMissing})
+    {
+        if (describeSceneSkyProblem(problem).empty())
+        {
+            CnaStudioTest::reportFailure(__FILE__, __LINE__,
+                std::string{"SceneSkyProblem::"} + toString(problem)
+                + " has no sentence, so the viewport shows nothing and says nothing.");
+        }
+    }
+}
+
+/**
+ * @brief Drawing and lighting are two answers, and switching both off is not a problem.
+ *
+ * CNA separates them -- `Skybox::draw` puts the cube on screen and `setImageBasedLightEXT` makes it
+ * light things -- and each is worth wanting alone. What a *problem* means is that the editor cannot
+ * do what the scene asks, so a user who has deliberately unticked both must not be warned at.
+ */
+CNA_STUDIO_TEST(ASkyThatIsDeliberatelySwitchedOffIsNotAProblem)
+{
+    SceneEnvironment environment;
+    environment.environmentMap = Uuid::generate();
+    environment.environmentIntensity = 2.5f;
+    environment.environmentYaw = 90.0f;
+
+    SceneSkySource source;
+    source.found = true;
+    source.readable = true;
+    source.panorama = Uuid::generate();
+    source.panoramaIsTexture = true;
+    const auto provider = [source](const Uuid&) { return source; };
+
+    const SceneSkyPlan both = planSceneSky(environment, provider);
+    CNA_STUDIO_EXPECT(both.draws);
+    CNA_STUDIO_EXPECT(both.lights);
+
+    // Degrees in the document, radians in the plan -- the same split `CNA.Light`'s cone angles
+    // use, so every trigonometric consumer gets what it wants and the user types what they mean.
+    CNA_STUDIO_EXPECT(cameraNearlyEqual(both.yaw, 1.5707963f, 0.0001f));
+    CNA_STUDIO_EXPECT(cameraNearlyEqual(both.intensity, 2.5f, 0.0001f));
+
+    environment.showSky = false;
+    const SceneSkyPlan litOnly = planSceneSky(environment, provider);
+    CNA_STUDIO_EXPECT(!litOnly.draws);
+    CNA_STUDIO_EXPECT(litOnly.lights);
+    CNA_STUDIO_EXPECT(litOnly.problem == SceneSkyProblem::None);
+
+    environment.lightFromEnvironment = false;
+    const SceneSkyPlan neither = planSceneSky(environment, provider);
+    CNA_STUDIO_EXPECT(!neither.draws);
+    CNA_STUDIO_EXPECT(!neither.lights);
+    CNA_STUDIO_EXPECT(neither.problem == SceneSkyProblem::None);
+
+    // A negative intensity is nonsense rather than a dark sky, and is clamped rather than passed
+    // to a shader that would multiply a colour by it.
+    environment.environmentIntensity = -3.0f;
+    CNA_STUDIO_EXPECT(cameraNearlyEqual(planSceneSky(environment, provider).intensity, 0.0f,
+                                        0.0001f));
+}
+
+/** @brief The batch carries the sky, so the viewport is handed one answer rather than asked for it. */
+CNA_STUDIO_TEST(TheModelBatchCarriesTheScenesSky)
+{
+    const ComponentRegistry registry = makeRegistry();
+    const MeshData mesh = makeTinyMesh();
+    const Uuid modelId = Uuid::generate();
+    const Uuid map = Uuid::generate();
+
+    StudioCamera3D camera;
+    camera.setViewportSize(StudioVector2{800.0f, 600.0f});
+    const MeshProvider provider = [&](const Uuid& queried) {
+        return queried == modelId ? &mesh : nullptr;
+    };
+
+    SceneDocument scene;
+    StudioEntity crate = makeEntity(registry, "Crate", 0.0f, 0.0f);
+    addModelRenderer(registry, crate, modelId);
+    scene.addEntity(std::move(crate));
+
+    SceneEnvironment environment;
+    environment.environmentMap = map;
+    scene.setEnvironment(environment);
+
+    SceneSkySource source;
+    source.found = true;
+    source.readable = true;
+    source.panorama = Uuid::generate();
+    source.panoramaIsTexture = true;
+
+    const SceneModelBatch lit = buildSceneModelBatch(
+        scene, camera, provider, {}, {}, StudioDebugView::None,
+        [source](const Uuid&) { return source; });
+    CNA_STUDIO_EXPECT(lit.sky.isUsable());
+    CNA_STUDIO_EXPECT(lit.sky.panorama == source.panorama);
+
+    // And a batch built with no provider still reports what the scene asks for, rather than
+    // silently resolving: a host that forgot to pass one must not look like a scene with no sky.
+    const SceneModelBatch blind = buildSceneModelBatch(scene, camera, provider);
+    CNA_STUDIO_EXPECT(!blind.sky.isUsable());
+    CNA_STUDIO_EXPECT(blind.sky.problem == SceneSkyProblem::EnvironmentMapMissing);
+    CNA_STUDIO_EXPECT(blind.sky.environmentMap == map);
+}
+
+/** @brief The sky survives a save and a load, and a scene without one still writes nothing. */
+CNA_STUDIO_TEST(TheScenesSkyRoundTripsAndAnAbsentOneWritesNothing)
+{
+    const ComponentRegistry registry = makeRegistry();
+
+    SceneDocument plain;
+    CNA_STUDIO_EXPECT(plain.getEnvironment().isDefault());
+
+    // A scene that never touched its environment must come back byte for byte, which is what
+    // keeps opening every existing scene once from rewriting every existing scene once.
+    CNA_STUDIO_EXPECT(!plain.toJson().contains("environment"));
+
+    SceneEnvironment environment;
+    environment.environmentMap = Uuid::generate();
+    environment.environmentIntensity = 0.5f;
+    environment.environmentYaw = 145.0f;
+    environment.showSky = false;
+    environment.lightFromEnvironment = true;
+
+    SceneDocument sky;
+    sky.setEnvironment(environment);
+    CNA_STUDIO_EXPECT(!sky.getEnvironment().isDefault());
+
+    SceneDocument reloaded;
+    CNA_STUDIO_EXPECT(reloaded.loadFromJson(sky.toJson(), registry).succeeded);
+
+    const SceneEnvironment& read = reloaded.getEnvironment();
+    CNA_STUDIO_EXPECT(read.environmentMap == environment.environmentMap);
+    CNA_STUDIO_EXPECT(cameraNearlyEqual(read.environmentIntensity, 0.5f, 0.0001f));
+    CNA_STUDIO_EXPECT(cameraNearlyEqual(read.environmentYaw, 145.0f, 0.0001f));
+    CNA_STUDIO_EXPECT(!read.showSky);
+    CNA_STUDIO_EXPECT(read.lightFromEnvironment);
+}
+
+/**
+ * @brief Drawing a sky and being lit by one are different asks, and only the second needs PbrEffect.
+ *
+ * `plan.md` STUDIO-20005, and the one place in this family where the two effects are *not*
+ * interchangeable. `setImageBasedLightEXT` is declared on `PbrEffect` and `SkinnedPbrEffect` and on
+ * nothing else -- it is not on `IShadowReceiverEXT`, where the punctual light and the shadow map
+ * live, so the seam that made those two work on both effects does not exist here. This build draws
+ * through `BasicEffect` (`kPreferPbrEffect` is false, CNA gap `G-05`), which means a sky set up
+ * today appears and lights nothing.
+ */
+CNA_STUDIO_TEST(ASkyOnABasicEffectBuildIsDrawnAndSaysItLightsNothing)
+{
+    // A sky that is only drawn asks for nothing `BasicEffect` cannot give.
+    CNA_STUDIO_EXPECT(studioEnvironmentCapabilityIssues("BasicEffect", false).empty());
+    CNA_STUDIO_EXPECT(studioEnvironmentCapabilityIssues("PbrEffect", false).empty());
+
+    // A sky asked to light the scene does, and only on the effect that cannot.
+    CNA_STUDIO_EXPECT(studioEnvironmentCapabilityIssues("PbrEffect", true).empty());
+
+    const std::vector<StudioMaterialCapabilityIssue> issues =
+        studioEnvironmentCapabilityIssues("BasicEffect", true);
+    CNA_STUDIO_EXPECT_EQ(issues.size(), std::size_t{1});
+    if (!issues.empty())
+    {
+        // The sentence has to say both halves -- that the sky *is* drawn, and that it lights
+        // nothing -- because a user reading only the second would go looking for a sky that is
+        // already on screen.
+        CNA_STUDIO_EXPECT(issues[0].detail.find("drawn") != std::string::npos);
+        CNA_STUDIO_EXPECT(issues[0].detail.find("lights nothing") != std::string::npos);
+        CNA_STUDIO_EXPECT(issues[0].detail.find("PbrEffect") != std::string::npos);
+    }
+
+    // An effect nobody recognises is silent, for the reason the other two capability functions
+    // are: a build drawing through something this editor has never heard of is not a build this
+    // editor can make claims about.
+    CNA_STUDIO_EXPECT(studioEnvironmentCapabilityIssues("SomeFutureEffect", true).empty());
 }

@@ -258,6 +258,23 @@ namespace CNA::Studio
             environmentJson.set("fogColor", colorToJson(environment_.fogColor));
             environmentJson.set("fogStart", JsonValue{static_cast<double>(environment_.fogStart)});
             environmentJson.set("fogEnd", JsonValue{static_cast<double>(environment_.fogEnd)});
+
+            // Additive at the same `formatVersion` (STUDIO-20005), which is what `isDefault`
+            // above makes safe: a scene with no sky is still exactly the default, so it still
+            // writes no `environment` object at all and still comes back byte for byte.
+            if (environment_.environmentMap.isValid())
+            {
+                environmentJson.set("environmentMap",
+                                    JsonValue{environment_.environmentMap.toString()});
+            }
+            environmentJson.set("environmentIntensity",
+                                JsonValue{static_cast<double>(environment_.environmentIntensity)});
+            environmentJson.set("environmentYaw",
+                                JsonValue{static_cast<double>(environment_.environmentYaw)});
+            environmentJson.set("showSky", JsonValue{environment_.showSky});
+            environmentJson.set("lightFromEnvironment",
+                                JsonValue{environment_.lightFromEnvironment});
+
             root.set("environment", std::move(environmentJson));
         }
 
@@ -327,6 +344,17 @@ namespace CNA::Studio
                 environmentJson["fogStart"].asNumber(static_cast<double>(defaults.fogStart)));
             environment_.fogEnd = static_cast<float>(
                 environmentJson["fogEnd"].asNumber(static_cast<double>(defaults.fogEnd)));
+
+            environment_.environmentMap = Uuid::parse(environmentJson["environmentMap"].asString(""));
+            environment_.environmentIntensity = static_cast<float>(
+                environmentJson["environmentIntensity"].asNumber(
+                    static_cast<double>(defaults.environmentIntensity)));
+            environment_.environmentYaw = static_cast<float>(
+                environmentJson["environmentYaw"].asNumber(
+                    static_cast<double>(defaults.environmentYaw)));
+            environment_.showSky = environmentJson["showSky"].asBoolean(defaults.showSky);
+            environment_.lightFromEnvironment =
+                environmentJson["lightFromEnvironment"].asBoolean(defaults.lightFromEnvironment);
         }
 
         for (const JsonValue& entityJson : document["entities"].getElements())

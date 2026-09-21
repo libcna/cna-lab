@@ -6,7 +6,7 @@
 
 **Exit criteria.** The viewport and the game preview agree, and no light type exists in Studio that the runtime cannot render.
 
-**Progress:** 7 of 8 complete `██████████░░`
+**Progress:** 8 of 8 complete `████████████`
 
 | Id | Task | Status | Depends on |
 |----|------|:------:|------------|
@@ -14,7 +14,7 @@
 | `STUDIO-20002` | Point light authoring | ✅ | `STUDIO-20001` |
 | `STUDIO-20003` | Spot light authoring | ✅ | `STUDIO-20001` |
 | `STUDIO-20004` | Ambient and environment lighting | ✅ | `STUDIO-20001` |
-| `STUDIO-20005` | Sky and environment map authoring | ⬜ | `STUDIO-10010` |
+| `STUDIO-20005` | Sky and environment map authoring | ✅ | `STUDIO-10010` |
 | `STUDIO-20006` | Shadow configuration | ✅ | `STUDIO-20001` |
 | `STUDIO-20007` | Viewport lighting matches the game preview as closely as the runtime allows | ✅ | `STUDIO-20001` |
 | `STUDIO-20008` | No light type is offered that the runtime cannot render | ✅ | `STUDIO-20001` |
@@ -374,6 +374,88 @@ breaks the XNA-parity promise), and the pass dropping the override all fail by n
 the scene is `STUDIO-20005`, and needs a cube map the effects have no slot for. There is no
 ambient *occlusion*, which is a material's business (`STUDIO-19002` gave it a texture slot). And
 fog, the environment's other half, is ED-407's and unchanged here.
+
+### `STUDIO-20005` — Sky and environment map authoring
+
+**Acceptance.** A scene can name a sky, the viewport draws it, and where the build cannot light
+from it the editor says so rather than leaving the difference to be found.
+
+**✅ Done.** `STUDIO-10010` made an environment map an asset that could be created, edited and
+costed; this is the row with a consumer. The scene names one, `CNA::Graphics::Skybox` draws it, and
+`EnvironmentProcessor` turns the panorama into the cube behind the scene and — where anything can
+sample them — the three products of the split sum.
+
+**Five ways for the chain to end in no sky, and the editor names which.** A scene references an
+environment map, the environment map references a panorama, and the panorama is a texture: three
+links, each of which can be absent, deleted, unreadable or the wrong kind. Every break looks
+*identical* in the viewport, so `planSceneSky` returns which one it is and the Inspector prints a
+sentence a user can act on. The walk is CNA-free and tested against documents, and the provider it
+takes is four plain fields rather than the document type — `cna-studio-scene` links
+`cna-studio-core` and nothing else, and inverting that for one struct would have been the wrong
+trade.
+
+**Drawing and lighting are two answers, because CNA gives them separately** — `Skybox::draw` puts
+the cube on screen and `setImageBasedLightEXT` makes it light things — and each is worth wanting
+alone: a backdrop that must not tint the scene, or image-based lighting in a room whose windows
+show no sky. Two switches on the scene, two booleans on the plan, and a scene with both off reports
+`problem == None`, because what a *problem* means is that the editor cannot do what was asked, not
+that the user chose less than the maximum.
+
+**And here the two effects are genuinely not interchangeable, which is the finding this row turned
+on.** `STUDIO-20006` established that `BasicEffect` implements `IShadowReceiverEXT` exactly as
+`PbrEffect` does, so shadows and punctual lights reach both. **Image-based lighting does not.**
+`setImageBasedLightEXT` is declared on `PbrEffect` and `SkinnedPbrEffect` and on nothing else — it
+is not on that interface — and `kPreferPbrEffect` is **false** because `PbrEffect` draws nothing on
+the one backend this repository can photograph (`G-05`). So a sky authored in the build every user
+runs is *drawn* and lights nothing.
+
+That was checked before the code was written rather than discovered after, which is the G-13/G-14
+lesson applied in the other direction: it is not enough for an API to exist, it has to be reachable
+on the path that actually runs. The consequences are three:
+
+1. The cube is generated whenever the scene asks for a sky, because drawing one needs no effect
+   support at all.
+2. The irradiance, prefiltered specular and BRDF table are generated **only when the effect can
+   take them**. Convolving a hemisphere per texel for a light nothing can sample would be a second
+   of CPU work per sky for no pixels.
+3. `studioEnvironmentCapabilityIssues` says so in the scene Inspector, beside the settings that
+   caused it — the same disclosure `STUDIO-20003` uses for a point light on `BasicEffect`, and for
+   the same reason: a feature that silently does nothing is worse than one that refuses.
+
+The architecture guard that refuses `pbr->set…EXT(` gained its first exemption here, and the
+exemption is the fact rather than a hole: `setImageBasedLightEXT` is named in the allow-list with
+the reason, so the next person reaching for the concrete pointer still has to justify it.
+
+**Everything is cached against the environment map's asset id *and* the panorama's.** Keyed on the
+first alone, repointing a sky at a different image would serve the old cube under the new name —
+which looks like a sky that refuses to change, and is the kind of defect that gets blamed on the
+importer.
+
+**Verification.** `tests/SceneTests.cpp` —
+`EveryBrokenLinkInTheSkysChainIsNamedRatherThanReportedAsNoSky` (all five states, and that four of
+them have a sentence while "no environment map" deliberately does not),
+`ASkyThatIsDeliberatelySwitchedOffIsNotAProblem` (including degrees in, radians out, and a negative
+intensity clamped), `TheModelBatchCarriesTheScenesSky` (and that a host which forgot the provider
+reports `EnvironmentMapMissing` rather than looking like a scene with no sky),
+`TheScenesSkyRoundTripsAndAnAbsentOneWritesNothing`, and
+`ASkyOnABasicEffectBuildIsDrawnAndSaysItLightsNothing`.
+
+The device half is a source scan honest about being one, in
+`TheShadowPlanTheBatchCarriesIsWhatTheDeviceHalfRenders` — which now covers the sky as well as the
+shadow, including the ordering: the sky is drawn **inside** the scene's target and **before** the
+models, which is the opposite constraint to the shadow map's. `Skybox` draws a fullscreen triangle
+with no depth configuration, so drawn afterwards it would erase them.
+
+Checked by causing each: the chain collapsing three problems into one, the batch never carrying the
+sky, the sky drawn after the models, and a `BasicEffect` build that stops saying it lights nothing
+— all four fail by name.
+
+**What this row is not.** There is no procedural sky: CNA ships `AtmosphericSky` and Studio does not
+drive it, so a project wanting a time of day authors a panorama. There is no per-scene override of
+the environment map's *processing* — the sizes and sample counts belong to the asset, which is what
+lets two scenes share one sky without processing it twice. And the sky is not in the game view's
+`renderGame3D` path by a separate route: it is on the batch, so both views get it from the same
+place and cannot disagree.
 
 ### `STUDIO-20006` — Shadow configuration
 

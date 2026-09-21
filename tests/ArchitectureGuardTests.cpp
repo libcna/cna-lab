@@ -804,12 +804,41 @@ CNA_STUDIO_TEST(TheShadowPlanTheBatchCarriesIsWhatTheDeviceHalfRenders)
         }
     }
 
+    // And the sky's device half (`plan.md` STUDIO-20005), which cannot be asserted headlessly for
+    // the same reason: the calls are `Skybox::draw` and `setImageBasedLightEXT`, and CI has no
+    // device. Both halves again, because either alone is a panorama processed for nothing -- a
+    // cube generated and never drawn, or a sky on screen that lights nothing while the scene says
+    // it should.
+    static const char* const kSky[] = {
+        "Skybox", "EnvironmentProcessor", "convertEquirectangular", "setImageBasedLightEXT",
+        "generateIrradiance", "batch.sky",
+    };
+    for (const char* mention : kSky)
+    {
+        if (pass.find(mention) == std::string::npos)
+        {
+            CnaStudioTest::reportFailure(__FILE__, __LINE__,
+                std::string{"CnaModelPass.cpp never mentions '"} + mention
+                + "', so the batch carries a sky that nothing draws or lights with.");
+        }
+    }
+
     // **The CNA extensions go through `IShadowReceiverEXT`, never through `PbrEffect`.** Both
     // effects implement that interface -- punctual lights and shadow maps alike -- and this build
     // draws through `BasicEffect` (`kPreferPbrEffect` is false). So reaching an EXT setter through
     // the concrete `pbr` pointer compiles, passes review, and switches the feature off on the only
     // path anybody runs. That is exactly how STUDIO-20003 first shipped, and it is the same
     // mistake as the withdrawn gaps G-13 and G-14: one type's header read as if it were the API.
+    //
+    // **One exemption, and it is the fact that makes the rule worth stating.**
+    // `setImageBasedLightEXT` is declared on `PbrEffect` and `SkinnedPbrEffect` and on *nothing*
+    // else -- it is not on `IShadowReceiverEXT`, where the punctual light and the shadow map live.
+    // So image-based lighting is genuinely PBR-only, the concrete pointer is the only way to reach
+    // it, and a `BasicEffect` build draws the sky without being lit by it (`plan.md`
+    // STUDIO-20005). The editor says so through `studioEnvironmentCapabilityIssues` rather than
+    // leaving it to be discovered, which is what makes the exemption acceptable rather than a hole.
+    static const char* const kPbrOnlySetters[] = {"pbr->setImageBasedLightEXT"};
+
     if (pass.find("pbr->set") != std::string::npos
         && pass.find("EXT(") != std::string::npos)
     {
@@ -817,7 +846,14 @@ CNA_STUDIO_TEST(TheShadowPlanTheBatchCarriesIsWhatTheDeviceHalfRenders)
         while (at != std::string::npos)
         {
             const std::size_t end = pass.find('(', at);
-            if (end != std::string::npos
+            const bool exempt =
+                end != std::string::npos
+                && std::any_of(std::begin(kPbrOnlySetters), std::end(kPbrOnlySetters),
+                               [&](const char* allowed) {
+                                   return pass.compare(at, end - at, allowed) == 0;
+                               });
+
+            if (!exempt && end != std::string::npos
                 && pass.compare(end - 3, 3, "EXT") == 0)
             {
                 CnaStudioTest::reportFailure(__FILE__, __LINE__,
@@ -839,6 +875,25 @@ CNA_STUDIO_TEST(TheShadowPlanTheBatchCarriesIsWhatTheDeviceHalfRenders)
     const std::string renderer{std::istreambuf_iterator<char>{rendererFile},
                                std::istreambuf_iterator<char>{}};
     CNA_STUDIO_EXPECT(!renderer.empty());
+
+    // The sky is drawn *inside* the scene's target and before the models, which is the opposite
+    // constraint to the shadow map's and is just as easy to get backwards. `Skybox` draws a
+    // fullscreen triangle with no depth configuration, so drawn after the models it would erase
+    // them -- a defect whose symptom is a viewport showing only sky.
+    const std::size_t skyCall = renderer.find("renderSky");
+    const std::size_t modelCall = renderer.find("modelPass.render(models)");
+    if (skyCall == std::string::npos)
+    {
+        CnaStudioTest::reportFailure(__FILE__, __LINE__,
+            "CnaSceneRenderer.cpp never calls renderSky, so a scene with an environment map draws "
+            "no sky however complete the pass below it is.");
+    }
+    else if (modelCall != std::string::npos && skyCall > modelCall)
+    {
+        CnaStudioTest::reportFailure(__FILE__, __LINE__,
+            "CnaSceneRenderer.cpp draws the sky after the models. Skybox draws a fullscreen "
+            "triangle with no depth test, so it would erase them.");
+    }
 
     const std::size_t shadowCall = renderer.find("renderShadowMap");
     if (shadowCall == std::string::npos)

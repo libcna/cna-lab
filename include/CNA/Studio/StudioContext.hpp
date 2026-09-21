@@ -23,6 +23,7 @@
 #include "CNA/Studio/Assets/AssetDocumentCache.hpp"
 #include "CNA/Studio/Assets/AssetImporters.hpp"
 #include "CNA/Studio/Assets/MaterialDocument.hpp"
+#include "CNA/Studio/Scene/SceneSky.hpp"
 #include "CNA/Studio/Plugins/PluginExtensions.hpp"
 #include "CNA/Studio/Assets/MeshCache.hpp"
 #include "CNA/Studio/Scene/SceneModels.hpp"
@@ -130,6 +131,16 @@ namespace CNA::Studio
          * cost a second thing to invalidate when a file changes on disk.
          */
         [[nodiscard]] MaterialProvider makeMaterialProvider();
+
+        /**
+         * @brief Returns a `SceneSkySourceProvider` over this project (`plan.md` STUDIO-20005).
+         *
+         * One factory rather than a lambda at each of the three call sites -- the 3D view, the
+         * game view and the Inspector -- for the reason `makeMaterialProvider` is one: the walk
+         * from an environment map to a panorama is three lookups and a file read, and three copies
+         * of it is three chances to disagree about whether a scene has a sky.
+         */
+        [[nodiscard]] SceneSkySourceProvider makeSkySourceProvider();
 
         /**
          * @brief Documents read out of asset files, kept until something changes them.

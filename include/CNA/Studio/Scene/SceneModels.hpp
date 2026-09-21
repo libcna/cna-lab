@@ -40,6 +40,7 @@
 #include "CNA/Studio/Scene/SceneDebugView.hpp"
 #include "CNA/Studio/Scene/SceneLighting.hpp"
 #include "CNA/Studio/Scene/SceneShadows.hpp"
+#include "CNA/Studio/Scene/SceneSky.hpp"
 
 namespace CNA::Studio
 {
@@ -174,6 +175,15 @@ namespace CNA::Studio
          */
         SceneShadowPlan shadows;
 
+        /**
+         * @brief What this batch's sky resolves to (`plan.md` STUDIO-20005).
+         *
+         * On the batch for the reason the shadow plan is: the viewport is handed a batch and
+         * nothing else, and a plan computed beside it is a second answer free to disagree. It also
+         * means a test can assert that a *document* produces a sky with no device in the room.
+         */
+        SceneSkyPlan sky;
+
         /** @brief Entities that name a model whose geometry is not available yet. */
         std::size_t pendingMeshes = 0;
 
@@ -200,7 +210,8 @@ namespace CNA::Studio
     [[nodiscard]] SceneModelBatch buildSceneModelBatch(
         const SceneDocument& scene, const StudioCamera3D& camera, const MeshProvider& meshProvider,
         const std::vector<Uuid>& selection = {}, const MaterialProvider& materialProvider = {},
-        StudioDebugView debugView = StudioDebugView::None);
+        StudioDebugView debugView = StudioDebugView::None,
+        const SceneSkySourceProvider& skySource = {});
 
     /**
      * @brief Rewrites @p draw for @p debugView, resolving each part's material first.

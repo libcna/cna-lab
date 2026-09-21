@@ -34,12 +34,16 @@
 #include "Microsoft/Xna/Framework/Graphics/PrimitiveType.hpp"
 #include "Microsoft/Xna/Framework/Graphics/RasterizerState.hpp"
 #include "Microsoft/Xna/Framework/Graphics/SamplerState.hpp"
+#include "Microsoft/Xna/Framework/Graphics/ImageBasedLightEXT.hpp"
 #include "Microsoft/Xna/Framework/Graphics/ShaderEffect.hpp"
+#include "Microsoft/Xna/Framework/Graphics/TextureCube.hpp"
 #include "Microsoft/Xna/Framework/Graphics/Texture2D.hpp"
 #include "Microsoft/Xna/Framework/Graphics/VertexBuffer.hpp"
 #include "Microsoft/Xna/Framework/Graphics/VertexPositionNormalTexture.hpp"
 
 #include "CNA/Graphics/DirectionalLightEXT.hpp"
+#include "CNA/Graphics/EnvironmentProcessor.hpp"
+#include "CNA/Graphics/Skybox.hpp"
 #include "CNA/Graphics/ShadowMap.hpp"
 #include "CNA/Graphics/ShadowQuality.hpp"
 
@@ -91,6 +95,17 @@ namespace CNA::Studio
          * When STUDIO-20006 grows a quality setting, this constant is what it replaces.
          */
         constexpr CNA::Graphics::ShadowQuality kShadowQuality = CNA::Graphics::ShadowQuality::Medium;
+
+        /**
+         * @brief Mips in the prefiltered specular cube, which must match what was generated.
+         *
+         * `EnvironmentProcessor::generatePrefilteredSpecular` defaults to five, and
+         * `ImageBasedLightEXT::PrefilteredMipCount` is what a shader divides roughness by. The two
+         * disagreeing is the failure `ImageBasedLightEXT`'s own header warns about: it does not
+         * look like a mismatch, it looks like reflections that sharpen as a surface gets rougher.
+         * Named here so the generator call and the number reported are one edit apart.
+         */
+        constexpr int kEnvironmentSpecularMips = 5;
 
         /**
          * @brief Converts one of the editor's matrices to XNA's.
@@ -157,6 +172,43 @@ namespace CNA::Studio
 
         /** @brief Draws put into the map by the last @ref renderShadowMap, for the stats. */
         std::size_t shadowCasters = 0;
+
+        /**
+         * @brief Everything one panorama becomes, kept against the environment map that named it.
+         *
+         * `plan.md` STUDIO-20005. Keyed by the environment map's asset id and *also* carrying the
+         * panorama's, so that repointing a sky at a different image rebuilds rather than serving
+         * the old cube under the new name -- the failure that looks like a sky which refuses to
+         * change.
+         */
+        struct GpuEnvironment
+        {
+            Uuid panorama;
+
+            /** @brief The sky itself. Present whenever the scene asked for one to be drawn. */
+            std::unique_ptr<XnaGraphics::TextureCube> cube;
+
+            /** @brief The three products of the split sum, or null where nothing can sample them. */
+            std::unique_ptr<XnaGraphics::TextureCube> irradiance;
+            std::unique_ptr<XnaGraphics::TextureCube> specular;
+            std::unique_ptr<XnaGraphics::Texture2D> brdf;
+            int specularMips = 1;
+
+            /** @brief True once the light half was attempted, so it is not retried every frame. */
+            bool lightingBuilt = false;
+        };
+
+        Uuid environmentId;
+        GpuEnvironment environment;
+
+        /** @brief The sky's own drawing object, which owns nothing this class also owns. */
+        std::unique_ptr<CNA::Graphics::Skybox> skybox;
+
+        /** @brief Set once this device has been found unable to draw a sky, so it is asked once. */
+        bool skyRefused = false;
+
+        /** @brief What the current frame's sky asks for, read by @ref applyLighting. */
+        SceneSkyPlan sky;
 
         /** @brief One upload per model asset, drawn once per entity that names it. */
         struct GpuPart
@@ -421,6 +473,29 @@ namespace CNA::Studio
             // effect is reused across draws -- a lamp left attached from the previous model would
             // light one that is nowhere near it.
             receiver->setPunctualLightEXT(punctual);
+
+            // And the environment, which **is** PBR-only and is the one place in this file where
+            // the interface trick does not apply: `setImageBasedLightEXT` is declared on
+            // `PbrEffect` and `SkinnedPbrEffect` and on nothing else -- not on
+            // `IShadowReceiverEXT`, where the punctual light and the shadow map live. A build
+            // drawing through `BasicEffect` therefore draws the sky and is not lit by it, which
+            // `studioEnvironmentCapabilityIssues` says out loud rather than leaving to be found.
+            if (pbr == nullptr) { return; }
+
+            XnaGraphics::ImageBasedLightEXT image;
+            if (sky.lights && environment.irradiance != nullptr)
+            {
+                image.Irradiance = environment.irradiance.get();
+                image.PrefilteredSpecular = environment.specular.get();
+                image.BrdfLut = environment.brdf.get();
+                image.PrefilteredMipCount = environment.specularMips;
+                image.Intensity = sky.intensity;
+            }
+
+            // Set both ways, for the reason the punctual light is: one effect is reused across
+            // every model in the batch and across frames, so an environment left attached after
+            // the scene's sky was removed would keep lighting it.
+            pbr->setImageBasedLightEXT(image);
         }
 
         /**
@@ -647,6 +722,14 @@ namespace CNA::Studio
         impl_->shadowsRefused = false;
         impl_->shadowCasters = 0;
 
+        // Before the device pointer goes, for the same reason: every one of these was created
+        // against it.
+        impl_->skybox.reset();
+        impl_->environment = Impl::GpuEnvironment{};
+        impl_->environmentId = Uuid{};
+        impl_->skyRefused = false;
+        impl_->sky = SceneSkyPlan{};
+
         impl_->pbr.reset();
         impl_->basic.reset();
         impl_->effectName = "none";
@@ -756,6 +839,126 @@ namespace CNA::Studio
         device.setDepthStencilStateProperty(XnaGraphics::DepthStencilState::None);
         device.setBlendStateProperty(XnaGraphics::BlendState::AlphaBlend);
         return stats;
+    }
+
+    std::size_t CnaModelPass::renderSky(
+        const SceneModelBatch& batch, int width, int height,
+        const std::function<XnaGraphics::Texture2D*(const Uuid&)>& resolveTexture)
+    {
+        const SceneSkyPlan& plan = batch.sky;
+
+        // Recorded first and whatever happens below, because `applyLighting` reads it to decide
+        // whether to attach an environment -- so a scene whose sky was just removed stops being
+        // lit by it on the same frame it stops being drawn.
+        impl_->sky = plan;
+
+        if (!isReady() || !plan.isUsable() || impl_->skyRefused) { return 0; }
+        if (width <= 0 || height <= 0) { return 0; }
+        if (!plan.draws && !(plan.lights && impl_->pbr != nullptr)) { return 0; }
+        if (!resolveTexture) { return 0; }
+
+        XnaGraphics::GraphicsDevice& device = *impl_->device;
+
+        // A different environment map, or the same one repointed at a different panorama. The
+        // second half matters: keyed on the environment map alone, repointing a sky would serve
+        // the old cube under the new name, which looks like a sky that refuses to change.
+        if (impl_->environmentId != plan.environmentMap
+            || impl_->environment.panorama != plan.panorama)
+        {
+            impl_->environment = Impl::GpuEnvironment{};
+            impl_->environmentId = plan.environmentMap;
+            impl_->environment.panorama = plan.panorama;
+            if (impl_->skybox != nullptr) { impl_->skybox->setEnvironment(nullptr); }
+        }
+
+        // The panorama is an ordinary project texture, resolved through the renderer's own cache.
+        XnaGraphics::Texture2D* panorama = resolveTexture(plan.panorama);
+        if (panorama == nullptr) { return 0; }
+
+        try
+        {
+            if (impl_->environment.cube == nullptr)
+            {
+                CNA::Graphics::EnvironmentProcessor processor{device};
+
+                // A quarter of the panorama's width, which is what the editor's own plan derives
+                // and what CNA's documentation calls the usual choice. Asked of the texture rather
+                // than passed in, because the texture is what will actually be sampled -- an
+                // importer that resized it must not leave this reading the original's dimensions.
+                const int face = std::clamp(panorama->getWidthProperty() / 4, 16, 2048);
+                impl_->environment.cube = processor.convertEquirectangular(panorama, face);
+            }
+
+            // The light half, and only where something can take it. Attempted once per
+            // environment: a build that cannot sample one must not convolve a hemisphere per texel
+            // every frame to find that out again.
+            if (plan.lights && impl_->pbr != nullptr && !impl_->environment.lightingBuilt
+                && impl_->environment.cube != nullptr)
+            {
+                impl_->environment.lightingBuilt = true;
+
+                CNA::Graphics::EnvironmentProcessor processor{device};
+                impl_->environment.irradiance =
+                    processor.generateIrradiance(impl_->environment.cube.get());
+                impl_->environment.specular =
+                    processor.generatePrefilteredSpecular(impl_->environment.cube.get());
+                impl_->environment.brdf = processor.generateBrdfLut();
+                impl_->environment.specularMips = kEnvironmentSpecularMips;
+            }
+        }
+        catch (const std::exception&)
+        {
+            // A processor that will not run is a device problem, and the honest response is a
+            // scene without a sky rather than a viewport that stops.
+            impl_->environment = Impl::GpuEnvironment{};
+            impl_->environmentId = Uuid{};
+            impl_->skyRefused = true;
+            return 0;
+        }
+
+        if (!plan.draws || impl_->environment.cube == nullptr) { return 0; }
+
+        if (impl_->skybox == nullptr)
+        {
+            try
+            {
+                impl_->skybox = std::make_unique<CNA::Graphics::Skybox>(device, nullptr);
+            }
+            catch (const std::exception&)
+            {
+                impl_->skyRefused = true;
+                return 0;
+            }
+
+            if (!impl_->skybox->isSupported())
+            {
+                impl_->skybox.reset();
+                impl_->skyRefused = true;
+                return 0;
+            }
+        }
+
+        if (impl_->skybox->getEnvironment() != impl_->environment.cube.get())
+        {
+            impl_->skybox->setEnvironment(impl_->environment.cube.get());
+        }
+
+        impl_->skybox->setIntensity(plan.intensity);
+        impl_->skybox->setYaw(plan.yaw);
+
+        try
+        {
+            // The batch's *own* split camera, not its product: `Skybox::draw` strips the view's
+            // translation itself, and handing it a combined view-projection would leave it
+            // stripping nothing.
+            impl_->skybox->draw(toXna(batch.view), toXna(batch.projection), width, height);
+        }
+        catch (const std::exception&)
+        {
+            return 0;
+        }
+
+        return 1;
     }
 
     std::size_t CnaModelPass::renderShadowMap(const SceneModelBatch& batch)
@@ -1007,6 +1210,12 @@ namespace CNA::Studio
         // returns its own count, but the Diagnostics panel is given one `ModelPassStats` for the
         // frame and a second number arriving separately is a number that can go missing.
         stats.shadowCasters = impl_->shadowCasters;
+
+        // Whether the sky reached the models as *light*, which is a different question from
+        // whether it reached the screen as a picture -- and on a `BasicEffect` build the two
+        // genuinely differ.
+        stats.environmentLit =
+            impl_->pbr != nullptr && impl_->sky.lights && impl_->environment.irradiance != nullptr;
 
         // Left as the caller found it. The wireframe drawn over this is a `SpriteBatch` pass, and
         // a SpriteBatch that inherits a depth test compares against depths no sprite ever wrote --

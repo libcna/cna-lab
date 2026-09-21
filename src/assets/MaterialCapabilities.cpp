@@ -80,4 +80,23 @@ namespace CNA::Studio
 
         return issues;
     }
+
+    std::vector<StudioMaterialCapabilityIssue> studioEnvironmentCapabilityIssues(
+        std::string_view effectName, bool lightsTheScene)
+    {
+        std::vector<StudioMaterialCapabilityIssue> issues;
+
+        // A sky that is only drawn needs no effect support: `Skybox` carries its own shader.
+        if (!lightsTheScene) { return issues; }
+
+        // `PbrEffect` takes an `ImageBasedLightEXT`. Anything unrecognised is silent, for the
+        // reason the header gives about the other two.
+        if (effectName != "BasicEffect") { return issues; }
+
+        issues.push_back({"Image-based lighting",
+                          "BasicEffect cannot sample an environment, so the sky is drawn behind "
+                          "the scene and lights nothing in it. Only PbrEffect takes an image-based "
+                          "light, and this build draws through BasicEffect."});
+        return issues;
+    }
 }

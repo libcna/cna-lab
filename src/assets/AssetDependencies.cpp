@@ -164,6 +164,18 @@ namespace CNA::Studio
                     ++scan.filesRead;
                     scan.referencesFound +=
                         collectEntityReferences(scene.getEntities(), holder, record);
+
+                    // The sky, which is the one reference a scene holds that is not on an entity
+                    // (`plan.md` STUDIO-20005). Recorded here or "what uses this environment map"
+                    // answers with nothing, and deleting the sky of every level in the project
+                    // would look safe.
+                    if (const Uuid sky = scene.getEnvironment().environmentMap; sky.isValid())
+                    {
+                        AssetUsage usage = holder;
+                        usage.propertyName = "environmentMap";
+                        add(sky, std::move(usage));
+                        ++scan.referencesFound;
+                    }
                     break;
                 }
                 case AssetType::Prefab:

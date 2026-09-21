@@ -956,7 +956,8 @@ namespace CNA::Studio
                     static const std::vector<Uuid> kNothingSelected;
                     const SceneModelBatch models = buildSceneModelBatch(
                         context_->getScene(), view.camera3D, context_->makeMeshProvider(),
-                        kNothingSelected, context_->makeMaterialProvider(), StudioDebugView::None);
+                        kNothingSelected, context_->makeMaterialProvider(),
+                        StudioDebugView::None, context_->makeSkySourceProvider());
 
                     const SceneSpriteBatch3D sprites = buildSceneSpriteQuads(
                         context_->getScene(), view.camera3D, sizes, panels_->animationPreview(),
@@ -1004,7 +1005,8 @@ namespace CNA::Studio
                                                context_->makeMeshProvider(),
                                                context_->getSelection(),
                                                context_->makeMaterialProvider(),
-                                               panels_->viewportDebugView())
+                                               panels_->viewportDebugView(),
+                                               context_->makeSkySourceProvider())
                         : SceneModelBatch{};
 
                 // Sprites as quads in the scene's own plane. `SpriteBatch` cannot draw the

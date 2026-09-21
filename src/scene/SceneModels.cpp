@@ -110,10 +110,16 @@ namespace CNA::Studio
                                          const MeshProvider& meshProvider,
                                          const std::vector<Uuid>& selection,
                                          const MaterialProvider& materialProvider,
-                                         StudioDebugView debugView)
+                                         StudioDebugView debugView,
+                                         const SceneSkySourceProvider& skySource)
     {
         SceneModelBatch batch;
         batch.environment = scene.getEnvironment();
+
+        // Before the early return below, because a scene with no mesh provider still has a sky --
+        // and a 2D viewport asking for a batch it will not draw should still be told what the
+        // level's environment resolves to.
+        batch.sky = planSceneSky(batch.environment, skySource);
         batch.viewProjection = camera.getViewProjectionMatrix();
         batch.view = camera.getViewMatrix();
 

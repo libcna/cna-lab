@@ -1903,7 +1903,8 @@ namespace
     }
 
     StudioDetailsResult studioSceneSettings(StudioFrame& frame, const UiRect& area,
-                                            StudioContext& context)
+                                            StudioContext& context,
+                                            const StudioDetailsServices& services)
     {
         StudioDetailsResult result;
         const StudioTheme& theme = frame.theme();
@@ -1917,8 +1918,11 @@ namespace
         const std::vector<std::string> layers = project.getLayers();
 
         // Project, Grid Snap, a gap, Scene Environment's heading plus ambient, fog, fog colour and
-        // its two distances, a gap, the Layers heading, one row per layer, and Add.
-        const std::size_t rows = 10 + layers.size();
+        // its two distances, a gap, the Layers heading, one row per layer, and Add -- plus the
+        // sky's: its reference, four settings, and two rows of things that can be wrong with it.
+        // Reserved at the maximum for the reason the material's is, so the rows under a user's
+        // pointer do not move as they tick Show Sky.
+        const std::size_t rows = 10 + 7 + layers.size();
 
         StudioScrollOptions scroll;
         scroll.contentHeight = static_cast<float>(rows) * (rowHeight + spacing);
@@ -1954,6 +1958,19 @@ namespace
                                studioTruncateText(frame, theme.font(StudioFontRole::Body), text,
                                                   box.width),
                                StudioFontRole::Body, theme.color(StudioColorRole::TextSecondary));
+            }
+        };
+
+        // A whole-row line in a colour, for the sky's problems. `label` is the grey left column
+        // and these are sentences rather than field names, so they get their own helper rather
+        // than a second meaning for that one.
+        const auto say = [&](const UiRect& box, const std::string& text, StudioColorRole role) {
+            if (frame.isDrawPass())
+            {
+                studioDrawText(frame, box,
+                               studioTruncateText(frame, theme.font(StudioFontRole::Body), text,
+                                                  box.width),
+                               StudioFontRole::Body, theme.color(role));
             }
         };
 
@@ -2053,6 +2070,131 @@ namespace
                     edited.fogStart = ends[0];
                     edited.fogEnd = ends[1];
                     applyEnvironment(edited, "fog range");
+                }
+            }
+        }
+
+        // --- The sky (`plan.md` STUDIO-20005) --------------------------------------------------
+        //
+        // On the *scene* rather than on an entity, for the reason the ambient and the fog are: a
+        // sky is a property of a level, and an "Environment" entity the scene is expected to
+        // contain is how a scene comes to have a mandatory entity that must not be deleted.
+        {
+            const PropertyRow parts = splitRow(theme, nextRow());
+            label(parts.label, "Environment Map");
+
+            frame.ids().push("environmentmap");
+            const StudioPropertyEditContext editing{&context, Uuid{},
+                                                    std::string{"EnvironmentMap"}, 0.0, 0.0,
+                                                    Uuid{}};
+            const StudioPropertyEditResult change = studioPropertyEditor(
+                frame, parts.control,
+                PropertyValue{PropertyValue::AssetReference{environment.environmentMap}}, {},
+                editing);
+            frame.ids().pop();
+
+            result.assetChoicesOffered += change.assetChoices;
+            if (change.refusedDrop) { ++result.dropsRefused; }
+
+            if (change.edited.has_value())
+            {
+                SceneEnvironment edited = environment;
+                edited.environmentMap = change.edited->get<PropertyValue::AssetReference>().id;
+                applyEnvironment(edited, "environment map");
+            }
+        }
+
+        // The sky's own settings only where they do something, on the same rule the fog's follow:
+        // an intensity beside a scene with no environment map is a control that changes nothing
+        // visible, which is a bug report waiting to be filed.
+        if (environment.environmentMap.isValid())
+        {
+            {
+                const PropertyRow parts = splitRow(theme, nextRow());
+                label(parts.label, "Show Sky");
+
+                bool show = environment.showSky;
+                if (studioCheckbox(frame, frame.ids().make("showsky"), parts.control, {}, show)
+                        .changed)
+                {
+                    SceneEnvironment edited = environment;
+                    edited.showSky = show;
+                    applyEnvironment(edited, "show sky");
+                }
+            }
+
+            {
+                const PropertyRow parts = splitRow(theme, nextRow());
+                label(parts.label, "Light From Sky");
+
+                bool lit = environment.lightFromEnvironment;
+                if (studioCheckbox(frame, frame.ids().make("lightsky"), parts.control, {}, lit)
+                        .changed)
+                {
+                    SceneEnvironment edited = environment;
+                    edited.lightFromEnvironment = lit;
+                    applyEnvironment(edited, "light from sky");
+                }
+            }
+
+            {
+                const PropertyRow parts = splitRow(theme, nextRow());
+                label(parts.label, "Sky Intensity");
+
+                static const char* const kIntensity[] = {"x"};
+                float values[1] = {environment.environmentIntensity};
+                if (numericComponents(frame, parts.control, kIntensity, values, 1))
+                {
+                    SceneEnvironment edited = environment;
+                    edited.environmentIntensity = std::max(0.0f, values[0]);
+                    applyEnvironment(edited, "sky intensity");
+                }
+            }
+
+            {
+                const PropertyRow parts = splitRow(theme, nextRow());
+                label(parts.label, "Sky Rotation");
+
+                static const char* const kYaw[] = {"deg"};
+                float values[1] = {environment.environmentYaw};
+                if (numericComponents(frame, parts.control, kYaw, values, 1))
+                {
+                    SceneEnvironment edited = environment;
+                    edited.environmentYaw = values[0];
+                    applyEnvironment(edited, "sky rotation");
+                }
+            }
+
+            // Which link of the chain is missing, if any. Named rather than reduced to "no sky":
+            // an environment map with no panorama, one whose panorama has been deleted and one
+            // written by a newer Studio are three different problems with three different fixes,
+            // and a viewport showing nothing looks the same for all of them.
+            const SceneSkyPlan sky = planSceneSky(environment, services.skySource);
+            result.skyPlan = sky;
+
+            if (const std::string trouble = describeSceneSkyProblem(sky.problem); !trouble.empty())
+            {
+                const UiRect row = nextRow();
+                say(row, trouble, StudioColorRole::Warning);
+                (void)frame.requestTooltip(frame.ids().make("skyproblem"), trouble, row);
+                ++result.skyProblemsShown;
+            }
+
+            // And what this build can do with a sky that *does* resolve. Drawing one needs no
+            // effect support; lighting from one needs `PbrEffect`, and the build every user runs
+            // draws through `BasicEffect` (`G-05`). Said here rather than discovered by comparing
+            // a screenshot with an expectation.
+            if (services.modelEffectName && sky.problem == SceneSkyProblem::None)
+            {
+                const std::string effect = services.modelEffectName();
+                for (const StudioMaterialCapabilityIssue& issue :
+                     studioEnvironmentCapabilityIssues(effect, sky.lights))
+                {
+                    const UiRect row = nextRow();
+                    say(row, issue.detail, StudioColorRole::Warning);
+                    (void)frame.requestTooltip(frame.ids().make("skycapability"), issue.detail,
+                                               row);
+                    ++result.skyProblemsShown;
                 }
             }
         }
@@ -3929,7 +4071,7 @@ namespace
             // inspector standing idle is where the prototype put it -- which the panel inventory
             // could not see, because the inventory accounts for panels and this one is ported.
             // `docs/VISUAL-ACCEPTANCE.md` found it by looking at the two editors side by side.
-            return studioSceneSettings(frame, area, context);
+            return studioSceneSettings(frame, area, context, services);
         }
 
         // Read, not edit (`plan.md` STUDIO-30026). The inspector shows an entity and *proposes*

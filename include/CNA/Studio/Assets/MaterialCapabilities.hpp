@@ -76,4 +76,26 @@ namespace CNA::Studio
      */
     [[nodiscard]] std::vector<StudioMaterialCapabilityIssue> studioLightCapabilityIssues(
         std::string_view effectName, std::string_view lightKind);
+
+    /**
+     * @brief What a scene's sky asks for that @p effectName cannot give it.
+     *
+     * `plan.md` STUDIO-20005, and the one place in this family where the answer is *not* symmetric
+     * between the two effects. Drawing the sky needs no effect at all -- `CNA::Graphics::Skybox`
+     * carries its own shader and puts a cube behind the scene whichever effect the models use.
+     * **Lighting from it needs `PbrEffect`**: `setImageBasedLightEXT` is declared on `PbrEffect`
+     * and `SkinnedPbrEffect` and on nothing else. It is not on `IShadowReceiverEXT`, which is
+     * where the punctual light and the shadow map live, so the seam that made those two work on
+     * both effects does not exist here.
+     *
+     * That matters because `kPreferPbrEffect` is false (CNA gap `G-05`), so the build every user
+     * runs draws through `BasicEffect`. A sky set up in such a build appears behind the scene and
+     * lights nothing — and the difference between that and a broken environment map is invisible
+     * unless something says so. This is that something.
+     *
+     * @param lightsTheScene Whether the scene asks the environment to light it. A sky that is only
+     *        drawn asks for nothing `BasicEffect` cannot give, so it is silent.
+     */
+    [[nodiscard]] std::vector<StudioMaterialCapabilityIssue> studioEnvironmentCapabilityIssues(
+        std::string_view effectName, bool lightsTheScene);
 }

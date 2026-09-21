@@ -268,9 +268,11 @@ CNA_STUDIO_TEST(ALayerCanBeAddedAndTheChangeIsUndoable)
     const std::size_t before = fixture.layers().size();
     CNA_STUDIO_EXPECT(before >= 1);
 
-    // Project, grid snap, a gap, the environment heading, ambient, fog, a gap, the layers
-    // heading, then one row per layer -- so Add Layer is the row after the last of them.
-    const UiRect add = fixture.row(static_cast<int>(8 + before));
+    // Project, grid snap, a gap, the environment heading, ambient, fog, the environment map
+    // (`plan.md` STUDIO-20005), a gap, the layers heading, then one row per layer -- so Add Layer
+    // is the row after the last of them. The sky's other four settings are not here: this scene
+    // names no environment map, and they are drawn only where they would do something.
+    const UiRect add = fixture.row(static_cast<int>(9 + before));
     fixture.click(add.x + 30.0f, add.centerY());
 
     CNA_STUDIO_EXPECT_EQ(fixture.layers().size(), before + 1);

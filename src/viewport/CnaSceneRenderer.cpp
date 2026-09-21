@@ -760,11 +760,20 @@ namespace CNA::Studio
         impl_->device->Clear(XnaGraphics::ClearOptions::Target | XnaGraphics::ClearOptions::DepthBuffer,
                              clear, 1.0f, 0);
 
+        // The sky before the models (`plan.md` STUDIO-20005), which is what `Skybox` asks for: it
+        // draws a fullscreen triangle with no depth configuration, so "first" is what keeps it
+        // from occluding the geometry. It covers the clear colour, which is correct -- a scene
+        // with a sky should not show the editor's background through it.
+        modelStats.skiesDrawn = impl_->modelPass.renderSky(
+            models, width, height, [this](const Uuid& assetId) { return getOrLoadTexture(assetId); });
+
         // Models first, then the lines over them. Not the other way round and not interleaved: the
         // wireframe is the editor's *overlay* -- grid, gizmo, selection outline -- and an overlay
         // that a model could occlude would leave a user unable to see the handle they are dragging
         // whenever it passed behind geometry. It is drawn with the depth test off for that reason.
+        const std::size_t skiesDrawn = modelStats.skiesDrawn;
         modelStats = impl_->modelPass.render(models);
+        modelStats.skiesDrawn = skiesDrawn;
 
         // Sprites after the opaque models and before the overlay: transparency has to be blended
         // against what is already there, so it cannot go first, and it is scene content rather

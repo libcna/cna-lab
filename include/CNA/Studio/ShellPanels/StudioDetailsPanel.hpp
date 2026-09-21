@@ -39,6 +39,7 @@
 #include "CNA/Studio/Assets/AssetDependencies.hpp"
 #include "CNA/Studio/Assets/AssetDocumentCache.hpp"
 #include "CNA/Studio/Assets/EnvironmentMapImport.hpp"
+#include "CNA/Studio/Scene/SceneSky.hpp"
 #include "CNA/Studio/Assets/TextureImport.hpp"
 #include "CNA/Studio/Core/PropertyValue.hpp"
 #include "CNA/Studio/Core/Uuid.hpp"
@@ -130,6 +131,17 @@ namespace CNA::Studio
          * off, which is honest for a build with no renderer to ask.
          */
         std::function<std::string()> modelEffectName;
+
+        /**
+         * @brief Answers what the project knows about the environment map an id names.
+         *
+         * `plan.md` STUDIO-20005. A seam for the same reason the others are: walking a scene's sky
+         * means reading an asset record and a `.cnaenv` off disk, and `planSceneSky` lives in
+         * `cna-studio-scene`, which links neither the database nor the asset module. Unset answers
+         * "found nothing", so a headless panel reports `EnvironmentMapMissing` rather than
+         * pretending the chain resolves.
+         */
+        SceneSkySourceProvider skySource;
 
         /**
          * @brief The project's asset reference graph, for the asset inspector's dependency section.
@@ -386,6 +398,23 @@ namespace CNA::Studio
 
         /** @brief Editable rows the environment map editor drew (`plan.md` STUDIO-10010). */
         std::size_t environmentFields = 0;
+
+        /**
+         * @brief What the scene's sky resolves to (`plan.md` STUDIO-20005).
+         *
+         * Reported rather than stored anywhere, exactly as @ref texturePlan and
+         * @ref environmentPlan are: it is a derivation of the scene and the project, and a copy
+         * kept elsewhere would be free to disagree with the controls above it.
+         */
+        SceneSkyPlan skyPlan;
+
+        /**
+         * @brief Rows the scene inspector drew about a sky it cannot fully deliver.
+         *
+         * Both kinds together, because both are the same promise to the user: a chain that does
+         * not resolve, and a chain that resolves into an effect that cannot light from it.
+         */
+        std::size_t skyProblemsShown = 0;
 
         /**
          * @brief Notes the environment map's plan produced, one row each.

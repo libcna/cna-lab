@@ -85,6 +85,24 @@ namespace CNA::Studio
         std::size_t shadowCasters = 0;
 
         /**
+         * @brief 1 when the sky was drawn this frame, 0 otherwise (`plan.md` STUDIO-20005).
+         *
+         * Reported for the same reason @ref effect is: whether a build draws a sky at all depends
+         * on the renderer, and "why is there no sky on this machine" deserves an answer in the
+         * Diagnostics panel rather than in a screenshot comparison.
+         */
+        std::size_t skiesDrawn = 0;
+
+        /**
+         * @brief True when an image-based light reached the effect this frame.
+         *
+         * Distinct from @ref skiesDrawn because the two can differ, and the difference is the
+         * whole of what `STUDIO-20005` has to disclose: on a `BasicEffect` build the sky is drawn
+         * and lights nothing.
+         */
+        bool environmentLit = false;
+
+        /**
          * @brief Which effect the pass is using: "PbrEffect", "BasicEffect", or "none".
          *
          * Reported rather than assumed, because it varies by build and it is the first thing worth
@@ -144,6 +162,36 @@ namespace CNA::Studio
          */
         ModelPassStats renderSprites(
             const SceneSpriteBatch3D& sprites, const SceneModelBatch& batch,
+            const std::function<Microsoft::Xna::Framework::Graphics::Texture2D*(const Uuid&)>&
+                resolveTexture);
+
+        /**
+         * @brief Draws the scene's sky, and prepares the light it casts (`plan.md` STUDIO-20005).
+         *
+         * Called *inside* the target the models are drawn into and *before* them, which is what
+         * `CNA::Graphics::Skybox` asks for: it draws a fullscreen triangle with the view's
+         * translation stripped, so the sky never moves with the camera and never occludes
+         * geometry. The engine layer's fullscreen mechanism carries no depth configuration, which
+         * is why "first" rather than "last at the far plane" -- CNA records that deviation itself.
+         *
+         * **Two products from one panorama, and only the ones something can use.** The cube the
+         * sky is drawn from is generated whenever `SceneSkyPlan::draws` is set, because drawing it
+         * needs no effect support. The irradiance, prefiltered specular and BRDF table are
+         * generated only when the effect can take them -- `setImageBasedLightEXT` is declared on
+         * `PbrEffect` and `SkinnedPbrEffect` and nowhere else, and this build draws through
+         * `BasicEffect` (`G-05`). Convolving a hemisphere per texel for a light nothing can sample
+         * would be a second of CPU work per sky for no pixels.
+         *
+         * Everything is cached against the environment map's asset id, so a scene redrawn sixty
+         * times a second processes its panorama once.
+         *
+         * @param resolveTexture How the panorama's `Uuid` becomes a texture. Injected for the
+         *        reason @ref renderSprites injects one: the renderer beside this already caches
+         *        every project texture, and a second cache would load them all twice.
+         * @return 1 when a sky was drawn, 0 otherwise.
+         */
+        std::size_t renderSky(
+            const SceneModelBatch& batch, int width, int height,
             const std::function<Microsoft::Xna::Framework::Graphics::Texture2D*(const Uuid&)>&
                 resolveTexture);
 

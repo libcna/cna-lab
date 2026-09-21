@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MS-PL
+#include "CNA/Studio/Assets/EnvironmentMapDocument.hpp"
 #include "CNA/Studio/StudioContext.hpp"
 
 #include <fstream>
@@ -218,6 +219,37 @@ namespace CNA::Studio
 
 namespace CNA::Studio
 {
+    SceneSkySourceProvider StudioContext::makeSkySourceProvider()
+    {
+        return [this](const Uuid& environmentMap) -> SceneSkySource
+        {
+            SceneSkySource source;
+
+            const AssetRecord* record = assets_.find(environmentMap);
+            if (record == nullptr || record->type != AssetType::EnvironmentMap) { return source; }
+            source.found = true;
+
+            // Through the same reader the Inspector uses, for the reason the material provider
+            // gives: two copies of "open it, parse it, load it" are two chances to disagree about
+            // a file the user is editing while looking at what it draws.
+            EnvironmentMapDocument document;
+            if (loadEnvironmentMapDocument(assets_, environmentMap, document)
+                != EnvironmentMapLoadProblem::None)
+            {
+                return source;
+            }
+            source.readable = true;
+            source.panorama = document.panorama;
+
+            const AssetRecord* panorama = document.panorama.isValid()
+                                              ? assets_.find(document.panorama)
+                                              : nullptr;
+            source.panoramaIsTexture = panorama != nullptr
+                                       && panorama->type == AssetType::Texture2D;
+            return source;
+        };
+    }
+
     MaterialProvider StudioContext::makeMaterialProvider()
     {
         return [this](const Uuid& assetId) -> std::optional<MeshMaterial>
