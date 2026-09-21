@@ -6,7 +6,7 @@
 
 **Exit criteria.** Each supported category imports, reimports without losing settings, and reports failure usefully.
 
-**Progress:** 11 of 15 complete `████████░░░░`
+**Progress:** 12 of 15 complete `█████████░░░`
 
 | Id | Task | Status | Depends on |
 |----|------|:------:|------------|
@@ -16,7 +16,7 @@
 | `STUDIO-10004` | Model import: glTF (carried forward from the prototype) | ✅ | `STUDIO-10002` |
 | `STUDIO-10005` | Audio import | ✅ | `STUDIO-10002` |
 | `STUDIO-10006` | Font import | ✅ | `STUDIO-04005` |
-| `STUDIO-10007` | Material assets | ⬜ | `STUDIO-19001` |
+| `STUDIO-10007` | Material assets | ✅ | `STUDIO-19001` |
 | `STUDIO-10008` | Shader and effect assets | ⬜ | `STUDIO-22001` |
 | `STUDIO-10009` | Animation import | ⬜ | `STUDIO-21001` |
 | `STUDIO-10010` | Environment map import and processing | ⬜ | `STUDIO-20001` |
@@ -566,6 +566,69 @@ short read is refused too. What the arithmetic buys is that four gigabytes are n
 and making that observable would mean putting a counter in a file with no other reason for one. The
 case that exists pins the outcome instead: a font whose name table cannot be read is a font with no
 family, not a crash and not a refusal of the whole file.
+
+### `STUDIO-10007` — Material assets
+
+**Acceptance.** A `.cnamaterial` is a first-class asset: the database recognises it, the Inspector
+edits it, the renderer resolves it — and a user can *make* one without leaving the editor.
+
+**Everything except the last clause was already true, and that is what made the gap invisible.**
+`AssetDatabase::guessTypeFromExtension` has mapped `.cnamaterial` to `AssetType::Material` since the
+type existed; `AssetDependencies` walks a material's four texture references like any other
+reference; `AssetDocumentCache` reads and caches the document; `SetMaterialCommand` writes it
+through the history (D-06); `MaterialProvider` hands `toMeshMaterial` to the viewport. Ten cases in
+`tests/StudioMaterialEditorTests.cpp` cover that surface. What none of it could do was produce the
+first file. A material existed in Studio only if the user wrote the JSON by hand, which is to say
+the feature was complete for everybody who already had one.
+
+**So the task is one action, and its whole substance is *where the file goes*.** `New Material`
+writes into the folder the Content Browser is standing in, falling back to the project's asset
+directory when the browser is at the top. An action that always wrote to `Assets` would be correct
+in the one case the user is already looking at it and wrong every other time — and the symptom is
+not an error, it is a user pressing the row twice and concluding it does nothing.
+
+**Bound in `StudioShellPanels::bind` rather than in `bindStudioShellActions`**, because the
+destination is `contentState_.folder` and that is this object's state. The first version of this
+landed in `bindViewport` by accident, where the headless editor and every test that builds a shell
+without a viewport never reach it: the action registered, drew enabled, and was recorded as "not
+implemented" on invoke. Nothing in the suite said so, because no case asserted that this action had
+a handler. The case here does, by invoking it and requiring `refusedActions()` to be empty.
+
+**A registered action no menu names is one nobody can reach**, so `New Material` sits next to
+`New Scene` in the File menu — the same kind of act, and the only place a user would look. The
+existing guard checks menus against the registry, which is the other direction and would have
+passed a material action offered nowhere.
+
+**Uniqueness is asked of disk as well as of the database.** `New Material`, `New Material 2`, and so
+on, skipping any name the database carries *or* that exists as a file. The database alone is not
+enough: a file dropped in since the last scan is untracked, and it is exactly the one whose silent
+replacement nobody would notice.
+
+**Success is read from the file rather than from the command.** `SetMaterialCommand::succeeded()`
+is set in `execute()`, and by then the command belongs to the history — a merge or a trim may
+already have destroyed it, so the pointer is not the caller's to keep. The first version asked
+before executing and therefore always reported failure, which the case caught as a written file
+that also logged "could not write". Asking the filesystem is both safe and the question the user is
+about to ask anyway.
+
+**Undo removes the file.** `SetMaterialCommand::undo()` already distinguished a create from an edit
+— no previous bytes means the honest reversal is to remove what it wrote — but nothing had ever
+exercised that branch, because nothing had ever created a material. It works, and it is pinned now.
+
+**Verification.** `NewMaterialWritesIntoTheFolderTheBrowserIsStandingIn` in
+`tests/StudioContentBrowserTests.cpp` opens a real project, stands the browser in a subfolder and
+invokes the action through the shell: the file appears *there*, is tracked and typed `Material`, is
+selected, a second invocation gets its own name, and Undo takes the second file back and leaves the
+first. Checked by causing each: writing to the asset directory regardless of the browser's folder,
+skipping the rescan, dropping the uniqueness loop, leaving the created file behind on undo, and
+removing the menu entry each fail by name.
+
+**A plan defect this task exposed, recorded rather than worked around.** `STUDIO-10007` is declared
+to depend on `STUDIO-19001`, and `STUDIO-19001` is declared to depend on `STUDIO-10007`. That is a
+cycle, and neither row could ever have been ticked while it was honoured literally. The real
+direction is one way: the material *model* owes the pipeline nothing, and the pipeline needs the
+model to have a document to read. Phase 19's edge is the wrong one. It is corrected there rather
+than here, with the evidence, when that row is settled.
 
 ### `STUDIO-10011` — Import jobs are cancellable and report progress accurately
 

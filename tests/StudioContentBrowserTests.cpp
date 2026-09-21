@@ -19,6 +19,7 @@
 #include "CNA/Studio/Assets/AssetShortcuts.hpp"
 #include "CNA/Studio/Project/StudioReveal.hpp"
 #include "CNA/Studio/Assets/AssetWatcher.hpp"
+#include "CNA/Studio/ShellPanels/StudioShellActions.hpp"
 #include "CNA/Studio/ShellPanels/StudioShellPanels.hpp"
 #include "CNA/Studio/Ui/StudioLog.hpp"
 #include "CNA/Studio/ShellPanels/StudioContentBrowser.hpp"
@@ -1687,4 +1688,95 @@ CNA_STUDIO_TEST(TheMenuStarsAnAssetAndSaysWhichWayItWillGo)
     CNA_STUDIO_EXPECT(offersEnabled(studioContentMenuItems(assets, gone, {}, false),
                                     "Add to Favourites"));
     CNA_STUDIO_EXPECT(!offersEnabled(studioContentMenuItems(assets, gone, {}, false), "Delete"));
+}
+
+// ------------------------------------------------------------------------------------------------
+// Creating a material (STUDIO-10007)
+// ------------------------------------------------------------------------------------------------
+
+CNA_STUDIO_TEST(NewMaterialWritesIntoTheFolderTheBrowserIsStandingIn)
+{
+    // The asset pipeline has read and tracked `.cnamaterial` since the importer landed, and until
+    // now nothing in Studio could *produce* one: a user had to write the JSON by hand. The folder
+    // is the part worth pinning. An action that always wrote to the project's asset directory
+    // would put the file somewhere the user is not looking, and they would conclude that pressing
+    // New Material did nothing.
+    ScopedProject project{"newmaterial"};
+    project.write("Assets/Materials/stone.png");
+    {
+        std::ofstream stream{std::filesystem::path{project.root()} / "Game.cnaproject",
+                             std::ios::binary};
+        stream << R"({"formatVersion":1,"name":"Materials","kind":"CnaNative"})";
+    }
+
+    StudioContext context;
+    CNA_STUDIO_EXPECT(context.openProject(
+        (std::filesystem::path{project.root()} / "Game.cnaproject").generic_string()));
+
+    StudioLog log;
+    auto shell = std::make_unique<StudioShell>(StudioTheme::dark());
+
+    // The same two bindings the editor makes, in the same order: the document commands -- Undo
+    // among them -- and then the panels.
+    (void)bindStudioShellActions(*shell, context, log);
+    StudioShellPanels panels{*shell, context, log};
+
+    // Reachable at all: an action the registry carries and no menu names is one a user cannot
+    // invoke, which is the same to them as one that was never written.
+    bool offered = false;
+    for (const StudioMenuDefinition& menu : shell->menus())
+    {
+        for (const StudioMenuEntry& entry : menu.entries)
+        {
+            if (!entry.isSeparator() && !entry.isSubmenu()
+                && entry.id == "studio.asset.newMaterial")
+            {
+                offered = true;
+            }
+        }
+    }
+    CNA_STUDIO_EXPECT(offered);
+
+    // Standing in a subfolder, which is the case that separates "writes where the user is" from
+    // "writes to Assets and happens to be right".
+    panels.contentBrowserState().folder = "Assets/Materials";
+
+    const std::filesystem::path folder = std::filesystem::path{project.root()} / "Assets"
+                                       / "Materials";
+    const std::filesystem::path first = folder / "New Material.cnamaterial";
+    const std::filesystem::path second = folder / "New Material 2.cnamaterial";
+
+    shell->invoke("studio.asset.newMaterial");
+    // Nothing was refused: an action registered with no handler is invoked, recorded as "not
+    // implemented" and otherwise silent -- which is how this binding sat in `bindViewport`, where
+    // a headless editor never reaches it, without anything saying so.
+    CNA_STUDIO_EXPECT(shell->refusedActions().empty());
+    CNA_STUDIO_EXPECT(std::filesystem::exists(first));
+
+    // Tracked as well as written. A file the database has not rescanned is one the browser does
+    // not list and the Inspector cannot open -- written and invisible is the same as not written.
+    const AssetRecord* record =
+        context.getAssets().findByPath("Assets/Materials/New Material.cnamaterial");
+    CNA_STUDIO_EXPECT(record != nullptr);
+    if (record != nullptr)
+    {
+        CNA_STUDIO_EXPECT(record->type == AssetType::Material);
+
+        // And selected, because a user who asks for a new material wants to edit it rather than
+        // go and find it.
+        CNA_STUDIO_EXPECT_EQ(context.getSelectedAsset().toString(), record->id.toString());
+    }
+
+    // A second one gets a name of its own. Two materials called the same thing in one folder is
+    // one file, and the second write would silently replace the first.
+    shell->invoke("studio.asset.newMaterial");
+    CNA_STUDIO_EXPECT(std::filesystem::exists(second));
+    CNA_STUDIO_EXPECT(std::filesystem::exists(first));
+
+    // It is a command like every other document mutation (D-06), so Undo takes the file back --
+    // not just the record. A "create" that left the file behind would leave the folder filling
+    // with materials the user has already undone.
+    shell->invoke("studio.edit.undo");
+    CNA_STUDIO_EXPECT(!std::filesystem::exists(second));
+    CNA_STUDIO_EXPECT(std::filesystem::exists(first));
 }

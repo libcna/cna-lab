@@ -294,6 +294,14 @@ namespace CNA::Studio
                 "Start an empty scene.", C::File, chord(UiKey::N, mods(true)));
         command("studio.file.newProject", "New Project...",
                 "Create a new CNA game project.", C::File, chord(UiKey::N, mods(true, true)));
+        // `plan.md` STUDIO-10007. The asset pipeline has recognised, loaded, edited and
+        // dependency-tracked a `.cnamaterial` since ED-403, and nothing could make one: a user had
+        // to write the file by hand before the editor would show them any of that.
+        //
+        // No shortcut. Creating an asset is a deliberate, infrequent act, and the chords left are
+        // worth more to things people do every minute.
+        command("studio.asset.newMaterial", "New Material",
+                "Create a material asset in the current folder.", C::File, StudioShortcut{});
         // Ctrl+O, not Ctrl+D: Ctrl+D is Duplicate in the prototype and in every editor that has a
         // duplicate, and taking it for Open would silently repurpose a key people press all day.
         command("studio.file.openProject", "Open Project...",

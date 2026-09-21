@@ -137,7 +137,10 @@ namespace CNA::Studio
         return {
             // New Scene first, where the prototype has it: it is the frequent one, and a menu that
             // put the project commands above it would have people reaching past them all day.
-            {"File", {"studio.file.newScene", sep,
+            // New Material next to New Scene, because it is the same kind of act -- making a new
+            // document -- and because there is nowhere else a user would look for it. An action
+            // no menu names is one nobody can reach, whatever its handler does.
+            {"File", {"studio.file.newScene", "studio.asset.newMaterial", sep,
                       "studio.file.newProject", "studio.file.openProject", sep,
                       "studio.file.save", "studio.file.saveAll", sep,
                       // Where the prototype puts them, which is where a user who has been told

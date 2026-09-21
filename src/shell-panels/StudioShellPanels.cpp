@@ -8,6 +8,7 @@
 
 #include "CNA/Studio/ShellPanels/StudioPluginMenus.hpp"
 
+#include "CNA/Studio/Assets/AssetCommands.hpp"
 #include "CNA/Studio/Assets/AssetDatabase.hpp"
 #include "CNA/Studio/Assets/AssetShortcuts.hpp"
 #include "CNA/Studio/Project/Project.hpp"
@@ -1537,6 +1538,75 @@ namespace CNA::Studio
         });
 
         bindViewport(shell);
+
+        // Creating a material (`plan.md` STUDIO-10007). Bound here rather than in
+        // `bindStudioShellActions`, because where a new asset goes is the Content Browser's
+        // current folder and that is this object's state -- an action that guessed "Assets" would
+        // put the file somewhere the user is not looking.
+        if (const StudioAction* existing = shell.actions().find("studio.asset.newMaterial");
+            existing != nullptr)
+        {
+            StudioAction action = *existing;
+            action.isEnabled = [this] { return context_.hasProject(); };
+            action.run = [this] {
+                const std::string root = context_.getAssets().getProjectRoot();
+                if (root.empty()) { return; }
+
+                // The folder the browser is standing in, or the project's asset directory when
+                // it is at the top. A material written to the project root would be outside the
+                // tree the database scans, which is a file the editor would then never see again.
+                const std::string assetDirectory = context_.getProject().getAssetDirectory();
+                const std::string folder =
+                    contentState_.folder.empty() ? assetDirectory : contentState_.folder;
+
+                // A name nothing else has. Two materials called the same thing in one folder is
+                // one file, and the second write would silently replace the first. Disk as well
+                // as the database, because a file that exists and is not yet tracked -- one
+                // dropped in since the last scan -- is exactly the one that would be lost.
+                MaterialDocument material;
+                std::string relative;
+                std::string absolute;
+                for (int attempt = 0; attempt < 1000; ++attempt)
+                {
+                    material.name = attempt == 0 ? "New Material"
+                                                 : "New Material " + std::to_string(attempt + 1);
+                    relative = folder + "/" + material.name + ".cnamaterial";
+                    absolute = context_.getAssets().resolvePath(relative);
+
+                    std::error_code taken;
+                    if (context_.getAssets().findByPath(relative) == nullptr
+                        && !std::filesystem::exists(absolute, taken))
+                    {
+                        break;
+                    }
+                }
+
+                context_.execute(std::make_unique<SetMaterialCommand>(absolute, material,
+                                                                      std::string{"create"}));
+
+                // Asked of the file rather than of the command: the command belongs to the
+                // history the moment it is handed over, and a merge or a trim may already have
+                // destroyed it. The file is the thing the user is about to look for anyway.
+                std::error_code wrote;
+                if (!std::filesystem::exists(absolute, wrote))
+                {
+                    log_.append(LogSeverity::Error, "Could not write '" + relative + "'.");
+                    return;
+                }
+
+                // Rescanned, so the database knows about the file the command just wrote -- and
+                // selected, because a user who asks for a new material wants to edit it rather
+                // than go and find it.
+                (void)context_.getAssets().scan(assetDirectory);
+                if (const AssetRecord* record = context_.getAssets().findByPath(relative))
+                {
+                    context_.selectAsset(record->id);
+                }
+
+                log_.append(LogSeverity::Info, "Created '" + relative + "'.");
+            };
+            shell.actions().add(std::move(action));
+        }
 
         // Build and Package, which the Build panel and the exporter can both already do. Bound
         // here rather than with the document commands because the process they drive is this
