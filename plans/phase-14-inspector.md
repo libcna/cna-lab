@@ -6,23 +6,23 @@
 
 **Exit criteria.** Every property type a component can declare is editable, validated and undoable.
 
-**Progress:** 9 of 18 complete `██████░░░░░░`
+**Progress:** 18 of 18 complete `████████████`
 
 | Id | Task | Status | Depends on |
 |----|------|:------:|------------|
 | `STUDIO-14001` | Component sections with collapse and expand | ✅ | `STUDIO-07007` |
 | `STUDIO-14002` | Add and remove component | ✅ | `STUDIO-14001` |
-| `STUDIO-14003` | Numeric fields: typed entry and drag-to-change | ⬜ | `STUDIO-14001` |
-| `STUDIO-14004` | Vector and rotation editors | ⬜ | `STUDIO-14003` |
-| `STUDIO-14005` | Colour editor | ⬜ | `STUDIO-14001` |
-| `STUDIO-14006` | Enum, boolean and string editors | ⬜ | `STUDIO-14001` |
-| `STUDIO-14007` | Asset reference field with drag-and-drop and a picker | ⬜ | `STUDIO-09008` |
-| `STUDIO-14008` | Entity reference field | ⬜ | `STUDIO-14007` |
-| `STUDIO-14009` | List properties: add, remove, reorder — each its own undo entry | ⬜ | `STUDIO-14001` |
-| `STUDIO-14010` | Nested structure editing | ⬜ | `STUDIO-14009` |
+| `STUDIO-14003` | Numeric fields: typed entry and drag-to-change | ✅ | `STUDIO-14001` |
+| `STUDIO-14004` | Vector and rotation editors | ✅ | `STUDIO-14003` |
+| `STUDIO-14005` | Colour editor | ✅ | `STUDIO-14001` |
+| `STUDIO-14006` | Enum, boolean and string editors | ✅ | `STUDIO-14001` |
+| `STUDIO-14007` | Asset reference field with drag-and-drop and a picker | ✅ | `STUDIO-09008` |
+| `STUDIO-14008` | Entity reference field | ✅ | `STUDIO-14007` |
+| `STUDIO-14009` | List properties: add, remove, reorder — each its own undo entry | ✅ | `STUDIO-14001` |
+| `STUDIO-14010` | Nested structure editing | ✅ | `STUDIO-14009` |
 | `STUDIO-14011` | Read-only data display | ✅ | `STUDIO-14001` |
 | `STUDIO-14012` | Reset to default | ✅ | `STUDIO-14001` |
-| `STUDIO-14013` | Revert and apply prefab overrides | ⬜ | `STUDIO-14012` |
+| `STUDIO-14013` | Revert and apply prefab overrides | ✅ | `STUDIO-14012` |
 | `STUDIO-14014` | Copy and paste property values | ✅ | `STUDIO-03025` |
 | `STUDIO-14015` | Validation warnings shown inline | ✅ | `STUDIO-14001` |
 | `STUDIO-14016` | Tooltips and documentation from descriptor metadata | ✅ | `STUDIO-03021` |
@@ -262,6 +262,31 @@ unwritten-versus-explicit-default case and an entity without the component at al
 and pins that all three move and one Ctrl+Z takes all three back. Checked by causing three failures
 — the edit reaching only the primary, the component list taking the union, and the value ignoring
 disagreement — plus the merge-key break above. Each fails by name.
+
+### `STUDIO-14003` … `STUDIO-14010`, `STUDIO-14013` — built under Phase 7, ticked after checking
+
+Nine rows this phase declares were delivered while the panel was being ported, under
+`STUDIO-07007`, `STUDIO-07018`, `STUDIO-07054`, `STUDIO-07055` and `STUDIO-07057`, and the ledger
+never caught up. Each is ticked here after reading the code **and** the case that holds it, not
+after writing anything — except `STUDIO-14007`, which was built whole and covered by half.
+
+| Id | What holds it |
+|----|---------------|
+| `14003` Numeric fields | `TextThatIsNotANumberIsRejectedRatherThanTurnedIntoZero` and `DraggingANumericFieldScrubsTheValueWithoutTypingIntoIt`, which pins one undo entry per drag over eight frames — see `STUDIO-14017` for why that gate had to be rebuilt |
+| `14004` Vector and rotation | `EditingOneAxisOfAVectorLeavesTheOthersAlone`, `AQuaternionIsEditedAsAnglesRatherThanAsFourRawNumbers`, and the three gimbal-lock cases that pin the Euler cache being kept, committed per field, and abandoned the instant anything else changes the quaternion |
+| `14005` Colour | A swatch and four 0..255 channels, in `EveryPropertyKindTheSchemaDeclaresGetsAControlRatherThanASummary`. **There is no colour *picker*** — a hue square is its own control and its own task, and the row asks for an editor. Stated rather than left for a reader to discover |
+| `14006` Enum, boolean, string | The dropdown, the checkbox and the text field: `TurningAnEntityOffGoesThroughTheHistorySoUndoReachesIt`, `RepeatedEnabledFlipsMergeIntoOneUndoStep`, `RenamingAnEntityGoesThroughTheHistorySoUndoReachesIt`, and the enum through the importer settings in `ATexturesInspectorSaysWhatItsSettingsActuallyProduce` |
+| `14007` Asset reference | A picker over every asset with "(none)" first, **and** a drop target with hover feedback. The picker was covered and the drop was not; `DraggingAnAssetOntoAReferenceSlotFillsIt` closes that, and fails by name when the slot ignores a drop |
+| `14008` Entity reference | The same picker over the scene's entities, refusing to offer the entity itself -- the only thing that can come of offering it is a cycle nothing downstream expects. `EveryPropertyKindTheSchemaDeclaresGetsAControlRatherThanASummary` |
+| `14009` Lists | `AListPropertyGetsARowThatExpandsIntoItsElements`, `AddingToAListAppendsAnElementOfTheKindItAlreadyHolds`, `RemovingTakesTheNamedElementAndNotTheLastOne`, `MovingStopsAtEitherEndRatherThanWrapping`, `RemovingAListElementIsOneUndoEntryThatPutsItBack` |
+| `14010` Nested structures | `AStructurePropertyGetsARowPerField` |
+| `14013` Prefab overrides | Nine cases in `tests/StudioPrefabSectionTests.cpp`: no changes reported on a fresh instance, a child answering for its instance, an override reported, revert and its undo, apply writing to the file, and the two failure modes -- a prefab that has gone and one that will not load, each reported rather than hidden |
+
+The one general guard worth naming is
+`EveryPropertyKindTheSchemaDeclaresGetsAControlRatherThanASummary`: it counts the property kinds
+that fall through to a read-only summary and insists on zero. That is what stops a kind staying
+unimplemented long after the widget it needed arrived — the failure it catches looks deliberate,
+reads as a decision, and is invisible from a row count.
 
 ### `STUDIO-14011` — Read-only data display
 

@@ -27,6 +27,7 @@
 #include "CNA/Studio/ShellPanels/StudioDetailsPanel.hpp"
 #include "CNA/Studio/StudioContext.hpp"
 #include "CNA/Studio/UiCore/StudioShell.hpp"
+#include "CNA/Studio/ShellPanels/StudioContentBrowser.hpp"
 #include "CNA/Studio/UiCore/StudioWidgets.hpp"
 #include "CNA/Studio/UiCore/UiSoftwareRasterizer.hpp"
 
@@ -659,6 +660,81 @@ CNA_STUDIO_TEST(AComponentWithHundredsOfPropertiesOnlyBuildsTheRowsOnScreen)
     // of work. The difference is.
     CNA_STUDIO_EXPECT(harness.last.rowsDrawn >= std::size_t{400});
     CNA_STUDIO_EXPECT(harness.last.rowsDrawn - harness.last.rowsCulled <= std::size_t{80});
+}
+
+/**
+ * An asset slot takes a drop (`plan.md` STUDIO-14007).
+ *
+ * The picker over every asset in the project is the fallback, not the gesture: a user with the
+ * Content Browser open expects to drag the thing onto the slot. Both halves were built together and
+ * only the picker was covered -- and a drop target is exactly the kind of thing that survives a
+ * refactor as a rectangle nobody registers.
+ */
+CNA_STUDIO_TEST(DraggingAnAssetOntoAReferenceSlotFillsIt)
+{
+    StudioContext context;
+
+    ComponentDescriptor descriptor;
+    descriptor.typeId = "Test.Textured";
+    descriptor.displayName = "Textured";
+    {
+        PropertyDescriptor slot;
+        slot.name = "texture";
+        slot.displayName = "Texture";
+        slot.type = PropertyType::AssetReference;
+        slot.defaultValue = PropertyValue{PropertyValue::AssetReference{}};
+        descriptor.properties.push_back(std::move(slot));
+    }
+    CNA_STUDIO_EXPECT(context.getComponentRegistry().registerComponent(descriptor));
+
+    StudioEntity subject{Uuid::generate(), "Wall"};
+    StudioComponent component{"Test.Textured"};
+    component.applyDefaults(*context.getComponentRegistry().find("Test.Textured"));
+    subject.getComponents().push_back(std::move(component));
+    const Uuid entity = subject.getId();
+    context.getScene().addEntity(std::move(subject));
+    context.select(entity);
+
+    const Uuid asset = Uuid::generate();
+
+    Harness harness{context};
+
+    const auto slotValue = [&context, entity] {
+        return context.getScene().findEntity(entity)
+            ->findComponent("Test.Textured")->getProperty("texture")
+            .get<PropertyValue::AssetReference>().id;
+    };
+    CNA_STUDIO_EXPECT(!slotValue().isValid());
+
+    // Swept down the control column, because a computed coordinate becomes a drop on nothing the
+    // first time a metric moves. The payload is begun on the frame the press lands, which is how
+    // the Content Browser's own rows start one.
+    StudioFrame::StudioDragPayload payload;
+    payload.type = std::string{kStudioAssetDragType};
+    payload.value = asset.toString();
+    payload.label = "Crate.png";
+
+    bool filled = false;
+    for (float y = harness.bounds.top() + 4.0f;
+         y < harness.bounds.bottom() - 4.0f && !filled; y += 4.0f)
+    {
+        const float x = harness.bounds.left() + harness.bounds.width * 0.7f;
+
+        harness.shell->renderFrame(at(x, y, /*leftDown=*/true));
+        if (harness.shell->frame().beginDrag(harness.shell->frame().ids().make("source"), payload))
+        {
+            harness.shell->renderFrame(at(x, y, /*leftDown=*/true));
+            harness.shell->renderFrame(at(x, y));
+        }
+        filled = slotValue() == asset;
+    }
+
+    CNA_STUDIO_EXPECT(filled);
+
+    // Through the history like every other edit: dropping the wrong file on a slot is exactly the
+    // mistake a drag makes easy.
+    CNA_STUDIO_EXPECT(context.getHistory().undo());
+    CNA_STUDIO_EXPECT(!slotValue().isValid());
 }
 
 CNA_STUDIO_TEST(APropertysTooltipComesFromItsDescriptor)
