@@ -6,7 +6,7 @@
 
 **Exit criteria.** Every property type a component can declare is editable, validated and undoable.
 
-**Progress:** 6 of 18 complete `████░░░░░░░░`
+**Progress:** 7 of 18 complete `████░░░░░░░░`
 
 | Id | Task | Status | Depends on |
 |----|------|:------:|------------|
@@ -20,7 +20,7 @@
 | `STUDIO-14008` | Entity reference field | ⬜ | `STUDIO-14007` |
 | `STUDIO-14009` | List properties: add, remove, reorder — each its own undo entry | ⬜ | `STUDIO-14001` |
 | `STUDIO-14010` | Nested structure editing | ⬜ | `STUDIO-14009` |
-| `STUDIO-14011` | Read-only data display | ⬜ | `STUDIO-14001` |
+| `STUDIO-14011` | Read-only data display | ✅ | `STUDIO-14001` |
 | `STUDIO-14012` | Reset to default | ✅ | `STUDIO-14001` |
 | `STUDIO-14013` | Revert and apply prefab overrides | ⬜ | `STUDIO-14012` |
 | `STUDIO-14014` | Copy and paste property values | ✅ | `STUDIO-03025` |
@@ -204,6 +204,33 @@ unwritten-versus-explicit-default case and an entity without the component at al
 and pins that all three move and one Ctrl+Z takes all three back. Checked by causing three failures
 — the edit reaching only the primary, the component list taking the union, and the value ignoring
 disagreement — plus the merge-key break above. Each fails by name.
+
+### `STUDIO-14011` — Read-only data display
+
+**Acceptance.** A property a descriptor declares read-only is shown rather than offered.
+
+**The mechanism existed and the component grid did not use it.** The asset inspector has honoured
+`PropertyDescriptor::readOnly` since it was written — a value an importer computes is drawn as text
+rather than as a control the user can put a caret in and then find refuses them, because a disabled
+field that takes focus is one somebody reports as broken. The component property loop, a few hundred
+lines further down the same file, did not look at the flag at all: a plugin declaring a computed
+field got a fully editable one.
+
+**Copy is still offered on a read-only row; paste is not.** Reading a computed value and putting it
+somewhere else is exactly what a copy is for. And a read-only property is never an override, so it
+gets no Reset either (`STUDIO-14012`).
+
+**Verification.** `tests/StudioDetailsPanelTests.cpp`:
+`AReadOnlyComponentPropertyIsDrawnAsTextRatherThanAControl` registers a component whose second
+property the descriptor declares read-only — no builtin declares one, and a case that cannot be
+written without inventing the situation is a case that proves the situation is handled — and pins
+that the panel reports exactly one property with no editor. Checked by making the panel ignore the
+flag again; it fails by name.
+
+The case also drags across every row and pins that the read-only value does not move, with the
+history as evidence the sweep is landing at all. That assertion is corroboration rather than the
+gate, and says so: whether a given sweep reaches a given row depends on the layout, and a
+corroboration honestly labelled is worth more than one that reads like proof.
 
 ### `STUDIO-14012` — Reset to default
 

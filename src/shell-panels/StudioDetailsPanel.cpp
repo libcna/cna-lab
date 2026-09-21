@@ -3535,6 +3535,8 @@ namespace
                                           frame.input().mouseY);
                 }
 
+                // Copy is offered for a read-only property -- reading a computed value and
+                // putting it somewhere else is exactly what one is for -- and paste is not.
                 const bool pastable =
                     studioPastedProperty(frame.clipboardText(), property.type,
                                          property.elementType).has_value()
@@ -3588,8 +3590,30 @@ namespace
                 // Lists and structures claim rows of their own (STUDIO-07054). Everything else is
                 // a control in the one rect the row already gave it.
                 StudioPropertyEditResult editResult;
-                if (value.getType() == PropertyType::List
-                    || value.getType() == PropertyType::Structure)
+                if (property.readOnly)
+                {
+                    // Declared read-only by the component's descriptor (`plan.md` STUDIO-14011).
+                    // Shown as text rather than as a control the user can put a caret in and then
+                    // find refuses them -- a disabled field that takes focus is one somebody
+                    // reports as broken.
+                    //
+                    // The asset inspector a few hundred lines above has honoured this since it was
+                    // written; the component grid did not look at the flag at all, so a plugin
+                    // declaring a computed field got a fully editable one.
+                    editResult.readOnlyKind = true;
+                    if (frame.isDrawPass())
+                    {
+                        studioDrawText(frame, parts.control,
+                                       studioTruncateText(frame,
+                                                          theme.font(StudioFontRole::BodySmall),
+                                                          describeValue(value),
+                                                          parts.control.width),
+                                       StudioFontRole::BodySmall,
+                                       theme.color(StudioColorRole::TextDisabled));
+                    }
+                }
+                else if (value.getType() == PropertyType::List
+                         || value.getType() == PropertyType::Structure)
                 {
                     const CompoundEditResult compound =
                         compoundPropertyEditor(frame, parts.control, nextRow, value, editing);

@@ -596,6 +596,88 @@ CNA_STUDIO_TEST(AComponentCanBeAddedToTheSelectedEntityAndUndone)
  * The Details panel showed no validation at all: the only way to learn an entity was broken was to
  * open the Problems panel and find it in a list -- a panel away from the one where the fix is made.
  */
+/**
+ * A read-only component property is shown, not offered (`plan.md` STUDIO-14011).
+ *
+ * The asset inspector has honoured `PropertyDescriptor::readOnly` since it was written -- a value
+ * an importer computes is drawn as text rather than as a control the user can put a caret in and
+ * then find refuses them. The *component* grid did not look at the flag at all, so a plugin
+ * declaring a computed field got a fully editable one.
+ */
+CNA_STUDIO_TEST(AReadOnlyComponentPropertyIsDrawnAsTextRatherThanAControl)
+{
+    StudioContext context;
+
+    // A component whose second property the descriptor declares read-only. Registered here rather
+    // than relying on a builtin, because no builtin declares one and a case that cannot be written
+    // without inventing the situation is a case that proves the situation is handled.
+    ComponentDescriptor descriptor;
+    descriptor.typeId = "Test.Computed";
+    descriptor.displayName = "Computed";
+    {
+        PropertyDescriptor editable;
+        editable.name = "speed";
+        editable.displayName = "Speed";
+        editable.type = PropertyType::Float;
+        editable.defaultValue = PropertyValue{1.0f};
+        descriptor.properties.push_back(std::move(editable));
+
+        PropertyDescriptor computed;
+        computed.name = "derived";
+        computed.displayName = "Derived";
+        computed.type = PropertyType::Float;
+        computed.defaultValue = PropertyValue{0.0f};
+        computed.readOnly = true;
+        descriptor.properties.push_back(std::move(computed));
+    }
+    CNA_STUDIO_EXPECT(context.getComponentRegistry().registerComponent(descriptor));
+
+    StudioEntity subject{Uuid::generate(), "Widget"};
+    StudioComponent component{"Test.Computed"};
+    component.applyDefaults(*context.getComponentRegistry().find("Test.Computed"));
+    subject.getComponents().push_back(std::move(component));
+    const Uuid entity = subject.getId();
+    context.getScene().addEntity(std::move(subject));
+    context.select(entity);
+
+    Harness harness{context};
+
+    // One of the two properties is reported as a kind with no editor, which is the same flag the
+    // asset inspector sets and the same one a type the panel cannot edit sets.
+    CNA_STUDIO_EXPECT_EQ(harness.last.readOnlyProperties, std::size_t{1});
+
+    const auto derived = [&context, entity] {
+        return context.getScene().findEntity(entity)
+            ->findComponent("Test.Computed")->getProperty("derived").get<float>();
+    };
+    const auto speed = [&context, entity] {
+        return context.getScene().findEntity(entity)
+            ->findComponent("Test.Computed")->getProperty("speed").get<float>();
+    };
+
+    CNA_STUDIO_EXPECT_EQ(derived(), 0.0f);
+    CNA_STUDIO_EXPECT_EQ(speed(), 1.0f);
+
+    // Dragged across every row of the panel, with the history as evidence the sweep is landing --
+    // "nothing changed" would otherwise be true of a case that clicked outside the panel.
+    //
+    // The assertion that carries this case is `readOnlyProperties` above: making the panel ignore
+    // the flag fails *that* one by name. `derived()` sitting still is corroboration rather than
+    // the gate, because whether a given sweep reaches a given row depends on the layout, and a
+    // corroboration honestly labelled is worth more than one that reads like proof.
+    for (float y = harness.bounds.top() + 2.0f; y < harness.bounds.bottom() - 2.0f; y += 2.0f)
+    {
+        const float columnLeft = harness.bounds.left() + harness.bounds.width * 0.40f;
+        for (const float fraction : {0.25f, 0.5f})
+        {
+            harness.drag(columnLeft + (harness.bounds.right() - columnLeft) * fraction, y, 40.0f);
+        }
+    }
+
+    CNA_STUDIO_EXPECT(context.getHistory().canUndo());
+    CNA_STUDIO_EXPECT_EQ(derived(), 0.0f);
+}
+
 CNA_STUDIO_TEST(AnIssueIsPickedApartByTheEntityAndTheComponentItNames)
 {
     const Uuid mine = Uuid::generate();
