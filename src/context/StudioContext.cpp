@@ -141,6 +141,9 @@ namespace CNA::Studio
 
         history_.execute(std::move(command), policy);
 
+        // The cached documents are dropped by `announceCommand` below, which undo and redo call
+        // too -- see its comment.
+
         // The observer is handed the *entry*, not the command that was just pushed -- a merged
         // command is folded into the previous entry and destroyed, and the entry is what now holds
         // the change. They target the same property either way, because a merge only happens when
@@ -223,12 +226,14 @@ namespace CNA::Studio
             // of "open it, parse it, load it" would be two chances to disagree about a material
             // that is half-written -- and the editor's copy is the one a user is looking at while
             // this one decides what to draw.
-            MaterialDocument material;
-            if (loadMaterialDocument(assets_, assetId, material) != MaterialLoadProblem::None)
-            {
-                return std::nullopt;
-            }
+            // Through the cache rather than straight off disk (`plan.md` STUDIO-19006). This
+            // provider is called once per model entity per *frame*: reading the file each time
+            // meant a scene of two hundred models opened and parsed two hundred files sixty times
+            // a second, which is a live preview paid for with the frame it is previewing.
+            const MaterialDocument* cached = documents_.material(assets_, assetId);
+            if (cached == nullptr) { return std::nullopt; }
 
+            const MaterialDocument& material = *cached;
             MeshMaterial resolved = material.toMeshMaterial();
 
             // The one thing the document cannot do for itself: it speaks in asset ids and the

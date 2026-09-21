@@ -836,7 +836,7 @@ namespace CNA::Studio
          * is coarse on purpose: too much costs one reload of what is on screen, and too little is
          * an editor showing a file it has already overwritten.
          */
-        StudioAssetDocumentCache documents_;
+
 
         /**
          * @brief Thumbnails for the assets the browser is showing (`plan.md` STUDIO-09003).

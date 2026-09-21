@@ -19,6 +19,7 @@
 #include "TestHarness.hpp"
 
 #include "CNA/Studio/Assets/AssetDatabase.hpp"
+#include "CNA/Studio/Assets/AssetCommands.hpp"
 #include "CNA/Studio/Assets/MaterialCapabilities.hpp"
 #include "CNA/Studio/Assets/MaterialPreview.hpp"
 #include "CNA/Studio/Assets/MaterialDocument.hpp"
@@ -625,6 +626,12 @@ CNA_STUDIO_TEST(EveryMapAMaterialNamesReachesTheRendererAsAPath)
     material.emissiveTexture = Uuid::generate();
     fixture.project.write("Assets/PaintedRed.cnamaterial", Json::write(material.toJson(), true));
 
+    // The provider reads through the document cache since `STUDIO-19006`, and this case rewrites
+    // the file behind the database's back -- the record's stamp does not move, so the cache is
+    // entitled to keep what it has. In the editor a command invalidates it and an external edit
+    // moves the stamp; here neither happens, so the test says so itself.
+    fixture.context.getDocuments().invalidate();
+
     const std::optional<MeshMaterial> partial = provider(fixture.material);
     CNA_STUDIO_EXPECT(partial.has_value());
     if (partial.has_value())
@@ -980,4 +987,84 @@ CNA_STUDIO_TEST(ABlendedMaterialPreviewsAsATransparentSphere)
     MaterialDocument masked = glass;
     masked.alphaMode = MeshAlphaMode::Mask;
     CNA_STUDIO_EXPECT_EQ(pixelAt(studioRenderMaterialPreview(masked, 64), 32, 32).a, 255);
+}
+
+// ------------------------------------------------------------------------------------------------
+// Live preview (STUDIO-19006)
+// ------------------------------------------------------------------------------------------------
+
+/**
+ * @brief The viewport shows a material edit at once, and does not pay a file read per model to.
+ *
+ * Both halves, because either alone is the wrong thing. `makeMaterialProvider` read the file every
+ * call and was called once per model entity per *frame*, so a scene of two hundred models opened
+ * and parsed two hundred files sixty times a second: live, and paid for with the frame it was
+ * previewing. Caching it without invalidating would be the opposite mistake -- a material a user
+ * is editing while looking at it, showing the version before their own edit.
+ */
+CNA_STUDIO_TEST(AMaterialEditIsVisibleAtOnceAndCostsOneFileReadRatherThanOnePerDraw)
+{
+    Fixture fixture{"livepreview"};
+
+    const MaterialProvider provider = fixture.context.makeMaterialProvider();
+
+    const std::uint64_t before = fixture.context.getDocuments().getFileReadCount();
+
+    // Ten resolutions, which is what ten model entities naming this material cost in one frame.
+    for (int draw = 0; draw < 10; ++draw)
+    {
+        const std::optional<MeshMaterial> resolved = provider(fixture.material);
+        CNA_STUDIO_EXPECT(resolved.has_value());
+    }
+
+    // One read, not ten. The number is the whole point: a cache that reloaded per call would
+    // return the right material every time and still be the defect.
+    CNA_STUDIO_EXPECT_EQ(fixture.context.getDocuments().getFileReadCount(), before + 1);
+
+    const std::optional<MeshMaterial> first = provider(fixture.material);
+    CNA_STUDIO_EXPECT(first.has_value());
+    if (!first.has_value()) { return; }
+    CNA_STUDIO_EXPECT(std::fabs(first->roughness - 0.6f) < 0.001f);
+
+    // Now edit it the way the Inspector does -- through a command -- and the very next resolution
+    // is the new material. No rescan, no watcher tick, no frame in between.
+    MaterialDocument edited;
+    CNA_STUDIO_EXPECT(loadMaterialDocument(fixture.context.getAssets(), fixture.material, edited)
+                      == MaterialLoadProblem::None);
+    edited.roughness = 0.1f;
+
+    fixture.context.execute(std::make_unique<SetMaterialCommand>(
+        fixture.context.getAssets().resolvePath("Assets/PaintedRed.cnamaterial"), edited,
+        std::string{"roughness"}));
+
+    const std::optional<MeshMaterial> after = provider(fixture.material);
+    CNA_STUDIO_EXPECT(after.has_value());
+    if (after.has_value())
+    {
+        CNA_STUDIO_EXPECT(std::fabs(after->roughness - 0.1f) < 0.001f);
+
+        // And the derived half follows, which is what the viewport actually shades with.
+        CNA_STUDIO_EXPECT(after->specularPower > first->specularPower);
+    }
+
+    // Undo puts the bytes back and the viewport follows that too, because undo goes through the
+    // same history the invalidation hangs off.
+    // Announced the way the Undo action announces it, which is the only thing that tells anything
+    // outside the history that the document moved. Nothing is invalidated by hand here: a first
+    // draft of this case did that, and it hid the defect -- undo bypasses `execute`, so the cache
+    // was dropped on an edit and not on its reversal, leaving the viewport drawing the version
+    // the user had just taken back.
+    CNA_STUDIO_EXPECT(fixture.context.getHistory().undo());
+    if (const StudioCommand* entry =
+            fixture.context.getHistory().getCommandAt(fixture.context.getHistory().getCursor()))
+    {
+        fixture.context.announceCommand(*entry);
+    }
+
+    const std::optional<MeshMaterial> undone = provider(fixture.material);
+    CNA_STUDIO_EXPECT(undone.has_value());
+    if (undone.has_value())
+    {
+        CNA_STUDIO_EXPECT(std::fabs(undone->roughness - 0.6f) < 0.001f);
+    }
 }

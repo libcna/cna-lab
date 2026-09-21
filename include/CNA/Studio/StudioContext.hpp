@@ -20,6 +20,7 @@
 #include <vector>
 
 #include "CNA/Studio/Assets/AssetDatabase.hpp"
+#include "CNA/Studio/Assets/AssetDocumentCache.hpp"
 #include "CNA/Studio/Assets/AssetImporters.hpp"
 #include "CNA/Studio/Assets/MaterialDocument.hpp"
 #include "CNA/Studio/Plugins/PluginExtensions.hpp"
@@ -130,6 +131,20 @@ namespace CNA::Studio
          */
         [[nodiscard]] MaterialProvider makeMaterialProvider();
 
+        /**
+         * @brief Documents read out of asset files, kept until something changes them.
+         *
+         * `plan.md` STUDIO-19006. Owned here rather than by the Inspector, which is where it
+         * started, because the *renderer* needs the same documents the Inspector is showing and
+         * needs them sixty times a second. Two caches would be two copies of one file and two
+         * chances to disagree about a material a user is editing while looking at it.
+         *
+         * Invalidated on every command, coarsely and deliberately: any command may have written
+         * an asset file -- a material edit, a prefab Apply -- and keeping a document Studio has
+         * just overwritten would show the user the version before their own edit.
+         */
+        [[nodiscard]] StudioAssetDocumentCache& getDocuments() { return documents_; }
+
         [[nodiscard]] CommandHistory& getHistory() { return history_; }
         [[nodiscard]] const CommandHistory& getHistory() const { return history_; }
 
@@ -181,6 +196,13 @@ namespace CNA::Studio
          */
         void announceCommand(const StudioCommand& command)
         {
+            // The cached documents go here rather than in `execute`, and the reason is the
+            // paragraph above: undo and redo bypass `execute` entirely. Invalidating there would
+            // have left a material edit visible in the viewport and its *undo* not -- the file
+            // back as it was and the renderer still drawing the version the user just took back
+            // (`plan.md` STUDIO-19006). This is the one place every document change passes.
+            documents_.invalidate();
+
             if (commandObserver_) { commandObserver_(command); }
         }
 
@@ -245,6 +267,9 @@ namespace CNA::Studio
         PluginExtensionRegistry pluginExtensions_;
         ComponentRegistry importers_;
         AssetDatabase assets_;
+
+        /** @brief Asset documents, shared by the Inspector and the renderer. @see getDocuments */
+        StudioAssetDocumentCache documents_;
         MeshCache meshes_;
         CommandHistory history_;
         std::vector<Uuid> selection_;

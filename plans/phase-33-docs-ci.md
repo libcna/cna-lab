@@ -76,6 +76,21 @@ change being validated adds a widget to the property grid and touches nothing th
 draws. Within the 7635–8599 µs spread measured above. Two readings a minute apart, one red and one
 green, is the whole of the problem in one line.
 
+**And it is not one scenario.** `STUDIO-19006`'s validation put `outliner-20000-all-selected` over
+the same budget, and five runs of that one binary read 8752, 8433, 8213, 7979 and 7755 µs — two
+red and three green, straddling 8333 exactly as `content-grid-100k` does. The row named one
+scenario because one was all that had been seen; at least two sit inside their own run-to-run
+spread of the budget, and the same is presumably true of any scenario that ever approaches it.
+
+**That run also produced the best evidence so far that the gate measures the machine.** The
+benchmark prints counted columns beside the timings — widgets described, vertices produced, draw
+calls, bytes handed over — and for this scenario every one of them was **identical** before and
+after the change: `21.0  12887.0  1.0  20.0  6373.2  332.4  19.17x`, byte for byte. The work done
+did not move at all. What moved was wall-clock, and it moved on *every* scenario in the run by two
+to five percent, including ones the change cannot reach. A gate reading a number that is identical
+across a change, and failing because of one that is not, is measuring the wrong number — which is
+what this row says and what these figures now show rather than argue.
+
 ### `STUDIO-33026` — A test waiting on a worker counts completions, not frames
 
 **Found while doing `STUDIO-10003`**: `ThumbnailCacheTests`'

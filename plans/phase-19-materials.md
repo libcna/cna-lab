@@ -6,7 +6,7 @@
 
 **Exit criteria.** A property-based material editor good enough that a node graph is an addition rather than a rescue.
 
-**Progress:** 7 of 9 complete `█████████░░░`
+**Progress:** 8 of 9 complete `██████████░░`
 
 | Id | Task | Status | Depends on |
 |----|------|:------:|------------|
@@ -15,7 +15,7 @@
 | `STUDIO-19003` | Scalar and vector material parameters | ✅ | `STUDIO-19001` |
 | `STUDIO-19004` | Transparency modes | ✅ | `STUDIO-19001` |
 | `STUDIO-19005` | Material instances and parameter overrides | ⬜ | `STUDIO-19001` |
-| `STUDIO-19006` | Live material preview in the viewport | ⬜ | `STUDIO-11011` |
+| `STUDIO-19006` | Live material preview in the viewport | ✅ | `STUDIO-11011` |
 | `STUDIO-19007` | Material preview thumbnail rendering | ✅ | `STUDIO-09003` |
 | `STUDIO-19008` | Renderer capability diagnostics for materials | ✅ | `STUDIO-02021` |
 | `STUDIO-19009` | Material assignment to mesh entities | ✅ | `STUDIO-19001` |
@@ -350,6 +350,58 @@ name.
 and the grid edits it as a list of structures, which is not the same as picking a material for a
 part off the model in the viewport. Nothing here previews the assignment before it is made
 (`STUDIO-19006`), and nothing draws a material's thumbnail in the picker (`STUDIO-19007`).
+
+### `STUDIO-19006` — Live material preview in the viewport
+
+**Acceptance.** Editing a material changes the scene on the next frame, and does not cost a file
+read per model to do it.
+
+**Both halves, because either alone is the wrong thing.** The preview *was* live:
+`makeMaterialProvider` read the `.cnamaterial` off disk on every call, so an edit was visible
+immediately. It was also called once per model entity per **frame**, so a scene of two hundred
+models opened and parsed two hundred files sixty times a second — live, and paid for with the
+frame it was previewing. Caching it without invalidating is the opposite mistake, and a worse one:
+a material the user is editing *while looking at it*, showing the version before their own edit.
+
+**The document cache moved from the Inspector to the context.** It started on
+`StudioShellPanels`, which is where the Details panel needed it; the renderer needs the same
+documents and needs them per frame. Two caches would be two copies of one file and two chances to
+disagree about a material somebody is editing — so there is one, on `StudioContext`, and both read
+through it.
+
+**The invalidation went in `announceCommand`, and that is the defect this task found.** The
+obvious place is `execute`, and a first pass put it there. `announceCommand`'s own header has said
+since it was written that *undo and redo bypass `execute`* — they act on the history directly,
+because there is no new command to run. Invalidating in `execute` would therefore have dropped the
+cache on a material edit and **not** on its reversal: the file back as it was, and the viewport
+still drawing the version the user had just taken back. Every document change passes through
+`announceCommand`; nothing else does.
+
+**The case had to be written not to hide it.** Its first draft called `invalidate()` by hand after
+the undo, which is what a test does when it is describing the implementation rather than the
+behaviour — and it passed with the defect in place. It announces the entry instead, exactly as the
+Undo action does.
+
+**Coarse invalidation, deliberately.** Every cached document is dropped rather than the one that
+changed. The cost of dropping too much is one reload of what is on screen; the cost of dropping
+too little is an editor showing a file it has already overwritten.
+
+**A note for anyone writing a test here.** The cache reloads when the record's *stamp* moves or
+when something invalidates it. A test that rewrites an asset file behind the database's back gets
+neither, and must say so itself —
+`EveryMapAMaterialNamesReachesTheRendererAsAPath` now does. In the editor a command invalidates and
+an external edit moves the stamp through the asset watcher, so neither case is reachable by a user.
+
+**Verification.** `AMaterialEditIsVisibleAtOnceAndCostsOneFileReadRatherThanOnePerDraw` in
+`tests/StudioMaterialEditorTests.cpp` — ten resolutions costing one file read rather than ten, an
+edit through a command visible on the very next resolution with its derived Blinn-Phong half
+following, and an undo taking the viewport back with it.
+Checked by causing each: the provider reading the file every call, nothing invalidating at all,
+and invalidating in `execute` only, each fail by name. The third is the defect itself.
+
+**What this row is not.** There is no dedicated preview *scene* — no floating sphere shown when a
+material is selected with nothing in the level using it. `STUDIO-19007`'s thumbnail is what a
+material looks like on its own; this row is what it looks like on the models that use it.
 
 ### `STUDIO-19007` — Material preview thumbnail rendering
 

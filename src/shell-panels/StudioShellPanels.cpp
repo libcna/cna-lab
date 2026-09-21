@@ -84,10 +84,9 @@ namespace CNA::Studio
             // scene in the project sixty times a second.
             dependenciesStale_ = true;
 
-            // And any command may have written an asset *file*: a material edit, a prefab Apply.
-            // Dropping the whole cache is coarse and correct; keeping a document Studio has just
-            // overwritten would show the user the version before their own edit.
-            documents_.invalidate();
+            // The document cache is dropped by `StudioContext::execute` itself, which is where it
+            // moved with `STUDIO-19006` -- the renderer reads the same documents the Inspector
+            // does, and two caches would be two copies of one file.
         });
 
         buildPanel_ = std::make_unique<StudioBuildPanel>(context_, build_.process());
@@ -112,7 +111,8 @@ namespace CNA::Studio
         if (studioAssetDropKind(record->type) == StudioAssetDropKind::Prefab)
         {
             const PrefabDocument* prefab =
-                documents_.prefab(context_.getAssets(), assetId, context_.getComponentRegistry());
+                context_.getDocuments().prefab(context_.getAssets(), assetId,
+                                               context_.getComponentRegistry());
             if (prefab == nullptr)
             {
                 log_.append(LogSeverity::Warning,
@@ -1439,7 +1439,7 @@ namespace CNA::Studio
             // describes exactly the graph the input pass routed against.
             details_services.dependencies =
                 frame.isInputPass() ? dependencyIndex() : &dependencies_;
-            details_services.documents = &documents_;
+            details_services.documents = &context_.getDocuments();
 
             const StudioDetailsResult details =
                 studioDetailsPanel(frame, bounds, context_, details_services, &detailsState_,
@@ -1506,7 +1506,7 @@ namespace CNA::Studio
             details_services.audio = services_.audio;
             details_services.thumbnail = services_.assetThumbnail;
             details_services.modelEffectName = services_.modelEffectName;
-            details_services.documents = &documents_;
+            details_services.documents = &context_.getDocuments();
 
             const StudioDetailsResult material =
                 studioMaterialPanel(frame, bounds, context_, details_services);
