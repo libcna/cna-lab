@@ -62,6 +62,27 @@ namespace CNA::Studio
     /** @brief Returns the stable name of @p kind, matching the descriptor's enum options. */
     [[nodiscard]] const char* toString(SceneLightKind kind);
 
+    /**
+     * @brief Which of a light's fields mean anything for @p kind (`plan.md` STUDIO-20002).
+     *
+     * Three predicates rather than three conditions written out wherever they are needed. They
+     * are read by the Inspector -- through `CNA.Light`'s `appliesWhen`, which
+     * `TheLightInspectorAndTheLightOverlayAgreeAboutWhatEachKindUses` holds to these -- and by the
+     * viewport overlay, which drew a direction arrow on a point light and a range ring on none.
+     *
+     * A point light shines equally in every direction, so its rotation is nothing to it; a
+     * directional light is infinitely far away, so its position and range are nothing to it; a
+     * spot light is the only kind that uses all three, and `IEffectLights` cannot draw its cone
+     * at all -- which is `STUDIO-20008`'s business rather than these predicates'.
+     */
+    [[nodiscard]] bool sceneLightUsesDirection(SceneLightKind kind);
+
+    /** @brief Whether @p kind is lit from a place in the scene. @see sceneLightUsesDirection */
+    [[nodiscard]] bool sceneLightUsesPosition(SceneLightKind kind);
+
+    /** @brief Whether @p kind's reach is bounded by its range. @see sceneLightUsesDirection */
+    [[nodiscard]] bool sceneLightUsesRange(SceneLightKind kind);
+
     /** @brief One `CNA.Light` in the scene, resolved into world space. */
     struct SceneLight
     {

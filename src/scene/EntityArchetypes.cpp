@@ -19,15 +19,22 @@ namespace CNA::Studio
         // `CNA.SpriteAnimation`, `CNA.Tags`, `CNA.Layer` and `CNA.AudioListener` are components a
         // user adds *to* something rather than kinds of thing, so they are not rows here.
         static const std::vector<StudioEntityArchetype> kArchetypes = {
-            {"empty", "Entity", {}},
-            {"camera", "Camera", {BuiltinComponentIds::kCamera}},
+            {"empty", "Entity", {}, {}},
+            {"camera", "Camera", {BuiltinComponentIds::kCamera}, {}},
             // Named "Directional Light" rather than "Light": `CNA.Light`'s `kind` defaults to
             // Directional, and a row called Light that always made one kind would be a row whose
             // name is a promise the other two kinds break (`plan.md` STUDIO-20001).
-            {"light.directional", "Directional Light", {BuiltinComponentIds::kLight}},
-            {"sprite", "Sprite", {BuiltinComponentIds::kSpriteRenderer}},
-            {"model", "Model", {BuiltinComponentIds::kModelRenderer}},
-            {"audio", "Audio Source", {BuiltinComponentIds::kAudioSource}},
+            {"light.directional", "Directional Light", {BuiltinComponentIds::kLight}, {}},
+            // The other two kinds of the same component (`plan.md` STUDIO-20002, STUDIO-20003).
+            // A preset rather than a component of their own, because `CNA.Light` is what the
+            // runtime reads and three components mapping onto one would be three ways to write
+            // the same scene file.
+            {"light.point", "Point Light", {BuiltinComponentIds::kLight},
+             {{BuiltinComponentIds::kLight, "kind",
+               PropertyValue{PropertyValue::EnumValue{"Point"}}}}},
+            {"sprite", "Sprite", {BuiltinComponentIds::kSpriteRenderer}, {}},
+            {"model", "Model", {BuiltinComponentIds::kModelRenderer}, {}},
+            {"audio", "Audio Source", {BuiltinComponentIds::kAudioSource}, {}},
         };
         return kArchetypes;
     }
@@ -58,6 +65,16 @@ namespace CNA::Studio
         // picked in the viewport and cannot be a parent that means anything.
         add(BuiltinComponentIds::kTransform);
         for (const std::string& typeId : archetype.components) { add(typeId); }
+
+        // Then the handful of values that distinguish this kind from its neighbours, applied over
+        // the defaults rather than instead of them: a preset says what makes a point light a point
+        // light and leaves its colour, intensity and range to the descriptor.
+        for (const StudioEntityArchetype::Preset& preset : archetype.presets)
+        {
+            StudioComponent* target = entity.findComponent(preset.component);
+            if (target == nullptr) { continue; }
+            target->setProperty(preset.property, preset.value);
+        }
 
         return entity;
     }

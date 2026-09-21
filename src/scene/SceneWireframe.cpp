@@ -174,31 +174,39 @@ namespace CNA::Studio
             }
         };
 
-        // A directional light has no position that matters, so what is worth drawing is the one
-        // thing a user can change and cannot otherwise see: which way it points. The line starts at
-        // the entity, because that is where the badge and the gizmo are.
+        // The arrow says which way the light points, which is the one thing a user can change and
+        // cannot otherwise see -- for the two kinds that *have* a direction. A point light shines
+        // equally in every direction, and the arrow on one was an indicator of nothing: turning
+        // the entity swung it about and changed how the scene was lit by not at all
+        // (`plan.md` STUDIO-20002). The line starts at the entity, because that is where the badge
+        // and the gizmo are.
         //
         // Sized in *pixels* and converted to world units at the light's own depth, exactly as the
         // 3D manipulators size their arms. A fixed world length cannot work: this editor's scenes
         // are laid out in pixel-like units running to the hundreds, and the same constant that
         // reads well in a scene measured in metres is invisible in one measured in sprites.
-        constexpr float kDirectionPixels = 70.0f;
-        const float kDirectionLength = kDirectionPixels * worldUnitsPerPixelNear(camera, light.position);
-        const StudioVector3 tip = add(light.position, scale(light.direction, kDirectionLength));
-        append(light.position, tip);
+        if (sceneLightUsesDirection(light.kind))
+        {
+            constexpr float kDirectionPixels = 70.0f;
+            const float kDirectionLength =
+                kDirectionPixels * worldUnitsPerPixelNear(camera, light.position);
+            const StudioVector3 tip = add(light.position, scale(light.direction, kDirectionLength));
+            append(light.position, tip);
 
-        // A small arrowhead, so the line reads as an arrow rather than as an edge of something.
-        const auto [armX, armY] = makePlaneBasisForLight(light.direction);
-        const float kHead = kDirectionLength * 0.18f;
-        const StudioVector3 back = add(light.position, scale(light.direction, kDirectionLength - kHead));
-        append(tip, add(back, scale(armX, kHead * 0.5f)));
-        append(tip, add(back, scale(armX, -kHead * 0.5f)));
-        append(tip, add(back, scale(armY, kHead * 0.5f)));
-        append(tip, add(back, scale(armY, -kHead * 0.5f)));
+            // A small arrowhead, so the line reads as an arrow rather than as an edge of something.
+            const auto [armX, armY] = makePlaneBasisForLight(light.direction);
+            const float kHead = kDirectionLength * 0.18f;
+            const StudioVector3 back =
+                add(light.position, scale(light.direction, kDirectionLength - kHead));
+            append(tip, add(back, scale(armX, kHead * 0.5f)));
+            append(tip, add(back, scale(armX, -kHead * 0.5f)));
+            append(tip, add(back, scale(armY, kHead * 0.5f)));
+            append(tip, add(back, scale(armY, -kHead * 0.5f)));
+        }
 
         // Only a light that *has* a range gets a circle. A directional light reaches everything,
         // and a ring around one would be a boundary the user could move that means nothing.
-        if (light.kind == SceneLightKind::Directional || light.range <= 0.0f) { return drawn; }
+        if (!sceneLightUsesRange(light.kind) || light.range <= 0.0f) { return drawn; }
 
         // One ring in the scene's own plane rather than three about the three axes. Three would
         // describe the sphere more completely and would also put two rings edge-on in the view

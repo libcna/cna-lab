@@ -5411,3 +5411,178 @@ CNA_STUDIO_TEST(ADirectionalLightCreatedFromTheEditorLightsTheModelsInTheScene)
     CNA_STUDIO_EXPECT(cameraNearlyEqual(after.lights[0].direction.x, before.x, 0.001f));
     CNA_STUDIO_EXPECT(cameraNearlyEqual(after.lights[0].direction.z, before.z, 0.001f));
 }
+
+/**
+ * @brief A point light arrives as one, lights from where it is, and stops at its range.
+ *
+ * `plan.md` STUDIO-20002. The three kinds are one component told apart by an enumeration, so
+ * "a point light" cannot be said in components at all — which is what
+ * `StudioEntityArchetype::presets` exists for. An archetype whose preset silently did nothing
+ * would hand the user a *directional* light called "Point Light", and every structural assertion
+ * about components would still pass.
+ */
+CNA_STUDIO_TEST(APointLightCreatedFromTheEditorLightsFromWhereItIsAndStopsAtItsRange)
+{
+    const ComponentRegistry registry = makeRegistry();
+    SceneDocument scene;
+    const MeshData mesh = makeTinyMesh();
+    const Uuid modelId = Uuid::generate();
+
+    StudioEntity crate = makeEntity(registry, "Crate", 0.0f, 0.0f);
+    addModelRenderer(registry, crate, modelId);
+    (void)scene.addEntity(std::move(crate));
+
+    StudioCamera3D camera;
+    camera.setViewportSize(StudioVector2{800.0f, 600.0f});
+    const MeshProvider provider = [&](const Uuid& queried) {
+        return queried == modelId ? &mesh : nullptr;
+    };
+
+    const StudioEntityArchetype* archetype = studioFindEntityArchetype("light.point");
+    CNA_STUDIO_EXPECT(archetype != nullptr);
+    if (archetype == nullptr) { return; }
+
+    StudioEntity lamp = studioMakeArchetypeEntity(*archetype, registry);
+
+    // The preset landed: this is a Point in the document, not a Directional one wearing the name.
+    const StudioComponent* asMade = lamp.findComponent(BuiltinComponentIds::kLight);
+    CNA_STUDIO_EXPECT(asMade != nullptr);
+    if (asMade == nullptr) { return; }
+    CNA_STUDIO_EXPECT_EQ(asMade->getProperty("kind").get<PropertyValue::EnumValue>().name,
+                         std::string{"Point"});
+
+    // Its colour, intensity and range are still the descriptor's: a preset says what makes a point
+    // light a point light and leaves the rest alone.
+    CNA_STUDIO_EXPECT_EQ(asMade->getProperty("intensity").get<float>(), 1.0f);
+    CNA_STUDIO_EXPECT(asMade->getProperty("range").get<float>() > 0.0f);
+
+    const Uuid lampId = scene.addEntity(std::move(lamp));
+
+    // Beside the crate and well inside its range: the crate is lit, and lit from where the lamp is
+    // rather than along the lamp's own axis. That is the whole difference from a directional one.
+    StudioComponent* transform =
+        scene.findEntityForEdit(lampId)->findComponent(BuiltinComponentIds::kTransform);
+    transform->setProperty("position", PropertyValue{StudioVector3{4.0f, 0.0f, 0.0f}});
+
+    const SceneModelBatch near = buildSceneModelBatch(scene, camera, provider);
+    CNA_STUDIO_EXPECT_EQ(near.draws.size(), std::size_t{1});
+    CNA_STUDIO_EXPECT(!near.draws[0].lighting.useDefaultLighting);
+    CNA_STUDIO_EXPECT_EQ(near.draws[0].lighting.lightCount, std::size_t{1});
+
+    // The crate is at the origin and the lamp is at +4 on X, so the light arrives travelling -X.
+    CNA_STUDIO_EXPECT(near.draws[0].lighting.lights[0].direction.x < -0.9f);
+
+    // Move the lamp to the other side and the light arrives from the other side. A directional
+    // light would not have moved at all, which is what `STUDIO-20001`'s case asserts.
+    transform->setProperty("position", PropertyValue{StudioVector3{-4.0f, 0.0f, 0.0f}});
+    const SceneModelBatch across = buildSceneModelBatch(scene, camera, provider);
+    CNA_STUDIO_EXPECT_EQ(across.draws.size(), std::size_t{1});
+    CNA_STUDIO_EXPECT(across.draws[0].lighting.lights[0].direction.x > 0.9f);
+
+    // And beyond its range it lights nothing, so the scene falls back to the default rather than
+    // drawing the crate black.
+    const float range = asMade->getProperty("range").get<float>();
+    transform->setProperty("position",
+                           PropertyValue{StudioVector3{range * 10.0f, 0.0f, 0.0f}});
+    const SceneModelBatch far = buildSceneModelBatch(scene, camera, provider);
+    CNA_STUDIO_EXPECT_EQ(far.draws.size(), std::size_t{1});
+    CNA_STUDIO_EXPECT(far.draws[0].lighting.useDefaultLighting);
+}
+
+/**
+ * @brief The overlay draws an arrow only where direction means something, and a ring only where
+ *        range does.
+ *
+ * `plan.md` STUDIO-20002. A point light shines equally in every direction, and it was drawn with
+ * the same aim arrow a directional light gets: turning the entity swung a line about the viewport
+ * and changed how the scene was lit by nothing at all. That is an indicator of a fact that does
+ * not exist, and it is the same defect as the editable Range field `STUDIO-20001` took out of the
+ * Inspector — one layer over.
+ */
+CNA_STUDIO_TEST(TheLightOverlayDrawsAnArrowOnlyWhereDirectionMeansSomething)
+{
+    StudioCamera3D camera;
+    camera.setViewportSize(StudioVector2{800.0f, 600.0f});
+
+    const auto segmentsFor = [&camera](SceneLightKind kind, float range) {
+        SceneLight light;
+        light.kind = kind;
+        light.position = StudioVector3{0.0f, 0.0f, 0.0f};
+        light.direction = StudioVector3{0.0f, 0.0f, 1.0f};
+        light.range = range;
+
+        std::vector<WireSegment> segments;
+        (void)appendLightVisualisation(segments, camera, light,
+                                       StudioColor{255, 255, 255, 255}, 1024);
+        return segments.size();
+    };
+
+    // A directional light: the arrow and nothing else. No ring, because it reaches everything and
+    // a boundary the user could drag would be a boundary that means nothing.
+    const std::size_t directional = segmentsFor(SceneLightKind::Directional, 10.0f);
+    CNA_STUDIO_EXPECT(directional > 0);
+
+    // A point light: the ring and no arrow. Fewer segments than a spot light, which has both --
+    // asserted as a comparison rather than as a count, because the ring's sample rate is a
+    // drawing decision and this case is about which parts are drawn at all.
+    const std::size_t point = segmentsFor(SceneLightKind::Point, 10.0f);
+    const std::size_t spot = segmentsFor(SceneLightKind::Spot, 10.0f);
+    CNA_STUDIO_EXPECT(point > 0);
+    CNA_STUDIO_EXPECT_EQ(spot, point + directional);
+
+    // A point light with no range has nothing to draw at all: no ring, and no arrow either.
+    CNA_STUDIO_EXPECT_EQ(segmentsFor(SceneLightKind::Point, 0.0f), std::size_t{0});
+
+    // A directional light is unaffected by its range, which is the field the Inspector greys out.
+    CNA_STUDIO_EXPECT_EQ(segmentsFor(SceneLightKind::Directional, 0.0f), directional);
+}
+
+/**
+ * @brief The Inspector and the renderer agree about which fields each light kind uses.
+ *
+ * Two descriptions of one fact, which `ED-300` is about: `CNA.Light`'s `range` carries an
+ * `appliesWhen` that decides whether the field is editable, and `sceneLightUsesRange` decides
+ * whether it changes anything. A disagreement is a field a user can set and cannot see, or one
+ * they cannot set and would need — and neither is visible from either side alone.
+ */
+CNA_STUDIO_TEST(TheLightInspectorAndTheLightOverlayAgreeAboutWhatEachKindUses)
+{
+    ComponentRegistry registry;
+    registerBuiltinComponents(registry);
+
+    const ComponentDescriptor* light = registry.find(BuiltinComponentIds::kLight);
+    CNA_STUDIO_EXPECT(light != nullptr);
+    if (light == nullptr) { return; }
+
+    const PropertyDescriptor* range = light->findProperty("range");
+    CNA_STUDIO_EXPECT(range != nullptr);
+    if (range == nullptr) { return; }
+
+    CNA_STUDIO_EXPECT_EQ(range->appliesWhen.property, std::string{"kind"});
+
+    for (const SceneLightKind kind :
+         {SceneLightKind::Directional, SceneLightKind::Point, SceneLightKind::Spot})
+    {
+        const std::string name = toString(kind);
+        const bool editable = std::find(range->appliesWhen.values.begin(),
+                                        range->appliesWhen.values.end(), name)
+                              != range->appliesWhen.values.end();
+        if (editable != sceneLightUsesRange(kind))
+        {
+            CnaStudioTest::reportFailure(__FILE__, __LINE__,
+                "the Inspector " + std::string{editable ? "lets" : "does not let"}
+                + " a " + name + " light's range be set, and the renderer "
+                + (sceneLightUsesRange(kind) ? "uses it" : "ignores it") + ".");
+        }
+
+        // Every kind the enumeration offers is one the descriptor offers, and the other way
+        // round: a kind the user can choose and the renderer has never heard of would light
+        // nothing, and one the renderer knows and the user cannot pick is unreachable.
+        const bool offered = std::find(light->findProperty("kind")->enumOptions.begin(),
+                                       light->findProperty("kind")->enumOptions.end(), name)
+                             != light->findProperty("kind")->enumOptions.end();
+        CNA_STUDIO_EXPECT(offered);
+    }
+
+    CNA_STUDIO_EXPECT_EQ(light->findProperty("kind")->enumOptions.size(), std::size_t{3});
+}

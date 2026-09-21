@@ -902,3 +902,89 @@ CNA_STUDIO_TEST(EveryEntityArchetypeHasAMenuRowAndEveryRowAnArchetype)
     // A scan that matched nothing would agree with everything.
     CNA_STUDIO_EXPECT(studioEntityArchetypes().size() >= 5);
 }
+
+/**
+ * @brief Every preset names a property that exists on a component the archetype includes.
+ *
+ * `plan.md` STUDIO-20002. A preset is three strings and a value, and every way of getting one
+ * wrong is silent: naming a component the archetype does not carry, a property the descriptor
+ * does not declare, or a value of the wrong type all produce an entity that looks right in the
+ * Outliner and is not the kind the menu row promised. The Point Light is the case — get its
+ * preset wrong and the user is handed a directional light called "Point Light".
+ */
+CNA_STUDIO_TEST(EveryArchetypePresetNamesAPropertyThatExistsAndFits)
+{
+    StudioContext context;
+    const ComponentRegistry& registry = context.getComponentRegistry();
+
+    std::size_t presetsChecked = 0;
+
+    for (const StudioEntityArchetype& archetype : studioEntityArchetypes())
+    {
+        const StudioEntity built = studioMakeArchetypeEntity(archetype, registry);
+
+        for (const StudioEntityArchetype::Preset& preset : archetype.presets)
+        {
+            ++presetsChecked;
+
+            // On the entity this archetype actually builds, not merely in its component list:
+            // a preset for a component the registry could not supply would be dropped in silence.
+            if (built.findComponent(preset.component) == nullptr)
+            {
+                CnaStudioTest::reportFailure(__FILE__, __LINE__,
+                    "archetype '" + archetype.id + "' presets '" + preset.component + "."
+                    + preset.property + "' and builds no such component.");
+                continue;
+            }
+
+            const ComponentDescriptor* owner = registry.find(preset.component);
+            CNA_STUDIO_EXPECT(owner != nullptr);
+            if (owner == nullptr) { continue; }
+
+            const PropertyDescriptor* declared = owner->findProperty(preset.property);
+            if (declared == nullptr)
+            {
+                CnaStudioTest::reportFailure(__FILE__, __LINE__,
+                    "archetype '" + archetype.id + "' presets '" + preset.component + "."
+                    + preset.property + "', which that component does not declare.");
+                continue;
+            }
+
+            // The right *kind* of value: a float written into an enumeration reads back as
+            // nothing, and the entity carries a property the runtime cannot use.
+            if (preset.value.getType() != declared->type)
+            {
+                CnaStudioTest::reportFailure(__FILE__, __LINE__,
+                    "archetype '" + archetype.id + "' presets '" + preset.property
+                    + "' with the wrong kind of value.");
+                continue;
+            }
+
+            // An enumeration preset has to name one of the options, or the user gets a kind
+            // nothing in the editor or the runtime has heard of.
+            if (declared->type == PropertyType::Enum)
+            {
+                const std::string wanted = preset.value.get<PropertyValue::EnumValue>().name;
+                const bool offered = std::find(declared->enumOptions.begin(),
+                                               declared->enumOptions.end(), wanted)
+                                     != declared->enumOptions.end();
+                if (!offered)
+                {
+                    CnaStudioTest::reportFailure(__FILE__, __LINE__,
+                        "archetype '" + archetype.id + "' presets '" + preset.property + "' to '"
+                        + wanted + "', which is not one of its values.");
+                    continue;
+                }
+            }
+
+            // And it landed. The whole mechanism is worth nothing if the entity comes back with
+            // the descriptor's default on it.
+            CNA_STUDIO_EXPECT(built.findComponent(preset.component)->getProperty(preset.property)
+                              == preset.value);
+        }
+    }
+
+    // A scan that found no preset would agree with everything. The Point Light is the one that
+    // exists today; this number goes up as the mechanism is used.
+    CNA_STUDIO_EXPECT(presetsChecked >= 1);
+}

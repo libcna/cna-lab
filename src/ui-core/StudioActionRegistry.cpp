@@ -357,6 +357,9 @@ namespace CNA::Studio
         command("studio.entity.create.light.directional", "Create Directional Light",
                 "Add a light with a direction and no position, like the sun.", C::Entity,
                 StudioShortcut{});
+        command("studio.entity.create.light.point", "Create Point Light",
+                "Add a light that shines in every direction from where it is.", C::Entity,
+                StudioShortcut{});
         command("studio.entity.create.sprite", "Create Sprite",
                 "Add a 2D sprite renderer with no texture yet.", C::Entity, StudioShortcut{});
         command("studio.entity.create.model", "Create Model",

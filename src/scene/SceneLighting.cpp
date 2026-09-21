@@ -88,6 +88,18 @@ namespace CNA::Studio
         }
     }
 
+    bool sceneLightUsesDirection(SceneLightKind kind)
+    {
+        return kind == SceneLightKind::Directional || kind == SceneLightKind::Spot;
+    }
+
+    bool sceneLightUsesPosition(SceneLightKind kind)
+    {
+        return kind == SceneLightKind::Point || kind == SceneLightKind::Spot;
+    }
+
+    bool sceneLightUsesRange(SceneLightKind kind) { return sceneLightUsesPosition(kind); }
+
     std::vector<SceneLight> collectSceneLights(const SceneDocument& scene)
     {
         std::vector<SceneLight> lights;

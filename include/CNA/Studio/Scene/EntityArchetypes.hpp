@@ -53,6 +53,7 @@
 #include <vector>
 
 #include "CNA/Studio/Core/ComponentDescriptor.hpp"
+#include "CNA/Studio/Core/PropertyValue.hpp"
 #include "CNA/Studio/Scene/StudioEntity.hpp"
 
 namespace CNA::Studio
@@ -78,6 +79,34 @@ namespace CNA::Studio
          * Empty for the empty one, which is the whole of what makes it empty.
          */
         std::vector<std::string> components;
+
+        /** @brief One property set away from its descriptor's default. */
+        struct Preset
+        {
+            /** @brief The component type id that carries it. */
+            std::string component;
+
+            /** @brief The property's @ref PropertyDescriptor::name. */
+            std::string property;
+
+            /** @brief What to set it to. */
+            PropertyValue value;
+        };
+
+        /**
+         * @brief Properties this kind sets for itself (`plan.md` STUDIO-20002).
+         *
+         * Empty for every archetype whose defaults already describe it, which is most of them --
+         * a preset repeating a descriptor's default would be a second answer to the same question
+         * and free to drift from it the day the default moves.
+         *
+         * The point and spot lights are what forced this: all three light kinds are one component
+         * distinguished by an enumeration, so "a point light" cannot be expressed as a set of
+         * components at all. `EveryArchetypePresetNamesAPropertyThatExistsAndFits` checks each one
+         * against the descriptor it claims, because a preset naming a component the archetype does
+         * not include, or a property of the wrong type, silently does nothing.
+         */
+        std::vector<Preset> presets;
     };
 
     /** @brief Every kind the editor can create, in the order the menu lists them. */
