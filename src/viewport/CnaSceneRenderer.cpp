@@ -726,7 +726,8 @@ namespace CNA::Studio
     ModelPassStats CnaSceneRenderer::renderScene3D(const SceneModelBatch& models,
                                                    const SceneSpriteBatch3D& sprites,
                                                    const std::vector<WireSegment>& segments,
-                                                   int width, int height)
+                                                   int width, int height,
+                                                   const StudioColor* clearColor)
     {
         lastStats_ = SceneRenderStats{};
         ModelPassStats modelStats;
@@ -743,8 +744,15 @@ namespace CNA::Studio
         // Leaving it means the first model's depth test runs against whatever the last frame -- or
         // nothing at all -- left there, and the honest description of the result is "the models
         // are drawn and then rejected": no error, no draw call missing, nothing on screen.
+        //
+        // To the camera's colour when one is given, which is what makes the game view a picture of
+        // the game rather than of the editor (`plan.md` STUDIO-20007).
+        const Xna::Color clear =
+            clearColor != nullptr
+                ? Xna::Color{clearColor->r, clearColor->g, clearColor->b, clearColor->a}
+                : kBackground;
         impl_->device->Clear(XnaGraphics::ClearOptions::Target | XnaGraphics::ClearOptions::DepthBuffer,
-                             kBackground, 1.0f, 0);
+                             clear, 1.0f, 0);
 
         // Models first, then the lines over them. Not the other way round and not interleaved: the
         // wireframe is the editor's *overlay* -- grid, gizmo, selection outline -- and an overlay

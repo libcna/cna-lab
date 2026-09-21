@@ -183,6 +183,35 @@ namespace CNA::Studio
         }
 
         /**
+         * @brief Draws the game view of a scene whose camera is a perspective one (STUDIO-20007).
+         *
+         * The 3D counterpart of @ref renderGame, and separate from it because the two share
+         * nothing below the camera: one runs a `SpriteBatch` over a 2D view, the other uploads
+         * vertex buffers and applies an effect. Which one the host calls is `GameView::perspective`,
+         * decided over the document where it can be tested with no device.
+         *
+         * @param models The batch built through `GameView::camera3D`, with the *editor's* debug
+         *        view deliberately not applied -- a player never sees a roughness view, so a game
+         *        preview that showed one would be answering a different question than the one it
+         *        is asked.
+         * @param clearColor The camera's own, exactly as @ref renderGame uses it.
+         *
+         * The default draws nothing, like @ref renderGame: a build with no device has no picture
+         * to give, and the panel treats that the same as a viewport that drew nothing.
+         */
+        virtual UiTextureId renderGame3D(const SceneModelBatch& models,
+                                         const SceneSpriteBatch3D& sprites,
+                                         const StudioColor& clearColor, int width, int height)
+        {
+            (void)models;
+            (void)sprites;
+            (void)clearColor;
+            (void)width;
+            (void)height;
+            return 0;
+        }
+
+        /**
          * @brief Draws @p scene through the *game's* camera, with no editor chrome (STUDIO-11012).
          *
          * The same passes `cna-player` runs, into an offscreen surface rather than the back buffer,

@@ -735,6 +735,28 @@ CNA_STUDIO_TEST(TheModelPassReadsEveryFieldTheLightingReductionFillsIn)
                 + ", so the reduction fills it in and nothing applies it.");
         }
     }
+
+    // And the same question one layer up (`plan.md` STUDIO-20007). `GameView::perspective` is
+    // decided over the document and tested there; whether the host *acts* on it is a call into a
+    // device, and the defect this row fixed was precisely that nothing acted on the projection at
+    // all -- the game view ran the 2D sprite pass whatever the camera said, so a 3D project
+    // previewed as its clear colour and nothing else.
+    std::ifstream hostFile{sourceRoot() / "src" / "viewport" / "CnaStudioShellHost.cpp",
+                           std::ios::binary};
+    const std::string host{std::istreambuf_iterator<char>{hostFile},
+                           std::istreambuf_iterator<char>{}};
+    CNA_STUDIO_EXPECT(!host.empty());
+
+    for (const char* mention : {"perspective", "renderGame3D"})
+    {
+        if (host.find(mention) == std::string::npos)
+        {
+            CnaStudioTest::reportFailure(__FILE__, __LINE__,
+                std::string{"CnaStudioShellHost.cpp never mentions '"} + mention
+                + "', so a perspective game camera is decided over the document and drawn by "
+                  "nothing.");
+        }
+    }
 }
 
 CNA_STUDIO_TEST(NoStudioCodeHardCodesARendererName)

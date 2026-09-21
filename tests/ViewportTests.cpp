@@ -20,6 +20,9 @@
 #include "CNA/Studio/Scene/StudioCamera2D.hpp"
 #include "CNA/Studio/Scene/StudioIcons.hpp"
 #include "CNA/Studio/Scene/GameCamera.hpp"
+#include "CNA/Studio/Scene/EntityArchetypes.hpp"
+#include "CNA/Studio/Scene/SceneModels.hpp"
+#include "CNA/Studio/Scene/SceneLighting.hpp"
 #include "CNA/Studio/Scene/SceneDocument.hpp"
 #include "CNA/Studio/Scene/SceneTransform.hpp"
 #include "CNA/Studio/Scene/SpriteAnimation.hpp"
@@ -1783,3 +1786,173 @@ CNA_STUDIO_TEST(EveryKeyStudioCanAskAboutIsOneTheHostCanReport)
 }
 
 #endif  // CNA_STUDIO_HAS_CNA
+
+// ---------------------------------------------------------------------------------------------
+// The game view honours the camera's projection (STUDIO-20007)
+// ---------------------------------------------------------------------------------------------
+
+/**
+ * @brief A perspective camera gives a perspective game view, aimed by its entity's rotation.
+ *
+ * `plan.md` STUDIO-20007. `CNA.Camera` has carried a `projection` since Phase 1 and
+ * `computeGameView` read every other property and ignored that one, so the game view ran the *2D
+ * sprite pass* whatever the camera said. A project authored in 3D — which is what a new CNA-native
+ * project opens into (`STUDIO-11014`) — previewed as its clear colour and nothing else: no models,
+ * no lighting, none of the work. "What will a player see" answered with a picture of almost none
+ * of the scene.
+ */
+CNA_STUDIO_TEST(APerspectiveCameraGivesAPerspectiveGameView)
+{
+    const ComponentRegistry registry = makeRegistry();
+    SceneDocument scene;
+
+    const Uuid camera = addEntity(scene, registry, "Main Camera", 0.0f, 0.0f);
+    addComponent(scene, registry, camera, BuiltinComponentIds::kCamera);
+
+    // The default is orthographic, and that path is unchanged: the 2D camera is what draws it.
+    const GameView flat = computeGameView(scene, StudioVector2{800.0f, 600.0f});
+    CNA_STUDIO_EXPECT(!flat.perspective);
+
+    StudioComponent* component =
+        scene.findEntityForEdit(camera)->findComponent(BuiltinComponentIds::kCamera);
+    component->setProperty("projection", PropertyValue{PropertyValue::EnumValue{"Perspective"}});
+    component->setProperty("fieldOfView", PropertyValue{60.0f});
+    component->setProperty("nearPlane", PropertyValue{0.5f});
+    component->setProperty("farPlane", PropertyValue{250.0f});
+
+    const GameView view = computeGameView(scene, StudioVector2{800.0f, 600.0f});
+    CNA_STUDIO_EXPECT(view.perspective);
+    CNA_STUDIO_EXPECT(view.camera3D.getProjection() == CameraProjection::Perspective);
+
+    // Every field the component states reaches the camera. A field of view read and dropped is a
+    // preview that is the right shape and the wrong angle, which nothing on screen explains.
+    CNA_STUDIO_EXPECT(nearlyEqual(view.camera3D.getFieldOfView(), 60.0f * 3.14159265f / 180.0f,
+                                  0.001f));
+    CNA_STUDIO_EXPECT(nearlyEqual(view.camera3D.getNearPlane(), 0.5f));
+    CNA_STUDIO_EXPECT(nearlyEqual(view.camera3D.getFarPlane(), 250.0f));
+
+    // The eye is *on* the entity. An orbit camera is positioned by a pivot and a distance, so the
+    // pivot is put in front of it and the eye lands where the entity is -- a game camera that
+    // previewed from ten units behind itself would be a preview of somewhere the player never is.
+    const StudioVector3 eye = view.camera3D.getEye();
+    CNA_STUDIO_EXPECT(nearlyEqual(eye.x, 0.0f, 0.01f));
+    CNA_STUDIO_EXPECT(nearlyEqual(eye.y, 0.0f, 0.01f));
+    CNA_STUDIO_EXPECT(nearlyEqual(eye.z, 0.0f, 0.01f));
+
+    // And it looks along the entity's own forward axis, which is +Z rotated by its rotation --
+    // the one convention this codebase has for which way an entity faces, established by
+    // `CNA.Light`. Two answers to that question about the same transform would be one too many.
+    const StudioVector3 forward = view.camera3D.getForward();
+    CNA_STUDIO_EXPECT(nearlyEqual(forward.z, 1.0f, 0.01f));
+
+    // Turn the entity a quarter turn about Y and the view turns with it.
+    scene.findEntityForEdit(camera)
+        ->findComponent(BuiltinComponentIds::kTransform)
+        ->setProperty("rotation",
+                      PropertyValue{quaternionFromEulerDegrees(StudioVector3{0.0f, 90.0f, 0.0f})});
+
+    const GameView turned = computeGameView(scene, StudioVector2{800.0f, 600.0f});
+    const StudioVector3 aimed = turned.camera3D.getForward();
+    CNA_STUDIO_EXPECT(nearlyEqual(std::fabs(aimed.x), 1.0f, 0.01f));
+    CNA_STUDIO_EXPECT(nearlyEqual(aimed.z, 0.0f, 0.01f));
+
+    // The eye is still on the entity after the turn: rotating a camera must not move it.
+    const StudioVector3 movedEye = turned.camera3D.getEye();
+    CNA_STUDIO_EXPECT(nearlyEqual(movedEye.x, 0.0f, 0.01f));
+    CNA_STUDIO_EXPECT(nearlyEqual(movedEye.z, 0.0f, 0.01f));
+
+    // A scene with no camera at all falls back to the flat origin view it always did: a scene
+    // whose projection nobody has stated is not a scene that has asked for a perspective one.
+    SceneDocument empty;
+    CNA_STUDIO_EXPECT(!computeGameView(empty, StudioVector2{800.0f, 600.0f}).perspective);
+}
+
+/**
+ * @brief The game view and the editor view light the same scene the same way.
+ *
+ * The agreement `STUDIO-20007` is named for, and it is structural rather than coincidental: both
+ * build a `SceneModelBatch`, and the lighting reduction is a function of the scene and a position.
+ * Asserted anyway, because "they call the same function" is a claim about today's code and this is
+ * a claim about what a user sees — and it is exactly the claim that was false when the game view
+ * ran a sprite pass and had no lighting at all.
+ */
+CNA_STUDIO_TEST(TheGameViewAndTheEditorViewAgreeAboutLighting)
+{
+    const ComponentRegistry registry = makeRegistry();
+    SceneDocument scene;
+
+    const Uuid camera = addEntity(scene, registry, "Main Camera", 0.0f, 0.0f);
+    addComponent(scene, registry, camera, BuiltinComponentIds::kCamera);
+    scene.findEntityForEdit(camera)
+        ->findComponent(BuiltinComponentIds::kCamera)
+        ->setProperty("projection", PropertyValue{PropertyValue::EnumValue{"Perspective"}});
+
+    const StudioEntityArchetype* light = studioFindEntityArchetype("light.directional");
+    CNA_STUDIO_EXPECT(light != nullptr);
+    if (light == nullptr) { return; }
+    (void)scene.addEntity(studioMakeArchetypeEntity(*light, registry));
+
+    const Uuid crateId = addEntity(scene, registry, "Crate", 0.0f, 0.0f);
+    const Uuid modelId = Uuid::generate();
+    {
+        StudioComponent renderer{BuiltinComponentIds::kModelRenderer};
+        renderer.applyDefaults(*registry.find(BuiltinComponentIds::kModelRenderer));
+        renderer.setProperty("model", PropertyValue{PropertyValue::AssetReference{modelId}});
+        scene.findEntityForEdit(crateId)->addComponent(std::move(renderer));
+    }
+
+    MeshPart part;
+    part.vertices = {
+        MeshVertex{StudioVector3{0.0f, 0.0f, 0.0f}, StudioVector3{0.0f, 0.0f, -1.0f}, {}},
+        MeshVertex{StudioVector3{1.0f, 0.0f, 0.0f}, StudioVector3{0.0f, 0.0f, -1.0f}, {}},
+        MeshVertex{StudioVector3{0.0f, 1.0f, 0.0f}, StudioVector3{0.0f, 0.0f, -1.0f}, {}}};
+    part.indices = {0, 1, 2};
+
+    MeshData mesh;
+    mesh.parts.push_back(std::move(part));
+    recomputeMeshBounds(mesh);
+
+    const MeshProvider provider = [&](const Uuid& queried) {
+        return queried == modelId ? &mesh : nullptr;
+    };
+
+    // The editor's own camera, wherever the user happened to leave it.
+    StudioCamera3D editorCamera;
+    editorCamera.setViewportSize(StudioVector2{800.0f, 600.0f});
+    editorCamera.setPivot(StudioVector3{50.0f, -20.0f, 30.0f});
+    editorCamera.setYaw(1.1f);
+
+    const GameView view = computeGameView(scene, StudioVector2{800.0f, 600.0f});
+    CNA_STUDIO_EXPECT(view.perspective);
+
+    const SceneModelBatch editorBatch = buildSceneModelBatch(scene, editorCamera, provider);
+    const SceneModelBatch gameBatch = buildSceneModelBatch(scene, view.camera3D, provider);
+
+    CNA_STUDIO_EXPECT_EQ(editorBatch.draws.size(), std::size_t{1});
+    CNA_STUDIO_EXPECT_EQ(gameBatch.draws.size(), std::size_t{1});
+    if (editorBatch.draws.empty() || gameBatch.draws.empty()) { return; }
+
+    const EffectLighting& fromEditor = editorBatch.draws[0].lighting;
+    const EffectLighting& fromGame = gameBatch.draws[0].lighting;
+
+    // The same entity, so the same lighting: where the camera is has nothing to do with it.
+    CNA_STUDIO_EXPECT_EQ(fromEditor.useDefaultLighting, fromGame.useDefaultLighting);
+    CNA_STUDIO_EXPECT_EQ(fromEditor.lightCount, fromGame.lightCount);
+    CNA_STUDIO_EXPECT(!fromGame.useDefaultLighting);
+    CNA_STUDIO_EXPECT_EQ(fromGame.lightCount, std::size_t{1});
+
+    for (std::size_t i = 0; i < fromGame.lightCount; ++i)
+    {
+        CNA_STUDIO_EXPECT(nearlyEqual(fromEditor.lights[i].direction.x,
+                                      fromGame.lights[i].direction.x));
+        CNA_STUDIO_EXPECT(nearlyEqual(fromEditor.lights[i].direction.y,
+                                      fromGame.lights[i].direction.y));
+        CNA_STUDIO_EXPECT(nearlyEqual(fromEditor.lights[i].direction.z,
+                                      fromGame.lights[i].direction.z));
+        CNA_STUDIO_EXPECT(nearlyEqual(fromEditor.lights[i].diffuseColor.x,
+                                      fromGame.lights[i].diffuseColor.x));
+    }
+
+    CNA_STUDIO_EXPECT(nearlyEqual(fromEditor.ambientColor.x, fromGame.ambientColor.x));
+    CNA_STUDIO_EXPECT_EQ(fromEditor.ambientOverridesDefault, fromGame.ambientOverridesDefault);
+}

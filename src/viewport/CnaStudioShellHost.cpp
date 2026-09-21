@@ -941,6 +941,31 @@ namespace CNA::Studio
                     context_->getScene(),
                     StudioVector2{static_cast<float>(width), static_cast<float>(height)});
 
+                // A perspective camera means a 3D scene, and that has to be drawn by the pass that
+                // draws 3D scenes (`plan.md` STUDIO-20007). Until this, the game view ran the 2D
+                // sprite pass whatever the camera said -- so a project authored in 3D previewed as
+                // its clear colour and nothing else: no models, no lighting, none of the work.
+                if (view.perspective)
+                {
+                    const SpriteSizeProvider sizes = sceneViewport_->makeSizeProvider();
+
+                    // The scene through the *game's* camera, and deliberately without the editor's
+                    // debug view: a player never sees a roughness view, so a preview that showed
+                    // one would answer a different question than the one it is asked. The
+                    // selection goes too -- there is no selection marking in a game.
+                    static const std::vector<Uuid> kNothingSelected;
+                    const SceneModelBatch models = buildSceneModelBatch(
+                        context_->getScene(), view.camera3D, context_->makeMeshProvider(),
+                        kNothingSelected, context_->makeMaterialProvider(), StudioDebugView::None);
+
+                    const SceneSpriteBatch3D sprites = buildSceneSpriteQuads(
+                        context_->getScene(), view.camera3D, sizes, panels_->animationPreview(),
+                        kNothingSelected, &context_->getComponentRegistry());
+
+                    return sceneViewport_->renderGame3D(models, sprites, view.clearColor, width,
+                                                        height);
+                }
+
                 return sceneViewport_->renderGame(context_->getScene(), view.camera,
                                                   view.clearColor, width, height);
             }

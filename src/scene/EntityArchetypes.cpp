@@ -13,9 +13,9 @@ namespace CNA::Studio
         // something this list does not offer builds it from an empty and the Add Component menu,
         // and that path must not be the one they have to hunt for.
         //
-        // Then the four kinds the built-in registry describes and the editor already draws: a
-        // camera has a frustum in the viewport, a light has an aim and a badge, and the two
-        // renderers have an asset slot the Content Browser can fill. `CNA.Tilemap`,
+        // Then the kinds the built-in registry describes and the editor can already show
+        // something of: a camera and a light each get a badge, a light gets its aim drawn too, and
+        // the two renderers have an asset slot the Content Browser can fill. `CNA.Tilemap`,
         // `CNA.SpriteAnimation`, `CNA.Tags`, `CNA.Layer` and `CNA.AudioListener` are components a
         // user adds *to* something rather than kinds of thing, so they are not rows here.
         static const std::vector<StudioEntityArchetype> kArchetypes = {

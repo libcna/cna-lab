@@ -17,6 +17,7 @@
 #include "CNA/Studio/Core/StudioMath.hpp"
 #include "CNA/Studio/Core/Uuid.hpp"
 #include "CNA/Studio/Scene/StudioCamera2D.hpp"
+#include "CNA/Studio/Scene/StudioCamera3D.hpp"
 
 namespace CNA::Studio
 {
@@ -27,6 +28,30 @@ namespace CNA::Studio
     {
         /** @brief Positioned and zoomed so the camera's orthographic size fills the height. */
         StudioCamera2D camera;
+
+        /**
+         * @brief The same view as a 3D camera, filled in when @ref perspective is set.
+         *
+         * `plan.md` STUDIO-20007. `CNA.Camera` has carried a `projection` since Phase 1 and the
+         * game view read every other property and ignored that one, so it drew a 3D scene through
+         * a *2D sprite pass*: no models, no lighting, nothing but the sprites and the clear
+         * colour. "What will a player see" answered with a picture of almost none of the scene.
+         *
+         * Both cameras are filled on every call rather than one of them. The 2D one is what a
+         * camera *preview* inset draws through whatever the projection says, and a `GameView` with
+         * a default-constructed camera in the field a caller happened to read is the kind of empty
+         * that looks like a placed camera at the origin.
+         */
+        StudioCamera3D camera3D;
+
+        /**
+         * @brief Which of the two cameras describes this view.
+         *
+         * Read from the camera component's `projection`. False for a scene with no camera at all,
+         * because the fallback is the 2D origin-at-1:1 view this has always used -- a scene
+         * without a camera is not a scene whose projection anybody has stated.
+         */
+        bool perspective = false;
 
         /** @brief The colour to clear to, from the camera's own `clearColor`. */
         StudioColor clearColor{100, 149, 237, 255};
@@ -45,6 +70,14 @@ namespace CNA::Studio
      * inspector shows it -- so the zoom is the pixel height divided by it. Width follows from the
      * viewport's aspect, which is what makes a window resize show more of the world rather than
      * stretching what was already there.
+     *
+     * **A perspective camera looks along its entity's own forward axis, which is +Z rotated by its
+     * rotation.** That is the one convention this codebase has for "which way is an entity
+     * facing": `SceneLighting` established it for `CNA.Light` and writes down why -- the axis that
+     * points into a Y-down, XY-plane world. A camera answering a different one would mean Studio
+     * had two answers to the same question about the same transform. It is deliberately *not* the
+     * editor orbit camera's zero pose, which is user state rather than an entity's rotation and is
+     * free to start wherever suits an orbit.
      *
      * Falls back to a camera centred on the origin at 1:1 when the scene has no enabled camera. A
      * player that refused to draw a scene without one would be unable to show the very scene a user

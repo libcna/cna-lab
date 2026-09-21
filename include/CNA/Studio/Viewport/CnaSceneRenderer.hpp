@@ -189,11 +189,17 @@ namespace CNA::Studio
          *
          * The target is recreated with a depth buffer for this, since the one the 2D view uses has
          * none: sprites sort by draw order and models sort per pixel.
+         *
+         * @param clearColor The colour to clear to, or null for the editor's own background. The
+         *        game view passes the camera's (`plan.md` STUDIO-20007): a preview that cleared to
+         *        the editor's grey would be showing a picture the game never produces, which is the
+         *        same reason `renderGameViewOffscreen` has taken one since `STUDIO-11012`.
          */
         ModelPassStats renderScene3D(const SceneModelBatch& models,
                                      const SceneSpriteBatch3D& sprites,
                                      const std::vector<WireSegment>& segments,
-                                     int width, int height);
+                                     int width, int height,
+                                     const StudioColor* clearColor = nullptr);
 
         /** @brief Drops the GPU buffers for @p assetId, or all of them when it is nil. */
         void invalidateModel(const Uuid& assetId);

@@ -6,7 +6,7 @@
 
 **Exit criteria.** The viewport and the game preview agree, and no light type exists in Studio that the runtime cannot render.
 
-**Progress:** 5 of 8 complete `███████░░░░░`
+**Progress:** 6 of 8 complete `█████████░░░`
 
 | Id | Task | Status | Depends on |
 |----|------|:------:|------------|
@@ -16,7 +16,7 @@
 | `STUDIO-20004` | Ambient and environment lighting | ✅ | `STUDIO-20001` |
 | `STUDIO-20005` | Sky and environment map authoring | ⬜ | `STUDIO-10010` |
 | `STUDIO-20006` | Shadow configuration | ⬜ | `STUDIO-20001` |
-| `STUDIO-20007` | Viewport lighting matches the game preview as closely as the runtime allows | ⬜ | `STUDIO-20001` |
+| `STUDIO-20007` | Viewport lighting matches the game preview as closely as the runtime allows | ✅ | `STUDIO-20001` |
 | `STUDIO-20008` | No light type is offered that the runtime cannot render | ✅ | `STUDIO-20001` |
 
 ## Acceptance and verification
@@ -269,5 +269,64 @@ fog, the environment's other half, is ED-407's and unchanged here.
 
 ### `STUDIO-20007` — Viewport lighting matches the game preview as closely as the runtime allows
 
-**Acceptance.** Where an approximation is unavoidable, it is documented rather than hidden
+**Acceptance.** Where an approximation is unavoidable, it is documented rather than hidden — and
+where the two views simply disagreed, they stop.
+
+**They did not match. The game preview had no lighting at all, because it had no models.**
+`CNA.Camera` has carried a `projection` — Orthographic or Perspective — since Phase 1, and
+`computeGameView` read the clear colour, the orthographic size and the position and ignored that
+one property. So the game view ran the **2D sprite pass** whatever the camera said. A project
+authored in 3D, which is what a new CNA-native project opens into (`STUDIO-11014`), previewed as
+its clear colour and its sprites: no models, no materials, no lighting, none of the work. "What
+will a player see" was answered with a picture of almost none of the scene.
+
+That is not an approximation to document. It is two views of one scene that were never connected,
+and the row is about them agreeing.
+
+**A game camera looks along its entity's own forward axis: +Z rotated by its rotation.** Nothing
+in the repository had ever used a camera entity's *rotation* — the 2D path reads x and y and
+stops — so the convention had to be chosen rather than looked up. It is `CNA.Light`'s, which
+`SceneLighting.hpp` states and tests: the axis that points into a Y-down, XY-plane world. A camera
+answering differently would mean Studio had two answers to "which way is this entity facing" about
+the same transform. It is deliberately *not* the editor orbit camera's zero pose, which is user
+state rather than an entity's rotation and is free to start wherever suits an orbit.
+
+**The orbit camera is positioned by putting its pivot in front of the entity.** `StudioCamera3D` is
+an orbit — pivot, distance, yaw, pitch — and its eye is `pivot - forward * distance`. A game camera
+has no orbit, so the pivot goes `distance` ahead and the eye lands exactly on the entity. For a
+perspective view the distance is arbitrary and says so; for an orthographic one it is *not*, since
+the visible height is derived from it, so there it comes from `orthographicSize` and the two
+projections stay consistent with the 2D path.
+
+**What the two views deliberately do not share.** The game view is given no wireframe, no
+selection and **no debug view**. A player never sees a roughness view, so a preview that showed one
+would answer a different question than the one it is asked. That is a difference by construction —
+the editor passes are not run — rather than a filter, which is the same guarantee that keeps Studio
+chrome out of a shipped game.
+
+**Lighting agrees because both build the same batch**, and the test asserts it anyway. "They call
+the same function" is a claim about today's code; what a user sees is the claim worth pinning, and
+it is exactly the one that was false.
+
+**Verification.** `tests/ViewportTests.cpp` — `APerspectiveCameraGivesAPerspectiveGameView` (the
+projection is honoured, every field the component states reaches the camera, the eye is *on* the
+entity rather than ten units behind it, the aim follows the entity's rotation, rotating does not
+move it, and a scene with no camera keeps the flat fallback it always had) and
+`TheGameViewAndTheEditorViewAgreeAboutLighting`, which builds both batches over one scene from two
+very different cameras and compares the `EffectLighting` for the same entity.
+
+The host's branch is a call into a device and cannot be asserted on headlessly, so it is guarded
+the way `STUDIO-20004`'s pass is: `TheModelPassReadsEveryFieldTheLightingReductionFillsIn` now also
+checks that `CnaStudioShellHost.cpp` mentions `perspective` and `renderGame3D` at all. A source
+scan cannot say the branch is *right*; it can say the projection is not decided over the document
+and then drawn by nothing, which is precisely the defect this row found.
+
+Checked by causing each: the projection ignored, the pivot left on the entity so the eye sits
+behind it, the forward convention flipped to −Z, and the host's branch removed all fail by name.
+
+**What this row is not.** There is no camera frustum drawn in the editor viewport — a camera is
+still a badge, and `EntityArchetypes.cpp` claimed otherwise until this row corrected it. The
+`orthographicSize` and `fieldOfView` fields are still both editable whatever the projection says,
+which is `STUDIO-20001`'s `appliesWhen` waiting to be applied one component over. And the game view
+is still a preview rather than the player: `cna-player` runs the scene, and this draws it.
 

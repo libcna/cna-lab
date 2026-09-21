@@ -124,6 +124,27 @@ namespace CNA::Studio
             return renderer_.shareWithUi(*uiRenderer_);
         }
 
+        UiTextureId renderGame3D(const SceneModelBatch& models, const SceneSpriteBatch3D& sprites,
+                                 const StudioColor& clearColor, int width, int height) override
+        {
+            if (width <= 0 || height <= 0) { return kUiTextureNone; }
+
+            // The same pass the 3D view runs, with no segments and the camera's own clear colour.
+            // Not a second renderer: a game preview drawn by different code from the editor view
+            // is a preview that can disagree with it, which is the whole of what `STUDIO-20007` is
+            // about. What differs is what it is *given* -- no wireframe, no debug view -- and that
+            // is decided above this call.
+            static const std::vector<WireSegment> kNoOverlay;
+            const ModelPassStats modelStats =
+                renderer_.renderScene3D(models, sprites, kNoOverlay, width, height, &clearColor);
+
+            const SceneRenderStats& stats = renderer_.getLastStats();
+            lastStats_ = ViewportStats{modelStats.modelsDrawn + modelStats.spritesDrawn,
+                                       sprites.skipped, stats.gridLines, modelStats.missingTextures};
+
+            return renderer_.shareWithUi(*uiRenderer_);
+        }
+
         UiTextureId getModelThumbnail(const Uuid& assetId, const MeshData& mesh, int extent) override
         {
             Microsoft::Xna::Framework::Graphics::Texture2D* texture =
