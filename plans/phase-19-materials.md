@@ -6,14 +6,14 @@
 
 **Exit criteria.** A property-based material editor good enough that a node graph is an addition rather than a rescue.
 
-**Progress:** 3 of 9 complete `████░░░░░░░░`
+**Progress:** 4 of 9 complete `█████░░░░░░░`
 
 | Id | Task | Status | Depends on |
 |----|------|:------:|------------|
 | `STUDIO-19001` | PBR material asset model | ✅ | — |
 | `STUDIO-19002` | Texture slots: base colour, normal, roughness, metalness, emissive, occlusion | ✅ | `STUDIO-19001` |
 | `STUDIO-19003` | Scalar and vector material parameters | ⬜ | `STUDIO-19001` |
-| `STUDIO-19004` | Transparency modes | ⬜ | `STUDIO-19001` |
+| `STUDIO-19004` | Transparency modes | ✅ | `STUDIO-19001` |
 | `STUDIO-19005` | Material instances and parameter overrides | ⬜ | `STUDIO-19001` |
 | `STUDIO-19006` | Live material preview in the viewport | ⬜ | `STUDIO-11011` |
 | `STUDIO-19007` | Material preview thumbnail rendering | ⬜ | `STUDIO-09003` |
@@ -149,6 +149,84 @@ older maps and for neither of the new ones.
 picker (`STUDIO-19007`). The glTF importer still reads only the packed occlusion form and warns
 about a separate one — reading it belongs to `STUDIO-10004`; what this row makes possible is an
 *authored* material naming an occlusion map of its own.
+
+### `STUDIO-19004` — Transparency modes
+
+**Acceptance.** A material says how its alpha is meant to be read, the editor lets a user say it,
+an imported material keeps what its file said, and the renderer draws the result in the right order
+rather than solid.
+
+**Nothing in Studio had a transparency model at all.** `MeshMaterial` carried an `alpha` factor and
+the model pass set `BlendState::Opaque` once for the whole batch, so a material with alpha 0.5 was
+written, edited, resolved, handed to the effect — and drawn fully solid. The inspector said 0.5 and
+the screen said 1.0, with nothing anywhere to explain the difference. That is the one failure a
+material can have that looks like a renderer bug.
+
+**glTF's three modes, spelt as glTF spells them.** `Opaque`, `Mask` and `Blend`, because that is
+where every imported material's answer comes from and inventing a fourth would be Studio deciding
+something the format has already settled. CNA's `PbrEffect` takes exactly these through
+`AlphaModeEXT`, so there is no translation to get wrong beyond naming; `MeshAlphaMode` is Studio's
+own enumeration so that `cna-studio-core` keeps needing no CNA at all.
+
+**A mode rather than a guess from the alpha factor.** A material whose base-colour *texture* is
+partly transparent has an alpha factor of 1 and is still transparent, so deriving the mode from the
+factor would draw every one of those solid — which is most of the leaves, decals and fences in any
+project.
+
+**The importer read is here rather than in `STUDIO-10004`, and the plan says so.** `cgltf` parses
+`alpha_mode` and `alpha_cutoff` and the importer dropped both. Leaving that to the model-import row
+would have made this one a feature for hand-authored materials and nothing else, which is not what
+"transparency modes" means to anybody with a glTF in their project. `STUDIO-10004` stays ✅; what
+changed is one switch in `convertMaterial`.
+
+**Ordering is the whole of the renderer change, and it is a CNA-free function.** Blending is not
+commutative with depth: a transparent pane drawn before what is behind it blends against the
+background instead, and the result is a window with a hole in it. So `orderSceneModelDraws` returns
+two passes — the opaque draws, then the blended ones furthest first — and the model pass walks
+them. The opaque pass keeps `DepthStencilState::Default`; the blended one uses **`DepthRead`**,
+because a pane must still be hidden by the wall in front of it and must not write a depth that
+stops the pane behind it from drawing.
+
+**Sorted per draw, not per part or per triangle, and that is stated rather than implied.** A
+fixed-function pass cannot sort triangles; a per-part centroid would cost a walk of every vertex
+every frame. An entity's own origin is the answer every editor of this kind gives, and two
+transparent panes belonging to one model will sort by the model. A draw appears in *both* passes
+when it has parts of both kinds, which is the ordinary case for anything with glass in it.
+
+**Masked parts stay in the opaque pass.** A cut-out is a hard edge: it writes depth, it needs no
+ordering, and sorting it would be paying for something it does not use. On the `PbrEffect` path the
+cut is the effect's own (`setAlphaModeEXTProperty`); with `kPreferPbrEffect` false (gap G-05) the
+build draws through `BasicEffect`, which has no alpha test, so a masked material draws solid there.
+Said here rather than discovered: the editor already names the effect a build got, for exactly this
+class of difference.
+
+**`applyMaterial` left the renderer.** The pass resolved a part's material itself — the per-part
+list, then the model override, then the part's own — and this task needed the same answer *before*
+the draw, to decide which pass a part belongs in. The rule moved to `resolveMeshPartMaterial` in
+the CNA-free scene module and the copy in the pass went with it. Two copies would have been two
+chances to put a part in one pass and draw it with the other's material.
+
+**Additive at `formatVersion` 1**, like the occlusion map, and written only when it is not glTF's
+default so a material's diff stays about what changed. A mode this build does not recognise reads
+as `Opaque` — glTF's own rule — so a file from a later editor draws solid rather than not at all.
+
+**Verification.** `tests/SceneTests.cpp` — blended draws following the opaque ones and sorted
+furthest first, with the panes placed along the camera's own forward vector so the case asserts
+"further is drawn first" rather than re-stating the view matrix's sign; a model with both kinds of
+part appearing in both passes; a masked part staying opaque; and an assigned material's mode
+winning over the model's own.
+`tests/StudioMaterialEditorTests.cpp` — the mode round-tripping, absent at the default, spelt as
+glTF spells it, unknown values reading as Opaque, reaching `toMeshMaterial`, and the cutoff row
+drawn only for a masked material.
+`tests/ModelImportTests.cpp` — an imported material keeping `BLEND` and `MASK` with its cutoff,
+and the base-colour factor's alpha still carried separately.
+Checked by causing each: the blended pass left unsorted, masked parts sorted as blended, the
+importer dropping `BLEND`, `toMeshMaterial` dropping the mode, and the cutoff row drawn
+unconditionally each fail by name.
+
+**What this row is not.** There is no per-object transparency *sort quality* beyond the per-draw
+origin, no order-independent transparency, and no double-sided flag — `PbrEffect` has one and
+nothing in Studio sets it, which is the next thing anybody authoring glass will ask for.
 
 ### `STUDIO-19009` — Material assignment to mesh entities
 

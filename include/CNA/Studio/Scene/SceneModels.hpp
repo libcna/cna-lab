@@ -27,6 +27,7 @@
 #include <cstddef>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <functional>
 #include <vector>
@@ -192,6 +193,54 @@ namespace CNA::Studio
      * drawn.
      */
     void applyDebugViewToDraw(StudioDebugView debugView, ModelDraw& draw);
+
+    /**
+     * @brief The material @p draw would draw @p part with.
+     *
+     * The renderer's own resolution order, in one place: the per-part override, then the
+     * model-wide override, then the part's own material, then glTF's default. Exposed because
+     * three callers need the same answer -- the debug views, the transparency ordering below and
+     * the pass itself -- and three copies of it is three chances to disagree about which material
+     * a part is drawn with.
+     */
+    [[nodiscard]] MeshMaterial resolveMeshPartMaterial(const ModelDraw& draw,
+                                                       std::string_view partName,
+                                                       int materialIndex);
+
+    /** @brief The material @p draw would draw @p part with. @see resolveMeshPartMaterial */
+    [[nodiscard]] inline MeshMaterial resolveMeshPartMaterial(const ModelDraw& draw,
+                                                              const MeshPart& part)
+    {
+        return resolveMeshPartMaterial(draw, part.name, part.materialIndex);
+    }
+
+    /**
+     * @brief Which draws have opaque parts, which have blended ones, and in what order.
+     *
+     * `plan.md` STUDIO-19004. Blending is not commutative with depth: a transparent part drawn
+     * before what is behind it blends against the background instead, and the result is a window
+     * with a hole in it. So the opaque parts go first with depth writes on, and the blended ones
+     * follow, furthest first.
+     *
+     * **Sorted per draw rather than per part or per triangle**, and the plan says so rather than
+     * implying otherwise. A fixed-function pass cannot sort triangles, a per-part centroid would
+     * cost a walk of every vertex every frame, and an entity's own origin is the answer every
+     * editor of this kind gives. Two transparent panes of one model will sort by the model.
+     *
+     * A draw appears in both lists when it has parts of both kinds, which is the ordinary case for
+     * anything with a glass pane in it.
+     */
+    struct SceneDrawOrder
+    {
+        /** @brief Draws with at least one opaque or masked part. In batch order. */
+        std::vector<std::size_t> opaque;
+
+        /** @brief Draws with at least one blended part, furthest from the eye first. */
+        std::vector<std::size_t> blended;
+    };
+
+    /** @brief Returns the two passes @p batch has to be drawn in. */
+    [[nodiscard]] SceneDrawOrder orderSceneModelDraws(const SceneModelBatch& batch);
 
     /**
      * @brief Returns the mesh @p entity's `ModelRenderer` names, or nullptr when there is none.

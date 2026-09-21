@@ -70,6 +70,19 @@ namespace CNA::Studio
 
         float alpha = 1.0f;
 
+        /**
+         * @brief How this material's alpha is read (`plan.md` STUDIO-19004).
+         *
+         * glTF's three modes, because that is where an imported material's answer comes from.
+         * Additive at `formatVersion` 1 for the reason `occlusionTexture` is: an older material
+         * has no mode written and reads as `Opaque`, which is glTF's default and what every
+         * material drew as before this existed.
+         */
+        MeshAlphaMode alphaMode = MeshAlphaMode::Opaque;
+
+        /** @brief The threshold a `Mask` material is cut at. Kept whatever the mode is. */
+        float alphaCutoff = 0.5f;
+
         /** @brief Texture assets by id, never by path -- see this file's header. Nil for none. */
         Uuid diffuseTexture;
         Uuid normalTexture;

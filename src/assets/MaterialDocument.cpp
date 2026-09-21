@@ -64,6 +64,9 @@ namespace CNA::Studio
         material.specularPower =
             std::clamp(2.0f / (clampedRoughness * clampedRoughness) - 2.0f, 1.0f, 1024.0f);
 
+        material.alphaMode = alphaMode;
+        material.alphaCutoff = std::clamp(alphaCutoff, 0.0f, 1.0f);
+
         // The texture paths stay empty on purpose: this document speaks in ids, and resolving one
         // to a file is the caller's job because the caller is what holds the asset database.
         return material;
@@ -79,6 +82,17 @@ namespace CNA::Studio
         root.set("metallic", JsonValue{static_cast<double>(metallic)});
         root.set("roughness", JsonValue{static_cast<double>(roughness)});
         root.set("alpha", JsonValue{static_cast<double>(alpha)});
+
+        // Written only when it is not glTF's default, the same bargain an unset texture strikes:
+        // a file carrying every field anybody ever looked at makes each material's diff noise.
+        if (alphaMode != MeshAlphaMode::Opaque)
+        {
+            root.set("alphaMode", JsonValue{std::string{toString(alphaMode)}});
+        }
+        if (alphaMode == MeshAlphaMode::Mask)
+        {
+            root.set("alphaCutoff", JsonValue{static_cast<double>(alphaCutoff)});
+        }
 
         setTexture(root, "diffuseTexture", diffuseTexture);
         setTexture(root, "normalTexture", normalTexture);
@@ -105,6 +119,8 @@ namespace CNA::Studio
         metallic = static_cast<float>(json["metallic"].asNumber(defaults.metallic));
         roughness = static_cast<float>(json["roughness"].asNumber(defaults.roughness));
         alpha = static_cast<float>(json["alpha"].asNumber(defaults.alpha));
+        alphaMode = parseMeshAlphaMode(json["alphaMode"].asString(toString(defaults.alphaMode)));
+        alphaCutoff = static_cast<float>(json["alphaCutoff"].asNumber(defaults.alphaCutoff));
 
         diffuseTexture = Uuid::parse(json["diffuseTexture"].asString(""));
         normalTexture = Uuid::parse(json["normalTexture"].asString(""));

@@ -2250,6 +2250,52 @@ namespace
             }
         }
 
+        // How the alpha is meant to be read (`plan.md` STUDIO-19004). A mode rather than a guess
+        // from the alpha factor: a material with a partly transparent base-colour *texture* has a
+        // factor of 1 and is still transparent, and guessing would draw every one of those solid.
+        {
+            const PropertyRow parts = splitRow(theme, nextRow());
+            say(parts.label, "Alpha Mode", StudioColorRole::TextSecondary);
+            ++result.materialFields;
+
+            static const std::vector<std::string> kModes = {"Opaque", "Mask", "Blend"};
+            int selected = static_cast<int>(material.alphaMode);
+
+            const StudioDropdownResult mode = studioDropdown(
+                frame, frame.ids().make("alpha-mode"), parts.control, kModes, selected);
+            if (mode.changed && mode.selected >= 0 && mode.selected < 3 && !edited.has_value())
+            {
+                MaterialDocument next = material;
+                next.alphaMode = static_cast<MeshAlphaMode>(mode.selected);
+                edited = next;
+                editedField = "alpha mode";
+            }
+        }
+
+        // Only where it means something. A cutoff beside an Opaque or Blend material is a control
+        // that does nothing, which is the state STUDIO-12004 took the gizmo space toggle out of.
+        if (material.alphaMode == MeshAlphaMode::Mask)
+        {
+            const PropertyRow parts = splitRow(theme, nextRow());
+            say(parts.label, "Alpha Cutoff", StudioColorRole::TextSecondary);
+            ++result.materialFields;
+
+            frame.ids().push("alpha-cutoff");
+            const StudioPropertyEditContext editing{&context, Uuid{}, {}};
+            const StudioPropertyEditResult change = studioPropertyEditor(
+                frame, parts.control, PropertyValue{material.alphaCutoff}, {}, editing);
+            frame.ids().pop();
+
+            if (change.edited.has_value() && !edited.has_value())
+            {
+                MaterialDocument next = material;
+                next.alphaCutoff = std::clamp(change.edited->get<float>(material.alphaCutoff),
+                                              0.0f, 1.0f);
+                edited = next;
+                editedField = "alpha cutoff";
+            }
+        }
+
         // The texture slots (`plan.md` STUDIO-19002). `MaterialDocument` has carried four of these
         // ids since ED-403 and the editor could set none of them: a material's maps could only be
         // filled in by writing the JSON by hand. Each is an ordinary typed asset slot, so it
@@ -2418,7 +2464,11 @@ namespace
         // when this is a material -- a heading, eleven fields and the effect line -- and the
         // texture plan's rows above.
         const std::size_t rows = 6 + (isAudibleAsset(record->type) ? 1u : 0u)
-                                 + (record->type == AssetType::Material ? 13u : 0u)
+                                 // Twelve fields plus the Mask-only cutoff, the heading and the
+                                 // effect line: reserved as though the cutoff is there, because a
+                                 // scroll extent that shrank as a user switched modes would move
+                                 // the rows under their pointer.
+                                 + (record->type == AssetType::Material ? 15u : 0u)
                                  + (properties != nullptr ? properties->size() : 0)
                                  + textureRows + dependencyRows + relinkRows
                                  // The File group: its heading, Size and Modified.

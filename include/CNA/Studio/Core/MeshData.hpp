@@ -43,6 +43,7 @@
 #include <cstdint>
 #include <functional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "CNA/Studio/Core/StudioMath.hpp"
@@ -125,6 +126,32 @@ namespace CNA::Studio
      * this editor can render, which would put the loss in the renderer instead of here, where it
      * can at least be described. ED-403 is where a richer material model belongs if one is wanted.
      */
+    /**
+     * @brief How a material's alpha is meant to be read (glTF §3.9.4, `plan.md` STUDIO-19004).
+     *
+     * glTF's three, named as glTF names them, because that is where every imported material's
+     * answer comes from and inventing a fourth would be Studio deciding something the format has
+     * already settled. CNA's `PbrEffect` takes exactly these through `AlphaModeEXT`; this
+     * enumeration is Studio's own so that `cna-studio-core` keeps needing no CNA at all.
+     */
+    enum class MeshAlphaMode
+    {
+        /** @brief Alpha is ignored entirely. glTF's default, and the one a material starts in. */
+        Opaque,
+
+        /** @brief Drawn where alpha is at or above the cutoff and discarded below it. */
+        Mask,
+
+        /** @brief Blended with what is behind it, which is what makes ordering matter. */
+        Blend,
+    };
+
+    /** @brief The name of @p mode, as glTF spells it. */
+    [[nodiscard]] const char* toString(MeshAlphaMode mode);
+
+    /** @brief Reads a glTF `alphaMode` string. Anything unrecognised is `Opaque`, glTF's default. */
+    [[nodiscard]] MeshAlphaMode parseMeshAlphaMode(std::string_view text);
+
     struct MeshMaterial
     {
         std::string name;
@@ -201,6 +228,23 @@ namespace CNA::Studio
 
         /** @brief The emissive map's URI, or empty. Multiplies `emissiveColor`. */
         std::string emissiveTexturePath;
+
+        /**
+         * @brief How this material's alpha is read (`plan.md` STUDIO-19004).
+         *
+         * Carried rather than derived from `alpha` being less than one: a material with a
+         * base-colour texture whose *pixels* are partly transparent has an alpha factor of 1 and
+         * is still transparent, and guessing from the factor would draw every such material solid.
+         */
+        MeshAlphaMode alphaMode = MeshAlphaMode::Opaque;
+
+        /**
+         * @brief The threshold a `Mask` material is cut at. glTF's default is 0.5.
+         *
+         * Carried whatever the mode is, because a material that switches modes must not lose the
+         * threshold it authored -- the same reasoning CNA's `PbrEffect` gives for keeping it.
+         */
+        float alphaCutoff = 0.5f;
 
         /**
          * @brief The separate occlusion map's URI, or empty (`plan.md` STUDIO-19002).

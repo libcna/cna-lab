@@ -5172,3 +5172,157 @@ CNA_STUDIO_TEST(TheMaterialAnEntityNamesReplacesItsModelsOwnOnEveryPart)
     CNA_STUDIO_EXPECT_EQ(none.draws.size(), std::size_t{1});
     CNA_STUDIO_EXPECT(!none.draws[0].materialOverride.has_value());
 }
+
+// ------------------------------------------------------------------------------------------------
+// Transparency (STUDIO-19004)
+// ------------------------------------------------------------------------------------------------
+
+/**
+ * @brief Blended parts are drawn after the opaque ones, furthest from the eye first.
+ *
+ * Blending is not commutative with depth: a transparent pane drawn before what is behind it blends
+ * against the background instead, and the result is a window with a hole in it. The order is the
+ * whole of the fix and it is the part that can be wrong, so it is a CNA-free function with a case
+ * of its own rather than a loop inside the renderer nothing can reach.
+ */
+CNA_STUDIO_TEST(BlendedDrawsFollowTheOpaqueOnesAndAreSortedBackToFront)
+{
+    const ComponentRegistry registry = makeRegistry();
+    SceneDocument scene;
+
+    MeshData opaqueMesh = makeTinyMesh();
+    opaqueMesh.parts[0].name = "Body";
+    opaqueMesh.parts[0].materialIndex = 0;
+    MeshMaterial solid;
+    solid.name = "Solid";
+    opaqueMesh.materials = {solid};
+
+    MeshData glassMesh = makeTinyMesh();
+    glassMesh.parts[0].name = "Pane";
+    glassMesh.parts[0].materialIndex = 0;
+    MeshMaterial glass;
+    glass.name = "Glass";
+    glass.alphaMode = MeshAlphaMode::Blend;
+    glassMesh.materials = {glass};
+
+    const Uuid opaqueModel = Uuid::generate();
+    const Uuid glassModel = Uuid::generate();
+
+    // A wall, then a near pane, then a far one -- added in an order that is neither the answer nor
+    // its reverse, so a stable sort that did nothing would be caught.
+    StudioEntity wall = makeEntity(registry, "Wall", 0.0f, 0.0f);
+    addModelRenderer(registry, wall, opaqueModel);
+    scene.addEntity(std::move(wall));
+
+    StudioEntity near = makeEntity(registry, "Near", 0.0f, 0.0f);
+    addModelRenderer(registry, near, glassModel);
+    const Uuid nearId = near.getId();
+    scene.addEntity(std::move(near));
+
+    StudioEntity far = makeEntity(registry, "Far", 0.0f, 0.0f);
+    addModelRenderer(registry, far, glassModel);
+    const Uuid farId = far.getId();
+    scene.addEntity(std::move(far));
+
+    StudioCamera3D camera;
+    camera.setViewportSize(StudioVector2{800.0f, 600.0f});
+
+    // Along the camera's own forward axis, so "further" is unambiguous whichever way the default
+    // camera happens to look: the near pane is put where the camera is and the far one well beyond.
+    const StudioVector3 forward = camera.getForward();
+    const auto place = [&scene](const Uuid& id, const StudioVector3& position) {
+        StudioComponent* transform =
+            scene.findEntityForEdit(id)->findComponent(BuiltinComponentIds::kTransform);
+        transform->setProperty("position", PropertyValue{position});
+    };
+    place(nearId, scale(forward, 5.0f));
+    place(farId, scale(forward, 50.0f));
+
+    const MeshProvider meshes = [&](const Uuid& id) -> const MeshData* {
+        if (id == opaqueModel) { return &opaqueMesh; }
+        if (id == glassModel) { return &glassMesh; }
+        return nullptr;
+    };
+
+    const SceneModelBatch batch = buildSceneModelBatch(scene, camera, meshes);
+    CNA_STUDIO_EXPECT_EQ(batch.draws.size(), std::size_t{3});
+
+    const SceneDrawOrder order = orderSceneModelDraws(batch);
+
+    // The wall alone is opaque; the two panes are not, so they are in neither each other's pass
+    // nor the wall's.
+    CNA_STUDIO_EXPECT_EQ(order.opaque.size(), std::size_t{1});
+    CNA_STUDIO_EXPECT_EQ(batch.draws[order.opaque[0]].entityId.toString(),
+                         batch.draws[0].entityId.toString());
+
+    CNA_STUDIO_EXPECT_EQ(order.blended.size(), std::size_t{2});
+    if (order.blended.size() == 2)
+    {
+        // Furthest first. Drawing the near pane first would blend it against the background and
+        // then let the far one draw over it, which is a window with a hole in it.
+        CNA_STUDIO_EXPECT_EQ(batch.draws[order.blended[0]].entityId.toString(), farId.toString());
+        CNA_STUDIO_EXPECT_EQ(batch.draws[order.blended[1]].entityId.toString(), nearId.toString());
+    }
+}
+
+/**
+ * @brief A model with a pane in it is in both passes, and a masked part stays in the opaque one.
+ *
+ * The two cases a per-draw split would get wrong. A window frame with glass in it is one model and
+ * both of its halves have to be drawn; a cut-out leaf is a hard edge that writes depth, so sorting
+ * it would be paying for an ordering it does not need.
+ */
+CNA_STUDIO_TEST(AModelWithBothKindsOfPartIsDrawnInBothPassesAndMaskStaysOpaque)
+{
+    const ComponentRegistry registry = makeRegistry();
+    SceneDocument scene;
+
+    MeshData mesh = makeTinyMesh();
+    mesh.parts[0].name = "Frame";
+    mesh.parts[0].materialIndex = 0;
+
+    MeshPart pane = mesh.parts[0];
+    pane.name = "Pane";
+    pane.materialIndex = 1;
+    mesh.parts.push_back(std::move(pane));
+
+    MeshMaterial frame;
+    frame.name = "Frame";
+    MeshMaterial glass;
+    glass.name = "Glass";
+    glass.alphaMode = MeshAlphaMode::Blend;
+    mesh.materials = {frame, glass};
+
+    const Uuid modelId = Uuid::generate();
+    StudioEntity window = makeEntity(registry, "Window", 0.0f, 0.0f);
+    addModelRenderer(registry, window, modelId);
+    scene.addEntity(std::move(window));
+
+    StudioCamera3D camera;
+    camera.setViewportSize(StudioVector2{800.0f, 600.0f});
+    const MeshProvider meshes = [&](const Uuid& id) { return id == modelId ? &mesh : nullptr; };
+
+    const SceneModelBatch batch = buildSceneModelBatch(scene, camera, meshes);
+    const SceneDrawOrder both = orderSceneModelDraws(batch);
+    CNA_STUDIO_EXPECT_EQ(both.opaque.size(), std::size_t{1});
+    CNA_STUDIO_EXPECT_EQ(both.blended.size(), std::size_t{1});
+
+    // A masked part is a cut-out rather than a fade, so it belongs with the solid geometry.
+    mesh.materials[1].alphaMode = MeshAlphaMode::Mask;
+    const SceneModelBatch masked = buildSceneModelBatch(scene, camera, meshes);
+    const SceneDrawOrder cutout = orderSceneModelDraws(masked);
+    CNA_STUDIO_EXPECT_EQ(cutout.opaque.size(), std::size_t{1});
+    CNA_STUDIO_EXPECT(cutout.blended.empty());
+
+    // And the mode a material *asset* names wins over the model's own, because that is the
+    // material the renderer would draw with (STUDIO-19009).
+    mesh.materials[1].alphaMode = MeshAlphaMode::Blend;
+    MeshMaterial assigned;
+    assigned.alphaMode = MeshAlphaMode::Opaque;
+
+    SceneModelBatch overridden = buildSceneModelBatch(scene, camera, meshes);
+    overridden.draws[0].materialOverride = assigned;
+    const SceneDrawOrder solid = orderSceneModelDraws(overridden);
+    CNA_STUDIO_EXPECT_EQ(solid.opaque.size(), std::size_t{1});
+    CNA_STUDIO_EXPECT(solid.blended.empty());
+}

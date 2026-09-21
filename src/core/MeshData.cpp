@@ -7,6 +7,27 @@
 
 namespace CNA::Studio
 {
+    const char* toString(MeshAlphaMode mode)
+    {
+        switch (mode)
+        {
+            case MeshAlphaMode::Opaque: return "OPAQUE";
+            case MeshAlphaMode::Mask:   return "MASK";
+            case MeshAlphaMode::Blend:  return "BLEND";
+        }
+        return "OPAQUE";
+    }
+
+    MeshAlphaMode parseMeshAlphaMode(std::string_view text)
+    {
+        if (text == "MASK") { return MeshAlphaMode::Mask; }
+        if (text == "BLEND") { return MeshAlphaMode::Blend; }
+
+        // Anything else is Opaque, which is glTF's own default and its own rule for an unknown
+        // value: a file naming a mode this build does not know draws solid rather than not at all.
+        return MeshAlphaMode::Opaque;
+    }
+
     bool MeshData::isEmpty() const
     {
         return std::ranges::all_of(parts, [](const MeshPart& part) { return part.indices.empty(); });

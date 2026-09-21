@@ -9,31 +9,92 @@
 
 namespace CNA::Studio
 {
+    MeshMaterial resolveMeshPartMaterial(const ModelDraw& draw, std::string_view partName,
+                                         int materialIndex)
+    {
+        // The per-part list first, because it is the more specific answer: the single override
+        // means "this whole model" and the list means "except these parts" (ED-410).
+        for (const auto& [name, material] : draw.partMaterials)
+        {
+            if (name == partName) { return material; }
+        }
+        if (draw.materialOverride.has_value()) { return *draw.materialOverride; }
+
+        // glTF says an unnamed material means the *default* material, so a part with none gets a
+        // neutral one rather than being skipped.
+        const bool named = draw.mesh != nullptr && materialIndex >= 0
+                           && static_cast<std::size_t>(materialIndex) < draw.mesh->materials.size();
+        return named ? draw.mesh->materials[static_cast<std::size_t>(materialIndex)]
+                     : MeshMaterial{};
+    }
+
+    SceneDrawOrder orderSceneModelDraws(const SceneModelBatch& batch)
+    {
+        SceneDrawOrder order;
+
+        // Paired with its depth so the sort has something to sort by, then unpaired: the caller
+        // wants indices, and handing back the depths would be handing back a number nothing else
+        // in the pass has any use for.
+        std::vector<std::pair<float, std::size_t>> blended;
+
+        for (std::size_t index = 0; index < batch.draws.size(); ++index)
+        {
+            const ModelDraw& draw = batch.draws[index];
+            if (draw.mesh == nullptr) { continue; }
+
+            bool hasOpaque = false;
+            bool hasBlended = false;
+            for (const MeshPart& part : draw.mesh->parts)
+            {
+                // Masked parts are drawn in the opaque pass: a cut-out is a hard edge, it writes
+                // depth, and sorting it would be paying for an ordering it does not need.
+                if (resolveMeshPartMaterial(draw, part).alphaMode == MeshAlphaMode::Blend)
+                {
+                    hasBlended = true;
+                }
+                else
+                {
+                    hasOpaque = true;
+                }
+            }
+
+            if (hasOpaque) { order.opaque.push_back(index); }
+            if (!hasBlended) { continue; }
+
+            // View space, from the entity's own origin. An XNA view matrix looks down **-Z**, so
+            // the further something is the more negative its view-space z -- the sort below is
+            // ascending for that reason, not by oversight. The case that pins it places its panes
+            // along the camera's own forward vector rather than along an axis, so it is asserting
+            // "further is drawn first" rather than re-stating this sign.
+            const StudioVector3 origin =
+                transformPosition(draw.world, StudioVector3{0.0f, 0.0f, 0.0f});
+            const StudioVector3 eyeSpace = transformPosition(batch.view, origin);
+            blended.emplace_back(eyeSpace.z, index);
+        }
+
+        std::stable_sort(blended.begin(), blended.end(),
+                         [](const auto& lhs, const auto& rhs) { return lhs.first < rhs.first; });
+
+        order.blended.reserve(blended.size());
+        for (const auto& [depth, index] : blended)
+        {
+            (void)depth;
+            order.blended.push_back(index);
+        }
+
+        return order;
+    }
+
     void applyDebugViewToDraw(StudioDebugView debugView, ModelDraw& draw)
     {
         if (debugView == StudioDebugView::None || draw.mesh == nullptr) { return; }
-
-        // The renderer's own resolution order, so a channel reports the material that would have
-        // been drawn rather than the one the model shipped with.
-        const auto resolve = [&draw](const MeshPart& part) -> MeshMaterial {
-            for (const auto& [name, material] : draw.partMaterials)
-            {
-                if (name == part.name) { return material; }
-            }
-            if (draw.materialOverride.has_value()) { return *draw.materialOverride; }
-
-            const bool named = part.materialIndex >= 0
-                               && static_cast<std::size_t>(part.materialIndex)
-                                      < draw.mesh->materials.size();
-            return named ? draw.mesh->materials[static_cast<std::size_t>(part.materialIndex)]
-                         : MeshMaterial{};
-        };
 
         std::vector<std::pair<std::string, MeshMaterial>> replaced;
         replaced.reserve(draw.mesh->parts.size());
         for (const MeshPart& part : draw.mesh->parts)
         {
-            replaced.emplace_back(part.name, studioDebugMaterial(debugView, resolve(part)));
+            replaced.emplace_back(part.name,
+                                  studioDebugMaterial(debugView, resolveMeshPartMaterial(draw, part)));
         }
 
         // The per-part list carries the answer, and the model-wide override is set to the same

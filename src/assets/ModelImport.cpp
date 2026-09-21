@@ -305,6 +305,18 @@ namespace CNA::Studio
                 material.metallicRoughnessTexturePath = textureUri(pbr.metallic_roughness_texture);
             }
 
+            // How the file says its alpha is meant to be read (`plan.md` STUDIO-19004). Dropped
+            // until now, which made every imported glass, leaf and decal draw solid -- and the
+            // base-colour *factor* was carried, so the material said 0.4 alpha and looked 1.0,
+            // with nothing on screen or in the inspector to explain the difference.
+            switch (source.alpha_mode)
+            {
+                case cgltf_alpha_mode_mask:  material.alphaMode = MeshAlphaMode::Mask;  break;
+                case cgltf_alpha_mode_blend: material.alphaMode = MeshAlphaMode::Blend; break;
+                default:                     material.alphaMode = MeshAlphaMode::Opaque; break;
+            }
+            material.alphaCutoff = std::clamp(source.alpha_cutoff, 0.0f, 1.0f);
+
             material.emissiveColor = StudioVector3{source.emissive_factor[0],
                                                    source.emissive_factor[1],
                                                    source.emissive_factor[2]};

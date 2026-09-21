@@ -15,6 +15,9 @@
 #include "Microsoft/Xna/Framework/Vector2.hpp"
 #include "Microsoft/Xna/Framework/Vector3.hpp"
 #include "Microsoft/Xna/Framework/Graphics/BasicEffect.hpp"
+#include "CNA/Studio/Scene/SceneModels.hpp"
+
+#include "Microsoft/Xna/Framework/Graphics/AlphaModeEXT.hpp"
 #include "Microsoft/Xna/Framework/Graphics/BlendState.hpp"
 #include "Microsoft/Xna/Framework/Graphics/BufferUsage.hpp"
 #include "Microsoft/Xna/Framework/Graphics/CullMode.hpp"
@@ -323,40 +326,23 @@ namespace CNA::Studio
             }
         }
 
-        /** @brief Applies @p material, or a neutral default when the part named none. */
-        void applyMaterial(const MeshData& mesh, int materialIndex, ModelPassStats& stats,
-                           const std::optional<MeshMaterial>& override,
-                           const std::string& partName,
-                           const std::vector<std::pair<std::string, MeshMaterial>>& partMaterials)
+        // `applyMaterial` lived here and resolved a part's material itself -- the per-part
+        // list, then the model override, then the part's own. `STUDIO-19004` needed the same
+        // answer *before* the draw, to decide which pass a part belongs in, so the rule moved to
+        // `resolveMeshPartMaterial` in the CNA-free scene module and this copy went with it.
+        // Two copies of it would have been two chances to put a part in one pass and draw it with
+        // the other's material.
+
+        /** @brief Studio's alpha mode as CNA spells it. */
+        [[nodiscard]] static XnaGraphics::AlphaModeEXT toXnaAlphaMode(MeshAlphaMode mode)
         {
-            // The per-part list first, because it is the more specific answer: the single override
-            // means "this whole model" and the list means "except these parts" (ED-410).
-            for (const auto& [name, material] : partMaterials)
+            switch (mode)
             {
-                if (name == partName)
-                {
-                    applyResolvedMaterial(material, stats);
-                    return;
-                }
+                case MeshAlphaMode::Mask:  return XnaGraphics::AlphaModeEXT::Mask;
+                case MeshAlphaMode::Blend: return XnaGraphics::AlphaModeEXT::Blend;
+                case MeshAlphaMode::Opaque: break;
             }
-
-            // An override replaces every part's material, which is the only thing one material can
-            // mean for a model of several parts.
-            if (override.has_value())
-            {
-                applyResolvedMaterial(*override, stats);
-                return;
-            }
-
-            const bool named = materialIndex >= 0
-                               && static_cast<std::size_t>(materialIndex) < mesh.materials.size();
-
-            // glTF says an unnamed material means the *default* material, so a part with none is
-            // drawn white rather than skipped -- MeshData.hpp's note on `materialIndex` says the
-            // same thing to every consumer.
-            applyResolvedMaterial(named ? mesh.materials[static_cast<std::size_t>(materialIndex)]
-                                        : MeshMaterial{},
-                                  stats);
+            return XnaGraphics::AlphaModeEXT::Opaque;
         }
 
         /** @brief Sets @p material on whichever effect this build has. */
@@ -382,6 +368,13 @@ namespace CNA::Studio
                     resolveTexture(material.metallicRoughnessTexturePath, stats));
                 pbr->setEmissiveMapProperty(resolveTexture(material.emissiveTexturePath, stats));
                 pbr->setOcclusionMapProperty(resolveTexture(material.occlusionTexturePath, stats));
+
+                // glTF's own alpha coverage (`plan.md` STUDIO-19004). The device's blend state
+                // decides whether the *result* is blended; this decides what the shader does with
+                // the alpha channel before that, which is the half a blend state cannot express --
+                // a masked leaf is cut out, not faded.
+                pbr->setAlphaModeEXTProperty(toXnaAlphaMode(material.alphaMode));
+                pbr->setAlphaCutoffEXTProperty(material.alphaCutoff);
                 return;
             }
 
@@ -630,43 +623,82 @@ namespace CNA::Studio
 
         XnaGraphics::GraphicsDevice& device = *impl_->device;
 
-        // Depth on and opaque. The target this draws into is created with a depth buffer for
-        // exactly this state to use; without it a model's own back faces punch through its front.
-        device.setDepthStencilStateProperty(XnaGraphics::DepthStencilState::Default);
-        device.setBlendStateProperty(XnaGraphics::BlendState::Opaque);
         device.getSamplerStatesProperty()[0] = XnaGraphics::SamplerState::LinearWrap;
 
         XnaGraphics::RasterizerState rasterizer;
         rasterizer.setCullModeProperty(kOutwardFaces);
         device.setRasterizerStateProperty(rasterizer);
 
-        for (const ModelDraw& draw : batch.draws)
-        {
-            if (draw.mesh == nullptr) { continue; }
+        // Which draws go in which pass, and in what order the blended one runs (STUDIO-19004).
+        // Worked out by a CNA-free function so the *ordering* -- the part with an answer that can
+        // be wrong -- is testable without a device.
+        const SceneDrawOrder order = orderSceneModelDraws(batch);
 
-            Impl::GpuModel* model = impl_->resolveModel(draw.modelId, *draw.mesh, stats);
-            if (model == nullptr || model->parts.empty()) { continue; }
+        // Counted once per model however many passes it appears in: a window frame with a pane in
+        // it is one model, and a statistic that said two would be a statistic about this loop.
+        std::vector<bool> counted(batch.draws.size(), false);
 
-            impl_->applyMatrices(draw.world, batch.view, batch.projection);
-            impl_->applyLighting(draw.lighting);
-            impl_->applyFog(batch.environment);
+        const auto drawPass = [&](const std::vector<std::size_t>& indices, bool blendedPass) {
+            if (indices.empty()) { return; }
 
-            for (const Impl::GpuPart& part : model->parts)
+            if (blendedPass)
             {
-                impl_->applyMaterial(*draw.mesh, part.materialIndex, stats, draw.materialOverride,
-                                     part.name, draw.partMaterials);
-                impl_->applyEffect();
-
-                device.SetVertexBuffer(part.vertices.get());
-                device.setIndicesProperty(part.indices.get());
-                device.DrawIndexedPrimitives(XnaGraphics::PrimitiveType::TriangleList, 0, 0,
-                                             part.vertexCount, 0, part.triangleCount);
-
-                stats.trianglesDrawn += static_cast<std::size_t>(part.triangleCount);
+                // Depth *read* rather than Default: a blended surface must still be hidden by the
+                // wall in front of it, and must not write a depth that stops the pane behind it
+                // from drawing. Writing depth here is how a window comes to occlude the room.
+                device.setDepthStencilStateProperty(XnaGraphics::DepthStencilState::DepthRead);
+                device.setBlendStateProperty(XnaGraphics::BlendState::AlphaBlend);
+            }
+            else
+            {
+                // The target this draws into is created with a depth buffer for exactly this
+                // state to use; without it a model's own back faces punch through its front.
+                device.setDepthStencilStateProperty(XnaGraphics::DepthStencilState::Default);
+                device.setBlendStateProperty(XnaGraphics::BlendState::Opaque);
             }
 
-            ++stats.modelsDrawn;
-        }
+            for (const std::size_t index : indices)
+            {
+                const ModelDraw& draw = batch.draws[index];
+                if (draw.mesh == nullptr) { continue; }
+
+                Impl::GpuModel* model = impl_->resolveModel(draw.modelId, *draw.mesh, stats);
+                if (model == nullptr || model->parts.empty()) { continue; }
+
+                impl_->applyMatrices(draw.world, batch.view, batch.projection);
+                impl_->applyLighting(draw.lighting);
+                impl_->applyFog(batch.environment);
+
+                for (const Impl::GpuPart& part : model->parts)
+                {
+                    // Resolved through the same CNA-free function the ordering used, rather than
+                    // a second copy of the rule here: the two disagreeing would put a part in one
+                    // pass and draw it with the other's material.
+                    const MeshMaterial resolved =
+                        resolveMeshPartMaterial(draw, part.name, part.materialIndex);
+                    if ((resolved.alphaMode == MeshAlphaMode::Blend) != blendedPass) { continue; }
+
+                    impl_->applyResolvedMaterial(resolved, stats);
+                    impl_->applyEffect();
+
+                    device.SetVertexBuffer(part.vertices.get());
+                    device.setIndicesProperty(part.indices.get());
+                    device.DrawIndexedPrimitives(XnaGraphics::PrimitiveType::TriangleList, 0, 0,
+                                                 part.vertexCount, 0, part.triangleCount);
+
+                    stats.trianglesDrawn += static_cast<std::size_t>(part.triangleCount);
+                }
+
+                if (!counted[index])
+                {
+                    counted[index] = true;
+                    ++stats.modelsDrawn;
+                }
+            }
+        };
+
+        drawPass(order.opaque, /*blendedPass=*/false);
+        drawPass(order.blended, /*blendedPass=*/true);
 
         // Left as the caller found it. The wireframe drawn over this is a `SpriteBatch` pass, and
         // a SpriteBatch that inherits a depth test compares against depths no sprite ever wrote --

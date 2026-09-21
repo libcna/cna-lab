@@ -148,6 +148,12 @@ namespace
         /** @brief Write the occlusion map as its own image rather than packed with the ORM one. */
         bool withSeparateOcclusionMap = false;
 
+        /** @brief The `alphaMode` the material declares, or empty to omit it (STUDIO-19004). */
+        std::string alphaMode;
+
+        /** @brief The `alphaCutoff` the material declares. Written only with a `MASK` mode. */
+        float alphaCutoff = 0.5f;
+
         /**
          * @brief How many animations to declare. None of them is ever imported.
          *
@@ -300,7 +306,16 @@ namespace
         {
             json << R"("materials":[{"name":"Painted","pbrMetallicRoughness":)"
                  << R"({"baseColorFactor":[0.25,0.5,0.75,0.5],"metallicFactor":0,"roughnessFactor":1,)"
-                 << R"("baseColorTexture":{"index":0}},"emissiveFactor":[0.1,0.2,0.3]}],)"
+                 << R"("baseColorTexture":{"index":0}},)";
+            if (!fixture.alphaMode.empty())
+            {
+                json << R"("alphaMode":")" << fixture.alphaMode << R"(",)";
+                if (fixture.alphaMode == "MASK")
+                {
+                    json << R"("alphaCutoff":)" << fixture.alphaCutoff << ",";
+                }
+            }
+            json << R"("emissiveFactor":[0.1,0.2,0.3]}],)"
                  << R"("textures":[{"source":0}],"images":[{"uri":"paint.png"}],)";
         }
 
@@ -1514,6 +1529,51 @@ CNA_STUDIO_TEST(TheNormalsOverlayDrawsOneSegmentPerVertexAndIsAliveInTheShadedMo
     CNA_STUDIO_EXPECT(tightOn.segments.size() - tightOff.segments.size() <= std::size_t{2});
     CNA_STUDIO_EXPECT(tightOn.segments.size() > tightOff.segments.size());
     CNA_STUDIO_EXPECT(tightOn.truncated);
+
+    std::filesystem::remove_all(directory);
+}
+
+/**
+ * @brief STUDIO-19004: an imported material carries the alpha coverage its file declares.
+ *
+ * Dropped until now. The base-colour *factor's* alpha was carried, so an imported glass said 0.5
+ * alpha in the inspector and drew fully solid, with nothing on screen or in the panel to explain
+ * the difference -- the one failure mode a material can have that looks like a renderer bug.
+ */
+CNA_STUDIO_TEST(AnImportedMaterialKeepsTheAlphaModeItsFileDeclares)
+{
+    const std::filesystem::path directory = makeScratchDirectory("alphamode");
+
+    GltfFixture opaque = makeTriangleFixture();
+    opaque.withMaterial = true;
+    const ModelImportResult plain = loadModel(writeGltf(directory, opaque).string());
+    CNA_STUDIO_EXPECT(plain.succeeded);
+    CNA_STUDIO_EXPECT_EQ(plain.mesh.materials.size(), std::size_t{1});
+
+    // Absent means Opaque, which is glTF's default and what every import drew as before.
+    CNA_STUDIO_EXPECT(plain.mesh.materials[0].alphaMode == MeshAlphaMode::Opaque);
+
+    GltfFixture blended = makeTriangleFixture();
+    blended.withMaterial = true;
+    blended.alphaMode = "BLEND";
+    const ModelImportResult glass = loadModel(writeGltf(directory, blended).string());
+    CNA_STUDIO_EXPECT(glass.succeeded);
+    CNA_STUDIO_EXPECT_EQ(glass.mesh.materials.size(), std::size_t{1});
+    CNA_STUDIO_EXPECT(glass.mesh.materials[0].alphaMode == MeshAlphaMode::Blend);
+
+    // The base-colour factor's alpha is a separate fact and is still carried: a blended material
+    // has both, and a reader that took one for the other would draw a 0.5 pane at full strength.
+    CNA_STUDIO_EXPECT(std::fabs(glass.mesh.materials[0].alpha - 0.5f) < 0.001f);
+
+    GltfFixture masked = makeTriangleFixture();
+    masked.withMaterial = true;
+    masked.alphaMode = "MASK";
+    masked.alphaCutoff = 0.25f;
+    const ModelImportResult leaf = loadModel(writeGltf(directory, masked).string());
+    CNA_STUDIO_EXPECT(leaf.succeeded);
+    CNA_STUDIO_EXPECT_EQ(leaf.mesh.materials.size(), std::size_t{1});
+    CNA_STUDIO_EXPECT(leaf.mesh.materials[0].alphaMode == MeshAlphaMode::Mask);
+    CNA_STUDIO_EXPECT(std::fabs(leaf.mesh.materials[0].alphaCutoff - 0.25f) < 0.001f);
 
     std::filesystem::remove_all(directory);
 }

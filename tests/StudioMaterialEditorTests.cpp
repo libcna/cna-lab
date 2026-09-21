@@ -240,9 +240,12 @@ namespace
     constexpr std::size_t kBaseColourRow = 7;
     constexpr std::size_t kRoughnessRow = 10;
 
-    // The texture slots follow the six values (`plan.md` STUDIO-19002).
-    constexpr std::size_t kBaseColourMapRow = 12;
-    constexpr std::size_t kOcclusionMapRow = 16;
+    // The alpha mode follows the six values (`plan.md` STUDIO-19004), and the texture slots follow
+    // that. The Mask-only cutoff row sits between them and is absent in every other mode, which is
+    // why these are the Opaque-mode positions.
+    constexpr std::size_t kAlphaModeRow = 12;
+    constexpr std::size_t kBaseColourMapRow = 13;
+    constexpr std::size_t kOcclusionMapRow = 17;
 }
 
 CNA_STUDIO_TEST(SelectingAMaterialShowsItsFieldsRatherThanAnImporterApology)
@@ -252,10 +255,12 @@ CNA_STUDIO_TEST(SelectingAMaterialShowsItsFieldsRatherThanAnImporterApology)
     Fixture fixture{"fields"};
     fixture.settle();
 
-    // Six values and five texture slots (`plan.md` STUDIO-19002). The slots were the half of a
-    // material that could only be filled in by editing the JSON by hand: the document has carried
-    // four of the ids since ED-403 and the editor could set none of them.
-    CNA_STUDIO_EXPECT_EQ(fixture.last.materialFields, std::size_t{11});
+    // Six values, the alpha mode (`plan.md` STUDIO-19004) and five texture slots
+    // (`STUDIO-19002`). The slots were the half of a material that could only be filled in by
+    // editing the JSON by hand: the document has carried four of the ids since ED-403 and the
+    // editor could set none of them. Twelve rather than thirteen because this material is Opaque
+    // and the cutoff is drawn only for a Mask one.
+    CNA_STUDIO_EXPECT_EQ(fixture.last.materialFields, std::size_t{12});
     CNA_STUDIO_EXPECT(fixture.last.rowsDrawn >= kRoughnessRow);
     CNA_STUDIO_EXPECT_EQ(fixture.frame.phaseViolations(), std::size_t{0});
 }
@@ -489,7 +494,7 @@ CNA_STUDIO_TEST(ATextureDroppedOnAMaterialSlotIsWrittenToTheFile)
     CNA_STUDIO_EXPECT(!fixture.onDisk().diffuseTexture.isValid());
 
     // Five slots, each offering "(none)" and the project's one texture. Unfiltered they would each
-    // offer the material itself as well, which is six.
+    // offer the material itself as well, which is fifteen rows rather than ten.
     CNA_STUDIO_EXPECT_EQ(fixture.last.assetChoicesOffered, std::size_t{10});
 
     StudioFrame::StudioDragPayload payload;
@@ -609,4 +614,75 @@ CNA_STUDIO_TEST(EveryMapAMaterialNamesReachesTheRendererAsAPath)
         CNA_STUDIO_EXPECT(partial->emissiveTexturePath.empty());
         CNA_STUDIO_EXPECT_EQ(partial->occlusionTexturePath, std::string{"Assets/Occlusion.png"});
     }
+}
+
+// ------------------------------------------------------------------------------------------------
+// Transparency (STUDIO-19004)
+// ------------------------------------------------------------------------------------------------
+
+/**
+ * @brief The alpha mode round-trips, defaults to glTF's, and is written only when it is not that.
+ *
+ * Additive at `formatVersion` 1 like the occlusion map: a material written before this existed has
+ * no mode and reads as Opaque, which is what every material drew as.
+ */
+CNA_STUDIO_TEST(AMaterialsAlphaModeSurvivesTheFileAndDefaultsToOpaque)
+{
+    MaterialDocument material;
+    CNA_STUDIO_EXPECT(material.alphaMode == MeshAlphaMode::Opaque);
+    CNA_STUDIO_EXPECT(std::fabs(material.alphaCutoff - 0.5f) < 0.001f);
+
+    // Absent from the file at the default, for the reason an unset texture is: a material carrying
+    // every field anybody ever looked at makes its diff noise.
+    CNA_STUDIO_EXPECT_EQ(material.toJson()["alphaMode"].asString("absent"), std::string{"absent"});
+    CNA_STUDIO_EXPECT_EQ(material.toJson()["alphaCutoff"].asString("absent"),
+                         std::string{"absent"});
+
+    material.alphaMode = MeshAlphaMode::Mask;
+    material.alphaCutoff = 0.25f;
+
+    MaterialDocument reloaded;
+    CNA_STUDIO_EXPECT(reloaded.loadFromJson(material.toJson()));
+    CNA_STUDIO_EXPECT(reloaded.alphaMode == MeshAlphaMode::Mask);
+    CNA_STUDIO_EXPECT(std::fabs(reloaded.alphaCutoff - 0.25f) < 0.001f);
+
+    // Spelt as glTF spells it, because that is where an imported material's answer comes from and
+    // a second spelling would be a second vocabulary for one fact.
+    CNA_STUDIO_EXPECT_EQ(material.toJson()["alphaMode"].asString(""), std::string{"MASK"});
+
+    // A mode this build does not know is Opaque -- glTF's own rule for an unrecognised value, so a
+    // file from a later editor draws solid rather than not at all.
+    JsonValue future = material.toJson();
+    future.set("alphaMode", JsonValue{std::string{"DITHER"}});
+    MaterialDocument unknown;
+    CNA_STUDIO_EXPECT(unknown.loadFromJson(future));
+    CNA_STUDIO_EXPECT(unknown.alphaMode == MeshAlphaMode::Opaque);
+
+    // And it reaches the renderer's own form, which is what decides the pass a part is drawn in.
+    material.alphaMode = MeshAlphaMode::Blend;
+    CNA_STUDIO_EXPECT(material.toMeshMaterial().alphaMode == MeshAlphaMode::Blend);
+}
+
+/** @brief The cutoff is drawn only for a Mask material, where it is the only mode it means anything in. */
+CNA_STUDIO_TEST(TheAlphaCutoffRowAppearsOnlyForAMaskedMaterial)
+{
+    MaterialDocument opaque;
+    Fixture fixture{"cutoffrow", Json::write(opaque.toJson(), true)};
+    fixture.settle();
+
+    const std::size_t withoutCutoff = fixture.last.materialFields;
+
+    MaterialDocument masked;
+    masked.alphaMode = MeshAlphaMode::Mask;
+    fixture.project.write("Assets/PaintedRed.cnamaterial", Json::write(masked.toJson(), true));
+
+    // The document cache keys on the record's stamp, and this fixture has none, so the panel is
+    // asked afresh: the services seam is unset here, which is the path that reads the file.
+    fixture.settle();
+
+    CNA_STUDIO_EXPECT_EQ(fixture.last.materialFields, withoutCutoff + 1);
+
+    // A control beside a material it means nothing for is a control that does nothing, which is
+    // the state STUDIO-12004 took the gizmo space toggle out of.
+    CNA_STUDIO_EXPECT(withoutCutoff > std::size_t{0});
 }
