@@ -53,4 +53,31 @@ namespace CNA::Studio
 
         return issues;
     }
+
+    std::vector<StudioMaterialCapabilityIssue> studioLightCapabilityIssues(
+        std::string_view effectName, std::string_view lightKind)
+    {
+        std::vector<StudioMaterialCapabilityIssue> issues;
+
+        // `PbrEffect` implements CNA's punctual-light extension, so it draws both kinds properly.
+        // Anything unrecognised is silent for the reason the header gives.
+        if (effectName != "BasicEffect") { return issues; }
+
+        if (lightKind == "Point")
+        {
+            issues.push_back({"Point light",
+                              "BasicEffect has only directional lights, so this one is aimed at "
+                              "each object as it is drawn. It behaves like a point light between "
+                              "objects and cannot fall off across a large one."});
+        }
+        else if (lightKind == "Spot")
+        {
+            issues.push_back({"Spot light",
+                              "BasicEffect has only directional lights, so this one is drawn as a "
+                              "point light: its position, direction and range are used and its "
+                              "cone is not."});
+        }
+
+        return issues;
+    }
 }

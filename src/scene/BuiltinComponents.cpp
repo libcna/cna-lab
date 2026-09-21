@@ -228,12 +228,34 @@ namespace CNA::Studio
                              "How far the light reaches. Point and Spot only.");
             range.appliesWhen = PropertyAppliesWhen{"kind", {"Point", "Spot"}};
 
+            // A spot light's cone (`plan.md` STUDIO-20003). Authored in degrees, because that is
+            // what a person types, and carried to the renderer in radians. Half-angles, matching
+            // what CNA's punctual-light extension takes: the outer one is where the cone ends and
+            // the inner one where it stops being fully lit.
+            PropertyDescriptor inner =
+                makeProperty("innerAngle", "Inner Angle", PropertyType::Float,
+                             PropertyValue{25.0f},
+                             "Half-angle of the fully lit centre, in degrees. Spot only.");
+            inner.minimum = 0.0;
+            inner.maximum = 89.0;
+            inner.appliesWhen = PropertyAppliesWhen{"kind", {"Spot"}};
+
+            PropertyDescriptor outer =
+                makeProperty("outerAngle", "Outer Angle", PropertyType::Float,
+                             PropertyValue{35.0f},
+                             "Half-angle at which the cone ends, in degrees. Spot only.");
+            outer.minimum = 0.0;
+            outer.maximum = 89.0;
+            outer.appliesWhen = PropertyAppliesWhen{"kind", {"Spot"}};
+
             descriptor.properties = {
                 std::move(kind),
                 makeProperty("color", "Color", PropertyType::Color, PropertyValue{StudioColor{}}),
                 makeProperty("intensity", "Intensity", PropertyType::Float, PropertyValue{1.0f},
                              "Multiplies the colour. Over one is over-bright, which is allowed."),
                 std::move(range),
+                std::move(inner),
+                std::move(outer),
             };
             return descriptor;
         }

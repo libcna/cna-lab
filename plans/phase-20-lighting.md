@@ -6,23 +6,25 @@
 
 **Exit criteria.** The viewport and the game preview agree, and no light type exists in Studio that the runtime cannot render.
 
-**Progress:** 4 of 8 complete `██████░░░░░░`
+**Progress:** 6 of 8 complete `█████████░░░`
 
 | Id | Task | Status | Depends on |
 |----|------|:------:|------------|
 | `STUDIO-20001` | Directional light authoring | ✅ | `STUDIO-19001` |
 | `STUDIO-20002` | Point light authoring | ✅ | `STUDIO-20001` |
-| `STUDIO-20003` | Spot light authoring | 🔄 | `STUDIO-20001` |
+| `STUDIO-20003` | Spot light authoring | ✅ | `STUDIO-20001` |
 | `STUDIO-20004` | Ambient and environment lighting | ✅ | `STUDIO-20001` |
 | `STUDIO-20005` | Sky and environment map authoring | ⬜ | `STUDIO-10010` |
 | `STUDIO-20006` | Shadow configuration | 🔄 | `STUDIO-20001` |
 | `STUDIO-20007` | Viewport lighting matches the game preview as closely as the runtime allows | ✅ | `STUDIO-20001` |
-| `STUDIO-20008` | No light type is offered that the runtime cannot render | 🔄 | `STUDIO-20001` |
+| `STUDIO-20008` | No light type is offered that the runtime cannot render | ✅ | `STUDIO-20001` |
 
 ## A correction, and it affects four rows below
 
 **`STUDIO-20002`, `STUDIO-20003`, `STUDIO-20006` and `STUDIO-20008` were written against a false
-belief about what CNA can do, and three of them have been reopened.**
+belief about what CNA can do.** Three were reopened; `STUDIO-20003` and `STUDIO-20008` have since
+been closed again by doing the work the correction revealed, and `STUDIO-20006` is still open
+because Studio's shadow pass has yet to be written.
 
 The belief was that `IEffectLights` — an ambient colour and three directional lights — is the whole
 of CNA's lighting, so that a point light must be approximated, a spot light's cone cannot exist,
@@ -46,8 +48,13 @@ readers something false.
 presets, the Point and Spot rows, the overlay that stopped drawing an aim arrow on a point light,
 the conditional-property mechanism, and the validation plumbing are all correct and all still
 wanted. What was wrong is the *justification* — "the renderer cannot" — and the conclusions drawn
-from it. The two validation rules now say what Studio does rather than what CNA cannot, and they
-are temporary by construction: each becomes silent when the work below lands.
+from it.
+
+Of the two validation rules the mistake produced, `spot-light-cone-not-rendered` is **gone**: the
+cone is drawn now, and where it is not the effect says so through `studioLightCapabilityIssues`
+rather than a document report that cannot know which effect a build uses. `shadows-not-rendered`
+remains, reworded to say what Studio does rather than what CNA cannot, and it is temporary by
+construction — it goes silent when `STUDIO-20006` lands.
 
 ## Acceptance and verification
 
@@ -188,42 +195,79 @@ third exactly as it does for a point light while the second follows the entity's
 archetype is one preset — `kind` set to `Spot` — because the three kinds are one component
 (`STUDIO-20002`).
 
-**🔄 Reopened. The paragraph that used to sit here was wrong.** It said the cone "cannot be"
-approximated because `IEffectLights` has nowhere to put an angle. `IEffectLights` does not, and
-**CNA does**: `PbrEffect::setPunctualLightEXT` takes a `PunctualLightEXT` carrying position,
-direction, range, `InnerAngle`, `OuterAngle` and a shadow map of its own — one such light per draw,
-beside the three directional slots. The gap filed against CNA over this (`G-13`) is withdrawn.
+**This row was completed twice, and the first time was on a false premise.** The first version said
+a spot light's cone "cannot be" approximated because `IEffectLights` has nowhere to put an angle —
+true of `IEffectLights`, false of CNA, which takes one real punctual light per draw through
+`PbrEffect::setPunctualLightEXT`, with a position, a range and inner and outer cone angles. A CNA
+gap was filed over that misreading and has been withdrawn (`G-13`). What follows is the work done
+once the API was actually read.
 
-**What shipped is still right as far as it goes**, and it is the authoring half: a Spot Light row
-in the Entity menu, the preset mechanism that makes a kind expressible, and an overlay and
-Inspector that tell the truth about which of a light's fields this *viewport* currently uses.
+**The reduction gained a second output.** `EffectLighting` carried three directional slots and now
+carries an `EffectPunctualLight` beside them, filled per drawn object with the **brightest point or
+spot light there** — one, because that is CNA's budget and its own documentation calls the ceiling
+deliberate: each shadowed punctual light is another generation pass, six of them for a point light.
 
-**What remains is the renderer half**, and it is Studio's work rather than CNA's:
+**The light that takes the slot is removed from the directional candidates**, and that ordering is
+the whole of the correctness here: the same lamp sent both ways is a lamp at twice its brightness,
+with nothing on screen to explain it. Every *other* point or spot light still gets the old
+approximation, which is why that behaviour is still tested rather than deleted — it is now what the
+runners-up get instead of what everything got.
 
-1. `SceneLighting` reduces every light to three directional slots. It needs a second output — the
-   one punctual light, chosen per drawn object the way the three brightest already are — so that a
-   point light stops being a directional light aimed at its target and a spot light gets its cone.
-2. `CNA.Light` then needs the two cone angles it has never had, because at that point they are
-   values the renderer reads rather than a field nobody honours.
-3. `CnaModelPass` applies it through `setPunctualLightEXT`, which it already has a `PbrEffect*` to
-   call. `BasicEffect` does not implement the extension, so the capability report
-   (`STUDIO-19008`'s) is where a build drawing through it says so.
+**Its colour carries intensity and not falloff.** The directional approximation has no position to
+measure from, so its falloff is baked into its colour; the punctual slot has one, so the effect
+measures distance per *pixel*. That is the whole reason it is worth sending: a lamp beside a large
+model now lights the near end of it and not the far one, which no amount of per-object dimming can
+do.
 
-Until that lands, `validateScene` reports `spot-light-cone-not-rendered`, and the rule now says
-what Studio draws rather than what CNA cannot.
+**`CNA.Light` gained the two cone angles**, authored in degrees and carried in radians — the same
+split `CNA.Camera`'s field of view uses, because a person types 35 and every renderer wants
+radians. Both are `appliesWhen` Spot, so they are greyed on the other two kinds; the inner angle is
+clamped to the outer one on read, because a hand-edited scene where it exceeds it would divide by a
+negative band and light the *outside* of the cone, which looks like a renderer fault rather than a
+bad number.
+
+**The viewport overlay draws the cone** — four rays and a rim ring at the outer angle, since that
+is the edge a user aims. Four rather than one per sample: twenty-four lines from a point is a
+starburst that hides the geometry behind it.
+
+**Where it still cannot be drawn, the effect says so rather than the scene report.** A
+`BasicEffect` build has only directional lights, so both punctual kinds are flattened; that is now
+`studioLightCapabilityIssues`, beside the material one, keyed on the effect's own name and drawn on
+the light in the Inspector. It replaced a `validateScene` rule that said the same thing
+unconditionally — wrong once because CNA can draw a cone, and wrong again because a document report
+cannot know which effect a build uses.
+
+**Verification.** `tests/SceneTests.cpp` —
+`APointLightIsSentWholeAndTheRunnersUpAreStillApproximated` (whole into the punctual slot, *not*
+also a directional one, colour undimmed by distance, out of range means unlit, and the loser of two
+lamps still approximated and still aimed at what it lights),
+`ASpotLightCarriesItsConeToTheEffect` (both angles, its own axis rather than one aimed at the
+target, and a directional light never reaching the slot), and
+`ASpotLightsConeIsReportedByTheEffectRatherThanByTheSceneReport`.
+`tests/StudioDetailsPanelTests.cpp` — the greyed rows per kind, and
+`ALightSaysWhatTheBuildsEffectCannotDrawAboutIt`. The model pass's call is a device call, so it is
+held by the wiring scan that already covers the rest of `EffectLighting`.
+
+Checked by causing each: the punctual slot never filled, the light counted twice, its colour
+pre-dimmed by falloff, the cone angles dropped, the model pass not applying it, and the capability
+report going silent all fail by name.
 
 ### `STUDIO-20008` — No light type is offered that the runtime cannot render
 
 **Acceptance.** Where the editor offers a light this renderer cannot draw faithfully, it says so
 on the light, in the report a user already reads — not in a header.
 
-**🔄 Reopened, because the row's own title is now reachable rather than aspirational.** Both
-limits below are Studio's rather than CNA's: `PbrEffect` takes a punctual light with a cone
-(`STUDIO-20003`) and can sample a shadow (`STUDIO-20006`), so "no light type is offered that the
-runtime cannot render" stops being a disclosure exercise and becomes a statement Studio can simply
-make true. The rules stay until it is, and they now say what Studio draws rather than what CNA
-cannot — but this row closes when there is nothing left to disclose about the spot light, not
-before.
+**Closed by making it true rather than by disclosing it.** This row was completed once as a pair of
+warnings, on the belief that CNA could not draw a point light properly or a spot light's cone at
+all. It can, and `STUDIO-20003` now does: every kind `CNA.Light` offers is a kind the default
+effect renders. Nothing is left to warn about on a `PbrEffect` build, and the rule that used to
+warn unconditionally is gone.
+
+What remains is a build drawing through `BasicEffect`, which has only directional lights — and
+that is reported by `studioLightCapabilityIssues`, keyed on the effect's own name, rather than by
+a document rule that cannot know which effect is in use. The `more-directional-lights-than-slots`
+rule stays exactly as it was: three slots is a real ceiling on every effect, and a fourth
+directional light genuinely reaches nothing.
 
 **Read as "say so" rather than as "remove it", and that part holds.** The literal reading of the
 row is that `Spot` should come out of `CNA.Light`'s kinds. That was rejected: the kind has been in

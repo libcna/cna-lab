@@ -37,10 +37,14 @@
  * `IEffectLights` and is *not* true of CNA. CNA's own additions live in its CNAEXT layer:
  * `PbrEffect::setPunctualLightEXT` takes a point or spot light with a position, a range and inner
  * and outer cone angles, `IShadowReceiverEXT` lets an effect sample a shadow map, and
- * `CNA::Graphics::ShadowMap` generates one. This file reduces to three directional slots because
- * that is what Studio's model pass currently uses, which is a decision this module made and can
- * unmake -- not a ceiling the framework imposes. Two CNA gaps were filed against that
- * misunderstanding and have been withdrawn (`docs/CNA-GAPS.md` G-13, G-14).
+ * `CNA::Graphics::ShadowMap` generates one. Two CNA gaps were filed against that misunderstanding
+ * and have been withdrawn (`docs/CNA-GAPS.md` G-13, G-14).
+ *
+ * `STUDIO-20003` acted on the first half: `EffectLighting` now carries one `EffectPunctualLight`
+ * beside the three directional slots, so a point light keeps its position and a spot light its
+ * cone. Everything above still describes what the *other* lights get -- the runners-up for that
+ * single slot, and every light at all on a `BasicEffect` build, which does not implement the
+ * extension. The shadow half is `STUDIO-20006` and is not written yet.
  *
  * When a scene has no enabled light at all, `computeEffectLighting` says so through
  * `EffectLighting::useDefaultLighting` and the renderer calls XNA's own `EnableDefaultLighting()`.
@@ -118,6 +122,18 @@ namespace CNA::Studio
         /** @brief Multiplies the colour. Not clamped: over-bright is a legitimate authoring choice. */
         float intensity = 1.0f;
 
+        /**
+         * @brief Half-angle of a spot light's fully lit centre, in radians (`plan.md` STUDIO-20003).
+         *
+         * Meaningless for the other two kinds, and the Inspector greys it out for them. Stored in
+         * *radians* here and authored in degrees, which is the same split `CNA.Camera`'s field of
+         * view uses: a person types 35 and every renderer wants the angle in radians.
+         */
+        float innerAngle = 0.0f;
+
+        /** @brief Half-angle at which a spot light's cone ends, in radians. @see innerAngle */
+        float outerAngle = 0.0f;
+
         /** @brief How far a point or spot light reaches, in world units. Ignored for directional. */
         float range = 10.0f;
     };
@@ -142,6 +158,50 @@ namespace CNA::Studio
 
         /** @brief The specular colour, which is the diffuse one -- XNA's own default behaviour. */
         StudioVector3 specularColor{1.0f, 1.0f, 1.0f};
+    };
+
+    /**
+     * @brief The one point or spot light an object is drawn with, in CNA's own terms.
+     *
+     * `plan.md` STUDIO-20003. CNA's lit effects take **one** punctual light per draw beside the
+     * three directional slots -- `PbrEffect::setPunctualLightEXT` -- with a real position, a
+     * range and, for a spot, inner and outer cone angles. CNA's own documentation calls that a
+     * deliberate ceiling rather than a limitation: each shadowed punctual light is another
+     * generation pass, six of them for a point light.
+     *
+     * So one is what this carries. A scene with two lamps near one crate sends the brighter of
+     * them here and the other through the directional approximation below, which is the answer
+     * every light got before this existed.
+     */
+    struct EffectPunctualLight
+    {
+        /** @brief Point or Spot. A directional light is never one of these. */
+        SceneLightKind kind = SceneLightKind::Point;
+
+        /** @brief Where the light is, in world space. */
+        StudioVector3 position;
+
+        /** @brief The direction the cone points. Ignored for a point light. */
+        StudioVector3 direction{0.0f, 0.0f, 1.0f};
+
+        /** @brief Colour premultiplied by intensity. *Not* by distance falloff. */
+        StudioVector3 diffuseColor{1.0f, 1.0f, 1.0f};
+
+        /**
+         * @brief Distance past which the light contributes nothing.
+         *
+         * The falloff is the effect's to compute here, unlike the directional approximation, which
+         * has no position to measure from and so has its falloff baked into its colour. That is
+         * the whole reason this is worth sending: the shading is per *pixel* rather than per
+         * object, so a lamp beside a large model lights the near end and not the far one.
+         */
+        float range = 0.0f;
+
+        /** @brief Half-angle of the fully lit centre, in radians. Spot only. */
+        float innerAngle = 0.0f;
+
+        /** @brief Half-angle at which the cone ends, in radians. Spot only. */
+        float outerAngle = 0.0f;
     };
 
     /** @brief Everything an `IEffectLights` needs, for one object at one place in the world. */
@@ -184,6 +244,18 @@ namespace CNA::Studio
         std::array<EffectDirectionalLight, 3> lights{};
 
         std::size_t lightCount = 0;
+
+        /** @brief Whether @ref punctual carries a light. @see EffectPunctualLight */
+        bool hasPunctual = false;
+
+        /**
+         * @brief The one point or spot light this object gets, when a scene offers one.
+         *
+         * Meaningless unless @ref hasPunctual is set. An effect that does not implement CNA's
+         * punctual extension -- `BasicEffect` does not -- simply never reads it, and the object is
+         * lit by the directional slots alone, which is what every object got before this existed.
+         */
+        EffectPunctualLight punctual;
     };
 
     /**

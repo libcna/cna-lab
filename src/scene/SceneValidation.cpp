@@ -148,17 +148,12 @@ namespace CNA::Studio
          * invisible from inside the editor: the scene is legal, the viewport draws something, and
          * what it draws is not what the user asked for.
          *
-         * **A spot light's cone is not modelled at all -- by Studio.** `SceneLighting` reduces
-         * every light to the three *directional* slots `IEffectLights` offers, which have nowhere
-         * to put a cone angle, so a spot light is drawn exactly as a point light is: aimed at
-         * whatever is being lit, dimmed by range. CNA itself can do better, and this comment used
-         * to say otherwise: `PbrEffect::setPunctualLightEXT` takes a point or spot light with
-         * inner and outer cone angles and a shadow of its own. Using it is `plan.md`
-         * STUDIO-20003, reopened; until then this reports what the viewport actually draws.
-         *
-         * Reported per light rather than once for the scene, because the answer is per-light --
-         * one may be standing in for a lamp and be fine as a point light, and another may be the
-         * spotlight the level is built around.
+         * **A spot light's cone used to be reported here and no longer is.** This rule said
+         * unconditionally that Studio draws no cone. That was wrong twice: CNA's punctual-light
+         * extension takes one and `STUDIO-20003` now uses it, and even as a statement about
+         * `BasicEffect` it belonged somewhere that knows which effect the build uses. It moved to
+         * `studioLightCapabilityIssues`, beside the material one, which is keyed on the effect's
+         * own name.
          *
          * **Only three lights reach any one object.** `computeEffectLighting` picks the three
          * brightest where the object is, which is the right answer for a level with twenty lamps
@@ -180,15 +175,6 @@ namespace CNA::Studio
 
                 const std::string kind =
                     light->getProperty("kind").get<PropertyValue::EnumValue>().name;
-
-                if (kind == toString(SceneLightKind::Spot))
-                {
-                    issues.push_back(makeIssue(
-                        SceneIssue::Severity::Warning, "spot-light-cone-not-rendered", entity,
-                        BuiltinComponentIds::kLight,
-                        "This build draws a spot light as a point light: the effect has no cone. "
-                        "Its position, direction and range are used; its cone angle is not."));
-                }
 
                 if (kind == toString(SceneLightKind::Directional)) { directional.push_back(&entity); }
             }

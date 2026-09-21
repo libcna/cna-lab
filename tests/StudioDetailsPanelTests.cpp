@@ -3079,10 +3079,14 @@ CNA_STUDIO_TEST(ALightsRangeIsDeadOnADirectionalOneAndLiveOnAPointOne)
         return harness.last.propertiesInactive;
     };
 
-    // Exactly one on a directional light: Range. Kind, Colour and Intensity all mean something on
-    // every kind, and the transform's own fields are not conditional at all.
-    CNA_STUDIO_EXPECT_EQ(inactiveRowsFor("Directional"), std::size_t{1});
-    CNA_STUDIO_EXPECT_EQ(inactiveRowsFor("Point"), std::size_t{0});
+    // Three on a directional light -- Range, Inner Angle and Outer Angle -- and two on a point
+    // light, which has a range and no cone (`plan.md` STUDIO-20003). Kind, Colour and Intensity
+    // mean something on every kind, and the transform's own fields are not conditional at all.
+    //
+    // A spot light is the only kind that uses everything, which is what makes it the kind with no
+    // greyed row at all.
+    CNA_STUDIO_EXPECT_EQ(inactiveRowsFor("Directional"), std::size_t{3});
+    CNA_STUDIO_EXPECT_EQ(inactiveRowsFor("Point"), std::size_t{2});
     CNA_STUDIO_EXPECT_EQ(inactiveRowsFor("Spot"), std::size_t{0});
 }
 
@@ -3199,4 +3203,67 @@ CNA_STUDIO_TEST(EveryConditionalPropertyNamesASiblingThatCanSatisfyIt)
     // A scan that found no condition would agree with everything. `CNA.Light`'s Range is the one
     // that exists today; this number goes up as the rule is used.
     CNA_STUDIO_EXPECT(conditionsChecked >= 1);
+}
+
+/**
+ * @brief A light says what this build's effect cannot draw about it, where there is something.
+ *
+ * `plan.md` STUDIO-20003. The same shape the material editor uses, and for the same reason: a
+ * `BasicEffect` build flattens both punctual kinds into the directional slots, and a user who is
+ * not told reads a spot light with no cone edge as a broken renderer.
+ */
+CNA_STUDIO_TEST(ALightSaysWhatTheBuildsEffectCannotDrawAboutIt)
+{
+    const auto issuesFor = [](const char* kind, const char* effect) {
+        StudioContext context;
+
+        StudioEntity subject{Uuid::generate(), "Key Light"};
+        StudioComponent transform{BuiltinComponentIds::kTransform};
+        transform.applyDefaults(
+            *context.getComponentRegistry().find(BuiltinComponentIds::kTransform));
+        subject.getComponents().push_back(std::move(transform));
+
+        StudioComponent light{BuiltinComponentIds::kLight};
+        light.applyDefaults(*context.getComponentRegistry().find(BuiltinComponentIds::kLight));
+        light.setProperty("kind", PropertyValue{PropertyValue::EnumValue{kind}});
+        subject.getComponents().push_back(std::move(light));
+
+        const Uuid id = subject.getId();
+        context.getScene().addEntity(std::move(subject));
+        context.select(id);
+
+        auto shell = std::make_unique<StudioShell>(StudioTheme::dark());
+        StudioDetailsState state;
+        StudioDetailsResult last;
+
+        shell->resetLayout();
+        shell->renderFrame(at(-1.0f, -1.0f));
+        CNA_STUDIO_EXPECT(shell->activatePanel("details"));
+        CNA_STUDIO_EXPECT(shell->setPanelContent("details",
+            [&](StudioFrame& frame, const UiRect& area) {
+                StudioDetailsServices services;
+                services.modelEffectName = [effect] { return std::string{effect}; };
+                const StudioDetailsResult result =
+                    studioDetailsPanel(frame, area, context, services, &state);
+                if (frame.isInputPass()) { last = result; }
+            }));
+        shell->renderFrame(at(-1.0f, -1.0f));
+        return last.lightCapabilityIssues;
+    };
+
+    // `PbrEffect` implements CNA's punctual-light extension, so it draws every kind and says
+    // nothing about any of them.
+    for (const char* kind : {"Directional", "Point", "Spot"})
+    {
+        CNA_STUDIO_EXPECT_EQ(issuesFor(kind, "PbrEffect"), std::size_t{0});
+    }
+
+    // `BasicEffect` has only directional lights, so the two punctual kinds each lose something --
+    // and a directional light loses nothing, which is why it stays silent.
+    CNA_STUDIO_EXPECT_EQ(issuesFor("Directional", "BasicEffect"), std::size_t{0});
+    CNA_STUDIO_EXPECT_EQ(issuesFor("Point", "BasicEffect"), std::size_t{1});
+    CNA_STUDIO_EXPECT_EQ(issuesFor("Spot", "BasicEffect"), std::size_t{1});
+
+    // An effect this build has never heard of is silent rather than wrong.
+    CNA_STUDIO_EXPECT_EQ(issuesFor("Spot", "SomeFutureEffect"), std::size_t{0});
 }

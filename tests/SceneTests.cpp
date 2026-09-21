@@ -16,6 +16,7 @@
 
 #include "CNA/Studio/Scene/BuiltinComponents.hpp"
 #include "CNA/Studio/Scene/EntityArchetypes.hpp"
+#include "CNA/Studio/Assets/MaterialCapabilities.hpp"
 #include "CNA/Studio/Scene/StudioCamera3D.hpp"
 #include "CNA/Studio/Scene/SceneLighting.hpp"
 #include "CNA/Studio/Scene/SceneModels.hpp"
@@ -3932,14 +3933,17 @@ CNA_STUDIO_TEST(WhereMoreThanThreeLightsApplyTheThreeBrightestWin)
 }
 
 /**
- * @brief A point light is resolved against the thing being lit, which is what makes it a point light.
+ * @brief A point light is sent as a point light, with its own position and range.
  *
- * `IEffectLights` has no point light, so one is approximated as a directional light aimed at
- * whatever is being drawn. The property that makes the approximation worth having is exactly this:
- * two objects on opposite sides of a lamp must be lit from opposite directions. An implementation
- * that used the light's own forward axis would pass every other test here and fail this one.
+ * `plan.md` STUDIO-20003, and this case **replaces** one that asserted the opposite. It used to
+ * pin the workaround: `IEffectLights` has no point light, so Studio flattened one into a
+ * directional light aimed at whatever was being drawn, dimmed by distance. That was the right
+ * answer for an editor that only ever spoke `IEffectLights` — and the wrong belief about CNA,
+ * which takes one real punctual light per draw through `PbrEffect::setPunctualLightEXT`. The old
+ * assertions are kept below, applied to the light that *loses* the single slot, because the
+ * approximation is still what every extra lamp gets.
  */
-CNA_STUDIO_TEST(APointLightAimsAtWhateverIsBeingLitRatherThanAlongItsOwnAxis)
+CNA_STUDIO_TEST(APointLightIsSentWholeAndTheRunnersUpAreStillApproximated)
 {
     SceneLight lamp;
     lamp.kind = SceneLightKind::Point;
@@ -3947,20 +3951,88 @@ CNA_STUDIO_TEST(APointLightAimsAtWhateverIsBeingLitRatherThanAlongItsOwnAxis)
     lamp.range = 100.0f;
     lamp.intensity = 1.0f;
 
-    const EffectLighting left = computeEffectLighting({lamp}, StudioVector3{-10.0f, 0.0f, 0.0f});
-    const EffectLighting right = computeEffectLighting({lamp}, StudioVector3{10.0f, 0.0f, 0.0f});
+    const EffectLighting lit = computeEffectLighting({lamp}, StudioVector3{10.0f, 0.0f, 0.0f});
+    CNA_STUDIO_EXPECT(!lit.useDefaultLighting);
 
-    CNA_STUDIO_EXPECT(!left.useDefaultLighting);
-    CNA_STUDIO_EXPECT(!right.useDefaultLighting);
+    // The light goes to the punctual slot whole: its own position and range, not a direction and
+    // a pre-dimmed colour. That is what lets the effect shade per *pixel*, so one lamp beside a
+    // large model lights the near end of it and not the far one.
+    CNA_STUDIO_EXPECT(lit.hasPunctual);
+    CNA_STUDIO_EXPECT(lit.punctual.kind == SceneLightKind::Point);
+    CNA_STUDIO_EXPECT(cameraNearlyEqual(lit.punctual.position.x, 0.0f, 0.001f));
+    CNA_STUDIO_EXPECT(cameraNearlyEqual(lit.punctual.range, 100.0f, 0.001f));
+
+    // And it is *not* also a directional light: one lamp counted twice is one lamp at twice its
+    // brightness, which is the defect this ordering exists to prevent.
+    CNA_STUDIO_EXPECT_EQ(lit.lightCount, std::size_t{0});
+
+    // The colour carries intensity and **not** falloff, because the effect measures the distance
+    // itself. A pre-dimmed colour here would be the approximation wearing the new slot's clothes.
+    const EffectLighting far = computeEffectLighting({lamp}, StudioVector3{90.0f, 0.0f, 0.0f});
+    CNA_STUDIO_EXPECT(far.hasPunctual);
+    CNA_STUDIO_EXPECT(cameraNearlyEqual(far.punctual.diffuseColor.x, lit.punctual.diffuseColor.x,
+                                        0.001f));
+
+    // Out of range it reaches nothing at all, and with nothing else in the scene that is a scene
+    // with no light rather than a scene lit by a light that does nothing.
+    const EffectLighting beyond =
+        computeEffectLighting({lamp}, StudioVector3{101.0f, 0.0f, 0.0f});
+    CNA_STUDIO_EXPECT(!beyond.hasPunctual);
+    CNA_STUDIO_EXPECT(beyond.useDefaultLighting);
+
+    // Now the half that did not change. There is one punctual slot, so a second lamp is still
+    // approximated as a directional light aimed at whatever is being drawn — and the property that
+    // makes *that* worth having is the one the old case pinned: two objects on opposite sides of a
+    // lamp are lit from opposite directions.
+    SceneLight dim = lamp;
+    dim.intensity = 0.25f;
+
+    const EffectLighting left = computeEffectLighting({lamp, dim}, StudioVector3{-10.0f, 0.0f, 0.0f});
+    const EffectLighting right = computeEffectLighting({lamp, dim}, StudioVector3{10.0f, 0.0f, 0.0f});
+
+    CNA_STUDIO_EXPECT(left.hasPunctual);
+    CNA_STUDIO_EXPECT_EQ(left.lightCount, std::size_t{1});
     CNA_STUDIO_EXPECT(cameraNearlyEqual(left.lights[0].direction.x, -1.0f, 0.001f));
     CNA_STUDIO_EXPECT(cameraNearlyEqual(right.lights[0].direction.x, 1.0f, 0.001f));
 
-    // And it dims with distance, reaching exactly nothing at its range rather than tinting the
-    // whole level faintly forever -- which is what makes the range control do something visible.
-    const EffectLighting near = computeEffectLighting({lamp}, StudioVector3{10.0f, 0.0f, 0.0f});
-    const EffectLighting far = computeEffectLighting({lamp}, StudioVector3{90.0f, 0.0f, 0.0f});
-    CNA_STUDIO_EXPECT(near.lights[0].diffuseColor.x > far.lights[0].diffuseColor.x);
-    CNA_STUDIO_EXPECT(computeEffectLighting({lamp}, StudioVector3{101.0f, 0.0f, 0.0f}).useDefaultLighting);
+    // And the brighter of the two is the one that got the slot, not whichever came first.
+    CNA_STUDIO_EXPECT(left.punctual.diffuseColor.x > left.lights[0].diffuseColor.x);
+
+    // The approximated one still dims with distance, since its falloff has nowhere else to go.
+    const EffectLighting nearTwo = computeEffectLighting({lamp, dim}, StudioVector3{10.0f, 0.0f, 0.0f});
+    const EffectLighting farTwo = computeEffectLighting({lamp, dim}, StudioVector3{90.0f, 0.0f, 0.0f});
+    CNA_STUDIO_EXPECT(nearTwo.lights[0].diffuseColor.x > farTwo.lights[0].diffuseColor.x);
+}
+
+/** @brief A spot light carries its cone, which is the whole of what makes it one. */
+CNA_STUDIO_TEST(ASpotLightCarriesItsConeToTheEffect)
+{
+    SceneLight spot;
+    spot.kind = SceneLightKind::Spot;
+    spot.position = StudioVector3{0.0f, 0.0f, 0.0f};
+    spot.direction = StudioVector3{0.0f, 0.0f, 1.0f};
+    spot.range = 100.0f;
+    spot.intensity = 1.0f;
+    spot.innerAngle = 0.3f;
+    spot.outerAngle = 0.6f;
+
+    const EffectLighting lit = computeEffectLighting({spot}, StudioVector3{0.0f, 0.0f, 10.0f});
+    CNA_STUDIO_EXPECT(lit.hasPunctual);
+    CNA_STUDIO_EXPECT(lit.punctual.kind == SceneLightKind::Spot);
+    CNA_STUDIO_EXPECT(cameraNearlyEqual(lit.punctual.innerAngle, 0.3f, 0.001f));
+    CNA_STUDIO_EXPECT(cameraNearlyEqual(lit.punctual.outerAngle, 0.6f, 0.001f));
+
+    // Its direction is its own axis, not one aimed at the target: that is exactly the difference
+    // between a spot light and the point light it used to be flattened into.
+    CNA_STUDIO_EXPECT(cameraNearlyEqual(lit.punctual.direction.z, 1.0f, 0.001f));
+
+    // A directional light never reaches the punctual slot: it has no position for one.
+    SceneLight sun;
+    sun.kind = SceneLightKind::Directional;
+    sun.intensity = 1.0f;
+    const EffectLighting sunlit = computeEffectLighting({sun}, StudioVector3{0.0f, 0.0f, 0.0f});
+    CNA_STUDIO_EXPECT(!sunlit.hasPunctual);
+    CNA_STUDIO_EXPECT_EQ(sunlit.lightCount, std::size_t{1});
 }
 
 namespace
@@ -5467,17 +5539,22 @@ CNA_STUDIO_TEST(APointLightCreatedFromTheEditorLightsFromWhereItIsAndStopsAtItsR
     const SceneModelBatch near = buildSceneModelBatch(scene, camera, provider);
     CNA_STUDIO_EXPECT_EQ(near.draws.size(), std::size_t{1});
     CNA_STUDIO_EXPECT(!near.draws[0].lighting.useDefaultLighting);
-    CNA_STUDIO_EXPECT_EQ(near.draws[0].lighting.lightCount, std::size_t{1});
 
-    // The crate is at the origin and the lamp is at +4 on X, so the light arrives travelling -X.
-    CNA_STUDIO_EXPECT(near.draws[0].lighting.lights[0].direction.x < -0.9f);
+    // Sent whole through the punctual slot (`plan.md` STUDIO-20003), which is where a point light
+    // belongs: its own position and range, for the effect to measure per pixel. This case used to
+    // assert the directional approximation, because that was all Studio spoke.
+    CNA_STUDIO_EXPECT(near.draws[0].lighting.hasPunctual);
+    CNA_STUDIO_EXPECT(near.draws[0].lighting.punctual.kind == SceneLightKind::Point);
+    CNA_STUDIO_EXPECT(cameraNearlyEqual(near.draws[0].lighting.punctual.position.x, 4.0f, 0.001f));
 
-    // Move the lamp to the other side and the light arrives from the other side. A directional
-    // light would not have moved at all, which is what `STUDIO-20001`'s case asserts.
+    // Move the lamp to the other side and the light moves with it. A directional light would not
+    // have moved at all, which is what `STUDIO-20001`'s case asserts.
     transform->setProperty("position", PropertyValue{StudioVector3{-4.0f, 0.0f, 0.0f}});
     const SceneModelBatch across = buildSceneModelBatch(scene, camera, provider);
     CNA_STUDIO_EXPECT_EQ(across.draws.size(), std::size_t{1});
-    CNA_STUDIO_EXPECT(across.draws[0].lighting.lights[0].direction.x > 0.9f);
+    CNA_STUDIO_EXPECT(across.draws[0].lighting.hasPunctual);
+    CNA_STUDIO_EXPECT(cameraNearlyEqual(across.draws[0].lighting.punctual.position.x, -4.0f,
+                                        0.001f));
 
     // And beyond its range it lights nothing, so the scene falls back to the default rather than
     // drawing the crate black.
@@ -5588,58 +5665,55 @@ CNA_STUDIO_TEST(TheLightInspectorAndTheLightOverlayAgreeAboutWhatEachKindUses)
 }
 
 /**
- * @brief A spot light is offered and its cone is not drawn, so the editor says so.
+ * @brief A spot light's cone is drawn, and where it is not, the effect says so rather than the
+ *        scene report.
  *
- * `plan.md` STUDIO-20003, STUDIO-20008. `IEffectLights` — XNA's fixed-function lighting, which
- * both `BasicEffect` and CNA's `PbrEffect` implement — has an ambient colour and three directional
- * slots and nowhere to put a cone angle, so Studio draws a spot light exactly as it draws a point
- * light. Recorded as CNA gap G-13.
- *
- * The alternative was to drop `Spot` from the kinds so that nothing is offered that cannot be
- * drawn. That would have made the promise true and broken every scene already holding one — and a
- * game reading the loader's carried components can implement a cone for itself, which Studio has
- * no business forbidding over a limitation of one renderer. So the kind stays and the editor is
- * honest about it.
+ * `plan.md` STUDIO-20003. This case **replaces** one that asserted `validateScene` reports every
+ * spot light as undrawable. That rule was wrong twice over: CNA's `PbrEffect` takes a punctual
+ * light with inner and outer cone angles, which Studio now sends, and even as a statement about
+ * `BasicEffect` it had no business being in a report that cannot know which effect the build uses.
  */
-CNA_STUDIO_TEST(ASpotLightIsReportedBecauseThisRendererHasNoCone)
+CNA_STUDIO_TEST(ASpotLightsConeIsReportedByTheEffectRatherThanByTheSceneReport)
 {
     const ComponentRegistry registry = makeRegistry();
     SceneDocument scene;
 
     StudioEntity lamp = makeEntity(registry, "Stage Spot", 0.0f, 0.0f);
     addLight(registry, lamp, "Spot", 1.0f, 10.0f);
-    const Uuid lampId = scene.addEntity(std::move(lamp));
+    scene.addEntity(std::move(lamp));
 
-    const std::vector<SceneIssue> issues = validateScene(scene, registry);
-    CNA_STUDIO_EXPECT_EQ(countRule(issues, "spot-light-cone-not-rendered"), std::size_t{1});
-
-    // A warning rather than an error: the scene is legal and runs, and what it draws is a
-    // reasonable light. It is simply not the light the user asked for.
-    CNA_STUDIO_EXPECT_EQ(countIssues(issues, SceneIssue::Severity::Error), std::size_t{0});
-
-    // Named on the light itself, so the report's row selects the entity to fix.
-    for (const SceneIssue& issue : issues)
-    {
-        if (issue.ruleId != "spot-light-cone-not-rendered") { continue; }
-        CNA_STUDIO_EXPECT(issue.entityId == lampId);
-        CNA_STUDIO_EXPECT_EQ(issue.componentTypeId, std::string{BuiltinComponentIds::kLight});
-    }
-
-    // The other two kinds say nothing: a directional light is drawn exactly, and a point light's
-    // approximation is documented and behaves like one between objects.
-    for (const char* kind : {"Directional", "Point"})
-    {
-        SceneDocument other;
-        StudioEntity light = makeEntity(registry, "Lamp", 0.0f, 0.0f);
-        addLight(registry, light, kind, 1.0f, 10.0f);
-        other.addEntity(std::move(light));
-        CNA_STUDIO_EXPECT(validateScene(other, registry).empty());
-    }
-
-    // And switching the light off resolves it, like every other rule here: a disabled entity is
-    // not something the renderer will be asked to draw.
-    scene.findEntityForEdit(lampId)->setEnabled(false);
+    // Nothing from the scene report: a spot light is a legal, drawable thing now.
     CNA_STUDIO_EXPECT(validateScene(scene, registry).empty());
+
+    // The effect answers instead, and only the one that cannot draw it. `PbrEffect` is silent for
+    // every kind; `BasicEffect` explains what it does instead, per kind, because a point light
+    // and a spot light lose different things.
+    for (const char* kind : {"Directional", "Point", "Spot"})
+    {
+        CNA_STUDIO_EXPECT(studioLightCapabilityIssues("PbrEffect", kind).empty());
+    }
+
+    CNA_STUDIO_EXPECT(studioLightCapabilityIssues("BasicEffect", "Directional").empty());
+    CNA_STUDIO_EXPECT_EQ(studioLightCapabilityIssues("BasicEffect", "Point").size(),
+                         std::size_t{1});
+    CNA_STUDIO_EXPECT_EQ(studioLightCapabilityIssues("BasicEffect", "Spot").size(),
+                         std::size_t{1});
+
+    // Each one names the feature and says what happens instead: "some of this will not draw" is a
+    // line a user cannot act on.
+    const std::vector<StudioMaterialCapabilityIssue> spot =
+        studioLightCapabilityIssues("BasicEffect", "Spot");
+    CNA_STUDIO_EXPECT(!spot.empty());
+    if (!spot.empty())
+    {
+        CNA_STUDIO_EXPECT(!spot.front().feature.empty());
+        CNA_STUDIO_EXPECT(spot.front().detail.size() > spot.front().feature.size());
+    }
+
+    // An effect this build has never heard of is silent rather than wrong, which is the rule the
+    // material report already follows.
+    CNA_STUDIO_EXPECT(studioLightCapabilityIssues("SomeFutureEffect", "Spot").empty());
+    CNA_STUDIO_EXPECT(studioLightCapabilityIssues("", "Spot").empty());
 }
 
 /**

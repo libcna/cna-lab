@@ -28,6 +28,7 @@
 #include "Microsoft/Xna/Framework/Graphics/IndexBuffer.hpp"
 #include "Microsoft/Xna/Framework/Graphics/IndexElementSize.hpp"
 #include "Microsoft/Xna/Framework/Graphics/PbrEffect.hpp"
+#include "Microsoft/Xna/Framework/Graphics/PunctualLightEXT.hpp"
 #include "Microsoft/Xna/Framework/Graphics/PrimitiveType.hpp"
 #include "Microsoft/Xna/Framework/Graphics/RasterizerState.hpp"
 #include "Microsoft/Xna/Framework/Graphics/SamplerState.hpp"
@@ -334,6 +335,32 @@ namespace CNA::Studio
                 slots[i]->setDiffuseColorProperty(toXna(lighting.lights[i].diffuseColor));
                 slots[i]->setSpecularColorProperty(toXna(lighting.lights[i].specularColor));
             }
+
+            // And the one real point or spot light, through CNA's own extension (`plan.md`
+            // STUDIO-20003). `BasicEffect` does not implement it, so a build drawing through that
+            // effect is lit by the three slots above alone -- which is what every object got
+            // before this, and is why the light is *also* offered to the directional reduction
+            // when this branch cannot run.
+            if (pbr == nullptr) { return; }
+
+            XnaGraphics::PunctualLightEXT punctual;
+            if (lighting.hasPunctual)
+            {
+                punctual.Kind = lighting.punctual.kind == SceneLightKind::Spot
+                                    ? XnaGraphics::PunctualLightKindEXT::Spot
+                                    : XnaGraphics::PunctualLightKindEXT::Point;
+                punctual.Position = toXna(lighting.punctual.position);
+                punctual.Direction = toXna(lighting.punctual.direction);
+                punctual.DiffuseColor = toXna(lighting.punctual.diffuseColor);
+                punctual.Range = lighting.punctual.range;
+                punctual.InnerAngle = lighting.punctual.innerAngle;
+                punctual.OuterAngle = lighting.punctual.outerAngle;
+            }
+
+            // Set even when there is none: `Kind::None` leaves every other field inert, and an
+            // effect is reused across draws -- a lamp left attached from the previous model would
+            // light one that is nowhere near it.
+            pbr->setPunctualLightEXT(punctual);
         }
 
         // `applyMaterial` lived here and resolved a part's material itself -- the per-part

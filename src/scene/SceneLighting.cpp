@@ -126,6 +126,17 @@ namespace CNA::Studio
             light.intensity = component->getProperty("intensity").get<float>();
             light.range = component->getProperty("range").get<float>();
 
+            // Authored in degrees and carried in radians (`plan.md` STUDIO-20003). Clamped so the
+            // inner cone cannot exceed the outer one: a hand-edited scene where it does would
+            // divide by a negative band and light the *outside* of the cone, which looks like a
+            // renderer fault rather than a bad number.
+            constexpr float kDegreesToRadians = 3.14159265358979323846f / 180.0f;
+            light.outerAngle = component->getProperty("outerAngle").get<float>(35.0f)
+                               * kDegreesToRadians;
+            light.innerAngle = std::min(component->getProperty("innerAngle").get<float>(25.0f)
+                                            * kDegreesToRadians,
+                                        light.outerAngle);
+
             lights.push_back(light);
         }
 
@@ -146,8 +157,33 @@ namespace CNA::Studio
         std::vector<Candidate> candidates;
         candidates.reserve(lights.size());
 
+        // The one punctual slot, filled by the brightest point or spot light here (`plan.md`
+        // STUDIO-20003). Chosen before the directional reduction rather than after, so the light
+        // that goes to CNA's punctual extension is not also approximated into a directional slot
+        // -- the same lamp counted twice would be a lamp at twice its brightness.
+        const SceneLight* punctual = nullptr;
+        float punctualBrightness = 0.0f;
+
         for (const SceneLight& light : lights)
         {
+            if (!sceneLightUsesPosition(light.kind)) { continue; }
+
+            const float falloff = falloffAt(light, targetWorld);
+            if (falloff <= 0.0f) { continue; }
+
+            const float brightness =
+                brightnessOf(toLinearScaled(light.color, light.intensity, falloff));
+            if (brightness <= punctualBrightness) { continue; }
+
+            punctual = &light;
+            punctualBrightness = brightness;
+        }
+
+        for (const SceneLight& light : lights)
+        {
+            // The punctual one is sent whole, below, rather than flattened into a direction.
+            if (&light == punctual) { continue; }
+
             const float falloff = falloffAt(light, targetWorld);
             if (falloff <= 0.0f) { continue; }
 
@@ -163,10 +199,31 @@ namespace CNA::Studio
             candidates.push_back(Candidate{effectLight, brightness});
         }
 
+        if (punctual != nullptr)
+        {
+            lighting.hasPunctual = true;
+            lighting.punctual.kind = punctual->kind;
+            lighting.punctual.position = punctual->position;
+            lighting.punctual.direction = punctual->direction;
+            lighting.punctual.range = punctual->range;
+            lighting.punctual.innerAngle = punctual->innerAngle;
+            lighting.punctual.outerAngle = punctual->outerAngle;
+
+            // Intensity is folded in and the *falloff is not*: the effect measures distance per
+            // pixel from the position above, which is the whole reason this is worth sending
+            // rather than approximating.
+            lighting.punctual.diffuseColor =
+                toLinearScaled(punctual->color, punctual->intensity, 1.0f);
+        }
+
         // Nothing reaches this point in the world. Say "use the default" rather than "use these
         // zero lights": the two are the same arithmetic and completely different on screen, and
         // the one a user can act on is the model they can see.
-        if (candidates.empty()) { return lighting; }
+        //
+        // A punctual light counts as something reaching it, even with no directional candidate --
+        // a scene lit by one lamp is a lit scene, and falling back to XNA's rig there would wash
+        // out exactly the case the punctual slot exists for.
+        if (candidates.empty() && !lighting.hasPunctual) { return lighting; }
 
         // Brightest first, and only where they differ -- `std::stable_sort` so that two lights of
         // equal brightness keep document order and the picture does not change from frame to frame

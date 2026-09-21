@@ -293,6 +293,15 @@ namespace CNA::Studio
         std::size_t materialOverridesShown = 0;
 
         /**
+         * @brief Features a selected light asks for that the build's effect cannot draw.
+         *
+         * `plan.md` STUDIO-20003, counted for the reason @ref materialCapabilityIssues is: "the
+         * Inspector warns about this" is exactly the claim that passes while the panel prints
+         * nothing.
+         */
+        std::size_t lightCapabilityIssues = 0;
+
+        /**
          * @brief Assets of the wrong kind dropped on a slot and not taken (STUDIO-19009).
          *
          * Reported rather than swallowed. A drop that changes nothing and says nothing is

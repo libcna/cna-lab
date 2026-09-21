@@ -724,6 +724,7 @@ CNA_STUDIO_TEST(TheModelPassReadsEveryFieldTheLightingReductionFillsIn)
     // silently start covering nothing the day the header's formatting changed.
     static const char* const kFields[] = {
         "useDefaultLighting", "ambientColor", "ambientOverridesDefault", "lightCount",
+        "hasPunctual", "punctual",
     };
 
     for (const char* field : kFields)

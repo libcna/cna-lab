@@ -53,4 +53,27 @@ namespace CNA::Studio
      */
     [[nodiscard]] std::vector<StudioMaterialCapabilityIssue> studioMaterialCapabilityIssues(
         std::string_view effectName, const MaterialDocument& material);
+
+    /**
+     * @brief What a light of @p lightKind asks for that @p effectName cannot draw.
+     *
+     * `plan.md` STUDIO-20003. The same question one component over, and it lives here rather than
+     * in a second file because the answer has the same shape and the same seam: a feature the
+     * document carries, an effect that may or may not draw it, and a sentence a user can act on.
+     *
+     * `PbrEffect` implements CNA's punctual-light extension, so it draws a point light with a real
+     * position and a spot light with its cone. `BasicEffect` does not, so on a build drawing
+     * through it both are flattened into the directional slots: a point light behaves like one
+     * between objects and cannot fall off across a large one, and a spot light's cone is not drawn
+     * at all.
+     *
+     * This replaced a *scene validation* rule that said the same thing unconditionally. That rule
+     * was wrong twice over -- it was written believing CNA had no punctual light, and even as a
+     * statement about `BasicEffect` it fired in a report that has no idea which effect the build
+     * uses.
+     *
+     * @param lightKind `CNA.Light`'s own spelling: "Directional", "Point" or "Spot".
+     */
+    [[nodiscard]] std::vector<StudioMaterialCapabilityIssue> studioLightCapabilityIssues(
+        std::string_view effectName, std::string_view lightKind);
 }

@@ -4264,6 +4264,37 @@ namespace
                 }
             }
 
+            // What this light asks for that the build's effect cannot give (`plan.md`
+            // STUDIO-20003), in the same shape and for the same reason the material editor says
+            // it: named per feature, with what happens instead. `PbrEffect` draws both punctual
+            // kinds and is silent; a `BasicEffect` build flattens them and says so here rather
+            // than leaving a user to wonder why a cone has no edge.
+            if (component.getTypeId() == BuiltinComponentIds::kLight && services.modelEffectName)
+            {
+                const std::string effect = services.modelEffectName();
+                const std::string kind = component.getPropertyOrDefault("kind", descriptor)
+                                             .get<PropertyValue::EnumValue>()
+                                             .name;
+
+                for (const StudioMaterialCapabilityIssue& issue :
+                     studioLightCapabilityIssues(effect, kind))
+                {
+                    const PropertyRow parts = splitRow(theme, nextRow());
+                    if (frame.isDrawPass())
+                    {
+                        studioDrawText(frame, parts.label, issue.feature, StudioFontRole::Body,
+                                       theme.color(StudioColorRole::Warning));
+                        studioDrawText(frame, parts.control,
+                                       studioTruncateText(frame,
+                                                          theme.font(StudioFontRole::BodySmall),
+                                                          issue.detail, parts.control.width),
+                                       StudioFontRole::BodySmall,
+                                       theme.color(StudioColorRole::TextSecondary));
+                    }
+                    ++result.lightCapabilityIssues;
+                }
+            }
+
             // The sprite animation preview (STUDIO-07043), under the properties it plays. Scoped
             // the same way, because `CNA.SpriteAnimation` is non-unique too.
             if (isSpriteAnimation)

@@ -204,6 +204,43 @@ namespace CNA::Studio
             append(tip, add(back, scale(armY, -kHead * 0.5f)));
         }
 
+        // A spot light's cone, which is now a real thing the renderer draws (`plan.md`
+        // STUDIO-20003). Four rays to the rim and a ring closing them, at the *outer* angle: the
+        // inner one is where the falloff starts rather than where the light stops, and a user
+        // aiming a spot is aiming its edge.
+        if (light.kind == SceneLightKind::Spot && light.range > 0.0f && light.outerAngle > 0.0f)
+        {
+            const auto [coneX, coneY] = makePlaneBasisForLight(light.direction);
+            const float rimRadius = std::tan(light.outerAngle) * light.range;
+            const StudioVector3 centre = add(light.position, scale(light.direction, light.range));
+
+            constexpr std::size_t kConeSamples = 24;
+            constexpr float kTwoPi = 6.28318530717958647692f;
+
+            StudioVector3 previous;
+            for (std::size_t i = 0; i <= kConeSamples; ++i)
+            {
+                const float angle =
+                    kTwoPi * static_cast<float>(i) / static_cast<float>(kConeSamples);
+                const StudioVector3 point =
+                    add(centre, add(scale(coneX, std::cos(angle) * rimRadius),
+                                    scale(coneY, std::sin(angle) * rimRadius)));
+
+                if (i > 0) { append(previous, point); }
+
+                // Four rays rather than one per sample: the cone reads as a cone from its edges,
+                // and twenty-four lines from a point is a starburst that hides the geometry
+                // behind it.
+                if (i % (kConeSamples / 4) == 0 && i < kConeSamples)
+                {
+                    append(light.position, point);
+                }
+                previous = point;
+            }
+
+            return drawn;
+        }
+
         // Only a light that *has* a range gets a circle. A directional light reaches everything,
         // and a ring around one would be a boundary the user could move that means nothing.
         if (!sceneLightUsesRange(light.kind) || light.range <= 0.0f) { return drawn; }
