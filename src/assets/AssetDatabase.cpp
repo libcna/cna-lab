@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MS-PL
 #include "CNA/Studio/Assets/AssetDatabase.hpp"
+#include "CNA/Studio/Core/StudioFileWrite.hpp"
 
 #include <algorithm>
 #include <array>
@@ -615,16 +616,61 @@ namespace CNA::Studio
             return false;
         }
 
-        const std::string sidecarPath = resolvePath(record->sourcePath) + kSidecarExtension;
-        std::ofstream stream{sidecarPath, std::ios::binary | std::ios::trunc};
-        if (!stream)
+        // **A database with no project root does not write.** `resolvePath` returns the relative
+        // path unchanged when there is no root, so a sidecar written from one lands next to
+        // whatever the process happens to be standing in -- which is a file appearing in the
+        // user's working directory for an asset that is not there.
+        //
+        // This was latent and silent: the write simply failed, because the folder did not exist
+        // either. `STUDIO-31003` made the writer create the folders above its target, which is
+        // right for a document being saved into a new one and turned this into a directory tree
+        // appearing in the source checkout. Refused here, where the missing thing actually is.
+        if (getProjectRoot().empty())
         {
-            if (errorMessage != nullptr) { *errorMessage = "cannot write '" + sidecarPath + "'"; }
+            if (errorMessage != nullptr)
+            {
+                *errorMessage = "cannot write a sidecar for '" + record->sourcePath
+                              + "': this asset database has no project root";
+            }
             return false;
         }
 
-        stream << Json::write(recordToJson(*record), true);
-        return static_cast<bool>(stream);
+        const std::string sidecarPath = resolvePath(record->sourcePath) + kSidecarExtension;
+
+        // **The asset's folder must already be there.** `studioWriteFileAtomically` creates the
+        // directories above its target, which is what every *document* writer wanted -- a new
+        // material in a new folder, a project being created. A sidecar is the opposite case: it
+        // is metadata that belongs beside a file, so a missing folder means the asset is missing
+        // too, and building a tree for it would write the identity of something that is not
+        // there. Refused with a reason rather than silently.
+        //
+        // Before `STUDIO-31003` this was accidental -- the write simply failed, and said nothing.
+        // Making the writer create directories turned that silence into a folder appearing, which
+        // is how a test running with no project root came to write into the source tree.
+        const std::filesystem::path sidecarFolder =
+            std::filesystem::path{sidecarPath}.parent_path();
+        if (!sidecarFolder.empty() && !std::filesystem::exists(sidecarFolder))
+        {
+            if (errorMessage != nullptr)
+            {
+                *errorMessage = "cannot write '" + sidecarPath + "': the folder '"
+                              + sidecarFolder.generic_string() + "' does not exist";
+            }
+            return false;
+        }
+
+        // `plan.md` STUDIO-31003. A sidecar holds the asset's *identity* -- its `Uuid` -- and
+        // every scene in the project references it by that id. A truncated one is not a lost
+        // setting, it is an asset that comes back as a different asset and breaks every reference
+        // to it.
+        const StudioFileWriteResult wrote =
+            studioWriteFileAtomically(sidecarPath, Json::write(recordToJson(*record), true));
+        if (!wrote.succeeded)
+        {
+            if (errorMessage != nullptr) { *errorMessage = wrote.error; }
+            return false;
+        }
+        return true;
     }
 
     AssetScanResult AssetDatabase::scan(const std::string& relativeAssetDirectory)

@@ -8,6 +8,8 @@
 
 #include "CNA/Studio/Project/RecentProjects.hpp"
 
+#include "CNA/Studio/Core/StudioFileWrite.hpp"
+
 #include <algorithm>
 #include <filesystem>
 #include <fstream>
@@ -138,23 +140,12 @@ namespace CNA::Studio
         }
         document.set("projects", std::move(projects));
 
-        // Temporary and rename, like the preferences and the workspace: a Studio killed mid-save
-        // leaves the previous list rather than a half-written file that reads as corrupt.
-        const std::filesystem::path temporary =
-            path.parent_path() / (path.filename().string() + ".tmp");
-        {
-            std::ofstream stream{temporary, std::ios::binary | std::ios::trunc};
-            if (!stream) { return fail("cannot write '" + temporary.generic_string() + "'"); }
-            stream << Json::write(document, true);
-            if (!stream) { return fail("failed while writing '" + temporary.generic_string() + "'"); }
-        }
-
-        std::filesystem::rename(temporary, path, code);
-        if (code)
-        {
-            std::filesystem::remove(temporary, code);
-            return fail("cannot replace '" + path.generic_string() + "'");
-        }
+        // Temporary and rename, like every other authored file since `STUDIO-31003`: a Studio
+        // killed mid-save leaves the previous list rather than a half-written file that reads as
+        // corrupt.
+        const StudioFileWriteResult wrote =
+            studioWriteFileAtomically(path, Json::write(document, true));
+        if (!wrote.succeeded) { return fail(wrote.error); }
         return true;
     }
 

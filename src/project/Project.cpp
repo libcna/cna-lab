@@ -2,6 +2,7 @@
 #include "CNA/Studio/Project/Project.hpp"
 
 #include "CNA/Studio/Project/RendererCatalog.hpp"
+#include "CNA/Studio/Core/StudioFileWrite.hpp"
 
 #include <algorithm>
 #include <filesystem>
@@ -371,17 +372,13 @@ namespace CNA::Studio
             }
         }
 
-        std::ofstream stream{target, std::ios::binary | std::ios::trunc};
-        if (!stream)
+        // Atomically (`plan.md` STUDIO-31003): a project file truncated and then not written is
+        // a project that will not open, and the user has no copy of it anywhere.
+        const StudioFileWriteResult wrote =
+            studioWriteFileAtomically(target, Json::write(toJson(), true));
+        if (!wrote.succeeded)
         {
-            if (errorMessage != nullptr) { *errorMessage = "cannot open '" + target + "' for writing"; }
-            return false;
-        }
-
-        stream << Json::write(toJson(), true);
-        if (!stream)
-        {
-            if (errorMessage != nullptr) { *errorMessage = "write to '" + target + "' failed"; }
+            if (errorMessage != nullptr) { *errorMessage = wrote.error; }
             return false;
         }
 

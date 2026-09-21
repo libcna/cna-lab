@@ -7,6 +7,7 @@
  */
 
 #include "CNA/Studio/Assets/AssetShortcuts.hpp"
+#include "CNA/Studio/Core/StudioFileWrite.hpp"
 
 #include <algorithm>
 #include <cstdint>
@@ -207,11 +208,11 @@ namespace CNA::Studio
         json.set("favourites", idsTo(shortcuts.favourites));
         json.set("recent", idsTo(shortcuts.recent));
 
-        std::ofstream stream{file, std::ios::binary | std::ios::trunc};
-        if (!stream) { return fail("cannot write '" + path_ + "'"); }
-
-        stream << Json::write(json, true);
-        if (!stream.good()) { return fail("cannot write '" + path_ + "'"); }
+        // `plan.md` STUDIO-31003, and this one is the *smallest* file in the project, which is
+        // the reason to say so: a rule applied only where the stakes look high is a rule with an
+        // exception nobody remembers making.
+        const StudioFileWriteResult wrote = studioWriteFileAtomically(file, Json::write(json, true));
+        if (!wrote.succeeded) { return fail(wrote.error); }
         return true;
     }
 }

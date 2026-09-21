@@ -84,6 +84,7 @@ add_library(cna-studio-core STATIC
     src/core/ComponentDescriptor.cpp
     src/core/CommandHistory.cpp
     src/core/Sha256.cpp
+    src/core/StudioFileWrite.cpp
     src/core/StudioJobs.cpp
     src/core/FormatMigration.cpp
     src/core/ImageDiff.cpp

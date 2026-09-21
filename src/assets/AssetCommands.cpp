@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MS-PL
 #include "CNA/Studio/Assets/AssetCommands.hpp"
+#include "CNA/Studio/Core/StudioFileWrite.hpp"
 #include <system_error>
 #include <algorithm>
 #include <cctype>
@@ -210,14 +211,11 @@ namespace CNA::Studio
         /** @brief Writes @p text over @p path, creating the directories above it. */
         bool writeWholeFile(const std::string& path, const std::string& text)
         {
-            std::error_code error;
-            const std::filesystem::path parent = std::filesystem::path{path}.parent_path();
-            if (!parent.empty()) { std::filesystem::create_directories(parent, error); }
-
-            std::ofstream stream{path, std::ios::binary | std::ios::trunc};
-            if (!stream) { return false; }
-            stream << text;
-            return stream.good();
+            // `plan.md` STUDIO-31003. Both authored asset documents -- `.cnamaterial` and
+            // `.cnaenv` -- are written through here, and the undo of an *edit* replays the
+            // previous bytes through the same call, so a failed undo cannot half-restore a file
+            // either.
+            return studioWriteFileAtomically(path, text).succeeded;
         }
     }
 

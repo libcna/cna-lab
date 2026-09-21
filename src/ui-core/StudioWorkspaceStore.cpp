@@ -5,6 +5,7 @@
  */
 
 #include "CNA/Studio/UiCore/StudioWorkspaceStore.hpp"
+#include "CNA/Studio/Core/StudioFileWrite.hpp"
 
 #include <algorithm>
 
@@ -75,29 +76,13 @@ namespace CNA::Studio
             }
         }
 
-        // Written beside the original and renamed over it. A Studio killed mid-save then leaves the
-        // previous layout intact rather than a half-written file that reads as corrupt -- which
-        // would cost the user their arrangement for a reason that had nothing to do with it.
-        const std::filesystem::path temporary =
-            path.parent_path() / (path.filename().string() + ".tmp");
-        {
-            std::ofstream stream{temporary, std::ios::binary | std::ios::trunc};
-            if (!stream) { return fail("cannot write '" + temporary.generic_string() + "'"); }
-
-            stream << Json::write(document, true);
-            if (!stream)
-            {
-                return fail("failed while writing '" + temporary.generic_string() + "'");
-            }
-        }
-
-        std::filesystem::rename(temporary, path, code);
-        if (code)
-        {
-            std::error_code ignored;
-            std::filesystem::remove(temporary, ignored);
-            return fail("cannot replace '" + path.generic_string() + "': " + code.message());
-        }
+        // Written beside the original and renamed over it (`STUDIO-31003`). A Studio killed
+        // mid-save then leaves the previous layout intact rather than a half-written file that
+        // reads as corrupt -- which would cost the user their arrangement for a reason that had
+        // nothing to do with it.
+        const StudioFileWriteResult wrote =
+            studioWriteFileAtomically(path, Json::write(document, true));
+        if (!wrote.succeeded) { return fail(wrote.error); }
         return true;
     }
 

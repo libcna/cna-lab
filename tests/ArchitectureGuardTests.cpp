@@ -926,6 +926,144 @@ CNA_STUDIO_TEST(TheShadowPlanTheBatchCarriesIsWhatTheDeviceHalfRenders)
     }
 }
 
+/**
+ * @brief Every authored file is written atomically, and the exemptions are named.
+ *
+ * `plan.md` STUDIO-31003. This rule was already written down and already believed: `RecoveryStore`
+ * explains it exactly -- *a half-written recovery file fails to load at the one moment it is
+ * needed, having already convinced the user their work was safe* -- and three other files followed
+ * it, each with its own copy of the temp-and-rename dance. Every **document** truncated in place.
+ * The crash-recovery snapshot was being written safely to protect files that were not.
+ *
+ * A convention with four adherents and eight holes is not a convention, so the procedure lives in
+ * `studioWriteFileAtomically` and this refuses any other `std::ofstream` in `src/`. The exemptions
+ * are named here rather than pattern-matched, because a pattern that happened to spare them would
+ * spare the next document too.
+ */
+CNA_STUDIO_TEST(EveryAuthoredFileIsWrittenAtomically)
+{
+    struct Exemption
+    {
+        const char* file;
+        const char* because;
+    };
+
+    // Four, and each is a file that is not a user's document.
+    static const Exemption kExemptions[] = {
+        {"src/core/StudioFileWrite.cpp", "is the writer itself"},
+        {"src/project/BuildRunner.cpp",
+         "truncates a build *log* at the start of a build and appends to it; a log is not a "
+         "document, and a half-written one costs nothing"},
+        {"src/project/ProjectCreation.cpp",
+         "writes a zero-byte probe to find out whether a directory is writable, and deletes it "
+         "immediately"},
+        {"src/app/Main.cpp",
+         "generates benchmark scaffolding -- a placeholder bitmap and stub asset files -- which "
+         "no user authored and nobody can lose"},
+    };
+
+    std::size_t violations = 0;
+    for (const SourceFile& file : collectSources({"src"}))
+    {
+        if (file.text.find("std::ofstream") == std::string::npos) { continue; }
+
+        const bool exempt =
+            std::any_of(std::begin(kExemptions), std::end(kExemptions),
+                        [&file](const Exemption& allowed) {
+                            return file.relativePath.find(allowed.file) != std::string::npos;
+                        });
+        if (exempt) { continue; }
+
+        ++violations;
+        CnaStudioTest::reportFailure(__FILE__, __LINE__,
+            file.relativePath
+            + " opens a std::ofstream. Every authored file goes through "
+              "studioWriteFileAtomically (plan.md STUDIO-31003), because truncating a document "
+              "empties it before the replacement is written -- and a crash inside that window "
+              "loses the user's work. If this one genuinely is not a document, name it in "
+              "kExemptions with the reason.");
+    }
+    CNA_STUDIO_EXPECT_EQ(violations, std::size_t{0});
+
+    // And the exemptions are *live*: one naming a file that no longer writes anything is a licence
+    // nobody revoked, which is how an exemption list becomes a way around the rule.
+    for (const Exemption& allowed : kExemptions)
+    {
+        std::ifstream stream{sourceRoot() / allowed.file, std::ios::binary};
+        const std::string contents{std::istreambuf_iterator<char>{stream},
+                                   std::istreambuf_iterator<char>{}};
+        if (contents.find("std::ofstream") == std::string::npos)
+        {
+            CnaStudioTest::reportFailure(__FILE__, __LINE__,
+                std::string{allowed.file} + " is exempted from the atomic-write rule because it "
+                + allowed.because
+                + ", and it no longer opens a std::ofstream at all. Remove the exemption.");
+        }
+    }
+
+    // **And the writer actually renames a temporary**, which is the property none of the
+    // behavioural cases in `StudioFileWriteTests.cpp` can hold. A writer that opened the target
+    // directly and then renamed it onto itself passes every one of them: the bytes are right, the
+    // folder is clean, the failures are reported. The difference only shows under an interruption
+    // a test cannot create, and the permission tricks that would force one are ignored for a
+    // process running as root -- which is how CI runs. So this is a source scan, honest about
+    // being one, and it is the only thing standing between the rule and a quiet regression.
+    {
+        std::ifstream stream{sourceRoot() / "src/core/StudioFileWrite.cpp", std::ios::binary};
+        const std::string writer{std::istreambuf_iterator<char>{stream},
+                                 std::istreambuf_iterator<char>{}};
+        CNA_STUDIO_EXPECT(!writer.empty());
+
+        // `temporary +=` is the line that gives it a *different name* from the target, and it is
+        // the one a regression removes: a "temporary" that equals the path renames a file onto
+        // itself and truncates the document on the way, while still mentioning every other word
+        // this guard could look for. Asked for by name because the first version of this check
+        // looked for the words and passed that exact break.
+        for (const char* step :
+             {"std::filesystem::rename", "temporary +=", "nextWriteTicket"})
+        {
+            if (writer.find(step) == std::string::npos)
+            {
+                CnaStudioTest::reportFailure(__FILE__, __LINE__,
+                    std::string{"StudioFileWrite.cpp no longer mentions '"} + step
+                    + "', so it is not writing a uniquely named temporary and renaming it over "
+                      "the target -- which is the whole of what makes the write atomic.");
+            }
+        }
+
+        // The stream is opened on the *temporary*, never on the caller's path. One character, and
+        // it is the entire difference between a save that cannot lose a document and one that can.
+        if (writer.find("std::ofstream stream{temporary") == std::string::npos)
+        {
+            CnaStudioTest::reportFailure(__FILE__, __LINE__,
+                "StudioFileWrite.cpp does not open its stream on the temporary. Opening the "
+                "target directly empties the user's document before the replacement is written, "
+                "which is exactly the defect STUDIO-31003 removed.");
+        }
+    }
+
+    // The writer is reached by the documents that matter, named one at a time. A guard that only
+    // refused `std::ofstream` would pass a file that stopped writing anything at all.
+    static const char* const kAuthored[] = {
+        "src/scene/SceneDocument.cpp", "src/scene/PrefabDocument.cpp",
+        "src/assets/AssetCommands.cpp", "src/assets/AssetDatabase.cpp",
+        "src/project/Project.cpp", "src/project/RecoveryStore.cpp",
+    };
+    for (const char* authored : kAuthored)
+    {
+        std::ifstream stream{sourceRoot() / authored, std::ios::binary};
+        const std::string contents{std::istreambuf_iterator<char>{stream},
+                                   std::istreambuf_iterator<char>{}};
+        if (contents.find("studioWriteFileAtomically") == std::string::npos)
+        {
+            CnaStudioTest::reportFailure(__FILE__, __LINE__,
+                std::string{authored}
+                + " never calls studioWriteFileAtomically, so whatever it writes can be lost "
+                  "halfway through being written.");
+        }
+    }
+}
+
 CNA_STUDIO_TEST(NoStudioCodeHardCodesARendererName)
 {
     // `docs/ARCHITECTURE.md` §2.2 and the roadmap's rule against hard-coding today's renderer

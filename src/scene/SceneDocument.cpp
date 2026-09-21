@@ -8,6 +8,7 @@
 #include <unordered_set>
 
 #include "CNA/Studio/Core/Json.hpp"
+#include "CNA/Studio/Core/StudioFileWrite.hpp"
 #include "CNA/Studio/Scene/EntityJson.hpp"
 
 namespace CNA::Studio
@@ -435,17 +436,14 @@ namespace CNA::Studio
             }
         }
 
-        std::ofstream stream{path, std::ios::binary | std::ios::trunc};
-        if (!stream)
+        // Written to a temporary and renamed over the target (`plan.md` STUDIO-31003), never
+        // truncated in place. Truncating empties the user's document *before* the replacement is
+        // written, so a crash inside that window loses it -- and this is exactly the file the
+        // crash-recovery snapshot was written safely to protect.
+        const StudioFileWriteResult wrote = studioWriteFileAtomically(path, Json::write(toJson(), true));
+        if (!wrote.succeeded)
         {
-            if (errorMessage != nullptr) { *errorMessage = "cannot open '" + path + "' for writing"; }
-            return false;
-        }
-
-        stream << Json::write(toJson(), true);
-        if (!stream)
-        {
-            if (errorMessage != nullptr) { *errorMessage = "write to '" + path + "' failed"; }
+            if (errorMessage != nullptr) { *errorMessage = wrote.error; }
             return false;
         }
         return true;

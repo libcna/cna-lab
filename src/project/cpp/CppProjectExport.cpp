@@ -9,6 +9,7 @@
  */
 
 #include "CNA/Studio/Project/Cpp/CppProjectExport.hpp"
+#include "CNA/Studio/Core/StudioFileWrite.hpp"
 
 #include "CNA/Studio/Project/Cpp/CppRuntimeSources.hpp"
 #include "CNA/Studio/Project/Cpp/CppToolchain.hpp"
@@ -45,20 +46,18 @@ namespace CNA::Studio
                 return false;
             }
 
-            // Binary, deliberately. A source file written in text mode on Windows gets CRLF line
-            // endings it did not have in Studio's tree, which is a diff nobody made and, for the
-            // embedded runtime, a file that no longer matches the one it was embedded from.
-            std::ofstream stream{path, std::ios::binary | std::ios::trunc};
-            if (!stream)
+            // Byte for byte, deliberately: the writer copies what it is given, so a source file
+            // does not get CRLF line endings it did not have in Studio's tree -- a diff nobody
+            // made, and for the embedded runtime a file that no longer matches the one it was
+            // embedded from.
+            //
+            // And atomically (`plan.md` STUDIO-31003): an export half-written over a previous one
+            // is a build tree compiling against a file from two exports ago, which is a failure
+            // that looks like a compiler bug.
+            const StudioFileWriteResult wrote = studioWriteFileAtomically(path, contents);
+            if (!wrote.succeeded)
             {
-                errorMessage = "cannot write '" + path.generic_string() + "'";
-                return false;
-            }
-
-            stream.write(contents.data(), static_cast<std::streamsize>(contents.size()));
-            if (!stream)
-            {
-                errorMessage = "failed while writing '" + path.generic_string() + "'";
+                errorMessage = wrote.error;
                 return false;
             }
             return true;

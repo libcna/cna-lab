@@ -21,6 +21,7 @@ add_executable(cna-studio-tests
     StudioShellInteractionTests.cpp
     StudioDockTests.cpp
     StudioHostCapabilityTests.cpp
+    StudioFileWriteTests.cpp
     StudioFontTests.cpp
     StudioHighDpiTests.cpp
     StudioTargetProfileTests.cpp

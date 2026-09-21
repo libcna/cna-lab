@@ -145,6 +145,25 @@ unit of work. Only this one crossed a thread. The task was filed expecting a swe
 was a single case — which is the opposite of the usual surprise and is why the count is written down
 rather than left implied.
 
+**An unresolved observation, recorded during `STUDIO-31003` rather than explained.**
+`AThumbnailIsMadeOffTheFrameAndArrivesOnTheDrain` -- a *different* test in the same file -- failed
+twice while a four-configuration matrix was compiling beside it, at `thumbnail != nullptr` with a
+generated count of zero, and passed on every re-run in isolation in both `build-werror` and
+`build-cna`.
+
+**It is not this row's defect, and that is worth stating because the resemblance is close enough to
+mislead.** That row was about a test counting *frames* on the consumer's side of a thread boundary.
+This one crosses no boundary at all: it runs the job system in `StudioJobMode::Immediate`, where
+`waitForIdle` works the queue inline on the calling thread and nothing is scheduled. There is no
+race to lose.
+
+What is left is I/O. The case writes a PNG into the system temp directory and reads it back to
+decode it, and both failures happened while four build trees totalling about eleven gigabytes were
+being written concurrently on a disk at 83%. That is a hypothesis, not a diagnosis -- it has not
+been reproduced deliberately, and the failure has not been instrumented to say whether the write,
+the read or the decode is the one that gave up. Written down so the next occurrence starts from
+here rather than from "it is flaky", which is not a root cause.
+
 **The fix drives until the cache says so.** The loop now runs until `find(shown)` answers, bounded at
 two hundred iterations, with `waitForIdle` *inside* it so the worker is given its chance on every
 pass. That is what makes the bound a bound rather than a race: the only thing the iteration count has

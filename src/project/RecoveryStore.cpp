@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MS-PL
 #include "CNA/Studio/Project/RecoveryStore.hpp"
+#include "CNA/Studio/Core/StudioFileWrite.hpp"
 
 #include "CNA/Studio/Core/UserPaths.hpp"
 
@@ -82,26 +83,19 @@ namespace CNA::Studio
         document.set("scene", snapshot.scene);
 
         const std::filesystem::path target = directory / (snapshot.sceneId.toString() + kExtension);
-        const std::filesystem::path temporary = target.string() + ".tmp";
-
-        {
-            std::ofstream stream{temporary, std::ios::binary | std::ios::trunc};
-            if (!stream) { return fail("cannot open '" + temporary.generic_string() + "' for writing"); }
-
-            stream << Json::write(document, true);
-            if (!stream) { return fail("write to '" + temporary.generic_string() + "' failed"); }
-        }
 
         // Rename over the old snapshot rather than truncating it in place. A crash during a
         // snapshot then leaves the *previous* one intact, which is the whole point: a half-written
         // recovery file fails to load at the one moment it is needed, having already convinced the
         // user their work was safe.
-        std::filesystem::rename(temporary, target, errorCode);
-        if (errorCode)
-        {
-            std::filesystem::remove(temporary, errorCode);
-            return fail("cannot replace '" + target.generic_string() + "'");
-        }
+        //
+        // This file stated that rule first and followed it alone for a long time, while every
+        // document it was protecting truncated in place. `STUDIO-31003` moved the procedure into
+        // `studioWriteFileAtomically` and gave the rest of the editor the same guarantee; what is
+        // left here is the call and the reason.
+        const StudioFileWriteResult wrote =
+            studioWriteFileAtomically(target, Json::write(document, true));
+        if (!wrote.succeeded) { return fail(wrote.error); }
 
         return true;
     }

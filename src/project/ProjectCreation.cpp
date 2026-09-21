@@ -7,6 +7,7 @@
  */
 
 #include "CNA/Studio/Project/ProjectCreation.hpp"
+#include "CNA/Studio/Core/StudioFileWrite.hpp"
 
 #include <algorithm>
 #include <cctype>
@@ -92,18 +93,14 @@ namespace CNA::Studio
                 return false;
             }
 
-            // Binary, so a generated source file does not gain line endings on Windows that it did
-            // not have in the template, and so a second creation produces identical bytes.
-            std::ofstream stream{path, std::ios::binary | std::ios::trunc};
-            if (!stream)
+            // Atomically (`plan.md` STUDIO-31003), and byte for byte: the writer copies what it
+            // is given without touching line endings, so a generated source file does not gain
+            // CRLFs on Windows that it did not have in the template, and a second creation
+            // produces identical bytes.
+            const StudioFileWriteResult wrote = studioWriteFileAtomically(path, contents);
+            if (!wrote.succeeded)
             {
-                errorMessage = "cannot write '" + path.generic_string() + "'";
-                return false;
-            }
-            stream.write(contents.data(), static_cast<std::streamsize>(contents.size()));
-            if (!stream)
-            {
-                errorMessage = "failed while writing '" + path.generic_string() + "'";
+                errorMessage = wrote.error;
                 return false;
             }
             return true;
