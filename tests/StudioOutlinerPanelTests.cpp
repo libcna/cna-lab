@@ -754,6 +754,44 @@ CNA_STUDIO_TEST(ChoosingAMenuRowRunsTheCommandOrReportsTheAction)
 }
 
 /**
+ * An empty entity holding other entities is drawn as a folder (`plan.md` STUDIO-13008).
+ *
+ * Not a document concept, and deliberately so: a folder that had to be stripped on export would be
+ * a Studio-only idea living in a CNA file, and Studio produces CNA games rather than CNA Studio
+ * games. A folder is simply what an entity carrying nothing and holding other entities *looks
+ * like* -- which is exactly what `studio.entity.group` makes, and what a user reads it as.
+ */
+CNA_STUDIO_TEST(AnEmptyEntityWithChildrenIsDrawnAsAFolder)
+{
+    Fixture fixture;
+    StudioTreeState state;
+
+    const auto iconOf = [&](const Uuid& id) {
+        for (const StudioTreeRow& row : studioOutlinerRows(fixture.context.getScene(), {}, state))
+        {
+            if (row.id == id.toString()) { return row.icon; }
+        }
+        return StudioIcon::None;
+    };
+
+    // Player carries nothing and holds Weapon and Shield.
+    CNA_STUDIO_EXPECT(iconOf(fixture.player) == StudioIcon::Folder);
+
+    // Its children carry nothing and hold nothing, so they are plain empties -- the distinction is
+    // "holds other entities", not "carries no components".
+    CNA_STUDIO_EXPECT(iconOf(fixture.weapon) == StudioIcon::Entity);
+    CNA_STUDIO_EXPECT(iconOf(fixture.camera) == StudioIcon::Entity);
+
+    // And a row that *is* something keeps saying so, children or not: a camera with props parented
+    // to it is still a camera, and that is the fact the eye scans the column for.
+    StudioComponent lens{BuiltinComponentIds::kCamera};
+    lens.applyDefaults(
+        *fixture.context.getComponentRegistry().find(BuiltinComponentIds::kCamera));
+    fixture.context.getScene().findEntityForEdit(fixture.player)->addComponent(std::move(lens));
+    CNA_STUDIO_EXPECT(iconOf(fixture.player) == StudioIcon::Camera);
+}
+
+/**
  * A prefab instance says so, and says how far it goes (`plan.md` STUDIO-13009).
  *
  * The links have been on the entities since `STUDIO-19xxx` -- `kPrefabAsset` on the instance root
@@ -779,6 +817,7 @@ CNA_STUDIO_TEST(TheOutlinerMarksAPrefabInstanceAndItsWholeExtent)
     // detail column says what the entity carries.
     CNA_STUDIO_EXPECT(rowFor(fixture.player).iconRole == StudioColorRole::TextSecondary);
     CNA_STUDIO_EXPECT(rowFor(fixture.player).detail != std::string{"Prefab"});
+    const StudioIcon playerIconBefore = rowFor(fixture.player).icon;
 
     // Player becomes an instance root and Weapon one of its entities; Shield is left out, so the
     // case can tell "the whole subtree" from "everything under the root".
@@ -804,10 +843,11 @@ CNA_STUDIO_TEST(TheOutlinerMarksAPrefabInstanceAndItsWholeExtent)
     CNA_STUDIO_EXPECT(rowFor(fixture.weapon).detail != std::string{"Prefab"});
 
     // The type icon is kept and only its colour changes: a prefab instance holding a mesh is still
-    // a mesh, and the icon is the thing a user scans the column for. Compared against a row that
-    // is not a prefab and carries the same components, so this says "unchanged" rather than naming
-    // whichever glyph the fixture's entities happen to get.
-    CNA_STUDIO_EXPECT(rowFor(fixture.player).icon == rowFor(fixture.shield).icon);
+    // a mesh, and the icon is the thing a user scans the column for. Compared against what the row
+    // had *before* the links were added, so this says "unchanged" rather than naming whichever
+    // glyph the fixture's entities happen to get -- and a leaf against a leaf, because a row with
+    // children is drawn as a folder (`plan.md` STUDIO-13008) and that is a real difference.
+    CNA_STUDIO_EXPECT(rowFor(fixture.player).icon == playerIconBefore);
     CNA_STUDIO_EXPECT(rowFor(fixture.weapon).icon == rowFor(fixture.shield).icon);
 }
 

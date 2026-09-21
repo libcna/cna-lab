@@ -9,6 +9,9 @@
 #include "CNA/Studio/Core/StudioCommand.hpp"
 #include "CNA/Studio/ShellPanels/StudioContentBrowser.hpp"
 #include "CNA/Studio/Scene/SceneCommands.hpp"
+#include "CNA/Studio/Scene/BuiltinComponents.hpp"
+#include "CNA/Studio/Scene/TransformGizmos3D.hpp"
+#include "CNA/Studio/Scene/SceneTransform.hpp"
 #include "CNA/Studio/Scene/TransformGizmos.hpp"
 #include "CNA/Studio/Project/Project.hpp"
 #include "CNA/Studio/Scene/SceneDocument.hpp"
@@ -256,6 +259,151 @@ namespace CNA::Studio
                  log.append(LogSeverity::Info,
                             "Detached " + std::to_string(moved)
                                 + (moved == 1 ? " entity." : " entities."));
+             });
+
+        // Grouping (`plan.md` STUDIO-13008). Distinct from Attach above: Attach puts the selection
+        // under one of *itself*, which needs something to be the parent; Group makes the parent,
+        // which is what a user wants when the parent does not exist yet.
+        //
+        // A group is an ordinary entity with a transform and nothing else. No new document concept:
+        // a folder that had to be stripped on export would be a Studio-only idea living in a CNA
+        // file, and Studio produces CNA games rather than CNA Studio games.
+        bind("studio.entity.group",
+             [&context] { return !context.getSelection().empty(); },
+             [&context, &log] {
+                 // Roots only. A `ReparentEntityCommand` on a descendant of something already
+                 // moving would pull it out of the thing it is travelling with, and the parent
+                 // takes its subtree with it anyway.
+                 const std::vector<Uuid> roots =
+                     findSelectionRoots(context.getScene(), context.getSelection());
+                 if (roots.empty()) { return; }
+
+                 // The group goes where the selection is, so the pivot a user then drags is in the
+                 // middle of what they grouped rather than at the world origin -- which is where a
+                 // group with no transform of its own would put it, usually off screen.
+                 const std::optional<StudioVector3> pivot =
+                     computeSelectionPivot3D(context.getScene(), roots);
+
+                 // Under the common parent when the selection shares one, and at the scene root
+                 // otherwise. Grouping three siblings should leave the group where they were; there
+                 // is no sensible common answer for entities from different branches, and the root
+                 // is the one place that is not a guess.
+                 Uuid shared;
+                 bool first = true;
+                 for (const Uuid& id : roots)
+                 {
+                     const StudioEntity* entity = context.getScene().findEntity(id);
+                     if (entity == nullptr) { continue; }
+                     if (first) { shared = entity->getParentId(); first = false; }
+                     else if (entity->getParentId() != shared) { shared = Uuid{}; break; }
+                 }
+
+                 StudioEntity group{Uuid::generate(), "Group"};
+                 group.setParentId(shared);
+
+                 StudioComponent transform{BuiltinComponentIds::kTransform};
+                 if (const ComponentDescriptor* descriptor =
+                         context.getComponentRegistry().find(BuiltinComponentIds::kTransform))
+                 {
+                     transform.applyDefaults(*descriptor);
+                 }
+                 if (pivot)
+                 {
+                     // The pivot is a *world* point and the transform is relative to the parent, so
+                     // it is converted rather than assigned. Assigning it would put the group at
+                     // the right place only while its parent sat at the origin.
+                     WorldTransform world;
+                     world.position = *pivot;
+
+                     WorldTransform parentWorld;
+                     if (shared.isValid())
+                     {
+                         if (const std::optional<WorldTransform> found =
+                                 computeWorldTransform(context.getScene(), shared))
+                         {
+                             parentWorld = *found;
+                         }
+                     }
+                     transform.setProperty(
+                         "position",
+                         PropertyValue{localTransformUnder(world, parentWorld).position});
+                 }
+                 group.addComponent(std::move(transform));
+
+                 const Uuid groupId = group.getId();
+
+                 // One entry for the whole action: the user pressed Ctrl+G once. The create comes
+                 // first so the reparents have somewhere to go -- each reads its entity's world
+                 // transform when it is *built* and the new parent's when it *runs*, so the
+                 // children stay exactly where they are.
+                 auto batch = std::make_unique<CompositeCommand>(
+                     "Group " + std::to_string(roots.size())
+                     + (roots.size() == 1 ? " entity" : " entities"));
+                 batch->add(std::make_unique<CreateEntityCommand>(context.getScene(),
+                                                                  std::move(group)));
+                 for (const Uuid& id : roots)
+                 {
+                     batch->add(
+                         std::make_unique<ReparentEntityCommand>(context.getScene(), id, groupId));
+                 }
+
+                 context.execute(std::move(batch));
+
+                 // Selecting the group is what makes "group, then move it" work without a trip back
+                 // to the World Outliner -- the same bargain Duplicate strikes.
+                 context.setSelection({groupId});
+                 log.append(LogSeverity::Info,
+                            "Grouped " + std::to_string(roots.size())
+                                + (roots.size() == 1 ? " entity." : " entities."));
+             });
+
+        bind("studio.entity.ungroup",
+             [&context] {
+                 const std::vector<Uuid>& selection = context.getSelection();
+                 return std::any_of(selection.begin(), selection.end(), [&context](const Uuid& id) {
+                     return !context.getScene().getChildren(id).empty();
+                 });
+             },
+             [&context, &log] {
+                 const std::vector<Uuid> selection = context.getSelection();
+
+                 auto batch = std::make_unique<CompositeCommand>("Ungroup");
+                 std::vector<Uuid> freed;
+                 std::size_t groups = 0;
+
+                 for (const Uuid& id : selection)
+                 {
+                     const StudioEntity* group = context.getScene().findEntity(id);
+                     if (group == nullptr) { continue; }
+
+                     const std::vector<Uuid> children = context.getScene().getChildren(id);
+                     if (children.empty()) { continue; }
+
+                     ++groups;
+                     const Uuid destination = group->getParentId();
+                     for (const Uuid& child : children)
+                     {
+                         freed.push_back(child);
+                         batch->add(std::make_unique<ReparentEntityCommand>(context.getScene(),
+                                                                            child, destination));
+                     }
+
+                     // The group goes after its children have left, so the delete takes an empty
+                     // entity rather than the subtree -- a `DeleteEntityCommand` built before them
+                     // would have captured the children too and put them back on undo, twice.
+                     batch->add(std::make_unique<DeleteEntityCommand>(context.getScene(), id));
+                 }
+
+                 if (batch->isEmpty()) { return; }
+
+                 context.execute(std::move(batch));
+
+                 // What came out, rather than the groups that are now gone: a selection naming
+                 // entities the scene no longer has is one the inspector cannot show.
+                 context.setSelection(std::move(freed));
+                 log.append(LogSeverity::Info,
+                            "Ungrouped " + std::to_string(groups)
+                                + (groups == 1 ? " group." : " groups."));
              });
 
         bind("studio.file.saveAll",

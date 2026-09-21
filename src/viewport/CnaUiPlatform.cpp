@@ -69,6 +69,7 @@ namespace CNA::Studio
                 {UiKey::N, static_cast<int>(XnaInput::Keys::N)},
                 {UiKey::O, static_cast<int>(XnaInput::Keys::O)},
                 {UiKey::B, static_cast<int>(XnaInput::Keys::B)},
+                {UiKey::G, static_cast<int>(XnaInput::Keys::G)},
                 {UiKey::S, static_cast<int>(XnaInput::Keys::S)},
                 {UiKey::W, static_cast<int>(XnaInput::Keys::W)},
                 {UiKey::Q, static_cast<int>(XnaInput::Keys::Q)},

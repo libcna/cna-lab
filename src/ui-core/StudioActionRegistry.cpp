@@ -57,6 +57,7 @@ namespace CNA::Studio
                 case UiKey::D: return "D";  case UiKey::F: return "F";
                 case UiKey::N: return "N";  case UiKey::O: return "O";
                 case UiKey::B: return "B";
+                case UiKey::G: return "G";
                 case UiKey::Q: return "Q";
                 case UiKey::S: return "S";  case UiKey::W: return "W";
                 case UiKey::E: return "E";  case UiKey::R: return "R";
@@ -335,6 +336,17 @@ namespace CNA::Studio
                 StudioShortcut{});
         command("studio.entity.detach", "Detach",
                 "Make the selected entities roots, where they are.", C::Edit, StudioShortcut{});
+
+        // Ctrl+G and Ctrl+Shift+G, as in every editor that groups anything (`plan.md`
+        // STUDIO-13008). Distinct from Attach: Attach puts the selection under one of *itself*,
+        // which needs a thing to be the parent; Group makes the parent, which is what a user wants
+        // when the parent does not exist yet.
+        command("studio.entity.group", "Group",
+                "Put the selected entities under a new empty parent.", C::Edit,
+                chord(UiKey::G, mods(true)));
+        command("studio.entity.ungroup", "Ungroup",
+                "Move the selected groups' children up and remove the groups.", C::Edit,
+                chord(UiKey::G, mods(true, true)));
 
         command("studio.view.focusSelected", "Focus Selected",
                 "Move the viewport camera to frame the selection.", C::View, chord(UiKey::F));

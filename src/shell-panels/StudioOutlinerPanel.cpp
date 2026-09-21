@@ -39,7 +39,7 @@ namespace CNA::Studio
          * entity with a camera and a light is a camera with a light attached, because the camera is
          * the thing somebody is looking for.
          */
-        StudioIcon iconFor(const StudioEntity& entity)
+        StudioIcon iconFor(const StudioEntity& entity, bool hasChildren)
         {
             const auto has = [&entity](const char* typeId) {
                 for (const StudioComponent& component : entity.getComponents())
@@ -61,7 +61,14 @@ namespace CNA::Studio
             // A transform and nothing else is still an entity and still gets an icon: an empty
             // used as a pivot or a group is a real thing in the scene, and a blank where every
             // other row has a picture reads as a row that failed to load.
-            return StudioIcon::Entity;
+            //
+            // With children it is a folder, and without them a plain empty (`plan.md`
+            // STUDIO-13008). That is not a document concept, and deliberately so: a folder that
+            // had to be stripped on export would be a Studio-only idea living in a CNA file, and
+            // Studio produces CNA games rather than CNA Studio games. A folder is simply what an
+            // entity that carries nothing and holds other entities *looks like*, which is exactly
+            // what `studio.entity.group` makes and what a user reads it as.
+            return hasChildren ? StudioIcon::Folder : StudioIcon::Entity;
         }
 
         /** @brief The empty child list a leaf gets, so the walk needs no null check. */
@@ -161,7 +168,7 @@ namespace CNA::Studio
             // Dimmed and still fully clickable, which is exactly what `muted` is for -- a path
             // the user cannot click is a path they have to close the search to walk.
             row.muted = filter.active && filter.matched.find(id) == filter.matched.end();
-            row.icon = iconFor(*entity);
+            row.icon = iconFor(*entity, !children.empty());
 
             // Prefab status (`plan.md` STUDIO-13009). The accent runs through *every* entity of an
             // instance, not only its root, because the question a user actually has is "how far

@@ -27,6 +27,8 @@
 #include <filesystem>
 #include <fstream>
 #include <memory>
+#include "CNA/Studio/Scene/SceneTransform.hpp"
+#include <cmath>
 #include <string>
 #include <utility>
 #include <vector>
@@ -604,6 +606,130 @@ CNA_STUDIO_TEST(AttachParentsToTheLastSelectedAndDetachTakesItBack)
  * kind of history that makes a user stop trusting Ctrl+Z. It is checked here for the same reason
  * the Outliner's drag checks it, and the user is told rather than left to wonder.
  */
+/**
+ * Group makes the parent; Attach needs one already (`plan.md` STUDIO-13008).
+ *
+ * The two are complementary and neither substitutes for the other: Attach puts the selection under
+ * one of *itself*, which is what a user wants when the parent exists; Group makes it, which is what
+ * they want when it does not. There was no way to do the second at all.
+ *
+ * A group is an ordinary entity carrying a transform and nothing else. No new document concept: a
+ * folder that had to be stripped on export would be a Studio-only idea living in a CNA file, and
+ * Studio produces CNA games rather than CNA Studio games.
+ */
+CNA_STUDIO_TEST(GroupWrapsTheSelectionInANewParentWithoutMovingAnything)
+{
+    Fixture fixture;
+
+    // Two siblings at known places, so "the group went to their middle" is checkable.
+    const auto place = [&](const Uuid& id, float x) {
+        StudioComponent transform{BuiltinComponentIds::kTransform};
+        transform.applyDefaults(
+            *fixture.context.getComponentRegistry().find(BuiltinComponentIds::kTransform));
+        transform.setProperty("position", PropertyValue{StudioVector3{x, 0.0f, 0.0f}});
+        fixture.context.getScene().findEntityForEdit(id)->addComponent(std::move(transform));
+    };
+    place(fixture.entity, 40.0f);
+
+    StudioEntity otherEntity{Uuid::generate(), "Prop"};
+    const Uuid other = otherEntity.getId();
+    fixture.context.getScene().addEntity(std::move(otherEntity));
+    place(other, 240.0f);
+
+    const std::optional<WorldTransform> beforeA =
+        computeWorldTransform(fixture.context.getScene(), fixture.entity);
+    const std::optional<WorldTransform> beforeB =
+        computeWorldTransform(fixture.context.getScene(), other);
+    CNA_STUDIO_EXPECT(beforeA.has_value() && beforeB.has_value());
+    if (!beforeA || !beforeB) { return; }
+
+    fixture.context.setSelection({fixture.entity, other});
+    CNA_STUDIO_EXPECT(fixture.shell->actions().isEnabled("studio.entity.group"));
+    fixture.shell->invoke("studio.entity.group");
+
+    // One new entity, and both originals are now under it.
+    CNA_STUDIO_EXPECT_EQ(fixture.context.getScene().getEntities().size(), std::size_t{3});
+    CNA_STUDIO_EXPECT_EQ(fixture.context.getSelection().size(), std::size_t{1});
+
+    const Uuid group = fixture.context.getSelection().front();
+    CNA_STUDIO_EXPECT_EQ(fixture.context.getScene().getChildren(group).size(), std::size_t{2});
+
+    // Selecting the group is what makes "group, then move it" work without a trip back to the
+    // World Outliner -- the same bargain Duplicate strikes.
+    CNA_STUDIO_EXPECT(fixture.context.getScene().findEntity(fixture.entity)->getParentId() == group);
+    CNA_STUDIO_EXPECT(fixture.context.getScene().findEntity(other)->getParentId() == group);
+
+    // Nothing moved. A group that shifted what it grouped would be one a user has to put back by
+    // hand every time they tidy a hierarchy, which is the opposite of what tidying is for.
+    const std::optional<WorldTransform> afterA =
+        computeWorldTransform(fixture.context.getScene(), fixture.entity);
+    const std::optional<WorldTransform> afterB =
+        computeWorldTransform(fixture.context.getScene(), other);
+    CNA_STUDIO_EXPECT(afterA.has_value() && afterB.has_value());
+    if (!afterA || !afterB) { return; }
+    CNA_STUDIO_EXPECT(std::fabs(afterA->position.x - beforeA->position.x) < 0.001f);
+    CNA_STUDIO_EXPECT(std::fabs(afterB->position.x - beforeB->position.x) < 0.001f);
+
+    // And the group itself sits at their middle, so the pivot a user then drags is in the middle of
+    // what they grouped rather than at the world origin -- usually off screen. The two entities are
+    // at 40 and 240 rather than straddling the origin on purpose: with a pivot of zero, "the middle
+    // of the selection" and "wherever the default put it" are the same number, and the first draft
+    // of this case could not tell them apart.
+    const std::optional<WorldTransform> groupWorld =
+        computeWorldTransform(fixture.context.getScene(), group);
+    CNA_STUDIO_EXPECT(groupWorld.has_value());
+    if (!groupWorld) { return; }
+    CNA_STUDIO_EXPECT(std::fabs(groupWorld->position.x - 140.0f) < 0.001f);
+
+    // One entry for the whole action: the user pressed Ctrl+G once.
+    fixture.shell->invoke("studio.edit.undo");
+    CNA_STUDIO_EXPECT_EQ(fixture.context.getScene().getEntities().size(), std::size_t{2});
+    CNA_STUDIO_EXPECT(!fixture.context.getScene().findEntity(fixture.entity)->getParentId().isValid());
+}
+
+/**
+ * And Ungroup is its inverse (`plan.md` STUDIO-13008).
+ */
+CNA_STUDIO_TEST(UngroupLiftsTheChildrenOutAndRemovesTheGroup)
+{
+    Fixture fixture;
+
+    StudioEntity childEntity{Uuid::generate(), "Bone"};
+    childEntity.setParentId(fixture.entity);
+    const Uuid child = childEntity.getId();
+    fixture.context.getScene().addEntity(std::move(childEntity));
+
+    StudioEntity secondEntity{Uuid::generate(), "Bone 2"};
+    secondEntity.setParentId(fixture.entity);
+    const Uuid second = secondEntity.getId();
+    fixture.context.getScene().addEntity(std::move(secondEntity));
+
+    // Nothing to ungroup while the selection holds only leaves: greyed out rather than bright and
+    // doing nothing, because a control that looks available and refuses reads as broken.
+    fixture.context.setSelection({child});
+    CNA_STUDIO_EXPECT(!fixture.shell->actions().isEnabled("studio.entity.ungroup"));
+
+    fixture.context.setSelection({fixture.entity});
+    CNA_STUDIO_EXPECT(fixture.shell->actions().isEnabled("studio.entity.ungroup"));
+    fixture.shell->invoke("studio.entity.ungroup");
+
+    // The group is gone and its children are roots, which is where it was.
+    CNA_STUDIO_EXPECT(fixture.context.getScene().findEntity(fixture.entity) == nullptr);
+    CNA_STUDIO_EXPECT_EQ(fixture.context.getScene().getEntities().size(), std::size_t{2});
+    CNA_STUDIO_EXPECT(!fixture.context.getScene().findEntity(child)->getParentId().isValid());
+    CNA_STUDIO_EXPECT(!fixture.context.getScene().findEntity(second)->getParentId().isValid());
+
+    // What came out is selected, rather than the group that is now gone: a selection naming
+    // entities the scene no longer has is one the inspector cannot show.
+    CNA_STUDIO_EXPECT_EQ(fixture.context.getSelection().size(), std::size_t{2});
+
+    // One entry, and the group comes back with its children under it.
+    fixture.shell->invoke("studio.edit.undo");
+    CNA_STUDIO_EXPECT(fixture.context.getScene().findEntity(fixture.entity) != nullptr);
+    CNA_STUDIO_EXPECT_EQ(fixture.context.getScene().getChildren(fixture.entity).size(),
+                         std::size_t{2});
+}
+
 CNA_STUDIO_TEST(AttachRefusesToMakeAnEntityItsOwnDescendant)
 {
     Fixture fixture;

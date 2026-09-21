@@ -6,7 +6,7 @@
 
 **Exit criteria.** A scene with tens of thousands of entities browses and edits smoothly.
 
-**Progress:** 11 of 12 complete `███████████░`
+**Progress:** 12 of 12 complete `████████████`
 
 | Id | Task | Status | Depends on |
 |----|------|:------:|------------|
@@ -17,7 +17,7 @@
 | `STUDIO-13005` | Visibility and lock toggles | ✅ | `STUDIO-13001` |
 | `STUDIO-13006` | Rename, duplicate and delete | ✅ | `STUDIO-13001` |
 | `STUDIO-13007` | Context menu | ✅ | `STUDIO-06005` |
-| `STUDIO-13008` | Folder and group organisation | ⬜ | `STUDIO-13001` |
+| `STUDIO-13008` | Folder and group organisation | ✅ | `STUDIO-13001` |
 | `STUDIO-13009` | Prefab status indication | ✅ | `STUDIO-13001` |
 | `STUDIO-13010` | Type icons and component warnings | ✅ | `STUDIO-13001` |
 | `STUDIO-13011` | Virtualisation for large worlds | ✅ | `STUDIO-30010` |
@@ -377,6 +377,60 @@ which is how the first draft of it passed. `ChoosingAMenuRowRunsTheCommandOrRepo
 the rows themselves, one click per opening, and pins both halves of the dispatch: Lock is run here,
 Delete is reported. Checked by causing two failures — a right-click that never takes the row, and a
 Delete row that reports nothing. Each fails by name.
+
+### `STUDIO-13008` — Folder and group organisation
+
+**Acceptance.** A user can put a selection under a new parent and take it back out again, without
+anything moving and without inventing a document concept.
+
+**A group is an entity. There is no folder type, deliberately.** A folder node that had to be
+stripped on export would be a Studio-only idea living in a `.cnascene` file, and Studio produces CNA
+games rather than CNA Studio games. A folder is simply what an entity carrying nothing and holding
+other entities *looks like* — which is what `studio.entity.group` makes, and what a user reads it
+as. The Outliner draws that row with the folder icon; an entity that *is* something keeps saying so,
+children or not, because a camera with props parented to it is still a camera.
+
+**Group is not Attach.** Attach (`STUDIO-12010`) puts the selection under one of *itself*, which
+needs something to already be the parent; Group makes the parent, which is what a user wants when it
+does not exist yet. There was no way to do the second at all.
+
+**Nothing moves.** The group is created at the selection's pivot, and each root is reparented with
+the command that preserves world transforms — so the arrangement on screen is identical before and
+after. A group that shifted what it grouped would be one a user has to put back by hand every time
+they tidy a hierarchy, which is the opposite of what tidying is for.
+
+**The pivot is a world point and the group's transform is relative to its parent**, so it is
+converted through `localTransformUnder` rather than assigned. Assigning it would put the group in
+the right place only while its parent sat at the origin.
+
+**Under the common parent when the selection shares one, at the scene root otherwise.** Grouping
+three siblings should leave the group where they were; there is no sensible common answer for
+entities from different branches, and the root is the one place that is not a guess.
+
+**Roots only**, for the reason every other multi-entity operation in this phase takes roots: a
+reparent of something already travelling with its parent would pull it out of the thing it is moving
+with.
+
+**Ungroup lifts the children out before the group is deleted**, and the order is load-bearing: a
+`DeleteEntityCommand` built before them captures the whole subtree, so undo would put the children
+back twice. The selection afterwards is what came out rather than the group that is now gone — a
+selection naming entities the scene no longer has is one the inspector cannot show.
+
+**Ctrl+G and Ctrl+Shift+G**, as in every editor that groups anything. `G` joins `UiKey`, the
+shortcut name table and the platform map together, which is what
+`EveryKeyStudioCanAskAboutIsOneTheHostCanReport` exists to insist on.
+
+**Verification.** `tests/StudioShellActionTests.cpp`:
+`GroupWrapsTheSelectionInANewParentWithoutMovingAnything` pins one new entity, both originals under
+it, the group selected afterwards, both world positions unchanged, the group at the selection's
+middle, and one undo entry. Its two entities sit at 40 and 240 rather than straddling the origin on
+purpose — with a pivot of zero, "the middle of the selection" and "wherever the default put it" are
+the same number, and the first draft of the case could not tell them apart.
+`UngroupLiftsTheChildrenOutAndRemovesTheGroup` pins the inverse, the action greyed out when nothing
+in the selection has children, the children selected afterwards, and the group coming back whole on
+one Ctrl+Z. `tests/StudioOutlinerPanelTests.cpp`: `AnEmptyEntityWithChildrenIsDrawnAsAFolder`.
+Checked by causing two failures — a group placed at the origin rather than the pivot, and the group
+deleted before its children leave, which takes the subtree with it. Each fails by name.
 
 ### `STUDIO-13009` — Prefab status indication
 
