@@ -463,6 +463,33 @@ namespace CNA::Studio
                                                   const std::vector<std::string>& enumOptions,
                                                   const StudioPropertyEditContext& editing);
 
+    /** @brief One entry of the Inspector's Add Component list. */
+    struct StudioComponentChoice
+    {
+        /** @brief What the list shows: `"Category / Display Name"`, or the name when uncategorised. */
+        std::string label;
+
+        /** @brief What gets added. The list is remembered by *this*, never by index. */
+        std::string typeId;
+    };
+
+    /**
+     * @brief What the Add Component list should offer for @p entity.
+     *
+     * `plan.md` STUDIO-14002. The decision is a CNA-free function of the registry and the entity,
+     * so what is offered can be asserted without a frame, a dropdown or a popup -- the widget then
+     * shows this and the button adds what it names, which is wiring.
+     *
+     * A unique component the entity already carries is left out: listing it would be listing an
+     * entry that does nothing, `AddComponentCommand` refuses it anyway, and a control that refuses
+     * is indistinguishable from one that is broken.
+     *
+     * Empty means every type is already on the entity, which the panel says in those words rather
+     * than showing an empty list.
+     */
+    [[nodiscard]] std::vector<StudioComponentChoice> studioAddComponentChoices(
+        const ComponentRegistry& registry, const StudioEntity& entity);
+
     /**
      * @brief Which component sections the Inspector has closed.
      *

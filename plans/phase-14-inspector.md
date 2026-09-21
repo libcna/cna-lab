@@ -6,12 +6,12 @@
 
 **Exit criteria.** Every property type a component can declare is editable, validated and undoable.
 
-**Progress:** 1 of 18 complete `░░░░░░░░░░░░`
+**Progress:** 2 of 18 complete `█░░░░░░░░░░░`
 
 | Id | Task | Status | Depends on |
 |----|------|:------:|------------|
 | `STUDIO-14001` | Component sections with collapse and expand | ✅ | `STUDIO-07007` |
-| `STUDIO-14002` | Add and remove component | ⬜ | `STUDIO-14001` |
+| `STUDIO-14002` | Add and remove component | ✅ | `STUDIO-14001` |
 | `STUDIO-14003` | Numeric fields: typed entry and drag-to-change | ⬜ | `STUDIO-14001` |
 | `STUDIO-14004` | Vector and rotation editors | ⬜ | `STUDIO-14003` |
 | `STUDIO-14005` | Colour editor | ⬜ | `STUDIO-14001` |
@@ -32,6 +32,39 @@
 ## Acceptance and verification
 
 Tasks whose completion condition is not obvious from the title.
+
+### `STUDIO-14002` — Add and remove component
+
+**Acceptance.** A component can be chosen and added, and taken off again, both through the history.
+
+**Mostly built, under `STUDIO-07040`** — the gap that stopped Dear ImGui being deleted. Add is a
+dropdown of every addable type, grouped by category, with an Add button beside it; Remove is a
+button on each component's own header, asked of the command rather than decided in the panel so a
+descriptor that marks a component required is honoured in one place. Both go through the history,
+both are tested, and the required-component refusal is tested too.
+
+**The list itself was not gated**, and that is the half that makes the feature a feature: an
+Inspector that could only ever add the first entry of the registry would be one a user works around
+rather than uses. The list is now `studioAddComponentChoices`, a CNA-free function of the registry
+and the entity, so what is offered can be asserted without a frame, a dropdown or a popup — the
+widget shows it and the button adds what it names, which is wiring. The choice is carried as a
+*type id* rather than an index, because the list shortens the moment a unique component is added and
+a remembered index would then point at a different type.
+
+**A first attempt at gating it drove the dropdown through the shell and passed against an
+implementation that ignored the choice entirely.** The list shortens as unique components are added,
+so the entry at index zero changes on its own, and "a different component arrived" was true either
+way. The test was removed rather than patched: it was asserting a coincidence. Recorded here and in
+the replacement's comment, because that shape of false pass is easy to write again.
+
+**Verification.** `tests/StudioDetailsPanelTests.cpp`:
+`AComponentCanBeAddedToTheSelectedEntityAndUndone` and
+`AComponentIsRemovedFromItsOwnHeaderAndUndone` were already there.
+`TheAddComponentListLeavesOutWhatTheEntityAlreadyHas` pins the list: a unique component the entity
+carries is not offered, every entry names a registered type and carries the id it will add, the
+label is the category and the display name with the fallback when there is no category, and an
+entity with nothing on it is offered exactly one more. Checked by causing the unique-exclusion to
+stop happening; it fails by name.
 
 ### `STUDIO-14001` — Component sections with collapse and expand
 

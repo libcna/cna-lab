@@ -27,6 +27,7 @@
 #include "CNA/Studio/ShellPanels/StudioDetailsPanel.hpp"
 #include "CNA/Studio/StudioContext.hpp"
 #include "CNA/Studio/UiCore/StudioShell.hpp"
+#include "CNA/Studio/UiCore/StudioWidgets.hpp"
 #include "CNA/Studio/UiCore/UiSoftwareRasterizer.hpp"
 
 #include <algorithm>
@@ -532,6 +533,72 @@ CNA_STUDIO_TEST(AComponentCanBeAddedToTheSelectedEntityAndUndone)
     CNA_STUDIO_EXPECT(fixture.context.getHistory().canUndo());
     CNA_STUDIO_EXPECT(fixture.context.getHistory().undo());
     CNA_STUDIO_EXPECT_EQ(componentCount(), before);
+}
+
+/**
+ * What the Add Component list offers (`plan.md` STUDIO-14002).
+ *
+ * The case above presses Add and checks that something appeared, which passes just as well for a
+ * control hard-wired to one type. The *list* is the half that makes the feature a feature, and it
+ * is a function of the registry and the entity rather than something the widget works out -- so it
+ * can be asserted without a frame, a dropdown or a popup, which is the only way this half was ever
+ * going to be gated honestly.
+ *
+ * A first attempt drove the dropdown through the shell and passed against an implementation that
+ * ignored the choice entirely: the list *shortens* as unique components are added, so the entry at
+ * index zero changes on its own and "a different component arrived" was true either way. Recorded
+ * because that shape of false pass is easy to write again.
+ */
+CNA_STUDIO_TEST(TheAddComponentListLeavesOutWhatTheEntityAlreadyHas)
+{
+    Fixture fixture;
+    const ComponentRegistry& registry = fixture.context.getComponentRegistry();
+    const StudioEntity* entity = fixture.context.getScene().findEntity(fixture.entity);
+    CNA_STUDIO_EXPECT(entity != nullptr);
+    if (entity == nullptr) { return; }
+
+    const std::vector<StudioComponentChoice> choices = studioAddComponentChoices(registry, *entity);
+    CNA_STUDIO_EXPECT(!choices.empty());
+
+    const auto offers = [&choices](std::string_view typeId) {
+        for (const StudioComponentChoice& choice : choices)
+        {
+            if (choice.typeId == typeId) { return true; }
+        }
+        return false;
+    };
+
+    // The entity carries a Transform, which is unique, so the list must not offer a second one --
+    // `AddComponentCommand` would refuse it, and a control that refuses is indistinguishable from
+    // one that is broken.
+    CNA_STUDIO_EXPECT(registry.find("CNA.Transform") != nullptr);
+    CNA_STUDIO_EXPECT(registry.find("CNA.Transform")->unique);
+    CNA_STUDIO_EXPECT(!offers("CNA.Transform"));
+
+    // Every other registered type is offered, and each entry carries the id it will add rather
+    // than a position in a list that changes length as the entity gains components.
+    for (const StudioComponentChoice& choice : choices)
+    {
+        CNA_STUDIO_EXPECT(!choice.typeId.empty());
+        CNA_STUDIO_EXPECT(!choice.label.empty());
+        CNA_STUDIO_EXPECT(registry.find(choice.typeId) != nullptr);
+    }
+
+    // The label carries the category so a long registry reads as a menu rather than a wall of
+    // names, and falls back to the display name when there is no category to show.
+    for (const StudioComponentChoice& choice : choices)
+    {
+        const ComponentDescriptor* descriptor = registry.find(choice.typeId);
+        if (descriptor == nullptr) { continue; }
+        CNA_STUDIO_EXPECT_EQ(choice.label,
+                             descriptor->category.empty()
+                                 ? descriptor->displayName
+                                 : descriptor->category + " / " + descriptor->displayName);
+    }
+
+    // An entity with nothing on it is offered the Transform the fixture's is not.
+    StudioEntity bare{Uuid::generate(), "Bare"};
+    CNA_STUDIO_EXPECT(studioAddComponentChoices(registry, bare).size() == choices.size() + 1);
 }
 
 CNA_STUDIO_TEST(AComponentIsRemovedFromItsOwnHeaderAndUndone)

@@ -2900,6 +2900,29 @@ namespace
         return result;
     }
 
+    std::vector<StudioComponentChoice> studioAddComponentChoices(const ComponentRegistry& registry,
+                                                                 const StudioEntity& entity)
+    {
+        std::vector<StudioComponentChoice> choices;
+        for (const std::string& typeId : registry.getTypeIds())
+        {
+            const ComponentDescriptor* candidate = registry.find(typeId);
+            if (candidate == nullptr) { continue; }
+
+            // A unique component the entity already has cannot be added again, so listing it would
+            // be listing an entry that does nothing -- `AddComponentCommand` refuses it anyway, and
+            // a control that refuses is indistinguishable from one that is broken.
+            if (candidate->unique && entity.findComponent(typeId) != nullptr) { continue; }
+
+            choices.push_back(StudioComponentChoice{
+                candidate->category.empty()
+                    ? candidate->displayName
+                    : candidate->category + " / " + candidate->displayName,
+                typeId});
+        }
+        return choices;
+    }
+
     StudioDetailsResult studioDetailsPanel(StudioFrame& frame, const UiRect& bounds,
                                            StudioContext& context,
                                            const StudioDetailsServices& services,
@@ -3387,22 +3410,20 @@ namespace
             const PropertyRow parts = splitRow(theme, nextRow());
             frame.ids().push("addcomponent");
 
+            // The decision is a function of the registry and the entity (`plan.md` STUDIO-14002),
+            // so what is offered can be asserted without a frame, a dropdown or a popup. What
+            // follows is the widget that shows it and the button that adds what it names.
+            const std::vector<StudioComponentChoice> choices =
+                studioAddComponentChoices(context.getComponentRegistry(), *entity);
+
             std::vector<std::string> labels;
             std::vector<std::string> typeIds;
-            for (const std::string& typeId : context.getComponentRegistry().getTypeIds())
+            labels.reserve(choices.size());
+            typeIds.reserve(choices.size());
+            for (const StudioComponentChoice& choice : choices)
             {
-                const ComponentDescriptor* candidate = context.getComponentRegistry().find(typeId);
-                if (candidate == nullptr) { continue; }
-
-                // A unique component the entity already has cannot be added again, so listing it
-                // would be listing an entry that does nothing -- AddComponentCommand refuses it
-                // anyway, and a control that refuses is indistinguishable from one that is broken.
-                if (candidate->unique && entity->findComponent(typeId) != nullptr) { continue; }
-
-                labels.push_back(candidate->category.empty()
-                                     ? candidate->displayName
-                                     : candidate->category + " / " + candidate->displayName);
-                typeIds.push_back(typeId);
+                labels.push_back(choice.label);
+                typeIds.push_back(choice.typeId);
             }
 
             if (labels.empty())
