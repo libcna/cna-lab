@@ -84,6 +84,7 @@ namespace CNA::Studio
         setTexture(root, "normalTexture", normalTexture);
         setTexture(root, "metallicRoughnessTexture", metallicRoughnessTexture);
         setTexture(root, "emissiveTexture", emissiveTexture);
+        setTexture(root, "occlusionTexture", occlusionTexture);
 
         return root;
     }
@@ -109,6 +110,7 @@ namespace CNA::Studio
         normalTexture = Uuid::parse(json["normalTexture"].asString(""));
         metallicRoughnessTexture = Uuid::parse(json["metallicRoughnessTexture"].asString(""));
         emissiveTexture = Uuid::parse(json["emissiveTexture"].asString(""));
+        occlusionTexture = Uuid::parse(json["occlusionTexture"].asString(""));
 
         return true;
     }

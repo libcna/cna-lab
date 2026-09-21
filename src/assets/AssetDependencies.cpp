@@ -196,7 +196,8 @@ namespace CNA::Studio
                          {std::pair{"diffuseTexture", material.diffuseTexture},
                           std::pair{"normalTexture", material.normalTexture},
                           std::pair{"metallicRoughnessTexture", material.metallicRoughnessTexture},
-                          std::pair{"emissiveTexture", material.emissiveTexture}})
+                          std::pair{"emissiveTexture", material.emissiveTexture},
+                          std::pair{"occlusionTexture", material.occlusionTexture}})
                     {
                         if (!target.isValid()) { continue; }
                         AssetUsage usage = holder;

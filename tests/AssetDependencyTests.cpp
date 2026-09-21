@@ -166,31 +166,43 @@ CNA_STUDIO_TEST(AMaterialsTextureFieldsAreReferencesLikeAnyOther)
     const ScopedProject project{"material"};
     project.write("Assets/diffuse.png", "pixels");
     project.write("Assets/normal.png", "pixels");
+    project.write("Assets/occlusion.png", "pixels");
 
     AssetDatabase assets;
     assets.setProjectRoot(project.root());
     const Uuid diffuseId = track(assets, "Assets/diffuse.png", AssetType::Texture2D);
     const Uuid normalId = track(assets, "Assets/normal.png", AssetType::Texture2D);
+    const Uuid occlusionId = track(assets, "Assets/occlusion.png", AssetType::Texture2D);
 
     MaterialDocument material;
     material.diffuseTexture = diffuseId;
     material.normalTexture = normalId;
+
+    // The slot `STUDIO-19002` added, here for the same reason the other two are: a map a user
+    // filled in and a dependency view that cannot see it is a texture the view calls unused and
+    // offers to delete.
+    material.occlusionTexture = occlusionId;
     project.write("Assets/Stone.cnamaterial", Json::write(material.toJson(), true));
     const Uuid materialId = track(assets, "Assets/Stone.cnamaterial", AssetType::Material);
 
     AssetDependencyIndex index;
     const AssetDependencyScan scan = index.build(assets, registry);
-    CNA_STUDIO_EXPECT_EQ(scan.referencesFound, std::size_t{2});
+    CNA_STUDIO_EXPECT_EQ(scan.referencesFound, std::size_t{3});
 
     const std::vector<AssetUsage> users = index.referencedBy(diffuseId);
     CNA_STUDIO_EXPECT_EQ(users.size(), std::size_t{1});
     CNA_STUDIO_EXPECT_EQ(users.front().holderId.toString(), materialId.toString());
     CNA_STUDIO_EXPECT_EQ(users.front().propertyName, std::string{"diffuseTexture"});
 
+    const std::vector<AssetUsage> occluders = index.referencedBy(occlusionId);
+    CNA_STUDIO_EXPECT_EQ(occluders.size(), std::size_t{1});
+    CNA_STUDIO_EXPECT_EQ(occluders.front().propertyName, std::string{"occlusionTexture"});
+
     const std::vector<Uuid> referenced = index.referencesTo(materialId);
-    CNA_STUDIO_EXPECT_EQ(referenced.size(), std::size_t{2});
+    CNA_STUDIO_EXPECT_EQ(referenced.size(), std::size_t{3});
     CNA_STUDIO_EXPECT(holds(referenced, diffuseId));
     CNA_STUDIO_EXPECT(holds(referenced, normalId));
+    CNA_STUDIO_EXPECT(holds(referenced, occlusionId));
 }
 
 CNA_STUDIO_TEST(APrefabsReferencesCountAndSoDoAnImportersOwn)

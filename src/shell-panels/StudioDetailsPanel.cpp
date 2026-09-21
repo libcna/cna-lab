@@ -2250,6 +2250,54 @@ namespace
             }
         }
 
+        // The texture slots (`plan.md` STUDIO-19002). `MaterialDocument` has carried four of these
+        // ids since ED-403 and the editor could set none of them: a material's maps could only be
+        // filled in by writing the JSON by hand. Each is an ordinary typed asset slot, so it
+        // picks, filters and takes a drop exactly as a component's does (STUDIO-19009) rather than
+        // growing a second kind of picker here.
+        struct TextureField
+        {
+            const char* id;
+            const char* label;
+            Uuid MaterialDocument::*member;
+        };
+        static const TextureField kTextures[] = {
+            {"diffuse-map", "Base Colour Map", &MaterialDocument::diffuseTexture},
+            {"normal-map", "Normal Map", &MaterialDocument::normalTexture},
+            // One slot for both, because glTF packs them into one image and `PbrEffect` takes one
+            // texture. Two slots would be a picture of a general PBR editor rather than of what
+            // this renderer draws, and the second would have nowhere to go.
+            {"metallic-roughness-map", "Metallic-Roughness Map",
+             &MaterialDocument::metallicRoughnessTexture},
+            {"emissive-map", "Emissive Map", &MaterialDocument::emissiveTexture},
+            {"occlusion-map", "Occlusion Map", &MaterialDocument::occlusionTexture},
+        };
+
+        for (const TextureField& field : kTextures)
+        {
+            const PropertyRow parts = splitRow(theme, nextRow());
+            say(parts.label, field.label, StudioColorRole::TextSecondary);
+            ++result.materialFields;
+
+            frame.ids().push(field.id);
+            const StudioPropertyEditContext editing{&context, Uuid{}, std::string{"Texture2D"}};
+            const StudioPropertyEditResult change = studioPropertyEditor(
+                frame, parts.control,
+                PropertyValue{PropertyValue::AssetReference{material.*field.member}}, {}, editing);
+            frame.ids().pop();
+
+            result.assetChoicesOffered += change.assetChoices;
+            if (change.refusedDrop) { ++result.dropsRefused; }
+
+            if (change.edited.has_value() && !edited.has_value())
+            {
+                MaterialDocument next = material;
+                next.*field.member = change.edited->get<PropertyValue::AssetReference>().id;
+                edited = next;
+                editedField = field.label;
+            }
+        }
+
         // Said plainly rather than left to be discovered: which effect a build got decides whether
         // metallic and roughness reach the screen at all (CNA gap G-05), and on a BasicEffect build
         // they are still not wasted -- the specular colour and power are derived from them.
@@ -2367,10 +2415,10 @@ namespace
 
         // Name, path, kind, a gap, the importer's heading, and one row per setting -- plus the
         // preview row when this is something that can be heard, the material editor's own rows
-        // when this is a material -- a heading, six fields and the effect line -- and the texture
-        // plan's rows above.
+        // when this is a material -- a heading, eleven fields and the effect line -- and the
+        // texture plan's rows above.
         const std::size_t rows = 6 + (isAudibleAsset(record->type) ? 1u : 0u)
-                                 + (record->type == AssetType::Material ? 8u : 0u)
+                                 + (record->type == AssetType::Material ? 13u : 0u)
                                  + (properties != nullptr ? properties->size() : 0)
                                  + textureRows + dependencyRows + relinkRows
                                  // The File group: its heading, Size and Modified.
@@ -2551,6 +2599,8 @@ namespace
                 studioMaterialEditor(frame, cursor, context, *record, services);
             result.rowsDrawn += material.rowsDrawn;
             result.materialFields = material.materialFields;
+            result.assetChoicesOffered += material.assetChoicesOffered;
+            result.dropsRefused += material.dropsRefused;
             result.edited = material.edited;
             result.editedProperty = material.editedProperty;
         }
@@ -2944,6 +2994,8 @@ namespace
 
         result.rowsDrawn += editor.rowsDrawn;
         result.materialFields = editor.materialFields;
+        result.assetChoicesOffered += editor.assetChoicesOffered;
+        result.dropsRefused += editor.dropsRefused;
         result.edited = editor.edited;
         result.editedProperty = editor.editedProperty;
         return result;

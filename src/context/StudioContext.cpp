@@ -245,6 +245,7 @@ namespace CNA::Studio
             resolved.normalTexturePath = pathOf(material.normalTexture);
             resolved.metallicRoughnessTexturePath = pathOf(material.metallicRoughnessTexture);
             resolved.emissiveTexturePath = pathOf(material.emissiveTexture);
+            resolved.occlusionTexturePath = pathOf(material.occlusionTexture);
 
             return resolved;
         };

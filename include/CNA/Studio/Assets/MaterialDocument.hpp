@@ -77,6 +77,22 @@ namespace CNA::Studio
         Uuid emissiveTexture;
 
         /**
+         * @brief The ambient-occlusion map (`plan.md` STUDIO-19002).
+         *
+         * Separate from `metallicRoughnessTexture` because `PbrEffect` takes both and glTF
+         * permits both: the packed form carries occlusion in R, and a material that ships a
+         * dedicated occlusion image has nowhere else to put it.
+         *
+         * **Additive at `formatVersion` 1 rather than a version bump.** Nothing already written
+         * changes meaning, `loadFromJson` keeps its defaults for anything absent, and a bump would
+         * make every material this build writes unreadable by the previous one for the sake of one
+         * optional texture. The cost is stated rather than hidden: an older Studio opening a
+         * material with an occlusion map ignores the field, and drops it if the user then saves.
+         * That is the trade every additive field in this project makes.
+         */
+        Uuid occlusionTexture;
+
+        /**
          * @brief Converts to the form the model pass already draws.
          *
          * The texture *paths* come back empty: this side speaks in ids and the caller is the one

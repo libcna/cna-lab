@@ -20,6 +20,8 @@
 
 #include "CNA/Studio/Assets/AssetDatabase.hpp"
 #include "CNA/Studio/Assets/MaterialDocument.hpp"
+#include "CNA/Studio/Core/Json.hpp"
+#include "CNA/Studio/ShellPanels/StudioContentBrowser.hpp"
 #include "CNA/Studio/ShellPanels/StudioDetailsPanel.hpp"
 #include "CNA/Studio/StudioContext.hpp"
 #include "CNA/Studio/UiCore/StudioFontAtlas.hpp"
@@ -237,6 +239,10 @@ namespace
     constexpr std::size_t kNameRow = 6;
     constexpr std::size_t kBaseColourRow = 7;
     constexpr std::size_t kRoughnessRow = 10;
+
+    // The texture slots follow the six values (`plan.md` STUDIO-19002).
+    constexpr std::size_t kBaseColourMapRow = 12;
+    constexpr std::size_t kOcclusionMapRow = 16;
 }
 
 CNA_STUDIO_TEST(SelectingAMaterialShowsItsFieldsRatherThanAnImporterApology)
@@ -246,7 +252,10 @@ CNA_STUDIO_TEST(SelectingAMaterialShowsItsFieldsRatherThanAnImporterApology)
     Fixture fixture{"fields"};
     fixture.settle();
 
-    CNA_STUDIO_EXPECT_EQ(fixture.last.materialFields, std::size_t{6});
+    // Six values and five texture slots (`plan.md` STUDIO-19002). The slots were the half of a
+    // material that could only be filled in by editing the JSON by hand: the document has carried
+    // four of the ids since ED-403 and the editor could set none of them.
+    CNA_STUDIO_EXPECT_EQ(fixture.last.materialFields, std::size_t{11});
     CNA_STUDIO_EXPECT(fixture.last.rowsDrawn >= kRoughnessRow);
     CNA_STUDIO_EXPECT_EQ(fixture.frame.phaseViolations(), std::size_t{0});
 }
@@ -411,4 +420,193 @@ CNA_STUDIO_TEST(LoadingSaysWhichOfTheThreeFailuresItWas)
     untouched.name = "Mine";
     (void)loadMaterialDocument(fixture.context.getAssets(), fixture.material, untouched);
     CNA_STUDIO_EXPECT_EQ(untouched.name, std::string{"Mine"});
+}
+
+// ------------------------------------------------------------------------------------------------
+// Texture slots (STUDIO-19002)
+// ------------------------------------------------------------------------------------------------
+
+/**
+ * @brief The occlusion map the document gained, through the format and out the other side.
+ *
+ * Additive at `formatVersion` 1: a material written before it existed still loads, and one written
+ * with it is still a version-1 file. The pair of assertions is the whole of what "additive" means
+ * and it is the pair that a careless bump would break.
+ */
+CNA_STUDIO_TEST(AMaterialCarriesASeparateOcclusionMapAndOlderOnesStillLoad)
+{
+    MaterialDocument material;
+    material.occlusionTexture = Uuid::generate();
+
+    MaterialDocument reloaded;
+    CNA_STUDIO_EXPECT(reloaded.loadFromJson(material.toJson()));
+    CNA_STUDIO_EXPECT(reloaded.occlusionTexture == material.occlusionTexture);
+
+    // Still version 1: a bump would make every material this build writes unreadable by the
+    // previous one, for one optional texture.
+    CNA_STUDIO_EXPECT_EQ(material.toJson()["formatVersion"].asInt(0),
+                         MaterialDocument::kFormatVersion);
+
+    // A material written before the field existed reads as having no occlusion map rather than
+    // failing, which is what `loadFromJson` keeping its defaults is for.
+    JsonValue older = material.toJson();
+    older.remove("occlusionTexture");
+    MaterialDocument before;
+    CNA_STUDIO_EXPECT(before.loadFromJson(older));
+    CNA_STUDIO_EXPECT(!before.occlusionTexture.isValid());
+
+    // Unset is absent from the file rather than written as a nil id -- the two mean the same
+    // thing and only one of them is noise.
+    MaterialDocument plain;
+    CNA_STUDIO_EXPECT_EQ(plain.toJson()["occlusionTexture"].asString("absent"),
+                         std::string{"absent"});
+}
+
+/**
+ * @brief The editor can fill a texture slot, which is the half of a material it could not reach.
+ *
+ * `MaterialDocument` has carried four texture ids since ED-403 and the editor drew six values and
+ * no slots: the only way to give a material a map was to write the JSON by hand, which is the same
+ * state `STUDIO-10007` found the file itself in.
+ *
+ * Driven as a drop rather than through the picker, because that is the gesture -- a user with the
+ * Content Browser open drags the image onto the slot -- and because it exercises the typed
+ * filtering of `STUDIO-19009` at the same time.
+ */
+CNA_STUDIO_TEST(ATextureDroppedOnAMaterialSlotIsWrittenToTheFile)
+{
+    Fixture fixture{"textureslot"};
+
+    AssetRecord texture;
+    texture.id = Uuid::generate();
+    texture.sourcePath = "Assets/Rust.png";
+    texture.type = AssetType::Texture2D;
+    const Uuid textureId = texture.id;
+    CNA_STUDIO_EXPECT(fixture.context.getAssets().add(std::move(texture)));
+
+    fixture.settle();
+
+    CNA_STUDIO_EXPECT(!fixture.onDisk().diffuseTexture.isValid());
+
+    // Five slots, each offering "(none)" and the project's one texture. Unfiltered they would each
+    // offer the material itself as well, which is six.
+    CNA_STUDIO_EXPECT_EQ(fixture.last.assetChoicesOffered, std::size_t{10});
+
+    StudioFrame::StudioDragPayload payload;
+    payload.type = std::string{kStudioAssetDragType};
+    payload.value = textureId.toString();
+    payload.label = "Rust.png";
+
+    // Onto the Base Colour Map row exactly, because this fixture knows where its rows are -- no
+    // sweep is needed and a sweep would pass over four other slots on the way.
+    const UiRect box = fixture.row(kBaseColourMapRow);
+    const float x = fixture.controlLeft() + 20.0f;
+    const float y = box.centerY();
+
+    fixture.run(at(x, y, /*leftDown=*/true));
+    CNA_STUDIO_EXPECT(fixture.frame.beginDrag(fixture.frame.ids().make("source"), payload));
+    fixture.run(at(x, y, /*leftDown=*/true));
+    fixture.run(at(x, y));
+
+    CNA_STUDIO_EXPECT(fixture.onDisk().diffuseTexture == textureId);
+
+    // Through the history like every other material edit, because this rewrites the file.
+    CNA_STUDIO_EXPECT(fixture.context.getHistory().undo());
+    CNA_STUDIO_EXPECT(!fixture.onDisk().diffuseTexture.isValid());
+}
+
+/** @brief The occlusion slot is a slot of its own rather than a second name for the packed map. */
+CNA_STUDIO_TEST(TheOcclusionSlotIsSeparateFromTheMetallicRoughnessOne)
+{
+    Fixture fixture{"occlusionslot"};
+
+    AssetRecord texture;
+    texture.id = Uuid::generate();
+    texture.sourcePath = "Assets/Occlusion.png";
+    texture.type = AssetType::Texture2D;
+    const Uuid textureId = texture.id;
+    CNA_STUDIO_EXPECT(fixture.context.getAssets().add(std::move(texture)));
+
+    fixture.settle();
+
+    StudioFrame::StudioDragPayload payload;
+    payload.type = std::string{kStudioAssetDragType};
+    payload.value = textureId.toString();
+    payload.label = "Occlusion.png";
+
+    const UiRect box = fixture.row(kOcclusionMapRow);
+    const float x = fixture.controlLeft() + 20.0f;
+    const float y = box.centerY();
+
+    fixture.run(at(x, y, /*leftDown=*/true));
+    CNA_STUDIO_EXPECT(fixture.frame.beginDrag(fixture.frame.ids().make("source"), payload));
+    fixture.run(at(x, y, /*leftDown=*/true));
+    fixture.run(at(x, y));
+
+    const MaterialDocument written = fixture.onDisk();
+    CNA_STUDIO_EXPECT(written.occlusionTexture == textureId);
+
+    // The packed map is untouched: glTF carries occlusion in the R channel of that image *and*
+    // permits a separate one, and `PbrEffect` takes both textures.
+    CNA_STUDIO_EXPECT(!written.metallicRoughnessTexture.isValid());
+}
+
+/**
+ * @brief Every texture the document names resolves to a path the renderer can open.
+ *
+ * The one thing `toMeshMaterial` deliberately cannot do for itself: the document speaks in asset
+ * ids and `MeshMaterial` speaks in paths, because that is the currency the glTF importer uses for
+ * a texture it found beside a model. Resolving ids to paths is what lets the model pass stay one
+ * code path over both kinds of material -- and a slot dropped in that translation is a map the
+ * user filled in, saved, and never sees, with nothing anywhere reporting it.
+ */
+CNA_STUDIO_TEST(EveryMapAMaterialNamesReachesTheRendererAsAPath)
+{
+    Fixture fixture{"maps"};
+
+    const auto track = [&fixture](const std::string& path) {
+        AssetRecord record;
+        record.id = Uuid::generate();
+        record.sourcePath = path;
+        record.type = AssetType::Texture2D;
+        const Uuid id = record.id;
+        CNA_STUDIO_EXPECT(fixture.context.getAssets().add(std::move(record)));
+        return id;
+    };
+
+    MaterialDocument material;
+    CNA_STUDIO_EXPECT(loadMaterialDocument(fixture.context.getAssets(), fixture.material, material)
+                      == MaterialLoadProblem::None);
+
+    material.diffuseTexture = track("Assets/Base.png");
+    material.normalTexture = track("Assets/Normal.png");
+    material.metallicRoughnessTexture = track("Assets/Packed.png");
+    material.emissiveTexture = track("Assets/Glow.png");
+    material.occlusionTexture = track("Assets/Occlusion.png");
+
+    fixture.project.write("Assets/PaintedRed.cnamaterial", Json::write(material.toJson(), true));
+
+    const MaterialProvider provider = fixture.context.makeMaterialProvider();
+    const std::optional<MeshMaterial> resolved = provider(fixture.material);
+    CNA_STUDIO_EXPECT(resolved.has_value());
+    if (!resolved.has_value()) { return; }
+
+    CNA_STUDIO_EXPECT_EQ(resolved->diffuseTexturePath, std::string{"Assets/Base.png"});
+    CNA_STUDIO_EXPECT_EQ(resolved->normalTexturePath, std::string{"Assets/Normal.png"});
+    CNA_STUDIO_EXPECT_EQ(resolved->metallicRoughnessTexturePath, std::string{"Assets/Packed.png"});
+    CNA_STUDIO_EXPECT_EQ(resolved->emissiveTexturePath, std::string{"Assets/Glow.png"});
+    CNA_STUDIO_EXPECT_EQ(resolved->occlusionTexturePath, std::string{"Assets/Occlusion.png"});
+
+    // A slot pointing at an asset that has gone resolves to no path rather than to a stale one:
+    // the renderer draws the material without that map, which is the honest degradation.
+    material.emissiveTexture = Uuid::generate();
+    fixture.project.write("Assets/PaintedRed.cnamaterial", Json::write(material.toJson(), true));
+
+    const std::optional<MeshMaterial> partial = provider(fixture.material);
+    CNA_STUDIO_EXPECT(partial.has_value());
+    if (partial.has_value())
+    {
+        CNA_STUDIO_EXPECT(partial->emissiveTexturePath.empty());
+        CNA_STUDIO_EXPECT_EQ(partial->occlusionTexturePath, std::string{"Assets/Occlusion.png"});
+    }
 }

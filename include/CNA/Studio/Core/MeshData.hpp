@@ -201,6 +201,18 @@ namespace CNA::Studio
 
         /** @brief The emissive map's URI, or empty. Multiplies `emissiveColor`. */
         std::string emissiveTexturePath;
+
+        /**
+         * @brief The separate occlusion map's URI, or empty (`plan.md` STUDIO-19002).
+         *
+         * Distinct from the packed map above rather than a second name for it. glTF permits both
+         * forms and `PbrEffect` takes both textures, so a material that separates them is a
+         * material this can now carry. The glTF importer still only reads the packed form and
+         * warns about a separate one -- reading it belongs to `STUDIO-10004`; what this field
+         * makes possible is an *authored* material naming an occlusion map of its own, which is
+         * the slot `STUDIO-19002` is about.
+         */
+        std::string occlusionTexturePath;
     };
 
     /**

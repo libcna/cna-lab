@@ -6,12 +6,12 @@
 
 **Exit criteria.** A property-based material editor good enough that a node graph is an addition rather than a rescue.
 
-**Progress:** 2 of 9 complete `██░░░░░░░░░░`
+**Progress:** 3 of 9 complete `████░░░░░░░░`
 
 | Id | Task | Status | Depends on |
 |----|------|:------:|------------|
 | `STUDIO-19001` | PBR material asset model | ✅ | — |
-| `STUDIO-19002` | Texture slots: base colour, normal, roughness, metalness, emissive, occlusion | ⬜ | `STUDIO-19001` |
+| `STUDIO-19002` | Texture slots: base colour, normal, roughness, metalness, emissive, occlusion | ✅ | `STUDIO-19001` |
 | `STUDIO-19003` | Scalar and vector material parameters | ⬜ | `STUDIO-19001` |
 | `STUDIO-19004` | Transparency modes | ⬜ | `STUDIO-19001` |
 | `STUDIO-19005` | Material instances and parameter overrides | ⬜ | `STUDIO-19001` |
@@ -88,6 +88,67 @@ because two readers of one format is how a renderer and an inspector come to dis
 user is looking at — and `LoadingSaysWhichOfTheThreeFailuresItWas`.
 `tests/AssetDependencyTests.cpp` pins a material's texture ids being real references, so renaming a
 texture cannot break a material and the dependency view can answer "what uses this".
+
+### `STUDIO-19002` — Texture slots: base colour, normal, roughness, metalness, emissive, occlusion
+
+**Acceptance.** Every map a `.cnamaterial` can carry has a slot in the editor, is a tracked
+reference like any other, and reaches the renderer as a path it can open.
+
+**`MaterialDocument` carried four texture ids and the editor could set none of them.** The editor
+drew six values — name, base colour, emissive, metallic, roughness, alpha — and no slots at all, so
+the only way to give a material a map was to write the JSON by hand. That is the same state
+`STUDIO-10007` found the *file* in, one layer up, and it is why both rows stayed open while the
+document, the reader, the provider and the renderer were all finished.
+
+**Five slots rather than six, and the difference is CNA's rather than an omission.** The row names
+roughness and metalness separately; glTF packs them into one image — occlusion in R, roughness in
+G, metallic in B — and `PbrEffect` takes one metallic-roughness texture. Two slots would be a
+picture of a general PBR editor rather than of what this renderer draws, and the second would have
+nowhere to go. So the slots are Base Colour, Normal, Metallic-Roughness, Emissive and Occlusion.
+
+**Occlusion is new, and it is a slot of its own rather than a second name for the packed map.**
+glTF permits a dedicated occlusion image and `PbrEffect` has `setOcclusionMapProperty`; Studio
+simply never carried one. `MaterialDocument::occlusionTexture` and
+`MeshMaterial::occlusionTexturePath` are the two ends of it, and the model pass binds it.
+
+**Additive at `formatVersion` 1, and the cost is stated rather than hidden.** Nothing already
+written changes meaning and `loadFromJson` keeps its defaults for anything absent, so an older
+material loads unchanged. A bump would have made every material this build writes *unreadable* by
+the previous one for the sake of one optional texture. What the choice costs: an older Studio
+opening a material with an occlusion map ignores the field, and drops it if the user then saves.
+That is the trade every additive field in this project makes, and it is worth writing down because
+the alternative looks safer and is not.
+
+**Each slot is an ordinary typed asset slot.** `STUDIO-19009` had just made those mean something,
+so a material's maps pick, filter and take a drop exactly as a component's reference does, rather
+than growing a second kind of picker inside the material editor. Five slots each offering `(none)`
+and the project's textures — and not the material itself, which an untyped slot would list.
+
+**What the current build actually draws, said plainly.** `kPreferPbrEffect` is false (CNA gap
+G-05), so the model pass runs through `BasicEffect`, which takes a diffuse texture and no others.
+The normal, metallic-roughness, emissive and occlusion maps are carried end to end — written,
+tracked, resolved to paths, and handed to the effect — and only the first of them reaches the
+screen in this build. The editor already says which effect a build got, for exactly this reason.
+Recorded, not acted on, is the same bargain `STUDIO-10006` struck for the font settings.
+
+**Verification.** `tests/StudioMaterialEditorTests.cpp` — the occlusion map round-tripping at
+version 1 with an older material still loading and an unset slot absent from the file; a texture
+dropped on the Base Colour slot reaching the file and undoing; the occlusion slot writing its own
+field and leaving the packed map alone; five slots offering ten rows over a project of one texture
+rather than fifteen; and every map resolving to the record's path, with a slot pointing at an asset
+that has gone resolving to no path rather than a stale one.
+`tests/AssetDependencyTests.cpp` — occlusion counted as a reference, so a dependency view cannot
+call the texture unused and offer to delete it.
+Checked by causing each: occlusion not serialised, the occlusion slot writing the packed field, the
+slots left untyped, the provider dropping the occlusion path, and the dependency walk skipping it
+each fail by name. The last two produced **no** failure at first, which is why both gates exist:
+the provider's path resolution and the material's dependency edges had been covered for the four
+older maps and for neither of the new ones.
+
+**What this row is not.** Nothing previews a map before it is assigned or shows a thumbnail in the
+picker (`STUDIO-19007`). The glTF importer still reads only the packed occlusion form and warns
+about a separate one — reading it belongs to `STUDIO-10004`; what this row makes possible is an
+*authored* material naming an occlusion map of its own.
 
 ### `STUDIO-19009` — Material assignment to mesh entities
 

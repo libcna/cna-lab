@@ -381,6 +381,7 @@ namespace CNA::Studio
                 pbr->setMetallicRoughnessMapProperty(
                     resolveTexture(material.metallicRoughnessTexturePath, stats));
                 pbr->setEmissiveMapProperty(resolveTexture(material.emissiveTexturePath, stats));
+                pbr->setOcclusionMapProperty(resolveTexture(material.occlusionTexturePath, stats));
                 return;
             }
 
