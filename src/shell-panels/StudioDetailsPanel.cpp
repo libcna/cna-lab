@@ -22,6 +22,7 @@
 
 #include "CNA/Studio/Assets/AssetDatabase.hpp"
 #include "CNA/Studio/Assets/MaterialDocument.hpp"
+#include "CNA/Studio/Assets/MaterialCapabilities.hpp"
 #include "CNA/Studio/Core/NumberText.hpp"
 #include "CNA/Studio/PrefabWorkflow.hpp"
 #include "CNA/Studio/Scene/PrefabCommands.hpp"
@@ -2398,6 +2399,32 @@ namespace
             if (!effect.empty())
             {
                 say(nextRow(), "Drawn through " + effect + ".", StudioColorRole::TextDisabled);
+
+                // And what *this* material asks for that it cannot give (STUDIO-19008). Named per
+                // feature rather than as one sentence: "some of this will not draw" is a line a
+                // user cannot act on, and "the normal map is not sampled, the surface is drawn
+                // flat" is one they can.
+                for (const StudioMaterialCapabilityIssue& issue :
+                     studioMaterialCapabilityIssues(effect, material))
+                {
+                    const PropertyRow parts = splitRow(theme, nextRow());
+                    say(parts.label, issue.feature, StudioColorRole::Warning);
+                    if (frame.isDrawPass())
+                    {
+                        studioDrawText(frame, parts.control,
+                                       studioTruncateText(frame,
+                                                          theme.font(StudioFontRole::BodySmall),
+                                                          issue.detail, parts.control.width),
+                                       StudioFontRole::BodySmall,
+                                       theme.color(StudioColorRole::TextSecondary));
+                    }
+
+                    // The whole sentence on hover, because the control column truncates it and a
+                    // warning a user cannot finish reading is a warning that only worries them.
+                    (void)frame.requestTooltip(frame.ids().make("capability"), issue.detail,
+                                               parts.control);
+                    ++result.materialCapabilityIssues;
+                }
             }
         }
 
@@ -2509,11 +2536,17 @@ namespace
         // when this is a material -- a heading, eleven fields and the effect line -- and the
         // texture plan's rows above.
         const std::size_t rows = 6 + (isAudibleAsset(record->type) ? 1u : 0u)
-                                 // Twelve fields plus the Mask-only cutoff, the heading and the
-                                 // effect line: reserved as though the cutoff is there, because a
-                                 // scroll extent that shrank as a user switched modes would move
-                                 // the rows under their pointer.
-                                 + (record->type == AssetType::Material ? 15u : 0u)
+                                 // Twelve fields plus the Mask-only cutoff, the heading, the
+                                 // effect line and the capability warnings (STUDIO-19008). Both
+                                 // variable parts are reserved at their *maximum* -- the cutoff as
+                                 // though it is always there, the warnings at five, which is all
+                                 // of them. An extent that shrank as a user switched alpha modes
+                                 // would move the rows under their pointer, and one that grew
+                                 // would leave a material's last warning unreachable; a few empty
+                                 // rows at the bottom costs a gap and nothing else. The
+                                 // alternative is reading the material a second time every frame
+                                 // purely to count its problems.
+                                 + (record->type == AssetType::Material ? 15u + 5u : 0u)
                                  + (properties != nullptr ? properties->size() : 0)
                                  + textureRows + dependencyRows + relinkRows
                                  // The File group: its heading, Size and Modified.
@@ -2694,6 +2727,7 @@ namespace
                 studioMaterialEditor(frame, cursor, context, *record, services);
             result.rowsDrawn += material.rowsDrawn;
             result.materialFields = material.materialFields;
+            result.materialCapabilityIssues = material.materialCapabilityIssues;
             result.assetChoicesOffered += material.assetChoicesOffered;
             result.dropsRefused += material.dropsRefused;
             result.edited = material.edited;
@@ -3091,6 +3125,7 @@ namespace
 
         result.rowsDrawn += editor.rowsDrawn;
         result.materialFields = editor.materialFields;
+        result.materialCapabilityIssues = editor.materialCapabilityIssues;
         result.assetChoicesOffered += editor.assetChoicesOffered;
         result.dropsRefused += editor.dropsRefused;
         result.edited = editor.edited;

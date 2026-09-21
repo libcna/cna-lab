@@ -19,6 +19,7 @@
 #include "TestHarness.hpp"
 
 #include "CNA/Studio/Assets/AssetDatabase.hpp"
+#include "CNA/Studio/Assets/MaterialCapabilities.hpp"
 #include "CNA/Studio/Assets/MaterialDocument.hpp"
 #include "CNA/Studio/Core/Json.hpp"
 #include "CNA/Studio/ShellPanels/StudioContentBrowser.hpp"
@@ -701,4 +702,108 @@ CNA_STUDIO_TEST(TheAlphaCutoffRowAppearsOnlyForAMaskedMaterial)
     // A control beside a material it means nothing for is a control that does nothing, which is
     // the state STUDIO-12004 took the gizmo space toggle out of.
     CNA_STUDIO_EXPECT(withoutCutoff > std::size_t{0});
+}
+
+// ------------------------------------------------------------------------------------------------
+// Renderer capability diagnostics (STUDIO-19008)
+// ------------------------------------------------------------------------------------------------
+
+/**
+ * @brief The rule on its own: what a material asks for that the effect drawing it cannot give.
+ *
+ * Studio carries five texture slots and three alpha modes end to end, and the build draws through
+ * `BasicEffect`, which samples one texture and has no alpha test. Four of those maps and one of
+ * those modes reach the file, the database, the dependency graph and the renderer -- and not the
+ * screen. `STUDIO-19002` and `STUDIO-19004` both recorded that in their acceptance entries, which
+ * is the right place for a decision and the wrong place for a warning.
+ */
+CNA_STUDIO_TEST(AMaterialsUnusableFeaturesAreNamedOneByOne)
+{
+    MaterialDocument plain;
+
+    // A material the effect can draw in full reports nothing, whichever effect it is.
+    CNA_STUDIO_EXPECT(studioMaterialCapabilityIssues("BasicEffect", plain).empty());
+    CNA_STUDIO_EXPECT(studioMaterialCapabilityIssues("PbrEffect", plain).empty());
+
+    MaterialDocument rich;
+    rich.diffuseTexture = Uuid::generate();
+    rich.normalTexture = Uuid::generate();
+    rich.metallicRoughnessTexture = Uuid::generate();
+    rich.emissiveTexture = Uuid::generate();
+    rich.occlusionTexture = Uuid::generate();
+    rich.alphaMode = MeshAlphaMode::Mask;
+
+    // `PbrEffect` takes all of it, including the occlusion map and glTF's alpha coverage.
+    CNA_STUDIO_EXPECT(studioMaterialCapabilityIssues("PbrEffect", rich).empty());
+
+    const std::vector<StudioMaterialCapabilityIssue> issues =
+        studioMaterialCapabilityIssues("BasicEffect", rich);
+
+    // Four maps and the mask. The base-colour map is *not* among them: BasicEffect samples one
+    // texture and that is the one, which is the difference between "some of this will not draw"
+    // and a list a user can act on.
+    CNA_STUDIO_EXPECT_EQ(issues.size(), std::size_t{5});
+
+    const auto names = [&issues] {
+        std::string joined;
+        for (const StudioMaterialCapabilityIssue& issue : issues) { joined += issue.feature + "|"; }
+        return joined;
+    }();
+    CNA_STUDIO_EXPECT(names.find("Normal map") != std::string::npos);
+    CNA_STUDIO_EXPECT(names.find("Metallic-roughness map") != std::string::npos);
+    CNA_STUDIO_EXPECT(names.find("Emissive map") != std::string::npos);
+    CNA_STUDIO_EXPECT(names.find("Occlusion map") != std::string::npos);
+    CNA_STUDIO_EXPECT(names.find("Mask alpha") != std::string::npos);
+    CNA_STUDIO_EXPECT(names.find("Base Colour") == std::string::npos);
+
+    // Every one says what happens instead, which is the half a user can act on.
+    for (const StudioMaterialCapabilityIssue& issue : issues)
+    {
+        CNA_STUDIO_EXPECT(!issue.detail.empty());
+        CNA_STUDIO_EXPECT(issue.detail.size() > issue.feature.size());
+    }
+
+    // Blend is not reported: it is the device's blend state rather than the effect's, so it draws
+    // correctly on both. A diagnostic that warned about it would be telling the user to change
+    // something that works.
+    MaterialDocument blended;
+    blended.alphaMode = MeshAlphaMode::Blend;
+    CNA_STUDIO_EXPECT(studioMaterialCapabilityIssues("BasicEffect", blended).empty());
+
+    // An effect this build does not recognise reports nothing rather than guessing: a headless
+    // preview has no device, and a CNA that grows a third effect should make Studio quiet rather
+    // than wrong.
+    CNA_STUDIO_EXPECT(studioMaterialCapabilityIssues("", rich).empty());
+    CNA_STUDIO_EXPECT(studioMaterialCapabilityIssues("none", rich).empty());
+    CNA_STUDIO_EXPECT(studioMaterialCapabilityIssues("SomeFutureEffect", rich).empty());
+}
+
+/** @brief And the editor says them, which is the whole point of knowing them. */
+CNA_STUDIO_TEST(TheMaterialEditorNamesWhatThisBuildCannotDraw)
+{
+    MaterialDocument rich;
+    rich.normalTexture = Uuid::generate();
+    rich.occlusionTexture = Uuid::generate();
+    rich.alphaMode = MeshAlphaMode::Mask;
+
+    Fixture fixture{"capability", Json::write(rich.toJson(), true)};
+
+    // No effect named: a headless preview has no device, and the panel says nothing rather than
+    // warning about a renderer nobody is using.
+    fixture.settle();
+    CNA_STUDIO_EXPECT_EQ(fixture.last.materialCapabilityIssues, std::size_t{0});
+
+    fixture.effect = "PbrEffect";
+    fixture.settle();
+    CNA_STUDIO_EXPECT_EQ(fixture.last.materialCapabilityIssues, std::size_t{0});
+
+    fixture.effect = "BasicEffect";
+    fixture.settle();
+    CNA_STUDIO_EXPECT_EQ(fixture.last.materialCapabilityIssues, std::size_t{3});
+
+    // Each is a row of its own, so the panel is three rows taller than it was.
+    const std::size_t withWarnings = fixture.last.rowsDrawn;
+    fixture.effect = "PbrEffect";
+    fixture.settle();
+    CNA_STUDIO_EXPECT_EQ(withWarnings, fixture.last.rowsDrawn + 3);
 }

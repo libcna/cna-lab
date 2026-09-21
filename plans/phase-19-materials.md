@@ -6,7 +6,7 @@
 
 **Exit criteria.** A property-based material editor good enough that a node graph is an addition rather than a rescue.
 
-**Progress:** 5 of 9 complete `██████░░░░░░`
+**Progress:** 6 of 9 complete `████████░░░░`
 
 | Id | Task | Status | Depends on |
 |----|------|:------:|------------|
@@ -17,7 +17,7 @@
 | `STUDIO-19005` | Material instances and parameter overrides | ⬜ | `STUDIO-19001` |
 | `STUDIO-19006` | Live material preview in the viewport | ⬜ | `STUDIO-11011` |
 | `STUDIO-19007` | Material preview thumbnail rendering | ⬜ | `STUDIO-09003` |
-| `STUDIO-19008` | Renderer capability diagnostics for materials | ⬜ | `STUDIO-02021` |
+| `STUDIO-19008` | Renderer capability diagnostics for materials | ✅ | `STUDIO-02021` |
 | `STUDIO-19009` | Material assignment to mesh entities | ✅ | `STUDIO-19001` |
 
 ## Acceptance and verification
@@ -353,5 +353,54 @@ part off the model in the viewport. Nothing here previews the assignment before 
 
 ### `STUDIO-19008` — Renderer capability diagnostics for materials
 
-**Acceptance.** A material using a feature the target renderer lacks is reported at authoring time
+**Acceptance.** A material using a feature the target renderer lacks is reported at authoring time,
+by name, with what happens instead.
+
+**This closes a gap the plan kept writing down and the editor never said.** Studio carries five
+texture slots and three alpha modes end to end — written, tracked, resolved to paths, handed to the
+effect. The build draws through `BasicEffect` (gap G-05), which samples one texture and has no
+alpha test, so four of those maps and one of those modes reach everything except the screen.
+`STUDIO-19002` and `STUDIO-19004` both recorded that in their acceptance entries, which is the
+right place for a decision and the wrong place for a warning: nobody authoring a material is
+reading the plan.
+
+**Named per feature rather than as one sentence.** "Some of this material will not draw" is a line
+a user cannot act on. "The normal map is not sampled; the surface is drawn with the geometry's own
+normals, which is flatter rather than wrong" is one they can — either they fill a different slot,
+or they know why the model looks flat and stop looking for a bug that is not there.
+
+**What is deliberately *not* reported is as much of the rule as what is.** The base-colour map
+draws, so warning about it would be telling a user to change something that works. `Blend` draws,
+because blending is the device's state rather than the effect's, and only `Mask` needs a shader.
+The metallic and roughness *factors* still shape the highlight through the Blinn-Phong derivation,
+so the metallic-roughness **map** is reported and the numbers beside it are not — and the warning
+says which, because "metallic does not work here" would be false.
+
+**An effect this build does not recognise reports nothing.** A headless preview has no device and
+no effect name, and a CNA that grows a third effect should make Studio quiet rather than wrong: a
+diagnostic that fires on an effect it has never heard of is one people learn to ignore. `"none"`,
+the empty string and any future name all report nothing.
+
+**CNA-free, and its own module rather than a branch inside the panel.** `MaterialCapabilities` is a
+function from an effect name and a document to a list, so validation can use it later without going
+through the Inspector — and so the rule can be asserted without a frame.
+
+**The scroll extent reserves both variable parts at their maximum.** The Mask-only cutoff row is
+reserved as though it is always there, and the warnings at five, which is all of them. An extent
+that shrank as a user switched alpha modes would move the rows under their pointer, and one that
+grew would leave a material's last warning unreachable. A few empty rows at the bottom cost a gap;
+the alternative is reading the material a second time every frame purely to count its problems.
+
+**Verification.** `tests/StudioMaterialEditorTests.cpp` — a full material reporting five issues on
+`BasicEffect` and none on `PbrEffect`; the base-colour map and `Blend` absent from the list; every
+issue carrying a detail longer than its name; and an unrecognised, empty or `"none"` effect
+reporting nothing. Then the panel itself: silent with no effect named, silent on `PbrEffect`, three
+rows on `BasicEffect` for a material with two of the maps and a mask, and three rows taller for it.
+Checked by causing each: warning about a map that does draw, treating an unknown effect as
+`BasicEffect`, and the panel computing the issues and printing none each fail by name.
+
+**What this row is not.** The *target* renderer is the one this build has, not a build profile's:
+Studio cannot yet tell a user that the material is fine here and will not draw on the console they
+are shipping to. That needs a capability table per target profile, which `STUDIO-17xxx` owns and
+this row does not pretend to.
 

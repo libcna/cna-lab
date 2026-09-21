@@ -271,6 +271,15 @@ namespace CNA::Studio
         std::size_t assetChoicesOffered = 0;
 
         /**
+         * @brief Features this material asks for that the build's effect cannot draw.
+         *
+         * `plan.md` STUDIO-19008. Counted rather than only drawn, because "the editor warns about
+         * this" is exactly the claim that passes a test of the rule while the panel prints
+         * nothing.
+         */
+        std::size_t materialCapabilityIssues = 0;
+
+        /**
          * @brief Assets of the wrong kind dropped on a slot and not taken (STUDIO-19009).
          *
          * Reported rather than swallowed. A drop that changes nothing and says nothing is

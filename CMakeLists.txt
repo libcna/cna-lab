@@ -194,6 +194,7 @@ add_library(cna-studio-assets STATIC
     src/assets/FontImport.cpp
     src/assets/ImportJobs.cpp
     src/assets/MaterialDocument.cpp
+    src/assets/MaterialCapabilities.cpp
     src/assets/MeshCache.cpp
     src/assets/AssetTree.cpp)
 target_link_libraries(cna-studio-assets PUBLIC cna-studio-core PRIVATE cna-studio-cgltf-vendor)
