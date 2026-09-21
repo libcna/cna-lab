@@ -5092,3 +5092,83 @@ CNA_STUDIO_TEST(TheModelBatchCarriesTheDebugViewItWasAskedFor)
     CNA_STUDIO_EXPECT(metallic.draws[0].partMaterials[0].second.diffuseColor.x == 1.0f);
     CNA_STUDIO_EXPECT_EQ(metallic.draws[0].lighting.lightCount, std::size_t{0});
 }
+
+/**
+ * @brief STUDIO-19009: the material a user assigns replaces the model's own, on every part.
+ *
+ * The end of the chain STUDIO-10007, STUDIO-19001 and the typed slot make: a material can be
+ * created, edited, picked, and — here — drawn. `CNA.ModelRenderer` has declared this reference
+ * since Phase 1, and until ED-403 there was nothing to point it at; the per-part list has a case
+ * of its own and the whole-model slot, which is the one an ordinary user fills, had none.
+ *
+ * "On every part" is the half worth pinning. One material is the only thing a single override can
+ * mean for a model of several, and an implementation that applied it to the first part would look
+ * correct on the crate everybody tests with.
+ */
+CNA_STUDIO_TEST(TheMaterialAnEntityNamesReplacesItsModelsOwnOnEveryPart)
+{
+    const ComponentRegistry registry = makeRegistry();
+    SceneDocument scene;
+
+    MeshData mesh = makeTinyMesh();
+    mesh.parts[0].name = "Body";
+    mesh.parts[0].materialIndex = 0;
+    MeshPart lid = mesh.parts[0];
+    lid.name = "Lid";
+    lid.materialIndex = 1;
+    mesh.parts.push_back(std::move(lid));
+
+    MeshMaterial body;
+    body.name = "Model Body";
+    MeshMaterial trim;
+    trim.name = "Model Lid";
+    mesh.materials = {body, trim};
+
+    const Uuid modelId = Uuid::generate();
+    const Uuid materialId = Uuid::generate();
+
+    StudioEntity entity = makeEntity(registry, "Crate", 0.0f, 0.0f);
+    addModelRenderer(registry, entity, modelId);
+    entity.findComponent(BuiltinComponentIds::kModelRenderer)
+        ->setProperty("material", PropertyValue{PropertyValue::AssetReference{materialId}});
+    scene.addEntity(std::move(entity));
+
+    StudioCamera3D camera;
+    camera.setViewportSize(StudioVector2{800.0f, 600.0f});
+    const MeshProvider meshes = [&](const Uuid& id) { return id == modelId ? &mesh : nullptr; };
+
+    const MaterialProvider materials = [&](const Uuid& id) -> std::optional<MeshMaterial> {
+        if (id != materialId) { return std::nullopt; }
+        MeshMaterial assigned;
+        assigned.name = "Assigned";
+        assigned.metallic = 1.0f;
+        return assigned;
+    };
+
+    const SceneModelBatch batch = buildSceneModelBatch(scene, camera, meshes, {}, materials);
+    CNA_STUDIO_EXPECT_EQ(batch.draws.size(), std::size_t{1});
+    CNA_STUDIO_EXPECT(batch.draws[0].materialOverride.has_value());
+    if (batch.draws[0].materialOverride.has_value())
+    {
+        CNA_STUDIO_EXPECT_EQ(batch.draws[0].materialOverride->name, std::string{"Assigned"});
+    }
+
+    // Model-wide, so nothing names a part: the renderer falls back to the override for every part
+    // that the per-part list does not claim, and the list is empty here.
+    CNA_STUDIO_EXPECT(batch.draws[0].partMaterials.empty());
+
+    // A material that has not loaded draws with the model's own rather than not at all -- the same
+    // answer `MeshProvider` returning nullptr gets from the mesh side. An entity that vanished
+    // while its material was still being read would be the worse failure by far.
+    const SceneModelBatch unresolved = buildSceneModelBatch(
+        scene, camera, meshes, {},
+        [](const Uuid&) -> std::optional<MeshMaterial> { return std::nullopt; });
+    CNA_STUDIO_EXPECT_EQ(unresolved.draws.size(), std::size_t{1});
+    CNA_STUDIO_EXPECT(!unresolved.draws[0].materialOverride.has_value());
+
+    // And with no provider at all, which is the headless preview and every test that does not care
+    // about materials.
+    const SceneModelBatch none = buildSceneModelBatch(scene, camera, meshes);
+    CNA_STUDIO_EXPECT_EQ(none.draws.size(), std::size_t{1});
+    CNA_STUDIO_EXPECT(!none.draws[0].materialOverride.has_value());
+}

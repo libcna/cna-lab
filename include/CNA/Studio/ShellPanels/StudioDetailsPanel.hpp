@@ -267,6 +267,18 @@ namespace CNA::Studio
         /** @brief How many property values were copied to the clipboard (`plan.md` STUDIO-14014). */
         std::size_t propertiesCopied = 0;
 
+        /** @brief Rows offered across every asset picker drawn, `(none)` included (STUDIO-19009). */
+        std::size_t assetChoicesOffered = 0;
+
+        /**
+         * @brief Assets of the wrong kind dropped on a slot and not taken (STUDIO-19009).
+         *
+         * Reported rather than swallowed. A drop that changes nothing and says nothing is
+         * indistinguishable from a drop the editor missed, and the user's next move is to try it
+         * again harder.
+         */
+        std::size_t dropsRefused = 0;
+
         /** @brief How many were pasted from it. @see propertiesCopied */
         std::size_t propertiesPasted = 0;
 
@@ -407,6 +419,16 @@ namespace CNA::Studio
 
         /** @brief An entity that must not appear in an entity-reference picker -- itself. */
         Uuid excludeEntity;
+
+        /**
+         * @brief Which kind of asset an asset-reference slot takes, from its descriptor.
+         *
+         * `plan.md` STUDIO-19009. Empty accepts anything, which is what an editor over a bare
+         * value with no descriptor behind it can honestly offer. Carried here rather than read
+         * from a descriptor inside the editor, because the editor is given a `PropertyValue` and
+         * the descriptor belongs to whoever laid the row out.
+         */
+        std::string assetType;
     };
 
     /**
@@ -472,6 +494,24 @@ namespace CNA::Studio
          * they give up on.
          */
         bool dragging = false;
+
+        /**
+         * @brief An asset of the wrong kind was dropped on this slot and was not taken.
+         *
+         * `plan.md` STUDIO-19009. Reported rather than swallowed: a drop that changes nothing and
+         * says nothing is indistinguishable from a drop the editor missed, and the user's next
+         * move is to try it again harder.
+         */
+        bool refusedDrop = false;
+
+        /**
+         * @brief How many rows an asset picker offered, `(none)` included. Zero for other kinds.
+         *
+         * `plan.md` STUDIO-19009. The list is built inside the editor and handed to a dropdown,
+         * so it leaves no other trace a test can read -- and "the picker filters" is exactly the
+         * claim that would pass a test of the filtering rule while the picker ignored it.
+         */
+        std::size_t assetChoices = 0;
     };
 
     /**
@@ -634,6 +674,29 @@ namespace CNA::Studio
      */
     [[nodiscard]] std::vector<StudioComponentChoice> studioAddComponentChoices(
         const ComponentRegistry& registry, const StudioEntity& entity);
+
+    /**
+     * @brief Whether an asset slot declaring @p assetType accepts an asset of @p candidate.
+     *
+     * `plan.md` STUDIO-19009. `PropertyDescriptor::assetType` has said which kind a reference
+     * takes since the descriptor existed, and the inspector read it nowhere: a material slot
+     * listed every sound, font and texture in the project, and accepted a drop of any of them.
+     * The field's own doc comment claimed otherwise, which is the worst state for a rule to be in
+     * -- written down, believed, and not there.
+     *
+     * **An empty declaration accepts anything**, which is what an undeclared slot means and what
+     * every list-of-everything slot in the editor still is.
+     *
+     * **A kind this build does not know accepts anything too**, and that is deliberate rather
+     * than a fallback. The field is a string so that a plugin can name an asset kind the editor
+     * was never compiled against (`ComponentDescriptor.hpp`); filtering on a name that parses to
+     * nothing would leave that plugin's slot offering an empty list and refusing every drop,
+     * which is worse than the unfiltered behaviour it replaced.
+     *
+     * CNA-free and free of the frame, so what a slot offers can be asserted without a dropdown, a
+     * drag or a pointer.
+     */
+    [[nodiscard]] bool studioAssetSlotAccepts(std::string_view assetType, AssetType candidate);
 
     /**
      * @brief Which component sections the Inspector has closed.

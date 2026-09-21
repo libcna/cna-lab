@@ -2793,3 +2793,169 @@ CNA_STUDIO_TEST(DrawingTheMaterialEditorOpensNoFile)
 
     std::filesystem::remove_all(directory, code);
 }
+
+// ------------------------------------------------------------------------------------------------
+// Typed asset slots (STUDIO-19009)
+// ------------------------------------------------------------------------------------------------
+
+/**
+ * @brief The rule a typed slot follows, on its own.
+ *
+ * `PropertyDescriptor::assetType` has said which kind a reference takes since descriptors existed,
+ * and seven built-in components set it. Nothing read it. The field's own doc comment claimed the
+ * inspector used it to refuse a wrong-kind drop, which is the worst state for a rule to be in:
+ * written down, believed, and absent.
+ */
+CNA_STUDIO_TEST(AnAssetSlotTakesTheKindItDeclaresAndAnythingWhenItDeclaresNone)
+{
+    CNA_STUDIO_EXPECT(studioAssetSlotAccepts("Material", AssetType::Material));
+    CNA_STUDIO_EXPECT(!studioAssetSlotAccepts("Material", AssetType::Texture2D));
+    CNA_STUDIO_EXPECT(!studioAssetSlotAccepts("Material", AssetType::SoundEffect));
+    CNA_STUDIO_EXPECT(studioAssetSlotAccepts("Texture2D", AssetType::Texture2D));
+    CNA_STUDIO_EXPECT(!studioAssetSlotAccepts("Texture2D", AssetType::Model));
+
+    // Undeclared takes anything, which is what most slots in the editor still are.
+    CNA_STUDIO_EXPECT(studioAssetSlotAccepts("", AssetType::SoundEffect));
+    CNA_STUDIO_EXPECT(studioAssetSlotAccepts("", AssetType::Material));
+
+    // And a kind this build cannot parse takes anything too. The field is a string so a plugin can
+    // name an asset kind the editor was never compiled against; filtering on a name that parses to
+    // nothing would leave that plugin's slot offering an empty list and refusing every drop.
+    CNA_STUDIO_EXPECT(studioAssetSlotAccepts("Plugin.VoxelVolume", AssetType::Texture2D));
+    CNA_STUDIO_EXPECT(studioAssetSlotAccepts("Plugin.VoxelVolume", AssetType::Material));
+}
+
+/**
+ * @brief A material slot offers materials, and a model slot offers models, out of one project.
+ *
+ * Driven through the real panel rather than over the rule, because the claim is that the picker
+ * *reads* the descriptor -- and a picker that ignored it would pass a test of the rule perfectly.
+ * The panel reports how many rows its asset pickers offered, because the list is built inside the
+ * editor and handed to a dropdown, leaving no other trace a test can read.
+ */
+CNA_STUDIO_TEST(AMaterialSlotOffersMaterialsRatherThanEverythingInTheProject)
+{
+    StudioContext context;
+    AssetDatabase& assets = context.getAssets();
+
+    const auto track = [&assets](const std::string& path, AssetType type) {
+        AssetRecord record;
+        record.id = Uuid::generate();
+        record.sourcePath = path;
+        record.type = type;
+        const Uuid id = record.id;
+        CNA_STUDIO_EXPECT(assets.add(std::move(record)));
+        return id;
+    };
+
+    // Four assets, one of each kind the renderer's two slots could confuse.
+    track("Assets/Stone.png", AssetType::Texture2D);
+    track("Assets/Thud.wav", AssetType::SoundEffect);
+    track("Assets/Crate.gltf", AssetType::Model);
+    track("Assets/Stone.cnamaterial", AssetType::Material);
+
+    StudioEntity subject{Uuid::generate(), "Crate"};
+    subject.addComponent(StudioComponent{BuiltinComponentIds::kTransform});
+    StudioComponent renderer{BuiltinComponentIds::kModelRenderer};
+    renderer.applyDefaults(*context.getComponentRegistry().find(BuiltinComponentIds::kModelRenderer));
+    subject.addComponent(std::move(renderer));
+    const Uuid entity = subject.getId();
+    context.getScene().addEntity(std::move(subject));
+    context.select(entity);
+
+    Harness harness{context};
+    harness.shell->renderFrame(at(-1.0f, -1.0f));
+
+    // `CNA.ModelRenderer` has two typed slots: `model` takes a Model and `material` takes a
+    // Material. Each offers "(none)" and the project's one asset of its kind, so four rows over
+    // the two. Unfiltered they would offer "(none)" and all four assets each, which is ten.
+    CNA_STUDIO_EXPECT_EQ(harness.last.assetChoicesOffered, std::size_t{4});
+}
+
+/**
+ * @brief A slot refuses a drop of the wrong kind, and says so rather than swallowing it.
+ *
+ * The gesture a typed slot exists for. Before this the material slot took a `.wav` without
+ * comment, wrote it into the scene, and the Problems panel reported the result a frame later --
+ * which is a long way round to tell a user their drag went somewhere it should not have.
+ */
+CNA_STUDIO_TEST(ATypedSlotRefusesAnAssetOfTheWrongKindAndTakesTheRightOne)
+{
+    StudioContext context;
+    AssetDatabase& assets = context.getAssets();
+
+    const auto track = [&assets](const std::string& path, AssetType type) {
+        AssetRecord record;
+        record.id = Uuid::generate();
+        record.sourcePath = path;
+        record.type = type;
+        const Uuid id = record.id;
+        CNA_STUDIO_EXPECT(assets.add(std::move(record)));
+        return id;
+    };
+
+    const Uuid sound = track("Assets/Thud.wav", AssetType::SoundEffect);
+    const Uuid material = track("Assets/Stone.cnamaterial", AssetType::Material);
+
+    StudioEntity subject{Uuid::generate(), "Crate"};
+    subject.addComponent(StudioComponent{BuiltinComponentIds::kTransform});
+    StudioComponent renderer{BuiltinComponentIds::kModelRenderer};
+    renderer.applyDefaults(*context.getComponentRegistry().find(BuiltinComponentIds::kModelRenderer));
+    subject.addComponent(std::move(renderer));
+    const Uuid entity = subject.getId();
+    context.getScene().addEntity(std::move(subject));
+    context.select(entity);
+
+    Harness harness{context};
+
+    const auto materialSlot = [&context, entity] {
+        return context.getScene().findEntity(entity)
+            ->findComponent(BuiltinComponentIds::kModelRenderer)->getProperty("material")
+            .get<PropertyValue::AssetReference>().id;
+    };
+
+    // Swept down the control column, because a computed coordinate becomes a drop on nothing the
+    // first time a metric moves. Stopped as soon as the slot fills, so the undo below pops the
+    // assignment rather than whatever the sweep did to the numeric fields it passed over on the
+    // way -- a press on a float field is the start of a scrub, and an entity with a Transform on
+    // it has six of them above the renderer.
+    const auto dragOnto = [&](const Uuid& asset) {
+        StudioFrame::StudioDragPayload payload;
+        payload.type = std::string{kStudioAssetDragType};
+        payload.value = asset.toString();
+        payload.label = "dragged";
+
+        std::size_t refusals = 0;
+        for (float y = harness.bounds.top() + 4.0f; y < harness.bounds.bottom() - 4.0f; y += 4.0f)
+        {
+            const float x = harness.bounds.left() + harness.bounds.width * 0.7f;
+
+            harness.shell->renderFrame(at(x, y, /*leftDown=*/true));
+            if (harness.shell->frame().beginDrag(harness.shell->frame().ids().make("source"),
+                                                 payload))
+            {
+                harness.shell->renderFrame(at(x, y, /*leftDown=*/true));
+                harness.shell->renderFrame(at(x, y));
+                refusals += harness.last.dropsRefused;
+            }
+            if (materialSlot().isValid()) { break; }
+        }
+        return refusals;
+    };
+
+    // The sound is refused by every typed slot it lands on, and the slot is still empty. The
+    // history is not asserted on here: the sweep presses its way down the Transform's numeric
+    // fields, and a press on one of those is the start of a scrub rather than nothing.
+    const std::size_t refused = dragOnto(sound);
+    CNA_STUDIO_EXPECT(refused > std::size_t{0});
+    CNA_STUDIO_EXPECT(!materialSlot().isValid());
+
+    // The material is taken, by the one slot that declares it.
+    (void)dragOnto(material);
+    CNA_STUDIO_EXPECT_EQ(materialSlot().toString(), material.toString());
+
+    // Through the history like every other edit: dropping the wrong file on a slot is exactly the
+    // mistake a drag makes easy.
+    CNA_STUDIO_EXPECT(context.getHistory().undo());
+    CNA_STUDIO_EXPECT(!materialSlot().isValid());
+}

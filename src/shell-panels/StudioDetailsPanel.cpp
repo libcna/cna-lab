@@ -1695,11 +1695,24 @@ namespace
             labels.emplace_back("(none)");
             ids.emplace_back();
 
-            if (isAsset)
+            // A null context has nothing to offer from, and this header has promised since
+            // STUDIO-07045 that such an editor falls back to showing the id. It did not -- both
+            // loops below dereferenced it. Unreachable from the four callers, all of which pass a
+            // document, so this is a promise made real rather than a crash fixed.
+            if (editing.context == nullptr)
             {
+                // "(none)" and nothing else: clearing a reference is meaningful without a
+                // document to enumerate, and the placeholder below shows the id either way.
+            }
+            else if (isAsset)
+            {
+                // Only the kind this slot declares (STUDIO-19009). A material slot that listed
+                // every sound in the project was not a picker, it was a list of the project with
+                // a material somewhere in it.
                 for (const AssetRecord* record : editing.context->getAssets().getAll())
                 {
                     if (record == nullptr) { continue; }
+                    if (!studioAssetSlotAccepts(editing.assetType, record->type)) { continue; }
                     labels.push_back(record->sourcePath);
                     ids.push_back(record->id);
                 }
@@ -1724,6 +1737,8 @@ namespace
                 if (ids[i] == current) { selected = static_cast<int>(i); }
             }
 
+            if (isAsset) { result.assetChoices = ids.size(); }
+
             StudioDropdownOptions options;
             // A reference to something that has gone still shows its id rather than
             // silently reading as "(none)", which would look like the value was cleared.
@@ -1747,16 +1762,47 @@ namespace
                 const StudioFrame::StudioDropResult drop = frame.acceptDrop(
                     frame.ids().make("drop"), control,
                     std::string{kStudioAssetDragType});
+
+                // The channel says "an asset"; the *kind* is not part of it, so the slot resolves
+                // the payload itself. Asked of the in-flight payload rather than only on release,
+                // because a target that lights up and then swallows the drop is worse than one
+                // that never lit up (STUDIO-19009).
+                const auto acceptable = [&](const std::string& text) {
+                    if (text.empty()) { return false; }
+
+                    // An undeclared slot takes anything and does not consult the database at all,
+                    // which is both the rule `studioAssetSlotAccepts` states and the behaviour
+                    // every such slot had before this task.
+                    if (editing.assetType.empty()) { return true; }
+                    if (editing.context == nullptr) { return true; }
+
+                    // A declared slot has to establish the kind, so an id the database does not
+                    // know is refused: the slot promises a kind, and a reference whose kind cannot
+                    // be checked is not one worth writing into a scene. The Content Browser only
+                    // ever carries tracked assets, so this is the stale-payload case.
+                    const AssetRecord* record =
+                        editing.context->getAssets().find(Uuid::parse(text));
+                    if (record == nullptr) { return false; }
+                    return studioAssetSlotAccepts(editing.assetType, record->type);
+                };
+
+                const bool welcome = acceptable(frame.dragPayload().value);
+
                 if (drop.hovered && frame.isDrawPass())
                 {
                     frame.drawList().strokeRect(
-                        control, theme.color(StudioColorRole::Accent),
+                        control,
+                        theme.color(welcome ? StudioColorRole::Accent : StudioColorRole::Error),
                         metricOf(theme, StudioMetric::FocusRingWidth));
                 }
-                if (drop.dropped)
+                if (drop.dropped && acceptable(drop.value))
                 {
                     result.edited = PropertyValue{
                         PropertyValue::AssetReference{Uuid::parse(drop.value)}};
+                }
+                else if (drop.dropped)
+                {
+                    result.refusedDrop = true;
                 }
             }
         }
@@ -2189,7 +2235,8 @@ namespace
             ++result.materialFields;
 
             frame.ids().push(field.id);
-            const StudioPropertyEditContext editing{&context, Uuid{}};
+            // A scalar, so there is no asset kind to declare.
+            const StudioPropertyEditContext editing{&context, Uuid{}, {}};
             const StudioPropertyEditResult change = studioPropertyEditor(
                 frame, parts.control, PropertyValue{material.*field.member}, {}, editing);
             frame.ids().pop();
@@ -2619,14 +2666,14 @@ namespace
                     // same row allocator. An importer setting that is a list is a list, and giving it
                     // a second editor here would be the drift `STUDIO-07045` extracted this code to
                     // avoid.
-                    const StudioPropertyEditContext editing{&context, Uuid{}};
+                    const StudioPropertyEditContext editing{&context, Uuid{}, property.assetType};
                     const CompoundEditResult compound =
                         compoundPropertyEditor(frame, parts.control, nextRow, value, editing);
                     edit.edited = compound.edited;
                 }
                 else
                 {
-                    const StudioPropertyEditContext editing{&context, Uuid{}};
+                    const StudioPropertyEditContext editing{&context, Uuid{}, property.assetType};
                     edit = studioPropertyEditor(frame, parts.control, value, property.enumOptions,
                                                 editing);
                 }
@@ -3028,6 +3075,20 @@ namespace
         }
 
         return value;
+    }
+
+    bool studioAssetSlotAccepts(std::string_view assetType, AssetType candidate)
+    {
+        // Undeclared takes anything, which is what most slots in the editor still are.
+        if (assetType.empty()) { return true; }
+
+        // And a kind this build cannot parse takes anything, so a plugin naming an asset kind
+        // the editor was never compiled against gets the unfiltered behaviour rather than a slot
+        // that offers nothing and refuses everything. See the header.
+        const AssetType declared = parseAssetType(assetType);
+        if (declared == AssetType::Unknown) { return true; }
+
+        return declared == candidate;
     }
 
     std::vector<StudioComponentChoice> studioAddComponentChoices(const ComponentRegistry& registry,
@@ -3636,7 +3697,9 @@ namespace
                                    theme.color(StudioColorRole::TextSecondary));
                 }
 
-                const StudioPropertyEditContext editing{&context, entityId};
+                // The kind this slot takes, from the component's own descriptor: the field has
+                // been declared since descriptors existed and was read by nothing (STUDIO-19009).
+                const StudioPropertyEditContext editing{&context, entityId, property.assetType};
 
                 // Lists and structures claim rows of their own (STUDIO-07054). Everything else is
                 // a control in the one rect the row already gave it.
@@ -3676,6 +3739,8 @@ namespace
                                                       property.enumOptions, editing);
                 }
                 if (editResult.readOnlyKind) { ++result.readOnlyProperties; }
+                result.assetChoicesOffered += editResult.assetChoices;
+                if (editResult.refusedDrop) { ++result.dropsRefused; }
 
                 // The reset wins over whatever the editor said this frame. They cannot both
                 // happen -- the button is not inside the editor's rect -- but stating the order
