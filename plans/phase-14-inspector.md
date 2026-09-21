@@ -6,7 +6,7 @@
 
 **Exit criteria.** Every property type a component can declare is editable, validated and undoable.
 
-**Progress:** 2 of 18 complete `█░░░░░░░░░░░`
+**Progress:** 3 of 18 complete `██░░░░░░░░░░`
 
 | Id | Task | Status | Depends on |
 |----|------|:------:|------------|
@@ -21,7 +21,7 @@
 | `STUDIO-14009` | List properties: add, remove, reorder — each its own undo entry | ⬜ | `STUDIO-14001` |
 | `STUDIO-14010` | Nested structure editing | ⬜ | `STUDIO-14009` |
 | `STUDIO-14011` | Read-only data display | ⬜ | `STUDIO-14001` |
-| `STUDIO-14012` | Reset to default | ⬜ | `STUDIO-14001` |
+| `STUDIO-14012` | Reset to default | ✅ | `STUDIO-14001` |
 | `STUDIO-14013` | Revert and apply prefab overrides | ⬜ | `STUDIO-14012` |
 | `STUDIO-14014` | Copy and paste property values | ⬜ | `STUDIO-03025` |
 | `STUDIO-14015` | Validation warnings shown inline | ⬜ | `STUDIO-14001` |
@@ -65,6 +65,45 @@ carries is not offered, every entry names a registered type and carries the id i
 label is the category and the display name with the fallback when there is no category, and an
 entity with nothing on it is offered exactly one more. Checked by causing the unique-exclusion to
 stop happening; it fails by name.
+
+### `STUDIO-14012` — Reset to default
+
+**Acceptance.** A property that differs from what its descriptor declares can be put back, through
+the history.
+
+**Reset existed only for importer settings**, in the asset inspector. A *component* property had no
+way back at all: a user who scrubbed a scale and wanted 1 again had to know the default and retype
+it, and for a colour or a quaternion they would have had to guess.
+
+**Offered only where it would do something.** A column of Reset buttons dead on every untouched row
+is a column of noise — and the button being present is also the only indication the panel gives that
+a property has been changed from what the component was born with, which it could not be if it were
+always there. A component the registry does not know has no default to go back to, and a read-only
+property is not an override, so neither gets one.
+
+**It comes off the label column, never the control's.** Narrowing the control would move every field
+inside it the moment a property became overridden — a user typing into the first of three angle
+boxes would find the boxes slide out from under the pointer as soon as that first one committed.
+That is not hypothetical: the first version took the space from the control and broke
+`EachTypedAngleFieldCommitsThroughTheHistoryAsItsOwnEntry`, which types into the second and third
+fields at coordinates derived from the row. The label is truncated text and already shortens for a
+hundred other reasons.
+
+**Taken before the label is drawn**, or the button lands on top of the text.
+
+**Through the history, like every other edit**, and never merged into a scrub in flight: a reset is
+still a change, and a user who clicks it by mistake needs the same way out as one who typed by
+mistake. Reported as `propertiesReset` rather than folded into `edited`, because a reset is the one
+edit a user makes to undo their own work and a shell that could not tell them apart would say
+"edited" about a click that put something back.
+
+**Verification.** `tests/StudioDetailsPanelTests.cpp`:
+`AnOverriddenComponentPropertyCanBeResetToItsDefault` sweeps the label column of a panel whose
+position has been moved, finds the button, and pins the value going back to the descriptor's default
+and one Ctrl+Z bringing the edit back. `APropertyThatMatchesItsDefaultOffersNoReset` runs the same
+sweep over an entity built with `applyDefaults` and pins that nothing resets and nothing is edited
+by trying. Checked by causing both failures — the button offered whether or not the value differs,
+and the button doing nothing when pressed. Each fails by name.
 
 ### `STUDIO-14001` — Component sections with collapse and expand
 

@@ -549,6 +549,86 @@ CNA_STUDIO_TEST(AComponentCanBeAddedToTheSelectedEntityAndUndone)
  * index zero changes on its own and "a different component arrived" was true either way. Recorded
  * because that shape of false pass is easy to write again.
  */
+/**
+ * A changed property can be put back (`plan.md` STUDIO-14012).
+ *
+ * Reset existed only for importer settings, in the asset inspector. A component property that
+ * differed from what its descriptor declares had no way back at all -- a user who scrubbed a scale
+ * and wanted 1 again had to know the default and retype it, and for a colour or a quaternion they
+ * would have had to guess.
+ */
+CNA_STUDIO_TEST(AnOverriddenComponentPropertyCanBeResetToItsDefault)
+{
+    Fixture fixture;
+
+    const auto position = [&fixture] { return fixture.position(); };
+    const StudioVector3 before = position();
+    CNA_STUDIO_EXPECT(std::fabs(before.x - 1.0f) < 0.001f);
+
+    Harness harness{fixture.context};
+
+    // The button appears only where it would do something, and on the label's side of the row --
+    // never the control's, because narrowing the control would move the fields inside it the
+    // moment a property became overridden. Swept, so a metric change moves the click with it.
+    bool reset = false;
+    for (float y = harness.bounds.top() + 4.0f;
+         y < harness.bounds.bottom() - 4.0f && !reset; y += 4.0f)
+    {
+        const float x = harness.bounds.left() + harness.bounds.width * 0.36f;
+        harness.click(x, y);
+        reset = harness.last.propertiesReset > 0;
+    }
+
+    CNA_STUDIO_EXPECT(reset);
+
+    // Back to the descriptor's own default, which for a Transform's position is the origin.
+    const StudioVector3 after = position();
+    CNA_STUDIO_EXPECT(std::fabs(after.x) < 0.001f);
+    CNA_STUDIO_EXPECT(std::fabs(after.y) < 0.001f);
+    CNA_STUDIO_EXPECT(std::fabs(after.z) < 0.001f);
+
+    // Through the history like every other edit -- a reset is still a change, and a user who
+    // clicks it by mistake needs the same way out as one who typed by mistake.
+    CNA_STUDIO_EXPECT(fixture.context.getHistory().canUndo());
+    CNA_STUDIO_EXPECT(fixture.context.getHistory().undo());
+    CNA_STUDIO_EXPECT(std::fabs(position().x - before.x) < 0.001f);
+}
+
+/**
+ * And it is not offered where it would do nothing (`plan.md` STUDIO-14012).
+ *
+ * A column of Reset buttons dead on every untouched row is a column of noise -- and the button
+ * being present is also the only indication the panel gives that a property has been changed from
+ * what the component was born with, which it could not be if it were always there.
+ */
+CNA_STUDIO_TEST(APropertyThatMatchesItsDefaultOffersNoReset)
+{
+    StudioContext context;
+    StudioEntity subject{Uuid::generate(), "Untouched"};
+
+    // Every property left at what the descriptor declares, which is what `applyDefaults` gives.
+    StudioComponent transform{"CNA.Transform"};
+    transform.applyDefaults(*context.getComponentRegistry().find("CNA.Transform"));
+    subject.getComponents().push_back(std::move(transform));
+
+    const Uuid entity = subject.getId();
+    context.getScene().addEntity(std::move(subject));
+    context.select(entity);
+
+    Harness harness{context};
+
+    // The same sweep the case above uses, over a panel where nothing is overridden: no click
+    // anywhere in the label column resets anything, and nothing is edited by trying.
+    for (float y = harness.bounds.top() + 4.0f; y < harness.bounds.bottom() - 4.0f; y += 4.0f)
+    {
+        const float x = harness.bounds.left() + harness.bounds.width * 0.36f;
+        harness.click(x, y);
+    }
+
+    CNA_STUDIO_EXPECT_EQ(harness.last.propertiesReset, std::size_t{0});
+    CNA_STUDIO_EXPECT(!context.getHistory().canUndo());
+}
+
 CNA_STUDIO_TEST(TheAddComponentListLeavesOutWhatTheEntityAlreadyHas)
 {
     Fixture fixture;

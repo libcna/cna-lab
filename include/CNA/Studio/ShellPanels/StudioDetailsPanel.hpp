@@ -243,6 +243,16 @@ namespace CNA::Studio
          */
         std::size_t rowsMeasured = 0;
 
+        /**
+         * @brief How many properties were reset to their default this frame (`plan.md` STUDIO-14012).
+         *
+         * Input pass only. Reported apart from @ref edited because a reset is the one edit a user
+         * makes to *undo* their own work, and a shell that could not tell the two apart would say
+         * edited about a click that put something back the way it was.
+         */
+        std::size_t propertiesReset = 0;
+
+
         /** @brief How many property rows were drawn. */
         std::size_t rowsDrawn = 0;
 

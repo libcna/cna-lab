@@ -3280,9 +3280,52 @@ namespace
 
             for (const PropertyDescriptor& property : *properties)
             {
-                const PropertyRow parts = splitRow(theme, nextRow());
+                PropertyRow parts = splitRow(theme, nextRow());
                 const std::string& label =
                     property.displayName.empty() ? property.name : property.displayName;
+
+                const PropertyValue value = component.getPropertyOrDefault(property.name, descriptor);
+
+                frame.ids().push(component.getTypeId());
+                frame.ids().push(property.name);
+
+                // --- Reset to default (`plan.md` STUDIO-14012) --------------------------------
+                //
+                // Only where it would do something. A column of Reset buttons that are dead on
+                // every untouched row is a column of noise, and the rows that matter are exactly
+                // the ones that differ from what the component was born with -- so the button is
+                // also the only *indication* that a property has been changed at all.
+                //
+                // A component the registry does not know has no default to go back to, and an
+                // improvised descriptor's `defaultValue` is empty rather than absent, so the check
+                // is against a descriptor that really exists.
+                const bool overridden = descriptor != nullptr && !property.readOnly
+                    && !property.defaultValue.isEmpty() && value != property.defaultValue;
+
+                std::optional<PropertyValue> reset;
+                if (overridden)
+                {
+                    StudioButtonOptions resetOptions;
+                    resetOptions.kind = StudioButtonKind::Ghost;
+                    resetOptions.icon = StudioIcon::Undo;
+                    resetOptions.iconOnly = true;
+                    resetOptions.tooltip = "Reset to the default";
+
+                    // Taken off the *label* column, never the control's, and taken before the
+                    // label is drawn so the two do not overlap. Narrowing the control would move
+                    // every field inside it the moment a property became overridden -- a user
+                    // typing into the first of three angle boxes would find the boxes slide out
+                    // from under the pointer as soon as that first one committed. The label is
+                    // truncated text and already shortens for a hundred other reasons.
+                    const UiRect box = parts.label.splitRight(std::min(parts.label.width, rowHeight));
+                    parts.label.splitRight(std::min(spacing, parts.label.width));
+
+                    if (studioButton(frame, frame.ids().make("resetproperty"), box, "Reset",
+                                     resetOptions).activated)
+                    {
+                        reset = property.defaultValue;
+                    }
+                }
 
                 if (frame.isDrawPass())
                 {
@@ -3292,11 +3335,6 @@ namespace
                                    StudioFontRole::Body,
                                    theme.color(StudioColorRole::TextSecondary));
                 }
-
-                const PropertyValue value = component.getPropertyOrDefault(property.name, descriptor);
-
-                frame.ids().push(component.getTypeId());
-                frame.ids().push(property.name);
 
                 const StudioPropertyEditContext editing{&context, entityId};
 
@@ -3316,7 +3354,13 @@ namespace
                                                       property.enumOptions, editing);
                 }
                 if (editResult.readOnlyKind) { ++result.readOnlyProperties; }
-                const std::optional<PropertyValue>& edited = editResult.edited;
+
+                // The reset wins over whatever the editor said this frame. They cannot both
+                // happen -- the button is not inside the editor's rect -- but stating the order
+                // is cheaper than relying on that staying true.
+                const std::optional<PropertyValue>& edited =
+                    reset.has_value() ? reset : editResult.edited;
+                if (reset.has_value()) { ++result.propertiesReset; }
                 frame.ids().pop();
                 frame.ids().pop();
 
@@ -3333,8 +3377,9 @@ namespace
                     context.execute(std::make_unique<SetPropertyCommand>(
                         context.getScene(), entityId, component.getTypeId(), property.name,
                         *edited),
-                        editResult.dragging ? MergePolicy::MergeWithPrevious
-                                            : MergePolicy::NewEntry);
+                        editResult.dragging && !reset.has_value()
+                            ? MergePolicy::MergeWithPrevious
+                            : MergePolicy::NewEntry);
                     result.edited = true;
                     result.editedProperty = component.getTypeId() + "." + property.name;
 
