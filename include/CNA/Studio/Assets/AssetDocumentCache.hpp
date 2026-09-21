@@ -32,6 +32,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <string>
 #include <unordered_map>
 
@@ -57,6 +58,23 @@ namespace CNA::Studio
          *         The pointer is valid until the next call that reloads or invalidates that entry.
          */
         [[nodiscard]] const MaterialDocument* material(const AssetDatabase& assets, const Uuid& id);
+
+        /**
+         * @brief The material @p id draws as, with every inherited parameter filled in.
+         *
+         * `plan.md` STUDIO-19005. The walk goes through this cache at every level, so a chain
+         * costs no file reads beyond the one each of its materials already costs -- which is what
+         * `STUDIO-19006` bought and what a walk straight over the database would have given back
+         * one level up.
+         *
+         * **Returned by value, and the resolved form is deliberately not cached.** An entry's
+         * stamp is its own file's; a resolved instance also depends on its *parents'*, and a cache
+         * keyed on the leaf alone would serve a material whose parent had been edited underneath
+         * it. A material with no parent -- which is nearly all of them -- is a copy of what is
+         * already in hand, and an instance is that plus a merge per level. Neither opens a file.
+         */
+        [[nodiscard]] std::optional<MaterialDocument> resolvedMaterial(const AssetDatabase& assets,
+                                                                       const Uuid& id);
 
         /**
          * @brief The prefab @p id names, read from disk at most once per change.

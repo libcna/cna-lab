@@ -280,6 +280,19 @@ namespace CNA::Studio
         std::size_t materialCapabilityIssues = 0;
 
         /**
+         * @brief How many of this material's parameters it states rather than inherits.
+         *
+         * `plan.md` STUDIO-19005, counted for the reason the capability issues are: an instance
+         * whose whole parameter set quietly became overridden still draws every value correctly
+         * on the frame it happens, and the damage -- a variant that no longer follows its parent
+         * -- is only visible the next time somebody edits the parent. A number says it now.
+         *
+         * Zero for a material of its own, which states everything and marks nothing: a column of
+         * identical markers beside every row would report nothing a user could act on.
+         */
+        std::size_t materialOverridesShown = 0;
+
+        /**
          * @brief Assets of the wrong kind dropped on a slot and not taken (STUDIO-19009).
          *
          * Reported rather than swallowed. A drop that changes nothing and says nothing is
@@ -452,6 +465,18 @@ namespace CNA::Studio
          */
         double minimum = 0.0;
         double maximum = 0.0;
+
+        /**
+         * @brief An asset that must not appear in an asset picker -- itself.
+         *
+         * `plan.md` STUDIO-19005, and the exact counterpart of `excludeEntity`. A material's
+         * Parent slot must not offer that material: choosing it is always refused, and a control
+         * that refuses is indistinguishable from one that is broken.
+         *
+         * Last in the struct, like every other addition to something callers initialise
+         * positionally.
+         */
+        Uuid excludeAsset;
     };
 
     /**

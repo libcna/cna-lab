@@ -6,7 +6,7 @@
 
 **Exit criteria.** A property-based material editor good enough that a node graph is an addition rather than a rescue.
 
-**Progress:** 8 of 9 complete `██████████░░`
+**Progress:** 9 of 9 complete `████████████`
 
 | Id | Task | Status | Depends on |
 |----|------|:------:|------------|
@@ -14,7 +14,7 @@
 | `STUDIO-19002` | Texture slots: base colour, normal, roughness, metalness, emissive, occlusion | ✅ | `STUDIO-19001` |
 | `STUDIO-19003` | Scalar and vector material parameters | ✅ | `STUDIO-19001` |
 | `STUDIO-19004` | Transparency modes | ✅ | `STUDIO-19001` |
-| `STUDIO-19005` | Material instances and parameter overrides | ⬜ | `STUDIO-19001` |
+| `STUDIO-19005` | Material instances and parameter overrides | ✅ | `STUDIO-19001` |
 | `STUDIO-19006` | Live material preview in the viewport | ✅ | `STUDIO-11011` |
 | `STUDIO-19007` | Material preview thumbnail rendering | ✅ | `STUDIO-09003` |
 | `STUDIO-19008` | Renderer capability diagnostics for materials | ✅ | `STUDIO-02021` |
@@ -532,3 +532,87 @@ Studio cannot yet tell a user that the material is fine here and will not draw o
 are shipping to. That needs a capability table per target profile, which `STUDIO-17xxx` owns and
 this row does not pretend to.
 
+
+### `STUDIO-19005` — Material instances and parameter overrides
+
+**Acceptance.** A material can name another as its parent, state only the parameters it changes,
+and follow that parent for the rest — visibly, in the editor and in the viewport, with a way to
+take an override back.
+
+**The override set is the file's keys, and this is what `ED-300` asks for rather than a breach of
+it.** `ED-300` forbids storing overrides *beside* the values they describe, because two
+descriptions of the same fact are free to disagree: a list saying "roughness is overridden" and a
+roughness field holding the parent's number is a property that reverts to something the user never
+chose. Here a parameter an instance does not state is **absent from its file** — `toJson` writes
+`parent`, `name` and the stated keys, and nothing else — so there is no second description to
+drift. `loadFromJson` fills `overridden` from `json.contains(key)` over the twelve parameter keys,
+which makes it a *reading* of the file rather than a record kept next to one.
+
+**Prefabs answer the same question by comparison, and a material must not.** `ED-300` computes a
+prefab instance's overrides by diffing it against its source, because a prefab instance has to be
+indistinguishable from a hand-authored entity — an entity that dropped a component would otherwise
+be a component the scene cannot express. A material instance has the opposite requirement: it has
+to *follow* its parent, and comparison cannot express "inherited, and equal by coincidence". A
+variant that happens to share its parent's roughness today would silently stop following it the
+first time the parent moved, which is exactly the bug instances exist to prevent. So the rule is
+the *same* rule — never two records of one fact — and the two answers differ because the facts do.
+
+**Nil and absent mean different things, for an instance only.** A material of its own writes every
+key and an unset texture is omitted, which is what `STUDIO-19001` pinned and what every material
+already in a project round-trips through. An instance that overrides a slot *to nothing* — "this
+variant has no normal map" — writes the key as an empty string, because omitting it would be
+indistinguishable from not overriding it at all and the map would come back from the parent.
+
+**Resolution walks through the document cache at every level.** `AssetDocumentCache::
+resolvedMaterial` asks the cache for each material in the chain rather than reading files, so an
+edit to a root material is visible in every instance of it on the next frame (`STUDIO-19006`). It
+deliberately does **not** cache the resolved form: a cache entry's stamp is its own file's, and a
+resolved document depends on files it has no stamp for — the entry would go stale on a parent edit
+with nothing able to notice. Resolving a two-level instance therefore costs two cache lookups and
+no file reads, which is the right price.
+
+**A loop is refused at the gesture and survived at the reader.** `studioMaterialChainWouldLoop`
+runs before the parent is written, so the editor never creates one; the message says "That material
+already inherits from this one." rather than reporting a chain the user cannot see.
+`resolveMaterialDocument` still carries a visited set *and* a depth limit of 32, because a file
+somebody hand-edited is not bound by the editor's rules, and it returns what it resolved as far as
+the repeat — a user with a loop needs to see the material while they fix it. The panel says the
+chain is circular rather than showing the instance as a material of its own, since those look
+identical and only one of them is the user's mistake.
+
+**The marker is a control, not a dot.** An override a user cannot take back is a one-way door: the
+nearest thing to "follow the parent again" would be typing the parent's current number in by hand,
+which states it just as hard. So the marker is an `Undo` button that reverts, drawn only for an
+instance — on a material of its own every parameter is stated and a column of identical markers
+would report the one fact that never changes. It is taken from the **label** column rather than the
+control one, for the reason `STUDIO-14012`'s reset button was: a marker in the control column moves
+every editor sideways, and the cases that type into those editors would find the marker instead.
+
+**Verification.** `tests/StudioMaterialEditorTests.cpp` — the model half:
+`AnInstanceWritesOnlyTheParametersItStates` (the keys are the override set, a material of its own
+unchanged, a slot cleared to nothing written empty),
+`AnInstanceResolvesToItsParentsValuesWithItsOwnOverTheTop` (a three-level chain, the leaf keeping
+its own identity, and an edit to the root moving what the leaf does not state) and
+`ACircularParentChainIsReportedAndStillDrawsSomething`. Then the editor half:
+`EditingOneParameterOfAnInstanceLeavesTheRestInherited` reads the file as *text* — because a
+document that states everything and one that states one thing resolve identically, and only the
+bytes tell them apart; `TheOverrideMarkerPutsTheParentsValueBack`;
+`AMaterialOfItsOwnShowsNoOverrideMarkers`; and
+`TheParentSlotRefusesAMaterialThatAlreadyInheritsFromThisOne`, with a non-cycling drop as the
+positive control so a slot that ignored every drop could not pass it.
+
+Checked by causing each: a scalar edit writing the resolved document without stating its key, the
+marker never reverting, the cycle check removed from the parent slot, the marker's `isInstance`
+guard removed, and `resolveMaterialDocument` dropping the leaf's override set all fail by name —
+the last in three places, which is what makes it safe for the panel to rely on.
+
+**`materialOverridesShown` is reported because the damage is invisible on the frame it happens.**
+An instance whose whole parameter set quietly became overridden draws every value correctly; what
+is broken is the *next* edit to its parent, which no longer reaches it. A count says so now.
+
+**What this row is not.** There is no editor gesture for "make this an instance of that" beyond
+filling the Parent slot — no "Create Variant" on a material in the Content Browser, and no way to
+see a material's children. There is no multi-select revert, and no indication in the Content
+Browser that a material is an instance at all. A parent chain is also not *validated* by the
+project: a `.cnamaterial` hand-edited into a loop is caught when something resolves it, not when
+the project is scanned.

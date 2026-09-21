@@ -230,10 +230,14 @@ namespace CNA::Studio
             // provider is called once per model entity per *frame*: reading the file each time
             // meant a scene of two hundred models opened and parsed two hundred files sixty times
             // a second, which is a live preview paid for with the frame it is previewing.
-            const MaterialDocument* cached = documents_.material(assets_, assetId);
-            if (cached == nullptr) { return std::nullopt; }
+            // Resolved, so a material instance draws as what it inherits plus what it changes
+            // (`plan.md` STUDIO-19005). Through the cache at every level of the chain, so the
+            // whole walk still costs the file reads `STUDIO-19006` reduced it to and no more.
+            const std::optional<MaterialDocument> resolvedDocument =
+                documents_.resolvedMaterial(assets_, assetId);
+            if (!resolvedDocument.has_value()) { return std::nullopt; }
 
-            const MaterialDocument& material = *cached;
+            const MaterialDocument& material = *resolvedDocument;
             MeshMaterial resolved = material.toMeshMaterial();
 
             // The one thing the document cannot do for itself: it speaks in asset ids and the

@@ -244,6 +244,42 @@ namespace
             return area.right() - 20.0f;
         }
 
+        /**
+         * @brief A point inside an instance's override marker, which sits left of the label.
+         *
+         * `plan.md` STUDIO-19005. The marker is taken from the *label* column rather than the
+         * control one, so it moves no editor sideways -- which is the reason every case above can
+         * still aim at @ref numberFieldX and find a field.
+         */
+        [[nodiscard]] float markerX() const
+        {
+            const UiRect area =
+                bounds.inset(UiEdges{metricOf(frame.theme(), StudioMetric::SpacingSmall)});
+            return area.x + metricOf(frame.theme(), StudioMetric::IconSizeSmall) * 0.5f;
+        }
+
+        /** @brief Writes @p document to @p relative and tracks it, returning its id. */
+        Uuid addMaterial(const std::string& relative, const MaterialDocument& document)
+        {
+            project.write(relative, Json::write(document.toJson(), true));
+
+            AssetRecord record;
+            record.id = Uuid::generate();
+            record.sourcePath = relative;
+            record.type = AssetType::Material;
+            const Uuid id = record.id;
+            CNA_STUDIO_EXPECT(context.getAssets().add(std::move(record)));
+            return id;
+        }
+
+        /** @brief The document @p id's file currently holds, as stated rather than resolved. */
+        [[nodiscard]] MaterialDocument statedOnDisk(const Uuid& id) const
+        {
+            MaterialDocument document;
+            (void)loadMaterialDocument(context.getAssets(), id, document);
+            return document;
+        }
+
         /** @brief The material as the file currently holds it. */
         [[nodiscard]] MaterialDocument onDisk() const
         {
@@ -253,17 +289,19 @@ namespace
         }
     };
 
-    // name, path, type, id, a gap, the Material heading, then the fields.
+    // name, path, type, id, a gap, the Material heading, then the fields. Parent sits second,
+    // with the identity it belongs to (`plan.md` STUDIO-19005).
     constexpr std::size_t kNameRow = 6;
-    constexpr std::size_t kBaseColourRow = 7;
-    constexpr std::size_t kRoughnessRow = 10;
+    constexpr std::size_t kParentRow = 7;
+    constexpr std::size_t kBaseColourRow = 8;
+    constexpr std::size_t kRoughnessRow = 11;
 
     // The alpha mode follows the six values (`plan.md` STUDIO-19004), and the texture slots follow
     // that. The Mask-only cutoff row sits between them and is absent in every other mode, which is
     // why these are the Opaque-mode positions.
-    constexpr std::size_t kAlphaModeRow = 12;
-    constexpr std::size_t kBaseColourMapRow = 13;
-    constexpr std::size_t kOcclusionMapRow = 17;
+    constexpr std::size_t kAlphaModeRow = 13;
+    constexpr std::size_t kBaseColourMapRow = 14;
+    constexpr std::size_t kOcclusionMapRow = 18;
 }
 
 CNA_STUDIO_TEST(SelectingAMaterialShowsItsFieldsRatherThanAnImporterApology)
@@ -273,12 +311,12 @@ CNA_STUDIO_TEST(SelectingAMaterialShowsItsFieldsRatherThanAnImporterApology)
     Fixture fixture{"fields"};
     fixture.settle();
 
-    // Six values, the alpha mode (`plan.md` STUDIO-19004) and five texture slots
-    // (`STUDIO-19002`). The slots were the half of a material that could only be filled in by
-    // editing the JSON by hand: the document has carried four of the ids since ED-403 and the
-    // editor could set none of them. Twelve rather than thirteen because this material is Opaque
-    // and the cutoff is drawn only for a Mask one.
-    CNA_STUDIO_EXPECT_EQ(fixture.last.materialFields, std::size_t{12});
+    // Six values, the parent slot (`plan.md` STUDIO-19005), the alpha mode (`STUDIO-19004`) and
+    // five texture slots (`STUDIO-19002`). The slots were the half of a material that could only
+    // be filled in by editing the JSON by hand: the document has carried four of the ids since
+    // ED-403 and the editor could set none of them. Thirteen rather than fourteen because this
+    // material is Opaque and the cutoff is drawn only for a Mask one.
+    CNA_STUDIO_EXPECT_EQ(fixture.last.materialFields, std::size_t{13});
     CNA_STUDIO_EXPECT(fixture.last.rowsDrawn >= kRoughnessRow);
     CNA_STUDIO_EXPECT_EQ(fixture.frame.phaseViolations(), std::size_t{0});
 }
@@ -512,9 +550,11 @@ CNA_STUDIO_TEST(ATextureDroppedOnAMaterialSlotIsWrittenToTheFile)
 
     CNA_STUDIO_EXPECT(!fixture.onDisk().diffuseTexture.isValid());
 
-    // Five slots, each offering "(none)" and the project's one texture. Unfiltered they would each
-    // offer the material itself as well, which is fifteen rows rather than ten.
-    CNA_STUDIO_EXPECT_EQ(fixture.last.assetChoicesOffered, std::size_t{10});
+    // Five texture slots, each offering "(none)" and the project's one texture, plus the Parent
+    // slot offering "(none)" and nothing else -- the only material in this project is the one
+    // being edited, and a material cannot be its own parent (`plan.md` STUDIO-19005). Unfiltered
+    // the texture slots would each offer the material too, which is fifteen rather than ten.
+    CNA_STUDIO_EXPECT_EQ(fixture.last.assetChoicesOffered, std::size_t{11});
 
     StudioFrame::StudioDragPayload payload;
     payload.type = std::string{kStudioAssetDragType};
@@ -1067,4 +1107,395 @@ CNA_STUDIO_TEST(AMaterialEditIsVisibleAtOnceAndCostsOneFileReadRatherThanOnePerD
     {
         CNA_STUDIO_EXPECT(std::fabs(undone->roughness - 0.6f) < 0.001f);
     }
+}
+
+// ------------------------------------------------------------------------------------------------
+// Material instances (STUDIO-19005)
+// ------------------------------------------------------------------------------------------------
+
+/**
+ * @brief An instance states only what it changes, and the file is the evidence.
+ *
+ * The whole design in one case. `ED-300` forbids an override list kept *beside* the values,
+ * because the two can disagree and the disagreement shows up as a property reverting to something
+ * the user never chose. Here the values a material does not state are **absent from its file**, so
+ * there is no second description to drift: the keys are the override set.
+ */
+CNA_STUDIO_TEST(AnInstanceWritesOnlyTheParametersItStates)
+{
+    const Uuid parentId = Uuid::generate();
+
+    MaterialDocument instance;
+    instance.parent = parentId;
+    instance.name = "Crate Variant";
+    instance.roughness = 0.2f;
+    instance.overridden.insert("roughness");
+
+    const JsonValue json = instance.toJson();
+
+    // Its own identity and the one parameter it states, and nothing else.
+    CNA_STUDIO_EXPECT_EQ(json["parent"].asString(""), parentId.toString());
+    CNA_STUDIO_EXPECT_EQ(json["name"].asString(""), std::string{"Crate Variant"});
+    CNA_STUDIO_EXPECT(json.contains("roughness"));
+    CNA_STUDIO_EXPECT(!json.contains("metallic"));
+    CNA_STUDIO_EXPECT(!json.contains("diffuseColor"));
+    CNA_STUDIO_EXPECT(!json.contains("alpha"));
+
+    // Read back, the keys *are* the override set -- nothing else records it.
+    MaterialDocument reloaded;
+    CNA_STUDIO_EXPECT(reloaded.loadFromJson(json));
+    CNA_STUDIO_EXPECT(reloaded.parent == parentId);
+    CNA_STUDIO_EXPECT_EQ(reloaded.overridden.size(), std::size_t{1});
+    CNA_STUDIO_EXPECT(reloaded.overridden.count("roughness") == 1);
+
+    // A material of its own is untouched by any of this: it writes everything, exactly as it did
+    // before instances existed, so every material already in a project still round-trips.
+    MaterialDocument own;
+    own.diffuseColor = StudioVector3{0.4f, 0.5f, 0.6f};
+    const JsonValue ownJson = own.toJson();
+    CNA_STUDIO_EXPECT(!ownJson.contains("parent"));
+    CNA_STUDIO_EXPECT(ownJson.contains("diffuseColor"));
+    CNA_STUDIO_EXPECT(ownJson.contains("metallic"));
+
+    // And an instance that overrides a slot *to nothing* -- "this variant has no normal map" --
+    // writes the key empty rather than omitting it, which is the one place a nil id and an absent
+    // one have to mean different things.
+    MaterialDocument cleared;
+    cleared.parent = parentId;
+    cleared.overridden.insert("normalTexture");
+    CNA_STUDIO_EXPECT(cleared.toJson().contains("normalTexture"));
+    CNA_STUDIO_EXPECT_EQ(cleared.toJson()["normalTexture"].asString("missing"), std::string{});
+}
+
+/** @brief A parameter belongs to the nearest ancestor that states it. */
+CNA_STUDIO_TEST(AnInstanceResolvesToItsParentsValuesWithItsOwnOverTheTop)
+{
+    ScopedProject project{"inherit"};
+
+    StudioContext context;
+    context.getAssets().setProjectRoot(project.root());
+
+    const auto add = [&](const std::string& path, const MaterialDocument& document) {
+        project.write(path, Json::write(document.toJson(), true));
+        AssetRecord record;
+        record.id = Uuid::generate();
+        record.sourcePath = path;
+        record.type = AssetType::Material;
+        const Uuid id = record.id;
+        CNA_STUDIO_EXPECT(context.getAssets().add(std::move(record)));
+        return id;
+    };
+
+    MaterialDocument root;
+    root.name = "Crate";
+    root.diffuseColor = StudioVector3{0.8f, 0.6f, 0.3f};
+    root.roughness = 0.9f;
+    root.metallic = 0.1f;
+    const Uuid rootId = add("Assets/Crate.cnamaterial", root);
+
+    // A middle level that changes one thing, to prove the walk is a chain rather than one step.
+    MaterialDocument middle;
+    middle.name = "Crate Wet";
+    middle.parent = rootId;
+    middle.roughness = 0.3f;
+    middle.overridden.insert("roughness");
+    const Uuid middleId = add("Assets/CrateWet.cnamaterial", middle);
+
+    MaterialDocument leaf;
+    leaf.name = "Crate Wet Red";
+    leaf.parent = middleId;
+    leaf.diffuseColor = StudioVector3{0.9f, 0.1f, 0.1f};
+    leaf.overridden.insert("diffuseColor");
+    const Uuid leafId = add("Assets/CrateWetRed.cnamaterial", leaf);
+
+    MaterialDocument resolved;
+    CNA_STUDIO_EXPECT(resolveMaterialDocument(context.getAssets(), leafId, resolved)
+                      == MaterialResolveProblem::None);
+
+    // Its own where it states one, the nearest ancestor's otherwise.
+    CNA_STUDIO_EXPECT(std::fabs(resolved.diffuseColor.x - 0.9f) < 0.001f);
+    CNA_STUDIO_EXPECT(std::fabs(resolved.roughness - 0.3f) < 0.001f);
+    CNA_STUDIO_EXPECT(std::fabs(resolved.metallic - 0.1f) < 0.001f);
+
+    // Still itself: the resolved document carries the leaf's name, parent and override set, not
+    // the root's, because it is that material drawn with what it inherits filled in.
+    CNA_STUDIO_EXPECT_EQ(resolved.name, std::string{"Crate Wet Red"});
+    CNA_STUDIO_EXPECT(resolved.parent == middleId);
+    CNA_STUDIO_EXPECT_EQ(resolved.overridden.size(), std::size_t{1});
+
+    // Editing the parent moves every instance that does not state the parameter, which is the
+    // entire reason to have instances at all.
+    MaterialDocument recoloured = root;
+    recoloured.diffuseColor = StudioVector3{0.1f, 0.1f, 0.8f};
+    recoloured.metallic = 0.7f;
+    project.write("Assets/Crate.cnamaterial", Json::write(recoloured.toJson(), true));
+
+    MaterialDocument followed;
+    CNA_STUDIO_EXPECT(resolveMaterialDocument(context.getAssets(), leafId, followed)
+                      == MaterialResolveProblem::None);
+    CNA_STUDIO_EXPECT(std::fabs(followed.metallic - 0.7f) < 0.001f);
+
+    // But not the one it does state: the leaf is still red.
+    CNA_STUDIO_EXPECT(std::fabs(followed.diffuseColor.x - 0.9f) < 0.001f);
+}
+
+/** @brief A chain that comes back to itself is reported, not walked. */
+CNA_STUDIO_TEST(ACircularParentChainIsReportedAndStillDrawsSomething)
+{
+    ScopedProject project{"cycle"};
+
+    StudioContext context;
+    context.getAssets().setProjectRoot(project.root());
+
+    const Uuid firstId = Uuid::generate();
+    const Uuid secondId = Uuid::generate();
+
+    const auto add = [&](const Uuid& id, const std::string& path,
+                         const MaterialDocument& document) {
+        project.write(path, Json::write(document.toJson(), true));
+        AssetRecord record;
+        record.id = id;
+        record.sourcePath = path;
+        record.type = AssetType::Material;
+        CNA_STUDIO_EXPECT(context.getAssets().add(std::move(record)));
+    };
+
+    MaterialDocument first;
+    first.name = "First";
+    first.parent = secondId;
+    first.diffuseColor = StudioVector3{0.9f, 0.2f, 0.2f};
+    first.overridden.insert("diffuseColor");
+    add(firstId, "Assets/First.cnamaterial", first);
+
+    MaterialDocument second;
+    second.name = "Second";
+    second.parent = firstId;
+    second.roughness = 0.25f;
+    second.overridden.insert("roughness");
+    add(secondId, "Assets/Second.cnamaterial", second);
+
+    MaterialDocument resolved;
+    CNA_STUDIO_EXPECT(resolveMaterialDocument(context.getAssets(), firstId, resolved)
+                      == MaterialResolveProblem::Cycle);
+
+    // Resolved as far as the repeat rather than abandoned: a user with a loop needs to see a
+    // material while they fix it, and both levels' parameters are known.
+    CNA_STUDIO_EXPECT_EQ(resolved.name, std::string{"First"});
+    CNA_STUDIO_EXPECT(std::fabs(resolved.diffuseColor.x - 0.9f) < 0.001f);
+    CNA_STUDIO_EXPECT(std::fabs(resolved.roughness - 0.25f) < 0.001f);
+
+    // And the link that would close it is refused before it is written, which is why a user
+    // cannot reach this state through the editor at all.
+    CNA_STUDIO_EXPECT(studioMaterialChainWouldLoop(context.getAssets(), firstId, secondId));
+    CNA_STUDIO_EXPECT(studioMaterialChainWouldLoop(context.getAssets(), firstId, firstId));
+
+    // A material that is nobody's ancestor is a fine parent.
+    MaterialDocument loose;
+    loose.name = "Loose";
+    const Uuid looseId = Uuid::generate();
+    add(looseId, "Assets/Loose.cnamaterial", loose);
+    CNA_STUDIO_EXPECT(!studioMaterialChainWouldLoop(context.getAssets(), firstId, looseId));
+}
+
+/**
+ * @brief Editing one parameter of an instance states that one and leaves the rest inherited.
+ *
+ * The editor half of `AnInstanceWritesOnlyTheParametersItStates`, and the case that matters more:
+ * the model can only write what it is given, and what the panel gives it is the choice. The panel
+ * *shows* the resolved document — a user looking at an instance sees the values that reach the
+ * screen — so the obvious implementation writes that back, which silently promotes every
+ * inherited parameter to an override the first time anybody touches any one of them. The variant
+ * still looks right on that frame. It stops following its parent forever.
+ */
+CNA_STUDIO_TEST(EditingOneParameterOfAnInstanceLeavesTheRestInherited)
+{
+    Fixture fixture{"instanceedit"};
+
+    MaterialDocument crate;
+    crate.name = "Crate";
+    crate.diffuseColor = StudioVector3{0.8f, 0.6f, 0.3f};
+    crate.metallic = 0.25f;
+    crate.roughness = 0.9f;
+    const Uuid crateId = fixture.addMaterial("Assets/Crate.cnamaterial", crate);
+
+    MaterialDocument instance;
+    instance.name = "Painted Red";
+    instance.parent = crateId;
+    fixture.project.write("Assets/PaintedRed.cnamaterial",
+                          Json::write(instance.toJson(), true));
+
+    fixture.settle();
+
+    // Nothing is stated yet, so nothing is marked -- and the rows show the parent's values, which
+    // is the whole reason a user made an instance.
+    CNA_STUDIO_EXPECT_EQ(fixture.last.materialOverridesShown, std::size_t{0});
+    CNA_STUDIO_EXPECT_EQ(fixture.last.materialFields, std::size_t{13});
+
+    const UiRect box = fixture.row(kRoughnessRow);
+    fixture.replace(fixture.numberFieldX(), box.centerY(), {u'0', u'.', u'2'});
+
+    const MaterialDocument written = fixture.statedOnDisk(fixture.material);
+    CNA_STUDIO_EXPECT(written.parent == crateId);
+    CNA_STUDIO_EXPECT(std::fabs(written.roughness - 0.2f) < 0.001f);
+
+    // One key, not twelve. The file is the evidence, read as text rather than through the loader:
+    // a document that states everything and a document that states one thing both *resolve* to
+    // the same values, and only the bytes tell them apart.
+    CNA_STUDIO_EXPECT_EQ(written.overridden.size(), std::size_t{1});
+    CNA_STUDIO_EXPECT(written.overridden.count("roughness") == 1);
+
+    const std::string text = fixture.project.read("Assets/PaintedRed.cnamaterial");
+    CNA_STUDIO_EXPECT(text.find("roughness") != std::string::npos);
+    CNA_STUDIO_EXPECT(text.find("metallic") == std::string::npos);
+    CNA_STUDIO_EXPECT(text.find("diffuseColor") == std::string::npos);
+
+    // And the panel says so: one marked row now, not thirteen.
+    fixture.settle();
+    CNA_STUDIO_EXPECT_EQ(fixture.last.materialOverridesShown, std::size_t{1});
+
+    // The parent still owns everything else, which is what an instance is for. Moving the parent
+    // moves this material's metallic and leaves its roughness where the user put it.
+    MaterialDocument recoloured = crate;
+    recoloured.metallic = 0.75f;
+    fixture.project.write("Assets/Crate.cnamaterial", Json::write(recoloured.toJson(), true));
+
+    MaterialDocument resolved;
+    CNA_STUDIO_EXPECT(resolveMaterialDocument(fixture.context.getAssets(), fixture.material,
+                                              resolved)
+                      == MaterialResolveProblem::None);
+    CNA_STUDIO_EXPECT(std::fabs(resolved.metallic - 0.75f) < 0.001f);
+    CNA_STUDIO_EXPECT(std::fabs(resolved.roughness - 0.2f) < 0.001f);
+}
+
+/**
+ * @brief The marker beside an overridden row puts the parent's value back.
+ *
+ * An override a user cannot take back is a one-way door: the value they typed is now this
+ * material's own forever, and "make it follow the parent again" has no gesture at all — the
+ * nearest thing is typing the parent's current number in by hand, which states it just as hard.
+ */
+CNA_STUDIO_TEST(TheOverrideMarkerPutsTheParentsValueBack)
+{
+    Fixture fixture{"revert"};
+
+    MaterialDocument crate;
+    crate.name = "Crate";
+    crate.roughness = 0.9f;
+    const Uuid crateId = fixture.addMaterial("Assets/Crate.cnamaterial", crate);
+
+    MaterialDocument instance;
+    instance.name = "Painted Red";
+    instance.parent = crateId;
+    instance.roughness = 0.2f;
+    instance.overridden.insert("roughness");
+    fixture.project.write("Assets/PaintedRed.cnamaterial",
+                          Json::write(instance.toJson(), true));
+
+    fixture.settle();
+    CNA_STUDIO_EXPECT_EQ(fixture.last.materialOverridesShown, std::size_t{1});
+
+    const UiRect box = fixture.row(kRoughnessRow);
+    fixture.click(fixture.markerX(), box.centerY());
+
+    // The key is gone from the file, which is the only place the override lived.
+    const MaterialDocument reverted = fixture.statedOnDisk(fixture.material);
+    CNA_STUDIO_EXPECT(reverted.overridden.count("roughness") == 0);
+    CNA_STUDIO_EXPECT(fixture.project.read("Assets/PaintedRed.cnamaterial").find("roughness")
+                      == std::string::npos);
+
+    // And the parameter is the parent's again -- not the 0.2 left behind as a default.
+    MaterialDocument resolved;
+    CNA_STUDIO_EXPECT(resolveMaterialDocument(fixture.context.getAssets(), fixture.material,
+                                              resolved)
+                      == MaterialResolveProblem::None);
+    CNA_STUDIO_EXPECT(std::fabs(resolved.roughness - 0.9f) < 0.001f);
+
+    fixture.settle();
+    CNA_STUDIO_EXPECT_EQ(fixture.last.materialOverridesShown, std::size_t{0});
+
+    // A revert rewrites the file, so it goes through the history like every other material edit.
+    CNA_STUDIO_EXPECT(fixture.context.getHistory().undo());
+    CNA_STUDIO_EXPECT(fixture.statedOnDisk(fixture.material).overridden.count("roughness") == 1);
+}
+
+/** @brief A material of its own states everything and marks nothing. */
+CNA_STUDIO_TEST(AMaterialOfItsOwnShowsNoOverrideMarkers)
+{
+    Fixture fixture{"nomarkers"};
+    fixture.settle();
+
+    // Every parameter is this material's own, so a marker on each row would be thirteen identical
+    // controls reporting the one fact that never changes.
+    CNA_STUDIO_EXPECT_EQ(fixture.last.materialOverridesShown, std::size_t{0});
+
+    // And the space they would occupy belongs to the label: clicking there changes nothing.
+    const std::string before = fixture.project.read("Assets/PaintedRed.cnamaterial");
+    fixture.click(fixture.markerX(), fixture.row(kRoughnessRow).centerY());
+    CNA_STUDIO_EXPECT_EQ(fixture.project.read("Assets/PaintedRed.cnamaterial"), before);
+}
+
+/**
+ * @brief The Parent slot takes a material and refuses the one that would close a loop.
+ *
+ * Refused where the user is rather than reported once it exists. A loop written to disk is two
+ * files that each say the other is the source of truth, and every reader of either -- the editor,
+ * the renderer, the dependency index -- has to carry a depth limit and a story about what to draw.
+ * The gesture that would create one is the last moment anybody has the context to say no.
+ */
+CNA_STUDIO_TEST(TheParentSlotRefusesAMaterialThatAlreadyInheritsFromThisOne)
+{
+    Fixture fixture{"parentdrop"};
+
+    MaterialDocument crate;
+    crate.name = "Crate";
+    crate.roughness = 0.9f;
+    const Uuid crateId = fixture.addMaterial("Assets/Crate.cnamaterial", crate);
+
+    MaterialDocument loose;
+    loose.name = "Loose";
+    const Uuid looseId = fixture.addMaterial("Assets/Loose.cnamaterial", loose);
+
+    MaterialDocument instance;
+    instance.name = "Painted Red";
+    instance.parent = crateId;
+    fixture.project.write("Assets/PaintedRed.cnamaterial",
+                          Json::write(instance.toJson(), true));
+
+    // Now edit the *parent*, and try to give it its own child as a parent.
+    fixture.context.selectAsset(crateId);
+    fixture.settle();
+
+    const auto dropOn = [&fixture](std::size_t rowIndex, const Uuid& id, const char* label) {
+        StudioFrame::StudioDragPayload payload;
+        payload.type = std::string{kStudioAssetDragType};
+        payload.value = id.toString();
+        payload.label = label;
+
+        const UiRect box = fixture.row(rowIndex);
+        const float x = fixture.controlLeft() + 20.0f;
+        const float y = box.centerY();
+
+        fixture.run(at(x, y, /*leftDown=*/true));
+        CNA_STUDIO_EXPECT(fixture.frame.beginDrag(fixture.frame.ids().make("source"), payload));
+        fixture.run(at(x, y, /*leftDown=*/true));
+        fixture.run(at(x, y));
+    };
+
+    dropOn(kParentRow, fixture.material, "PaintedRed.cnamaterial");
+
+    // Not written: Crate is still a material of its own.
+    CNA_STUDIO_EXPECT(!fixture.statedOnDisk(crateId).parent.isValid());
+    CNA_STUDIO_EXPECT_EQ(fixture.last.dropsRefused, std::size_t{0});
+
+    // The positive control, and the reason this case is not satisfied by a slot that ignores
+    // every drop: a material that is nobody's ancestor lands.
+    dropOn(kParentRow, looseId, "Loose.cnamaterial");
+    CNA_STUDIO_EXPECT(fixture.statedOnDisk(crateId).parent == looseId);
+
+    // Which the loop check agrees with from the other side: PaintedRed still cannot be Crate's
+    // parent, and Crate has become one of PaintedRed's ancestors' ancestors without cycling.
+    CNA_STUDIO_EXPECT(studioMaterialChainWouldLoop(fixture.context.getAssets(), crateId,
+                                                   fixture.material));
+    CNA_STUDIO_EXPECT(!studioMaterialChainWouldLoop(fixture.context.getAssets(), crateId,
+                                                    looseId));
 }

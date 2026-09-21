@@ -37,6 +37,7 @@
  * survives the texture being renamed or moved, which a path does not (D-08).
  */
 
+#include <set>
 #include <string>
 
 #include "CNA/Studio/Core/Json.hpp"
@@ -53,6 +54,40 @@ namespace CNA::Studio
 
         /** @brief What a person calls it. Defaults to the file's stem when one is created. */
         std::string name = "Material";
+
+        /**
+         * @brief The material this one inherits from, or nil for a material of its own
+         *        (`plan.md` STUDIO-19005).
+         *
+         * An *instance* stores only the parameters it changes; everything else is whatever its
+         * parent says, now and after the parent is edited. That is the whole point of one: a
+         * project's forty crate variants follow the crate.
+         */
+        Uuid parent;
+
+        /**
+         * @brief Which fields this document states for itself, by their JSON key.
+         *
+         * Empty on a material with no parent, where every field is its own and the question does
+         * not arise. On an instance it is exactly the set of keys *present in the file* — so a
+         * parameter is overridden if and only if it is written, and inherited if and only if it is
+         * absent.
+         *
+         * **This is not the stored override list `ED-300` rejects, and the difference is the whole
+         * of why it is allowed here.** What that rule forbids is a list kept *beside* the values,
+         * free to disagree with them — a parameter marked overridden whose value equals the
+         * parent's, or the reverse, showing up later as a property that reverts to something the
+         * user never chose. Here there is no second description to disagree with: a parameter that
+         * is not overridden has **no value in this document at all**. The set is read from the
+         * file's own keys on load and decides its own keys on save, so the two cannot drift.
+         *
+         * Prefabs answer the same question by comparison instead, and that is right for them: a
+         * prefab instance must be indistinguishable from a hand-authored entity once it is in a
+         * scene, so it has to hold every value. A material instance has the opposite requirement —
+         * it must *follow* its parent — and comparison cannot express "inherited, and equal by
+         * coincidence".
+         */
+        std::set<std::string> overridden;
 
         StudioVector3 diffuseColor{1.0f, 1.0f, 1.0f};
         StudioVector3 emissiveColor{0.0f, 0.0f, 0.0f};
@@ -144,6 +179,19 @@ namespace CNA::Studio
     };
 
     /**
+     * @brief Reads the material at @p absolutePath.
+     *
+     * The half of `loadMaterialDocument` that does not need a database, split out for the
+     * thumbnail worker (`plan.md` STUDIO-19007): that runs off the frame, where the asset
+     * database and the document cache are the main thread's and must not be touched. Still one
+     * reader -- `loadMaterialDocument` resolves an id to a path and then calls this.
+     *
+     * @param out Filled in on success; untouched otherwise, so a caller's defaults survive.
+     */
+    [[nodiscard]] MaterialLoadProblem loadMaterialFile(const std::string& absolutePath,
+                                                       MaterialDocument& out);
+
+    /**
      * @brief Reads the material asset @p assetId from the project.
      *
      * `plan.md` STUDIO-07046. One reader rather than one per caller: the model pass's material
@@ -158,20 +206,75 @@ namespace CNA::Studio
      *         file, an unreadable one and one this build is too old for are three different
      *         messages, and only the last of them means "do not offer to overwrite it".
      */
-    /**
-     * @brief Reads the material at @p absolutePath.
-     *
-     * The half of `loadMaterialDocument` that does not need a database, split out for the
-     * thumbnail worker (`plan.md` STUDIO-19007): that runs off the frame, where the asset
-     * database and the document cache are the main thread's and must not be touched. Still one
-     * reader -- `loadMaterialDocument` resolves an id to a path and then calls this.
-     *
-     * @param out Filled in on success; untouched otherwise, so a caller's defaults survive.
-     */
-    [[nodiscard]] MaterialLoadProblem loadMaterialFile(const std::string& absolutePath,
-                                                       MaterialDocument& out);
-
     [[nodiscard]] MaterialLoadProblem loadMaterialDocument(const AssetDatabase& assets,
                                                            const Uuid& assetId,
                                                            MaterialDocument& out);
+
+    /**
+     * @brief Why a material chain could not be resolved. Empty when it was.
+     *
+     * `plan.md` STUDIO-19005. Separate from `MaterialLoadProblem` because a chain has a failure of
+     * its own that a single file does not: it can come back to where it started.
+     */
+    enum class MaterialResolveProblem
+    {
+        /** @brief Resolved. */
+        None,
+        /** @brief The material itself, or one of its parents, could not be read. */
+        Unreadable,
+        /**
+         * @brief A parent chain that comes back to a material it has already been through.
+         *
+         * Reported rather than followed: an editor that walked a cycle would hang, and one that
+         * silently stopped would show a material whose parameters depend on where the walk began.
+         * What is returned is the chain resolved as far as the repeat, so the user sees a material
+         * rather than nothing while they fix it.
+         */
+        Cycle,
+        /** @brief The chain is longer than any real material hierarchy. */
+        TooDeep,
+    };
+
+    /**
+     * @brief Whether making @p candidate the parent of @p material would close a loop.
+     *
+     * `plan.md` STUDIO-19005. Asked before the link is written rather than reported after: the
+     * chain is resolvable now, and a user who has just chosen a parent has all the context they
+     * will ever have for understanding why it was refused.
+     *
+     * True when @p candidate is @p material itself, or inherits from it however far up.
+     */
+    [[nodiscard]] bool studioMaterialChainWouldLoop(const AssetDatabase& assets,
+                                                    const Uuid& material, const Uuid& candidate);
+
+    /**
+     * @brief Applies @p instance's stated parameters over @p base.
+     *
+     * `plan.md` STUDIO-19005. The one step of the inheritance walk, exposed because two callers
+     * need it -- the walk over the asset database and the one the document cache does over its own
+     * entries -- and two copies of "which fields does an override replace" is two chances to
+     * forget one the day a field is added.
+     *
+     * Touches only the parameters: @p base keeps its own name, parent and override set, because
+     * those belong to whichever document the caller is building.
+     */
+    void applyMaterialOverrides(MaterialDocument& base, const MaterialDocument& instance);
+
+    /**
+     * @brief The material @p assetId draws as, with every inherited parameter filled in.
+     *
+     * Walks to the root of the parent chain and applies each level's stated parameters on the way
+     * back down, so a parameter belongs to the nearest ancestor that states it.
+     *
+     * The result's `overridden` set is the *leaf's* own, not the union: it answers "what does this
+     * material state for itself", which is what the editor needs to draw an override marker, and
+     * the union would answer nothing anybody asks. Its `parent` is the leaf's parent, so the
+     * resolved document still says what it inherits from.
+     *
+     * @param out Filled in as far as the walk got, even on a failure -- a material with a broken
+     *        parent is better shown wrong than not shown.
+     */
+    [[nodiscard]] MaterialResolveProblem resolveMaterialDocument(const AssetDatabase& assets,
+                                                                 const Uuid& assetId,
+                                                                 MaterialDocument& out);
 }

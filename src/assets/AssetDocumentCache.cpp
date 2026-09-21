@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MS-PL
 #include "CNA/Studio/Assets/AssetDocumentCache.hpp"
 
+#include <set>
+
 #include "CNA/Studio/Core/ComponentDescriptor.hpp"
 
 namespace CNA::Studio
@@ -29,6 +31,59 @@ namespace CNA::Studio
             entry.prefab.reset();
         }
         return entry;
+    }
+
+    std::optional<MaterialDocument> StudioAssetDocumentCache::resolvedMaterial(
+        const AssetDatabase& assets, const Uuid& id)
+    {
+        const MaterialDocument* leaf = material(assets, id);
+        if (leaf == nullptr) { return std::nullopt; }
+
+        // Nearly every material is its own, and that case costs one copy and no walk at all.
+        if (!leaf->parent.isValid()) { return *leaf; }
+
+        // Leaf-first, applied root-first, so a parameter belongs to the nearest ancestor that
+        // states it. Both guards for the reason `resolveMaterialDocument` gives: the visited set
+        // catches a loop and the depth catches a chain that is merely absurd.
+        //
+        // Pointers into the cache rather than copies, which is safe because `entries_` is an
+        // `unordered_map` -- inserting a level does not move the ones already in it, and nothing
+        // on this path erases. An eviction policy added to `material` would have to take copies
+        // here instead.
+        constexpr std::size_t kMaximumDepth = 32;
+        std::vector<const MaterialDocument*> chain;
+        std::set<std::string> visited;
+
+        Uuid current = id;
+        while (current.isValid() && chain.size() < kMaximumDepth)
+        {
+            if (!visited.insert(current.toString()).second) { break; }
+
+            const MaterialDocument* level = material(assets, current);
+
+            // A broken parent leaves the chain where it is rather than losing the leaf: a
+            // material whose ancestor will not read is better drawn with what it has than not
+            // drawn at all, and the Inspector reports the break.
+            if (level == nullptr) { break; }
+
+            current = level->parent;
+            chain.push_back(level);
+        }
+
+        if (chain.empty()) { return *leaf; }
+
+        MaterialDocument resolved = *chain.back();
+        for (auto level = chain.rbegin() + 1; level != chain.rend(); ++level)
+        {
+            applyMaterialOverrides(resolved, **level);
+        }
+
+        // The leaf's own identity: this is still that material, drawn with what it inherits
+        // filled in.
+        resolved.name = leaf->name;
+        resolved.parent = leaf->parent;
+        resolved.overridden = leaf->overridden;
+        return resolved;
     }
 
     const MaterialDocument* StudioAssetDocumentCache::material(const AssetDatabase& assets,

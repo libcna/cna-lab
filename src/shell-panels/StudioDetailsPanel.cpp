@@ -1757,6 +1757,7 @@ namespace
                 for (const AssetRecord* record : editing.context->getAssets().getAll())
                 {
                     if (record == nullptr) { continue; }
+                    if (record->id == editing.excludeAsset) { continue; }
                     if (!studioAssetSlotAccepts(editing.assetType, record->type)) { continue; }
                     labels.push_back(record->sourcePath);
                     ids.push_back(record->id);
@@ -2195,6 +2196,82 @@ namespace
             return result;
         }
 
+        // What this material *states* is `material`; what it *draws as* is that with everything it
+        // inherits filled in (`plan.md` STUDIO-19005). The editor shows the second and writes the
+        // first: a user looking at an instance sees the values that reach the screen, and an edit
+        // changes only the parameter they touched.
+        const MaterialDocument stated = material;
+        const bool isInstance = material.parent.isValid();
+
+        MaterialResolveProblem chain = MaterialResolveProblem::None;
+        if (isInstance)
+        {
+            if (services.documents != nullptr)
+            {
+                if (const std::optional<MaterialDocument> resolved =
+                        services.documents->resolvedMaterial(context.getAssets(), record.id))
+                {
+                    material = *resolved;
+                }
+                else
+                {
+                    chain = MaterialResolveProblem::Unreadable;
+                }
+            }
+            else
+            {
+                chain = resolveMaterialDocument(context.getAssets(), record.id, material);
+            }
+        }
+
+        // A broken or circular chain is said out loud rather than shown as a material that is
+        // quietly its own: an instance whose parent will not read looks exactly like a material
+        // somebody set up wrong, and only one of those is the user's mistake.
+        if (chain != MaterialResolveProblem::None)
+        {
+            say(nextRow(),
+                chain == MaterialResolveProblem::Cycle
+                    ? "This material's parent chain comes back to itself."
+                    : "This material's parent cannot be read.",
+                StudioColorRole::Warning);
+        }
+
+        /**
+         * @brief Marks @p key's row as stated here or inherited, and reverts it when clicked.
+         *
+         * Drawn only for an instance, because on a material of its own every parameter is stated
+         * and a column of identical markers would be a column of noise. Taken from the *label*
+         * column rather than the control one, for the reason `STUDIO-14012`'s reset button was:
+         * a marker in the control column moves every field's editor sideways, and the cases that
+         * type into those editors find the marker instead.
+         */
+        const auto overrideMarker = [&](const UiRect& label, const char* key) -> bool {
+            if (!isInstance) { return false; }
+
+            const float marker = std::min(metricOf(theme, StudioMetric::IconSizeSmall),
+                                          label.height);
+            UiRect cursor = label;
+            const UiRect box = cursor.splitLeft(marker);
+
+            const bool stated = material.overridden.count(key) != 0;
+            if (stated && frame.isDrawPass()) { ++result.materialOverridesShown; }
+
+            StudioButtonOptions options;
+            // `Undo` rather than a dot: the marker is a control, and what it does when pressed is
+            // put the parent's value back. An icon that only *reported* the state would leave the
+            // revert with nowhere to live.
+            options.icon = stated ? StudioIcon::Undo : StudioIcon::None;
+            options.iconOnly = true;
+            options.enabled = stated;
+            options.tooltip = stated ? std::string{"Overridden here. Revert to the parent's value."}
+                                     : std::string{"Inherited from the parent material."};
+
+            const bool reverted =
+                studioButton(frame, frame.ids().make(key), box, "", options).activated;
+
+            return reverted;
+        };
+
         {
             const UiRect row = nextRow();
             if (frame.isDrawPass())
@@ -2212,6 +2289,32 @@ namespace
         std::optional<MaterialDocument> edited;
         std::string editedField;
 
+        /**
+         * @brief The document to write when @p key changes, built from what this material states.
+         *
+         * From `stated` rather than from the resolved document, and the two agree only because
+         * resolution copies the leaf's override set onto its result -- so the resolved document
+         * writes the same file today. That is an invariant of `resolveMaterialDocument`, not of
+         * this panel: a resolution that returned the *union* of the chain's stated keys, which is
+         * the natural reading of "a resolved material states everything", would turn every
+         * inherited parameter into an override the moment a user touched any one of them. Writing
+         * what the material says about itself cannot express that mistake at all.
+         *
+         * The caller sets the one field it changed on the result.
+         */
+        const auto statedWith = [&](const char* key) {
+            MaterialDocument next = stated;
+            next.overridden.insert(key);
+            return next;
+        };
+
+        /** @brief Drops @p key's override, so the parameter goes back to being inherited. */
+        const auto revertedFrom = [&](const char* key) {
+            MaterialDocument next = stated;
+            next.overridden.erase(key);
+            return next;
+        };
+
         {
             const PropertyRow parts = splitRow(theme, nextRow());
             say(parts.label, "Name", StudioColorRole::TextSecondary);
@@ -2224,22 +2327,73 @@ namespace
                     .committed
                 && name != material.name)
             {
-                MaterialDocument next = material;
+                // The name is never inherited -- every material has one of its own -- so this
+                // writes the stated document without touching the override set.
+                MaterialDocument next = stated;
                 next.name = name;
                 edited = next;
                 editedField = "name";
             }
         }
 
+        // What this material inherits from (`plan.md` STUDIO-19005). A typed asset slot like any
+        // other, so it picks, filters and takes a drop the way every reference in the editor does
+        // -- and it offers only materials, which is what stops half the cycles before they exist.
         {
             const PropertyRow parts = splitRow(theme, nextRow());
+            say(parts.label, "Parent", StudioColorRole::TextSecondary);
+            ++result.materialFields;
+
+            frame.ids().push("parent");
+            // Itself excluded, so the picker never offers the one choice that is always refused.
+            const StudioPropertyEditContext editing{&context, Uuid{}, std::string{"Material"},
+                                                    0.0, 0.0, record.id};
+            const StudioPropertyEditResult change = studioPropertyEditor(
+                frame, parts.control,
+                PropertyValue{PropertyValue::AssetReference{stated.parent}}, {}, editing);
+            frame.ids().pop();
+
+            result.assetChoicesOffered += change.assetChoices;
+            if (change.refusedDrop) { ++result.dropsRefused; }
+
+            if (change.edited.has_value() && !edited.has_value())
+            {
+                const Uuid chosen = change.edited->get<PropertyValue::AssetReference>().id;
+
+                // A material cannot be its own ancestor. Refused at the point of choosing rather
+                // than reported once it exists: the chain is already resolvable now, and a user
+                // who has just made a loop has all the context they will ever have for undoing it.
+                MaterialDocument candidate = stated;
+                candidate.parent = chosen;
+                if (chosen == record.id || studioMaterialChainWouldLoop(context.getAssets(),
+                                                                        record.id, chosen))
+                {
+                    say(nextRow(), "That material already inherits from this one.",
+                        StudioColorRole::Warning);
+                    ++result.materialFields;
+                }
+                else
+                {
+                    edited = candidate;
+                    editedField = "parent";
+                }
+            }
+        }
+
+        {
+            PropertyRow parts = splitRow(theme, nextRow());
+            if (overrideMarker(parts.label, "diffuseColor") && !edited.has_value())
+            {
+                edited = revertedFrom("diffuseColor");
+                editedField = "base colour";
+            }
             say(parts.label, "Base Colour", StudioColorRole::TextSecondary);
             ++result.materialFields;
 
             StudioVector3 colour = material.diffuseColor;
             if (linearColorRow(frame, parts.control, "diffuse", colour) && !edited.has_value())
             {
-                MaterialDocument next = material;
+                MaterialDocument next = statedWith("diffuseColor");
                 next.diffuseColor = colour;
                 edited = next;
                 editedField = "base colour";
@@ -2247,14 +2401,19 @@ namespace
         }
 
         {
-            const PropertyRow parts = splitRow(theme, nextRow());
+            PropertyRow parts = splitRow(theme, nextRow());
+            if (overrideMarker(parts.label, "emissiveColor") && !edited.has_value())
+            {
+                edited = revertedFrom("emissiveColor");
+                editedField = "emissive";
+            }
             say(parts.label, "Emissive", StudioColorRole::TextSecondary);
             ++result.materialFields;
 
             StudioVector3 colour = material.emissiveColor;
             if (linearColorRow(frame, parts.control, "emissive", colour) && !edited.has_value())
             {
-                MaterialDocument next = material;
+                MaterialDocument next = statedWith("emissiveColor");
                 next.emissiveColor = colour;
                 edited = next;
                 editedField = "emissive";
@@ -2266,30 +2425,38 @@ namespace
             const char* id;
             const char* label;
             float MaterialDocument::*member;
+
+            /** @brief The document's own key, which is also the override key (STUDIO-19005). */
+            const char* key;
         };
         // All three are normalised, and all three were text boxes a user could type 400 into.
         static const ScalarField kScalars[] = {
-            {"metallic", "Metallic", &MaterialDocument::metallic},
-            {"roughness", "Roughness", &MaterialDocument::roughness},
-            {"alpha", "Alpha", &MaterialDocument::alpha},
+            {"metallic", "Metallic", &MaterialDocument::metallic, "metallic"},
+            {"roughness", "Roughness", &MaterialDocument::roughness, "roughness"},
+            {"alpha", "Alpha", &MaterialDocument::alpha, "alpha"},
         };
 
         for (const ScalarField& field : kScalars)
         {
-            const PropertyRow parts = splitRow(theme, nextRow());
+            PropertyRow parts = splitRow(theme, nextRow());
+            if (overrideMarker(parts.label, field.key) && !edited.has_value())
+            {
+                edited = revertedFrom(field.key);
+                editedField = field.label;
+            }
             say(parts.label, field.label, StudioColorRole::TextSecondary);
             ++result.materialFields;
 
             frame.ids().push(field.id);
             // No asset kind, and the range every one of these has by definition (STUDIO-19003).
-            const StudioPropertyEditContext editing{&context, Uuid{}, {}, 0.0, 1.0};
+            const StudioPropertyEditContext editing{&context, Uuid{}, {}, 0.0, 1.0, Uuid{}};
             const StudioPropertyEditResult change = studioPropertyEditor(
                 frame, parts.control, PropertyValue{material.*field.member}, {}, editing);
             frame.ids().pop();
 
             if (change.edited.has_value() && !edited.has_value())
             {
-                MaterialDocument next = material;
+                MaterialDocument next = statedWith(field.key);
                 next.*field.member = change.edited->get<float>(material.*field.member);
                 edited = next;
                 editedField = field.label;
@@ -2300,7 +2467,12 @@ namespace
         // from the alpha factor: a material with a partly transparent base-colour *texture* has a
         // factor of 1 and is still transparent, and guessing would draw every one of those solid.
         {
-            const PropertyRow parts = splitRow(theme, nextRow());
+            PropertyRow parts = splitRow(theme, nextRow());
+            if (overrideMarker(parts.label, "alphaMode") && !edited.has_value())
+            {
+                edited = revertedFrom("alphaMode");
+                editedField = "alpha mode";
+            }
             say(parts.label, "Alpha Mode", StudioColorRole::TextSecondary);
             ++result.materialFields;
 
@@ -2311,7 +2483,7 @@ namespace
                 frame, frame.ids().make("alpha-mode"), parts.control, kModes, selected);
             if (mode.changed && mode.selected >= 0 && mode.selected < 3 && !edited.has_value())
             {
-                MaterialDocument next = material;
+                MaterialDocument next = statedWith("alphaMode");
                 next.alphaMode = static_cast<MeshAlphaMode>(mode.selected);
                 edited = next;
                 editedField = "alpha mode";
@@ -2322,19 +2494,24 @@ namespace
         // that does nothing, which is the state STUDIO-12004 took the gizmo space toggle out of.
         if (material.alphaMode == MeshAlphaMode::Mask)
         {
-            const PropertyRow parts = splitRow(theme, nextRow());
+            PropertyRow parts = splitRow(theme, nextRow());
+            if (overrideMarker(parts.label, "alphaCutoff") && !edited.has_value())
+            {
+                edited = revertedFrom("alphaCutoff");
+                editedField = "alpha cutoff";
+            }
             say(parts.label, "Alpha Cutoff", StudioColorRole::TextSecondary);
             ++result.materialFields;
 
             frame.ids().push("alpha-cutoff");
-            const StudioPropertyEditContext editing{&context, Uuid{}, {}, 0.0, 1.0};
+            const StudioPropertyEditContext editing{&context, Uuid{}, {}, 0.0, 1.0, Uuid{}};
             const StudioPropertyEditResult change = studioPropertyEditor(
                 frame, parts.control, PropertyValue{material.alphaCutoff}, {}, editing);
             frame.ids().pop();
 
             if (change.edited.has_value() && !edited.has_value())
             {
-                MaterialDocument next = material;
+                MaterialDocument next = statedWith("alphaCutoff");
                 next.alphaCutoff = std::clamp(change.edited->get<float>(material.alphaCutoff),
                                               0.0f, 1.0f);
                 edited = next;
@@ -2352,27 +2529,39 @@ namespace
             const char* id;
             const char* label;
             Uuid MaterialDocument::*member;
+
+            /** @brief The document's own key, which is also the override key (STUDIO-19005). */
+            const char* key;
         };
         static const TextureField kTextures[] = {
-            {"diffuse-map", "Base Colour Map", &MaterialDocument::diffuseTexture},
-            {"normal-map", "Normal Map", &MaterialDocument::normalTexture},
+            {"diffuse-map", "Base Colour Map", &MaterialDocument::diffuseTexture,
+             "diffuseTexture"},
+            {"normal-map", "Normal Map", &MaterialDocument::normalTexture, "normalTexture"},
             // One slot for both, because glTF packs them into one image and `PbrEffect` takes one
             // texture. Two slots would be a picture of a general PBR editor rather than of what
             // this renderer draws, and the second would have nowhere to go.
             {"metallic-roughness-map", "Metallic-Roughness Map",
-             &MaterialDocument::metallicRoughnessTexture},
-            {"emissive-map", "Emissive Map", &MaterialDocument::emissiveTexture},
-            {"occlusion-map", "Occlusion Map", &MaterialDocument::occlusionTexture},
+             &MaterialDocument::metallicRoughnessTexture, "metallicRoughnessTexture"},
+            {"emissive-map", "Emissive Map", &MaterialDocument::emissiveTexture,
+             "emissiveTexture"},
+            {"occlusion-map", "Occlusion Map", &MaterialDocument::occlusionTexture,
+             "occlusionTexture"},
         };
 
         for (const TextureField& field : kTextures)
         {
-            const PropertyRow parts = splitRow(theme, nextRow());
+            PropertyRow parts = splitRow(theme, nextRow());
+            if (overrideMarker(parts.label, field.key) && !edited.has_value())
+            {
+                edited = revertedFrom(field.key);
+                editedField = field.label;
+            }
             say(parts.label, field.label, StudioColorRole::TextSecondary);
             ++result.materialFields;
 
             frame.ids().push(field.id);
-            const StudioPropertyEditContext editing{&context, Uuid{}, std::string{"Texture2D"}};
+            const StudioPropertyEditContext editing{&context, Uuid{}, std::string{"Texture2D"}, 0.0, 0.0,
+                                                    Uuid{}};
             const StudioPropertyEditResult change = studioPropertyEditor(
                 frame, parts.control,
                 PropertyValue{PropertyValue::AssetReference{material.*field.member}}, {}, editing);
@@ -2383,7 +2572,7 @@ namespace
 
             if (change.edited.has_value() && !edited.has_value())
             {
-                MaterialDocument next = material;
+                MaterialDocument next = statedWith(field.key);
                 next.*field.member = change.edited->get<PropertyValue::AssetReference>().id;
                 edited = next;
                 editedField = field.label;
@@ -2536,7 +2725,7 @@ namespace
         // when this is a material -- a heading, eleven fields and the effect line -- and the
         // texture plan's rows above.
         const std::size_t rows = 6 + (isAudibleAsset(record->type) ? 1u : 0u)
-                                 // Twelve fields plus the Mask-only cutoff, the heading, the
+                                 // Thirteen fields plus the Mask-only cutoff, the heading, the
                                  // effect line and the capability warnings (STUDIO-19008). Both
                                  // variable parts are reserved at their *maximum* -- the cutoff as
                                  // though it is always there, the warnings at five, which is all
@@ -2546,7 +2735,7 @@ namespace
                                  // rows at the bottom costs a gap and nothing else. The
                                  // alternative is reading the material a second time every frame
                                  // purely to count its problems.
-                                 + (record->type == AssetType::Material ? 15u + 5u : 0u)
+                                 + (record->type == AssetType::Material ? 17u + 5u : 0u)
                                  + (properties != nullptr ? properties->size() : 0)
                                  + textureRows + dependencyRows + relinkRows
                                  // The File group: its heading, Size and Modified.
@@ -2728,6 +2917,7 @@ namespace
             result.rowsDrawn += material.rowsDrawn;
             result.materialFields = material.materialFields;
             result.materialCapabilityIssues = material.materialCapabilityIssues;
+            result.materialOverridesShown = material.materialOverridesShown;
             result.assetChoicesOffered += material.assetChoicesOffered;
             result.dropsRefused += material.dropsRefused;
             result.edited = material.edited;
@@ -2846,7 +3036,8 @@ namespace
                     // a second editor here would be the drift `STUDIO-07045` extracted this code to
                     // avoid.
                     const StudioPropertyEditContext editing{&context, Uuid{}, property.assetType,
-                                                            property.minimum, property.maximum};
+                                                            property.minimum, property.maximum,
+                                                            Uuid{}};
                     const CompoundEditResult compound =
                         compoundPropertyEditor(frame, parts.control, nextRow, value, editing);
                     edit.edited = compound.edited;
@@ -2854,7 +3045,8 @@ namespace
                 else
                 {
                     const StudioPropertyEditContext editing{&context, Uuid{}, property.assetType,
-                                                            property.minimum, property.maximum};
+                                                            property.minimum, property.maximum,
+                                                            Uuid{}};
                     edit = studioPropertyEditor(frame, parts.control, value, property.enumOptions,
                                                 editing);
                 }
@@ -3126,6 +3318,7 @@ namespace
         result.rowsDrawn += editor.rowsDrawn;
         result.materialFields = editor.materialFields;
         result.materialCapabilityIssues = editor.materialCapabilityIssues;
+        result.materialOverridesShown = editor.materialOverridesShown;
         result.assetChoicesOffered += editor.assetChoicesOffered;
         result.dropsRefused += editor.dropsRefused;
         result.edited = editor.edited;
@@ -3884,7 +4077,8 @@ namespace
                 // The kind this slot takes, from the component's own descriptor: the field has
                 // been declared since descriptors existed and was read by nothing (STUDIO-19009).
                 const StudioPropertyEditContext editing{&context, entityId, property.assetType,
-                                                        property.minimum, property.maximum};
+                                                        property.minimum, property.maximum,
+                                                        Uuid{}};
 
                 // Lists and structures claim rows of their own (STUDIO-07054). Everything else is
                 // a control in the one rect the row already gave it.

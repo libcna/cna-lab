@@ -7,7 +7,9 @@
 #include <cmath>
 #include <fstream>
 #include <iterator>
+#include <set>
 #include <string>
+#include <vector>
 
 namespace CNA::Studio
 {
@@ -77,28 +79,52 @@ namespace CNA::Studio
         JsonValue root = JsonValue::makeObject();
         root.set("formatVersion", JsonValue{kFormatVersion});
         root.set("name", JsonValue{name});
-        root.set("diffuseColor", vectorToJson(diffuseColor));
-        root.set("emissiveColor", vectorToJson(emissiveColor));
-        root.set("metallic", JsonValue{static_cast<double>(metallic)});
-        root.set("roughness", JsonValue{static_cast<double>(roughness)});
-        root.set("alpha", JsonValue{static_cast<double>(alpha)});
+
+        // An instance writes its parent and *only* the parameters it states for itself; a
+        // material of its own writes everything, exactly as it always did (`plan.md`
+        // STUDIO-19005). The name is not a parameter -- every material has one of its own, and an
+        // instance that inherited its name would be a second file with the first one's name on it.
+        const bool isInstance = parent.isValid();
+        if (isInstance) { root.set("parent", JsonValue{parent.toString()}); }
+
+        const auto states = [&](const char* key) {
+            return !isInstance || overridden.count(key) != 0;
+        };
+
+        if (states("diffuseColor")) { root.set("diffuseColor", vectorToJson(diffuseColor)); }
+        if (states("emissiveColor")) { root.set("emissiveColor", vectorToJson(emissiveColor)); }
+        if (states("metallic")) { root.set("metallic", JsonValue{static_cast<double>(metallic)}); }
+        if (states("roughness")) { root.set("roughness", JsonValue{static_cast<double>(roughness)}); }
+        if (states("alpha")) { root.set("alpha", JsonValue{static_cast<double>(alpha)}); }
 
         // Written only when it is not glTF's default, the same bargain an unset texture strikes:
-        // a file carrying every field anybody ever looked at makes each material's diff noise.
-        if (alphaMode != MeshAlphaMode::Opaque)
+        // a file carrying every field anybody ever looked at makes each material's diff noise. On
+        // an instance the override decides instead, because there "the default" is the parent's
+        // value and absence has to mean inherited rather than Opaque.
+        if (isInstance ? states("alphaMode") : alphaMode != MeshAlphaMode::Opaque)
         {
             root.set("alphaMode", JsonValue{std::string{toString(alphaMode)}});
         }
-        if (alphaMode == MeshAlphaMode::Mask)
+        if (isInstance ? states("alphaCutoff") : alphaMode == MeshAlphaMode::Mask)
         {
             root.set("alphaCutoff", JsonValue{static_cast<double>(alphaCutoff)});
         }
 
-        setTexture(root, "diffuseTexture", diffuseTexture);
-        setTexture(root, "normalTexture", normalTexture);
-        setTexture(root, "metallicRoughnessTexture", metallicRoughnessTexture);
-        setTexture(root, "emissiveTexture", emissiveTexture);
-        setTexture(root, "occlusionTexture", occlusionTexture);
+        // A texture is absent when it is unset, and on an instance also when it is inherited. An
+        // instance that overrides a slot *to nothing* -- "this variant has no normal map" -- is a
+        // real thing to want, so the key is written as an empty string rather than omitted, which
+        // is the one place a nil id and an absent one have to mean different things.
+        const auto setSlot = [&](const char* key, const Uuid& id) {
+            if (!states(key)) { return; }
+            if (isInstance) { root.set(key, JsonValue{id.isValid() ? id.toString() : std::string{}}); }
+            else { setTexture(root, key, id); }
+        };
+
+        setSlot("diffuseTexture", diffuseTexture);
+        setSlot("normalTexture", normalTexture);
+        setSlot("metallicRoughnessTexture", metallicRoughnessTexture);
+        setSlot("emissiveTexture", emissiveTexture);
+        setSlot("occlusionTexture", occlusionTexture);
 
         return root;
     }
@@ -114,6 +140,20 @@ namespace CNA::Studio
         const MaterialDocument defaults;
 
         name = json["name"].asString(defaults.name);
+        parent = Uuid::parse(json["parent"].asString(""));
+
+        // The file's own keys *are* the override set (`plan.md` STUDIO-19005): a parameter is
+        // stated here if and only if it is written here. Recorded for every material, not only for
+        // an instance, so that giving a material a parent later does not silently turn every one
+        // of its values into an inheritance.
+        overridden.clear();
+        for (const char* key : {"diffuseColor", "emissiveColor", "metallic", "roughness", "alpha",
+                                "alphaMode", "alphaCutoff", "diffuseTexture", "normalTexture",
+                                "metallicRoughnessTexture", "emissiveTexture", "occlusionTexture"})
+        {
+            if (json.contains(key)) { overridden.insert(key); }
+        }
+
         diffuseColor = vectorFromJson(json["diffuseColor"], defaults.diffuseColor);
         emissiveColor = vectorFromJson(json["emissiveColor"], defaults.emissiveColor);
         metallic = static_cast<float>(json["metallic"].asNumber(defaults.metallic));
@@ -148,6 +188,119 @@ namespace CNA::Studio
 
         out = std::move(loaded);
         return MaterialLoadProblem::None;
+    }
+
+    bool studioMaterialChainWouldLoop(const AssetDatabase& assets, const Uuid& material,
+                                      const Uuid& candidate)
+    {
+        if (!material.isValid() || !candidate.isValid()) { return false; }
+        if (material == candidate) { return true; }
+
+        // Walking *up* from the candidate: the loop this would close is the candidate finding its
+        // way back to the material that is about to adopt it.
+        std::set<std::string> visited;
+        Uuid current = candidate;
+        while (current.isValid())
+        {
+            if (current == material) { return true; }
+
+            // A chain that already loops is not made worse by this link, and saying so is the
+            // difference between a refusal the user can act on and one they cannot.
+            if (!visited.insert(current.toString()).second) { return false; }
+
+            MaterialDocument document;
+            if (loadMaterialDocument(assets, current, document) != MaterialLoadProblem::None)
+            {
+                return false;
+            }
+            current = document.parent;
+        }
+
+        return false;
+    }
+
+    void applyMaterialOverrides(MaterialDocument& base, const MaterialDocument& instance)
+    {
+        const auto states = [&instance](const char* key) {
+            return instance.overridden.count(key) != 0;
+        };
+
+        if (states("diffuseColor")) { base.diffuseColor = instance.diffuseColor; }
+        if (states("emissiveColor")) { base.emissiveColor = instance.emissiveColor; }
+        if (states("metallic")) { base.metallic = instance.metallic; }
+        if (states("roughness")) { base.roughness = instance.roughness; }
+        if (states("alpha")) { base.alpha = instance.alpha; }
+        if (states("alphaMode")) { base.alphaMode = instance.alphaMode; }
+        if (states("alphaCutoff")) { base.alphaCutoff = instance.alphaCutoff; }
+        if (states("diffuseTexture")) { base.diffuseTexture = instance.diffuseTexture; }
+        if (states("normalTexture")) { base.normalTexture = instance.normalTexture; }
+        if (states("metallicRoughnessTexture"))
+        {
+            base.metallicRoughnessTexture = instance.metallicRoughnessTexture;
+        }
+        if (states("emissiveTexture")) { base.emissiveTexture = instance.emissiveTexture; }
+        if (states("occlusionTexture")) { base.occlusionTexture = instance.occlusionTexture; }
+    }
+
+    MaterialResolveProblem resolveMaterialDocument(const AssetDatabase& assets,
+                                                   const Uuid& assetId, MaterialDocument& out)
+    {
+        // Deep enough for any hierarchy a person would build and shallow enough that a cycle the
+        // visited set somehow missed still ends. Both guards, because they fail differently: the
+        // set catches a loop and this catches a chain that is merely absurd.
+        constexpr int kMaximumDepth = 32;
+
+        // Collected leaf-first and applied root-first, so a parameter belongs to the nearest
+        // ancestor that states it.
+        std::vector<MaterialDocument> chain;
+        std::set<std::string> visited;
+
+        Uuid current = assetId;
+        MaterialResolveProblem problem = MaterialResolveProblem::None;
+
+        while (current.isValid())
+        {
+            if (!visited.insert(current.toString()).second)
+            {
+                problem = MaterialResolveProblem::Cycle;
+                break;
+            }
+            if (chain.size() >= static_cast<std::size_t>(kMaximumDepth))
+            {
+                problem = MaterialResolveProblem::TooDeep;
+                break;
+            }
+
+            MaterialDocument document;
+            if (loadMaterialDocument(assets, current, document) != MaterialLoadProblem::None)
+            {
+                // The leaf itself failing is the ordinary "not a material" answer; a *parent*
+                // failing is a broken link, and both leave the caller with whatever was resolved.
+                problem = MaterialResolveProblem::Unreadable;
+                break;
+            }
+
+            current = document.parent;
+            chain.push_back(std::move(document));
+        }
+
+        if (chain.empty()) { return problem; }
+
+        // The root's values whole, then each descendant's stated parameters over them.
+        MaterialDocument resolved = chain.back();
+        for (auto level = chain.rbegin() + 1; level != chain.rend(); ++level)
+        {
+            applyMaterialOverrides(resolved, *level);
+        }
+
+        // The leaf's own identity, not the root's: this is still that material, drawn with what it
+        // inherits filled in.
+        resolved.name = chain.front().name;
+        resolved.parent = chain.front().parent;
+        resolved.overridden = chain.front().overridden;
+
+        out = std::move(resolved);
+        return problem;
     }
 
     MaterialLoadProblem loadMaterialDocument(const AssetDatabase& assets, const Uuid& assetId,
