@@ -425,6 +425,35 @@ namespace CNA::Studio
             return slash == std::string::npos ? path : path.substr(slash + 1);
         }
 
+        /**
+         * @brief "Inactive while Type is Directional." -- or empty when there is nothing to say.
+         *
+         * `plan.md` STUDIO-20001. Built from the sibling's *display* name and the value it is
+         * actually set to, rather than from a sentence written into the descriptor: a fixed string
+         * would have to be kept in step with the condition beside it, which is two descriptions of
+         * one fact and the disagreement `ED-300` is about.
+         */
+        std::string describeInactiveCondition(const PropertyDescriptor& property,
+                                              const ComponentDescriptor* owner,
+                                              const PropertyValue* sibling)
+        {
+            if (property.appliesWhen.isAlways() || sibling == nullptr) { return {}; }
+
+            const std::string actual = studioPropertyConditionText(*sibling);
+            if (actual.empty()) { return {}; }
+
+            std::string label = property.appliesWhen.property;
+            if (owner != nullptr)
+            {
+                if (const PropertyDescriptor* found = owner->findProperty(label))
+                {
+                    if (!found->displayName.empty()) { label = found->displayName; }
+                }
+            }
+
+            return "Inactive while " + label + " is " + actual + ".";
+        }
+
         PropertyRow splitRow(const StudioTheme& theme, UiRect row)
         {
             PropertyRow parts;
@@ -3928,6 +3957,19 @@ namespace
                 const UiRect propertyRow = nextRow();
                 const PropertyValue value = component.getPropertyOrDefault(property.name, descriptor);
 
+                // Whether this field means anything given what its siblings say (`plan.md`
+                // STUDIO-20001). `CNA.Light`'s Range is the case: a directional light has no
+                // position for a range to fall off from, and the field was fully editable on one.
+                PropertyValue conditionHolder;
+                const PropertyValue* conditionValue = nullptr;
+                if (!property.appliesWhen.isAlways())
+                {
+                    conditionHolder =
+                        component.getPropertyOrDefault(property.appliesWhen.property, descriptor);
+                    if (!conditionHolder.isEmpty()) { conditionValue = &conditionHolder; }
+                }
+                const bool applies = studioPropertyConditionMet(property, conditionValue);
+
                 // Off screen (`plan.md` STUDIO-14018): the cursor has already moved past it, which
                 // is all the scroll region needs. Everything below would be describing a widget
                 // nobody can see.
@@ -3962,7 +4004,7 @@ namespace
                 // A component the registry does not know has no default to go back to, and an
                 // improvised descriptor's `defaultValue` is empty rather than absent, so the check
                 // is against a descriptor that really exists.
-                const bool overridden = descriptor != nullptr && !property.readOnly
+                const bool overridden = descriptor != nullptr && !property.readOnly && applies
                     && !property.defaultValue.isEmpty() && value != property.defaultValue;
 
                 // Named for what it carries rather than for the button: the row's menu can put a
@@ -4013,9 +4055,25 @@ namespace
                 // On the label rather than the control: the label is the part a user points at
                 // when they are asking *what is this*, and a tooltip over a field they are about
                 // to type into is one that covers the thing they are typing.
-                if (!property.tooltip.empty())
+                //
+                // And when a condition is unmet it says so *here*, with the sibling's label and
+                // the value it is actually set to -- "Inactive while Type is Directional." A
+                // greyed field that does not say what would un-grey it is a field the user reads
+                // as broken, which is the state `STUDIO-12004` took the gizmo space toggle out of.
+                std::string tip = property.tooltip;
+                if (!applies)
                 {
-                    (void)frame.requestTooltip(menuId, property.tooltip, parts.label);
+                    const std::string reason =
+                        describeInactiveCondition(property, descriptor, conditionValue);
+                    if (!reason.empty())
+                    {
+                        if (!tip.empty()) { tip += "  "; }
+                        tip += reason;
+                    }
+                }
+                if (!tip.empty())
+                {
+                    (void)frame.requestTooltip(menuId, tip, parts.label);
                 }
 
                 if (frame.isInputPass() && labelHit.rightClicked)
@@ -4029,7 +4087,7 @@ namespace
                 const bool pastable =
                     studioPastedProperty(frame.clipboardText(), property.type,
                                          property.elementType).has_value()
-                    && !property.readOnly;
+                    && !property.readOnly && applies;
 
                 const std::vector<StudioContextMenuItem> rowMenu{
                     StudioContextMenuItem{"Copy Value", true, "Ctrl+C"},
@@ -4083,7 +4141,7 @@ namespace
                 // Lists and structures claim rows of their own (STUDIO-07054). Everything else is
                 // a control in the one rect the row already gave it.
                 StudioPropertyEditResult editResult;
-                if (property.readOnly)
+                if (property.readOnly || !applies)
                 {
                     // Declared read-only by the component's descriptor (`plan.md` STUDIO-14011).
                     // Shown as text rather than as a control the user can put a caret in and then
@@ -4118,6 +4176,7 @@ namespace
                                                       property.enumOptions, editing);
                 }
                 if (editResult.readOnlyKind) { ++result.readOnlyProperties; }
+                if (!applies) { ++result.propertiesInactive; }
                 result.assetChoicesOffered += editResult.assetChoices;
                 if (editResult.refusedDrop) { ++result.dropsRefused; }
 

@@ -217,12 +217,23 @@ namespace CNA::Studio
                                                    PropertyValue{PropertyValue::EnumValue{"Directional"}});
             kind.enumOptions = {"Directional", "Point", "Spot"};
 
+            // A directional light has no position, so it has nothing for a range to fall off
+            // from -- and the field was editable on all three kinds with a tooltip that said so
+            // and nothing that acted on it (`plan.md` STUDIO-20001). Greyed rather than hidden,
+            // which is the rule this shell already follows for the 3D-only commands and for the
+            // gizmo space toggle under Scale (`STUDIO-12004`): somebody who goes looking for a
+            // field should find it and see why it is dead.
+            PropertyDescriptor range =
+                makeProperty("range", "Range", PropertyType::Float, PropertyValue{10.0f},
+                             "How far the light reaches. Point and Spot only.");
+            range.appliesWhen = PropertyAppliesWhen{"kind", {"Point", "Spot"}};
+
             descriptor.properties = {
                 std::move(kind),
                 makeProperty("color", "Color", PropertyType::Color, PropertyValue{StudioColor{}}),
-                makeProperty("intensity", "Intensity", PropertyType::Float, PropertyValue{1.0f}),
-                makeProperty("range", "Range", PropertyType::Float, PropertyValue{10.0f},
-                             "Point and Spot only."),
+                makeProperty("intensity", "Intensity", PropertyType::Float, PropertyValue{1.0f},
+                             "Multiplies the colour. Over one is over-bright, which is allowed."),
+                std::move(range),
             };
             return descriptor;
         }

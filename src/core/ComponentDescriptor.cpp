@@ -107,4 +107,42 @@ namespace CNA::Studio
 
         return PropertyValue::fromJson(json, descriptor.type, descriptor.elementType);
     }
+
+    std::string studioPropertyConditionText(const PropertyValue& value)
+    {
+        switch (value.getType())
+        {
+            case PropertyType::Enum:
+                return value.get<PropertyValue::EnumValue>().name;
+
+            // "true" and "false" as the language spells them, not "1" and "0": a condition is
+            // read by a person writing a descriptor, and `{"castShadows", {"true"}}` is the only
+            // spelling that does not need looking up.
+            case PropertyType::Boolean:
+                return value.get<bool>() ? "true" : "false";
+
+            default:
+                return {};
+        }
+    }
+
+    bool studioPropertyConditionMet(const PropertyDescriptor& descriptor,
+                                    const PropertyValue* sibling)
+    {
+        if (descriptor.appliesWhen.isAlways()) { return true; }
+
+        // Fails open, for the reason the header gives: a condition naming a property that is not
+        // there is a descriptor's mistake, and greying a field a user needs with no explanation is
+        // the more expensive way to be wrong.
+        if (sibling == nullptr) { return true; }
+
+        const std::string actual = studioPropertyConditionText(*sibling);
+        if (actual.empty()) { return true; }
+
+        for (const std::string& allowed : descriptor.appliesWhen.values)
+        {
+            if (allowed == actual) { return true; }
+        }
+        return false;
+    }
 }

@@ -59,13 +59,13 @@ mapping is in [`docs/LEGACY-EDITOR-TASK-MAP.md`](docs/LEGACY-EDITOR-TASK-MAP.md)
 
 ## Global progress
 
-**372 of 581 tasks complete** `████████████████░░░░░░░░░`  64.0%
+**373 of 581 tasks complete** `████████████████░░░░░░░░░`  64.2%
 
 | Status | Count |
 |--------|------:|
-| ✅ Complete | 372 |
+| ✅ Complete | 373 |
 | 🔄 In progress | 8 |
-| ⬜ Not started | 193 |
+| ⬜ Not started | 192 |
 | ⛔ Deferred | 3 |
 | 🔬 Blocked | 4 |
 | ⊘ Superseded | 1 |
@@ -101,7 +101,7 @@ mapping is in [`docs/LEGACY-EDITOR-TASK-MAP.md`](docs/LEGACY-EDITOR-TASK-MAP.md)
 | 17 | [Build profiles](plans/phase-17-build-profiles.md) | `STUDIO-17NNN` | 🔄 | 12 | 5 | `████░░░░░░` |
 | 18 | [Cook, package and export](plans/phase-18-package-export.md) | `STUDIO-18NNN` | ⬜ | 11 | 0 | `░░░░░░░░░░` |
 | 19 | [Materials](plans/phase-19-materials.md) | `STUDIO-19NNN` | ✅ | 9 | 9 | `██████████` |
-| 20 | [Lighting](plans/phase-20-lighting.md) | `STUDIO-20NNN` | ⬜ | 8 | 0 | `░░░░░░░░░░` |
+| 20 | [Lighting](plans/phase-20-lighting.md) | `STUDIO-20NNN` | 🔄 | 8 | 1 | `█░░░░░░░░░` |
 | 21 | [Animation](plans/phase-21-animation.md) | `STUDIO-21NNN` | ⬜ | 9 | 0 | `░░░░░░░░░░` |
 | 22 | [Material and shader graph](plans/phase-22-shader-graph.md) | `STUDIO-22NNN` | ⬜ | 10 | 0 | `░░░░░░░░░░` |
 | 23 | [Particles and VFX](plans/phase-23-particles.md) | `STUDIO-23NNN` | ⬜ | 4 | 0 | `░░░░░░░░░░` |

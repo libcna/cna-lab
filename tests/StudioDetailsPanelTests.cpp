@@ -3036,3 +3036,167 @@ CNA_STUDIO_TEST(ARangedPropertyGetsASliderAndTheFieldBesideItClamps)
     // document, it is a second way to reach the same command.
     CNA_STUDIO_EXPECT(context.getHistory().canUndo());
 }
+
+// ------------------------------------------------------------------------------------------------
+// Conditional properties (STUDIO-20001)
+// ------------------------------------------------------------------------------------------------
+
+/**
+ * @brief A light's Range is dead on a directional one and live on a point one.
+ *
+ * `plan.md` STUDIO-20001. A directional light has no position, so it has nothing for a range to
+ * fall off from — and the field was fully editable on all three kinds. Its tooltip had said "Point
+ * and Spot only." since the descriptor was written, and nothing acted on it: the user could set a
+ * number, watch the viewport not change, and have no way to tell a field that was never theirs
+ * from a renderer that is broken.
+ *
+ * Greyed rather than hidden, which is the rule `STUDIO-12004` set for the gizmo space toggle under
+ * Scale: somebody who goes looking for a field should find it and see why it is dead.
+ */
+CNA_STUDIO_TEST(ALightsRangeIsDeadOnADirectionalOneAndLiveOnAPointOne)
+{
+    // Built in place rather than returned: a `StudioContext` owns the undo history and is
+    // deliberately neither copyable nor movable.
+    const auto inactiveRowsFor = [](const char* kind) {
+        StudioContext context;
+
+        StudioEntity subject{Uuid::generate(), "Key Light"};
+        StudioComponent transform{BuiltinComponentIds::kTransform};
+        transform.applyDefaults(
+            *context.getComponentRegistry().find(BuiltinComponentIds::kTransform));
+        subject.getComponents().push_back(std::move(transform));
+
+        StudioComponent light{BuiltinComponentIds::kLight};
+        light.applyDefaults(*context.getComponentRegistry().find(BuiltinComponentIds::kLight));
+        light.setProperty("kind", PropertyValue{PropertyValue::EnumValue{kind}});
+        subject.getComponents().push_back(std::move(light));
+
+        const Uuid id = subject.getId();
+        context.getScene().addEntity(std::move(subject));
+        context.select(id);
+
+        Harness harness{context};
+        return harness.last.propertiesInactive;
+    };
+
+    // Exactly one on a directional light: Range. Kind, Colour and Intensity all mean something on
+    // every kind, and the transform's own fields are not conditional at all.
+    CNA_STUDIO_EXPECT_EQ(inactiveRowsFor("Directional"), std::size_t{1});
+    CNA_STUDIO_EXPECT_EQ(inactiveRowsFor("Point"), std::size_t{0});
+    CNA_STUDIO_EXPECT_EQ(inactiveRowsFor("Spot"), std::size_t{0});
+}
+
+/** @brief The rule itself, over the values a condition can be written against. */
+CNA_STUDIO_TEST(APropertysConditionIsMetByItsSiblingsValueAndFailsOpenWithoutOne)
+{
+    PropertyDescriptor range;
+    range.name = "range";
+    range.type = PropertyType::Float;
+    range.appliesWhen = PropertyAppliesWhen{"kind", {"Point", "Spot"}};
+
+    const PropertyValue point{PropertyValue::EnumValue{"Point"}};
+    const PropertyValue spot{PropertyValue::EnumValue{"Spot"}};
+    const PropertyValue directional{PropertyValue::EnumValue{"Directional"}};
+
+    CNA_STUDIO_EXPECT(studioPropertyConditionMet(range, &point));
+    CNA_STUDIO_EXPECT(studioPropertyConditionMet(range, &spot));
+    CNA_STUDIO_EXPECT(!studioPropertyConditionMet(range, &directional));
+
+    // Fails open, deliberately. A condition naming a property that is not there is a mistake in a
+    // descriptor, and greying a field a user needs with no way to find out why is the more
+    // expensive way to be wrong. The mistake itself is caught by the guard below.
+    CNA_STUDIO_EXPECT(studioPropertyConditionMet(range, nullptr));
+
+    // And a value with no spelling -- a float, a colour, a reference -- is not something a
+    // condition can be written against, so it applies rather than silently never matching.
+    const PropertyValue number{2.0f};
+    CNA_STUDIO_EXPECT(studioPropertyConditionMet(range, &number));
+
+    // A property with no condition is every other property in the editor.
+    PropertyDescriptor plain;
+    plain.name = "intensity";
+    CNA_STUDIO_EXPECT(plain.appliesWhen.isAlways());
+    CNA_STUDIO_EXPECT(studioPropertyConditionMet(plain, nullptr));
+    CNA_STUDIO_EXPECT(studioPropertyConditionMet(plain, &directional));
+
+    // The two spellings a condition understands, and the silence for everything else.
+    CNA_STUDIO_EXPECT_EQ(studioPropertyConditionText(directional), std::string{"Directional"});
+    CNA_STUDIO_EXPECT_EQ(studioPropertyConditionText(PropertyValue{true}), std::string{"true"});
+    CNA_STUDIO_EXPECT_EQ(studioPropertyConditionText(PropertyValue{false}), std::string{"false"});
+    CNA_STUDIO_EXPECT(studioPropertyConditionText(number).empty());
+}
+
+/**
+ * @brief Every condition names a sibling that exists and can hold the values it asks for.
+ *
+ * The failure this guards is silent in both directions. A condition naming a property that is not
+ * there fails open, so the field stays live and the rule does nothing — it looks exactly like a
+ * descriptor with no condition at all. A condition asking for a value the sibling's enumeration
+ * does not offer fails *closed* forever: the field is greyed on every kind, and the tooltip
+ * explaining why names a value the user cannot select.
+ */
+CNA_STUDIO_TEST(EveryConditionalPropertyNamesASiblingThatCanSatisfyIt)
+{
+    ComponentRegistry registry;
+    registerBuiltinComponents(registry);
+
+    std::size_t conditionsChecked = 0;
+
+    for (const std::string& typeId : registry.getTypeIds())
+    {
+        const ComponentDescriptor* found = registry.find(typeId);
+        CNA_STUDIO_EXPECT(found != nullptr);
+        if (found == nullptr) { continue; }
+        const ComponentDescriptor& component = *found;
+
+        for (const PropertyDescriptor& property : component.properties)
+        {
+            if (property.appliesWhen.isAlways()) { continue; }
+            ++conditionsChecked;
+
+            const PropertyDescriptor* sibling =
+                component.findProperty(property.appliesWhen.property);
+            if (sibling == nullptr)
+            {
+                CnaStudioTest::reportFailure(__FILE__, __LINE__,
+                    component.typeId + "." + property.name + " applies when '"
+                    + property.appliesWhen.property + "' is set, and that property does not exist.");
+                continue;
+            }
+
+            // A condition with no values is one that can never be satisfied.
+            CNA_STUDIO_EXPECT(!property.appliesWhen.values.empty());
+
+            // And it must be a kind a condition can be written against at all.
+            const bool spellable = sibling->type == PropertyType::Enum
+                                   || sibling->type == PropertyType::Boolean;
+            if (!spellable)
+            {
+                CnaStudioTest::reportFailure(__FILE__, __LINE__,
+                    component.typeId + "." + property.name + " is conditional on '"
+                    + sibling->name + "', which is not an enumeration or a boolean.");
+                continue;
+            }
+
+            for (const std::string& wanted : property.appliesWhen.values)
+            {
+                const bool offered =
+                    sibling->type == PropertyType::Boolean
+                        ? (wanted == "true" || wanted == "false")
+                        : std::find(sibling->enumOptions.begin(), sibling->enumOptions.end(),
+                                    wanted)
+                              != sibling->enumOptions.end();
+                if (!offered)
+                {
+                    CnaStudioTest::reportFailure(__FILE__, __LINE__,
+                        component.typeId + "." + property.name + " applies when '" + sibling->name
+                        + "' is '" + wanted + "', which is not one of its values.");
+                }
+            }
+        }
+    }
+
+    // A scan that found no condition would agree with everything. `CNA.Light`'s Range is the one
+    // that exists today; this number goes up as the rule is used.
+    CNA_STUDIO_EXPECT(conditionsChecked >= 1);
+}

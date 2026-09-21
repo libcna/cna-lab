@@ -330,6 +330,17 @@ namespace CNA::Studio
          */
         std::size_t readOnlyProperties = 0;
 
+        /**
+         * @brief How many rows were drawn dead because a sibling's value makes them meaningless.
+         *
+         * `plan.md` STUDIO-20001. Counted rather than only greyed, for the reason the read-only
+         * ones are: "the Inspector greys what does not apply" is exactly the claim that passes
+         * while every field stays editable, and the damage -- a user setting a light's Range and
+         * watching nothing happen -- looks like a broken renderer rather than a field that was
+         * never theirs to set.
+         */
+        std::size_t propertiesInactive = 0;
+
         /** @brief A property was committed to the document this frame. Input pass only. */
         bool edited = false;
 

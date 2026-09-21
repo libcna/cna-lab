@@ -15,6 +15,7 @@
 #include <memory>
 
 #include "CNA/Studio/Scene/BuiltinComponents.hpp"
+#include "CNA/Studio/Scene/EntityArchetypes.hpp"
 #include "CNA/Studio/Scene/StudioCamera3D.hpp"
 #include "CNA/Studio/Scene/SceneLighting.hpp"
 #include "CNA/Studio/Scene/SceneModels.hpp"
@@ -5325,4 +5326,88 @@ CNA_STUDIO_TEST(AModelWithBothKindsOfPartIsDrawnInBothPassesAndMaskStaysOpaque)
     const SceneDrawOrder solid = orderSceneModelDraws(overridden);
     CNA_STUDIO_EXPECT_EQ(solid.opaque.size(), std::size_t{1});
     CNA_STUDIO_EXPECT(solid.blended.empty());
+}
+
+/**
+ * @brief A light the *editor* makes lights the models the editor draws.
+ *
+ * `plan.md` STUDIO-20001. Every other case here builds its `CNA.Light` by hand, setting each
+ * property to what the test wants — which is exactly the shape that cannot tell whether the light
+ * a *user* gets is a light at all. The archetype's defaults are what a new Directional Light
+ * arrives with, and an archetype whose kind, colour or intensity were wrong would pass every one
+ * of those cases and still light nothing.
+ *
+ * End to end on purpose: the archetype builds the entity, `buildSceneModelBatch` resolves what
+ * each model is lit by, and the assertion is on the `EffectLighting` the renderer is handed.
+ */
+CNA_STUDIO_TEST(ADirectionalLightCreatedFromTheEditorLightsTheModelsInTheScene)
+{
+    const ComponentRegistry registry = makeRegistry();
+    SceneDocument scene;
+    const MeshData mesh = makeTinyMesh();
+    const Uuid modelId = Uuid::generate();
+
+    StudioEntity crate = makeEntity(registry, "Crate", 0.0f, 0.0f);
+    addModelRenderer(registry, crate, modelId);
+    (void)scene.addEntity(std::move(crate));
+
+    StudioCamera3D camera;
+    camera.setViewportSize(StudioVector2{800.0f, 600.0f});
+    const MeshProvider provider = [&](const Uuid& queried) {
+        return queried == modelId ? &mesh : nullptr;
+    };
+
+    // Before: nothing lights the scene, so the renderer is told to use XNA's own default rather
+    // than to draw the crate black.
+    const SceneModelBatch unlit = buildSceneModelBatch(scene, camera, provider);
+    CNA_STUDIO_EXPECT_EQ(unlit.draws.size(), std::size_t{1});
+    CNA_STUDIO_EXPECT(unlit.draws[0].lighting.useDefaultLighting);
+
+    // Now add exactly what the Entity menu adds (`plan.md` STUDIO-13013) -- no properties set
+    // here, because the point of this case is what the defaults do.
+    const StudioEntityArchetype* archetype = studioFindEntityArchetype("light.directional");
+    CNA_STUDIO_EXPECT(archetype != nullptr);
+    if (archetype == nullptr) { return; }
+
+    const Uuid lightId = scene.addEntity(studioMakeArchetypeEntity(*archetype, registry));
+
+    const SceneModelBatch lit = buildSceneModelBatch(scene, camera, provider);
+    CNA_STUDIO_EXPECT_EQ(lit.draws.size(), std::size_t{1});
+
+    const EffectLighting& lighting = lit.draws[0].lighting;
+    CNA_STUDIO_EXPECT(!lighting.useDefaultLighting);
+    CNA_STUDIO_EXPECT_EQ(lighting.lightCount, std::size_t{1});
+
+    // White at full intensity, which is what makes a newly added light visibly do something. A
+    // light that arrived black would satisfy every structural assertion above.
+    const EffectDirectionalLight& first = lighting.lights[0];
+    CNA_STUDIO_EXPECT(first.diffuseColor.x > 0.9f);
+    CNA_STUDIO_EXPECT(first.diffuseColor.y > 0.9f);
+    CNA_STUDIO_EXPECT(first.diffuseColor.z > 0.9f);
+
+    // And it shines along the entity's own forward axis, so the rotate gizmo aims it -- which is
+    // the whole of what "authoring" a directional light means. Unrotated, that is +Z.
+    CNA_STUDIO_EXPECT(cameraNearlyEqual(first.direction.z, 1.0f, 0.001f));
+
+    StudioComponent* transform =
+        scene.findEntityForEdit(lightId)->findComponent(BuiltinComponentIds::kTransform);
+    transform->setProperty(
+        "rotation", PropertyValue{quaternionFromEulerDegrees(StudioVector3{0.0f, 90.0f, 0.0f})});
+
+    const SceneModelBatch turned = buildSceneModelBatch(scene, camera, provider);
+    CNA_STUDIO_EXPECT_EQ(turned.draws.size(), std::size_t{1});
+    CNA_STUDIO_EXPECT(cameraNearlyEqual(turned.draws[0].lighting.lights[0].direction.z, 0.0f,
+                                        0.001f));
+
+    // Its *position* is nothing to a directional light, which is why Range is greyed out for one
+    // (`STUDIO-20001`). Moving it a hundred units away changes what it lights by nothing at all.
+    const StudioVector3 before = turned.draws[0].lighting.lights[0].direction;
+    transform->setProperty("position", PropertyValue{StudioVector3{100.0f, 100.0f, 100.0f}});
+
+    const SceneModelBatch moved = buildSceneModelBatch(scene, camera, provider);
+    CNA_STUDIO_EXPECT_EQ(moved.draws.size(), std::size_t{1});
+    const EffectLighting& after = moved.draws[0].lighting;
+    CNA_STUDIO_EXPECT(!after.useDefaultLighting);
+    CNA_STUDIO_EXPECT(cameraNearlyEqual(after.lights[0].direction.x, before.x, 0.001f));
+    CNA_STUDIO_EXPECT(cameraNearlyEqual(after.lights[0].direction.z, before.z, 0.001f));
 }

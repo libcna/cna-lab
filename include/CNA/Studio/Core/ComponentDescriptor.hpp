@@ -28,6 +28,26 @@
 
 namespace CNA::Studio
 {
+    /**
+     * @brief The sibling property and values that make another property apply.
+     *
+     * `plan.md` STUDIO-20001. Declared over *values spelled as text* rather than over
+     * `PropertyValue`, because the conditions worth having are on enumerations and booleans --
+     * "Point or Spot", "only when Cast Shadows is on" -- and both of those have one obvious
+     * spelling. @ref studioPropertyConditionText is where that spelling lives.
+     */
+    struct PropertyAppliesWhen
+    {
+        /** @brief A sibling's @ref PropertyDescriptor::name. Empty means "always applies". */
+        std::string property;
+
+        /** @brief The sibling values that make the property live. Any one of them is enough. */
+        std::vector<std::string> values;
+
+        /** @brief True when this condition says nothing, which is the ordinary case. */
+        [[nodiscard]] bool isAlways() const { return property.empty(); }
+    };
+
     /** @brief One editable field on a component type. */
     struct PropertyDescriptor
     {
@@ -99,7 +119,48 @@ namespace CNA::Studio
 
         /** @brief When true the inspector shows the value but does not let the user change it. */
         bool readOnly = false;
+
+        /**
+         * @brief Which sibling value makes this property mean something (`plan.md` STUDIO-20001).
+         *
+         * `CNA.Light` is the case that forced it: `range` is a point and spot light's falloff
+         * distance, a directional light has no position for it to fall off from, and the field
+         * was editable on all three. The descriptor's tooltip said "Point and Spot only." and
+         * nothing acted on it -- a control that takes a value and does nothing with it is worse
+         * than one that refuses, because the user cannot tell which of the two just happened
+         * (`STUDIO-12004`).
+         *
+         * Empty @ref PropertyAppliesWhen::property means the property always applies, which is
+         * every other field in the editor.
+         */
+        PropertyAppliesWhen appliesWhen;
     };
+
+    /**
+     * @brief Whether @p descriptor's condition is satisfied by @p sibling's value.
+     *
+     * @param sibling The value of the property @ref PropertyAppliesWhen::property names, or null
+     *        when the component does not carry one.
+     *
+     * **A null sibling applies.** A condition naming a property that is not there is a mistake in
+     * a descriptor, and the forgiving answer is the safe one: failing open shows a field that
+     * should perhaps have been greyed, while failing closed would grey a field a user needs with
+     * no way to find out why. The mistake itself is caught by
+     * `EveryConditionalPropertyNamesASiblingThatCanSatisfyIt`, which reads the descriptors rather
+     * than waiting for somebody to notice a dead row.
+     */
+    [[nodiscard]] bool studioPropertyConditionMet(const PropertyDescriptor& descriptor,
+                                                  const PropertyValue* sibling);
+
+    /**
+     * @brief How a value is spelled for @ref PropertyAppliesWhen, or empty when it has no spelling.
+     *
+     * Enumerations by their option name and booleans as `"true"` or `"false"`. Nothing else: a
+     * condition on a float would be a range test wearing a string's clothes, and a condition on a
+     * reference would be asking whether a slot is filled -- both are real things to want and
+     * neither is this.
+     */
+    [[nodiscard]] std::string studioPropertyConditionText(const PropertyValue& value);
 
     /**
      * @brief Reads @p json as the value @p descriptor declares, structures included.
