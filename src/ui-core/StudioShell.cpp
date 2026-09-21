@@ -163,6 +163,7 @@ namespace CNA::Studio
                         "studio.entity.create.camera",
                         "studio.entity.create.light.directional",
                         "studio.entity.create.light.point",
+                        "studio.entity.create.light.spot",
                         "studio.entity.create.sprite", "studio.entity.create.model",
                         "studio.entity.create.audio", sep,
                         "studio.entity.group", "studio.entity.ungroup", sep,

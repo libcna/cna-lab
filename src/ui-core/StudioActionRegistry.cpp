@@ -360,6 +360,14 @@ namespace CNA::Studio
         command("studio.entity.create.light.point", "Create Point Light",
                 "Add a light that shines in every direction from where it is.", C::Entity,
                 StudioShortcut{});
+        // Offered although this build draws its cone as no cone at all: `CNA.Light` has carried
+        // the kind since Phase 1, a scene may already hold one, and a game reading the loader's
+        // components can implement a cone itself. What Studio owes the user is to *say* so, which
+        // `validateScene`'s `spot-light-cone-not-rendered` does (`plan.md` STUDIO-20008) --
+        // removing the kind would break scenes over a limitation of one renderer.
+        command("studio.entity.create.light.spot", "Create Spot Light",
+                "Add a light aimed in a cone. This build draws it as a point light.", C::Entity,
+                StudioShortcut{});
         command("studio.entity.create.sprite", "Create Sprite",
                 "Add a 2D sprite renderer with no texture yet.", C::Entity, StudioShortcut{});
         command("studio.entity.create.model", "Create Model",

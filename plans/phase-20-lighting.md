@@ -6,18 +6,18 @@
 
 **Exit criteria.** The viewport and the game preview agree, and no light type exists in Studio that the runtime cannot render.
 
-**Progress:** 2 of 8 complete `███░░░░░░░░░`
+**Progress:** 4 of 8 complete `██████░░░░░░`
 
 | Id | Task | Status | Depends on |
 |----|------|:------:|------------|
 | `STUDIO-20001` | Directional light authoring | ✅ | `STUDIO-19001` |
 | `STUDIO-20002` | Point light authoring | ✅ | `STUDIO-20001` |
-| `STUDIO-20003` | Spot light authoring | ⬜ | `STUDIO-20001` |
+| `STUDIO-20003` | Spot light authoring | ✅ | `STUDIO-20001` |
 | `STUDIO-20004` | Ambient and environment lighting | ⬜ | `STUDIO-20001` |
 | `STUDIO-20005` | Sky and environment map authoring | ⬜ | `STUDIO-10010` |
 | `STUDIO-20006` | Shadow configuration | ⬜ | `STUDIO-20001` |
 | `STUDIO-20007` | Viewport lighting matches the game preview as closely as the runtime allows | ⬜ | `STUDIO-20001` |
-| `STUDIO-20008` | No light type is offered that the runtime cannot render | ⬜ | `STUDIO-20001` |
+| `STUDIO-20008` | No light type is offered that the runtime cannot render | ✅ | `STUDIO-20001` |
 
 ## Acceptance and verification
 
@@ -142,6 +142,78 @@ exist, and one naming an enumeration value that does not exist all fail by name.
 **What this row is not.** There is no falloff *curve* — `falloffAt` is what ED-404 wrote and this
 row did not change it — no per-light shadow settings (`STUDIO-20006`), and no warning yet that
 `IEffectLights` takes only three lights at a time, which is `STUDIO-20008`.
+
+### `STUDIO-20003` — Spot light authoring
+
+**Acceptance.** A user can add a spot light, place it, aim it and bound it — and is told, where it
+costs them something, that this build does not draw its cone.
+
+**Everything a spot light has except the cone already worked.** It is the only kind that uses all
+three of position, direction and range, and `SceneLighting`'s reduction resolves the first and
+third exactly as it does for a point light while the second follows the entity's forward axis. The
+archetype is one preset — `kind` set to `Spot` — because the three kinds are one component
+(`STUDIO-20002`).
+
+**The cone is not approximated, because it cannot be.** `IEffectLights` has an ambient colour and
+three *directional* slots and nowhere to put an angle; there is no seam for an effect of one's own
+(`G-12`); so a spot light is drawn exactly as a point light is. Recorded as **CNA gap G-13**.
+
+**No `coneAngle` field was added, and that is the decision this row turns on.** Studio could
+declare one on `CNA.Light` — the scene loader carries the component's properties through to a game
+untouched, so a game *could* read it. What Studio could not do is draw it, and a field the editor
+offers, cannot show, and nothing in CNA reads is the shape this session has spent three tasks
+removing: a rule written down and honoured by nobody. A game that wants a cone has a better
+answer already, which is a component of its own that Studio carries the same way.
+
+### `STUDIO-20008` — No light type is offered that the runtime cannot render
+
+**Acceptance.** Where the editor offers a light this renderer cannot draw faithfully, it says so
+on the light, in the report a user already reads — not in a header.
+
+**Read as "say so" rather than as "remove it".** The literal reading of the row is that `Spot`
+should come out of `CNA.Light`'s kinds. That was rejected: the kind has been in the descriptor
+since Phase 1, scenes already hold spot lights, and a game reading the loader's carried components
+can implement a cone for itself. Deleting a kind over a limitation of *one renderer* would break
+those scenes and forbid something Studio has no business forbidding. `SceneLighting.hpp` had
+already written down where the answer belongs — "the Validation panel is where that should be said
+to a user rather than here" — and this is that.
+
+**Two rules, and the second is the one that took thought.**
+
+`spot-light-cone-not-rendered` fires on every enabled spot light: "This build draws a spot light as
+a point light: the effect has no cone." Per light rather than once per scene, because the answer is
+per light — one may be standing in for a lamp and be perfectly fine as a point light, and another
+may be the spotlight the level is built around.
+
+`more-directional-lights-than-slots` fires when a scene holds more than three enabled *directional*
+lights. The obvious rule — "more than three lights anywhere" — would fire on every real level and
+be wrong to fire: `computeEffectLighting` picks the three brightest *where the object is*, so
+twenty lamps spread across a level is twenty lamps working correctly. A directional light is
+different in kind: it has no position, so it applies everywhere, and a fourth one can never reach
+anything however the level is laid out. That is the case worth a warning, and confining the rule to
+it is what keeps it quiet.
+
+Both are Warnings. The scene is legal, it runs, and what it draws is a reasonable light — it is
+simply not the light the user asked for, which is the definition this file gives for the severity.
+
+**Verification.** `tests/SceneTests.cpp` — `ASpotLightIsReportedBecauseThisRendererHasNoCone` (one
+issue per spot light, named on the light so the report's row selects it, silent for the other two
+kinds, and resolved by switching the light off),
+`MoreDirectionalLightsThanTheEffectHasSlotsIsReported` (three say nothing, four are each reported,
+and four *point* lights say nothing at all), and
+`ASpotLightCreatedFromTheEditorUsesItsPositionDirectionAndRange`, which pins the three predicates
+against all three kinds.
+
+Checked by causing each: the spot warning removed, the slot cap firing one light early, the rule
+ignoring the enabled flag, point lights counted towards the directional cap, and the spot
+archetype presetting the wrong kind all fail by name.
+
+**What these rows are not.** There is no suppression list, so a user who has read the spot-light
+warning reads it again every time the report is built — `STUDIO-33xxx` owns per-rule suppression
+and this row does not pretend to. And the three-light cap is reported only for the case that is
+unconditionally wrong; a scene where four *point* lights genuinely overlap will still silently drop
+one, because saying so would need the check to run per object and per frame, which a structural
+rule over a document cannot do.
 
 ### `STUDIO-20007` — Viewport lighting matches the game preview as closely as the runtime allows
 

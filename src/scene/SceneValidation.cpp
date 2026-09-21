@@ -6,6 +6,7 @@
 #include <unordered_set>
 
 #include "CNA/Studio/Scene/BuiltinComponents.hpp"
+#include "CNA/Studio/Scene/SceneLighting.hpp"
 #include "CNA/Studio/Scene/SpriteAnimation.hpp"
 #include "CNA/Studio/Scene/Tilemap.hpp"
 #include "CNA/Studio/Scene/SceneDocument.hpp"
@@ -136,6 +137,71 @@ namespace CNA::Studio
                     BuiltinComponentIds::kAudioListener,
                     "One of " + std::to_string(listeners.size()) +
                         " enabled audio listeners. Which one the mix is relative to is arbitrary."));
+            }
+        }
+
+        /**
+         * @brief Reports the two things this renderer cannot do with the lights it is given.
+         *
+         * `plan.md` STUDIO-20008. Both are limits of `IEffectLights` -- XNA's fixed-function
+         * lighting, which both `BasicEffect` and CNA's `PbrEffect` implement -- and both are
+         * invisible from inside the editor: the scene is legal, the viewport draws something, and
+         * what it draws is not what the user asked for.
+         *
+         * **A spot light's cone is not modelled at all.** `IEffectLights` has an ambient colour
+         * and three *directional* lights and nowhere to put a cone angle, so Studio draws a spot
+         * light exactly as it draws a point light: aimed at whatever is being lit, dimmed by
+         * range. Reported per light rather than once for the scene, because the answer is
+         * per-light -- one may be standing in for a lamp and be fine as a point light, and another
+         * may be the spotlight the level is built around. Recorded as CNA gap G-13.
+         *
+         * **Only three lights reach any one object.** `computeEffectLighting` picks the three
+         * brightest where the object is, which is the right answer for a level with twenty lamps
+         * spread across it -- most objects are near three or fewer. A *directional* light has no
+         * position and applies everywhere, so a fourth one is different in kind: it can never
+         * reach anything, anywhere, however the level is laid out. That is the case worth
+         * reporting, and reporting only that one is what keeps the rule from firing on every real
+         * level.
+         */
+        void checkLights(const SceneDocument& scene, std::vector<SceneIssue>& issues)
+        {
+            std::vector<const StudioEntity*> directional;
+
+            for (const StudioEntity& entity : scene.getEntities())
+            {
+                const StudioComponent* light = entity.findComponent(BuiltinComponentIds::kLight);
+                if (light == nullptr) { continue; }
+                if (!isEffectivelyEnabled(scene, entity)) { continue; }
+
+                const std::string kind =
+                    light->getProperty("kind").get<PropertyValue::EnumValue>().name;
+
+                if (kind == toString(SceneLightKind::Spot))
+                {
+                    issues.push_back(makeIssue(
+                        SceneIssue::Severity::Warning, "spot-light-cone-not-rendered", entity,
+                        BuiltinComponentIds::kLight,
+                        "This build draws a spot light as a point light: the effect has no cone. "
+                        "Its position, direction and range are used; its cone angle is not."));
+                }
+
+                if (kind == toString(SceneLightKind::Directional)) { directional.push_back(&entity); }
+            }
+
+            // Three is what `IEffectLights` holds, so the fourth and beyond are the ones that can
+            // never be applied. Reported on each of them rather than on the scene: which three win
+            // is decided by brightness at each point, so no one of them is *the* extra one.
+            constexpr std::size_t kEffectLightSlots = 3;
+            if (directional.size() <= kEffectLightSlots) { return; }
+
+            for (const StudioEntity* entity : directional)
+            {
+                issues.push_back(makeIssue(
+                    SceneIssue::Severity::Warning, "more-directional-lights-than-slots", *entity,
+                    BuiltinComponentIds::kLight,
+                    "One of " + std::to_string(directional.size())
+                        + " enabled directional lights. The effect applies three, so the dimmest "
+                          "reach nothing anywhere in the scene."));
             }
         }
 
@@ -427,6 +493,7 @@ namespace CNA::Studio
         checkEnvironment(scene, issues);
         checkCameras(scene, registry, issues);
         checkListeners(scene, issues);
+        checkLights(scene, issues);
 
         // Derived once rather than per entity: getChildren() is a scan, and asking it for every
         // entity would turn the report into O(n^2) on exactly the large scenes that need it most.

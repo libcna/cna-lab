@@ -5586,3 +5586,141 @@ CNA_STUDIO_TEST(TheLightInspectorAndTheLightOverlayAgreeAboutWhatEachKindUses)
 
     CNA_STUDIO_EXPECT_EQ(light->findProperty("kind")->enumOptions.size(), std::size_t{3});
 }
+
+/**
+ * @brief A spot light is offered and its cone is not drawn, so the editor says so.
+ *
+ * `plan.md` STUDIO-20003, STUDIO-20008. `IEffectLights` — XNA's fixed-function lighting, which
+ * both `BasicEffect` and CNA's `PbrEffect` implement — has an ambient colour and three directional
+ * slots and nowhere to put a cone angle, so Studio draws a spot light exactly as it draws a point
+ * light. Recorded as CNA gap G-13.
+ *
+ * The alternative was to drop `Spot` from the kinds so that nothing is offered that cannot be
+ * drawn. That would have made the promise true and broken every scene already holding one — and a
+ * game reading the loader's carried components can implement a cone for itself, which Studio has
+ * no business forbidding over a limitation of one renderer. So the kind stays and the editor is
+ * honest about it.
+ */
+CNA_STUDIO_TEST(ASpotLightIsReportedBecauseThisRendererHasNoCone)
+{
+    const ComponentRegistry registry = makeRegistry();
+    SceneDocument scene;
+
+    StudioEntity lamp = makeEntity(registry, "Stage Spot", 0.0f, 0.0f);
+    addLight(registry, lamp, "Spot", 1.0f, 10.0f);
+    const Uuid lampId = scene.addEntity(std::move(lamp));
+
+    const std::vector<SceneIssue> issues = validateScene(scene, registry);
+    CNA_STUDIO_EXPECT_EQ(countRule(issues, "spot-light-cone-not-rendered"), std::size_t{1});
+
+    // A warning rather than an error: the scene is legal and runs, and what it draws is a
+    // reasonable light. It is simply not the light the user asked for.
+    CNA_STUDIO_EXPECT_EQ(countIssues(issues, SceneIssue::Severity::Error), std::size_t{0});
+
+    // Named on the light itself, so the report's row selects the entity to fix.
+    for (const SceneIssue& issue : issues)
+    {
+        if (issue.ruleId != "spot-light-cone-not-rendered") { continue; }
+        CNA_STUDIO_EXPECT(issue.entityId == lampId);
+        CNA_STUDIO_EXPECT_EQ(issue.componentTypeId, std::string{BuiltinComponentIds::kLight});
+    }
+
+    // The other two kinds say nothing: a directional light is drawn exactly, and a point light's
+    // approximation is documented and behaves like one between objects.
+    for (const char* kind : {"Directional", "Point"})
+    {
+        SceneDocument other;
+        StudioEntity light = makeEntity(registry, "Lamp", 0.0f, 0.0f);
+        addLight(registry, light, kind, 1.0f, 10.0f);
+        other.addEntity(std::move(light));
+        CNA_STUDIO_EXPECT(validateScene(other, registry).empty());
+    }
+
+    // And switching the light off resolves it, like every other rule here: a disabled entity is
+    // not something the renderer will be asked to draw.
+    scene.findEntityForEdit(lampId)->setEnabled(false);
+    CNA_STUDIO_EXPECT(validateScene(scene, registry).empty());
+}
+
+/**
+ * @brief A fourth directional light can never reach anything, and that is worth saying.
+ *
+ * `plan.md` STUDIO-20008. `computeEffectLighting` keeps the three brightest lights *where the
+ * object is*, which is the right answer for a level with twenty lamps spread across it — most
+ * objects are near three or fewer, and a rule that fired on that would fire on every real level.
+ * A directional light is different in kind: it has no position and applies everywhere, so a fourth
+ * one is dropped for every object in the scene however the level is laid out.
+ */
+CNA_STUDIO_TEST(MoreDirectionalLightsThanTheEffectHasSlotsIsReported)
+{
+    const ComponentRegistry registry = makeRegistry();
+
+    const auto sceneWith = [&registry](int count) {
+        SceneDocument scene;
+        for (int i = 0; i < count; ++i)
+        {
+            StudioEntity light = makeEntity(registry, "Sun " + std::to_string(i), 0.0f, 0.0f);
+            addLight(registry, light, "Directional", 1.0f, 0.0f);
+            scene.addEntity(std::move(light));
+        }
+        return scene;
+    };
+
+    // Three fit, so three say nothing. The rule is about what cannot be applied, not about how
+    // many lights is tasteful.
+    const SceneDocument three = sceneWith(3);
+    CNA_STUDIO_EXPECT(validateScene(three, registry).empty());
+
+    // Four do not. Reported on each of them, because which three win is decided by brightness at
+    // each point -- no one of them is *the* extra one, and a report naming one arbitrarily would
+    // send the user to delete a light that may be the one they wanted.
+    const SceneDocument four = sceneWith(4);
+    const std::vector<SceneIssue> issues = validateScene(four, registry);
+    CNA_STUDIO_EXPECT_EQ(countRule(issues, "more-directional-lights-than-slots"), std::size_t{4});
+    CNA_STUDIO_EXPECT_EQ(countIssues(issues, SceneIssue::Severity::Error), std::size_t{0});
+
+    // Four *point* lights are fine: they are bounded by their ranges, so which three apply is a
+    // question with a different answer in every part of the level.
+    SceneDocument lamps;
+    for (int i = 0; i < 4; ++i)
+    {
+        StudioEntity light = makeEntity(registry, "Lamp " + std::to_string(i),
+                                        static_cast<float>(i) * 100.0f, 0.0f);
+        addLight(registry, light, "Point", 1.0f, 10.0f);
+        lamps.addEntity(std::move(light));
+    }
+    CNA_STUDIO_EXPECT_EQ(countRule(validateScene(lamps, registry),
+                                   "more-directional-lights-than-slots"), std::size_t{0});
+}
+
+/** @brief A spot light created from the editor is a spot light, and uses all three of its fields. */
+CNA_STUDIO_TEST(ASpotLightCreatedFromTheEditorUsesItsPositionDirectionAndRange)
+{
+    const ComponentRegistry registry = makeRegistry();
+
+    const StudioEntityArchetype* archetype = studioFindEntityArchetype("light.spot");
+    CNA_STUDIO_EXPECT(archetype != nullptr);
+    if (archetype == nullptr) { return; }
+
+    const StudioEntity made = studioMakeArchetypeEntity(*archetype, registry);
+    const StudioComponent* light = made.findComponent(BuiltinComponentIds::kLight);
+    CNA_STUDIO_EXPECT(light != nullptr);
+    if (light == nullptr) { return; }
+    CNA_STUDIO_EXPECT_EQ(light->getProperty("kind").get<PropertyValue::EnumValue>().name,
+                         std::string{"Spot"});
+
+    // The only kind that uses all three. That is what makes it a kind of its own in the editor
+    // even on a renderer that draws its cone as no cone at all (CNA gap G-13).
+    CNA_STUDIO_EXPECT(sceneLightUsesDirection(SceneLightKind::Spot));
+    CNA_STUDIO_EXPECT(sceneLightUsesPosition(SceneLightKind::Spot));
+    CNA_STUDIO_EXPECT(sceneLightUsesRange(SceneLightKind::Spot));
+
+    // And the other two each use exactly two of the three, which is the whole of how they differ.
+    CNA_STUDIO_EXPECT(sceneLightUsesDirection(SceneLightKind::Directional));
+    CNA_STUDIO_EXPECT(!sceneLightUsesPosition(SceneLightKind::Directional));
+    CNA_STUDIO_EXPECT(!sceneLightUsesRange(SceneLightKind::Directional));
+
+    CNA_STUDIO_EXPECT(!sceneLightUsesDirection(SceneLightKind::Point));
+    CNA_STUDIO_EXPECT(sceneLightUsesPosition(SceneLightKind::Point));
+    CNA_STUDIO_EXPECT(sceneLightUsesRange(SceneLightKind::Point));
+}

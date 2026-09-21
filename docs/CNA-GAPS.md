@@ -17,7 +17,7 @@ reporting it.
 | `libcna/sharp-runtime` | `next` | `0c82d9b888bdf5f7d5663c77942f339bcb2a7445` | 2026-09-14 |
 
 The gaps numbered G-01 … G-05 were recorded against an **older** CNA revision by the CNA Editor
-prototype; G-06 through G-12 are new, filed by CNA Studio. All five of the inherited ones were
+prototype; G-06 through G-13 are new, filed by CNA Studio. All five of the inherited ones were
 re-verified against the commit above as part of the CNA Studio bootstrap; two have since been fixed
 upstream and are kept here, marked closed, so the record stays honest.
 
@@ -336,3 +336,25 @@ numbers in `docs/UI-RENDER-PATH.md` and not the conclusion drawn from them.
 **Why this is amber rather than red.** Nothing is broken and nothing draws wrongly; a category of
 editor view is simply unavailable. Studio ships five debug views of the six a user might expect,
 says which one it cannot give and why, and the sixth has a real if lesser answer in its place.
+
+---
+
+## 🟡 G-13 — `IEffectLights` has three directional lights and no spot cone
+
+**New, filed by CNA Studio, found by `STUDIO-20001` … `STUDIO-20003`.**
+
+| Field | Value |
+|-------|-------|
+| Affected API | `Microsoft::Xna::Framework::Graphics::IEffectLights`, as implemented by `BasicEffect` and CNA's `PbrEffect` |
+| Current behaviour | An ambient colour and exactly three `DirectionalLight` slots. No point light, no spot light, no cone angle, no attenuation, and no way to hand an effect more than three lights at once |
+| Expected behaviour | Not "a deferred renderer". XNA shipped exactly this and every XNA game lived with it, so the *shape* is not the gap — what is missing is any seam for a program that needs a fourth light on one object, or a cone. `Effect` being public would have been that seam, which is `G-12` from the other side |
+| Studio impact | Three, and each is visible to a user. A **point light** is approximated: Studio aims a directional slot at whatever is being drawn and dims it by range, which behaves like a point light between objects and cannot fall off across one large model. A **spot light** is not approximated at all — there is nowhere to put a cone angle, so Studio draws one exactly as it draws a point light. And a **fourth light** applying at one point is dropped: `computeEffectLighting` keeps the three brightest |
+| Workaround | Taken, and it is disclosure rather than a fix. `SceneLighting.hpp` writes down the reduction in full; `validateScene` reports `spot-light-cone-not-rendered` on every enabled spot light and `more-directional-lights-than-slots` when a scene holds more than three of the kind that applies everywhere; and the Entity menu's Create Spot Light row says "This build draws it as a point light." in its own description |
+| Rejected workaround | Removing `Spot` from `CNA.Light`'s kinds, so that no kind is offered that the viewport cannot draw. It would have made the editor's promise true and broken every scene already holding one — and a game reading the loader's carried components can implement a cone for itself, which is a thing Studio has no business forbidding over a limitation of one renderer |
+| Suggested fix | A `SpotLight` slot on `IEffectLights`, or the `Effect` seam of `G-12`, which would let a program write the lighting it needs. Either one; both would be generous |
+| Test needed in CNA | A scene with a spot light whose lit area is bounded by its cone, asserted on pixels inside and outside the cone rather than looked at |
+
+**Why this is amber rather than red.** Nothing draws wrongly by accident: the reduction is
+deliberate, documented, and reported to the user at the point where it costs them something. What
+a user cannot do is author a cone and see it, and Studio says so rather than letting them find out
+after a build.
