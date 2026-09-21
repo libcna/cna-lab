@@ -38,7 +38,7 @@
 | `STUDIO-03030` | Restrained animation model: state transitions only, no decorative motion | ⬜ | `STUDIO-03004` |
 | `STUDIO-03031` | Widget interaction helpers over `interact()`: button, toggle, checkbox, tab, menu item | ✅ | `STUDIO-03015` |
 | `STUDIO-03032` | Text measurement seam: code-point-correct extents, baselines and truncation | ✅ | `STUDIO-03015` |
-| `STUDIO-03033` | Scrollable regions: wheel, draggable thumb, and row virtualisation | ✅ | `STUDIO-03031`, `STUDIO-03018` |
+| `STUDIO-03033` | Scrollable regions: wheel, draggable thumb, and row virtualisation | ✅ | `STUDIO-03031` |
 | `STUDIO-03034` | Tree view: flattened rows, disclosure, indentation and selection | ✅ | `STUDIO-03033` |
 | `STUDIO-03035` | Editable single-line text field over the selection model | ✅ | `STUDIO-03024`, `STUDIO-03025` |
 | `STUDIO-03036` | Drop-down selection over a deferred popup | ✅ | `STUDIO-03022`, `STUDIO-03033` |
@@ -337,6 +337,14 @@ the single most common complaint about log windows
 **Verification.** `tests/StudioLogPanelTests.cpp` — the bar appearing only on overflow, the wheel
 stopping at both ends, following engaging and then yielding to the reader, and `visibleRows` culling
 a hundred thousand rows to a screenful and coming back empty past the end
+
+**This row named a dependency that has never existed.** It read `STUDIO-03031`, `STUDIO-03018`, and
+there is no `STUDIO-03018` — the phase's ids run 03015, then 03020. It was a typo in the commit
+that added the row and it survived every reading since, because a dependency on nothing looks
+exactly like a dependency. The phantom is removed rather than replaced: what it was meant to say
+is not recoverable, and inventing an edge would be putting a guess where a fact belongs.
+`EveryDependencyNamesARealTaskAndNoneOfThemFormACycle` in `tests/ArchitectureGuardTests.cpp` now
+fails on an id no phase file carries, so the next one is caught the day it is typed.
 
 ### `STUDIO-03034` — Tree view: flattened rows, disclosure, indentation and selection
 

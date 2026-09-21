@@ -18,7 +18,7 @@
 | `STUDIO-10006` | Font import | ✅ | `STUDIO-04005` |
 | `STUDIO-10007` | Material assets | ✅ | `STUDIO-19001` |
 | `STUDIO-10008` | Shader and effect assets | ⬜ | `STUDIO-22001` |
-| `STUDIO-10009` | Animation import | ⬜ | `STUDIO-21001` |
+| `STUDIO-10009` | Animation import | ⬜ | `STUDIO-10004` |
 | `STUDIO-10010` | Environment map import and processing | ⬜ | `STUDIO-20001` |
 | `STUDIO-10011` | Import jobs are cancellable and report progress accurately | ✅ | `STUDIO-30001` |
 | `STUDIO-10012` | Provenance record for every third-party dependency | ✅ | — |
@@ -627,8 +627,18 @@ removing the menu entry each fail by name.
 to depend on `STUDIO-19001`, and `STUDIO-19001` is declared to depend on `STUDIO-10007`. That is a
 cycle, and neither row could ever have been ticked while it was honoured literally. The real
 direction is one way: the material *model* owes the pipeline nothing, and the pipeline needs the
-model to have a document to read. Phase 19's edge is the wrong one. It is corrected there rather
-than here, with the evidence, when that row is settled.
+model to have a document to read. Phase 19's edge is the wrong one and is corrected there, with
+the evidence.
+
+**Looking for others found two more, so the column has a guard now.** `STUDIO-10009` and
+`STUDIO-21001` were the same cycle in a different phase — animation import waiting on a skeletal
+preview that was waiting on animation import — and `STUDIO-03033` depended on an id that has never
+existed. `STUDIO-10009` now depends on `STUDIO-10004`, which is the honest edge: glTF animation
+comes out of the file the model importer already reads, and a preview is what uses the result
+rather than what it needs. `EveryDependencyNamesARealTaskAndNoneOfThemFormACycle` in
+`tests/ArchitectureGuardTests.cpp` reads every phase table and fails on both kinds. Until it
+existed the dependency column was the one part of the plan nothing checked: the arithmetic guards
+add up whatever the edges say, and the id guard only cares that ids are unique.
 
 ### `STUDIO-10011` — Import jobs are cancellable and report progress accurately
 

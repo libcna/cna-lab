@@ -746,6 +746,9 @@ namespace
     {
         std::string id;
         std::string status;
+
+        /** @brief The ids in the "Depends on" cell. Empty for a row that reads "—". */
+        std::vector<std::string> dependsOn;
     };
 
     /** @brief Reads a whole file, or returns an empty string when it is not there. */
@@ -800,6 +803,36 @@ namespace
         return text;
     }
 
+    /** @brief @p text without leading or trailing spaces and tabs. */
+    std::string trimmed(const std::string& text)
+    {
+        const std::size_t first = text.find_first_not_of(" \t");
+        if (first == std::string::npos) { return {}; }
+        const std::size_t last = text.find_last_not_of(" \t");
+        return text.substr(first, last - first + 1);
+    }
+
+    /** @brief Splits @p text on @p separator, keeping empty pieces. */
+    std::vector<std::string> splitOn(const std::string& text, char separator)
+    {
+        std::vector<std::string> pieces;
+        std::string current;
+        for (const char character : text)
+        {
+            if (character == separator) { pieces.push_back(current); current.clear(); }
+            else { current.push_back(character); }
+        }
+        pieces.push_back(current);
+        return pieces;
+    }
+
+    /** @brief True for exactly `STUDIO-` followed by five digits. */
+    bool isPlanTaskId(const std::string& text)
+    {
+        if (text.rfind("STUDIO-", 0) != 0 || text.size() != 12) { return false; }
+        return text.find_first_not_of("0123456789", 7) == std::string::npos;
+    }
+
     /**
      * @brief Reads the task rows of one phase file.
      *
@@ -818,10 +851,23 @@ namespace
             if (cells.size() < 3) { continue; }
 
             const std::string id = withoutBackticks(cells[0]);
-            if (id.rfind("STUDIO-", 0) != 0 || id.size() != 12) { continue; }
-            if (id.find_first_not_of("0123456789", 7) != std::string::npos) { continue; }
+            if (!isPlanTaskId(id)) { continue; }
 
-            tasks.push_back(PlanTask{id, cells[2]});
+            // The "Depends on" cell, which is a comma-separated list of backticked ids or an em
+            // dash. Anything that is not a well-formed id is dropped rather than reported: the
+            // column carries prose in a few rows and a guard that failed on it would be a guard
+            // people edit the plan around.
+            std::vector<std::string> dependsOn;
+            if (cells.size() >= 4)
+            {
+                for (const std::string& piece : splitOn(cells[3], ','))
+                {
+                    const std::string dependency = withoutBackticks(trimmed(piece));
+                    if (isPlanTaskId(dependency)) { dependsOn.push_back(dependency); }
+                }
+            }
+
+            tasks.push_back(PlanTask{id, cells[2], std::move(dependsOn)});
         }
         return tasks;
     }
@@ -1090,6 +1136,106 @@ CNA_STUDIO_TEST(TheHandoffsOwnArithmeticMatchesThePhaseFiles)
 
     // A handoff that mentioned no phase at all would pass every check above by saying nothing.
     CNA_STUDIO_EXPECT(phrasesChecked >= 8);
+}
+
+CNA_STUDIO_TEST(EveryDependencyNamesARealTaskAndNoneOfThemFormACycle)
+{
+    // The "Depends on" column is the only thing in the plan that says what order the work can be
+    // done in, and until this test existed nothing checked it at all. Two kinds of defect had
+    // been sitting in it, both found by hand rather than by anything:
+    //
+    //   * `STUDIO-03033` depended on `STUDIO-03018`, an id that has never existed. A dependency
+    //     naming nothing is not a constraint, it is a sentence that looks like one.
+    //   * `STUDIO-10007` and `STUDIO-19001` each depended on the other, as did `STUDIO-10009`
+    //     and `STUDIO-21001`. Honoured literally, neither of a pair could ever be started, and
+    //     the plan would be telling a reader to wait for something that is waiting for them.
+    //
+    // Both are invisible to every other guard here: the arithmetic adds up either way, and the
+    // ids are unique either way.
+    std::map<std::string, std::string> phaseOf;
+    std::map<std::string, std::vector<std::string>> dependencies;
+
+    for (const std::filesystem::directory_entry& entry :
+         std::filesystem::directory_iterator{sourceRoot() / "plans"})
+    {
+        if (entry.path().extension() != ".md") { continue; }
+        const std::string name = entry.path().filename().string();
+        if (name.size() < 8 || name.rfind("phase-", 0) != 0) { continue; }
+
+        for (PlanTask& task : readPhaseTasks(entry.path()))
+        {
+            phaseOf[task.id] = "plans/" + name;
+            dependencies[task.id] = std::move(task.dependsOn);
+        }
+    }
+
+    std::size_t edges = 0;
+    for (const auto& [id, needed] : dependencies)
+    {
+        for (const std::string& dependency : needed)
+        {
+            ++edges;
+            if (phaseOf.find(dependency) == phaseOf.end())
+            {
+                CnaStudioTest::reportFailure(__FILE__, __LINE__,
+                    id + " in " + phaseOf[id] + " depends on " + dependency
+                    + ", which is not a task in any phase file. Either name the right id or "
+                      "remove it -- a dependency on nothing constrains nothing.");
+            }
+        }
+    }
+
+    // Depth-first, three colours: grey is on the current path and finding one again is a cycle.
+    // Reported once per cycle with the whole loop spelt out, because "A depends on B" on its own
+    // is not enough for a reader to see what is wrong with it.
+    enum class Mark { Unvisited, OnPath, Done };
+    std::map<std::string, Mark> marks;
+    std::vector<std::string> path;
+    std::size_t cycles = 0;
+
+    const auto walk = [&](auto&& self, const std::string& id) -> void {
+        marks[id] = Mark::OnPath;
+        path.push_back(id);
+
+        for (const std::string& dependency : dependencies[id])
+        {
+            if (phaseOf.find(dependency) == phaseOf.end()) { continue; }
+
+            const Mark mark = marks[dependency];
+            if (mark == Mark::OnPath)
+            {
+                std::string loop;
+                const auto start = std::find(path.begin(), path.end(), dependency);
+                for (auto step = start; step != path.end(); ++step)
+                {
+                    loop += *step + " depends on ";
+                }
+                ++cycles;
+                CnaStudioTest::reportFailure(__FILE__, __LINE__,
+                    "dependency cycle: " + loop + dependency
+                    + ". One of these edges points the wrong way -- neither task can start while "
+                      "both are honoured.");
+            }
+            else if (mark == Mark::Unvisited)
+            {
+                self(self, dependency);
+            }
+        }
+
+        path.pop_back();
+        marks[id] = Mark::Done;
+    };
+
+    for (const auto& [id, needed] : dependencies)
+    {
+        (void)needed;
+        if (marks[id] == Mark::Unvisited) { walk(walk, id); }
+    }
+
+    CNA_STUDIO_EXPECT_EQ(cycles, std::size_t{0});
+
+    // A parser that found no dependencies at all would pass everything above by checking nothing.
+    CNA_STUDIO_EXPECT(edges > 400);
 }
 
 CNA_STUDIO_TEST(NoTaskIdIsUsedTwiceAcrossTheWholePlan)
