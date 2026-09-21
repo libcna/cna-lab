@@ -50,6 +50,7 @@
 #include <cstdint>
 #include <functional>
 #include <optional>
+#include <set>
 #include <string>
 #include <vector>
 #include <string>
@@ -218,6 +219,30 @@ namespace CNA::Studio
     /** @brief What the Details panel did this frame. */
     struct StudioDetailsResult
     {
+        /**
+         * @brief A component section was opened or closed this frame (`plan.md` STUDIO-14001).
+         *
+         * Input pass only. Reported because folding is the one thing the panel does that changes
+         * nothing in the document -- so a shell that redrew only on a document change would leave
+         * the click looking like it had missed.
+         */
+        bool sectionFolded = false;
+
+        /**
+         * @brief How many rows the panel *measured* before drawing any (`plan.md` STUDIO-14001).
+         *
+         * Not the same number as @ref rowsDrawn and not meant to be: the measure reserves the
+         * optional sections at their maximum, because it runs before the comparisons that decide
+         * whether they appear, and a scroll view a row too tall is invisible where one a row too
+         * short clips the last control.
+         *
+         * Reported so the two can be held in step where it matters. Folding a section has to change
+         * both by the same amount -- the scroll view is sized from the measure, and a measure that
+         * kept counting rows the draw had stopped drawing would let the panel scroll past its own
+         * last control with no way to see it from outside.
+         */
+        std::size_t rowsMeasured = 0;
+
         /** @brief How many property rows were drawn. */
         std::size_t rowsDrawn = 0;
 
@@ -438,9 +463,62 @@ namespace CNA::Studio
                                                   const std::vector<std::string>& enumOptions,
                                                   const StudioPropertyEditContext& editing);
 
+    /**
+     * @brief Which component sections the Inspector has closed.
+     *
+     * `plan.md` STUDIO-14001. Caller-owned, like `StudioTreeState`, and for the same reason: the
+     * panel is redrawn from scratch every frame, so anything it must remember between frames
+     * belongs to whoever outlives one.
+     *
+     * **Holds the *collapsed* set rather than the expanded one**, so the default is open. A panel
+     * that started every section closed would show a user a column of headings and make them work
+     * to discover their entity has anything on it -- the same bargain the World Outliner's tree
+     * strikes.
+     *
+     * **Keyed by component *type*, not by entity.** A user who closes Transform means "I am not
+     * working on transforms", not "not on this one's" -- so it stays closed as they click through a
+     * scene, which is the only way the gesture saves them anything. The consequence is that two
+     * components of the same type on one entity close together; that is rare, visible, and a better
+     * trade than a fold that springs open on every selection change.
+     */
+    class StudioDetailsState
+    {
+    public:
+        /** @brief Whether @p componentTypeId's section is open. Unknown types are open. */
+        [[nodiscard]] bool isExpanded(std::string_view componentTypeId) const
+        {
+            return collapsed_.find(std::string{componentTypeId}) == collapsed_.end();
+        }
+
+        /** @brief Opens or closes @p componentTypeId's section. */
+        void setExpanded(std::string_view componentTypeId, bool expanded)
+        {
+            if (expanded) { collapsed_.erase(std::string{componentTypeId}); }
+            else { collapsed_.insert(std::string{componentTypeId}); }
+        }
+
+        /** @brief How many sections are closed. Zero is the state a fresh panel is in. */
+        [[nodiscard]] std::size_t collapsedCount() const { return collapsed_.size(); }
+
+    private:
+        std::set<std::string> collapsed_;
+    };
+
+    /**
+     * @brief Draws the Details panel for the current selection.
+     *
+     * @param frame The frame.
+     * @param bounds The panel's content rectangle.
+     * @param context The editor. Its scene is read; edits go through its history.
+     * @param services Optional collaborators -- audio preview, asset picking.
+     * @param state Which component sections are closed (`plan.md` STUDIO-14001). Optional, and a
+     *        null one means every section is open: the headless paths and the many cases that care
+     *        about a property rather than about folding should not have to carry one.
+     */
     StudioDetailsResult studioDetailsPanel(StudioFrame& frame, const UiRect& bounds,
                                            StudioContext& context,
-                                           const StudioDetailsServices& services = {});
+                                           const StudioDetailsServices& services = {},
+                                           StudioDetailsState* state = nullptr);
 
     /**
      * @brief Draws the Material panel: the selected material asset, or what to do to get one.

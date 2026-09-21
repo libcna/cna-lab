@@ -2902,9 +2902,18 @@ namespace
 
     StudioDetailsResult studioDetailsPanel(StudioFrame& frame, const UiRect& bounds,
                                            StudioContext& context,
-                                           const StudioDetailsServices& services)
+                                           const StudioDetailsServices& services,
+                                           StudioDetailsState* state)
     {
         StudioDetailsResult result;
+
+        // A null state means every section is open (`plan.md` STUDIO-14001): the headless paths and
+        // the many cases that care about a property rather than about folding should not have to
+        // carry one, and "open" is what the panel did before folding existed.
+        const auto sectionOpen = [state](const std::string& typeId) {
+            return state == nullptr || state->isExpanded(typeId);
+        };
+
         const StudioTheme& theme = frame.theme();
 
         const float padding = metricOf(theme, StudioMetric::SpacingSmall);
@@ -2966,7 +2975,13 @@ namespace
             std::size_t rows = 0;
             for (const StudioComponent& component : entity->getComponents())
             {
-                ++rows;  // the component's own header
+                ++rows;  // the component's own header, which is there whether it is open or not
+
+                // A closed section is its heading and nothing else. Counted the same way it is
+                // drawn, because the scroll view is sized from this and a count that disagreed
+                // with the draw would leave the panel scrolling past its own last control.
+                if (!sectionOpen(component.getTypeId())) { continue; }
+
                 const ComponentDescriptor* descriptor =
                     context.getComponentRegistry().find(component.getTypeId());
                 rows += descriptor != nullptr ? descriptor->properties.size()
@@ -2991,6 +3006,8 @@ namespace
             componentRows + 4
             + (findInstanceRoot(context.getScene(), entityId).isValid() ? kPrefabSectionRows + 1
                                                                         : 0u);
+
+        result.rowsMeasured = totalRows;
 
         StudioScrollOptions scroll;
         scroll.contentHeight = static_cast<float>(totalRows) * (rowHeight + spacing);
@@ -3133,6 +3150,35 @@ namespace
                         removing = componentIndex;
                     }
                 }
+                // The disclosure (`plan.md` STUDIO-14001). Its own widget rather than the whole
+                // header, because a header that toggled on any click would close a section every
+                // time a user aimed at Remove and missed.
+                //
+                // Described *before* anything that overlaps it, which here is nothing -- the
+                // header is not itself a control -- but stated because the World Outliner's
+                // triangle was unreachable for exactly that reason (STUDIO-13005).
+                {
+                    const UiRect box = header.splitLeft(std::min(header.width, rowHeight));
+                    frame.ids().push(component.getTypeId());
+
+                    StudioButtonOptions options;
+                    options.icon = sectionOpen(component.getTypeId()) ? StudioIcon::ChevronDown
+                                                                      : StudioIcon::ChevronRight;
+                    options.iconOnly = true;
+                    options.tooltip =
+                        sectionOpen(component.getTypeId()) ? "Collapse" : "Expand";
+
+                    if (studioButton(frame, frame.ids().make("fold"), box, "Fold", options)
+                            .activated
+                        && state != nullptr)
+                    {
+                        state->setExpanded(component.getTypeId(),
+                                           !state->isExpanded(component.getTypeId()));
+                        result.sectionFolded = true;
+                    }
+                    frame.ids().pop();
+                }
+
                 frame.ids().pop();
                 frame.ids().pop();
 
@@ -3150,6 +3196,12 @@ namespace
                                    theme.color(StudioColorRole::TextPrimary));
                 }
             }
+
+            // A closed section is its heading and nothing else. `continue` rather than a wrapping
+            // `if`, so the row-count pre-pass above and this loop skip the same thing in the same
+            // words -- the scroll view is sized from that count, and the two disagreeing is a panel
+            // that scrolls past its own last control.
+            if (!sectionOpen(component.getTypeId())) { continue; }
 
             const std::vector<PropertyDescriptor>* properties =
                 descriptor != nullptr ? &descriptor->properties : nullptr;

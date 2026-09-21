@@ -773,6 +773,9 @@ namespace CNA::Studio
          */
         std::string outlinerSearch_;
 
+        /** @brief Which Inspector sections the user has closed (`plan.md` STUDIO-14001). */
+        StudioDetailsState detailsState_;
+
         /**
          * @brief Which entities the Outliner should mark as broken (`plan.md` STUDIO-13010).
          *

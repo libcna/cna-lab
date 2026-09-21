@@ -101,6 +101,9 @@ namespace
         UiRect bounds;
         StudioDetailsResult last;
 
+        /** @brief Which sections are folded (`plan.md` STUDIO-14001), owned here like the shell's. */
+        StudioDetailsState state;
+
         explicit Harness(StudioContext& context)
         {
             shell->resetLayout();
@@ -108,7 +111,8 @@ namespace
             CNA_STUDIO_EXPECT(shell->activatePanel("details"));
             CNA_STUDIO_EXPECT(shell->setPanelContent("details",
                 [this, &context](StudioFrame& frame, const UiRect& area) {
-                    const StudioDetailsResult result = studioDetailsPanel(frame, area, context);
+                    const StudioDetailsResult result =
+                        studioDetailsPanel(frame, area, context, {}, &state);
                     if (frame.isInputPass()) { last = result; }
                     if (frame.isDrawPass()) { bounds = area; }
                 }));
@@ -169,6 +173,87 @@ CNA_STUDIO_TEST(TheDetailsPanelShowsTheSelectedEntitysComponents)
     // Name, Enabled, a gap, the component header and its properties.
     CNA_STUDIO_EXPECT(harness.last.rowsDrawn >= std::size_t{4});
     CNA_STUDIO_EXPECT_EQ(harness.shell->frame().phaseViolations(), std::size_t{0});
+}
+
+/**
+ * A component section folds (`plan.md` STUDIO-14001).
+ *
+ * Every component was drawn fully expanded with no disclosure and nowhere to remember one, so an
+ * entity carrying eight components was a wall a user had to scroll past to reach the ninth. The
+ * state is caller-owned, like the World Outliner's tree state and for the same reason: the panel is
+ * rebuilt from scratch every frame, so anything it must remember belongs to whoever outlives one.
+ */
+CNA_STUDIO_TEST(FoldingAComponentSectionHidesItsPropertiesAndKeepsItsHeading)
+{
+    Fixture fixture;
+    Harness harness{fixture.context};
+
+    const std::size_t openRows = harness.last.rowsDrawn;
+    const std::size_t openMeasured = harness.last.rowsMeasured;
+    CNA_STUDIO_EXPECT(openRows >= std::size_t{4});
+    CNA_STUDIO_EXPECT_EQ(harness.state.collapsedCount(), std::size_t{0});
+
+    // The triangle is the leftmost control on the component's header row. Swept rather than
+    // computed from the metrics, so a spacing change cannot turn this into a case that clicks
+    // empty space and passes for the wrong reason.
+    bool folded = false;
+    for (float y = harness.bounds.top() + 4.0f;
+         y < harness.bounds.top() + 200.0f && !folded; y += 4.0f)
+    {
+        harness.click(harness.bounds.left() + 12.0f, y);
+        folded = harness.state.collapsedCount() == 1;
+    }
+    CNA_STUDIO_EXPECT(folded);
+    CNA_STUDIO_EXPECT(!harness.state.isExpanded("CNA.Transform"));
+
+    // The heading stays -- a section that vanished when closed would be one a user cannot reopen.
+    // Everything under it goes, which is the point.
+    harness.shell->renderFrame(at(-1.0f, -1.0f));
+    CNA_STUDIO_EXPECT(harness.last.rowsDrawn < openRows);
+    CNA_STUDIO_EXPECT_EQ(harness.last.componentCount, std::size_t{1});
+
+    // The measure moved by exactly as much as the draw. The scroll view is sized from the measure,
+    // so a pre-pass that kept counting rows the draw had stopped drawing would let the panel
+    // scroll past its own last control -- and nothing about the drawn rows would show it. The two
+    // are separate `continue`s over the same predicate and each needs its own gate.
+    CNA_STUDIO_EXPECT_EQ(openMeasured - harness.last.rowsMeasured,
+                         openRows - harness.last.rowsDrawn);
+
+    // And it reopens to exactly what it was. The state holds the *collapsed* set, so a fresh panel
+    // starts open: one that began closed would show a column of headings and make the user work to
+    // discover their entity has anything on it.
+    harness.state.setExpanded("CNA.Transform", true);
+    harness.shell->renderFrame(at(-1.0f, -1.0f));
+    CNA_STUDIO_EXPECT_EQ(harness.last.rowsDrawn, openRows);
+    CNA_STUDIO_EXPECT_EQ(harness.state.collapsedCount(), std::size_t{0});
+    CNA_STUDIO_EXPECT_EQ(harness.shell->frame().phaseViolations(), std::size_t{0});
+}
+
+/**
+ * And with no state at all the panel is exactly what it was (`plan.md` STUDIO-14001).
+ *
+ * What keeps every headless path and the many cases that care about a property rather than about
+ * folding meaning what they meant.
+ */
+CNA_STUDIO_TEST(APanelWithNoFoldStateDrawsEverySectionOpen)
+{
+    Fixture fixture;
+
+    auto shell = std::make_unique<StudioShell>(StudioTheme::dark());
+    shell->resetLayout();
+    shell->renderFrame(at(-1.0f, -1.0f));
+    CNA_STUDIO_EXPECT(shell->activatePanel("details"));
+
+    StudioDetailsResult last;
+    CNA_STUDIO_EXPECT(shell->setPanelContent("details",
+        [&](StudioFrame& frame, const UiRect& area) {
+            const StudioDetailsResult result = studioDetailsPanel(frame, area, fixture.context);
+            if (frame.isInputPass()) { last = result; }
+        }));
+    shell->renderFrame(at(-1.0f, -1.0f));
+
+    Harness folded{fixture.context};
+    CNA_STUDIO_EXPECT_EQ(last.rowsDrawn, folded.last.rowsDrawn);
 }
 
 CNA_STUDIO_TEST(WithNothingSelectedThePanelSaysWhatToDoNext)

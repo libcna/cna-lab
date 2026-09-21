@@ -1415,7 +1415,7 @@ namespace CNA::Studio
             details_services.documents = &documents_;
 
             const StudioDetailsResult details =
-                studioDetailsPanel(frame, bounds, context_, details_services);
+                studioDetailsPanel(frame, bounds, context_, details_services, &detailsState_);
             if (frame.isDrawPass())
             {
                 counts_.detailsRowsDrawn = details.rowsDrawn;

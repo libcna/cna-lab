@@ -6,11 +6,11 @@
 
 **Exit criteria.** Every property type a component can declare is editable, validated and undoable.
 
-**Progress:** 0 of 18 complete `░░░░░░░░░░░░`
+**Progress:** 1 of 18 complete `░░░░░░░░░░░░`
 
 | Id | Task | Status | Depends on |
 |----|------|:------:|------------|
-| `STUDIO-14001` | Component sections with collapse and expand | ⬜ | `STUDIO-07007` |
+| `STUDIO-14001` | Component sections with collapse and expand | ✅ | `STUDIO-07007` |
 | `STUDIO-14002` | Add and remove component | ⬜ | `STUDIO-14001` |
 | `STUDIO-14003` | Numeric fields: typed entry and drag-to-change | ⬜ | `STUDIO-14001` |
 | `STUDIO-14004` | Vector and rotation editors | ⬜ | `STUDIO-14003` |
@@ -32,6 +32,56 @@
 ## Acceptance and verification
 
 Tasks whose completion condition is not obvious from the title.
+
+### `STUDIO-14001` — Component sections with collapse and expand
+
+**Acceptance.** A component's properties can be folded away and brought back, and the fold survives
+the frame.
+
+**Nothing folded and there was nowhere to remember one.** Every component was drawn fully expanded
+with a header carrying a name and a Remove button and no disclosure at all, so an entity with eight
+components was a wall a user had to scroll past to reach the ninth. The panel took no caller-owned
+state of any kind.
+
+**The state is caller-owned**, like the World Outliner's `StudioTreeState` and for the same reason:
+the panel is rebuilt from scratch every frame, so anything it must remember between frames belongs
+to whoever outlives one.
+
+**It holds the *collapsed* set**, so the default is open. A panel that started every section closed
+would show a user a column of headings and make them work to discover their entity has anything on
+it — the same bargain the tree strikes.
+
+**Keyed by component *type*, not by entity.** A user who closes Transform means "I am not working on
+transforms", not "not on this one's", so it stays closed as they click through a scene — which is
+the only way the gesture saves them anything. Two components of the same type on one entity
+therefore close together: rare, visible, and a better trade than a fold that springs open on every
+selection change.
+
+**A null state means every section is open**, which is what the panel did before folding existed.
+That is what keeps the headless paths and the many cases that care about a property rather than
+about folding meaning what they meant, and it is asserted rather than assumed.
+
+**The triangle is its own widget, not the whole header.** A header that toggled on any click would
+close a section every time a user aimed at Remove and missed.
+
+**Two `continue`s over one predicate, and each needs its own gate.** The row-count pre-pass and the
+draw skip a closed section in the same words, and they are separately load-bearing: the scroll view
+is sized from the measure, so a pre-pass that kept counting rows the draw had stopped drawing would
+let the panel scroll past its own last control — and nothing about the drawn rows would show it.
+`StudioDetailsResult::rowsMeasured` is reported for exactly that reason. The two counts are *not*
+equal by design (the measure reserves the optional sections at their maximum, because it runs before
+the comparisons that decide whether they appear), so what is pinned is that folding moves both by
+the same amount.
+
+**Verification.** `tests/StudioDetailsPanelTests.cpp`:
+`FoldingAComponentSectionHidesItsPropertiesAndKeepsItsHeading` clicks the triangle through a real
+frame — swept, so a spacing change cannot turn it into a case that clicks empty space — and pins the
+heading surviving, the properties going, the measure moving with the draw, and the section reopening
+to exactly what it was. `APanelWithNoFoldStateDrawsEverySectionOpen` pins the defaulted behaviour
+against the folding one. Checked by causing both failures — the draw ignoring the fold, and the
+pre-pass ignoring it. The first attempt at the draw break silently edited the pre-pass instead,
+because the two lines are identical; that is how the second gate came to be written.
+
 
 ### `STUDIO-14004` — Vector and rotation editors
 
