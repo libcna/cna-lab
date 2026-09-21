@@ -17,7 +17,7 @@ reporting it.
 | `libcna/sharp-runtime` | `next` | `0c82d9b888bdf5f7d5663c77942f339bcb2a7445` | 2026-09-14 |
 
 The gaps numbered G-01 … G-05 were recorded against an **older** CNA revision by the CNA Editor
-prototype; G-06 through G-13 are new, filed by CNA Studio. All five of the inherited ones were
+prototype; G-06 through G-14 are new, filed by CNA Studio. All five of the inherited ones were
 re-verified against the commit above as part of the CNA Studio bootstrap; two have since been fixed
 upstream and are kept here, marked closed, so the record stays honest.
 
@@ -358,3 +358,25 @@ says which one it cannot give and why, and the sixth has a real if lesser answer
 deliberate, documented, and reported to the user at the point where it costs them something. What
 a user cannot do is author a cone and see it, and Studio says so rather than letting them find out
 after a build.
+
+---
+
+## 🔴 G-14 — Nothing in CNA can draw a shadow
+
+**New, filed by CNA Studio, found by `STUDIO-20006`.**
+
+| Field | Value |
+|-------|-------|
+| Affected API | `Microsoft::Xna::Framework::Graphics::BasicEffect`; `PbrEffect`; `IEffectLights`; the absence of any shadow-map, depth-target-sampling or `Effect` seam |
+| Current behaviour | There is no shadow of any kind. `IEffectLights` describes lights and nothing about occlusion; neither effect takes a shadow map or a light-space matrix; and there is no way to supply an effect that could, which is `G-12` from a third side |
+| Expected behaviour | Not "a shadow system". XNA shipped without one too, and every XNA game that had shadows wrote them: render depth from the light, sample it in a custom effect. What is missing is not the feature but the *seam* — the two fixed effects are the whole of what a CNA program can draw a mesh with |
+| Studio impact | `CNA.ModelRenderer` has carried `castShadows` and `receiveShadows` since Phase 1, both defaulting to **true**, both editable in the Inspector, and read by nothing in Studio or in CNA. A user has been able to turn a model's shadow off since the component existed, and no picture has ever changed |
+| Workaround | Disclosure, and only that. The fields stay — they are in scenes already, and the loader carries a component's properties through to a game that may well implement shadows itself — and `validateScene` reports `shadows-not-rendered` once for a scene that is actually set up to want one: an enabled light and an enabled model that says it casts. Once for the scene rather than once per model, because the flags default to on and a per-entity rule would fire on every project forever |
+| Rejected workaround | Adding more shadow authoring — a shadow-map resolution, a bias, a cascade count — so that Studio "has shadow configuration". Every one of those would be a field the editor offers, cannot show, and nothing in CNA reads, which is the same thing refused for a spot light's cone angle in `G-13`. Also rejected: removing the two flags, which would break scenes and take away something a game can already use |
+| Suggested fix | The `Effect` seam of `G-12` would be enough on its own: a program that can supply a shader can render its own shadow pass. A built-in one on `PbrEffect` would be generous and is not what is being asked for |
+| Test needed in CNA | A scene with one light, one occluder and one receiver, asserted on a pixel inside the shadow and one outside it |
+
+**Why this is red rather than amber.** Every other gap here is a thing Studio cannot show as well as
+it would like. This is a feature the editor has *offered for the whole of its existence* and never
+once delivered — and a user who has been switching shadows off for a year has been editing a field
+that does nothing. Reporting it is the smallest honest response, not a fix.

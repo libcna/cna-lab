@@ -6,7 +6,7 @@
 
 **Exit criteria.** The viewport and the game preview agree, and no light type exists in Studio that the runtime cannot render.
 
-**Progress:** 6 of 8 complete `█████████░░░`
+**Progress:** 7 of 8 complete `██████████░░`
 
 | Id | Task | Status | Depends on |
 |----|------|:------:|------------|
@@ -15,7 +15,7 @@
 | `STUDIO-20003` | Spot light authoring | ✅ | `STUDIO-20001` |
 | `STUDIO-20004` | Ambient and environment lighting | ✅ | `STUDIO-20001` |
 | `STUDIO-20005` | Sky and environment map authoring | ⬜ | `STUDIO-10010` |
-| `STUDIO-20006` | Shadow configuration | ⬜ | `STUDIO-20001` |
+| `STUDIO-20006` | Shadow configuration | ✅ | `STUDIO-20001` |
 | `STUDIO-20007` | Viewport lighting matches the game preview as closely as the runtime allows | ✅ | `STUDIO-20001` |
 | `STUDIO-20008` | No light type is offered that the runtime cannot render | ✅ | `STUDIO-20001` |
 
@@ -266,6 +266,53 @@ breaks the XNA-parity promise), and the pass dropping the override all fail by n
 the scene is `STUDIO-20005`, and needs a cube map the effects have no slot for. There is no
 ambient *occlusion*, which is a material's business (`STUDIO-19002` gave it a texture slot). And
 fog, the environment's other half, is ED-407's and unchanged here.
+
+### `STUDIO-20006` — Shadow configuration
+
+**Acceptance.** A user is not offered shadow settings that nothing honours — or, where the settings
+already exist and are carried through to a game, they are told plainly that the editor draws none.
+
+**Studio has offered shadow configuration since Phase 1 and has never drawn a shadow.**
+`CNA.ModelRenderer` carries `castShadows` and `receiveShadows`, both defaulting to **true**, both
+editable in the Inspector, and read by nothing in Studio or in CNA. A user has been able to turn a
+model's shadow off since the component existed and no picture has ever changed. Recorded as **CNA
+gap G-14**, and filed red rather than amber: every other gap in that register is something Studio
+cannot show as well as it would like, and this is a feature the editor has advertised for its whole
+existence and never once delivered.
+
+**So the row's answer is not "add shadow settings".** `IEffectLights` describes lights and nothing
+about occlusion; neither `BasicEffect` nor `PbrEffect` takes a shadow map or a light-space matrix;
+and there is no seam for an effect that could (`G-12`). A shadow-map resolution, a bias or a
+cascade count would each be a field the editor offers, cannot show, and nothing in CNA reads —
+which is exactly what was refused for a spot light's cone angle in `STUDIO-20003`. Adding more of
+what is already broken is not configuration; it is more surface.
+
+**Nor is it "remove the two flags".** They are in scenes already, and the loader carries a
+component's properties through to a game untouched — a game that renders its own shadow pass can
+read them today. Deleting them would break those scenes to make Studio's promise true, which is the
+wrong trade in the same direction `STUDIO-20008` rejected for the spot light.
+
+**What is left is to say so, once, where it costs something.** `validateScene` reports
+`shadows-not-rendered` for a scene that is actually set up to want a shadow: an enabled light and
+an enabled model renderer that says it casts. A scene with no light casts none on any renderer and
+a scene with no model has nothing to cast one, so neither says anything. And it is reported **once
+for the scene rather than once per model**, because the flags default to on: a per-entity rule would
+fire on every model in every project forever, which is the shape of a rule people configure their
+way out of and then stop reading.
+
+**Verification.** `tests/SceneTests.cpp` —
+`AConfiguredShadowIsReportedBecauseThisBuildDrawsNone`: one issue for a scene that wants a shadow,
+still one for a scene with five models, and nothing for a scene with no light, no model, or a model
+that says it does not cast. A Warning rather than an Error, because the scene is legal and the flags
+reach a game that may well honour them — what is wrong is only what the editor shows.
+
+Checked by causing each: the rule firing more than once, and the rule dropping its "something
+actually casts" condition, both fail by name.
+
+**What this row is not.** There is no shadow in the viewport and this row does not pretend there
+could be one on this renderer. There is no per-light shadow setting, no bias, no resolution and no
+cascade — all of which would be the surface this row exists to refuse. If `G-12`'s effect seam ever
+lands, this becomes a real feature row and the flags are already in the document waiting for it.
 
 ### `STUDIO-20007` — Viewport lighting matches the game preview as closely as the runtime allows
 

@@ -206,6 +206,56 @@ namespace CNA::Studio
         }
 
         /**
+         * @brief Reports that this build draws no shadows, where a scene is set up to want them.
+         *
+         * `plan.md` STUDIO-20006. `CNA.ModelRenderer` has carried `castShadows` and
+         * `receiveShadows` since Phase 1, both defaulting to true, both editable in the Inspector
+         * -- and read by nothing anywhere. `IEffectLights` has an ambient colour and three
+         * directional slots; neither `BasicEffect` nor `PbrEffect` takes a shadow map, and there
+         * is no seam for an effect that could (`G-12`). Recorded as CNA gap G-14.
+         *
+         * **Once for the scene, not once per model.** The flags default to *on*, so a per-entity
+         * rule would fire on every model in every project forever -- which is the shape of a rule
+         * people configure their way out of and then stop reading. This is a fact about the
+         * build, so it is reported as one.
+         *
+         * **And only where it costs something.** A scene with no light casts no shadows on any
+         * renderer, and a scene with no model has nothing to cast one; in both cases the flags are
+         * as meaningless as the rule would be. The report appears when a scene is actually set up
+         * to want a shadow: an enabled light, and an enabled model renderer that says it casts.
+         */
+        void checkShadows(const SceneDocument& scene, std::vector<SceneIssue>& issues)
+        {
+            bool light = false;
+            bool caster = false;
+
+            for (const StudioEntity& entity : scene.getEntities())
+            {
+                if (!isEffectivelyEnabled(scene, entity)) { continue; }
+
+                if (entity.findComponent(BuiltinComponentIds::kLight) != nullptr) { light = true; }
+
+                const StudioComponent* renderer =
+                    entity.findComponent(BuiltinComponentIds::kModelRenderer);
+                if (renderer != nullptr && renderer->getProperty("castShadows").get<bool>(true))
+                {
+                    caster = true;
+                }
+            }
+
+            if (!light || !caster) { return; }
+
+            SceneIssue issue;
+            issue.severity = SceneIssue::Severity::Warning;
+            issue.ruleId = "shadows-not-rendered";
+            issue.message =
+                "This build draws no shadows: the effect has no shadow map. Cast Shadows and "
+                "Receive Shadows are carried in the scene for a game to read and change nothing "
+                "in the editor.";
+            issues.push_back(std::move(issue));
+        }
+
+        /**
          * @brief Reports fog that is switched on and cannot do anything (ED-407).
          *
          * The first rule here that belongs to no entity, which is why it builds its `SceneIssue`
@@ -494,6 +544,7 @@ namespace CNA::Studio
         checkCameras(scene, registry, issues);
         checkListeners(scene, issues);
         checkLights(scene, issues);
+        checkShadows(scene, issues);
 
         // Derived once rather than per entity: getChildren() is a scan, and asking it for every
         // entity would turn the report into O(n^2) on exactly the large scenes that need it most.

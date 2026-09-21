@@ -5806,3 +5806,71 @@ CNA_STUDIO_TEST(TheScenesAmbientIsAppliedEvenWhenNothingLightsTheScene)
     const SceneModelBatch restored = buildSceneModelBatch(empty, camera, provider);
     CNA_STUDIO_EXPECT(!restored.draws[0].lighting.ambientOverridesDefault);
 }
+
+/**
+ * @brief The editor already offered shadow configuration and nothing drew a shadow.
+ *
+ * `plan.md` STUDIO-20006. `CNA.ModelRenderer` has carried `castShadows` and `receiveShadows`
+ * since Phase 1, both defaulting to true, both editable in the Inspector — and read by nothing
+ * anywhere in Studio or in CNA. `IEffectLights` has an ambient colour and three directional slots;
+ * neither effect takes a shadow map and there is no seam for one that could. Recorded as CNA gap
+ * G-14.
+ *
+ * Reported once for the scene rather than once per model, because the flags default to *on*: a
+ * per-entity rule would fire on every model in every project forever, which is the shape of a rule
+ * people configure their way out of and then stop reading.
+ */
+CNA_STUDIO_TEST(AConfiguredShadowIsReportedBecauseThisBuildDrawsNone)
+{
+    const ComponentRegistry registry = makeRegistry();
+
+    const auto sceneWith = [&registry](bool light, bool model, bool casts) {
+        SceneDocument scene;
+        if (light)
+        {
+            StudioEntity sun = makeEntity(registry, "Sun", 0.0f, 0.0f);
+            addLight(registry, sun, "Directional", 1.0f, 0.0f);
+            scene.addEntity(std::move(sun));
+        }
+        if (model)
+        {
+            StudioEntity crate = makeEntity(registry, "Crate", 0.0f, 0.0f);
+            addModelRenderer(registry, crate, Uuid::generate());
+            crate.findComponent(BuiltinComponentIds::kModelRenderer)
+                ->setProperty("castShadows", PropertyValue{casts});
+            scene.addEntity(std::move(crate));
+        }
+        return scene;
+    };
+
+    // A scene actually set up to want a shadow: a light, and a model that says it casts one.
+    const SceneDocument wanting = sceneWith(true, true, true);
+    CNA_STUDIO_EXPECT_EQ(countRule(validateScene(wanting, registry), "shadows-not-rendered"),
+                         std::size_t{1});
+
+    // Once, not once per model: the fact is about the build.
+    SceneDocument crowded = sceneWith(true, true, true);
+    for (int i = 0; i < 4; ++i)
+    {
+        StudioEntity extra = makeEntity(registry, "Crate " + std::to_string(i), 0.0f, 0.0f);
+        addModelRenderer(registry, extra, Uuid::generate());
+        crowded.addEntity(std::move(extra));
+    }
+    CNA_STUDIO_EXPECT_EQ(countRule(validateScene(crowded, registry), "shadows-not-rendered"),
+                         std::size_t{1});
+
+    // And only where it costs something. A scene with no light casts no shadow on any renderer,
+    // a scene with no model has nothing to cast one, and a model that says it does not cast is a
+    // user who has already answered the question.
+    for (const SceneDocument& quiet : {sceneWith(false, true, true), sceneWith(true, false, true),
+                                       sceneWith(true, true, false)})
+    {
+        CNA_STUDIO_EXPECT_EQ(countRule(validateScene(quiet, registry), "shadows-not-rendered"),
+                             std::size_t{0});
+    }
+
+    // A warning rather than an error: the scene is legal and the flags are carried through to a
+    // game that may well draw shadows itself. What is wrong is only what the *editor* shows.
+    CNA_STUDIO_EXPECT_EQ(countIssues(validateScene(wanting, registry),
+                                     SceneIssue::Severity::Error), std::size_t{0});
+}
