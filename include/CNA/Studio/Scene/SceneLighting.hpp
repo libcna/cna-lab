@@ -150,6 +150,27 @@ namespace CNA::Studio
         /** @brief The ambient term: a floor under everything, so nothing is pure black. */
         StudioVector3 ambientColor{0.05f, 0.05f, 0.06f};
 
+        /**
+         * @brief Whether @ref ambientColor must be applied even under the default rig.
+         *
+         * `plan.md` STUDIO-20004, and it exists because of a defect this row found. When a scene
+         * has no lights the renderer calls XNA's `EnableDefaultLighting()` and returns, which sets
+         * that rig's *own* ambient -- so a user who darkened the scene's ambient saw nothing
+         * happen, in exactly the scene the default rig exists for: the one somebody has just
+         * dropped a model into.
+         *
+         * Set when the scene states an ambient that is not the default one. That condition is the
+         * whole of the design: a scene nobody has touched keeps XNA's rig exactly, so a CNA scene
+         * and an XNA one with no lights still look the same (which is why `EnableDefaultLighting`
+         * is called at all); a scene somebody has deliberately darkened gets the dark they asked
+         * for. Always overriding would have broken the first promise to keep the second, and
+         * never overriding is the defect.
+         *
+         * Meaningless unless @ref useDefaultLighting is set -- when it is not, the ambient is
+         * applied unconditionally.
+         */
+        bool ambientOverridesDefault = false;
+
         /** @brief Up to three lights. `lightCount` says how many are filled in. */
         std::array<EffectDirectionalLight, 3> lights{};
 

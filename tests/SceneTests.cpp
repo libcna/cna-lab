@@ -5724,3 +5724,85 @@ CNA_STUDIO_TEST(ASpotLightCreatedFromTheEditorUsesItsPositionDirectionAndRange)
     CNA_STUDIO_EXPECT(sceneLightUsesPosition(SceneLightKind::Point));
     CNA_STUDIO_EXPECT(sceneLightUsesRange(SceneLightKind::Point));
 }
+
+/**
+ * @brief A scene's ambient survives the path a scene with no lights takes.
+ *
+ * `plan.md` STUDIO-20004. The ambient has reached every lit model since ED-407 and reached no
+ * *unlit* one: a scene with no lights is drawn through XNA's `EnableDefaultLighting()`, which sets
+ * that rig's own ambient and overwrites whatever Studio had put there. So a user who darkened a
+ * scene they had not yet put a lamp in saw nothing happen — in exactly the scene the default rig
+ * exists for, which is the one somebody has just dropped a model into.
+ *
+ * The flag is what the renderer reads, so the flag is what this asserts: the value alone was
+ * already correct and already ignored.
+ */
+CNA_STUDIO_TEST(TheScenesAmbientIsAppliedEvenWhenNothingLightsTheScene)
+{
+    const ComponentRegistry registry = makeRegistry();
+    SceneDocument scene;
+    const MeshData mesh = makeTinyMesh();
+    const Uuid modelId = Uuid::generate();
+
+    StudioEntity crate = makeEntity(registry, "Crate", 0.0f, 0.0f);
+    addModelRenderer(registry, crate, modelId);
+    (void)scene.addEntity(std::move(crate));
+
+    StudioCamera3D camera;
+    camera.setViewportSize(StudioVector2{800.0f, 600.0f});
+    const MeshProvider provider = [&](const Uuid& queried) {
+        return queried == modelId ? &mesh : nullptr;
+    };
+
+    // An untouched scene keeps XNA's rig exactly, ambient included. That is the promise
+    // `EnableDefaultLighting` is called for -- a CNA scene and an XNA one with no lights in them
+    // look the same -- and overriding unconditionally would have broken it.
+    const SceneModelBatch untouched = buildSceneModelBatch(scene, camera, provider);
+    CNA_STUDIO_EXPECT_EQ(untouched.draws.size(), std::size_t{1});
+    CNA_STUDIO_EXPECT(untouched.draws[0].lighting.useDefaultLighting);
+    CNA_STUDIO_EXPECT(!untouched.draws[0].lighting.ambientOverridesDefault);
+
+    // Now darken it, with no lights in the scene at all.
+    SceneEnvironment cave;
+    cave.ambientColor = StudioColor{0, 0, 0, 255};
+    scene.setEnvironment(cave);
+
+    const SceneModelBatch dark = buildSceneModelBatch(scene, camera, provider);
+    CNA_STUDIO_EXPECT_EQ(dark.draws.size(), std::size_t{1});
+    CNA_STUDIO_EXPECT(dark.draws[0].lighting.useDefaultLighting);
+    CNA_STUDIO_EXPECT(dark.draws[0].lighting.ambientOverridesDefault);
+    CNA_STUDIO_EXPECT_EQ(dark.draws[0].lighting.ambientColor.x, 0.0f);
+
+    // A brighter-than-default ambient is just as much a statement as a darker one: the rule is
+    // "the user said something", not "the user said something dark".
+    SceneEnvironment noon;
+    noon.ambientColor = StudioColor{200, 200, 190, 255};
+    scene.setEnvironment(noon);
+
+    const SceneModelBatch bright = buildSceneModelBatch(scene, camera, provider);
+    CNA_STUDIO_EXPECT(bright.draws[0].lighting.ambientOverridesDefault);
+    CNA_STUDIO_EXPECT(bright.draws[0].lighting.ambientColor.x > 0.7f);
+
+    // And putting a light in makes the flag beside the point: the lit path applies the ambient
+    // unconditionally, which it always did.
+    const StudioEntityArchetype* archetype = studioFindEntityArchetype("light.directional");
+    CNA_STUDIO_EXPECT(archetype != nullptr);
+    if (archetype == nullptr) { return; }
+    (void)scene.addEntity(studioMakeArchetypeEntity(*archetype, registry));
+
+    const SceneModelBatch lit = buildSceneModelBatch(scene, camera, provider);
+    CNA_STUDIO_EXPECT(!lit.draws[0].lighting.useDefaultLighting);
+    CNA_STUDIO_EXPECT(lit.draws[0].lighting.ambientColor.x > 0.7f);
+
+    // Setting it back to the default puts the scene back under XNA's own rig, rather than pinning
+    // it to a value that merely equals the default. The two are the same picture and only one of
+    // them follows the framework if the framework's rig ever changes.
+    scene.setEnvironment(SceneEnvironment{});
+    SceneDocument empty;
+    StudioEntity lone = makeEntity(registry, "Crate", 0.0f, 0.0f);
+    addModelRenderer(registry, lone, modelId);
+    (void)empty.addEntity(std::move(lone));
+    empty.setEnvironment(SceneEnvironment{});
+    const SceneModelBatch restored = buildSceneModelBatch(empty, camera, provider);
+    CNA_STUDIO_EXPECT(!restored.draws[0].lighting.ambientOverridesDefault);
+}

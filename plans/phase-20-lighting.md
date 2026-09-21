@@ -6,14 +6,14 @@
 
 **Exit criteria.** The viewport and the game preview agree, and no light type exists in Studio that the runtime cannot render.
 
-**Progress:** 4 of 8 complete `██████░░░░░░`
+**Progress:** 5 of 8 complete `███████░░░░░`
 
 | Id | Task | Status | Depends on |
 |----|------|:------:|------------|
 | `STUDIO-20001` | Directional light authoring | ✅ | `STUDIO-19001` |
 | `STUDIO-20002` | Point light authoring | ✅ | `STUDIO-20001` |
 | `STUDIO-20003` | Spot light authoring | ✅ | `STUDIO-20001` |
-| `STUDIO-20004` | Ambient and environment lighting | ⬜ | `STUDIO-20001` |
+| `STUDIO-20004` | Ambient and environment lighting | ✅ | `STUDIO-20001` |
 | `STUDIO-20005` | Sky and environment map authoring | ⬜ | `STUDIO-10010` |
 | `STUDIO-20006` | Shadow configuration | ⬜ | `STUDIO-20001` |
 | `STUDIO-20007` | Viewport lighting matches the game preview as closely as the runtime allows | ⬜ | `STUDIO-20001` |
@@ -214,6 +214,58 @@ and this row does not pretend to. And the three-light cap is reported only for t
 unconditionally wrong; a scene where four *point* lights genuinely overlap will still silently drop
 one, because saying so would need the check to run per object and per frame, which a structural
 rule over a document cannot do.
+
+### `STUDIO-20004` — Ambient and environment lighting
+
+**Acceptance.** A scene's ambient light is authored in one place, belongs to the level rather than
+to anything standing in it, and reaches every model drawn — including the ones in a scene that has
+no lights at all.
+
+**Most of it was ED-407's and one case was silently dead.** `SceneEnvironment` has held the
+ambient since then, Scene Settings edits it through a command that merges like any other, and
+`buildSceneModelBatch` writes it over `EffectLighting`'s own default for every draw. What nobody
+had followed through was the *unlit* path: a scene with no enabled light is drawn through XNA's
+`EnableDefaultLighting()`, which sets that rig's own ambient and then the pass **returned**. The
+scene's ambient was computed correctly, written into the draw, and dropped on the floor.
+
+**So darkening a scene did nothing until you put a lamp in it** — in exactly the scene the default
+rig exists for, which is the one somebody has just dropped a model into. A user would set the
+ambient, see no change, set it darker, see no change, and conclude the setting was broken. It was
+not broken; it was unreachable.
+
+**The fix is conditional, and the condition is the design.** `EffectLighting::
+ambientOverridesDefault` is set when the scene states an ambient that is not the default one, and
+the pass applies the ambient *after* `EnableDefaultLighting()` only then. A scene nobody has
+touched keeps XNA's rig exactly — which is the promise `EnableDefaultLighting` is called for, that
+a CNA scene and an XNA one with no lights look the same — and a scene somebody has deliberately
+changed gets what they asked for. Always overriding would have broken the first promise to keep
+the second; never overriding is the defect.
+
+Setting the ambient *back* to the default puts the scene back under XNA's rig rather than pinning
+it to a value that happens to equal it. The two are the same picture today and only one of them
+follows the framework if its rig ever changes.
+
+**Verification.** `tests/SceneTests.cpp` —
+`TheScenesAmbientIsAppliedEvenWhenNothingLightsTheScene`, which asserts on the *flag* rather than
+on the colour: the colour was already correct and already ignored, so a case that checked it would
+have passed against the defect. It covers an untouched scene, a darkened one, a brightened one (the
+rule is "the user said something", not "the user said something dark"), a scene with a light where
+the flag is beside the point, and a scene set back to the default.
+
+Applying it needs a device, so the pass's half is guarded by
+`TheModelPassReadsEveryFieldTheLightingReductionFillsIn` in `tests/ArchitectureGuardTests.cpp` — a
+source scan, honest about being one. It cannot say the field is applied *correctly*, only that
+`CnaModelPass` mentions it at all; that is the difference between a field nobody wired up and a
+field wired up wrongly, and only the first is invisible to every other test in the suite. It is
+also precisely the failure this row found.
+
+Checked by causing each: the flag never set (the defect as it was), the flag always set (which
+breaks the XNA-parity promise), and the pass dropping the override all fail by name.
+
+**What this row is not.** There is no image-based or environment *lighting* — a sky that lights
+the scene is `STUDIO-20005`, and needs a cube map the effects have no slot for. There is no
+ambient *occlusion*, which is a material's business (`STUDIO-19002` gave it a texture slot). And
+fog, the environment's other half, is ED-407's and unchanged here.
 
 ### `STUDIO-20007` — Viewport lighting matches the game preview as closely as the runtime allows
 

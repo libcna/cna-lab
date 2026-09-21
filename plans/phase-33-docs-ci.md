@@ -92,6 +92,15 @@ to five percent, including ones the change cannot reach. A gate reading a number
 across a change, and failing because of one that is not, is measuring the wrong number — which is
 what this row says and what these figures now show rather than argue.
 
+**Seen again while validating `STUDIO-20004`, on the same scenario and with the same signature.**
+`outliner-20000-all-selected` read 8373.7 µs against 8333 on the first run, then 8541.9, 8123.7 and
+8388.1 across three more runs of that one binary — two red, one green, one red. The counted columns
+were `21.0  12911.0  1.0  20.0  6385.1  333.0  19.17x` on *every* run and on the run before the
+change as well, byte for byte; only wall-clock moved, from 7615 µs before to 8124–8542 µs after, on
+a scenario the change cannot reach at all (it alters the scene model batch's lighting, and the
+outliner scenario builds no model batch). Recorded rather than re-argued: three occurrences now,
+two scenarios, and the same evidence each time.
+
 ### `STUDIO-33026` — A test waiting on a worker counts completions, not frames
 
 **Found while doing `STUDIO-10003`**: `ThumbnailCacheTests`'

@@ -698,6 +698,45 @@ CNA_STUDIO_TEST(TheLanguageSeamStillCarriesEveryBoundaryItWasIntroducedFor)
     }
 }
 
+/**
+ * @brief Every field `EffectLighting` carries is read by the one pass that applies it.
+ *
+ * `plan.md` STUDIO-20004. The reduction is CNA-free and fully tested; *applying* it needs a
+ * device, so the model pass cannot be asserted on headlessly and its half of the contract is the
+ * half that quietly went missing. `ambientOverridesDefault` was added because exactly that had
+ * happened one field over: the scene's ambient was computed correctly, written into the draw, and
+ * dropped on the floor by a path that returned early.
+ *
+ * A source scan rather than a behavioural test, and it is honest about being one: it cannot say
+ * the field is applied *correctly*, only that `CnaModelPass` mentions it at all. That is the
+ * difference between a field nobody wired up and a field wired up wrongly, and only the first of
+ * those is invisible to every other test in the suite.
+ */
+CNA_STUDIO_TEST(TheModelPassReadsEveryFieldTheLightingReductionFillsIn)
+{
+    std::ifstream pass{sourceRoot() / "src" / "viewport" / "CnaModelPass.cpp", std::ios::binary};
+    const std::string source{std::istreambuf_iterator<char>{pass},
+                             std::istreambuf_iterator<char>{}};
+    CNA_STUDIO_EXPECT(!source.empty());
+
+    // Named rather than parsed out of the header: a list somebody has to extend when they add a
+    // field is a list they extend while the field is still fresh in their mind, and a parser would
+    // silently start covering nothing the day the header's formatting changed.
+    static const char* const kFields[] = {
+        "useDefaultLighting", "ambientColor", "ambientOverridesDefault", "lightCount",
+    };
+
+    for (const char* field : kFields)
+    {
+        if (source.find(field) == std::string::npos)
+        {
+            CnaStudioTest::reportFailure(__FILE__, __LINE__,
+                std::string{"CnaModelPass.cpp never mentions EffectLighting::"} + field
+                + ", so the reduction fills it in and nothing applies it.");
+        }
+    }
+}
+
 CNA_STUDIO_TEST(NoStudioCodeHardCodesARendererName)
 {
     // `docs/ARCHITECTURE.md` §2.2 and the roadmap's rule against hard-coding today's renderer

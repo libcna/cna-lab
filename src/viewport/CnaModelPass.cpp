@@ -304,6 +304,16 @@ namespace CNA::Studio
                 // the point of calling the framework's is that a CNA scene and an XNA one with no
                 // lights in them look the same.
                 lights->EnableDefaultLighting();
+
+                // Except for the one thing the user may have said out loud (`plan.md`
+                // STUDIO-20004). `EnableDefaultLighting` sets its own ambient, so a scene somebody
+                // had darkened and not yet put a lamp in was drawn at XNA's brightness and the
+                // setting did nothing. Applied *after* the call, because that is what it
+                // overwrites, and only when the scene states an ambient of its own.
+                if (lighting.ambientOverridesDefault)
+                {
+                    lights->setAmbientLightColorProperty(toXna(lighting.ambientColor));
+                }
                 return;
             }
 

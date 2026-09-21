@@ -161,10 +161,18 @@ namespace CNA::Studio
             // The scene's ambient overrides the lighting's own default. It is a property of the
             // level -- a cave is dark -- so it belongs to the scene rather than to whichever
             // lights happen to be in it.
+            const StudioColor sceneAmbient = scene.getEnvironment().ambientColor;
             draw.lighting.ambientColor =
-                StudioVector3{static_cast<float>(scene.getEnvironment().ambientColor.r) / 255.0f,
-                              static_cast<float>(scene.getEnvironment().ambientColor.g) / 255.0f,
-                              static_cast<float>(scene.getEnvironment().ambientColor.b) / 255.0f};
+                StudioVector3{static_cast<float>(sceneAmbient.r) / 255.0f,
+                              static_cast<float>(sceneAmbient.g) / 255.0f,
+                              static_cast<float>(sceneAmbient.b) / 255.0f};
+
+            // And it has to survive the *unlit* path too (`plan.md` STUDIO-20004). A scene with no
+            // lights is drawn through XNA's `EnableDefaultLighting()`, which sets that rig's own
+            // ambient -- so darkening a scene nobody had put a lamp in did nothing at all, which
+            // is the commonest scene there is. Flagged only when the user has actually changed it,
+            // so an untouched scene still looks exactly like an XNA one with no lights.
+            draw.lighting.ambientOverridesDefault = sceneAmbient != SceneEnvironment{}.ambientColor;
             // The override, when the entity names one and it can be resolved. An entity pointing at
             // a material that has not loaded draws with its model's own rather than not at all --
             // the same answer `MeshProvider` returning nullptr gets from the mesh side.
