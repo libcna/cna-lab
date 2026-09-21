@@ -590,6 +590,125 @@ CNA_STUDIO_TEST(AComponentCanBeAddedToTheSelectedEntityAndUndone)
  * It showed the *last* selected entity and edited only it, saying nothing about the rest -- so a
  * user who selected five crates and set their scale changed one, and found out later.
  */
+/**
+ * What is wrong with a component is said on the component (`plan.md` STUDIO-14015).
+ *
+ * The Details panel showed no validation at all: the only way to learn an entity was broken was to
+ * open the Problems panel and find it in a list -- a panel away from the one where the fix is made.
+ */
+CNA_STUDIO_TEST(AnIssueIsPickedApartByTheEntityAndTheComponentItNames)
+{
+    const Uuid mine = Uuid::generate();
+    const Uuid theirs = Uuid::generate();
+
+    std::vector<SceneIssue> raw;
+
+    SceneIssue sceneWide;
+    sceneWide.ruleId = "no-primary-camera";
+    raw.push_back(sceneWide);
+
+    SceneIssue onComponent;
+    onComponent.ruleId = "sprite-without-texture";
+    onComponent.entityId = mine;
+    onComponent.componentTypeId = "CNA.SpriteRenderer";
+    onComponent.severity = SceneIssue::Severity::Warning;
+    raw.push_back(onComponent);
+
+    SceneIssue onEntity;
+    onEntity.ruleId = "empty-entity";
+    onEntity.entityId = mine;
+    raw.push_back(onEntity);
+
+    SceneIssue elsewhere;
+    elsewhere.ruleId = "zero-scale";
+    elsewhere.entityId = theirs;
+    elsewhere.componentTypeId = "CNA.Transform";
+    raw.push_back(elsewhere);
+
+    const StudioInspectorIssues picked = studioInspectorIssues(raw, mine);
+
+    // This entity's two, and neither the scene-wide one nor the other entity's: hanging "two
+    // primary cameras" on whichever camera happens to be selected would name a culprit the rule
+    // does not have.
+    CNA_STUDIO_EXPECT_EQ(picked.forEntity.size(), std::size_t{2});
+    CNA_STUDIO_EXPECT_EQ(picked.forComponent("CNA.SpriteRenderer").size(), std::size_t{1});
+    CNA_STUDIO_EXPECT(picked.forComponent("CNA.Transform").empty());
+
+    // An issue naming no component belongs to the entity rather than to any one section.
+    CNA_STUDIO_EXPECT_EQ(picked.forEntityItself().size(), std::size_t{1});
+    CNA_STUDIO_EXPECT_EQ(picked.forEntityItself().front()->ruleId, std::string{"empty-entity"});
+
+    // And an entity nothing names has nothing to show.
+    CNA_STUDIO_EXPECT(studioInspectorIssues(raw, Uuid::generate()).forEntity.empty());
+    CNA_STUDIO_EXPECT(studioInspectorIssues(raw, Uuid{}).forEntity.empty());
+}
+
+/**
+ * And the panel gives each one a row (`plan.md` STUDIO-14015).
+ */
+CNA_STUDIO_TEST(TheInspectorDrawsAComponentsIssuesAboveItsProperties)
+{
+    Fixture fixture;
+
+    // Measured with nothing wrong first, so the difference is the issue rows and not the fixture.
+    Harness clean{fixture.context};
+    const std::size_t quiet = clean.last.rowsDrawn;
+    const std::size_t quietMeasured = clean.last.rowsMeasured;
+
+    SceneIssue issue;
+    issue.ruleId = "zero-scale";
+    issue.entityId = fixture.entity;
+    issue.componentTypeId = "CNA.Transform";
+    issue.severity = SceneIssue::Severity::Warning;
+    issue.message = "Scale is zero on at least one axis.";
+
+    SceneIssue second;
+    second.ruleId = "made-up";
+    second.entityId = fixture.entity;
+    second.componentTypeId = "CNA.Transform";
+    second.severity = SceneIssue::Severity::Error;
+    second.message = "And another thing.";
+
+    const StudioInspectorIssues picked =
+        studioInspectorIssues({issue, second}, fixture.entity);
+
+    auto shell = std::make_unique<StudioShell>(StudioTheme::dark());
+    shell->resetLayout();
+    shell->renderFrame(at(-1.0f, -1.0f));
+    CNA_STUDIO_EXPECT(shell->activatePanel("details"));
+
+    StudioDetailsResult last;
+    CNA_STUDIO_EXPECT(shell->setPanelContent("details",
+        [&](StudioFrame& frame, const UiRect& area) {
+            const StudioDetailsResult result =
+                studioDetailsPanel(frame, area, fixture.context, {}, nullptr, picked);
+            if (frame.isInputPass()) { last = result; }
+        }));
+    shell->renderFrame(at(-1.0f, -1.0f));
+
+    // One row per issue, drawn *and* measured -- the scroll view is sized from the measure, and a
+    // pre-pass that did not count them would leave the panel scrolling past its last control.
+    CNA_STUDIO_EXPECT_EQ(last.rowsDrawn, quiet + 2);
+    CNA_STUDIO_EXPECT_EQ(last.rowsMeasured, quietMeasured + 2);
+    CNA_STUDIO_EXPECT_EQ(shell->frame().phaseViolations(), std::size_t{0});
+
+    // An issue naming a component the entity does not carry is nobody's row.
+    SceneIssue foreign = issue;
+    foreign.componentTypeId = "CNA.SpriteRenderer";
+    const StudioInspectorIssues unrelated =
+        studioInspectorIssues({foreign}, fixture.entity);
+
+    StudioDetailsResult other;
+    CNA_STUDIO_EXPECT(shell->setPanelContent("details",
+        [&](StudioFrame& frame, const UiRect& area) {
+            const StudioDetailsResult result =
+                studioDetailsPanel(frame, area, fixture.context, {}, nullptr, unrelated);
+            if (frame.isInputPass()) { other = result; }
+        }));
+    shell->renderFrame(at(-1.0f, -1.0f));
+    CNA_STUDIO_EXPECT_EQ(other.rowsDrawn, quiet);
+}
+
 CNA_STUDIO_TEST(TheInspectorShowsOnlyTheComponentsEveryoneSelectedHas)
 {
     StudioContext context;

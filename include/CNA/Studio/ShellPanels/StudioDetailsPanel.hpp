@@ -41,6 +41,7 @@
 #include "CNA/Studio/Assets/TextureImport.hpp"
 #include "CNA/Studio/Core/PropertyValue.hpp"
 #include "CNA/Studio/Core/Uuid.hpp"
+#include "CNA/Studio/Scene/SceneValidation.hpp"
 #include "CNA/Studio/Scene/SpriteAnimation.hpp"
 #include "CNA/Studio/Ui/UiDrawData.hpp"
 #include "CNA/Studio/UiCore/StudioFrame.hpp"
@@ -489,6 +490,45 @@ namespace CNA::Studio
                                                   const StudioPropertyEditContext& editing);
 
     /**
+     * @brief One entity's validation issues, arranged the way the Inspector draws them.
+     *
+     * `plan.md` STUDIO-14015. The Details panel showed no validation at all: the only way to learn
+     * an entity was broken was to open the Problems panel and find it in a list, which is a panel
+     * away from the one where the fix is made.
+     *
+     * Prepared by the caller from `validateScene`, for the reason the Outliner's set is
+     * (`STUDIO-13010`): validating walks the whole document, and doing it per frame would make
+     * every panel that shows an entity pay for every entity in the scene.
+     */
+    struct StudioInspectorIssues
+    {
+        /** @brief The issues naming this entity, in the validator's own order. */
+        std::vector<SceneIssue> forEntity;
+
+        /**
+         * @brief Those naming @p componentTypeId.
+         *
+         * An issue that names no component belongs to the entity rather than to any one section,
+         * and is not returned here -- see @ref forEntityItself.
+         */
+        [[nodiscard]] std::vector<const SceneIssue*> forComponent(
+            const std::string& componentTypeId) const;
+
+        /** @brief Those naming the entity but no component. */
+        [[nodiscard]] std::vector<const SceneIssue*> forEntityItself() const;
+    };
+
+    /**
+     * @brief Picks @p entityId's issues out of @p issues.
+     *
+     * Scene-wide issues -- the ones naming no entity -- are left out: they belong to the Problems
+     * panel, and hanging "two primary cameras" on whichever camera happens to be selected would
+     * name a culprit the rule does not have.
+     */
+    [[nodiscard]] StudioInspectorIssues studioInspectorIssues(const std::vector<SceneIssue>& issues,
+                                                              const Uuid& entityId);
+
+    /**
      * @brief The component types every entity in @p selection carries, in the last one's order.
      *
      * `plan.md` STUDIO-14017. The Inspector shows one entity's components and, with several
@@ -639,7 +679,8 @@ namespace CNA::Studio
     StudioDetailsResult studioDetailsPanel(StudioFrame& frame, const UiRect& bounds,
                                            StudioContext& context,
                                            const StudioDetailsServices& services = {},
-                                           StudioDetailsState* state = nullptr);
+                                           StudioDetailsState* state = nullptr,
+                                           const StudioInspectorIssues& issues = {});
 
     /**
      * @brief Draws the Material panel: the selected material asset, or what to do to get one.

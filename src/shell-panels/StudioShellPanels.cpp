@@ -1251,8 +1251,9 @@ namespace CNA::Studio
                 const std::size_t cursor = context_.getHistory().getCursor();
                 if (cursor != validatedAt_ || !validatedOnce_)
                 {
-                    outlinerIssues_ = studioOutlinerIssues(
-                        validateScene(context_.getScene(), context_.getComponentRegistry()));
+                    sceneIssues_ =
+                        validateScene(context_.getScene(), context_.getComponentRegistry());
+                    outlinerIssues_ = studioOutlinerIssues(sceneIssues_);
                     validatedAt_ = cursor;
                     validatedOnce_ = true;
                 }
@@ -1415,7 +1416,9 @@ namespace CNA::Studio
             details_services.documents = &documents_;
 
             const StudioDetailsResult details =
-                studioDetailsPanel(frame, bounds, context_, details_services, &detailsState_);
+                studioDetailsPanel(frame, bounds, context_, details_services, &detailsState_,
+                                   studioInspectorIssues(sceneIssues_,
+                                                         context_.getPrimarySelection()));
             if (frame.isDrawPass())
             {
                 counts_.detailsRowsDrawn = details.rowsDrawn;

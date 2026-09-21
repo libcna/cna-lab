@@ -784,6 +784,15 @@ namespace CNA::Studio
          * history's cursor when this was last built, which under D-06 -- every mutation is a
          * command -- is an exact "has the scene changed" signal rather than a heuristic.
          */
+        /**
+         * @brief Everything `validateScene` last reported, shared by the panels that show it.
+         *
+         * One walk feeds the Outliner's marks (`STUDIO-13010`) and the Inspector's inline
+         * messages (`STUDIO-14015`). Two walks would be two answers that can disagree, which is
+         * the worst way for a user to learn their scene is broken.
+         */
+        std::vector<SceneIssue> sceneIssues_;
+
         StudioOutlinerIssues outlinerIssues_;
         std::size_t validatedAt_ = 0;
 

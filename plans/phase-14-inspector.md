@@ -6,7 +6,7 @@
 
 **Exit criteria.** Every property type a component can declare is editable, validated and undoable.
 
-**Progress:** 5 of 18 complete `███░░░░░░░░░`
+**Progress:** 6 of 18 complete `████░░░░░░░░`
 
 | Id | Task | Status | Depends on |
 |----|------|:------:|------------|
@@ -24,7 +24,7 @@
 | `STUDIO-14012` | Reset to default | ✅ | `STUDIO-14001` |
 | `STUDIO-14013` | Revert and apply prefab overrides | ⬜ | `STUDIO-14012` |
 | `STUDIO-14014` | Copy and paste property values | ✅ | `STUDIO-03025` |
-| `STUDIO-14015` | Validation warnings shown inline | ⬜ | `STUDIO-14001` |
+| `STUDIO-14015` | Validation warnings shown inline | ✅ | `STUDIO-14001` |
 | `STUDIO-14016` | Tooltips and documentation from descriptor metadata | ⬜ | `STUDIO-03021` |
 | `STUDIO-14017` | Multi-selection editing where the semantics are unambiguous | ✅ | `STUDIO-14001` |
 | `STUDIO-14018` | Responsive with very large property counts | ⬜ | `STUDIO-30010` |
@@ -111,6 +111,44 @@ menu through the shell, copies, changes the value underneath, pastes it back and
 re-seeds the clipboard before each paste attempt, because the sweep passes over Copy on its way to
 Paste — without that it would copy the *new* value and then paste it, and pass while proving
 nothing. Checked by causing the round-trip check to stop happening; it fails by name.
+
+### `STUDIO-14015` — Validation warnings shown inline
+
+**Acceptance.** What is wrong with a component is said on the component, where the fix is made.
+
+**The Details panel showed no validation at all.** The only way to learn an entity was broken was to
+open the Problems panel and find it in a list — a panel away from the one carrying the control that
+fixes it.
+
+**Above the properties, not below.** A message under forty rows of properties is one the user
+scrolls past on their way to the thing it is about.
+
+**The message, not a count.** The Outliner's row says how *many* because it has a column
+(`STUDIO-13010`); this panel has the width to say *what*, and "what" is the thing that tells a user
+which control to reach for.
+
+**An issue naming no component belongs to the entity**, not to whichever section happens to be
+first, and scene-wide issues are left out entirely: hanging "two primary cameras" on whichever
+camera happens to be selected would name a culprit the rule does not have.
+
+**One walk feeds both panels.** The shell already revalidated on the command history's cursor for
+the Outliner's marks; the Inspector reads the same result. Two walks would be two answers that can
+disagree, which is the worst way for a user to learn their scene is broken — and validating per
+frame would make every panel showing an entity pay for every entity in the scene
+(`STUDIO-13011`'s budget).
+
+**Counted in the pre-pass and drawn in the same words.** The scroll view is sized from the measure,
+and the two are separately load-bearing — the same pair of `continue`s `STUDIO-14001` had to gate
+twice, and gated twice again here.
+
+**Verification.** `tests/StudioDetailsPanelTests.cpp`:
+`AnIssueIsPickedApartByTheEntityAndTheComponentItNames` pins the split — this entity's issues and
+not another's, the component's and not the entity's, the scene-wide one dropped, and an entity
+nothing names showing nothing.
+`TheInspectorDrawsAComponentsIssuesAboveItsProperties` measures a clean panel first and pins two
+extra rows drawn *and* measured, and that an issue naming a component the entity does not carry is
+nobody's row. Checked by causing both failures — the measure not counting them, and the draw not
+drawing them. Each fails by name.
 
 ### `STUDIO-14017` — Multi-selection editing where the semantics are unambiguous
 

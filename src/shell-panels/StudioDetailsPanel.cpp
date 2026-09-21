@@ -2902,6 +2902,42 @@ namespace
         return result;
     }
 
+    std::vector<const SceneIssue*> StudioInspectorIssues::forComponent(
+        const std::string& componentTypeId) const
+    {
+        std::vector<const SceneIssue*> found;
+        for (const SceneIssue& issue : forEntity)
+        {
+            if (issue.componentTypeId == componentTypeId) { found.push_back(&issue); }
+        }
+        return found;
+    }
+
+    std::vector<const SceneIssue*> StudioInspectorIssues::forEntityItself() const
+    {
+        std::vector<const SceneIssue*> found;
+        for (const SceneIssue& issue : forEntity)
+        {
+            if (issue.componentTypeId.empty()) { found.push_back(&issue); }
+        }
+        return found;
+    }
+
+    StudioInspectorIssues studioInspectorIssues(const std::vector<SceneIssue>& issues,
+                                                const Uuid& entityId)
+    {
+        StudioInspectorIssues picked;
+        if (!entityId.isValid()) { return picked; }
+
+        for (const SceneIssue& issue : issues)
+        {
+            // Scene-wide issues name no entity. Hanging "two primary cameras" on whichever camera
+            // happens to be selected would name a culprit the rule does not have.
+            if (issue.entityId == entityId) { picked.forEntity.push_back(issue); }
+        }
+        return picked;
+    }
+
     std::vector<std::string> studioSharedComponents(const SceneDocument& scene,
                                                     const std::vector<Uuid>& selection)
     {
@@ -3020,7 +3056,8 @@ namespace
     StudioDetailsResult studioDetailsPanel(StudioFrame& frame, const UiRect& bounds,
                                            StudioContext& context,
                                            const StudioDetailsServices& services,
-                                           StudioDetailsState* state)
+                                           StudioDetailsState* state,
+                                           const StudioInspectorIssues& issues)
     {
         StudioDetailsResult result;
 
@@ -3113,6 +3150,10 @@ namespace
                 // drawn, because the scroll view is sized from this and a count that disagreed
                 // with the draw would leave the panel scrolling past its own last control.
                 if (!sectionOpen(component.getTypeId())) { continue; }
+
+                // Each issue naming this component is a row of the grid like any other
+                // (`plan.md` STUDIO-14015), counted here exactly as it is drawn below.
+                rows += issues.forComponent(component.getTypeId()).size();
 
                 const ComponentDescriptor* descriptor =
                     context.getComponentRegistry().find(component.getTypeId());
@@ -3339,6 +3380,37 @@ namespace
             // words -- the scroll view is sized from that count, and the two disagreeing is a panel
             // that scrolls past its own last control.
             if (!sectionOpen(component.getTypeId())) { continue; }
+
+            // What is wrong with this component, above the properties that are wrong (`plan.md`
+            // STUDIO-14015). Above rather than below, because a message under forty rows of
+            // properties is one the user scrolls past on their way to the thing it is about.
+            for (const SceneIssue* issue : issues.forComponent(component.getTypeId()))
+            {
+                const UiRect row = nextRow();
+                if (!frame.isDrawPass()) { continue; }
+
+                const StudioColorRole role = issue->severity == SceneIssue::Severity::Error
+                    ? StudioColorRole::Error
+                    : StudioColorRole::Warning;
+
+                UiRect line = row;
+                const UiRect badge =
+                    line.splitLeft(std::min(line.width, metricOf(theme, StudioMetric::IconSize)));
+                line.splitLeft(std::min(spacing, line.width));
+
+                studioDrawIcon(frame, badge,
+                               issue->severity == SceneIssue::Severity::Error ? StudioIcon::Error
+                                                                              : StudioIcon::Warning,
+                               theme.color(role));
+
+                // The message itself, not a count. The Outliner's row says how *many* because it
+                // has a column; this panel has the width to say what, and "what" is the thing that
+                // tells a user which control to reach for.
+                studioDrawText(frame, line,
+                               studioTruncateText(frame, theme.font(StudioFontRole::BodySmall),
+                                                  issue->message, line.width),
+                               StudioFontRole::BodySmall, theme.color(role));
+            }
 
             const std::vector<PropertyDescriptor>* properties =
                 descriptor != nullptr ? &descriptor->properties : nullptr;
