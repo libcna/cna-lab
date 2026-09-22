@@ -6,7 +6,7 @@
 
 **Exit criteria.** Play, pause, step, stop, restart, live edits and crash isolation all work against a real game process.
 
-**Progress:** 9 of 18 complete `██████░░░░░░`
+**Progress:** 10 of 18 complete `██████░░░░░░`
 
 | Id | Task | Status | Depends on |
 |----|------|:------:|------------|
@@ -19,7 +19,7 @@
 | `STUDIO-16007` | Selected-entity synchronisation where feasible | ⬜ | `STUDIO-16005` |
 | `STUDIO-16008` | Simulation mode | ⬜ | `STUDIO-16001` |
 | `STUDIO-16009` | Possession and eject workflow | ⬜ | `STUDIO-16008` |
-| `STUDIO-16010` | Screenshot and capture from the player | ⬜ | `STUDIO-16001` |
+| `STUDIO-16010` | Screenshot and capture from the player | ✅ | `STUDIO-16001` |
 | `STUDIO-16011` | Renderer preview selection among the installed player builds | 🔄 | `STUDIO-02041` |
 | `STUDIO-16012` | Play and Stop from the native shell, with mutually exclusive enablement | ✅ | `STUDIO-06023`, `STUDIO-07017` |
 | `STUDIO-16013` | A player that cannot be launched is refused at the launch, not later | ✅ | `STUDIO-16012` |
@@ -244,6 +244,46 @@ scene, and `File > New Scene` then clears the path out from under a running game
 
 Checked by causing each: the `LoadScene` send removed (the game never reports a load), and both
 unsaved-scene guards removed at once.
+
+### `STUDIO-16010` — Screenshot and capture from the player
+
+**Acceptance.** A user can ask the running game for the frame it is showing, and get a file.
+
+**✅ Done, and it is the third row in this phase whose mechanism was already whole with nobody
+calling it.** The player has queued screenshot requests for its graphics half since the backend
+comparison needed them — queued rather than answered on the spot, because a frame can only be read
+where a frame is being drawn — and `BackendComparison` was the only caller. A user could not take a
+picture of their own game.
+
+**Into the project, not the user's state directory.** That is the one exception to `STUDIO-09015`'s
+rule, and it is an exception because a capture **is not derived data**: nothing can regenerate the
+frame the game was showing when you pressed the button. It is something you keep, attach to an
+issue, or paste into a message, which is the test that rule applies.
+
+**Named for the scene and numbered, not stamped with the clock.** A timestamp sorts by a number
+nobody recognises and cannot be read back to *which run this was*; the scene's name is what the user
+was looking at, and the index is the only part they need to tell two apart. The search for a free
+name is bounded, because an unbounded scan over a directory somebody filled by hand is a frame the
+editor spends in a loop it cannot leave.
+
+**The answer is reported either way**, and that is the half a mechanism built for a comparison tool
+did not need: a user who pressed Capture and was told nothing cannot distinguish a slow write from a
+failed one. Studio says it asked, the player says whether it wrote — two sentences, deliberately,
+because a user watching a folder that stayed empty needs to know which half stopped.
+
+**F12**, which is what every game and every launcher already binds. A shortcut a user does not have
+to learn is worth more than one that is internally consistent, and the key model gains it the way
+every other key was added: appended, with a stored shortcut being text rather than an ordinal, so
+nothing a user saved moves.
+
+**Verification.** `tests/StudioPlayModeTests.cpp` —
+`TheRunningGameCanBeAskedForTheFrameItIsShowing`, which launches a real player, asks, checks the
+folder is the project's and is created, and waits for the player's *answer* — either answer, because
+a headless player has no frame to read and **which** answer arrives is the player's business while
+**that** one arrives is this side's. And `ACaptureThatCannotHappenSaysWhichReasonItIs`.
+
+Checked by causing each: the `Screenshot` message never sent (no answer ever arrives), and captures
+directed outside the project (two assertions, including the pure directory function).
 
 ### `STUDIO-16011` — Renderer preview selection among the installed player builds
 

@@ -78,6 +78,7 @@ namespace CNA::Studio
                 {UiKey::F1, static_cast<int>(XnaInput::Keys::F1)},
                 {UiKey::F2, static_cast<int>(XnaInput::Keys::F2)},
                 {UiKey::F5, static_cast<int>(XnaInput::Keys::F5)},
+                {UiKey::F12, static_cast<int>(XnaInput::Keys::F12)},
                 // The 2D/3D view toggles. Missing until a guard test compared this table against
                 // the key vocabulary and found two keys the UI can ask about and this never
                 // reported -- a shortcut that simply does not fire, with nothing to see.

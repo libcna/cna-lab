@@ -1169,3 +1169,117 @@ CNA_STUDIO_TEST(ASceneReloadThatCannotHappenSaysWhichReasonItIs)
     harness.shell.invoke("studio.play.stop");
 #endif
 }
+
+// ------------------------------------------------------------------------------------------------
+// Capturing a frame from the running game (STUDIO-16010)
+// ------------------------------------------------------------------------------------------------
+
+/**
+ * @brief **A user can ask the running game for the frame it is showing.**
+ *
+ * `plan.md` STUDIO-16010. The mechanism has existed since the backend comparison needed it — the
+ * player queues the request for its graphics half rather than answering on the spot, because a
+ * frame can only be read where a frame is being drawn — and nothing let a *user* ask for one. The
+ * only caller was `BackendComparison`.
+ *
+ * **Into the project, not the user's state directory**, which is the one exception to
+ * `STUDIO-09015`'s rule and is an exception because a capture is not derived data: nothing can
+ * regenerate the frame the game was showing when you pressed the button. It is something you keep,
+ * attach to an issue, or paste into a message.
+ */
+CNA_STUDIO_TEST(TheRunningGameCanBeAskedForTheFrameItIsShowing)
+{
+    const std::vector<PlayerBuild> builds =
+        discoverPlayerBuilds(std::filesystem::path{CNA_STUDIO_TEST_PLAYER_DIR}.generic_string());
+    if (builds.empty()) { return; }
+
+    Harness harness;
+    const ScopedProject project{"capture"};
+    CNA_STUDIO_EXPECT(harness.context.openProject(project.file()));
+    harness.context.newScene();
+    CNA_STUDIO_EXPECT(harness.context.saveScene(project.scene()));
+    harness.panels.setPlayerBuilds(builds);
+    harness.frame();
+
+    // The row is there and refused before anything runs, rather than absent.
+    CNA_STUDIO_EXPECT(harness.shell.actions().find("studio.play.capture") != nullptr);
+    CNA_STUDIO_EXPECT(!harness.shell.actions().isEnabled("studio.play.capture"));
+
+    harness.shell.invoke("studio.play.play");
+    if (!harness.panels.isPlaying()) { return; }
+
+    harness.frame();
+    CNA_STUDIO_EXPECT(harness.shell.actions().isEnabled("studio.play.capture"));
+
+    double now = 0.0;
+    bool asked = false;
+    for (int attempt = 0; attempt < 400 && !asked; ++attempt)
+    {
+        now += 0.005;
+        harness.panels.poll(now);
+        asked = harness.panels.play().captureScreenshot();
+        if (!asked) { std::this_thread::sleep_for(std::chrono::milliseconds(5)); }
+    }
+    CNA_STUDIO_EXPECT(asked);
+
+    // Into the project's own Captures folder, named for the scene rather than stamped with a
+    // clock: the scene's name is what the user was looking at, and a timestamp sorts by a number
+    // nobody recognises.
+    const std::string directory =
+        StudioPlayService::captureDirectory(harness.context.getProject().getFilePath());
+    CNA_STUDIO_EXPECT(!directory.empty());
+    CNA_STUDIO_EXPECT(std::filesystem::exists(directory));
+
+    bool named = false;
+    for (const StudioLogEntry& entry : harness.log.entries())
+    {
+        if (contains(entry.message, "Asked the game for a capture")
+            && contains(entry.message, "Captures"))
+        {
+            named = true;
+        }
+    }
+    CNA_STUDIO_EXPECT(named);
+
+    // The player answers frames later, and the answer is reported either way -- a user who pressed
+    // Capture and was told nothing cannot tell a slow write from a failed one. A headless player
+    // has no frame to read, so *which* answer arrives is the player's business; that one arrives
+    // is this side's.
+    bool answered = false;
+    for (int attempt = 0; attempt < 400 && !answered; ++attempt)
+    {
+        now += 0.005;
+        harness.panels.poll(now);
+        for (const StudioLogEntry& entry : harness.log.entries())
+        {
+            if (contains(entry.message, "Captured ")
+                || contains(entry.message, "The capture failed"))
+            {
+                answered = true;
+            }
+        }
+        if (!answered) { std::this_thread::sleep_for(std::chrono::milliseconds(5)); }
+    }
+    CNA_STUDIO_EXPECT(answered);
+
+    harness.shell.invoke("studio.play.stop");
+}
+
+/** @brief A capture with nowhere to go, and one with no game, each say which. */
+CNA_STUDIO_TEST(ACaptureThatCannotHappenSaysWhichReasonItIs)
+{
+    StudioContext context;
+    StudioLog log;
+    StudioPlayService play{context, log, nullptr};
+
+    std::string problem;
+    CNA_STUDIO_EXPECT(!play.captureScreenshot({}, &problem));
+    CNA_STUDIO_EXPECT(contains(problem, "no game is running"));
+
+    // And the directory is a function of the project rather than of a running game, so it answers
+    // for a project that is not open too -- with nothing, which is what "there is no project to
+    // put a capture in" is derived from.
+    CNA_STUDIO_EXPECT(StudioPlayService::captureDirectory({}).empty());
+    CNA_STUDIO_EXPECT(contains(StudioPlayService::captureDirectory("/games/Alpha/Game.cnaproject"),
+                               "Captures"));
+}

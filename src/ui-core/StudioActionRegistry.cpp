@@ -63,6 +63,7 @@ namespace CNA::Studio
                 case UiKey::E: return "E";  case UiKey::R: return "R";
                 case UiKey::F1: return "F1"; case UiKey::F2: return "F2";
                 case UiKey::F5: return "F5";
+                case UiKey::F12: return "F12";
                 case UiKey::Digit2: return "2";
                 case UiKey::Digit3: return "3";
                 case UiKey::Digit4: return "4";
@@ -572,6 +573,11 @@ namespace CNA::Studio
         command("studio.play.reloadScene", "Reload Scene In Game",
                 "Send the saved scene to the running game without restarting it.", C::Play,
                 chord(UiKey::F5, mods(true, true)));
+        // F12, which is what every game and every launcher already uses for this. A shortcut a
+        // user does not have to learn is worth more than one that is internally consistent.
+        command("studio.play.capture", "Capture Frame",
+                "Ask the running game to write the frame it is showing to a file.", C::Play,
+                chord(UiKey::F12));
 
         command("studio.build.build", "Build",
                 // Ctrl+B, not F2: F2 is Rename in the prototype (docs/MIGRATION-INVENTORY.md) and

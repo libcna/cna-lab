@@ -230,6 +230,33 @@ namespace CNA::Studio
         bool reloadScene(std::string* problem = nullptr);
 
         /**
+         * @brief Asks the running game to write a frame to a file.
+         *
+         * `plan.md` STUDIO-16010. The mechanism has existed since the backend comparison needed it
+         * — the player queues the request for its graphics half rather than answering on the spot,
+         * because a frame can only be read where a frame is being drawn — and nothing let a *user*
+         * ask for one.
+         *
+         * **Into the project, not the user's state directory.** A screenshot of your own game is
+         * something you keep, attach to an issue or paste into a message; derived data is the thing
+         * nobody keeps (`STUDIO-09015`). It is the one exception to that rule and it is an
+         * exception because it is not derived: nothing can regenerate the frame the game was
+         * showing when you pressed the button.
+         *
+         * The reply arrives later, as a `ScreenshotReady` the poll reports, so a caller learns
+         * whether the *request* went out rather than whether the file exists.
+         *
+         * @param path Where to write it. Empty asks for a timestamped name under the project's
+         *             `Captures/` folder.
+         * @param problem Filled in with the reason when the request does not go out. Optional.
+         * @return Whether the request reached the player.
+         */
+        bool captureScreenshot(const std::string& path = {}, std::string* problem = nullptr);
+
+        /** @brief Where a capture with no path of its own goes, for @p projectFilePath. */
+        [[nodiscard]] static std::string captureDirectory(const std::string& projectFilePath);
+
+        /**
          * @brief Tells a running game that one of its own entities' properties just changed.
          *
          * The document's own value at @p entityId / @p componentTypeId / @p propertyName, not a

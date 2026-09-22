@@ -238,6 +238,77 @@ namespace CNA::Studio
         return true;
     }
 
+    std::string StudioPlayService::captureDirectory(const std::string& projectFilePath)
+    {
+        if (projectFilePath.empty()) { return {}; }
+        return (std::filesystem::path{projectFilePath}.parent_path() / "Captures").generic_string();
+    }
+
+    bool StudioPlayService::captureScreenshot(const std::string& path, std::string* problem)
+    {
+        const auto refuse = [problem](std::string reason) {
+            if (problem != nullptr) { *problem = std::move(reason); }
+            return false;
+        };
+
+        if (!player_.isRunning() || state_ == StudioPlayState::Stopped)
+        {
+            return refuse("no game is running");
+        }
+
+        std::string target = path;
+        if (target.empty())
+        {
+            const std::string directory = captureDirectory(context_.getProject().getFilePath());
+            if (directory.empty())
+            {
+                return refuse("there is no project to put a capture in");
+            }
+
+            // Created by the editor rather than by the player, so a failure is reported *here*,
+            // where there is a user to tell. The player's answer arrives frames later and says
+            // only that the write failed.
+            std::error_code code;
+            std::filesystem::create_directories(directory, code);
+            if (code && !std::filesystem::is_directory(directory))
+            {
+                return refuse("cannot create '" + directory + "': " + code.message());
+            }
+
+            // Named for the scene and numbered, not stamped with the clock. A timestamp would be
+            // unreadable and would sort by a number nobody recognises; the scene's name is what
+            // the user was looking at, and the number is the only part they need to compare two.
+            const std::string stem =
+                context_.getScene().getName().empty() ? "Capture" : context_.getScene().getName();
+
+            for (int index = 1;; ++index)
+            {
+                const std::filesystem::path candidate =
+                    std::filesystem::path{directory} / (stem + "-" + std::to_string(index) + ".png");
+                if (!std::filesystem::exists(candidate, code))
+                {
+                    target = candidate.generic_string();
+                    break;
+                }
+
+                // Bounded, because an unbounded search over a directory somebody filled by hand is
+                // a frame the editor spends in a loop it cannot leave.
+                if (index >= 10000)
+                {
+                    return refuse("there are already 10000 captures for this scene");
+                }
+            }
+        }
+
+        if (!player_.send(StudioMessage::makeScreenshot(target)))
+        {
+            return refuse("the message could not be sent to the player");
+        }
+
+        log_.append(LogSeverity::Info, "Asked the game for a capture: " + target);
+        return true;
+    }
+
     bool StudioPlayService::mirrorEdit(const Uuid& entityId, const std::string& componentTypeId,
                                        const std::string& propertyName, const PropertyValue& value)
     {
@@ -299,6 +370,22 @@ namespace CNA::Studio
                     // another; hearing it from the player is the only way to know.
                     log_.append(LogSeverity::Info,
                                 "Player ready on " + player_.getReportedBackend() + ".");
+                    break;
+                case StudioMessageType::ScreenshotReady:
+                    // The answer arrives frames after the request, because a frame can only be
+                    // read where one is being drawn. Reported either way: a user who pressed
+                    // Capture and was told nothing cannot tell a slow write from a failed one.
+                    if (message.payload["written"].asBoolean(false))
+                    {
+                        log_.append(LogSeverity::Info,
+                                    "Captured " + message.payload["path"].asString("a frame") + ".");
+                    }
+                    else
+                    {
+                        log_.append(LogSeverity::Error,
+                                    "The capture failed: "
+                                        + message.payload["error"].asString("no reason given"));
+                    }
                     break;
                 case StudioMessageType::ReportLog:
                     // The game's own output (`plan.md` STUDIO-16002). It was read off the wire and

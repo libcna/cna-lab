@@ -1945,6 +1945,22 @@ namespace CNA::Studio
             shell.actions().add(std::move(reload));
         }
 
+        if (const StudioAction* found = shell.actions().find("studio.play.capture"))
+        {
+            StudioAction capture = *found;
+            capture.isEnabled = [this] { return play_.isRunning(); };
+            capture.run = [this] {
+                std::string problem;
+                if (play_.captureScreenshot({}, &problem)) { return; }
+
+                log_.append(LogSeverity::Warning,
+                            "Could not capture a frame: "
+                                + (problem.empty() ? std::string{"no reason given"} : problem)
+                                + ".");
+            };
+            shell.actions().add(std::move(capture));
+        }
+
         if (const StudioAction* found = shell.actions().find("studio.build.package"))
         {
             StudioAction package = *found;

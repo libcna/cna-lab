@@ -59,6 +59,12 @@ namespace CNA::Studio
         // Digits, named rather than spelt, because an enumerator cannot begin with one. Appended
         // rather than inserted, like every other addition to a list something else counts through.
         Digit2, Digit3, Digit4,
+
+        // F12 is Capture Frame (`plan.md` STUDIO-16010), which is what every game and every
+        // launcher already binds it to -- a shortcut a user does not have to learn is worth more
+        // than one that is internally consistent. Appended, like the rest; a stored shortcut is
+        // text rather than an ordinal, so nothing a user saved moves.
+        F12,
         Count
     };
 
