@@ -14,6 +14,8 @@
 #include "CNA/Studio/Project/Project.hpp"
 #include "CNA/Studio/Scene/BuiltinComponents.hpp"
 #include "CNA/Studio/Scene/SceneCommands.hpp"
+#include "CNA/Studio/RuntimeBridge/MessageChannel.hpp"
+#include "CNA/Studio/RuntimeBridge/StudioProtocol.hpp"
 #include "CNA/Studio/ShellPanels/StudioPlayService.hpp"
 #include "CNA/Studio/ShellPanels/StudioShellPanels.hpp"
 #include "CNA/Studio/StudioContext.hpp"
@@ -871,4 +873,149 @@ CNA_STUDIO_TEST(AGameThatCrashesLeavesTheEditorAndItsDocumentAlone)
     }
     CNA_STUDIO_EXPECT(named);
 #endif
+}
+
+// ------------------------------------------------------------------------------------------------
+// Game logs in the Console (STUDIO-16002)
+// ------------------------------------------------------------------------------------------------
+
+/**
+ * @brief **The game's own output reaches the Console, marked as the game's.**
+ *
+ * `plan.md` STUDIO-16002. `ReportLog` was read off the wire and fell through the switch's
+ * `default:`, so the Console showed everything Studio had to say *about* the player and nothing the
+ * player had to say for itself. That is the half a user actually needs when their game misbehaves —
+ * and `STUDIO-16003`'s crash notification tells them their game's output is in the Output Log,
+ * which until now was not true.
+ *
+ * Marked with a prefix rather than split into a second panel, and the choice is the point: the
+ * Console is one stream and the two sources genuinely interleave — "Player ready on opengles3." and
+ * the game's first line belong next to each other in time. What a user must be able to do is tell
+ * which is which *at a glance*, without reading the sentence, and a marker at the start of the line
+ * is what a glance lands on.
+ */
+CNA_STUDIO_TEST(TheGamesOwnOutputReachesTheConsoleMarkedAsTheGames)
+{
+    const std::vector<PlayerBuild> builds =
+        discoverPlayerBuilds(std::filesystem::path{CNA_STUDIO_TEST_PLAYER_DIR}.generic_string());
+    if (builds.empty()) { return; }
+
+    Harness harness;
+    const ScopedProject project{"gamelogs"};
+    CNA_STUDIO_EXPECT(harness.context.openProject(project.file()));
+    CNA_STUDIO_EXPECT(harness.context.saveScene(project.scene()));
+    harness.panels.setPlayerBuilds(builds);
+    harness.frame();
+
+    harness.shell.invoke("studio.play.play");
+    if (!harness.panels.isPlaying()) { return; }
+
+    // Pausing makes the player say "paused" over the wire, which is a real game-side log line
+    // rather than one this test injected.
+    double now = 0.0;
+    for (int attempt = 0; attempt < 400 && !harness.panels.setPlayPaused(true); ++attempt)
+    {
+        now += 0.005;
+        harness.panels.poll(now);
+        std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    }
+
+    bool sawIt = false;
+    for (int attempt = 0; attempt < 400 && !sawIt; ++attempt)
+    {
+        now += 0.005;
+        harness.panels.poll(now);
+        for (const StudioLogEntry& entry : harness.log.entries())
+        {
+            if (contains(entry.message, "Player: paused")) { sawIt = true; }
+        }
+        if (!sawIt) { std::this_thread::sleep_for(std::chrono::milliseconds(5)); }
+    }
+    CNA_STUDIO_EXPECT(sawIt);
+
+    harness.shell.invoke("studio.play.stop");
+}
+
+/**
+ * @brief Each severity the player uses lands on the editor's own, and an unknown one is not dropped.
+ *
+ * Driven through the service rather than a process, because the mapping is the thing under test and
+ * a launched game cannot be made to emit one of each on demand. The unknown case is the one worth
+ * having: a player from a newer revision using a word this build does not know is still a player
+ * saying something, and silence would be the worst of the three answers — the same reasoning the
+ * message decoder applies to a line it cannot parse.
+ */
+CNA_STUDIO_TEST(APlayersSeverityWordBecomesTheEditorsAndAnUnknownOneIsStillHeard)
+{
+    MessageChannel studioEnd;
+    CNA_STUDIO_EXPECT(studioEnd.listen(0));
+    MessageChannel gameEnd;
+    CNA_STUDIO_EXPECT(gameEnd.connect(studioEnd.getPort()));
+
+    bool connected = false;
+    for (int attempt = 0; attempt < 200 && !connected; ++attempt)
+    {
+        studioEnd.poll();
+        gameEnd.poll();
+        connected = studioEnd.isConnected() && gameEnd.isConnected();
+        if (!connected) { std::this_thread::sleep_for(std::chrono::milliseconds(5)); }
+    }
+    CNA_STUDIO_EXPECT(connected);
+    if (!connected) { return; }
+
+    struct Case
+    {
+        const char* word;
+        const char* text;
+        LogSeverity expected;
+    };
+
+    static const Case kCases[] = {
+        {"error", "everything is on fire", LogSeverity::Error},
+        {"warning", "something is smouldering", LogSeverity::Warning},
+        {"warn", "the shorter spelling", LogSeverity::Warning},
+        {"info", "all is well", LogSeverity::Info},
+        {"trace", "a detail", LogSeverity::Trace},
+        {"debug", "the other word for a detail", LogSeverity::Trace},
+        {"whatever-a-newer-player-says", "still worth hearing", LogSeverity::Info},
+    };
+
+    for (const Case& value : kCases)
+    {
+        CNA_STUDIO_EXPECT(gameEnd.send(StudioMessage::makeReportLog(value.word, value.text)));
+    }
+
+    std::vector<StudioMessage> received;
+    for (int attempt = 0; attempt < 400 && received.size() < std::size(kCases); ++attempt)
+    {
+        const std::vector<StudioMessage> batch = studioEnd.poll();
+        received.insert(received.end(), batch.begin(), batch.end());
+        gameEnd.poll();
+        if (received.size() < std::size(kCases))
+        {
+            std::this_thread::sleep_for(std::chrono::milliseconds(2));
+        }
+    }
+    CNA_STUDIO_EXPECT_EQ(received.size(), std::size(kCases));
+    if (received.size() != std::size(kCases)) { return; }
+
+    // The mapping itself, read back through the same switch the service runs.
+    StudioLog log;
+    for (const StudioMessage& message : received)
+    {
+        CNA_STUDIO_EXPECT(message.type == StudioMessageType::ReportLog);
+        log.append(studioPlayerLogSeverity(message.payload["severity"].asString()),
+                   "Player: " + message.payload["text"].asString());
+    }
+
+    CNA_STUDIO_EXPECT_EQ(log.entries().size(), std::size(kCases));
+    for (std::size_t i = 0; i < log.entries().size() && i < std::size(kCases); ++i)
+    {
+        CNA_STUDIO_EXPECT(log.entries()[i].severity == kCases[i].expected);
+        CNA_STUDIO_EXPECT(contains(log.entries()[i].message, kCases[i].text));
+
+        // Every line carries the marker, including the ones that are not errors: a user scanning
+        // the Console has to be able to tell the game's ordinary chatter from the editor's.
+        CNA_STUDIO_EXPECT(log.entries()[i].message.rfind("Player: ", 0) == 0);
+    }
 }

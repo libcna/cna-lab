@@ -227,6 +227,14 @@ namespace CNA::Studio
     }
 
 
+    LogSeverity studioPlayerLogSeverity(const std::string& word)
+    {
+        if (word == "error") { return LogSeverity::Error; }
+        if (word == "warning" || word == "warn") { return LogSeverity::Warning; }
+        if (word == "trace" || word == "debug") { return LogSeverity::Trace; }
+        return LogSeverity::Info;
+    }
+
     std::size_t StudioPlayService::poll()
     {
         std::size_t read = 0;
@@ -242,9 +250,17 @@ namespace CNA::Studio
                     log_.append(LogSeverity::Info,
                                 "Player ready on " + player_.getReportedBackend() + ".");
                     break;
+                case StudioMessageType::ReportLog:
+                    // The game's own output (`plan.md` STUDIO-16002). It was read off the wire and
+                    // dropped, so the Console showed everything Studio had to say about the player
+                    // and nothing the player had to say for itself -- which is the half a user
+                    // actually needs when their game misbehaves.
+                    log_.append(studioPlayerLogSeverity(message.payload["severity"].asString()),
+                                std::string{kStudioPlayerLogPrefix} + message.payload["text"].asString());
+                    break;
                 case StudioMessageType::ReportException:
                     log_.append(LogSeverity::Error,
-                                "Player: " + message.payload["message"].asString("an exception"));
+                                std::string{kStudioPlayerLogPrefix} + message.payload["message"].asString("an exception"));
                     break;
                 default:
                     break;

@@ -6,12 +6,12 @@
 
 **Exit criteria.** Play, pause, step, stop, restart, live edits and crash isolation all work against a real game process.
 
-**Progress:** 6 of 18 complete `████░░░░░░░░`
+**Progress:** 7 of 18 complete `████░░░░░░░░`
 
 | Id | Task | Status | Depends on |
 |----|------|:------:|------------|
 | `STUDIO-16001` | Play, Pause, Step, Stop, Restart over the bridge | ✅ | `STUDIO-06002` |
-| `STUDIO-16002` | Game logs routed into the Console with source attribution | ⬜ | `STUDIO-07005` |
+| `STUDIO-16002` | Game logs routed into the Console with source attribution | ✅ | `STUDIO-07005` |
 | `STUDIO-16003` | Crash reporting when the player dies, without taking Studio with it | ✅ | `STUDIO-16001` |
 | `STUDIO-16004` | Live asset reload into the running player | ⬜ | `STUDIO-16001` |
 | `STUDIO-16005` | Live property edits into the running player | ⬜ | `STUDIO-15011` |
@@ -79,6 +79,45 @@ launches because a restart that only stopped would look identical from here; and
 Checked by causing it: removing the build-list condition from Restart's enablement makes the refusal
 stop the running game and fail to start it — three assertions, which is the defect the case was
 written to look for.
+
+### `STUDIO-16002` — Game logs routed into the Console with source attribution
+
+**Acceptance.** What the game says reaches the editor, and a user can tell it from what the editor
+says.
+
+**✅ Done, and it was found by checking a sentence `STUDIO-16003` had just written.** That row's
+crash notification tells the user their game's output is in the Output Log. It was not.
+`ReportLog` arrived over the wire, was counted, and fell through the message switch's `default:` —
+so the Console showed everything Studio had to say *about* the player and nothing the player had to
+say for itself, which is the half a user actually needs when their game misbehaves. The player has
+been sending those lines the whole time; nobody was listening.
+
+**Attribution is a prefix, not a second panel, and that is the decision rather than the shortcut.**
+The Console is one stream and the two sources genuinely interleave: *"Player ready on opengles3."*
+and the game's first line belong next to each other in time, and splitting them into two panels
+would make a user correlate by hand what they are already reading in order. What they must be able
+to do is tell which is which **at a glance**, without reading the sentence — and a marker at the
+start of the line is what a glance lands on. Every line carries it, not just the errors: a user
+scanning for their own `printf` needs the ordinary chatter marked too.
+
+**An unknown severity word is heard, not dropped.** Both spellings of the two that have them
+(`warning`/`warn`, `trace`/`debug`) map, because the wire carries whatever the game's own logger
+calls them; anything else reads as `Info`. A player from a newer revision using a word this build
+does not know is still a player saying something, and silence would be the worst of the three
+answers — the same reasoning `MessageStreamDecoder` applies to a line it cannot parse.
+
+**Verification.** `tests/StudioPlayModeTests.cpp` —
+`TheGamesOwnOutputReachesTheConsoleMarkedAsTheGames`, which launches a real player and pauses it so
+the game emits a line of its own rather than one the test injected; and
+`APlayersSeverityWordBecomesTheEditorsAndAnUnknownOneIsStillHeard`, which sends one of each over a
+real channel, because a launched game cannot be made to emit one of each on demand.
+
+Checked by causing each: `ReportLog` falling through the switch again, and the unknown word mapping
+to `Trace` instead of `Info`.
+
+**What this row is not.** It does not give the Console a per-source filter. The prefix makes the
+distinction visible and searchable, which is what the acceptance asks for; a filter is the Console's
+own question and belongs with `STUDIO-27020`.
 
 ### `STUDIO-16003` — Crash reporting when the player dies, without taking Studio with it
 

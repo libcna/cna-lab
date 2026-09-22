@@ -347,7 +347,7 @@ Baseline at import, for comparison: 442 test cases, 12 CTest suites.
 
 ## What was completed
 
-Task ids are `STUDIO-PPNNN`; see `plan.md` for the full list. **397 of 581 tasks are complete.**
+Task ids are `STUDIO-PPNNN`; see `plan.md` for the full list. **398 of 581 tasks are complete.**
 Per-phase counts and the headline are checked by the test suite — `STUDIO-33018` for `plan.md` and
 `STUDIO-33019` for this file — so neither can drift from the phase files again. The second was added
 after this file had drifted by nineteen tasks and a hundred and fifty-eight test cases, which is
@@ -558,7 +558,7 @@ can be tested without a window — and held for the whole drag, so a modifier re
 does not turn an orbit into a pan. WASD flying stays under Studio's scheme only, because in Maya's
 and Blender's it is typing.
 
-**Phase 16 — Play in editor** (6 of 18). Play and Stop from the native shell with mutually exclusive
+**Phase 16 — Play in editor** (7 of 18). Play and Stop from the native shell with mutually exclusive
 enablement; a player that cannot be launched refused at the launch rather than surfacing later as a
 process that started and vanished; and the player's ending read from its process status and reported
 exactly once. **Pause, Step and Restart**: the protocol has always been there and the editor had
