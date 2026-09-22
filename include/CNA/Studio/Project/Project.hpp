@@ -286,8 +286,20 @@ namespace CNA::Studio
         std::string startupScene_;
         std::string assetDirectory_ = "Assets";
         std::string sceneDirectory_ = "Scenes";
-        std::string defaultGraphicsBackend_ = kDefaultRenderer;
         std::vector<StudioTargetProfile> targetProfiles_{StudioTargetProfile::defaults()};
+
+        /**
+         * @brief The active profile's renderer, mirrored for the serialized contract.
+         *
+         * **Initialised from the default profile rather than from `kDefaultRenderer`** (`plan.md`
+         * STUDIO-31004). The two are the same renderer written two ways -- the catalogue's
+         * lower-case `opengles3` and CNA's upper-case identity -- and every setter that touches a
+         * profile writes the lower-case one. So a fresh project carried `OPENGLES3` until the
+         * *first* target edit and `opengles3` for ever after, which meant adding a build target
+         * and undoing it left the project file changed. `kDefaultRenderer` stays exactly where it
+         * belongs: the fallback for a file that names no renderer at all.
+         */
+        std::string defaultGraphicsBackend_ = targetProfiles_.front().renderer;
         std::size_t activeTargetProfile_ = 0;
         std::vector<std::string> targetPlatforms_{"linux-x64"};
         std::vector<std::string> layers_{kDefaultLayer};

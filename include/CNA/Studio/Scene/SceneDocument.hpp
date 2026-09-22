@@ -121,6 +121,23 @@ namespace CNA::Studio
         Uuid addEntity(StudioEntity entity);
 
         /**
+         * @brief Inserts @p entity at @p index rather than at the end.
+         *
+         * `plan.md` STUDIO-31004. `addEntity` appends, which is right for a new entity and wrong
+         * for undoing a delete: an entity taken from the middle of the list came back at the end,
+         * so undoing a deletion reordered the saved file. Nothing about the *scene* changes —
+         * hierarchy is by parent id, not by position — but the bytes do, and "make a change, undo
+         * it, save" then produces a modified file. An undo that does not put you back, as far as
+         * version control is concerned, is not an undo.
+         *
+         * @param index Where it goes. Past the end appends, so a caller restoring several does not
+         *              have to do the arithmetic.
+         * @param entity The entity, which must carry the id it had.
+         * @return Its id, or the nil Uuid when one with that id is already there.
+         */
+        Uuid insertEntity(std::size_t index, StudioEntity entity);
+
+        /**
          * @brief Removes @p id and, recursively, every descendant.
          * @return The removed entities, parents first, so that a DeleteEntityCommand can restore
          *         them in the same order and rebuild the hierarchy correctly.

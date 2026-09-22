@@ -60,6 +60,23 @@ namespace CNA::Studio
         return id;
     }
 
+    Uuid SceneDocument::insertEntity(std::size_t index, StudioEntity entity)
+    {
+        if (!entity.getId().isValid()) { entity.setId(Uuid::generate()); }
+        if (indexById_.find(entity.getId()) != indexById_.end()) { return Uuid{}; }
+
+        const Uuid id = entity.getId();
+        const std::size_t at = std::min(index, entities_.size());
+        entities_.insert(entities_.begin() + static_cast<std::ptrdiff_t>(at), std::move(entity));
+
+        // Rebuilt rather than patched: every index at or after the insertion point moved, and a
+        // map half-updated is worse than one rebuilt, because the lookups it still answers are the
+        // ones that look right.
+        rebuildIndex();
+        invalidateHierarchy();
+        return id;
+    }
+
     std::vector<StudioEntity> SceneDocument::removeEntityRecursive(const Uuid& id)
     {
         std::vector<StudioEntity> removed;

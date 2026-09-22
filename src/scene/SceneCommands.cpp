@@ -58,15 +58,47 @@ namespace CNA::Studio
 
     void DeleteEntityCommand::execute()
     {
+        // Where everything sat, read *before* the removal. `removeEntityRecursive` reorders its
+        // result parents-first, so the positions cannot be recovered from what it hands back.
+        std::unordered_map<Uuid, std::size_t> positions;
+        const std::vector<StudioEntity>& entities = document_->getEntities();
+        for (std::size_t index = 0; index < entities.size(); ++index)
+        {
+            positions.emplace(entities[index].getId(), index);
+        }
+
         removed_ = document_->removeEntityRecursive(entityId_);
+
+        removedIndices_.clear();
+        removedIndices_.reserve(removed_.size());
+        for (const StudioEntity& entity : removed_)
+        {
+            const auto found = positions.find(entity.getId());
+            removedIndices_.push_back(found == positions.end() ? entities.size() : found->second);
+        }
     }
 
     void DeleteEntityCommand::undo()
     {
-        // removeEntityRecursive returns parents first, so re-adding in order never leaves a child
-        // pointing at a parent that is not back yet.
-        for (const StudioEntity& entity : removed_) { document_->addEntity(entity); }
+        // Back where they were, ascending, so each insertion lands in a list the earlier ones have
+        // already made the right length (`plan.md` STUDIO-31004). Appending instead put an entity
+        // taken from the middle on the end, and the saved file was reordered by an undo.
+        //
+        // Order among *siblings* in the list never mattered to the scene -- hierarchy is by parent
+        // id -- which is exactly why nothing noticed.
+        std::vector<std::size_t> order(removed_.size());
+        for (std::size_t i = 0; i < order.size(); ++i) { order[i] = i; }
+        std::stable_sort(order.begin(), order.end(), [this](std::size_t lhs, std::size_t rhs) {
+            return removedIndices_[lhs] < removedIndices_[rhs];
+        });
+
+        for (const std::size_t which : order)
+        {
+            document_->insertEntity(removedIndices_[which], removed_[which]);
+        }
+
         removed_.clear();
+        removedIndices_.clear();
     }
 
     std::string DeleteEntityCommand::getDescription() const

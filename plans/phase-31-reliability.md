@@ -6,14 +6,14 @@
 
 **Exit criteria.** Interrupted saves, corrupt files and crashes cost a user nothing they cannot recover, and nothing is repaired silently.
 
-**Progress:** 9 of 13 complete `████████░░░░`
+**Progress:** 10 of 13 complete `█████████░░░`
 
 | Id | Task | Status | Depends on |
 |----|------|:------:|------------|
 | `STUDIO-31001` | Autosave | ✅ | — |
 | `STUDIO-31002` | Crash recovery snapshots, offered rather than silently applied | ✅ | `STUDIO-31001` |
 | `STUDIO-31003` | Atomic writes for every authored file | ✅ | — |
-| `STUDIO-31004` | Undo and redo stability under every editing path | ⬜ | `STUDIO-02035` |
+| `STUDIO-31004` | Undo and redo stability under every editing path | ✅ | `STUDIO-02035` |
 | `STUDIO-31005` | Format migration chain runs on every load | ✅ | — |
 | `STUDIO-31006` | Dirty-state tracking | ✅ | `STUDIO-31001` |
 | `STUDIO-31007` | Crash isolation from the game process | ⬜ | `STUDIO-16003` |
@@ -282,6 +282,69 @@ truncated scene is refused, not repaired, because the missing entities are not i
 sidecar is the exception only because the one field whose loss damages other files happens to be
 written early enough to survive. Recovering what is recoverable from a malformed document is
 `STUDIO-31008`, and saying so is `STUDIO-31011`.
+
+### `STUDIO-31004` — Undo and redo stability under every editing path
+
+**Acceptance.** Undo puts the document back — all of it, every time, on every path into it.
+
+**✅ Done, and it found two defects that every existing test was structurally unable to see.**
+
+`tests/CommandTests.cpp` checks each command against the fields it was expected to touch: the entity
+is back, the name is back, the property is back. That is the right test for *does this command do
+its job*, and it is blind to the failure this row is about — a command that restores what it **knew**
+it changed and leaves behind something it did not know it changed.
+
+So the property here is stronger and blunter: **undo restores the document byte for byte.**
+
+> serialise → execute → serialise → undo → serialise → redo → serialise → undo → serialise
+
+with the first, third and fifth equal and the second and fourth equal. Byte equality is only
+meaningful because `STUDIO-02037` made the writer deterministic; before that this could not have
+been written. Fourteen scene-editing paths, a composite, and the project's four, each also asserting
+the command **changed something** — a factory that quietly built an invalid command is the commonest
+way a table like this goes vacuous, and it would pass every check that follows.
+
+**Defect one: undoing a delete reordered the file.** `DeleteEntityCommand::undo` re-added through
+`addEntity`, which appends, so an entity taken from the middle of the list came back at the end.
+Nothing about the *scene* changes — hierarchy is by parent id, not by position, which is exactly why
+nothing noticed — but the saved bytes do. "Make a change, undo it, save" produced a modified file,
+and a user who took an edit back still had a diff to explain. `SceneDocument::insertEntity` puts
+each one back where it was, ascending, so earlier insertions have already made the list the right
+length for later ones.
+
+**Defect two: a build-target edit rewrote a field it was not asked to touch.** `kDefaultRenderer` is
+CNA's upper-case identity `OPENGLES3` and is the right fallback for a project file that names no
+renderer. But `Project` also used it to initialise the in-memory mirror, while every setter that
+touches a profile writes the **catalogue's** lower-case `opengles3` — deliberately, because
+`validateStudioTargetProfile` normalises to it so that renderer comparisons are not case-insensitive
+everywhere. So a fresh project carried `OPENGLES3` until the first target edit and `opengles3` for
+ever after: adding a build target and undoing it left `defaultGraphicsBackend` changed, in a field
+the source calls *"a serialized contract that the player's discovery and existing project files
+depend on"*. The mirror now initialises from the default profile, which is where every other value
+of it comes from. `kDefaultRenderer` stays exactly where it belongs.
+
+Both are the same shape, and it is the shape byte-comparison exists to find: a change nobody
+intended, in a part of the document the command never looked at.
+
+**Verification.** `tests/UndoStabilityTests.cpp` —
+`EveryEditingPathUndoesToTheDocumentItStartedFrom` (fourteen paths: create, delete with children,
+delete a leaf, duplicate, rename, disable, lock, reparent, reparent to the root, set a property, add
+a component, remove a component, transform several at once, change the environment),
+`ACompositeUndoesAsOneAndInReverse` — `studio.entity.group` is a create plus N reparents and the
+order matters both ways, since undoing forwards would delete the group while its children still
+point at it — and `EveryProjectEditUndoesToTheProjectItStartedFrom`.
+
+Each path runs **two** full cycles, because a command can restore correctly once and not twice: one
+that moved rather than copied its saved state has nothing left the second time.
+
+Checked by causing each: `undo` appending instead of inserting, and the mirror initialised from
+`kDefaultRenderer` again. Both fail by name, which is how the defects were found in the first place.
+
+**What this row is not.** It does not cover the commands whose document is a *file* — materials,
+environment maps, importer settings, prefabs on disk. Those write through on every apply and their
+undo replays the previous bytes through the same writer, which `STUDIO-31003` covers; a byte
+comparison of their documents would be a comparison of the same call. Nor does it cover the
+`AssetDatabase` commands, which mutate a database rather than a serialisable document.
 
 ### `STUDIO-31005` — Format migration chain runs on every load
 

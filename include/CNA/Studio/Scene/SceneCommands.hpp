@@ -68,6 +68,15 @@ namespace CNA::Studio
         Uuid entityId_;
         std::string entityName_;
         std::vector<StudioEntity> removed_;
+
+        /**
+         * @brief Where each removed entity sat, so undo puts it back rather than on the end.
+         *
+         * `plan.md` STUDIO-31004. Nothing about the *scene* depends on this — hierarchy is by
+         * parent id — but the saved file does, and an undo that reorders the file is one that
+         * leaves the user with a diff for a change they took back.
+         */
+        std::vector<std::size_t> removedIndices_;
     };
 
     /**
