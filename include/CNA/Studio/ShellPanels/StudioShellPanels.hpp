@@ -746,6 +746,17 @@ namespace CNA::Studio
          */
         void followLogLink(const StudioLogLink& link);
 
+        /**
+         * @brief Opens a source location in the configured external editor, or says why not.
+         *
+         * `plan.md` CORE-01, resolved through `CORE-02`. One place, because the Build panel's
+         * error rows and its Open Build Log button are the same gesture with different arguments,
+         * and because launching a process is the binder's business and not a panel's.
+         *
+         * @param location What to open. A zero line opens the file without placing the cursor.
+         */
+        void openSourceLocation(const StudioSourceLocation& location);
+
         void pollAssetChanges(double nowSeconds);
 
 

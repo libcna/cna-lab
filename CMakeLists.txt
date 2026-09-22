@@ -228,6 +228,7 @@ add_library(cna-studio-project STATIC
     src/project/Project.cpp
     src/project/RecoveryStore.cpp
     src/project/StudioReveal.cpp
+    src/project/BuildDiagnostics.cpp
     src/project/StudioExternalEditor.cpp
     src/project/BuildRunner.cpp
     src/project/LanguageAdapter.cpp

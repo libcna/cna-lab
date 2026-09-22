@@ -34,6 +34,29 @@
 
 namespace CNA::Studio
 {
+    /**
+     * @brief Which of the two build gestures a caller is asking for.
+     *
+     * `plan.md` CORE-01. Two gestures rather than one button and a checkbox, because they answer
+     * different questions and are pressed at different moments: incremental is what a developer
+     * presses every few minutes, and clean is what they press when they suspect the build tree
+     * itself -- a stale object, a renamed header, a changed option a generator did not notice.
+     *
+     * A language decides what each *means* for its own build system, and nothing outside its
+     * adapter knows. For CMake, clean is the project's own `clean` target run before the build,
+     * which is what the word means to anyone who has used it.
+     */
+    enum class StudioBuildKind
+    {
+        /** @brief Build what has changed. The ordinary gesture. */
+        Incremental,
+        /** @brief Discard this target's build outputs, then build. */
+        Clean
+    };
+
+    /** @brief Returns the stable lower-case name of a build kind. */
+    const char* toString(StudioBuildKind kind);
+
     /** @brief One command the build runs, as an executable and its arguments. */
     struct BuildStep
     {
@@ -62,6 +85,9 @@ namespace CNA::Studio
 
         /** @brief What this build is, for the log's first line, e.g. `"linux-x64, Release"`. */
         std::string description;
+
+        /** @brief Which gesture planned it, so a caller can say which one is running. */
+        StudioBuildKind kind = StudioBuildKind::Incremental;
 
         /** @brief Whether there is anything to run. */
         [[nodiscard]] bool empty() const { return steps.empty(); }

@@ -31,6 +31,7 @@ add_executable(cna-studio-tests
     ProjectExportTests.cpp
     StudioLanguageAdapterTests.cpp
     StudioProjectHubTests.cpp
+    BuildDiagnosticTests.cpp
     StudioExternalEditorTests.cpp
     StudioWorkspaceStoreTests.cpp
     StudioLogPanelTests.cpp

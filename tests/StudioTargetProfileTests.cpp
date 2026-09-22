@@ -327,40 +327,91 @@ CNA_STUDIO_TEST(AProfileTranslatesToTheCMakeArgumentsStudioWouldRun)
     CNA_STUDIO_EXPECT(has(arguments, "-DCNA_ENABLE_DRACO=OFF"));
     for (const StudioFeatureOption& feature : getKnownStudioFeatures())
     {
-        const std::string on = "-D" + std::string{feature.cnaOption} + "="
-                             + std::string{feature.enabledValue};
-        const std::string off = "-D" + std::string{feature.cnaOption} + "=OFF";
-        CNA_STUDIO_EXPECT(has(arguments, on) || has(arguments, off));
+        const std::string prefix = "-D" + std::string{feature.cnaOption} + "=";
+        CNA_STUDIO_EXPECT(has(arguments, prefix + "ON") || has(arguments, prefix + "OFF")
+                          || (feature.triState && has(arguments, prefix + "AUTO")));
     }
 }
 
-CNA_STUDIO_TEST(TurningVideoOnAsksCnaToUseFfmpegIfPresentRatherThanToRequireIt)
+CNA_STUDIO_TEST(ATriStateOptionCanSayOffAutoOrOnAndEachReachesCMakeUnchanged)
 {
-    // CNA_ENABLE_VIDEO is the one switch in this set that is not a boolean: OFF, AUTO or ON, where
-    // ON *requires* FFmpeg and fails the configure without it. Studio's "video" feature means the
-    // project would like video, not that it cannot be built without it -- so it maps to AUTO.
+    // `plan.md` CORE-01 (`STUDIO-17012`). CNA_ENABLE_VIDEO is the one switch in this set that is
+    // not a boolean: OFF, AUTO or ON, where ON *requires* FFmpeg and fails the configure without
+    // it and AUTO uses FFmpeg where the build machine has it.
     //
-    // This is not a hypothetical. Passing ON is what stopped an exported game configuring on a
-    // machine with no FFmpeg, which the export guard found by building the result rather than only
-    // reading it. A project that genuinely requires video sets CNA_ENABLE_VIDEO itself; the
-    // tri-state is STUDIO-17012.
+    // Studio's model was a boolean and the stop-gap spelled its "on" as AUTO -- which was the
+    // right default and left a project that genuinely requires video unable to say so at all.
+    // Passing ON for a feature a project merely wanted is what stopped an exported game
+    // configuring on a machine with no FFmpeg, which the export guard found by building the
+    // result rather than only reading it, so neither half of this is hypothetical.
     StudioTargetProfile profile;
+
+    profile.setFeatureState("video", StudioFeatureState::Off);
+    CNA_STUDIO_EXPECT(has(studioTargetProfileCMakeArguments(profile), "-DCNA_ENABLE_VIDEO=OFF"));
+
+    profile.setFeatureState("video", StudioFeatureState::Auto);
+    CNA_STUDIO_EXPECT(has(studioTargetProfileCMakeArguments(profile), "-DCNA_ENABLE_VIDEO=AUTO"));
+
+    profile.setFeatureState("video", StudioFeatureState::On);
+    CNA_STUDIO_EXPECT(has(studioTargetProfileCMakeArguments(profile), "-DCNA_ENABLE_VIDEO=ON"));
+    CNA_STUDIO_EXPECT_EQ(std::string{studioFeatureStateName(profile.featureState("video"))},
+                         std::string{"on"});
+
+    // A checkbox still means what a project usually wants. `setFeature` is what a boolean control
+    // calls, and for a tri-state option it must not produce the state that fails a configure on a
+    // machine without FFmpeg -- that state has to be asked for.
     profile.setFeature("video", true);
+    CNA_STUDIO_EXPECT_EQ(std::string{studioFeatureStateName(profile.featureState("video"))},
+                         std::string{"auto"});
 
-    const std::vector<std::string> arguments = studioTargetProfileCMakeArguments(profile);
-    CNA_STUDIO_EXPECT(has(arguments, "-DCNA_ENABLE_VIDEO=AUTO"));
-    CNA_STUDIO_EXPECT(!has(arguments, "-DCNA_ENABLE_VIDEO=ON"));
+    // And a boolean option has no third state to be in. Asking for one is answered rather than
+    // stored, because a profile holding a state the command line cannot express is a disagreement
+    // only a build would find.
+    profile.setFeatureState("net", StudioFeatureState::Auto);
+    CNA_STUDIO_EXPECT_EQ(std::string{studioFeatureStateName(profile.featureState("net"))},
+                         std::string{"on"});
+    CNA_STUDIO_EXPECT(has(studioTargetProfileCMakeArguments(profile), "-DCNA_ENABLE_NET=ON"));
 
-    profile.setFeature("video", false);
-    const std::vector<std::string> withoutVideo = studioTargetProfileCMakeArguments(profile);
-    CNA_STUDIO_EXPECT(has(withoutVideo, "-DCNA_ENABLE_VIDEO=OFF"));
-
-    // Every other feature really is a boolean, and turning one on must still say ON.
     for (const StudioFeatureOption& feature : getKnownStudioFeatures())
     {
-        if (feature.name == "video") { continue; }
-        CNA_STUDIO_EXPECT_EQ(std::string{feature.enabledValue}, std::string{"ON"});
+        if (feature.triState) { continue; }
+        StudioTargetProfile boolean;
+        boolean.setFeature(feature.name, true);
+        CNA_STUDIO_EXPECT(has(studioTargetProfileCMakeArguments(boolean),
+                              "-D" + std::string{feature.cnaOption} + "=ON"));
     }
+}
+
+CNA_STUDIO_TEST(AProjectFileWrittenBeforeTheTriStateStillBuildsTheWayItDid)
+{
+    // The migration, and the reason the bare form is not simply read as "on". Under the stop-gap a
+    // file saying `"video"` produced -DCNA_ENABLE_VIDEO=AUTO, so reading it as On now would make
+    // every project written before CORE-01 require FFmpeg to build -- a behaviour change delivered
+    // by a refactor, which is the worst kind.
+    //
+    // A boolean feature's bare form still means on, because for it that is all the word ever meant.
+    JsonValue legacy = JsonValue::makeObject();
+    JsonValue features = JsonValue::makeArray();
+    features.append(JsonValue{std::string{"video"}});
+    features.append(JsonValue{std::string{"net"}});
+    legacy.set("features", std::move(features));
+
+    const StudioTargetProfile read = studioTargetProfileFromJson(legacy);
+    CNA_STUDIO_EXPECT_EQ(std::string{studioFeatureStateName(read.featureState("video"))},
+                         std::string{"auto"});
+    CNA_STUDIO_EXPECT_EQ(std::string{studioFeatureStateName(read.featureState("net"))},
+                         std::string{"on"});
+    CNA_STUDIO_EXPECT(has(studioTargetProfileCMakeArguments(read), "-DCNA_ENABLE_VIDEO=AUTO"));
+
+    // And an explicit state round trips, which is what makes On reachable at all: a tri-state
+    // option always writes its state, because writing `"video"` for On would read back as Auto.
+    StudioTargetProfile required;
+    required.setFeatureState("video", StudioFeatureState::On);
+    const StudioTargetProfile back =
+        studioTargetProfileFromJson(studioTargetProfileToJson(required));
+    CNA_STUDIO_EXPECT_EQ(std::string{studioFeatureStateName(back.featureState("video"))},
+                         std::string{"on"});
+    CNA_STUDIO_EXPECT(back == required);
 }
 
 CNA_STUDIO_TEST(AProfileRoundTripsThroughJson)

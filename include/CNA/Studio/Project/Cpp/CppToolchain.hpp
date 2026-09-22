@@ -88,7 +88,8 @@ namespace CNA::Studio
      * Returns an empty list when the request is unusable, which the caller reports; see
      * `describeBuildProblem`.
      */
-    [[nodiscard]] std::vector<BuildStep> planBuild(const BuildRequest& request);
+    [[nodiscard]] std::vector<BuildStep> planBuild(
+        const BuildRequest& request, StudioBuildKind kind = StudioBuildKind::Incremental);
 
     /**
      * @brief Returns why @p request cannot be built, or an empty string when it can.

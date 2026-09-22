@@ -228,10 +228,13 @@ namespace CNA::Studio
          *
          * @param project The open project.
          * @param toolchain The result of @ref probeToolchain.
+         * @param kind Incremental or clean. What each means is this adapter's to decide; nothing
+         *        outside it knows what discarding a build output involves for its build system.
          * @return The job, or one with no steps when @ref describeBuildProblem has something to say.
          */
         [[nodiscard]] virtual StudioBuildJob planBuild(
-            const Project& project, const StudioToolchainReport& toolchain) const = 0;
+            const Project& project, const StudioToolchainReport& toolchain,
+            StudioBuildKind kind = StudioBuildKind::Incremental) const = 0;
 
         /**
          * @brief Returns the files that make @p scaffold a buildable project in this language.

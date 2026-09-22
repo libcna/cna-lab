@@ -18,10 +18,12 @@
 #include "CNA/Studio/StudioContext.hpp"
 #include "CNA/Studio/UiCore/StudioWidgets.hpp"
 
+#include <chrono>
 #include <filesystem>
 #include <fstream>
 #include <memory>
 #include <string>
+#include <thread>
 #include <vector>
 
 using namespace CNA::Studio;
@@ -48,7 +50,7 @@ namespace
     class ScopedProjectFile
     {
     public:
-        explicit ScopedProjectFile(const std::string& name)
+        explicit ScopedProjectFile(const std::string& name, bool withBuildFile = false)
         {
             path_ = std::filesystem::temp_directory_path()
                   / ("cna-studio-build-" + name + "-" + std::to_string(counter()++));
@@ -58,6 +60,14 @@ namespace
 
             std::ofstream stream{path_ / "Game.cnaproject", std::ios::binary};
             stream << R"({"formatVersion":1,"name":"Built","kind":"CnaNative"})";
+
+            // Optional, because most cases here are about the *panel* and a project that cannot
+            // be built is a perfectly good fixture for them. The cases about the commands need
+            // one: `describeBuildProblem` refuses a directory with no build file, and a plan of
+            // no steps would make every assertion about those commands hold vacuously.
+            if (!withBuildFile) { return; }
+            std::ofstream build{path_ / "CMakeLists.txt", std::ios::binary};
+            build << "cmake_minimum_required(VERSION 3.20)\nproject(Built)\n";
         }
 
         ~ScopedProjectFile()
@@ -100,7 +110,8 @@ namespace
          */
         std::size_t reportedEdits = 0;
 
-        explicit Harness(const std::string& name) : project(name)
+        explicit Harness(const std::string& name, bool withBuildFile = false)
+            : project(name, withBuildFile)
         {
             (void)context.openProject(project.file());
         }
@@ -147,6 +158,121 @@ namespace
         {
             return context.getProject().getActiveTargetProfile();
         }
+
+        /**
+         * @brief Clicks the middle of every control the panel routed input to, one at a time.
+         *
+         * `plan.md` CORE-01's gestures are buttons and rows, and a test that pressed them by
+         * hard-coded coordinate would be a test of this panel's current layout: it would pass a
+         * refactor that moved Clean Build under Cancel, and fail one that added a row above the
+         * commands. So the frame is asked what is interactive -- which is exactly what it knows --
+         * and every one of those rectangles is pressed.
+         *
+         * A case then asserts *how many* controls did the thing, which is the claim worth making:
+         * "one control in this panel asks for a clean build" is true of a correct panel and false
+         * of one where the button is missing, disabled, or drawn where nothing can press it.
+         *
+         * @return One result per control pressed, in the order the panel described them.
+         */
+        /** @brief Every rectangle the panel routed input to on the last settled frame. */
+        std::vector<UiRect> controlRectangles()
+        {
+            settle();
+
+            std::vector<UiRect> controls;
+            for (const StudioRecordedInteraction& widget : frame.recordedInteractions())
+            {
+                if (widget.bounds.width <= 0.0f || widget.bounds.height <= 0.0f) { continue; }
+                controls.push_back(widget.bounds);
+            }
+            return controls;
+        }
+
+        std::vector<StudioBuildPanelResult> clickEveryControl()
+        {
+            const std::vector<UiRect> controls = controlRectangles();
+
+            std::vector<StudioBuildPanelResult> results;
+            for (const UiRect& control : controls)
+            {
+                // A fresh frame between presses, so a button left in its pressed state does not
+                // answer for the next one.
+                settle();
+                click(control.centerX(), control.centerY());
+                results.push_back(last);
+                last = StudioBuildPanelResult{};
+            }
+            return results;
+        }
+
+        /**
+         * @brief Runs a build whose only step prints @p output, and waits for it.
+         *
+         * A real `BuildProcess` over a real child, because the thing under test is what the panel
+         * makes of a *log the build wrote* -- and a test-only setter that handed it a path would
+         * be testing a code path no build takes. The child is `/bin/sh`, which is as much of a
+         * compiler as this needs: `BuildProcess` redirects its output to the log, so whatever it
+         * prints is what the panel will read.
+         *
+         * @return False where there is no shell to run, which is the caller's cue to stop.
+         */
+        bool runBuildPrinting(const std::string& output)
+        {
+            if (!std::filesystem::exists("/bin/sh")) { return false; }
+
+            const std::filesystem::path directory =
+                std::filesystem::temp_directory_path()
+                / ("cna-studio-buildlog-" + std::to_string(counter()++));
+            std::error_code code;
+            std::filesystem::create_directories(directory, code);
+            logDirectory = directory;
+
+            // The text goes in a file the step reads, rather than in an argument. `BuildProcess`
+            // writes each step's *command line* into the log before running it, so an argument
+            // carrying compiler output would appear in the log twice -- once echoed and once
+            // printed -- and the panel would honestly report every diagnostic in it twice over.
+            const std::filesystem::path source = directory / "compiler-output.txt";
+            {
+                std::ofstream stream{source, std::ios::binary};
+                stream << output;
+            }
+
+            BuildStep step;
+            step.description = "Compile";
+            step.executable = "/bin/sh";
+            step.arguments = {"-c", "cat \"$0\"", source.generic_string()};
+
+            StudioBuildJob job;
+            job.buildDirectory = directory.generic_string();
+            job.description = "fixture";
+            job.steps = {step};
+
+            std::string problem;
+            if (!build.start(job, &problem)) { return false; }
+
+            for (int attempt = 0; attempt < 2000 && build.getState() == BuildState::Running;
+                 ++attempt)
+            {
+                build.poll();
+                std::this_thread::sleep_for(std::chrono::milliseconds(2));
+            }
+            return build.getState() != BuildState::Running;
+        }
+
+        ~Harness()
+        {
+            if (logDirectory.empty()) { return; }
+            std::error_code code;
+            std::filesystem::remove_all(logDirectory, code);
+        }
+
+        Harness(const Harness&) = delete;
+        Harness& operator=(const Harness&) = delete;
+
+        std::filesystem::path logDirectory;
+
+    private:
+        static int& counter() { static int value = 0; return value; }
     };
 }
 
@@ -498,4 +624,165 @@ CNA_STUDIO_TEST(RemovingTheLastTargetIsRefusedRatherThanLeavingAProjectWithNone)
     // The command refuses it too, so the guard is not only in the pixels.
     const SetTargetProfilesCommand emptied{harness.context.getProject(), {}, 0, "Remove target"};
     CNA_STUDIO_EXPECT(!emptied.isValid());
+}
+
+// ------------------------------------------------------------------------------------------------
+// `plan.md` CORE-01 — build the project, and understand the failure
+// ------------------------------------------------------------------------------------------------
+
+CNA_STUDIO_TEST(CleanAndIncrementalAreSeparateGesturesAndEachDoesWhatItsNameSays)
+{
+    // Two buttons rather than one and a modifier. A modifier somebody forgets is set turns every
+    // build into a clean one, and the two are pressed at different moments: Build every few
+    // minutes, Clean Build when the build tree itself is the suspect.
+    Harness harness{"cleanbuild", /*withBuildFile=*/true};
+
+    std::size_t incremental = 0;
+    std::size_t clean = 0;
+    for (const StudioBuildPanelResult& result : harness.clickEveryControl())
+    {
+        if (!result.buildRequested) { continue; }
+        if (result.buildKind == StudioBuildKind::Clean) { ++clean; } else { ++incremental; }
+    }
+
+    CNA_STUDIO_EXPECT_EQ(incremental, std::size_t{1});
+    CNA_STUDIO_EXPECT_EQ(clean, std::size_t{1});
+
+    // And they plan different commands. The clean job runs the project's own `clean` target
+    // *between* the configure and the build -- the target does not exist until the tree has been
+    // generated, so cleaning first would fail on a first-ever build, which is exactly when a user
+    // reaches for it after a failed one.
+    const StudioBuildJob ordinary = harness.panel.planBuild(StudioBuildKind::Incremental);
+    const StudioBuildJob cleaned = harness.panel.planBuild(StudioBuildKind::Clean);
+
+    CNA_STUDIO_EXPECT_EQ(ordinary.steps.size(), std::size_t{2});
+    CNA_STUDIO_EXPECT_EQ(cleaned.steps.size(), std::size_t{3});
+    if (cleaned.steps.size() < 3) { return; }
+
+    CNA_STUDIO_EXPECT_EQ(cleaned.steps[0].description, ordinary.steps[0].description);
+    CNA_STUDIO_EXPECT_EQ(cleaned.steps[1].description, std::string{"Clean"});
+    CNA_STUDIO_EXPECT(cleaned.steps[1].toCommandLine().find("--target clean") != std::string::npos);
+    CNA_STUDIO_EXPECT_EQ(cleaned.steps[2].toCommandLine(), ordinary.steps[1].toCommandLine());
+
+    // Not a deletion of the build directory. That is a destructive operation on a path a user can
+    // type, one typo away from a source tree; `--target clean` is the build system removing what
+    // it made.
+    for (const BuildStep& step : cleaned.steps)
+    {
+        CNA_STUDIO_EXPECT(step.toCommandLine().find("rm ") == std::string::npos);
+        CNA_STUDIO_EXPECT(step.toCommandLine().find("-E remove") == std::string::npos);
+    }
+}
+
+CNA_STUDIO_TEST(TheCommandsCanBeTakenAwayAndPastedIntoAShell)
+{
+    // "Displayed, selectable, and produces the same result when pasted into a shell." The rows in
+    // the panel are truncated to its width, so reading a long configure line off the screen is not
+    // something a user can do -- and a command line they cannot take away is one they have to
+    // reconstruct by hand, which is the moment they stop using the panel.
+    Harness harness{"copycommands", /*withBuildFile=*/true};
+    harness.settle();
+
+    CNA_STUDIO_EXPECT(!harness.panel.planBuild().steps.empty());
+
+    // Compared against the plan *as it stood when the button was pressed*. Pressing every control
+    // in turn also presses the renderer and feature controls, which change the commands -- so a
+    // plan taken before the sweep would be the wrong thing to compare against, and a test that
+    // did would fail for a reason that has nothing to do with copying.
+    std::size_t copies = 0;
+    harness.frame.setClipboardText("");
+
+    for (const UiRect& control : harness.controlRectangles())
+    {
+        harness.settle();
+
+        std::string expected;
+        for (const BuildStep& step : harness.panel.planBuild().steps)
+        {
+            expected += step.toCommandLine() + "\n";
+        }
+
+        harness.frame.setClipboardText("");
+        harness.click(control.centerX(), control.centerY());
+
+        const std::string clipboard = harness.frame.clipboardText();
+        if (clipboard.empty()) { continue; }
+
+        ++copies;
+        // Every step, in order, untruncated and shell-quoted -- which is what makes "the same
+        // result when pasted" a claim rather than a hope.
+        CNA_STUDIO_EXPECT_EQ(clipboard, expected);
+    }
+
+    CNA_STUDIO_EXPECT_EQ(copies, std::size_t{1});
+
+    // And the quoting is real: a project in a directory with a space in its name has to survive
+    // the round trip, which is the case that makes a naive join wrong.
+    BuildStep spaced;
+    spaced.executable = "/usr/bin/cmake";
+    spaced.arguments = {"-S", "/home/a b/Game", "-B", "/home/a b/Game/build"};
+    CNA_STUDIO_EXPECT(spaced.toCommandLine().find("\"/home/a b/Game\"") != std::string::npos);
+}
+
+CNA_STUDIO_TEST(ACompilerErrorBecomesARowThatOpensTheFileAtTheLine)
+{
+    // Core step 9, and the half of it the panel could not do. A build that failed with nothing but
+    // "Build failed" takes the operation a developer performs most and makes it less informative
+    // than the terminal they would otherwise have used.
+    Harness harness{"errors"};
+
+    // A build that really ran and really wrote this into its log. The output is a compiler's
+    // rather than a compiler run, which is the only part faked: what the panel has to get right is
+    // what it makes of the log, not that GCC produces one.
+    if (!harness.runBuildPrinting(
+            "[1/2] Building CXX object CMakeFiles/Game.dir/Source/Main.cpp.o\n"
+            "Source/Main.cpp:12:5: error: 'undefined_function' was not declared in this scope\n"
+            "Source/Main.cpp:18:9: warning: unused variable 'speed' [-Wunused-variable]\n"
+            "ninja: build stopped: subcommand failed.\n"))
+    {
+        return;
+    }
+    harness.settle();
+
+    CNA_STUDIO_EXPECT_EQ(harness.last.errorsShown, std::size_t{2});
+
+    // One of the rows, when activated, asks for that file at that line. Which row is which is the
+    // panel's business; that exactly one of them asks for line 12 of Main.cpp is the claim.
+    std::size_t opened = 0;
+    StudioSourceLocation asked;
+    for (const StudioBuildPanelResult& result : harness.clickEveryControl())
+    {
+        if (!result.openLocation.isValid()) { continue; }
+        ++opened;
+        if (result.openLocation.line == 12) { asked = result.openLocation; }
+    }
+
+    CNA_STUDIO_EXPECT_EQ(opened, std::size_t{2});
+    CNA_STUDIO_EXPECT_EQ(asked.file, std::string{"Source/Main.cpp"});
+    CNA_STUDIO_EXPECT_EQ(asked.line, 12);
+}
+
+CNA_STUDIO_TEST(TheWholeUnparsedLogIsReachableWhateverTheParserMadeOfIt)
+{
+    // The other half of the same requirement. The parser above is allowed to recognise nothing --
+    // a linker error, a toolchain Studio has never seen, a build system that writes its own
+    // format -- and when it does, the log is the only record there is. Showing its *path* is not
+    // reaching it; a path is something to retype.
+    Harness harness{"wholelog"};
+
+    if (!harness.runBuildPrinting("some output this build's parser has never seen\n"))
+    {
+        return;
+    }
+    harness.settle();
+
+    // Nothing was recognised, which is the point of this case.
+    CNA_STUDIO_EXPECT_EQ(harness.last.errorsShown, std::size_t{0});
+
+    std::size_t offered = 0;
+    for (const StudioBuildPanelResult& result : harness.clickEveryControl())
+    {
+        if (result.openLogRequested) { ++offered; }
+    }
+    CNA_STUDIO_EXPECT_EQ(offered, std::size_t{1});
 }

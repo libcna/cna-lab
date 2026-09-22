@@ -584,6 +584,12 @@ namespace CNA::Studio
                 // in every file manager, and a shortcut that moved is one every existing user has
                 // to relearn -- silently, because it still does something.
                 "Build the project with its own CMake.", C::Build, chord(UiKey::B, mods(true)));
+        // `plan.md` CORE-01. Two gestures, each doing what its name says, rather than one button
+        // and a modifier: Build is pressed every few minutes and Clean Build when the build tree
+        // itself is the suspect.
+        command("studio.build.clean", "Clean Build",
+                "Discard this target's build outputs, then build.", C::Build,
+                chord(UiKey::B, mods(true, true)));
         command("studio.build.cancel", "Cancel Build",
                 "Stop the build that is running.", C::Build, {});
 

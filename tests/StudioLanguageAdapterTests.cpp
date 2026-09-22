@@ -87,8 +87,8 @@ namespace
         {
             return "the stub language cannot build anything";
         }
-        [[nodiscard]] StudioBuildJob planBuild(const Project&,
-                                               const StudioToolchainReport&) const override
+        [[nodiscard]] StudioBuildJob planBuild(const Project&, const StudioToolchainReport&,
+                                               StudioBuildKind) const override
         {
             return StudioBuildJob{};
         }

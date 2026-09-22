@@ -379,6 +379,39 @@ namespace CNA::Studio
         }
     }
 
+    void StudioShellPanels::openSourceLocation(const StudioSourceLocation& location)
+    {
+        if (!location.isValid()) { return; }
+
+        const StudioLanguageAdapter* language = context_.getLanguage();
+
+        StudioExternalEditorRequest request;
+        request.editor = preferences_.model().externalEditor;
+        request.projectRoot = context_.getProject().getRootPath();
+        request.file = location.file;
+        request.line = location.line;
+
+        const StudioLanguageDescriptor* descriptor =
+            language != nullptr ? &language->descriptor() : nullptr;
+
+        std::string problem;
+        if (!studioOpenInExternalEditor(request, descriptor, &problem))
+        {
+            // Out loud, and naming the setting. A row that looks like a link and silently does
+            // nothing is the failure this whole gesture exists to replace.
+            log_.append(LogSeverity::Warning, problem + ".");
+            return;
+        }
+
+        const StudioExternalEditorCommand planned =
+            studioExternalEditorCommand(request, descriptor);
+        log_.append(LogSeverity::Trace,
+                    "Opening '" + planned.resolvedPath + "'"
+                        + (planned.opensAtTheLine ? " at line " + std::to_string(location.line)
+                                                  : std::string{})
+                        + " in " + preferences_.model().externalEditor + ".");
+    }
+
     void StudioShellPanels::pollAssetChanges(double nowSeconds)
     {
         // A delta from a monotonic clock, because that is what paces the watcher and what a test
@@ -1710,10 +1743,11 @@ namespace CNA::Studio
             if (panel.buildRequested)
             {
                 std::string problem;
-                if (build_.process().start(buildPanel_->planBuild(), &problem))
+                if (build_.process().start(buildPanel_->planBuild(panel.buildKind), &problem))
                 {
                     log_.append(LogSeverity::Info, LogSource::Build,
-                                "Build started; log at " + build_.process().getLogPath());
+                                std::string{"Build started ("} + toString(panel.buildKind)
+                                    + "); log at " + build_.process().getLogPath());
                 }
                 else
                 {
@@ -1724,6 +1758,23 @@ namespace CNA::Studio
             {
                 build_.process().cancel();
                 log_.append(LogSeverity::Warning, LogSource::Build, "Build cancelled.");
+            }
+
+            // `plan.md` CORE-01, resolved through CORE-02. A compiler error that names a file and
+            // a line and does not go there is a prettier way of reading a build log. The path is
+            // whatever the compiler wrote -- absolute for most toolchains, relative to the build
+            // directory for some -- and the editor command resolves it against the language's
+            // source directory and the project root.
+            if (panel.openLocation.isValid()) { openSourceLocation(panel.openLocation); }
+
+            if (panel.openLogRequested)
+            {
+                // The complete unparsed log, whatever the parser above made of it. Through the
+                // same editor the error rows use: a developer who has configured one wants the log
+                // where they read text, not in whatever the desktop guesses owns a `.log`.
+                StudioSourceLocation log;
+                log.file = build_.process().getLogPath();
+                openSourceLocation(log);
             }
         });
 
@@ -1891,7 +1942,8 @@ namespace CNA::Studio
             };
             build.run = [this] {
                 std::string problem;
-                if (build_.process().start(buildPanel_->planBuild(), &problem))
+                if (build_.process().start(
+                        buildPanel_->planBuild(StudioBuildKind::Incremental), &problem))
                 {
                     log_.append(LogSeverity::Info, LogSource::Build,
                                 "Build started; log at " + build_.process().getLogPath());
@@ -1968,6 +2020,32 @@ namespace CNA::Studio
                 open.run = [openInEditor] { openInEditor(true); };
                 shell.actions().add(std::move(open));
             }
+        }
+
+        // `plan.md` CORE-01. Its own command rather than a modifier on Build, for the reason the
+        // panel gives it its own button: they are pressed at different moments, and a modifier
+        // somebody forgets is set turns every build into a clean one.
+        if (const StudioAction* found = shell.actions().find("studio.build.clean"))
+        {
+            StudioAction clean = *found;
+            clean.isEnabled = [this] {
+                return context_.hasProject() && build_.process().getState() != BuildState::Running;
+            };
+            clean.run = [this] {
+                std::string problem;
+                if (build_.process().start(buildPanel_->planBuild(StudioBuildKind::Clean),
+                                           &problem))
+                {
+                    log_.append(LogSeverity::Info, LogSource::Build,
+                                "Clean build started; log at " + build_.process().getLogPath());
+                }
+                else
+                {
+                    log_.append(LogSeverity::Error, LogSource::Build,
+                                "Cannot start the build: " + problem);
+                }
+            };
+            shell.actions().add(std::move(clean));
         }
 
         // The one the status bar's Stop button invokes. A job the user can see running and cannot

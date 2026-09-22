@@ -6,6 +6,7 @@
 
 #include "CNA/Studio/ShellPanels/StudioBuildPanel.hpp"
 
+#include "CNA/Studio/Project/BuildDiagnostics.hpp"
 #include "CNA/Studio/Project/Project.hpp"
 #include "CNA/Studio/Project/RendererCatalog.hpp"
 #include "CNA/Studio/StudioContext.hpp"
@@ -13,6 +14,8 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
+#include <string>
 
 namespace CNA::Studio
 {
@@ -148,11 +151,11 @@ namespace CNA::Studio
     {
     }
 
-    StudioBuildJob StudioBuildPanel::planBuild() const
+    StudioBuildJob StudioBuildPanel::planBuild(StudioBuildKind kind) const
     {
         const StudioLanguageAdapter* language = context_.getLanguage();
         if (language == nullptr) { return StudioBuildJob{}; }
-        return language->planBuild(context_.getProject(), toolchain_);
+        return language->planBuild(context_.getProject(), toolchain_, kind);
     }
 
     UiRect StudioBuildPanel::labelledRow(StudioFrame& frame, UiRect& cursor,
@@ -585,6 +588,34 @@ namespace CNA::Studio
                                    theme.color(StudioColorRole::TextSecondary));
                 }
             }
+
+            // `plan.md` CORE-01: *displayed, selectable, and the same result when pasted into a
+            // shell*. The rows above are truncated to the panel's width, so reading a long
+            // configure line off the screen is not something a user can do -- and a command line
+            // they cannot take away is a command line they have to reconstruct. This hands over
+            // the untruncated, shell-quoted text of every step, in order.
+            {
+                UiRect copyRow = content.splitTop(rowHeight);
+                const UiRect copyButton =
+                    copyRow.splitLeft(std::min(studioLabelWidth(frame, "Copy Commands")
+                                                   + metricOf(theme, StudioMetric::SpacingLarge),
+                                               copyRow.width));
+                StudioButtonOptions options;
+                options.enabled = !job.steps.empty();
+                options.tooltip = "Put these commands on the clipboard, one per line.";
+                if (studioButton(frame, frame.ids().make("copyCommands"), copyButton,
+                                 "Copy Commands", options).activated)
+                {
+                    std::string text;
+                    for (const BuildStep& step : job.steps)
+                    {
+                        text += step.toCommandLine();
+                        text += '\n';
+                    }
+                    frame.setClipboardText(text);
+                }
+                content.splitTop(metricOf(theme, StudioMetric::SpacingSmall));
+            }
         }
 
         // --- The button --------------------------------------------------------------------------
@@ -619,11 +650,34 @@ namespace CNA::Studio
             StudioButtonOptions options;
             options.kind = StudioButtonKind::Accent;
             options.enabled = problem.empty() && validation.isBuildable();
-            options.tooltip = "Build the project with its own CMake.";
+            options.tooltip = "Build what has changed, with the project's own CMake.";
             if (studioButton(frame, frame.ids().make("build"), button, "Build", options).activated)
             {
                 result.buildRequested = true;
+                result.buildKind = StudioBuildKind::Incremental;
             }
+
+            // `plan.md` CORE-01: two gestures, each doing what its name says. Its own button
+            // rather than a modifier on the one above, because they are pressed at different
+            // moments -- Build every few minutes, Clean Build when the build *tree* is the
+            // suspect -- and a checkbox people forget is set turns every build into a clean one.
+            const UiRect cleanButton = buttonRow.splitLeft(
+                std::min(studioLabelWidth(frame, "Clean Build")
+                             + metricOf(theme, StudioMetric::SpacingLarge),
+                         buttonRow.width));
+            buttonRow.splitLeft(metricOf(theme, StudioMetric::SpacingMedium));
+
+            StudioButtonOptions cleanOptions;
+            cleanOptions.enabled = options.enabled;
+            cleanOptions.tooltip =
+                "Discard this target's build outputs, then build. Its configure cache is kept.";
+            if (studioButton(frame, frame.ids().make("cleanBuild"), cleanButton, "Clean Build",
+                             cleanOptions).activated)
+            {
+                result.buildRequested = true;
+                result.buildKind = StudioBuildKind::Clean;
+            }
+
             if (state != BuildState::Idle && frame.isDrawPass())
             {
                 studioDrawText(frame, buttonRow, std::string{"Last build "} + toString(state),
@@ -633,18 +687,127 @@ namespace CNA::Studio
             }
         }
 
+        // --- What went wrong -----------------------------------------------------------------------
+        //
+        // `plan.md` CORE-01. A build that fails with nothing but *Build failed* is worse than no
+        // build button: it takes the operation a developer performs most and makes it less
+        // informative than the terminal they would otherwise have used. Each row names a file, a
+        // line and a message, and activating one opens that place in the editor `CORE-02`
+        // configured.
+        if (!build_.getLogPath().empty() && state != BuildState::Running)
+        {
+            const std::vector<std::string> scanned = build_.readLogTail(kDiagnosticScanLines);
+            std::string text;
+            for (const std::string& line : scanned) { text += line + "\n"; }
+
+            const BuildDiagnostics diagnostics = studioParseBuildDiagnostics(text);
+            result.errorsShown = diagnostics.entries.size();
+
+            if (!diagnostics.empty())
+            {
+                content.splitTop(metricOf(theme, StudioMetric::SpacingSmall));
+
+                if (frame.isDrawPass())
+                {
+                    const std::string heading =
+                        std::to_string(diagnostics.errorCount()) + " error"
+                        + (diagnostics.errorCount() == 1 ? "" : "s") + ", "
+                        + std::to_string(diagnostics.warningCount()) + " warning"
+                        + (diagnostics.warningCount() == 1 ? "" : "s");
+                    studioDrawText(frame, content.splitTop(lineHeight), heading,
+                                   StudioFontRole::Body,
+                                   theme.color(diagnostics.errorCount() > 0
+                                                   ? StudioColorRole::Error
+                                                   : StudioColorRole::TextPrimary));
+                }
+                else
+                {
+                    content.splitTop(lineHeight);
+                }
+
+                frame.ids().push("diagnostics");
+                const std::size_t shown =
+                    std::min(diagnostics.entries.size(), kDiagnosticRows);
+                for (std::size_t which = 0; which < shown; ++which)
+                {
+                    const BuildDiagnostic& entry = diagnostics.entries[which];
+                    const UiRect row = content.splitTop(lineHeight);
+
+                    const WidgetId id =
+                        frame.ids().makeIndex(static_cast<std::int64_t>(which));
+                    const StudioInteraction interaction = frame.interact(id, row, entry.line > 0);
+
+                    if (frame.isInputPass() && interaction.clicked && entry.line > 0)
+                    {
+                        result.openLocation.file = entry.file;
+                        result.openLocation.line = entry.line;
+                    }
+
+                    if (frame.isDrawPass())
+                    {
+                        if (interaction.hovered)
+                        {
+                            frame.drawList().fillRect(row,
+                                                      theme.color(StudioColorRole::RowHover));
+                        }
+                        studioDrawText(
+                            frame, row,
+                            studioTruncateText(frame, theme.font(StudioFontRole::Monospace),
+                                               entry.toRowText(), row.width),
+                            StudioFontRole::Monospace,
+                            theme.color(entry.severity == BuildDiagnosticSeverity::Error
+                                            ? StudioColorRole::Error
+                                            : StudioColorRole::Warning));
+                    }
+                }
+                frame.ids().pop();
+
+                if (diagnostics.entries.size() > shown && frame.isDrawPass())
+                {
+                    // Said rather than silently dropped. A list that stops at eight without saying
+                    // so reads as a build with eight problems.
+                    studioDrawText(frame, content.splitTop(lineHeight),
+                                   "and " + std::to_string(diagnostics.entries.size() - shown)
+                                       + " more in the log",
+                                   StudioFontRole::BodySmall,
+                                   theme.color(StudioColorRole::TextSecondary));
+                }
+                else if (diagnostics.entries.size() > shown)
+                {
+                    content.splitTop(lineHeight);
+                }
+            }
+        }
+
         // --- The log tail ------------------------------------------------------------------------
         if (!build_.getLogPath().empty())
         {
+            // `plan.md` CORE-01: the complete unparsed log is always reachable, whatever the
+            // parser above made of it. The path was already shown and a path is not reachable --
+            // it is something to retype. This opens the file itself.
+            content.splitTop(metricOf(theme, StudioMetric::SpacingSmall));
+            UiRect logRow = content.splitTop(rowHeight);
+            const UiRect logButton = logRow.splitLeft(
+                std::min(studioLabelWidth(frame, "Open Build Log")
+                             + metricOf(theme, StudioMetric::SpacingLarge),
+                         logRow.width));
+            logRow.splitLeft(metricOf(theme, StudioMetric::SpacingMedium));
+
+            StudioButtonOptions logOptions;
+            logOptions.tooltip = "Open the whole build log, exactly as the build wrote it.";
+            if (studioButton(frame, frame.ids().make("openLog"), logButton, "Open Build Log",
+                             logOptions).activated)
+            {
+                result.openLogRequested = true;
+            }
+
             if (frame.isDrawPass())
             {
-                studioDrawText(frame, content.splitTop(lineHeight), "Log: " + build_.getLogPath(),
+                studioDrawText(frame, logRow,
+                               studioTruncateText(frame, theme.font(StudioFontRole::BodySmall),
+                                                  build_.getLogPath(), logRow.width),
                                StudioFontRole::BodySmall,
                                theme.color(StudioColorRole::TextSecondary));
-            }
-            else
-            {
-                content.splitTop(lineHeight);
             }
 
             // A tail, not the whole file: a failing build can produce megabytes, and the last

@@ -43,6 +43,16 @@ namespace CNA::Studio
         return line;
     }
 
+    const char* toString(StudioBuildKind kind)
+    {
+        switch (kind)
+        {
+            case StudioBuildKind::Incremental: return "incremental";
+            case StudioBuildKind::Clean: return "clean";
+        }
+        return "incremental";
+    }
+
     const char* toString(BuildState state)
     {
         switch (state)

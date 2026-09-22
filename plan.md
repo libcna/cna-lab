@@ -75,14 +75,14 @@ legs.
 
 ## The active roadmap
 
-**3 of 11 active deliverables complete.**
+**4 of 11 active deliverables complete.**
 
 Estimates are Opus 5 engineering hours at this repository's working standard — implementation, the
 test its acceptance names, and the documentation it changes.
 
 | Id | Deliverable | Status | Est | Traces |
 |----|-------------|:------:|----:|--------|
-| `CORE-01` | Build the project, and understand the failure | ⬜ | 6 | `STUDIO-17009`, `STUDIO-17010`, `STUDIO-17011`, `STUDIO-17012`, `STUDIO-15012` |
+| `CORE-01` | Build the project, and understand the failure | ✅ | 6 | `STUDIO-17009`, `STUDIO-17010`, `STUDIO-17011`, `STUDIO-17012`, `STUDIO-15012` |
 | `CORE-02` | Hand the developer back to their IDE | ✅ | 2 | `STUDIO-15010` |
 | `CORE-03` | The viewport shows what is selected | ⬜ | 2 | `STUDIO-35053` |
 | `CORE-04` | The Details panel reads as a property grid | ⬜ | 2 | `STUDIO-35033` |
@@ -127,6 +127,16 @@ that fails with nothing but *Build failed* is worse than no build button.
 
 **Not included.** Feature profiles (`STUDIO-17007`) and combination filtering (`STUDIO-17008`);
 cooking, packaging and export; build timing; any generated build system Studio would own.
+
+**Done.**
+
+| Acceptance | How | Evidence |
+|------------|-----|----------|
+| Every command displayed, selectable, and the same pasted into a shell | The rows in the panel are truncated to its width, so a `Copy Commands` button hands over every step untruncated and shell-quoted | `TheCommandsCanBeTakenAwayAndPastedIntoAShell` |
+| Clean and incremental are separate gestures | Two buttons and two commands, `Build` and `Clean Build`; a clean job runs the project's own `clean` target *between* the configure and the build, so it works on a build tree nobody has generated yet | `CleanAndIncrementalAreSeparateGesturesAndEachDoesWhatItsNameSays` |
+| A compiler error is a row naming file, line and message, and activating it opens that place | `BuildDiagnostics.hpp` parses GCC/Clang, MSVC and CMake shapes out of the log; the rows go through `CORE-02`'s editor command | `BuildDiagnosticTests.cpp` (7 cases, fixtures recorded from real output); `ACompilerErrorBecomesARowThatOpensTheFileAtTheLine` |
+| The complete unparsed log is always reachable | `Open Build Log` opens the file itself, in the same editor, whatever the parser recognised — which is allowed to be nothing | `TheWholeUnparsedLogIsReachableWhateverTheParserMadeOfIt` |
+| A tri-state CNA option is tri-state in the profile | `StudioFeatureState` is `Off`/`Auto`/`On`; the stop-gap that spelled *on* as `AUTO` is retired, and a project file written before it still builds exactly as it did | `ATriStateOptionCanSayOffAutoOrOnAndEachReachesCMakeUnchanged`, `AProjectFileWrittenBeforeTheTriStateStillBuildsTheWayItDid` |
 
 ### `CORE-02` — Hand the developer back to their IDE
 

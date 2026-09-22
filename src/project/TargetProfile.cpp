@@ -196,10 +196,10 @@ namespace CNA::Studio
             {"net", "CNA_ENABLE_NET", "Networking",
              "ENet-based networking. Off by default; a single-player game needs none of it.", false},
             {"video", "CNA_ENABLE_VIDEO", "Video playback",
-             "FFmpeg-backed video, used when the build machine has FFmpeg and quietly left out when "
-             "it does not. A project that must have it should set CNA_ENABLE_VIDEO=ON itself, which "
-             "turns a missing FFmpeg into a failed configure rather than a game without video.",
-             true, "AUTO"},
+             "FFmpeg-backed video. Automatic uses it where the build machine has FFmpeg and leaves "
+             "it out where it does not; On requires it, and turns a missing FFmpeg into a failed "
+             "configure rather than a game without video.",
+             true, /*triState=*/true, StudioFeatureState::Auto},
             {"draco", "CNA_ENABLE_DRACO", "Draco mesh compression",
              "Compressed glTF meshes. Off unless the project's content actually uses them.", false},
             {"devices", "CNA_DEVICES", "Device services",
@@ -222,23 +222,127 @@ namespace CNA::Studio
         return nullptr;
     }
 
+    std::string_view studioFeatureStateName(StudioFeatureState state)
+    {
+        switch (state)
+        {
+            case StudioFeatureState::Off: return "off";
+            case StudioFeatureState::Auto: return "auto";
+            case StudioFeatureState::On: return "on";
+        }
+        return "off";
+    }
+
+    bool parseStudioFeatureState(std::string_view name, StudioFeatureState& out)
+    {
+        const std::string key = lowered(name);
+        if (key == "off") { out = StudioFeatureState::Off; return true; }
+        if (key == "auto") { out = StudioFeatureState::Auto; return true; }
+        if (key == "on") { out = StudioFeatureState::On; return true; }
+        return false;
+    }
+
+    namespace
+    {
+        /**
+         * @brief Splits a `features` entry into its name and its state.
+         *
+         * The bare form -- `"video"` rather than `"video=auto"` -- is every project file written
+         * before `CORE-01`, and for a tri-state option it means that option's default state, not
+         * `On`. That is not a quirk: under the stop-gap this replaces, *on* was spelled `AUTO` on
+         * the command line, so a file saying `"video"` has always produced `-DCNA_ENABLE_VIDEO=AUTO`
+         * and reading it as `On` now would make every existing project require FFmpeg to build.
+         * The behaviour of an old file is preserved exactly; what is new is that a project can
+         * now say `"video=on"` and mean it.
+         */
+        std::pair<std::string_view, StudioFeatureState> readFeatureEntry(std::string_view entry)
+        {
+            const std::size_t equals = entry.find('=');
+            if (equals != std::string_view::npos)
+            {
+                StudioFeatureState state = StudioFeatureState::On;
+                (void)parseStudioFeatureState(entry.substr(equals + 1), state);
+                return {entry.substr(0, equals), state};
+            }
+
+            const StudioFeatureOption* option = findStudioFeature(entry);
+            if (option != nullptr && option->triState) { return {entry, option->defaultState}; }
+            return {entry, StudioFeatureState::On};
+        }
+
+        /**
+         * @brief The entry a feature at @p state is written as, or empty for off.
+         *
+         * A tri-state option always writes its state explicitly, even for `On`, because the bare
+         * form is reserved for the legacy meaning above -- writing `"video"` for `On` would be a
+         * round trip that came back as `Auto`.
+         */
+        std::string writeFeatureEntry(std::string_view feature, StudioFeatureState state)
+        {
+            if (state == StudioFeatureState::Off) { return {}; }
+
+            const StudioFeatureOption* option = findStudioFeature(feature);
+            const bool explicitState = option != nullptr && option->triState;
+            if (state == StudioFeatureState::On && !explicitState) { return std::string{feature}; }
+            return std::string{feature} + "=" + std::string{studioFeatureStateName(state)};
+        }
+    }
+
     bool StudioTargetProfile::hasFeature(std::string_view feature) const
     {
-        return std::find(features.begin(), features.end(), feature) != features.end();
+        return featureState(feature) != StudioFeatureState::Off;
+    }
+
+    StudioFeatureState StudioTargetProfile::featureState(std::string_view feature) const
+    {
+        for (const std::string& entry : features)
+        {
+            const auto [name, state] = readFeatureEntry(entry);
+            if (name == feature) { return state; }
+        }
+        return StudioFeatureState::Off;
     }
 
     void StudioTargetProfile::setFeature(std::string_view feature, bool enabled)
     {
-        const auto found = std::find(features.begin(), features.end(), feature);
-        if (enabled)
+        if (!enabled)
         {
-            if (found == features.end()) { features.emplace_back(feature); }
-            // Sorted, so that two profiles with the same features serialize identically and a
-            // project file does not churn in version control because somebody toggled one twice.
-            std::sort(features.begin(), features.end());
+            setFeatureState(feature, StudioFeatureState::Off);
             return;
         }
+
+        // A checkbox saying "on" for a tri-state option means what the option says on is usually
+        // for -- `AUTO` for video -- rather than the state that fails a configure on a machine
+        // without FFmpeg. A caller that means the strict one calls setFeatureState.
+        const StudioFeatureOption* option = findStudioFeature(feature);
+        setFeatureState(feature, (option != nullptr && option->triState) ? option->defaultState
+                                                                        : StudioFeatureState::On);
+    }
+
+    void StudioTargetProfile::setFeatureState(std::string_view feature, StudioFeatureState state)
+    {
+        // `Auto` on a boolean option has nothing to pass CNA. Storing it anyway would make the
+        // panel show a state the command line cannot express, which is the kind of disagreement
+        // that is only found by building.
+        const StudioFeatureOption* option = findStudioFeature(feature);
+        if (state == StudioFeatureState::Auto && (option == nullptr || !option->triState))
+        {
+            state = StudioFeatureState::On;
+        }
+
+        const auto found = std::find_if(features.begin(), features.end(),
+                                        [feature](const std::string& entry) {
+                                            return readFeatureEntry(entry).first == feature;
+                                        });
         if (found != features.end()) { features.erase(found); }
+
+        const std::string entry = writeFeatureEntry(feature, state);
+        if (entry.empty()) { return; }
+
+        features.push_back(entry);
+        // Sorted, so that two profiles with the same features serialize identically and a
+        // project file does not churn in version control because somebody toggled one twice.
+        std::sort(features.begin(), features.end());
     }
 
     StudioTargetProfile StudioTargetProfile::defaults()
@@ -256,7 +360,12 @@ namespace CNA::Studio
 
         for (const StudioFeatureOption& feature : getKnownStudioFeatures())
         {
-            if (feature.defaultEnabled) { profile.setFeature(feature.name, true); }
+            if (feature.defaultEnabled)
+            {
+                profile.setFeatureState(feature.name,
+                                        feature.triState ? feature.defaultState
+                                                         : StudioFeatureState::On);
+            }
         }
         return profile;
     }
@@ -379,13 +488,40 @@ namespace CNA::Studio
         }
 
         // --- Features ---------------------------------------------------------------------------
-        for (const std::string& feature : profile.features)
+        for (const std::string& entry : profile.features)
         {
-            if (findStudioFeature(feature) == nullptr)
+            const std::size_t equals = entry.find('=');
+            const std::string name = entry.substr(0, equals);
+            const StudioFeatureOption* option = findStudioFeature(name);
+
+            if (option == nullptr)
             {
                 add(validation, StudioProfileSeverity::Warning, "features",
-                    "This build of Studio does not know a feature called '" + feature
+                    "This build of Studio does not know a feature called '" + name
                     + "'; it will be passed to CMake unchanged.");
+                continue;
+            }
+
+            if (equals == std::string::npos) { continue; }
+
+            StudioFeatureState state = StudioFeatureState::On;
+            if (!parseStudioFeatureState(entry.substr(equals + 1), state))
+            {
+                add(validation, StudioProfileSeverity::Warning, "features",
+                    "'" + entry.substr(equals + 1) + "' is not a state '"
+                    + std::string{option->displayName} + "' can be in; it will be built as if the "
+                    "feature were on.");
+                continue;
+            }
+
+            // `plan.md` CORE-01. A boolean option has no third thing to pass CNA, so a file asking
+            // for one is saying something the command line cannot express -- said here rather than
+            // discovered when the configure passes AUTO to an option that rejects it.
+            if (state == StudioFeatureState::Auto && !option->triState)
+            {
+                add(validation, StudioProfileSeverity::Warning, "features",
+                    std::string{option->displayName} + " is on or off in CNA, with no automatic "
+                    "state; this target's 'auto' will be built as on.");
             }
         }
 
@@ -483,9 +619,24 @@ namespace CNA::Studio
             profile.features.clear();
             for (const JsonValue& feature : value["features"].getElements())
             {
-                const std::string name = feature.asString();
-                if (!name.empty()) { profile.setFeature(name, true); }
+                const std::string entry = feature.asString();
+                if (entry.empty()) { continue; }
+
+                // Through the entry reader rather than `setFeature(name, true)`, which would
+                // discard the state half of `"video=on"` and silently rewrite it as the default.
+                const auto [name, state] = readFeatureEntry(entry);
+
+                // An unknown feature keeps its entry verbatim: validation warns about it and the
+                // build passes it to CMake unchanged, and rewriting it here would be Studio
+                // editing a line of somebody's project file that it admits it does not understand.
+                if (findStudioFeature(name) == nullptr)
+                {
+                    profile.features.push_back(entry);
+                    continue;
+                }
+                profile.setFeatureState(name, state);
             }
+            std::sort(profile.features.begin(), profile.features.end());
         }
         return profile;
     }

@@ -149,7 +149,7 @@ namespace CNA::Studio
         return {};
     }
 
-    std::vector<BuildStep> planBuild(const BuildRequest& request)
+    std::vector<BuildStep> planBuild(const BuildRequest& request, StudioBuildKind kind)
     {
         if (!describeBuildProblem(request).empty()) { return {}; }
 
@@ -197,7 +197,29 @@ namespace CNA::Studio
         // developer's machine and produced a Debug binary on another's is the bug this avoids.
         build.arguments = {"--build", buildDirectory, "--config", configuration, "--parallel"};
 
-        return {std::move(configure), std::move(build)};
+        if (kind == StudioBuildKind::Incremental)
+        {
+            return {std::move(configure), std::move(build)};
+        }
+
+        // Clean is the project's own `clean` target, run between the configure and the build.
+        //
+        // *Between*, not before: the target only exists once the build tree has been generated, so
+        // a clean of a directory nobody has configured yet would fail on the first step of a
+        // first-ever build -- which is exactly when a user reaches for it after a failed one.
+        // Configuring first makes `Clean Build` work on an empty directory and on a stale one.
+        //
+        // Not a `remove_all` of the build directory. That is a destructive operation on a path the
+        // user can type, and one typo away from deleting a source tree; `--target clean` is the
+        // build system removing the outputs it made, which is what the word means to anyone who
+        // has used it. It also leaves the configure cache, so a clean build is a recompile rather
+        // than a reconfigure -- which is the difference between two minutes and twenty.
+        BuildStep clean;
+        clean.description = "Clean";
+        clean.executable = cmake;
+        clean.arguments = {"--build", buildDirectory, "--config", configuration, "--target", "clean"};
+
+        return {std::move(configure), std::move(clean), std::move(build)};
     }
 
     std::vector<std::string> studioTargetProfileCMakeArguments(const StudioTargetProfile& profile)
@@ -208,14 +230,20 @@ namespace CNA::Studio
         arguments.push_back("-DCNA_GRAPHICS_RENDERER=" + studioRendererCnaIdentity(profile.renderer));
         arguments.push_back("-DCNA_PLATFORM=" + studioPlatformCnaIdentity(profile.platform));
 
-        // Every known feature, on or off explicitly. Passing only the enabled ones would let a
-        // stale cache keep a feature the profile turned off -- which is the kind of build that
-        // works for whoever configured it and for nobody else.
+        // Every known feature, in the state the target names it. Passing only the enabled ones
+        // would let a stale cache keep a feature the profile turned off -- which is the kind of
+        // build that works for whoever configured it and for nobody else.
+        //
+        // `plan.md` CORE-01: the value is the state, not a per-feature spelling of the word "on".
+        // A tri-state option gets OFF, AUTO or ON as the target asked for; a boolean one never
+        // sees AUTO, because `setFeatureState` refuses to store it.
         for (const StudioFeatureOption& feature : getKnownStudioFeatures())
         {
-            arguments.push_back("-D" + std::string{feature.cnaOption} + "="
-                                + std::string{profile.hasFeature(feature.name) ? feature.enabledValue
-                                                                              : std::string_view{"OFF"}});
+            const StudioFeatureState state = profile.featureState(feature.name);
+            const char* value = state == StudioFeatureState::Off ? "OFF"
+                              : state == StudioFeatureState::Auto ? "AUTO"
+                                                                  : "ON";
+            arguments.push_back("-D" + std::string{feature.cnaOption} + "=" + value);
         }
         return arguments;
     }

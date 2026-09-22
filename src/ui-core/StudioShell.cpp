@@ -217,7 +217,7 @@ namespace CNA::Studio
                       "studio.view.tool.erase", "studio.view.tool.pick",
                       "studio.view.tool.fill"}},
             {"Project", {}},
-            {"Build", {"studio.build.build", "studio.build.cancel", sep,
+            {"Build", {"studio.build.build", "studio.build.clean", "studio.build.cancel", sep,
                        "studio.build.package"}},
             {"Play", {"studio.play.play", "studio.play.pause", "studio.play.stop", sep,
                       "studio.play.step", "studio.play.restart",

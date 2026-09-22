@@ -103,6 +103,31 @@ namespace CNA::Studio
     [[nodiscard]] bool parseStudioBuildConfiguration(std::string_view name,
                                                      StudioBuildConfiguration& out);
 
+    /**
+     * @brief What a target says about an optional CNA subsystem.
+     *
+     * `plan.md` CORE-01 (`STUDIO-17012`). Studio's model was a boolean, and CNA's is not for every
+     * option: `CNA_ENABLE_VIDEO` takes `OFF`, `AUTO` or `ON`, and the three mean genuinely
+     * different things -- `ON` *requires* FFmpeg and fails the configure without it, `AUTO` uses
+     * FFmpeg where the build machine has it. A boolean cannot say "I would like video if this
+     * machine can do it", which is what almost every project means, and the stop-gap that mapped
+     * *on* to `AUTO` meant a project that genuinely required video had no way to say so.
+     */
+    enum class StudioFeatureState : std::uint8_t
+    {
+        /** @brief Compiled out. The option is passed as `OFF`. */
+        Off,
+        /** @brief Used where the build machine has it. Only for a tri-state option. */
+        Auto,
+        /** @brief Required. A build machine without it fails the configure, on purpose. */
+        On
+    };
+
+    /** @brief Returns the stable lower-case name of a state, as written to disk. */
+    [[nodiscard]] std::string_view studioFeatureStateName(StudioFeatureState state);
+    /** @brief Parses a state name, case-insensitively; returns false for an unknown one. */
+    [[nodiscard]] bool parseStudioFeatureState(std::string_view name, StudioFeatureState& out);
+
     /** @brief An optional CNA subsystem a target can compile in or leave out. */
     struct StudioFeatureOption
     {
@@ -118,19 +143,22 @@ namespace CNA::Studio
         bool defaultEnabled = false;
 
         /**
-         * @brief What "on" is spelled as in CNA's configure.
+         * @brief Whether this option takes `AUTO` as well as `OFF` and `ON`.
          *
-         * Usually `"ON"`, because most of CNA's switches are booleans. `CNA_ENABLE_VIDEO` is not:
-         * it takes `OFF`, `AUTO` or `ON`, where `ON` *requires* FFmpeg and fails the configure
-         * without it, and `AUTO` uses FFmpeg when the machine has it. Studio passing `ON` for a
-         * feature the project merely wants is how an exported game stopped building on a machine
-         * with no FFmpeg -- found by the export guard (`STUDIO-02051`), which is the whole reason
-         * that guard builds the exported project rather than only reading it.
+         * Most of CNA's switches are booleans. `CNA_ENABLE_VIDEO` is not, and the difference is
+         * not cosmetic: Studio passing `ON` for a feature the project merely *wants* is how an
+         * exported game stopped building on a machine with no FFmpeg, found by the export guard
+         * (`STUDIO-02051`) -- which is the whole reason that guard builds the exported project
+         * rather than only reading it.
          *
-         * Studio's model is still a boolean, so a project that requires video unconditionally has
-         * to say so by overriding `CNA_ENABLE_VIDEO` itself; `STUDIO-17012` is the tri-state.
+         * The fix for that was a stop-gap: *on* was spelled `AUTO`, so a project that genuinely
+         * required video could not say so at all. `CORE-01` retired it, and this flag is what is
+         * left -- which states of @ref StudioFeatureState this option accepts.
          */
-        std::string_view enabledValue = "ON";
+        bool triState = false;
+
+        /** @brief What a new project says about it when @ref defaultEnabled. */
+        StudioFeatureState defaultState = StudioFeatureState::On;
     };
 
     /** @brief Every feature a target profile can carry. */
@@ -167,22 +195,54 @@ namespace CNA::Studio
         /** @brief Build configuration. */
         StudioBuildConfiguration configuration = StudioBuildConfiguration::Release;
 
-        /** @brief Feature names that are on. Anything absent is off. */
+        /**
+         * @brief What this target says about each feature it does not leave at `Off`.
+         *
+         * Each entry is a feature name, optionally followed by `=` and a state: `"net"` is on,
+         * `"video=auto"` is automatic, and a name that is absent is off. The bare form means
+         * `On`, which keeps every existing project file readable and every boolean feature
+         * spelled the way it always was.
+         *
+         * A list rather than a map because it is what the file holds, and because
+         * @ref setFeatureState keeps it sorted so two targets saying the same thing serialize
+         * identically.
+         */
         std::vector<std::string> features;
 
         /**
-         * @brief Whether a feature is on.
+         * @brief Whether a feature is anything other than off.
          * @param feature Feature name.
-         * @return True when it is in @ref features.
+         * @return True for `On` and for `Auto`.
          */
         [[nodiscard]] bool hasFeature(std::string_view feature) const;
 
         /**
+         * @brief What this target says about a feature.
+         * @param feature Feature name.
+         * @return Its state, or `Off` when the target does not mention it.
+         */
+        [[nodiscard]] StudioFeatureState featureState(std::string_view feature) const;
+
+        /**
          * @brief Turns a feature on or off.
+         *
+         * `true` means @ref StudioFeatureOption::defaultState for a tri-state option and `On` for
+         * a boolean one, so a caller that only has a checkbox still produces the state a project
+         * usually wants rather than the one that fails a configure.
+         *
          * @param feature Feature name.
          * @param enabled Whether it should be on.
          */
         void setFeature(std::string_view feature, bool enabled);
+
+        /**
+         * @brief Sets exactly what this target says about a feature.
+         * @param feature Feature name.
+         * @param state The state. `Auto` on a boolean option is stored as `On`, because there is
+         *        no third thing to pass CNA and silently keeping an unpassable state would make
+         *        the panel and the command line disagree.
+         */
+        void setFeatureState(std::string_view feature, StudioFeatureState state);
 
         /** @brief Returns the default profile for a new project on the host system. */
         [[nodiscard]] static StudioTargetProfile defaults();

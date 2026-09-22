@@ -71,6 +71,25 @@ namespace CNA::Studio
         std::string description;
     };
 
+    /**
+     * @brief A place in the source a user asked to be taken to.
+     *
+     * `plan.md` CORE-01. Reported rather than opened, for the reason every other gesture in this
+     * panel is: launching a process is the binder's business, and a panel that spawned an IDE
+     * would be a panel that cannot be drawn in a test.
+     */
+    struct StudioSourceLocation
+    {
+        /** @brief The file, as the compiler named it. Empty means nothing was asked for. */
+        std::string file;
+
+        /** @brief 1-based line, or zero. */
+        int line = 0;
+
+        /** @brief Whether there is anything to open. */
+        [[nodiscard]] bool isValid() const { return !file.empty(); }
+    };
+
     /** @brief What the Build panel did this frame. */
     struct StudioBuildPanelResult
     {
@@ -84,8 +103,30 @@ namespace CNA::Studio
         /** @brief The user asked for a build. Input pass only. */
         bool buildRequested = false;
 
+        /**
+         * @brief Which build they asked for, when @ref buildRequested.
+         *
+         * Two buttons rather than a button and a checkbox: they are pressed at different moments
+         * and a modifier on the frequent one is a modifier people forget is set.
+         */
+        StudioBuildKind buildKind = StudioBuildKind::Incremental;
+
         /** @brief The user asked to stop the running build. Input pass only. */
         bool cancelRequested = false;
+
+        /**
+         * @brief A compiler error the user activated, for the external editor. Input pass only.
+         *
+         * `CORE-01`, resolved through `CORE-02`. A row that names a file and a line and does not
+         * go there is a prettier way of reading a build log.
+         */
+        StudioSourceLocation openLocation;
+
+        /** @brief The user asked to open the whole build log. Input pass only. */
+        bool openLogRequested = false;
+
+        /** @brief How many diagnostics the log's tail yielded, for a test and for the header. */
+        std::size_t errorsShown = 0;
 
         /** @brief How tall the content is, so the panel can be scrolled. */
         float contentHeight = 0.0f;
@@ -123,12 +164,28 @@ namespace CNA::Studio
          * presses the button; which commands those are is the language's answer, and a panel that
          * knew it would be a panel that had to be edited for every language Studio grows.
          *
+         * @param kind Incremental or clean.
          * @return The planned job, or one with no steps when there is no adapter or nothing to run.
          */
-        [[nodiscard]] StudioBuildJob planBuild() const;
+        [[nodiscard]] StudioBuildJob planBuild(
+            StudioBuildKind kind = StudioBuildKind::Incremental) const;
 
         /** @brief How many lines of the build log the panel shows. */
         static constexpr std::size_t kLogTailLines = 12;
+
+        /**
+         * @brief How much of the log is read looking for diagnostics.
+         *
+         * More than the tail, because the first error is what a developer wants and a failing
+         * build puts hundreds of lines after it -- CMake's summary, the linker's complaint, the
+         * generator's "build stopped". Bounded, because a log can be megabytes and this runs on a
+         * frame: the panel reads the end of the file, which is where a build that stopped left its
+         * reason.
+         */
+        static constexpr std::size_t kDiagnosticScanLines = 2000;
+
+        /** @brief How many diagnostic rows the panel lists at once. */
+        static constexpr std::size_t kDiagnosticRows = 8;
 
     private:
         /**

@@ -90,7 +90,8 @@ namespace CNA::Studio
             }
 
             [[nodiscard]] StudioBuildJob planBuild(
-                const Project& project, const StudioToolchainReport& toolchain) const override
+                const Project& project, const StudioToolchainReport& toolchain,
+                StudioBuildKind kind) const override
             {
                 const BuildRequest request = requestFor(project, toolchain);
 
@@ -99,7 +100,9 @@ namespace CNA::Studio
                                          ? getDefaultBuildDirectory(request)
                                          : request.buildDirectory;
                 job.description = request.targetPlatform + ", " + request.configuration;
-                job.steps = CNA::Studio::planBuild(request);
+                if (kind == StudioBuildKind::Clean) { job.description += ", clean"; }
+                job.kind = kind;
+                job.steps = CNA::Studio::planBuild(request, kind);
                 return job;
             }
 
