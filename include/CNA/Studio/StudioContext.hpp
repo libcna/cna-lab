@@ -171,12 +171,16 @@ namespace CNA::Studio
          * A failure to load the startup scene is reported but does not fail the open: a project
          * whose scene file is broken is exactly the project a user needs the editor for.
          *
+         * @param path The `.cnaproject` to open.
+         * @param problem Filled in with the reason when the open fails, so a caller can put it
+         *                somewhere the user is already looking rather than only in the log
+         *                (`plan.md` STUDIO-31008). Optional.
          * @return False only when the project file itself cannot be read.
          */
-        bool openProject(const std::string& path);
+        bool openProject(const std::string& path, std::string* problem = nullptr);
 
         /** @brief Loads a scene file into the context, clearing the undo history. */
-        bool openScene(const std::string& path);
+        bool openScene(const std::string& path, std::string* problem = nullptr);
 
         /** @brief Saves the open scene back to getScenePath(), or to @p path when supplied. */
         bool saveScene(const std::string& path = {});

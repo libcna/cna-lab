@@ -17,6 +17,11 @@ Three properties are maintained on purpose:
 Every format carries a `formatVersion`. A file from the future is **rejected with a clear message**
 rather than partially read; a file from the past is read and upgraded.
 
+A file that will not parse is refused with a **line, a column and that line's text** — not a byte
+offset (`STUDIO-31008`). These are documents people hand-edit and merge, so the message has to be
+one somebody can act on without counting bytes: a missing colon, a trailing comma or a smart quote
+a word processor put in should be recognisable from the message alone.
+
 ---
 
 ## `.cnaproject`

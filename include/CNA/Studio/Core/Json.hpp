@@ -122,6 +122,31 @@ namespace CNA::Studio
         std::size_t errorOffset = 0;
     };
 
+    /**
+     * @brief Where a byte offset falls in a text, in the terms a text editor uses.
+     *
+     * `plan.md` STUDIO-31008. A parse failure carries a byte offset, which is the right thing for
+     * the parser to produce and the wrong thing to show a person: nobody can find "offset 48213" in
+     * a file without counting, and the tool that reported it is the one that could have counted.
+     */
+    struct JsonTextLocation
+    {
+        /** @brief 1-based line number. */
+        std::size_t line = 1;
+
+        /**
+         * @brief 1-based column, counted in **bytes**.
+         *
+         * Bytes rather than characters, stated rather than glossed: a line with a multi-byte
+         * character before the fault will read one column further along than some editors show. The
+         * line number is what finds the fault and it is exact; the column narrows it.
+         */
+        std::size_t column = 1;
+
+        /** @brief That line's text, without its terminator. */
+        std::string lineText;
+    };
+
     namespace Json
     {
         /**
@@ -142,5 +167,38 @@ namespace CNA::Studio
          *        every editor-written file uses, because these files are meant to be diffed.
          */
         std::string write(const JsonValue& value, bool pretty = true);
+
+        /**
+         * @brief Turns a byte offset into a line, a column and that line's text.
+         *
+         * Counts `\n`, and treats a `\r\n` pair as one terminator, so a file written on Windows
+         * does not report a trailing carriage return as part of every line.
+         *
+         * @param text The document the offset is into.
+         * @param offset A byte offset. One past the end is clamped to the end, which is where a
+         *               "unexpected end of input" failure points.
+         * @return Where that is.
+         */
+        [[nodiscard]] JsonTextLocation locate(std::string_view text, std::size_t offset);
+
+        /**
+         * @brief Describes a parse failure so a person can go and fix the file.
+         *
+         * The difference between a diagnostic and a refusal (`plan.md` STUDIO-31008): *"a tool that
+         * refuses to open a slightly broken file is one you cannot use to fix a broken file."* The
+         * parser's own message says what was wrong; this says **where**, and shows the line, so the
+         * usual case — a trailing comma, a missing brace, a smart quote a word processor put in —
+         * is recognisable without opening the file at all.
+         *
+         * One line, because the surfaces this reaches are a log row and a status bar. A long line is
+         * trimmed around the fault rather than wrapped, with an ellipsis on whichever side was cut.
+         *
+         * @param text The document that failed to parse.
+         * @param parsed The failure. A successful result yields an empty string, since there is
+         *               nothing to describe.
+         * @return Something like `line 12, column 5: expected ':' — near: "name" "Level"`.
+         */
+        [[nodiscard]] std::string describeFailure(std::string_view text,
+                                                  const JsonParseResult& parsed);
     }
 }

@@ -171,3 +171,71 @@ CNA_STUDIO_TEST(AProjectThatWillNotOpenStopsBeforeTheSceneOverride)
 
     std::filesystem::remove_all(directory);
 }
+
+/**
+ * @brief **A startup failure carries the reason, not only the fact.**
+ *
+ * `plan.md` STUDIO-31008. `openStudioStartupDocument`'s own comment says this sentence exists *"for
+ * the places a log sink does not reach — standard error, and the status bar"*, and the sentence was
+ * `"Could not open 'X'."` — which on standard error and on a status bar is a refusal a user cannot
+ * act on. The context had already worked out which line of the file was wrong and thrown it away at
+ * the boundary.
+ *
+ * Both halves: a broken project stops the start-up and says where, and a broken scene leaves the
+ * project open and says where.
+ */
+CNA_STUDIO_TEST(AStartupFailureSaysWhichLineOfTheFileIsWrong)
+{
+    const std::filesystem::path directory = makeScratchDirectory("startup-diagnostic");
+
+    // A missing colon on line 4, which is the shape of a hand edit that went wrong.
+    const std::string broken =
+        "{\n"
+        "  \"formatVersion\": 1,\n"
+        "  \"name\": \"Game\",\n"
+        "  \"kind\" \"CnaNative\"\n"
+        "}\n";
+
+    const std::filesystem::path project = directory / "Broken.cnaproject";
+    writeFile(project, broken);
+
+    {
+        StudioContext context;
+        const StudioStartupDocument opened =
+            openStudioStartupDocument(context, project.generic_string(), std::string{});
+
+        CNA_STUDIO_EXPECT(!opened.succeeded());
+        CNA_STUDIO_EXPECT(!opened.projectOpened);
+        CNA_STUDIO_EXPECT(opened.error.find("Broken.cnaproject") != std::string::npos);
+        CNA_STUDIO_EXPECT(opened.error.find("line 4") != std::string::npos);
+        CNA_STUDIO_EXPECT(opened.error.find("\"kind\"") != std::string::npos);
+    }
+
+    // And a scene that will not parse, behind a project that opens.
+    {
+        const std::filesystem::path good = writeProject(directory);
+        const std::filesystem::path scene = directory / "Broken.cnascene";
+        writeFile(scene, broken);
+
+        StudioContext context;
+        const StudioStartupDocument opened =
+            openStudioStartupDocument(context, good.generic_string(), scene.generic_string());
+
+        CNA_STUDIO_EXPECT(opened.projectOpened);
+        CNA_STUDIO_EXPECT(!opened.sceneOpened);
+        CNA_STUDIO_EXPECT(opened.error.find("line 4") != std::string::npos);
+    }
+
+    // A file that is simply not there still reads as one sentence rather than one with an empty
+    // reason bolted onto it -- the reason is appended only when there is one.
+    {
+        StudioContext context;
+        const StudioStartupDocument opened = openStudioStartupDocument(
+            context, (directory / "Gone.cnaproject").generic_string(), std::string{});
+        CNA_STUDIO_EXPECT(!opened.projectOpened);
+        CNA_STUDIO_EXPECT(opened.error.find("Gone.cnaproject") != std::string::npos);
+        CNA_STUDIO_EXPECT(opened.error.find("  ") == std::string::npos);
+    }
+
+    std::filesystem::remove_all(directory);
+}

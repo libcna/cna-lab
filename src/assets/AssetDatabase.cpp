@@ -850,7 +850,8 @@ namespace CNA::Studio
                     isNew = false;
 
                     result.warnings.push_back("sidecar '" + relativePath + kSidecarExtension
-                                              + "' is malformed (" + parsed.errorMessage
+                                              + "' is malformed ("
+                                              + Json::describeFailure(sidecarText, parsed)
                                               + "); its id was recovered from the file and its"
                                                 " settings were lost");
                 }
@@ -860,7 +861,8 @@ namespace CNA::Studio
                     // reported as routine: every scene and prefab pointing at the old id now
                     // points at nothing.
                     result.warnings.push_back("sidecar '" + relativePath + kSidecarExtension
-                                              + "' is malformed (" + parsed.errorMessage
+                                              + "' is malformed ("
+                                              + Json::describeFailure(sidecarText, parsed)
                                               + ") and holds no readable id; a new id was assigned,"
                                                 " so existing references to this asset will not"
                                                 " resolve");

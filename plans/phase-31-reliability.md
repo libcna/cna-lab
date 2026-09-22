@@ -6,7 +6,7 @@
 
 **Exit criteria.** Interrupted saves, corrupt files and crashes cost a user nothing they cannot recover, and nothing is repaired silently.
 
-**Progress:** 7 of 13 complete `██████░░░░░░`
+**Progress:** 8 of 13 complete `███████░░░░░`
 
 | Id | Task | Status | Depends on |
 |----|------|:------:|------------|
@@ -17,7 +17,7 @@
 | `STUDIO-31005` | Format migration chain runs on every load | ✅ | — |
 | `STUDIO-31006` | Dirty-state tracking | ✅ | `STUDIO-31001` |
 | `STUDIO-31007` | Crash isolation from the game process | ⬜ | `STUDIO-16003` |
-| `STUDIO-31008` | Malformed project and scene diagnostics that permit repair | ⬜ | — |
+| `STUDIO-31008` | Malformed project and scene diagnostics that permit repair | ✅ | — |
 | `STUDIO-31009` | Unknown plugin components preserved through save and load | ✅ | — |
 | `STUDIO-31010` | Tests for interrupted saves and partial files | ✅ | `STUDIO-31003` |
 | `STUDIO-31011` | Nothing is silently repaired; every change to user data is reported | ⬜ | `STUDIO-31008` |
@@ -408,7 +408,75 @@ properties rather than one).
 
 ### `STUDIO-31008` — Malformed project and scene diagnostics that permit repair
 
-**Acceptance.** A tool that refuses to open a slightly broken file is one you cannot use to fix a broken file
+**Acceptance.** A tool that refuses to open a slightly broken file is one you cannot use to fix a
+broken file.
+
+**✅ Done.** The refusals were already right — `STUDIO-31010` probed every authored loader and found
+each one refusing a partial file cleanly and leaving the caller's document untouched. What was wrong
+was that a refusal is not a diagnostic.
+
+**A byte offset is not a location.** Three loaders reported `'<path>': <message> at offset 48213`.
+That is the right thing for the parser to produce and the wrong thing to show a person: nobody can
+find offset 48213 in a file without counting, and the tool that produced the number is the one that
+could have counted. `Json::locate` turns an offset into a line, a column and **that line's text**;
+`Json::describeFailure` puts them together in one row, so the usual case — a missing colon, a
+trailing comma, a smart quote a word processor put in — is recognisable without opening the file at
+all. Scenes, prefabs, projects and `.cnaasset` sidecars all report it now.
+
+Four things the description has to survive, because it runs on files that are *already* broken: an
+offset one past the end (where "unexpected end of input" points, and the most common failure a
+truncated file produces); a CRLF file, whose carriage return belongs to the terminator and not to
+the excerpt; a four-thousand-character line, trimmed around the fault rather than wrapped, because
+this reaches a log row and a status bar; and an unprintable byte, which is often the fault itself
+and shows as a placeholder rather than vanishing into the message.
+
+**The column is counted in bytes**, and the header says so rather than glossing it: a line with a
+multi-byte character before the fault reads one column further along than some editors show. The
+line number is what finds the fault and it is exact.
+
+**And the reason was being thrown away at three boundaries.** Each is the same shape — a layer that
+had the answer, replacing it with the fact:
+
+- `StudioShellPanels::openProjectFromHub` logged `"'<path>' could not be opened."` one line after
+  `StudioContext::openProject` had already worked out and logged exactly what was wrong.
+- `openStudioStartupDocument` set `"Could not open '<path>'."`, with a comment saying that sentence
+  exists *"for the places a log sink does not reach — standard error, and the status bar"* — which
+  is precisely where a bare refusal leaves a user with nothing to act on.
+- **`StudioStatusModel::problem` had no setter anywhere.** The field, and the code in `publishStatus`
+  that clears it when a project opens, have existed since the bar did, and nothing ever assigned it.
+  So the one surface a user is guaranteed to be looking at said "No project open" — true and useless
+  — while the reason sat in a panel they may not have had open. That is the second dead affordance
+  in two rows, after `setPanelModified` in `STUDIO-31006`.
+
+`openProject` and `openScene` now hand the reason back through an optional out-param as well as
+logging it, and all three callers use it.
+
+**Verification.** `tests/CoreTests.cpp` — `AParseFailureIsDescribedWhereAPersonCanFindIt` (the line,
+the column, the excerpt, and that the parser's own words are *kept*: this says where, it does not
+replace what) and `ALocationSurvivesTheEdgesOfTheTextItIsGiven` (first byte, past the end, empty
+document, CRLF, a 4 000-character line, an unprintable byte). `tests/PartialFileTests.cpp` —
+`ARefusedDocumentSaysWhichLineIsWrong` across scene, prefab and project, which also asserts the path
+is still in the message (a line number without a file is useless in a project with forty scenes) and
+that "offset" is *gone* rather than sitting beside the new text — and
+`AMalformedSidecarsWarningSaysWhichLineIsWrong`. `tests/StudioStartupDocumentTests.cpp` —
+`AStartupFailureSaysWhichLineOfTheFileIsWrong`, both halves, plus a missing file, which must read as
+one sentence rather than one with an empty reason bolted on.
+
+Checked by causing each: `locate` counting the wrong terminator (twelve assertions across four
+files), and the startup path dropping the reason again.
+
+**One piece of wiring this does not cover with a case, stated rather than implied.** The status-bar
+assignment in `openProjectFromHub` is reached only by pressing Open on a rendered Project Hub, and
+no harness drives that panel through the shell yet. The reason reaching that function *is* covered,
+by the `openProject` out-param; what is not is the three lines that put it on the bar.
+
+**What this row is not.** It does not repair a malformed document — a truncated scene is refused,
+not reconstructed, because the missing entities are not in the bytes. The one thing that *is*
+recovered is a sidecar's id, which `STUDIO-31010` did and which works only because the id is written
+early enough to survive. Nor does it fix the material and environment-map inspectors, which say
+*"written by a newer Studio, or is not valid JSON"* — two states a user needs to tell apart, and
+`MaterialLoadProblem` gives them one value. That is a narrower gap and a change to a public enum;
+recorded here rather than folded in.
 
 ### `STUDIO-31020` — Deterministic, version-control-friendly output throughout
 

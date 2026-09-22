@@ -194,11 +194,13 @@ namespace CNA::Studio
         std::ostringstream buffer;
         buffer << stream.rdbuf();
 
-        const JsonParseResult parsed = Json::parse(buffer.str());
+        const std::string text = buffer.str();
+        const JsonParseResult parsed = Json::parse(text);
         if (!parsed.succeeded)
         {
-            result.errorMessage = "'" + path + "': " + parsed.errorMessage + " at offset "
-                                + std::to_string(parsed.errorOffset);
+            // Where, in the terms a text editor uses (`plan.md` STUDIO-31008). See
+            // `SceneDocument::loadFromFile`.
+            result.errorMessage = "'" + path + "': " + Json::describeFailure(text, parsed);
             return result;
         }
 

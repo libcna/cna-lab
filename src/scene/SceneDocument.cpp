@@ -414,8 +414,11 @@ namespace CNA::Studio
         const JsonParseResult parsed = Json::parse(text);
         if (!parsed.succeeded)
         {
-            result.errorMessage = "'" + path + "': " + parsed.errorMessage + " at offset "
-                                + std::to_string(parsed.errorOffset);
+            // Where, in the terms a text editor uses, plus the line itself (`plan.md`
+            // STUDIO-31008). A byte offset is the right thing for the parser to produce and the
+            // wrong thing to show a person, and the tool that reported it is the one that could
+            // have counted.
+            result.errorMessage = "'" + path + "': " + Json::describeFailure(text, parsed);
             return result;
         }
 

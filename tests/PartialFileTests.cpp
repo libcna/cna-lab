@@ -343,3 +343,78 @@ CNA_STUDIO_TEST(ASidecarWithNoReadableIdSaysTheReferencesAreBroken)
     CNA_STUDIO_EXPECT(again.succeeded);
     CNA_STUDIO_EXPECT(said(again.warnings, "no readable id"));
 }
+
+/**
+ * @brief Every authored loader says **where** a file is broken, not just that it is.
+ *
+ * `plan.md` STUDIO-31008: *"a tool that refuses to open a slightly broken file is one you cannot
+ * use to fix a broken file."* `EveryAuthoredDocumentRefusesAPartialFile` above pins the refusal;
+ * this pins that the refusal is usable. A message reading `"unexpected token at offset 48213"` is a
+ * refusal with a number attached — the user has to go and count bytes to act on it, and the tool
+ * that produced the number is the one that could have counted for them.
+ */
+CNA_STUDIO_TEST(ARefusedDocumentSaysWhichLineIsWrong)
+{
+    const ScopedDirectory directory{"where"};
+
+    ComponentRegistry registry;
+    registerBuiltinComponents(registry);
+
+    // A missing colon on line 4, which is the shape of a hand edit that went wrong.
+    const std::string broken =
+        "{\n"
+        "  \"formatVersion\": 1,\n"
+        "  \"sceneId\": \"0cf45f27-2ecd-44a6-8c45-cd8d2122179f\",\n"
+        "  \"name\" \"Level01\",\n"
+        "  \"entities\": []\n"
+        "}\n";
+
+    directory.write("Level01.cnascene", broken);
+    SceneDocument scene;
+    const SceneLoadResult sceneLoaded =
+        scene.loadFromFile(directory.at("Level01.cnascene"), registry);
+    CNA_STUDIO_EXPECT(!sceneLoaded.succeeded);
+    CNA_STUDIO_EXPECT(sceneLoaded.errorMessage.find("line 4") != std::string::npos);
+    CNA_STUDIO_EXPECT(sceneLoaded.errorMessage.find("\"name\"") != std::string::npos);
+
+    // The path is still in it: a message naming a line but not a file is useless in a project with
+    // forty scenes.
+    CNA_STUDIO_EXPECT(sceneLoaded.errorMessage.find("Level01.cnascene") != std::string::npos);
+
+    // And no offset, which is the thing it replaced rather than something it was added beside.
+    CNA_STUDIO_EXPECT(sceneLoaded.errorMessage.find("offset") == std::string::npos);
+
+    directory.write("Enemy.cnaprefab", broken);
+    PrefabDocument prefab;
+    const PrefabLoadResult prefabLoaded =
+        prefab.loadFromFile(directory.at("Enemy.cnaprefab"), registry);
+    CNA_STUDIO_EXPECT(!prefabLoaded.succeeded);
+    CNA_STUDIO_EXPECT(prefabLoaded.errorMessage.find("line 4") != std::string::npos);
+
+    directory.write("Game.cnaproject", broken);
+    Project project;
+    const ProjectLoadResult projectLoaded = project.loadFromFile(directory.at("Game.cnaproject"));
+    CNA_STUDIO_EXPECT(!projectLoaded.succeeded);
+    CNA_STUDIO_EXPECT(projectLoaded.errorMessage.find("line 4") != std::string::npos);
+}
+
+/** @brief And so does the sidecar warning, which is the one an ordinary scan produces. */
+CNA_STUDIO_TEST(AMalformedSidecarsWarningSaysWhichLineIsWrong)
+{
+    const ScopedDirectory directory{"sidecar-where"};
+    directory.write("Assets/Crate.png", "not really a png");
+    directory.write("Assets/Crate.png.cnaasset",
+                    "{\n"
+                    "  \"formatVersion\": 1,\n"
+                    "  \"id\": \"5c1d8e34-0f2b-4a77-9c61-2b8e5f0a41d3\",\n"
+                    "  \"type\" \"Texture2D\"\n"
+                    "}\n");
+
+    AssetDatabase assets;
+    assets.setProjectRoot(directory.root().generic_string());
+    const AssetScanResult scanned = assets.scan("Assets");
+    CNA_STUDIO_EXPECT(scanned.succeeded);
+
+    CNA_STUDIO_EXPECT(said(scanned.warnings, "line 4"));
+    CNA_STUDIO_EXPECT(said(scanned.warnings, "id was recovered"));
+}

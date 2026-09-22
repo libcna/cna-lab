@@ -571,5 +571,90 @@ namespace CNA::Studio
             if (pretty) { out.push_back('\n'); }
             return out;
         }
+
+        JsonTextLocation locate(std::string_view text, std::size_t offset)
+        {
+            JsonTextLocation where;
+
+            // Clamped rather than refused. "Unexpected end of input" points one past the last byte,
+            // which is the most common failure a truncated file produces and would otherwise be the
+            // one offset this could not describe.
+            const std::size_t at = std::min(offset, text.size());
+
+            std::size_t lineStart = 0;
+            for (std::size_t i = 0; i < at; ++i)
+            {
+                if (text[i] == '\n')
+                {
+                    ++where.line;
+                    lineStart = i + 1;
+                }
+            }
+
+            where.column = at - lineStart + 1;
+
+            std::size_t lineEnd = text.find('\n', lineStart);
+            if (lineEnd == std::string_view::npos) { lineEnd = text.size(); }
+
+            // A `\r\n` pair is one terminator, so a file written on Windows does not report a
+            // trailing carriage return as part of every line.
+            if (lineEnd > lineStart && text[lineEnd - 1] == '\r') { --lineEnd; }
+
+            where.lineText = std::string{text.substr(lineStart, lineEnd - lineStart)};
+            return where;
+        }
+
+        std::string describeFailure(std::string_view text, const JsonParseResult& parsed)
+        {
+            if (parsed.succeeded) { return {}; }
+
+            const JsonTextLocation where = locate(text, parsed.errorOffset);
+
+            std::string message = "line " + std::to_string(where.line) + ", column "
+                                + std::to_string(where.column);
+            if (!parsed.errorMessage.empty()) { message += ": " + parsed.errorMessage; }
+
+            // Tabs become spaces so the excerpt's own width does not depend on a tab stop nobody
+            // agreed on, and control characters become a visible placeholder -- an unprintable byte
+            // *is* often the fault, and one that vanished into the message would be the one thing
+            // the excerpt failed to show.
+            std::string excerpt;
+            excerpt.reserve(where.lineText.size());
+            for (const char character : where.lineText)
+            {
+                const auto byte = static_cast<unsigned char>(character);
+                excerpt.push_back(character == '\t'                      ? ' '
+                                  : (byte < 0x20 || byte == 0x7F) ? '?'
+                                                                  : character);
+            }
+
+            // Trimmed around the fault rather than wrapped: this reaches a log row and a status
+            // bar, and a message that becomes six lines is one that pushes everything else off
+            // the surface it arrived on.
+            constexpr std::size_t kBefore = 32;
+            constexpr std::size_t kAfter = 48;
+
+            const std::size_t fault = where.column > 0 ? where.column - 1 : 0;
+            const std::size_t from = fault > kBefore ? fault - kBefore : 0;
+            const std::size_t to = std::min(excerpt.size(), fault + kAfter);
+
+            if (from < to)
+            {
+                std::string window = excerpt.substr(from, to - from);
+
+                // Leading and trailing blanks carry nothing and cost the room the fault needs.
+                const std::size_t first = window.find_first_not_of(' ');
+                if (first == std::string::npos) { window.clear(); }
+                else { window = window.substr(first, window.find_last_not_of(' ') - first + 1); }
+
+                if (!window.empty())
+                {
+                    message += " -- near: " + std::string{from > 0 ? "..." : ""} + window
+                             + std::string{to < excerpt.size() ? "..." : ""};
+                }
+            }
+
+            return message;
+        }
     }
 }

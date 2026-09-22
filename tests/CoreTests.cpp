@@ -92,6 +92,94 @@ CNA_STUDIO_TEST(JsonReportsFailureRatherThanThrowing)
     CNA_STUDIO_EXPECT(!parsed.errorMessage.empty());
 }
 
+/**
+ * @brief **A parse failure says where, in the terms a text editor uses.**
+ *
+ * `plan.md` STUDIO-31008: *"a tool that refuses to open a slightly broken file is one you cannot
+ * use to fix a broken file."* Three loaders reported `"<message> at offset 48213"`, which is the
+ * right thing for the parser to produce and the wrong thing to show a person — nobody can find a
+ * byte offset in a file without counting, and the tool that reported it is the one that could have
+ * counted.
+ */
+CNA_STUDIO_TEST(AParseFailureIsDescribedWhereAPersonCanFindIt)
+{
+    const std::string document =
+        "{\n"
+        "  \"formatVersion\": 1,\n"
+        "  \"name\" \"Level01\",\n"
+        "  \"entities\": []\n"
+        "}\n";
+
+    const JsonParseResult parsed = Json::parse(document);
+    CNA_STUDIO_EXPECT(!parsed.succeeded);
+
+    const JsonTextLocation where = Json::locate(document, parsed.errorOffset);
+    CNA_STUDIO_EXPECT_EQ(where.line, std::size_t{3});
+    CNA_STUDIO_EXPECT_EQ(where.lineText, std::string{"  \"name\" \"Level01\","});
+
+    const std::string described = Json::describeFailure(document, parsed);
+    CNA_STUDIO_EXPECT(described.find("line 3") != std::string::npos);
+    CNA_STUDIO_EXPECT(described.find("column") != std::string::npos);
+
+    // The line itself, so the usual case -- a missing colon, a trailing comma, a smart quote a
+    // word processor put in -- is recognisable without opening the file at all.
+    CNA_STUDIO_EXPECT(described.find("\"name\"") != std::string::npos);
+
+    // And the parser's own words are kept: this says *where*, it does not replace *what*.
+    CNA_STUDIO_EXPECT(described.find(parsed.errorMessage) != std::string::npos);
+
+    // A document that parsed has nothing to describe.
+    CNA_STUDIO_EXPECT(Json::describeFailure("{}", Json::parse("{}")).empty());
+}
+
+/** @brief The awkward inputs a location has to survive, since it runs on files that are broken. */
+CNA_STUDIO_TEST(ALocationSurvivesTheEdgesOfTheTextItIsGiven)
+{
+    // The first byte is line 1, column 1 -- not line 0 and not column 0, because no editor counts
+    // that way and a message a user cannot map onto their editor is a message that wastes a trip.
+    const JsonTextLocation start = Json::locate("abc", 0);
+    CNA_STUDIO_EXPECT_EQ(start.line, std::size_t{1});
+    CNA_STUDIO_EXPECT_EQ(start.column, std::size_t{1});
+
+    // One past the end, which is exactly where "unexpected end of input" points -- the most common
+    // failure a truncated file produces, and the one offset that must not be refused.
+    const std::string truncated = "{\n  \"a\":";
+    const JsonParseResult cut = Json::parse(truncated);
+    CNA_STUDIO_EXPECT(!cut.succeeded);
+    const JsonTextLocation end = Json::locate(truncated, truncated.size() + 100);
+    CNA_STUDIO_EXPECT_EQ(end.line, std::size_t{2});
+    CNA_STUDIO_EXPECT(!Json::describeFailure(truncated, cut).empty());
+
+    // An empty document has a line 1 to point at.
+    CNA_STUDIO_EXPECT_EQ(Json::locate("", 0).line, std::size_t{1});
+    CNA_STUDIO_EXPECT(Json::locate("", 0).lineText.empty());
+
+    // CRLF: the carriage return is part of the terminator, not part of the line. A quoted excerpt
+    // ending in an invisible control character reads as the tool being confused.
+    const JsonTextLocation windows = Json::locate("one\r\ntwo\r\n", 6);
+    CNA_STUDIO_EXPECT_EQ(windows.line, std::size_t{2});
+    CNA_STUDIO_EXPECT_EQ(windows.lineText, std::string{"two"});
+
+    // A very long line is trimmed around the fault rather than wrapped: this reaches a log row and
+    // a status bar, and a message that becomes six lines pushes everything else off the surface it
+    // arrived on.
+    std::string wide = "{\"a\": \"" + std::string(4000, 'x') + "\" \"b\": 1}";
+    const JsonParseResult sprawling = Json::parse(wide);
+    CNA_STUDIO_EXPECT(!sprawling.succeeded);
+    const std::string described = Json::describeFailure(wide, sprawling);
+    CNA_STUDIO_EXPECT(described.size() < 200);
+    CNA_STUDIO_EXPECT(described.find("...") != std::string::npos);
+
+    // An unprintable byte -- often the fault itself -- shows as a placeholder rather than vanishing
+    // into the message or breaking the row it is drawn on.
+    const std::string control = std::string{"{\"a\": \x01 }"};
+    const JsonParseResult bad = Json::parse(control);
+    CNA_STUDIO_EXPECT(!bad.succeeded);
+    const std::string describedControl = Json::describeFailure(control, bad);
+    CNA_STUDIO_EXPECT(describedControl.find('\x01') == std::string::npos);
+    CNA_STUDIO_EXPECT(describedControl.find('?') != std::string::npos);
+}
+
 CNA_STUDIO_TEST(JsonAccessorsFallBackInsteadOfThrowing)
 {
     const JsonParseResult parsed = Json::parse(R"({"count": 7})");

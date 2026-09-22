@@ -18,11 +18,15 @@ namespace CNA::Studio
         registerBuiltinImporters(importers_);
     }
 
-    bool StudioContext::openProject(const std::string& path)
+    bool StudioContext::openProject(const std::string& path, std::string* problem)
     {
         const ProjectLoadResult loaded = project_.loadFromFile(path);
         if (!loaded.succeeded)
         {
+            // Handed back as well as logged. The log is where a diagnostic *belongs*; it is not
+            // where a user who has just been refused is looking, and a caller that can put the
+            // reason on the status bar should not have to re-read the file to find it.
+            if (problem != nullptr) { *problem = loaded.errorMessage; }
             log(LogSeverity::Error, "Failed to open project: " + loaded.errorMessage);
             return false;
         }
@@ -66,11 +70,13 @@ namespace CNA::Studio
         return true;
     }
 
-    bool StudioContext::openScene(const std::string& path)
+    bool StudioContext::openScene(const std::string& path, std::string* problem)
     {
         const SceneLoadResult loaded = scene_.loadFromFile(path, components_);
         if (!loaded.succeeded)
         {
+            // Handed back as well as logged, for the reason `openProject` gives.
+            if (problem != nullptr) { *problem = loaded.errorMessage; }
             log(LogSeverity::Error, "Failed to open scene: " + loaded.errorMessage);
             return false;
         }

@@ -1212,16 +1212,28 @@ namespace CNA::Studio
     void StudioShellPanels::openProjectFromHub(StudioShell& shell,
                                                const std::string& projectFilePath)
     {
+        // On the status bar as well as in the log (`plan.md` STUDIO-31008). `status.problem` and
+        // the code that clears it when a project opens have both existed since the bar did, and
+        // **nothing ever set it** -- so the one surface a user is guaranteed to be looking at said
+        // "No project open", which is true and useless, while the reason sat in a panel they may
+        // not have open. A tool that refuses a slightly broken file without saying where is one
+        // you cannot use to fix a broken file.
         const std::string unavailable = describeStudioProjectAvailability(projectFilePath);
         if (!unavailable.empty())
         {
             log_.append(LogSeverity::Error, "Cannot open '" + projectFilePath + "': " + unavailable);
+            if (shell_ != nullptr) { shell_->status().problem = unavailable; }
             return;
         }
 
-        if (!context_.openProject(projectFilePath))
+        std::string problem;
+        if (!context_.openProject(projectFilePath, &problem))
         {
+            // The reason, not "could not be opened" -- which was the whole of what this said, one
+            // line after the context had already worked out and logged exactly what was wrong.
+            if (problem.empty()) { problem = "the project file could not be read"; }
             log_.append(LogSeverity::Error, "'" + projectFilePath + "' could not be opened.");
+            if (shell_ != nullptr) { shell_->status().problem = problem; }
             return;
         }
 
