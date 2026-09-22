@@ -565,6 +565,13 @@ namespace CNA::Studio
         command("studio.play.restart", "Restart",
                 "Stop the game and start it again from the scene as it now stands.", C::Play,
                 StudioShortcut{});
+        // Beside Restart rather than instead of it, because they answer different questions
+        // (`plan.md` STUDIO-16006). Restart begins the game again from the top; this hands the
+        // running game the scene as it now stands and lets it carry on, which is what a level
+        // designer wants when the thing they are tuning is thirty seconds in.
+        command("studio.play.reloadScene", "Reload Scene In Game",
+                "Send the saved scene to the running game without restarting it.", C::Play,
+                chord(UiKey::F5, mods(true, true)));
 
         command("studio.build.build", "Build",
                 // Ctrl+B, not F2: F2 is Rename in the prototype (docs/MIGRATION-INVENTORY.md) and

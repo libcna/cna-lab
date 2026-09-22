@@ -1019,3 +1019,153 @@ CNA_STUDIO_TEST(APlayersSeverityWordBecomesTheEditorsAndAnUnknownOneIsStillHeard
         CNA_STUDIO_EXPECT(log.entries()[i].message.rfind("Player: ", 0) == 0);
     }
 }
+
+// ------------------------------------------------------------------------------------------------
+// Scene reload into a running game (STUDIO-16006)
+// ------------------------------------------------------------------------------------------------
+
+/**
+ * @brief **The running game is handed the scene as it now stands, and carries on.**
+ *
+ * `plan.md` STUDIO-16006. `PlayerHost` has understood `LoadScene` since the bridge existed —
+ * resolving the path, loading the document, reporting the warnings and the entity count. **Studio
+ * never sent one.** The message existed, the handler existed, and nothing in `src/` built one, so
+ * the only way to show a running game an edit was to Restart it.
+ *
+ * Beside Restart rather than instead of it, because they answer different questions: Restart begins
+ * the game again from the top, and this lets it carry on — which is what a level designer wants
+ * when the thing they are tuning is thirty seconds in and they have just moved a platform. It is
+ * also the bigger hammer `mirrorEdit` cannot be: a property edit mirrors as a property, and an
+ * entity added, deleted or reparented has no such message.
+ */
+CNA_STUDIO_TEST(TheRunningGameCanBeHandedTheSceneWithoutRestarting)
+{
+    const std::vector<PlayerBuild> builds =
+        discoverPlayerBuilds(std::filesystem::path{CNA_STUDIO_TEST_PLAYER_DIR}.generic_string());
+    if (builds.empty()) { return; }
+
+    Harness harness;
+    const ScopedProject project{"scenereload"};
+    CNA_STUDIO_EXPECT(harness.context.openProject(project.file()));
+    harness.context.newScene();
+    CNA_STUDIO_EXPECT(harness.context.saveScene(project.scene()));
+    harness.panels.setPlayerBuilds(builds);
+    harness.frame();
+
+    // Refused before anything is running, and the row is *there* to be refused rather than absent.
+    CNA_STUDIO_EXPECT(harness.shell.actions().find("studio.play.reloadScene") != nullptr);
+    CNA_STUDIO_EXPECT(!harness.shell.actions().isEnabled("studio.play.reloadScene"));
+
+    harness.shell.invoke("studio.play.play");
+    if (!harness.panels.isPlaying()) { return; }
+
+    harness.frame();
+    CNA_STUDIO_EXPECT(harness.shell.actions().isEnabled("studio.play.reloadScene"));
+
+    // A structural edit, which is the kind no property mirror can carry.
+    StudioEntity added{Uuid::parse("7a1c2d30-4b5e-4f60-8172-93a4b5c6d7e8"), "Added Later"};
+    harness.context.execute(
+        std::make_unique<CreateEntityCommand>(harness.context.getScene(), std::move(added)));
+
+    // The game has to be listening before a message can reach it, so this is polled the way the
+    // editor does rather than slept for.
+    double now = 0.0;
+    bool sent = false;
+    for (int attempt = 0; attempt < 400 && !sent; ++attempt)
+    {
+        now += 0.005;
+        harness.panels.poll(now);
+        sent = harness.panels.play().reloadScene();
+        if (!sent) { std::this_thread::sleep_for(std::chrono::milliseconds(5)); }
+    }
+    CNA_STUDIO_EXPECT(sent);
+
+    // The game says what it loaded, and the count is the one the editor just wrote -- which is the
+    // assertion that makes this an end-to-end case rather than a check that a message was posted.
+    const std::size_t expected = harness.context.getScene().getEntityCount();
+    const std::string wanted = "with " + std::to_string(expected) + " entities";
+
+    bool loaded = false;
+    for (int attempt = 0; attempt < 400 && !loaded; ++attempt)
+    {
+        now += 0.005;
+        harness.panels.poll(now);
+        for (const StudioLogEntry& entry : harness.log.entries())
+        {
+            if (contains(entry.message, "loaded scene") && contains(entry.message, wanted))
+            {
+                loaded = true;
+            }
+        }
+        if (!loaded) { std::this_thread::sleep_for(std::chrono::milliseconds(5)); }
+    }
+    CNA_STUDIO_EXPECT(loaded);
+
+    // And it carried on rather than restarting: still the same session, still playing.
+    CNA_STUDIO_EXPECT(harness.panels.playState() == StudioPlayState::Playing);
+
+    harness.shell.invoke("studio.play.stop");
+}
+
+/**
+ * @brief Every way it can refuse says which, because a menu row that did nothing is a bug report.
+ *
+ * The whole point of this action is that the game changes, so a user who presses it and sees no
+ * change has to be able to tell "Studio did not send it" from "the game did not load it". Each
+ * refusal names itself.
+ */
+CNA_STUDIO_TEST(ASceneReloadThatCannotHappenSaysWhichReasonItIs)
+{
+    StudioContext context;
+    StudioLog log;
+    StudioPlayService play{context, log, nullptr};
+
+    // No game.
+    std::string problem;
+    CNA_STUDIO_EXPECT(!play.reloadScene(&problem));
+    CNA_STUDIO_EXPECT(contains(problem, "no game is running"));
+
+    // And it refuses without a problem sink too, rather than requiring one.
+    CNA_STUDIO_EXPECT(!play.reloadScene());
+
+    // A scene with no file, *while a game is running* -- which is reachable: Play requires a
+    // saved scene, and File > New Scene then clears the path out from under it. Refused rather
+    // than written somewhere the user did not choose, the same bargain Play strikes.
+    //
+    // Reached properly rather than by checking a disabled row on a stopped editor, which would
+    // pass for the wrong reason: "no game is running" already disables it, so a case that never
+    // started one would not be testing the path condition at all. (It did not, at first.)
+#if !defined(_WIN32)
+    if (!std::filesystem::exists("/bin/sh")) { return; }
+
+    Harness harness;
+    const ScopedProject project{"reloadrefuse"};
+    CNA_STUDIO_EXPECT(harness.context.openProject(project.file()));
+    harness.context.newScene();
+    CNA_STUDIO_EXPECT(harness.context.saveScene(project.scene()));
+
+    // A player that stays alive, so "running" is true while the scene is taken away.
+    const ScopedScript script{"reloadalive", "sleep 30"};
+    harness.panels.setPlayerBuilds({PlayerBuild{"default", script.executable()}});
+    harness.frame();
+
+    harness.shell.invoke("studio.play.play");
+    if (!harness.panels.isPlaying()) { return; }
+    harness.frame();
+    CNA_STUDIO_EXPECT(harness.shell.actions().isEnabled("studio.play.reloadScene"));
+
+    // New Scene while playing: still running, no file any more.
+    harness.context.newScene();
+    CNA_STUDIO_EXPECT(harness.context.getScenePath().empty());
+    harness.frame();
+
+    CNA_STUDIO_EXPECT(harness.panels.play().isRunning());
+    CNA_STUDIO_EXPECT(!harness.shell.actions().isEnabled("studio.play.reloadScene"));
+
+    std::string why;
+    CNA_STUDIO_EXPECT(!harness.panels.play().reloadScene(&why));
+    CNA_STUDIO_EXPECT(contains(why, "never been saved"));
+
+    harness.shell.invoke("studio.play.stop");
+#endif
+}

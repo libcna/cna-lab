@@ -6,7 +6,7 @@
 
 **Exit criteria.** Play, pause, step, stop, restart, live edits and crash isolation all work against a real game process.
 
-**Progress:** 8 of 18 complete `█████░░░░░░░`
+**Progress:** 9 of 18 complete `██████░░░░░░`
 
 | Id | Task | Status | Depends on |
 |----|------|:------:|------------|
@@ -15,7 +15,7 @@
 | `STUDIO-16003` | Crash reporting when the player dies, without taking Studio with it | ✅ | `STUDIO-16001` |
 | `STUDIO-16004` | Live asset reload into the running player | ✅ | `STUDIO-16001` |
 | `STUDIO-16005` | Live property edits into the running player | ⬜ | `STUDIO-15011` |
-| `STUDIO-16006` | Scene reload | ⬜ | `STUDIO-16004` |
+| `STUDIO-16006` | Scene reload | ✅ | `STUDIO-16004` |
 | `STUDIO-16007` | Selected-entity synchronisation where feasible | ⬜ | `STUDIO-16005` |
 | `STUDIO-16008` | Simulation mode | ⬜ | `STUDIO-16001` |
 | `STUDIO-16009` | Possession and eject workflow | ⬜ | `STUDIO-16008` |
@@ -200,6 +200,50 @@ still named. Alongside the existing `AnEditedAssetDropsEveryCacheThatWasHoldingT
 `AnAssetThatComesBackIsReportedAndReloadedLikeAnEdit`.
 
 Checked by causing it: the batch condition forced false sends six messages again.
+
+### `STUDIO-16006` — Scene reload
+
+**Acceptance.** The running game can be handed the scene as it now stands, without starting over.
+
+**✅ Done, and the half that was missing was Studio's.** `PlayerHost` has understood `LoadScene`
+since the bridge existed — resolving the path against the project, loading the document, reporting
+its warnings and the entity count. **Nothing in `src/` ever built one.** The message type, the
+factory and the handler were all there; the only caller was a test.
+
+So the only way to show a running game an edit was to Restart it, which begins the game again from
+the top. **Beside Restart rather than instead of it**, because they answer different questions: this
+lets the game *carry on*, which is what a level designer wants when the thing they are tuning is
+thirty seconds in and they have just moved a platform.
+
+It is also the bigger hammer `mirrorEdit` cannot be. A property edit mirrors as a property; an
+entity **added, deleted or reparented** has no such message, so the only way to show a running game
+a structural change is to hand it the document.
+
+**The player reads the scene from disk**, so this saves first — on the same bargain `start()`
+strikes and for the same reason: a scene that has never had a path is *refused* rather than written
+somewhere the user did not choose, and a dirty scene with one is written, because a user who asked
+for this asked for what is on their screen.
+
+**Every refusal names itself**, because the whole point of this action is that the game changes: a
+user who presses it and sees nothing has to be able to tell "Studio did not send it" from "the game
+did not load it". Studio says *"Sent the scene to the running game."*, the player says which scene
+and how many entities, and the two are deliberately different sentences.
+
+**Verification.** `tests/StudioPlayModeTests.cpp` —
+`TheRunningGameCanBeHandedTheSceneWithoutRestarting`, which launches a real player, makes a
+**structural** edit through a command, sends, and waits for the *game's own* report of the entity
+count to match what the editor just wrote — the assertion that makes it end-to-end rather than a
+check that a message was posted — and then that the session is still playing rather than restarted.
+And `ASceneReloadThatCannotHappenSaysWhichReasonItIs`.
+
+**A vacuous assertion caught by the gate-verification**, and it is the second of this shape this
+session. The refusal case first checked that the menu row was disabled on a *stopped* editor — which
+it is, for a different reason, so removing the path condition entirely did not fail it. The state
+that actually exercises it is reachable and is now what the case builds: Play requires a saved
+scene, and `File > New Scene` then clears the path out from under a running game.
+
+Checked by causing each: the `LoadScene` send removed (the game never reports a load), and both
+unsaved-scene guards removed at once.
 
 ### `STUDIO-16011` — Renderer preview selection among the installed player builds
 

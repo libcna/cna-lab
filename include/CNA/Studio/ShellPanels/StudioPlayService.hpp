@@ -208,6 +208,28 @@ namespace CNA::Studio
         bool reloadAsset(const Uuid& assetId);
 
         /**
+         * @brief Hands the running game the scene as it now stands, without restarting it.
+         *
+         * `plan.md` STUDIO-16006. Beside Restart rather than instead of it, because they answer
+         * different questions: Restart begins the game again from the top, and this lets it *carry
+         * on* — which is what a level designer wants when the thing they are tuning is thirty
+         * seconds in and they have just moved a platform.
+         *
+         * It is also the bigger hammer that `mirrorEdit` cannot be. A property edit mirrors as a
+         * property; an entity added, deleted or reparented has no such message, so the only way to
+         * show a running game a *structural* change is to hand it the document.
+         *
+         * **The player reads the scene from disk**, so this saves first, on the same bargain
+         * `start()` strikes: a scene with no path is refused rather than saved somewhere the user
+         * did not choose, and a dirty scene with one is written, because a user who asked for this
+         * asked for what is on their screen.
+         *
+         * @param problem Filled in with the reason when this does not happen. Optional.
+         * @return Whether the running game was given the scene.
+         */
+        bool reloadScene(std::string* problem = nullptr);
+
+        /**
          * @brief Tells a running game that one of its own entities' properties just changed.
          *
          * The document's own value at @p entityId / @p componentTypeId / @p propertyName, not a

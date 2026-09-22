@@ -220,7 +220,8 @@ namespace CNA::Studio
             {"Build", {"studio.build.build", "studio.build.cancel", sep,
                        "studio.build.package"}},
             {"Play", {"studio.play.play", "studio.play.pause", "studio.play.stop", sep,
-                      "studio.play.step", "studio.play.restart"}},
+                      "studio.play.step", "studio.play.restart",
+                      "studio.play.reloadScene"}},
             {"Tools", {}},
             // The panel list is filled in by registerPanel(), because which panels exist is decided
             // at run time by whoever assembles the shell. It ships empty rather than absent so the

@@ -1921,6 +1921,30 @@ namespace CNA::Studio
             shell.actions().add(std::move(restart));
         }
 
+        if (const StudioAction* found = shell.actions().find("studio.play.reloadScene"))
+        {
+            StudioAction reload = *found;
+
+            // Only while a game is running and there is a file to send it. Disabled rather than
+            // hidden (`STUDIO-12004`), so a user looking for it on a stopped editor finds it and
+            // learns it needs a game rather than concluding Studio does not have it.
+            reload.isEnabled = [this] {
+                return play_.isRunning() && !context_.getScenePath().empty();
+            };
+            reload.run = [this] {
+                std::string problem;
+                if (play_.reloadScene(&problem)) { return; }
+
+                // Said, because a menu row that did nothing is indistinguishable from one that
+                // did something invisible -- and this one's whole point is that the game changes.
+                log_.append(LogSeverity::Warning,
+                            "Could not send the scene to the running game: "
+                                + (problem.empty() ? std::string{"no reason given"} : problem)
+                                + ".");
+            };
+            shell.actions().add(std::move(reload));
+        }
+
         if (const StudioAction* found = shell.actions().find("studio.build.package"))
         {
             StudioAction package = *found;

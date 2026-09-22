@@ -188,6 +188,56 @@ namespace CNA::Studio
         return player_.send(StudioMessage::makeReloadAsset(assetId));
     }
 
+    bool StudioPlayService::reloadScene(std::string* problem)
+    {
+        const auto refuse = [problem](std::string reason) {
+            if (problem != nullptr) { *problem = std::move(reason); }
+            return false;
+        };
+
+        if (!player_.isRunning() || state_ == StudioPlayState::Stopped)
+        {
+            return refuse("no game is running");
+        }
+
+        // The same bargain `start()` strikes, and for the same reason: the player is a separate
+        // process and reads the scene from disk, so what is on screen has to be *there* first.
+        // Saving a scene that has never had a path would put the user's work somewhere they did
+        // not choose.
+        if (context_.getScenePath().empty())
+        {
+            return refuse("the scene has never been saved, so there is no file to send");
+        }
+        if (context_.getHistory().isDirty() && !context_.saveScene())
+        {
+            return refuse("the scene could not be saved");
+        }
+
+        // Relative to the project, like the path `start()` passes: two processes need not agree on
+        // a working directory, and the project root is the one anchor both already have.
+        std::error_code relativeError;
+        const std::filesystem::path relative = std::filesystem::relative(
+            std::filesystem::path{context_.getScenePath()},
+            std::filesystem::path{context_.getProject().getFilePath()}.parent_path(),
+            relativeError);
+
+        if (relativeError || relative.empty())
+        {
+            return refuse("the scene is not inside the project");
+        }
+
+        if (!player_.send(StudioMessage::makeLoadScene(relative.generic_string())))
+        {
+            return refuse("the message could not be sent to the player");
+        }
+
+        // Said here rather than waiting for the player's own report, because the two say different
+        // things: this is "Studio sent it", and the player's is "the game loaded it, with N
+        // entities". A user watching a game that did not change needs to know which half stopped.
+        log_.append(LogSeverity::Info, "Sent the scene to the running game.");
+        return true;
+    }
+
     bool StudioPlayService::mirrorEdit(const Uuid& entityId, const std::string& componentTypeId,
                                        const std::string& propertyName, const PropertyValue& value)
     {
