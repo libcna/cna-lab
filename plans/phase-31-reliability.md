@@ -6,12 +6,12 @@
 
 **Exit criteria.** Interrupted saves, corrupt files and crashes cost a user nothing they cannot recover, and nothing is repaired silently.
 
-**Progress:** 4 of 13 complete `███░░░░░░░░░`
+**Progress:** 6 of 13 complete `█████░░░░░░░`
 
 | Id | Task | Status | Depends on |
 |----|------|:------:|------------|
-| `STUDIO-31001` | Autosave | ⬜ | — |
-| `STUDIO-31002` | Crash recovery snapshots, offered rather than silently applied | ⬜ | `STUDIO-31001` |
+| `STUDIO-31001` | Autosave | ✅ | — |
+| `STUDIO-31002` | Crash recovery snapshots, offered rather than silently applied | ✅ | `STUDIO-31001` |
 | `STUDIO-31003` | Atomic writes for every authored file | ✅ | — |
 | `STUDIO-31004` | Undo and redo stability under every editing path | ⬜ | `STUDIO-02035` |
 | `STUDIO-31005` | Format migration chain runs on every load | ✅ | — |
@@ -30,7 +30,99 @@ Tasks whose completion condition is not obvious from the title.
 
 ### `STUDIO-31001` — Autosave
 
-**Acceptance.** Carried forward from the prototype and retested through the Studio UI
+**Acceptance.** Carried forward from the prototype and retested through the Studio UI.
+
+**What "autosave" means here, since the word is ambiguous.** It does **not** write over the user's
+document on a timer. It writes a `.cnarecovery` snapshot beside it, every `autosaveSeconds`, while
+the document differs from its file — the shape ED-903 arrived in, and the reason is that a timer
+that saved the document would make "I have not saved yet" impossible to mean. The file on disk stays
+the user's last deliberate save until they take the offer in `STUDIO-31002`.
+
+The flow itself was already carried forward and already driven by the native shell:
+`StudioRecoverySession` holds the timer and the store, `StudioShellPanels::pollRecovery` runs it off
+the clock the host already passes, the interval is read from the preference every poll (so changing
+it takes effect without a restart, and so does a host assigning preferences straight from disk), and
+zero means off — with the snapshot dropped the moment the document matches its file, because an
+offer to recover work that is already saved teaches users to dismiss the one that mattered.
+
+**✅ Done, and the finding is a defect in the half nobody looks at: the user with no project.**
+
+`update()` has no condition about a project, so a scene edited before one exists was snapshotted
+every interval, correctly and atomically. `scan()` began with `if (!context_.hasProject()) return
+false;`, so nothing could ever offer one back. And `pollRecovery` scanned when the project *path
+changed* — which, with no project open, is empty on both sides from the first frame, so the scan
+never ran at all. Two halves that hid each other: the snapshots existed, were well-formed, and were
+unreachable forever.
+
+**Which user this cost is the whole point.** Creating an entity is deliberately enabled with no
+project open, and `StudioShellActions` says why: *"a user trying out the editor before creating a
+project can still build a scene, and refusing them would be refusing the first thing they try."* So
+the one person with nothing saved anywhere — the person who has most to lose to a crash and least
+idea that they do — was the one person autosave silently could not help.
+
+Both halves are fixed where they are: a project-less scene's snapshot is filed under an empty
+project path, which is exactly what `getFilePath()` returns with no project open, so it is found the
+same way everything else is; and the scan now runs on the first poll rather than on a change, with
+an explicit "have not looked yet" flag, because *"no project"* and *"have not looked"* are the same
+string and are not the same state.
+
+**A loose end recorded rather than fixed.** A snapshot written with an empty project path is not
+dropped when the user later opens a project — the scene it belonged to is gone from the editor, the
+session's `written_` flag now tracks a different scene id, and nothing sweeps the directory. It costs
+a file, not work, and inventing a retention policy for `.cnarecovery` is a decision of its own rather
+than a detail of this row. `STUDIO-31002`'s offer will surface it at the next start-up with no
+project, which is where it can be discarded from the File menu.
+
+**Verification.** `tests/StudioRecoveryTests.cpp` —
+`TheNativeShellWritesSnapshotsWhileTheSceneIsUnsaved`, `ASnapshotIsDroppedOnceTheDocumentMatchesItsFile`,
+`AnAutosaveIntervalOfZeroWritesNothing`, `TurningAutosaveOffDoesNotHideWorkThatIsAlreadyOnDisk`, and
+the two this row added: `ASceneBuiltBeforeAProjectExistsIsAutosavedAndCanBeRecovered` and
+`TheRecoveryScanRunsOnTheFirstPollRatherThanOnAChange` — the second pinned separately because it is
+the invisible half, and because with a project open the path *does* change from empty to the
+project's, which is why every existing case passed over it.
+
+Checked by causing each: `scan()`'s project condition put back, and the first-poll scan reduced to a
+change-detector again. Both fail the new cases by name and leave every older one green, which is the
+shape of a gap rather than a regression.
+
+### `STUDIO-31002` — Crash recovery snapshots, offered rather than silently applied
+
+**Acceptance.** A snapshot from a previous session is *offered*. The document in front of the user
+is never replaced without them saying so.
+
+**✅ Done.** There is no crash handler, on purpose, and `RecoveryStore` gives the reason: the
+reliable half of crash recovery is the part that runs *before* the crash. One serialising a document
+from inside `SIGSEGV` calls `malloc` and the filesystem with a corrupted heap.
+
+What a found snapshot gets is a **warning** in the log, a **sticky notification** carrying the scene
+name and when it was written, and two File-menu commands — Recover Unsaved Scene and Discard
+Recovered Scene — both greyed out when there is nothing to answer for, because a Discard that is
+live with nothing to discard is a row a user has to read twice to be sure of. The scene on screen is
+untouched until one of them is pressed.
+
+Four decisions that make the offer honest:
+
+- **Recovering marks the document unsaved**, and the log says the file on disk is unchanged. The
+  recovered work has never been written anywhere, and saying otherwise would let the user close the
+  editor believing it had.
+- **A recovery that fails keeps the snapshot.** It is not a reason to delete the only copy of the
+  work it was holding.
+- **Autosave is suspended while an offer stands**, and says so once. The snapshot file is keyed by
+  scene id, so the current session's unsaved seconds would overwrite the previous session's unsaved
+  hours.
+- **Turning autosave off does not hide work already on disk.** Off stops new snapshots being
+  written; it cannot mean one already there becomes unreachable — which is what the Dear ImGui host
+  did, and would have cost a user who reached for the setting *after* a crash everything.
+
+**Verification.** `tests/StudioRecoveryTests.cpp` — `WorkFromAPreviousSessionIsOfferedRatherThanFound`
+(including that the scene is *not* silently replaced), `RecoveringTakesTheOfferAwayAndLeavesTheWorkUnsaved`,
+`DiscardingRemovesTheSnapshotAndTheOffer`, `BothCommandsAreGreyedOutWhenThereIsNothingToAnswerFor`,
+`BothCommandsAreOnTheFileMenuWhereTheLogSaysTheyAre` — the log tells the user where to find them, so
+a message naming a menu item that is not there is a message that wastes their time —
+`AutosaveIsSuspendedWhileWorkFromAPreviousSessionIsWaiting`, `TheOfferIsMadeAgainWhenAnotherProjectIsOpened`,
+and `TurningAutosaveOffDoesNotHideWorkThatIsAlreadyOnDisk`. All driven through a *second* `StudioShellPanels`
+over the same snapshot directory, because `scan` reads the disk and nothing short of a second editor
+exercises it.
 
 ### `STUDIO-31003` — Atomic writes for every authored file
 

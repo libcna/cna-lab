@@ -458,11 +458,18 @@ namespace CNA::Studio
         // The project changing is what "a project was opened" looks like from here. Watching the
         // path rather than being told means the scan happens however the project was opened -- the
         // command, the command line, or a host that opened one before these panels existed.
+        //
+        // The *first* poll scans too, whatever the path is. Inferring "something changed" from the
+        // path alone never fired at start-up with no project open -- both sides were empty -- so a
+        // user who had been building a scene before creating a project was never offered the work
+        // a crash took from them (`plan.md` STUDIO-31001). That is the half of the defect that
+        // lives here; the other half was `scan()` refusing to look without a project.
         const std::string project = context_.hasProject()
             ? context_.getProject().getFilePath() : std::string{};
-        if (project != recoveryProject_)
+        if (project != recoveryProject_ || !recoveryScanned_)
         {
             recoveryProject_ = project;
+            recoveryScanned_ = true;
             if (recovery_.scan() && shell_ != nullptr)
             {
                 // Announced rather than only logged. This arrives at start-up, when the log has

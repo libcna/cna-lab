@@ -98,6 +98,12 @@ namespace
         StudioCamera3D camera3D;
         std::unique_ptr<StudioShellPanels> panels;
 
+        /**
+         * @param snapshots Where snapshots live.
+         * @param project The project to open, or empty for a Studio with none — which is a real
+         *                state, because creating an entity is deliberately enabled without one.
+         * @param autosaveSeconds The interval this session writes at.
+         */
         SecondStudio(const std::string& snapshots, const std::string& project, int autosaveSeconds)
         {
             context.setLogSink([this](LogSeverity severity, const std::string& message) {
@@ -110,7 +116,7 @@ namespace
             panels->setViewportServices(camera, camera3D, {});
             panels->recovery().setDirectory(snapshots);
             panels->preferences().autosaveSeconds = autosaveSeconds;
-            (void)context.openProject(project);
+            if (!project.empty()) { (void)context.openProject(project); }
         }
 
         void poll(double seconds)
@@ -407,4 +413,100 @@ CNA_STUDIO_TEST(TurningAutosaveOffDoesNotHideWorkThatIsAlreadyOnDisk)
     second.context.getHistory().markUnsaved();
     for (int i = 1; i <= 20; ++i) { second.poll(static_cast<double>(i) * 2.0); }
     CNA_STUDIO_EXPECT_EQ(first.scratch.snapshotCount(), std::size_t{1});
+}
+
+/**
+ * @brief **A scene built before there is a project is autosaved, and the autosave can be reached.**
+ *
+ * `plan.md` STUDIO-31001. The defect was two halves that hid each other.
+ *
+ * `StudioRecoverySession::update` has no condition about a project, so it wrote a snapshot every
+ * interval for a scene edited with none open — and `scan()` began with `if (!context_.hasProject())
+ * return false;`, so nothing could ever offer one back. The snapshots were written, correctly,
+ * atomically, and were unreachable forever.
+ *
+ * `StudioShellPanels::pollRecovery` had the other half: it scanned when the project *path changed*,
+ * and with no project open the path is empty on both sides from the first frame, so the scan never
+ * ran at all.
+ *
+ * Which user this cost is the point. Creating an entity is deliberately enabled with no project —
+ * *"a user trying out the editor before creating a project can still build a scene, and refusing
+ * them would be refusing the first thing they try"* — so the one person with nothing saved anywhere,
+ * who has the most to lose to a crash, was the one person autosave silently could not help.
+ */
+CNA_STUDIO_TEST(ASceneBuiltBeforeAProjectExistsIsAutosavedAndCanBeRecovered)
+{
+    const Scratch scratch{"noproject"};
+
+    // A Studio with no project, which is what a user sees before they make one.
+    {
+        SecondStudio first{scratch.snapshots(), std::string{}, 1};
+        CNA_STUDIO_EXPECT(!first.context.hasProject());
+
+        first.context.getScene().setName("Trying Things Out");
+        first.context.getHistory().markUnsaved();
+
+        first.poll(0.0);
+        first.poll(2.0);
+        CNA_STUDIO_EXPECT_EQ(scratch.snapshotCount(), std::size_t{1});
+    }
+
+    // The next Studio, also with no project, offers it back -- which is the half that did not work
+    // and which made the half that did pointless.
+    {
+        SecondStudio second{scratch.snapshots(), std::string{}, 0};
+        second.poll(0.0);
+
+        CNA_STUDIO_EXPECT(second.panels->recovery().hasRecoverable());
+        const RecoverySnapshot* found = second.panels->recovery().recoverable();
+        CNA_STUDIO_EXPECT(found != nullptr);
+        if (found != nullptr)
+        {
+            CNA_STUDIO_EXPECT_EQ(found->sceneName, std::string{"Trying Things Out"});
+            CNA_STUDIO_EXPECT(found->projectPath.empty());
+        }
+
+        // Offered, not applied: the scene in front of the user is still theirs until they say so.
+        CNA_STUDIO_EXPECT(second.context.getScene().getName() != "Trying Things Out");
+
+        CNA_STUDIO_EXPECT(second.panels->recovery().recover());
+        CNA_STUDIO_EXPECT_EQ(second.context.getScene().getName(),
+                             std::string{"Trying Things Out"});
+
+        // And it is still unsaved, because it has never been written anywhere -- there is not even
+        // a project to write it into.
+        CNA_STUDIO_EXPECT(second.context.getHistory().isDirty());
+    }
+}
+
+/**
+ * @brief The first poll scans, whatever the project is.
+ *
+ * The narrower half of the case above, pinned on its own because it is the half that is invisible:
+ * a scan driven by "the path changed" never fires when the path starts out as what it already is.
+ * With a project open the path changes from empty to the project's, which is why every existing
+ * case passed and this one did not exist.
+ */
+CNA_STUDIO_TEST(TheRecoveryScanRunsOnTheFirstPollRatherThanOnAChange)
+{
+    const Scratch scratch{"firstpoll"};
+
+    {
+        SecondStudio first{scratch.snapshots(), std::string{}, 1};
+        first.context.getScene().setName("Before Any Project");
+        first.context.getHistory().markUnsaved();
+        first.poll(0.0);
+        first.poll(2.0);
+        CNA_STUDIO_EXPECT_EQ(scratch.snapshotCount(), std::size_t{1});
+    }
+
+    SecondStudio second{scratch.snapshots(), std::string{}, 0};
+
+    // Nothing has been polled yet, so nothing has been looked for.
+    CNA_STUDIO_EXPECT(!second.panels->recovery().hasRecoverable());
+
+    // One poll -- the first one -- and the offer is there. Before this row it took a project being
+    // opened, which for this user is the gesture that throws their scene away.
+    second.poll(0.0);
+    CNA_STUDIO_EXPECT(second.panels->recovery().hasRecoverable());
 }

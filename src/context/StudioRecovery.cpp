@@ -37,8 +37,18 @@ namespace CNA::Studio
         // ImGui host did. Turning autosave off stops new snapshots being *written*; it cannot mean
         // that one already on disk becomes unreachable. A user who turns autosave off after a crash
         // would otherwise have lost the work permanently, with the file sitting there.
-        if (!context_.hasProject()) { return false; }
-
+        //
+        // **And not conditioned on there being a project** (`plan.md` STUDIO-31001). It was, and
+        // that made the snapshots written for a project-less scene unreachable forever: `update()`
+        // has no such condition, so it wrote one every interval, and nothing could ever offer it
+        // back. Creating an entity is deliberately enabled with no project open -- "a user trying
+        // out the editor before creating a project can still build a scene, and refusing them
+        // would be refusing the first thing they try" -- so the one user with nothing saved
+        // anywhere, who has the most to lose, was the one user autosave silently could not help.
+        //
+        // A project-less scene's snapshot is filed under an empty project path, which is exactly
+        // what `getFilePath()` returns when no project is open, so it is found the same way
+        // everything else is.
         recoverable_ = store_.findForProject(context_.getProject().getFilePath());
         if (!recoverable_) { return false; }
 

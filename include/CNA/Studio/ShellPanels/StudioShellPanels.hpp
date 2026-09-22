@@ -898,6 +898,15 @@ namespace CNA::Studio
         std::string recoveryProject_;
 
         /**
+         * @brief Whether the recovery scan has run at all yet.
+         *
+         * Separate from the path, because "no project" and "have not looked" are the same string
+         * and are not the same state — which is how a project-less scene's snapshot came to be
+         * written every interval and never offered.
+         */
+        bool recoveryScanned_ = false;
+
+        /**
          * @brief The plugin registry's revision when the menus were last built.
          *
          * Starts at zero, which is also a registry nobody has touched -- so a Studio with no
