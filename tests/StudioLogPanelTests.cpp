@@ -21,6 +21,7 @@
 #include "CNA/Studio/UiCore/StudioWidgets.hpp"
 #include "CNA/Studio/Ui/StudioUi.hpp"
 
+#include <functional>
 #include <string>
 #include <vector>
 
@@ -451,4 +452,382 @@ CNA_STUDIO_TEST(BothConsolesReadOneLog)
     legacy.log(LogSeverity::Warning, "still here");
     CNA_STUDIO_EXPECT_EQ(legacy.getLog().size(), std::size_t{1});
     CNA_STUDIO_EXPECT(legacy.getLogText().find("still here") != std::string::npos);
+}
+
+// -------------------------------------------------------------------------------------------
+// Source, time and links on the model (plan.md STUDIO-27020)
+// -------------------------------------------------------------------------------------------
+
+CNA_STUDIO_TEST(ALineRemembersWhenItArrivedAndWhoSaidIt)
+{
+    StudioLog log;
+
+    log.setNow(1.5);
+    log.append(LogSeverity::Info, "the scene loaded");
+
+    log.setNow(12.25);
+    log.append(LogSeverity::Error, LogSource::Game, "null reference");
+
+    CNA_STUDIO_EXPECT_EQ(log.entries().size(), std::size_t{2});
+    CNA_STUDIO_EXPECT(log.entries()[0].source == LogSource::Studio);
+    CNA_STUDIO_EXPECT(log.entries()[0].timeSeconds == 1.5);
+    CNA_STUDIO_EXPECT(log.entries()[1].source == LogSource::Game);
+    CNA_STUDIO_EXPECT(log.entries()[1].timeSeconds == 12.25);
+
+    // Told, not read. A log that asked a clock would need this test to sleep to make two
+    // timestamps differ, and a test that sleeps is a test that fails on a loaded machine.
+    CNA_STUDIO_EXPECT(log.now() == 12.25);
+
+    // The default source is Studio, so the hundred-odd existing call sites mean what they meant.
+    CNA_STUDIO_EXPECT_EQ(log.countFrom(LogSource::Studio), std::size_t{1});
+    CNA_STUDIO_EXPECT_EQ(log.countFrom(LogSource::Game), std::size_t{1});
+    CNA_STUDIO_EXPECT_EQ(log.countFrom(LogSource::Build), std::size_t{0});
+}
+
+CNA_STUDIO_TEST(TwoSourcesSayingTheSameWordsAreTwoEntries)
+{
+    StudioLog log;
+    log.append(LogSeverity::Warning, LogSource::Build, "out of memory");
+    log.append(LogSeverity::Warning, LogSource::Game, "out of memory");
+
+    // Not collapsed: a build running out of memory and a game running out of memory are two
+    // events, and merging them would hide exactly the distinction a source filter exists for.
+    CNA_STUDIO_EXPECT_EQ(log.entries().size(), std::size_t{2});
+
+    // The same source, though, still collapses -- that is the behaviour this must not have broken.
+    log.append(LogSeverity::Warning, LogSource::Game, "out of memory");
+    CNA_STUDIO_EXPECT_EQ(log.entries().size(), std::size_t{2});
+    CNA_STUDIO_EXPECT_EQ(log.entries().back().repeats, std::size_t{2});
+
+    // And two lines pointing at different things are two lines however alike they read.
+    StudioLogLink first;
+    first.kind = StudioLogLink::Kind::File;
+    first.path = "Content/a.png";
+    StudioLogLink second = first;
+    second.path = "Content/b.png";
+
+    log.append(LogSeverity::Error, LogSource::Studio, "could not import", first);
+    log.append(LogSeverity::Error, LogSource::Studio, "could not import", second);
+    CNA_STUDIO_EXPECT_EQ(log.entries().size(), std::size_t{4});
+}
+
+CNA_STUDIO_TEST(ACollapsedRepeatKeepsTheTimeItStarted)
+{
+    StudioLog log;
+    log.setNow(4.0);
+    log.append(LogSeverity::Warning, "a shader would not compile");
+
+    log.setNow(40.0);
+    log.append(LogSeverity::Warning, "a shader would not compile");
+
+    CNA_STUDIO_EXPECT_EQ(log.entries().size(), std::size_t{1});
+    CNA_STUDIO_EXPECT_EQ(log.entries().front().repeats, std::size_t{2});
+
+    // "This started at 4 s and has happened twice" is the useful reading. The last occurrence is
+    // always approximately now, so stamping it with 40 would be recording nothing.
+    CNA_STUDIO_EXPECT(log.entries().front().timeSeconds == 4.0);
+}
+
+CNA_STUDIO_TEST(PastedLogTextCarriesTheTimeAndTheSource)
+{
+    StudioLog log;
+    log.setNow(2.5);
+    log.append(LogSeverity::Error, LogSource::Game, "null reference");
+
+    const std::string line = StudioLog::toTextLine(log.entries().front());
+    CNA_STUDIO_EXPECT(line.find("2.500") != std::string::npos);
+    CNA_STUDIO_EXPECT(line.find("[error]") != std::string::npos);
+    CNA_STUDIO_EXPECT(line.find("[game]") != std::string::npos);
+    CNA_STUDIO_EXPECT(line.find("null reference") != std::string::npos);
+
+    // A pasted log is read by somebody who was not there: without the time and the source it is a
+    // list of sentences, and most bug reports turn on which of them came first and who said it.
+    CNA_STUDIO_EXPECT_EQ(log.toText(), line + "\n");
+}
+
+// -------------------------------------------------------------------------------------------
+// The panel's new controls (plan.md STUDIO-27020)
+// -------------------------------------------------------------------------------------------
+
+namespace
+{
+    /** @brief One press and release at a point, driving both passes each time. */
+    void clickAt(StudioShell& shell, float x, float y)
+    {
+        shell.renderFrame(at(x, y, true));
+        shell.renderFrame(at(x, y, false));
+    }
+
+    /**
+     * @brief Walks a toolbar row **right to left**, clicking, until @p done says to stop.
+     *
+     * Found by walking rather than by a hard-coded pixel, the way the Clear case does: a spacing
+     * change should move a button, not silently make a test press nothing.
+     *
+     * Right to left because the controls this reaches -- Pause, Follow, the source filters -- sit
+     * at the right, and Clear sits at the left. A sweep that started at the left would empty the
+     * log on its way past and then assert about a console with nothing in it, which is a test that
+     * passes for the wrong reason or fails for one.
+     *
+     * @return Whether it ever became true.
+     */
+    bool clickAlongRow(StudioShell& shell, const UiRect& panel, float rowOffsetY,
+                       const std::function<bool()>& done)
+    {
+        for (float x = panel.right() - 2.0f; x > panel.left() + 2.0f; x -= 4.0f)
+        {
+            clickAt(shell, x, panel.top() + rowOffsetY);
+            if (done()) { return true; }
+        }
+        return false;
+    }
+}
+
+CNA_STUDIO_TEST(PauseHoldsTheViewAndNeverHoldsTheLog)
+{
+    StudioLog log;
+    log.append(LogSeverity::Info, "before the pause");
+
+    const std::unique_ptr<StudioShell> shell = shellShowingTheLog();
+
+    StudioLogPanelResult last;
+    UiRect panelBounds;
+    CNA_STUDIO_EXPECT(shell->setPanelContent("output",
+        [&](StudioFrame& frame, const UiRect& bounds) {
+            const StudioLogPanelResult result = studioLogPanel(frame, bounds, log);
+            if (frame.isDrawPass())
+            {
+                last = result;
+                panelBounds = bounds;
+            }
+        }));
+
+    shell->renderFrame(at(-1.0f, -1.0f));
+    CNA_STUDIO_EXPECT(!panelBounds.isEmpty());
+    CNA_STUDIO_EXPECT(!last.paused);
+    CNA_STUDIO_EXPECT_EQ(last.rowsMatching, std::size_t{1});
+
+    // Pause sits at the right of the first toolbar row, beside Follow.
+    const bool pressed =
+        clickAlongRow(*shell, panelBounds, 12.0f, [&] { return last.paused; });
+    CNA_STUDIO_EXPECT(pressed);
+
+    // Now the thing that matters: messages keep being *recorded*, and stop being *shown*.
+    log.append(LogSeverity::Error, "while paused");
+    log.append(LogSeverity::Error, "also while paused");
+    shell->renderFrame(at(-1.0f, -1.0f));
+
+    CNA_STUDIO_EXPECT_EQ(log.entries().size(), std::size_t{3});
+    CNA_STUDIO_EXPECT_EQ(last.rowsMatching, std::size_t{1});
+    CNA_STUDIO_EXPECT_EQ(last.heldBackCount, std::size_t{2});
+
+    // And unpausing shows them, rather than having thrown them away. That is the whole difference
+    // between a pause and a mute.
+    const bool released =
+        clickAlongRow(*shell, panelBounds, 12.0f, [&] { return !last.paused; });
+    CNA_STUDIO_EXPECT(released);
+
+    shell->renderFrame(at(-1.0f, -1.0f));
+    CNA_STUDIO_EXPECT_EQ(last.rowsMatching, std::size_t{3});
+    CNA_STUDIO_EXPECT_EQ(last.heldBackCount, std::size_t{0});
+}
+
+CNA_STUDIO_TEST(TheSourceFilterHidesAGameWithoutMatchingStrings)
+{
+    StudioLog log;
+    log.append(LogSeverity::Info, LogSource::Studio, "the scene loaded");
+    log.append(LogSeverity::Info, LogSource::Game, "the game started");
+    log.append(LogSeverity::Info, LogSource::Build, "the build started");
+
+    const std::unique_ptr<StudioShell> shell = shellShowingTheLog();
+
+    StudioLogPanelResult last;
+    UiRect panelBounds;
+    CNA_STUDIO_EXPECT(shell->setPanelContent("output",
+        [&](StudioFrame& frame, const UiRect& bounds) {
+            const StudioLogPanelResult result = studioLogPanel(frame, bounds, log);
+            if (frame.isDrawPass())
+            {
+                last = result;
+                panelBounds = bounds;
+            }
+        }));
+
+    shell->renderFrame(at(-1.0f, -1.0f));
+
+    // Everything, until somebody says otherwise. A filter that starts excluding things hides
+    // output from a user who never asked it to.
+    CNA_STUDIO_EXPECT_EQ(last.rowsMatching, std::size_t{3});
+
+    // The source buttons sit on the second toolbar row, at its right.
+    const bool narrowed =
+        clickAlongRow(*shell, panelBounds, 40.0f, [&] { return last.rowsMatching < 3; });
+    CNA_STUDIO_EXPECT(narrowed);
+    CNA_STUDIO_EXPECT_EQ(last.rowsMatching, std::size_t{2});
+}
+
+CNA_STUDIO_TEST(AConsoleLineThatPointsAtSomethingReportsItRatherThanOpeningIt)
+{
+    StudioLog log;
+    log.append(LogSeverity::Info, "an ordinary line");
+
+    StudioLogLink link;
+    link.kind = StudioLogLink::Kind::Asset;
+    link.id = Uuid::generate();
+    log.append(LogSeverity::Error, LogSource::Studio, "could not import 'Content/Hero.png'", link);
+
+    const std::unique_ptr<StudioShell> shell = shellShowingTheLog();
+
+    StudioLogPanelResult activated;
+    UiRect panelBounds;
+    CNA_STUDIO_EXPECT(shell->setPanelContent("output",
+        [&](StudioFrame& frame, const UiRect& bounds) {
+            const StudioLogPanelResult result = studioLogPanel(frame, bounds, log);
+            if (result.linkActivated) { activated = result; }
+            if (frame.isDrawPass()) { panelBounds = bounds; }
+        }));
+
+    shell->renderFrame(at(-1.0f, -1.0f));
+    CNA_STUDIO_EXPECT(!panelBounds.isEmpty());
+
+    // Down the list, which starts below the two toolbar rows. The linked row is the second one.
+    bool found = false;
+    for (float y = panelBounds.top() + 56.0f; y < panelBounds.bottom() - 2.0f && !found; y += 4.0f)
+    {
+        clickAt(*shell, panelBounds.left() + 320.0f, y);
+        found = activated.linkActivated;
+    }
+
+    CNA_STUDIO_EXPECT(found);
+    CNA_STUDIO_EXPECT(activated.link.kind == StudioLogLink::Kind::Asset);
+    CNA_STUDIO_EXPECT_EQ(activated.link.id.toString(), link.id.toString());
+
+    // Reported, not acted on. The panel is handed a log and nothing else -- no scene, no asset
+    // database -- and a panel that could select an asset would be a panel that needed both.
+    CNA_STUDIO_EXPECT_EQ(log.entries().size(), std::size_t{2});
+}
+
+CNA_STUDIO_TEST(AnOrdinaryLineIsNotAccidentallyALink)
+{
+    StudioLog log;
+    log.append(LogSeverity::Info, "an ordinary line mentioning Content/Hero.png in passing");
+
+    const std::unique_ptr<StudioShell> shell = shellShowingTheLog();
+
+    bool everActivated = false;
+    UiRect panelBounds;
+    CNA_STUDIO_EXPECT(shell->setPanelContent("output",
+        [&](StudioFrame& frame, const UiRect& bounds) {
+            const StudioLogPanelResult result = studioLogPanel(frame, bounds, log);
+            if (result.linkActivated) { everActivated = true; }
+            if (frame.isDrawPass()) { panelBounds = bounds; }
+        }));
+
+    shell->renderFrame(at(-1.0f, -1.0f));
+
+    // A console that scanned its own text for things that look like paths would find this one, in
+    // prose, and navigate somewhere the user did not ask to go. Links are attached by whoever
+    // logs, and this line attached none.
+    for (float y = panelBounds.top() + 56.0f; y < panelBounds.bottom() - 2.0f; y += 6.0f)
+    {
+        clickAt(*shell, panelBounds.left() + 320.0f, y);
+    }
+    CNA_STUDIO_EXPECT(!everActivated);
+}
+
+CNA_STUDIO_TEST(SearchingTheConsoleIgnoresCaseAndMatchesAnywhereInTheLine)
+{
+    StudioLog log;
+    log.append(LogSeverity::Info, "the scene loaded");
+    log.append(LogSeverity::Error, "a SHADER would not compile");
+    log.append(LogSeverity::Info, "recompiled the shader");
+
+    const std::unique_ptr<StudioShell> shell = shellShowingTheLog();
+
+    StudioLogPanelResult last;
+    UiRect panelBounds;
+    CNA_STUDIO_EXPECT(shell->setPanelContent("output",
+        [&](StudioFrame& frame, const UiRect& bounds) {
+            const StudioLogPanelResult result = studioLogPanel(frame, bounds, log);
+            if (frame.isDrawPass())
+            {
+                last = result;
+                panelBounds = bounds;
+            }
+        }));
+
+    shell->renderFrame(at(-1.0f, -1.0f));
+    CNA_STUDIO_EXPECT_EQ(last.rowsMatching, std::size_t{3});
+
+    // The field fills the left of the second toolbar row, so a click well inside the left edge
+    // lands in it whatever the source buttons at the right are sized at.
+    const float fieldX = panelBounds.left() + 40.0f;
+    const float fieldY = panelBounds.top() + 40.0f;
+    shell->renderFrame(at(fieldX, fieldY));
+    shell->renderFrame(at(fieldX, fieldY, true));
+    shell->renderFrame(at(fieldX, fieldY));
+
+    UiInputState typing = at(fieldX, fieldY);
+    typing.characters = {u'S', u'h', u'A', u'd'};
+    shell->renderFrame(typing);
+
+    UiInputState enter = at(fieldX, fieldY);
+    enter.setKeyDown(UiKey::Enter, true);
+    shell->renderFrame(enter);
+
+    shell->renderFrame(at(-1.0f, -1.0f));
+
+    // Two of the three: the one spelling it in capitals and the one spelling it in lower case,
+    // matched mid-word in both. A case-sensitive search would find one, and a prefix search none.
+    CNA_STUDIO_EXPECT_EQ(last.rowsMatching, std::size_t{2});
+}
+
+CNA_STUDIO_TEST(CopyTakesWhatThePanelIsShowingRatherThanTheWholeLog)
+{
+    StudioLog log;
+    log.append(LogSeverity::Info, LogSource::Studio, "the scene loaded");
+    log.append(LogSeverity::Error, LogSource::Game, "null reference");
+
+    const std::unique_ptr<StudioShell> shell = shellShowingTheLog();
+
+    std::string copied;
+    UiRect panelBounds;
+    CNA_STUDIO_EXPECT(shell->setPanelContent("output",
+        [&](StudioFrame& frame, const UiRect& bounds) {
+            const StudioLogPanelResult result = studioLogPanel(frame, bounds, log);
+            if (result.copyRequested) { copied = result.copyText; }
+            if (frame.isDrawPass()) { panelBounds = bounds; }
+        }));
+
+    shell->renderFrame(at(-1.0f, -1.0f));
+
+    // Narrow to the editor's line by turning Game off. The source buttons run Studio, Build,
+    // Game left to right, so a sweep from the right reaches Game first.
+    StudioLogPanelResult last;
+    CNA_STUDIO_EXPECT(shell->setPanelContent("output",
+        [&](StudioFrame& frame, const UiRect& bounds) {
+            const StudioLogPanelResult result = studioLogPanel(frame, bounds, log);
+            if (result.copyRequested) { copied = result.copyText; }
+            if (frame.isDrawPass()) { last = result; }
+        }));
+    CNA_STUDIO_EXPECT(clickAlongRow(*shell, panelBounds, 40.0f,
+                                    [&] { return last.rowsMatching == 1; }));
+
+    // Copy is the first control on the top row, so this sweep starts at the left deliberately --
+    // and Clear sits immediately after it, which is why it stops the moment Copy fires.
+    for (float x = panelBounds.left() + 2.0f; x < panelBounds.left() + 200.0f && copied.empty();
+         x += 3.0f)
+    {
+        clickAt(*shell, x, panelBounds.top() + 12.0f);
+    }
+
+    CNA_STUDIO_EXPECT(!copied.empty());
+    CNA_STUDIO_EXPECT(copied.find("the scene loaded") != std::string::npos);
+
+    // The filtered-out line is absent. A Copy that pasted the whole log would make the filter a
+    // decoration: the reason somebody narrows a console is usually that they are about to copy it.
+    CNA_STUDIO_EXPECT(copied.find("null reference") == std::string::npos);
+
+    // And it is spelled the way a pasted log is spelled, time and source included.
+    CNA_STUDIO_EXPECT(copied.find("[studio]") != std::string::npos);
 }

@@ -53,18 +53,6 @@ namespace CNA::Studio
     class StudioContext;
 
     /**
-     * @brief What marks a Console line as the *game's* rather than the editor's.
-     *
-     * `plan.md` STUDIO-16002. A prefix rather than a second panel, and the choice is worth
-     * stating: the Console is one stream and the two sources genuinely interleave — "Player ready
-     * on opengles3." and the game's first line belong next to each other in time, and splitting
-     * them would make a user correlate by hand what they are already reading in order. What they
-     * must be able to do is tell which is which *at a glance*, without reading the sentence, and a
-     * marker at the start of the line is what a glance lands on.
-     */
-    inline constexpr const char* kStudioPlayerLogPrefix = "Player: ";
-
-    /**
      * @brief Maps the severity word a player uses onto the editor's own.
      *
      * Accepts both spellings of the two that have them (`warning`/`warn`, `trace`/`debug`), because

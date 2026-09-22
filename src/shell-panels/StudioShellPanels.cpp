@@ -222,6 +222,11 @@ namespace CNA::Studio
         // Once. It was called twice, which was harmless only because the service reports a
         // *transition* and the second call always saw the state it had just recorded -- a duplicate
         // that survived because the thing it duplicated is idempotent.
+        // The log is told the time before anything gets a chance to write to it, so every entry
+        // this frame carries this frame's stamp (`plan.md` STUDIO-27020). Told rather than read:
+        // a log that asked a clock would be a log whose tests have to sleep.
+        log_.setNow(nowSeconds);
+
         (void)build_.poll();
         counts_.playerMessages += play_.poll();
         (void)comparison_.poll(nowSeconds);
@@ -253,8 +258,25 @@ namespace CNA::Studio
         // else -- so the reason travels back on the queue and is said here.
         for (const StudioImportFailure& failure : imports_.takeFailures())
         {
-            log_.append(LogSeverity::Warning,
-                        "Could not import '" + failure.sourcePath + "': " + failure.reason + ".");
+            // Linked to the asset it is about (`plan.md` STUDIO-27020). This is exactly the site
+            // the link design is for: it already holds the id, so the Console can offer to show
+            // the user the thing that would not import instead of making them go and find it by
+            // reading the path out of the sentence.
+            StudioLogLink link;
+            if (failure.id.isValid())
+            {
+                link.kind = StudioLogLink::Kind::Asset;
+                link.id = failure.id;
+            }
+            else if (!failure.sourcePath.empty())
+            {
+                link.kind = StudioLogLink::Kind::File;
+                link.path = failure.sourcePath;
+            }
+
+            log_.append(LogSeverity::Warning, LogSource::Studio,
+                        "Could not import '" + failure.sourcePath + "': " + failure.reason + ".",
+                        std::move(link));
         }
 
         // The one crossing background work makes into the document (STUDIO-30001). Budgeted, so a
@@ -285,6 +307,74 @@ namespace CNA::Studio
             // Trace rather than a warning: this is a convenience file, and a user whose home
             // directory is read-only does not need a red line every time they click an asset.
             log_.append(LogSeverity::Trace, "Could not keep the asset shortcuts: " + problem + ".");
+        }
+    }
+
+    namespace
+    {
+        /**
+         * @brief The folder a project-relative path sits in, or empty for the project root.
+         *
+         * `plan.md` STUDIO-27020. Text, not filesystem: these paths are always `/`-separated and
+         * always relative, so `std::filesystem` would bring platform separators and a syscall to a
+         * question that is one `rfind`.
+         */
+        std::string studioParentFolderOf(std::string_view path)
+        {
+            const std::size_t slash = path.rfind('/');
+            if (slash == std::string_view::npos) { return {}; }
+            return std::string{path.substr(0, slash)};
+        }
+    }
+
+    void StudioShellPanels::followLogLink(const StudioLogLink& link)
+    {
+        switch (link.kind)
+        {
+            case StudioLogLink::Kind::None: return;
+
+            case StudioLogLink::Kind::Entity:
+            {
+                // Selected rather than merely scrolled to: a log line about an entity is one the
+                // user is about to look at in the Details panel, and selecting is what puts it
+                // there. An id that no longer resolves is a scene that has moved on, which is the
+                // ordinary fate of an old log line and not worth an error.
+                if (context_.getScene().findEntity(link.id) == nullptr)
+                {
+                    log_.append(LogSeverity::Warning,
+                                "That entity is no longer in this scene.");
+                    return;
+                }
+                context_.select(link.id);
+                (void)shell_->activatePanel("outliner");
+                return;
+            }
+
+            case StudioLogLink::Kind::Asset:
+            {
+                const AssetRecord* record = context_.getAssets().find(link.id);
+                if (record == nullptr)
+                {
+                    log_.append(LogSeverity::Warning,
+                                "That asset is no longer in this project.");
+                    return;
+                }
+                context_.selectAsset(link.id);
+                contentState_.folder = studioParentFolderOf(record->sourcePath);
+                (void)shell_->activatePanel("content");
+                return;
+            }
+
+            case StudioLogLink::Kind::File:
+            {
+                // Navigated to inside Studio rather than handed to the file manager. A link in a
+                // log is "show me where this is", and the answer a user wants first is the one
+                // that does not leave the editor.
+                if (link.path.empty()) { return; }
+                contentState_.folder = studioParentFolderOf(link.path);
+                (void)shell_->activatePanel("content");
+                return;
+            }
         }
     }
 
@@ -1621,17 +1711,18 @@ namespace CNA::Studio
                 std::string problem;
                 if (build_.process().start(buildPanel_->planBuild(), &problem))
                 {
-                    log_.append(LogSeverity::Info, "Build started; log at " + build_.process().getLogPath());
+                    log_.append(LogSeverity::Info, LogSource::Build,
+                                "Build started; log at " + build_.process().getLogPath());
                 }
                 else
                 {
-                    log_.append(LogSeverity::Error, "Cannot start the build: " + problem);
+                    log_.append(LogSeverity::Error, LogSource::Build, "Cannot start the build: " + problem);
                 }
             }
             if (panel.cancelRequested)
             {
                 build_.process().cancel();
-                log_.append(LogSeverity::Warning, "Build cancelled.");
+                log_.append(LogSeverity::Warning, LogSource::Build, "Build cancelled.");
             }
         });
 
@@ -1801,11 +1892,12 @@ namespace CNA::Studio
                 std::string problem;
                 if (build_.process().start(buildPanel_->planBuild(), &problem))
                 {
-                    log_.append(LogSeverity::Info, "Build started; log at " + build_.process().getLogPath());
+                    log_.append(LogSeverity::Info, LogSource::Build,
+                                "Build started; log at " + build_.process().getLogPath());
                 }
                 else
                 {
-                    log_.append(LogSeverity::Error, "Cannot start the build: " + problem);
+                    log_.append(LogSeverity::Error, LogSource::Build, "Cannot start the build: " + problem);
                 }
             };
             shell.actions().add(std::move(build));
@@ -1819,7 +1911,7 @@ namespace CNA::Studio
             cancel.isEnabled = [this] { return build_.process().getState() == BuildState::Running; };
             cancel.run = [this] {
                 build_.process().cancel();
-                log_.append(LogSeverity::Warning, "Build cancelled.");
+                log_.append(LogSeverity::Warning, LogSource::Build, "Build cancelled.");
             };
             shell.actions().add(std::move(cancel));
         }
@@ -2231,6 +2323,13 @@ namespace CNA::Studio
                 counts_.logRowsMatching = panel.rowsMatching;
             }
             if (panel.cleared) { log_.clear(); }
+
+            // A log line that points at something takes you there (`plan.md` STUDIO-27020). The
+            // panel reports the link and this acts on it, because a panel that could select an
+            // entity would be a panel that needs a scene -- and the Output Log deliberately has
+            // nothing but a log.
+            if (panel.linkActivated) { followLogLink(panel.link); }
+
             if (!panel.copyRequested) { return; }
 
             // CNA gap G-02: the clipboard is behind a default-off CNA option, so this degrades

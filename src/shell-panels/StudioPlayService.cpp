@@ -392,12 +392,18 @@ namespace CNA::Studio
                     // dropped, so the Console showed everything Studio had to say about the player
                     // and nothing the player had to say for itself -- which is the half a user
                     // actually needs when their game misbehaves.
+                    //
+                    // The "Player: " prefix is gone (`plan.md` STUDIO-27020). It was a source
+                    // written into the message because the entry had nowhere to put one; now it
+                    // has @ref LogSource, the Console has a Game filter that works on the field,
+                    // and a prefix repeated on every line of a game's output is just noise in
+                    // front of what the game said.
                     log_.append(studioPlayerLogSeverity(message.payload["severity"].asString()),
-                                std::string{kStudioPlayerLogPrefix} + message.payload["text"].asString());
+                                LogSource::Game, message.payload["text"].asString());
                     break;
                 case StudioMessageType::ReportException:
-                    log_.append(LogSeverity::Error,
-                                std::string{kStudioPlayerLogPrefix} + message.payload["message"].asString("an exception"));
+                    log_.append(LogSeverity::Error, LogSource::Game,
+                                message.payload["message"].asString("an exception"));
                     break;
                 default:
                     break;

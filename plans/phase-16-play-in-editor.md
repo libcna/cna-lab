@@ -119,6 +119,13 @@ to `Trace` instead of `Info`.
 distinction visible and searchable, which is what the acceptance asks for; a filter is the Console's
 own question and belongs with `STUDIO-27020`.
 
+**Superseded by `STUDIO-27020`, which took the deferral and then removed the prefix.** Adding the
+filter meant giving an entry a `LogSource` field, and once that field exists the prefix is a second
+copy of it written into the text — one that cannot be filtered without matching strings and stops
+being true the moment somebody rewords a message. The good half of the reasoning above, that the
+sources belong in *one* stream rather than three panels because they genuinely interleave, is
+intact and now lives on `LogSource` itself.
+
 ### `STUDIO-16003` — Crash reporting when the player dies, without taking Studio with it
 
 **Acceptance.** A game that dies says *how*, and the editor carries on.

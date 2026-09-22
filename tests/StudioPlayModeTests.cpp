@@ -927,7 +927,12 @@ CNA_STUDIO_TEST(TheGamesOwnOutputReachesTheConsoleMarkedAsTheGames)
         harness.panels.poll(now);
         for (const StudioLogEntry& entry : harness.log.entries())
         {
-            if (contains(entry.message, "Player: paused")) { sawIt = true; }
+            // The source is the field now, not a "Player: " prefix on the text
+            // (`plan.md` STUDIO-27020), so this asserts the field.
+            if (entry.source == LogSource::Game && contains(entry.message, "paused"))
+            {
+                sawIt = true;
+            }
         }
         if (!sawIt) { std::this_thread::sleep_for(std::chrono::milliseconds(5)); }
     }
@@ -1005,7 +1010,7 @@ CNA_STUDIO_TEST(APlayersSeverityWordBecomesTheEditorsAndAnUnknownOneIsStillHeard
     {
         CNA_STUDIO_EXPECT(message.type == StudioMessageType::ReportLog);
         log.append(studioPlayerLogSeverity(message.payload["severity"].asString()),
-                   "Player: " + message.payload["text"].asString());
+                   LogSource::Game, message.payload["text"].asString());
     }
 
     CNA_STUDIO_EXPECT_EQ(log.entries().size(), std::size(kCases));
@@ -1014,9 +1019,14 @@ CNA_STUDIO_TEST(APlayersSeverityWordBecomesTheEditorsAndAnUnknownOneIsStillHeard
         CNA_STUDIO_EXPECT(log.entries()[i].severity == kCases[i].expected);
         CNA_STUDIO_EXPECT(contains(log.entries()[i].message, kCases[i].text));
 
-        // Every line carries the marker, including the ones that are not errors: a user scanning
-        // the Console has to be able to tell the game's ordinary chatter from the editor's.
-        CNA_STUDIO_EXPECT(log.entries()[i].message.rfind("Player: ", 0) == 0);
+        // Every line is marked as the game's, including the ones that are not errors: a user
+        // scanning the Console has to be able to tell the game's ordinary chatter from the
+        // editor's. A field rather than a prefix since `STUDIO-27020`, which is what lets the
+        // Console's Game filter hide them without matching strings.
+        CNA_STUDIO_EXPECT(log.entries()[i].source == LogSource::Game);
+
+        // And the text is the game's own, with nothing bolted on the front of it.
+        CNA_STUDIO_EXPECT_EQ(log.entries()[i].message, std::string{kCases[i].text});
     }
 }
 

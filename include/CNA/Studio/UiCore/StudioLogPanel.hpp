@@ -14,9 +14,29 @@
  * ### It owns its view state, not the log
  *
  * The log is a `StudioLog` the panel is handed. What the panel owns is what the *user chose to look
- * at*: the severity filter and whether to follow new output. Those are not document state, not
- * undoable, and not shared between two windows showing the same log — a person filtering one
- * console to errors has not asked the other to hide anything.
+ * at*: the severity filter, the source filter, the search text, whether output is paused and
+ * whether to follow new output. Those are not document state, not undoable, and not shared between
+ * two windows showing the same log — a person filtering one console to errors has not asked the
+ * other to hide anything.
+ *
+ * ### Pause holds the view, it never holds the log (`plan.md` STUDIO-27020)
+ *
+ * Pausing a console has one job: let somebody read a line that is scrolling away. It must not stop
+ * messages being *recorded*, because the whole reason the line is interesting is usually what
+ * follows it. So Pause freezes a **mark** — how many entries had arrived when it was pressed — and
+ * the panel draws up to there, saying how many are waiting. Unpausing shows them. Nothing is ever
+ * dropped by pausing, which is the difference between a pause and a mute.
+ *
+ * The mark counts entries *ever appended*, not entries currently held, because the log is bounded
+ * and drops its oldest. A mark that counted the living would slide backwards under a busy log and
+ * quietly reveal lines the user had paused to avoid.
+ *
+ * ### Search commits, it does not filter per keystroke
+ *
+ * Enter or leaving the field applies it, which is what the Outliner's search does (`STUDIO-13002`)
+ * and the reason is that they should agree rather than that either is obviously right: two search
+ * boxes in one application that respond differently to the same typing is a worse answer than
+ * either behaviour.
  */
 
 #pragma once
@@ -47,6 +67,23 @@ namespace CNA::Studio
 
         /** @brief How many entries the current filter is showing, drawn or scrolled out of view. */
         std::size_t rowsMatching = 0;
+
+        /** @brief A row's link was clicked; @ref link says what to open. Input pass only. */
+        bool linkActivated = false;
+
+        /**
+         * @brief What the clicked row points at.
+         *
+         * Reported, not opened: the panel has no scene, no asset database and no business
+         * selecting anything. The binder acts.
+         */
+        StudioLogLink link;
+
+        /** @brief Whether the panel is currently holding new output back. */
+        bool paused = false;
+
+        /** @brief How many entries have arrived since Pause was pressed. Zero when not paused. */
+        std::size_t heldBackCount = 0;
     };
 
     /**

@@ -88,7 +88,9 @@ namespace CNA::Studio
         // is that it was written, and where.
         for (const std::string& warning : result.warnings)
         {
-            log_.append(LogSeverity::Warning, "Packaging: " + warning);
+            // Sourced, so the Console's Build filter can isolate a packaging run
+            // (`plan.md` STUDIO-27020).
+            log_.append(LogSeverity::Warning, LogSource::Build, "Packaging: " + warning);
         }
 
         notification.severity = result.warnings.empty() ? StudioNotificationSeverity::Success

@@ -734,6 +734,17 @@ namespace CNA::Studio
         void saveAssetShortcuts();
 
         /** @brief Polls the asset watcher, which also refreshes the presence cache. */
+        /**
+         * @brief Acts on a log line's link: selects an entity, reveals an asset, opens a folder.
+         *
+         * `plan.md` STUDIO-27020. Here rather than in the panel because the Output Log is handed a
+         * log and nothing else -- no scene, no asset database, no shell -- and it should stay that
+         * way. The panel reports which link was clicked; this is the binder that acts.
+         *
+         * @param link What the clicked row pointed at.
+         */
+        void followLogLink(const StudioLogLink& link);
+
         void pollAssetChanges(double nowSeconds);
 
 
