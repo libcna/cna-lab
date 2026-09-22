@@ -361,6 +361,79 @@ CNA_STUDIO_TEST(RestartStopsWhatIsRunningAndStartsItAgain)
     CNA_STUDIO_EXPECT_EQ(launches, std::size_t{2});
 }
 
+/**
+ * @brief Restart is **refused** when there is nothing to restart with, and refusing it costs nothing.
+ *
+ * `plan.md` STUDIO-16001. Restart is stop-then-start, which is the right mechanism — the player
+ * reads the scene from disk, so stopping and starting is the whole of how a user sees the edits
+ * they have made since. It also means the stop happens before anything could know whether the start
+ * will work, so a Restart that cannot start again would cost the user their running session and
+ * hand them an error about launching.
+ *
+ * It does not, and the guard is the action's own enablement rather than a check inside the service:
+ * with no player build, `studio.play.restart` is **disabled** — `STUDIO-12004`'s doctrine — so the
+ * gesture is refused before it can stop anything. This pins that, and pins that the refusal leaves
+ * the running game alone, which is the half a disabled-button check on its own would not say.
+ *
+ * Written the other way round first, on the assumption that the stop happened and the editor was
+ * left explaining a launch failure. It does not, and the case now records why.
+ */
+CNA_STUDIO_TEST(ARestartWithNothingToRestartWithIsRefusedRatherThanStopping)
+{
+    if (!std::filesystem::exists("/bin/true")) { return; }
+
+    Harness harness;
+    const ScopedProject project{"restartgone"};
+    CNA_STUDIO_EXPECT(harness.context.openProject(project.file()));
+    CNA_STUDIO_EXPECT(harness.context.saveScene(project.scene()));
+    harness.panels.setPlayerBuilds({PlayerBuild{"default", "/bin/true"}});
+    harness.frame();
+
+    CNA_STUDIO_EXPECT(harness.shell.actions().isEnabled("studio.play.restart"));
+
+    harness.shell.invoke("studio.play.play");
+    CNA_STUDIO_EXPECT(harness.panels.playState() == StudioPlayState::Playing);
+
+    // The build goes away mid-session, which is what an uninstall or a rebuild looks like from
+    // here.
+    harness.panels.setPlayerBuilds({});
+    harness.frame();
+    CNA_STUDIO_EXPECT(!harness.shell.actions().isEnabled("studio.play.restart"));
+
+    harness.shell.invoke("studio.play.restart");
+    harness.frame();
+
+    // Nothing was stopped. A refusal that took the running game with it would be the worst of both
+    // answers: the user loses their session *and* does not get a restart.
+    CNA_STUDIO_EXPECT(harness.panels.playState() == StudioPlayState::Playing);
+    for (const StudioLogEntry& entry : harness.log.entries())
+    {
+        CNA_STUDIO_EXPECT(!contains(entry.message, "Stopped the player"));
+    }
+
+    // Play is refused for the same reason, so the two agree about what this Studio can run.
+    harness.shell.invoke("studio.play.stop");
+    harness.frame();
+    CNA_STUDIO_EXPECT(!harness.shell.actions().isEnabled("studio.play.play"));
+
+    // `start()`'s "No player build was found" message is therefore a **backstop** rather than the
+    // message a user sees: the button is disabled before the service is asked. That is the right
+    // order -- a control that explains itself only after being pressed is a control that had to be
+    // pressed -- and the message still matters for the paths that do not go through a toolbar,
+    // which is why it is not dead code.
+    StudioLog bare;
+    StudioContext context;
+    StudioPlayService service{context, bare, [](StudioNotification) {}};
+    service.start();
+
+    bool explained = false;
+    for (const StudioLogEntry& entry : bare.entries())
+    {
+        if (contains(entry.message, "No player build was found")) { explained = true; }
+    }
+    CNA_STUDIO_EXPECT(explained);
+}
+
 CNA_STUDIO_TEST(RestartIsOfferedBeforeAnythingIsRunning)
 {
     // It is Play with a stop in front of it, so refusing it when nothing is running would make the

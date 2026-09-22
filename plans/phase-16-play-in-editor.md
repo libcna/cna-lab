@@ -6,11 +6,11 @@
 
 **Exit criteria.** Play, pause, step, stop, restart, live edits and crash isolation all work against a real game process.
 
-**Progress:** 4 of 18 complete `██░░░░░░░░░░`
+**Progress:** 5 of 18 complete `███░░░░░░░░░`
 
 | Id | Task | Status | Depends on |
 |----|------|:------:|------------|
-| `STUDIO-16001` | Play, Pause, Step, Stop, Restart over the bridge | ⬜ | `STUDIO-06002` |
+| `STUDIO-16001` | Play, Pause, Step, Stop, Restart over the bridge | ✅ | `STUDIO-06002` |
 | `STUDIO-16002` | Game logs routed into the Console with source attribution | ⬜ | `STUDIO-07005` |
 | `STUDIO-16003` | Crash reporting when the player dies, without taking Studio with it | ⬜ | `STUDIO-16001` |
 | `STUDIO-16004` | Live asset reload into the running player | ⬜ | `STUDIO-16001` |
@@ -35,7 +35,50 @@ Tasks whose completion condition is not obvious from the title.
 
 ### `STUDIO-16001` — Play, Pause, Step, Stop, Restart over the bridge
 
-**Acceptance.** Carried forward from the prototype and retested through the Studio UI
+**Acceptance.** Carried forward from the prototype and retested through the Studio UI.
+
+**✅ Done, and this one really was already done** — which is worth stating plainly, because most of
+the rows audited this session were not. Both halves of the bridge are implemented and both are
+tested against a **real player process**, not a double.
+
+Studio's half sends `Pause`, `Resume` and `StepFrame`, and follows the player's state *only once the
+request is on the wire* — `StudioPlayService::setPaused` checks `player_.send` before moving
+`state_`, because a toolbar that says "Paused" over a game that never got the message is worse than
+one that did nothing, since the user then believes it. The player's half honours all three:
+`PlayerHost::tick` returns false while paused unless a step is pending, and a step while *running*
+is ignored rather than banked, because honouring it would make the game jump a frame ahead of where
+the user is looking.
+
+Restart is stop-then-start rather than a message asking the game to reload itself, and that is the
+right mechanism: the player reads the scene from disk when it starts, so stopping and starting is
+the whole of how a user sees the edits they have made since — which is what they mean by it.
+
+**One thing the audit checked and found already right, recorded because the obvious guess was
+wrong.** Stop-then-start means the stop happens before anything could know whether the start will
+work, so a Restart with no player build would cost the user their running session and hand them an
+error about launching. It does not, and the guard is not a precondition check inside the service: it
+is the **action's own enablement** (`STUDIO-12004`'s doctrine), so the gesture is refused before it
+can stop anything. The case for this was written the other way round first, on the assumption that
+the defect was there.
+
+A consequence worth naming: `start()`'s *"No player build was found"* is therefore a **backstop**
+rather than the message a user sees, because the button is disabled before the service is asked.
+That is the right order — a control that explains itself only after being pressed is a control that
+had to be pressed — and the message is still reached by the paths that do not go through a toolbar,
+so it is not dead code. The case asserts both.
+
+**Verification.** `tests/PlayerTests.cpp` — `PlayerHostHonoursPauseStepAndResume` and
+`PlayerHostIgnoresStepWhileRunning`, over the real `PlayerHost`. `tests/StudioPlayModeTests.cpp` —
+`PausingARealPlayerFollowsItRatherThanAnnouncingIt`, which drives Play → Pause → Step → Resume →
+Stop through the shell's own actions against a launched `cna-player` and checks the status bar says
+*which* of the two states it is in (a paused game and a running one look identical from the editor:
+the window is there either way); `RestartStopsWhatIsRunningAndStartsItAgain`, which counts *two*
+launches because a restart that only stopped would look identical from here; and
+`ARestartWithNothingToRestartWithIsRefusedRatherThanStopping`, added by this row.
+
+Checked by causing it: removing the build-list condition from Restart's enablement makes the refusal
+stop the running game and fail to start it — three assertions, which is the defect the case was
+written to look for.
 
 ### `STUDIO-16011` — Renderer preview selection among the installed player builds
 
