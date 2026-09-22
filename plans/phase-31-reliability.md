@@ -6,7 +6,7 @@
 
 **Exit criteria.** Interrupted saves, corrupt files and crashes cost a user nothing they cannot recover, and nothing is repaired silently.
 
-**Progress:** 6 of 13 complete `█████░░░░░░░`
+**Progress:** 7 of 13 complete `██████░░░░░░`
 
 | Id | Task | Status | Depends on |
 |----|------|:------:|------------|
@@ -15,7 +15,7 @@
 | `STUDIO-31003` | Atomic writes for every authored file | ✅ | — |
 | `STUDIO-31004` | Undo and redo stability under every editing path | ⬜ | `STUDIO-02035` |
 | `STUDIO-31005` | Format migration chain runs on every load | ✅ | — |
-| `STUDIO-31006` | Dirty-state tracking | ⬜ | `STUDIO-31001` |
+| `STUDIO-31006` | Dirty-state tracking | ✅ | `STUDIO-31001` |
 | `STUDIO-31007` | Crash isolation from the game process | ⬜ | `STUDIO-16003` |
 | `STUDIO-31008` | Malformed project and scene diagnostics that permit repair | ⬜ | — |
 | `STUDIO-31009` | Unknown plugin components preserved through save and load | ✅ | — |
@@ -357,6 +357,54 @@ intended state — registering a step is not a licence to bump a version, and an
 builds can ignore costs nothing and needs none. What changed is that the first real step is now a
 small addition to a path that already runs on every load of every format, rather than a new path
 for three of them.
+
+### `STUDIO-31006` — Dirty-state tracking
+
+**Acceptance.** Studio's answer to "does this have unsaved changes?" is one answer, it is the
+document's, and it is shown wherever a user would look for it.
+
+**✅ Done, and the mechanism was already right.** `CommandHistory` tracks a *saved cursor* rather
+than a flag: `isDirty()` is "the cursor is not where the last save left it", so undoing back to the
+saved position makes the document clean again and nothing has to remember to clear anything. Six
+places ask it — the quit dialog, the status bar, New Scene, Play (which saves first), the comparison
+service and autosave — and none of them keeps a copy.
+
+**Two defects in what is *shown*, and they are the same defect twice.**
+
+The status bar's mark was `hasProject() && isDirty()`. `requestQuit` is plain `isDirty()`. So a user
+who built a scene before creating a project — which Studio allows on purpose, because *"refusing
+them would be refusing the first thing they try"* — saw a bar reporting nothing modified, and was
+then stopped on the way out by a dialog telling them the scene had unsaved changes. Two answers to
+one question, and the wrong one was the one they read while deciding whether to close the window.
+The bar's own comment says why that is worse than no mark: *"an unsaved-changes mark that can be
+wrong is worse than none, because it is the one thing a user checks before closing the window."*
+This is the second row this session to find `hasProject()` used as a proxy for "there is a document"
+when the document exists either way; `STUDIO-31001` was the first.
+
+And **`StudioShell::setPanelModified` had no callers at all** — not in `src/`, not in the suite. The
+method has existed since the shell did, `studioTab` draws a dot for it, and nothing ever set it. A
+dead affordance is worse than a missing one: a user who looks at a tab for a mark and never finds
+one learns that the tabs do not have marks, and stops looking on the day it would have mattered. The
+Viewport's tab now carries the scene's mark, from the same `isDirty()` the bar reads, so the two are
+one answer rather than two that agree today.
+
+**What is deliberately *not* dirty-tracked, and why that is not a gap.** Materials, environment maps,
+importer settings and the project's own document are **written through** on every edit — each is one
+command that saves as it applies. So there is no unsaved state for them to be in, which is the same
+bargain `SetImporterSettingCommand` struck long before this row and the one `STUDIO-17002` extended
+to build targets. The scene is the only document Studio holds unsaved, and it is the only one with a
+mark.
+
+**Verification.** `tests/StudioStatusBarTests.cpp` — `AnUnsavedSceneIsMarkedAndTheMarkGoesWhenItIsSaved`
+(the existing case, with a project), `AnUnsavedSceneIsMarkedEvenBeforeThereIsAProjectToSaveItIn`, and
+`TheViewportTabCarriesTheScenesUnsavedMark` — which also asserts the mark *goes*, so it is a mark
+rather than a badge the panel wears once and keeps, and that the bar and the tab give the same
+answer. Every one drives a real `DeleteEntityCommand`, because "the document is dirty" is the
+history's answer and a test that set a flag would not be asking it.
+
+Checked by causing each: the `hasProject()` condition put back (both cases fail), and the
+`setPanelModified` call removed (the tab case alone fails, which is the shape of two independent
+properties rather than one).
 
 ### `STUDIO-31008` — Malformed project and scene diagnostics that permit repair
 

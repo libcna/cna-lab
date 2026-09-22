@@ -294,3 +294,74 @@ CNA_STUDIO_TEST(TheBarDrawsAtAnyWidthWithoutOverflowing)
         CNA_STUDIO_EXPECT_EQ(harness.shell.frame().phaseViolations(), std::size_t{0});
     }
 }
+
+/**
+ * @brief **The unsaved mark does not need a project, because the quit dialog does not either.**
+ *
+ * `plan.md` STUDIO-31006. `status.modified` was `hasProject() && isDirty()`, and
+ * `StudioShellPanels::requestQuit` is plain `isDirty()` — so a user who built a scene before
+ * creating a project saw a bar that said nothing was modified and then got stopped on the way out
+ * by a dialog telling them the scene had unsaved changes. Two answers to one question, and the
+ * wrong one was the one they read while deciding whether to close the window.
+ *
+ * Studio lets that scene exist on purpose: creating an entity is enabled with no project, because
+ * *"refusing them would be refusing the first thing they try"*.
+ */
+CNA_STUDIO_TEST(AnUnsavedSceneIsMarkedEvenBeforeThereIsAProjectToSaveItIn)
+{
+    Harness harness;
+    harness.poll();
+
+    CNA_STUDIO_EXPECT(!harness.context.hasProject());
+    CNA_STUDIO_EXPECT(!harness.shell.status().modified);
+
+    // Through a real command, because "the document is dirty" is the history's answer and a test
+    // that set a flag would not be asking it.
+    StudioEntity marker;
+    marker.setName("Marker");
+    const Uuid created = harness.context.getScene().addEntity(std::move(marker));
+    harness.context.execute(
+        std::make_unique<DeleteEntityCommand>(harness.context.getScene(), created));
+    harness.poll();
+
+    CNA_STUDIO_EXPECT(!harness.context.hasProject());
+    CNA_STUDIO_EXPECT(harness.shell.status().modified);
+}
+
+/**
+ * @brief The Viewport's tab carries the same mark, which until now nothing ever set.
+ *
+ * `StudioShell::setPanelModified` and the dot `studioTab` draws for it have both existed since the
+ * shell did, and **no caller anywhere ever called it** — in `src/` or in the suite. A dead
+ * affordance is worse than a missing one: a user who looks at a tab for a mark and never finds one
+ * learns that the tabs do not have marks, and stops looking on the day it would have mattered.
+ */
+CNA_STUDIO_TEST(TheViewportTabCarriesTheScenesUnsavedMark)
+{
+    Harness harness;
+    harness.poll();
+
+    const StudioPanelDescriptor* viewport = harness.shell.panel("viewport");
+    CNA_STUDIO_EXPECT(viewport != nullptr);
+    if (viewport == nullptr) { return; }
+    CNA_STUDIO_EXPECT(!viewport->modified);
+
+    StudioEntity marker;
+    marker.setName("Marker");
+    const Uuid created = harness.context.getScene().addEntity(std::move(marker));
+    harness.context.execute(
+        std::make_unique<DeleteEntityCommand>(harness.context.getScene(), created));
+    harness.poll();
+
+    CNA_STUDIO_EXPECT(harness.shell.panel("viewport")->modified);
+
+    // And it goes when the document matches its file again, which is what makes it a mark rather
+    // than a badge the panel wears once and keeps.
+    harness.context.getHistory().markSaved();
+    harness.poll();
+    CNA_STUDIO_EXPECT(!harness.shell.panel("viewport")->modified);
+
+    // The bar and the tab are one answer, not two that agree today.
+    CNA_STUDIO_EXPECT_EQ(harness.shell.panel("viewport")->modified,
+                         harness.shell.status().modified);
+}

@@ -516,7 +516,21 @@ namespace CNA::Studio
         // The document's own answer rather than a flag somebody has to remember to set: an
         // unsaved-changes mark that can be wrong is worse than none, because it is the one thing
         // a user checks before closing the window.
-        status.modified = context_.hasProject() && context_.getHistory().isDirty();
+        //
+        // **And not conditioned on there being a project** (`plan.md` STUDIO-31006). It was, so a
+        // scene built before a project existed showed no mark at all — while `requestQuit`, which
+        // has no such condition, stopped that same user and told them the scene had unsaved
+        // changes. Two answers to one question, and the one the user reads while deciding whether
+        // to close the window was the wrong one.
+        status.modified = context_.getHistory().isDirty();
+
+        // The same answer on the Viewport's tab, which is where the scene is. `setPanelModified`
+        // and the dot `studioTab` draws for it have both existed since the shell did, and nothing
+        // had ever called it — a dead affordance is worse than a missing one, because a user who
+        // looks at a tab for a mark and never sees it learns that the tab does not have marks.
+        // Discarded rather than checked: a shell with no Viewport registered is a test's shell,
+        // and a status mark is not a reason to complain about a layout somebody chose.
+        (void)shell_->setPanelModified("viewport", status.modified);
 
         // Rebuilt every poll rather than edited, so a job that ended cannot leave a bar behind:
         // the status bar reports what is running now, and "now" is what a poll is for.
