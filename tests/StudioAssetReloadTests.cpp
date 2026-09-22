@@ -221,3 +221,82 @@ CNA_STUDIO_TEST(APollWithNothingToReportDoesNotSaySo)
     CNA_STUDIO_EXPECT(!result.any());
     CNA_STUDIO_EXPECT(fixture.messages.empty());
 }
+
+/**
+ * @brief **Fifty files touched at once is one message to the player, not fifty.**
+ *
+ * `plan.md` STUDIO-16004. The player rescans its whole asset directory on *every* reload it is told
+ * about — it has to, or the record it then looks up still carries the size and timestamp from
+ * before the change. So one message per changed asset meant one full scan per changed asset inside
+ * the running game, and a texture export, a `git checkout` or a batch convert is exactly the moment
+ * a user has dozens change at once.
+ *
+ * The player already understood a nil id as *"everything"*, and its own comment says why that is
+ * the right shape: *"a project-wide change is best reported as [one message] rather than as one
+ * message per asset."* Studio was the half not doing it.
+ *
+ * Every cache on the editor's side is still dropped **per asset**, because those are local and
+ * cheap and dropping them all would throw away art that did not change.
+ */
+CNA_STUDIO_TEST(ABatchOfChangesIsOneReloadMessageRatherThanOnePerAsset)
+{
+    Fixture fixture{"asset-reload-batch"};
+
+    // A handful more files, so the batch is a batch.
+    for (int i = 0; i < 5; ++i)
+    {
+        writeFile(fixture.directory / "Assets" / ("extra" + std::to_string(i) + ".txt"), "before");
+    }
+    CNA_STUDIO_EXPECT(fixture.context.getAssets().scan("Assets").succeeded);
+    CNA_STUDIO_EXPECT_EQ(fixture.context.getAssets().getCount(), std::size_t{6});
+
+    std::vector<Uuid> rendered;
+    std::vector<Uuid> toPlayer;
+
+    StudioAssetReloadSinks sinks;
+    sinks.invalidateRendered = [&rendered](const Uuid& id) { rendered.push_back(id); };
+    sinks.reloadInPlayer = [&toPlayer](const Uuid& id) { toPlayer.push_back(id); };
+
+    (void)studioPollAssetChanges(fixture.watcher, fixture.context, sinks, 1.0);
+    rendered.clear();
+    toPlayer.clear();
+
+    // All six change, which is what a batch convert or a branch switch looks like.
+    writeFile(fixture.directory / "Assets" / "player.txt", "after the edit");
+    for (int i = 0; i < 5; ++i)
+    {
+        writeFile(fixture.directory / "Assets" / ("extra" + std::to_string(i) + ".txt"), "after");
+    }
+
+    const StudioAssetReloadResult result =
+        studioPollAssetChanges(fixture.watcher, fixture.context, sinks, 1.0);
+
+    CNA_STUDIO_EXPECT_EQ(result.changed, std::size_t{6});
+
+    // Every editor cache is still dropped one at a time: those are local, cheap, and dropping them
+    // wholesale would throw away art that did not change.
+    CNA_STUDIO_EXPECT_EQ(rendered.size(), std::size_t{6});
+
+    // And the player hears once, about everything.
+    CNA_STUDIO_EXPECT_EQ(toPlayer.size(), std::size_t{1});
+    if (!toPlayer.empty()) { CNA_STUDIO_EXPECT(!toPlayer.front().isValid()); }
+
+    // A single change is still named, because the player can then report *which* asset it
+    // reloaded, and "rescanned 400 assets" is a worse answer to "did my texture land?".
+    toPlayer.clear();
+    writeFile(fixture.directory / "Assets" / "player.txt", "one more edit");
+    const StudioAssetReloadResult single =
+        studioPollAssetChanges(fixture.watcher, fixture.context, sinks, 1.0);
+
+    CNA_STUDIO_EXPECT_EQ(single.changed, std::size_t{1});
+    CNA_STUDIO_EXPECT_EQ(toPlayer.size(), std::size_t{1});
+
+    // By path, not by `onlyAsset()`: there are six now, and the one that changed is the named one
+    // rather than whichever the database happens to hold first.
+    const AssetRecord* edited = fixture.context.getAssets().findByPath("Assets/player.txt");
+    CNA_STUDIO_EXPECT(edited != nullptr);
+    if (!toPlayer.empty() && edited != nullptr)
+    {
+        CNA_STUDIO_EXPECT(toPlayer.front() == edited->id);
+    }
+}

@@ -33,6 +33,18 @@ namespace CNA::Studio
         const AssetWatchResult changes = watcher.poll(context.getAssets(), deltaSeconds);
         if (!changes.hasChanges()) { return result; }
 
+        // **One message for a batch, not one per asset** (`plan.md` STUDIO-16004). The player
+        // rescans the whole asset directory on *every* reload it is told about -- it has to, or
+        // the record it looks up still carries the size and timestamp from before the change. So
+        // fifty files touched at once, which is what a texture export or a `git checkout` looks
+        // like, was fifty full scans inside the running game.
+        //
+        // The player already understands a nil id as "everything", and says so: *"A nil id means
+        // 'everything', which is what a project-wide change is best reported as rather than as one
+        // message per asset."* Studio was the half not doing it.
+        const std::size_t reloadable = changes.changed.size() + changes.restored.size();
+        const bool reloadEverythingAtOnce = reloadable > 1;
+
         for (const Uuid& assetId : changes.changed)
         {
             // Dropping the cached texture is what makes the change visible. Without it the editor
@@ -41,7 +53,7 @@ namespace CNA::Studio
             // an edited .gltf would keep drawing the shape it had when the project was opened.
             if (sinks.invalidateRendered) { sinks.invalidateRendered(assetId); }
             context.getMeshes().invalidate(assetId);
-            if (sinks.reloadInPlayer) { sinks.reloadInPlayer(assetId); }
+            if (!reloadEverythingAtOnce && sinks.reloadInPlayer) { sinks.reloadInPlayer(assetId); }
 
             context.log(LogSeverity::Info,
                         "Reloaded '" + nameOf(context, assetId) + "' after an external change.");
@@ -51,10 +63,15 @@ namespace CNA::Studio
         {
             if (sinks.invalidateRendered) { sinks.invalidateRendered(assetId); }
             context.getMeshes().invalidate(assetId);
-            if (sinks.reloadInPlayer) { sinks.reloadInPlayer(assetId); }
+            if (!reloadEverythingAtOnce && sinks.reloadInPlayer) { sinks.reloadInPlayer(assetId); }
 
             context.log(LogSeverity::Info, "'" + nameOf(context, assetId) + "' is back.");
         }
+
+        // The single message, sent after the caches are dropped so the editor and the player are
+        // not briefly disagreeing about what is current. Still nothing for a *removal*: a file
+        // that has gone is not a file the running game should be told to re-read.
+        if (reloadEverythingAtOnce && sinks.reloadInPlayer) { sinks.reloadInPlayer(Uuid{}); }
 
         for (const Uuid& assetId : changes.removed)
         {

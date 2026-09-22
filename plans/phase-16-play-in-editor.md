@@ -6,14 +6,14 @@
 
 **Exit criteria.** Play, pause, step, stop, restart, live edits and crash isolation all work against a real game process.
 
-**Progress:** 7 of 18 complete `████░░░░░░░░`
+**Progress:** 8 of 18 complete `█████░░░░░░░`
 
 | Id | Task | Status | Depends on |
 |----|------|:------:|------------|
 | `STUDIO-16001` | Play, Pause, Step, Stop, Restart over the bridge | ✅ | `STUDIO-06002` |
 | `STUDIO-16002` | Game logs routed into the Console with source attribution | ✅ | `STUDIO-07005` |
 | `STUDIO-16003` | Crash reporting when the player dies, without taking Studio with it | ✅ | `STUDIO-16001` |
-| `STUDIO-16004` | Live asset reload into the running player | ⬜ | `STUDIO-16001` |
+| `STUDIO-16004` | Live asset reload into the running player | ✅ | `STUDIO-16001` |
 | `STUDIO-16005` | Live property edits into the running player | ⬜ | `STUDIO-15011` |
 | `STUDIO-16006` | Scene reload | ⬜ | `STUDIO-16004` |
 | `STUDIO-16007` | Selected-entity synchronisation where feasible | ⬜ | `STUDIO-16005` |
@@ -164,6 +164,42 @@ player for the reason `RecoveryStore` gives about the editor's own: code that se
 from inside `SIGSEGV` is calling `malloc` with a corrupted heap. What a user gets is the signal, the
 game's own output up to the moment it died, and an editor that still works — which is what lets them
 run it again under a debugger.
+
+### `STUDIO-16004` — Live asset reload into the running player
+
+**Acceptance.** A file changed on disk is the file the running game is using.
+
+**✅ Done, and the flow was whole; what was missing was the arithmetic.** The watcher notices the
+change, the editor drops the caches holding the old copy, the player is told, it rescans and records
+the reload for its graphics half to drain, and `ED-246` made that last step real — a texture changed
+on disk is visible in the running game rather than only in its log. A file that has *gone* is
+deliberately not forwarded, because a player told to reload a missing asset would drop the copy it
+is successfully drawing in exchange for nothing.
+
+**The defect was one message per changed asset.** `PlayerHost::handleReloadAsset` rescans the whole
+asset directory every time it is told about a reload — it has to, or the record it then looks up
+still carries the size and timestamp from before the change. So six files touched at once was six
+full scans inside the running game, and a texture export, a batch convert or a `git checkout` is
+exactly the moment a user has dozens change together.
+
+**The player already knew the answer.** Its own comment says: *"A nil id means 'everything', which
+is what a project-wide change is best reported as rather than as one message per asset."* Studio was
+the half not doing it — the fourth instance this session of a rule written down on one side of a
+boundary and not honoured on the other.
+
+Two things stay per-asset, and both deliberately. Every **editor** cache is still dropped one at a
+time: those are local, cheap, and dropping them wholesale would throw away art that did not change.
+And a **single** change is still named, because the player can then report *which* asset it
+reloaded, and "rescanned 400 assets" is a worse answer to "did my texture land?".
+
+**Verification.** `tests/StudioAssetReloadTests.cpp` —
+`ABatchOfChangesIsOneReloadMessageRatherThanOnePerAsset`, which changes six files in one poll and
+asserts six cache invalidations and **one** message carrying a nil id, then that a lone change is
+still named. Alongside the existing `AnEditedAssetDropsEveryCacheThatWasHoldingTheOldOne`,
+`AnAssetWhoseFileHasGoneIsReportedAndNotSentToThePlayer` and
+`AnAssetThatComesBackIsReportedAndReloadedLikeAnEdit`.
+
+Checked by causing it: the batch condition forced false sends six messages again.
 
 ### `STUDIO-16011` — Renderer preview selection among the installed player builds
 

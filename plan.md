@@ -59,13 +59,13 @@ mapping is in [`docs/LEGACY-EDITOR-TASK-MAP.md`](docs/LEGACY-EDITOR-TASK-MAP.md)
 
 ## Global progress
 
-**398 of 581 tasks complete** `█████████████████░░░░░░░░`  68.5%
+**399 of 581 tasks complete** `█████████████████░░░░░░░░`  68.7%
 
 | Status | Count |
 |--------|------:|
-| ✅ Complete | 398 |
+| ✅ Complete | 399 |
 | 🔄 In progress | 8 |
-| ⬜ Not started | 167 |
+| ⬜ Not started | 166 |
 | ⛔ Deferred | 3 |
 | 🔬 Blocked | 4 |
 | ⊘ Superseded | 1 |
@@ -97,7 +97,7 @@ mapping is in [`docs/LEGACY-EDITOR-TASK-MAP.md`](docs/LEGACY-EDITOR-TASK-MAP.md)
 | 13 | [World Outliner 2](plans/phase-13-outliner.md) | `STUDIO-13NNN` | ✅ | 13 | 13 | `██████████` |
 | 14 | [Details Inspector 2](plans/phase-14-inspector.md) | `STUDIO-14NNN` | ✅ | 18 | 18 | `██████████` |
 | 15 | [C++ gameplay component workflow](plans/phase-15-cpp-gameplay.md) | `STUDIO-15NNN` | ⬜ | 12 | 0 | `░░░░░░░░░░` |
-| 16 | [Play In Editor 2](plans/phase-16-play-in-editor.md) | `STUDIO-16NNN` | 🔄 | 18 | 7 | `███░░░░░░░` |
+| 16 | [Play In Editor 2](plans/phase-16-play-in-editor.md) | `STUDIO-16NNN` | 🔄 | 18 | 8 | `████░░░░░░` |
 | 17 | [Build profiles](plans/phase-17-build-profiles.md) | `STUDIO-17NNN` | 🔄 | 12 | 6 | `█████░░░░░` |
 | 18 | [Cook, package and export](plans/phase-18-package-export.md) | `STUDIO-18NNN` | ⬜ | 11 | 0 | `░░░░░░░░░░` |
 | 19 | [Materials](plans/phase-19-materials.md) | `STUDIO-19NNN` | ✅ | 9 | 9 | `██████████` |
