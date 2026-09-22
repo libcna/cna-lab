@@ -260,6 +260,15 @@ viewport toolbar:
 Measure what a frame of UI costs each render backend (`STUDIO-04028`). Needs no CNA, no GPU and no
 window; `=NAME` selects scenarios by substring.
 
+**Run one validation matrix at a time.** Two started in the same container write over each other's
+build trees and scratch directories, and the failures that produces are convincing: a link error, a
+recursive-directory-iterator throw, and — worst — a *stale* tree afterwards, where `ninja` says "no
+work to do" over an object file older than the header it includes. That last one surfaced as an
+AddressSanitizer stack-buffer-overflow inside a defaulted constructor, which reads exactly like a
+real memory bug and is not one: the stale translation unit reserved a stack slot for the old size of
+a class while the linker picked the new inline constructor. If a build tree ever looks like that,
+`cmake --build <tree> --target clean` and build again before believing anything it says.
+
 **The budget gate reads the cheapest frame of the run**, `us(min)` (`STUDIO-33027`). It used to
 read the median, and five validation runs of unchanged binaries failed it because of whatever else
 was sharing the machine. Measured against four busy-loops on a four-core machine, the minimum drifts
@@ -353,7 +362,7 @@ Baseline at import, for comparison: 442 test cases, 12 CTest suites.
 
 ## What was completed
 
-Task ids are `STUDIO-PPNNN`; see `plan.md` for the full list. **404 of 582 tasks are complete.**
+Task ids are `STUDIO-PPNNN`; see `plan.md` for the full list. **405 of 582 tasks are complete.**
 Per-phase counts and the headline are checked by the test suite — `STUDIO-33018` for `plan.md` and
 `STUDIO-33019` for this file — so neither can drift from the phase files again. The second was added
 after this file had drifted by nineteen tasks and a hundred and fifty-eight test cases, which is

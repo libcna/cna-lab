@@ -46,7 +46,9 @@
 
 #include "CNA/Studio/Core/Uuid.hpp"
 
+#include <array>
 #include <cstddef>
+#include <cstdint>
 #include <deque>
 #include <string>
 #include <vector>
@@ -249,10 +251,34 @@ namespace CNA::Studio
 
         /**
          * @brief How many retained entries came from @p source.
+         *
+         * Constant time (`plan.md` STUDIO-27021). Maintained as entries arrive and are dropped,
+         * rather than counted on demand, because the Console asks it once per source button per
+         * pass -- six scans of the whole log per frame, to put three numbers on three buttons.
+         *
          * @param source The source to count.
          * @return The count.
          */
         [[nodiscard]] std::size_t countFrom(LogSource source) const;
+
+        /**
+         * @brief Bumped whenever the entries change: an append, a collapse, a drop, a clear.
+         *
+         * `plan.md` STUDIO-27021. What lets a reader tell "the log I filtered is the log I am
+         * looking at" from "something has happened since", which is the whole basis of caching a
+         * filtered view instead of rebuilding it twice a frame. A counter rather than a hash:
+         * cheap, monotonic, and it cannot collide.
+         */
+        [[nodiscard]] std::uint64_t revision() const { return revision_; }
+
+        /**
+         * @brief How many entries have **ever** been appended, including those since dropped.
+         *
+         * Distinct from `entries().size() + droppedCount()` only in intent -- they are equal -- but
+         * naming it says what it is for: a mark that has to survive the log dropping its oldest.
+         * The Console's Pause takes one.
+         */
+        [[nodiscard]] std::uint64_t appendedCount() const { return appended_; }
 
         /**
          * @brief The log as plain text, for the clipboard or a bug report.
@@ -284,5 +310,10 @@ namespace CNA::Studio
         std::size_t capacity_ = kDefaultCapacity;
         std::size_t dropped_ = 0;
         double now_ = 0.0;
+        std::uint64_t revision_ = 0;
+        std::uint64_t appended_ = 0;
+
+        /** @brief Retained entries per source, indexed by `LogSource`. Kept in step with @ref entries_. */
+        std::array<std::size_t, 3> countsBySource_{};
     };
 }

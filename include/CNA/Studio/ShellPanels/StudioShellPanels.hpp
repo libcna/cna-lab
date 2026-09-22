@@ -30,6 +30,7 @@
 #include "CNA/Studio/Assets/ImportJobs.hpp"
 #include "CNA/Studio/Assets/ThumbnailCache.hpp"
 #include "CNA/Studio/Assets/AssetWatcher.hpp"
+#include "CNA/Studio/UiCore/StudioLogPanel.hpp"
 #include "CNA/Studio/Core/StudioJobs.hpp"
 #include "CNA/Studio/Core/Uuid.hpp"
 #include "CNA/Studio/Project/BuildRunner.hpp"
@@ -883,6 +884,15 @@ namespace CNA::Studio
          * two builds would be a cache that is right in one of them.
          */
         AssetWatcher watcher_;
+
+        /**
+         * @brief What the Output Log worked out last frame (`plan.md` STUDIO-27021).
+         *
+         * Owned here rather than inside the panel because a free function has nowhere to keep it,
+         * and it is what makes a filtered two-hundred-thousand-line console cost the lines that
+         * arrived rather than the lines it holds.
+         */
+        StudioLogPanelState logPanelState_;
 
         /** @brief The previous `poll()` timestamp, so the watcher gets a delta. Negative until one. */
         double lastPollSeconds_ = -1.0;

@@ -831,3 +831,218 @@ CNA_STUDIO_TEST(CopyTakesWhatThePanelIsShowingRatherThanTheWholeLog)
     // And it is spelled the way a pasted log is spelled, time and source included.
     CNA_STUDIO_EXPECT(copied.find("[studio]") != std::string::npos);
 }
+
+// -------------------------------------------------------------------------------------------
+// Very large logs (plan.md STUDIO-27021)
+// -------------------------------------------------------------------------------------------
+
+namespace
+{
+    /** @brief A log of @p count lines, a tenth of which are errors. */
+    StudioLog aVeryLargeLog(int count)
+    {
+        StudioLog log{static_cast<std::size_t>(count) * 2};
+        for (int i = 0; i < count; ++i)
+        {
+            log.setNow(static_cast<double>(i) / 60.0);
+            log.append(i % 10 == 0 ? LogSeverity::Error : LogSeverity::Info,
+                       "line " + std::to_string(i));
+        }
+        return log;
+    }
+}
+
+CNA_STUDIO_TEST(AnUnfilteredConsoleLooksAtNoEntriesAtAllHoweverLargeTheLogIs)
+{
+    // The state a console is in almost all of the time. Every entry is visible, row r is entry r,
+    // and there is nothing to work out -- so the answer must not depend on the size of the log.
+    StudioLog big = aVeryLargeLog(200000);
+    StudioLog small;
+    small.append(LogSeverity::Info, "line 0");
+
+    const auto examinedFor = [](const StudioLog& log) {
+        StudioLogPanelState state;
+        auto shell = std::make_unique<StudioShell>(StudioTheme::dark());
+        shell->resetLayout();
+        shell->renderFrame(at(-1.0f, -1.0f));
+        (void)shell->activatePanel("output");
+
+        // Summed across both passes, because that is the work one *frame* does. The scan now
+        // happens on the input pass and the draw pass reuses it, so reading either alone would
+        // measure half the answer -- and would read zero for the half that does no work.
+        std::size_t examined = 0;
+        (void)shell->setPanelContent("output",
+            [&](StudioFrame& frame, const UiRect& bounds) {
+                examined += studioLogPanel(frame, bounds, log, &state).entriesExamined;
+            });
+        shell->renderFrame(at(-1.0f, -1.0f));
+        return examined;
+    };
+
+    CNA_STUDIO_EXPECT_EQ(examinedFor(big), std::size_t{0});
+    CNA_STUDIO_EXPECT_EQ(examinedFor(small), std::size_t{0});
+}
+
+CNA_STUDIO_TEST(AFilteredVeryLargeLogIsScannedOnceAndThenOnlyExtended)
+{
+    // Counted rather than timed, like everything else here: a wall-clock assertion on a shared
+    // machine fails for reasons that have nothing to do with the code. What a regression would
+    // actually move is how many entries the filter walks, so that is what this asserts.
+    StudioLog log = aVeryLargeLog(200000);
+
+    StudioLogPanelState state;
+    const std::unique_ptr<StudioShell> shell = shellShowingTheLog();
+
+    StudioLogPanelResult last;
+    UiRect panelBounds;
+    std::size_t examined = 0;
+    CNA_STUDIO_EXPECT(shell->setPanelContent("output",
+        [&](StudioFrame& frame, const UiRect& bounds) {
+            const StudioLogPanelResult result = studioLogPanel(frame, bounds, log, &state);
+            examined += result.entriesExamined;
+            if (frame.isDrawPass())
+            {
+                last = result;
+                panelBounds = bounds;
+            }
+        }));
+
+    // Per frame, across both passes: the scan happens on the input pass and the draw pass reuses
+    // it, so either alone measures half of what a frame costs.
+    const auto frameExamining = [&] {
+        examined = 0;
+        shell->renderFrame(at(-1.0f, -1.0f));
+        return examined;
+    };
+
+    CNA_STUDIO_EXPECT_EQ(frameExamining(), std::size_t{0});
+    CNA_STUDIO_EXPECT_EQ(last.rowsMatching, std::size_t{200000});
+
+    // Engage a filter. Errors is the rightmost severity button, so a sweep from the right reaches
+    // it before the others -- and before Clear, which sits at the far left.
+    CNA_STUDIO_EXPECT(clickAlongRow(*shell, panelBounds, 12.0f,
+                                    [&] { return last.rowsMatching < 200000; }));
+    CNA_STUDIO_EXPECT_EQ(last.rowsMatching, std::size_t{20000});
+
+    // Every frame after it pays nothing, because the answer is kept rather than recomputed. The
+    // pass that engaged the filter paid for the whole log once, which is inherent -- nothing can
+    // know which lines match without looking at them -- and it is the only pass that does.
+    CNA_STUDIO_EXPECT_EQ(frameExamining(), std::size_t{0});
+    CNA_STUDIO_EXPECT_EQ(last.rowsMatching, std::size_t{20000});
+    CNA_STUDIO_EXPECT_EQ(frameExamining(), std::size_t{0});
+
+    // A log that grows costs the lines it gained, not the lines it holds. This is the case that
+    // matters: a console filtered to errors while an import spews warnings must not re-walk two
+    // hundred thousand entries sixty times a second.
+    for (int i = 0; i < 5; ++i)
+    {
+        log.append(LogSeverity::Error, "a new error " + std::to_string(i));
+    }
+
+    CNA_STUDIO_EXPECT_EQ(frameExamining(), std::size_t{5});
+    CNA_STUDIO_EXPECT_EQ(last.rowsMatching, std::size_t{20005});
+}
+
+CNA_STUDIO_TEST(TheCacheSurvivesTheLogDroppingItsOldestAndIsThrownAwayByAClear)
+{
+    // The two things that can make a cached answer wrong. Dropping shifts every relative index, so
+    // the cache holds absolute ones; a clear leaves it describing a log that no longer exists.
+    StudioLog log{100};
+    for (int i = 0; i < 100; ++i)
+    {
+        log.append(i % 2 == 0 ? LogSeverity::Error : LogSeverity::Info, "line " + std::to_string(i));
+    }
+
+    StudioLogPanelState state;
+    const std::unique_ptr<StudioShell> shell = shellShowingTheLog();
+
+    StudioLogPanelResult last;
+    UiRect panelBounds;
+    std::size_t examined = 0;
+    CNA_STUDIO_EXPECT(shell->setPanelContent("output",
+        [&](StudioFrame& frame, const UiRect& bounds) {
+            const StudioLogPanelResult result = studioLogPanel(frame, bounds, log, &state);
+            examined += result.entriesExamined;
+            if (frame.isDrawPass())
+            {
+                last = result;
+                panelBounds = bounds;
+            }
+        }));
+
+    shell->renderFrame(at(-1.0f, -1.0f));
+    CNA_STUDIO_EXPECT(clickAlongRow(*shell, panelBounds, 12.0f,
+                                    [&] { return last.rowsMatching < 100; }));
+    CNA_STUDIO_EXPECT_EQ(last.rowsMatching, std::size_t{50});
+
+    // Twenty more at capacity pushes twenty off the front -- ten of which were errors.
+    for (int i = 100; i < 120; ++i)
+    {
+        log.append(i % 2 == 0 ? LogSeverity::Error : LogSeverity::Info, "line " + std::to_string(i));
+    }
+    examined = 0;
+    shell->renderFrame(at(-1.0f, -1.0f));
+
+    CNA_STUDIO_EXPECT_EQ(log.entries().size(), std::size_t{100});
+    CNA_STUDIO_EXPECT_EQ(log.droppedCount(), std::size_t{20});
+    CNA_STUDIO_EXPECT_EQ(last.rowsMatching, std::size_t{50});
+
+    // Only the twenty that arrived were looked at. A cache that re-walked on every drop would say
+    // a hundred here, and one that did not trim its front would say the wrong count above.
+    CNA_STUDIO_EXPECT_EQ(examined, std::size_t{20});
+
+    // A clear is the one thing that cannot be extended through.
+    log.clear();
+    shell->renderFrame(at(-1.0f, -1.0f));
+    CNA_STUDIO_EXPECT_EQ(last.rowsMatching, std::size_t{0});
+}
+
+CNA_STUDIO_TEST(TheCacheDoesNotGrowForeverInASessionThatNeverStops)
+{
+    // The trim exists for this and nothing else. Reads are bounded at both ends whether or not it
+    // has run (`studioLogPanel` derives its window rather than trusting the cache), so without a
+    // case like this the trim would be untested code that looked load-bearing -- and the thing it
+    // prevents is a console that has been open all day holding a list of every line that ever
+    // matched, long after the log dropped them.
+    StudioLog log{100};
+    for (int i = 0; i < 100; ++i)
+    {
+        log.append(LogSeverity::Error, "line " + std::to_string(i));
+    }
+
+    StudioLogPanelState state;
+    const std::unique_ptr<StudioShell> shell = shellShowingTheLog();
+
+    StudioLogPanelResult last;
+    UiRect panelBounds;
+    CNA_STUDIO_EXPECT(shell->setPanelContent("output",
+        [&](StudioFrame& frame, const UiRect& bounds) {
+            const StudioLogPanelResult result = studioLogPanel(frame, bounds, log, &state);
+            if (frame.isDrawPass())
+            {
+                last = result;
+                panelBounds = bounds;
+            }
+        }));
+
+    shell->renderFrame(at(-1.0f, -1.0f));
+
+    // Engage a filter everything matches, so the cache holds one position per retained entry.
+    CNA_STUDIO_EXPECT(clickAlongRow(*shell, panelBounds, 12.0f,
+                                    [&] { return state.built && !state.matching.empty(); }));
+
+    // Five thousand lines through a log that holds one hundred: forty-nine turnovers.
+    for (int i = 0; i < 5000; ++i)
+    {
+        log.append(LogSeverity::Error, "later line " + std::to_string(i));
+        if (i % 50 == 0) { shell->renderFrame(at(-1.0f, -1.0f)); }
+    }
+    shell->renderFrame(at(-1.0f, -1.0f));
+
+    CNA_STUDIO_EXPECT_EQ(log.entries().size(), std::size_t{100});
+    CNA_STUDIO_EXPECT_EQ(last.rowsMatching, std::size_t{100});
+
+    // Bounded by what the log holds, not by what it has ever held. Untrimmed this would be about
+    // five thousand and one hundred.
+    CNA_STUDIO_EXPECT(state.matching.size() <= log.entries().size());
+}

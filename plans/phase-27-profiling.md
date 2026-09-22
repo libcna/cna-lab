@@ -6,7 +6,7 @@
 
 **Exit criteria.** A developer can find out why their game or their editor session is slow, from inside Studio.
 
-**Progress:** 1 of 14 complete `░░░░░░░░░░░░`
+**Progress:** 2 of 14 complete `█░░░░░░░░░░░`
 
 | Id | Task | Status | Depends on |
 |----|------|:------:|------------|
@@ -23,7 +23,7 @@
 | `STUDIO-27012` | Draw-call inspection | ⬜ | `STUDIO-27010` |
 | `STUDIO-27013` | Remote profiling | ⛔ | `STUDIO-27008` |
 | `STUDIO-27020` | Console and Output Log as a production log panel | ✅ | `STUDIO-07005` |
-| `STUDIO-27021` | Very large logs stay responsive | ⬜ | `STUDIO-27020`, `STUDIO-30010` |
+| `STUDIO-27021` | Very large logs stay responsive | ✅ | `STUDIO-27020`, `STUDIO-30010` |
 
 ## Acceptance and verification
 
@@ -88,7 +88,59 @@ here has been measured against a multi-hundred-thousand-line log, and the per-fr
 linear pass over every retained entry. That is fine at the ten thousand this log keeps and is the
 obvious thing to measure before raising the cap.
 
+**Measured there, and it was worse than this said.** The source counts added here were three more
+full scans *per pass* — six a frame — and `STUDIO-27021` found the filter itself was running twice
+a frame rather than once. Fixed there; recorded here because the cost arrived with this row.
+
 ### `STUDIO-27021` — Very large logs stay responsive
 
 **Verification.** Stress test with a multi-hundred-thousand-line log
+
+**Done, and the worst of what it fixed was one row old.** The *geometry* has been bounded by the
+screen since `STUDIO-07005`, and `AHugeLogCostsTheSameAsASmallOne` has asserted it at a hundred
+thousand lines ever since. The *work* was not bounded at all, and nobody had counted it: the filter
+walked every retained entry, in both passes, every frame — and `STUDIO-27020` had just added three
+more walks per pass to put counts on its new source buttons. At the two hundred thousand entries a
+log may be configured to hold, that is **1.6 million comparisons a frame to draw forty rows**.
+
+**Counted, not timed**, like everything else here. `StudioLogPanelResult::entriesExamined` reports
+how many entries a pass had to look at, and the cases assert on it. A wall-clock assertion would
+fail for reasons that have nothing to do with the code — which is the lesson `STUDIO-33027` spent a
+row on.
+
+Three changes:
+
+1. **`countFrom` is O(1).** The log maintains a count per source as entries arrive and are dropped.
+   Six full scans a frame, to print three numbers, gone.
+2. **An unfiltered console looks at nothing.** No severity floor, nothing hidden, nothing searched:
+   every entry is visible, row *r* is entry *r*, and there is no list to build. That is the state a
+   console is in nearly always, and it now costs the same at two hundred thousand lines as at one —
+   asserted both ways round in `AnUnfilteredConsoleLooksAtNoEntriesAtAllHoweverLargeTheLogIs`.
+3. **A filtered console caches and extends.** The matching set is kept in `StudioLogPanelState`,
+   keyed on the filter, as **absolute positions** — `droppedCount() + index` — so the log dropping
+   its oldest shifts nothing. Engaging a filter pays for one pass over the log, which is inherent;
+   every frame after it pays zero, and a log gaining five lines pays five. Pause is deliberately not
+   part of the key: it shortens what is *shown*, not what *matches*, so rebuilding on it would make
+   the one control whose purpose is to hold things still the most expensive one here.
+
+**A landmine found while gate-verifying, and removed.** Deleting the cache's front-trim did not fail
+a case — it **segfaulted the suite**: `absolute - dropped` on a position below `dropped` is an
+unsigned underflow and an index far outside the deque. Correctness of a read should not rest on an
+`erase` in another function having run, so the panel now derives *both* ends of its window with a
+`lower_bound` and is safe whatever the cache holds. That left the trim with no test, because it is
+now purely an optimisation — so `TheCacheDoesNotGrowForeverInASessionThatNeverStops` tests the thing
+it actually prevents: a console open all day holding a position for every line that ever matched,
+long after the log dropped them. Five thousand lines through a hundred-line log; the cache stays
+bounded by what the log holds, and reads 5 100 without the trim.
+
+**Four cases, each verified by deliberate breakage**: removing the identity fast path makes an
+unfiltered console walk 200 000; forcing a rebuild makes a steady frame walk **400 000** — two
+passes over everything, which is the defect this row names, in one number; removing the trim grows
+the cache without bound.
+
+**What is still linear, said plainly.** Engaging a filter, or changing one, walks the whole log
+once. Nothing can know which lines match without looking at them, and at two hundred thousand
+entries that is one frame's hitch on a deliberate action rather than a per-frame cost. Making even
+that incremental would mean indexing the log by content, which is a database, and `StudioLog.hpp`
+opens by saying it is not one.
 

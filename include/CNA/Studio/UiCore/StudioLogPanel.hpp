@@ -37,6 +37,26 @@
  * and the reason is that they should agree rather than that either is obviously right: two search
  * boxes in one application that respond differently to the same typing is a worse answer than
  * either behaviour.
+ *
+ * ### What a very large log costs (`plan.md` STUDIO-27021)
+ *
+ * The geometry has been bounded by the screen since this panel was written. The *work* was not: the
+ * filter walked every retained entry, in both passes, every frame, and `STUDIO-27020` added three
+ * more walks per pass to put counts on the source buttons. At the two hundred thousand entries a
+ * log may be configured to hold, that is one and a half million comparisons a frame to draw forty
+ * rows.
+ *
+ * Three things fix it, and the panel reports @ref StudioLogPanelResult::entriesExamined so the
+ * property is *counted* rather than timed — the same doctrine the rest of the suite follows.
+ *
+ * 1. The source counts are maintained by the log, so they cost nothing to ask for.
+ * 2. **With no filter in force, nothing is walked at all.** Every entry is visible, row *r* is
+ *    entry *r*, and there is no list to build. This is the state a console is in almost all of the
+ *    time, and it is now free regardless of size.
+ * 3. With a filter in force the matching set is **cached and extended**, not rebuilt: a steady log
+ *    costs nothing, a log gaining lines costs the lines it gained, and only a change of filter pays
+ *    for a full pass. Caching needs somewhere to live, which is what @ref StudioLogPanelState is;
+ *    a caller that passes none gets the old behaviour, correct and slower.
  */
 
 #pragma once
@@ -46,7 +66,9 @@
 #include "CNA/Studio/UiCore/UiRect.hpp"
 
 #include <cstddef>
+#include <cstdint>
 #include <string>
+#include <vector>
 
 namespace CNA::Studio
 {
@@ -84,6 +106,52 @@ namespace CNA::Studio
 
         /** @brief How many entries have arrived since Pause was pressed. Zero when not paused. */
         std::size_t heldBackCount = 0;
+
+        /**
+         * @brief How many log entries this pass had to look at to decide what to show.
+         *
+         * `plan.md` STUDIO-27021. The counted quantity behind "very large logs stay responsive": a
+         * timing assertion on a shared machine fails for reasons that have nothing to do with the
+         * code, and this is the number a regression would actually move. Zero when no filter is in
+         * force, however large the log; the size of the filter's own work otherwise, which a cache
+         * keeps at "what arrived since last frame".
+         */
+        std::size_t entriesExamined = 0;
+    };
+
+    /**
+     * @brief Where the panel keeps what it worked out last frame (`plan.md` STUDIO-27021).
+     *
+     * Opaque to the caller: own one per Output Log, hand it to @ref studioLogPanel, and do not
+     * write to it. It holds no *decisions* — the filter, the pause and the search are still the
+     * panel's own retained widget state — only the answer it last computed and enough to know
+     * whether that answer is still good.
+     *
+     * A caller that passes nothing gets a panel that is correct and recomputes everything, which
+     * is what keeps the headless paths and every existing test meaning what they meant.
+     */
+    struct StudioLogPanelState
+    {
+        /**
+         * @brief Matching entries, as positions in the log's **ever-retained** sequence.
+         *
+         * Absolute — `droppedCount() + index` — rather than relative to `entries()`, because the
+         * log drops its oldest and every relative index would shift underneath the cache when it
+         * did. An absolute position stays true; the ones that fall off the front are dropped from
+         * the front of this.
+         */
+        std::vector<std::size_t> matching;
+
+        /** @brief One past the last absolute position the scan has considered. */
+        std::size_t scannedTo = 0;
+
+        /** @brief The filter @ref matching was built for; a change of any of these rebuilds it. */
+        std::int64_t severity = -1;
+        std::int64_t hiddenSources = -1;
+        std::string search;
+
+        /** @brief False until the first build, so a default-constructed state is not mistaken for one. */
+        bool built = false;
     };
 
     /**
@@ -95,10 +163,12 @@ namespace CNA::Studio
      * @param bounds The panel's content rectangle.
      * @param log The log to show. Not modified — clearing is reported, not done, so the owner of
      *        the log decides.
+     * @param state Where to keep the filtered view between frames, or nullptr to recompute it.
      * @return What the user asked for.
      */
     StudioLogPanelResult studioLogPanel(StudioFrame& frame, const UiRect& bounds,
-                                        const StudioLog& log);
+                                        const StudioLog& log,
+                                        StudioLogPanelState* state = nullptr);
 
     /**
      * @brief The colour a severity is drawn in.

@@ -59,13 +59,13 @@ mapping is in [`docs/LEGACY-EDITOR-TASK-MAP.md`](docs/LEGACY-EDITOR-TASK-MAP.md)
 
 ## Global progress
 
-**404 of 582 tasks complete** `█████████████████░░░░░░░░`  69.4%
+**405 of 582 tasks complete** `█████████████████░░░░░░░░`  69.6%
 
 | Status | Count |
 |--------|------:|
-| ✅ Complete | 404 |
+| ✅ Complete | 405 |
 | 🔄 In progress | 8 |
-| ⬜ Not started | 162 |
+| ⬜ Not started | 161 |
 | ⛔ Deferred | 3 |
 | 🔬 Blocked | 4 |
 | ⊘ Superseded | 1 |
@@ -108,7 +108,7 @@ mapping is in [`docs/LEGACY-EDITOR-TASK-MAP.md`](docs/LEGACY-EDITOR-TASK-MAP.md)
 | 24 | [Audio](plans/phase-24-audio.md) | `STUDIO-24NNN` | ⬜ | 8 | 0 | `░░░░░░░░░░` |
 | 25 | [Terrain and world tools](plans/phase-25-terrain.md) | `STUDIO-25NNN` | ⬜ | 7 | 0 | `░░░░░░░░░░` |
 | 26 | [Physics and navigation tooling](plans/phase-26-physics-nav.md) | `STUDIO-26NNN` | ⬜ | 8 | 0 | `░░░░░░░░░░` |
-| 27 | [Profiling and diagnostics](plans/phase-27-profiling.md) | `STUDIO-27NNN` | 🔄 | 14 | 1 | `░░░░░░░░░░` |
+| 27 | [Profiling and diagnostics](plans/phase-27-profiling.md) | `STUDIO-27NNN` | 🔄 | 14 | 2 | `█░░░░░░░░░` |
 | 28 | [Plugins and SDK](plans/phase-28-plugins.md) | `STUDIO-28NNN` | ⬜ | 12 | 0 | `░░░░░░░░░░` |
 | 29 | [Renderer and platform matrix](plans/phase-29-renderer-matrix.md) | `STUDIO-29NNN` | 🔄 | 7 | 5 | `███████░░░` |
 | 30 | [Large-project performance](plans/phase-30-performance.md) | `STUDIO-30NNN` | 🔄 | 18 | 16 | `████████░░` |

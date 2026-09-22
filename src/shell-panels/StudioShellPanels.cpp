@@ -2316,7 +2316,8 @@ namespace CNA::Studio
         // which is the whole shape of the strangler migration: the ImGui Console reads the same
         // model and keeps working until it is deleted.
         shell.setPanelContent("output", [this](StudioFrame& frame, const UiRect& bounds) {
-            const StudioLogPanelResult panel = studioLogPanel(frame, bounds, log_);
+            const StudioLogPanelResult panel =
+                studioLogPanel(frame, bounds, log_, &logPanelState_);
             if (frame.isDrawPass())
             {
                 counts_.logRowsDrawn = panel.rowsDrawn;

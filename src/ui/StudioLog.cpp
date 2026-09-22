@@ -46,6 +46,9 @@ namespace CNA::Studio
         // filtering precisely in order to tell apart. The timestamp deliberately does *not* join
         // it: the entry keeps the time of the first arrival, because "this started at 12.4 s and
         // has happened four hundred times" is the reading that helps.
+        ++appended_;
+        ++revision_;
+
         if (!entries_.empty() && entries_.back().severity == severity
             && entries_.back().source == source && entries_.back().message == message
             && entries_.back().link == link)
@@ -62,9 +65,11 @@ namespace CNA::Studio
         entry.timeSeconds = now_;
         entry.link = std::move(link);
         entries_.push_back(std::move(entry));
+        ++countsBySource_[static_cast<std::size_t>(source)];
 
         while (entries_.size() > capacity_)
         {
+            --countsBySource_[static_cast<std::size_t>(entries_.front().source)];
             entries_.pop_front();
             ++dropped_;
         }
@@ -73,6 +78,8 @@ namespace CNA::Studio
     void StudioLog::clear()
     {
         entries_.clear();
+        countsBySource_ = {};
+        ++revision_;
         // The dropped count goes too. It exists to tell the user their history is incomplete, and
         // after a clear the history they are looking at is exactly what they asked for.
         dropped_ = 0;
@@ -90,12 +97,7 @@ namespace CNA::Studio
 
     std::size_t StudioLog::countFrom(LogSource source) const
     {
-        std::size_t count = 0;
-        for (const StudioLogEntry& entry : entries_)
-        {
-            if (entry.source == source) { ++count; }
-        }
-        return count;
+        return countsBySource_[static_cast<std::size_t>(source)];
     }
 
     std::string StudioLog::toTextLine(const StudioLogEntry& entry)

@@ -104,6 +104,82 @@ namespace CNA::Studio
         }
     }
 
+    namespace
+    {
+        /**
+         * @brief The matching set for the current filter, extended rather than rebuilt.
+         *
+         * `plan.md` STUDIO-27021. Positions are absolute -- `droppedCount() + index` -- so the log
+         * dropping its oldest shifts nothing: the entries that fell off the front are trimmed from
+         * the front of the cache and everything behind them stays true.
+         *
+         * Rebuilt only when the filter itself changed, or when the log got shorter than the cache
+         * has already scanned, which is a clear. Growth, which is what a log does, costs exactly
+         * the entries that arrived.
+         *
+         * Pause is deliberately **not** part of the key. It shortens what is shown, not what
+         * matches, so the caller bounds the tail at use; rebuilding the cache each time somebody
+         * paused and unpaused would make the one control whose whole purpose is to hold things
+         * still the most expensive one here.
+         *
+         * @param state The cache.
+         * @param log The log.
+         * @param severity Severity floor, as its filter index.
+         * @param hidden Bit mask of sources being hidden.
+         * @param search The search text, exactly as the filter uses it.
+         * @param matches Whether one entry passes the filter.
+         * @param examined Increased by how many entries were looked at.
+         * @return The matching absolute positions, ascending.
+         */
+        template <typename Matches>
+        const std::vector<std::size_t>& studioLogVisible(StudioLogPanelState& state,
+                                                         const StudioLog& log,
+                                                         std::int64_t severity, std::int64_t hidden,
+                                                         const std::string& search,
+                                                         const Matches& matches,
+                                                         std::size_t& examined)
+        {
+            const std::size_t dropped = log.droppedCount();
+            const std::size_t retained = log.entries().size();
+
+            const bool filterChanged = !state.built || state.severity != severity
+                || state.hiddenSources != hidden || state.search != search;
+
+            if (filterChanged || state.scannedTo > dropped + retained)
+            {
+                state.matching.clear();
+                state.scannedTo = dropped;
+                state.severity = severity;
+                state.hiddenSources = hidden;
+                state.search = search;
+                state.built = true;
+            }
+
+            // Trim what has fallen off the front. The cache is ascending, so this is a prefix.
+            const auto firstLive = std::lower_bound(state.matching.begin(), state.matching.end(),
+                                                    dropped);
+            if (firstLive != state.matching.begin())
+            {
+                state.matching.erase(state.matching.begin(), firstLive);
+            }
+            state.scannedTo = std::max(state.scannedTo, dropped);
+
+            // Extend over whatever arrived since the last pass.
+            const std::size_t end = dropped + retained;
+            for (std::size_t absolute = state.scannedTo; absolute < end; ++absolute)
+            {
+                ++examined;
+                if (matches(log.entries()[absolute - dropped]))
+                {
+                    state.matching.push_back(absolute);
+                }
+            }
+            state.scannedTo = end;
+
+            return state.matching;
+        }
+    }
+
     StudioColor studioLogSeverityColor(const StudioTheme& theme, LogSeverity severity)
     {
         switch (severity)
@@ -117,7 +193,7 @@ namespace CNA::Studio
     }
 
     StudioLogPanelResult studioLogPanel(StudioFrame& frame, const UiRect& bounds,
-                                        const StudioLog& log)
+                                        const StudioLog& log, StudioLogPanelState* state)
     {
         StudioLogPanelResult result;
         const StudioTheme& theme = frame.theme();
@@ -323,33 +399,88 @@ namespace CNA::Studio
             limit = mark > log.droppedCount() ? std::min(limit, mark - log.droppedCount()) : 0;
         }
 
+        // -----------------------------------------------------------------------------------
+        // Which entries are visible (`plan.md` STUDIO-27021)
+        // -----------------------------------------------------------------------------------
+        // **The common case does no work at all.** No severity floor, nothing hidden, nothing
+        // searched: every entry matches, row `r` is entry `r`, and there is no list to build. A
+        // console sits in this state almost all of the time, and it is now free however large the
+        // log is.
+        const bool unfiltered =
+            minimumSeverity == LogSeverity::Trace && hidden == 0 && search.empty();
+
+        const auto matches = [&](const StudioLogEntry& entry) {
+            return entry.severity >= minimumSeverity && (hidden & sourceBit(entry.source)) == 0
+                && containsFolded(entry.message, search);
+        };
+
         // Filtered into indices rather than copied: a hundred thousand log lines copied every
         // frame, in two passes, is the difference between a console and a stall.
-        std::vector<std::size_t> visible;
-        visible.reserve(limit);
-        for (std::size_t i = 0; i < limit; ++i)
+        std::vector<std::size_t> scratch;
+        const std::vector<std::size_t>* visible = nullptr;
+        const std::size_t dropped = log.droppedCount();
+
+        if (!unfiltered)
         {
-            const StudioLogEntry& entry = log.entries()[i];
-            if (entry.severity < minimumSeverity) { continue; }
-            if ((hidden & sourceBit(entry.source)) != 0) { continue; }
-            if (!containsFolded(entry.message, search)) { continue; }
-            visible.push_back(i);
+            if (state == nullptr)
+            {
+                // No cache: correct, and it pays the full pass every time. This is what a caller
+                // that passes nothing has always had.
+                scratch.reserve(limit);
+                for (std::size_t i = 0; i < limit; ++i)
+                {
+                    if (matches(log.entries()[i])) { scratch.push_back(i + dropped); }
+                }
+                result.entriesExamined = limit;
+                visible = &scratch;
+            }
+            else
+            {
+                visible = &studioLogVisible(*state, log, view.integer, hidden, search, matches,
+                                            result.entriesExamined);
+            }
         }
+
+        // The window into the cached positions: past anything that has fallen off the front of the
+        // log, and short of anything Pause is holding back.
+        //
+        // **Both ends are derived here rather than assumed**, and the head especially. The cache
+        // trims its own front, so in practice `first` is zero -- but `absolute - dropped` on a
+        // position below `dropped` is an unsigned underflow and an index far outside the deque,
+        // which is a segfault rather than a wrong number. Correctness of a read should not rest on
+        // one `erase` in another function having run; the trim is there to stop the cache growing,
+        // not to keep this safe.
+        std::size_t firstVisible = 0;
+        std::size_t visibleCount = limit;
+        if (!unfiltered)
+        {
+            firstVisible = static_cast<std::size_t>(
+                std::lower_bound(visible->begin(), visible->end(), dropped) - visible->begin());
+            const auto endVisible = static_cast<std::size_t>(
+                std::lower_bound(visible->begin(), visible->end(), dropped + limit)
+                - visible->begin());
+            visibleCount = endVisible - firstVisible;
+        }
+
+        /** Row `r` on screen to its index in `log.entries()`. */
+        const auto entryIndexFor = [&](std::size_t row) -> std::size_t {
+            return unfiltered ? row : (*visible)[firstVisible + row] - dropped;
+        };
 
         // What Copy puts on the clipboard, now that "what the panel is showing" is known. Built
         // through `StudioLog::toTextLine`, so the pasted text cannot drift from what a full
         // `toText()` produces -- two spellings of one format is one of them being wrong later.
         if (result.copyRequested)
         {
-            for (const std::size_t index : visible)
+            for (std::size_t row = 0; row < visibleCount; ++row)
             {
-                result.copyText += StudioLog::toTextLine(log.entries()[index]);
+                result.copyText += StudioLog::toTextLine(log.entries()[entryIndexFor(row)]);
                 result.copyText += '\n';
             }
         }
 
         StudioScrollOptions scroll;
-        scroll.contentHeight = static_cast<float>(visible.size()) * rowHeight;
+        scroll.contentHeight = static_cast<float>(visibleCount) * rowHeight;
         scroll.stickToEnd = view.checked;
         scroll.wheelStep = rowHeight * 3.0f;
 
@@ -358,9 +489,9 @@ namespace CNA::Studio
 
         std::size_t first = 0;
         std::size_t last = 0;
-        view_.visibleRows(rowHeight, visible.size(), first, last);
+        view_.visibleRows(rowHeight, visibleCount, first, last);
 
-        result.rowsMatching = visible.size();
+        result.rowsMatching = visibleCount;
         result.rowsDrawn = last - first;
 
         const float timeWidth = std::ceil(
@@ -382,9 +513,10 @@ namespace CNA::Studio
             // of a line follows the line: scrolling must not hand row 0's identity to whatever has
             // arrived above it, or a click would land on a different message than the one under
             // the pointer when the frame began.
-            frame.ids().pushIndex(static_cast<std::int64_t>(visible[row]));
+            const std::size_t index = entryIndexFor(row);
+            frame.ids().pushIndex(static_cast<std::int64_t>(index + dropped));
 
-            const StudioLogEntry& entry = log.entries()[visible[row]];
+            const StudioLogEntry& entry = log.entries()[index];
 
             const UiRect rowBounds{
                 view_.viewport.left(),
@@ -469,7 +601,7 @@ namespace CNA::Studio
         }
         frame.ids().pop();
 
-        if (frame.isDrawPass() && visible.empty())
+        if (frame.isDrawPass() && visibleCount == 0)
         {
             // An empty state that says which of the three empties this is. "Nothing here" when a
             // filter is hiding four hundred errors is the panel lying to the user, and so is
