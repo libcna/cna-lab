@@ -349,11 +349,25 @@ namespace CNA::Studio
         if (impl_->state != ChannelState::Connected) { return messages; }
 
         char buffer[8192];
+        std::size_t drained = 0;
         while (true)
         {
+            // **Bounded per call** (`plan.md` STUDIO-31007). This used to read until the socket
+            // would block, which is fine for a player that says a sensible amount and is how a
+            // player that says too much stops the editor: one writing faster than this reads keeps
+            // the loop fed for ever, and the frame that called it never ends. Studio would appear
+            // to hang, driven by the game -- which is the one failure a separate player process
+            // exists to prevent.
+            //
+            // Nothing is lost by stopping. The rest stays in the socket's own buffer and arrives
+            // next frame, and the back-pressure that creates is TCP's job and is the right answer:
+            // a game that outruns the editor should be slowed by it, not able to stall it.
+            if (drained >= kPollByteBudget) { break; }
+
             const int received = receiveRaw(impl_->peer, buffer, sizeof(buffer));
             if (received > 0)
             {
+                drained += static_cast<std::size_t>(received);
                 const std::vector<StudioMessage> batch =
                     impl_->decoder.feed(std::string_view{buffer, static_cast<std::size_t>(received)});
                 messages.insert(messages.end(), batch.begin(), batch.end());

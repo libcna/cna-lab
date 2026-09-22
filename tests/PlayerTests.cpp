@@ -141,6 +141,130 @@ CNA_STUDIO_TEST(MessageChannelCarriesMessagesBothWays)
     CNA_STUDIO_EXPECT_EQ(client.getDroppedCount(), std::uint64_t{0});
 }
 
+/**
+ * @brief **A player that says too much slows down; it does not stop the editor.**
+ *
+ * `plan.md` STUDIO-31007. `poll` is called from Studio's frame, and it used to read until the
+ * socket would block. Against a player that writes faster than the editor reads — a game logging
+ * every frame, or one stuck in a loop — that loop never finishes, and the frame that called it
+ * never ends. Studio appears to hang, driven by the game, which is the one failure a separate
+ * player process exists to prevent.
+ *
+ * The bound is per call rather than per message: nothing is lost by stopping, because what does not
+ * fit stays in the socket's own buffer and arrives next frame. The back-pressure that creates is
+ * TCP's job and is the right answer — a game that outruns the editor should be *slowed* by it, not
+ * able to stall it.
+ */
+CNA_STUDIO_TEST(APollReadsABoundedAmountSoAChattyPlayerCannotStallAFrame)
+{
+    MessageChannel server;
+    CNA_STUDIO_EXPECT(server.listen(0));
+
+    MessageChannel client;
+    CNA_STUDIO_EXPECT(client.connect(server.getPort()));
+
+    bool connected = false;
+    for (int attempt = 0; attempt < 200 && !connected; ++attempt)
+    {
+        server.poll();
+        client.poll();
+        connected = server.isConnected() && client.isConnected();
+        if (!connected) { std::this_thread::sleep_for(std::chrono::milliseconds(5)); }
+    }
+    CNA_STUDIO_EXPECT(connected);
+    if (!connected) { return; }
+
+    // A log line big enough that a few hundred of them pass the budget comfortably.
+    const StudioMessage chatter =
+        StudioMessage::makeReportLog("info", std::string(4000, 'x'));
+    const std::size_t lineBytes = chatter.encode().size();
+
+    // Sent from the client's side, which is the player's. Enough to guarantee more than one poll's
+    // worth is waiting even if the kernel only buffers part of it.
+    const std::size_t wanted = MessageChannel::kPollByteBudget * 3 / lineBytes + 8;
+    for (std::size_t i = 0; i < wanted; ++i) { CNA_STUDIO_EXPECT(client.send(chatter)); }
+    for (int attempt = 0; attempt < 50; ++attempt)
+    {
+        client.poll();
+        std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    }
+
+    // One poll reads a bounded amount rather than everything that is waiting.
+    const std::vector<StudioMessage> first = server.poll();
+    CNA_STUDIO_EXPECT(!first.empty());
+    CNA_STUDIO_EXPECT(first.size() * lineBytes
+                      <= MessageChannel::kPollByteBudget + lineBytes + 8192);
+
+    // And it is a bound rather than a loss: keep polling and the rest arrives.
+    std::size_t total = first.size();
+    for (int attempt = 0; attempt < 400 && total < wanted; ++attempt)
+    {
+        total += server.poll().size();
+        if (total < wanted)
+        {
+            client.poll();
+            std::this_thread::sleep_for(std::chrono::milliseconds(2));
+        }
+    }
+    CNA_STUDIO_EXPECT_EQ(total, wanted);
+    CNA_STUDIO_EXPECT_EQ(server.getDroppedCount(), std::uint64_t{0});
+}
+
+/**
+ * @brief **A player that sends a line with no end is abandoned, not buffered for ever.**
+ *
+ * The other half of the same isolation. The decoder retains a trailing partial line, which is what
+ * makes it a stream decoder — and without a bound it is how a misbehaving game takes the editor
+ * down: bytes with no newline in them, from a bug or a corrupted stream, grow the buffer until
+ * Studio runs out of memory.
+ *
+ * Counted as dropped and skipped to the next newline, for the same reason a malformed line is: the
+ * decoder's own comment says a peer "must not be able to kill a play session", and an unbounded
+ * buffer let it kill the editor instead.
+ */
+CNA_STUDIO_TEST(AnEndlessLineIsAbandonedRatherThanBufferedForEver)
+{
+    MessageStreamDecoder decoder;
+
+    // Well past the bound, fed the way a socket would: in chunks.
+    const std::string chunk(64 * 1024, 'x');
+    std::size_t sent = 0;
+    while (sent < MessageStreamDecoder::kMaximumLineBytes * 2)
+    {
+        CNA_STUDIO_EXPECT(decoder.feed(chunk).empty());
+        sent += chunk.size();
+
+        // The buffer never grows past the bound plus one chunk, whatever the peer does.
+        CNA_STUDIO_EXPECT(decoder.getBufferedBytes()
+                          <= MessageStreamDecoder::kMaximumLineBytes + chunk.size());
+    }
+
+    CNA_STUDIO_EXPECT(decoder.getDroppedCount() > 0);
+
+    // And it resynchronises: the next *complete* line after the abandoned one is read, so a game
+    // that emits one bad message is not silenced for the rest of the session.
+    const std::string rest =
+        "still part of the bad line\n" + StudioMessage::makeReportLog("info", "back").encode();
+    const std::vector<StudioMessage> recovered = decoder.feed(rest);
+
+    CNA_STUDIO_EXPECT_EQ(recovered.size(), std::size_t{1});
+    if (!recovered.empty())
+    {
+        CNA_STUDIO_EXPECT(recovered.front().type == StudioMessageType::ReportLog);
+        CNA_STUDIO_EXPECT_EQ(recovered.front().payload["text"].asString(), std::string{"back"});
+    }
+
+    // A reset puts it back in sync, so the *next* player's first line -- its Ready -- is not eaten
+    // by a skip left over from the last one.
+    MessageStreamDecoder second;
+    CNA_STUDIO_EXPECT(second.feed(std::string(MessageStreamDecoder::kMaximumLineBytes + 16, 'y'))
+                          .empty());
+    second.reset();
+    const std::vector<StudioMessage> afterReset =
+        second.feed(StudioMessage::makeReportLog("info", "ready").encode());
+    CNA_STUDIO_EXPECT_EQ(afterReset.size(), std::size_t{1});
+}
+
 CNA_STUDIO_TEST(MessageChannelReportsAFailedConnect)
 {
     MessageChannel client;

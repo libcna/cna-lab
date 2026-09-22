@@ -219,14 +219,37 @@ namespace CNA::Studio
     {
     public:
         /**
+         * @brief The longest line this will buffer before giving up on it.
+         *
+         * `plan.md` STUDIO-31007. A partial line is retained for the next call, which is what makes
+         * a stream decoder a stream decoder — and without a bound it is also how a misbehaving game
+         * takes the editor down: a player writing bytes with no newline in them, whether from a bug
+         * or from a corrupted stream, grows this buffer until Studio runs out of memory. The
+         * separate-process architecture exists so that the game's failures are the game's, and an
+         * unbounded buffer hands one of them back.
+         *
+         * Generous, because a legitimate message can be large: a scene sent over the bridge is the
+         * biggest thing the protocol carries. Two megabytes is far past any of them and far short
+         * of anything that matters to a desktop.
+         */
+        static constexpr std::size_t kMaximumLineBytes = 2u * 1024u * 1024u;
+
+        /**
          * @brief Appends @p bytes and returns every message that is now complete.
          *
-         * A trailing partial line is retained for the next call.
+         * A trailing partial line is retained for the next call — unless it has grown past
+         * @ref kMaximumLineBytes, in which case it is abandoned and the decoder skips to the next
+         * newline. Counted as dropped, for the same reason a malformed line is: a peer from a
+         * newer revision, or one with a bug, must not be able to end a play session, and it must
+         * not be able to end the editor either.
          */
         std::vector<StudioMessage> feed(std::string_view bytes);
 
-        /** @brief Returns the number of lines dropped for being unparseable. */
+        /** @brief Returns the number of lines dropped for being unparseable or oversized. */
         [[nodiscard]] std::uint64_t getDroppedCount() const { return droppedCount_; }
+
+        /** @brief How many bytes of a partial line are being held. */
+        [[nodiscard]] std::size_t getBufferedBytes() const { return buffer_.size(); }
 
         /** @brief Discards any buffered partial line. Called when a connection resets. */
         void reset();
@@ -234,5 +257,8 @@ namespace CNA::Studio
     private:
         std::string buffer_;
         std::uint64_t droppedCount_ = 0;
+
+        /** @brief True while discarding an over-long line, until the next newline resynchronises. */
+        bool skippingLine_ = false;
     };
 }

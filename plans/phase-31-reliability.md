@@ -6,7 +6,7 @@
 
 **Exit criteria.** Interrupted saves, corrupt files and crashes cost a user nothing they cannot recover, and nothing is repaired silently.
 
-**Progress:** 11 of 13 complete `██████████░░`
+**Progress:** 12 of 13 complete `███████████░`
 
 | Id | Task | Status | Depends on |
 |----|------|:------:|------------|
@@ -16,7 +16,7 @@
 | `STUDIO-31004` | Undo and redo stability under every editing path | ✅ | `STUDIO-02035` |
 | `STUDIO-31005` | Format migration chain runs on every load | ✅ | — |
 | `STUDIO-31006` | Dirty-state tracking | ✅ | `STUDIO-31001` |
-| `STUDIO-31007` | Crash isolation from the game process | ⬜ | `STUDIO-16003` |
+| `STUDIO-31007` | Crash isolation from the game process | ✅ | `STUDIO-16003` |
 | `STUDIO-31008` | Malformed project and scene diagnostics that permit repair | ✅ | — |
 | `STUDIO-31009` | Unknown plugin components preserved through save and load | ✅ | — |
 | `STUDIO-31010` | Tests for interrupted saves and partial files | ✅ | `STUDIO-31003` |
@@ -468,6 +468,61 @@ history's answer and a test that set a flag would not be asking it.
 Checked by causing each: the `hasProject()` condition put back (both cases fail), and the
 `setPanelModified` call removed (the tab case alone fails, which is the shape of two independent
 properties rather than one).
+
+### `STUDIO-31007` — Crash isolation from the game process
+
+**Acceptance.** Nothing the game does can take the editor with it.
+
+**✅ Done, and the architecture was right while two of its edges were not.**
+
+The separate player process is the isolation, and `STUDIO-16003` covered the ordinary case: a game
+that dies says how, the editor carries on, every control agrees the game is gone, and the user's
+scene is untouched byte for byte. A game that *dies* was never the danger. A game that **misbehaves
+while still alive** was, and the bridge had two unbounded loops.
+
+**`MessageChannel::poll` drained until the socket would block.** It is called from Studio's frame.
+Against a player that writes faster than the editor reads — a game logging every frame, or one stuck
+in a loop printing — that loop never finishes and the frame that called it never ends. Studio would
+appear to hang, driven entirely by the game. It now reads at most half a megabyte per call: far more
+than a frame's worth of anything the protocol carries, and bounded. Nothing is lost, because what
+does not fit stays in the socket's own buffer and arrives next frame. **The back-pressure that
+creates is the right answer**, not a compromise: a game that outruns the editor should be slowed by
+it rather than able to stall it, and that is what TCP is for.
+
+**`MessageStreamDecoder` buffered a partial line without limit.** Retaining one is what makes a
+stream decoder a stream decoder — and without a bound it is how a misbehaving game takes the editor
+down: bytes with no newline in them, from a bug or a corrupted stream, grow the buffer until Studio
+runs out of memory. The decoder's own comment, three lines from the hole, says a peer *"must not be
+able to kill a play session"*; it could kill the editor instead. A line past two megabytes — far past
+anything the protocol carries and far short of anything that matters to a desktop — is now counted
+as dropped and skipped to the next newline, for exactly the reason a malformed line is.
+
+**Resynchronising matters as much as the bound.** A decoder that gave up for ever would silence a
+game that emitted one bad message for the rest of the session, and a skip carried across a
+connection reset would eat the *next* player's first line, which is its Ready.
+
+**What was already right, and is checked rather than assumed.** `PlayerProcess::stop` waits half a
+second and then terminates — *"leaving an orphan game window behind is worse than a hard kill on
+something already unresponsive"* — so a player that ignores Quit cannot hold the editor. The
+destructor stops a running player, so quitting Studio does not orphan a game. And a malformed
+message is counted and skipped rather than closing the connection, so a peer from a newer revision
+cannot end a session.
+
+**Verification.** `tests/PlayerTests.cpp` —
+`APollReadsABoundedAmountSoAChattyPlayerCannotStallAFrame`, which asserts both halves: one poll
+reads a bounded amount, *and* the rest arrives on later polls with nothing dropped, so it is a bound
+rather than a loss; and `AnEndlessLineIsAbandonedRatherThanBufferedForEver`, which feeds four
+megabytes of an unterminated line in socket-sized chunks and checks the buffer never grows past the
+bound, then that a following complete message is read, then that a reset puts the decoder back in
+sync. Plus `STUDIO-16003`'s `AGameThatCrashesLeavesTheEditorAndItsDocumentAlone`.
+
+Checked by causing each: removing the poll budget (the drain reads everything waiting) and removing
+the line bound (the buffer grows past it on every chunk).
+
+**What this row is not.** It does not sandbox the player — it shares the user's filesystem and can
+overwrite its own project, which is what a game is *for*. The isolation this row claims is that the
+game cannot stop, hang, corrupt or crash the **editor**, and that a user who has just lost a play
+session has not lost anything else.
 
 ### `STUDIO-31008` — Malformed project and scene diagnostics that permit repair
 

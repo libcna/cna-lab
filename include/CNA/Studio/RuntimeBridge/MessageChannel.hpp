@@ -50,6 +50,23 @@ namespace CNA::Studio
     class MessageChannel
     {
     public:
+        /**
+         * @brief The most one `poll()` reads from the socket, in bytes.
+         *
+         * `plan.md` STUDIO-31007. `poll` is called from the editor's frame, and a drain that ran
+         * until the socket was empty would never finish against a player that writes faster than
+         * the editor reads — a game logging every frame, or one stuck in a loop. Studio would
+         * appear to hang, driven by the game, which is the one failure a separate player process
+         * exists to prevent.
+         *
+         * Half a megabyte is far more than a frame's worth of anything the protocol carries and
+         * small enough that reading it costs nothing. What does not fit stays in the socket's own
+         * buffer and arrives next frame; the back-pressure that creates is TCP's job, and it is the
+         * right answer — a game that outruns the editor should be slowed by it rather than able to
+         * stall it.
+         */
+        static constexpr std::size_t kPollByteBudget = 512u * 1024u;
+
         MessageChannel();
         ~MessageChannel();
 

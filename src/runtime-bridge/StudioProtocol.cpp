@@ -231,6 +231,17 @@ namespace CNA::Studio
 
     std::vector<StudioMessage> MessageStreamDecoder::feed(std::string_view bytes)
     {
+        // Resynchronising after an over-long line: everything up to the next newline belongs to the
+        // line that was abandoned, so it goes without being buffered. Done on the incoming bytes
+        // rather than by appending first, because appending is the thing that ran out of memory.
+        if (skippingLine_)
+        {
+            const std::size_t newline = bytes.find('\n');
+            if (newline == std::string_view::npos) { return {}; }
+            skippingLine_ = false;
+            bytes.remove_prefix(newline + 1);
+        }
+
         buffer_.append(bytes);
 
         std::vector<StudioMessage> messages;
@@ -238,7 +249,21 @@ namespace CNA::Studio
         while (true)
         {
             const std::size_t newline = buffer_.find('\n', start);
-            if (newline == std::string::npos) { break; }
+            if (newline == std::string::npos)
+            {
+                // No end in sight, and more than any message this protocol carries (`plan.md`
+                // STUDIO-31007). A player writing bytes with no newline in them -- a bug, or a
+                // corrupted stream -- would otherwise grow this until the *editor* died, which is
+                // the one thing a separate player process exists to prevent.
+                if (buffer_.size() - start > kMaximumLineBytes)
+                {
+                    ++droppedCount_;
+                    skippingLine_ = true;
+                    buffer_.clear();
+                    return messages;
+                }
+                break;
+            }
 
             std::string_view line{buffer_.data() + start, newline - start};
             if (!line.empty() && line.back() == '\r') { line.remove_suffix(1); }
@@ -267,5 +292,9 @@ namespace CNA::Studio
     void MessageStreamDecoder::reset()
     {
         buffer_.clear();
+
+        // A new connection starts in sync. Carrying the skip across one would eat the first line
+        // the *next* player sent, which is its Ready.
+        skippingLine_ = false;
     }
 }
