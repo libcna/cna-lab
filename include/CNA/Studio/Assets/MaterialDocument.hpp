@@ -39,7 +39,9 @@
 
 #include <set>
 #include <string>
+#include <vector>
 
+#include "CNA/Studio/Core/FormatMigration.hpp"
 #include "CNA/Studio/Core/Json.hpp"
 #include "CNA/Studio/Core/MeshData.hpp"
 #include "CNA/Studio/Core/Uuid.hpp"
@@ -153,15 +155,41 @@ namespace CNA::Studio
         [[nodiscard]] JsonValue toJson() const;
 
         /**
-         * @brief Reads @p json, keeping defaults for anything absent.
+         * @brief Reads @p json, upgrading it first and keeping defaults for anything absent.
          *
-         * @return False when the document declares a `formatVersion` this build cannot read, which
-         *         is the only hard failure. Every other absence is a default, because a material
-         *         written by a future editor with three more fields should still load as the
-         *         material it mostly is rather than as nothing at all.
+         * **The version gate and the upgrade are one piece of code** (`plan.md` STUDIO-31005), for
+         * the reason `SceneDocument::loadFromJson` gives: refusing a file from the future and
+         * upgrading one from the past are both answers to "what version is this?", and splitting
+         * them is how a loader comes to refuse a file it could have read. This one had the gate
+         * written by hand and no upgrade at all, which is exactly that split.
+         *
+         * Every absence *below* the version is still a default, because a material written by a
+         * future editor with three more fields should load as the material it mostly is rather
+         * than as nothing at all. The version itself is not an absence that can be defaulted: a
+         * document with no `formatVersion` is refused rather than read as though it were current,
+         * since reading it as current is a guess about a file whose shape is unknown.
+         *
+         * @param migrator The chain to run, or nullptr for `getMaterialFormatMigrator()`. Injected
+         *                 only by tests, which is how a chain with a step in it can be proven to
+         *                 run before the fields are read while every real chain is empty.
+         * @param warnings Appended to when a step runs, so an upgrade is reported rather than
+         *                 silent (`STUDIO-31011`). Optional; nullptr discards them.
+         * @return False when the document is not an object, declares no usable `formatVersion`, or
+         *         declares one this build cannot reach.
          */
-        bool loadFromJson(const JsonValue& json);
+        bool loadFromJson(const JsonValue& json, const FormatMigrator* migrator = nullptr,
+                          std::vector<std::string>* warnings = nullptr);
     };
+
+    /**
+     * @brief Returns the migration chain that upgrades a `.cnamaterial`.
+     *
+     * Empty, like every other chain here: the format has only ever been at version 1. Registering
+     * a step is not a licence to bump a version -- an additive field that older builds can ignore
+     * costs nothing and needs no step, and `occlusionTexture` arriving at version 1 is the
+     * precedent.
+     */
+    [[nodiscard]] const FormatMigrator& getMaterialFormatMigrator();
 
     class AssetDatabase;
 
@@ -187,9 +215,13 @@ namespace CNA::Studio
      * reader -- `loadMaterialDocument` resolves an id to a path and then calls this.
      *
      * @param out Filled in on success; untouched otherwise, so a caller's defaults survive.
+     * @param migrator The chain to run, or nullptr for `getMaterialFormatMigrator()`.
+     * @param warnings Appended to when an upgrade runs. Optional.
      */
     [[nodiscard]] MaterialLoadProblem loadMaterialFile(const std::string& absolutePath,
-                                                       MaterialDocument& out);
+                                                       MaterialDocument& out,
+                                                       const FormatMigrator* migrator = nullptr,
+                                                       std::vector<std::string>* warnings = nullptr);
 
     /**
      * @brief Reads the material asset @p assetId from the project.

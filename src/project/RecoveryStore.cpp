@@ -36,26 +36,37 @@ namespace CNA::Studio
             const JsonParseResult parsed = Json::parse(*text);
             if (!parsed.succeeded || !parsed.value.isObject()) { return std::nullopt; }
 
-            // A snapshot from a newer build is skipped rather than guessed at. Restoring a document
-            // this build cannot fully understand would quietly discard whatever it did not read,
-            // and the user would have no way to know which parts.
-            if (parsed.value["formatVersion"].asInt(0) > RecoveryStore::kFormatVersion)
+            // The gate and the upgrade in one place (`plan.md` STUDIO-31005). The refusal it
+            // replaces was right and the migrator makes the same one: a snapshot from a newer
+            // build is skipped rather than guessed at, because restoring a document this build
+            // cannot fully understand would quietly discard whatever it did not read and the user
+            // would have no way to know which parts. What was missing was the other direction --
+            // a snapshot from an *older* build had no route forward, and this is the one file
+            // whose loss costs the most.
+            JsonValue document = parsed.value;
+            if (!getRecoveryFormatMigrator().migrate(document).succeeded)
             {
                 return std::nullopt;
             }
 
             RecoverySnapshot snapshot;
             snapshot.filePath = path.generic_string();
-            snapshot.projectPath = parsed.value["projectPath"].asString();
-            snapshot.scenePath = parsed.value["scenePath"].asString();
-            snapshot.sceneName = parsed.value["sceneName"].asString();
-            snapshot.sceneId = Uuid::parse(parsed.value["sceneId"].asString());
-            snapshot.savedAtSeconds = static_cast<std::int64_t>(parsed.value["savedAt"].asNumber(0.0));
-            snapshot.scene = parsed.value["scene"];
+            snapshot.projectPath = document["projectPath"].asString();
+            snapshot.scenePath = document["scenePath"].asString();
+            snapshot.sceneName = document["sceneName"].asString();
+            snapshot.sceneId = Uuid::parse(document["sceneId"].asString());
+            snapshot.savedAtSeconds = static_cast<std::int64_t>(document["savedAt"].asNumber(0.0));
+            snapshot.scene = document["scene"];
 
             if (!snapshot.scene.isObject()) { return std::nullopt; }
             return snapshot;
         }
+    }
+
+    const FormatMigrator& getRecoveryFormatMigrator()
+    {
+        static const FormatMigrator migrator{"recovery snapshot", RecoveryStore::kFormatVersion};
+        return migrator;
     }
 
     bool RecoveryStore::write(const RecoverySnapshot& snapshot, std::string* errorMessage) const

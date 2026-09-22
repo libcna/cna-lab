@@ -10,6 +10,8 @@
 #include <functional>
 
 #include "CNA/Studio/Assets/AssetDatabase.hpp"
+#include "CNA/Studio/Assets/EnvironmentMapDocument.hpp"
+#include "CNA/Studio/Assets/MaterialDocument.hpp"
 #include "CNA/Studio/Core/ComponentDescriptor.hpp"
 #include "CNA/Studio/Core/FormatMigration.hpp"
 #include "CNA/Studio/Core/StudioMatrix.hpp"
@@ -17,7 +19,9 @@
 #include "CNA/Studio/Core/PropertyValue.hpp"
 #include "CNA/Studio/Core/Uuid.hpp"
 #include "CNA/Studio/Project/Project.hpp"
+#include "CNA/Studio/Project/RecoveryStore.hpp"
 #include "CNA/Studio/Scene/BuiltinComponents.hpp"
+#include "CNA/Studio/Scene/PrefabDocument.hpp"
 #include "CNA/Studio/Scene/SceneDocument.hpp"
 #include "CNA/Studio/Scene/SceneTransform.hpp"
 
@@ -352,13 +356,137 @@ CNA_STUDIO_TEST(TheRealFormatsRunTheirChainsOnEveryLoad)
 {
     // Empty today, and that is the intended state: the mechanism exists so that the first real
     // migration is a small tested addition rather than an emergency.
+    //
+    // **Seven, not three** (`plan.md` STUDIO-31005). `.cnamaterial`, `.cnaenv` and the
+    // `.cnarecovery` envelope each had a hand-written `version > kFormatVersion` refusal and no
+    // chain at all -- the half of the answer that says no, with nothing behind it that says yes.
+    // Nothing would have shown it while every chain is empty, which is why this list is now
+    // exhaustive and `EveryVersionedFormatRunsAMigrationChain` refuses a format that is missing
+    // from it.
     CNA_STUDIO_EXPECT_EQ(getSceneFormatMigrator().getMigrationCount(), std::size_t{0});
     CNA_STUDIO_EXPECT_EQ(getProjectFormatMigrator().getMigrationCount(), std::size_t{0});
     CNA_STUDIO_EXPECT_EQ(getAssetFormatMigrator().getMigrationCount(), std::size_t{0});
+    CNA_STUDIO_EXPECT_EQ(getPrefabFormatMigrator().getMigrationCount(), std::size_t{0});
+    CNA_STUDIO_EXPECT_EQ(getMaterialFormatMigrator().getMigrationCount(), std::size_t{0});
+    CNA_STUDIO_EXPECT_EQ(getEnvironmentMapFormatMigrator().getMigrationCount(), std::size_t{0});
+    CNA_STUDIO_EXPECT_EQ(getRecoveryFormatMigrator().getMigrationCount(), std::size_t{0});
 
+    // Each chain's top is the version its document writes. A chain that stopped one below would
+    // upgrade every file on load and then write it back at the version it started from, which is
+    // a format that never settles.
     CNA_STUDIO_EXPECT_EQ(getSceneFormatMigrator().getCurrentVersion(), SceneDocument::kFormatVersion);
     CNA_STUDIO_EXPECT_EQ(getProjectFormatMigrator().getCurrentVersion(), Project::kFormatVersion);
     CNA_STUDIO_EXPECT_EQ(getAssetFormatMigrator().getCurrentVersion(), AssetDatabase::kFormatVersion);
+    CNA_STUDIO_EXPECT_EQ(getPrefabFormatMigrator().getCurrentVersion(), PrefabDocument::kFormatVersion);
+    CNA_STUDIO_EXPECT_EQ(getMaterialFormatMigrator().getCurrentVersion(),
+                         MaterialDocument::kFormatVersion);
+    CNA_STUDIO_EXPECT_EQ(getEnvironmentMapFormatMigrator().getCurrentVersion(),
+                         EnvironmentMapDocument::kFormatVersion);
+    CNA_STUDIO_EXPECT_EQ(getRecoveryFormatMigrator().getCurrentVersion(),
+                         RecoveryStore::kFormatVersion);
+}
+
+/**
+ * @brief The material loader reads what came out of its chain, not what went in.
+ *
+ * The same property `TheSceneLoaderReadsTheUpgradedDocumentNotTheOriginal` holds, and it matters
+ * more here: a material's *override set* is its key set (`STUDIO-19005`), so a step that adds a key
+ * has to be visible to the loop that builds it. A loader that ran the chain and then read the
+ * original would upgrade the document and throw the upgrade away, silently.
+ */
+CNA_STUDIO_TEST(TheMaterialLoaderReadsTheUpgradedDocumentNotTheOriginal)
+{
+    FormatMigrator migrator{"material", 2};
+    CNA_STUDIO_EXPECT(migrator.addMigration(1, "renamed 'gloss' to 'roughness'",
+                                            renameField("gloss", "roughness")));
+
+    JsonValue document = JsonValue::makeObject();
+    document.set("formatVersion", JsonValue{1});
+    document.set("name", JsonValue{"Brick"});
+    document.set("gloss", JsonValue{0.25});
+
+    std::vector<std::string> warnings;
+    MaterialDocument material;
+    CNA_STUDIO_EXPECT(material.loadFromJson(document, &migrator, &warnings));
+
+    CNA_STUDIO_EXPECT_EQ(material.name, std::string{"Brick"});
+    CNA_STUDIO_EXPECT(std::abs(material.roughness - 0.25F) < 0.0001F);
+
+    // The renamed key is an *override*, because it is stated in the document the loader read.
+    CNA_STUDIO_EXPECT(material.overridden.count("roughness") == 1);
+    CNA_STUDIO_EXPECT(material.overridden.count("gloss") == 0);
+
+    // Reported rather than silent (`STUDIO-31011`), and the caller's document is left as it was.
+    CNA_STUDIO_EXPECT_EQ(warnings.size(), std::size_t{1});
+    CNA_STUDIO_EXPECT(warnings.front().find("renamed 'gloss' to 'roughness'") != std::string::npos);
+    CNA_STUDIO_EXPECT(document.contains("gloss"));
+    CNA_STUDIO_EXPECT_EQ(document["formatVersion"].asInt(), 1);
+}
+
+/** @brief And so does the environment map's. */
+CNA_STUDIO_TEST(TheEnvironmentMapLoaderRunsItsChainToo)
+{
+    FormatMigrator migrator{"environment map", 2};
+    CNA_STUDIO_EXPECT(migrator.addMigration(1, "renamed 'title' to 'name'",
+                                            renameField("title", "name")));
+
+    JsonValue document = JsonValue::makeObject();
+    document.set("formatVersion", JsonValue{1});
+    document.set("title", JsonValue{"Overcast"});
+
+    std::vector<std::string> warnings;
+    EnvironmentMapDocument environment;
+    CNA_STUDIO_EXPECT(environment.loadFromJson(document, &migrator, &warnings));
+
+    CNA_STUDIO_EXPECT_EQ(environment.name, std::string{"Overcast"});
+    CNA_STUDIO_EXPECT_EQ(warnings.size(), std::size_t{1});
+}
+
+/**
+ * @brief A document from the future is refused, and one from before the format is not guessed at.
+ *
+ * Both halves of "what version is this?". The refusal is the one the hand-written gate already
+ * made and is kept in the migrator's words. The second half is new and is a behaviour *change*: a
+ * `.cnamaterial` or `.cnaenv` with no `formatVersion` at all used to be read as though it were
+ * current, because the hand-written gate defaulted the missing key to `kFormatVersion`. Reading a
+ * file of unknown shape as the shape you happen to write today is a guess, and it is the guess
+ * that turns an unreadable file into a readable one with the wrong fields in it.
+ */
+CNA_STUDIO_TEST(AVersionFromTheFutureIsRefusedAndAMissingOneIsNotGuessedAt)
+{
+    JsonValue future = JsonValue::makeObject();
+    future.set("formatVersion", JsonValue{MaterialDocument::kFormatVersion + 7});
+    future.set("name", JsonValue{"From a later build"});
+
+    MaterialDocument material;
+    material.name = "Mine";
+    CNA_STUDIO_EXPECT(!material.loadFromJson(future));
+    CNA_STUDIO_EXPECT_EQ(material.name, std::string{"Mine"});
+
+    JsonValue futureSky = JsonValue::makeObject();
+    futureSky.set("formatVersion", JsonValue{EnvironmentMapDocument::kFormatVersion + 7});
+    EnvironmentMapDocument environment;
+    environment.name = "Mine";
+    CNA_STUDIO_EXPECT(!environment.loadFromJson(futureSky));
+    CNA_STUDIO_EXPECT_EQ(environment.name, std::string{"Mine"});
+
+    // No version at all: refused, the same way a scene, a prefab and a project are.
+    JsonValue unversioned = JsonValue::makeObject();
+    unversioned.set("name", JsonValue{"No version here"});
+    CNA_STUDIO_EXPECT(!material.loadFromJson(unversioned));
+    CNA_STUDIO_EXPECT(!environment.loadFromJson(unversioned));
+    CNA_STUDIO_EXPECT_EQ(material.name, std::string{"Mine"});
+
+    // And something that is not a document at all.
+    CNA_STUDIO_EXPECT(!material.loadFromJson(JsonValue{"a bare string"}));
+    CNA_STUDIO_EXPECT(!environment.loadFromJson(JsonValue::makeArray()));
+
+    // The current version still reads, so the gate is about the version and not about refusing.
+    MaterialDocument written;
+    written.name = "Brick";
+    MaterialDocument reloaded;
+    CNA_STUDIO_EXPECT(reloaded.loadFromJson(written.toJson()));
+    CNA_STUDIO_EXPECT_EQ(reloaded.name, std::string{"Brick"});
 }
 
 CNA_STUDIO_TEST(TheSceneLoaderReadsTheUpgradedDocumentNotTheOriginal)

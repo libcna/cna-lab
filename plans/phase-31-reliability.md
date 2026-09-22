@@ -6,7 +6,7 @@
 
 **Exit criteria.** Interrupted saves, corrupt files and crashes cost a user nothing they cannot recover, and nothing is repaired silently.
 
-**Progress:** 3 of 13 complete `██░░░░░░░░░░`
+**Progress:** 4 of 13 complete `███░░░░░░░░░`
 
 | Id | Task | Status | Depends on |
 |----|------|:------:|------------|
@@ -14,7 +14,7 @@
 | `STUDIO-31002` | Crash recovery snapshots, offered rather than silently applied | ⬜ | `STUDIO-31001` |
 | `STUDIO-31003` | Atomic writes for every authored file | ✅ | — |
 | `STUDIO-31004` | Undo and redo stability under every editing path | ⬜ | `STUDIO-02035` |
-| `STUDIO-31005` | Format migration chain runs on every load | ⬜ | — |
+| `STUDIO-31005` | Format migration chain runs on every load | ✅ | — |
 | `STUDIO-31006` | Dirty-state tracking | ⬜ | `STUDIO-31001` |
 | `STUDIO-31007` | Crash isolation from the game process | ⬜ | `STUDIO-16003` |
 | `STUDIO-31008` | Malformed project and scene diagnostics that permit repair | ⬜ | — |
@@ -190,6 +190,81 @@ truncated scene is refused, not repaired, because the missing entities are not i
 sidecar is the exception only because the one field whose loss damages other files happens to be
 written early enough to survive. Recovering what is recoverable from a malformed document is
 `STUDIO-31008`, and saying so is `STUDIO-31011`.
+
+### `STUDIO-31005` — Format migration chain runs on every load
+
+**Acceptance.** Every versioned format has an upgrade path, not just a refusal — and the two are
+one piece of code, so a format cannot acquire the second without the first.
+
+**✅ Done, and the finding is the same shape as `STUDIO-31003`'s: a rule written down, believed,
+and absent.** `SceneDocument::loadFromJson` states it:
+
+> *"The version gate and the upgrade path are one thing: refusing a file from the future and
+> upgrading one from the past are both answers to 'what version is this?', and splitting them is
+> how a loader comes to refuse a file it could have read."*
+
+`docs/FORMATS.md` said it twice — *"a file from the past is read and upgraded"* and *"Both halves
+are implemented"* — and **three formats had only the half that refuses.** `.cnamaterial`, `.cnaenv`
+and the `.cnarecovery` envelope each carried a hand-written `if (version > kFormatVersion) return
+false;` and nothing behind it. Four adherents and three holes, which is the same arithmetic the
+atomic-write row found.
+
+**Nothing would have shown it.** Every chain in the tree is empty, so a format with no chain behaves
+exactly like a format with one — right up until somebody bumps a version, which is the day the files
+are already written and the user is the one who finds out. That is the whole argument for holding
+the rule structurally rather than by review, and `EveryVersionedFormatRunsAMigrationChain` now does:
+a source file that writes a `formatVersion` and never mentions `FormatMigrator` is a format that
+declares itself and cannot upgrade itself, and the guard refuses it. Two exemptions, each a file
+that is not a document — the migrator itself, which stamps the version it has just upgraded *to*,
+and the recent-projects list, which is rebuilt by opening projects and whose worst case is one empty
+menu. Both are checked to be live.
+
+**A second defect the hand-written gates carried, smaller and quieter.** Both read
+`json["formatVersion"].asNumber(kFormatVersion)` — **defaulting a missing version to the current
+one**. A `.cnamaterial` with no `formatVersion` at all was therefore read as though it were the
+shape this build writes, which is a guess about a file whose shape is unknown, and it is the guess
+that turns an unreadable file into a readable one with the wrong fields in it. `RecoveryStore` had
+it worse: `asInt(0) > kFormatVersion` is false for a missing key, so an *unversioned snapshot* was
+read and could be restored over work the user still had. The migrator refuses `version <= 0` by
+name, as it always did for scenes, prefabs and projects.
+
+**What the `.cnarecovery` chain is for, since the envelope is not an authored document.** It is the
+one file whose loss costs the most — it holds the only copy of work the user has not saved — and a
+snapshot from an older build with no route forward would be refused at exactly the moment it was
+needed. The *scene* inside the envelope runs `SceneDocument`'s own chain when it is loaded, so the
+two versions move independently, which is right: an envelope that gained a field has nothing to say
+about the scene it is carrying.
+
+**Where the guard came from is worth recording**, because the first attempt was wrong in an
+instructive way. `RecoveryStore::formatMigrator()` as a static member function was rejected by
+`NoServiceReachesAnotherThroughALocatorOrASingleton` — a `static` function handing out a reference
+to a Studio type is a singleton accessor. The free-function shape every other migrator already used
+(`getSceneFormatMigrator()`) was the convention, and an existing guard found it faster than review
+would have.
+
+**Verification.** `tests/CoreTests.cpp` — `TheRealFormatsRunTheirChainsOnEveryLoad` now names all
+**seven** chains and checks each one's top against the `kFormatVersion` its document writes (a chain
+stopping one below would upgrade every file on load and write it back at the version it started
+from, which is a format that never settles);
+`TheMaterialLoaderReadsTheUpgradedDocumentNotTheOriginal`, which matters more for a material than
+for a scene because a material's *override set* is its key set (`STUDIO-19005`), so a loader that
+ran the chain and read the original would upgrade the document and throw the upgrade away silently;
+`TheEnvironmentMapLoaderRunsItsChainToo`; and
+`AVersionFromTheFutureIsRefusedAndAMissingOneIsNotGuessedAt`, which covers both halves and the
+behaviour change. `tests/ProjectAndAssetTests.cpp`'s `TheNewestSnapshotWinsAndACorruptOneIsSkipped`
+gained the unversioned-snapshot case. And `EveryVersionedFormatRunsAMigrationChain` in
+`tests/ArchitectureGuardTests.cpp`.
+
+Checked by causing each: the material loader reading its input instead of its output (two
+assertions, including the override set), the hand-written gates put back in both files (three cases
+plus the guard), a loader's `migrate(` call removed, and a format's `FormatMigrator` mention
+removed entirely.
+
+**What this row is not.** It does not write a migration. Every chain is still empty and that is the
+intended state — registering a step is not a licence to bump a version, and an additive field older
+builds can ignore costs nothing and needs none. What changed is that the first real step is now a
+small addition to a path that already runs on every load of every format, rather than a new path
+for three of them.
 
 ### `STUDIO-31008` — Malformed project and scene diagnostics that permit repair
 

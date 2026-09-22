@@ -566,6 +566,14 @@ already runs on every load, rather than a new path nobody has exercised. **Regis
 not a licence to bump a version** — formats stay backward compatible unless `plan.md` says
 otherwise, so the practical rule remains: only make additive changes.
 
+**Every** format, and that word was wrong until `STUDIO-31005`. `.cnamaterial`, `.cnaenv` and the
+`.cnarecovery` envelope each carried a hand-written `version > kFormatVersion` refusal and no chain
+at all — the half that says no, with nothing behind it that says yes. An empty chain and no chain
+behave identically right up until the day a version is bumped, which is the day the files are
+already written, so nothing would have shown it. The rule is now held structurally as well as
+stated: `EveryVersionedFormatRunsAMigrationChain` refuses any source file that writes a
+`formatVersion` and never mentions `FormatMigrator`.
+
 Two behaviours worth knowing:
 
 - A migration that **cannot** run is a refusal, not a best-effort read. Reading a version-1 file
@@ -574,4 +582,9 @@ Two behaviours worth knowing:
 - A **sidecar** is the exception. One this build cannot upgrade keeps its `id`, loses only its
   importer settings, is reported, and is left on disk untouched. The id is what scenes reference
   (D-08); regenerating it would break every reference in the project, which is a far worse outcome
-  than an importer setting reverting to its default.
+  than an importer setting reverting to its default. **The same holds for a sidecar whose JSON will
+  not parse at all** — a half-written one, left by a save interrupted before `STUDIO-31003` made
+  every write atomic. The id is read straight out of the bytes (`id` is the second key written, so
+  a file cut anywhere after the first forty bytes still holds it whole), the settings are lost, and
+  both halves are reported. Only where no well-formed id can be recovered is a new one assigned,
+  and the warning then says that references to the asset will not resolve.

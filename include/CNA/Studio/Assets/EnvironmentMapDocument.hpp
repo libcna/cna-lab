@@ -35,8 +35,10 @@
  */
 
 #include <string>
+#include <vector>
 
 #include "CNA/Studio/Assets/EnvironmentMapImport.hpp"
+#include "CNA/Studio/Core/FormatMigration.hpp"
 #include "CNA/Studio/Core/Json.hpp"
 #include "CNA/Studio/Core/Uuid.hpp"
 
@@ -67,15 +69,29 @@ namespace CNA::Studio
         [[nodiscard]] JsonValue toJson() const;
 
         /**
-         * @brief Reads @p json, keeping defaults for anything absent.
+         * @brief Reads @p json, upgrading it first and keeping defaults for anything absent.
          *
-         * @return False when the document declares a `formatVersion` this build cannot read, which
-         *         is the only hard failure — for the reason `MaterialDocument::loadFromJson` gives:
-         *         an environment map written by a future editor with three more fields should load
-         *         as the environment map it mostly is rather than as nothing at all.
+         * The gate and the upgrade are one piece of code (`plan.md` STUDIO-31005), for the reason
+         * `MaterialDocument::loadFromJson` now gives at length. Everything below the version is
+         * still a default, because an environment map written by a future editor with three more
+         * fields should load as the environment map it mostly is rather than as nothing at all.
+         *
+         * @param migrator The chain to run, or nullptr for `getEnvironmentMapFormatMigrator()`.
+         * @param warnings Appended to when a step runs, so an upgrade is reported rather than
+         *                 silent (`STUDIO-31011`). Optional.
+         * @return False when the document is not an object, declares no usable `formatVersion`, or
+         *         declares one this build cannot reach.
          */
-        bool loadFromJson(const JsonValue& json);
+        bool loadFromJson(const JsonValue& json, const FormatMigrator* migrator = nullptr,
+                          std::vector<std::string>* warnings = nullptr);
     };
+
+    /**
+     * @brief Returns the migration chain that upgrades a `.cnaenv`.
+     *
+     * Empty, like every other chain here: the format has only ever been at version 1.
+     */
+    [[nodiscard]] const FormatMigrator& getEnvironmentMapFormatMigrator();
 
     class AssetDatabase;
 
@@ -100,9 +116,12 @@ namespace CNA::Studio
      * belongs to the main thread and must not be touched.
      *
      * @param out Filled in on success; untouched otherwise, so a caller's defaults survive.
+     * @param migrator The chain to run, or nullptr for `getEnvironmentMapFormatMigrator()`.
+     * @param warnings Appended to when an upgrade runs. Optional.
      */
-    [[nodiscard]] EnvironmentMapLoadProblem loadEnvironmentMapFile(const std::string& absolutePath,
-                                                                   EnvironmentMapDocument& out);
+    [[nodiscard]] EnvironmentMapLoadProblem loadEnvironmentMapFile(
+        const std::string& absolutePath, EnvironmentMapDocument& out,
+        const FormatMigrator* migrator = nullptr, std::vector<std::string>* warnings = nullptr);
 
     /**
      * @brief Reads the environment map asset @p assetId from the project.

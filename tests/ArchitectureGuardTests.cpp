@@ -1064,6 +1064,111 @@ CNA_STUDIO_TEST(EveryAuthoredFileIsWrittenAtomically)
     }
 }
 
+/**
+ * @brief Every file that declares a `formatVersion` runs a migration chain when it reads one back.
+ *
+ * `plan.md` STUDIO-31005. The rule is stated in `SceneDocument::loadFromJson` and it is the whole
+ * reason the chain exists: *"The version gate and the upgrade path are one thing: refusing a file
+ * from the future and upgrading one from the past are both answers to 'what version is this?', and
+ * splitting them is how a loader comes to refuse a file it could have read."*
+ *
+ * Three formats had split them. `.cnamaterial`, `.cnaenv` and the `.cnarecovery` envelope each
+ * carried a hand-written `if (version > kFormatVersion) return false;` and no upgrade at all — the
+ * half that refuses, without the half that reads. Nothing would have shown it: every chain in the
+ * tree is empty, so a format with no chain behaves exactly like a format with one right up until
+ * the day somebody bumps a version, which is the day the files are already written.
+ *
+ * So the rule is held structurally. Writing a `formatVersion` into a document is how a file
+ * *declares a format*; declaring one and never mentioning `FormatMigrator` means the upgrade path
+ * for it does not exist.
+ */
+CNA_STUDIO_TEST(EveryVersionedFormatRunsAMigrationChain)
+{
+    struct Exemption
+    {
+        const char* file;
+        const char* because;
+    };
+
+    static const Exemption kExemptions[] = {
+        {"src/core/FormatMigration.cpp",
+         "is the migrator itself, and stamps the version it has just upgraded a document to"},
+        {"src/project/RecentProjects.cpp",
+         "writes the user's recent-projects list, which is not a document and is rebuilt by "
+         "opening projects; a version it cannot read is dropped and the list starts empty, which "
+         "costs the user one menu and nothing else"},
+    };
+
+    std::size_t violations = 0;
+    for (const SourceFile& file : collectSources({"src"}))
+    {
+        // Writing the key is what declares a format. A file that only *reads* one is a consumer --
+        // `Main.cpp` passing a migrator along, a panel showing a number -- and has no format of
+        // its own to upgrade.
+        if (file.text.find("set(\"formatVersion\"") == std::string::npos) { continue; }
+
+        const bool exempt =
+            std::any_of(std::begin(kExemptions), std::end(kExemptions),
+                        [&file](const Exemption& allowed) {
+                            return file.relativePath.find(allowed.file) != std::string::npos;
+                        });
+        if (exempt) { continue; }
+
+        if (file.text.find("FormatMigrator") != std::string::npos) { continue; }
+
+        ++violations;
+        CnaStudioTest::reportFailure(__FILE__, __LINE__,
+            file.relativePath
+            + " writes a 'formatVersion' and never mentions FormatMigrator, so it declares a "
+              "format with no way to upgrade one written by an older build (plan.md "
+              "STUDIO-31005). A hand-written `version > kFormatVersion` refusal is the half that "
+              "says no; the chain is the half that says yes. If this genuinely is not a document, "
+              "name it in kExemptions with the reason.");
+    }
+    CNA_STUDIO_EXPECT_EQ(violations, std::size_t{0});
+
+    // The exemptions are *live*, for the reason the atomic-write guard gives: one naming a file
+    // that no longer declares a format is a licence nobody revoked.
+    for (const Exemption& allowed : kExemptions)
+    {
+        std::ifstream stream{sourceRoot() / allowed.file, std::ios::binary};
+        const std::string contents{std::istreambuf_iterator<char>{stream},
+                                   std::istreambuf_iterator<char>{}};
+        if (contents.find("formatVersion") == std::string::npos)
+        {
+            CnaStudioTest::reportFailure(__FILE__, __LINE__,
+                std::string{allowed.file} + " is exempted from the migration-chain rule because it "
+                + allowed.because
+                + ", and it no longer mentions formatVersion at all. Remove the exemption.");
+        }
+    }
+
+    // And the loaders actually *run* the chain rather than only naming its type. `migrate(` is the
+    // call; a file holding a `const FormatMigrator&` it never asks anything is a format whose
+    // upgrade path is a declaration.
+    static const char* const kLoaders[] = {
+        "src/scene/SceneDocument.cpp",       "src/scene/PrefabDocument.cpp",
+        "src/project/Project.cpp",           "src/project/RecoveryStore.cpp",
+        "src/assets/AssetDatabase.cpp",      "src/assets/MaterialDocument.cpp",
+        "src/assets/EnvironmentMapDocument.cpp",
+    };
+    for (const char* loader : kLoaders)
+    {
+        std::ifstream stream{sourceRoot() / loader, std::ios::binary};
+        const std::string contents{std::istreambuf_iterator<char>{stream},
+                                   std::istreambuf_iterator<char>{}};
+        CNA_STUDIO_EXPECT(!contents.empty());
+
+        if (contents.find(".migrate(") == std::string::npos)
+        {
+            CnaStudioTest::reportFailure(__FILE__, __LINE__,
+                std::string{loader}
+                + " never calls migrate(), so the document it reads is whatever version the file "
+                  "claims to be and no upgrade runs on the way in.");
+        }
+    }
+}
+
 CNA_STUDIO_TEST(NoStudioCodeHardCodesARendererName)
 {
     // `docs/ARCHITECTURE.md` §2.2 and the roadmap's rule against hard-coding today's renderer

@@ -29,23 +29,59 @@ namespace CNA::Studio
         return root;
     }
 
-    bool EnvironmentMapDocument::loadFromJson(const JsonValue& json)
+    const FormatMigrator& getEnvironmentMapFormatMigrator()
     {
-        // The one hard failure, for the reason `MaterialDocument::loadFromJson` gives: quietly
-        // rewriting somebody's file with less in it than they put there is worse than refusing.
-        const int version = static_cast<int>(json["formatVersion"].asNumber(kFormatVersion));
-        if (version > kFormatVersion) { return false; }
+        static const FormatMigrator migrator{"environment map",
+                                             EnvironmentMapDocument::kFormatVersion};
+        return migrator;
+    }
+
+    bool EnvironmentMapDocument::loadFromJson(const JsonValue& json, const FormatMigrator* migrator,
+                                              std::vector<std::string>* warnings)
+    {
+        if (!json.isObject()) { return false; }
+
+        // The gate and the upgrade in one place (`plan.md` STUDIO-31005), for the reason
+        // `MaterialDocument::loadFromJson` gives: this had the half that refuses and not the half
+        // that reads, so a `.cnaenv` from an older format had no route forward at all.
+        const FormatMigrator& chain =
+            migrator != nullptr ? *migrator : getEnvironmentMapFormatMigrator();
+
+        JsonValue upgraded;
+        const JsonValue* source = &json;
+
+        if (json["formatVersion"].asInt(0) != chain.getCurrentVersion())
+        {
+            upgraded = json;
+
+            const FormatMigrationResult migration = chain.migrate(upgraded);
+            if (!migration.succeeded) { return false; }
+
+            if (warnings != nullptr)
+            {
+                for (const std::string& step : migration.applied)
+                {
+                    warnings->push_back("upgraded from an older environment map format: " + step);
+                }
+            }
+
+            source = &upgraded;
+        }
+
+        const JsonValue& document = *source;
 
         const EnvironmentMapDocument defaults;
 
-        name = json["name"].asString(defaults.name);
-        panorama = Uuid::parse(json["panorama"].asString(""));
-        settings = StudioEnvironmentMapImportSettings::fromJson(json["processing"]);
+        name = document["name"].asString(defaults.name);
+        panorama = Uuid::parse(document["panorama"].asString(""));
+        settings = StudioEnvironmentMapImportSettings::fromJson(document["processing"]);
         return true;
     }
 
     EnvironmentMapLoadProblem loadEnvironmentMapFile(const std::string& absolutePath,
-                                                     EnvironmentMapDocument& out)
+                                                     EnvironmentMapDocument& out,
+                                                     const FormatMigrator* migrator,
+                                                     std::vector<std::string>* warnings)
     {
         std::ifstream stream{absolutePath};
         if (!stream) { return EnvironmentMapLoadProblem::Unreadable; }
@@ -58,7 +94,7 @@ namespace CNA::Studio
         // Loaded into a local first, so a document declaring a version this build cannot read
         // leaves the caller's own value untouched rather than half-overwritten.
         EnvironmentMapDocument loaded;
-        if (!loaded.loadFromJson(parsed.value))
+        if (!loaded.loadFromJson(parsed.value, migrator, warnings))
         {
             return EnvironmentMapLoadProblem::UnreadableFormat;
         }

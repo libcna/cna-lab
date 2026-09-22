@@ -129,49 +129,93 @@ namespace CNA::Studio
         return root;
     }
 
-    bool MaterialDocument::loadFromJson(const JsonValue& json)
+    const FormatMigrator& getMaterialFormatMigrator()
     {
-        // The one hard failure. A file from a future editor may hold fields this build would
-        // silently drop on the next save, and quietly rewriting somebody's material with less in
-        // it than they put there is worse than refusing to open it.
-        const int version = static_cast<int>(json["formatVersion"].asNumber(kFormatVersion));
-        if (version > kFormatVersion) { return false; }
+        static const FormatMigrator migrator{"material", MaterialDocument::kFormatVersion};
+        return migrator;
+    }
+
+    bool MaterialDocument::loadFromJson(const JsonValue& json, const FormatMigrator* migrator,
+                                        std::vector<std::string>* warnings)
+    {
+        if (!json.isObject()) { return false; }
+
+        // The gate and the upgrade, in one piece of code (`plan.md` STUDIO-31005). This used to be
+        // a hand-written `version > kFormatVersion` and nothing else, which is the half of the
+        // answer that refuses: a `.cnamaterial` from an older format had no way to be read at all,
+        // and the migrator that every other document type runs was never reached from here.
+        //
+        // The refusal it kept is still the right one and the migrator states it in the same words:
+        // a file from a future editor may hold fields this build would silently drop on the next
+        // save, and quietly rewriting somebody's material with less in it than they put there is
+        // worse than refusing to open it.
+        const FormatMigrator& chain = migrator != nullptr ? *migrator : getMaterialFormatMigrator();
+
+        // Copied only when something has to change it, as `SceneDocument` does. A file already at
+        // the current version is the overwhelmingly common case and costs nothing.
+        JsonValue upgraded;
+        const JsonValue* source = &json;
+
+        if (json["formatVersion"].asInt(0) != chain.getCurrentVersion())
+        {
+            upgraded = json;
+
+            const FormatMigrationResult migration = chain.migrate(upgraded);
+            if (!migration.succeeded) { return false; }
+
+            if (warnings != nullptr)
+            {
+                for (const std::string& step : migration.applied)
+                {
+                    warnings->push_back("upgraded from an older material format: " + step);
+                }
+            }
+
+            source = &upgraded;
+        }
+
+        const JsonValue& document = *source;
 
         const MaterialDocument defaults;
 
-        name = json["name"].asString(defaults.name);
-        parent = Uuid::parse(json["parent"].asString(""));
+        name = document["name"].asString(defaults.name);
+        parent = Uuid::parse(document["parent"].asString(""));
 
         // The file's own keys *are* the override set (`plan.md` STUDIO-19005): a parameter is
         // stated here if and only if it is written here. Recorded for every material, not only for
         // an instance, so that giving a material a parent later does not silently turn every one
         // of its values into an inheritance.
+        // Read from the *upgraded* document, not the original -- a migration that added a key
+        // would otherwise leave it out of the override set, which is the one place where reading
+        // the wrong one of the two would be silent rather than obvious.
         overridden.clear();
         for (const char* key : {"diffuseColor", "emissiveColor", "metallic", "roughness", "alpha",
                                 "alphaMode", "alphaCutoff", "diffuseTexture", "normalTexture",
                                 "metallicRoughnessTexture", "emissiveTexture", "occlusionTexture"})
         {
-            if (json.contains(key)) { overridden.insert(key); }
+            if (document.contains(key)) { overridden.insert(key); }
         }
 
-        diffuseColor = vectorFromJson(json["diffuseColor"], defaults.diffuseColor);
-        emissiveColor = vectorFromJson(json["emissiveColor"], defaults.emissiveColor);
-        metallic = static_cast<float>(json["metallic"].asNumber(defaults.metallic));
-        roughness = static_cast<float>(json["roughness"].asNumber(defaults.roughness));
-        alpha = static_cast<float>(json["alpha"].asNumber(defaults.alpha));
-        alphaMode = parseMeshAlphaMode(json["alphaMode"].asString(toString(defaults.alphaMode)));
-        alphaCutoff = static_cast<float>(json["alphaCutoff"].asNumber(defaults.alphaCutoff));
+        diffuseColor = vectorFromJson(document["diffuseColor"], defaults.diffuseColor);
+        emissiveColor = vectorFromJson(document["emissiveColor"], defaults.emissiveColor);
+        metallic = static_cast<float>(document["metallic"].asNumber(defaults.metallic));
+        roughness = static_cast<float>(document["roughness"].asNumber(defaults.roughness));
+        alpha = static_cast<float>(document["alpha"].asNumber(defaults.alpha));
+        alphaMode = parseMeshAlphaMode(document["alphaMode"].asString(toString(defaults.alphaMode)));
+        alphaCutoff = static_cast<float>(document["alphaCutoff"].asNumber(defaults.alphaCutoff));
 
-        diffuseTexture = Uuid::parse(json["diffuseTexture"].asString(""));
-        normalTexture = Uuid::parse(json["normalTexture"].asString(""));
-        metallicRoughnessTexture = Uuid::parse(json["metallicRoughnessTexture"].asString(""));
-        emissiveTexture = Uuid::parse(json["emissiveTexture"].asString(""));
-        occlusionTexture = Uuid::parse(json["occlusionTexture"].asString(""));
+        diffuseTexture = Uuid::parse(document["diffuseTexture"].asString(""));
+        normalTexture = Uuid::parse(document["normalTexture"].asString(""));
+        metallicRoughnessTexture = Uuid::parse(document["metallicRoughnessTexture"].asString(""));
+        emissiveTexture = Uuid::parse(document["emissiveTexture"].asString(""));
+        occlusionTexture = Uuid::parse(document["occlusionTexture"].asString(""));
 
         return true;
     }
 
-    MaterialLoadProblem loadMaterialFile(const std::string& absolutePath, MaterialDocument& out)
+    MaterialLoadProblem loadMaterialFile(const std::string& absolutePath, MaterialDocument& out,
+                                         const FormatMigrator* migrator,
+                                         std::vector<std::string>* warnings)
     {
         std::ifstream stream{absolutePath};
         if (!stream) { return MaterialLoadProblem::Unreadable; }
@@ -184,7 +228,10 @@ namespace CNA::Studio
         // Loaded into a local first, so a document that declares a version this build cannot read
         // leaves the caller's own value untouched rather than half-overwritten.
         MaterialDocument loaded;
-        if (!loaded.loadFromJson(parsed.value)) { return MaterialLoadProblem::UnreadableFormat; }
+        if (!loaded.loadFromJson(parsed.value, migrator, warnings))
+        {
+            return MaterialLoadProblem::UnreadableFormat;
+        }
 
         out = std::move(loaded);
         return MaterialLoadProblem::None;

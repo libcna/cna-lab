@@ -26,6 +26,7 @@
 #include <string>
 #include <vector>
 
+#include "CNA/Studio/Core/FormatMigration.hpp"
 #include "CNA/Studio/Core/Json.hpp"
 #include "CNA/Studio/Core/Uuid.hpp"
 
@@ -64,6 +65,20 @@ namespace CNA::Studio
      * would be worse than none at all -- it would fail to load at the one moment the user needs it,
      * having already convinced them their work was safe.
      */
+    /**
+     * @brief Returns the migration chain that upgrades a `.cnarecovery` envelope.
+     *
+     * Empty, like every other chain: the format has only ever been at version 1. It exists because
+     * this file is the one whose loss costs the most — it holds the only copy of work the user has
+     * not saved — and a snapshot from an older build with no route forward would be refused at
+     * exactly the moment it was needed (`plan.md` STUDIO-31005).
+     *
+     * The *scene* inside the envelope runs `SceneDocument`'s own chain when it is loaded, so the
+     * two versions move independently, which is right: an envelope that gained a field has nothing
+     * to say about the scene it is carrying.
+     */
+    [[nodiscard]] const FormatMigrator& getRecoveryFormatMigrator();
+
     class RecoveryStore
     {
     public:

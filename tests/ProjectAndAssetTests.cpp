@@ -1399,6 +1399,18 @@ CNA_STUDIO_TEST(TheNewestSnapshotWinsAndACorruptOneIsSkipped)
     writeFile(directory / (Uuid::generate().toString() + ".cnarecovery"), Json::write(future));
     CNA_STUDIO_EXPECT_EQ(store.list().size(), std::size_t{2});
 
+    // And so is one with no version at all -- which the hand-written gate this replaced let
+    // through (`plan.md` STUDIO-31005). `asInt(0) > kFormatVersion` is false for a missing key,
+    // so an envelope of unknown shape was read as though it were the shape this build writes.
+    // The chain refuses it, because a snapshot is the one file where reading the wrong fields
+    // means restoring the wrong document over work the user still has.
+    JsonValue unversioned = JsonValue::makeObject();
+    unversioned.set("projectPath", JsonValue{"/games/Alpha.cnaproject"});
+    unversioned.set("sceneId", JsonValue{Uuid::generate().toString()});
+    unversioned.set("scene", JsonValue::makeObject());
+    writeFile(directory / (Uuid::generate().toString() + ".cnarecovery"), Json::write(unversioned));
+    CNA_STUDIO_EXPECT_EQ(store.list().size(), std::size_t{2});
+
     std::filesystem::remove_all(directory);
 }
 
