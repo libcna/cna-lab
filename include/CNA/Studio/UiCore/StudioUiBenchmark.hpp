@@ -45,6 +45,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <vector>
 
 namespace CNA::Studio
 {
@@ -165,4 +166,77 @@ namespace CNA::Studio
      * @param addend One frame's cost.
      */
     void studioUiAccumulateCost(StudioUiFrameCost& total, const StudioUiFrameCost& addend);
+
+    /**
+     * @brief The order statistics of one scenario's per-frame times.
+     *
+     * Three numbers rather than one because they answer different questions and only one of them
+     * can be gated on. See @ref studioUiFrameTimesExceedBudget for which, and for the measurements
+     * that decided it.
+     */
+    struct StudioUiFrameTimes
+    {
+        /** @brief The cheapest frame of the run. */
+        double minimumMicroseconds = 0.0;
+
+        /** @brief The middle frame of the run. */
+        double medianMicroseconds = 0.0;
+
+        /** @brief The dearest frame of the run --- the stall, when there was one. */
+        double maximumMicroseconds = 0.0;
+
+        /** @brief How many frames were measured. Zero means nothing was. */
+        std::size_t frames = 0;
+    };
+
+    /**
+     * @brief Reduces a run of per-frame times to its minimum, median and maximum.
+     *
+     * @param samples One entry per frame, in any order. Taken by value because it is sorted.
+     * @return The three statistics, or a zeroed result when @p samples is empty.
+     */
+    [[nodiscard]] StudioUiFrameTimes studioUiFrameTimes(std::vector<double> samples);
+
+    /**
+     * @brief Whether a scenario went over what it is allowed --- judged on the **minimum**.
+     *
+     * `plan.md` STUDIO-33027. This gate used to read the median, and five separate validation runs
+     * failed it for reasons that had nothing to do with the code: the same binary, its counted
+     * columns identical byte for byte, read 7635, 7893, 8009, 8262 and 8599 us against a budget of
+     * 8333. Which statistic to read instead was a real decision, and it was settled by measuring
+     * rather than by argument.
+     *
+     * **The experiment.** One binary, run twice: once on an idle machine, once against four
+     * busy-loops on a four-core machine --- the same interference that produced the clearest of
+     * those five failures. Every counted column was identical across the pair, so anything that
+     * moved was the machine. Averaged over the sixteen non-baseline scenarios, the drift was:
+     *
+     * | statistic | mean drift | worst drift | scenarios pushed over budget |
+     * |-----------|-----------|-------------|------------------------------|
+     * | minimum   | **2.3 %** | **7.1 %**   | **none**                     |
+     * | median    | 10.6 %    | 26.1 %      | two                          |
+     * | `xbase`   | 35.3 %    | 47.8 %      | --- (not a gate)             |
+     *
+     * **So the minimum, and not the ratio.** `xbase` was the candidate this row expected to win,
+     * on the reasoning that dividing by the idle shell cancels the machine. It does not, and the
+     * table above is why: contention adds a roughly *constant* cost per frame rather than
+     * multiplying one, and the baseline is the smallest number being measured. Four busy-loops
+     * moved the baseline frame by 63 % and a 7 800 us scenario by 11 %, so every ratio in the
+     * column fell by a third --- the correction is larger than the error it corrects. The `xbase`
+     * column stays in the report, because the shape of a profile is worth seeing; it is not what
+     * the gate reads.
+     *
+     * **What the minimum costs.** It cannot see a regression that happens on some frames and not
+     * all. Neither could the median: a stall in three frames out of a hundred and twenty moves
+     * neither. That blind spot is real and is left open deliberately, with the maximum reported
+     * beside these two so the stall is at least visible to whoever runs it --- see
+     * `plan.md` STUDIO-30031 for the one this found.
+     *
+     * @param times The scenario's measured frame times.
+     * @param budgetMicroseconds What this shape of frame is allowed. Zero or less means unbudgeted,
+     *        which is never over.
+     * @return True when the cheapest frame of the run was still too dear.
+     */
+    [[nodiscard]] bool studioUiFrameTimesExceedBudget(const StudioUiFrameTimes& times,
+                                                      double budgetMicroseconds);
 } // namespace CNA::Studio

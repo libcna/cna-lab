@@ -6,6 +6,7 @@
 
 #include "CNA/Studio/UiCore/StudioUiBenchmark.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <cstddef>
 
@@ -154,5 +155,34 @@ namespace CNA::Studio
         total.modernSubmittedBytes += addend.modernSubmittedBytes;
         total.classicGpuBytes += addend.classicGpuBytes;
         total.modernGpuBytes += addend.modernGpuBytes;
+    }
+
+    StudioUiFrameTimes studioUiFrameTimes(std::vector<double> samples)
+    {
+        if (samples.empty()) { return {}; }
+
+        std::sort(samples.begin(), samples.end());
+
+        StudioUiFrameTimes times;
+        times.frames = samples.size();
+        times.minimumMicroseconds = samples.front();
+        times.maximumMicroseconds = samples.back();
+
+        // The upper of the two middle samples on an even count, rather than their mean. An
+        // averaged median is a number no frame took, and every other figure this benchmark prints
+        // is one something actually did.
+        times.medianMicroseconds = samples[samples.size() / 2];
+        return times;
+    }
+
+    bool studioUiFrameTimesExceedBudget(const StudioUiFrameTimes& times, double budgetMicroseconds)
+    {
+        if (budgetMicroseconds <= 0.0) { return false; }
+
+        // Nothing measured is not over budget. A scenario whose frame count came out zero has a
+        // problem, but it is not this one, and reporting it here would say the wrong thing.
+        if (times.frames == 0) { return false; }
+
+        return times.minimumMicroseconds > budgetMicroseconds;
     }
 } // namespace CNA::Studio

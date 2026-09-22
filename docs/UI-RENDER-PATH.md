@@ -225,30 +225,74 @@ presenting — so it gets a quarter: **4 167 µs**. `--ui-benchmark` prints that
 scenario, marks each row `ok` or `OVER`, and **exits 3** when any row is over, so a performance job
 can act on it rather than relying on somebody reading the table.
 
+**The budget is judged against the cheapest frame of the run** (`us(min)`), not the median — see
+[Which statistic the gate reads](#which-statistic-the-gate-reads) below for the measurements that
+decided that.
+
 It is a *description* budget, not a frame time. A row at 4 167 µs is not a Studio running at sixty
 frames a second; it is a Studio whose UI has spent its entire share.
 
-**Deliberately extreme scenarios get 8 333 µs instead** — the 20 000-entity outliner, the
-100 000-asset browser — and promise something different by it. At those sizes Studio does not claim
-sixty frames a second, it claims that nothing collapses. Holding them to the interactive budget
-would have made them fail on the day they were written, and a budget that is over from birth is one
-nobody reads.
+**Deliberately extreme scenarios get 8 333 µs instead** — the 20 000-entity outliner, the two
+thumbnail rows — and promise something different by it. At those sizes Studio does not claim sixty
+frames a second, it claims that nothing collapses. Holding them to the interactive budget would have
+made them fail on the day they were written, and a budget that is over from birth is one nobody
+reads.
 
-### Why every row also reports `xbase`
+**The 100 000-asset browser used to be on that list and is not any more** (`STUDIO-33027`). It was
+there because it measured 6 000–7 800 µs, and that turned out to be the benchmark's own fixture
+rather than the Content Browser: `fillAssets` built its records through `AssetDatabase::add()`, the
+one path that leaves a record unstamped, so the asset watcher's first poll handed all hundred
+thousand of them to the reload path and ninety of the hundred and twenty frames measured a mass
+re-import. Stamped the way `scan()` stamps what it walks, the three `-100k` rows read **542, 165 and
+184 µs** — the windowing they exist to defend had been working the whole time. They now carry the
+ordinary interactive budget, with roughly sevenfold headroom. A stress ceiling of 8 333 µs over a
+550 µs frame is not a loose gate, it is an absent one.
+
+### Which statistic the gate reads
 
 Absolute microseconds are not comparable between machines, or between the same machine busy and
-idle. This project has the receipt: `content-grid` was recorded at 4 260 µs during a session with
-builds running and measures about 520 µs for the same code on a quiet container. Anyone comparing
-those two would conclude something that never happened.
+idle. This project has the receipt several times over: five validation runs of *unchanged* binaries
+failed the gate, with every counted column — draw calls, vertices, bytes on the bus — identical byte
+for byte across the red and green runs. Only wall-clock moved.
 
-So each row also prints its cost as a multiple of the idle shell (`baseline`). That ratio cancels
-the machine, and it is the figure worth writing into a plan entry or a commit message. Absolute
-values are worth recording only alongside the ratios measured in the same run.
+Each row therefore reports three frame times — `us(min)`, `us(med)` and `us(max)` — and its cost as
+a multiple of the idle shell, `xbase`. **The gate reads `us(min)`.** That was settled by measuring
+rather than by argument: one binary, run on an idle four-core machine and then against four
+busy-loops on it, with the counted columns identical across the pair so that anything that moved was
+the machine. Over the sixteen non-baseline scenarios:
+
+| statistic | mean drift | worst drift | scenarios pushed over budget |
+|-----------|-----------:|------------:|------------------------------|
+| `us(min)` | **2.3 %**  | **7.1 %**   | **none**                     |
+| `us(med)` | 10.6 %     | 26.1 %      | two                          |
+| `xbase`   | 35.3 %     | 47.8 %      | — (not a gate)               |
+
+**`xbase` is the worst of the three**, which is the opposite of what this document used to say: it
+claimed the ratio "cancels the machine". It cancels a machine that is uniformly slower by a factor.
+Contention is not that — it adds a roughly *constant* cost per frame, and the baseline is the
+smallest number in the table, so it takes the largest relative hit and drags every ratio down with
+it. The busy-loops moved the baseline frame 63 % and a 7 800 µs scenario 11 %. The correction is
+larger than the error it corrects.
+
+`xbase` stays in the report because the shape of a profile is worth seeing at a glance — an outliner
+row at 50× the idle shell and a resize row at 3× say something two columns of microseconds make the
+reader work out. It is not a figure to compare across runs, and not what the gate reads.
+
+**What the minimum cannot see**, said plainly: a regression that happens on some frames and not all.
+Neither could the median — three dear frames out of a hundred and twenty move neither. `us(max)` is
+reported beside them so a stall is at least visible, and it found one immediately: at a hundred
+thousand assets the asset watcher's poll costs about half a second and runs twice a second, recorded
+as `STUDIO-30031`. For the two thumbnail rows the minimum is a frame in which no thumbnail work
+happened (322 µs against a 2 949 µs median); what guards those is counted rather than timed — the
+generated/shared/cancelled totals printed under each row, and `ThumbnailCacheTests`, which waits on
+completions rather than on frames.
 
 This is the same instinct as the test suite's: it counts work done rather than time taken, because a
 wall-clock assertion on a shared CI machine fails for reasons that have nothing to do with the code.
 The budget gate lives in the benchmark — run deliberately, by somebody who wants a verdict — and not
-in `ctest`.
+in `ctest`. Its verdict is `studioUiFrameTimesExceedBudget` in `StudioUiBenchmark.hpp`, in the
+library rather than in `Main.cpp`, so the suite can reach it: a gate whose logic lives where no test
+can see it is the same fault in a different place.
 
 ---
 

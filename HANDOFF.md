@@ -260,11 +260,17 @@ viewport toolbar:
 Measure what a frame of UI costs each render backend (`STUDIO-04028`). Needs no CNA, no GPU and no
 window; `=NAME` selects scenarios by substring.
 
-**Run it on its own.** The budget gate compares a *median frame time* against fixed microseconds
-(`STUDIO-33027`), so a compile or a test suite sharing the machine puts scenarios that sit near
-their budget over it — with the counted columns beside them identical, which is how you tell that
-case from a regression. That is a workaround for the gate rather than a property of the benchmark,
-and the row says what the real fix would be:
+**The budget gate reads the cheapest frame of the run**, `us(min)` (`STUDIO-33027`). It used to
+read the median, and five validation runs of unchanged binaries failed it because of whatever else
+was sharing the machine. Measured against four busy-loops on a four-core machine, the minimum drifts
+2.3 % where the median drifts 10.6 % and `xbase` — the candidate that looked machine-independent and
+is not — drifts 35.3 %. Running the benchmark on its own is still good practice, but it is no longer
+load-bearing: the same load that made the old gate exit 3 leaves the new one exiting 0.
+
+`us(med)` and `us(max)` are reported beside it and are not gated. Neither the minimum nor the median
+can see a stall on a few frames out of a hundred and twenty, so `us(max)` is where one shows —
+that is how the half-second asset-watcher poll at a hundred thousand assets was found
+(`STUDIO-30031`).
 
 ```bash
 ./build/cna-studio --ui-benchmark --ui-benchmark-frames=60 \
@@ -347,7 +353,7 @@ Baseline at import, for comparison: 442 test cases, 12 CTest suites.
 
 ## What was completed
 
-Task ids are `STUDIO-PPNNN`; see `plan.md` for the full list. **401 of 581 tasks are complete.**
+Task ids are `STUDIO-PPNNN`; see `plan.md` for the full list. **402 of 582 tasks are complete.**
 Per-phase counts and the headline are checked by the test suite — `STUDIO-33018` for `plan.md` and
 `STUDIO-33019` for this file — so neither can drift from the phase files again. The second was added
 after this file had drifted by nineteen tasks and a hundred and fifty-eight test cases, which is
@@ -573,9 +579,9 @@ variables current CNA actually defines.
 host eligibility, target renderer validation, and the guard that keeps Studio's transcription of
 CNA's configure rules from drifting.
 
-**Phase 30 — Large-project performance** (15 of 17).
+**Phase 30 — Large-project performance** (15 of 18).
 
-**Phase 30 — Large-project performance** (15 of 17). Neither was planned for this session and both
+**Phase 30 — Large-project performance** (15 of 18). Neither was planned for this session and both
 came out of `STUDIO-04028`'s benchmark. `STUDIO-30013` made the World Outliner linear in scene size
 rather than quadratic — 309 ms a frame at 2 000 entities became 19 ms — through
 `SceneDocument::getChildrenByParent()`, which is a *grouping* rather than a cached index because
@@ -604,7 +610,7 @@ that is legible at 1920×1080. And the acceptance criterion itself replaced: mea
 Dear ImGui prototype had stopped saying anything, so `docs/VISUAL-ACCEPTANCE.md` now asks whether
 Studio reads as a serious professional 3D game-development environment on first launch.
 
-**Phase 33 — Docs and CI** (13 of 24). Golden-image infrastructure, visual tests at every tested
+**Phase 33 — Docs and CI** (14 of 24). Golden-image infrastructure, visual tests at every tested
 resolution and DPI scale, the assertion-macro hardening a sanitizer forced, the plan-arithmetic
 guards, and CI coverage for the sanitizer and CNA-backed configurations with the captures kept as
 artefacts — which are now **eighty-nine times smaller**: adaptive scanline filtering and a real

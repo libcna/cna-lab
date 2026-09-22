@@ -6,7 +6,7 @@
 
 **Exit criteria.** Benchmarks exist, they run, and regressions are visible.
 
-**Progress:** 15 of 17 complete `██████████░░`
+**Progress:** 15 of 18 complete `██████████░░`
 
 | Id | Task | Status | Depends on |
 |----|------|:------:|------------|
@@ -27,6 +27,7 @@
 | `STUDIO-30025` | Stress benchmark: many thumbnails and many concurrent import jobs | ✅ | `STUDIO-09003` |
 | `STUDIO-30026` | Attribute and remove the cost of a very large multi-selection | ✅ | `STUDIO-30021` |
 | `STUDIO-30030` | Establish the interactive frame-rate target and measure against it | ✅ | `STUDIO-30020` |
+| `STUDIO-30031` | A hundred thousand assets stall the editor for half a second, twice a second | ⬜ | `STUDIO-30022` |
 
 ## Acceptance and verification
 
@@ -381,6 +382,39 @@ and is what makes this expensive; never is wrong, because "what did I break when
 folder" is the question a content browser is most often opened to answer. A watch, a rescan on
 window focus, and a rescan on an explicit refresh are all defensible and they are not the same
 product.
+
+### `STUDIO-30031` — A hundred thousand assets stall the editor for half a second, twice a second
+
+**Found while doing `STUDIO-33027`**, and measured rather than inferred. `AssetWatcher` re-stats
+every tracked file on a timer whose default interval is half a second. At a hundred thousand assets
+that is a hundred thousand `stat` calls **on the frame**, and the benchmark's new `us(max)` column
+now reports what it costs: `content-grid-100k` has a worst frame of **510 ms**, `content-list-100k`
+463 ms and `content-scrolling-100k` 511 ms, against medians of 598, 187 and 249 µs. Every one of
+those stalls is a watcher poll, and they recur: the per-frame dump taken while diagnosing
+`STUDIO-33027` shows them landing on frames 30, 60 and 90 of a 120-frame run — which is t = 0.5,
+1.0 and 1.5 s, exactly the interval.
+
+**So a project of this size spends roughly half of every second inside a filesystem scan**, and the
+editor is unresponsive for it. That is not a slow frame, it is a stall a user would call a hang.
+
+**The header already knows.** `AssetWatcher.hpp` says polling "costs one syscall each and happens
+twice a second at most; on a project large enough for that to matter, the interval is a knob. Native
+watchers become worth their cost when a project reaches tens of thousands of assets." That is the
+right analysis and it names this threshold. What was missing is the number, and the number is worse
+than "matters" suggests — at a hundred thousand assets the poll is 3 000 times the frame it runs in.
+Lengthening the interval does not fix it either: it makes the stall rarer, not shorter.
+
+**Acceptance.** A hundred-thousand-asset project polls its watcher without a frame going over its
+budget. The obvious shapes are moving the stat sweep off the frame (it is already a job system's
+natural work, and the reload path it feeds is already budgeted), amortising it across frames the way
+`thumbnails_.pump` and `jobs_.drain` are, or a native watcher behind the same interface — which the
+header says can be added "without any caller changing". Whichever is chosen, the check is the
+benchmark's own `us(max)` column on the three `-100k` rows, which is why that column now exists.
+
+**Not folded into `STUDIO-33027`.** That row's subject is which statistic the gate reads, and it
+would have been easy to quietly widen it into a watcher rewrite because the watcher is what the new
+column exposed. Recording it here keeps the two separable: one is a measurement fault, this is a
+product fault, and they are fixed and verified differently.
 
 ### `STUDIO-30030` — Establish the interactive frame-rate target and measure against it
 

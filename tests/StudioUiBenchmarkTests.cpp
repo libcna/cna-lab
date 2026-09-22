@@ -19,6 +19,7 @@
 #include "CNA/Studio/UiCore/StudioShell.hpp"
 #include "CNA/Studio/UiCore/StudioUiBenchmark.hpp"
 
+#include <cstddef>
 #include <cstdint>
 #include <vector>
 
@@ -261,4 +262,64 @@ CNA_STUDIO_TEST(TheRealShellCostsMoreThroughTheClassicBackendThanTheModernOne)
     CNA_STUDIO_EXPECT(cost.drawCalls > 4);
     CNA_STUDIO_EXPECT(cost.vertices > 500);
     CNA_STUDIO_EXPECT(cost.classicSubmittedBytes > cost.modernSubmittedBytes * 4);
+}
+
+CNA_STUDIO_TEST(TheFrameTimeStatisticsAreThreeSamplesThatWereActuallyTaken)
+{
+    // Order-independent, and the median is a sample rather than an average of two: every other
+    // number this benchmark prints is one some frame really cost, and an interpolated median
+    // would be the only one that was not.
+    const StudioUiFrameTimes times = studioUiFrameTimes({700.0, 100.0, 500.0, 300.0, 900.0});
+
+    CNA_STUDIO_EXPECT_EQ(times.frames, std::size_t{5});
+    CNA_STUDIO_EXPECT(times.minimumMicroseconds == 100.0);
+    CNA_STUDIO_EXPECT(times.medianMicroseconds == 500.0);
+    CNA_STUDIO_EXPECT(times.maximumMicroseconds == 900.0);
+
+    const StudioUiFrameTimes nothing = studioUiFrameTimes({});
+    CNA_STUDIO_EXPECT_EQ(nothing.frames, std::size_t{0});
+    CNA_STUDIO_EXPECT(nothing.minimumMicroseconds == 0.0);
+}
+
+CNA_STUDIO_TEST(TheBudgetGateJudgesTheCheapestFrameAndNotTheMedian)
+{
+    // `plan.md` STUDIO-33027, and the whole of the row in one assertion. This shape -- a run whose
+    // cheapest frame is inside the budget and whose median and worst frame are outside it -- is
+    // what a busy machine produces, and it is what the gate used to fail on. Five validation runs
+    // of unchanged binaries went red this way.
+    StudioUiFrameTimes interrupted;
+    interrupted.frames = 120;
+    interrupted.minimumMicroseconds = 6875.0;
+    interrupted.medianMicroseconds = 9691.0;
+    interrupted.maximumMicroseconds = 15349.0;
+
+    CNA_STUDIO_EXPECT(!studioUiFrameTimesExceedBudget(interrupted, 8333.0));
+
+    // And the gate still fails on the thing it exists for: work that got dearer on every frame,
+    // cheapest one included. A gate that cannot go red is not a looser gate, it is no gate.
+    StudioUiFrameTimes regressed = interrupted;
+    regressed.minimumMicroseconds = 8334.0;
+    CNA_STUDIO_EXPECT(studioUiFrameTimesExceedBudget(regressed, 8333.0));
+
+    // Exactly at the budget is inside it. A budget is what a frame is allowed, not what it must
+    // stay under.
+    StudioUiFrameTimes exact = interrupted;
+    exact.minimumMicroseconds = 8333.0;
+    CNA_STUDIO_EXPECT(!studioUiFrameTimesExceedBudget(exact, 8333.0));
+}
+
+CNA_STUDIO_TEST(AnUnbudgetedOrUnmeasuredScenarioIsNeverOverBudget)
+{
+    StudioUiFrameTimes times;
+    times.frames = 120;
+    times.minimumMicroseconds = 1.0e9;
+
+    // No budget means nothing to exceed -- not a budget of zero, which every frame would fail.
+    CNA_STUDIO_EXPECT(!studioUiFrameTimesExceedBudget(times, 0.0));
+    CNA_STUDIO_EXPECT(!studioUiFrameTimesExceedBudget(times, -1.0));
+
+    // A scenario that measured nothing has a problem, but it is not a budget problem, and
+    // reporting it as one would send whoever reads the red line looking in the wrong place.
+    StudioUiFrameTimes empty;
+    CNA_STUDIO_EXPECT(!studioUiFrameTimesExceedBudget(empty, 8333.0));
 }

@@ -248,17 +248,28 @@ namespace
         std::string what;
         int frames = 0;
         CNA::Studio::StudioUiFrameCost total;
-        double medianMicroseconds = 0.0;
-        double minMicroseconds = 0.0;
+
+        /** @brief The minimum, median and maximum of this scenario's per-frame times. */
+        CNA::Studio::StudioUiFrameTimes times;
+
         double budgetMicroseconds = 0.0;
 
         /**
-         * @brief Cost as a multiple of the idle shell's.
+         * @brief Median cost as a multiple of the idle shell's median.
          *
-         * The part of a measurement that survives a change of machine. Absolute microseconds do
-         * not: this phase recorded 4 260 us for `content-grid` on a loaded container and 520 us
-         * for the same code on an idle one, and a reader comparing those two would conclude
-         * something that never happened.
+         * Reported because the shape of a profile is worth seeing at a glance --- an outliner row
+         * at 50x the idle shell and a resize row at 3x say something about Studio that two columns
+         * of microseconds make the reader work out.
+         *
+         * **Not what the gate reads, and this used to say the opposite** (`plan.md` STUDIO-33027).
+         * It claimed to be "the part of a measurement that survives a change of machine". Measured
+         * against four busy-loops on a four-core machine, it is the part that survives *least*:
+         * this column drifted 35.3 % on average and 47.8 % at worst, where the median drifted
+         * 10.6 % and the minimum 2.3 %. Dividing by the baseline cancels a machine that is
+         * uniformly slower by a factor, and contention is not that --- it adds a roughly constant
+         * cost per frame, and the baseline is the smallest number in the table, so it takes the
+         * largest relative hit and drags every ratio down with it. Four busy-loops moved the
+         * baseline frame 63 % and a 7 800 us scenario 11 %.
          */
         double baselineMultiple = 0.0;
 
@@ -273,10 +284,15 @@ namespace
         std::uint64_t thumbnailsShared = 0;
         std::uint64_t thumbnailsCancelled = 0;
 
-        /** @brief Whether the median went over what this scenario is allowed. */
+        /**
+         * @brief Whether this scenario went over what it is allowed.
+         *
+         * Judged on the cheapest frame of the run, for the reasons @ref
+         * CNA::Studio::studioUiFrameTimesExceedBudget records and measures.
+         */
         [[nodiscard]] bool isOverBudget() const
         {
-            return budgetMicroseconds > 0.0 && medianMicroseconds > budgetMicroseconds;
+            return CNA::Studio::studioUiFrameTimesExceedBudget(times, budgetMicroseconds);
         }
     };
 
@@ -496,6 +512,33 @@ namespace
 
             if (!exists) { std::ofstream{root / record.sourcePath, std::ios::binary} << "x"; }
 
+            // Stamped, because an unstamped record is one the asset watcher calls **restored** --
+            // a file that has come back -- and a restored asset is re-imported exactly as a
+            // changed one is (`plan.md` STUDIO-33027). `scan()` stamps what it walks and a sidecar
+            // carries the stamp across a session, so every record a real project has is stamped by
+            // the time a frame is drawn; `add()` is the one path that skips it, and this was the
+            // one caller that took it. Unstamped, the watcher's first poll -- half a second in,
+            // which is frame 30 of a 120-frame run -- handed all hundred thousand of these to the
+            // reload path, and the remaining ninety frames measured the re-import instead of the
+            // Content Browser. That is what made `content-grid-100k` read a 7 774 us median over a
+            // 532 us minimum, and it is why this scenario's frames below frame 30 and above it
+            // were measurements of two different things. Stamped, the same row reads 598 us.
+            //
+            // Stamped exactly the way `scan()` does it: size in bytes, time in **seconds** rather
+            // than the clock's native ticks. A stamp that does not compare equal to the one the
+            // watcher computes is no stamp at all -- it would leave this fixture in precisely the
+            // state it is here to get out of. One `directory_entry`, so both fields come from one
+            // stat rather than two.
+            const std::filesystem::directory_entry entry{root / record.sourcePath, code};
+            record.sourceSize = static_cast<std::uint64_t>(entry.file_size(code));
+            if (code) { record.sourceSize = 0; code.clear(); }
+            const auto writeTime = entry.last_write_time(code);
+            record.sourceModifiedTime =
+                code ? 0
+                     : std::chrono::duration_cast<std::chrono::seconds>(writeTime.time_since_epoch())
+                           .count();
+            code.clear();
+
             (void)assets.add(std::move(record));
         }
 
@@ -597,6 +640,15 @@ namespace
         // scenario where the panels' poll has anything to do -- which is why the poll is inside the
         // timed region at all -- and it measures the case that matters: a user opening a folder of
         // two thousand textures and the editor staying responsive while it fills in.
+        //
+        // **The timing gate is the weakest guard these two rows have**, and saying so is better
+        // than leaving it implied (`plan.md` STUDIO-33027). The gate reads the minimum, and the
+        // cheapest frame of a thumbnail run is one where no thumbnail work happened -- 322 us
+        // against a 2949 us median. What actually guards these rows is counted rather than timed:
+        // the generated, shared and cancelled totals printed under each of them, and
+        // `ThumbnailCacheTests`, which waits on completions rather than on frames
+        // (`STUDIO-33026`). That is the doctrine working, not a hole in it -- but a reader
+        // comparing `us(min)` across builds here is comparing the wrong column.
         scenarios.push_back(UiBenchmarkScenario{
             "thumbnails-2000", "2000 real images, thumbnails generating in the background",
             "content",
@@ -749,10 +801,19 @@ namespace
         // The deliberately extreme rows get the stress ceiling rather than the interactive one.
         // Named here in one list rather than repeated in each aggregate, so that the *reason* a
         // scenario is held to a different promise is in one readable place.
+        //
+        // **The three `-100k` content rows came off this list** (`plan.md` STUDIO-33027). They
+        // were on it because they read 6 000 to 7 800 us, and that turned out not to be the
+        // Content Browser: the fixture left its records unstamped, so the asset watcher's first
+        // poll handed all hundred thousand of them to the reload path and ninety of the hundred
+        // and twenty frames measured the re-import that followed. Stamped, the same scenarios read 542, 165
+        // and 184 us -- the windowing those rows exist to defend has been doing its job all along,
+        // and a stress ceiling of 8333 us over a 550 us frame is a gate that cannot fail. Holding
+        // them to the interactive budget is the tightening that measurement earned; it leaves
+        // roughly sevenfold headroom, which is a margin rather than a coin flip.
         static const char* const kStressScenarios[] = {
             "outliner-20000", "outliner-20000-deep", "outliner-20000-scrolling",
-            "outliner-20000-all-selected", "content-grid-100k", "content-list-100k",
-            "content-scrolling-100k", "thumbnails-2000", "thumbnails-2000-scrolling"};
+            "outliner-20000-all-selected", "thumbnails-2000", "thumbnails-2000-scrolling"};
 
         for (UiBenchmarkScenario& scenario : scenarios)
         {
@@ -898,16 +959,13 @@ namespace
                     row.total, CNA::Studio::studioUiFrameCost(shell.drawData()));
             }
 
-            // Median rather than mean, and the minimum beside it. A scheduler preemption in one
-            // frame moves a mean and cannot move a median, and the minimum is the closest thing to
-            // "what this costs when nothing else is happening" that a shared machine can report.
             row.thumbnailsGenerated = panels.thumbnails().getGeneratedCount();
             row.thumbnailsShared = panels.thumbnails().getSharedCount();
             row.thumbnailsCancelled = panels.thumbnails().getCancelledCount();
 
-            std::sort(samples.begin(), samples.end());
-            row.medianMicroseconds = samples[samples.size() / 2];
-            row.minMicroseconds = samples.front();
+            // All three, because they answer different questions and the gate reads only one of
+            // them. `CNA::Studio::studioUiFrameTimesExceedBudget` says which and why.
+            row.times = CNA::Studio::studioUiFrameTimes(std::move(samples));
             rows.push_back(std::move(row));
         }
 
@@ -917,11 +975,11 @@ namespace
         const auto idle = std::find_if(rows.begin(), rows.end(), [](const UiBenchmarkRow& row) {
             return row.name == "baseline";
         });
-        if (idle != rows.end() && idle->medianMicroseconds > 0.0)
+        if (idle != rows.end() && idle->times.medianMicroseconds > 0.0)
         {
             for (UiBenchmarkRow& row : rows)
             {
-                row.baselineMultiple = row.medianMicroseconds / idle->medianMicroseconds;
+                row.baselineMultiple = row.times.medianMicroseconds / idle->times.medianMicroseconds;
             }
         }
 
@@ -936,18 +994,23 @@ namespace
                   << " us a frame, of which\ndescribing the UI gets a quarter -- "
                   << kUiDescriptionBudgetMicroseconds
                   << " us. Deliberately extreme rows get " << kStressBudgetMicroseconds
-                  << " us instead\nand promise only that nothing collapses. 'xbase' is the cost as "
-                     "a multiple of the idle\nshell, which is the part of a measurement that "
-                     "survives a change of machine.\n\n";
+                  << " us instead\nand promise only that nothing collapses.\n\n"
+                     "The gate reads 'us(min)', the cheapest frame of the run -- the statistic "
+                     "that moved least\nwhen the same binary was measured on an idle machine and "
+                     "against four busy-loops (2.3%,\nagainst 10.6% for the median and 35.3% for "
+                     "'xbase'; STUDIO-33027). 'us(med)' and 'us(max)'\nare reported beside it and "
+                     "are not gated: a stall on a few frames of a hundred and twenty\nmoves "
+                     "neither the minimum nor the median, so the maximum is where one shows.\n\n";
 
         std::cout << std::left << std::setw(20) << "scenario" << std::right
-                  << std::setw(10) << "us(med)" << std::setw(10) << "us(min)"
+                  << std::setw(10) << "us(min)" << std::setw(10) << "us(med)"
+                  << std::setw(11) << "us(max)"
                   << std::setw(9) << "xbase" << std::setw(10) << "budget" << std::setw(7) << ""
                   << std::setw(10) << "draws" << std::setw(10) << "verts"
                   << std::setw(9) << "tex" << std::setw(9) << "clip"
                   << std::setw(12) << "classic KB" << std::setw(11) << "modern KB"
                   << std::setw(8) << "ratio" << "\n";
-        std::cout << std::string(135, '-') << "\n";
+        std::cout << std::string(146, '-') << "\n";
 
         for (const UiBenchmarkRow& row : rows)
         {
@@ -956,8 +1019,10 @@ namespace
             const double modernKb = static_cast<double>(row.total.modernGpuBytes) / frames / 1024.0;
 
             std::cout << std::left << std::setw(20) << row.name << std::right
-                      << std::setw(10) << std::fixed << std::setprecision(1) << row.medianMicroseconds
-                      << std::setw(10) << row.minMicroseconds
+                      << std::setw(10) << std::fixed << std::setprecision(1)
+                      << row.times.minimumMicroseconds
+                      << std::setw(10) << row.times.medianMicroseconds
+                      << std::setw(11) << row.times.maximumMicroseconds
                       << std::setw(9)
                       << (row.baselineMultiple > 0.0
                               ? (std::ostringstream{}
@@ -1033,9 +1098,12 @@ namespace
                   << " over budget:\n";
         for (const UiBenchmarkRow* row : over)
         {
-            std::cout << "  " << row->name << " -- " << std::fixed << std::setprecision(1)
-                      << row->medianMicroseconds << " us against " << std::setprecision(0)
-                      << row->budgetMicroseconds << " us allowed\n";
+            std::cout << "  " << row->name << " -- its cheapest frame cost " << std::fixed
+                      << std::setprecision(1) << row->times.minimumMicroseconds
+                      << " us against " << std::setprecision(0) << row->budgetMicroseconds
+                      << " us allowed"
+                      << " (median " << std::setprecision(1) << row->times.medianMicroseconds
+                      << " us, worst " << row->times.maximumMicroseconds << " us)\n";
         }
         return 3;
     }

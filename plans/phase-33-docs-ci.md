@@ -6,7 +6,7 @@
 
 **Exit criteria.** A new contributor can build, test and extend Studio from the documentation alone.
 
-**Progress:** 13 of 24 complete `██████░░░░░░`
+**Progress:** 14 of 24 complete `███████░░░░░`
 
 | Id | Task | Status | Depends on |
 |----|------|:------:|------------|
@@ -32,7 +32,7 @@
 | `STUDIO-33020` | Headless test seams maintained for every core subsystem | ⬜ | — |
 | `STUDIO-33021` | CI matrix: Linux, Windows, macOS as infrastructure allows | ⬜ | — |
 | `STUDIO-33026` | A test waiting on a worker counts completions, not frames | ✅ | `STUDIO-30001` |
-| `STUDIO-33027` | The benchmark's budget gate is an absolute-time assertion | ⬜ | `STUDIO-04028` |
+| `STUDIO-33027` | The benchmark's budget gate is an absolute-time assertion | ✅ | `STUDIO-04028` |
 | `STUDIO-33028` | The roadmap's phase status markers are checked against its phase files | ✅ | `STUDIO-33018` |
 
 ## Acceptance and verification
@@ -122,6 +122,71 @@ watches the gate change its mind. **The procedural lesson is separate and smalle
 benchmark on its own.** It has been added to the validation notes, and it is a workaround for the
 gate rather than a fix for it — a measurement that is only valid when nothing else is running is a
 measurement CI cannot trust either.
+
+---
+
+**Done — and the answer was not the one this row expected.** The row left the choice open between
+`xbase` and the minimum and said the median/minimum gap had to be understood first. Both halves
+turned out to matter, and both were settled by measuring.
+
+**First, what the gap was.** Dumping every per-frame sample rather than the two order statistics
+showed the expensive frames were not scattered: for every content and thumbnail scenario they began
+at **frame 30 exactly**, which at 1/60 s a frame is t = 0.5 s — the `AssetWatcher` interval. The
+benchmark's `fillAssets` built its records through `AssetDatabase::add()`, the one path that does
+not stamp them, so the watcher's first poll handed all hundred thousand to the reload path as
+*restored* files and the remaining ninety frames measured a mass re-import. **The fixture's own
+defect was 92 % of what the gate had been reading.** Stamped as `scan()` stamps what it walks,
+`content-grid-100k` goes from a 7 774 µs median to **598 µs**, `content-list-100k` from 7 335 to
+187, `content-scrolling-100k` from 6 345 to 249. The windowing those rows defend had been working
+all along; the row that "sits close enough to its 8333 µs budget to cross it at random" was never
+within 7 000 µs of it.
+
+**Second, which statistic.** One binary, measured twice — idle, then against four busy-loops on a
+four-core machine, the same interference as occurrence four. Counted columns identical across the
+pair, so everything that moved was the machine. Over the sixteen non-baseline scenarios:
+
+| statistic | mean drift | worst drift | scenarios pushed over budget |
+|-----------|-----------|-------------|------------------------------|
+| minimum   | **2.3 %** | **7.1 %**   | **none**                     |
+| median    | 10.6 %    | 26.1 %      | two                          |
+| `xbase`   | 35.3 %    | 47.8 %      | — (not a gate)               |
+
+**`xbase` is the worst of the three, which is the opposite of what this row assumed** and of what
+the code claimed in a comment. Dividing by the idle shell cancels a machine uniformly slower by a
+factor; contention is not that. It adds a roughly constant cost per frame, and the baseline is the
+smallest number in the table — the busy-loops moved the baseline frame 63 % and a 7 800 µs scenario
+11 %, so every ratio fell by about a third. The correction is larger than the error it corrects. The
+column stays in the report because the shape of a profile is worth seeing; it is not what the gate
+reads. The comment that called it "the part of a measurement that survives a change of machine" has
+been replaced with the measurement that says it is the part that survives least.
+
+**So: the gate reads `us(min)`.** `studioUiFrameTimesExceedBudget` in `StudioUiBenchmark.hpp` — in
+the library rather than in `Main.cpp`, because a gate whose logic lives in an executable is a gate
+the suite cannot reach, and that is the same fault in a different place. Three tests cover it, each
+verified by deliberate breakage: reading the median instead fails
+`TheBudgetGateJudgesTheCheapestFrameAndNotTheMedian` by name, and taking the largest sample as the
+minimum fails `TheFrameTimeStatisticsAreThreeSamplesThatWereActuallyTaken`.
+
+**The budget was not raised, and three of them were lowered.** With the fixture fixed, the three
+`-100k` content rows read 542, 165 and 184 µs against a stress ceiling of 8333 — a gate that could
+not fail. They now carry the ordinary interactive budget of 4167, leaving about sevenfold headroom.
+Tightening is the opposite of the option this row ruled out, and it is what the measurement earned.
+
+**Acceptance, run.** Under the four busy-loops that made the old gate exit 3, the new gate **exits
+0**, and the minima are within half a percent of their idle values (`content-grid-100k` 542.2 idle
+against 542.1 loaded; `outliner-20000-all-selected` 6343.6 against 6369.9). The procedural
+workaround — run the benchmark on its own — is no longer load-bearing, though it remains good
+practice.
+
+**What this costs, said rather than implied.** The minimum cannot see a regression that happens on
+some frames and not all. Neither could the median: three dear frames in a hundred and twenty move
+neither statistic. The blind spot is therefore not new, but it is now named, and `us(max)` is
+reported beside the other two so a stall is at least visible. It immediately showed one —
+half-second watcher polls at a hundred thousand assets, recorded as `STUDIO-30031`. For the two
+thumbnail rows the minimum is a frame in which no thumbnail work happened (322 µs against a 2 949 µs
+median); what guards those is counted rather than timed — the generated/shared/cancelled totals the
+report already prints, and `ThumbnailCacheTests` — and `Main.cpp` now says so where the scenarios
+are defined.
 
 ### `STUDIO-33026` — A test waiting on a worker counts completions, not frames
 
