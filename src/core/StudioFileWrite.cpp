@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MS-PL
 #include "CNA/Studio/Core/StudioFileWrite.hpp"
 
+#include <algorithm>
 #include <atomic>
 #include <cstdint>
 #include <fstream>
@@ -31,6 +32,22 @@ namespace CNA::Studio
         }
     }
 
+    bool studioIsWriteTemporaryName(std::string_view fileName)
+    {
+        // The suffix and then digits, rather than the suffix anywhere in the name. A document a
+        // user deliberately called `notes.cnatmp-ideas.txt` is theirs, and a scanner that hid it
+        // would be deciding what their files mean from a substring.
+        const std::size_t at = fileName.rfind(kStudioWriteTemporarySuffix);
+        if (at == std::string_view::npos) { return false; }
+
+        const std::string_view tail =
+            fileName.substr(at + std::string_view{kStudioWriteTemporarySuffix}.size());
+        if (tail.empty()) { return false; }
+
+        return std::all_of(tail.begin(), tail.end(),
+                           [](char character) { return character >= '0' && character <= '9'; });
+    }
+
     StudioFileWriteResult studioWriteFileAtomically(const std::filesystem::path& path,
                                                     std::string_view bytes)
     {
@@ -57,7 +74,8 @@ namespace CNA::Studio
         // Beside the target, for the reason the header gives: a rename is atomic only within one
         // filesystem, and the system temp directory is routinely on another.
         std::filesystem::path temporary = path;
-        temporary += ".cnatmp" + std::to_string(nextWriteTicket());
+        temporary += std::string{kStudioWriteTemporarySuffix}
+                   + std::to_string(nextWriteTicket());
 
         {
             std::ofstream stream{temporary, std::ios::binary | std::ios::trunc};

@@ -48,6 +48,21 @@
 
 namespace CNA::Studio
 {
+    /**
+     * @brief The suffix a half-written file carries, so everything else can recognise one.
+     *
+     * The writer appends this plus a number to the target's name. **It is published rather than
+     * private because a crash leaves one behind**, and a leftover temporary sitting in the asset
+     * folder is not a detail of this file -- it is a file the asset scanner would otherwise
+     * discover, give a `Uuid`, track as an asset of unknown type, show in the Content Browser and
+     * write a sidecar beside. One spelling, shared, so the thing that creates them and the thing
+     * that must ignore them cannot disagree.
+     */
+    inline constexpr const char* kStudioWriteTemporarySuffix = ".cnatmp";
+
+    /** @brief True when @p fileName is one of @ref studioWriteFileAtomically's temporaries. */
+    [[nodiscard]] bool studioIsWriteTemporaryName(std::string_view fileName);
+
     /** @brief What a write did, and why it did not. */
     struct StudioFileWriteResult
     {

@@ -53,6 +53,49 @@ namespace CNA::Studio
         }
     }
 
+    Uuid studioRecoverAssetIdFromSidecar(std::string_view text)
+    {
+        // Deliberately not a JSON parse: the whole premise is that parsing failed. What this looks
+        // for is the narrowest thing that could be an id -- the key, a colon, a quoted run -- and
+        // then hands it to `Uuid::parse`, which is what decides whether it really is one. Nothing
+        // here guesses; a run that does not parse as a `Uuid` is not recovered.
+        constexpr std::string_view kKey = "\"id\"";
+
+        for (std::size_t at = text.find(kKey); at != std::string_view::npos;
+             at = text.find(kKey, at + 1))
+        {
+            std::size_t cursor = at + kKey.size();
+            while (cursor < text.size() && (text[cursor] == ' ' || text[cursor] == '\t'))
+            {
+                ++cursor;
+            }
+            if (cursor >= text.size() || text[cursor] != ':') { continue; }
+
+            ++cursor;
+            while (cursor < text.size() && (text[cursor] == ' ' || text[cursor] == '\t'))
+            {
+                ++cursor;
+            }
+            if (cursor >= text.size() || text[cursor] != '"') { continue; }
+
+            const std::size_t open = cursor + 1;
+            const std::size_t close = text.find('"', open);
+
+            // An unterminated string is the shape of a file truncated *inside* the id, and there
+            // is no id in it to recover -- only a prefix of one, which `Uuid::parse` refuses and
+            // which must not be accepted by being lenient here instead.
+            if (close == std::string_view::npos) { continue; }
+
+            if (const Uuid recovered = Uuid::parse(std::string{text.substr(open, close - open)});
+                recovered.isValid())
+            {
+                return recovered;
+            }
+        }
+
+        return Uuid{};
+    }
+
     const char* toString(AssetType type)
     {
         for (const auto& entry : kAssetTypeNames)
@@ -714,6 +757,24 @@ namespace CNA::Studio
             // Sidecars describe assets; they are not assets themselves.
             if (path.extension() == kSidecarExtension) { continue; }
 
+            // And a half-written file is not an asset either (`plan.md` STUDIO-31010). A crash
+            // during a save leaves one of `studioWriteFileAtomically`'s temporaries behind, and a
+            // scan that treated it as content would give it a `Uuid`, track it as an asset of
+            // unknown type, show it in the Content Browser and write a sidecar beside it -- so
+            // one interrupted save would leave the project holding a permanent record of it.
+            //
+            // **Reported rather than deleted.** Removing it would be repairing a user's folder
+            // without telling them, which is the thing `STUDIO-31011` exists to forbid; and the
+            // file is evidence that a save was interrupted, which is worth knowing.
+            if (studioIsWriteTemporaryName(path.filename().string()))
+            {
+                result.warnings.push_back(
+                    "'" + toPortablePath(path)
+                    + "' is a half-written file left by an interrupted save. It is not imported. "
+                      "Delete it once you have checked the document beside it is the one you want.");
+                continue;
+            }
+
             const std::string relativePath = toPortablePath(std::filesystem::relative(path, rootPath, errorCode));
             if (errorCode || relativePath.empty())
             {
@@ -733,7 +794,8 @@ namespace CNA::Studio
                 std::ifstream stream{sidecarPath, std::ios::binary};
                 std::ostringstream buffer;
                 buffer << stream.rdbuf();
-                JsonParseResult parsed = Json::parse(buffer.str());
+                const std::string sidecarText = buffer.str();
+                JsonParseResult parsed = Json::parse(sidecarText);
                 if (parsed.succeeded)
                 {
                     const FormatMigrationResult migration =
@@ -773,11 +835,35 @@ namespace CNA::Studio
                                                   + "' has no valid id; a new id was assigned");
                     }
                 }
-                else
+                else if (const Uuid recovered = studioRecoverAssetIdFromSidecar(sidecarText);
+                         recovered.isValid())
                 {
+                    // The same reasoning as the migration failure above, applied to the case that
+                    // used to ignore it: the id is what other files point at, so it is recovered
+                    // from the bytes rather than replaced. A save interrupted partway leaves
+                    // exactly this -- valid JSON up to the cut, `id` long since written.
+                    record = AssetRecord{};
+                    record.id = recovered;
+                    record.sourcePath = relativePath;
+                    record.type = guessTypeFromExtension(relativePath);
+                    record.importerId = defaultImporterFor(record.type);
+                    isNew = false;
+
                     result.warnings.push_back("sidecar '" + relativePath + kSidecarExtension
                                               + "' is malformed (" + parsed.errorMessage
-                                              + "); a new id was assigned");
+                                              + "); its id was recovered from the file and its"
+                                                " settings were lost");
+                }
+                else
+                {
+                    // Nothing to preserve, so the loss is real and is stated as one rather than
+                    // reported as routine: every scene and prefab pointing at the old id now
+                    // points at nothing.
+                    result.warnings.push_back("sidecar '" + relativePath + kSidecarExtension
+                                              + "' is malformed (" + parsed.errorMessage
+                                              + ") and holds no readable id; a new id was assigned,"
+                                                " so existing references to this asset will not"
+                                                " resolve");
                 }
             }
 

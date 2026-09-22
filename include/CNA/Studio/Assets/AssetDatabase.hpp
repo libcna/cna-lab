@@ -73,6 +73,29 @@ namespace CNA::Studio
         RawData
     };
 
+    /**
+     * @brief Recovers an asset's id from a sidecar whose JSON will not parse (STUDIO-31010).
+     *
+     * **An asset's identity is the one thing in a sidecar whose loss damages other files.** Scenes,
+     * prefabs and materials reference assets by `Uuid` (D-08), so an id that changes breaks every
+     * reference to it across the project -- while a lost importer setting reverts one field of one
+     * asset. The scan already says so where a *migration* fails, and kept the id there; where the
+     * JSON itself was malformed it assigned a new one, which is the same loss the comment three
+     * lines above it forbids.
+     *
+     * A half-written sidecar is exactly the case: `id` is the second key `recordToJson` writes, so
+     * a file truncated anywhere after the first forty bytes still contains it whole.
+     *
+     * **This is a repair, so it is reported rather than silent** (`STUDIO-31011`): the caller warns
+     * that the sidecar was malformed, that the id was recovered and that the settings were lost.
+     * The file itself is left untouched, so a build that understands it still can.
+     *
+     * @param text The sidecar's raw bytes.
+     * @return The id, or a nil `Uuid` when no well-formed one is present -- in which case there is
+     *         nothing to preserve and the caller must assign a new one and say so.
+     */
+    [[nodiscard]] Uuid studioRecoverAssetIdFromSidecar(std::string_view text);
+
     /** @brief Returns the stable textual name of @p type as written into `.cnaasset` files. */
     const char* toString(AssetType type);
 

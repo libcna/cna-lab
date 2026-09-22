@@ -6,7 +6,7 @@
 
 **Exit criteria.** Interrupted saves, corrupt files and crashes cost a user nothing they cannot recover, and nothing is repaired silently.
 
-**Progress:** 2 of 13 complete `█░░░░░░░░░░░`
+**Progress:** 3 of 13 complete `██░░░░░░░░░░`
 
 | Id | Task | Status | Depends on |
 |----|------|:------:|------------|
@@ -19,7 +19,7 @@
 | `STUDIO-31007` | Crash isolation from the game process | ⬜ | `STUDIO-16003` |
 | `STUDIO-31008` | Malformed project and scene diagnostics that permit repair | ⬜ | — |
 | `STUDIO-31009` | Unknown plugin components preserved through save and load | ✅ | — |
-| `STUDIO-31010` | Tests for interrupted saves and partial files | ⬜ | `STUDIO-31003` |
+| `STUDIO-31010` | Tests for interrupted saves and partial files | ✅ | `STUDIO-31003` |
 | `STUDIO-31011` | Nothing is silently repaired; every change to user data is reported | ⬜ | `STUDIO-31008` |
 | `STUDIO-31020` | Deterministic, version-control-friendly output throughout | ⬜ | `STUDIO-02037` |
 | `STUDIO-31021` | Generated files have explicit ownership and regeneration rules | ⬜ | `STUDIO-15008` |
@@ -111,6 +111,85 @@ sidecar is two atomic writes, and a crash between them leaves one updated and on
 consistent for each file and is what `STUDIO-31001`'s autosave and `STUDIO-31002`'s recovery
 snapshots exist to cover. Nor does it verify what was written: a document that serialises wrongly
 is written wrongly, atomically. That is `STUDIO-31011`'s territory.
+
+### `STUDIO-31010` — Tests for interrupted saves and partial files
+
+**Acceptance.** The file an interrupted save leaves behind is recognised, refused or repaired —
+never half-read and never silently re-identified.
+
+**✅ Done, and the finding is that the reading half had a hole the writing half could not close.**
+`STUDIO-31003` made every authored write atomic, so a save interrupted *from now on* leaves the
+previous document whole. It does nothing about the files already out there: every sidecar and every
+document written by a build before it truncated in place, and the temporary a crash leaves beside
+the target survives the crash by design. Three properties, and the third was broken.
+
+**1. A leftover temporary is not an asset.** `studioWriteFileAtomically` names its temporary
+`<target>.cnatmp<ticket>`, so `Crate.png.cnatmp7` sits beside `Crate.png` after a crash. Imported,
+it becomes a second asset with its own id and its own sidecar, referenced by nothing, that the user
+cannot identify and will not know is safe to delete. The scan now skips it and says what it is —
+**reported, not deleted** (`STUDIO-31011`), because if the *original* save was the one that failed
+those bytes may be the only copy.
+
+The shape is matched, not the substring: the suffix followed by digits, so a document a user
+deliberately called `notes.cnatmp-ideas.txt` is theirs and is imported like any other file. A
+scanner that hid it would be deciding what their files mean from a substring.
+
+**2. Every authored loader refuses a partial file.** Probed with four shapes — truncated
+mid-token, empty, whitespace only, and bytes that are not text — across scenes, prefabs, materials,
+environment maps and the project file. **All five already refused**, and the material and
+environment loaders already loaded into a local first so a refusal leaves the caller's open
+document untouched rather than half-overwritten. No defect; the cases exist because the failure
+they forbid is not a crash but a scene that loads with three of its ten entities, looks like a
+scene, and is saved back over the original — at which point the interruption has cost the user the
+seven entities the atomic write preserved.
+
+Worth recording from the gate-verification: the scene half is held by **three** independent
+refusals, and it took removing all three to let a partial file through. Deleting the JSON parse
+check was not enough (the root-is-an-object check caught it), deleting that was not enough either
+(the format-version gate caught it, because a truncated file reads as version 0 and the migration
+chain refuses it). Defence in depth that nobody designed as such — but the case is live, not
+vacuous, and now says so.
+
+**3. A malformed sidecar does not change the asset's identity — and it used to.** This is the
+defect, and it was written down three lines above the code that broke it. Where a sidecar
+*migration* fails, `AssetDatabase::scan` keeps the id and explains why:
+
+> *"The id survives even when nothing else does. Scenes reference assets by id (D-08), so
+> regenerating it would break every reference in the project — a far worse outcome than an importer
+> setting reverting to its default."*
+
+The branch immediately below it, for a sidecar whose **JSON** would not parse, did exactly that:
+*"a new id was assigned"*. And a half-written sidecar is precisely a sidecar whose JSON will not
+parse. So the one failure `STUDIO-31003` cannot retroactively prevent — a sidecar truncated by a
+build that predates it — silently re-identified the asset, and every scene, prefab and material
+pointing at it stopped resolving. The project would open with materials unassigned and models
+missing, and nothing would say why.
+
+`studioRecoverAssetIdFromSidecar` reads the id straight out of the bytes. It costs nothing and it
+nearly always works: `id` is the second key `recordToJson` writes, so a file cut anywhere after the
+first forty bytes still holds it whole. The id is kept, the settings are lost, and **both halves are
+reported** — what was rescued and what was not. Where no well-formed id can be recovered the new one
+is assigned as before, but the warning now states the consequence (*"existing references to this
+asset will not resolve"*) rather than reporting a routine assignment.
+
+**Verification.** `tests/PartialFileTests.cpp` —
+`ALeftoverTemporaryIsRecognisedByItsShapeAndNotByASubstring` (including a round-trip through the
+writer, so a writer that changed its naming cannot agree with a test that did not),
+`AnInterruptedSaveLeavesAFileTheScanSkipsAndReports`, `EveryAuthoredDocumentRefusesAPartialFile`
+(five document types × four partial shapes), `AHalfWrittenSidecarKeepsTheAssetsIdentity` and
+`ASidecarWithNoReadableIdSaysTheReferencesAreBroken` — the honest half, covering both a sidecar cut
+before its id and one holding an id that is not a `Uuid`.
+
+Checked by causing each: the recovery removed (the id changes, the scan counts a new asset, both
+warnings vanish), the temporary skip removed (two half-written files imported as assets), the
+name check reduced to a substring search (the user's own file disappears from the browser), the
+material loader made to half-accept, and the scene loader stripped of all three refusals.
+
+**What this row is not.** It does not recover a *document's* contents from a partial file — a
+truncated scene is refused, not repaired, because the missing entities are not in the bytes. The
+sidecar is the exception only because the one field whose loss damages other files happens to be
+written early enough to survive. Recovering what is recoverable from a malformed document is
+`STUDIO-31008`, and saying so is `STUDIO-31011`.
 
 ### `STUDIO-31008` — Malformed project and scene diagnostics that permit repair
 

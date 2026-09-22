@@ -347,7 +347,7 @@ Baseline at import, for comparison: 442 test cases, 12 CTest suites.
 
 ## What was completed
 
-Task ids are `STUDIO-PPNNN`; see `plan.md` for the full list. **382 of 581 tasks are complete.**
+Task ids are `STUDIO-PPNNN`; see `plan.md` for the full list. **383 of 581 tasks are complete.**
 Per-phase counts and the headline are checked by the test suite — `STUDIO-33018` for `plan.md` and
 `STUDIO-33019` for this file — so neither can drift from the phase files again. The second was added
 after this file had drifted by nineteen tasks and a hundred and fifty-eight test cases, which is
@@ -584,7 +584,7 @@ silently and a stale hierarchy index shows up as entities vanishing from the out
 `STUDIO-30014` attributed the Content Browser's 21.5 ms a frame at 1 500 assets to about 3 000
 synchronous `exists()` calls, measured by stubbing them out rather than by reading the code.
 
-**Phase 31 — Reliability** (2 of 13).
+**Phase 31 — Reliability** (3 of 13).
 
 **Phase 35 — Production polish** (15 of 38). **CNA Studio Visual Quality 1.0**, brought forward from
 "near the end" to now, for a reason worth repeating: every panel written after this point inherits
