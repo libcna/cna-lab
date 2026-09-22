@@ -1062,6 +1062,138 @@ CNA_STUDIO_TEST(TheWatcherReportsDisappearanceAndReturnSeparately)
     std::filesystem::remove_all(directory);
 }
 
+CNA_STUDIO_TEST(ASweepIsSpreadOverPollsRatherThanStallingOneFrame)
+{
+    // `plan.md` STUDIO-30031. At a hundred thousand assets a poll stated every tracked file in one
+    // go and cost half a second **on the frame**, twice a second. Six files and a budget of two
+    // stand in for that here: what matters is that one call does not visit them all, and that the
+    // lap still gets all the way round.
+    const std::filesystem::path directory = makeScratchDirectory("watchsweep");
+    for (int i = 0; i < 6; ++i)
+    {
+        writeFile(directory / "Textures" / ("Asset" + std::to_string(i) + ".png"), "contents");
+    }
+
+    AssetDatabase assets;
+    assets.setProjectRoot(directory.generic_string());
+    assets.scan("Textures");
+    CNA_STUDIO_EXPECT_EQ(assets.getAll().size(), std::size_t{6});
+
+    AssetWatcher watcher;
+    watcher.setInterval(1.0);
+    watcher.setMaxRecordsPerPoll(2);
+
+    // The *last* file in path order, so nothing but a complete lap can find it. A sweep that
+    // quietly stopped after its first slice would report this one as unchanged forever.
+    writeFile(directory / "Textures" / "Asset5.png", "much longer contents than before");
+
+    const AssetWatchResult first = watcher.poll(assets, 2.0);
+    CNA_STUDIO_EXPECT(first.polled);
+    CNA_STUDIO_EXPECT(!first.sweepComplete);
+    CNA_STUDIO_EXPECT(!first.hasChanges());
+
+    // No clock advance at all between slices. The interval gates the start of a lap, not each step
+    // of one -- waiting it between slices would take a large project minutes to get round once.
+    const AssetWatchResult second = watcher.poll(assets, 0.0);
+    CNA_STUDIO_EXPECT(second.polled);
+    CNA_STUDIO_EXPECT(!second.sweepComplete);
+
+    const AssetWatchResult third = watcher.poll(assets, 0.0);
+    CNA_STUDIO_EXPECT(third.sweepComplete);
+    CNA_STUDIO_EXPECT_EQ(third.changed.size(), std::size_t{1});
+
+    // And the lap that follows waits for the interval again, rather than running every frame for
+    // the rest of the session.
+    CNA_STUDIO_EXPECT(!watcher.poll(assets, 0.0).polled);
+
+    std::filesystem::remove_all(directory);
+}
+
+CNA_STUDIO_TEST(ARecordDeletedMidSweepDoesNotMakeTheLapSkipTheNextOne)
+{
+    // The reason the cursor is a path and not an index (`plan.md` STUDIO-30031). Removing a record
+    // the sweep has already passed shifts every later record down by one position, so an index
+    // cursor would resume one place too far along and never look at the file it stepped over.
+    const std::filesystem::path directory = makeScratchDirectory("watchcursor");
+    for (int i = 0; i < 4; ++i)
+    {
+        writeFile(directory / "Textures" / ("Asset" + std::to_string(i) + ".png"), "contents");
+    }
+
+    AssetDatabase assets;
+    assets.setProjectRoot(directory.generic_string());
+    assets.scan("Textures");
+
+    AssetWatcher watcher;
+    watcher.setInterval(0.0);
+    watcher.setMaxRecordsPerPoll(2);
+
+    const AssetRecord* third = assets.findByPath("Textures/Asset2.png");
+    CNA_STUDIO_EXPECT(third != nullptr);
+    const Uuid thirdId = third->id;
+
+    // Slice one covers Asset0 and Asset1 and stops. Asset2 is the next record the lap owes.
+    CNA_STUDIO_EXPECT(!watcher.poll(assets, 1.0).sweepComplete);
+
+    // Now the edit, and then a removal from *behind* the cursor.
+    writeFile(directory / "Textures" / "Asset2.png", "much longer contents than before");
+    CNA_STUDIO_EXPECT(assets.removeRecord(assets.findByPath("Textures/Asset0.png")->id));
+
+    const AssetWatchResult rest = watcher.poll(assets, 1.0);
+    CNA_STUDIO_EXPECT(rest.sweepComplete);
+    CNA_STUDIO_EXPECT_EQ(rest.changed.size(), std::size_t{1});
+    CNA_STUDIO_EXPECT_EQ(rest.changed.front().toString(), thirdId.toString());
+
+    std::filesystem::remove_all(directory);
+}
+
+CNA_STUDIO_TEST(APollNeverStatesMoreThanItsBudgetHoweverManyAssetsThereAre)
+{
+    const std::filesystem::path directory = makeScratchDirectory("watchbudget");
+    for (int i = 0; i < 20; ++i)
+    {
+        writeFile(directory / "Textures" / ("Asset" + std::to_string(i) + ".png"), "contents");
+    }
+
+    AssetDatabase assets;
+    assets.setProjectRoot(directory.generic_string());
+    assets.scan("Textures");
+
+    AssetWatcher watcher;
+    watcher.setInterval(0.0);
+    watcher.setMaxRecordsPerPoll(3);
+
+    // Every file changed at once -- the shape of a project someone has just pulled. The budget is
+    // what bounds the frame, so no single poll may report more than it.
+    for (int i = 0; i < 20; ++i)
+    {
+        writeFile(directory / "Textures" / ("Asset" + std::to_string(i) + ".png"),
+                  "much longer contents than before");
+    }
+
+    std::size_t reported = 0;
+    int polls = 0;
+    for (; polls < 100; ++polls)
+    {
+        const AssetWatchResult result = watcher.poll(assets, 1.0);
+        CNA_STUDIO_EXPECT(result.changed.size() <= watcher.getMaxRecordsPerPoll());
+        reported += result.changed.size();
+        if (result.sweepComplete) { break; }
+    }
+
+    // All twenty, none twice, and it took the seven polls a budget of three implies rather than
+    // one poll that quietly ignored the budget.
+    CNA_STUDIO_EXPECT_EQ(reported, std::size_t{20});
+    CNA_STUDIO_EXPECT_EQ(polls, 6);
+
+    // A budget of zero would be a watcher that never finishes a lap, which is worse than one that
+    // costs too much, so it is clamped rather than honoured.
+    watcher.setMaxRecordsPerPoll(0);
+    CNA_STUDIO_EXPECT_EQ(watcher.getMaxRecordsPerPoll(), std::size_t{1});
+
+    std::filesystem::remove_all(directory);
+}
+
 CNA_STUDIO_TEST(TheWatcherHonoursItsInterval)
 {
     const std::filesystem::path directory = makeScratchDirectory("watchinterval");

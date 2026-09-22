@@ -6,7 +6,7 @@
 
 **Exit criteria.** Benchmarks exist, they run, and regressions are visible.
 
-**Progress:** 15 of 18 complete `██████████░░`
+**Progress:** 16 of 18 complete `██████████░░`
 
 | Id | Task | Status | Depends on |
 |----|------|:------:|------------|
@@ -27,7 +27,7 @@
 | `STUDIO-30025` | Stress benchmark: many thumbnails and many concurrent import jobs | ✅ | `STUDIO-09003` |
 | `STUDIO-30026` | Attribute and remove the cost of a very large multi-selection | ✅ | `STUDIO-30021` |
 | `STUDIO-30030` | Establish the interactive frame-rate target and measure against it | ✅ | `STUDIO-30020` |
-| `STUDIO-30031` | A hundred thousand assets stall the editor for half a second, twice a second | ⬜ | `STUDIO-30022` |
+| `STUDIO-30031` | A hundred thousand assets stall the editor for half a second, twice a second | ✅ | `STUDIO-30022` |
 
 ## Acceptance and verification
 
@@ -415,6 +415,53 @@ benchmark's own `us(max)` column on the three `-100k` rows, which is why that co
 would have been easy to quietly widen it into a watcher rewrite because the watcher is what the new
 column exposed. Recording it here keeps the two separable: one is a measurement fault, this is a
 product fault, and they are fixed and verified differently.
+
+**Done.** Two changes, and the smaller one was the bigger surprise.
+
+**Each file is now stated once.** `stampOf` called `exists`, `file_size` and `last_write_time` —
+three trips into the filesystem for one inode. One `std::filesystem::directory_entry` answers all
+three from the refresh it already did. At a hundred thousand assets that was three hundred thousand
+syscalls a sweep, and two thirds of them bought nothing.
+
+**And the sweep is spread across polls.** A poll now visits at most 64 records and resumes where the
+last one stopped; the interval gates the *start* of a lap rather than each slice, because a lap that
+waited half a second between slices would take a hundred-thousand-asset project thirteen minutes to
+get round once. The cursor is a **path**, not an index, so deleting a record behind it cannot make
+the lap step over the next one — which is a distinction with a test, because an index cursor does
+exactly that.
+
+`--ui-benchmark=all`, same machine, same fixture, both runs taken with nothing else running:
+
+| scenario | worst frame before | worst frame after |
+|----------|-------------------:|------------------:|
+| `content-grid-100k`      | 551 983 µs | **1 336 µs** |
+| `content-list-100k`      | 432 095 µs | **1 551 µs** |
+| `content-scrolling-100k` | 429 397 µs |   **877 µs** |
+
+Every frame is now inside the 4 167 µs interactive budget, on rows that were over it by two orders
+of magnitude — and the whole table's worst frame, across all seventeen scenarios, is now 11.8 ms.
+
+**What it costs, measured rather than estimated.** A record costs about 4.4 µs to state — read off
+the benchmark, not guessed: a slice of 128 raised `content-list-100k`'s median frame by 566 µs,
+which is 4.4 µs a record to three figures. The first attempt used 128 on an estimate of 1.4 µs and
+was wrong by three times; 64 was chosen from the measurement and holds the sweep's contribution near
+280 µs, under seven per cent of the frame's UI budget. A lap over a hundred thousand assets takes
+about 1 500 polls — twenty-odd seconds — so an edit made outside the editor is noticed in that time
+rather than within the interval. **Seconds of latency on a project that size is unnoticeable; half a
+second of frozen UI, twice a second, is not.** Every project small enough to fit one slice is swept
+whole on the poll it is due, exactly as before, so nothing changes for the projects most people
+have.
+
+**This is the polling fallback made survivable, not made suitable.** `AssetWatcher.hpp` already said
+native watchers become worth their cost at tens of thousands of assets, and that is still the answer
+at this size; it goes behind the same interface without any caller changing. What has been removed
+is the hang in the meantime.
+
+**Three tests, each verified by deliberate breakage.** Removing the slice bound fails
+`ASweepIsSpreadOverPollsRatherThanStallingOneFrame` and
+`APollNeverStatesMoreThanItsBudgetHoweverManyAssetsThereAre`; resuming one place further along —
+what an index cursor does after a removal behind it — fails
+`ARecordDeletedMidSweepDoesNotMakeTheLapSkipTheNextOne`.
 
 ### `STUDIO-30030` — Establish the interactive frame-rate target and measure against it
 

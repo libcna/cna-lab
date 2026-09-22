@@ -3,6 +3,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cstddef>
 #include <filesystem>
 #include <system_error>
 
@@ -21,19 +22,26 @@ namespace CNA::Studio
         FileStamp stampOf(const std::string& absolutePath)
         {
             std::error_code errorCode;
-            const std::filesystem::path path{absolutePath};
+
+            // One `directory_entry` rather than three free functions (`plan.md` STUDIO-30031).
+            // `exists`, `file_size` and `last_write_time` are three trips into the filesystem for
+            // one inode; a `directory_entry` caches what its refresh read and answers all three
+            // from it. At a hundred thousand assets that was three hundred thousand syscalls a
+            // sweep, and this is the two thirds of them that bought nothing.
+            const std::filesystem::directory_entry file{std::filesystem::path{absolutePath},
+                                                        errorCode};
 
             FileStamp stamp;
-            stamp.exists = std::filesystem::exists(path, errorCode) && !errorCode;
+            stamp.exists = !errorCode && file.exists(errorCode) && !errorCode;
             if (!stamp.exists) { return stamp; }
 
-            stamp.size = static_cast<std::uint64_t>(std::filesystem::file_size(path, errorCode));
+            stamp.size = static_cast<std::uint64_t>(file.file_size(errorCode));
             if (errorCode) { stamp.size = 0; errorCode.clear(); }
 
             // Seconds, matching what a scan records. The clock's native ticks are around 4.6e18,
             // past the range a double holds exactly, and the sidecar's numbers are doubles -- so
             // storing ticks would make every asset look modified on every comparison.
-            const auto writeTime = std::filesystem::last_write_time(path, errorCode);
+            const auto writeTime = file.last_write_time(errorCode);
             stamp.modifiedTime =
                 errorCode
                     ? 0
@@ -48,23 +56,51 @@ namespace CNA::Studio
         interval_ = std::max(0.0, seconds);
     }
 
+    void AssetWatcher::setMaxRecordsPerPoll(std::size_t records)
+    {
+        maxRecordsPerPoll_ = std::max<std::size_t>(1, records);
+    }
+
     AssetWatchResult AssetWatcher::poll(AssetDatabase& assets, double deltaSeconds)
     {
         AssetWatchResult result;
 
-        elapsed_ += std::max(0.0, deltaSeconds);
-        if (elapsed_ < interval_) { return result; }
-        elapsed_ = 0.0;
+        // The interval gates the *start* of a lap, not each slice of one (`plan.md`
+        // STUDIO-30031). A sweep already under way continues on every call: waiting the interval
+        // between slices would take a hundred-thousand-asset project, at sixty-four records a poll
+        // and half a second between them, thirteen minutes to get round once, which is not a
+        // watcher.
+        if (!sweeping_)
+        {
+            elapsed_ += std::max(0.0, deltaSeconds);
+            if (elapsed_ < interval_) { return result; }
+            elapsed_ = 0.0;
+        }
         result.polled = true;
 
-        for (const AssetRecord* record : assets.getAll())
+        // Walked through the path index rather than `getAll()`, which copies a pointer per record
+        // in the project to look at a slice of them -- the cost `STUDIO-09016` added the index to
+        // avoid, paid here every poll.
+        const std::map<std::string, Uuid>& byPath = assets.getPathIndex();
+        auto cursor = sweeping_ ? byPath.upper_bound(sweepCursorPath_) : byPath.begin();
+
+        std::size_t stated = 0;
+        for (; cursor != byPath.end() && stated < maxRecordsPerPoll_; ++cursor, ++stated)
         {
+            sweepCursorPath_ = cursor->first;
+
+            const AssetRecord* record = assets.find(cursor->second);
+            if (record == nullptr) { continue; }
+
             const FileStamp stamp = stampOf(assets.resolvePath(record->sourcePath));
 
             // The presence cache is refreshed here rather than by whoever asks (STUDIO-30012).
             // This loop already stats every tracked file, so keeping the cache in step costs
             // nothing that was not being spent -- and it is what makes `isMissing` free everywhere
-            // else, including once per row per pass in the Content Browser.
+            // else, including once per row per pass in the Content Browser. Refreshed a slice at a
+            // time now, so on a very large project it lags by up to a lap; it was never a promise
+            // of freshness finer than the poll interval, and a lap is the poll interval's
+            // replacement on a project that size.
             (void)assets.setAssetPresent(record->id, stamp.exists);
 
             // A record that has never been stamped -- size and time both zero -- is one whose file
@@ -106,6 +142,11 @@ namespace CNA::Studio
             mutableRecord->sourceModifiedTime = stamp.modifiedTime;
         }
 
+        // Round, or not yet. The cursor is deliberately left where it is when the lap is over: the
+        // next one starts from the beginning because `sweeping_` says so, not because the string
+        // was cleared, and a caller reading the result gets told which of the two happened.
+        sweeping_ = cursor != byPath.end();
+        result.sweepComplete = !sweeping_;
         return result;
     }
 }

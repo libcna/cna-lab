@@ -281,8 +281,9 @@ reader work out. It is not a figure to compare across runs, and not what the gat
 **What the minimum cannot see**, said plainly: a regression that happens on some frames and not all.
 Neither could the median — three dear frames out of a hundred and twenty move neither. `us(max)` is
 reported beside them so a stall is at least visible, and it found one immediately: at a hundred
-thousand assets the asset watcher's poll costs about half a second and runs twice a second, recorded
-as `STUDIO-30031`. For the two thumbnail rows the minimum is a frame in which no thumbnail work
+thousand assets the asset watcher's poll cost about half a second and ran twice a second — fixed
+under `STUDIO-30031`, which spread the sweep across polls and cut those rows' worst frame from
+552 000 µs to 1 336. For the two thumbnail rows the minimum is a frame in which no thumbnail work
 happened (322 µs against a 2 949 µs median); what guards those is counted rather than timed — the
 generated/shared/cancelled totals printed under each row, and `ThumbnailCacheTests`, which waits on
 completions rather than on frames.
