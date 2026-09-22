@@ -10,6 +10,7 @@
 
 #include "TestHarness.hpp"
 
+#include "CNA/Studio/Core/Json.hpp"
 #include "CNA/Studio/Project/Project.hpp"
 #include "CNA/Studio/Scene/BuiltinComponents.hpp"
 #include "CNA/Studio/Scene/SceneCommands.hpp"
@@ -675,4 +676,199 @@ CNA_STUDIO_TEST(TheShellStillSpeaksForThePlayServiceItOwns)
     // And the Diagnostics panel's copy is still fed, which is the second responsibility that kept
     // setPlayerBuilds a method here rather than only on the service.
     CNA_STUDIO_EXPECT_EQ(harness.panels.diagnostics().players.size(), std::size_t{1});
+}
+
+// ------------------------------------------------------------------------------------------------
+// Crash reporting (STUDIO-16003)
+// ------------------------------------------------------------------------------------------------
+
+namespace
+{
+    /** @brief A throwaway executable that ends the way the caller asks. */
+    class ScopedScript
+    {
+    public:
+        ScopedScript(const std::string& name, const std::string& body)
+        {
+            path_ = std::filesystem::temp_directory_path()
+                  / ("cna-studio-crash-" + name + "-" + std::to_string(counter()++));
+            std::error_code code;
+            std::filesystem::remove_all(path_, code);
+            std::filesystem::create_directories(path_, code);
+
+            file_ = path_ / "player.sh";
+            {
+                std::ofstream stream{file_, std::ios::binary | std::ios::trunc};
+                stream << "#!/bin/sh\n" << body << "\n";
+            }
+            std::filesystem::permissions(file_,
+                                         std::filesystem::perms::owner_all
+                                             | std::filesystem::perms::group_exec
+                                             | std::filesystem::perms::others_exec,
+                                         std::filesystem::perm_options::add, code);
+        }
+
+        ~ScopedScript()
+        {
+            std::error_code code;
+            std::filesystem::remove_all(path_, code);
+        }
+
+        ScopedScript(const ScopedScript&) = delete;
+        ScopedScript& operator=(const ScopedScript&) = delete;
+
+        [[nodiscard]] std::string executable() const { return file_.generic_string(); }
+
+    private:
+        static int& counter() { static int value = 0; return value; }
+        std::filesystem::path path_;
+        std::filesystem::path file_;
+    };
+
+    /** @brief Runs a session against @p executable until the editor notices it has gone. */
+    struct CrashRun
+    {
+        std::vector<StudioNotification> raised;
+        std::vector<std::string> logLines;
+    };
+}
+
+/**
+ * @brief **A crash report names what the operating system said, not just "it crashed".**
+ *
+ * `plan.md` STUDIO-16003. `PlayerExitReason::Crashed` covers three different bugs — a bad pointer,
+ * an assertion the game raised itself, and a game that returned a failure code on purpose — and the
+ * report said only *"Player exited: crashed."*, with a detail line that repeated its own title. The
+ * status was read (`PlayerProcess` computes `Crashed` from it) and then thrown away, which is the
+ * same shape `STUDIO-31008` found three times: a layer that had the answer replacing it with the
+ * fact.
+ *
+ * Named as well as numbered, because `signal 11` is the part a user has to go and look up and
+ * `SIGSEGV` is the part that tells them which file to open.
+ */
+CNA_STUDIO_TEST(ACrashReportNamesHowTheGameDied)
+{
+#if !defined(_WIN32)
+    if (!std::filesystem::exists("/bin/sh")) { return; }
+
+    const auto runUntilItEnds = [](const std::string& executable) {
+        CrashRun result;
+        StudioContext context;
+        StudioLog log;
+        StudioPlayService play{context, log, [&result](StudioNotification note) {
+                                   result.raised.push_back(std::move(note));
+                               }};
+
+        const ScopedProject project{"crash"};
+        CNA_STUDIO_EXPECT(context.openProject(project.file()));
+        CNA_STUDIO_EXPECT(context.saveScene(project.scene()));
+        play.setBuilds({PlayerBuild{"default", executable}});
+        play.start();
+
+        // Polled the way the editor does rather than slept for: the exit is noticed by whatever
+        // asks next, and a poll is what asks.
+        for (int attempt = 0; attempt < 400 && play.state() != StudioPlayState::Stopped; ++attempt)
+        {
+            (void)play.poll();
+            std::this_thread::sleep_for(std::chrono::milliseconds(5));
+        }
+
+        for (const StudioLogEntry& entry : log.entries()) { result.logLines.push_back(entry.message); }
+        return result;
+    };
+
+    // A bad pointer, which is the crash a game actually has.
+    {
+        const ScopedScript script{"segv", "kill -SEGV $$"};
+        const CrashRun run = runUntilItEnds(script.executable());
+
+        CNA_STUDIO_EXPECT_EQ(run.raised.size(), std::size_t{1});
+        if (run.raised.empty()) { return; }
+
+        CNA_STUDIO_EXPECT_EQ(run.raised.front().title, std::string{"The game crashed"});
+        CNA_STUDIO_EXPECT(contains(run.raised.front().detail, "SIGSEGV"));
+        CNA_STUDIO_EXPECT(contains(run.raised.front().detail, "11"));
+
+        // And in the log, with somewhere to go next: a notification is a sentence, the log is the
+        // report.
+        bool logged = false;
+        for (const std::string& line : run.logLines)
+        {
+            if (contains(line, "SIGSEGV") && contains(line, "Output Log")) { logged = true; }
+        }
+        CNA_STUDIO_EXPECT(logged);
+    }
+
+    // A game that returned a failure code is not a signal, and saying "killed by" would send the
+    // user looking for a crash that never happened.
+    {
+        const ScopedScript script{"code", "exit 3"};
+        const CrashRun run = runUntilItEnds(script.executable());
+
+        CNA_STUDIO_EXPECT_EQ(run.raised.size(), std::size_t{1});
+        if (run.raised.empty()) { return; }
+
+        CNA_STUDIO_EXPECT(contains(run.raised.front().detail, "code 3"));
+        CNA_STUDIO_EXPECT(!contains(run.raised.front().detail, "signal"));
+    }
+#endif
+}
+
+/**
+ * @brief **Without taking Studio with it** — which is the other half of the row's title.
+ *
+ * A separate process is the whole architecture, so this cannot fail in the way a in-process game
+ * would. What it *can* do is leave the editor in a state the user has to work out how to escape: a
+ * Stop button over nothing, a Pause still checked, a Step offering to advance a game that is not
+ * there. And the document the user was editing must be exactly as they left it, because a crash in
+ * the game is not a reason to touch the scene.
+ */
+CNA_STUDIO_TEST(AGameThatCrashesLeavesTheEditorAndItsDocumentAlone)
+{
+#if !defined(_WIN32)
+    if (!std::filesystem::exists("/bin/sh")) { return; }
+
+    Harness harness;
+    const ScopedProject project{"crashsafe"};
+    CNA_STUDIO_EXPECT(harness.context.openProject(project.file()));
+    CNA_STUDIO_EXPECT(harness.context.saveScene(project.scene()));
+
+    const std::string before = Json::write(harness.context.getScene().toJson(), true);
+
+    const ScopedScript script{"safe", "kill -ABRT $$"};
+    harness.panels.setPlayerBuilds({PlayerBuild{"default", script.executable()}});
+    harness.frame();
+
+    harness.shell.invoke("studio.play.play");
+
+    double now = 0.0;
+    for (int attempt = 0; attempt < 400 && harness.panels.playState() != StudioPlayState::Stopped;
+         ++attempt)
+    {
+        now += 0.005;
+        harness.panels.poll(now);
+        std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    }
+    harness.frame();
+
+    // Every control agrees the game is gone, and Play is offered again rather than the editor
+    // needing a restart.
+    CNA_STUDIO_EXPECT(harness.panels.playState() == StudioPlayState::Stopped);
+    CNA_STUDIO_EXPECT(harness.shell.actions().isEnabled("studio.play.play"));
+    CNA_STUDIO_EXPECT(!harness.shell.actions().isEnabled("studio.play.stop"));
+    CNA_STUDIO_EXPECT(!harness.shell.actions().isEnabled("studio.play.pause"));
+    CNA_STUDIO_EXPECT(!harness.shell.actions().isEnabled("studio.play.step"));
+
+    // The scene is untouched, byte for byte. A crash in the game is not a reason to write to the
+    // user's document (`STUDIO-31011`).
+    CNA_STUDIO_EXPECT_EQ(Json::write(harness.context.getScene().toJson(), true), before);
+
+    // And it said which signal, so the report is usable for the abort case too.
+    bool named = false;
+    for (const StudioLogEntry& entry : harness.log.entries())
+    {
+        if (contains(entry.message, "SIGABRT")) { named = true; }
+    }
+    CNA_STUDIO_EXPECT(named);
+#endif
 }

@@ -117,6 +117,43 @@ namespace CNA::Studio
 
         [[nodiscard]] bool isRunning() const;
         [[nodiscard]] PlayerExitReason getExitReason() const { return exitReason_; }
+
+        /**
+         * @brief How the player ended, in the terms the operating system used.
+         *
+         * `plan.md` STUDIO-16003. `PlayerExitReason::Crashed` covers three different bugs — a
+         * segfault, an abort, and a game that returned a failure code on purpose — and a report
+         * that cannot tell them apart sends the user looking in the wrong place. The status is
+         * collected by whichever wait sees the child first, so it is recorded when it is read and
+         * handed out afterwards rather than asked for later, when it would already be gone.
+         */
+        struct Ending
+        {
+            /** @brief The process's exit code, or zero when a signal ended it. */
+            int exitCode = 0;
+
+            /**
+             * @brief The signal that killed it, or zero.
+             *
+             * Zero on Windows, which reports an exception code through @ref exitCode instead.
+             */
+            int signal = 0;
+
+            /** @brief Whether a signal ended it, which distinguishes a zero signal from none. */
+            bool killedBySignal = false;
+        };
+
+        /** @brief How the player ended. Meaningless while it is still running. */
+        [[nodiscard]] Ending getEnding() const;
+
+        /**
+         * @brief One sentence naming what the operating system said, for a log or a notification.
+         *
+         * Empty while the player is still running or was never started. Names the signal where it
+         * has a name a person would recognise (`SIGSEGV` rather than `signal 11`, and both), because
+         * the number alone is the part a user has to go and look up.
+         */
+        [[nodiscard]] std::string describeEnding() const;
         [[nodiscard]] const std::string& getError() const { return error_; }
         [[nodiscard]] std::uint16_t getPort() const { return channel_.getPort(); }
         [[nodiscard]] const MessageChannel& getChannel() const { return channel_; }

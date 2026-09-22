@@ -46,6 +46,38 @@ namespace CNA::Studio
         }
     }
 
+    namespace
+    {
+        /**
+         * @brief The name of @p signal where a person would recognise it, otherwise nullptr.
+         *
+         * A short table rather than `strsignal`, for two reasons: `strsignal` is not available on
+         * every platform this builds for, and its text is localised — a report that reads
+         * differently depending on the editor's locale is one that cannot be searched for or
+         * pasted into an issue. These are the ones a game actually dies of.
+         */
+        const char* signalName(int signal)
+        {
+#if defined(_WIN32)
+            (void)signal;
+            return nullptr;
+#else
+            switch (signal)
+            {
+                case SIGSEGV: return "SIGSEGV";
+                case SIGABRT: return "SIGABRT";
+                case SIGFPE: return "SIGFPE";
+                case SIGILL: return "SIGILL";
+                case SIGBUS: return "SIGBUS";
+                case SIGKILL: return "SIGKILL";
+                case SIGTERM: return "SIGTERM";
+                case SIGINT: return "SIGINT";
+                default: return nullptr;
+            }
+#endif
+        }
+    }
+
     const char* toString(PlayerExitReason reason)
     {
         switch (reason)
@@ -114,6 +146,15 @@ namespace CNA::Studio
         mutable bool killedBySignal = false;
         mutable int exitCode = 0;
 
+        /**
+         * @brief The signal that killed it, or zero (`plan.md` STUDIO-16003).
+         *
+         * Kept rather than collapsed into `killedBySignal`, because a segfault, an abort and a
+         * bus error are three different bugs and the number is the only thing that tells them
+         * apart. Zero on Windows, which reports a code rather than a signal.
+         */
+        mutable int terminatingSignal = 0;
+
         /** @brief True when the player ran to completion and returned success. */
         [[nodiscard]] bool exitedCleanly() const
         {
@@ -147,6 +188,7 @@ namespace CNA::Studio
             if (result > 0)
             {
                 killedBySignal = WIFSIGNALED(status);
+                terminatingSignal = killedBySignal ? WTERMSIG(status) : 0;
                 exitCode = WIFEXITED(status) ? WEXITSTATUS(status) : 0;
             }
             return false;
@@ -173,6 +215,7 @@ namespace CNA::Studio
                 {
                     finished = true;
                     killedBySignal = WIFSIGNALED(status);
+                    terminatingSignal = killedBySignal ? WTERMSIG(status) : 0;
                     exitCode = WIFEXITED(status) ? WEXITSTATUS(status) : 0;
                 }
             }
@@ -195,6 +238,7 @@ namespace CNA::Studio
             // left over from the last one would report the new player as already dead.
             finished = false;
             killedBySignal = false;
+            terminatingSignal = 0;
             exitCode = 0;
 
 #if defined(_WIN32)
@@ -381,6 +425,44 @@ namespace CNA::Studio
     {
         refreshExitReason();
         return started_ && exitReason_ == PlayerExitReason::StillRunning;
+    }
+
+    PlayerProcess::Ending PlayerProcess::getEnding() const
+    {
+        // Refreshed first, so a caller that asks before anything else has polled still gets the
+        // status rather than the state this object held before the child was collected.
+        refreshExitReason();
+
+        Ending ending;
+        ending.exitCode = impl_->exitCode;
+        ending.signal = impl_->terminatingSignal;
+        ending.killedBySignal = impl_->killedBySignal;
+        return ending;
+    }
+
+    std::string PlayerProcess::describeEnding() const
+    {
+        if (!started_) { return {}; }
+
+        const PlayerExitReason reason = getExitReason();
+        if (reason == PlayerExitReason::StillRunning) { return {}; }
+
+        const Ending ending = getEnding();
+        if (ending.killedBySignal)
+        {
+            // Named as well as numbered. "signal 11" is the part a user has to go and look up, and
+            // the name is what turns the report into a diagnosis: SIGSEGV is a bad pointer, SIGABRT
+            // is an assertion the game itself raised, and those send you to different files.
+            const char* name = signalName(ending.signal);
+            std::string text = "killed by ";
+            if (name != nullptr) { text += std::string{name} + " (signal "; }
+            else { text += "signal "; }
+            text += std::to_string(ending.signal);
+            if (name != nullptr) { text += ")"; }
+            return text;
+        }
+
+        return "exited with code " + std::to_string(ending.exitCode);
     }
 
     void PlayerProcess::stop()

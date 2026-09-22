@@ -268,6 +268,14 @@ namespace CNA::Studio
         // Said either way. A game that exited because it finished and one that crashed look
         // identical from the editor unless the reason is reported.
         const PlayerExitReason reason = player_.getExitReason();
+
+        // What the operating system said, which is the part that names the *bug* (`plan.md`
+        // STUDIO-16003). "The game crashed" covers a segfault, an assertion the game raised
+        // itself, and a game that returned a failure code on purpose -- three different problems
+        // in three different files, and a report that cannot tell them apart sends the user to
+        // the wrong one.
+        const std::string ending = player_.describeEnding();
+
         if (reason != PlayerExitReason::Crashed)
         {
             // A game the user closed is a game the user was looking at. Announcing that would be
@@ -276,11 +284,18 @@ namespace CNA::Studio
             return read;
         }
 
+        // The log first and in full, because it is what the user will read when they go looking,
+        // and because a notification is a sentence rather than a report.
+        log_.append(LogSeverity::Error,
+                    "The game crashed: " + (ending.empty() ? std::string{"reason unknown"} : ending)
+                        + ". Its output is in the Output Log.");
+
         StudioNotification notification;
         notification.id = "studio.play";
         notification.severity = StudioNotificationSeverity::Error;
         notification.title = "The game crashed";
-        notification.detail = std::string{"Player exited: "} + toString(reason) + ".";
+        notification.detail = ending.empty() ? std::string{"Player exited: "} + toString(reason) + "."
+                                             : ending;
         notification.actionId = StudioShell::showPanelActionId("output");
         if (notify_) { notify_(std::move(notification)); }
         return read;

@@ -6,13 +6,13 @@
 
 **Exit criteria.** Play, pause, step, stop, restart, live edits and crash isolation all work against a real game process.
 
-**Progress:** 5 of 18 complete `███░░░░░░░░░`
+**Progress:** 6 of 18 complete `████░░░░░░░░`
 
 | Id | Task | Status | Depends on |
 |----|------|:------:|------------|
 | `STUDIO-16001` | Play, Pause, Step, Stop, Restart over the bridge | ✅ | `STUDIO-06002` |
 | `STUDIO-16002` | Game logs routed into the Console with source attribution | ⬜ | `STUDIO-07005` |
-| `STUDIO-16003` | Crash reporting when the player dies, without taking Studio with it | ⬜ | `STUDIO-16001` |
+| `STUDIO-16003` | Crash reporting when the player dies, without taking Studio with it | ✅ | `STUDIO-16001` |
 | `STUDIO-16004` | Live asset reload into the running player | ⬜ | `STUDIO-16001` |
 | `STUDIO-16005` | Live property edits into the running player | ⬜ | `STUDIO-15011` |
 | `STUDIO-16006` | Scene reload | ⬜ | `STUDIO-16004` |
@@ -79,6 +79,52 @@ launches because a restart that only stopped would look identical from here; and
 Checked by causing it: removing the build-list condition from Restart's enablement makes the refusal
 stop the running game and fail to start it — three assertions, which is the defect the case was
 written to look for.
+
+### `STUDIO-16003` — Crash reporting when the player dies, without taking Studio with it
+
+**Acceptance.** A game that dies says *how*, and the editor carries on.
+
+**✅ Done. The second half was already true by construction; the first half said almost nothing.**
+
+The report was *"The game crashed"*, with a detail line reading *"Player exited: crashed."* — which
+repeats the title and adds no information. `PlayerExitReason::Crashed` covers three different bugs:
+a bad pointer, an assertion the game raised itself, and a game that returned a failure code on
+purpose. Those live in different files and send a user to different places, and the report could not
+tell them apart.
+
+**The status was read and then discarded**, which is the shape `STUDIO-31008` found three times in
+one row: a layer that had the answer replacing it with the fact. `PlayerProcess` already collected
+`WIFSIGNALED`/`WEXITSTATUS` — it has to, because the status can only be taken by whichever wait sees
+the child first — and kept only the boolean it needed to decide `Crashed`. It now keeps the signal
+number too, and `describeEnding()` turns it into a sentence.
+
+**Named as well as numbered**, from a short table rather than `strsignal`: `strsignal` is not
+available on every platform this builds for, and its text is **localised** — a report that reads
+differently depending on the editor's locale is one that cannot be searched for or pasted into an
+issue. `signal 11` is the part a user has to look up; `SIGSEGV` is the part that tells them which
+file to open, so the report carries both.
+
+**"Without taking Studio with it"** is the separate-player architecture and cannot fail the way an
+in-process game would. What it *can* do is leave the editor in a state a user has to work out how to
+escape — a Stop button over nothing, Pause still checked, Step offering to advance a game that is
+not there — so that is what the case asserts, along with the scene being untouched **byte for byte**:
+a crash in the game is not a reason to write to the user's document.
+
+**Verification.** `tests/StudioPlayModeTests.cpp` — `ACrashReportNamesHowTheGameDied`, which runs a
+real process that raises `SIGSEGV` and another that returns a failure code, and checks that the
+second is *not* described as a signal (saying "killed by" would send the user looking for a crash
+that never happened); and `AGameThatCrashesLeavesTheEditorAndItsDocumentAlone`, over `SIGABRT`
+through the full shell. Both poll the way the editor does rather than sleeping for a result: an exit
+is noticed by whatever asks next, and a poll is what asks.
+
+Checked by causing each: `describeEnding` returning nothing (five assertions), and the signal number
+discarded again, which makes every crash read as an exit code (four).
+
+**What this row is not.** It does not collect a stack trace, and there is no crash handler in the
+player for the reason `RecoveryStore` gives about the editor's own: code that serialises anything
+from inside `SIGSEGV` is calling `malloc` with a corrupted heap. What a user gets is the signal, the
+game's own output up to the moment it died, and an editor that still works — which is what lets them
+run it again under a debugger.
 
 ### `STUDIO-16011` — Renderer preview selection among the installed player builds
 
