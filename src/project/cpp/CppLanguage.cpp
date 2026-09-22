@@ -43,6 +43,11 @@ namespace CNA::Studio
                 descriptor_.generatedDirectory = "Generated";
 
                 descriptor_.sourceFileExtensions = {".cpp", ".hpp", ".cc", ".h", ".cxx", ".hxx"};
+
+                // `Source/Main.cpp`, because that is the file this adapter's scaffolding writes
+                // (`CppProjectExport.cpp`). Not a convention it hopes a project follows -- one it
+                // creates.
+                descriptor_.entryPointFile = "Main.cpp";
             }
 
             [[nodiscard]] const StudioLanguageDescriptor& descriptor() const override

@@ -18,6 +18,7 @@
 
 #include <ctime>
 #include "CNA/Studio/Project/ProjectValidation.hpp"
+#include "CNA/Studio/Project/StudioExternalEditor.hpp"
 #include "CNA/Studio/Project/StudioReveal.hpp"
 #include "CNA/Studio/Project/RecentProjects.hpp"
 #include "CNA/Studio/Scene/GameCamera.hpp"
@@ -1901,6 +1902,72 @@ namespace CNA::Studio
                 }
             };
             shell.actions().add(std::move(build));
+        }
+
+        // `plan.md` CORE-02. Bound here rather than with the document commands because the two
+        // things they need -- the open project and the user's preferences -- both live on this
+        // object, and because launching a process is the binder's business and not a panel's
+        // (the same rule `studioRevealInFileManager` follows above).
+        //
+        // Both are enabled whenever a project is open, deliberately, including when no editor is
+        // configured. A greyed-out row cannot explain itself: a developer who has never opened
+        // Preferences would see a dead row and no reason for it, where the refusal below names
+        // the setting and where to find it. Refusing out loud beats refusing silently.
+        {
+            const auto openInEditor = [this](bool entryPoint) {
+                const StudioLanguageAdapter* language = context_.getLanguage();
+
+                StudioExternalEditorRequest request;
+                request.editor = preferences_.model().externalEditor;
+                request.projectRoot = context_.getProject().getRootPath();
+                if (entryPoint && language != nullptr)
+                {
+                    request.file = language->descriptor().entryPointFile;
+                }
+
+                // A language that names no entry point is not an error, and not a refusal either:
+                // there is simply no file to open, so the request would open the project instead
+                // and say something the user did not ask for. Say so and stop.
+                if (entryPoint && request.file.empty())
+                {
+                    log_.append(LogSeverity::Warning,
+                                "This project's language does not name an entry-point source file.");
+                    return;
+                }
+
+                std::string problem;
+                const StudioLanguageDescriptor* descriptor =
+                    language != nullptr ? &language->descriptor() : nullptr;
+                if (!studioOpenInExternalEditor(request, descriptor, &problem))
+                {
+                    log_.append(LogSeverity::Warning, problem + ".");
+                    return;
+                }
+
+                const StudioExternalEditorCommand planned =
+                    studioExternalEditorCommand(request, descriptor);
+                log_.append(LogSeverity::Info,
+                            "Opening '" + planned.resolvedPath + "' in "
+                            + preferences_.model().externalEditor + ".");
+            };
+
+            if (const StudioAction* found =
+                    shell.actions().find("studio.tools.openProjectInEditor"))
+            {
+                StudioAction open = *found;
+                open.isEnabled = [this] { return context_.hasProject(); };
+                open.run = [openInEditor] { openInEditor(false); };
+                shell.actions().add(std::move(open));
+            }
+
+            if (const StudioAction* found =
+                    shell.actions().find("studio.tools.openSourceInEditor"))
+            {
+                StudioAction open = *found;
+                open.isEnabled = [this] { return context_.hasProject(); };
+                open.run = [openInEditor] { openInEditor(true); };
+                shell.actions().add(std::move(open));
+            }
         }
 
         // The one the status bar's Stop button invokes. A job the user can see running and cannot

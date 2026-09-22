@@ -96,6 +96,19 @@ namespace CNA::Studio
 
         /** @brief Extensions of files a user edits, with the dot, e.g. `{".cpp", ".hpp"}`. */
         std::vector<std::string> sourceFileExtensions;
+
+        /**
+         * @brief The file in @ref sourceDirectory a developer opens first, e.g. `"Main.cpp"`.
+         *
+         * Named by the adapter because the adapter is what *wrote* it: scaffolding a C++ project
+         * creates `Source/Main.cpp`, so this is a fact about the project rather than a guess about
+         * one. `CORE-02` uses it for the hand-off to an external IDE, which needs a file to name
+         * and has no business deciding which file a language's entry point is.
+         *
+         * Empty for a language with no single answer, and a caller must cope with that: the
+         * project still opens, the file simply does not.
+         */
+        std::string entryPointFile;
     };
 
     /** @brief One file an adapter writes into a project it is creating. */

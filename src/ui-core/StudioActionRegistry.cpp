@@ -590,6 +590,19 @@ namespace CNA::Studio
         command("studio.build.package", "Package...",
                 "Package a standalone build of the game.", C::Build, {});
 
+        // `plan.md` CORE-02. The one gesture that says what CNA Studio is: Studio is a visual
+        // companion, the C++ is written in a real IDE, and a developer must be able to cross that
+        // line at any moment. The preference these read has existed since the prototype and had no
+        // caller at all until now, so Studio was claiming an integration it did not have.
+        command("studio.tools.openProjectInEditor", "Open Project in External Editor",
+                "Open this project in the editor set in Preferences.", C::Tools, {});
+        // Separate from the row above because they answer different questions. One hands over the
+        // whole project; this one puts a cursor in the file a developer is going to edit first,
+        // which is the file the project's language scaffolded.
+        command("studio.tools.openSourceInEditor", "Open Main Source in External Editor",
+                "Open this project's entry-point source file in the editor set in Preferences.",
+                C::Tools, {});
+
         command("studio.window.resetLayout", "Reset Layout",
                 "Restore the default panel arrangement.", C::Window, {});
 

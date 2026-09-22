@@ -122,7 +122,18 @@ namespace CNA::Studio
 
         // --- Tools -----------------------------------------------------------------------------
 
-        /** @brief The editor to open a source file in. Empty means the system default. */
+        /**
+         * @brief The editor the Tools menu hands a project or a source file to. Empty is refused.
+         *
+         * A program name to be found on the `PATH` (`clion`, `code`, `vim`) or a full path. Read by
+         * `studioExternalEditorCommand` (`plan.md` CORE-02), which is the first caller this field
+         * has ever had: until then Studio carried the preference and claimed an integration it did
+         * not have.
+         *
+         * Empty means *no editor is configured*, not *use the system default*. The gesture refuses
+         * and names this setting, because on Linux whatever opens a `.cpp` by default is as likely
+         * to be a text viewer as an IDE, and silently launching one is a worse answer than asking.
+         */
         std::string externalEditor;
 
         /** @brief An explicit CMake to build with. Empty means whatever is on the PATH. */

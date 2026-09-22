@@ -245,7 +245,11 @@ namespace CNA::Studio
         {
             const UiRect control = labelledRow(frame, content, "External editor");
             StudioTextFieldOptions options;
-            options.placeholder = "the system default";
+            // Not "the system default" any more (`plan.md` CORE-02). Empty is refused rather than
+            // guessed at: on Linux the system default for a .cpp is as likely to be a text viewer
+            // as an IDE, and a developer who has not said which editor they use is better served
+            // by being asked than by being surprised. The placeholder says what to type.
+            options.placeholder = "clion, code, vim, or a full path";
             if (studioTextField(frame, frame.ids().make("editor"), control,
                                 preferences.externalEditor, options).committed)
             {

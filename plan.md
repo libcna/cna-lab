@@ -75,7 +75,7 @@ legs.
 
 ## The active roadmap
 
-**1 of 11 active deliverables complete.**
+**2 of 11 active deliverables complete.**
 
 Estimates are Opus 5 engineering hours at this repository's working standard — implementation, the
 test its acceptance names, and the documentation it changes.
@@ -83,7 +83,7 @@ test its acceptance names, and the documentation it changes.
 | Id | Deliverable | Status | Est | Traces |
 |----|-------------|:------:|----:|--------|
 | `CORE-01` | Build the project, and understand the failure | ⬜ | 6 | `STUDIO-17009`, `STUDIO-17010`, `STUDIO-17011`, `STUDIO-17012`, `STUDIO-15012` |
-| `CORE-02` | Hand the developer back to their IDE | ⬜ | 2 | `STUDIO-15010` |
+| `CORE-02` | Hand the developer back to their IDE | ✅ | 2 | `STUDIO-15010` |
 | `CORE-03` | The viewport shows what is selected | ⬜ | 2 | `STUDIO-35053` |
 | `CORE-04` | The Details panel reads as a property grid | ⬜ | 2 | `STUDIO-35033` |
 | `CORE-05` | Find an asset, find an entity | ⬜ | 3 | `STUDIO-35042`, `STUDIO-35061` |
@@ -139,6 +139,23 @@ already exists and has no caller, so the product currently claims an integration
 gesture with a message that says what to configure, not after the fact.
 
 **Not included.** Any editing of C++ inside Studio. Any awareness of what an IDE is doing.
+
+**Done.** `CNA/Studio/Project/StudioExternalEditor.hpp` plans the command and refuses before
+launching anything; `Tools > Open Project in External Editor` and
+`Tools > Open Main Source in External Editor` invoke it — the first rows that menu has ever had.
+A relative path resolves against `StudioLanguageDescriptor::sourceDirectory` before the project
+root, which is what makes a compiler's own path work unchanged in `CORE-01`. Planning is separate
+from launching so that every case below is checkable on a machine with no IDE and no display.
+
+| Acceptance | Evidence in `StudioExternalEditorTests.cpp` |
+|------------|---------------------------------------------|
+| Opens the project | `OpeningTheProjectHandsOverItsDirectory` |
+| Opens a named source file | `ARelativeSourceFileResolvesThroughTheLanguagesSourceDirectory`, `AnAbsolutePathIsOpenedAsGivenAndAMissingOneIsRefused` |
+| Resolves through `sourceDirectory` | `TheSourceDirectoryWinsOverTheProjectRootForTheSameName` |
+| Unset editor refused at the gesture, naming what to configure | `AnUnsetExternalEditorIsRefusedAtTheGestureAndSaysWhatToConfigure` |
+| Unlaunchable editor refused at the gesture | `AnEditorThatCannotBeLaunchedIsRefusedBeforeAnythingIsStarted` |
+| At a line, for `CORE-01` | `EachKnownEditorIsToldAboutTheLineInItsOwnSyntax`, `AnUnknownEditorStillOpensTheFileAndDoesNotClaimTheLine` |
+| Reachable by a user | `TheHandOffCommandsAreRegisteredAndReachableFromTheToolsMenu` |
 
 ### `CORE-03` — The viewport shows what is selected
 

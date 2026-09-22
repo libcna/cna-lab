@@ -222,7 +222,10 @@ namespace CNA::Studio
             {"Play", {"studio.play.play", "studio.play.pause", "studio.play.stop", sep,
                       "studio.play.step", "studio.play.restart",
                       "studio.play.reloadScene", "studio.play.capture"}},
-            {"Tools", {}},
+            // `plan.md` CORE-02. The menu was registered empty and stayed that way; these are the
+            // first rows it has ever had, and they are the hand-off back to the developer's own
+            // IDE -- Core step 11, and the clearest statement of what Studio is not.
+            {"Tools", {"studio.tools.openProjectInEditor", "studio.tools.openSourceInEditor"}},
             // The panel list is filled in by registerPanel(), because which panels exist is decided
             // at run time by whoever assembles the shell. It ships empty rather than absent so the
             // row is in the same place in a shell with no panels as in one with ten.
