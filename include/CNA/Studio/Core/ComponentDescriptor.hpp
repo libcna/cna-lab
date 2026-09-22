@@ -22,6 +22,7 @@
 #include <functional>
 #include <string>
 #include <unordered_map>
+#include <string_view>
 #include <vector>
 
 #include "CNA/Studio/Core/PropertyValue.hpp"
@@ -178,7 +179,32 @@ namespace CNA::Studio
      * know what it meant.
      */
     [[nodiscard]] PropertyValue propertyValueFromJson(const JsonValue& json,
-                                                      const PropertyDescriptor& descriptor);
+                                                      const PropertyDescriptor& descriptor,
+                                                      std::vector<std::string>* changes = nullptr,
+                                                      std::string_view path = {});
+
+    /**
+     * @brief Whether @p json can be read as @p descriptor's type without losing what it says.
+     *
+     * `plan.md` STUDIO-31011. Every reader here falls back rather than failing, which is right —
+     * a scene with one bad field should open so the user can fix it. What is *not* right is doing
+     * it silently: the fallback is written back on the next save, so a value the user put in their
+     * file is replaced by one they never chose and never saw replaced.
+     *
+     * Deliberately conservative, and the conservatism is the point: it answers "this file says
+     * something this type cannot hold" and nothing else. An **absent** value is not a mismatch —
+     * absence means "use the default" by contract, and that is what lets a component gain a
+     * property without every document already written becoming one with a hole in it. Nor is a
+     * *broken* value a mismatch: an asset reference naming an id nothing has is a well-formed
+     * string, and scene validation reports it as a missing reference, which is a better message
+     * than this could give.
+     *
+     * @param json The value the document holds.
+     * @param descriptor The property it was read for.
+     * @return True when reading it loses nothing.
+     */
+    [[nodiscard]] bool studioJsonMatchesPropertyType(const JsonValue& json,
+                                                     const PropertyDescriptor& descriptor);
     /**
      * @brief The metadata for one component type.
      *

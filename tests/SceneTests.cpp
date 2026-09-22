@@ -6330,3 +6330,135 @@ CNA_STUDIO_TEST(ASkyOnABasicEffectBuildIsDrawnAndSaysItLightsNothing)
     // editor can make claims about.
     CNA_STUDIO_EXPECT(studioEnvironmentCapabilityIssues("SomeFutureEffect", true).empty());
 }
+
+/**
+ * @brief **A value the file's shape cannot hold is replaced, and the replacement is reported.**
+ *
+ * `plan.md` STUDIO-31011. Every reader in Studio falls back rather than failing, and that is right:
+ * a scene with one bad field should open so the user can fix it — refusing it would be
+ * `STUDIO-31008`'s complaint about a tool you cannot use to repair a file. What is not right is
+ * doing it quietly. The fallback is written back on the next save, so a value the user put in their
+ * file is replaced by one they never chose, and the only evidence is a diff they were not looking
+ * for.
+ *
+ * The message names the entity and the component as well as the property, because "position holds
+ * text" in a scene with four hundred entities names the one thing the user already knows.
+ */
+CNA_STUDIO_TEST(APropertyTheFileCannotHoldIsReplacedAndSaidSo)
+{
+    const ComponentRegistry registry = makeRegistry();
+
+    JsonValue transform = JsonValue::makeObject();
+    transform.set("position", JsonValue{"over there"});
+
+    JsonValue components = JsonValue::makeObject();
+    components.set(std::string{BuiltinComponentIds::kTransform}, std::move(transform));
+
+    JsonValue entity = JsonValue::makeObject();
+    entity.set("id", JsonValue{Uuid::generate().toString()});
+    entity.set("name", JsonValue{"Player"});
+    entity.set("components", std::move(components));
+
+    JsonValue entities = JsonValue::makeArray();
+    entities.append(std::move(entity));
+
+    JsonValue json = JsonValue::makeObject();
+    json.set("formatVersion", JsonValue{SceneDocument::kFormatVersion});
+    json.set("sceneId", JsonValue{Uuid::generate().toString()});
+    json.set("name", JsonValue{"Level01"});
+    json.set("entities", std::move(entities));
+
+    SceneDocument scene;
+    const SceneLoadResult result = scene.loadFromJson(json, registry);
+
+    // It opens, because a scene you cannot open is a scene you cannot repair.
+    CNA_STUDIO_EXPECT(result.succeeded);
+    CNA_STUDIO_EXPECT_EQ(scene.getEntityCount(), std::size_t{1});
+
+    bool said = false;
+    for (const std::string& warning : result.warnings)
+    {
+        if (warning.find("Player") != std::string::npos
+            && warning.find("position") != std::string::npos
+            && warning.find("text") != std::string::npos)
+        {
+            said = true;
+        }
+    }
+    CNA_STUDIO_EXPECT(said);
+
+    // And it says the consequence, not only the fact: the next save writes the replacement, which
+    // is the moment the user's value is actually gone.
+    bool warnedAboutSaving = false;
+    for (const std::string& warning : result.warnings)
+    {
+        if (warning.find("saving") != std::string::npos) { warnedAboutSaving = true; }
+    }
+    CNA_STUDIO_EXPECT(warnedAboutSaving);
+}
+
+/**
+ * @brief And the nearest legitimate scene is not reported, which is the half that makes it usable.
+ *
+ * A warning that fires on ordinary documents is a warning users learn to scroll past, and then the
+ * one that mattered scrolls past with it. Four shapes that look like faults and are not: an absent
+ * property (which means "use the default" by contract), a longer array than a Vector3 needs (the
+ * extra is ignored and nothing the type can hold was dropped), an asset reference naming an id
+ * nothing has (well-formed text; *scene validation* reports the missing reference, with a better
+ * message than a shape check could give), and a well-formed value.
+ */
+CNA_STUDIO_TEST(AnOrdinarySceneProducesNoReplacementWarnings)
+{
+    const ComponentRegistry registry = makeRegistry();
+
+    const PropertyDescriptor* position =
+        registry.find(BuiltinComponentIds::kTransform)->findProperty("position");
+    CNA_STUDIO_EXPECT(position != nullptr);
+    if (position == nullptr) { return; }
+
+    // Absent: the default, by contract.
+    CNA_STUDIO_EXPECT(studioJsonMatchesPropertyType(JsonValue{}, *position));
+
+    // Exactly three, and more than three.
+    JsonValue three = JsonValue::makeArray();
+    three.append(JsonValue{1.0});
+    three.append(JsonValue{2.0});
+    three.append(JsonValue{3.0});
+    CNA_STUDIO_EXPECT(studioJsonMatchesPropertyType(three, *position));
+
+    JsonValue four = three;
+    four.append(JsonValue{4.0});
+    CNA_STUDIO_EXPECT(studioJsonMatchesPropertyType(four, *position));
+
+    // Two is a loss, because the reader fills the third from a default and the document said
+    // something shorter.
+    JsonValue two = JsonValue::makeArray();
+    two.append(JsonValue{1.0});
+    two.append(JsonValue{2.0});
+    CNA_STUDIO_EXPECT(!studioJsonMatchesPropertyType(two, *position));
+
+    // A reference to nothing is well-formed text. The *missing* reference is scene validation's to
+    // report, and it says something this could not.
+    const PropertyDescriptor* texture =
+        registry.find(BuiltinComponentIds::kSpriteRenderer)->findProperty("texture");
+    CNA_STUDIO_EXPECT(texture != nullptr);
+    if (texture != nullptr)
+    {
+        CNA_STUDIO_EXPECT(studioJsonMatchesPropertyType(JsonValue{Uuid::generate().toString()},
+                                                        *texture));
+        CNA_STUDIO_EXPECT(studioJsonMatchesPropertyType(JsonValue{""}, *texture));
+        CNA_STUDIO_EXPECT(!studioJsonMatchesPropertyType(JsonValue{7.0}, *texture));
+    }
+
+    // A scene written by Studio itself reports nothing, which is the case that must stay quiet.
+    SceneDocument written;
+    written.addEntity(makeEntity(registry, "Player", 1.0f, 2.0f));
+
+    SceneDocument reloaded;
+    const SceneLoadResult result = reloaded.loadFromJson(written.toJson(), registry);
+    CNA_STUDIO_EXPECT(result.succeeded);
+    for (const std::string& warning : result.warnings)
+    {
+        CNA_STUDIO_EXPECT(warning.find("the default was used") == std::string::npos);
+    }
+}

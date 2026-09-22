@@ -220,7 +220,14 @@ namespace CNA::Studio
                 // Through the descriptor-aware reader, not `PropertyValue::fromJson`: a structure
                 // cannot be decoded without the field schema, and that schema is on the descriptor
                 // this loop already has in hand (ED-410).
-                component.setProperty(propertyName, propertyValueFromJson(propertyJson, *property));
+                //
+                // The path names the entity and the component as well as the property, because a
+                // warning reading "position holds text" in a scene with four hundred entities
+                // names the one thing a user already knows (`plan.md` STUDIO-31011).
+                const std::string path =
+                    "entity '" + entity.getName() + "', " + typeId + "." + propertyName;
+                component.setProperty(
+                    propertyName, propertyValueFromJson(propertyJson, *property, &warnings, path));
             }
 
             if (descriptor != nullptr) { component.applyDefaults(*descriptor); }

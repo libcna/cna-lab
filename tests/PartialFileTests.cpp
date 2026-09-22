@@ -418,3 +418,118 @@ CNA_STUDIO_TEST(AMalformedSidecarsWarningSaysWhichLineIsWrong)
     CNA_STUDIO_EXPECT(said(scanned.warnings, "line 4"));
     CNA_STUDIO_EXPECT(said(scanned.warnings, "id was recovered"));
 }
+
+/**
+ * @brief **Every automatic change to a user's document is reported.**
+ *
+ * `plan.md` STUDIO-31011. An inventory, not a sample. Studio repairs rather than refuses in a
+ * dozen places, and each of those decisions is right on its own — a scene whose parent entity was
+ * deleted by a bad merge should still open, or the user cannot fix it (`STUDIO-31008`). What makes
+ * the set dangerous is that every one of them is written back on the next save. A repair the user
+ * was not told about is a change to their file that they did not make, did not see, and will find
+ * in a diff weeks later with no idea what caused it.
+ *
+ * So the rule is: **repair freely, report always.** This case is the list, and the point of
+ * gathering it in one place is that a new repair added without a message fails here rather than
+ * shipping — the reviewer of the thirteenth one has this to look at.
+ */
+CNA_STUDIO_TEST(EveryAutomaticChangeToADocumentIsReported)
+{
+    const ScopedDirectory directory{"repairs"};
+
+    ComponentRegistry registry;
+    registerBuiltinComponents(registry);
+
+    const std::string keptId = "0cf45f27-2ecd-44a6-8c45-cd8d2122179f";
+
+    // One scene carrying six repairs at once, because they have to coexist: a loader that reported
+    // the first and stopped would pass six single-fault cases.
+    const std::string scene = std::string{"{"}
+        + R"("formatVersion":1,"name":"Level01","entities":[)"
+        // 1. No scene id.  2. An entity with no id.
+        + R"({"name":"NoId","components":{}},)"
+        // 3. A parent that is not there.
+        + R"({"id":")" + keptId + R"(","name":"Orphan","parent":"11111111-2222-3333-4444-555555555555","components":{}},)"
+        // 4. A duplicate id.
+        + R"({"id":")" + keptId + R"(","name":"Twin","components":{}},)"
+        // 5. A component type nothing registered.
+        + R"({"id":"22222222-2222-3333-4444-555555555555","name":"Plugin","components":{"Nobody.Loaded":{"x":1}}},)"
+        // 6. A property whose value the declared type cannot hold.
+        + R"({"id":"33333333-2222-3333-4444-555555555555","name":"Player",)"
+        + R"("components":{"CNA.Transform":{"position":"over there"}}})"
+        + R"(]})";
+
+    directory.write("Level01.cnascene", scene);
+
+    SceneDocument document;
+    const SceneLoadResult loaded =
+        document.loadFromFile(directory.at("Level01.cnascene"), registry);
+
+    // It opens. Every one of these is a repair rather than a refusal, on purpose.
+    CNA_STUDIO_EXPECT(loaded.succeeded);
+
+    struct Repair
+    {
+        const char* what;
+        const char* fragment;
+    };
+
+    // Each row is a change Studio made to what the file said. If one of these stops being
+    // reported, the editor has started editing people's documents without telling them.
+    static const Repair kRepairs[] = {
+        {"a scene with no id gets one", "sceneId"},
+        {"an entity with no id gets one", "no valid id"},
+        {"an entity whose parent is missing becomes a root", "missing parent"},
+        {"a duplicate entity id drops the later entity", "duplicate entity id"},
+        {"a component nothing registered keeps its data", "unregistered component type"},
+        {"a value the declared type cannot hold is replaced", "the default was used"},
+    };
+
+    for (const Repair& repair : kRepairs)
+    {
+        bool reported = false;
+        for (const std::string& warning : loaded.warnings)
+        {
+            if (warning.find(repair.fragment) != std::string::npos) { reported = true; }
+        }
+        if (!reported)
+        {
+            CnaStudioTest::reportFailure(__FILE__, __LINE__,
+                std::string{"Studio changed the document -- "} + repair.what
+                + " -- and said nothing. Every automatic change to a user's file is reported "
+                  "(plan.md STUDIO-31011), because the change is written back on the next save "
+                  "and a diff is not where somebody should find out.");
+        }
+    }
+
+    // And the same for the asset database, whose repairs reach a different result type.
+    directory.write("Assets/Crate.png", "not really a png");
+    directory.write("Assets/Crate.png.cnaasset", "{\n  \"id\": \"" + keptId + "\",\n  \"type\": \"Tex");
+    directory.write("Assets/Sprite.png", "not really a png");
+    directory.write("Assets/Sprite.png.cnatmp4", "half of a png");
+
+    AssetDatabase assets;
+    assets.setProjectRoot(directory.root().generic_string());
+    const AssetScanResult scanned = assets.scan("Assets");
+    CNA_STUDIO_EXPECT(scanned.succeeded);
+
+    static const Repair kScanRepairs[] = {
+        {"a malformed sidecar's id is recovered", "id was recovered"},
+        {"a half-written file is skipped", "half-written"},
+    };
+
+    for (const Repair& repair : kScanRepairs)
+    {
+        bool reported = false;
+        for (const std::string& warning : scanned.warnings)
+        {
+            if (warning.find(repair.fragment) != std::string::npos) { reported = true; }
+        }
+        if (!reported)
+        {
+            CnaStudioTest::reportFailure(__FILE__, __LINE__,
+                std::string{"The asset scan changed what the project holds -- "} + repair.what
+                + " -- and said nothing (plan.md STUDIO-31011).");
+        }
+    }
+}

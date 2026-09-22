@@ -6,7 +6,7 @@
 
 **Exit criteria.** Interrupted saves, corrupt files and crashes cost a user nothing they cannot recover, and nothing is repaired silently.
 
-**Progress:** 8 of 13 complete `███████░░░░░`
+**Progress:** 9 of 13 complete `████████░░░░`
 
 | Id | Task | Status | Depends on |
 |----|------|:------:|------------|
@@ -20,7 +20,7 @@
 | `STUDIO-31008` | Malformed project and scene diagnostics that permit repair | ✅ | — |
 | `STUDIO-31009` | Unknown plugin components preserved through save and load | ✅ | — |
 | `STUDIO-31010` | Tests for interrupted saves and partial files | ✅ | `STUDIO-31003` |
-| `STUDIO-31011` | Nothing is silently repaired; every change to user data is reported | ⬜ | `STUDIO-31008` |
+| `STUDIO-31011` | Nothing is silently repaired; every change to user data is reported | ✅ | `STUDIO-31008` |
 | `STUDIO-31020` | Deterministic, version-control-friendly output throughout | ⬜ | `STUDIO-02037` |
 | `STUDIO-31021` | Generated files have explicit ownership and regeneration rules | ⬜ | `STUDIO-15008` |
 
@@ -477,6 +477,67 @@ early enough to survive. Nor does it fix the material and environment-map inspec
 *"written by a newer Studio, or is not valid JSON"* — two states a user needs to tell apart, and
 `MaterialLoadProblem` gives them one value. That is a narrower gap and a change to a public enum;
 recorded here rather than folded in.
+
+### `STUDIO-31011` — Nothing is silently repaired; every change to user data is reported
+
+**Acceptance.** Studio repairs rather than refuses — and says so, every time.
+
+**✅ Done, and the finding is that the repairing was right and one of the reportings was missing.**
+
+Studio repairs in a dozen places, and each decision is right on its own: a scene whose parent entity
+was deleted by a bad merge should still open, or the user cannot fix it, which is `STUDIO-31008`'s
+whole complaint. What makes the *set* dangerous is that every repair is written back on the next
+save. A repair nobody was told about is a change to somebody's file that they did not make, did not
+see, and will find in a diff weeks later with no idea what caused it.
+
+So: **repair freely, report always.** Eleven of the twelve already did.
+
+**The twelfth was a property whose value the declared type cannot hold.** `docs/FORMATS.md` states
+it as a rule — *"Property present but the wrong shape | Falls back to the type's zero value"* — and
+the fallback was silent. A `"position": "over there"` became `[0, 0, 0]`, the scene opened looking
+fine, and the next save wrote the zeros over what the user had typed. It is the quietest kind of
+loss: the file still parses, the editor still works, and the value is simply gone.
+
+`studioJsonMatchesPropertyType` answers "can this be read as the declared type without losing what
+it says", and `propertyValueFromJson` reports when the answer is no — through the whole nesting, so
+a field inside a structure inside a list is named by its path. The message carries the entity and
+the component as well as the property, because *"position holds text"* in a scene with four hundred
+entities names the one thing the user already knows, and it names the **consequence**: saving will
+write the replacement, which is the moment their value is actually gone.
+
+**The conservatism is the design, not a shortcut.** A warning that fires on ordinary documents is a
+warning users learn to scroll past, and then the one that mattered scrolls past with it. So:
+
+- **Absent is not a mismatch.** It means "use the default" by contract, and that is what lets a
+  component gain a property without every document already written becoming one with a hole in it.
+- **Too many elements is not a mismatch.** A four-element array read as a `Vector3` loses nothing
+  the type can hold. Too *few* is, because the reader fills the rest from a default and the document
+  said something shorter.
+- **A broken reference is not a mismatch.** An asset reference naming an id nothing has is
+  well-formed text; scene validation reports the missing reference, with a message this could not
+  give. Two reports of one fact is how a Problems panel becomes noise.
+
+**Verification.** The inventory is the deliverable. `EveryAutomaticChangeToADocumentIsReported` in
+`tests/PartialFileTests.cpp` loads **one** scene carrying six repairs at once — a loader that
+reported the first and stopped would pass six single-fault cases — and asserts each is named: a
+scene with no id, an entity with no id, a missing parent, a duplicate entity id, a component nothing
+registered, and a value the declared type cannot hold. Then the same for the asset scan's two: a
+malformed sidecar's recovered id and a half-written file skipped. A repair added later without a
+message fails here rather than shipping, which is the point of gathering them in one place.
+
+Plus `APropertyTheFileCannotHoldIsReplacedAndSaidSo` and `AnOrdinarySceneProducesNoReplacementWarnings`
+in `tests/SceneTests.cpp` — the second being the half that makes the first usable, covering an
+absent property, a longer-than-needed array, a reference to nothing, and a scene Studio wrote
+itself, none of which may say a word.
+
+Checked by causing each: the missing-parent warning deleted, and the replacement note silenced.
+Both fail the inventory *by name*, which is what the inventory is for.
+
+**What this row is not.** It does not make every report equally visible. Warnings reach the log, and
+scene *validation* findings reach the Problems panel, which is a better surface for something a user
+should act on — but a load-time repair happens once, before any panel has drawn, and routing it into
+a panel would mean holding it somewhere. Recorded rather than done: which of these belong in
+Problems is a question about that panel, not about the repairs.
 
 ### `STUDIO-31020` — Deterministic, version-control-friendly output throughout
 

@@ -282,7 +282,7 @@ file. A scene loads with warnings, never a partial failure:
 | Missing or malformed `id` | A new id is generated; warning recorded |
 | Duplicate `id` | The later entity is dropped; warning recorded |
 | Property missing from the file | Filled from the descriptor's declared default |
-| Property present but the wrong shape | Falls back to the type's zero value |
+| Property present but the wrong shape | Falls back to the declared default, **and says so** (`STUDIO-31011`): the fallback is written back on the next save, so a silent one replaces a value the user typed with one they never chose |
 | `formatVersion` newer than this build | **Load fails** with an explicit message. This is the one hard failure |
 
 ---
