@@ -6,7 +6,7 @@
 
 **Exit criteria.** The Studio/runtime boundary, the renderer/platform model and the host capability contract are written down, and each one has a guard test that fails when it is violated.
 
-**Progress:** 41 of 47 complete `██████████░░`
+**Progress:** 43 of 47 complete `██████████░░`
 
 | Id | Task | Status | Depends on |
 |----|------|:------:|------------|
@@ -24,9 +24,9 @@
 | `STUDIO-02032` | Guard test: no `CNA::Internal::*` anywhere in Studio | ✅ | — |
 | `STUDIO-02033` | Guard test: only `cna-studio-viewport` includes CNA headers | ✅ | — |
 | `STUDIO-02034` | Guard test: no direct Vulkan/D3D/OpenGL/Metal/WebGPU calls in Studio modules | ✅ | — |
-| `STUDIO-02035` | Guard test: every document mutation goes through a command | ⬜ | — |
+| `STUDIO-02035` | Guard test: every document mutation goes through a command | ✅ | — |
 | `STUDIO-02036` | Guard test: unknown plugin components survive a save/load round trip | ✅ | — |
-| `STUDIO-02037` | Guard test: authored files are byte-deterministic across repeated saves | ⬜ | — |
+| `STUDIO-02037` | Guard test: authored files are byte-deterministic across repeated saves | ✅ | — |
 | `STUDIO-02038` | Legacy renderer-name migration for projects written by the prototype | ✅ | `STUDIO-02030` |
 | `STUDIO-02039` | Guard test: no two public headers define the same type in one namespace | ✅ | — |
 | `STUDIO-02040` | Define the target-profile model: OS, platform, architecture, renderer, configuration, features | ✅ | `STUDIO-02020` |
@@ -158,7 +158,49 @@ start buries its own point when padded with things that are not the reason
 
 ### `STUDIO-02035` — Guard test: every document mutation goes through a command
 
-**Acceptance.** Mutating `SceneDocument` outside a `StudioCommand` is detectable and tested for
+**Acceptance.** Mutating a document outside a `StudioCommand` is detectable and tested for.
+
+**✅ Done, and the row's value was demonstrated before the guard existed.** D-06 is one sentence —
+*every document mutation is a command* — and it is what makes undo work at all. An editor where some
+edits undo and others quietly do not is worse than one where nothing does: the user learns that
+Ctrl+Z is unreliable and stops trusting it, which costs them the feature everywhere rather than in
+the one panel that broke it.
+
+It was held by review, and review missed one. `STUDIO-17002` found `StudioBuildPanel` writing target
+profiles straight into the open `Project` — no command, no undo entry, and, because nothing else
+marked the project changed, no save either. It had been there since the panel was written and
+nothing would have found it but somebody reading the file.
+
+**Two forms, because that defect used the second.** A mutating call directly off `getScene()`,
+`getProject()` or `getAssets()`; and one through a **non-const reference bound from one of them**,
+which is what the Build panel did (`Project& project = context_.getProject();` … then
+`project.setTargetProfiles(...)`). A mutator is a method whose name starts with `set`, `add`,
+`remove`, `clear`, `insert`, `erase`, `rename` or `move` *followed by a capital* — `setPosition`,
+not `settle`.
+
+**What it does not claim, stated rather than achieved by a pattern that happens not to match.** A
+panel building a **detached** value — a `StudioEntity` that exists only to be handed to a
+`CreateEntityCommand` — mutates nothing in the document, and `studio.entity.group` does exactly
+that. A `const` binding cannot mutate. Handing an accessor straight to a command constructor is the
+*compliant* path, and the Details panel legitimately holds a non-const `Project&` only to do that.
+And the scan covers the **consumers** — `src/shell-panels`, `src/ui-core`, `src/app`,
+`src/viewport`, `src/player` — not `src/context`, `src/scene`, `src/project`, `src/assets` or
+`src/core`, because a command that did not mutate a document would be a command that did nothing.
+
+One exemption: the UI benchmark's scene setup in `src/app/Main.cpp`, which pushes a thousand
+entities in to measure drawing. Not a gesture a user made and nothing a user could undo. It is
+checked to be live.
+
+**Verification.** `EveryDocumentMutationGoesThroughACommand` in `tests/ArchitectureGuardTests.cpp`.
+It carries its own **self-test**, because the failure mode a source-scan guard has is its own: a
+pattern that stops matching passes silently and for ever. So the detector is run against text rather
+than against the tree — it must find the direct form, must find the bound form, and must *not* find
+a const binding, a read, a detached value, an accessor handed to a command, or `settled()`.
+
+Checked by causing each, and the first break is the interesting one: reintroducing `STUDIO-17002`'s
+exact defect into `StudioBuildPanel` fails the guard by file, line and expression. A direct
+`getScene().setName(...)` in a second panel fails it too.
+
 
 ### `STUDIO-02036` — Guard test: unknown plugin components survive a save/load round trip
 
@@ -166,7 +208,65 @@ start buries its own point when padded with things that are not the reason
 
 ### `STUDIO-02037` — Guard test: authored files are byte-deterministic across repeated saves
 
-**Acceptance.** Saving the same document twice produces identical bytes; ordering is stable and no timestamps leak
+**Acceptance.** Saving the same document twice produces identical bytes; ordering is stable and no
+timestamps leak.
+
+**✅ Done, in two halves, because one of the three properties cannot be held behaviourally.**
+
+**Why it matters is the merge, not the diff.** These files live in git. A save that reordered its
+members or spelled a float differently would put a diff in front of a user who changed nothing, and
+a project whose every save is noisy is one where a *real* change cannot be found by review. Worse:
+two people who each opened and saved a scene produce two conflicting rewrites of a file neither of
+them edited.
+
+**The behavioural half, and the interesting part of it is the round trip.**
+`DeterministicOutputTests.cpp` writes each authored document, reads it back into a *fresh* document
+and writes it again. Writing twice from one in-memory document is the low bar — it passes even when
+object members sit in a hash map, because it is the same map. Loading into a fresh document is what
+asks whether the order came from the **file** or from the allocator, which is the bug that shows up
+as every member moving on a colleague's machine and not on yours. Done three times over, because a
+first round trip can normalise something and a second reveal that the normalisation was not
+idempotent. Scenes, prefabs, projects, materials, environment maps and `.cnaasset` sidecars — the
+sidecar through the real write-and-scan path, since its serialiser is private and the scan is what
+the editor actually does.
+
+`AMaterialsOverrideSetIsWrittenInAStableOrder` covers the one place where a *set* of keys decides
+what is written (`STUDIO-19005`): two materials with the same values must produce the same file
+whichever parameter the user touched first.
+
+**The structural half, and it is the one that could not be done behaviourally.** A writer that
+stamped the current time passes "write it twice and compare" whenever both writes land in the same
+second — which is every run on a fast machine. The case goes green and the user finds out when their
+colleague's checkout disagrees with theirs. Forcing a real second to pass would put a `sleep` in a
+suite whose whole doctrine is counted, not timed. **I tried the behavioural version first and it
+passed with the defect in place**, which is how this ended up a source scan.
+`NoDocumentWriterReadsTheClock` names each writer and refuses `std::time`, `system_clock::now`,
+`steady_clock::now`, `localtime`, `gmtime` and `strftime` in it.
+
+Two exemptions, each a time that is a *fact about something else* rather than a stamp: an asset
+sidecar's record of its **source file's** modification time, which is the same on every machine that
+has the same file and is what makes "has this asset changed?" answerable without hashing it; and a
+recovery snapshot's record of when it was taken, which is the whole point of a snapshot and is what
+the offer shows the user.
+
+**A finding from writing the guard itself.** The live-exemption check caught two of my own
+exemptions immediately: `RecentProjects.cpp` does not read a clock at all — its caller passes the
+time in — and `StudioRecovery.cpp` was being excused from a list it was not on. So the guard also
+asserts that **every exemption names a file the scan actually covers**, because an exemption for an
+unscanned file excuses nothing and hides that the file is unchecked. That is a new failure mode for
+exemption lists and it is now closed.
+
+**Verification.** `tests/DeterministicOutputTests.cpp` and `NoDocumentWriterReadsTheClock` in
+`tests/ArchitectureGuardTests.cpp`. Checked by causing each: a writer reading the clock (caught by
+name), and a loader that drops editor state, which makes the round trip lossy and fails the scene
+case twice — once for the reload and once for the third pass.
+
+**And the behavioural half found a defect in its own fixture, which is the right way round.** The
+first prefab it built had three parentless entities. A prefab is one reusable subtree by definition
+of the format, so the loader adopts the strays onto the root — and says so, which `STUDIO-31011`
+requires and which it does. The case was measuring the repair rather than the writer, and now starts
+from a document the format allows.
+
 
 ### `STUDIO-02042` — Authored numbers are written as the shortest text that reads back unchanged
 

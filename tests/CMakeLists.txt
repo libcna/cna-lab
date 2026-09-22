@@ -23,6 +23,7 @@ add_executable(cna-studio-tests
     StudioHostCapabilityTests.cpp
     StudioFileWriteTests.cpp
     PartialFileTests.cpp
+    DeterministicOutputTests.cpp
     StudioFontTests.cpp
     StudioHighDpiTests.cpp
     StudioTargetProfileTests.cpp

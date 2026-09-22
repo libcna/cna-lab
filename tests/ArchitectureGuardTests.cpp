@@ -1169,6 +1169,426 @@ CNA_STUDIO_TEST(EveryVersionedFormatRunsAMigrationChain)
     }
 }
 
+namespace
+{
+    /** @brief Whether the identifier ending at @p at is a mutating method name. */
+    [[nodiscard]] bool isMutatorName(std::string_view text, std::size_t at, std::size_t end)
+    {
+        // `set`, `add`, `remove`, `clear`, `insert`, `erase`, `rename` or `move`, followed by a
+        // capital -- `setPosition`, not `settle`. A prefix without the capital is a different word.
+        static const char* const kPrefixes[] = {"set",    "add",   "remove", "clear",
+                                                "insert", "erase", "rename", "move"};
+        const std::string_view name = text.substr(at, end - at);
+        for (const char* prefix : kPrefixes)
+        {
+            const std::size_t length = std::char_traits<char>::length(prefix);
+            if (name.size() > length && name.compare(0, length, prefix) == 0
+                && name[length] >= 'A' && name[length] <= 'Z')
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** @brief The identifier starting at @p from, or an empty view. */
+    [[nodiscard]] std::string_view identifierAt(std::string_view text, std::size_t from)
+    {
+        std::size_t end = from;
+        while (end < text.size()
+               && (std::isalnum(static_cast<unsigned char>(text[end])) != 0 || text[end] == '_'))
+        {
+            ++end;
+        }
+        return text.substr(from, end - from);
+    }
+
+    /** @brief Skips spaces, tabs and newlines forward from @p from. */
+    [[nodiscard]] std::size_t skipBlank(std::string_view text, std::size_t from)
+    {
+        while (from < text.size()
+               && (text[from] == ' ' || text[from] == '\t' || text[from] == '\n'
+                   || text[from] == '\r'))
+        {
+            ++from;
+        }
+        return from;
+    }
+
+    /** @brief One `receiver.mutator(` found in a file. */
+    struct DocumentMutation
+    {
+        std::string receiver;
+        std::string method;
+        int line = 0;
+    };
+
+    /**
+     * @brief Finds mutations of the *open document*, reached through the context's accessors.
+     *
+     * Two forms, because the defect that motivated this guard used the second. Directly:
+     * `context.getScene().addEntity(...)`. Or through a reference bound from an accessor:
+     * `Project& project = context_.getProject();` and then `project.setTargetProfiles(...)` — which
+     * is what `StudioBuildPanel` did for as long as it existed.
+     *
+     * A `const` binding is not tracked: it cannot mutate anything, and the Details panel
+     * legitimately holds a non-const `Project&` only to hand to a command constructor, which is
+     * the compliant path and is not a call on the reference.
+     */
+    [[nodiscard]] std::vector<DocumentMutation> findDocumentMutations(const std::string& text)
+    {
+        static const char* const kAccessors[] = {"getScene()", "getProject()", "getAssets()"};
+        static const char* const kDocumentTypes[] = {"SceneDocument", "Project", "AssetDatabase"};
+
+        std::vector<DocumentMutation> found;
+
+        // --- Directly off the accessor ----------------------------------------------------------
+        for (const char* accessor : kAccessors)
+        {
+            const std::size_t length = std::char_traits<char>::length(accessor);
+            for (std::size_t at = text.find(accessor); at != std::string::npos;
+                 at = text.find(accessor, at + 1))
+            {
+                std::size_t cursor = skipBlank(text, at + length);
+                if (cursor >= text.size() || text[cursor] != '.') { continue; }
+                cursor = skipBlank(text, cursor + 1);
+
+                const std::string_view method = identifierAt(text, cursor);
+                if (method.empty()) { continue; }
+                if (skipBlank(text, cursor + method.size()) >= text.size()
+                    || text[skipBlank(text, cursor + method.size())] != '(')
+                {
+                    continue;
+                }
+                if (!isMutatorName(text, cursor, cursor + method.size())) { continue; }
+
+                found.push_back(DocumentMutation{accessor, std::string{method},
+                                                 lineOf(text, at)});
+            }
+        }
+
+        // --- Through a non-const reference bound from one ----------------------------------------
+        std::vector<std::string> bound;
+        for (const char* type : kDocumentTypes)
+        {
+            const std::string pattern = std::string{type} + "&";
+            for (std::size_t at = text.find(pattern); at != std::string::npos;
+                 at = text.find(pattern, at + 1))
+            {
+                // `const Project&` cannot mutate, so it is not a binding this cares about.
+                if (at >= 6 && text.compare(at - 6, 6, "const ") == 0) { continue; }
+
+                const std::size_t nameAt = skipBlank(text, at + pattern.size());
+                const std::string_view name = identifierAt(text, nameAt);
+                if (name.empty()) { continue; }
+
+                const std::size_t equals = skipBlank(text, nameAt + name.size());
+                if (equals >= text.size() || text[equals] != '=') { continue; }
+
+                // Only when the initialiser is one of the accessors: a reference to a document a
+                // function was *given* is that function's business, and the caller is what this
+                // guard is about.
+                const std::size_t statementEnd = text.find(';', equals);
+                if (statementEnd == std::string::npos) { continue; }
+
+                const std::string initialiser = text.substr(equals, statementEnd - equals);
+                bool fromAccessor = false;
+                for (const char* accessor : kAccessors)
+                {
+                    if (initialiser.find(accessor) != std::string::npos) { fromAccessor = true; }
+                }
+                if (fromAccessor) { bound.push_back(std::string{name}); }
+            }
+        }
+
+        for (const std::string& name : bound)
+        {
+            for (std::size_t at = text.find(name); at != std::string::npos;
+                 at = text.find(name, at + 1))
+            {
+                // A whole identifier, not a prefix of a longer one.
+                if (at > 0
+                    && (std::isalnum(static_cast<unsigned char>(text[at - 1])) != 0
+                        || text[at - 1] == '_'))
+                {
+                    continue;
+                }
+                std::size_t cursor = at + name.size();
+                if (cursor < text.size()
+                    && (std::isalnum(static_cast<unsigned char>(text[cursor])) != 0
+                        || text[cursor] == '_'))
+                {
+                    continue;
+                }
+
+                cursor = skipBlank(text, cursor);
+                if (cursor >= text.size() || text[cursor] != '.') { continue; }
+                cursor = skipBlank(text, cursor + 1);
+
+                const std::string_view method = identifierAt(text, cursor);
+                if (method.empty()) { continue; }
+                const std::size_t afterName = skipBlank(text, cursor + method.size());
+                if (afterName >= text.size() || text[afterName] != '(') { continue; }
+                if (!isMutatorName(text, cursor, cursor + method.size())) { continue; }
+
+                found.push_back(DocumentMutation{name, std::string{method}, lineOf(text, at)});
+            }
+        }
+
+        return found;
+    }
+}
+
+/**
+ * @brief **Every document mutation goes through a command** (`plan.md` STUDIO-02035, decision D-06).
+ *
+ * The decision is one sentence — *every document mutation is a command* — and it is what makes undo
+ * work at all. An editor where some edits undo and others quietly do not is worse than one where
+ * nothing does: the user learns that Ctrl+Z is unreliable and stops trusting it, which costs them
+ * the feature everywhere rather than in the one panel that broke it.
+ *
+ * It was held by review until `STUDIO-17002`, which found `StudioBuildPanel` writing target
+ * profiles straight into the open `Project` — no command, no undo entry, and (because nothing else
+ * marked the project changed) no save either. It had been there since the panel was written, and
+ * nothing would have found it but somebody reading the file.
+ *
+ * So it is held structurally. Two forms, because the Build panel used the second: a mutating call
+ * directly off `getScene()`, `getProject()` or `getAssets()`, and one through a non-const reference
+ * bound from one of them.
+ *
+ * **What it does not claim.** A panel building a *detached* value — a `StudioEntity` that exists
+ * only to be handed to a `CreateEntityCommand` — mutates nothing in the document, and the guard
+ * does not look at it, correctly: `studio.entity.group` does exactly that. And it scans the
+ * consumers rather than the documents, so `src/context`, `src/scene`, `src/project`, `src/assets`
+ * and `src/core` are out of scope — those are where commands and documents live, and a command that
+ * did not mutate a document would be a command that did nothing.
+ */
+CNA_STUDIO_TEST(EveryDocumentMutationGoesThroughACommand)
+{
+    struct Exemption
+    {
+        const char* file;
+        const char* because;
+    };
+
+    static const Exemption kExemptions[] = {
+        {"src/app/Main.cpp",
+         "builds the UI benchmark's scenes -- a thousand entities pushed in to measure drawing, "
+         "not a gesture a user made, and nothing a user could undo"},
+    };
+
+    // The directories that *consume* documents. The ones holding commands and documents are not
+    // scanned, for the reason the doc comment gives.
+    static const char* const kConsumers[] = {"src/shell-panels", "src/ui-core", "src/app",
+                                             "src/viewport", "src/player"};
+
+    std::size_t scanned = 0;
+    std::size_t violations = 0;
+
+    for (const char* directory : kConsumers)
+    {
+        for (const SourceFile& file : collectSources({directory}))
+        {
+            ++scanned;
+
+            const bool exempt =
+                std::any_of(std::begin(kExemptions), std::end(kExemptions),
+                            [&file](const Exemption& allowed) {
+                                return file.relativePath.find(allowed.file) != std::string::npos;
+                            });
+            if (exempt) { continue; }
+
+            // Comments and strings stripped, so a sentence *about* the rule is not a breach of it.
+            const std::string code = stripCommentsAndStrings(file.text);
+            for (const DocumentMutation& mutation : findDocumentMutations(code))
+            {
+                ++violations;
+                CnaStudioTest::reportFailure(__FILE__, __LINE__,
+                    file.relativePath + ":" + std::to_string(mutation.line) + ": '"
+                    + mutation.receiver + "." + mutation.method
+                    + "' changes the open document directly. Every document mutation goes through "
+                      "a command (ANALYSIS.md D-06), or it does not undo -- and an editor whose "
+                      "Ctrl+Z works in some panels is one whose Ctrl+Z nobody trusts. Panels "
+                      "report; the binder builds the command.");
+            }
+        }
+    }
+
+    CNA_STUDIO_EXPECT_EQ(violations, std::size_t{0});
+
+    // The scan can see the tree. Every check above passes by finding nothing, so a scan pointed at
+    // an empty directory would make all of them vacuous.
+    CNA_STUDIO_EXPECT(scanned > 20);
+
+    // **And the detection still detects.** The failure mode this guards against is its own: a
+    // pattern that stops matching passes silently and for ever. Checked against text rather than
+    // against the tree, so it stays true whatever the tree contains.
+    {
+        const std::vector<DocumentMutation> direct =
+            findDocumentMutations("context.getScene().addEntity(std::move(entity));");
+        CNA_STUDIO_EXPECT_EQ(direct.size(), std::size_t{1});
+
+        const std::vector<DocumentMutation> bound = findDocumentMutations(
+            "Project& project = context_.getProject();\nproject.setTargetProfiles(profiles);");
+        CNA_STUDIO_EXPECT_EQ(bound.size(), std::size_t{1});
+
+        // And does not detect what it must not. A const binding cannot mutate; a read is not a
+        // mutation; a detached value is nobody's document; and handing an accessor to a command is
+        // the compliant path.
+        CNA_STUDIO_EXPECT(findDocumentMutations(
+            "const Project& project = context_.getProject();\nproject.getLayers();").empty());
+        CNA_STUDIO_EXPECT(findDocumentMutations("context.getScene().findEntity(id);").empty());
+        CNA_STUDIO_EXPECT(
+            findDocumentMutations("StudioEntity group;\ngroup.setParentId(shared);").empty());
+        CNA_STUDIO_EXPECT(findDocumentMutations(
+            "context.execute(std::make_unique<CreateEntityCommand>(context.getScene(), e));")
+                              .empty());
+
+        // `settle()` is not `setTitle()`: a prefix without the capital is a different word.
+        CNA_STUDIO_EXPECT(findDocumentMutations("context.getScene().settled();").empty());
+    }
+
+    // The exemptions are live, for the reason the atomic-write guard gives.
+    for (const Exemption& allowed : kExemptions)
+    {
+        std::ifstream stream{sourceRoot() / allowed.file, std::ios::binary};
+        const std::string contents{std::istreambuf_iterator<char>{stream},
+                                   std::istreambuf_iterator<char>{}};
+        if (findDocumentMutations(stripCommentsAndStrings(contents)).empty())
+        {
+            CnaStudioTest::reportFailure(__FILE__, __LINE__,
+                std::string{allowed.file} + " is exempted from D-06 because it " + allowed.because
+                + ", and it no longer changes a document directly at all. Remove the exemption.");
+        }
+    }
+}
+
+/**
+ * @brief **No authored document writer reads the clock** (`plan.md` STUDIO-02037).
+ *
+ * The behavioural half of byte-determinism is in `DeterministicOutputTests.cpp` and it cannot hold
+ * this one. A writer that stamped the current time passes "write it twice and compare" whenever
+ * both writes land in the same second, which is every run on a fast machine — the case goes green
+ * and the user finds out when their colleague's checkout disagrees with theirs. Forcing a real
+ * second to pass would put a `sleep` in a suite whose whole doctrine is counted, not timed.
+ *
+ * So the property is held structurally instead, and this is honest about being a source scan: the
+ * files that serialise a user's document must not mention the clock at all.
+ *
+ * **What is not a leak.** A time that is a *fact about something else* is data, not a stamp. An
+ * asset sidecar records its source file's modification time, which is the same on every machine
+ * that has the same file and is what makes "has this asset changed?" answerable without hashing it.
+ * A recovery snapshot records when it was taken, which is the whole point of a recovery snapshot
+ * and is shown to the user in the offer. Both are exempted by name, with their reason, and checked
+ * to be live.
+ */
+CNA_STUDIO_TEST(NoDocumentWriterReadsTheClock)
+{
+    struct Exemption
+    {
+        const char* file;
+        const char* because;
+    };
+
+    static const Exemption kExemptions[] = {
+        {"src/assets/AssetDatabase.cpp",
+         "records the *source file's* modification time in its sidecar -- a fact about the asset, "
+         "the same on every machine that has it, and what makes 'has this changed?' answerable "
+         "without hashing the file"},
+        {"src/project/RecoveryStore.cpp",
+         "records when a snapshot was taken, which is the whole point of a snapshot and is what "
+         "the recovery offer shows the user"},
+    };
+
+    // Every exemption names a file that is *in* the list below. One naming a file nothing scans is
+    // a licence for a rule that was never applied -- which is how an exemption list stops being
+    // read. Found by writing this guard with two of them.
+
+
+    // The files that serialise an authored document. Named one at a time rather than scanned for,
+    // because a guard that swept a directory would grow quiet the day somebody added a file to it.
+    static const char* const kWriters[] = {
+        "src/scene/SceneDocument.cpp",  "src/scene/PrefabDocument.cpp",
+        "src/scene/EntityJson.cpp",     "src/project/Project.cpp",
+        "src/assets/MaterialDocument.cpp", "src/assets/EnvironmentMapDocument.cpp",
+        "src/assets/AssetDatabase.cpp", "src/core/Json.cpp",
+        "src/core/PropertyValue.cpp",   "src/core/ComponentDescriptor.cpp",
+        "src/project/RecoveryStore.cpp",
+    };
+
+    for (const Exemption& allowed : kExemptions)
+    {
+        const bool scanned = std::any_of(std::begin(kWriters), std::end(kWriters),
+                                         [&allowed](const char* writer) {
+                                             return std::string_view{writer} == allowed.file;
+                                         });
+        if (!scanned)
+        {
+            CnaStudioTest::reportFailure(__FILE__, __LINE__,
+                std::string{allowed.file}
+                + " is exempted from the no-clock rule but is not one of the writers this scans, "
+                  "so the exemption excuses nothing and hides that the file is unchecked.");
+        }
+    }
+
+    static const char* const kClocks[] = {"std::time(", "system_clock::now", "steady_clock::now",
+                                          "std::localtime", "std::gmtime", "std::strftime"};
+
+    for (const char* writer : kWriters)
+    {
+        const bool exempt =
+            std::any_of(std::begin(kExemptions), std::end(kExemptions),
+                        [writer](const Exemption& allowed) {
+                            return std::string_view{writer} == allowed.file;
+                        });
+        if (exempt) { continue; }
+
+        std::ifstream stream{sourceRoot() / writer, std::ios::binary};
+        const std::string contents{std::istreambuf_iterator<char>{stream},
+                                   std::istreambuf_iterator<char>{}};
+
+        // Non-empty, so a renamed file does not turn this into a check of nothing.
+        CNA_STUDIO_EXPECT(!contents.empty());
+
+        const std::string code = stripCommentsAndStrings(contents);
+        for (const char* clock : kClocks)
+        {
+            if (code.find(clock) == std::string::npos) { continue; }
+
+            CnaStudioTest::reportFailure(__FILE__, __LINE__,
+                std::string{writer} + " reads the clock ('" + clock
+                + "'). A document that records when it was saved differs from itself on every "
+                  "save, so two people who each opened and saved it produce two conflicting "
+                  "rewrites of a file neither of them edited (plan.md STUDIO-02037). If the time "
+                  "is a fact about something else rather than a stamp, name this file in "
+                  "kExemptions with the reason.");
+        }
+    }
+
+    // The exemptions are live: one naming a file that no longer touches a clock is a licence
+    // nobody revoked.
+    for (const Exemption& allowed : kExemptions)
+    {
+        std::ifstream stream{sourceRoot() / allowed.file, std::ios::binary};
+        const std::string contents{std::istreambuf_iterator<char>{stream},
+                                   std::istreambuf_iterator<char>{}};
+        const std::string code = stripCommentsAndStrings(contents);
+
+        bool touchesClock = code.find("last_write_time") != std::string::npos;
+        for (const char* clock : kClocks)
+        {
+            if (code.find(clock) != std::string::npos) { touchesClock = true; }
+        }
+
+        if (!touchesClock)
+        {
+            CnaStudioTest::reportFailure(__FILE__, __LINE__,
+                std::string{allowed.file} + " is exempted from the no-clock rule because it "
+                + allowed.because + ", and it no longer reads a clock at all. Remove the exemption.");
+        }
+    }
+}
+
 CNA_STUDIO_TEST(NoStudioCodeHardCodesARendererName)
 {
     // `docs/ARCHITECTURE.md` §2.2 and the roadmap's rule against hard-coding today's renderer
