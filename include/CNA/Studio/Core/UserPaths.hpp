@@ -17,6 +17,16 @@
  * their home directory, a CI job with a scratch `HOME`, and a test that wants neither, all get what
  * they asked for. Every resolution ends somewhere: a user with no home directory still deserves an
  * autosave, so the last fallback is the temporary directory rather than nothing.
+ *
+ * **Nothing is migrated from the prototype's `cna-editor` directories, and Studio never reads
+ * them.** The prototype resolved these paths inline and wrote a layout under `$CONFIG/cna-editor`
+ * and recovery snapshots under `$STATE/cna-editor/recovery`; it was never released, never installed
+ * and never packaged, so nobody holds files in that location that a distributed build put there.
+ * Neither format is readable by today's code in any case. A migration would therefore be an
+ * unexercisable branch running on every start-up forever, for data belonging to nobody, which is
+ * worse than its absence. `docs/ADR-002-THE-FOUR-SILENT-QUESTIONS.md` Decision 2 (STUDIO-01015)
+ * states the reasoning and the manual remedy; `StudioUserDirectoriesAreStudioNamedAndMigrateNothing`
+ * holds this file to it.
  */
 
 #pragma once

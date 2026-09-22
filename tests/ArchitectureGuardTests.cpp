@@ -2456,3 +2456,125 @@ CNA_STUDIO_TEST(TheActiveRoadmapsDeliverableCountMatchesItsOwnHeadline)
             "deliverable table adds up to.");
     }
 }
+
+// ---------------------------------------------------------------------------------------------
+// `CORE-08` — the decisions recorded by `docs/ADR-002-THE-FOUR-SILENT-QUESTIONS.md`.
+//
+// Three of its four decisions are the kind that a later change could reverse without anyone
+// meaning to: a shim added "just in case", a migration written out of politeness, a historical
+// record quietly deleted because it is out of date. Each is therefore held by a test rather than
+// by the ADR alone, so that reversing one means editing a guard and reading why it exists.
+// ---------------------------------------------------------------------------------------------
+
+CNA_STUDIO_TEST(LegacyEditorIdentifiersSurviveOnlyInHistoricalRecords)
+{
+    // ADR-002 Decision 1 (STUDIO-01014): no `CNA::Editor` aliases, no `cna-editor` target aliases,
+    // no transitional headers -- because the repository installs no headers, exports no CMake
+    // package, publishes no release and carries no tag, so there is no consumer a shim is owed to.
+    //
+    // This fails on a shim being *added*, which is the only way the decision gets reversed by
+    // accident. Comments and strings are stripped first, so ADR-002's own reasoning quoted in a
+    // header comment -- `UserPaths.hpp` does exactly that -- is not a violation.
+    static const char* const kLegacyIdentifiers[] = {
+        "CNA::Editor", "CnaEditor", "CNA_EDITOR", "cna-editor",
+    };
+
+    for (const char* const identifier : kLegacyIdentifiers)
+    {
+        expectAbsent({"src", "include", "tests"}, identifier,
+            "The rename to CNA Studio is complete and no compatibility shim is provided: nothing "
+            "is installed, exported, released or tagged under the old name, so no consumer is owed "
+            "one. See docs/ADR-002-THE-FOUR-SILENT-QUESTIONS.md Decision 1 (STUDIO-01014). The "
+            "plugin C ABI is the one versioned surface, and kStudioPluginApiVersion already "
+            "carries it.");
+    }
+
+    // The source scan reads `.cpp`, `.hpp` and `.h` only, and a target alias would live in a build
+    // file. Scanned separately rather than left as the hole a `cna-editor` alias would fit through.
+    std::vector<std::filesystem::path> buildFiles{sourceRoot() / "CMakeLists.txt"};
+    for (const char* const subdirectory : {"tests", "cmake", "examples", "templates", "plugins"})
+    {
+        const std::filesystem::path directory = sourceRoot() / subdirectory;
+        std::error_code ec;
+        if (!std::filesystem::exists(directory, ec)) { continue; }
+        for (const auto& entry : std::filesystem::recursive_directory_iterator{directory, ec})
+        {
+            if (!entry.is_regular_file()) { continue; }
+            const std::string name = entry.path().filename().string();
+            if (name == "CMakeLists.txt" || entry.path().extension() == ".cmake")
+            {
+                buildFiles.push_back(entry.path());
+            }
+        }
+    }
+    CNA_STUDIO_EXPECT(buildFiles.size() > 1);
+
+    for (const std::filesystem::path& path : buildFiles)
+    {
+        const std::string text = readFileOrEmpty(path);
+        for (const char* const identifier : {"cna-editor", "CNA_EDITOR", "CnaEditor"})
+        {
+            if (text.find(identifier) == std::string::npos) { continue; }
+            CnaStudioTest::reportFailure(__FILE__, __LINE__,
+                std::filesystem::relative(path, sourceRoot()).generic_string() + " names '"
+                + identifier + "'. No target alias is kept for the prototype's name: see "
+                "docs/ADR-002-THE-FOUR-SILENT-QUESTIONS.md Decision 1.");
+        }
+    }
+}
+
+CNA_STUDIO_TEST(AnalysisMdIsRetiredAndArchitectureMdCarriesItsDecisions)
+{
+    // ADR-002 Decision 3 (STUDIO-01016): `ANALYSIS.md` is kept, unedited, behind a banner naming
+    // the document that supersedes it -- because roughly eighty source comments cite its decisions
+    // by id, and because a record revised to look current stops being evidence of anything.
+    //
+    // The two failure modes are deleting it (breaking every citation) and dropping the banner
+    // (leaving a reader to believe a stale CNA audit). Both fail here.
+    const std::string analysis = readFileOrEmpty(sourceRoot() / "ANALYSIS.md");
+    if (analysis.empty())
+    {
+        CnaStudioTest::reportFailure(__FILE__, __LINE__,
+            "ANALYSIS.md is missing. It is retained deliberately: source comments across the tree "
+            "cite its decisions as D-01 ... D-16, and deleting it makes every one of them dangle. "
+            "See docs/ADR-002-THE-FOUR-SILENT-QUESTIONS.md Decision 3 (STUDIO-01016).");
+        return;
+    }
+
+    // The banner is the first thing in the file, before its own title, so that nobody reads a
+    // stale claim about CNA before being told it is stale.
+    const std::string banner = analysis.substr(0, std::min<std::size_t>(analysis.size(), 1400));
+    CNA_STUDIO_EXPECT(banner.find("Historical document") != std::string::npos);
+    CNA_STUDIO_EXPECT(banner.find("docs/ARCHITECTURE.md") != std::string::npos);
+    if (banner.find("ADR-002") == std::string::npos)
+    {
+        CnaStudioTest::reportFailure(__FILE__, __LINE__,
+            "ANALYSIS.md's banner does not name the decision that retired it. Retirement is "
+            "recorded in docs/ADR-002-THE-FOUR-SILENT-QUESTIONS.md, not inferred from the banner.");
+    }
+
+    // Retiring it is only honest if the decisions that still hold were restated somewhere current.
+    const std::string architecture = readFileOrEmpty(sourceRoot() / "docs" / "ARCHITECTURE.md");
+    CNA_STUDIO_EXPECT(!architecture.empty());
+    for (const char* const marker : {"Decisions inherited from the prototype", "D-01", "D-16"})
+    {
+        if (architecture.find(marker) != std::string::npos) { continue; }
+        CnaStudioTest::reportFailure(__FILE__, __LINE__,
+            std::string{"docs/ARCHITECTURE.md no longer carries '"} + marker + "'. ANALYSIS.md is "
+            "retired on the promise that its still-valid decisions are restated in the current "
+            "architecture document; without that section the retirement loses them.");
+    }
+
+    // And the ADR itself has to exist, or the citations above point at nothing.
+    const std::string adr =
+        readFileOrEmpty(sourceRoot() / "docs" / "ADR-002-THE-FOUR-SILENT-QUESTIONS.md");
+    CNA_STUDIO_EXPECT(!adr.empty());
+    for (const char* const answered : {"STUDIO-01014", "STUDIO-01015", "STUDIO-01016",
+                                       "STUDIO-00015"})
+    {
+        if (adr.find(answered) != std::string::npos) { continue; }
+        CnaStudioTest::reportFailure(__FILE__, __LINE__,
+            std::string{"docs/ADR-002-THE-FOUR-SILENT-QUESTIONS.md does not answer "} + answered
+            + ". CORE-08 exists to leave none of the four silent.");
+    }
+}

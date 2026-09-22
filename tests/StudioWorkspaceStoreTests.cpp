@@ -17,6 +17,8 @@
 #include "CNA/Studio/UiCore/StudioShell.hpp"
 #include "CNA/Studio/UiCore/StudioWorkspaceStore.hpp"
 
+#include <cstdint>
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <string>
@@ -51,6 +53,9 @@ namespace
         {
             return (path_ / name).generic_string();
         }
+
+        /** @brief The directory itself, for a case that needs to plant siblings inside it. */
+        [[nodiscard]] const std::filesystem::path& path() const { return path_; }
 
     private:
         static int& counter() { static int value = 0; return value; }
@@ -217,4 +222,114 @@ CNA_STUDIO_TEST(ConfigurationAndStateAreKeptApart)
     const std::string layout = StudioWorkspaceStore::defaultPath();
     CNA_STUDIO_EXPECT(layout.rfind(config, 0) == 0);
     CNA_STUDIO_EXPECT(layout.find(StudioWorkspaceStore::kFileName) != std::string::npos);
+}
+
+namespace
+{
+    /**
+     * @brief Sets an environment variable for the length of a scope, then puts it back.
+     *
+     * The suite is one binary running its cases in order, so a case that changes the environment
+     * and leaves it changed silently reconfigures every case after it. This is the alternative to
+     * that, and it restores *absence* as well as a previous value -- an unset variable put back as
+     * an empty string is not the same thing to `getStudioConfigDirectory`.
+     */
+    class ScopedEnvironment
+    {
+    public:
+        ScopedEnvironment(const char* name, const std::string& value)
+            : name_{name}
+        {
+            const char* previous = std::getenv(name);
+            had_ = previous != nullptr;
+            if (had_) { previous_ = previous; }
+            assign(value.c_str());
+        }
+
+        ~ScopedEnvironment()
+        {
+            if (had_) { assign(previous_.c_str()); }
+            else { clear(); }
+        }
+
+        ScopedEnvironment(const ScopedEnvironment&) = delete;
+        ScopedEnvironment& operator=(const ScopedEnvironment&) = delete;
+
+    private:
+        void assign(const char* value)
+        {
+#ifdef _WIN32
+            _putenv_s(name_.c_str(), value);
+#else
+            ::setenv(name_.c_str(), value, 1);
+#endif
+        }
+
+        void clear()
+        {
+#ifdef _WIN32
+            _putenv_s(name_.c_str(), "");
+#else
+            ::unsetenv(name_.c_str());
+#endif
+        }
+
+        std::string name_;
+        std::string previous_;
+        bool had_ = false;
+    };
+}
+
+CNA_STUDIO_TEST(StudioUserDirectoriesAreStudioNamedAndMigrateNothing)
+{
+    // `docs/ADR-002-THE-FOUR-SILENT-QUESTIONS.md` Decision 2 (STUDIO-01015). The prototype wrote a
+    // layout to `$CONFIG/cna-editor` and recovery snapshots to `$STATE/cna-editor/recovery`. Studio
+    // writes neither and reads neither, and no migration is provided: the prototype was never
+    // released, and neither of its formats is readable by today's code, so the migration would be
+    // an unexercisable branch running on every start-up for data belonging to nobody.
+    //
+    // Two things are checked, because the decision has two halves that fail differently. The rename
+    // half fails by a path drifting back; the no-migration half fails by someone helpfully adding
+    // one, which would show up here as the planted directory being touched.
+    const ScopedDirectory home{"userpaths"};
+    const ScopedEnvironment config{"XDG_CONFIG_HOME", home.path().generic_string()};
+    const ScopedEnvironment state{"XDG_STATE_HOME", home.path().generic_string()};
+
+    // A prototype-era state directory, as a developer who ran `cna-lab` in 2026 would still have.
+    const std::filesystem::path legacy = home.path() / "cna-editor";
+    std::error_code code;
+    std::filesystem::create_directories(legacy / "recovery", code);
+    {
+        std::ofstream layout{legacy / "layout.json", std::ios::binary};
+        layout << "{\"prototype\":true}";
+    }
+    {
+        std::ofstream snapshot{legacy / "recovery" / "snapshot.json", std::ios::binary};
+        snapshot << "{\"prototype\":true}";
+    }
+
+    const std::string resolvedConfig = getStudioConfigDirectory();
+    const std::string resolvedState = getStudioStateDirectory();
+
+    // The rename half: both land under `cna-studio`, and neither is the prototype's directory.
+    CNA_STUDIO_EXPECT_EQ(resolvedConfig, (home.path() / "cna-studio").generic_string());
+    CNA_STUDIO_EXPECT_EQ(resolvedState, (home.path() / "cna-studio").generic_string());
+    CNA_STUDIO_EXPECT(resolvedConfig.find("cna-editor") == std::string::npos);
+    CNA_STUDIO_EXPECT(resolvedState.find("cna-editor") == std::string::npos);
+
+    // Resolving a path must not create one. Studio creates its directories when it writes, and a
+    // resolver with a side effect would leave an empty `cna-studio` on every machine that ran
+    // `--version`.
+    CNA_STUDIO_EXPECT(!std::filesystem::exists(home.path() / "cna-studio", code));
+
+    // The no-migration half: the prototype's files are exactly where they were, unmoved, uncopied
+    // and unread. A migration, however well meant, would have emptied or duplicated them.
+    CNA_STUDIO_EXPECT(std::filesystem::exists(legacy / "layout.json", code));
+    CNA_STUDIO_EXPECT(std::filesystem::exists(legacy / "recovery" / "snapshot.json", code));
+    CNA_STUDIO_EXPECT_EQ(std::filesystem::file_size(legacy / "layout.json", code),
+                         std::uintmax_t{18});
+
+    // And the layout Studio would write is under the Studio directory, not beside the prototype's.
+    const std::string layoutPath = StudioWorkspaceStore::defaultPath();
+    CNA_STUDIO_EXPECT(layoutPath.rfind(resolvedConfig, 0) == 0);
 }

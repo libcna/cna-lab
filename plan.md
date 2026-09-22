@@ -75,7 +75,7 @@ legs.
 
 ## The active roadmap
 
-**0 of 11 active deliverables complete.**
+**1 of 11 active deliverables complete.**
 
 Estimates are Opus 5 engineering hours at this repository's working standard — implementation, the
 test its acceptance names, and the documentation it changes.
@@ -89,7 +89,7 @@ test its acceptance names, and the documentation it changes.
 | `CORE-05` | Find an asset, find an entity | ⬜ | 3 | `STUDIO-35042`, `STUDIO-35061` |
 | `CORE-06` | Paint order separable from input order | ⬜ | 4 | `STUDIO-03041` |
 | `CORE-07` | Resize without artefacts | ⬜ | 2 | `STUDIO-04011` |
-| `CORE-08` | Answer the four questions the plan left silent | ⬜ | 2 | `STUDIO-00015`, `STUDIO-01014`, `STUDIO-01015`, `STUDIO-01016` |
+| `CORE-08` | Answer the four questions the plan left silent | ✅ | 2 | `STUDIO-00015`, `STUDIO-01014`, `STUDIO-01015`, `STUDIO-01016` |
 | `CORE-09` | Documentation to use and maintain the product | ⬜ | 5 | `STUDIO-33001`, `STUDIO-33002`, `STUDIO-33003`, `STUDIO-29006` |
 | `CORE-10` | A regression baseline for the Core workflow | ⬜ | 5 | `STUDIO-33020`, `STUDIO-21009`, `STUDIO-35010` |
 | `CORE-11` | Declare Core complete and enter maintenance mode | ⬜ | 2 | `STUDIO-34001` |
@@ -216,6 +216,16 @@ now — which for at least two of them is *no work is needed, and here is why*.
 - `ANALYSIS.md`'s retirement in favour of `docs/ARCHITECTURE.md` (`STUDIO-01016`);
 - the start-up and frame-cost baseline, which the benchmark suite has since overtaken — record the
   numbers it already produces, or record that it supersedes the row (`STUDIO-00015`).
+
+**Done.** All four are answered in [`docs/ADR-002-THE-FOUR-SILENT-QUESTIONS.md`](docs/ADR-002-THE-FOUR-SILENT-QUESTIONS.md),
+and three of the four are held there by a test rather than by prose alone:
+
+| Question | Answer | Evidence |
+|----------|--------|----------|
+| `STUDIO-01014` | No shims. Nothing is installed, exported, released or tagged under the old name, so no consumer is owed one; the plugin C ABI is the one versioned surface and already has `kStudioPluginApiVersion` | `LegacyEditorIdentifiersSurviveOnlyInHistoricalRecords` |
+| `STUDIO-01015` | `cna-studio` stays, and nothing is migrated: the prototype was never distributed and neither of its formats is readable, so the migration would be an unexercisable branch running on every start-up | `StudioUserDirectoriesAreStudioNamedAndMigrateNothing` |
+| `STUDIO-01016` | `ANALYSIS.md` is kept unedited behind its banner — ~80 source comments cite its decisions by id — and `docs/ARCHITECTURE.md` §11 restates the ones that still hold | `AnalysisMdIsRetiredAndArchitectureMdCarriesItsDecisions` |
+| `STUDIO-00015` | Superseded. Headless frames are free — 120 extra cost 0 ms — so a headless frame-cost baseline measures nothing; `--ui-benchmark` gates what the row was reaching for. Start-up figures recorded once: 152 ms Release, 513 ms Debug | ADR-002 Decision 4; `StudioUiBenchmarkTests.cpp` |
 
 ### `CORE-09` — Documentation to use and maintain the product
 

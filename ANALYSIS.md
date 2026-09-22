@@ -15,6 +15,12 @@
 > This document is **not** edited to look current. A record that is quietly revised stops being a
 > record of what was actually believed and verified at the time, which is the only thing it is
 > still good for.
+>
+> **Retirement is a recorded decision, not neglect.**
+> [`docs/ADR-002-THE-FOUR-SILENT-QUESTIONS.md`](docs/ADR-002-THE-FOUR-SILENT-QUESTIONS.md)
+> Decision 3 (`STUDIO-01016`) says why this file is kept rather than deleted — around eighty source
+> comments cite its decisions by id — and why it is kept unedited rather than refreshed.
+> `docs/ARCHITECTURE.md` §11 restates which of `D-01` … `D-16` still hold.
 
 # CNA Studio — Architecture Analysis
 

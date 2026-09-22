@@ -1,10 +1,12 @@
 # CNA Studio — Architecture
 
 > This document supersedes `ANALYSIS.md` for anything concerning CNA's current shape.
-> `ANALYSIS.md` is retained as the historical record of the CNA Editor prototype: its fifteen
-> decisions explain why the imported code looks the way it does, and most of them still hold. But
-> it audited an **older CNA revision** and its renderer table, backend counts and capability claims
-> are stale. Where the two disagree, this document is correct.
+> `ANALYSIS.md` is retained as the historical record of the CNA Editor prototype: its sixteen
+> decisions explain why the imported code looks the way it does, and most of them still hold (§11
+> restates them). But it audited an **older CNA revision** and its renderer table, backend counts
+> and capability claims are stale. Where the two disagree, this document is correct. That retirement
+> is a recorded decision, not an accident:
+> [`ADR-002-THE-FOUR-SILENT-QUESTIONS.md`](ADR-002-THE-FOUR-SILENT-QUESTIONS.md) Decision 3.
 
 **Audit basis:** `libcna/cna` branch `next` at `e05b3d0f026e0926741f89459daf02579240399d`,
 `libcna/sharp-runtime` branch `next` at `0c82d9b888bdf5f7d5663c77942f339bcb2a7445`, both read on
@@ -705,3 +707,32 @@ the failure, recover, and hand off to an external IDE.
   `EveryUnfinishedTaskIsClassifiedExactlyOnceByTheScopeReduction` in `ArchitectureGuardTests.cpp`
   fails if an unfinished task stops being classified, is classified twice, or names nothing. It is
   listed in §10's table.
+
+---
+
+## 16. Compatibility, user files and baselines
+
+Three things a maintainer reaches for that are decided rather than open. Each is stated fully in
+[`ADR-002-THE-FOUR-SILENT-QUESTIONS.md`](ADR-002-THE-FOUR-SILENT-QUESTIONS.md), which `plan.md`
+`CORE-08` exists to have written; this section is the pointer from where the question gets asked.
+
+**There is no compatibility shim for the renamed public API, and none is owed.** No `CNA::Editor`
+alias, no `cna-editor` target alias, no transitional header. The repository installs no headers,
+exports no CMake package, publishes no release and carries no tag, so no consumer can be depending
+on the old names. The one surface that has ever had a version boundary is the plugin C ABI, and it
+already has one: `kStudioPluginApiVersion`, matched exactly before a plugin is loaded.
+`LegacyEditorIdentifiersSurviveOnlyInHistoricalRecords` fails if a legacy identifier reappears.
+
+**User files live under `cna-studio`, and nothing is migrated from the prototype's `cna-editor`
+directories.** `getStudioConfigDirectory()` and `getStudioStateDirectory()` resolve both from the
+environment (§ `CNA/Studio/Core/UserPaths.hpp`). The prototype's layout and recovery formats are
+unreadable by today's code and the prototype was never distributed, so a migration would be an
+unexercisable branch running on every start-up for data belonging to nobody.
+`StudioUserDirectoriesAreStudioNamedAndMigrateNothing` holds both properties.
+
+**Performance is gated by `--ui-benchmark`, not by a recorded baseline.** It measures what a frame
+of UI costs to describe, per panel scenario, in microseconds against an explicit interactive budget,
+and its cost model is held to hand-computed figures by `StudioUiBenchmarkTests.cpp`. Headless frames
+are free — the null UI describes no geometry — so a headless frame-cost baseline measures nothing,
+which is why the archived row asking for one is superseded rather than answered. One-time start-up
+figures, and how to reproduce them, are in ADR-002 Decision 4.
