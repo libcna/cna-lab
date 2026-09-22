@@ -134,6 +134,32 @@ namespace CNA::Studio
     [[nodiscard]] std::string_view studioCursorName(StudioCursor cursor);
 
     /**
+     * @brief One widget the input pass routed, and the rectangle it was routed against.
+     *
+     * `plan.md` CORE-06. The rectangle is the part that is new: the router hit-tests one and keeps
+     * nothing, so before this there was no way to ask a frame *what is interactive here* without
+     * naming the widgets in advance -- and a guard that names widgets defends the four places
+     * somebody already got wrong rather than the shape that produced them.
+     */
+    struct StudioRecordedInteraction
+    {
+        WidgetId id;
+        UiRect bounds;
+        StudioInteraction interaction;
+
+        /**
+         * @brief Vertices emitted before this widget was described, in the draw pass.
+         *
+         * A monotonic mark, not a count of the widget's own geometry. It answers the one question
+         * the guard needs -- *was anything of mine drawn after that surface was described?* -- by
+         * comparing marks and then looking for a vertex past one of them inside these bounds.
+         *
+         * Zero until the draw pass reaches the widget.
+         */
+        std::size_t describedAtVertex = 0;
+    };
+
+    /**
      * @brief One Studio UI frame: the services a widget needs, sequenced.
      *
      * Owns the theme, the id stack, the retained state store, the input router and the draw list,
@@ -250,6 +276,69 @@ namespace CNA::Studio
          */
         [[nodiscard]] StudioTextMetrics measureText(const StudioFontStyle& style,
                                                     std::string_view utf8) const;
+
+        // --- Raised paint ------------------------------------------------------------------------
+        //
+        // `plan.md` CORE-06 (`STUDIO-03041`). A widget that has to win a click against the surface
+        // it sits on must be *described* before that surface, because the router gives a press to
+        // the first widget described under the pointer. The draw list is emitted in call order, so
+        // being described first also means being painted first -- and therefore painted *under*
+        // the very surface it had to out-rank.
+        //
+        // That has produced four defects. A disclosure triangle that vanished on alternate rows
+        // only, because the alternating fill covered it. The Outliner's visibility toggle, which
+        // was never once on screen while two unit tests passed and the tooltip appeared. The
+        // Details panel's asset inspector, written correctly only because the first two had made
+        // it a thing to check. And then both of the first two again, as *clicks*, when the fix for
+        // the drawing was applied to the description as well and moved them below the row.
+        //
+        // The two halves are separated here rather than by each author splitting their widget by
+        // hand, which is what the fourth defect was: the hand-split is a rule, and a rule in a plan
+        // file is not a guard.
+
+        /** @brief What a raised paint draws. Takes the frame it was queued on. */
+        using StudioRaisedPaintBody = std::function<void(StudioFrame&)>;
+
+        /**
+         * @brief Paints @p body over the surface it was written above, at the end of the scope.
+         *
+         * The widget still *interacts* where it stands, in the order the router needs. Only the
+         * drawing is raised: on the draw pass @p body is queued and run by the next
+         * @ref flushRaisedPaint, so its geometry is emitted after the surface's. Outside the draw
+         * pass it is dropped, because there is no geometry to order.
+         *
+         * **It is a paint, not a description.** Interacting inside @p body would put the widget
+         * *after* the surface in the input pass too -- the mistake that made the disclosure
+         * triangle and the visibility toggle unclickable in every tree in the application -- and
+         * emitting geometry outside the draw pass is a phase violation. Keep the `interact` call
+         * outside and capture what it returned.
+         *
+         * @param body What to paint. Ignored when empty.
+         */
+        void paintOverSurface(StudioRaisedPaintBody body);
+
+        /**
+         * @brief Runs the raised paints queued since the matching @ref beginRaisedPaint.
+         *
+         * A no-op outside the draw pass, where nothing was queued. Prefer the RAII
+         * @ref StudioRaisedPaintScope over calling this and its partner by hand.
+         */
+        void flushRaisedPaint();
+
+        /**
+         * @brief Opens a scope whose raised paints flush at its end.
+         *
+         * Scopes nest: a flush runs only what was queued since its own @ref beginRaisedPaint, so a
+         * row inside a panel inside a window each paint over their own surface and not over each
+         * other's later rows.
+         */
+        void beginRaisedPaint();
+
+        /** @brief How many raised paints are waiting in the innermost scope. Diagnostics. */
+        [[nodiscard]] std::size_t raisedPaintCount() const { return raisedPaints_.size(); }
+
+        /** @brief Whether the frame is running a raised paint body right now. */
+        [[nodiscard]] bool isInRaisedPaint() const { return inRaisedPaint_; }
 
         // --- Deferred popups -------------------------------------------------------------------
         //
@@ -539,6 +628,18 @@ namespace CNA::Studio
         /** @brief Number of widgets that interacted this frame. */
         [[nodiscard]] std::size_t interactionCount() const { return interactions_.size(); }
 
+        /**
+         * @brief Every widget the input pass routed, with the rectangle it was routed against.
+         *
+         * `plan.md` CORE-06. The list exists so a guard can ask about *every* interactive
+         * rectangle in a frame without knowing which widgets a panel builds -- which is the
+         * difference between a check that fails on the shape and one that fails on a name.
+         */
+        [[nodiscard]] const std::vector<StudioRecordedInteraction>& recordedInteractions() const
+        {
+            return interactions_;
+        }
+
         // --- Clipping and layers -----------------------------------------------------------------
 
         /**
@@ -692,7 +793,16 @@ namespace CNA::Studio
          * lookups are a linear scan over contiguous memory, and the ordering is itself useful —
          * it is description order, which is tab order.
          */
-        std::vector<std::pair<WidgetId, StudioInteraction>> interactions_;
+        /**
+         * @brief What the input pass decided about each widget, and where that widget was.
+         *
+         * The bounds are carried for `plan.md` CORE-06's structural guard: it has to ask, of every
+         * interactive rectangle in a frame and without knowing which widgets exist, whether
+         * anything opaque was painted over it. There is nowhere else in the frame that knows the
+         * answer -- the draw list has geometry and no idea which widget owns it, and the router
+         * hit-tests a rectangle without keeping it.
+         */
+        std::vector<StudioRecordedInteraction> interactions_;
 
         const StudioFontSet* fonts_ = nullptr;
         StudioFontAtlas* atlas_ = nullptr;
@@ -708,6 +818,12 @@ namespace CNA::Studio
         WidgetId dropUnder_;
         /** @brief A gesture abandoned while held; no drag starts again until the button is up. */
         bool dragSuppressed_ = false;
+
+        /** @brief Raised paints queued in the draw pass, innermost scope last. CORE-06. */
+        std::vector<StudioRaisedPaintBody> raisedPaints_;
+        /** @brief Where each open raised-paint scope started in @ref raisedPaints_. */
+        std::vector<std::size_t> raisedPaintScopes_;
+        bool inRaisedPaint_ = false;
 
         WidgetId openPopup_;
         std::vector<StudioPopupBody> popups_;
@@ -725,6 +841,39 @@ namespace CNA::Studio
         std::function<void(const std::string&)> writeClipboard_;
         std::string localClipboard_;
         std::vector<std::string> violations_;
+    };
+
+    /**
+     * @brief Opens a raised-paint scope for as long as it is in scope.
+     *
+     * `plan.md` CORE-06. The surface goes inside the scope; every widget that has to sit on top of
+     * it asks for @ref StudioFrame::paintOverSurface. The scope's end is where the raised paints
+     * land, which is why a row opens one rather than a panel: raised paints that escaped their row
+     * would be painted over the rows drawn after it.
+     *
+     * ```
+     * {
+     *     StudioRaisedPaintScope raised{frame};
+     *     frame.paintOverSurface([=](StudioFrame& f) { studioDisclosureTriangle(f, id, box); });
+     *     studioRowBackground(frame, rowBounds);   // described after, painted first
+     * }   // the triangle is painted here, over the fill it had to out-rank for the click
+     * ```
+     */
+    class StudioRaisedPaintScope
+    {
+    public:
+        explicit StudioRaisedPaintScope(StudioFrame& frame) : frame_{frame}
+        {
+            frame_.beginRaisedPaint();
+        }
+
+        ~StudioRaisedPaintScope() { frame_.flushRaisedPaint(); }
+
+        StudioRaisedPaintScope(const StudioRaisedPaintScope&) = delete;
+        StudioRaisedPaintScope& operator=(const StudioRaisedPaintScope&) = delete;
+
+    private:
+        StudioFrame& frame_;
     };
 
     /**

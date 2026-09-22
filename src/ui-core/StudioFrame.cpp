@@ -124,6 +124,55 @@ namespace CNA::Studio
         if (body) { modals_.push_back(std::move(body)); }
     }
 
+    void StudioFrame::paintOverSurface(StudioRaisedPaintBody body)
+    {
+        if (!body) { return; }
+
+        // Nothing to raise outside the draw pass, and running the body there would be actively
+        // wrong twice over: geometry emitted in the input pass is a phase violation, and *input*
+        // must stay in description order. The router gives a press to the first widget described
+        // under the pointer, so deferring the interaction is exactly the mistake that moved the
+        // disclosure triangle and the visibility toggle below their rows and made neither
+        // clickable in any tree in the application (`plan.md` STUDIO-13005).
+        //
+        // That is why this raises the *paint* and nothing else: the widget interacts where it
+        // stands, in the order the router needs, and hands over only the drawing.
+        if (phase_ != StudioFramePhase::Draw) { return; }
+
+        raisedPaints_.push_back(std::move(body));
+    }
+
+    void StudioFrame::beginRaisedPaint()
+    {
+        raisedPaintScopes_.push_back(raisedPaints_.size());
+    }
+
+    void StudioFrame::flushRaisedPaint()
+    {
+        if (raisedPaintScopes_.empty())
+        {
+            require(false, "flushRaisedPaint without beginRaisedPaint");
+            return;
+        }
+
+        const std::size_t start = raisedPaintScopes_.back();
+        raisedPaintScopes_.pop_back();
+        if (start >= raisedPaints_.size()) { return; }
+
+        // Moved out before running, so a body that queues another one is queued into the *enclosing*
+        // scope rather than into the vector being iterated. Without that, a widget that raises a
+        // widget invalidates the iteration it is running inside.
+        std::vector<StudioRaisedPaintBody> running{
+            std::make_move_iterator(raisedPaints_.begin() + static_cast<std::ptrdiff_t>(start)),
+            std::make_move_iterator(raisedPaints_.end())};
+        raisedPaints_.resize(start);
+
+        const bool wasInside = inRaisedPaint_;
+        inRaisedPaint_ = true;
+        for (const StudioRaisedPaintBody& body : running) { body(*this); }
+        inRaisedPaint_ = wasInside;
+    }
+
     void StudioFrame::deferPopup(StudioPopupBody body)
     {
         if (body) { popups_.push_back(std::move(body)); }
@@ -325,6 +374,21 @@ namespace CNA::Studio
     {
         enter(StudioFramePhase::Retain, StudioFramePhase::Draw);
 
+        // A scope opened and never closed, or a raised paint queued outside any scope, is a widget
+        // that silently does not draw -- which is the exact failure CORE-06 exists to remove, so it
+        // is counted rather than tidied away. `StudioRaisedPaintScope` makes both unreachable; this
+        // catches the caller who used the two functions by hand.
+        if (!raisedPaintScopes_.empty())
+        {
+            require(false, "a raised-paint scope was never flushed");
+            raisedPaintScopes_.clear();
+        }
+        if (!raisedPaints_.empty())
+        {
+            require(false, "a raised paint was queued outside any scope");
+            raisedPaints_.clear();
+        }
+
         // Emitted here rather than at the start of the draw pass, and the difference matters: a
         // glyph can be rasterised at any point in the frame -- by a measurement during layout, or
         // by a widget that draws text nothing measured -- and the renderer applies every texture
@@ -414,7 +478,7 @@ namespace CNA::Studio
         if (phase_ == StudioFramePhase::Input)
         {
             const StudioInteraction result = router_.interact(id, bounds, enabled);
-            interactions_.emplace_back(id, result);
+            interactions_.push_back(StudioRecordedInteraction{id, bounds, result});
             return result;
         }
 
@@ -424,7 +488,16 @@ namespace CNA::Studio
             // disagree whenever anything the router owns had moved on -- and a widget that routes
             // a click in one pass and draws itself unpressed in the other is the bug the two-pass
             // design exists to remove, not one to reintroduce at the last step.
-            return recordedInteraction(id);
+            //
+            // The draw-order mark is taken here, where the widget is described in the pass that
+            // emits geometry. It is what CORE-06's structural guard compares: a widget whose own
+            // geometry all predates the mark of a larger widget described after it is one nothing
+            // repaints, which is the shape that buried the triangle and the eye.
+            const auto found = std::find_if(interactions_.begin(), interactions_.end(),
+                                            [id](const auto& entry) { return entry.id == id; });
+            if (found == interactions_.end()) { return StudioInteraction{}; }
+            found->describedAtVertex = draw_.vertexCount();
+            return found->interaction;
         }
 
         require(false, "interact");
@@ -436,8 +509,8 @@ namespace CNA::Studio
     StudioInteraction StudioFrame::recordedInteraction(WidgetId id) const
     {
         const auto found = std::find_if(interactions_.begin(), interactions_.end(),
-                                        [id](const auto& entry) { return entry.first == id; });
-        if (found != interactions_.end()) { return found->second; }
+                                        [id](const auto& entry) { return entry.id == id; });
+        if (found != interactions_.end()) { return found->interaction; }
         return StudioInteraction{};
     }
 

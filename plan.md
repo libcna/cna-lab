@@ -75,7 +75,7 @@ legs.
 
 ## The active roadmap
 
-**2 of 11 active deliverables complete.**
+**3 of 11 active deliverables complete.**
 
 Estimates are Opus 5 engineering hours at this repository's working standard — implementation, the
 test its acceptance names, and the documentation it changes.
@@ -87,7 +87,7 @@ test its acceptance names, and the documentation it changes.
 | `CORE-03` | The viewport shows what is selected | ⬜ | 2 | `STUDIO-35053` |
 | `CORE-04` | The Details panel reads as a property grid | ⬜ | 2 | `STUDIO-35033` |
 | `CORE-05` | Find an asset, find an entity | ⬜ | 3 | `STUDIO-35042`, `STUDIO-35061` |
-| `CORE-06` | Paint order separable from input order | ⬜ | 4 | `STUDIO-03041` |
+| `CORE-06` | Paint order separable from input order | ✅ | 4 | `STUDIO-03041` |
 | `CORE-07` | Resize without artefacts | ⬜ | 2 | `STUDIO-04011` |
 | `CORE-08` | Answer the four questions the plan left silent | ✅ | 2 | `STUDIO-00015`, `STUDIO-01014`, `STUDIO-01015`, `STUDIO-01016` |
 | `CORE-09` | Documentation to use and maintain the product | ⬜ | 5 | `STUDIO-33001`, `STUDIO-33002`, `STUDIO-33003`, `STUDIO-29006` |
@@ -205,6 +205,30 @@ fails on the shape rather than on a name.
 **Capped at 4 hours.** This is the highest-risk item here. If it exceeds the cap, the correct
 outcome is to stop, keep the existing per-widget guards, and move the row to the conditional
 backlog — not to spend more.
+
+**Done, inside the cap.** It turned out to be a small facility rather than a redesign, for the
+reason the archived row guessed at: the frame already runs input and drawing as two separate
+passes, and already defers popup bodies. `StudioFrame::paintOverSurface` raises a widget's
+*painting* to the end of a `StudioRaisedPaintScope`, leaving its `interact` call where the router
+needs it. The author writes the widget once. Nothing about the widget changes.
+
+The tree row — where all four defects happened — now describes its disclosure triangle and its
+trailing toggles in one piece each, instead of interacting at the top of the row and redrawing a
+hundred and fifty lines below from fields carried down by hand. That hand-split *was* the fourth
+defect: the rule was written down and the commit that wrote it broke it.
+
+| Acceptance | Evidence |
+|------------|----------|
+| Described before a surface, drawn after it, without splitting the code | `StudioTreeView.cpp`: the triangle and each toggle are one block; the `isDrawPass()` re-draw block is gone |
+| One structural guard, failing on the shape rather than on a name | `NothingInteractiveIsPaintedOverByASurfaceDescribedAfterIt` in `StudioVisualQualityTests.cpp` — it asks the frame for every rectangle it routed input to and knows no widget names |
+| The per-widget guard it replaces | `ARowsTrailingToggleIsDrawnOverTheRowFillRatherThanUnderIt` deleted; reverting either widget to the old shape makes the structural guard name it by rectangle, which is how the deletion was checked |
+| An unbalanced scope is not silent | `StudioFrame::endFrame` counts it as a phase violation |
+
+**Two existing guards were kept, not replaced.** `TheDisclosureTriangleAndTheRowButtonsTakeAPressAheadOfTheRow`
+asserts *input* precedence, which is the other half of the trap and not what the new guard checks;
+and `TheAssetInspectorsHeadingIsActuallyVisibleAndNotPaintedOver` rasterises to prove that *text* —
+which routes no input and so is invisible to the new guard — is on screen. Deleting either would
+have removed working coverage without a replacement.
 
 ### `CORE-07` — Resize without artefacts
 

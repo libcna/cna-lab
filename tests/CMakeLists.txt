@@ -187,7 +187,14 @@ add_test(NAME CnaStudioTests COMMAND cna-studio-tests)
 # 120s stopped being enough the moment the suite's own growth met ASan's overhead -- 1424 cases
 # ran clean at 130s under it, over the old ceiling for no reason a hang would produce. Loosened
 # rather than left to flake on the next few tasks that add their own tests.
-set_tests_properties(CnaStudioTests PROPERTIES TIMEOUT 300)
+#
+# And loosened again for the same reason, at 1800 cases: the sanitizer leg measured 313s on the
+# development host -- clean, every case passing -- against a 300s ceiling. A timeout that trips on
+# a suite that passed is a red leg that says nothing, and it trips first on the slowest machine
+# rather than on the one with the defect. The point of this number is to catch a *hang*, which is
+# unbounded and which 900s separates from slowness just as well as 300s did when the suite was a
+# quarter of the size.
+set_tests_properties(CnaStudioTests PROPERTIES TIMEOUT 900)
 
 # A smoke test over the real binary: parses arguments, opens nothing, draws one headless frame.
 # This is what catches a linker or start-up regression that the unit tests cannot see.

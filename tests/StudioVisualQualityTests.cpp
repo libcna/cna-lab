@@ -31,7 +31,9 @@
 
 #include <algorithm>
 #include <cmath>
+#include <functional>
 #include <set>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -320,92 +322,223 @@ CNA_STUDIO_TEST(EveryPrimitiveTheDrawListEmitsNamesADrawableTexture)
 }
 
 // ------------------------------------------------------------------------------------------------
-// Paint order: a row's own background is drawn over everything described before it (STUDIO-35063)
+// Paint order used to be guarded one widget at a time (STUDIO-35063)
+//
+// `ARowsTrailingToggleIsDrawnOverTheRowFillRatherThanUnderIt` stood here. It pressed nothing and
+// named one widget: it read the vertices in the rightmost strip of a tree row and required the last
+// thing drawn there not to be the row's own selection fill. It was right, and it was the third
+// individual fix for one shape -- so the next widget on a row started from the same trap.
+//
+// `NothingInteractiveIsPaintedOverByASurfaceDescribedAfterIt`, at the end of this file, is that
+// claim made structural (`plan.md` CORE-06). It knows no widget names: it asks the frame for every
+// rectangle it routed input to and fails on any that a later, larger interactive surface paints
+// over. Reverting the toggle to the old in-place drawing makes it name all three toggles in the
+// fixture, by rectangle, which is how this deletion was checked rather than assumed.
 // ------------------------------------------------------------------------------------------------
 
-CNA_STUDIO_TEST(ARowsTrailingToggleIsDrawnOverTheRowFillRatherThanUnderIt)
+namespace
 {
-    // The third time this exact defect has appeared, and the reason it gets a test rather than
-    // another fix: a tree row is described as *one widget covering the whole line*, so anything
-    // described before the row's background -- because it has to win the click against it -- is
-    // drawn before that background too, and is then painted over by it.
+    /**
+     * @brief Reports every widget a frame buried under a surface described after it.
+     *
+     * The shape, stated without naming a widget: `StudioInputRouter` gives a press to the *first*
+     * widget described under the pointer, so a control that must win a click against the surface
+     * it sits on has to be described before that surface. The draw list is emitted in call order,
+     * so being described first also means being painted first -- under the very surface it had to
+     * out-rank. Four defects have come out of that shape, each fixed individually.
+     *
+     * So: for every pair of interactive rectangles where the outer one contains the inner one and
+     * was described *later*, something of the inner one must be drawn after the outer one was
+     * described. If nothing was, the inner widget is whatever the outer one painted -- which for a
+     * tree row is an opaque fill across the whole line.
+     *
+     * @param frame A frame that has completed both passes.
+     * @return One sentence per buried widget, naming the rectangle rather than the widget, because
+     *         a guard that knows the widget's name is the kind this replaces.
+     */
+    std::vector<std::string> buriedWidgets(const StudioFrame& frame)
+    {
+        std::vector<std::string> problems;
+
+        const std::vector<StudioRecordedInteraction>& widgets = frame.recordedInteractions();
+
+        // Every vertex the draw pass emitted, in order, so "was anything of mine drawn after that"
+        // is a scan rather than a second bookkeeping channel through the widgets.
+        struct Emitted { float x; float y; std::size_t index; };
+        std::vector<Emitted> vertices;
+        std::size_t index = 0;
+        for (const UiDrawList& list : frame.drawData().lists)
+        {
+            for (const UiVertex& vertex : list.vertices)
+            {
+                vertices.push_back(Emitted{vertex.x, vertex.y, index});
+                ++index;
+            }
+        }
+
+        const auto contains = [](const UiRect& outer, const UiRect& inner) {
+            // A hair of tolerance, because a row and a control on it are laid out from the same
+            // edges and rounding can put one half a pixel outside the other.
+            constexpr float slack = 0.5f;
+            return outer.left() <= inner.left() + slack && outer.top() <= inner.top() + slack
+                && outer.right() + slack >= inner.right()
+                && outer.bottom() + slack >= inner.bottom()
+                && outer.width * outer.height > inner.width * inner.height;
+        };
+
+        for (const StudioRecordedInteraction& inner : widgets)
+        {
+            if (inner.bounds.width <= 0.0f || inner.bounds.height <= 0.0f) { continue; }
+
+            for (const StudioRecordedInteraction& outer : widgets)
+            {
+                if (outer.id == inner.id) { continue; }
+
+                // `<` rather than `<=` on the surface's mark: two widgets described with no
+                // geometry between them share a vertex count, and a row's toggles are exactly
+                // that -- described back to back, then the row. Requiring a strict increase would
+                // exempt every widget that draws nothing of its own before the surface arrives,
+                // which is the whole population this guard is about. Description *order* is what
+                // matters, and the vector is in that order.
+                if (outer.describedAtVertex < inner.describedAtVertex) { continue; }
+                if (outer.describedAtVertex == inner.describedAtVertex && &outer < &inner)
+                {
+                    continue;
+                }
+                if (!contains(outer.bounds, inner.bounds)) { continue; }
+
+                // Anything of the inner widget emitted after the outer one was described. A single
+                // vertex is enough: a control painted over the fill puts several there, and one
+                // painted under it puts none.
+                //
+                // Counted over the middle of the rectangle rather than all of it, because widgets
+                // laid out side by side share an edge: a label that starts exactly where the
+                // disclosure triangle ends puts its first glyph quad on the triangle's right-hand
+                // boundary, and reading that as "the triangle was repainted" is how an earlier
+                // version of this guard passed a tree whose triangle was buried.
+                const float insetX = std::max(1.0f, inner.bounds.width * 0.2f);
+                const float insetY = std::max(1.0f, inner.bounds.height * 0.2f);
+                const UiRect middle = inner.bounds.inset(UiEdges{insetX, insetY, insetX, insetY});
+
+                bool repainted = false;
+                for (const Emitted& vertex : vertices)
+                {
+                    if (vertex.index < outer.describedAtVertex) { continue; }
+                    if (vertex.x < middle.left() || vertex.x > middle.right()) { continue; }
+                    if (vertex.y < middle.top() || vertex.y > middle.bottom()) { continue; }
+                    repainted = true;
+                    break;
+                }
+
+                if (repainted) { break; }
+
+                std::ostringstream message;
+                message << "an interactive " << inner.bounds.width << "x" << inner.bounds.height
+                        << " rectangle at (" << inner.bounds.left() << ", " << inner.bounds.top()
+                        << ") is described before a larger interactive surface that covers it, and "
+                           "nothing of it is drawn afterwards -- so the surface paints over it. "
+                           "Describe it first, as the router requires, and hand its drawing to "
+                           "StudioFrame::paintOverSurface (plan.md CORE-06).";
+                problems.push_back(message.str());
+                break;
+            }
+        }
+
+        return problems;
+    }
+
+    /** @brief Runs both passes over @p describe and returns what it buried. */
+    std::vector<std::string> buriedBy(StudioFrame& frame, const UiInputState& input,
+                                      const std::function<void(StudioFrame&)>& describe)
+    {
+        frame.beginFrame(input);
+        frame.beginInput();
+        describe(frame);
+        frame.beginDraw();
+        describe(frame);
+        frame.endFrame();
+        return buriedWidgets(frame);
+    }
+}
+
+CNA_STUDIO_TEST(NothingInteractiveIsPaintedOverByASurfaceDescribedAfterIt)
+{
+    // `plan.md` CORE-06, and the guard the three it replaces could not be. Each of those named one
+    // widget -- the outliner's eye, the Details panel's asset inspector, a tree's disclosure
+    // triangle -- and so defended the three places somebody had already got wrong. This one knows
+    // no widget names at all: it asks the frame for every rectangle it routed input to, and fails
+    // on any that a later, larger interactive surface paints over. A fifth widget added to a tree
+    // row during maintenance is covered the day it is written.
     //
-    // The disclosure triangle went first, and looked like a data problem: expandable rows lost
-    // their triangle on alternate lines only, which is where the alternating fill is. The
-    // visibility toggle went second, and looked like nothing at all: the click toggled, the
-    // tooltip appeared, every unit test passed, and the eye was never on screen. A feature that
-    // works and cannot be seen is worse than one that is missing, because nothing reports it.
-    //
-    // Asserted on the geometry rather than on a capture. A screenshot comparison would catch this
-    // too, but only against a golden taken while it was right, and the golden for a row nobody had
-    // hovered would have been taken while it was wrong.
+    // It is deliberately about *interactive* rectangles. A decorative element under a fill is a
+    // layering choice; a control under one is a feature that cannot be seen, which is worse than a
+    // missing one because nothing reports it.
     StudioFrame frame;
     frame.setTheme(StudioTheme::dark());
 
     UiInputState input;
-    input.displayWidth = 400.0f;
-    input.displayHeight = 200.0f;
+    input.displayWidth = 480.0f;
+    input.displayHeight = 240.0f;
 
+    // A row carrying everything a row can carry: children to disclose, two trailing toggles, and a
+    // selection fill -- the largest opaque surface a row draws, and the one that covered the eye.
     std::vector<StudioTreeRow> rows;
-    StudioTreeRow row;
-    row.id = "entity";
-    row.label = "Key Light";
-    // Off rather than on, so the toggle is shown without needing the pointer on the row: what is
-    // being tested is the paint order, and hovering is a second thing that can fail.
+    StudioTreeRow parent;
+    parent.id = "group";
+    parent.label = "Lights";
+    parent.hasChildren = true;
+    parent.selected = true;
     StudioRowToggle eye;
     eye.icon = StudioIcon::Visible;
     eye.offIcon = StudioIcon::Hidden;
     eye.on = false;
-    row.toggles = {eye};
-    // Selected, so the row draws the largest fill it has. An alternating fill would do, but the
-    // selection fill is the one that covers every pixel of the line.
-    row.selected = true;
-    rows.push_back(row);
+    StudioRowToggle lock;
+    lock.icon = StudioIcon::Lock;
+    lock.on = false;
+    parent.toggles = {eye, lock};
+    rows.push_back(parent);
+
+    StudioTreeRow child;
+    child.id = "key";
+    child.label = "Key Light";
+    child.depth = 1;
+    child.toggles = {eye};
+    rows.push_back(child);
 
     StudioTreeState state;
+    state.setExpanded("group", true);
 
-    frame.beginFrame(input);
-    frame.beginInput();
-    (void)studioTreeView(frame, UiRect{0.0f, 0.0f, 400.0f, 200.0f}, rows, state, "");
-    frame.beginDraw();
-    const StudioTreeResult drawn =
-        studioTreeView(frame, UiRect{0.0f, 0.0f, 400.0f, 200.0f}, rows, state, "");
-    frame.endFrame();
+    const std::vector<std::string> problems =
+        buriedBy(frame, input, [&](StudioFrame& f) {
+            (void)studioTreeView(f, UiRect{0.0f, 0.0f, 480.0f, 240.0f}, rows, state, "");
+        });
 
-    CNA_STUDIO_EXPECT_EQ(drawn.rowsDrawn, static_cast<std::size_t>(1));
-
-    const std::uint32_t fill = packUiColor(frame.theme().color(StudioColorRole::Selection));
-
-    // The toggle sits in the rightmost strip of the row, which is the only part of this the test
-    // needs to know about the layout: an icon's width from the right edge, less the padding.
-    const float strip = 400.0f
-                      - static_cast<float>(frame.theme().metric(StudioMetric::IconSize))
-                      - static_cast<float>(frame.theme().metric(StudioMetric::SpacingMedium))
-                            * 2.0f;
-
-    std::size_t seen = 0;
-    std::size_t lastFill = 0;
-    std::size_t lastOther = 0;
-    std::size_t index = 0;
-
-    for (const UiDrawList& list : frame.drawData().lists)
+    for (const std::string& problem : problems)
     {
-        for (const UiVertex& vertex : list.vertices)
-        {
-            ++index;
-            if (vertex.x < strip) { continue; }
-            ++seen;
-            if (vertex.rgba == fill) { lastFill = index; }
-            else { lastOther = index; }
-        }
+        CnaStudioTest::reportFailure(__FILE__, __LINE__, problem);
     }
 
-    // Something was drawn in that strip at all -- otherwise every assertion below holds vacuously,
-    // which is the state this test exists to rule out.
-    CNA_STUDIO_EXPECT(seen > 0);
-    CNA_STUDIO_EXPECT(lastFill > 0);
-    CNA_STUDIO_EXPECT(lastOther > 0);
-
-    // And the last thing drawn there is not the row's own background.
-    CNA_STUDIO_EXPECT(lastOther > lastFill);
+    // A scan that saw no nesting would agree with everything. The rows above put a disclosure
+    // triangle and three toggles inside two rows, so the guard has something to be right about.
+    std::size_t nested = 0;
+    for (const StudioRecordedInteraction& inner : frame.recordedInteractions())
+    {
+        for (const StudioRecordedInteraction& outer : frame.recordedInteractions())
+        {
+            if (outer.id == inner.id) { continue; }
+            if (outer.bounds.width * outer.bounds.height <= inner.bounds.width * inner.bounds.height)
+            {
+                continue;
+            }
+            if (outer.bounds.left() <= inner.bounds.left()
+                && outer.bounds.right() >= inner.bounds.right()
+                && outer.bounds.top() <= inner.bounds.top()
+                && outer.bounds.bottom() >= inner.bounds.bottom())
+            {
+                ++nested;
+                break;
+            }
+        }
+    }
+    CNA_STUDIO_EXPECT(nested >= 4);
 }

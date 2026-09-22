@@ -4,8 +4,6 @@
  * @brief The scrolling, selectable tree.
  */
 
-#include <cstdio>
-#include <cstdlib>
 #include "CNA/Studio/UiCore/StudioTreeView.hpp"
 
 #include "CNA/Studio/UiCore/StudioWidgets.hpp"
@@ -154,6 +152,13 @@ namespace CNA::Studio
 
             frame.ids().push(row.id);
 
+            // `plan.md` CORE-06. Everything in this row is described in the order the router needs
+            // -- small controls first, the row that covers the whole line last -- and the controls
+            // that would be buried under the row's fill ask to be painted at the end of this
+            // scope instead. Inside `ids().push(row.id)`, so a raised paint is issued its ids in
+            // the same scope it was queued from and the two passes cannot disagree about them.
+            StudioRaisedPaintScope raisedPaint{frame};
+
             const bool renaming = !state.renaming().empty() && state.renaming() == row.id;
 
             UiRect cursor = rowBounds.inset(UiEdges{padding, 0.0f, padding, 0.0f});
@@ -161,7 +166,6 @@ namespace CNA::Studio
 
             const UiRect disclosure = cursor.splitLeft(std::min(indent, cursor.width));
             bool expanded = state.isExpanded(row.id);
-            bool disclosureHovered = false;
 
             // ### The small controls are described *before* the row, and that is load-bearing
             //
@@ -179,9 +183,13 @@ namespace CNA::Studio
             // dead in the editor while their tests passed (`plan.md` STUDIO-13005, found while
             // adding the lock beside the eye).
             //
-            // Drawing stays where it was, further down: the row's background is painted over
-            // everything above it, and a triangle drawn here vanishes under the alternating fill.
-            // It is the *description* that has to come first, not the painting.
+            // And being described first meant being *painted* first, under the row's own fill --
+            // which is how the triangle vanished on alternate lines and the eye was never once on
+            // screen. The two used to be reconciled by hand, with the interaction here and the
+            // drawing a hundred and fifty lines below in an `isDrawPass()` block; keeping those
+            // two halves in step was a rule, and the rule was broken by the commit that wrote it
+            // down. `paintOverSurface` is that rule made structural (`plan.md` CORE-06): the
+            // widget stays here, in one piece, and the frame paints it at the end of the row.
             if (row.hasChildren && !renaming)
             {
                 // Its own widget, so clicking the triangle opens the row rather than selecting it.
@@ -195,8 +203,13 @@ namespace CNA::Studio
                     state.setExpanded(row.id, expanded);
                     result.toggled = slot;
                 }
-                // Remembered rather than drawn here, for the reason given above.
-                disclosureHovered = toggle.hovered;
+
+                frame.paintOverSurface(
+                    [disclosure, expanded, hovered = toggle.hovered, &theme](StudioFrame& f) {
+                        drawDisclosure(f, disclosure, expanded,
+                                       theme.color(hovered ? StudioColorRole::TextPrimary
+                                                           : StudioColorRole::TextSecondary));
+                    });
             }
 
             // The trailing toggles, described *before* the row for the reason set out above the
@@ -204,33 +217,28 @@ namespace CNA::Studio
             // under the pointer takes the press, so a toggle described after it can never be
             // clicked. That is what was wrong with the eye.
             //
-            // Interaction here, *drawing* further down: everything below this point paints the
-            // row's background over whatever was drawn before it. Drawing a toggle here put the
-            // selection, hover and alternating fills straight over the eye, and the symptom was a
-            // feature that could not be seen on top of one that could not be clicked.
+            // And painted at the end of the row, through `paintOverSurface`, for the other half of
+            // the same reason: everything after this point paints the row's background over
+            // whatever was drawn before it, and drawing a toggle here put the selection, hover and
+            // alternating fills straight over the eye. The symptom was a feature that could not be
+            // seen on top of one that could not be clicked.
             //
-            // One entry per toggle the row declared, laid out from the right-hand edge inwards in
-            // the order they were given, so the same button is in the same column on every row.
-            struct DrawnToggle
-            {
-                UiRect box;
-                StudioIcon glyph = StudioIcon::None;
-                StudioControlState state = StudioControlState::Normal;
+            // One id per toggle, laid out from the right-hand edge inwards in the order they were
+            // given, so the same button is in the same column on every row.
+            //
+            // `placed` counts the columns filled so far. It is the only thing the loop has to
+            // carry between iterations now that each toggle paints itself.
+            std::size_t placed = 0;
 
-                /** @brief The pointer is on this button. */
-                bool selfHovered = false;
-
-                /**
-                 * @brief This button is *not* in its default state, so it is shown regardless.
-                 *
-                 * Kept apart from the row's own hover, which is not known yet: the row is now
-                 * described after the toggles, so whether the pointer is anywhere on the line is a
-                 * question only the draw pass below can answer.
-                 */
-                bool alwaysShown = false;
-            };
-            std::vector<DrawnToggle> drawnToggles;
-            drawnToggles.reserve(row.toggles.size());
+            // Issued once and kept, rather than asked for again where the drag needs it. Two calls
+            // return the same id -- it is derived from the scope and the key -- but each one also
+            // *records* it, and a key recorded twice is what the collision detector is there to
+            // report. It was reporting it: one per draggable row, every frame.
+            //
+            // Issued here, before the toggles, because each toggle's raised paint has to ask
+            // whether the *row* is hovered -- and it asks by id, through the interaction the input
+            // pass recorded, so it needs the id before the row is described.
+            const WidgetId rowId = frame.ids().make("row");
 
             for (std::size_t which = 0; which < row.toggles.size(); ++which)
             {
@@ -243,12 +251,12 @@ namespace CNA::Studio
                 // accumulated from `cursor`, because `cursor` is also what the label is trimmed
                 // against and reading the column positions out of it would tie the two together.
                 const float slotWidth = size + padding;
-                const float right = rowBounds.right() - padding
-                    - static_cast<float>(drawnToggles.size()) * slotWidth;
+                const float right =
+                    rowBounds.right() - padding - static_cast<float>(placed) * slotWidth;
+                ++placed;
 
-                DrawnToggle drawn;
-                drawn.box = UiRect{right - size, std::round(rowBounds.centerY() - size * 0.5f),
-                                   size, size};
+                const UiRect box{right - size, std::round(rowBounds.centerY() - size * 0.5f),
+                                 size, size};
 
                 // Described in both passes and at the same size either way, so the hit area does
                 // not appear and vanish under the pointer; only the drawing is conditional. A
@@ -264,20 +272,11 @@ namespace CNA::Studio
                 const WidgetId toggleId = frame.ids().makeIndex(static_cast<std::int64_t>(which));
                 frame.ids().pop();
 
-                const StudioInteraction toggle =
-                    frame.interact(toggleId, drawn.box, /*enabled=*/true);
-                if (std::getenv("CNA_DBG_TOGGLE") != nullptr && frame.isInputPass()
-                    && frame.input().mouseX > 100.0f && frame.input().mouseY > 60.0f)
-                {
-                    std::fprintf(stderr, "T which=%zu box=%.0f,%.0f,%.0f,%.0f m=%.0f,%.0f hov=%d clk=%d\n",
-                                 which, drawn.box.x, drawn.box.y, drawn.box.width, drawn.box.height,
-                                 frame.input().mouseX, frame.input().mouseY,
-                                 (int)toggle.hovered, (int)toggle.clicked);
-                }
+                const StudioInteraction toggle = frame.interact(toggleId, box, /*enabled=*/true);
 
                 if (!entry.tooltip.empty())
                 {
-                    (void)frame.requestTooltip(toggleId, entry.tooltip, drawn.box);
+                    (void)frame.requestTooltip(toggleId, entry.tooltip, box);
                 }
                 if (frame.isInputPass() && toggle.clicked)
                 {
@@ -285,30 +284,45 @@ namespace CNA::Studio
                     result.toggledRowActionIndex = which;
                 }
 
-                // Shown only while the row is hovered or the toggle is off, which is what every
-                // outliner that has one does: a column of forty identical eyes is a column of
-                // noise, and the rows that matter are the ones *not* in the default state.
-                drawn.selfHovered = toggle.hovered;
-                drawn.alwaysShown = !entry.on;
-                drawn.glyph = (!entry.on && entry.offIcon != StudioIcon::None) ? entry.offIcon
-                                                                               : entry.icon;
-                drawn.state = toggle.held ? StudioControlState::Pressed
-                            : toggle.hovered ? StudioControlState::Hover
-                                             : StudioControlState::Normal;
+                const StudioIcon glyph = (!entry.on && entry.offIcon != StudioIcon::None)
+                    ? entry.offIcon : entry.icon;
+                const StudioControlState controlState =
+                    toggle.held ? StudioControlState::Pressed
+                  : toggle.hovered ? StudioControlState::Hover
+                                   : StudioControlState::Normal;
 
-                drawnToggles.push_back(drawn);
+                // Painted at the end of the row rather than here. The `alwaysShown` half -- a
+                // toggle that is *off* is shown whatever the pointer is doing -- is known now; the
+                // other half is whether the pointer is anywhere on the line, and the row has not
+                // been described yet. The body asks the frame for the row's recorded interaction
+                // when it runs, which is after it.
+                frame.paintOverSurface([box, glyph, controlState, rowId,
+                                        selfHovered = toggle.hovered, alwaysShown = !entry.on,
+                                        &theme](StudioFrame& f) {
+                    // Shown only while the row is hovered or the toggle is off, which is what
+                    // every outliner that has one does: a column of forty identical eyes is a
+                    // column of noise, and the rows that matter are the ones *not* in the default
+                    // state.
+                    const bool rowHovered = f.recordedInteraction(rowId).hovered;
+                    if (!(rowHovered || selfHovered || alwaysShown)) { return; }
+                    if (glyph == StudioIcon::None) { return; }
+
+                    // Its own surface only when the pointer is on it: a ghost button's whole point
+                    // is that it is an icon until it is a target.
+                    if (controlState != StudioControlState::Normal)
+                    {
+                        f.drawList().fillRoundedRect(
+                            box.inset(UiEdges{-2.0f, -2.0f, -2.0f, -2.0f}),
+                            theme.controlBackground(controlState),
+                            metricOf(theme, StudioMetric::CornerRadius));
+                    }
+                    studioDrawIcon(f, box, glyph, theme.controlText(controlState));
+                });
 
                 // And the label stops where the toggles start, shown or not: text that reflowed as
                 // the pointer crossed a row would be the most distracting thing in the panel.
                 cursor.splitRight(std::min(cursor.width, slotWidth));
             }
-
-
-            // Issued once and kept, rather than asked for again where the drag needs it. Two calls
-            // return the same id -- it is derived from the scope and the key -- but each one also
-            // *records* it, and a key recorded twice is what the collision detector is there to
-            // report. It was reporting it: one per draggable row, every frame.
-            const WidgetId rowId = frame.ids().make("row");
 
             // The whole row is the target, not just the text. A tree where a click lands only on
             // the label is a tree with a different hit area on every line. Described last, so the
@@ -465,34 +479,11 @@ namespace CNA::Studio
                         theme.color(StudioColorRole::Separator));
                 }
 
-                // Over every fill above it, which is the whole reason it is drawn here.
-                if (row.hasChildren)
-                {
-                    drawDisclosure(frame, disclosure, expanded,
-                                   theme.color(disclosureHovered ? StudioColorRole::TextPrimary
-                                                                 : StudioColorRole::TextSecondary));
-                }
-
-                // And the toggle, for the same reason. Its own surface only when the pointer is on
-                // it: a ghost button's whole point is that it is an icon until it is a target.
-                for (const DrawnToggle& drawn : drawnToggles)
-                {
-                    // Shown only while the row is hovered or the toggle is off, which is what every
-                    // outliner that has one does: a column of forty identical eyes is a column of
-                    // noise, and the rows that matter are the ones *not* in the default state.
-                    const bool visible =
-                        interaction.hovered || drawn.selfHovered || drawn.alwaysShown;
-                    if (!visible || drawn.glyph == StudioIcon::None) { continue; }
-
-                    if (drawn.state != StudioControlState::Normal)
-                    {
-                        frame.drawList().fillRoundedRect(
-                            drawn.box.inset(UiEdges{-2.0f, -2.0f, -2.0f, -2.0f}),
-                            theme.controlBackground(drawn.state),
-                            metricOf(theme, StudioMetric::CornerRadius));
-                    }
-                    studioDrawIcon(frame, drawn.box, drawn.glyph, theme.controlText(drawn.state));
-                }
+                // The disclosure triangle and the toggles used to be redrawn here, by hand, from
+                // fields carried down from where they were described. They are not any more: each
+                // asked for `paintOverSurface` where it was written, and the frame paints them at
+                // the end of this row's raised-paint scope -- over every fill above, which is the
+                // whole reason they were down here in the first place (`plan.md` CORE-06).
 
                 const StudioColorRole labelRole = (!row.enabled || row.muted)
                     ? StudioColorRole::TextDisabled
