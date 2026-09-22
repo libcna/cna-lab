@@ -347,7 +347,7 @@ Baseline at import, for comparison: 442 test cases, 12 CTest suites.
 
 ## What was completed
 
-Task ids are `STUDIO-PPNNN`; see `plan.md` for the full list. **384 of 581 tasks are complete.**
+Task ids are `STUDIO-PPNNN`; see `plan.md` for the full list. **385 of 581 tasks are complete.**
 Per-phase counts and the headline are checked by the test suite — `STUDIO-33018` for `plan.md` and
 `STUDIO-33019` for this file — so neither can drift from the phase files again. The second was added
 after this file had drifted by nineteen tasks and a hundred and fifty-eight test cases, which is
@@ -565,7 +565,7 @@ exactly once. **Pause, Step and Restart**: the protocol has always been there an
 never sent it, so a checkable Pause, a Step live only while paused, and a Restart that is a stop and
 a start — which is how a user sees the edits made since pressing Play.
 
-**Phase 17 — Build profiles** (5 of 12). The target profile model, OS/platform/architecture and
+**Phase 17 — Build profiles** (6 of 12). The target profile model, OS/platform/architecture and
 renderer selection, build configuration, and the migration of the game's configure command onto the
 variables current CNA actually defines.
 

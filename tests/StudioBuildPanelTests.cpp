@@ -13,12 +13,14 @@
 #include "TestHarness.hpp"
 
 #include "CNA/Studio/Project/Cpp/CppToolchain.hpp"
+#include "CNA/Studio/ProjectCommands.hpp"
 #include "CNA/Studio/ShellPanels/StudioBuildPanel.hpp"
 #include "CNA/Studio/StudioContext.hpp"
 #include "CNA/Studio/UiCore/StudioWidgets.hpp"
 
 #include <filesystem>
 #include <fstream>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -88,6 +90,16 @@ namespace
         UiRect body{0.0f, 0.0f, kWidth, kHeight};
         StudioBuildPanelResult last;
 
+        /**
+         * @brief How many edits the panel has *reported*, across every frame.
+         *
+         * Separate from `last`, which the next frame overwrites -- and from the command, which may
+         * refuse what was reported. A case asserting "the panel did not ask for this" has to read
+         * something that survives the settle() after the click, or it passes for a click that
+         * simply missed.
+         */
+        std::size_t reportedEdits = 0;
+
         explicit Harness(const std::string& name) : project(name)
         {
             (void)context.openProject(project.file());
@@ -99,6 +111,27 @@ namespace
                 const StudioBuildPanelResult panelResult = panel.draw(f, body);
                 if (f.isInputPass()) { last = panelResult; }
             });
+            applyProfileEdit();
+        }
+
+        /**
+         * @brief What the binder does with a reported edit (`STUDIO-17002`).
+         *
+         * The panel reports and does not write, so a test that clicked a control and then read the
+         * project would read the value from before the click. Doing here exactly what
+         * `StudioShellPanels` does is what keeps these cases about the panel rather than about a
+         * shortcut only the tests take.
+         */
+        void applyProfileEdit()
+        {
+            if (!last.profileEdit.has_value()) { return; }
+            ++reportedEdits;
+
+            auto command = std::make_unique<SetTargetProfilesCommand>(
+                context.getProject(), last.profileEdit->profiles, last.profileEdit->activeIndex,
+                last.profileEdit->description);
+            if (command->isValid()) { context.execute(std::move(command)); }
+            last.profileEdit.reset();
         }
 
         void settle() { run(at(kWidth - 10.0f, kHeight - 10.0f)); }
@@ -131,7 +164,7 @@ CNA_STUDIO_TEST(WithNoProjectThePanelSaysSoRatherThanDrawingAnEmptyForm)
     });
 
     CNA_STUDIO_EXPECT(!result.buildRequested);
-    CNA_STUDIO_EXPECT(!result.profileChanged);
+    CNA_STUDIO_EXPECT(!result.profileEdit.has_value());
     CNA_STUDIO_EXPECT_EQ(frame.phaseViolations(), std::size_t{0});
 }
 
@@ -183,8 +216,11 @@ CNA_STUDIO_TEST(ChangingAnAxisReachesTheProjectRatherThanThePanel)
     const float spacing = static_cast<float>(harness.frame.theme().metric(StudioMetric::SpacingSmall));
     const float margin = static_cast<float>(harness.frame.theme().metric(StudioMetric::SpacingMedium));
 
-    // Target, OS, architecture, renderer, platform, configuration: the sixth row.
-    const float configurationTop = margin + 5.0f * (rowHeight + spacing);
+    // Target, name, the add/duplicate/remove buttons, OS, architecture, renderer, platform,
+    // configuration: the eighth row. Counted rather than searched for, which is what makes this a
+    // test of the control and not of the layout -- and what makes it fail loudly when a row is
+    // inserted above it, as `STUDIO-17002` did.
+    const float configurationTop = margin + 7.0f * (rowHeight + spacing);
     const float labelWidth = std::min((kWidth - margin * 2.0f) * 0.4f,
         static_cast<float>(harness.frame.theme().metric(StudioMetric::PanelHeaderHeight)) * 5.0f);
     const float controlX = margin + labelWidth + spacing + 20.0f;
@@ -200,7 +236,7 @@ CNA_STUDIO_TEST(ChangingAnAxisReachesTheProjectRatherThanThePanel)
     harness.settle();
 
     CNA_STUDIO_EXPECT(harness.profile().configuration == StudioBuildConfiguration::Debug);
-    CNA_STUDIO_EXPECT(harness.last.profileChanged || !harness.frame.isAnyPopupOpen());
+    CNA_STUDIO_EXPECT(!harness.frame.isAnyPopupOpen());
 }
 
 CNA_STUDIO_TEST(TheBuildItWouldRunIsTheOneTheProjectsActiveProfileDescribes)
@@ -272,4 +308,194 @@ CNA_STUDIO_TEST(TheBuildButtonIsRefusedWhenTheProfileCannotBeBuilt)
     const StudioProfileValidation validation = validateStudioTargetProfile(checked);
     CNA_STUDIO_EXPECT(!validation.isBuildable());
     CNA_STUDIO_EXPECT(!harness.last.buildRequested);
+}
+
+/**
+ * @brief **A target edit reaches the project file, and reaches the undo stack.**
+ *
+ * `plan.md` STUDIO-17002, and the defect it removes was silent twice over. The panel wrote target
+ * profiles straight into the open `Project` and set a `profileChanged` flag that **nothing read**,
+ * so a user who picked a renderer got exactly what they asked for until they closed Studio —
+ * whereupon it was gone, with no prompt, no dirty marker and nothing in the log. The panel's own
+ * header promised "the profile the next save writes"; there was no next save.
+ *
+ * Both halves are checked here because they fail independently: a command that did not write
+ * through would undo correctly and still lose the change on quit, and a write-through that skipped
+ * the history would persist a change the user could not take back.
+ */
+CNA_STUDIO_TEST(ATargetEditIsWrittenToTheProjectFileAndCanBeUndone)
+{
+    Harness harness{"persist"};
+
+    std::vector<StudioTargetProfile> profiles = harness.context.getProject().getTargetProfiles();
+    CNA_STUDIO_EXPECT(!profiles.empty());
+    if (profiles.empty()) { return; }
+
+    const std::string before = profiles.front().renderer;
+    profiles.front().renderer = before == "opengles3" ? "opengl33" : "opengles3";
+    const std::string after = profiles.front().renderer;
+
+    harness.context.execute(std::make_unique<SetTargetProfilesCommand>(
+        harness.context.getProject(), profiles, 0, "Edit target"));
+
+    CNA_STUDIO_EXPECT_EQ(harness.profile().renderer, after);
+
+    // On disk, not only in memory. The crash-recovery snapshot holds the scene and not the
+    // project, so a project change that lived only in memory is one a crash loses entirely.
+    {
+        Project reread;
+        CNA_STUDIO_EXPECT(reread.loadFromFile(harness.project.file()).succeeded);
+        CNA_STUDIO_EXPECT_EQ(reread.getActiveTargetProfile().renderer, after);
+    }
+
+    // And undone, which is what makes it a document change like any other (D-06).
+    CNA_STUDIO_EXPECT(harness.context.getHistory().undo());
+    CNA_STUDIO_EXPECT_EQ(harness.profile().renderer, before);
+
+    {
+        Project reread;
+        CNA_STUDIO_EXPECT(reread.loadFromFile(harness.project.file()).succeeded);
+        CNA_STUDIO_EXPECT_EQ(reread.getActiveTargetProfile().renderer, before);
+    }
+}
+
+/** @brief The command refuses the two edits that would put a useless entry in the history. */
+CNA_STUDIO_TEST(ATargetEditThatChangesNothingIsNotACommand)
+{
+    Harness harness{"novalue"};
+    const std::vector<StudioTargetProfile> profiles =
+        harness.context.getProject().getTargetProfiles();
+
+    // The same list and the same selection: an entry that undoes to the state it is already in
+    // reads to the user as a broken Ctrl+Z.
+    const SetTargetProfilesCommand unchanged{harness.context.getProject(), profiles, 0, "Edit"};
+    CNA_STUDIO_EXPECT(!unchanged.isValid());
+
+    // An empty list would leave a project that cannot be built and no row to add a target from.
+    const SetTargetProfilesCommand emptied{harness.context.getProject(), {}, 0, "Remove"};
+    CNA_STUDIO_EXPECT(!emptied.isValid());
+
+    // The *selection* alone is a change, though, because it decides what Build and Play do.
+    std::vector<StudioTargetProfile> two = profiles;
+    two.push_back(StudioTargetProfile::defaults());
+    two.back().name = "Second";
+    harness.context.execute(std::make_unique<SetTargetProfilesCommand>(
+        harness.context.getProject(), two, 0, "Add target"));
+
+    const SetTargetProfilesCommand selected{harness.context.getProject(), two, 1, "Select target"};
+    CNA_STUDIO_EXPECT(selected.isValid());
+}
+
+/**
+ * @brief Adding, duplicating, renaming and removing a target, through the panel's own buttons.
+ *
+ * Until this row the list itself had no interface at all: the six axes could be edited and the
+ * list they belong to could not, so a project that shipped on two things could only say so by
+ * hand-editing its `.cnaproject` — which is the state this panel's header describes as the problem
+ * it exists to solve.
+ */
+CNA_STUDIO_TEST(TheTargetListCanBeEditedFromThePanel)
+{
+    Harness harness{"list"};
+
+    const float rowHeight = static_cast<float>(harness.frame.theme().metric(StudioMetric::ControlHeight));
+    const float spacing = static_cast<float>(harness.frame.theme().metric(StudioMetric::SpacingSmall));
+    const float margin = static_cast<float>(harness.frame.theme().metric(StudioMetric::SpacingMedium));
+    const float labelWidth = std::min((kWidth - margin * 2.0f) * 0.4f,
+        static_cast<float>(harness.frame.theme().metric(StudioMetric::PanelHeaderHeight)) * 5.0f);
+
+    // Target, name, then the buttons: the third row. Add, Duplicate and Remove share its width in
+    // three, so a third of the way in is Add and five sixths of the way in is Remove.
+    const float buttonsTop = margin + 2.0f * (rowHeight + spacing);
+    const float buttonsLeft = margin + labelWidth + spacing;
+    const float buttonsWidth = std::min(kWidth - buttonsLeft - margin,
+        static_cast<float>(harness.frame.theme().metric(StudioMetric::PanelHeaderHeight)) * 9.0f);
+    const float third = buttonsWidth / 3.0f;
+
+    harness.settle();
+    CNA_STUDIO_EXPECT_EQ(harness.context.getProject().getTargetProfiles().size(), std::size_t{1});
+
+    // Add.
+    harness.click(buttonsLeft + third * 0.5f, buttonsTop + rowHeight * 0.5f);
+    harness.settle();
+    CNA_STUDIO_EXPECT_EQ(harness.context.getProject().getTargetProfiles().size(), std::size_t{2});
+
+    // The new one is selected, because adding a target you then have to go and find is a gesture
+    // that is not finished.
+    CNA_STUDIO_EXPECT_EQ(harness.context.getProject().getActiveTargetProfileIndex(), std::size_t{1});
+
+    // And it is not called the same thing as the one beside it, or the drop-down would show two
+    // identical rows and the user could not tell which they were editing.
+    const std::vector<StudioTargetProfile> two = harness.context.getProject().getTargetProfiles();
+    CNA_STUDIO_EXPECT(two[0].name != two[1].name);
+
+    // Duplicate.
+    harness.click(buttonsLeft + third * 1.5f, buttonsTop + rowHeight * 0.5f);
+    harness.settle();
+    CNA_STUDIO_EXPECT_EQ(harness.context.getProject().getTargetProfiles().size(), std::size_t{3});
+
+    const std::vector<StudioTargetProfile> three = harness.context.getProject().getTargetProfiles();
+    CNA_STUDIO_EXPECT(three[2].name != three[1].name);
+
+    // A duplicate says the same thing as its original about everything but its name -- that is
+    // what makes it a duplicate rather than a second Add.
+    StudioTargetProfile renamedBack = three[2];
+    renamedBack.name = three[1].name;
+    CNA_STUDIO_EXPECT(renamedBack == three[1]);
+
+    // Remove.
+    harness.click(buttonsLeft + third * 2.5f, buttonsTop + rowHeight * 0.5f);
+    harness.settle();
+    CNA_STUDIO_EXPECT_EQ(harness.context.getProject().getTargetProfiles().size(), std::size_t{2});
+
+    // Every one of those reached the file, not just the model.
+    Project reread;
+    CNA_STUDIO_EXPECT(reread.loadFromFile(harness.project.file()).succeeded);
+    CNA_STUDIO_EXPECT_EQ(reread.getTargetProfiles().size(), std::size_t{2});
+
+    // And all of it undoes, one gesture at a time.
+    CNA_STUDIO_EXPECT(harness.context.getHistory().undo());
+    CNA_STUDIO_EXPECT_EQ(harness.context.getProject().getTargetProfiles().size(), std::size_t{3});
+    CNA_STUDIO_EXPECT(harness.context.getHistory().undo());
+    CNA_STUDIO_EXPECT_EQ(harness.context.getProject().getTargetProfiles().size(), std::size_t{2});
+    CNA_STUDIO_EXPECT(harness.context.getHistory().undo());
+    CNA_STUDIO_EXPECT_EQ(harness.context.getProject().getTargetProfiles().size(), std::size_t{1});
+}
+
+/**
+ * @brief Remove is **disabled** on the last target rather than hidden, and refuses to fire.
+ *
+ * `STUDIO-12004`'s doctrine. Removing the last target leaves a project that cannot be built, and a
+ * button that vanished when it was the one thing the user was looking for would read as the panel
+ * being broken rather than as the operation being refused.
+ */
+CNA_STUDIO_TEST(RemovingTheLastTargetIsRefusedRatherThanLeavingAProjectWithNone)
+{
+    Harness harness{"lasttarget"};
+    harness.settle();
+    CNA_STUDIO_EXPECT_EQ(harness.context.getProject().getTargetProfiles().size(), std::size_t{1});
+
+    const float rowHeight = static_cast<float>(harness.frame.theme().metric(StudioMetric::ControlHeight));
+    const float spacing = static_cast<float>(harness.frame.theme().metric(StudioMetric::SpacingSmall));
+    const float margin = static_cast<float>(harness.frame.theme().metric(StudioMetric::SpacingMedium));
+    const float labelWidth = std::min((kWidth - margin * 2.0f) * 0.4f,
+        static_cast<float>(harness.frame.theme().metric(StudioMetric::PanelHeaderHeight)) * 5.0f);
+    const float buttonsTop = margin + 2.0f * (rowHeight + spacing);
+    const float buttonsLeft = margin + labelWidth + spacing;
+    const float buttonsWidth = std::min(kWidth - buttonsLeft - margin,
+        static_cast<float>(harness.frame.theme().metric(StudioMetric::PanelHeaderHeight)) * 9.0f);
+
+    harness.click(buttonsLeft + buttonsWidth / 3.0f * 2.5f, buttonsTop + rowHeight * 0.5f);
+    harness.settle();
+
+    CNA_STUDIO_EXPECT_EQ(harness.context.getProject().getTargetProfiles().size(), std::size_t{1});
+
+    // Nothing was even *asked for*, which is the assertion that distinguishes a disabled button
+    // from a click that missed one. Counted across frames, because `last` is overwritten by the
+    // settle() that follows the click.
+    CNA_STUDIO_EXPECT_EQ(harness.reportedEdits, std::size_t{0});
+
+    // The command refuses it too, so the guard is not only in the pixels.
+    const SetTargetProfilesCommand emptied{harness.context.getProject(), {}, 0, "Remove target"};
+    CNA_STUDIO_EXPECT(!emptied.isValid());
 }

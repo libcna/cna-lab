@@ -186,6 +186,22 @@ namespace CNA::Studio
 
         /** @brief Returns the default profile for a new project on the host system. */
         [[nodiscard]] static StudioTargetProfile defaults();
+
+        /**
+         * @brief Whether two profiles say the same thing.
+         *
+         * Used to tell a real edit from a repaint (`STUDIO-17002`): a command whose new value
+         * equals its old one puts an entry in the undo history that undoes to the state it is
+         * already in, which reads to the user as a broken Ctrl+Z.
+         *
+         * Feature *order* counts, because `features` is a list rather than a set. That is
+         * deliberate and harmless here: `setFeature` appends and erases deterministically, so the
+         * only way to reach the same features in a different order is to have edited them, and the
+         * worst outcome of being wrong in this direction is one extra history entry rather than a
+         * lost edit.
+         */
+        [[nodiscard]] friend bool operator==(const StudioTargetProfile&,
+                                             const StudioTargetProfile&) = default;
     };
 
     /** @brief How serious a validation finding is. */

@@ -184,6 +184,46 @@ namespace CNA::Studio
                                                      * 9.0f));
     }
 
+    /**
+     * @brief A name no other profile in @p profiles is using, derived from @p wanted.
+     *
+     * Two targets called "Default" is not illegal — the list is ordered and the drop-down shows
+     * positions, not names — but it is unreadable, and the user who added the second one has no
+     * way to tell which row they are editing. So the duplicate gets a number, as a file manager
+     * does, rather than the panel refusing the gesture.
+     *
+     * @param profiles The list the new name has to be unique within.
+     * @param wanted The name to start from.
+     * @param ignore Index in @p profiles to skip, for a rename that keeps its own name. Pass the
+     *               size of the list when the profile is not in it yet.
+     * @return @p wanted, or @p wanted with a trailing number.
+     */
+    [[nodiscard]] std::string uniqueProfileName(const std::vector<StudioTargetProfile>& profiles,
+                                                const std::string& wanted, std::size_t ignore)
+    {
+        const auto taken = [&profiles, ignore](const std::string& candidate) {
+            for (std::size_t at = 0; at < profiles.size(); ++at)
+            {
+                if (at != ignore && profiles[at].name == candidate) { return true; }
+            }
+            return false;
+        };
+
+        if (!taken(wanted)) { return wanted; }
+
+        // Bounded by the list length plus one, because that many candidates cannot all be taken by
+        // a list that short -- so this terminates without trusting the names it is given.
+        for (std::size_t suffix = 2; suffix <= profiles.size() + 2; ++suffix)
+        {
+            std::string candidate = wanted + " " + std::to_string(suffix);
+            if (!taken(candidate)) { return candidate; }
+        }
+        return wanted;
+    }
+}
+
+namespace CNA::Studio
+{
     StudioBuildPanelResult StudioBuildPanel::draw(StudioFrame& frame, const UiRect& body)
     {
         StudioBuildPanelResult result;
@@ -240,16 +280,36 @@ namespace CNA::Studio
             toolchainProbed_ = true;
         }
 
-        Project& project = context_.getProject();
+        const Project& project = context_.getProject();
         std::vector<StudioTargetProfile> profiles = project.getTargetProfiles();
         if (profiles.empty())
         {
+            // A way out rather than a dead end. The old version said this and stopped, which left
+            // a project whose targets could only be repaired by editing the `.cnaproject` by hand
+            // -- exactly the thing this panel exists to remove.
             if (frame.isDrawPass())
             {
                 studioDrawText(frame, content.splitTop(lineHeight),
                                "This project declares no build target.", StudioFontRole::Body,
                                theme.color(StudioColorRole::Warning));
             }
+            else
+            {
+                content.splitTop(lineHeight);
+            }
+            content.splitTop(spacing);
+
+            frame.ids().push("build");
+            const UiRect addRow = content.splitTop(rowHeight).splitLeft(
+                std::min(content.width, metricOf(theme, StudioMetric::PanelHeaderHeight) * 6.0f));
+            if (studioButton(frame, frame.ids().make("addFirst"), addRow, "Add a target").activated)
+            {
+                result.profileEdit = StudioTargetProfileEdit{
+                    {StudioTargetProfile::defaults()}, 0, "Add target"};
+            }
+            frame.ids().pop();
+
+            result.contentHeight = content.top() - contentTop;
             studioEndScroll(frame);
             return result;
         }
@@ -268,8 +328,9 @@ namespace CNA::Studio
                 frame, frame.ids().make("profile"), row, profileNames, activeProfile);
             if (chosen.changed)
             {
-                project.setActiveTargetProfileIndex(static_cast<std::size_t>(activeProfile));
-                result.profileChanged = true;
+                result.profileEdit = StudioTargetProfileEdit{
+                    profiles, static_cast<std::size_t>(std::max(activeProfile, 0)),
+                    "Select target"};
             }
         }
 
@@ -277,6 +338,80 @@ namespace CNA::Studio
             std::min(static_cast<std::size_t>(std::max(activeProfile, 0)), profiles.size() - 1);
         StudioTargetProfile profile = profiles[activeIndex];
         bool edited = false;
+
+        // --- Managing the list ---------------------------------------------------------------
+        //
+        // A project ships on more than one thing, and until now the only way to say so was to
+        // edit the `.cnaproject` by hand -- which is the state this panel's own header describes
+        // as the problem it exists to solve, and which it solved for the six axes and not for the
+        // list they belong to.
+        {
+            const UiRect row = labelledRow(frame, content, "Name");
+
+            // The name is a text field rather than a rename dialog, because a target's name is one
+            // short string and a modal for it would be three clicks for a typo.
+            std::string name = profile.name;
+            const StudioTextFieldResult renamed =
+                studioTextField(frame, frame.ids().make("name"), row, name);
+            if (renamed.committed && !name.empty() && name != profile.name)
+            {
+                std::vector<StudioTargetProfile> next = profiles;
+                next[activeIndex].name = name;
+                result.profileEdit =
+                    StudioTargetProfileEdit{std::move(next), activeIndex, "Rename target"};
+            }
+        }
+
+        {
+            UiRect row = labelledRow(frame, content, "");
+            const float buttonWidth = std::max(0.0f, (row.width - spacing * 2.0f) / 3.0f);
+
+            const UiRect addBox = row.splitLeft(buttonWidth);
+            row.splitLeft(spacing);
+            const UiRect duplicateBox = row.splitLeft(buttonWidth);
+            row.splitLeft(spacing);
+            const UiRect removeBox = row.splitLeft(buttonWidth);
+
+            if (studioButton(frame, frame.ids().make("add"), addBox, "Add").activated)
+            {
+                // The host's defaults, not a copy of the current one: "Add" and "Duplicate" are
+                // two different intentions and a panel that made them the same would leave the
+                // second button doing nothing anybody could see.
+                std::vector<StudioTargetProfile> next = profiles;
+                next.push_back(StudioTargetProfile::defaults());
+                next.back().name = uniqueProfileName(next, next.back().name, next.size() - 1);
+                const std::size_t added = next.size() - 1;
+                result.profileEdit =
+                    StudioTargetProfileEdit{std::move(next), added, "Add target"};
+            }
+
+            if (studioButton(frame, frame.ids().make("duplicate"), duplicateBox, "Duplicate")
+                    .activated)
+            {
+                std::vector<StudioTargetProfile> next = profiles;
+                StudioTargetProfile copy = profile;
+                copy.name = uniqueProfileName(next, copy.name + " copy", next.size());
+                next.push_back(std::move(copy));
+                const std::size_t added = next.size() - 1;
+                result.profileEdit =
+                    StudioTargetProfileEdit{std::move(next), added, "Duplicate target"};
+            }
+
+            // **Disabled rather than hidden** (`STUDIO-12004`). Removing the last target leaves a
+            // project that cannot be built and no row to add one from, and a Remove button that
+            // vanished when it was the one thing a user was looking for would read as the panel
+            // being broken rather than as the operation being refused.
+            StudioButtonOptions removeOptions;
+            removeOptions.enabled = profiles.size() > 1;
+            if (studioButton(frame, frame.ids().make("remove"), removeBox, "Remove", removeOptions)
+                    .activated)
+            {
+                std::vector<StudioTargetProfile> next = profiles;
+                next.erase(next.begin() + static_cast<std::ptrdiff_t>(activeIndex));
+                result.profileEdit =
+                    StudioTargetProfileEdit{std::move(next), activeIndex, "Remove target"};
+            }
+        }
 
         // --- The six axes ------------------------------------------------------------------------
         {
@@ -380,9 +515,10 @@ namespace CNA::Studio
 
         if (edited)
         {
-            profiles[activeIndex] = profile;
-            project.setTargetProfiles(std::move(profiles));
-            result.profileChanged = true;
+            std::vector<StudioTargetProfile> next = profiles;
+            next[activeIndex] = profile;
+            result.profileEdit =
+                StudioTargetProfileEdit{std::move(next), activeIndex, "Edit target"};
         }
 
         // --- What is wrong with it ---------------------------------------------------------------

@@ -13,6 +13,7 @@
 #include "CNA/Studio/Assets/AssetDatabase.hpp"
 #include "CNA/Studio/Assets/AssetShortcuts.hpp"
 #include "CNA/Studio/Project/Project.hpp"
+#include "CNA/Studio/ProjectCommands.hpp"
 #include "CNA/Studio/Project/ProjectTemplate.hpp"
 
 #include <ctime>
@@ -1550,6 +1551,38 @@ namespace CNA::Studio
         // editing its `.cnaproject` in a text editor.
         shell.setPanelContent("build", [this](StudioFrame& frame, const UiRect& bounds) {
             const StudioBuildPanelResult panel = buildPanel_->draw(frame, bounds);
+
+            // Panels report, the binder acts (`STUDIO-17002`). The panel used to write target
+            // profiles straight into the open project and raise a flag nothing read, so every
+            // target edit skipped the undo stack and was lost the moment Studio closed.
+            if (panel.profileEdit.has_value())
+            {
+                auto edit = std::make_unique<SetTargetProfilesCommand>(
+                    context_.getProject(), panel.profileEdit->profiles,
+                    panel.profileEdit->activeIndex, panel.profileEdit->description);
+
+                if (edit->isValid())
+                {
+                    // Borrowed rather than moved-and-forgotten. `CommandHistory::execute` runs the
+                    // command and keeps it: a `NewEntry` is always pushed and never merged away,
+                    // and the trim that bounds the history drops from the *front*, so the entry
+                    // just added is the one entry guaranteed to still be there.
+                    const SetTargetProfilesCommand* applied = edit.get();
+                    context_.execute(std::move(edit));
+
+                    // Said only when it went wrong, because a project edit that cannot reach the
+                    // file is one the user will lose -- which is this row's defect in a quieter
+                    // form, and reporting it is what `STUDIO-31011` asks of any change to user
+                    // data that did not land.
+                    if (!applied->wasSavedToDisk())
+                    {
+                        log_.append(LogSeverity::Error,
+                                    "The build target changed, but the project file could not be "
+                                    "written. The change will be lost when Studio closes.");
+                    }
+                }
+            }
+
             if (panel.buildRequested)
             {
                 std::string problem;

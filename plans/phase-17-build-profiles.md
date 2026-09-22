@@ -6,12 +6,12 @@
 
 **Exit criteria.** A user picks a named profile, and Studio offers only combinations that can actually be built.
 
-**Progress:** 5 of 12 complete `█████░░░░░░░`
+**Progress:** 6 of 12 complete `██████░░░░░░`
 
 | Id | Task | Status | Depends on |
 |----|------|:------:|------------|
 | `STUDIO-17001` | Target profile data model | ✅ | `STUDIO-02040` |
-| `STUDIO-17002` | Profile editing UI | ⬜ | `STUDIO-17001` |
+| `STUDIO-17002` | Profile editing UI | ✅ | `STUDIO-17001` |
 | `STUDIO-17003` | Target OS and platform implementation selection | ✅ | `STUDIO-17001` |
 | `STUDIO-17004` | CPU architecture selection | ✅ | `STUDIO-17001` |
 | `STUDIO-17005` | Renderer selection, validated against what CNA can build | ✅ | `STUDIO-17001`, `STUDIO-02030` |
@@ -31,6 +31,81 @@ Tasks whose completion condition is not obvious from the title.
 
 **Delivered by `STUDIO-02040`.** `CNA/Studio/Project/TargetProfile.hpp`: six axes as a value, with a
 project carrying as many profiles as it ships on and none of them privileged
+
+### `STUDIO-17002` — Profile editing UI
+
+**Acceptance.** A project's list of build targets can be managed from Studio — added to, renamed,
+duplicated and removed — and every change to it survives the editor closing and can be taken back.
+
+**✅ Done, and it found a defect the panel's own header described as solved.** `StudioBuildPanel`
+says it exists because *"the legacy panel kept the chosen platform and backend in its own members,
+so they were forgotten when the panel was closed and were never saved"*, and promises *"the profile
+the next save writes"*. **There was no next save.** The panel wrote target profiles straight into
+the open `Project` and set `result.profileChanged`, a flag **nothing anywhere read**. So a user who
+chose a renderer got exactly what they asked for — in memory, until they quit. No undo entry, no
+dirty marker, no prompt on close, nothing in the log. The one gesture that told them was pressing
+Save All, which no one has a reason to press after changing a drop-down.
+
+This is the third instance this session of the same shape: a rule stated in the file that breaks it.
+The two project commands that already existed say it outright — *"a project change that lived only
+in memory would be lost by a crash the recovery snapshot cannot help with; that snapshot holds the
+scene, not the project"* — and the Build panel is the one project editor that did not follow them.
+
+**Panels report, the binder acts.** The panel now returns a `StudioTargetProfileEdit` and
+`StudioShellPanels` runs a `SetTargetProfilesCommand`, which is where the undo entry and the
+write-through live. The whole list travels rather than a diff, because adding and removing a target
+move the *selection* as well as the list and the two have to undo together — a user who undid an
+"Add target" and found the selection pointing past the end of the list would be looking at a bug.
+
+**And the list itself had no interface at all.** The six axes could be edited; the list they belong
+to could not. A project shipping on two things could only say so by hand-editing its `.cnaproject`,
+which is exactly the state this panel exists to remove. It now has Add, Duplicate, Remove and an
+editable name.
+
+Four decisions worth stating:
+
+- **Add gives the host's defaults; Duplicate copies the current target.** Two different intentions,
+  and a panel that made them the same would leave one button doing nothing anyone could see. The
+  test asserts a duplicate equals its original in everything but its name, which is what makes it a
+  duplicate rather than a second Add.
+- **A new target gets a name nothing else is using.** Two rows called "Default" is not illegal — the
+  list is ordered and the drop-down shows positions — but the user who added the second one cannot
+  tell which they are editing. The duplicate gets a number, as a file manager does, rather than the
+  panel refusing the gesture.
+- **Remove is disabled on the last target rather than hidden** (`STUDIO-12004`). Removing it would
+  leave a project that cannot be built and no row to add one from, and a button that vanished when
+  it was the one thing the user was looking for reads as the panel being broken rather than as the
+  operation being refused. The command refuses an empty list too, so the guard is not only in the
+  pixels.
+- **A project that already has no targets gets a way out**, not the dead end the old version drew.
+  "This project declares no build target." followed by nothing was a state only a text editor could
+  leave.
+
+**Verification.** `tests/StudioBuildPanelTests.cpp` —
+`ATargetEditIsWrittenToTheProjectFileAndCanBeUndone` (both halves, because they fail independently:
+a command that did not write through would undo correctly and still lose the change on quit, and a
+write-through that skipped the history would persist a change the user could not take back),
+`ATargetEditThatChangesNothingIsNotACommand`, `TheTargetListCanBeEditedFromThePanel` — driven
+through the real buttons, with every gesture checked on disk and then undone one at a time — and
+`RemovingTheLastTargetIsRefusedRatherThanLeavingAProjectWithNone`.
+
+The test harness now does what the binder does, which is what keeps these cases about the panel
+rather than about a shortcut only the tests take.
+
+**A vacuous assertion the gate-verification caught**, and it is the interesting one. The last-target
+case first asserted `!result.profileEdit.has_value()` — which the harness had already cleared while
+applying it, so the case passed for a click that simply missed the button. Enabling Remove
+unconditionally did not fail it. The count of edits the panel has *reported*, across every frame and
+surviving the settle that follows a click, is what distinguishes "the button is disabled" from "the
+coordinates are wrong".
+
+Checked by causing each: Remove enabled on the last target, the command's write-through removed, and
+undo replaying the new value instead of the old.
+
+**What this row is not.** It does not add validation the model lacks — which combinations are
+offered is `STUDIO-17008`, and it still depends on `STUDIO-17007`'s feature profile. Nor does it
+make the project *dirty*: the write-through means there is nothing to be dirty about, which is the
+same bargain importer settings and the two existing project commands strike.
 
 ### `STUDIO-17003` — Target OS and platform implementation selection
 
@@ -56,14 +131,6 @@ Studio is a different question again that must never be asked here
 **Acceptance.** CMake's four: Debug, Release, RelWithDebInfo, MinSizeRel. The task originally said
 "Debug, Development, Release, Shipping", which is another engine's vocabulary; Studio drives the
 project's own CMake, so it uses CMake's
-
-## Acceptance and verification
-
-Tasks whose completion condition is not obvious from the title.
-
-### `STUDIO-17006` — Build configuration: Debug, Development, Release, Shipping
-
-**Acceptance.** Mapped onto real CMake and toolchain behaviour; Studio does not invent semantics CNA lacks
 
 ### `STUDIO-17007` — Feature profile: what the game requires of a renderer
 

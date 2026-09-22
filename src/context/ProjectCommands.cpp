@@ -48,6 +48,58 @@ namespace CNA::Studio
         return "Rename layer";
     }
 
+    SetTargetProfilesCommand::SetTargetProfilesCommand(Project& project,
+                                                       std::vector<StudioTargetProfile> profiles,
+                                                       std::size_t activeIndex,
+                                                       std::string description)
+        : project_(&project),
+          newProfiles_(std::move(profiles)),
+          oldProfiles_(project.getTargetProfiles()),
+          newActive_(activeIndex),
+          oldActive_(project.getActiveTargetProfileIndex()),
+          description_(std::move(description))
+    {
+        // Clamped rather than refused. An index past the end is what "remove the last target"
+        // produces on the way, and the caller fixing it up would be the caller doing the same
+        // arithmetic in four places.
+        if (!newProfiles_.empty() && newActive_ >= newProfiles_.size())
+        {
+            newActive_ = newProfiles_.size() - 1;
+        }
+
+        // An empty list would leave a project that cannot be built and no row to add a target
+        // from, which is `SetProjectLayersCommand`'s reasoning about an empty layer list. An
+        // unchanged list *and* an unchanged selection would put an entry in the history that
+        // undoes to the state it is already in, which reads to the user as a broken Ctrl+Z.
+        valid_ = !newProfiles_.empty()
+              && (newProfiles_ != oldProfiles_ || newActive_ != oldActive_);
+    }
+
+    void SetTargetProfilesCommand::execute()
+    {
+        if (valid_) { apply(newProfiles_, newActive_); }
+    }
+
+    void SetTargetProfilesCommand::undo()
+    {
+        if (valid_) { apply(oldProfiles_, oldActive_); }
+    }
+
+    void SetTargetProfilesCommand::apply(const std::vector<StudioTargetProfile>& profiles,
+                                         std::size_t activeIndex)
+    {
+        // The list first, then the index: `setActiveTargetProfileIndex` validates against the list
+        // it is given, so an index into the *new* list applied against the old one would be
+        // refused whenever the list grew.
+        project_->setTargetProfiles(profiles);
+        project_->setActiveTargetProfileIndex(activeIndex);
+
+        // Written through, like the two commands above and for the reason they give: the recovery
+        // snapshot holds the scene, not the project, so a project change that lived only in memory
+        // is a project change a crash loses entirely.
+        savedToDisk_ = project_->saveToFile();
+    }
+
     SetProjectGridSnapCommand::SetProjectGridSnapCommand(Project& project, float step)
         : project_(&project), newStep_(step), oldStep_(project.getGridSnap())
     {

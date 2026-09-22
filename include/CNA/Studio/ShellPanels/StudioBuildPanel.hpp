@@ -17,9 +17,17 @@
  * ### A profile is a project's, not a panel's
  *
  * The legacy panel kept the chosen platform and backend in its own members, so they were forgotten
- * when the panel was closed and were never saved. Here the profile list *is* the project's, edited
- * in place, so what the Build button does and what the project ships are one thing rather than two
- * that agree until they do not.
+ * when the panel was closed and were never saved. Here the profile list *is* the project's, so
+ * what the Build button does and what the project ships are one thing rather than two that agree
+ * until they do not.
+ *
+ * **And the panel does not write it** (`STUDIO-17002`). The first version of this file edited the
+ * project in place and raised a `profileChanged` flag that nothing read — so a target edit reached
+ * the model, skipped the undo stack, never reached the file, and was gone when Studio closed. This
+ * header promised "the profile the next save writes"; there was no next save, because nothing
+ * marked the project as having changed. Now the panel *reports* a @ref StudioTargetProfileEdit and
+ * the binder runs a `SetTargetProfilesCommand`, which is where the undo entry and the write-through
+ * live.
  */
 
 #pragma once
@@ -30,6 +38,8 @@
 #include "CNA/Studio/UiCore/StudioFrame.hpp"
 #include "CNA/Studio/UiCore/UiRect.hpp"
 
+#include <cstddef>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -37,11 +47,39 @@ namespace CNA::Studio
 {
     class StudioContext;
 
+    /**
+     * @brief A change to the project's build targets that the user asked for (`STUDIO-17002`).
+     *
+     * **Reported, not applied.** The panel used to write straight into the open `Project` and set
+     * a `profileChanged` flag that nothing read, so every target edit lived in memory, never
+     * reached the undo stack, and was lost when Studio closed. Panels report and the binder acts,
+     * and here the binder's act is a `SetTargetProfilesCommand`.
+     *
+     * The whole list travels rather than a diff, because adding and removing a target move the
+     * selection as well as the list, and the two have to change together or an undo leaves the
+     * selection pointing at a target that is not there.
+     */
+    struct StudioTargetProfileEdit
+    {
+        /** @brief The list the edit produced. */
+        std::vector<StudioTargetProfile> profiles;
+
+        /** @brief Which of them is active afterwards. */
+        std::size_t activeIndex = 0;
+
+        /** @brief What to call this in the History panel, e.g. `"Add target"`. */
+        std::string description;
+    };
+
     /** @brief What the Build panel did this frame. */
     struct StudioBuildPanelResult
     {
-        /** @brief The user changed something about the target profile. Input pass only. */
-        bool profileChanged = false;
+        /**
+         * @brief The target-profile change the user asked for, if any. Input pass only.
+         *
+         * Empty on a frame where nothing was edited, which is almost every frame.
+         */
+        std::optional<StudioTargetProfileEdit> profileEdit;
 
         /** @brief The user asked for a build. Input pass only. */
         bool buildRequested = false;
