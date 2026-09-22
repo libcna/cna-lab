@@ -1739,9 +1739,15 @@ namespace CNA::Studio
                                                     BoundsDisplay boundsOverlay,
                                                     bool boundingSpheres,
                                                     MeshProvider meshProvider,
-                                                    StudioDebugView debugView)
+                                                    StudioDebugView debugView,
+                                                    StudioPivotMode pivotMode)
     {
         WireframeOptions options;
+
+        // `plan.md` CORE-03. The pivot cross has to land where the gizmo turns, and the gizmo
+        // turns about whatever the user chose in View > Pivot -- so the mode travels with the
+        // options rather than being assumed here.
+        options.pivotMode = pivotMode;
 
         // The grid's plane is the user's (STUDIO-07056). The preference is a boolean because
         // `cna-studio-ui-core` does not link the scene module, and the mapping onto `GridPlane`

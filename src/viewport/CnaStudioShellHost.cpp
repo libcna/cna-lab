@@ -991,7 +991,8 @@ namespace CNA::Studio
                 const WireframeOptions wireframeOptions = studioViewportWireframeOptions(
                     panels_->viewportShading(), panels_->viewportGridOnGroundPlane(),
                     panels_->viewportBoundsOverlay(), panels_->viewportBoundingSpheres(),
-                    context_->makeMeshProvider(), panels_->viewportDebugView());
+                    context_->makeMeshProvider(), panels_->viewportDebugView(),
+                    panels_->viewportPivotMode());
 
                 const StudioShadingPlan shading = studioShadingPlan(panels_->viewportShading());
 

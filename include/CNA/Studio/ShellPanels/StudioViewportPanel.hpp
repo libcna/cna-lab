@@ -169,7 +169,8 @@ namespace CNA::Studio
     [[nodiscard]] WireframeOptions studioViewportWireframeOptions(
         StudioViewportShading shading, bool gridOnGroundPlane, BoundsDisplay boundsOverlay,
         bool boundingSpheres, MeshProvider meshProvider = {},
-        StudioDebugView debugView = StudioDebugView::None);
+        StudioDebugView debugView = StudioDebugView::None,
+        StudioPivotMode pivotMode = StudioPivotMode::Center);
 
     enum class StudioViewportTool
     {

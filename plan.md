@@ -75,7 +75,7 @@ legs.
 
 ## The active roadmap
 
-**4 of 11 active deliverables complete.**
+**5 of 11 active deliverables complete.**
 
 Estimates are Opus 5 engineering hours at this repository's working standard — implementation, the
 test its acceptance names, and the documentation it changes.
@@ -84,7 +84,7 @@ test its acceptance names, and the documentation it changes.
 |----|-------------|:------:|----:|--------|
 | `CORE-01` | Build the project, and understand the failure | ✅ | 6 | `STUDIO-17009`, `STUDIO-17010`, `STUDIO-17011`, `STUDIO-17012`, `STUDIO-15012` |
 | `CORE-02` | Hand the developer back to their IDE | ✅ | 2 | `STUDIO-15010` |
-| `CORE-03` | The viewport shows what is selected | ⬜ | 2 | `STUDIO-35053` |
+| `CORE-03` | The viewport shows what is selected | ✅ | 2 | `STUDIO-35053` |
 | `CORE-04` | The Details panel reads as a property grid | ⬜ | 2 | `STUDIO-35033` |
 | `CORE-05` | Find an asset, find an entity | ⬜ | 3 | `STUDIO-35042`, `STUDIO-35061` |
 | `CORE-06` | Paint order separable from input order | ✅ | 4 | `STUDIO-03041` |
@@ -176,6 +176,23 @@ on a scene with more than a few objects.
 **Done when.** The selected entity is outlined in both viewports with a visible pivot; a
 multi-selection shows a combined bounds; the golden-image suite covers selected and unselected
 states so a regression is caught by CI rather than by eye.
+
+**Done, and the row was partly stale.** The outline already existed in both viewports — a box in
+the 2D renderer, a thicker box in the selection colour in the 3D wireframe — which the table above
+did not know. What was actually missing was everything a *multi-selection* needs: eight selected
+crates were eight identical boxes with nothing saying they were one selection, and nothing at all
+marking the point a rotation would happen about. So two marks were added and no more.
+
+`SceneSelectionOverlay.hpp` computes where they go, in `cna-studio-scene`, and both viewports ask
+it — which is what stops a user finding the pivot in one place in 2D and another in 3D.
+
+| Acceptance | Evidence |
+|------------|----------|
+| Outlined in both viewports | Already true; `TheThreeDViewportDrawsTheSameTwoMarksAsTheTwoDOne` pins that both still mark a selection |
+| A visible pivot | `OneSelectedEntityIsOutlinedAndGetsAPivotButNoSecondBox`, `ThePivotMarkLandsWhereTheGizmoTurnsUnderEitherPivotMode`, `ThePivotCrossIsTheSameSizeOnScreenAtEveryZoom` |
+| A multi-selection shows a combined bounds | `AMultiSelectionGetsOneBoxRoundAllOfItAndAPivotBetweenThem`, `AnEntityWithNoBoundsIsNotOutlinedAndDoesNotWidenTheSelection` |
+| Selected and unselected covered by CI rather than by eye | `CnaStudioVisualScenarioSelected` / `…Unselected` capture both states with the colour floor, and `CnaStudioSelectionChangesWhatIsOnScreen` fails if the two are byte-identical. Those run on the dependency-free build, where the viewport has no CNA renderer, so they cover the *shell's* selected state; the viewport marks themselves are checked as geometry, where a wrong position fails rather than merely a missing pixel |
+| The marks are tellable apart | `TheSelectionMarksAreTellableApartFromEachOtherAndFromTheSceneAroundThem` |
 
 ### `CORE-04` — The Details panel reads as a property grid
 

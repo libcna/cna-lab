@@ -52,6 +52,12 @@ namespace CNA::Studio
         const Xna::Color kAxis{92, 74, 74, 255};
         const Xna::Color kSelection{255, 158, 46, 255};
 
+        /** @brief The box round a whole multi-selection. `plan.md` CORE-03. */
+        const Xna::Color kSelectionExtent{176, 110, 32, 255};
+
+        /** @brief The cross at the point the gizmo turns and scales about. `plan.md` CORE-03. */
+        const Xna::Color kSelectionPivot{255, 214, 140, 255};
+
         /** @brief Icon colours. One per kind, so a glance is enough to tell them apart. */
         const Xna::Color kIconFrame{92, 92, 104, 255};
         const Xna::Color kIconCamera{124, 190, 255, 255};
@@ -1115,18 +1121,52 @@ namespace CNA::Studio
             ++stats.iconsDrawn;
         }
 
-        for (const Uuid& selectedId : selection)
-        {
-            const std::optional<WorldBounds2D> bounds =
-                computeEntityBounds2D(scene, selectedId, sizeProvider);
-            if (!bounds) { continue; }
+        // `plan.md` CORE-03. The per-entity outlines, the box round the whole selection, and the
+        // cross at the point it turns about -- all three from one function that the 3D viewport
+        // asks the same questions of, so a user who selects three entities in this view and
+        // switches to the other finds the pivot in the same place.
+        //
+        // `StudioPivotMode::Center`, which is what the gizmo a few lines below is placed with:
+        // `computeSelectionPivot(scene, movable)` takes the default here, so a mark computed from
+        // a different mode would point somewhere the manipulator beside it is not. (The 2D
+        // *interaction* path in `StudioViewportPanel` does read the user's pivot mode, so the two
+        // can disagree under `Active` with several entities selected. That predates this mark, is
+        // not what CORE-03 is about, and is recorded rather than widened into here.)
+        const StudioSelectionOverlay2D overlay =
+            studioSelectionOverlay2D(scene, selection, sizeProvider, StudioPivotMode::Center);
 
-            const StudioVector2 topLeft = camera.worldToScreen(bounds->min);
-            const StudioVector2 bottomRight = camera.worldToScreen(bounds->max);
-            impl_->drawOutline(Xna::Rectangle{static_cast<int>(topLeft.x), static_cast<int>(topLeft.y),
-                                              static_cast<int>(bottomRight.x - topLeft.x),
-                                              static_cast<int>(bottomRight.y - topLeft.y)},
-                               kSelection, 2);
+        const auto outlineWorldBounds = [&](const WorldBounds2D& bounds, const Xna::Color& color,
+                                            int thickness) {
+            const StudioVector2 topLeft = camera.worldToScreen(bounds.min);
+            const StudioVector2 bottomRight = camera.worldToScreen(bounds.max);
+            impl_->drawOutline(
+                Xna::Rectangle{static_cast<int>(topLeft.x), static_cast<int>(topLeft.y),
+                               static_cast<int>(bottomRight.x - topLeft.x),
+                               static_cast<int>(bottomRight.y - topLeft.y)},
+                color, thickness);
+        };
+
+        for (const WorldBounds2D& bounds : overlay.outlines)
+        {
+            outlineWorldBounds(bounds, kSelection, 2);
+        }
+
+        // Dimmer and thinner than the entity outlines, so a selection of eight crates reads as
+        // eight crates with an extent rather than as nine selected things.
+        if (overlay.combined) { outlineWorldBounds(*overlay.combined, kSelectionExtent, 1); }
+
+        if (overlay.pivot)
+        {
+            // A cross in screen space, so the mark is the same size at every zoom. A fixed
+            // world-space one is a speck on a level and a cage round a sprite, which are the two
+            // views a user switches between while placing one.
+            const StudioVector2 at = camera.worldToScreen(*overlay.pivot);
+            const int cx = static_cast<int>(std::round(at.x));
+            const int cy = static_cast<int>(std::round(at.y));
+            constexpr int kArm = 7;
+
+            impl_->drawRect(Xna::Rectangle{cx - kArm, cy, kArm * 2 + 1, 1}, kSelectionPivot);
+            impl_->drawRect(Xna::Rectangle{cx, cy - kArm, 1, kArm * 2 + 1}, kSelectionPivot);
         }
 
         // The gizmo goes on the *primary* selection only. Drawing one per selected entity would

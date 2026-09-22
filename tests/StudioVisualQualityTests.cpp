@@ -23,6 +23,7 @@
 #include "CNA/Studio/Scene/BuiltinComponents.hpp"
 #include "CNA/Studio/Scene/SceneDocument.hpp"
 #include "CNA/Studio/ShellPanels/StudioOutlinerPanel.hpp"
+#include "CNA/Studio/Scene/SceneWireframe.hpp"
 #include "CNA/Studio/UiCore/StudioIcons.hpp"
 #include "CNA/Studio/UiCore/StudioDrawList.hpp"
 #include "CNA/Studio/UiCore/StudioFrame.hpp"
@@ -541,4 +542,41 @@ CNA_STUDIO_TEST(NothingInteractiveIsPaintedOverByASurfaceDescribedAfterIt)
         }
     }
     CNA_STUDIO_EXPECT(nested >= 4);
+}
+
+// ------------------------------------------------------------------------------------------------
+// `plan.md` CORE-03 — the selection marks are visible, and are not each other
+// ------------------------------------------------------------------------------------------------
+
+CNA_STUDIO_TEST(TheSelectionMarksAreTellableApartFromEachOtherAndFromTheSceneAroundThem)
+{
+    // The marks are a colour coding, and a colour coding whose colours are close is a picture with
+    // no information in it. Three roles, which a user reads at a glance and never studies: an
+    // entity's own box, the box round a whole selection, and the point it turns about.
+    //
+    // Asserted in perceived brightness rather than in channel distance, because two colours can
+    // differ by a hundred in blue and still read as the same grey at a glance -- which is exactly
+    // the failure this guards, one screen away from being invisible.
+    const auto luminance = [](const StudioColor& colour) {
+        return 0.2126f * static_cast<float>(colour.r) + 0.7152f * static_cast<float>(colour.g)
+             + 0.0722f * static_cast<float>(colour.b);
+    };
+
+    const float entity = luminance(WireColors::kEntity);
+    const float selected = luminance(WireColors::kSelected);
+    const float extent = luminance(WireColors::kSelectionExtent);
+    const float pivot = luminance(WireColors::kSelectionPivot);
+
+    // The order is the point. A selected entity is brighter than an unselected one; the box round
+    // the whole selection is dimmer than the entities in it, so eight selected crates read as
+    // eight crates with an extent rather than as nine selected things; and the pivot is the
+    // brightest, because it is the smallest mark on screen and the one that has to be found.
+    CNA_STUDIO_EXPECT(selected > entity);
+    CNA_STUDIO_EXPECT(extent < selected);
+    CNA_STUDIO_EXPECT(pivot > selected);
+
+    // And each is far enough from its neighbour to be a different colour rather than a shade.
+    CNA_STUDIO_EXPECT(std::abs(selected - entity) > 20.0f);
+    CNA_STUDIO_EXPECT(std::abs(selected - extent) > 20.0f);
+    CNA_STUDIO_EXPECT(std::abs(pivot - selected) > 20.0f);
 }

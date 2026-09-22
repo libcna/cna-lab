@@ -480,6 +480,12 @@ namespace CNA::Studio
         }
 
         /** @brief What the 3D view colours surfaces by (`plan.md` STUDIO-11011). */
+        /** @brief Which pivot the gizmo turns about, for the mark that says so (CORE-03). */
+        [[nodiscard]] StudioPivotMode viewportPivotMode() const
+        {
+            return viewportState_.pivotMode;
+        }
+
         [[nodiscard]] StudioDebugView viewportDebugView() const
         {
             return viewportState_.debugView;

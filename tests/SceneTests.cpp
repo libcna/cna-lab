@@ -2655,7 +2655,9 @@ CNA_STUDIO_TEST(ASelectedModelIsOutlinedRatherThanFilledWithTheSelectionColour)
                           }));
     };
 
-    const WireframeResult selected = buildSceneWireframe(scene, camera, {id}, sizes, options);
+    WireframeOptions edgesOnly = options;
+    edgesOnly.drawSelectionExtent = false;
+    const WireframeResult selected = buildSceneWireframe(scene, camera, {id}, sizes, edgesOnly);
 
     // Nothing wears the selection colour until something is selected.
     CNA_STUDIO_EXPECT_EQ(countSelected(unselected), std::size_t{0});
@@ -2676,8 +2678,14 @@ CNA_STUDIO_TEST(ASelectedModelIsOutlinedRatherThanFilledWithTheSelectionColour)
 
     // And turning the outline off leaves the shaded mode with no mesh marking at all, which is what
     // makes this an option rather than a behaviour nobody can decline.
+    //
+    // The selection *extent* marks go too, because this case counts segments and they are not what
+    // it counts: the pivot cross is three of them, and `plan.md` CORE-03 added it after this case
+    // was written. What the case asserts -- an outline replaces the box rather than joining it --
+    // is unchanged.
     WireframeOptions noOutline = options;
     noOutline.drawSelectionOutline = false;
+    noOutline.drawSelectionExtent = false;
     const WireframeResult plain = buildSceneWireframe(scene, camera, {id}, sizes, noOutline);
     CNA_STUDIO_EXPECT_EQ(plain.segments.size(), unselected.segments.size());
 }
@@ -2745,6 +2753,11 @@ CNA_STUDIO_TEST(TheWireframeBoxesEveryEntityAndMarksTheSelection)
 
     WireframeOptions options;
     options.drawGrid = false;
+
+    // Boxes only. The selection-extent marks (`plan.md` CORE-03) are counted by
+    // `AMultiSelectionIsMarkedAsOneThingAndSaysWhereItTurns` below; this case is about the boxes,
+    // and an exact total that also covered the furniture would change whenever the furniture did.
+    options.drawSelectionExtent = false;
 
     const WireframeResult result = buildSceneWireframe(scene, camera, {secondId}, sizes, options);
 

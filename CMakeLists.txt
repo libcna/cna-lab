@@ -153,6 +153,7 @@ add_library(cna-studio-scene STATIC
     src/scene/SceneShadows.cpp
     src/scene/SceneSky.cpp
     src/scene/SceneDebugView.cpp
+    src/scene/SceneSelectionOverlay.cpp
     src/scene/SceneWireframe.cpp
     src/scene/GameCamera.cpp
     src/scene/StudioIcons.cpp

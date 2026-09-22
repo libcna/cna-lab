@@ -32,6 +32,7 @@ add_executable(cna-studio-tests
     StudioLanguageAdapterTests.cpp
     StudioProjectHubTests.cpp
     BuildDiagnosticTests.cpp
+    StudioSelectionOverlayTests.cpp
     StudioExternalEditorTests.cpp
     StudioWorkspaceStoreTests.cpp
     StudioLogPanelTests.cpp
@@ -286,6 +287,39 @@ add_test(NAME CnaStudioVisualScenarioDetailsTransform
                        --screenshot-min-colors=256
                        --project=${CMAKE_CURRENT_SOURCE_DIR}/../examples/HelloSprites/HelloSprites.cnaproject)
 set_tests_properties(CnaStudioVisualScenarioDetailsTransform PROPERTIES TIMEOUT 120)
+
+# `plan.md` CORE-03 -- the selected and unselected states of the whole shell, captured.
+#
+# Both carry the colour floor, so a frame that rendered to nothing fails rather than passing as a
+# valid PNG of an empty window. What they are *for* is the pair: the shell with a selection and the
+# shell without one are two different pictures, and a change that lost the selection entirely would
+# have to make them the same.
+#
+# Said plainly, because the boundary matters: these run on the dependency-free build, where the
+# viewport has no CNA renderer behind it, so what they cover is the *shell's* selected state -- the
+# Details panel filling, the Outliner's row marking, the status bar. The viewport marks themselves
+# are geometry, and they are covered by `StudioSelectionOverlayTests.cpp`, which checks where every
+# one of them goes rather than that some pixel changed.
+add_test(NAME CnaStudioVisualScenarioSelected
+    COMMAND cna-studio --shell-preview=${CMAKE_CURRENT_BINARY_DIR}/scenario-selected.png
+                       --shell-size=1600x900 --select=Player --screenshot-min-colors=256
+                       --project=${CMAKE_CURRENT_SOURCE_DIR}/../examples/HelloSprites/HelloSprites.cnaproject)
+set_tests_properties(CnaStudioVisualScenarioSelected PROPERTIES TIMEOUT 120)
+
+add_test(NAME CnaStudioVisualScenarioUnselected
+    COMMAND cna-studio --shell-preview=${CMAKE_CURRENT_BINARY_DIR}/scenario-unselected.png
+                       --shell-size=1600x900 --screenshot-min-colors=256
+                       --project=${CMAKE_CURRENT_SOURCE_DIR}/../examples/HelloSprites/HelloSprites.cnaproject)
+set_tests_properties(CnaStudioVisualScenarioUnselected PROPERTIES TIMEOUT 120)
+
+# And the two are different pictures. Ordered after both, because it reads what they wrote.
+add_test(NAME CnaStudioSelectionChangesWhatIsOnScreen
+    COMMAND ${CMAKE_COMMAND}
+        -DFIRST=${CMAKE_CURRENT_BINARY_DIR}/scenario-selected.png
+        -DSECOND=${CMAKE_CURRENT_BINARY_DIR}/scenario-unselected.png
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/../cmake/FilesDifferTest.cmake)
+set_tests_properties(CnaStudioSelectionChangesWhatIsOnScreen PROPERTIES
+    DEPENDS "CnaStudioVisualScenarioSelected;CnaStudioVisualScenarioUnselected" TIMEOUT 60)
 
 # The scrub affordance reaches a real capture (STUDIO-07055). A numeric field that scrubs and looks
 # exactly like a plain text box is one whose best feature nobody finds, and the cursor is the only

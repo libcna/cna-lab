@@ -957,6 +957,44 @@ namespace CNA::Studio
             if (drawn > 0) { ++result.entitiesDrawn; }
         }
 
+        // `plan.md` CORE-03. Last, so the two marks that say *what is selected, and where it turns*
+        // are drawn over the boxes they describe rather than under them.
+        if (options.drawSelectionExtent && !selection.empty())
+        {
+            const StudioSelectionOverlay3D overlay =
+                studioSelectionOverlay3D(scene, selection, sizeProvider, options.pivotMode);
+
+            if (overlay.combined)
+            {
+                appendBox(result.segments, camera, *overlay.combined,
+                          WireColors::kSelectionExtent, 1.0f);
+            }
+
+            if (overlay.pivot)
+            {
+                // Three axis-aligned strokes through the point, scaled to the camera's distance so
+                // the mark is the same size on screen at every zoom. A fixed world-space cross is
+                // a speck on a level and a cage round a crate, which are the two views a user
+                // switches between while placing one.
+                const float span = std::max(0.02f, camera.getDistance() * 0.02f);
+                const StudioVector3 at = *overlay.pivot;
+
+                const StudioVector3 arms[3][2] = {
+                    {{at.x - span, at.y, at.z}, {at.x + span, at.y, at.z}},
+                    {{at.x, at.y - span, at.z}, {at.x, at.y + span, at.z}},
+                    {{at.x, at.y, at.z - span}, {at.x, at.y, at.z + span}}};
+
+                for (const auto& arm : arms)
+                {
+                    const std::optional<std::pair<StudioVector2, StudioVector2>> projected =
+                        projectSegment(camera, arm[0], arm[1]);
+                    if (!projected) { continue; }
+                    result.segments.push_back(WireSegment{projected->first, projected->second,
+                                                          WireColors::kSelectionPivot, 2.0f});
+                }
+            }
+        }
+
         return result;
     }
 

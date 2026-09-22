@@ -26,6 +26,7 @@
 #include "CNA/Studio/Core/MeshData.hpp"
 #include "CNA/Studio/Scene/StudioCamera3D.hpp"
 #include "CNA/Studio/Scene/SceneLighting.hpp"
+#include "CNA/Studio/Scene/SceneSelectionOverlay.hpp"
 #include "CNA/Studio/Scene/StudioIcons.hpp"
 
 namespace CNA::Studio
@@ -68,6 +69,23 @@ namespace CNA::Studio
 
         /** @brief A selected entity's bounding box. Matches the 2D viewport's selection colour. */
         inline constexpr StudioColor kSelected{255, 190, 60, 255};
+
+        /**
+         * @brief The box round a whole multi-selection (`plan.md` CORE-03).
+         *
+         * Dimmer than @ref kSelected, so it reads as *the extent of what is selected* rather than
+         * as a ninth selected entity. Drawing it in the selection colour would make a selection of
+         * eight crates look like nine.
+         */
+        inline constexpr StudioColor kSelectionExtent{176, 132, 44, 255};
+
+        /**
+         * @brief The cross at the point the gizmo turns and scales about (`plan.md` CORE-03).
+         *
+         * Brighter than either, because it is the smallest mark on screen and the one a user has
+         * to find before pressing R.
+         */
+        inline constexpr StudioColor kSelectionPivot{255, 224, 150, 255};
 
         /**
          * @brief The bounding volumes the bounds overlay draws (`plan.md` STUDIO-11008).
@@ -177,6 +195,25 @@ namespace CNA::Studio
          * the shaded mode, where no edges are drawn otherwise.
          */
         bool drawSelectionOutline = true;
+
+        /**
+         * @brief Mark the whole selection's extent and the point it turns about (`plan.md` CORE-03).
+         *
+         * Eight selected crates were eight identical boxes with nothing saying they were one
+         * selection, and nothing at all marking the point a rotation would happen about -- which is
+         * the one thing a user has to know before they press R. On for the viewport; off for the
+         * callers that want the scene's own geometry and no editor furniture.
+         */
+        bool drawSelectionExtent = true;
+
+        /**
+         * @brief Which pivot the gizmo is using, so the mark lands where the rotation does.
+         *
+         * Passed rather than assumed: a mark that said the rotation would happen somewhere it
+         * does not is worse than no mark, because it is a wrong answer to the question the user
+         * asked by looking.
+         */
+        StudioPivotMode pivotMode = StudioPivotMode::Center;
 
         /**
          * @brief Draw each light's direction and range (ED-404).
