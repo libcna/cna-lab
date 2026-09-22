@@ -700,6 +700,27 @@ namespace CNA::Studio
          */
         void renderFrame(const UiInputState& input);
 
+        /**
+         * @brief Lays the workspace out for a display of this size, without describing a frame.
+         *
+         * `plan.md` CORE-07. For a host that has to *render something into a panel* before the
+         * frame that shows it — which the CNA viewport does, because its scene goes into an
+         * offscreen texture that the shell then draws.
+         *
+         * Without this the host sizes that texture from the panel rectangle as of the previous
+         * frame, and on the frame a window is resized the shell draws a texture of the old size
+         * into a rectangle of the new one. That is a stretched scene for one frame: not something
+         * a user would name, and exactly the kind of thing `CORE-07` says a resize must not do.
+         *
+         * Idempotent and cheap: @ref renderFrame does the same computation itself, so calling this
+         * first costs one layout pass and changes nothing else. It describes no widget, routes no
+         * input and emits no geometry.
+         *
+         * @param displayWidth The window's width this frame, in logical units.
+         * @param displayHeight Its height.
+         */
+        void prepareLayout(float displayWidth, float displayHeight);
+
         /** @brief The geometry produced by the last frame. */
         [[nodiscard]] const UiDrawData& drawData() const { return frame_.drawData(); }
 

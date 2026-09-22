@@ -288,6 +288,36 @@ add_test(NAME CnaStudioVisualScenarioDetailsTransform
                        --project=${CMAKE_CURRENT_SOURCE_DIR}/../examples/HelloSprites/HelloSprites.cnaproject)
 set_tests_properties(CnaStudioVisualScenarioDetailsTransform PROPERTIES TIMEOUT 120)
 
+# `plan.md` CORE-07 -- a resize case in the visual suite.
+#
+# The whole shell at two sizes with everything else held equal, and the pair required to differ.
+# What that rules out is a shell that lays itself out once and scales: two identical PNGs from two
+# window sizes would mean the second frame is the first one stretched, which is the artefact the
+# row is named for.
+#
+# The pixel-level half -- that the resized frame is byte-identical to one never resized -- is
+# `AResizeFillsTheNewWindowRatherThanStretchingTheOldFrame`, where a rasteriser can compare two
+# frames instead of a person comparing two files.
+add_test(NAME CnaStudioVisualScenarioResizeSmall
+    COMMAND cna-studio --shell-preview=${CMAKE_CURRENT_BINARY_DIR}/scenario-resize-small.png
+                       --shell-size=1024x640 --screenshot-min-colors=256
+                       --project=${CMAKE_CURRENT_SOURCE_DIR}/../examples/HelloSprites/HelloSprites.cnaproject)
+set_tests_properties(CnaStudioVisualScenarioResizeSmall PROPERTIES TIMEOUT 120)
+
+add_test(NAME CnaStudioVisualScenarioResizeLarge
+    COMMAND cna-studio --shell-preview=${CMAKE_CURRENT_BINARY_DIR}/scenario-resize-large.png
+                       --shell-size=1920x1080 --screenshot-min-colors=256
+                       --project=${CMAKE_CURRENT_SOURCE_DIR}/../examples/HelloSprites/HelloSprites.cnaproject)
+set_tests_properties(CnaStudioVisualScenarioResizeLarge PROPERTIES TIMEOUT 120)
+
+add_test(NAME CnaStudioAResizeChangesWhatIsOnScreen
+    COMMAND ${CMAKE_COMMAND}
+        -DFIRST=${CMAKE_CURRENT_BINARY_DIR}/scenario-resize-small.png
+        -DSECOND=${CMAKE_CURRENT_BINARY_DIR}/scenario-resize-large.png
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/../cmake/FilesDifferTest.cmake)
+set_tests_properties(CnaStudioAResizeChangesWhatIsOnScreen PROPERTIES
+    DEPENDS "CnaStudioVisualScenarioResizeSmall;CnaStudioVisualScenarioResizeLarge" TIMEOUT 60)
+
 # `plan.md` CORE-04 -- the property grid at two panel widths.
 #
 # Two, because the label column is sized from its labels within bounds now, and the bounds are the

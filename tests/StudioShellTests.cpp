@@ -898,3 +898,138 @@ CNA_STUDIO_TEST(TheViewportCompositesASceneWhenOneIsHandedToItAndTheGridWhenNot)
     shell.renderFrame(input);
     CNA_STUDIO_EXPECT_EQ(shell.drawData().getTotalIndexCount(), placeholderIndices);
 }
+
+// ------------------------------------------------------------------------------------------------
+// `plan.md` CORE-07 — resizing changes what is on screen and nothing else
+// ------------------------------------------------------------------------------------------------
+
+CNA_STUDIO_TEST(AResizeFillsTheNewWindowRatherThanStretchingTheOldFrame)
+{
+    // Every step of the Core workflow happens inside a window somebody resizes, and the failure
+    // this rules out is the one that looks like a rendering bug and is a *sizing* bug: a frame
+    // laid out for the old window and scaled into the new one, or drawn at the old size and left
+    // with a band of nothing along two edges.
+    //
+    // Rasterised rather than measured, because both failures are visible and neither is
+    // detectable from the draw data alone: a stretched frame has exactly the geometry a correct
+    // one has.
+    auto shell = std::make_shared<StudioShell>(StudioTheme::dark());
+    shell->resetLayout();
+
+    const auto frameAt = [&shell](float width, float height) {
+        UiInputState input;
+        input.displayWidth = width;
+        input.displayHeight = height;
+        input.mouseX = -1.0f;
+        input.mouseY = -1.0f;
+        input.deltaSeconds = 1.0f / 60.0f;
+        shell->renderFrame(input);
+        return rasterizeUiDrawData(shell->drawData(), StudioColor{255, 0, 255, 255});
+    };
+
+    // A frame at the old size, then one frame at the new size. *One*: the assertion is that the
+    // resize is right on the frame it happens, not that it settles afterwards.
+    (void)frameAt(900.0f, 600.0f);
+    const ImageBuffer resized = frameAt(1280.0f, 720.0f);
+
+    CNA_STUDIO_EXPECT(resized.isWellFormed());
+    CNA_STUDIO_EXPECT_EQ(resized.width, 1280);
+    CNA_STUDIO_EXPECT_EQ(resized.height, 720);
+    if (!resized.isWellFormed()) { return; }
+
+    // The clear colour is magenta and nothing in the theme is, so any of it left on screen is a
+    // pixel the shell did not draw -- which is what a frame laid out for a 900-wide window inside
+    // a 1280-wide one leaves down its right-hand side.
+    const auto isClear = [&resized](int x, int y) {
+        const std::size_t at = (static_cast<std::size_t>(y) * static_cast<std::size_t>(resized.width)
+                                + static_cast<std::size_t>(x)) * 4u;
+        return resized.pixels[at] == 255 && resized.pixels[at + 1] == 0
+            && resized.pixels[at + 2] == 255;
+    };
+
+    std::size_t undrawn = 0;
+    for (int y = 0; y < resized.height; ++y)
+    {
+        for (int x = 0; x < resized.width; ++x)
+        {
+            if (isClear(x, y)) { ++undrawn; }
+        }
+    }
+
+    if (undrawn > 0)
+    {
+        CnaStudioTest::reportFailure(__FILE__, __LINE__,
+            std::to_string(undrawn) + " pixels of the 1280x720 frame were never drawn on the "
+            "frame the window was resized. The shell laid itself out for the size it used to be "
+            "(plan.md CORE-07).");
+    }
+
+    // And the frame is identical to one rendered at that size from the start: a resize must leave
+    // no trace of what the window used to be. This is the assertion a stretched frame fails --
+    // its geometry is right and its pixels are not.
+    auto fresh = std::make_shared<StudioShell>(StudioTheme::dark());
+    fresh->resetLayout();
+
+    UiInputState input;
+    input.displayWidth = 1280.0f;
+    input.displayHeight = 720.0f;
+    input.mouseX = -1.0f;
+    input.mouseY = -1.0f;
+    input.deltaSeconds = 1.0f / 60.0f;
+    // Two frames, as the resized shell had. The font atlas is rasterised on the frame it is first
+    // needed and named by the draw data only then, so a one-frame shell and a two-frame one differ
+    // in a way that has nothing to do with resizing -- which is the comparison this case would
+    // otherwise be making.
+    fresh->renderFrame(input);
+    fresh->renderFrame(input);
+
+    const ImageBuffer never = rasterizeUiDrawData(fresh->drawData(), StudioColor{255, 0, 255, 255});
+    CNA_STUDIO_EXPECT(never.isWellFormed());
+    CNA_STUDIO_EXPECT_EQ(resized.pixels.size(), never.pixels.size());
+    CNA_STUDIO_EXPECT(resized.pixels == never.pixels);
+}
+
+CNA_STUDIO_TEST(TheLayoutIsAvailableBeforeTheFrameThatDrawsIt)
+{
+    // `plan.md` CORE-07, and the half that shows only on a CNA build. The viewport's scene goes
+    // into an offscreen texture that the shell then draws, so the host has to size that texture
+    // *before* describing the frame -- and it used to read the panel rectangle as of the previous
+    // one. On the frame a window was resized that is a texture of the old size drawn into a
+    // rectangle of the new: a scene stretched for a frame.
+    //
+    // `prepareLayout` is what the host calls first. The claim is that it answers with the same
+    // rectangle the frame is about to use, which is the only thing that makes it worth calling.
+    auto shell = std::make_unique<StudioShell>(StudioTheme::dark());
+    shell->resetLayout();
+
+    UiInputState input;
+    input.displayWidth = 900.0f;
+    input.displayHeight = 600.0f;
+    input.mouseX = -1.0f;
+    input.mouseY = -1.0f;
+    input.deltaSeconds = 1.0f / 60.0f;
+    shell->renderFrame(input);
+
+    const UiRect before = shell->panelBounds("viewport");
+    CNA_STUDIO_EXPECT(!before.isEmpty());
+
+    // The window grows. What the host would have used without `prepareLayout` is `before`.
+    input.displayWidth = 1280.0f;
+    input.displayHeight = 720.0f;
+
+    shell->prepareLayout(input.displayWidth, input.displayHeight);
+    const UiRect prepared = shell->panelBounds("viewport");
+
+    shell->renderFrame(input);
+    const UiRect drawn = shell->panelBounds("viewport");
+
+    CNA_STUDIO_EXPECT(!prepared.isEmpty());
+    CNA_STUDIO_EXPECT_EQ(prepared.x, drawn.x);
+    CNA_STUDIO_EXPECT_EQ(prepared.y, drawn.y);
+    CNA_STUDIO_EXPECT_EQ(prepared.width, drawn.width);
+    CNA_STUDIO_EXPECT_EQ(prepared.height, drawn.height);
+
+    // And it is genuinely different from the stale answer, or the case above holds for a resize
+    // that changed nothing.
+    CNA_STUDIO_EXPECT(prepared.width != before.width);
+}

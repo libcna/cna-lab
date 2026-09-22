@@ -75,7 +75,7 @@ legs.
 
 ## The active roadmap
 
-**7 of 11 active deliverables complete.**
+**8 of 11 active deliverables complete.**
 
 Estimates are Opus 5 engineering hours at this repository's working standard — implementation, the
 test its acceptance names, and the documentation it changes.
@@ -88,7 +88,7 @@ test its acceptance names, and the documentation it changes.
 | `CORE-04` | The Details panel reads as a property grid | ✅ | 2 | `STUDIO-35033` |
 | `CORE-05` | Find an asset, find an entity | ✅ | 3 | `STUDIO-35042`, `STUDIO-35061` |
 | `CORE-06` | Paint order separable from input order | ✅ | 4 | `STUDIO-03041` |
-| `CORE-07` | Resize without artefacts | ⬜ | 2 | `STUDIO-04011` |
+| `CORE-07` | Resize without artefacts | ✅ | 2 | `STUDIO-04011` |
 | `CORE-08` | Answer the four questions the plan left silent | ✅ | 2 | `STUDIO-00015`, `STUDIO-01014`, `STUDIO-01015`, `STUDIO-01016` |
 | `CORE-09` | Documentation to use and maintain the product | ⬜ | 5 | `STUDIO-33001`, `STUDIO-33002`, `STUDIO-33003`, `STUDIO-29006` |
 | `CORE-10` | A regression baseline for the Core workflow | ⬜ | 5 | `STUDIO-33020`, `STUDIO-21009`, `STUDIO-35010` |
@@ -317,6 +317,25 @@ across a resize; a resize case in the visual suite.
 
 **Not included.** Device loss and render-resource recreation (`STUDIO-04010`), which needs a real
 device to fail before it can be tested honestly.
+
+**Done.** The arrangement half was already true and already tested — a split stores a fraction, a
+float stores its intent and is clamped into `bounds` rather than into its own fields, and
+`ShrinkingTheWindowAndGrowingItBackLeavesTheFloatsWhereTheyWere` holds it. What was left was the
+stretched frame, which the archived row recorded and left: the CNA host renders the scene into an
+offscreen texture *before* the shell describes the frame, so it sized that texture from the panel
+rectangle as of the previous one — and on the frame a window was resized, the shell drew a texture
+of the old size into a rectangle of the new.
+
+`StudioShell::prepareLayout` is the fix: the host lays the workspace out for this frame's window
+before rendering into it. It is the layout pass `renderFrame` already runs, called once more, so it
+describes nothing and routes nothing.
+
+| Acceptance | Evidence |
+|------------|----------|
+| No stretched frame | `TheLayoutIsAvailableBeforeTheFrameThatDrawsIt` — the rectangle the host sizes the scene from is the one the frame is about to use, and is not the stale one. Emptying `prepareLayout` makes it name all four fields |
+| No stale geometry | `AResizeFillsTheNewWindowRatherThanStretchingTheOldFrame` — the frame after a resize is byte-identical to one rendered at that size from the start, over a magenta clear no pixel of which survives |
+| No silent edit to the docked arrangement | `ProportionsSurviveAResize`, `ShrinkingTheWindowAndGrowingItBackLeavesTheFloatsWhereTheyWere` (already true) |
+| A resize case in the visual suite | `CnaStudioVisualScenarioResizeSmall` / `…Large`, and `CnaStudioAResizeChangesWhatIsOnScreen`, which fails if two window sizes produce the same picture |
 
 ### `CORE-08` — Answer the four questions the plan left silent
 

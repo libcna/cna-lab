@@ -712,6 +712,16 @@ namespace CNA::Studio
                 // Still before the scene is rendered, because the frame that reports a change has
                 // to be the frame that shows it: reporting an edit and then drawing the old art for
                 // one more frame is a flicker nobody can explain.
+                // `plan.md` CORE-07. The layout first, so the scene is rendered at the size the
+                // panel is about to be rather than the size it was. Without it, the frame a
+                // window is resized on draws a texture of the old size into a rectangle of the
+                // new one -- a scene stretched for one frame, which is exactly what "resizing
+                // changes what is on screen and nothing else" rules out.
+                //
+                // `renderFrame` lays out again for itself, so this is one extra layout pass a
+                // frame and no change to what is described.
+                shell_->prepareLayout(input.displayWidth, input.displayHeight);
+
                 renderSceneIntoViewport();
 
                 shell_->renderFrame(input);
@@ -839,10 +849,11 @@ namespace CNA::Studio
             /**
              * @brief Renders the scene into an offscreen target and hands it to the shell.
              *
-             * Sized from the viewport panel's rectangle *as of the last frame*, because the shell
-             * decides that rectangle while it describes the frame and the render has to happen
-             * before it. One frame of latency after a resize, which shows as the scene stretching
-             * for a frame rather than as anything a user would name.
+             * Sized from the viewport panel's rectangle *as of this frame*, which is why the
+             * caller runs `StudioShell::prepareLayout` first (`plan.md` CORE-07). It used to be
+             * last frame's, because the shell decides that rectangle while it describes the frame
+             * and the render has to happen before it -- and on the frame a window was resized the
+             * shell drew a texture of the old size into a rectangle of the new one.
              */
             void renderSceneIntoViewport()
             {

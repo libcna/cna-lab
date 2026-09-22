@@ -1198,6 +1198,14 @@ namespace CNA::Studio
         handleDialogAnswer();
     }
 
+    void StudioShell::prepareLayout(float displayWidth, float displayHeight)
+    {
+        // The same call `renderFrame` makes a few lines down, and nothing else. It reads the theme
+        // and writes the dock's geometry and the menu titles; it touches no widget, no router and
+        // no draw list, which is what makes it safe to run outside a frame.
+        computeLayout(displayWidth, displayHeight);
+    }
+
     void StudioShell::buildContent()
     {
         // Content descriptors are already the shell's own state; the phase exists so that an
