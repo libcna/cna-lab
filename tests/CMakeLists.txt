@@ -288,6 +288,28 @@ add_test(NAME CnaStudioVisualScenarioDetailsTransform
                        --project=${CMAKE_CURRENT_SOURCE_DIR}/../examples/HelloSprites/HelloSprites.cnaproject)
 set_tests_properties(CnaStudioVisualScenarioDetailsTransform PROPERTIES TIMEOUT 120)
 
+# `plan.md` CORE-04 -- the property grid at two panel widths.
+#
+# Two, because the label column is sized from its labels within bounds now, and the bounds are the
+# only interesting thing about it: at one width the content decides, and at the other a bound does.
+# A single capture would cover neither case knowingly.
+#
+# The shell width is what moves the Details panel's width, so these are the whole shell at a narrow
+# and a wide size, with an entity selected so the grid has rows in it.
+add_test(NAME CnaStudioVisualScenarioDetailsNarrow
+    COMMAND cna-studio --shell-preview=${CMAKE_CURRENT_BINARY_DIR}/scenario-details-narrow.png
+                       --shell-size=1280x720 --panel=details --select=Player
+                       --screenshot-min-colors=256
+                       --project=${CMAKE_CURRENT_SOURCE_DIR}/../examples/HelloSprites/HelloSprites.cnaproject)
+set_tests_properties(CnaStudioVisualScenarioDetailsNarrow PROPERTIES TIMEOUT 120)
+
+add_test(NAME CnaStudioVisualScenarioDetailsWide
+    COMMAND cna-studio --shell-preview=${CMAKE_CURRENT_BINARY_DIR}/scenario-details-wide.png
+                       --shell-size=2560x1440 --panel=details --select=Player
+                       --screenshot-min-colors=256
+                       --project=${CMAKE_CURRENT_SOURCE_DIR}/../examples/HelloSprites/HelloSprites.cnaproject)
+set_tests_properties(CnaStudioVisualScenarioDetailsWide PROPERTIES TIMEOUT 120)
+
 # `plan.md` CORE-03 -- the selected and unselected states of the whole shell, captured.
 #
 # Both carry the colour floor, so a frame that rendered to nothing fails rather than passing as a

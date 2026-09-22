@@ -869,6 +869,23 @@ namespace CNA::Studio
      *        null one means every section is open: the headless paths and the many cases that care
      *        about a property rather than about folding should not have to carry one.
      */
+    /**
+     * @brief Where a property's value control starts, for a panel drawn into @p bounds.
+     *
+     * `plan.md` CORE-04. The label column is sized from the labels the panel is showing rather
+     * than from a fixed fraction of its width, so *where the values are* is no longer a number
+     * anybody can write down — and six tests had written down the old one, which is how a layout
+     * change becomes six unrelated failures.
+     *
+     * Exposed for them, and for anything else that needs to aim at a value: asking is correct by
+     * construction, and a hard-coded fraction is correct until the day it is not.
+     *
+     * @param frame The frame the panel was last described into.
+     * @param bounds The rectangle it was given.
+     * @return The x of the control column's left edge, in logical units.
+     */
+    [[nodiscard]] float studioDetailsControlColumnLeft(StudioFrame& frame, const UiRect& bounds);
+
     StudioDetailsResult studioDetailsPanel(StudioFrame& frame, const UiRect& bounds,
                                            StudioContext& context,
                                            const StudioDetailsServices& services = {},

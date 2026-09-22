@@ -20,6 +20,8 @@
 
 #include "TestHarness.hpp"
 
+#include <iostream>
+
 #include "CNA/Studio/Assets/AssetDatabase.hpp"
 #include "CNA/Studio/Scene/BuiltinComponents.hpp"
 #include "CNA/Studio/ShellPanels/StudioDetailsPanel.hpp"
@@ -126,7 +128,20 @@ namespace
             });
         }
 
-        void settle() { run(at(-1.0f, -1.0f)); }
+        /**
+         * @brief Draws the panel with the pointer nowhere, until its layout has settled.
+         *
+         * Two frames, not one (`plan.md` CORE-04). The Details panel's label column is sized from
+         * the labels it drew last frame, so the first frame after a selection change lays out
+         * against the previous one's measurement and the second lays out against its own. A
+         * fixture that aimed at a control after one frame would be aiming at where it was about to
+         * stop being.
+         */
+        void settle()
+        {
+            run(at(-1.0f, -1.0f));
+            run(at(-1.0f, -1.0f));
+        }
 
         /** @brief Clicks, starting un-pressed so the router sees a real press. */
         void click(float x, float y)
@@ -154,30 +169,62 @@ namespace
         }
 
         /** @brief Where the control column of row @p index starts. */
-        [[nodiscard]] float controlLeft() const
+        [[nodiscard]] float controlLeft()
         {
-            const UiRect area = content();
-            return area.x + std::round(area.width * 0.38f)
-                   + metricOf(frame.theme(), StudioMetric::SpacingSmall);
+            // Asked of the panel rather than reconstructed here (`plan.md` CORE-04). The label
+            // column is sized from the labels on screen now, so a fraction written down in a test
+            // is a number that stops being true the first time somebody renames a property.
+            return studioDetailsControlColumnLeft(frame, bounds);
+        }
+
+        /**
+         * @brief The controls on row @p index, left to right, as the frame routed them.
+         *
+         * Found rather than reconstructed. A preview row is a label column, two icon buttons and a
+         * sentence, and computing where the second button is means agreeing with the panel about
+         * four metrics and the width of the label column -- which `plan.md` CORE-04 made a
+         * measured quantity rather than a fraction anybody can write down. Asking the frame what
+         * it routed input to is exact, and it keeps being exact when the layout changes.
+         */
+        [[nodiscard]] std::vector<UiRect> controlsOnRow(std::size_t index)
+        {
+            const UiRect box = row(index);
+
+            std::vector<UiRect> found;
+            for (const StudioRecordedInteraction& widget : frame.recordedInteractions())
+            {
+                if (widget.bounds.width <= 0.0f || widget.bounds.height <= 0.0f) { continue; }
+                if (widget.bounds.centerY() < box.top() || widget.bounds.centerY() > box.bottom())
+                {
+                    continue;
+                }
+
+                // The row itself, or a control spanning it, is not one of the buttons. A preview
+                // button is square-ish; the sentence beside it is not a control at all.
+                if (widget.bounds.width > box.width * 0.5f) { continue; }
+                found.push_back(widget.bounds);
+            }
+
+            std::sort(found.begin(), found.end(), [](const UiRect& a, const UiRect& b) {
+                return a.x < b.x;
+            });
+            return found;
         }
 
         /** @brief Clicks the Play button of the preview on row @p index. */
         void clickPlay(std::size_t index)
         {
-            const UiRect box = row(index);
-            const float buttonWidth = std::max(metricOf(frame.theme(), StudioMetric::ControlHeight),
-                                               metricOf(frame.theme(), StudioMetric::MinimumHitTarget));
-            click(controlLeft() + buttonWidth * 0.5f, box.centerY());
+            const std::vector<UiRect> controls = controlsOnRow(index);
+            if (controls.empty()) { return; }
+            click(controls.front().centerX(), controls.front().centerY());
         }
 
         /** @brief Clicks the Stop button of the preview on row @p index. */
         void clickStop(std::size_t index)
         {
-            const UiRect box = row(index);
-            const float buttonWidth = std::max(metricOf(frame.theme(), StudioMetric::ControlHeight),
-                                               metricOf(frame.theme(), StudioMetric::MinimumHitTarget));
-            const float spacing = metricOf(frame.theme(), StudioMetric::SpacingXSmall);
-            click(controlLeft() + buttonWidth + spacing + buttonWidth * 0.5f, box.centerY());
+            const std::vector<UiRect> controls = controlsOnRow(index);
+            if (controls.size() < 2) { return; }
+            click(controls[1].centerX(), controls[1].centerY());
         }
     };
 
@@ -494,10 +541,17 @@ CNA_STUDIO_TEST(ThePreviewButtonsAndTheClipNameAreActuallyVisibleAndNotPaintedOv
     // Two frames with the texture table kept across them: the font atlas is requested on the frame
     // it is rasterised and never again, so a table built from the last frame alone would draw every
     // glyph as a solid rectangle and pass this for the wrong reason.
+    //
+    // Applied after *every* frame rather than after a settle, because a settle is more than one
+    // frame now (`plan.md` CORE-04) and the request appears in exactly one of them: a table built
+    // from the last frame of a settle has no font in it at all, and every glyph rasterises to a
+    // flat rectangle -- which reads here as text that is not being drawn.
     UiTextureTable textures;
-    fixture.settle();
-    textures.apply(fixture.frame.drawData());
-    fixture.settle();
+    for (int frame = 0; frame < 4; ++frame)
+    {
+        fixture.run(at(-1.0f, -1.0f));
+        textures.apply(fixture.frame.drawData());
+    }
 
     const ImageBuffer image = rasterizeUiDrawData(
         fixture.frame.drawData(), fixture.frame.theme().color(StudioColorRole::AppBackground),
@@ -506,11 +560,6 @@ CNA_STUDIO_TEST(ThePreviewButtonsAndTheClipNameAreActuallyVisibleAndNotPaintedOv
     if (image.isEmpty()) { return; }
 
     const UiRect box = fixture.row(previewRow(fixture.context, fixture.entity, 0));
-    const float buttonWidth =
-        std::max(metricOf(fixture.frame.theme(), StudioMetric::ControlHeight),
-                 metricOf(fixture.frame.theme(), StudioMetric::MinimumHitTarget));
-    const float spacing = metricOf(fixture.frame.theme(), StudioMetric::SpacingXSmall);
-
     /** @brief Distinct colours in a band of the row. */
     const auto coloursIn = [&](float fromX, float toX) {
         const int left = std::max(0, static_cast<int>(fromX));
@@ -533,8 +582,18 @@ CNA_STUDIO_TEST(ThePreviewButtonsAndTheClipNameAreActuallyVisibleAndNotPaintedOv
         return colours.size();
     };
 
-    const float buttonsRight = fixture.controlLeft() + buttonWidth * 2.0f + spacing;
-    const std::size_t buttons = coloursIn(fixture.controlLeft(), buttonsRight);
+    // The buttons as the frame routed them, rather than reconstructed from four metrics and the
+    // width of the label column -- which `plan.md` CORE-04 made a measured quantity. A region
+    // computed from the wrong arithmetic would sample the gap beside the buttons and fail with a
+    // message about paint order, which is the wrong bug report.
+    const std::vector<UiRect> controls =
+        fixture.controlsOnRow(previewRow(fixture.context, fixture.entity, 0));
+    CNA_STUDIO_EXPECT_EQ(controls.size(), std::size_t{2});
+    if (controls.size() < 2) { return; }
+
+    const float buttonsLeft = controls.front().left();
+    const float buttonsRight = controls[1].right();
+    const std::size_t buttons = coloursIn(buttonsLeft, buttonsRight);
     if (buttons < 4)
     {
         CnaStudioTest::reportFailure(__FILE__, __LINE__,

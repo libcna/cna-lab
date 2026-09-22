@@ -454,15 +454,187 @@ namespace CNA::Studio
             return "Inactive while " + label + " is " + actual + ".";
         }
 
-        PropertyRow splitRow(const StudioTheme& theme, UiRect row)
+        /**
+         * @brief The label column's width, and how it is decided (`plan.md` CORE-04).
+         *
+         * It used to be a flat 38% of the panel. The comment defending that said a column sized
+         * from its labels would make every control jump when the selection changed -- which is
+         * true, and is what the bounds below are for rather than a reason to ignore the content.
+         * What the fixed fraction actually produced is the defect `CORE-04` names: a property
+         * called `x` and its value at opposite ends of a gap wider than either, and reading a
+         * value off the wrong row is a data error rather than an aesthetic one.
+         *
+         * Three things keep it steady:
+         *
+         * - **Bounds.** Never below @ref kMinFraction of the panel, never above @ref kMaxFraction,
+         *   so the control column cannot be squeezed out by one long property name and the labels
+         *   cannot collapse to nothing on a narrow panel.
+         * - **A step.** Rounded up to @ref kStep pixels, so a label a few pixels wider than the
+         *   last one does not move the column at all.
+         * - **One frame's lag.** The width used by *both* passes of a frame is the one measured
+         *   during the previous frame. Measuring and using within a frame would give the input
+         *   pass and the draw pass different geometry, and every control would be hit-tested
+         *   somewhere other than where it was drawn.
+         *
+         * The lag is visible only as the column settling on the frame after a selection changes,
+         * which is the same frame the panel's contents change anyway.
+         */
+        struct LabelColumn
         {
+            /**
+             * @brief Never narrower than this many control heights.
+             *
+             * A floor in *pixels*, not in panel widths, and the difference is the whole point. A
+             * fractional floor grows with the panel, so on a wide one it would put the column back
+             * where the fixed 38% had it -- which is the defect, restated as a bound.
+             *
+             * Wide enough for a short label and the reset button beside it, so an overridden
+             * property called `x` does not lose its name to make room for the control that resets
+             * it.
+             */
+            static constexpr float kMinControlHeights = 3.0f;
+
+            /** @brief Never wider, so the control column always has most of the row. */
+            static constexpr float kMaxFraction = 0.45f;
+
+            /** @brief The quantum the measured width is rounded up to. */
+            static constexpr float kStep = 8.0f;
+
+            /** @brief The width every row of this frame uses. */
+            float resolved = 0.0f;
+
+            /** @brief The widest label this frame has drawn, for the next one. */
+            float widest = 0.0f;
+        };
+
+        /**
+         * @brief The panel's column state, which outlives the frame and every id scope in it.
+         *
+         * Not `frame.ids().make(...)`: an id built from the current scope would be a *different*
+         * id in every section, so the column would be measured once per section and remembered
+         * nowhere. The key is the whole panel's, and it is the same one wherever it is asked for.
+         */
+        WidgetState& labelColumnState(StudioFrame& frame)
+        {
+            static const WidgetId id{hashWidgetKey(0, "studio.details.labelColumn")};
+            return frame.state().get(id);
+        }
+
+        /**
+         * @brief Resolves this frame's column width from what the last one measured.
+         *
+         * `scalar` is the width the previous frame settled on and `scrollX` is what this one is
+         * accumulating. Two fields rather than one, because a single one would be read and
+         * overwritten within the same frame -- which is the mid-frame move this design exists to
+         * avoid.
+         */
+        /**
+         * @brief Where this frame's rows actually begin, which is not the panel's left edge.
+         *
+         * A row starts inside the scroll view, not inside the panel: `studioBeginScroll` insets
+         * for its own gutter, and the asset inspector and the component grid inset by different
+         * amounts. `studioDetailsControlColumnLeft` has to answer with the real number, and the
+         * only thing that knows it is a row.
+         */
+        WidgetState& rowOriginState(StudioFrame& frame)
+        {
+            static const WidgetId id{hashWidgetKey(0, "studio.details.rowOrigin")};
+            return frame.state().get(id);
+        }
+
+        /** @brief This frame's resolved column width, or zero before the panel has started one. */
+        float labelColumnWidth(StudioFrame& frame)
+        {
+            const WidgetState& state = labelColumnState(frame);
+            if (state.scrollY <= 0.0f) { return 0.0f; }
+
+            const float stepped =
+                std::ceil(std::max(0.0f, state.scalar) / LabelColumn::kStep) * LabelColumn::kStep;
+
+            const float ceiling = state.scrollY * LabelColumn::kMaxFraction;
+            const float floor = std::min(metricOf(frame.theme(), StudioMetric::ControlHeight)
+                                             * LabelColumn::kMinControlHeights,
+                                         ceiling);
+            return std::round(std::clamp(stepped, floor, ceiling));
+        }
+
+        /**
+         * @brief Records that @p text went into @p box as a label, so the next frame can fit it.
+         *
+         * **It filters by the rectangle**, and that is what makes one call site per text helper
+         * enough. Those helpers draw labels *and* whole-row sentences -- "Drawn through
+         * BasicEffect.", an inactive-condition note -- through the same function, and measuring a
+         * sentence would push the column out to the width of a paragraph. A label is the text in a
+         * rectangle exactly the column's width, which is a fact about the row rather than a
+         * convention somebody has to remember at thirty call sites.
+         */
+        void measureLabel(StudioFrame& frame, const UiRect& box, std::string_view text)
+        {
+            if (text.empty()) { return; }
+
+            // Measured on the input pass only, so the number the next frame reads is one pass's
+            // worth of labels rather than two.
+            if (!frame.isInputPass()) { return; }
+
+            const float column = labelColumnWidth(frame);
+            if (column <= 0.0f || std::abs(box.width - column) > 1.0f) { return; }
+
+            // Plus the gap the row leaves after the label, so the widest label is followed by a
+            // space rather than touching its value.
+            const float width = studioLabelWidth(frame, text)
+                              + metricOf(frame.theme(), StudioMetric::SpacingMedium);
+
+            WidgetState& state = labelColumnState(frame);
+            state.scrollX = std::max(state.scrollX, width);
+        }
+
+        /**
+         * @brief Starts a frame's measurement, publishes what the last one found, and records the
+         *        width the bounds are taken against.
+         *
+         * Called once at the top of the panel, with the panel's own content width. Every row then
+         * resolves the same column from it, whatever that row's own width is -- which is what
+         * makes an indented row indent rather than shrink its label column, and what keeps two
+         * rows at different nesting levels from disagreeing about where the values start.
+         */
+        void beginLabelColumn(StudioFrame& frame, float panelWidth)
+        {
+            WidgetState& state = labelColumnState(frame);
+
+            // On the input pass only. Rotating the accumulator in both passes would publish half a
+            // frame's labels and then measure the other half against them.
+            if (frame.isInputPass())
+            {
+                state.scalar = state.scrollX;
+                state.scrollX = 0.0f;
+
+                WidgetState& origin = rowOriginState(frame);
+                origin.scalar = origin.scrollX;
+                origin.scrollX = 0.0f;
+            }
+            state.scrollY = panelWidth;
+        }
+
+        PropertyRow splitRow(StudioFrame& frame, UiRect row)
+        {
+            const float column = labelColumnWidth(frame);
+            const float labelWidth = column > 0.0f
+                ? column
+                : std::round(row.width * LabelColumn::kMaxFraction);
+
+            // The leftmost row of the frame is the un-indented one, and where it starts is where
+            // the grid starts. Recorded rather than derived, because the insets between the panel
+            // and a row differ by section and there is no formula that covers them all.
+            if (frame.isInputPass())
+            {
+                WidgetState& origin = rowOriginState(frame);
+                origin.scrollX = origin.scrollX <= 0.0f ? row.x : std::min(origin.scrollX, row.x);
+            }
+
             PropertyRow parts;
-            // A fixed fraction rather than the widest label. Labels change as the selection does,
-            // and a column that resized with them would make every control on screen jump each
-            // time somebody clicked a different entity.
-            const float labelWidth = std::round(row.width * 0.38f);
             parts.label = row.splitLeft(std::min(labelWidth, row.width));
-            row.splitLeft(std::min(metricOf(theme, StudioMetric::SpacingSmall), row.width));
+            row.splitLeft(
+                std::min(metricOf(frame.theme(), StudioMetric::SpacingSmall), row.width));
             parts.control = row;
             return parts;
         }
@@ -670,6 +842,9 @@ namespace CNA::Studio
 
             const auto say = [&](const UiRect& box, const std::string& text, StudioColorRole role,
                                  StudioFontRole font = StudioFontRole::Body) {
+                // `plan.md` CORE-04. Filters itself by the rectangle, so a whole-row sentence
+                // drawn through this same helper does not widen the label column.
+                measureLabel(frame, box, text);
                 if (frame.isDrawPass())
                 {
                     studioDrawText(frame, box,
@@ -725,7 +900,7 @@ namespace CNA::Studio
             result.overrides = summary.state > 0 ? static_cast<std::size_t>(summary.state) : 0;
 
             {
-                const PropertyRow parts = splitRow(theme, nextRow());
+                const PropertyRow parts = splitRow(frame, nextRow());
                 say(parts.label, "Prefab", StudioColorRole::TextSecondary);
                 if (summary.state == -2)
                 {
@@ -744,7 +919,7 @@ namespace CNA::Studio
             if (summary.state < 0) { return result; }
 
             {
-                const PropertyRow parts = splitRow(theme, nextRow());
+                const PropertyRow parts = splitRow(frame, nextRow());
                 say(parts.label, "Changes", StudioColorRole::TextSecondary);
                 say(parts.control,
                     result.overrides == 0
@@ -771,7 +946,7 @@ namespace CNA::Studio
 
             if (result.overrides == 0) { return result; }
 
-            const PropertyRow parts = splitRow(theme, nextRow());
+            const PropertyRow parts = splitRow(frame, nextRow());
             UiRect controls = parts.control;
             const float buttonWidth =
                 std::max(metricOf(theme, StudioMetric::ControlHeight) * 2.5f, 64.0f);
@@ -899,9 +1074,10 @@ namespace CNA::Studio
             const float spacing = metricOf(theme, StudioMetric::SpacingXSmall);
 
             UiRect remaining = area;
-            const PropertyRow parts = splitRow(theme, remaining.splitTop(rowHeight));
+            const PropertyRow parts = splitRow(frame, remaining.splitTop(rowHeight));
             remaining.splitTop(spacing);
 
+            measureLabel(frame, parts.label, "Preview");
             if (frame.isDrawPass())
             {
                 studioDrawText(frame, parts.label, "Preview", StudioFontRole::Body,
@@ -1005,7 +1181,7 @@ namespace CNA::Studio
             }
 
             // --- The picture ------------------------------------------------------------------
-            const PropertyRow pictureRow = splitRow(theme, remaining);
+            const PropertyRow pictureRow = splitRow(frame, remaining);
             const float side = std::min(pictureRow.control.width, pictureRow.control.height);
             UiRect box = pictureRow.control;
             box.width = side;
@@ -1107,7 +1283,8 @@ namespace CNA::Studio
             StudioAudioPreviewResult result;
             ++result.controls;
 
-            const PropertyRow parts = splitRow(theme, row);
+            const PropertyRow parts = splitRow(frame, row);
+            measureLabel(frame, parts.label, "Preview");
             if (frame.isDrawPass())
             {
                 studioDrawText(frame, parts.label, "Preview", StudioFontRole::Body,
@@ -1338,13 +1515,14 @@ namespace
             ++result.rows;
 
             row.splitLeft(std::min(buttonWidth, row.width));
-            PropertyRow parts = splitRow(theme, row);
+            PropertyRow parts = splitRow(frame, row);
 
             if (frame.isDrawPass())
             {
                 const std::string name = isList
                     ? "[" + std::to_string(i) + "]"
                     : structure.fields[i].first;
+                measureLabel(frame, parts.label, name);
                 studioDrawText(frame, parts.label,
                                studioTruncateText(frame, theme.font(StudioFontRole::Body), name,
                                                   parts.label.width),
@@ -1952,6 +2130,9 @@ namespace
         };
 
         const auto label = [&](const UiRect& box, const std::string& text) {
+            // `plan.md` CORE-04. Filters itself by the rectangle, so a whole-row sentence
+            // drawn through this same helper does not widen the label column.
+            measureLabel(frame, box, text);
             if (frame.isDrawPass())
             {
                 studioDrawText(frame, box,
@@ -1965,6 +2146,9 @@ namespace
         // and these are sentences rather than field names, so they get their own helper rather
         // than a second meaning for that one.
         const auto say = [&](const UiRect& box, const std::string& text, StudioColorRole role) {
+            // `plan.md` CORE-04. Filters itself by the rectangle, so a whole-row sentence
+            // drawn through this same helper does not widen the label column.
+            measureLabel(frame, box, text);
             if (frame.isDrawPass())
             {
                 studioDrawText(frame, box,
@@ -1978,7 +2162,7 @@ namespace
 
         // --- The project ---------------------------------------------------------------------
         {
-            const PropertyRow parts = splitRow(theme, nextRow());
+            const PropertyRow parts = splitRow(frame, nextRow());
             label(parts.label, "Project");
             // Read-only: the name is the project file's, and renaming a project is renaming a file
             // on disk -- which is a command with a dialog, not a field somebody can edit by
@@ -1987,7 +2171,7 @@ namespace
         }
 
         {
-            const PropertyRow parts = splitRow(theme, nextRow());
+            const PropertyRow parts = splitRow(frame, nextRow());
             label(parts.label, "Grid Snap");
 
             std::string text = formatFloat(project.getGridSnap());
@@ -2015,7 +2199,7 @@ namespace
         };
 
         {
-            const PropertyRow parts = splitRow(theme, nextRow());
+            const PropertyRow parts = splitRow(frame, nextRow());
             label(parts.label, "Ambient");
 
             StudioColor colour = environment.ambientColor;
@@ -2028,7 +2212,7 @@ namespace
         }
 
         {
-            const PropertyRow parts = splitRow(theme, nextRow());
+            const PropertyRow parts = splitRow(frame, nextRow());
             label(parts.label, "Fog");
 
             bool enabled = environment.fogEnabled;
@@ -2046,7 +2230,7 @@ namespace
         if (environment.fogEnabled)
         {
             {
-                const PropertyRow parts = splitRow(theme, nextRow());
+                const PropertyRow parts = splitRow(frame, nextRow());
                 label(parts.label, "Fog Colour");
 
                 StudioColor colour = environment.fogColor;
@@ -2059,7 +2243,7 @@ namespace
             }
 
             {
-                const PropertyRow parts = splitRow(theme, nextRow());
+                const PropertyRow parts = splitRow(frame, nextRow());
                 label(parts.label, "Fog Range");
 
                 static const char* const kEnds[] = {"start", "end"};
@@ -2080,7 +2264,7 @@ namespace
         // sky is a property of a level, and an "Environment" entity the scene is expected to
         // contain is how a scene comes to have a mandatory entity that must not be deleted.
         {
-            const PropertyRow parts = splitRow(theme, nextRow());
+            const PropertyRow parts = splitRow(frame, nextRow());
             label(parts.label, "Environment Map");
 
             frame.ids().push("environmentmap");
@@ -2110,7 +2294,7 @@ namespace
         if (environment.environmentMap.isValid())
         {
             {
-                const PropertyRow parts = splitRow(theme, nextRow());
+                const PropertyRow parts = splitRow(frame, nextRow());
                 label(parts.label, "Show Sky");
 
                 bool show = environment.showSky;
@@ -2124,7 +2308,7 @@ namespace
             }
 
             {
-                const PropertyRow parts = splitRow(theme, nextRow());
+                const PropertyRow parts = splitRow(frame, nextRow());
                 label(parts.label, "Light From Sky");
 
                 bool lit = environment.lightFromEnvironment;
@@ -2138,7 +2322,7 @@ namespace
             }
 
             {
-                const PropertyRow parts = splitRow(theme, nextRow());
+                const PropertyRow parts = splitRow(frame, nextRow());
                 label(parts.label, "Sky Intensity");
 
                 static const char* const kIntensity[] = {"x"};
@@ -2152,7 +2336,7 @@ namespace
             }
 
             {
-                const PropertyRow parts = splitRow(theme, nextRow());
+                const PropertyRow parts = splitRow(frame, nextRow());
                 label(parts.label, "Sky Rotation");
 
                 static const char* const kYaw[] = {"deg"};
@@ -2212,7 +2396,7 @@ namespace
 
         for (std::size_t i = 0; i < layers.size(); ++i)
         {
-            const PropertyRow parts = splitRow(theme, nextRow());
+            const PropertyRow parts = splitRow(frame, nextRow());
             label(parts.label, "Layer " + std::to_string(i));
 
             frame.ids().pushIndex(static_cast<std::int64_t>(i));
@@ -2319,6 +2503,9 @@ namespace
         };
 
         const auto say = [&](const UiRect& box, const std::string& text, StudioColorRole role) {
+            // `plan.md` CORE-04. Filters itself by the rectangle, so a whole-row sentence
+            // drawn through this same helper does not widen the label column.
+            measureLabel(frame, box, text);
             if (frame.isDrawPass())
             {
                 studioDrawText(frame, box,
@@ -2487,7 +2674,7 @@ namespace
         };
 
         {
-            const PropertyRow parts = splitRow(theme, nextRow());
+            const PropertyRow parts = splitRow(frame, nextRow());
             say(parts.label, "Name", StudioColorRole::TextSecondary);
             ++result.materialFields;
 
@@ -2511,7 +2698,7 @@ namespace
         // other, so it picks, filters and takes a drop the way every reference in the editor does
         // -- and it offers only materials, which is what stops half the cycles before they exist.
         {
-            const PropertyRow parts = splitRow(theme, nextRow());
+            const PropertyRow parts = splitRow(frame, nextRow());
             say(parts.label, "Parent", StudioColorRole::TextSecondary);
             ++result.materialFields;
 
@@ -2552,7 +2739,7 @@ namespace
         }
 
         {
-            PropertyRow parts = splitRow(theme, nextRow());
+            PropertyRow parts = splitRow(frame, nextRow());
             if (overrideMarker(parts.label, "diffuseColor") && !edited.has_value())
             {
                 edited = revertedFrom("diffuseColor");
@@ -2572,7 +2759,7 @@ namespace
         }
 
         {
-            PropertyRow parts = splitRow(theme, nextRow());
+            PropertyRow parts = splitRow(frame, nextRow());
             if (overrideMarker(parts.label, "emissiveColor") && !edited.has_value())
             {
                 edited = revertedFrom("emissiveColor");
@@ -2609,7 +2796,7 @@ namespace
 
         for (const ScalarField& field : kScalars)
         {
-            PropertyRow parts = splitRow(theme, nextRow());
+            PropertyRow parts = splitRow(frame, nextRow());
             if (overrideMarker(parts.label, field.key) && !edited.has_value())
             {
                 edited = revertedFrom(field.key);
@@ -2638,7 +2825,7 @@ namespace
         // from the alpha factor: a material with a partly transparent base-colour *texture* has a
         // factor of 1 and is still transparent, and guessing would draw every one of those solid.
         {
-            PropertyRow parts = splitRow(theme, nextRow());
+            PropertyRow parts = splitRow(frame, nextRow());
             if (overrideMarker(parts.label, "alphaMode") && !edited.has_value())
             {
                 edited = revertedFrom("alphaMode");
@@ -2665,7 +2852,7 @@ namespace
         // that does nothing, which is the state STUDIO-12004 took the gizmo space toggle out of.
         if (material.alphaMode == MeshAlphaMode::Mask)
         {
-            PropertyRow parts = splitRow(theme, nextRow());
+            PropertyRow parts = splitRow(frame, nextRow());
             if (overrideMarker(parts.label, "alphaCutoff") && !edited.has_value())
             {
                 edited = revertedFrom("alphaCutoff");
@@ -2721,7 +2908,7 @@ namespace
 
         for (const TextureField& field : kTextures)
         {
-            PropertyRow parts = splitRow(theme, nextRow());
+            PropertyRow parts = splitRow(frame, nextRow());
             if (overrideMarker(parts.label, field.key) && !edited.has_value())
             {
                 edited = revertedFrom(field.key);
@@ -2767,7 +2954,7 @@ namespace
                 for (const StudioMaterialCapabilityIssue& issue :
                      studioMaterialCapabilityIssues(effect, material))
                 {
-                    const PropertyRow parts = splitRow(theme, nextRow());
+                    const PropertyRow parts = splitRow(frame, nextRow());
                     say(parts.label, issue.feature, StudioColorRole::Warning);
                     if (frame.isDrawPass())
                     {
@@ -2863,6 +3050,9 @@ namespace
         };
 
         const auto say = [&](const UiRect& box, const std::string& text, StudioColorRole role) {
+            // `plan.md` CORE-04. Filters itself by the rectangle, so a whole-row sentence
+            // drawn through this same helper does not widen the label column.
+            measureLabel(frame, box, text);
             if (frame.isDrawPass())
             {
                 studioDrawText(frame, box,
@@ -2904,7 +3094,7 @@ namespace
         std::string editedField;
 
         {
-            const PropertyRow parts = splitRow(theme, nextRow());
+            const PropertyRow parts = splitRow(frame, nextRow());
             say(parts.label, "Name", StudioColorRole::TextSecondary);
             ++result.environmentFields;
 
@@ -2925,7 +3115,7 @@ namespace
         // The panorama, as an ordinary typed asset slot -- so it picks, filters and takes a drop
         // exactly as every other reference in the editor does, and offers only textures.
         {
-            const PropertyRow parts = splitRow(theme, nextRow());
+            const PropertyRow parts = splitRow(frame, nextRow());
             say(parts.label, "Panorama", StudioColorRole::TextSecondary);
             ++result.environmentFields;
 
@@ -2988,7 +3178,7 @@ namespace
 
         for (const CountField& field : kCounts)
         {
-            const PropertyRow parts = splitRow(theme, nextRow());
+            const PropertyRow parts = splitRow(frame, nextRow());
             say(parts.label, field.label, StudioColorRole::TextSecondary);
             ++result.environmentFields;
 
@@ -3012,7 +3202,7 @@ namespace
         }
 
         {
-            const PropertyRow parts = splitRow(theme, nextRow());
+            const PropertyRow parts = splitRow(frame, nextRow());
             say(parts.label, "BRDF Table", StudioColorRole::TextSecondary);
             ++result.environmentFields;
 
@@ -3051,7 +3241,7 @@ namespace
 
             for (const CountField& field : kTable)
             {
-                const PropertyRow parts = splitRow(theme, nextRow());
+                const PropertyRow parts = splitRow(frame, nextRow());
                 say(parts.label, field.label, StudioColorRole::TextSecondary);
                 ++result.environmentFields;
 
@@ -3086,7 +3276,7 @@ namespace
         const StudioEnvironmentMapPlan& plan = result.environmentPlan;
 
         {
-            const PropertyRow parts = splitRow(theme, nextRow());
+            const PropertyRow parts = splitRow(frame, nextRow());
             say(parts.label, "Generates", StudioColorRole::TextSecondary);
             say(parts.control,
                 plan.faceSize > 0
@@ -3099,14 +3289,14 @@ namespace
         }
 
         {
-            const PropertyRow parts = splitRow(theme, nextRow());
+            const PropertyRow parts = splitRow(frame, nextRow());
             say(parts.label, "Memory", StudioColorRole::TextSecondary);
             say(parts.control, std::to_string(plan.estimatedBytes / 1024) + " KB",
                 StudioColorRole::TextPrimary);
         }
 
         {
-            const PropertyRow parts = splitRow(theme, nextRow());
+            const PropertyRow parts = splitRow(frame, nextRow());
             say(parts.label, "Processing", StudioColorRole::TextSecondary);
 
             // Millions of samples, not seconds. Seconds would be a guess about the machine this
@@ -3275,6 +3465,9 @@ namespace
         };
 
         const auto label = [&](const UiRect& box, const std::string& text, StudioColorRole role) {
+            // `plan.md` CORE-04. Filters itself by the rectangle, so a whole-row sentence
+            // drawn through this same helper does not widen the label column.
+            measureLabel(frame, box, text);
             if (frame.isDrawPass())
             {
                 studioDrawText(frame, box,
@@ -3307,7 +3500,7 @@ namespace
         }
 
         {
-            const PropertyRow parts = splitRow(theme, nextRow());
+            const PropertyRow parts = splitRow(frame, nextRow());
             label(parts.label, "Path", StudioColorRole::TextSecondary);
             // The whole path, truncated from the *left* when it does not fit: the end of a path is
             // what identifies a file and the start is what every asset in a project has in common.
@@ -3315,13 +3508,13 @@ namespace
         }
 
         {
-            const PropertyRow parts = splitRow(theme, nextRow());
+            const PropertyRow parts = splitRow(frame, nextRow());
             label(parts.label, "Type", StudioColorRole::TextSecondary);
             label(parts.control, std::string{toString(record->type)}, StudioColorRole::TextPrimary);
         }
 
         {
-            const PropertyRow parts = splitRow(theme, nextRow());
+            const PropertyRow parts = splitRow(frame, nextRow());
             label(parts.label, "Id", StudioColorRole::TextSecondary);
             label(parts.control, record->id.toString(), StudioColorRole::TextDisabled);
         }
@@ -3489,7 +3682,7 @@ namespace
 
             for (const PropertyDescriptor& property : *properties)
             {
-                PropertyRow parts = splitRow(theme, nextRow());
+                PropertyRow parts = splitRow(frame, nextRow());
 
                 // The stored setting when the sidecar carries one, the declared default otherwise.
                 // Writing every default into the sidecar on first sight would make each asset's diff
@@ -3619,21 +3812,21 @@ namespace
             if (hasTexturePlan)
             {
                 {
-                    const PropertyRow parts = splitRow(theme, nextRow());
+                    const PropertyRow parts = splitRow(frame, nextRow());
                     label(parts.label, "Surface Format", StudioColorRole::TextSecondary);
                     label(parts.control, result.texturePlan.surfaceFormat,
                           StudioColorRole::TextPrimary);
                 }
 
                 {
-                    const PropertyRow parts = splitRow(theme, nextRow());
+                    const PropertyRow parts = splitRow(frame, nextRow());
                     label(parts.label, "Mip Levels", StudioColorRole::TextSecondary);
                     label(parts.control, std::to_string(result.texturePlan.mipLevels),
                           StudioColorRole::TextPrimary);
                 }
 
                 {
-                    const PropertyRow parts = splitRow(theme, nextRow());
+                    const PropertyRow parts = splitRow(frame, nextRow());
                     label(parts.label, "On The GPU", StudioColorRole::TextSecondary);
                     label(parts.control, studioDescribeByteSize(result.texturePlan.estimatedBytes),
                           StudioColorRole::TextPrimary);
@@ -3660,7 +3853,7 @@ namespace
             label(nextRow(), "File", StudioColorRole::TextSecondary);
 
             {
-                const PropertyRow parts = splitRow(theme, nextRow());
+                const PropertyRow parts = splitRow(frame, nextRow());
                 label(parts.label, "Size", StudioColorRole::TextSecondary);
                 label(parts.control,
                       record->sourceSize == 0 ? std::string{"unknown"}
@@ -3669,7 +3862,7 @@ namespace
             }
 
             {
-                const PropertyRow parts = splitRow(theme, nextRow());
+                const PropertyRow parts = splitRow(frame, nextRow());
                 label(parts.label, "Modified", StudioColorRole::TextSecondary);
                 label(parts.control, studioDescribeFileTime(record->sourceModifiedTime),
                       StudioColorRole::TextPrimary);
@@ -4022,6 +4215,28 @@ namespace
         return choices;
     }
 
+    float studioDetailsControlColumnLeft(StudioFrame& frame, const UiRect& bounds)
+    {
+        const StudioTheme& theme = frame.theme();
+        const float padding = metricOf(theme, StudioMetric::SpacingSmall);
+        const UiRect area = bounds.inset(UiEdges{padding});
+
+        // Resolved the same way `splitRow` resolves it, from the same state. Computed rather than
+        // remembered, so this cannot drift from what the panel actually did.
+        const float column = labelColumnWidth(frame);
+        const float labelWidth = column > 0.0f
+            ? column
+            : std::round(area.width * LabelColumn::kMaxFraction);
+
+        // Where the rows actually started, if a frame has drawn any. The panel's own left edge is
+        // only a fallback: a row begins inside the scroll view, and the inset differs by section.
+        const float recorded = rowOriginState(frame).scalar;
+        const float rowLeft = recorded > 0.0f ? recorded : area.left();
+
+        return rowLeft + std::min(labelWidth, area.width)
+             + std::min(metricOf(theme, StudioMetric::SpacingSmall), area.width);
+    }
+
     StudioDetailsResult studioDetailsPanel(StudioFrame& frame, const UiRect& bounds,
                                            StudioContext& context,
                                            const StudioDetailsServices& services,
@@ -4046,6 +4261,11 @@ namespace
 
         UiRect area = bounds.inset(UiEdges{padding});
         if (area.width <= 0.0f || area.height <= 0.0f) { return result; }
+
+        // `plan.md` CORE-04. Once, at the top, before anything is described: every row below
+        // resolves the same label column from what the previous frame measured, so both passes of
+        // this frame split their rows identically and the values line up down the panel.
+        beginLabelColumn(frame, area.width);
 
         // An asset first, because `StudioContext::selectAsset` clears the entity selection: the
         // panel shows one thing at a time, and which one is decided by what was clicked last.
@@ -4196,7 +4416,8 @@ namespace
 
         // --- The entity itself -------------------------------------------------------------
         {
-            const PropertyRow parts = splitRow(theme, nextRow());
+            const PropertyRow parts = splitRow(frame, nextRow());
+            measureLabel(frame, parts.label, "Name");
             if (frame.isDrawPass())
             {
                 studioDrawText(frame, parts.label, "Name", StudioFontRole::Body,
@@ -4217,7 +4438,8 @@ namespace
             }
         }
         {
-            const PropertyRow parts = splitRow(theme, nextRow());
+            const PropertyRow parts = splitRow(frame, nextRow());
+            measureLabel(frame, parts.label, "Enabled");
             if (frame.isDrawPass())
             {
                 studioDrawText(frame, parts.label, "Enabled", StudioFontRole::Body,
@@ -4489,7 +4711,7 @@ namespace
                     continue;
                 }
 
-                PropertyRow parts = splitRow(theme, propertyRow);
+                PropertyRow parts = splitRow(frame, propertyRow);
                 const std::string& label =
                     property.displayName.empty() ? property.name : property.displayName;
 
@@ -4625,6 +4847,7 @@ namespace
                     reset = property.defaultValue;
                 }
 
+                measureLabel(frame, parts.label, label);
                 if (frame.isDrawPass())
                 {
                     studioDrawText(frame, parts.label,
@@ -4781,7 +5004,8 @@ namespace
                 for (const StudioMaterialCapabilityIssue& issue :
                      studioLightCapabilityIssues(effect, kind))
                 {
-                    const PropertyRow parts = splitRow(theme, nextRow());
+                    const PropertyRow parts = splitRow(frame, nextRow());
+                    measureLabel(frame, parts.label, issue.feature);
                     if (frame.isDrawPass())
                     {
                         studioDrawText(frame, parts.label, issue.feature, StudioFontRole::Body,
@@ -4834,7 +5058,7 @@ namespace
         // menus, toolbars and shortcuts -- and this is a button inside a panel.
         nextRow();
         {
-            const PropertyRow parts = splitRow(theme, nextRow());
+            const PropertyRow parts = splitRow(frame, nextRow());
             frame.ids().push("addcomponent");
 
             // The decision is a function of the registry and the entity (`plan.md` STUDIO-14002),
@@ -4855,6 +5079,7 @@ namespace
 
             if (labels.empty())
             {
+                measureLabel(frame, parts.label, "Add Component");
                 if (frame.isDrawPass())
                 {
                     studioDrawText(frame, parts.label, "Add Component", StudioFontRole::Body,
@@ -4882,6 +5107,7 @@ namespace
                     control.splitRight(std::min(control.width, rowHeight * 3.0f));
                 control.splitRight(std::min(spacing, control.width));
 
+                measureLabel(frame, parts.label, "Add Component");
                 if (frame.isDrawPass())
                 {
                     studioDrawText(frame, parts.label, "Add Component", StudioFontRole::Body,

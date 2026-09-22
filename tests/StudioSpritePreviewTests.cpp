@@ -178,17 +178,29 @@ namespace
                           height};
         }
 
-        [[nodiscard]] float controlLeft() const
+        /**
+         * @brief Where a property's value control starts, asked of the panel.
+         *
+         * `plan.md` CORE-04. The label column is sized from the labels on screen now, so the
+         * fraction that used to be written here stopped being true the moment the panel started
+         * measuring -- and a test that reconstructs a layout is a test that fails for reasons that
+         * are not what it is about.
+         */
+        [[nodiscard]] float controlLeft()
         {
-            const UiRect area =
-                bounds.inset(UiEdges{metricOf(frame.theme(), StudioMetric::SpacingSmall)});
-            return area.x + std::round(area.width * 0.38f)
-                   + metricOf(frame.theme(), StudioMetric::SpacingSmall);
+            return studioDetailsControlColumnLeft(frame, bounds);
         }
 
         /** @brief Clicks transport button @p index: 0 play/pause, 1 previous, 2 next. */
         void clickTransport(int index)
         {
+            // A frame with the pointer nowhere first, so the label column has settled before
+            // anything is aimed at it (`plan.md` CORE-04). A frame lays out against the previous
+            // frame's measurement, so a transport button aimed at after one frame is aimed at
+            // where it was about to stop being.
+            run(at(-1.0f, -1.0f));
+            run(at(-1.0f, -1.0f));
+
             const float width = std::max(metricOf(frame.theme(), StudioMetric::ControlHeight),
                                          metricOf(frame.theme(), StudioMetric::MinimumHitTarget));
             const float spacing = metricOf(frame.theme(), StudioMetric::SpacingXSmall);

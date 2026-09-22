@@ -14,6 +14,8 @@
 
 #include "TestHarness.hpp"
 
+#include <iostream>
+
 #include "CNA/Studio/Assets/AssetCommands.hpp"
 #include "CNA/Studio/Assets/AssetDatabase.hpp"
 #include "CNA/Studio/Assets/AssetDependencies.hpp"
@@ -1312,13 +1314,32 @@ CNA_STUDIO_TEST(AnOverriddenComponentPropertyCanBeResetToItsDefault)
     // The button appears only where it would do something, and on the label's side of the row --
     // never the control's, because narrowing the control would move the fields inside it the
     // moment a property became overridden. Swept, so a metric change moves the click with it.
+    // Swept across the whole label column rather than aimed at a computed point. The column is
+    // sized from the labels on screen now (`plan.md` CORE-04), and the button's width and the gap
+    // after it are two more metrics -- so a click reconstructed from all three is a click that
+    // breaks whenever any of them moves, which is three ways for this case to fail for a reason
+    // that is not the one it is about.
+    //
+    // The column's right-hand edge is asked of the panel, which is the one number a test cannot
+    // reasonably derive.
+    // A frame with the pointer nowhere first, so the column has settled on the labels this entity
+    // actually has before anything is aimed at it. It converges in one frame -- the width a frame
+    // uses is the one the frame before it measured -- and reading it mid-convergence would be
+    // reading the 18% floor rather than the column.
+    harness.click(-1.0f, -1.0f);
+
     bool reset = false;
+    const float columnRight =
+        studioDetailsControlColumnLeft(harness.shell->frame(), harness.bounds);
+
     for (float y = harness.bounds.top() + 4.0f;
          y < harness.bounds.bottom() - 4.0f && !reset; y += 4.0f)
     {
-        const float x = harness.bounds.left() + harness.bounds.width * 0.36f;
-        harness.click(x, y);
-        reset = harness.last.propertiesReset > 0;
+        for (float x = harness.bounds.left() + 4.0f; x < columnRight && !reset; x += 6.0f)
+        {
+            harness.click(x, y);
+            reset = harness.last.propertiesReset > 0;
+        }
     }
 
     CNA_STUDIO_EXPECT(reset);
@@ -1363,7 +1384,11 @@ CNA_STUDIO_TEST(APropertyThatMatchesItsDefaultOffersNoReset)
     // anywhere in the label column resets anything, and nothing is edited by trying.
     for (float y = harness.bounds.top() + 4.0f; y < harness.bounds.bottom() - 4.0f; y += 4.0f)
     {
-        const float x = harness.bounds.left() + harness.bounds.width * 0.36f;
+        // Asked rather than assumed (`plan.md` CORE-04): the label column is sized from the
+        // labels on screen, so a fraction written down here would be right until somebody
+        // selected an entity with longer property names.
+        const float x =
+            studioDetailsControlColumnLeft(harness.shell->frame(), harness.bounds) - 4.0f;
         harness.click(x, y);
     }
 
@@ -1834,7 +1859,8 @@ CNA_STUDIO_TEST(AListPropertyGetsARowThatExpandsIntoItsElements)
     for (float y = harness.bounds.top() + 20.0f;
          y < harness.bounds.top() + 260.0f && !expandedIt; y += 6.0f)
     {
-        const float columnLeft = harness.bounds.left() + harness.bounds.width * 0.38f;
+        const float columnLeft =
+            studioDetailsControlColumnLeft(harness.shell->frame(), harness.bounds);
         harness.click(columnLeft + 16.0f, y);
         expandedIt = harness.last.rowsDrawn > collapsed;
     }
@@ -1866,7 +1892,8 @@ CNA_STUDIO_TEST(AStructurePropertyGetsARowPerField)
     for (float y = harness.bounds.top() + 20.0f;
          y < harness.bounds.top() + 260.0f && !expandedIt; y += 6.0f)
     {
-        const float columnLeft = harness.bounds.left() + harness.bounds.width * 0.38f;
+        const float columnLeft =
+            studioDetailsControlColumnLeft(harness.shell->frame(), harness.bounds);
         harness.click(columnLeft + 16.0f, y);
         expandedIt = harness.last.rowsDrawn > collapsed;
     }
@@ -1918,7 +1945,8 @@ CNA_STUDIO_TEST(RemovingAListElementIsOneUndoEntryThatPutsItBack)
     for (float y = harness.bounds.top() + 8.0f;
          y < harness.bounds.top() + 200.0f && harness.last.rowsDrawn == collapsed; y += 4.0f)
     {
-        harness.click(harness.bounds.left() + harness.bounds.width * 0.38f + 16.0f, y);
+        harness.click(
+            studioDetailsControlColumnLeft(harness.shell->frame(), harness.bounds) + 16.0f, y);
     }
     CNA_STUDIO_EXPECT_EQ(harness.last.rowsDrawn, collapsed + 2);
 
@@ -3266,4 +3294,190 @@ CNA_STUDIO_TEST(ALightSaysWhatTheBuildsEffectCannotDrawAboutIt)
 
     // An effect this build has never heard of is silent rather than wrong.
     CNA_STUDIO_EXPECT_EQ(issuesFor("Spot", "SomeFutureEffect"), std::size_t{0});
+}
+
+// ------------------------------------------------------------------------------------------------
+// `plan.md` CORE-04 — the Details panel reads as a property grid
+// ------------------------------------------------------------------------------------------------
+
+CNA_STUDIO_TEST(TheLabelColumnIsSizedFromItsLabelsRatherThanFromAFractionOfThePanel)
+{
+    // The defect this replaces is not an aesthetic one. At a flat 38% of the panel, a property
+    // called `x` and its value sat at opposite ends of a gap wider than either -- and reading a
+    // value off the wrong row is a data error.
+    // The crispest statement of the difference: the same entity, in two panels of very different
+    // widths, gets label columns of the same *pixel* width. A fraction of the panel could not --
+    // it would differ by whatever the widths differ by, which for these two is nearly threefold,
+    // and the wider panel is where the gap becomes wider than the label and the value together.
+    Fixture fixture;
+
+    const auto columnAt = [&fixture](float width) {
+        StudioFrame frame{StudioTheme::dark()};
+        StudioFontAtlas fonts;
+        frame.setFontAtlas(&fonts);
+
+        const UiRect bounds{0.0f, 0.0f, width, 700.0f};
+
+        UiInputState away;
+        away.displayWidth = width + 40.0f;
+        away.displayHeight = 760.0f;
+        away.mouseX = -1.0f;
+        away.mouseY = -1.0f;
+
+        // Three frames: a frame lays out against the previous one's measurement, so the first is
+        // the floor, the second is fitted and the third proves it has stopped moving.
+        for (int pass = 0; pass < 3; ++pass)
+        {
+            runStudioFrame(frame, away, [&](StudioFrame& f) {
+                (void)studioDetailsPanel(f, bounds, fixture.context, {});
+            });
+        }
+        return studioDetailsControlColumnLeft(frame, bounds) - bounds.left();
+    };
+
+    const float narrow = columnAt(500.0f);
+    const float wide = columnAt(1400.0f);
+
+    CNA_STUDIO_EXPECT(narrow > 0.0f);
+    CNA_STUDIO_EXPECT_EQ(narrow, wide);
+
+    // And on the wider panel that is a small fraction of it, where the fixed 38% would have put
+    // five hundred pixels of nothing between a property called `x` and the box holding its value.
+    CNA_STUDIO_EXPECT(wide < 1400.0f * 0.38f);
+}
+
+CNA_STUDIO_TEST(TheColumnIsSteadyOnceItHasSettledAndDoesNotDriftAsThePointerMoves)
+{
+    // A column that moved as the pointer crossed the panel would be worse than a fixed one: a
+    // control that is somewhere else on the frame the user presses is a control they cannot hit.
+    // The quantum and the one-frame lag are what make this true; the assertion is that they do.
+    Fixture fixture;
+    Harness harness{fixture.context};
+
+    harness.click(-1.0f, -1.0f);
+    const float settled = studioDetailsControlColumnLeft(harness.shell->frame(), harness.bounds);
+    CNA_STUDIO_EXPECT(settled > harness.bounds.left());
+
+    for (float y = harness.bounds.top() + 8.0f; y < harness.bounds.bottom() - 8.0f; y += 23.0f)
+    {
+        harness.click(harness.bounds.centerX(), y);
+        CNA_STUDIO_EXPECT_EQ(studioDetailsControlColumnLeft(harness.shell->frame(),
+                                                            harness.bounds),
+                             settled);
+    }
+}
+
+CNA_STUDIO_TEST(EveryValueInTheGridStartsAtTheSameX)
+{
+    // "Values align" is the whole of the grid claim, and it is checkable without knowing which
+    // properties an entity has: every control the panel routed input to that sits in the value
+    // column has to start at the same place.
+    Fixture fixture;
+    Harness harness{fixture.context};
+    harness.click(-1.0f, -1.0f);
+
+    const float column = studioDetailsControlColumnLeft(harness.shell->frame(), harness.bounds);
+
+    std::size_t aligned = 0;
+    for (const StudioRecordedInteraction& widget : harness.shell->frame().recordedInteractions())
+    {
+        if (widget.bounds.width <= 0.0f) { continue; }
+
+        // The controls that begin the value column. A widget further right is a second control on
+        // the same row -- three boxes of a vector, a list's Up and Down -- and is aligned to the
+        // first rather than to the column.
+        if (std::abs(widget.bounds.left() - column) > 1.0f) { continue; }
+        ++aligned;
+    }
+
+    // Several rows' worth, or the check is agreeing with an empty set.
+    CNA_STUDIO_EXPECT(aligned >= 3);
+}
+
+CNA_STUDIO_TEST(TheColumnStaysWithinItsBoundsOnAPanelTooNarrowAndOneTooWide)
+{
+    // Two panel widths, which is what the golden coverage in the acceptance is for: the bounds
+    // are the whole reason a content-sized column is safe, and they are only interesting at the
+    // sizes that reach them.
+    for (const float width : {220.0f, 1400.0f})
+    {
+        Fixture fixture;
+
+        // Driven directly rather than through the shell, because the panel's *width* is the
+        // variable and a docked panel's width is the shell's to decide.
+        StudioFrame frame{StudioTheme::dark()};
+        StudioFontAtlas fonts;
+        frame.setFontAtlas(&fonts);
+
+        const UiRect bounds{0.0f, 0.0f, width, 700.0f};
+
+        UiInputState away;
+        away.displayWidth = width + 40.0f;
+        away.displayHeight = 760.0f;
+        away.mouseX = -1.0f;
+        away.mouseY = -1.0f;
+
+        // Three frames: the column lays out against the previous frame's measurement, so the
+        // first is the floor, the second is fitted and the third proves it has stopped moving.
+        for (int pass = 0; pass < 3; ++pass)
+        {
+            runStudioFrame(frame, away, [&](StudioFrame& f) {
+                (void)studioDetailsPanel(f, bounds, fixture.context, {});
+            });
+        }
+
+        const float column = studioDetailsControlColumnLeft(frame, bounds) - bounds.left();
+
+        if (column < 24.0f || column > width * 0.5f)
+        {
+            CnaStudioTest::reportFailure(__FILE__, __LINE__,
+                "at a panel " + std::to_string(width) + " wide the label column is "
+                + std::to_string(column)
+                + ", which is outside the bounds that keep it usable: never so narrow that a "
+                  "label has nowhere to go, never more than half the panel (plan.md CORE-04).");
+        }
+    }
+}
+
+CNA_STUDIO_TEST(ANestedPropertyIndentsSoTheNestingReads)
+{
+    // A structure's fields and a list's elements are rows inside a row, and a grid that drew them
+    // flush with their parent would be a grid where the shape of the data is invisible. They
+    // indent past the parent's label column, which is also where a list's element buttons go.
+    Fixture fixture;
+    Harness harness{fixture.context};
+    harness.click(-1.0f, -1.0f);
+
+    const float column = studioDetailsControlColumnLeft(harness.shell->frame(), harness.bounds);
+
+    // Every control the panel routed input to, by where its row begins. A nested row's controls
+    // start further right than the column, because the row itself has been indented.
+    std::size_t atTheColumn = 0;
+    std::size_t indented = 0;
+    for (const StudioRecordedInteraction& widget : harness.shell->frame().recordedInteractions())
+    {
+        if (widget.bounds.width <= 0.0f) { continue; }
+        if (std::abs(widget.bounds.left() - column) <= 1.0f) { ++atTheColumn; }
+    }
+
+    // Expand a compound property, and its fields arrive to the right of where its own row began.
+    const std::size_t before = harness.last.rowsDrawn;
+    for (float y = harness.bounds.top() + 20.0f;
+         y < harness.bounds.bottom() - 20.0f && harness.last.rowsDrawn <= before; y += 6.0f)
+    {
+        harness.click(column + 16.0f, y);
+    }
+
+    for (const StudioRecordedInteraction& widget : harness.shell->frame().recordedInteractions())
+    {
+        if (widget.bounds.width <= 0.0f) { continue; }
+        if (widget.bounds.left() > column + 1.0f
+            && widget.bounds.left() < harness.bounds.right() - 40.0f)
+        {
+            ++indented;
+        }
+    }
+
+    CNA_STUDIO_EXPECT(atTheColumn >= 1);
+    CNA_STUDIO_EXPECT(indented >= 1);
 }

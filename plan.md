@@ -75,7 +75,7 @@ legs.
 
 ## The active roadmap
 
-**5 of 11 active deliverables complete.**
+**6 of 11 active deliverables complete.**
 
 Estimates are Opus 5 engineering hours at this repository's working standard — implementation, the
 test its acceptance names, and the documentation it changes.
@@ -85,7 +85,7 @@ test its acceptance names, and the documentation it changes.
 | `CORE-01` | Build the project, and understand the failure | ✅ | 6 | `STUDIO-17009`, `STUDIO-17010`, `STUDIO-17011`, `STUDIO-17012`, `STUDIO-15012` |
 | `CORE-02` | Hand the developer back to their IDE | ✅ | 2 | `STUDIO-15010` |
 | `CORE-03` | The viewport shows what is selected | ✅ | 2 | `STUDIO-35053` |
-| `CORE-04` | The Details panel reads as a property grid | ⬜ | 2 | `STUDIO-35033` |
+| `CORE-04` | The Details panel reads as a property grid | ✅ | 2 | `STUDIO-35033` |
 | `CORE-05` | Find an asset, find an entity | ⬜ | 3 | `STUDIO-35042`, `STUDIO-35061` |
 | `CORE-06` | Paint order separable from input order | ✅ | 4 | `STUDIO-03041` |
 | `CORE-07` | Resize without artefacts | ⬜ | 2 | `STUDIO-04011` |
@@ -206,6 +206,30 @@ widths.
 
 **Not included.** Reference fields that preview their target, multi-selection editing, and the rest
 of the visual-quality campaign.
+
+**Done, and two of the four lines were already true.** Nested properties already indented and a
+modified property was already marked and resettable (`STUDIO-14012`). What was wrong was the
+column: a flat 38% of the panel, defended by a comment saying a content-sized one would make
+controls jump as the selection changed — which is what the bounds are for, not a reason to ignore
+the content.
+
+It is now measured from the labels on screen, clamped between a pixel floor and half the panel,
+rounded to an 8-pixel step, and used a frame later than it is measured so both passes of a frame
+lay out identically. The floor is in *pixels* and not in panel widths on purpose: a fractional
+floor grows with the panel, which is the defect restated as a bound.
+
+| Acceptance | Evidence |
+|------------|----------|
+| Sized from content | `TheLabelColumnIsSizedFromItsLabelsRatherThanFromAFractionOfThePanel` — the same entity gets the same *pixel* column in a 500-wide panel and a 1400-wide one, which a fraction cannot |
+| Within sane bounds | `TheColumnStaysWithinItsBoundsOnAPanelTooNarrowAndOneTooWide` |
+| Values align | `EveryValueInTheGridStartsAtTheSameX`, and `TheColumnIsSteadyOnceItHasSettledAndDoesNotDriftAsThePointerMoves` — a control that moves between the frame a user aims and the frame they press is one they cannot hit |
+| Nested properties indent | `ANestedPropertyIndentsSoTheNestingReads` |
+| A modified property is marked and can be reset | `AnOverriddenComponentPropertyCanBeResetToItsDefault` (already true) |
+| Golden coverage at two panel widths | `CnaStudioVisualScenarioDetailsNarrow` and `…Wide` — 1280 and 2560, where the content decides at one and a bound at the other |
+
+Six fixtures had written the old 38% down and aimed clicks at it. They ask the panel now, through
+`studioDetailsControlColumnLeft`, or find the control among the rectangles the frame routed input
+to — which is correct by construction where a reconstructed layout is correct until it is not.
 
 ### `CORE-05` — Find an asset, find an entity
 

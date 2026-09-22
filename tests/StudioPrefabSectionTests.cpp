@@ -184,7 +184,20 @@ namespace
             });
         }
 
-        void settle() { run(at(-1.0f, -1.0f)); }
+        /**
+         * @brief Draws the panel with the pointer nowhere, until its layout has settled.
+         *
+         * Two frames, not one (`plan.md` CORE-04). The Details panel's label column is sized from
+         * the labels it drew last frame, so the first frame after a selection change lays out
+         * against the previous one's measurement and the second lays out against its own. A
+         * fixture that aimed at a control after one frame would be aiming at where it was about to
+         * stop being.
+         */
+        void settle()
+        {
+            run(at(-1.0f, -1.0f));
+            run(at(-1.0f, -1.0f));
+        }
 
         void click(float x, float y)
         {
@@ -205,12 +218,15 @@ namespace
                           area.width, height};
         }
 
-        [[nodiscard]] float controlLeft() const
+        /**
+         * @brief Where a property's value control starts, asked of the panel.
+         *
+         * `plan.md` CORE-04: the label column is sized from the labels on screen, so the fraction
+         * that used to be written here is no longer a number a test can know.
+         */
+        [[nodiscard]] float controlLeft()
         {
-            const UiRect area =
-                bounds.inset(UiEdges{metricOf(frame.theme(), StudioMetric::SpacingSmall)});
-            return area.x + std::round(area.width * 0.38f)
-                   + metricOf(frame.theme(), StudioMetric::SpacingSmall);
+            return studioDetailsControlColumnLeft(frame, bounds);
         }
 
         /**
