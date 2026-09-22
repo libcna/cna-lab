@@ -549,3 +549,185 @@ CNA_STUDIO_TEST(OutliningTwentyThousandEntitiesDescribesAScreenfulRatherThanASce
         }
     }
 }
+
+// ------------------------------------------------------------------------------------------------
+// `plan.md` CORE-05 — finding one asset, and one entity, in a project that has a lot of both
+// ------------------------------------------------------------------------------------------------
+
+CNA_STUDIO_TEST(SearchingAHundredThousandAssetsStillDescribesAScreenful)
+{
+    // Both panels already scale, and both already have a search box. What had never been checked
+    // is the two together: a filter that walks the whole project to answer, and then hands the
+    // panel every match to build, would make the scaling work count for nothing on the one
+    // gesture a hundred thousand assets exist to need.
+    //
+    // A search leaves the folder behind and looks at the whole project (`STUDIO-09005`), so this
+    // is the case where the listing is built from every record rather than from one folder's.
+    StudioContext context;
+    AssetDatabase& assets = context.getAssets();
+
+    for (std::size_t i = 0; i < kAssets; ++i)
+    {
+        AssetRecord record;
+        record.id = Uuid::generate();
+        record.sourcePath = "Assets/Flat/asset" + std::to_string(i) + ".png";
+        record.type = AssetType::Texture2D;
+        assets.add(std::move(record));
+    }
+
+    // A few that a search can actually narrow to, so the case has a result as well as a cost.
+    for (std::size_t i = 0; i < 3; ++i)
+    {
+        AssetRecord record;
+        record.id = Uuid::generate();
+        record.sourcePath = "Assets/Audio/footstep" + std::to_string(i) + ".wav";
+        record.type = AssetType::SoundEffect;
+        assets.add(std::move(record));
+    }
+
+    auto shell = std::make_unique<StudioShell>(StudioTheme::dark());
+    shell->resetLayout();
+    shell->renderFrame(at(-1.0f, -1.0f));
+    CNA_STUDIO_EXPECT(shell->activatePanel("content"));
+
+    StudioContentBrowserState state;
+    state.folderPaneWidth = 0.0f;
+
+    StudioContentBrowserResult drawn;
+    CNA_STUDIO_EXPECT(shell->setPanelContent("content",
+        [&](StudioFrame& frame, const UiRect& area) {
+            const StudioContentBrowserResult pass =
+                studioContentBrowser(frame, area, context, state);
+            if (frame.isDrawPass()) { drawn = pass; }
+        }));
+
+    // A search that matches almost everything, which is the expensive shape: a user types one
+    // letter before they type the rest of the name, and that frame is the one that has to hold up.
+    state.query.search = "asset";
+    shell->renderFrame(at(-1.0f, -1.0f));
+
+    // Every asset in the project, sounds included: a search reads the *path* as well as the name,
+    // and every path here starts `Assets/`. That is the behaviour, not an accident -- it is what
+    // makes typing a folder name find what is in it -- and it makes this the broadest case there
+    // is, which is what the row is for.
+    CNA_STUDIO_EXPECT_EQ(drawn.rowsTotal, kAssets + 3);
+    if (drawn.rowsBuilt == 0 || drawn.rowsBuilt > 400)
+    {
+        CnaStudioTest::reportFailure(__FILE__, __LINE__,
+            "a search matching " + std::to_string(drawn.rowsTotal) + " assets built "
+            + std::to_string(drawn.rowsBuilt)
+            + " cards for a screenful. The filter must narrow the listing, not the drawing.");
+    }
+
+    // And the narrow one, which has to find its three among a hundred thousand.
+    state.query.search = "footstep";
+    shell->renderFrame(at(-1.0f, -1.0f));
+
+    CNA_STUDIO_EXPECT_EQ(drawn.rowsTotal, std::size_t{3});
+    CNA_STUDIO_EXPECT_EQ(drawn.rowsBuilt, std::size_t{3});
+
+    // The type filter, which narrows what is being *browsed* rather than the whole project --
+    // unlike the search, which deliberately leaves the folder behind (`STUDIO-09005`). The two
+    // scopes are different on purpose: a filter is a way of looking at where you are, and a
+    // search is a way of finding where you are not.
+    state.query.search.clear();
+    state.folder = "Assets/Audio";
+    state.query.type = AssetType::SoundEffect;
+    shell->renderFrame(at(-1.0f, -1.0f));
+    CNA_STUDIO_EXPECT_EQ(drawn.rowsTotal, std::size_t{3});
+
+    state.query.type = AssetType::Texture2D;
+    shell->renderFrame(at(-1.0f, -1.0f));
+    CNA_STUDIO_EXPECT_EQ(drawn.rowsTotal, std::size_t{0});
+
+    // And the two together, which is the question the query struct exists to make askable: a
+    // listing that applied one predicate and forgot the other is exactly what putting them in one
+    // struct is meant to prevent.
+    state.folder.clear();
+    state.query.search = "footstep1";
+    state.query.type = AssetType::SoundEffect;
+    shell->renderFrame(at(-1.0f, -1.0f));
+    CNA_STUDIO_EXPECT_EQ(drawn.rowsTotal, std::size_t{1});
+
+    state.query.type = AssetType::Texture2D;
+    shell->renderFrame(at(-1.0f, -1.0f));
+    CNA_STUDIO_EXPECT_EQ(drawn.rowsTotal, std::size_t{0});
+    state.query.type.reset();
+
+    CNA_STUDIO_EXPECT_EQ(shell->frame().phaseViolations(), std::size_t{0});
+    CNA_STUDIO_EXPECT_EQ(shell->frame().ids().collisionCount(), std::size_t{0});
+
+    // Searching asked the filesystem nothing, at a hundred thousand assets as at four hundred.
+    // A filter that probed each candidate's presence to decide would be a filter that made every
+    // keystroke a hundred thousand `stat` calls (`STUDIO-30015`).
+    const std::uint64_t probes = assets.getPresenceProbeCount();
+    state.query.search = "asset4";
+    shell->renderFrame(at(-1.0f, -1.0f));
+    CNA_STUDIO_EXPECT_EQ(assets.getPresenceProbeCount(), probes);
+}
+
+CNA_STUDIO_TEST(SearchingTwentyThousandEntitiesStillDescribesAScreenful)
+{
+    // The outliner's half. Filtering a *tree* is not filtering a list -- a row that matches has to
+    // bring its ancestors with it or the match is unreachable -- so the walk is genuinely over the
+    // whole scene, and what must not happen is the panel then building a row for every survivor.
+    StudioContext context;
+    fillDeepScene(context.getScene());
+
+    auto shell = std::make_unique<StudioShell>(StudioTheme::dark());
+    shell->resetLayout();
+    shell->renderFrame(at(-1.0f, -1.0f));
+    CNA_STUDIO_EXPECT(shell->activatePanel("outliner"));
+
+    StudioTreeState state;
+    std::string search;
+
+    StudioOutlinerResult drawn;
+    CNA_STUDIO_EXPECT(shell->setPanelContent("outliner",
+        [&](StudioFrame& frame, const UiRect& area) {
+            const StudioOutlinerResult pass =
+                studioOutlinerPanel(frame, area, context, state, &search);
+            if (frame.isDrawPass()) { drawn = pass; }
+        }));
+
+    // The broad search first: "Entity" is in every name, so every entity survives and the panel
+    // is asked to show a filtered tree the size of the scene.
+    search = "Entity";
+    shell->renderFrame(at(-1.0f, -1.0f));
+
+    CNA_STUDIO_EXPECT(drawn.rowsTotal > 0);
+    if (drawn.rowsBuilt == 0 || drawn.rowsBuilt > 400)
+    {
+        CnaStudioTest::reportFailure(__FILE__, __LINE__,
+            "a search matching every entity built " + std::to_string(drawn.rowsBuilt)
+            + " rows for a screenful of a " + std::to_string(kEntities) + "-entity scene.");
+    }
+
+    // And the narrow one. `Entity 17` matches itself and `Entity 17x`, and each arrives with the
+    // chain of parents that leads to it -- which is what makes a filtered tree usable and what
+    // makes its row count more than the number of matches.
+    search = "Entity 17";
+    shell->renderFrame(at(-1.0f, -1.0f));
+
+    CNA_STUDIO_EXPECT(drawn.rowsTotal > 0);
+    CNA_STUDIO_EXPECT(drawn.rowsTotal < kEntities);
+    CNA_STUDIO_EXPECT(drawn.rowsBuilt <= 400);
+
+    // A search that matches nothing is a state of its own, and it is the one that used to be
+    // indistinguishable from an empty scene.
+    search = "no entity is called this";
+    shell->renderFrame(at(-1.0f, -1.0f));
+    CNA_STUDIO_EXPECT_EQ(drawn.rowsTotal, std::size_t{0});
+
+    CNA_STUDIO_EXPECT_EQ(shell->frame().phaseViolations(), std::size_t{0});
+    CNA_STUDIO_EXPECT_EQ(shell->frame().ids().collisionCount(), std::size_t{0});
+
+    // And filtering a scene nobody has changed rebuilds the hierarchy index not at all. A filter
+    // that took a mutable scene to read it would defeat the cache on every keystroke, which is
+    // exactly how `STUDIO-30026` was found.
+    const std::uint64_t rebuilds = context.getScene().getHierarchyRebuildCount();
+    search = "Entity 3";
+    shell->renderFrame(at(-1.0f, -1.0f));
+    shell->renderFrame(at(-1.0f, -1.0f));
+    CNA_STUDIO_EXPECT_EQ(context.getScene().getHierarchyRebuildCount(), rebuilds);
+}

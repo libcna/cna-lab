@@ -201,6 +201,26 @@ namespace CNA::Studio
     [[nodiscard]] bool studioContentMatches(const AssetRecord& record, std::string_view search);
 
     /**
+     * @brief The assets a search selects, ranked and ordered, without building a card for any.
+     *
+     * `plan.md` CORE-05. The expensive half of a result list is not deciding what is in it -- that
+     * is a rank and a pointer -- but the card each entry becomes: a label, a kind, a location and
+     * a set of marks, three strings among them. Building one per match is what made a search over
+     * a hundred thousand assets construct a hundred thousand cards on the frame a user typed the
+     * first letter, twice, while forty of them were on screen.
+     *
+     * Separated so the panel can slice the answer and build cards only for the slice, which is
+     * what the ordinary folder listing has done since `STUDIO-09016`.
+     *
+     * @param assets The database.
+     * @param query The search and the type filter. An empty search returns nothing; use the
+     *        folder listing for that.
+     * @return Pointers into @p assets, in the order the results are shown.
+     */
+    [[nodiscard]] std::vector<const AssetRecord*> studioContentSearchMatches(
+        const AssetDatabase& assets, const StudioContentQuery& query);
+
+    /**
      * @brief What one of the Content Browser's file operations did.
      *
      * `plan.md` STUDIO-09009. A rename that is refused and a rename that did nothing because the

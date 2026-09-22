@@ -446,10 +446,63 @@ namespace CNA::Studio
      * is one folder over — and the location line on each card is what stops a flat result list
      * being ambiguous about which `player.png` was found.
      */
-    std::vector<StudioContentCard> studioContentSearchCards(const AssetDatabase& assets,
-                                                            const StudioContentQuery& query,
-                                                            const Uuid& selected,
-                                                            const StudioAssetShortcuts& shortcuts)
+    namespace
+    {
+        /**
+         * @brief One result card for @p record, as a search shows it.
+         *
+         * Split out for `plan.md` CORE-05: the window builds these for the forty on screen and the
+         * whole-listing form builds them for everything, and two copies of this would be two places
+         * for a result's location line to stop matching.
+         */
+        StudioContentCard searchCard(const AssetDatabase& assets, const AssetRecord& record,
+                                     const Uuid& selected, const StudioAssetShortcuts& shortcuts)
+        {
+            StudioContentCard card;
+            card.assetId = record.id;
+            card.label = splitPath(record.sourcePath).second;
+            card.detail = toString(record.type);
+            card.icon = studioAssetIcon(record.type);
+            card.selected = record.id == selected;
+
+            // Where it is, which is the whole reason a result is readable. `Project` rather than
+            // an empty string for an asset at the root: "/ player.png" is a path fragment somebody
+            // has to reconstruct.
+            const std::string directory = splitPath(record.sourcePath).first;
+            card.location = directory.empty() ? "Project" : directory;
+
+            if (assets.isMissing(record.id))
+            {
+                card.missing = true;
+                card.detail = "missing";
+                card.icon = StudioIcon::Warning;
+                card.iconRole = StudioColorRole::Warning;
+            }
+            else if (studioSourceChangedSinceImport(record))
+            {
+                // Said beside the kind rather than instead of it: what the asset *is* does not
+                // stop being true because its file has moved on. Arithmetic on two stamps the
+                // record already carries, so marking every row costs no syscall (STUDIO-30015).
+                card.needsReimport = true;
+                card.detail += "  ·  out of date";
+            }
+            card.favourite = shortcuts.isFavourite(record.id);
+            if (card.favourite && !card.missing)
+            {
+                // Said with *colour* rather than with a star glyph. The shipped typeface is
+                // rasterised on demand and has no `U+2605`, so a star would be a tofu box beside
+                // every favourite -- the same reason the search field has no magnifier, and the
+                // same task that fixes both (STUDIO-04019 font fallback). A column of its own was
+                // the other option and is worse: one that is empty on ninety-nine rows in a
+                // hundred costs width and says nothing.
+                card.iconRole = StudioColorRole::Accent;
+            }
+            return card;
+        }
+    }
+
+    std::vector<const AssetRecord*> studioContentSearchMatches(const AssetDatabase& assets,
+                                                               const StudioContentQuery& query)
     {
         const std::string needle = lowered(query.search);
 
@@ -479,52 +532,28 @@ namespace CNA::Studio
 
         if (query.descending) { std::reverse(ranked.begin(), ranked.end()); }
 
-        std::vector<StudioContentCard> cards;
-        cards.reserve(ranked.size());
+        std::vector<const AssetRecord*> matches;
+        matches.reserve(ranked.size());
         for (const auto& [rank, record] : ranked)
         {
             (void)rank;
+            matches.push_back(record);
+        }
+        return matches;
+    }
 
-            StudioContentCard card;
-            card.assetId = record->id;
-            card.label = splitPath(record->sourcePath).second;
-            card.detail = toString(record->type);
-            card.icon = studioAssetIcon(record->type);
-            card.selected = record->id == selected;
+    std::vector<StudioContentCard> studioContentSearchCards(const AssetDatabase& assets,
+                                                            const StudioContentQuery& query,
+                                                            const Uuid& selected,
+                                                            const StudioAssetShortcuts& shortcuts)
+    {
+        const std::vector<const AssetRecord*> ranked = studioContentSearchMatches(assets, query);
 
-            // Where it is, which is the whole reason a result is readable. `Project` rather than
-            // an empty string for an asset at the root: "/ player.png" is a path fragment somebody
-            // has to reconstruct.
-            const std::string directory = splitPath(record->sourcePath).first;
-            card.location = directory.empty() ? "Project" : directory;
-
-            if (assets.isMissing(record->id))
-            {
-                card.missing = true;
-                card.detail = "missing";
-                card.icon = StudioIcon::Warning;
-                card.iconRole = StudioColorRole::Warning;
-            }
-            else if (studioSourceChangedSinceImport(*record))
-            {
-                // Said beside the kind rather than instead of it: what the asset *is* does not stop
-                // being true because its file has moved on. Arithmetic on two stamps the record
-                // already carries, so marking every row costs no syscall (STUDIO-30015).
-                card.needsReimport = true;
-                card.detail += "  ·  out of date";
-            }
-            card.favourite = shortcuts.isFavourite(record->id);
-            if (card.favourite && !card.missing)
-            {
-                // Said with *colour* rather than with a star glyph. The shipped typeface is
-                // rasterised on demand and has no `U+2605`, so a star would be a tofu box beside
-                // every favourite -- the same reason the search field has no magnifier, and the
-                // same task that fixes both (STUDIO-04019 font fallback). A column of its own was
-                // the other option and is worse: one that is empty on ninety-nine rows in a
-                // hundred costs width and says nothing.
-                card.iconRole = StudioColorRole::Accent;
-            }
-            cards.push_back(std::move(card));
+        std::vector<StudioContentCard> cards;
+        cards.reserve(ranked.size());
+        for (const AssetRecord* record : ranked)
+        {
+            cards.push_back(searchCard(assets, *record, selected, shortcuts));
         }
         return cards;
     }
@@ -649,7 +678,16 @@ namespace CNA::Studio
             return immediateSubfolders(assets, folder).size() + assets.getDirectAssetCount(folder);
         }
 
-        // Anything that filters has to look at what it is filtering.
+        // `plan.md` CORE-05. A search looks at every record -- there is no other way to know what
+        // matches -- but counting them is a rank per record, not a card per match. Counting by
+        // building was the other half of what made a broad search over a hundred thousand assets
+        // construct a hundred thousand cards a frame.
+        if (!query.search.empty())
+        {
+            return studioContentSearchMatches(assets, query).size();
+        }
+
+        // Anything else that filters has to look at what it is filtering.
         return studioContentCards(assets, folder, Uuid{}, query, shortcuts).size();
     }
 
@@ -667,6 +705,35 @@ namespace CNA::Studio
         built(0);
 
         if (count == 0) { return {}; }
+
+        // `plan.md` CORE-05. A search is the filtered case that has to scale, because it is the
+        // one a project of a hundred thousand assets exists to need -- and it is the one where
+        // *deciding* what is in the listing and *building* it separate cleanly: ranking is a
+        // pointer and an int per record, and only the slice on screen becomes a card.
+        //
+        // The ordering still requires looking at everything, and always will: sorting by something
+        // means considering everything. What is no longer paid for is a label, a kind, a location
+        // and three strings per match that nobody is going to see.
+        if (!query.search.empty())
+        {
+            const std::vector<const AssetRecord*> matches =
+                studioContentSearchMatches(assets, query);
+            if (first >= matches.size()) { return {}; }
+
+            const std::size_t last = count == std::string::npos
+                ? matches.size()
+                : std::min(matches.size(), first + count);
+
+            std::vector<StudioContentCard> window;
+            window.reserve(last - first);
+            for (std::size_t at = first; at < last; ++at)
+            {
+                window.push_back(searchCard(assets, *matches[at], selected, shortcuts));
+            }
+
+            built(window.size());
+            return window;
+        }
 
         if (!isPositionalOrder(query) || studioContentIsShortcutFolder(folder))
         {

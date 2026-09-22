@@ -75,7 +75,7 @@ legs.
 
 ## The active roadmap
 
-**6 of 11 active deliverables complete.**
+**7 of 11 active deliverables complete.**
 
 Estimates are Opus 5 engineering hours at this repository's working standard — implementation, the
 test its acceptance names, and the documentation it changes.
@@ -86,7 +86,7 @@ test its acceptance names, and the documentation it changes.
 | `CORE-02` | Hand the developer back to their IDE | ✅ | 2 | `STUDIO-15010` |
 | `CORE-03` | The viewport shows what is selected | ✅ | 2 | `STUDIO-35053` |
 | `CORE-04` | The Details panel reads as a property grid | ✅ | 2 | `STUDIO-35033` |
-| `CORE-05` | Find an asset, find an entity | ⬜ | 3 | `STUDIO-35042`, `STUDIO-35061` |
+| `CORE-05` | Find an asset, find an entity | ✅ | 3 | `STUDIO-35042`, `STUDIO-35061` |
 | `CORE-06` | Paint order separable from input order | ✅ | 4 | `STUDIO-03041` |
 | `CORE-07` | Resize without artefacts | ⬜ | 2 | `STUDIO-04011` |
 | `CORE-08` | Answer the four questions the plan left silent | ✅ | 2 | `STUDIO-00015`, `STUDIO-01014`, `STUDIO-01015`, `STUDIO-01016` |
@@ -241,6 +241,31 @@ has a text filter; both filter within the existing frame budget on the 100 000-a
 large-hierarchy fixtures the performance suite already owns.
 
 **Not included.** Saved searches, query syntax, prefab indicators, the lock concept.
+
+**Done, and the row was stale about the controls.** Both panels already had a search box and the
+Content Browser already had a type filter; what had never been checked is the half this row is
+actually about — *within the existing frame budget*. It was not.
+
+A search leaves the folder behind and looks at the whole project, and the browser built a complete
+card for every match: a label, a kind, a location and three strings, a hundred thousand times, on
+the frame a user typed the first letter, twice a frame, with forty of them on screen. The ordinary
+folder listing has windowed since `STUDIO-09016`; the search path had never been given the same
+treatment, so the scaling work counted for nothing on the one gesture a hundred thousand assets
+exist to need.
+
+Ranking is now separated from card-building — `studioContentSearchMatches` answers *what matches*
+with a pointer and an int per record — and only the slice on screen becomes a card. Counting the
+results stopped building them too.
+
+| Acceptance | Evidence |
+|------------|----------|
+| Content Browser text filter, within the frame budget at 100 000 assets | `SearchingAHundredThousandAssetsStillDescribesAScreenful` — a search matching every asset builds a screenful, and the narrow one finds its three |
+| Content Browser asset-type filter | The same case: the filter alone, and the filter with a search, over the same project |
+| World Outliner text filter, within the budget on the large hierarchy | `SearchingTwentyThousandEntitiesStillDescribesAScreenful` — including that filtering a scene nobody changed rebuilds the hierarchy index not at all |
+| No filesystem cost per keystroke | The same case: `getPresenceProbeCount()` is unchanged across a search |
+
+Removing the windowing makes the first case report the hundred thousand cards by name, which is
+how the fix was checked rather than assumed.
 
 ### `CORE-06` — Paint order separable from input order
 
