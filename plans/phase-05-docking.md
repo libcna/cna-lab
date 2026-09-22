@@ -1,6 +1,14 @@
 # Phase 5 — Docking and workspace
 
-> Part of the [CNA Studio master plan](../plan.md). Ids in this phase are `STUDIO-05001` … `STUDIO-05999` and are never reused.
+> **ARCHIVED — historical record. This file authorises no work.** It belongs to the
+> [archived programme roadmap](../docs/ROADMAP-ARCHIVE.md), whose scope was retired on 2026-09-22
+> by [ADR-001](../docs/ADR-001-SCOPE-REDUCTION.md). **A ⬜ below means *not built*. It no longer
+> means *planned*.** The one authoritative active roadmap is [`plan.md`](../plan.md).
+>
+> **Disposition of this phase:** Delivered. The one open row is research, in the [conditional backlog](../docs/ROADMAP-BACKLOG.md).
+>
+> Ids in this phase are `STUDIO-05001` … `STUDIO-05999` and are never reused. Every id here still resolves, so a commit, test or code comment that cites
+> one keeps its meaning.
 
 **Purpose.** A first-class panel shell: docking, tab groups, splitters, floating panels and persistent layouts.
 

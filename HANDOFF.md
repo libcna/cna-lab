@@ -2,11 +2,40 @@
 
 State of the work in progress, for whoever continues it. Updated at the end of each long session.
 
-**Last updated:** 2026-09-17
+**Last updated:** 2026-09-22
 
 ---
 
-## What this session did
+## Read this first: the scope changed on 2026-09-22
+
+**CNA Studio is now a lightweight visual development companion for CNA applications, not a
+general-purpose engine editor.** The 36-phase, 582-task programme roadmap was retired and archived.
+
+- **The one authoritative roadmap is [`plan.md`](plan.md).** It holds **11 `CORE-*` deliverables**,
+  roughly **35 engineering hours**, against a 40-hour target and a 60-hour hard ceiling.
+- The decision and its reasoning: [`docs/ADR-001-SCOPE-REDUCTION.md`](docs/ADR-001-SCOPE-REDUCTION.md).
+- The old roadmap is [`docs/ROADMAP-ARCHIVE.md`](docs/ROADMAP-ARCHIVE.md); its per-task detail
+  stays in [`plans/`](plans/), unchanged, banner-marked historical.
+- Of 176 unfinished tasks: **24 are active** (in `plan.md`), **100 are conditional**
+  ([`docs/ROADMAP-BACKLOG.md`](docs/ROADMAP-BACKLOG.md)) and **52 are out of active product scope**
+  ([`docs/ROADMAP-OUT-OF-SCOPE.md`](docs/ROADMAP-OUT-OF-SCOPE.md)).
+
+**A ⬜ anywhere below, or in `plans/`, means *not built*. It no longer means *planned*.** Do not
+implement from this file's *Next recommended tasks* section, or from `plans/`, or from the archive.
+Implement from `plan.md` and nothing else.
+
+**When `CORE-01` … `CORE-11` are done, feature development stops and Studio is maintained.**
+Maintenance is bug fixes, compatibility fixes, adaptation to CNA API changes, security and
+correctness work, small usability fixes inside the Core workflow, and features justified by a
+demonstrated recurring need in a real maintained CNA application. It is not working through a
+backlog.
+
+Everything below this section predates the scope reduction and is kept for its engineering
+detail — what was built, what it cost, what was found. Its *recommendations* are superseded.
+
+---
+
+## What the session before the scope reduction did
 
 **It corrected one architectural assumption before it hardened, closed out the two Phase 7 rows that
 had become zombies, and shipped the Project Hub — including the first CI proof that a project a
@@ -362,9 +391,12 @@ Baseline at import, for comparison: 442 test cases, 12 CTest suites.
 
 ## What was completed
 
-Task ids are `STUDIO-PPNNN`; see `plan.md` for the full list. **405 of 582 tasks are complete.**
-Per-phase counts and the headline are checked by the test suite — `STUDIO-33018` for `plan.md` and
-`STUDIO-33019` for this file — so neither can drift from the phase files again. The second was added
+Task ids are `STUDIO-PPNNN`; the full list is the archived roadmap,
+[`docs/ROADMAP-ARCHIVE.md`](docs/ROADMAP-ARCHIVE.md) and [`plans/`](plans/). Of the archived
+programme, **405 of 582 tasks are complete.** That figure is history, not progress against the
+active roadmap — `plan.md` counts `CORE-*` deliverables, of which none is complete yet.
+Per-phase counts and this headline are still checked by the test suite — `STUDIO-33018` for the
+archive and `STUDIO-33019` for this file — so the record cannot drift from the phase files. The second was added
 after this file had drifted by nineteen tasks and a hundred and fifty-eight test cases, which is
 exactly the failure the first was written to prevent in the other file.
 
@@ -1079,6 +1111,15 @@ reason `STUDIO-03041` is filed as a structural task rather than as a third guard
 
 ## Known gaps and failures
 
+> Written before the scope reduction. Several entries below are now **deliberate and permanent**
+> rather than gaps — non-Latin text, no GPU CI, no real file dialog, the plainness of panels the
+> Visual Quality campaign would have addressed. `plan.md`'s *Explicitly not required for Core*
+> section is the current list of what Studio does not do on purpose. Two entries did become active
+> work: paint order (`CORE-06`) and Content Browser search (`CORE-05`).
+>
+> Some entries are also simply stale — New Project and Open Project **are** bound, to the Project
+> Hub's New and Recent pages, and the Content Browser's synchronous disk I/O was fixed.
+
 Nothing is failing. What is **not** done, and should not be mistaken for done:
 
 - **Studio is C++-only, and the seam does not change that.** `STUDIO-02080`–`02086` make adding a
@@ -1191,7 +1232,14 @@ FFmpeg is optional: `CNA_ENABLE_VIDEO=AUTO` detects its absence and disables vid
 
 ---
 
-## Next recommended tasks
+## Next recommended tasks — **superseded**
+
+> **Do not work from this section.** It was written before the scope reduction of 2026-09-22 and
+> recommends tasks that are now conditional or out of active product scope. The authoritative list
+> of what may be worked on is [`plan.md`](plan.md), and it holds eleven `CORE-*` deliverables.
+>
+> Kept because the *reasoning* below — which chains depend on which, and what each would cost — is
+> part of why the scope was reduced, and is the evidence a future scope decision would want.
 
 Read from the phase files, not remembered. Ids, titles and blockers are copied from the rows.
 

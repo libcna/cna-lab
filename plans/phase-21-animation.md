@@ -1,6 +1,14 @@
 # Phase 21 — Animation
 
-> Part of the [CNA Studio master plan](../plan.md). Ids in this phase are `STUDIO-21001` … `STUDIO-21999` and are never reused.
+> **ARCHIVED — historical record. This file authorises no work.** It belongs to the
+> [archived programme roadmap](../docs/ROADMAP-ARCHIVE.md), whose scope was retired on 2026-09-22
+> by [ADR-001](../docs/ADR-001-SCOPE-REDUCTION.md). **A ⬜ below means *not built*. It no longer
+> means *planned*.** The one authoritative active roadmap is [`plan.md`](../plan.md).
+>
+> **Disposition of this phase:** **Conditional future work**, apart from `STUDIO-21009`, folded into `CORE-10`. See [ROADMAP-BACKLOG.md](../docs/ROADMAP-BACKLOG.md).
+>
+> Ids in this phase are `STUDIO-21001` … `STUDIO-21999` and are never reused. Every id here still resolves, so a commit, test or code comment that cites
+> one keeps its meaning.
 
 **Purpose.** Skeletal and sprite animation authoring and preview.
 

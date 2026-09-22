@@ -407,7 +407,8 @@ Important boundaries are enforced by machinery, not by comments. The guards, eac
 | Every document mutation goes through a command | Undo silently not working |
 | Unknown components survive save/load | Losing a user's data when a plugin is missing |
 | Files are byte-deterministic across saves | Version-control churn |
-| `plan.md`'s status breakdown matches the phase files | A ledger that is quoted and wrong |
+| `ROADMAP-ARCHIVE.md`'s status breakdown matches the phase files | A ledger that is quoted and wrong |
+| Every unfinished task is classified exactly once by the scope reduction | Work that is neither authorised nor explicitly unauthorised |
 | No service reaches another through a locator or a singleton | Services that were separated on paper and still talk through globals |
 
 ### 10.1 Dependencies are constructor arguments
@@ -476,7 +477,8 @@ CNA Studio is the long-term product, and a substantial original UI architecture 
 
 ## 12. Open architectural questions
 
-Recorded rather than guessed at. Each has a task id in `plan.md`.
+Recorded rather than guessed at. Each has a task id in the archived roadmap
+([`ROADMAP-ARCHIVE.md`](ROADMAP-ARCHIVE.md)); §15 says which of them the scope reduction retired.
 
 | Id | Question |
 |----|----------|
@@ -611,7 +613,7 @@ come to cover something more.
 | **A `ProjectLanguage` enum in the generic model** | An enum is a branch waiting to be written, and the compiler encourages it: every `switch` over it with a `default` is a place a new language silently does the wrong thing. A string id resolved once to an adapter has no such site |
 | **Put the seam at the build step only** | Building is the loudest boundary but not the only one, and the others are the ones that would have rotted quietly: creating a project's files, packaging it, locating its source. A seam around the build alone would have let the Project Hub learn what a `CMakeLists.txt` is, which is the failure this exists to prevent |
 | **Generalise the toolchain path preference to a per-language map now** | Not earned. `StudioPreferences::cmakePath` is a persisted key with one language behind it; a map with one entry buys nothing and costs a format migration. Recorded as a known non-generic remainder on `STUDIO-02087` rather than done on speculation |
-| **A visual scripting language as the second "binding"** | Out of scope by an existing decision (`plan.md`, *Deliberately not built*). C++ first, and excellent, before anything else |
+| **A visual scripting language as the second "binding"** | Out of scope by an existing decision (`ROADMAP-ARCHIVE.md`, *Deliberately not built*), and again by [ADR-001](ADR-001-SCOPE-REDUCTION.md). C++ first, and excellent, before anything else |
 
 ### 13.7 What this deliberately does not do
 
@@ -664,3 +666,42 @@ missing, whose renderer no longer exists or whose language this build cannot aut
 and `STUDIO-08012`'s diagnostics say what is wrong and what to do about it. A broken project is
 exactly the project somebody needs the editor for, and an editor that refuses to open it has
 removed the only tool that could have fixed it.
+
+---
+
+## 15. The scope reduction
+
+**On 2026-09-22 CNA Studio stopped being a general-purpose editor programme.** The decision, its
+reasoning and its costs are [`ADR-001-SCOPE-REDUCTION.md`](ADR-001-SCOPE-REDUCTION.md); this
+section records only what it means for the architecture.
+
+**The invariant in §1 is unchanged** — it is the one thing the reduction did not touch, and the
+reason it did not have to. A project authored in Studio was always an ordinary CNA project that
+builds without Studio, so removing Studio features removes nothing from a user's project.
+
+**What the architecture is now sized for.** The bounded Core workflow in
+[`../plan.md`](../plan.md): create or open a project, manage assets, edit and save scenes,
+manipulate objects, edit the modelled properties, play, build through the project's own CMake, read
+the failure, recover, and hand off to an external IDE.
+
+**Architectural consequences worth naming:**
+
+- **The language seam (§13) stays and is not extended.** It exists so that a second CNA binding
+  would be an addition rather than a rewrite; no second adapter is planned, and the open questions
+  in §12 about speculative adapters are now answered by the scope decision rather than deferred.
+- **No reflection system for project-defined C++ components will be added.** That was the largest
+  new subsystem in §12's neighbourhood, and it is
+  [out of active scope](ROADMAP-OUT-OF-SCOPE.md). The Inspector stays driven by the descriptor
+  model it already has.
+- **Process separation (§6) is final.** Nothing will embed the player's output in a Studio viewport
+  or reload native code into a running game; both were the routes by which that separation would
+  have been negotiated away.
+- **The renderer and platform model (§2, §3, §4) is complete and is maintained, not grown.** New
+  CNA renderer identities are absorbed by the catalogue, which is what the catalogue is for.
+- **The plugin host stays; a plugin SDK does not arrive.** Loading plugins that add panels, menus,
+  component types and importers continues to work and continues to be tested. It does not become a
+  versioned public ABI.
+- **A new guard test enforces the classification itself** —
+  `EveryUnfinishedTaskIsClassifiedExactlyOnceByTheScopeReduction` in `ArchitectureGuardTests.cpp`
+  fails if an unfinished task stops being classified, is classified twice, or names nothing. It is
+  listed in §10's table.

@@ -1,6 +1,14 @@
 # Phase 7 — Existing-panel migration
 
-> Part of the [CNA Studio master plan](../plan.md). Ids in this phase are `STUDIO-07001` … `STUDIO-07999` and are never reused.
+> **ARCHIVED — historical record. This file authorises no work.** It belongs to the
+> [archived programme roadmap](../docs/ROADMAP-ARCHIVE.md), whose scope was retired on 2026-09-22
+> by [ADR-001](../docs/ADR-001-SCOPE-REDUCTION.md). **A ⬜ below means *not built*. It no longer
+> means *planned*.** The one authoritative active roadmap is [`plan.md`](../plan.md).
+>
+> **Disposition of this phase:** Complete.
+>
+> Ids in this phase are `STUDIO-07001` … `STUDIO-07999` and are never reused. Every id here still resolves, so a commit, test or code comment that cites
+> one keeps its meaning.
 
 **Purpose.** Port every prototype panel onto the Studio UI and retire the Dear ImGui presentation.
 

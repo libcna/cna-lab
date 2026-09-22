@@ -1,6 +1,14 @@
 # Phase 35 — Production polish
 
-> Part of the [CNA Studio master plan](../plan.md). Ids in this phase are `STUDIO-35001` … `STUDIO-35999` and are never reused.
+> **ARCHIVED — historical record. This file authorises no work.** It belongs to the
+> [archived programme roadmap](../docs/ROADMAP-ARCHIVE.md), whose scope was retired on 2026-09-22
+> by [ADR-001](../docs/ADR-001-SCOPE-REDUCTION.md). **A ⬜ below means *not built*. It no longer
+> means *planned*.** The one authoritative active roadmap is [`plan.md`](../plan.md).
+>
+> **Disposition of this phase:** Three rows are now `CORE-03`, `CORE-04` and `CORE-05`, and one is folded into `CORE-10`. **The Visual Quality 1.0 campaign is [out of active scope](../docs/ROADMAP-OUT-OF-SCOPE.md)**; the individual visual rows are [conditional](../docs/ROADMAP-BACKLOG.md).
+>
+> Ids in this phase are `STUDIO-35001` … `STUDIO-35999` and are never reused. Every id here still resolves, so a commit, test or code comment that cites
+> one keeps its meaning.
 
 **Purpose.** The long-running quality campaign that separates a tool that works from a tool people choose.
 

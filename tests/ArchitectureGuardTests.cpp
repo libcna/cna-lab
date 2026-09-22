@@ -1625,7 +1625,7 @@ CNA_STUDIO_TEST(NoStudioCodeHardCodesARendererName)
 // -------------------------------------------------------------------------------------------
 //
 // The roadmap is only worth reading if its status is true, and the failure mode is not dishonesty
-// but drift: a task gets its tick, the phase file's own header and `plan.md`'s table keep the
+// but drift: a task gets its tick, the phase file's own header and the roadmap's table keep the
 // number they had, and the discrepancy survives because nobody adds up a column by hand. These
 // checks add it up. They assert arithmetic, never judgement -- whether a ✅ is *deserved* is a
 // question no test can answer, and pretending otherwise would be worse than not checking.
@@ -1725,10 +1725,20 @@ namespace
     }
 
     /**
+     * @brief The archived programme roadmap, which `plans/` is the per-task detail of.
+     *
+     * `docs/ADR-001-SCOPE-REDUCTION.md` retired that roadmap's scope and moved it out of
+     * `plan.md`, which now holds the bounded active one. The arithmetic guards below still run
+     * against the archive: a historical record whose own totals have drifted is no longer a
+     * record, and the phase files it summarises are still cited by id from commits and code.
+     */
+    std::filesystem::path archivedRoadmap() { return sourceRoot() / "docs" / "ROADMAP-ARCHIVE.md"; }
+
+    /**
      * @brief Reads the task rows of one phase file.
      *
-     * A phase file's table is the authority on that phase: `plan.md` summarises it, and the
-     * summary is what drifts.
+     * A phase file's table is the authority on that phase: the archived roadmap summarises it,
+     * and the summary is what drifts.
      *
      * @param path The phase file.
      * @return Every `| `STUDIO-NNNNN` | … | status | … |` row, in file order.
@@ -1813,7 +1823,7 @@ CNA_STUDIO_TEST(EveryPhaseFileAgreesWithItsOwnProgressHeader)
 
 CNA_STUDIO_TEST(TheMasterPlanTableAgreesWithEveryPhaseFile)
 {
-    // `plan.md`'s phase table is a summary of thirty-six files nobody re-reads when ticking a box
+    // The archive's phase table is a summary of thirty-six files nobody re-reads when ticking a box
     // in one of them, so it is the number most likely to be wrong and the one most likely to be
     // quoted. Each row is checked against the file it links to, and the totals against the rows.
     std::size_t rowsChecked = 0;
@@ -1821,7 +1831,7 @@ CNA_STUDIO_TEST(TheMasterPlanTableAgreesWithEveryPhaseFile)
     std::size_t totalComplete = 0;
     std::size_t declaredTotal = 0;
 
-    for (const std::string& line : splitLines(readFileOrEmpty(sourceRoot() / "plan.md")))
+    for (const std::string& line : splitLines(readFileOrEmpty(archivedRoadmap())))
     {
         const std::vector<std::string> cells = tableCells(line);
 
@@ -1834,12 +1844,13 @@ CNA_STUDIO_TEST(TheMasterPlanTableAgreesWithEveryPhaseFile)
 
         // | N | [Name](plans/phase-NN-….md) | `STUDIO-NNNNN` | status | tasks | complete | bar |
         if (cells.size() < 6) { continue; }
-        const std::size_t linkStart = cells[1].find("(plans/");
+        // The link is relative to the archive's own directory, so it reads `../plans/…`. Match
+        // on the part that is a repository path either way.
+        const std::size_t linkStart = cells[1].find("plans/phase-");
         if (linkStart == std::string::npos) { continue; }
 
         const std::size_t linkEnd = cells[1].find(')', linkStart);
-        const std::string relative =
-            cells[1].substr(linkStart + 1, linkEnd - linkStart - 1);
+        const std::string relative = cells[1].substr(linkStart, linkEnd - linkStart);
 
         std::size_t declaredTasksInRow = 0;
         std::size_t declaredCompleteInRow = 0;
@@ -1865,7 +1876,7 @@ CNA_STUDIO_TEST(TheMasterPlanTableAgreesWithEveryPhaseFile)
         if (tasks.size() != declaredTasksInRow || complete != declaredCompleteInRow)
         {
             CnaStudioTest::reportFailure(__FILE__, __LINE__,
-                "plan.md says " + relative + " holds " + std::to_string(declaredTasksInRow)
+                "ROADMAP-ARCHIVE.md says " + relative + " holds " + std::to_string(declaredTasksInRow)
                 + " tasks with " + std::to_string(declaredCompleteInRow) + " complete, but the file "
                   "holds " + std::to_string(tasks.size()) + " with " + std::to_string(complete)
                 + " complete.");
@@ -1878,11 +1889,11 @@ CNA_STUDIO_TEST(TheMasterPlanTableAgreesWithEveryPhaseFile)
     // The headline figure, which is the one that ends up in a commit message or a status report.
     const std::string headline =
         std::to_string(totalComplete) + " of " + std::to_string(totalTasks) + " tasks complete";
-    const std::string plan = readFileOrEmpty(sourceRoot() / "plan.md");
+    const std::string plan = readFileOrEmpty(archivedRoadmap());
     if (plan.find("**" + headline + "**") == std::string::npos)
     {
         CnaStudioTest::reportFailure(__FILE__, __LINE__,
-            "plan.md's headline does not read '**" + headline
+            "ROADMAP-ARCHIVE.md's headline does not read '**" + headline
             + "**', which is what its own phase table adds up to.");
     }
 }
@@ -1890,7 +1901,7 @@ CNA_STUDIO_TEST(TheMasterPlanTableAgreesWithEveryPhaseFile)
 /**
  * @brief Each phase row's status marker says what that phase's own task list says.
  *
- * `plan.md` STUDIO-33028. The status column is the first thing anybody reads off that table --
+ * `STUDIO-33028`, archived. The status column is the first thing anybody reads off that table --
  * it is what a ⬜ beside a finished phase costs, and what an ✅ beside an unfinished one costs
  * more. Every *other* cell in the row was already derived from the phase file and checked here;
  * the status was the one left to a person, and by the time anybody looked seven of thirty-six
@@ -1912,17 +1923,17 @@ CNA_STUDIO_TEST(EveryPhasesStatusMarkerAgreesWithItsOwnTaskList)
 {
     std::size_t rowsChecked = 0;
 
-    for (const std::string& line : splitLines(readFileOrEmpty(sourceRoot() / "plan.md")))
+    for (const std::string& line : splitLines(readFileOrEmpty(archivedRoadmap())))
     {
         const std::vector<std::string> cells = tableCells(line);
 
         // | N | [Name](plans/phase-NN-….md) | `STUDIO-NNNNN` | status | tasks | complete | bar |
         if (cells.size() < 4) { continue; }
-        const std::size_t linkStart = cells[1].find("(plans/");
+        const std::size_t linkStart = cells[1].find("plans/phase-");
         if (linkStart == std::string::npos) { continue; }
 
         const std::size_t linkEnd = cells[1].find(')', linkStart);
-        const std::string relative = cells[1].substr(linkStart + 1, linkEnd - linkStart - 1);
+        const std::string relative = cells[1].substr(linkStart, linkEnd - linkStart);
 
         const std::vector<PlanTask> tasks = readPhaseTasks(sourceRoot() / relative);
         if (tasks.empty()) { continue; }
@@ -1944,7 +1955,7 @@ CNA_STUDIO_TEST(EveryPhasesStatusMarkerAgreesWithItsOwnTaskList)
         if (cells[3] != expected)
         {
             CnaStudioTest::reportFailure(__FILE__, __LINE__,
-                "plan.md marks " + relative + " '" + cells[3] + "', but its task list is "
+                "ROADMAP-ARCHIVE.md marks " + relative + " '" + cells[3] + "', but its task list is "
                 + expected + ".");
         }
     }
@@ -1987,7 +1998,7 @@ CNA_STUDIO_TEST(ThePlansStatusBreakdownAddsUpAndMatchesThePhaseFiles)
         }
     }
 
-    const std::string plan = readFileOrEmpty(sourceRoot() / "plan.md");
+    const std::string plan = readFileOrEmpty(archivedRoadmap());
     std::size_t declaredSum = 0;
     for (const auto& [symbol, prefix] : kRows)
     {
@@ -1995,7 +2006,7 @@ CNA_STUDIO_TEST(ThePlansStatusBreakdownAddsUpAndMatchesThePhaseFiles)
         if (at == std::string::npos)
         {
             CnaStudioTest::reportFailure(__FILE__, __LINE__,
-                std::string{"plan.md has no status row starting '"} + prefix + "'.");
+                std::string{"ROADMAP-ARCHIVE.md has no status row starting '"} + prefix + "'.");
             continue;
         }
         const std::size_t declared =
@@ -2004,7 +2015,7 @@ CNA_STUDIO_TEST(ThePlansStatusBreakdownAddsUpAndMatchesThePhaseFiles)
         if (declared != actual[symbol])
         {
             CnaStudioTest::reportFailure(__FILE__, __LINE__,
-                std::string{"plan.md's status breakdown says "} + std::to_string(declared) + " "
+                std::string{"ROADMAP-ARCHIVE.md's status breakdown says "} + std::to_string(declared) + " "
                 + symbol + " tasks; the phase files hold " + std::to_string(actual[symbol]) + ".");
         }
     }
@@ -2015,14 +2026,14 @@ CNA_STUDIO_TEST(ThePlansStatusBreakdownAddsUpAndMatchesThePhaseFiles)
     if (plan.find("| **Total** | **" + std::to_string(totalTasks) + "** |") == std::string::npos)
     {
         CnaStudioTest::reportFailure(__FILE__, __LINE__,
-            "plan.md's status breakdown does not total " + std::to_string(totalTasks) + ".");
+            "ROADMAP-ARCHIVE.md's status breakdown does not total " + std::to_string(totalTasks) + ".");
     }
 }
 
 CNA_STUDIO_TEST(TheHandoffsOwnArithmeticMatchesThePhaseFiles)
 {
     // The handoff is what somebody reads first, and a count in it that is one session stale is
-    // worse than no count: it is a number they will quote. plan.md's arithmetic is already checked
+    // worse than no count: it is a number they will quote. The archive's arithmetic is already checked
     // against the phase files above; this checks the handoff against the same source, so the two
     // cannot say different things about the same day's work.
     //
@@ -2197,7 +2208,7 @@ CNA_STUDIO_TEST(EveryDependencyNamesARealTaskAndNoneOfThemFormACycle)
 
 CNA_STUDIO_TEST(NoTaskIdIsUsedTwiceAcrossTheWholePlan)
 {
-    // Ids are promised to be stable and never reused (plan.md, 'Id scheme'). A collision breaks
+    // Ids are promised to be stable and never reused (ROADMAP-ARCHIVE.md, 'Id scheme'). A collision breaks
     // every reference to the id -- in commit messages, in code comments, in this test suite -- and
     // is invisible until someone follows one of them to the wrong task.
     std::map<std::string, std::string> seenIn;
@@ -2256,4 +2267,192 @@ CNA_STUDIO_TEST(NoTaskIdIsUsedTwiceAcrossTheWholePlan)
 
     CNA_STUDIO_EXPECT(seenIn.size() > 300);
     CNA_STUDIO_EXPECT_EQ(collisions, std::size_t{0});
+}
+
+// -------------------------------------------------------------------------------------------
+// Scope integrity
+// -------------------------------------------------------------------------------------------
+//
+// `docs/ADR-001-SCOPE-REDUCTION.md` reduced CNA Studio to a bounded Core and classified every
+// unfinished task into exactly one of three documents: `plan.md` (authorised work),
+// `docs/ROADMAP-BACKLOG.md` (conditional, on a demonstrated need) and
+// `docs/ROADMAP-OUT-OF-SCOPE.md` (no work under this roadmap).
+//
+// The failure mode this guards is the one the ADR exists to prevent: a row that quietly stops
+// being classified, and is therefore neither authorised nor explicitly not-authorised -- which is
+// exactly the ambiguous state the 582-task roadmap had drifted into. A row that appears in two of
+// the three is the same defect wearing the other face, because then one of the two is wrong about
+// whether it may be built.
+
+namespace
+{
+    /** @brief Every `STUDIO-NNNNN` in the first cell of a Markdown table row in @p path. */
+    std::vector<std::string> classifiedIdsInTables(const std::filesystem::path& path)
+    {
+        std::vector<std::string> ids;
+        for (const std::string& line : splitLines(readFileOrEmpty(path)))
+        {
+            const std::vector<std::string> cells = tableCells(line);
+            if (cells.empty()) { continue; }
+
+            for (const std::string& piece : splitOn(cells[0], ','))
+            {
+                const std::string id = withoutBackticks(trimmed(piece));
+                if (isPlanTaskId(id)) { ids.push_back(id); }
+            }
+        }
+        return ids;
+    }
+
+    /**
+     * @brief The ids a `CORE-*` row of the active roadmap traces back to.
+     *
+     * Only rows whose first cell is a `CORE-*` id, so that an id mentioned in `plan.md`'s prose --
+     * naming something the Core deliberately does *not* include, which that document does several
+     * times -- is not read as an authorisation to build it.
+     */
+    std::vector<std::string> activeRoadmapIds(const std::filesystem::path& path)
+    {
+        std::vector<std::string> ids;
+        for (const std::string& line : splitLines(readFileOrEmpty(path)))
+        {
+            const std::vector<std::string> cells = tableCells(line);
+            if (cells.size() < 2) { continue; }
+            if (withoutBackticks(cells[0]).rfind("CORE-", 0) != 0) { continue; }
+
+            for (const std::string& cell : cells)
+            {
+                for (const std::string& piece : splitOn(cell, ','))
+                {
+                    const std::string id = withoutBackticks(trimmed(piece));
+                    if (isPlanTaskId(id)) { ids.push_back(id); }
+                }
+            }
+        }
+        return ids;
+    }
+}
+
+CNA_STUDIO_TEST(EveryUnfinishedTaskIsClassifiedExactlyOnceByTheScopeReduction)
+{
+    std::map<std::string, std::string> unfinished;   // id -> phase file
+    for (const std::filesystem::directory_entry& entry :
+         std::filesystem::directory_iterator{sourceRoot() / "plans"})
+    {
+        if (entry.path().extension() != ".md") { continue; }
+        const std::string name = entry.path().filename().string();
+        if (name.rfind("phase-", 0) != 0) { continue; }
+
+        for (const PlanTask& task : readPhaseTasks(entry.path()))
+        {
+            // ✅ is built and ⊘ is a requirement later work retired: neither is outstanding work,
+            // so neither needs a scope decision.
+            if (task.status == "\xE2\x9C\x85" || task.status == "\xE2\x8A\x98") { continue; }
+            unfinished[task.id] = "plans/" + name;
+        }
+    }
+    CNA_STUDIO_EXPECT(unfinished.size() > 100);
+
+    const std::pair<const char*, std::vector<std::string>> classifications[] = {
+        {"plan.md", activeRoadmapIds(sourceRoot() / "plan.md")},
+        {"docs/ROADMAP-BACKLOG.md",
+         classifiedIdsInTables(sourceRoot() / "docs" / "ROADMAP-BACKLOG.md")},
+        {"docs/ROADMAP-OUT-OF-SCOPE.md",
+         classifiedIdsInTables(sourceRoot() / "docs" / "ROADMAP-OUT-OF-SCOPE.md")},
+    };
+
+    std::map<std::string, std::vector<std::string>> classifiedIn;
+    std::size_t classifications_seen = 0;
+    for (const auto& [document, ids] : classifications)
+    {
+        for (const std::string& id : ids)
+        {
+            ++classifications_seen;
+            classifiedIn[id].emplace_back(document);
+        }
+    }
+    CNA_STUDIO_EXPECT(classifications_seen > 100);
+
+    for (const auto& [id, phaseFile] : unfinished)
+    {
+        const auto found = classifiedIn.find(id);
+        if (found == classifiedIn.end())
+        {
+            CnaStudioTest::reportFailure(__FILE__, __LINE__,
+                id + " in " + phaseFile + " is unfinished and is classified nowhere. Every "
+                "unfinished task belongs to exactly one of plan.md (authorised), "
+                "docs/ROADMAP-BACKLOG.md (conditional) or docs/ROADMAP-OUT-OF-SCOPE.md. See "
+                "docs/ADR-001-SCOPE-REDUCTION.md.");
+            continue;
+        }
+
+        if (found->second.size() > 1)
+        {
+            std::string where;
+            for (const std::string& document : found->second) { where += document + " "; }
+            CnaStudioTest::reportFailure(__FILE__, __LINE__,
+                id + " is classified " + std::to_string(found->second.size()) + " times: " + where
+                + "-- one of them says it may be built and another says it may not.");
+        }
+    }
+
+    // And nothing is classified that is not a task: a scope document citing an id that has never
+    // existed is a decision about nothing.
+    for (const auto& [id, documents] : classifiedIn)
+    {
+        if (unfinished.find(id) != unfinished.end()) { continue; }
+
+        bool isARealTask = false;
+        for (const std::filesystem::directory_entry& entry :
+             std::filesystem::directory_iterator{sourceRoot() / "plans"})
+        {
+            if (entry.path().extension() != ".md") { continue; }
+            for (const PlanTask& task : readPhaseTasks(entry.path()))
+            {
+                if (task.id == id) { isARealTask = true; }
+            }
+        }
+
+        // A task that has since been *completed* stays cited by the deliverable that covered it,
+        // which is how the traceability survives the work being done. An id that names nothing
+        // does not.
+        if (!isARealTask)
+        {
+            CnaStudioTest::reportFailure(__FILE__, __LINE__,
+                id + " is classified in " + documents.front()
+                + " but is not a task in any phase file.");
+        }
+    }
+}
+
+CNA_STUDIO_TEST(TheActiveRoadmapsDeliverableCountMatchesItsOwnHeadline)
+{
+    // The headline is what a reader quotes and what a future session compares against. It is
+    // written by hand above a table that is edited separately, which is the same shape as every
+    // other count this file checks.
+    const std::string plan = readFileOrEmpty(sourceRoot() / "plan.md");
+    CNA_STUDIO_EXPECT(!plan.empty());
+
+    std::size_t deliverables = 0;
+    std::size_t complete = 0;
+    for (const std::string& line : splitLines(plan))
+    {
+        const std::vector<std::string> cells = tableCells(line);
+        if (cells.size() < 3) { continue; }
+        if (withoutBackticks(cells[0]).rfind("CORE-", 0) != 0) { continue; }
+
+        ++deliverables;
+        if (cells[2] == "\xE2\x9C\x85") { ++complete; }
+    }
+
+    CNA_STUDIO_EXPECT(deliverables >= 1);
+
+    const std::string headline = "**" + std::to_string(complete) + " of "
+                               + std::to_string(deliverables) + " active deliverables complete.**";
+    if (plan.find(headline) == std::string::npos)
+    {
+        CnaStudioTest::reportFailure(__FILE__, __LINE__,
+            "plan.md's headline does not read '" + headline + "', which is what its own "
+            "deliverable table adds up to.");
+    }
 }

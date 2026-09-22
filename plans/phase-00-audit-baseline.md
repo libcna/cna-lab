@@ -1,6 +1,14 @@
 # Phase 0 — Audit and baseline
 
-> Part of the [CNA Studio master plan](../plan.md). Ids in this phase are `STUDIO-00001` … `STUDIO-00999` and are never reused.
+> **ARCHIVED — historical record. This file authorises no work.** It belongs to the
+> [archived programme roadmap](../docs/ROADMAP-ARCHIVE.md), whose scope was retired on 2026-09-22
+> by [ADR-001](../docs/ADR-001-SCOPE-REDUCTION.md). **A ⬜ below means *not built*. It no longer
+> means *planned*.** The one authoritative active roadmap is [`plan.md`](../plan.md).
+>
+> **Disposition of this phase:** Complete apart from one row, which is now part of `CORE-08`.
+>
+> Ids in this phase are `STUDIO-00001` … `STUDIO-00999` and are never reused. Every id here still resolves, so a commit, test or code comment that cites
+> one keeps its meaning.
 
 **Purpose.** Establish exactly what was inherited, prove it works, and record the measurements everything later is compared against.
 

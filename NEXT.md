@@ -1,9 +1,18 @@
-# NEXT — continuity notes
+# NEXT — continuity notes (historical)
 
-> Short-term state for whoever picks this up next, human or otherwise. The long-lived plan is
-> [`plan.md`](plan.md); the reasoning behind the architecture is [`ANALYSIS.md`](ANALYSIS.md).
-> This file records what is true *right now*: what just landed, what is half-done, what is known
-> broken, and where to start.
+> **SUPERSEDED. Do not work from this file.**
+>
+> These were the continuity notes of an early session, written against the retired `ED-*` task ids
+> and a branch that no longer exists. `HANDOFF.md` replaced it as the state-of-the-work document,
+> and the scope reduction of 2026-09-22 replaced the roadmap it points at.
+>
+> - What may be worked on: [`plan.md`](plan.md) — and nothing else.
+> - Why the scope changed: [`docs/ADR-001-SCOPE-REDUCTION.md`](docs/ADR-001-SCOPE-REDUCTION.md).
+> - State of the work: [`HANDOFF.md`](HANDOFF.md).
+> - Where the `ED-*` ids went: [`docs/LEGACY-EDITOR-TASK-MAP.md`](docs/LEGACY-EDITOR-TASK-MAP.md).
+>
+> It is kept because it records what the prototype's first sessions found and decided, which the
+> `STUDIO-*` rows cite. Every status, count and branch name below is stale by construction.
 
 **Branch:** `claude/cna-studio-architecture-plan-l4jza7` — push only, no pull request (owner's call).
 

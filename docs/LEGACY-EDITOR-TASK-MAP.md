@@ -15,8 +15,10 @@ There are 117 legacy tasks. Their status **in the prototype** at the import comm
 This is the important rule. A prototype task marked complete means *that code was written and
 tested against the prototype's Dear ImGui UI*. CNA Studio replaces that UI, and a feature has not
 survived the migration until it works, and is tested, through the Studio UI. The roadmap in
-`plan.md` therefore re-states the surviving capabilities as Studio tasks with their own acceptance
-criteria, and `plan.md` — not this document — is the source of truth for what is done.
+The archived roadmap ([`ROADMAP-ARCHIVE.md`](ROADMAP-ARCHIVE.md)) therefore re-states the surviving
+capabilities as `STUDIO-*` tasks with their own acceptance criteria, and that roadmap with
+[`../plans/`](../plans/) — not this document — is the record of what was done. What may be *worked
+on* is a different question again, and its answer is [`../plan.md`](../plan.md).
 
 What a legacy ✅ *does* mean, and it is worth a lot: there is working, tested code in this
 repository to migrate rather than to write from scratch.

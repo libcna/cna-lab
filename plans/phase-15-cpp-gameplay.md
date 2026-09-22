@@ -1,6 +1,14 @@
 # Phase 15 — C++ gameplay component workflow
 
-> Part of the [CNA Studio master plan](../plan.md). Ids in this phase are `STUDIO-15001` … `STUDIO-15999` and are never reused.
+> **ARCHIVED — historical record. This file authorises no work.** It belongs to the
+> [archived programme roadmap](../docs/ROADMAP-ARCHIVE.md), whose scope was retired on 2026-09-22
+> by [ADR-001](../docs/ADR-001-SCOPE-REDUCTION.md). **A ⬜ below means *not built*. It no longer
+> means *planned*.** The one authoritative active roadmap is [`plan.md`](../plan.md).
+>
+> **Disposition of this phase:** **Out of active product scope**, apart from `STUDIO-15010` (now `CORE-02`) and `STUDIO-15012` (now part of `CORE-01`). See [ROADMAP-OUT-OF-SCOPE.md](../docs/ROADMAP-OUT-OF-SCOPE.md).
+>
+> Ids in this phase are `STUDIO-15001` … `STUDIO-15999` and are never reused. Every id here still resolves, so a commit, test or code comment that cites
+> one keeps its meaning.
 
 **Purpose.** Make project-defined C++ behaviour a first-class authoring concept — without an embedded IDE and without parsing all of C++.
 

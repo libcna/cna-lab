@@ -1,310 +1,367 @@
-# CNA Studio — Master Development Plan
+# CNA Studio — the active roadmap
 
-> This is the authoritative roadmap for CNA Studio and the source of truth for what is done.
-> Per-phase task detail lives in [`plans/`](plans/); this file holds the index, the id space, the
-> phase status and the global progress.
+> **This is the one authoritative roadmap. Work is authorised from this file and from nowhere
+> else.**
 >
+> Three other documents describe unfinished work, and none of them authorises any of it:
+> [`docs/ROADMAP-BACKLOG.md`](docs/ROADMAP-BACKLOG.md) is the conditional future backlog,
+> [`docs/ROADMAP-OUT-OF-SCOPE.md`](docs/ROADMAP-OUT-OF-SCOPE.md) is what has left the product, and
+> [`docs/ROADMAP-ARCHIVE.md`](docs/ROADMAP-ARCHIVE.md) with [`plans/`](plans/) is the archived
+> programme roadmap kept for its history. **A ⬜ in any of those three means *not built*. It does
+> not mean *planned*.**
+>
+> Why the scope changed, and what CNA Studio is now:
+> [`docs/ADR-001-SCOPE-REDUCTION.md`](docs/ADR-001-SCOPE-REDUCTION.md).
 > Architecture: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
-> Where this repository came from: [`docs/ORIGIN.md`](docs/ORIGIN.md).
-> The prototype's task history: [`docs/LEGACY-EDITOR-TASK-MAP.md`](docs/LEGACY-EDITOR-TASK-MAP.md).
-> CNA deficiencies Studio has found: [`docs/CNA-GAPS.md`](docs/CNA-GAPS.md).
 
-## What this plan is
+## What CNA Studio is
 
-CNA Studio is a multi-thousand-hour engineering programme, not a project with an end date this
-year. This plan is written to survive that: stable ids, explicit dependencies, honest status, and a
-decomposition that grows as work approaches rather than one invented up front.
+**A lightweight visual development companion for CNA applications.**
 
-**The rule that shapes every task below:**
+C++ source code, CMake, CLion and other IDEs, and ordinary CNA application development remain
+first-class and authoritative. Studio provides visual workflows only where they materially improve
+CNA development, and a developer must be able to stop using it at any point without losing
+anything.
 
-> **CNA Studio produces CNA games, not CNA Studio games.**
+**What CNA Studio is not**, stated so that a future reader does not have to infer it: not a
+replacement for CLion or Visual Studio, not a C++ IDE, not Unity, not Unreal, not Godot, not a
+general-purpose DCC tool, and not a reason to reproduce functionality that standard development
+tools already provide adequately.
 
-A game authored in Studio is an ordinary project for CNA or one of its supported bindings, and it
-builds, runs and ships with Studio uninstalled. Any task that would compromise that is wrong,
-however convenient it is.
+**The invariant is unchanged and is not negotiable:** a project authored in Studio is an ordinary
+CNA project that builds, runs and ships with Studio uninstalled. `docs/ARCHITECTURE.md` §1.
 
-C++ is the only language whose workflow is required to work, and for a C++ project the rule reads
-`C++ project → the project's own CMake → CNA`. It is stated in the general form because CNA has
-several language bindings and the difference is architectural rather than aspirational: the narrow
-wording puts C++ inside Studio's model, where it becomes a branch in the Project Hub, in project
-creation, in build orchestration and in packaging. `docs/ARCHITECTURE.md` §13 records the decision,
-the one adapter that exists, and the alternatives that were rejected.
+## The Core workflow
 
-## Status legend
+Everything in this roadmap exists to make these eleven steps reliable, and nothing else is
+authorised:
 
-| Symbol | Meaning |
-|--------|---------|
-| ✅ | Complete and verified |
-| 🔄 | In progress |
-| ⬜ | Not started |
-| ⛔ | Deliberately deferred — the reasoning is recorded on the task |
-| 🔬 | Blocked on research or an architectural decision |
-| ⊘ | Superseded — the requirement was retired after the work it existed to support finished, and a permanent seam took its place. The row names that seam |
+1. create or open a CNA project
+2. browse, import and manage its assets
+3. create, open and edit scenes
+4. use the viewport, selection and transform gizmos
+5. edit the object, material and light properties Studio already models
+6. save reliably
+7. launch and play the CNA application
+8. configure and invoke normal CMake builds
+9. see useful build and runtime diagnostics
+10. recover safely from crashes and interrupted work
+11. continue normal C++ work in CLion or another external IDE
 
-## Id scheme
+When those eleven are reliable and tested, **CNA Studio is complete and enters maintenance mode.**
 
-Task ids are `STUDIO-PPNNN`, where `PP` is the phase number (`00`–`35`) and `NNN` is the
-sequence within that phase. Phase 2's twentieth task is `STUDIO-02020`.
+## Where Core stands
 
-- Ids are **stable** and **never reused**. A task that is cancelled keeps its id and is marked ⛔;
-  one whose requirement was retired by later work keeps its id and is marked ⊘. Neither is ever
-  back-dated into a ✅: a temporary requirement that stopped applying did not come true.
-- Adding a task appends within its phase; it never renumbers an existing one.
-- Sequence numbers are deliberately sparse, so related work can be inserted near what it belongs to.
-- The scheme has room for 999 tasks per phase — 36,000 in total — which is well beyond what this
-  programme will need.
+Most of it is already built. This is the reason the remaining plan is small, and a reader who
+starts implementing from the archived roadmap will rebuild things that work.
 
-Legacy `ED-*` ids from the CNA Editor prototype are **retired** and are never issued again. The
-mapping is in [`docs/LEGACY-EDITOR-TASK-MAP.md`](docs/LEGACY-EDITOR-TASK-MAP.md).
+| Core step | State today |
+|-----------|-------------|
+| 1. Create / open a project | **Done.** Project Hub with New, Open and Recent; four templates, each created, reopened, configured, compiled and run by a CTest case |
+| 2. Assets | **Done, bar finding them.** UUID-stable asset database, importers, Content Browser with card grid and cached thumbnails. No search or type filter — `CORE-05` |
+| 3. Scenes | **Done.** Scene and prefab documents, undo on every mutation, format migration, tilemaps, layers and tags |
+| 4. Viewport, selection, gizmos | **Done, bar seeing the selection.** 2D and 3D viewports, camera navigation, translate/rotate/scale gizmos, band selection. Nothing marks the selected entity in the viewport — `CORE-03` |
+| 5. Properties | **Done, bar the grid's shape.** Details Inspector on the descriptor model, materials, lights, environment. The label column is a fixed 38% — `CORE-04` |
+| 6. Save | **Done.** Atomic writes, dirty tracking, autosave, partial-file recovery |
+| 7. Play | **Done.** Play, Pause, Step, Stop, Restart against a real separate player process, with crash isolation, log routing, live asset reload and screenshot capture |
+| 8. CMake builds | **Partly.** Target profiles, renderer and platform validation, and a build runner that drives the project's own CMake. Clean vs incremental, and the tri-state CNA options, are open — `CORE-01` |
+| 9. Diagnostics | **Partly.** Console with source attribution, Problems panel, validation. Compiler errors are not navigable — `CORE-01` |
+| 10. Crash recovery | **Done.** Recovery store, autosave, crash reporting from the player, format-migration refusals with upgrades |
+| 11. External IDE | **Not wired.** `StudioPreferences::externalEditor` exists and has no caller — `CORE-02` |
 
-## Global progress
+Beneath that: 405 completed tasks, 1784 unit assertions across the dependency-free suite, a
+CNA-backed CTest suite, architecture guard tests, golden-image tests, sanitizer and `-Werror` CI
+legs.
 
-**405 of 582 tasks complete** `█████████████████░░░░░░░░`  69.6%
+## The active roadmap
 
-| Status | Count |
-|--------|------:|
-| ✅ Complete | 405 |
-| 🔄 In progress | 8 |
-| ⬜ Not started | 161 |
-| ⛔ Deferred | 3 |
-| 🔬 Blocked | 4 |
-| ⊘ Superseded | 1 |
-| **Total** | **582** |
+**0 of 11 active deliverables complete.**
 
-> **On the task count.** 582 tasks are decomposed today. That is not the final number: the
-> programme is expected to reach the low thousands as the later phases are broken down on approach.
-> Tasks are added when the work is understood well enough to state a completion condition — never
-> to reach a number. A phase whose detail is still coarse says so by having few rows, which is
-> honest; padding it would make this document worthless as a planning instrument.
+Estimates are Opus 5 engineering hours at this repository's working standard — implementation, the
+test its acceptance names, and the documentation it changes.
 
-## Phases
+| Id | Deliverable | Status | Est | Traces |
+|----|-------------|:------:|----:|--------|
+| `CORE-01` | Build the project, and understand the failure | ⬜ | 6 | `STUDIO-17009`, `STUDIO-17010`, `STUDIO-17011`, `STUDIO-17012`, `STUDIO-15012` |
+| `CORE-02` | Hand the developer back to their IDE | ⬜ | 2 | `STUDIO-15010` |
+| `CORE-03` | The viewport shows what is selected | ⬜ | 2 | `STUDIO-35053` |
+| `CORE-04` | The Details panel reads as a property grid | ⬜ | 2 | `STUDIO-35033` |
+| `CORE-05` | Find an asset, find an entity | ⬜ | 3 | `STUDIO-35042`, `STUDIO-35061` |
+| `CORE-06` | Paint order separable from input order | ⬜ | 4 | `STUDIO-03041` |
+| `CORE-07` | Resize without artefacts | ⬜ | 2 | `STUDIO-04011` |
+| `CORE-08` | Answer the four questions the plan left silent | ⬜ | 2 | `STUDIO-00015`, `STUDIO-01014`, `STUDIO-01015`, `STUDIO-01016` |
+| `CORE-09` | Documentation to use and maintain the product | ⬜ | 5 | `STUDIO-33001`, `STUDIO-33002`, `STUDIO-33003`, `STUDIO-29006` |
+| `CORE-10` | A regression baseline for the Core workflow | ⬜ | 5 | `STUDIO-33020`, `STUDIO-21009`, `STUDIO-35010` |
+| `CORE-11` | Declare Core complete and enter maintenance mode | ⬜ | 2 | `STUDIO-34001` |
 
-| Phase | Title | Ids | Status | Tasks | Done | Progress |
-|------:|-------|-----|:------:|------:|-----:|----------|
-| 0 | [Audit and baseline](plans/phase-00-audit-baseline.md) | `STUDIO-00NNN` | 🔄 | 15 | 14 | `█████████░` |
-| 1 | [Product rename](plans/phase-01-product-rename.md) | `STUDIO-01NNN` | 🔄 | 16 | 13 | `████████░░` |
-| 2 | [Architecture refresh](plans/phase-02-architecture-refresh.md) | `STUDIO-02NNN` | 🔄 | 47 | 43 | `█████████░` |
-| 3 | [Studio UI core](plans/phase-03-ui-core.md) | `STUDIO-03NNN` | 🔄 | 35 | 31 | `████████░░` |
-| 4 | [CNAEXT UI renderer](plans/phase-04-ui-renderer.md) | `STUDIO-04NNN` | 🔄 | 29 | 25 | `████████░░` |
-| 5 | [Docking and workspace](plans/phase-05-docking.md) | `STUDIO-05NNN` | 🔄 | 15 | 14 | `█████████░` |
-| 6 | [Studio shell](plans/phase-06-studio-shell.md) | `STUDIO-06NNN` | ✅ | 24 | 24 | `██████████` |
-| 7 | [Existing-panel migration](plans/phase-07-panel-migration.md) | `STUDIO-07NNN` | ✅ | 46 | 45 | `█████████░` |
-| 8 | [Project Hub](plans/phase-08-project-hub.md) | `STUDIO-08NNN` | ✅ | 12 | 12 | `██████████` |
-| 9 | [Content Browser 2](plans/phase-09-content-browser.md) | `STUDIO-09NNN` | ✅ | 17 | 17 | `██████████` |
-| 10 | [Asset pipeline and importing](plans/phase-10-asset-pipeline.md) | `STUDIO-10NNN` | 🔄 | 15 | 13 | `████████░░` |
-| 11 | [3D viewport 2](plans/phase-11-viewport.md) | `STUDIO-11NNN` | ✅ | 15 | 15 | `██████████` |
-| 12 | [Selection and gizmos 2](plans/phase-12-gizmos.md) | `STUDIO-12NNN` | ✅ | 11 | 11 | `██████████` |
-| 13 | [World Outliner 2](plans/phase-13-outliner.md) | `STUDIO-13NNN` | ✅ | 13 | 13 | `██████████` |
-| 14 | [Details Inspector 2](plans/phase-14-inspector.md) | `STUDIO-14NNN` | ✅ | 18 | 18 | `██████████` |
-| 15 | [C++ gameplay component workflow](plans/phase-15-cpp-gameplay.md) | `STUDIO-15NNN` | ⬜ | 12 | 0 | `░░░░░░░░░░` |
-| 16 | [Play In Editor 2](plans/phase-16-play-in-editor.md) | `STUDIO-16NNN` | 🔄 | 18 | 10 | `█████░░░░░` |
-| 17 | [Build profiles](plans/phase-17-build-profiles.md) | `STUDIO-17NNN` | 🔄 | 12 | 6 | `█████░░░░░` |
-| 18 | [Cook, package and export](plans/phase-18-package-export.md) | `STUDIO-18NNN` | ⬜ | 11 | 0 | `░░░░░░░░░░` |
-| 19 | [Materials](plans/phase-19-materials.md) | `STUDIO-19NNN` | ✅ | 9 | 9 | `██████████` |
-| 20 | [Lighting](plans/phase-20-lighting.md) | `STUDIO-20NNN` | ✅ | 8 | 8 | `██████████` |
-| 21 | [Animation](plans/phase-21-animation.md) | `STUDIO-21NNN` | ⬜ | 9 | 0 | `░░░░░░░░░░` |
-| 22 | [Material and shader graph](plans/phase-22-shader-graph.md) | `STUDIO-22NNN` | ⬜ | 10 | 0 | `░░░░░░░░░░` |
-| 23 | [Particles and VFX](plans/phase-23-particles.md) | `STUDIO-23NNN` | ⬜ | 4 | 0 | `░░░░░░░░░░` |
-| 24 | [Audio](plans/phase-24-audio.md) | `STUDIO-24NNN` | ⬜ | 8 | 0 | `░░░░░░░░░░` |
-| 25 | [Terrain and world tools](plans/phase-25-terrain.md) | `STUDIO-25NNN` | ⬜ | 7 | 0 | `░░░░░░░░░░` |
-| 26 | [Physics and navigation tooling](plans/phase-26-physics-nav.md) | `STUDIO-26NNN` | ⬜ | 8 | 0 | `░░░░░░░░░░` |
-| 27 | [Profiling and diagnostics](plans/phase-27-profiling.md) | `STUDIO-27NNN` | 🔄 | 14 | 2 | `█░░░░░░░░░` |
-| 28 | [Plugins and SDK](plans/phase-28-plugins.md) | `STUDIO-28NNN` | ⬜ | 12 | 0 | `░░░░░░░░░░` |
-| 29 | [Renderer and platform matrix](plans/phase-29-renderer-matrix.md) | `STUDIO-29NNN` | 🔄 | 7 | 5 | `███████░░░` |
-| 30 | [Large-project performance](plans/phase-30-performance.md) | `STUDIO-30NNN` | 🔄 | 18 | 16 | `████████░░` |
-| 31 | [Reliability](plans/phase-31-reliability.md) | `STUDIO-31NNN` | 🔄 | 13 | 12 | `█████████░` |
-| 32 | [Accessibility and localisation groundwork](plans/phase-32-accessibility.md) | `STUDIO-32NNN` | ⬜ | 6 | 0 | `░░░░░░░░░░` |
-| 33 | [Documentation, templates and CI](plans/phase-33-docs-ci.md) | `STUDIO-33NNN` | 🔄 | 24 | 14 | `█████░░░░░` |
-| 34 | [Release engineering](plans/phase-34-release.md) | `STUDIO-34NNN` | ⬜ | 6 | 0 | `░░░░░░░░░░` |
-| 35 | [Production polish](plans/phase-35-polish.md) | `STUDIO-35NNN` | 🔄 | 38 | 15 | `███░░░░░░░` |
+**35 hours estimated.** Budget: a **40-hour target** and a **60-hour hard ceiling**. The ceiling is
+part of the product definition, not a forecast: if a deliverable below turns out to need
+substantial new infrastructure, it is cut down or moved to the backlog. It is never a reason to
+raise the budget.
 
-## Phase purposes
+`CORE-01` … `CORE-11` are the whole of the authorised work. The ids are stable and are never
+reused. Traced `STUDIO-*` ids are the archived tasks each deliverable subsumes; they keep commits,
+tests and code comments that cite them resolvable, and they are the only `STUDIO-*` ids this
+document authorises.
 
-**Phase 0 — Audit and baseline.** Establish exactly what was inherited, prove it works, and record the measurements everything later is compared against.
-
-**Phase 1 — Product rename.** Turn the imported prototype into CNA Studio at the level of identity: build targets, executable, public API, user-visible text and documentation.
-
-**Phase 2 — Architecture refresh.** Replace the prototype's stale architectural assumptions with a model that matches current CNA, and make the invariants enforceable by test rather than by review.
-
-**Phase 3 — Studio UI core.** Build the widget, state, layout, input and styling foundations of an original editor UI, CNA-free and headless-testable so that everything except the pixels is decided in CI.
-
-**Phase 4 — CNAEXT UI renderer.** Draw the Studio UI through CNA's public modern graphics API: text, icons, batching, clipping, render resources and DPI, with no renderer-specific code.
-
-**Phase 5 — Docking and workspace.** A first-class panel shell: docking, tab groups, splitters, floating panels and persistent layouts.
-
-**Phase 6 — Studio shell.** The application frame: menus, toolbar, status bar, the command registry that everything routes through, and preferences.
-
-**Phase 7 — Existing-panel migration.** Port every prototype panel onto the Studio UI and retire the Dear ImGui presentation.
-
-**Phase 8 — Project Hub.** A professional entry point: create, open, recent projects and a small set of well-maintained templates.
-
-**Phase 9 — Content Browser 2.** Turn the prototype asset browser into a professional content workflow that scales to a real project.
-
-**Phase 10 — Asset pipeline and importing.** Import the content a real game needs, incrementally, without absorbing large third-party parsers into Studio itself.
-
-**Phase 11 — 3D viewport 2.** A professional 3D authoring viewport: navigation, visualisation modes and correctness.
-
-**Phase 12 — Selection and gizmos 2.** Production-quality transform manipulation.
-
-**Phase 13 — World Outliner 2.** Large-hierarchy editing that stays responsive and never loses a mutation.
-
-**Phase 14 — Details Inspector 2.** A first-class production property editor driven by the descriptor model.
-
-**Phase 15 — C++ gameplay component workflow.** Make project-defined C++ behaviour a first-class authoring concept — without an embedded IDE and without parsing all of C++.
-
-**Phase 16 — Play In Editor 2.** Expand the separate-player architecture into a complete play-test workflow.
-
-**Phase 17 — Build profiles.** Model the target matrix properly: platform, architecture, renderer, configuration and feature profile.
-
-**Phase 18 — Cook, package and export.** Produce a standalone CNA game that does not know CNA Studio exists.
-
-**Phase 19 — Materials.** Make Studio the primary authoring environment for CNA's modern rendering.
-
-**Phase 20 — Lighting.** Lighting authoring that matches what the runtime can actually execute.
-
-**Phase 21 — Animation.** Skeletal and sprite animation authoring and preview.
-
-**Phase 22 — Material and shader graph.** A node-based authoring surface for CNA's modern graphics API.
-
-**Phase 23 — Particles and VFX.** Author whatever the CNA runtime can execute — without building a new particle runtime inside Studio.
-
-**Phase 24 — Audio.** Grow audio preview into an authoring workflow.
-
-**Phase 25 — Terrain and world tools.** Large environment authoring, well after core scene editing is robust.
-
-**Phase 26 — Physics and navigation tooling.** Editor integration for runtime physics and navigation — Studio does not become the owner of a physics engine.
-
-**Phase 27 — Profiling and diagnostics.** Professional performance and debugging tools.
-
-**Phase 28 — Plugins and SDK.** Third-party extensibility that fails safely.
-
-**Phase 29 — Renderer and platform matrix.** Keep Studio correct as CNA's renderer and platform sets grow.
-
-**Phase 30 — Large-project performance.** Scale to real projects, not to the example.
-
-**Phase 31 — Reliability.** This is a content-authoring application. Losing work is unacceptable.
-
-**Phase 32 — Accessibility and localisation groundwork.** Laid after the UI stabilises, on the metadata the UI core carries from the start.
-
-**Phase 33 — Documentation, templates and CI.** Real developer documentation, and the test infrastructure that keeps all of it true.
-
-**Phase 34 — Release engineering.** Ship Studio itself.
-
-**Phase 35 — Production polish.** The long-running quality campaign that separates a tool that works from a tool people choose. Holds the **CNA Studio Visual Quality 1.0** milestone, brought forward from the end of the programme because every panel built after it inherits whatever visual language exists when it is written.
 ---
 
-## Current state
+## The deliverables
 
-The repository is at the end of the **first implementation tranche**. What exists today:
+### `CORE-01` — Build the project, and understand the failure
 
-- The CNA Editor prototype is imported at the repository root, with its provenance recorded
-  (`docs/ORIGIN.md`) and its baseline verified: **442 unit assertions, 12 CTest suites, 0 warnings**
-  in the default dependency-free configuration.
-- The product rename is complete: `cna-studio` executable, 12 `cna-studio-*` targets, the
-  `CNA::Studio` namespace, `include/CNA/Studio/`, `CNA_STUDIO_*` options, and user-visible text that
-  no longer calls the product an editor. 94 files moved with `git mv`, so per-file history survived.
-- The architecture is re-stated against **current** CNA (`next`), which has changed substantially
-  since the prototype's analysis: renderer and platform are separate axes, there are 50 renderer
-  identities rather than 14, and `RendererCapabilityProfile` provides a genuine runtime capability
-  model. See `docs/ARCHITECTURE.md`.
-- Six CNA gaps are registered, two of them re-verified as fixed upstream since the prototype filed
-  them. See `docs/CNA-GAPS.md`.
-- The **first foundations of the native Studio UI** exist and are tested headless: the design token
-  model with both shipped themes (`STUDIO-03004`/`03005`/`03006`), widget identity with per-frame
-  collision detection (`STUDIO-03002`), and retained widget state with reclamation
-  (`STUDIO-03003`), in a `cna-studio-ui-core` module that links no CNA at all.
+**Why it is required.** Core steps 8 and 9. A visual companion that cannot build the project it is
+looking at sends the developer to a terminal for the one operation they perform most, and a build
+that fails with nothing but *Build failed* is worse than no build button.
 
-- A **running Studio shell**: menu bar, grouped toolbar, three docks with tab strips, a gridded
-  viewport and a status bar, laid out from theme metrics so the whole frame scales with DPI
-  (`STUDIO-06003`/`06006`/`06007`, `STUDIO-05002`). It emits `UiDrawData` — the same seam
-  `CnaUiRenderer` already draws through CNA's public API — so the native UI inherits a working CNA
-  renderer rather than needing one written for it.
-- The **first screenshot tests**, running with no GPU at all: a CPU rasteriser turns that geometry
-  into an image in-process, so the shell has golden-image coverage at six resolution and DPI
-  combinations long before the graphical CI of `STUDIO-33010` exists.
+**Done when.**
 
-`cna-studio --shell-preview=shell.png` renders it from the real binary with no GPU and no
-display.
+- The Build panel configures and builds the open project through the project's own CMake, and every
+  command it runs is displayed, selectable and produces the same result when pasted into a shell.
+- Clean and incremental builds are separate gestures, and each does what its name says.
+- A compiler error appears as a row naming file, line and message; activating the row opens that
+  file at that line in the configured external editor (`CORE-02`).
+- The complete unparsed build log is always reachable, whatever the parser made of it.
+- A CNA option that is tri-state in CNA (`OFF` / `AUTO` / `ON`, as `CNA_ENABLE_VIDEO` is) is
+  tri-state in the target profile, which retires the stop-gap that maps *on* to `AUTO`.
 
-- A **renderer and platform catalogue** replacing the prototype's stale 14-entry backend table:
-  all 50 of CNA's renderer identities classified, platforms modelled as their own axis, and a
-  legacy alias table that migrates a `.cnaproject` written by the prototype rather than failing on
-  it (`STUDIO-02030`/`02031`/`29001`/`29002`).
-- **Ten architecture guard tests** (`STUDIO-02032`/`02033`/`02034`) that fail the build on a
-  `CNA::Internal` reference, a direct backend call, a CNA header outside the viewport module, a
-  Dear ImGui dependency in the native UI, a missing SPDX header or a hard-coded renderer-name
-  comparison — each naming the file, the line and the rule.
+**Not included.** Feature profiles (`STUDIO-17007`) and combination filtering (`STUDIO-17008`);
+cooking, packaging and export; build timing; any generated build system Studio would own.
 
-- The **CNA-backed build restored against current CNA**. The prototype's viewport did not compile
-  against it, its CMake read a variable CNA no longer defines (so the player built under a name
-  discovery could never find), and both hosts took a graphics profile under which every screenshot
-  throws. All three are fixed (`STUDIO-02060`), and Studio now builds, runs and draws its full UI
-  through real CNA on the SOFTWARE renderer.
+### `CORE-02` — Hand the developer back to their IDE
 
-- The **input and action layer** that turns the shell from a picture into a UI: hover, click,
-  mouse capture that survives leaving a widget's bounds, clip-aware hit testing, modal input
-  blocking, keyboard focus and Tab navigation (`STUDIO-03007`…`03012`), and a central action
-  registry through which menus, toolbars and shortcuts all invoke the same object
-  (`STUDIO-06001`/`06002`).
+**Why it is required.** Core step 11, and the clearest statement of what Studio is. The preference
+already exists and has no caller, so the product currently claims an integration it does not have.
 
-The suite is **566 assertions across 17 CTest suites**, green and warning-free in both GCC Debug
-and GCC Release at `-Werror`, plus **22 CTest suites green against a real CNA checkout**. Two latent defects inherited from the prototype were found by
-building at `-O3 -Werror`, which the prototype's CI did not do, and both are fixed: an ignored
-`freopen` result that would have sent a build's output nowhere while leaving an empty log, and a
-dangling reference to a member of a by-value `std::optional` temporary in a recovery test.
+**Done when.** Commands open the project and a named source file in the editor named by
+`StudioPreferences::externalEditor`, resolving source locations through
+`StudioLanguageDescriptor::sourceDirectory`; an unset or unlaunchable editor is refused at the
+gesture with a message that says what to configure, not after the fact.
 
-What the prototype already provides, and what Phase 7 must carry across rather than rewrite:
-scene and prefab documents with undo on every mutation; a UUID-stable asset database; a 2D and a 3D
-viewport with translate/rotate/scale gizmos; glTF model import; sprite animation; tilemaps; layers
-and tags; a validation panel; autosave and crash recovery; format migration; a plugin host; a
-separate `cna-player` process that draws the game and takes live edits; and a Build panel that
-drives the project's own CMake.
+**Not included.** Any editing of C++ inside Studio. Any awareness of what an IDE is doing.
+
+### `CORE-03` — The viewport shows what is selected
+
+**Why it is required.** Core step 4. Selection works, gizmos work, and nothing in the viewport says
+which entity the gizmo belongs to — which makes the one visual workflow Studio exists for guesswork
+on a scene with more than a few objects.
+
+**Done when.** The selected entity is outlined in both viewports with a visible pivot; a
+multi-selection shows a combined bounds; the golden-image suite covers selected and unselected
+states so a regression is caught by CI rather than by eye.
+
+### `CORE-04` — The Details panel reads as a property grid
+
+**Why it is required.** Core step 5. The label column is a fixed fraction of the panel width, so a
+property called `x` and its value sit at opposite ends of a gap wider than either. Reading a value
+off the wrong row is a data error, not an aesthetic one.
+
+**Done when.** The label column is sized from content within sane bounds, values align, nested
+properties indent, a modified property is marked and can be reset; golden coverage at two panel
+widths.
+
+**Not included.** Reference fields that preview their target, multi-selection editing, and the rest
+of the visual-quality campaign.
+
+### `CORE-05` — Find an asset, find an entity
+
+**Why it is required.** Core steps 2 and 3. Both panels already scale to large projects and neither
+can be searched, which means the scaling work only made the unfindable list longer.
+
+**Done when.** The Content Browser has a text filter and an asset-type filter; the World Outliner
+has a text filter; both filter within the existing frame budget on the 100 000-asset and
+large-hierarchy fixtures the performance suite already owns.
+
+**Not included.** Saved searches, query syntax, prefab indicators, the lock concept.
+
+### `CORE-06` — Paint order separable from input order
+
+**Why it is required.** A widget that must win a click against a row has to be described before the
+row, and is therefore painted under it. That has produced four defects, each fixed individually,
+each guarded by a test naming one widget. Every new panel built during maintenance inherits the
+trap, so this is the one structural fix worth making before feature work stops.
+
+**Done when.** A widget can be described before a surface and drawn after it without its author
+splitting the code by hand, and the per-widget guards are replaced by one structural guard that
+fails on the shape rather than on a name.
+
+**Capped at 4 hours.** This is the highest-risk item here. If it exceeds the cap, the correct
+outcome is to stop, keep the existing per-widget guards, and move the row to the conditional
+backlog — not to spend more.
+
+### `CORE-07` — Resize without artefacts
+
+**Why it is required.** Every step of the Core workflow happens inside a window a user resizes.
+Half of this is already done; what remains is that resizing must change what is on screen and
+nothing else.
+
+**Done when.** No stretched frame, no stale geometry, and no silent edit to the docked arrangement
+across a resize; a resize case in the visual suite.
+
+**Not included.** Device loss and render-resource recreation (`STUDIO-04010`), which needs a real
+device to fail before it can be tested honestly.
+
+### `CORE-08` — Answer the four questions the plan left silent
+
+**Why it is required.** Four rows survived the whole programme as unanswered questions rather than
+unbuilt features. Under maintenance mode nobody will return to them, so each gets a recorded answer
+now — which for at least two of them is *no work is needed, and here is why*.
+
+**Done when.** Each of the four has a decision written where its readers will find it:
+
+- the compatibility-shim policy for the renamed public API — aliases with a removal date, or a
+  recorded decision that none exist because no external consumer does (`STUDIO-01014`);
+- the state and configuration directory — Studio already writes to `cna-studio`, so what is left is
+  whether a migration from the prototype's location is owed to anybody (`STUDIO-01015`);
+- `ANALYSIS.md`'s retirement in favour of `docs/ARCHITECTURE.md` (`STUDIO-01016`);
+- the start-up and frame-cost baseline, which the benchmark suite has since overtaken — record the
+  numbers it already produces, or record that it supersedes the row (`STUDIO-00015`).
+
+### `CORE-09` — Documentation to use and maintain the product
+
+**Why it is required.** Maintenance mode is a documentation bet: the people fixing Studio in two
+years are reading, not remembering. This is the documentation the reduced product needs, and no
+more.
+
+**Done when.**
+
+- A getting-started document takes a developer from a clone to a running game through the Core
+  workflow.
+- A user guide covers the eleven Core steps, and says plainly which things Studio does not do.
+- `docs/ARCHITECTURE.md` matches the code, including the language seam and the scope reduction.
+- The renderer and platform model is documented for contributors (`STUDIO-29006`).
+
+**Not included.** Plugin SDK documentation, public API reference coverage, tutorials, videos.
+
+### `CORE-10` — A regression baseline for the Core workflow
+
+**Why it is required.** "Complete" has to mean something a test can check, or maintenance mode is
+an assertion rather than a state.
+
+**Done when.**
+
+- One CTest case walks the whole Core workflow end to end against a real CNA build: create a
+  project from a template, import an asset, edit a scene, save, reopen, build, play, kill the
+  player, recover.
+- Every Core subsystem has a headless seam, so the workflow above is testable without a GPU
+  (`STUDIO-33020`).
+- The existing sprite-animation, material and lighting behaviour is covered against regression
+  (`STUDIO-21009`).
+- No unfinished debug text appears anywhere in the Core workflow (`STUDIO-35010`).
+
+### `CORE-11` — Declare Core complete and enter maintenance mode
+
+**Why it is required.** Without an explicit transition, a finished product looks like a stalled one.
+
+**Done when.** A version number and a release-notes convention exist; the completion checklist
+below is ticked with evidence against each line; this file records the transition and the date; and
+`HANDOFF.md` says that feature development has stopped and what maintenance now means.
+
+---
+
+## Definition of done
+
+**CNA Studio Core is complete when, on a supported Linux host with a CNA checkout, a developer
+can:**
+
+| # | Requirement | Evidence |
+|---|-------------|----------|
+| 1 | Create a project from each shipped template, and reopen it | The per-template CTest case that creates, reopens, configures, compiles and runs it |
+| 2 | Import and browse assets, and find one by name or type | Asset database tests; the Content Browser filter tests of `CORE-05` |
+| 3 | Create, open, edit and save a scene, and undo every mutation | Scene document and undo-stability tests |
+| 4 | Select and transform objects, and see what is selected | Gizmo tests; the golden-image coverage of `CORE-03` |
+| 5 | Edit the object, material and light properties Studio models | Inspector, material and lighting tests; the grid coverage of `CORE-04` |
+| 6 | Save without losing work, including across a crash | Atomic-write, autosave, recovery and partial-file tests |
+| 7 | Play the application and stop it | The Play-mode tests that drive a real player process |
+| 8 | Configure and run a clean or incremental CMake build | `CORE-01`'s tests |
+| 9 | Read a compiler error, and open the file at the line | `CORE-01`'s tests |
+| 10 | Recover after a crash or an interrupted session | Recovery-store tests |
+| 11 | Open the project in an external IDE and keep working there | `CORE-02`'s tests |
+| 12 | Trust that the above keeps working | `CORE-10`'s end-to-end case, green in CI on the dependency-free, CNA-backed and sanitizer legs |
+
+**And the product is documented** (`CORE-09`) **and versioned** (`CORE-11`).
+
+That is the whole definition. "Production ready", "professional", "polished" and "complete parity"
+are not completion criteria here and never become them.
+
+## Explicitly not required for Core
+
+Named so that their absence is a decision rather than an omission. None of these blocks the
+declaration of done:
+
+- a native file-browser dialog for New and Open Project — the path field and the recent list open
+  any project
+- packaging, cooking or export from Studio — the project's own CMake already produces a runnable
+  game, and a CTest already builds an exported project with Studio absent
+- installers for Studio itself on any platform
+- non-Latin text rendering, IME input, accessibility APIs and localisation
+- an integrated profiler, a frame debugger, or any in-Studio performance tooling
+- skeletal animation, particles, audio authoring, terrain, physics or navigation tooling
+- a shader graph, or any node-based authoring surface
+- project-defined C++ component reflection, generated component boilerplate, live property
+  injection into a running game, or native code reload
+- a plugin SDK beyond the plugin host that already exists
+- Windows and macOS CI, GPU CI, and renderer-matrix coverage beyond what runs today
+- the CNA Studio Visual Quality 1.0 campaign
+
+## Maintenance mode
+
+**On the day `CORE-11` lands, planned feature development stops.** Studio is then maintained, and
+maintenance is:
+
+- bug fixes
+- compatibility fixes, including adaptation to CNA API changes
+- security and correctness work, including sanitizer and warning findings
+- small usability fixes inside the Core workflow
+- features justified by a demonstrated, recurring need in a real maintained CNA application
+
+**Maintenance is not** implementing an item because it is listed in
+`docs/ROADMAP-BACKLOG.md`, in `docs/ROADMAP-ARCHIVE.md` or in `plans/`. Those documents describe
+work that was considered, not work that is owed.
+
+### How something legitimately becomes active work
+
+The backlog is not a queue. An item moves from `docs/ROADMAP-BACKLOG.md` into this file only when
+**all four** hold, and the case is written down in the ADR that authorises it:
+
+1. A **real, maintained CNA application** — not a hypothetical one, not a demo written to make the
+   case — hits the need repeatedly.
+2. The existing code, data and external-tool workflow has become a **demonstrated bottleneck** for
+   that application, with an example of the work it is costing.
+3. The proposed deliverable is **bounded**: it has a completion condition, an estimate, and it does
+   not oblige Studio to own a subsystem the CNA runtime should own.
+4. Someone accepts the **maintenance cost** after it ships.
+
+Each backlog entry carries its own activation condition, which is that test made concrete. Neither
+"a professional editor has it" nor "it was already in the plan" is an argument, and neither is the
+fact that an item has sat in the backlog for a long time.
+
+## History, ids and traceability
+
+- **`STUDIO-PPNNN` ids remain stable and are never reused**, including for tasks that will never be
+  built. Commits, tests and code comments that cite them keep resolving, to the archived row that
+  states what they meant.
+- **`plans/` keeps every phase file unchanged**, including its acceptance criteria, its verification
+  notes and the design reasoning on completed rows. Each carries a banner saying it is historical.
+- **`docs/ROADMAP-ARCHIVE.md` is the programme roadmap as it stood**, with its 582 tasks and its
+  405 completions, and its arithmetic is still checked by the test suite so that the record cannot
+  rot.
+- **Every one of the 176 unfinished tasks is classified exactly once** — here, in the backlog, or
+  in the out-of-scope document. `ArchitectureGuardTests.cpp` fails if one is dropped, duplicated or
+  invented.
+- **Code comments cite tasks as `plan.md STUDIO-NNNNN`**, which is where those ids used to be
+  listed. They are not rewritten: hundreds of them across the source tree would be churn for no
+  correctness gain, and the id is the part that identifies the task. Read that form as *the
+  archived roadmap*, and find the row in [`plans/`](plans/).
+- **Nothing was renumbered.** The `CORE-*` ids are a new, separate, eleven-entry space.
 
 ## Rules this plan is held to
 
-1. **A task is done when its acceptance condition holds and its verification passes** — not when
-   scaffolding for it exists. A phase is never marked complete because its structure is in place.
-2. **Every new behaviour comes with a test**, at the cheapest layer that can actually catch the
-   failure. A deterministic unit test beats a screenshot test; a screenshot test beats nothing for
-   graphical behaviour.
-3. **Nothing working is removed without a replacement.** The prototype's capabilities are migrated,
-   not discarded, and a legacy ✅ does not count as done here until it works through the Studio UI.
-4. **The repository stays buildable and green after every tranche.** Incomplete work is marked, not
-   hidden.
-5. **Architectural invariants are enforced by test**, not by comment. The guard tests are listed in
-   `docs/ARCHITECTURE.md` §10 and tracked as tasks in Phase 2.
-6. **Blocked means blocked on authority or information**, not on difficulty. A blocked task records
-   what decision is needed and who can make it, and work continues elsewhere.
-
-## Deliberately not built
-
-Recorded so that the absence is a decision rather than an oversight.
-
-| Not building | Why |
-|--------------|-----|
-| An embedded C++ IDE | Studio opens the user's real IDE. Building a worse one before basic game production is excellent would be a large subsystem serving nobody |
-| Visual scripting | C++ is the primary gameplay language. Visual scripting ahead of an excellent C++ workflow would be solving the wrong problem — and it is not what the language seam (`STUDIO-02080`) is for, which is CNA's *existing* bindings |
-| A new physics engine | Studio provides editor integration for a runtime's physics. Wanting collider widgets is not a reason to own a physics engine |
-| A new particle runtime inside Studio | Studio authors what the CNA runtime can execute. Runtime ownership stays with CNA or a project plugin |
-| A proprietary build system | The project's own build system is the build — CMake, for a C++ project. Studio drives it and never replaces it |
-| A mandatory binary project database | Authored data stays human-readable, diffable and version-control friendly |
-| World partitioning and streaming | Deferred (`STUDIO-25007`) until a real project demonstrates the need |
-| Remote profiling | Deferred (`STUDIO-27013`) until local profiling is good |
-
-## Open questions
-
-| Id | Question | Blocked on |
-|----|----------|------------|
-| `STUDIO-15001` | Which reflection mechanism for project-defined C++ components? | An architectural decision, recorded before implementation |
-| `STUDIO-16020` | How does player output reach a Studio viewport without compromising process separation? | Research |
-| `STUDIO-16021` | Which native code reload strategy earns its reliability cost? | Research, after the build workflow exists |
-| `STUDIO-02010` | Which renderer identities actually exhibit CNA gap G-03? | Access to the renderer set in CI |
-| `STUDIO-02011` | Is CNA gap G-05 still present on the current renderer set? | Access to the renderer set in CI |
-
-## How to work this plan
-
-1. Pick an unblocked ⬜ task whose dependencies are all ✅.
-2. Mark it 🔄 in its phase file.
-3. Implement it, with the test its verification column names.
-4. Mark it ✅ only when the acceptance condition actually holds.
-5. Regenerate the progress figures and update `HANDOFF.md` before ending a session.
+1. **A deliverable is done when its acceptance holds and its test passes** — not when scaffolding
+   for it exists.
+2. **Every new behaviour comes with a test**, at the cheapest layer that can catch the failure.
+3. **Nothing working is removed without a replacement.**
+4. **The repository stays buildable and green after every tranche.**
+5. **Architectural invariants are enforced by test**, not by comment.
+6. **Scope reduces, never grows.** A deliverable that turns out to need substantial new
+   infrastructure is cut down or moved to the backlog. The budget does not move.

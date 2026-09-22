@@ -1,6 +1,14 @@
 # Phase 16 — Play In Editor 2
 
-> Part of the [CNA Studio master plan](../plan.md). Ids in this phase are `STUDIO-16001` … `STUDIO-16999` and are never reused.
+> **ARCHIVED — historical record. This file authorises no work.** It belongs to the
+> [archived programme roadmap](../docs/ROADMAP-ARCHIVE.md), whose scope was retired on 2026-09-22
+> by [ADR-001](../docs/ADR-001-SCOPE-REDUCTION.md). **A ⬜ below means *not built*. It no longer
+> means *planned*.** The one authoritative active roadmap is [`plan.md`](../plan.md).
+>
+> **Disposition of this phase:** Sufficient for the Core workflow and closed. The remaining rows are [conditional](../docs/ROADMAP-BACKLOG.md) or [out of scope](../docs/ROADMAP-OUT-OF-SCOPE.md).
+>
+> Ids in this phase are `STUDIO-16001` … `STUDIO-16999` and are never reused. Every id here still resolves, so a commit, test or code comment that cites
+> one keeps its meaning.
 
 **Purpose.** Expand the separate-player architecture into a complete play-test workflow.
 

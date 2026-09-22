@@ -1,6 +1,14 @@
 # Phase 1 — Product rename
 
-> Part of the [CNA Studio master plan](../plan.md). Ids in this phase are `STUDIO-01001` … `STUDIO-01999` and are never reused.
+> **ARCHIVED — historical record. This file authorises no work.** It belongs to the
+> [archived programme roadmap](../docs/ROADMAP-ARCHIVE.md), whose scope was retired on 2026-09-22
+> by [ADR-001](../docs/ADR-001-SCOPE-REDUCTION.md). **A ⬜ below means *not built*. It no longer
+> means *planned*.** The one authoritative active roadmap is [`plan.md`](../plan.md).
+>
+> **Disposition of this phase:** Complete apart from three rows, all now part of `CORE-08`.
+>
+> Ids in this phase are `STUDIO-01001` … `STUDIO-01999` and are never reused. Every id here still resolves, so a commit, test or code comment that cites
+> one keeps its meaning.
 
 **Purpose.** Turn the imported prototype into CNA Studio at the level of identity: build targets, executable, public API, user-visible text and documentation.
 

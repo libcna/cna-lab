@@ -1,14 +1,24 @@
 # CNA Studio
 
-A professional game-authoring environment for [CNA](https://github.com/libcna/cna) — the C++
+A lightweight visual development companion for [CNA](https://github.com/libcna/cna) — the C++
 reimplementation of the XNA 4.0 framework.
 
-> **Status: early.** CNA Studio was bootstrapped on 2026-09-14 from the CNA Editor prototype
-> developed in `cna-lab` (see [`docs/ORIGIN.md`](docs/ORIGIN.md)). That prototype is real, working
-> software — it opens projects, edits scenes, drives gizmos, imports glTF, plays the game in a
-> separate process and builds it — and it is the foundation this product is being built on. What is
-> *new* is the goal: CNA Studio is a long-lived professional tool, not a prototype, and the roadmap
-> to get there is [`plan.md`](plan.md).
+> **What this is.** Studio gives a CNA developer a visual way to create a project, manage assets,
+> edit and save scenes, manipulate objects with gizmos, edit material and light properties, play
+> the game, drive the project's own CMake build, read its failures, and recover from a crash — then
+> hands them back to CLion or whatever editor they use for the C++ itself.
+>
+> **What this is not.** Not an IDE, not Unity, not Unreal, not Godot, not a DCC tool, and not a
+> replacement for any standard development tool. Studio is never a runtime dependency: a project
+> authored here is an ordinary CNA project that builds and runs with Studio uninstalled.
+>
+> **Scope.** The product is bounded. The active roadmap is [`plan.md`](plan.md) — eleven
+> deliverables — and when they are done, Studio enters maintenance mode. The reasoning is
+> [`docs/ADR-001-SCOPE-REDUCTION.md`](docs/ADR-001-SCOPE-REDUCTION.md); the retired 582-task
+> programme roadmap is kept as [`docs/ROADMAP-ARCHIVE.md`](docs/ROADMAP-ARCHIVE.md).
+>
+> CNA Studio was bootstrapped on 2026-09-14 from the CNA Editor prototype developed in `cna-lab`
+> (see [`docs/ORIGIN.md`](docs/ORIGIN.md)).
 >
 > The default build stays dependency-free: no CNA checkout, no GPU, no window, 566 assertions
 > across 17 CTest suites in about seven seconds.
@@ -139,7 +149,7 @@ Run `cna-studio --help` for the command-line options.
 
 ### Seeing the Studio UI headless
 
-The native Studio UI ([`plan.md`](plan.md) Phases 3-7) is what `cna-studio` opens today -- there is
+The native Studio UI ([`docs/ROADMAP-ARCHIVE.md`](docs/ROADMAP-ARCHIVE.md) phases 3–7) is what `cna-studio` opens today -- there is
 no other presentation left to choose (`STUDIO-07030` removed the Dear ImGui prototype this project
 started from). Its shell geometry is CNA-free and can be rasterised with no window and no GPU, which
 is what a `--shell-preview` capture is for:
@@ -233,15 +243,21 @@ depend on, and they are deliberately pinned. See [`docs/FORMATS.md`](docs/FORMAT
 
 ```
 cna-studio/
-├── plan.md                  The CNA Studio master roadmap, STUDIO-NNNNN ids
-├── ANALYSIS.md              Architecture analysis inherited from the prototype
+├── plan.md                  The active roadmap — the only source of authorised work
+├── ANALYSIS.md              Architecture analysis inherited from the prototype (historical)
+├── NEXT.md                  Early continuity notes (historical, superseded by HANDOFF.md)
 ├── HANDOFF.md               State of the work in progress
 ├── docs/
+│   ├── ADR-001-SCOPE-REDUCTION.md  Why Studio is a companion tool and not an engine editor
+│   ├── ROADMAP-BACKLOG.md   Conditional future work, each with an activation condition
+│   ├── ROADMAP-OUT-OF-SCOPE.md     What left the product, and why
+│   ├── ROADMAP-ARCHIVE.md   The retired 582-task programme roadmap (historical)
 │   ├── ORIGIN.md            Where this repository came from, and the verified baseline
 │   ├── ARCHITECTURE.md      The CNA Studio architecture
 │   ├── CNA-GAPS.md          Deficiencies in CNA that Studio has found
 │   ├── FORMATS.md           .cnaproject / .cnascene / .cnaasset / wire protocol
 │   └── LEGACY-EDITOR-TASK-MAP.md   Where the prototype's ED-* tasks went
+├── plans/                   Per-task detail of the archived roadmap (historical)
 ├── include/CNA/Studio/      Public headers
 ├── src/                     One directory per module
 │   └── project/cpp/         The C++ language adapter. Nothing else in Studio names CMake
