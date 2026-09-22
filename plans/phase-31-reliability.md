@@ -6,7 +6,7 @@
 
 **Exit criteria.** Interrupted saves, corrupt files and crashes cost a user nothing they cannot recover, and nothing is repaired silently.
 
-**Progress:** 10 of 13 complete `█████████░░░`
+**Progress:** 11 of 13 complete `██████████░░`
 
 | Id | Task | Status | Depends on |
 |----|------|:------:|------------|
@@ -21,7 +21,7 @@
 | `STUDIO-31009` | Unknown plugin components preserved through save and load | ✅ | — |
 | `STUDIO-31010` | Tests for interrupted saves and partial files | ✅ | `STUDIO-31003` |
 | `STUDIO-31011` | Nothing is silently repaired; every change to user data is reported | ✅ | `STUDIO-31008` |
-| `STUDIO-31020` | Deterministic, version-control-friendly output throughout | ⬜ | `STUDIO-02037` |
+| `STUDIO-31020` | Deterministic, version-control-friendly output throughout | ✅ | `STUDIO-02037` |
 | `STUDIO-31021` | Generated files have explicit ownership and regeneration rules | ⬜ | `STUDIO-15008` |
 
 ## Acceptance and verification
@@ -604,5 +604,48 @@ Problems is a question about that panel, not about the repairs.
 
 ### `STUDIO-31020` — Deterministic, version-control-friendly output throughout
 
-**Acceptance.** Stable ordering, no unnecessary timestamps, no formatting churn, no opaque binary state for ordinary project metadata
+**Acceptance.** Stable ordering, no unnecessary timestamps, no formatting churn, no opaque binary
+state for ordinary project metadata.
+
+**✅ Done.** Three of the four were already held and are now *checked*; the fourth was not held, and
+the templates themselves were breaking it.
+
+**Stable ordering and no timestamps** are `STUDIO-02037`'s, done as part of it: a round trip through
+a fresh document for every authored format, and a source scan refusing the clock in every writer.
+
+**No opaque binary state** is held by construction and was never a gap. Every project format is
+JSON, for the reasons `docs/FORMATS.md` opens with, and everything Studio can regenerate lives under
+the user's state directory rather than in the project — `STUDIO-09015`'s rule, which chose that over
+a `Library/` folder precisely because *"not version-controlled then depends on a `.gitignore` entry,
+and a rule enforced by a file somebody can delete is a rule that will eventually be broken by
+somebody who did not know it existed."* `ASessionLeavesNothingInTheProjectButSidecars` is the gate.
+
+**No formatting churn is the one that was broken**, and it is the one a user meets first: they clone
+a colleague's project, open it, look around, press Ctrl+S out of habit, and `git status` should have
+nothing to say. `OpeningAProjectAndSavingItLeavesEveryFileAsItWas` creates a project from **every
+shipped template** — a template being exactly the project somebody else generated and handed over —
+opens it through a real `StudioContext`, saves, and compares every byte of every file.
+
+**All three template scenes failed.** They were hand-written with one-space indentation and
+alphabetically sorted keys; Studio writes two spaces and insertion order. So the first save of every
+new project reformatted its own starting scene, and the user's first commit carried two hundred
+lines they did not write. The templates are now regenerated through Studio's own writer, which is
+what a template should be: the output of the generator, not a hand copy of it.
+
+**And the case had to learn a distinction rather than assert a simpler rule.** A `.cnaasset` sidecar
+*does* change on the first scan of a new project, because the scan reads facts out of the files
+themselves — a texture's dimensions — and records them. That is new information, not a rewrite, and
+`StudioContext::openProject` already says so: *"Only what changed is written back, so opening a
+project twice produces no diff."* So the case runs **two** sessions: a sidecar may move once,
+everything else may not move at all, and **nothing** may move twice. A rule that forbade the first
+change would have been wrong, and one that allowed any change would have caught nothing.
+
+**Verification.** `OpeningAProjectAndSavingItLeavesEveryFileAsItWas` in
+`tests/DeterministicOutputTests.cpp`, over all four shipped templates, checking in both directions
+so that a file *disappearing* is caught too. Plus `STUDIO-02037`'s round trips and clock scan, and
+`STUDIO-09015`'s session gate.
+
+Checked by causing it: a template scene put back to its hand-written formatting fails the case by
+file and by template id.
+
 

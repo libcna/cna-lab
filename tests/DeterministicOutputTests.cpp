@@ -20,12 +20,17 @@
  */
 
 #include "TestHarness.hpp"
+#include "SourceScan.hpp"
 
 #include "CNA/Studio/Assets/AssetDatabase.hpp"
 #include "CNA/Studio/Assets/EnvironmentMapDocument.hpp"
 #include "CNA/Studio/Assets/MaterialDocument.hpp"
 #include "CNA/Studio/Core/Json.hpp"
 #include "CNA/Studio/Project/Project.hpp"
+#include "CNA/Studio/Project/ProjectCreation.hpp"
+#include "CNA/Studio/Project/ProjectTemplate.hpp"
+#include "CNA/Studio/Project/LanguageAdapter.hpp"
+#include "CNA/Studio/StudioContext.hpp"
 #include "CNA/Studio/Scene/BuiltinComponents.hpp"
 #include "CNA/Studio/Scene/PrefabDocument.hpp"
 #include "CNA/Studio/Scene/SceneDocument.hpp"
@@ -34,6 +39,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iterator>
+#include <map>
 #include <string>
 #include <vector>
 
@@ -89,6 +95,20 @@ namespace
         }());
 
         return scene;
+    }
+
+    /** @brief The templates this repository ships, read from the tree rather than from a build. */
+    StudioTemplateCatalogue shippedTemplates()
+    {
+        StudioTemplateCatalogue catalogue;
+        const std::vector<std::string> problems =
+            catalogue.addSearchPath((CnaStudioTest::Scan::sourceRoot() / "templates")
+                                        .generic_string());
+        for (const std::string& problem : problems)
+        {
+            CnaStudioTest::reportFailure(__FILE__, __LINE__, "templates/: " + problem);
+        }
+        return catalogue;
     }
 
     /** @brief Whether @p text holds this year's number, which is how a timestamp usually leaks. */
@@ -319,6 +339,143 @@ CNA_STUDIO_TEST(AnAssetSidecarIsStableAndItsOnlyTimeIsTheSourcesOwn)
     // No time of *writing* in it. The source's own modification time is there and is a fact about
     // the file, not about the save.
     CNA_STUDIO_EXPECT(!mentionsThisYear(first));
+
+    std::filesystem::remove_all(root, code);
+}
+
+/**
+ * @brief **Opening a project and saving it changes nothing on disk.**
+ *
+ * `plan.md` STUDIO-31020's "no formatting churn", end to end rather than per document. The
+ * round-trip cases above ask whether one writer is stable; this asks the question a *user* asks,
+ * which is different and larger: they clone a colleague's project, open it, look around, press
+ * Ctrl+S out of habit, and `git status` should have nothing to say.
+ *
+ * It is the first impression a shared project makes. A tool that rewrites every file it opens
+ * teaches its users to avoid opening files, and it makes every real change unreviewable by burying
+ * it in a hundred lines nobody wrote.
+ *
+ * Driven over every shipped template, because a template is exactly the project somebody else
+ * generated and handed over — and because a generator and a saver that disagree about how to write
+ * the same document is precisely the defect this catches.
+ */
+CNA_STUDIO_TEST(OpeningAProjectAndSavingItLeavesEveryFileAsItWas)
+{
+    const StudioTemplateCatalogue templates = shippedTemplates();
+    const StudioLanguageRegistry languages = studioBuiltInLanguages();
+
+    const std::filesystem::path root =
+        std::filesystem::temp_directory_path() / "cna-studio-determinism-churn";
+    std::error_code code;
+    std::filesystem::remove_all(root, code);
+
+    const auto snapshot = [](const std::filesystem::path& directory) {
+        std::map<std::string, std::string> files;
+        std::error_code walk;
+        for (const auto& entry : std::filesystem::recursive_directory_iterator{directory, walk})
+        {
+            if (!entry.is_regular_file()) { continue; }
+            const std::string relative =
+                std::filesystem::relative(entry.path(), directory, walk).generic_string();
+            std::ifstream stream{entry.path(), std::ios::binary};
+            files.emplace(relative, std::string{std::istreambuf_iterator<char>{stream},
+                                                std::istreambuf_iterator<char>{}});
+        }
+        return files;
+    };
+
+    for (const StudioProjectTemplate& value : templates.all())
+    {
+        StudioNewProjectRequest request;
+        request.name = "Churn " + value.id;
+        request.directory = (root / value.id).generic_string();
+        request.templateId = value.id;
+
+        const StudioNewProjectResult created = createStudioProject(request, templates, languages);
+        CNA_STUDIO_EXPECT(created.succeeded());
+        if (!created.succeeded()) { continue; }
+
+        const std::filesystem::path projectRoot = root / value.id;
+        const std::map<std::string, std::string> before = snapshot(projectRoot);
+        CNA_STUDIO_EXPECT(!before.empty());
+
+        // A whole editor session's worth of reading: open the project, which scans the assets,
+        // applies importer facts and loads the startup scene. Then Save All, which is what a user
+        // presses without having changed anything.
+        const auto openAndSave = [&created] {
+            StudioContext context;
+            CNA_STUDIO_EXPECT(context.openProject(created.projectFilePath));
+            if (!context.getScenePath().empty()) { CNA_STUDIO_EXPECT(context.saveScene()); }
+            CNA_STUDIO_EXPECT(context.getProject().saveToFile());
+        };
+
+        openAndSave();
+        const std::map<std::string, std::string> after = snapshot(projectRoot);
+
+        // A second session, to separate *churn* from *learning*. The first scan of a new project
+        // reads facts out of the files themselves — a texture's dimensions — and records them in
+        // the sidecars, which is new information rather than a rewrite. `StudioContext::openProject`
+        // says as much: "Only what changed is written back, so opening a project twice produces no
+        // diff." So a sidecar may move once; everything else may not move at all, and nothing may
+        // move twice.
+        openAndSave();
+        const std::map<std::string, std::string> settled = snapshot(projectRoot);
+
+        for (const auto& [name, contents] : after)
+        {
+            const auto found = before.find(name);
+            if (found == before.end())
+            {
+                // A sidecar is authored data a tool writes, and a project with no sidecars yet
+                // gains them on its first scan. Anything else appearing is STUDIO-09015's concern
+                // and `ASessionLeavesNothingInTheProjectButSidecars` states it.
+                const bool isSidecar =
+                    name.size() > 9 && name.rfind(".cnaasset") == name.size() - 9;
+                if (!isSidecar)
+                {
+                    CnaStudioTest::reportFailure(__FILE__, __LINE__,
+                        "'" + name + "' appeared in a '" + value.id
+                        + "' project just from opening and saving it.");
+                }
+                continue;
+            }
+
+            const bool isSidecar = name.size() > 9 && name.rfind(".cnaasset") == name.size() - 9;
+
+            if (found->second != contents && !isSidecar)
+            {
+                CnaStudioTest::reportFailure(__FILE__, __LINE__,
+                    "'" + name + "' in a '" + value.id
+                    + "' project was rewritten by opening and saving it, with nothing edited "
+                      "(plan.md STUDIO-31020). A tool that rewrites every file it opens teaches "
+                      "its users to avoid opening files, and buries every real change in a "
+                      "hundred lines nobody wrote.");
+            }
+
+            // And nothing at all moves on the *second* session, sidecars included: a first scan
+            // may learn something, and a second has nothing left to learn.
+            const auto twice = settled.find(name);
+            if (twice == settled.end() || twice->second != contents)
+            {
+                CnaStudioTest::reportFailure(__FILE__, __LINE__,
+                    "'" + name + "' in a '" + value.id
+                    + "' project changed again on a second open-and-save, so it is not settling "
+                      "at all (plan.md STUDIO-31020).");
+            }
+        }
+
+        // And nothing was *removed*, which a snapshot comparison in one direction would miss.
+        for (const auto& [name, contents] : before)
+        {
+            (void)contents;
+            if (after.find(name) == after.end())
+            {
+                CnaStudioTest::reportFailure(__FILE__, __LINE__,
+                    "'" + name + "' disappeared from a '" + value.id
+                    + "' project just from opening and saving it.");
+            }
+        }
+    }
 
     std::filesystem::remove_all(root, code);
 }
