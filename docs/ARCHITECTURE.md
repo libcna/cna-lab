@@ -16,9 +16,14 @@
 
 ## 1. The invariant
 
-> **CNA is the framework. CNA Studio is the professional authoring environment. A project authored
-> by Studio remains a normal project for CNA or one of its supported bindings, and builds and runs
-> without CNA Studio.**
+> **CNA is the framework. CNA Studio is a lightweight visual development companion for CNA
+> applications. A project authored by Studio remains a normal project for CNA or one of its
+> supported bindings, and builds and runs without CNA Studio.**
+
+The middle sentence used to read *the professional authoring environment*, which was true of the
+programme this repository was running and is not true of the product
+[`ADR-001-SCOPE-REDUCTION.md`](ADR-001-SCOPE-REDUCTION.md) reduced it to. The invariant itself --
+the third sentence -- is unchanged, and is the one thing the reduction did not touch.
 
 For the one language implemented today, that reads:
 
@@ -130,8 +135,9 @@ SSAO, SSR, DoF, motion blur, FXAA, colour grading), compute shaders, storage buf
 render-target pooling and a render pipeline. It also publishes `ShaderEffect` for source-based
 shaders across six shader dialects.
 
-This is what makes a *professional* Studio viewport possible rather than a wireframe preview, and
-it is what the material, lighting and shader-graph workstreams target.
+This is what makes a Studio viewport that draws what the game draws possible, rather than a
+wireframe preview. The material and lighting workflows target it. The shader-graph workstream that
+also did is [out of scope](ROADMAP-OUT-OF-SCOPE.md).
 
 ---
 
@@ -471,9 +477,8 @@ play mode as a separate process; two project kinds; manifest-first plugins; zero
 dependencies in the core; the toolkit boundary as a data type; `cna-player` living in this
 repository; the window host as a free function.
 
-One is **superseded**: the prototype decided that a custom professional UI system was "not for v1".
-CNA Studio is the long-term product, and a substantial original UI architecture is now the target
-(§5, §7).
+One is **superseded**: the prototype decided that a custom UI system was "not for v1". Studio has
+one, built and shipped (§5, §7), and Dear ImGui is gone.
 
 ---
 
@@ -503,7 +508,7 @@ reversible cheaply once it has been made the other way.
 
 The invariant this whole product is held to used to read:
 
-> CNA is the framework. CNA Studio is the professional authoring environment. A CNA Studio project
+> CNA is the framework. CNA Studio is a visual development companion. A CNA Studio project
 > remains a CNA **C++** project.
 
 That is right about what is being built first and wrong as a permanent architectural statement, for

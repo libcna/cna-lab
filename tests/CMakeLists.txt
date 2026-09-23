@@ -681,6 +681,46 @@ if(CNA_STUDIO_WITH_CNA)
             ENVIRONMENT "DISPLAY=${CNA_STUDIO_TEST_DISPLAY}")
     endif()
 
+    # `plan.md` CORE-10 -- the whole Core workflow, once, in order.
+    #
+    # Its own executable because it compiles CNA. The unit suite runs in a minute and a half and a
+    # case that took five would make it something people stop running; this one holds the same
+    # resource lock as the template builds, for the same reason they hold it.
+    #
+    # What it adds that nothing else has is the *sequence*. Every one of the eleven steps has
+    # thorough cases of its own and the walk had none, which is how a product passes its whole
+    # suite and cannot be used.
+    add_executable(cna-studio-core-e2e CoreWorkflowE2E.cpp)
+    target_link_libraries(cna-studio-core-e2e PRIVATE
+        cna-studio-context
+        cna-studio-project
+        cna-studio-scene
+        cna-studio-assets
+        cna-studio-player
+        cna-studio-core
+        cna-studio-settings)
+    add_dependencies(cna-studio-core-e2e cna-player)
+
+    # Fewer jobs than the export tests use, and deliberately conservative. This one compiles CNA
+    # *and* is the case a maintainer runs on whatever machine they have; a build killed for memory
+    # reports as a failure with no diagnostic in it, which would send them looking at Studio.
+    set(CNA_STUDIO_CORE_WORKFLOW_JOBS "2" CACHE STRING
+        "Parallel compile jobs for the Core workflow end-to-end test")
+
+    add_test(NAME CnaStudioCoreWorkflow
+        COMMAND cna-studio-core-e2e
+            "--cna-root=${CNA_STUDIO_CNA_ROOT}"
+            "--work-dir=${CMAKE_CURRENT_BINARY_DIR}/core-workflow"
+            "--player-dir=$<TARGET_FILE_DIR:cna-player>"
+            "--renderer=$<LOWER_CASE:${CNA_GRAPHICS_RENDERER}>"
+            "--jobs=${CNA_STUDIO_EXPORT_TEST_JOBS}")
+    set_tests_properties(CnaStudioCoreWorkflow PROPERTIES
+        LABELS "slow"
+        TIMEOUT 5400
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy")
+    set_property(TEST CnaStudioCoreWorkflow
+                 APPEND PROPERTY RESOURCE_LOCK cna-studio-heavy-build)
+
     # Every template, created and built (plan.md STUDIO-08011). One CTest case per template
     # directory, discovered by globbing `templates/` rather than by a list here -- STUDIO-08005's
     # acceptance is that adding a template does not require changing Studio, and a list of test

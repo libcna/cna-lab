@@ -32,6 +32,19 @@ beside the two sprites.
 
 ---
 
+## Documentation
+
+| | |
+|---|---|
+| **[Getting started](docs/GETTING-STARTED.md)** | A clone to a running game, through the Core workflow |
+| **[User guide](docs/USER-GUIDE.md)** | The eleven steps, and what Studio deliberately does not do |
+| [Architecture](docs/ARCHITECTURE.md) | How it is built and why |
+| [Renderers and platforms](docs/RENDERERS-AND-PLATFORMS.md) | For a contributor adding or renaming one |
+| [The roadmap](plan.md) | What is being worked on. Nothing else authorises work |
+| [ADR-001](docs/ADR-001-SCOPE-REDUCTION.md), [ADR-002](docs/ADR-002-THE-FOUR-SILENT-QUESTIONS.md) | The decisions that bound the product |
+
+---
+
 ## The one rule that shapes everything
 
 > **CNA Studio produces CNA games, not CNA Studio games.**
@@ -75,7 +88,9 @@ CNA, built against the same public API a game uses:
 - a **document editor** — scenes, entities, components, undo;
 - an **asset pipeline** — stable ids, importers, dependency tracking;
 - a **runtime bridge** — play mode in a separate `cna-player` process;
-- a **plugin SDK** — importers, component types, panels, gizmos, exporters.
+- a **plugin host** — importers, component types, panels, gizmos and exporters, loaded from a
+  manifest. Not a versioned public ABI, and not becoming one: see
+  [`docs/ADR-001-SCOPE-REDUCTION.md`](docs/ADR-001-SCOPE-REDUCTION.md).
 
 A project declares which kind it is, so a pure XNA-style port is never forced through an entity
 model it does not want:

@@ -366,7 +366,7 @@ namespace CNA::Studio
     std::string StudioOptions::getUsage()
     {
         return
-            "cna-studio -- professional authoring environment for CNA\n"
+            "cna-studio -- a lightweight visual development companion for CNA applications\n"
             "\n"
             "Usage:\n"
             "  cna-studio [options] [project.cnaproject]\n"

@@ -75,7 +75,7 @@ legs.
 
 ## The active roadmap
 
-**8 of 11 active deliverables complete.**
+**9 of 11 active deliverables complete.**
 
 Estimates are Opus 5 engineering hours at this repository's working standard — implementation, the
 test its acceptance names, and the documentation it changes.
@@ -90,7 +90,7 @@ test its acceptance names, and the documentation it changes.
 | `CORE-06` | Paint order separable from input order | ✅ | 4 | `STUDIO-03041` |
 | `CORE-07` | Resize without artefacts | ✅ | 2 | `STUDIO-04011` |
 | `CORE-08` | Answer the four questions the plan left silent | ✅ | 2 | `STUDIO-00015`, `STUDIO-01014`, `STUDIO-01015`, `STUDIO-01016` |
-| `CORE-09` | Documentation to use and maintain the product | ⬜ | 5 | `STUDIO-33001`, `STUDIO-33002`, `STUDIO-33003`, `STUDIO-29006` |
+| `CORE-09` | Documentation to use and maintain the product | ✅ | 5 | `STUDIO-33001`, `STUDIO-33002`, `STUDIO-33003`, `STUDIO-29006` |
 | `CORE-10` | A regression baseline for the Core workflow | ⬜ | 5 | `STUDIO-33020`, `STUDIO-21009`, `STUDIO-35010` |
 | `CORE-11` | Declare Core complete and enter maintenance mode | ⬜ | 2 | `STUDIO-34001` |
 
@@ -378,6 +378,19 @@ more.
 - The renderer and platform model is documented for contributors (`STUDIO-29006`).
 
 **Not included.** Plugin SDK documentation, public API reference coverage, tutorials, videos.
+
+**Done.**
+
+| Acceptance | Where |
+|------------|-------|
+| Clone to a running game, through the Core workflow | [`docs/GETTING-STARTED.md`](docs/GETTING-STARTED.md) — eight steps, the last of which is building the game with Studio uninstalled, because that is the rule worth proving on your own machine rather than reading about |
+| The eleven Core steps, and what Studio does not do | [`docs/USER-GUIDE.md`](docs/USER-GUIDE.md) — one section per step, and a *What Studio does not do* list that names each absence as a decision |
+| `docs/ARCHITECTURE.md` matches the code | The language seam (§13) and the scope reduction (§15) were already there; §16 was added by `CORE-08`, and the invariant's own wording, which still called Studio "the professional authoring environment", now says what `ADR-001` decided it is |
+| The renderer and platform model, for contributors | [`docs/RENDERERS-AND-PLATFORMS.md`](docs/RENDERERS-AND-PLATFORMS.md) — where each piece lives, what may know what, how to add or rename an identity, and which guard fails when you get it wrong. It does not repeat `ARCHITECTURE.md` §2–§4; it points at it |
+
+Three stale claims were corrected rather than left: `cna-studio --help` described the product as a
+"professional authoring environment", and the README offered a "plugin SDK" that `ADR-001` says
+does not arrive.
 
 ### `CORE-10` — A regression baseline for the Core workflow
 

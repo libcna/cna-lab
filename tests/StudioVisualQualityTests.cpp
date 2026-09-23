@@ -24,9 +24,11 @@
 #include "CNA/Studio/Scene/SceneDocument.hpp"
 #include "CNA/Studio/ShellPanels/StudioOutlinerPanel.hpp"
 #include "CNA/Studio/Scene/SceneWireframe.hpp"
+#include "CNA/Studio/UiCore/StudioActionRegistry.hpp"
 #include "CNA/Studio/UiCore/StudioIcons.hpp"
 #include "CNA/Studio/UiCore/StudioDrawList.hpp"
 #include "CNA/Studio/UiCore/StudioFrame.hpp"
+#include "CNA/Studio/UiCore/StudioShell.hpp"
 #include "CNA/Studio/UiCore/StudioTheme.hpp"
 #include "CNA/Studio/UiCore/StudioTreeView.hpp"
 
@@ -579,4 +581,78 @@ CNA_STUDIO_TEST(TheSelectionMarksAreTellableApartFromEachOtherAndFromTheSceneAro
     CNA_STUDIO_EXPECT(std::abs(selected - entity) > 20.0f);
     CNA_STUDIO_EXPECT(std::abs(selected - extent) > 20.0f);
     CNA_STUDIO_EXPECT(std::abs(pivot - selected) > 20.0f);
+}
+
+// ------------------------------------------------------------------------------------------------
+// `plan.md` CORE-10 — no unfinished text anywhere in the Core workflow (`STUDIO-35010`)
+// ------------------------------------------------------------------------------------------------
+
+CNA_STUDIO_TEST(NothingAUserReadsIsAPlaceholderForWorkNotDone)
+{
+    // A product entering maintenance mode must not tell its users that something is coming. Every
+    // string here is one somebody meets on an ordinary afternoon -- a menu title, a command's
+    // label, the sentence in its tooltip -- and a "TODO" among them is worse than a missing
+    // feature, because a missing feature is at least silent about itself.
+    //
+    // Checked against the *shipped* registry and the *shipped* menus rather than against the
+    // source, so a placeholder introduced in a string the compiler never looks at is still found.
+    static const char* const kUnfinished[] = {
+        "TODO", "todo", "FIXME", "fixme", "TBD", "tbd", "XXX",
+        "not implemented", "Not implemented", "unimplemented",
+        "coming soon", "Coming soon", "Lorem", "lorem ipsum",
+        "placeholder", "Placeholder", "WIP", "work in progress",
+    };
+
+    StudioActionRegistry registry;
+    registerCoreStudioActions(registry);
+
+    const auto check = [](const std::string& text, const std::string& where) {
+        for (const char* const needle : kUnfinished)
+        {
+            if (text.find(needle) == std::string::npos) { continue; }
+            CnaStudioTest::reportFailure(__FILE__, __LINE__,
+                where + " reads '" + text + "', which names '" + needle
+                + "'. Nothing a user reads in the Core workflow is a placeholder for work not "
+                  "done (plan.md CORE-10, STUDIO-35010).");
+        }
+    };
+
+    std::size_t checked = 0;
+    for (const StudioAction& command : registry.commands())
+    {
+        check(command.label, "the label of '" + command.id + "'");
+        check(command.description, "the description of '" + command.id + "'");
+        ++checked;
+    }
+    CNA_STUDIO_EXPECT(checked > 40);
+
+    const auto walk = [&check](const auto& self, const std::vector<StudioMenuEntry>& entries,
+                               const std::string& menu) -> void {
+        for (const StudioMenuEntry& entry : entries)
+        {
+            if (!entry.label.empty()) { check(entry.label, "a row of the " + menu + " menu"); }
+            if (!entry.rows.empty()) { self(self, entry.rows, menu); }
+        }
+    };
+
+    std::size_t menus = 0;
+    for (const StudioMenuDefinition& menu : StudioShell::defaultMenus())
+    {
+        check(menu.title, "a menu title");
+
+        // An empty menu is a placeholder with no text in it. The shell disabled one rather than
+        // opening an empty box and said so in a comment -- which is the honest handling of a menu
+        // that is *going* to be filled, and the wrong thing to ship in a product that has stopped
+        // adding features. `Project` was that menu and is gone.
+        if (menu.entries.empty())
+        {
+            CnaStudioTest::reportFailure(__FILE__, __LINE__,
+                "the '" + menu.title + "' menu ships with no rows in it. A permanently disabled "
+                "menu is a placeholder for work not done (plan.md CORE-10, STUDIO-35010).");
+        }
+
+        walk(walk, menu.entries, menu.title);
+        ++menus;
+    }
+    CNA_STUDIO_EXPECT(menus >= 6);
 }

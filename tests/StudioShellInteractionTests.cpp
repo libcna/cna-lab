@@ -161,13 +161,26 @@ CNA_STUDIO_TEST(MovingAcrossTheBarSwitchesMenusWithoutASecondClick)
 
 CNA_STUDIO_TEST(AMenuWithNoEntriesIsDisabledRatherThanOpeningAnEmptyBox)
 {
+    // The shell used to ship one -- `Project`, registered empty and never filled -- and this case
+    // clicked it. `plan.md` CORE-10 removed it: a permanently disabled menu is a placeholder for
+    // work not done, and a product that has stopped adding features should not be showing one.
+    //
+    // The behaviour it demonstrated is still the right behaviour, for a menu a *plugin* leaves
+    // empty or one a future arrangement builds conditionally, so the case keeps it and supplies
+    // its own empty menu instead of borrowing the shell's. `NothingAUserReadsIsAPlaceholderForWorkNotDone`
+    // is the other half: it fails if a shipped menu is ever empty again.
     Harness harness;
+
+    std::vector<StudioMenuDefinition> menus = StudioShell::defaultMenus();
+    menus.push_back(StudioMenuDefinition{"Nothing", {}});
+    harness.shell.setMenus(std::move(menus));
     harness.settle();
 
-    const int project = harness.menuIndex("Project");
-    CNA_STUDIO_EXPECT(project >= 0);
+    const int empty = harness.menuIndex("Nothing");
+    CNA_STUDIO_EXPECT(empty >= 0);
+    if (empty < 0) { return; }
 
-    const UiRect bounds = harness.shell.menuTitleBounds(static_cast<std::size_t>(project));
+    const UiRect bounds = harness.shell.menuTitleBounds(static_cast<std::size_t>(empty));
     harness.click(bounds.centerX(), bounds.centerY());
     CNA_STUDIO_EXPECT_EQ(harness.shell.openMenu(), -1);
 }
