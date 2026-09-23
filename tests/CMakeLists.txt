@@ -713,7 +713,7 @@ if(CNA_STUDIO_WITH_CNA)
             "--work-dir=${CMAKE_CURRENT_BINARY_DIR}/core-workflow"
             "--player-dir=$<TARGET_FILE_DIR:cna-player>"
             "--renderer=$<LOWER_CASE:${CNA_GRAPHICS_RENDERER}>"
-            "--jobs=${CNA_STUDIO_EXPORT_TEST_JOBS}")
+            "--jobs=${CNA_STUDIO_CORE_WORKFLOW_JOBS}")
     set_tests_properties(CnaStudioCoreWorkflow PROPERTIES
         LABELS "slow"
         TIMEOUT 5400

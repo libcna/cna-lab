@@ -127,7 +127,7 @@ namespace CNA::Studio
         // What the UI core can say for itself. A host that knows its version and its renderer
         // replaces this with the truth; a preview that does not still shows something honest
         // rather than an empty box.
-        aboutLines_ = {"CNA Studio", "An editor for CNA games.",
+        aboutLines_ = {"CNA Studio", "A visual development companion for CNA applications.",
                        "Native Studio UI, no Dear ImGui."};
     }
 

@@ -12,16 +12,19 @@ reimplementation of the XNA 4.0 framework.
 > replacement for any standard development tool. Studio is never a runtime dependency: a project
 > authored here is an ordinary CNA project that builds and runs with Studio uninstalled.
 >
-> **Scope.** The product is bounded. The active roadmap is [`plan.md`](plan.md) — eleven
-> deliverables — and when they are done, Studio enters maintenance mode. The reasoning is
-> [`docs/ADR-001-SCOPE-REDUCTION.md`](docs/ADR-001-SCOPE-REDUCTION.md); the retired 582-task
-> programme roadmap is kept as [`docs/ROADMAP-ARCHIVE.md`](docs/ROADMAP-ARCHIVE.md).
+> **Scope.** The product is bounded, and it is finished. All eleven deliverables in
+> [`plan.md`](plan.md) are done; on **2026-09-23**, at version **1.0.0**, the Core workflow was
+> declared complete and **Studio entered maintenance mode** — bug fixes, compatibility fixes and
+> correctness work, not a backlog to work through. The reasoning is
+> [`docs/ADR-001-SCOPE-REDUCTION.md`](docs/ADR-001-SCOPE-REDUCTION.md); the release notes and the
+> versioning convention are [`CHANGELOG.md`](CHANGELOG.md); the retired 582-task programme roadmap
+> is kept as [`docs/ROADMAP-ARCHIVE.md`](docs/ROADMAP-ARCHIVE.md).
 >
 > CNA Studio was bootstrapped on 2026-09-14 from the CNA Editor prototype developed in `cna-lab`
 > (see [`docs/ORIGIN.md`](docs/ORIGIN.md)).
 >
-> The default build stays dependency-free: no CNA checkout, no GPU, no window, 566 assertions
-> across 17 CTest suites in about seven seconds.
+> The default build stays dependency-free: no CNA checkout, no GPU, no window, **1831 assertions
+> across 69 CTest cases** in about a minute and a half.
 
 ![CNA Studio running on the EASYGL renderer](docs/images/studio-easygl.png)
 

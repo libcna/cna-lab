@@ -2,11 +2,64 @@
 
 State of the work in progress, for whoever continues it. Updated at the end of each long session.
 
-**Last updated:** 2026-09-22
+**Last updated:** 2026-09-23
 
 ---
 
-## Read this first: the scope changed on 2026-09-22
+## Read this first: CNA Studio is in maintenance mode as of 2026-09-23
+
+**All eleven `CORE-*` deliverables in [`plan.md`](plan.md) are done, the Definition of done there is
+ticked with evidence against every line, and CNA Studio Core was declared complete on
+2026-09-23 at version 1.0.0. Planned feature development has stopped.**
+
+**What maintenance means.** Studio is maintained, not developed. Work that belongs here:
+
+- bug fixes
+- compatibility fixes, including adaptation to CNA API changes
+- security and correctness work, including sanitizer and warning findings
+- small usability fixes inside the Core workflow
+- features justified by a demonstrated, recurring need in a real maintained CNA application
+
+**What maintenance is not.** It is not implementing something because it is listed. Not in
+[`docs/ROADMAP-BACKLOG.md`](docs/ROADMAP-BACKLOG.md), not in
+[`docs/ROADMAP-ARCHIVE.md`](docs/ROADMAP-ARCHIVE.md), not in [`plans/`](plans/), not in the *Next
+recommended tasks* section further down this file, and not in `NEXT.md`. Those documents describe
+work that was **considered**, not work that is **owed**. A ⬜ in any of them means *not built* — it
+does not mean *planned*.
+
+**The only route back to active work** is the four-part test in `plan.md`'s *How something
+legitimately becomes active work*: a real maintained CNA application hits the need repeatedly; the
+existing workflow is a demonstrated bottleneck for it; the deliverable is bounded, with a completion
+condition and an estimate; and someone accepts the maintenance cost after it ships. All four, with
+the case written down in the ADR that authorises it. "A professional editor has it" and "it was
+already in the plan" are not arguments.
+
+**Before you change anything**, read [`plan.md`](plan.md) — the whole of it, including *Explicitly
+not required for Core* — then [`docs/ADR-001-SCOPE-REDUCTION.md`](docs/ADR-001-SCOPE-REDUCTION.md),
+[`docs/ADR-002-THE-FOUR-SILENT-QUESTIONS.md`](docs/ADR-002-THE-FOUR-SILENT-QUESTIONS.md) and
+[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md). To *use* Studio, start at
+[`docs/GETTING-STARTED.md`](docs/GETTING-STARTED.md); to change a released version, the convention is
+in [`CHANGELOG.md`](CHANGELOG.md).
+
+**How the Core walk went.** The eleven deliverables were estimated at 35 engineering hours against a
+40-hour target and a 60-hour ceiling, and came in inside the target. `CORE-06` — the one row with a
+hard 4-hour cap, and the one the plan called its highest risk — did not need the cap: the frame
+already ran input and drawing as two passes and already deferred popup bodies, so raising a widget's
+paint out of its description was a small facility rather than a UI redesign. Four of the eleven rows
+turned out to be partly or wholly stale and were checked before they were rebuilt; `plan.md`'s *CNA
+Studio Core is complete* section has the table.
+
+**The verification the repository requires** — dependency-free Debug, Release with
+warnings-as-errors, ASan/UBSan, and the CNA-backed leg including `CnaStudioCoreWorkflow` — is what a
+maintenance change is still held to. Rule 4 of `plan.md` did not expire with the roadmap: the
+repository stays buildable and green after every tranche.
+
+---
+
+## Historical: the scope changed on 2026-09-22
+
+*Kept as written on the day. The 24 tasks it calls active are the eleven `CORE-*` deliverables, and
+all of them are now complete — see the section above.*
 
 **CNA Studio is now a lightweight visual development companion for CNA applications, not a
 general-purpose engine editor.** The 36-phase, 582-task programme roadmap was retired and archived.

@@ -75,7 +75,7 @@ legs.
 
 ## The active roadmap
 
-**10 of 11 active deliverables complete.**
+**11 of 11 active deliverables complete.**
 
 Estimates are Opus 5 engineering hours at this repository's working standard — implementation, the
 test its acceptance names, and the documentation it changes.
@@ -92,7 +92,7 @@ test its acceptance names, and the documentation it changes.
 | `CORE-08` | Answer the four questions the plan left silent | ✅ | 2 | `STUDIO-00015`, `STUDIO-01014`, `STUDIO-01015`, `STUDIO-01016` |
 | `CORE-09` | Documentation to use and maintain the product | ✅ | 5 | `STUDIO-33001`, `STUDIO-33002`, `STUDIO-33003`, `STUDIO-29006` |
 | `CORE-10` | A regression baseline for the Core workflow | ✅ | 5 | `STUDIO-33020`, `STUDIO-21009`, `STUDIO-35010` |
-| `CORE-11` | Declare Core complete and enter maintenance mode | ⬜ | 2 | `STUDIO-34001` |
+| `CORE-11` | Declare Core complete and enter maintenance mode | ✅ | 2 | `STUDIO-34001` |
 
 **35 hours estimated.** Budget: a **40-hour target** and a **60-hour hard ceiling**. The ceiling is
 part of the product definition, not a forecast: if a deliverable below turns out to need
@@ -412,7 +412,7 @@ an assertion rather than a state.
 
 | Acceptance | Evidence |
 |------------|----------|
-| One CTest case walks the whole Core workflow against a real CNA build | `CnaStudioCoreWorkflow`, from `tests/CoreWorkflowE2E.cpp`: create from a template, open, import an asset, edit through the history, save, reopen in a context that has never seen it, target a renderer, plan and run a real CMake build, start the real player, wait for its hello, stop it and see Studio notice, autosave and recover unsaved work, and find the file an IDE would be handed. **444 s, all eleven steps.** Its own executable, labelled `slow`, holding the template builds' resource lock |
+| One CTest case walks the whole Core workflow against a real CNA build | `CnaStudioCoreWorkflow`, from `tests/CoreWorkflowE2E.cpp`: create from a template, open, import an asset, edit through the history, save, reopen in a context that has never seen it, target a renderer, plan and run a real CMake build, start the real player, wait for its hello, stop it and see Studio notice, autosave and recover unsaved work, and find the file an IDE would be handed. **628 s, all eleven steps**, compiling with `CNA_STUDIO_CORE_WORKFLOW_JOBS` (2 by default, deliberately conservative: a build killed for memory reports as a failure with no diagnostic in it). Its own executable, labelled `slow`, holding the template builds' resource lock |
 | Every Core subsystem has a headless seam | `EveryCoreSubsystemIsBuiltAndTestedWithoutCna` — the ten `STUDIO-33020` names, each checked to be declared *outside* the CNA gate, and the two that genuinely need CNA checked to be still inside it |
 | Sprite animation, material and lighting covered against regression | Already true, and recorded rather than duplicated: `AClipTurnsAFrameIndexIntoASourceRectangle` and `TheSheetsFrameIsSampledFromTheSheetsTexture` (the clip); `PlayingAdvancesTheFrameAndTheViewportIsToldWhichOne` and `SteppingMovesOneFrameAndStopsPlayback` (play, pause, step); `AnAnimatedSpriteIsSizedByItsFrameNotItsSheet` (the viewport drawing the same frame); `PreviewingPutsNothingIntoTheDocument` (playback outside the document). Materials: `StudioMaterialEditorTests.cpp`. Lighting: seventeen cases in `SceneTests.cpp` |
 | No unfinished debug text in the Core workflow | `NothingAUserReadsIsAPlaceholderForWorkNotDone` — every command label and description and every menu row, checked against the shipped registry rather than against the source. It also fails on an empty menu, which is a placeholder with no text in it: `Project` was one, and is gone |
@@ -430,6 +430,41 @@ reads in the log as a build failure with no diagnostic in it.
 below is ticked with evidence against each line; this file records the transition and the date; and
 `HANDOFF.md` says that feature development has stopped and what maintenance now means.
 
+**Done.** Version **1.0.0**, set in `CMakeLists.txt` and reported by `cna-studio --version` and by
+Help > About. The release-notes convention and the 1.0.0 entry are [`CHANGELOG.md`](CHANGELOG.md).
+The checklist below carries its evidence. The transition is recorded immediately under this
+paragraph, and `HANDOFF.md` opens with it.
+
+---
+
+## CNA Studio Core is complete
+
+> **On 2026-09-23, with all eleven `CORE-*` deliverables done and the Definition of done below
+> ticked against evidence, CNA Studio's Core workflow was declared complete and the product
+> entered maintenance mode.**
+>
+> Version **1.0.0**. Planned feature development has stopped. What maintenance is, and the only
+> way something becomes active work again, are the two sections at the end of this file — and
+> neither of them is *it is listed somewhere*.
+
+**What it cost.** The eleven deliverables were estimated at 35 Opus 5 engineering hours against a
+40-hour target and a 60-hour ceiling, and came in inside the target. `CORE-06`, the one row with a
+hard cap and the one the plan called the highest risk, did not need the cap: the frame already ran
+input and drawing as two passes and already deferred popup bodies, so the facility was small.
+
+**What the walk changed.** Four of the eleven rows turned out to be partly or wholly stale, and
+each was checked before it was built rather than after:
+
+| Deliverable | What the plan said | What was true |
+|-------------|--------------------|---------------|
+| the `CORE-03` row | "Nothing marks the selected entity in the viewport" | The outline existed in both viewports. What was missing was everything a *multi-selection* needs |
+| the `CORE-04` row | The label column is a fixed 38% | True — and *two* of its four acceptance lines, nesting and the reset affordance, were already done |
+| the `CORE-05` row | "Neither panel can be searched" | Both could. What had never been checked is the half the row is actually about: that they filter within the frame budget. They did not |
+| the `CORE-07` row | Resize handling | The arrangement half was done and tested; the stretched frame was recorded and left |
+
+Reading before building is what kept the budget. Three of those four would have been rebuilt from
+the row.
+
 ---
 
 ## Definition of done
@@ -437,22 +472,27 @@ below is ticked with evidence against each line; this file records the transitio
 **CNA Studio Core is complete when, on a supported Linux host with a CNA checkout, a developer
 can:**
 
-| # | Requirement | Evidence |
-|---|-------------|----------|
-| 1 | Create a project from each shipped template, and reopen it | The per-template CTest case that creates, reopens, configures, compiles and runs it |
-| 2 | Import and browse assets, and find one by name or type | Asset database tests; the Content Browser filter tests of `CORE-05` |
-| 3 | Create, open, edit and save a scene, and undo every mutation | Scene document and undo-stability tests |
-| 4 | Select and transform objects, and see what is selected | Gizmo tests; the golden-image coverage of `CORE-03` |
-| 5 | Edit the object, material and light properties Studio models | Inspector, material and lighting tests; the grid coverage of `CORE-04` |
-| 6 | Save without losing work, including across a crash | Atomic-write, autosave, recovery and partial-file tests |
-| 7 | Play the application and stop it | The Play-mode tests that drive a real player process |
-| 8 | Configure and run a clean or incremental CMake build | `CORE-01`'s tests |
-| 9 | Read a compiler error, and open the file at the line | `CORE-01`'s tests |
-| 10 | Recover after a crash or an interrupted session | Recovery-store tests |
-| 11 | Open the project in an external IDE and keep working there | `CORE-02`'s tests |
-| 12 | Trust that the above keeps working | `CORE-10`'s end-to-end case, green in CI on the dependency-free, CNA-backed and sanitizer legs |
+| # | Requirement | Evidence | Met |
+|---|-------------|----------|:---:|
+| 1 | Create a project from each shipped template, and reopen it | `CnaStudioTemplateBuilds_<template>` — one CTest case per `templates/*/template.json`, each creating the project, configuring it, compiling it and running it against a real CNA; `EveryShippedTemplateProducesAProjectStudioCanOpenAgain` reopens each one | ✅ |
+| 2 | Import and browse assets, and find one by name or type | `AssetDatabaseAssignsStableIdsAndWritesSidecars`; `ASearchIsCaseInsensitiveAndReadsNameTypeAndPath`, `ASearchLooksAtTheWholeProjectRatherThanTheFolderYouAreIn`, `AKindFilterHidesFilesAndNeverHidesFolders`, `ASearchKeepsTheMatchesAndThePathToThem`, and the `CORE-05` budget cases `SearchingAHundredThousandAssetsStillDescribesAScreenful` and `SearchingTwentyThousandEntitiesStillDescribesAScreenful` | ✅ |
+| 3 | Create, open, edit and save a scene, and undo every mutation | `SceneTests.cpp` (143 cases) for the document; `EveryEditingPathUndoesToTheDocumentItStartedFrom`, `ACompositeUndoesAsOneAndInReverse` and `EveryProjectEditUndoesToTheProjectItStartedFrom` walk *every* registered command rather than a sample | ✅ |
+| 4 | Select and transform objects, and see what is selected | `GizmoDragConstrainsToTheGrabbedAxis`, `GizmoDragDoesNotDriftOverManyUpdates`, `GizmoDragHonoursARotatedParent` and the rest of `ViewportTests.cpp`; `CORE-03`'s `StudioSelectionOverlayTests.cpp` and the golden images `CnaStudioVisualScenarioSelected` / `CnaStudioVisualScenarioUnselected`, held apart by `CnaStudioSelectionChangesWhatIsOnScreen` | ✅ |
+| 5 | Edit the object, material and light properties Studio models | `StudioDetailsPanelTests.cpp`, `StudioMaterialEditorTests.cpp`, `StudioSceneSettingsTests.cpp`; `CORE-04`'s `TheLabelColumnIsSizedFromItsLabelsRatherThanFromAFractionOfThePanel`, `EveryValueInTheGridStartsAtTheSameX`, `TheColumnStaysWithinItsBoundsOnAPanelTooNarrowAndOneTooWide`, `ANestedPropertyIndentsSoTheNestingReads`, plus `CnaStudioVisualScenarioDetailsNarrow` / `DetailsWide` | ✅ |
+| 6 | Save without losing work, including across a crash | `AFailedWriteLeavesThePreviousDocumentIntact`, `TwoWritesInOneMomentDoNotShareATemporary`; `TheNativeShellWritesSnapshotsWhileTheSceneIsUnsaved`, `WorkFromAPreviousSessionIsOfferedRatherThanFound`; `EveryAuthoredDocumentRefusesAPartialFile` and `AnInterruptedSaveLeavesAFileTheScanSkipsAndReports` | ✅ |
+| 7 | Play the application and stop it | `StudioPlayModeTests.cpp` and `PlayerTests.cpp` drive a real `cna-player` process over the bridge: `TheChosenPlayerIsTheOneTheProjectShipsOnWhenItWasBuilt`, `APlayerThatEndsOnItsOwnReleasesTheToolbar`, `APlayerThatCannotBeLaunchedIsReportedRatherThanLeavingTheToolbarStuck` | ✅ |
+| 8 | Configure and run a clean or incremental CMake build | `CORE-01`: `CleanAndIncrementalAreSeparateGesturesAndEachDoesWhatItsNameSays`, `TheBuildItWouldRunIsTheOneTheProjectsActiveProfileDescribes`, `TurningAnOptionalSubsystemOnIsRecordedOnTheProfile`, `TheCppAdapterPlansExactlyTheBuildTheToolchainFunctionsDo`; end to end in `CnaStudioCoreWorkflow` steps 7c–7e | ✅ |
+| 9 | Read a compiler error, and open the file at the line | `CORE-01`: `BuildDiagnosticTests.cpp` (7 cases: GCC, MSVC, CMake configure, notes, Windows paths, malformed lines), `ACompilerErrorBecomesARowThatOpensTheFileAtTheLine`, `TheWholeUnparsedLogIsReachableWhateverTheParserMadeOfIt` | ✅ |
+| 10 | Recover after a crash or an interrupted session | `StudioRecoveryTests.cpp` (13 cases), from `AnAutosaveIntervalOfZeroWritesNothing` through `RecoveringTakesTheOfferAwayAndLeavesTheWorkUnsaved` and `DiscardingRemovesTheSnapshotAndTheOffer` | ✅ |
+| 11 | Open the project in an external IDE and keep working there | `CORE-02`: `StudioExternalEditorTests.cpp` (13 cases), including `EachKnownEditorIsToldAboutTheLineInItsOwnSyntax`, `ARelativeSourceFileResolvesThroughTheLanguagesSourceDirectory` and `AnEditorThatCannotBeLaunchedIsRefusedBeforeAnythingIsStarted` | ✅ |
+| 12 | Trust that the above keeps working | `CORE-10`'s `CnaStudioCoreWorkflow` walks template → project → import → edit → save → reopen → build → run in one CTest case against a real CNA; the dependency-free leg (69 CTest cases, 1831 assertions), the Release `-Werror` leg and the ASan/UBSan leg all run the same binary | ✅ |
 
-**And the product is documented** (`CORE-09`) **and versioned** (`CORE-11`).
+**And the product is documented** (`CORE-09`) — [`docs/GETTING-STARTED.md`](docs/GETTING-STARTED.md),
+[`docs/USER-GUIDE.md`](docs/USER-GUIDE.md), [`docs/RENDERERS-AND-PLATFORMS.md`](docs/RENDERERS-AND-PLATFORMS.md)
+and the revised `README.md`, each claim of which was checked against the code or a test rather than
+written from the plan — **and versioned** (`CORE-11`): `VERSION 1.0.0` in `CMakeLists.txt`, reported by
+`cna-studio --version` and by Help > About, with [`CHANGELOG.md`](CHANGELOG.md) carrying the convention
+and the 1.0.0 entry. ✅
 
 That is the whole definition. "Production ready", "professional", "polished" and "complete parity"
 are not completion criteria here and never become them.

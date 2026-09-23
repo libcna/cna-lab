@@ -1,8 +1,12 @@
 cmake_minimum_required(VERSION 3.20)
 
+# 1.0.0 on the day the Core workflow was declared complete and the product entered maintenance
+# mode (`plan.md` CORE-11, 2026-09-23). What the number means here is written down in
+# CHANGELOG.md and is narrower than it usually is: the eleven steps `plan.md` names are built,
+# tested and documented. It is not a claim about parity with any other tool.
 project(CnaStudio
-    VERSION 0.1.0
-    DESCRIPTION "Studio, asset pipeline and tooling for the CNA framework"
+    VERSION 1.0.0
+    DESCRIPTION "A lightweight visual development companion for CNA applications"
     LANGUAGES CXX)
 
 # C++23 and the "no compiler extensions" stance both match CNA's own root CMakeLists.txt, so that

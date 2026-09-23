@@ -553,7 +553,7 @@ namespace CNA::Studio
                 // shell that carried its own copy of the renderer name would be a second place it
                 // could be wrong, and About is exactly the dialog people quote in bug reports.
                 shell_->setAboutLines({std::string{"CNA Studio "} + CNA_STUDIO_VERSION,
-                                       "An editor for CNA games.",
+                                       "A visual development companion for CNA applications.",
                                        "UI: Studio native.",
                                        "Renderer: " + shell_->status().renderer});
 

@@ -1242,7 +1242,7 @@ namespace
 
         // What this build actually is, rather than what the UI core can say for itself.
         shell.setAboutLines({std::string{"CNA Studio "} + CNA_STUDIO_VERSION,
-                             "An editor for CNA games.",
+                             "A visual development companion for CNA applications.",
                              "UI: Studio native, headless preview.",
                              "Renderer: " + shell.status().renderer});
 
