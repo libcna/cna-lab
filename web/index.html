@@ -1,0 +1,859 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CNA Studio</title>
+<meta name="description" content="A lightweight visual development companion for CNA — what it is, what it deliberately is not, and how to use it.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* ---------------------------------------------------------------------------
+   Tokens. The accent is Studio's own selection outline -- ViewportSelectionOutline
+   from src/ui-core/StudioTheme.cpp, rgb(255,156,48) dark and rgb(214,116,16) light.
+   The neutrals are biased the same blue-grey as its panel chrome.
+   --------------------------------------------------------------------------- */
+:root{
+  color-scheme: light;
+  --ground:#eceef1;
+  --surface:#ffffff;
+  --surface-2:#f5f6f8;
+  --ink:#15171b;
+  --ink-2:#3c424b;
+  --ink-3:#6a717c;
+  --line:#d7dbe1;
+  --line-strong:#b9c0c9;
+  --accent:#b35c06;
+  --accent-strong:#8c4704;
+  --accent-wash:#fbf0e2;
+  --shadow: 0 1px 2px rgba(20,24,30,.06), 0 8px 24px -12px rgba(20,24,30,.22);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme: dark;
+    --ground:#15171b;
+    --surface:#1c1f24;
+    --surface-2:#23272d;
+    --ink:#e7e9ed;
+    --ink-2:#b7bec7;
+    --ink-3:#858c97;
+    --line:#2d3239;
+    --line-strong:#3c424b;
+    --accent:#ff9c30;
+    --accent-strong:#ffb968;
+    --accent-wash:#2a2017;
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px -12px rgba(0,0,0,.7);
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme: dark;
+  --ground:#15171b;
+  --surface:#1c1f24;
+  --surface-2:#23272d;
+  --ink:#e7e9ed;
+  --ink-2:#b7bec7;
+  --ink-3:#858c97;
+  --line:#2d3239;
+  --line-strong:#3c424b;
+  --accent:#ff9c30;
+  --accent-strong:#ffb968;
+  --accent-wash:#2a2017;
+  --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px -12px rgba(0,0,0,.7);
+}
+
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0;
+  background:var(--ground);
+  color:var(--ink);
+  font-family:"IBM Plex Sans","Segoe UI",system-ui,-apple-system,sans-serif;
+  font-size:16px;
+  line-height:1.7;
+  padding-inline:20px;
+}
+img{max-width:100%;display:block}
+
+h1,h2,h3,h4{
+  font-family:"IBM Plex Sans Condensed","IBM Plex Sans",system-ui,sans-serif;
+  font-weight:700;
+  line-height:1.15;
+  text-wrap:balance;
+  margin:0;
+  letter-spacing:-.005em;
+}
+p{margin:0}
+a{color:var(--accent);text-decoration-thickness:1px;text-underline-offset:.2em}
+a:hover{color:var(--accent-strong)}
+a:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:2px}
+code,kbd,pre{font-family:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace}
+code{font-size:.875em;background:var(--surface-2);border:1px solid var(--line);border-radius:3px;padding:.1em .35em}
+pre code{background:none;border:0;padding:0;font-size:inherit}
+
+.wrap{max-width:940px;margin-inline:auto}
+.prose{max-width:68ch}
+.stack{display:flex;flex-direction:column;gap:1rem}
+.stack-lg{display:flex;flex-direction:column;gap:1.5rem}
+
+/* --- top bar ------------------------------------------------------------- */
+.bar{
+  position:sticky;top:env(safe-area-inset-top,0px);z-index:20;
+  margin-inline:-20px;padding-inline:20px;
+  background:color-mix(in srgb, var(--ground) 88%, transparent);
+  backdrop-filter:blur(10px);
+  border-bottom:1px solid var(--line);
+}
+.bar-in{
+  max-width:940px;margin-inline:auto;
+  display:flex;align-items:center;gap:1rem;flex-wrap:wrap;
+  padding-block:.7rem;
+}
+.mark{
+  font-family:"IBM Plex Sans Condensed",sans-serif;font-weight:700;
+  font-size:1rem;letter-spacing:.01em;color:var(--ink);text-decoration:none;
+  display:flex;align-items:center;gap:.5rem;margin-right:auto;
+}
+/* The selection bracket: Studio marks what you have selected with a thin
+   amber outline and a cross at the pivot. Same idea, shrunk to a glyph. */
+.mark-glyph{width:14px;height:14px;flex:none;color:var(--accent)}
+.bar nav{display:flex;gap:1.1rem;flex-wrap:wrap;font-size:.8125rem}
+.bar nav a{color:var(--ink-2);text-decoration:none}
+.bar nav a:hover{color:var(--accent)}
+
+/* --- hero ---------------------------------------------------------------- */
+.hero{padding-block:4rem 2.5rem}
+.eyebrow{
+  font-family:"IBM Plex Mono",monospace;font-size:.75rem;font-weight:500;
+  letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3);
+  display:flex;align-items:center;gap:.6rem;
+}
+.eyebrow::after{content:"";height:1px;flex:1;background:var(--line);max-width:5rem}
+h1{font-size:clamp(2.4rem,1.5rem + 3.6vw,3.9rem);margin-block:.6rem .9rem}
+.lede{font-size:clamp(1.0625rem,1rem + .4vw,1.25rem);color:var(--ink-2);max-width:60ch}
+.facts{display:flex;flex-wrap:wrap;gap:.5rem;margin-top:1.6rem}
+.fact{
+  font-family:"IBM Plex Mono",monospace;font-size:.75rem;
+  border:1px solid var(--line-strong);border-radius:999px;
+  padding:.28rem .7rem;color:var(--ink-2);background:var(--surface);
+}
+.fact b{color:var(--accent);font-weight:500}
+
+/* --- sections ------------------------------------------------------------ */
+section{padding-block:3rem;border-top:1px solid var(--line)}
+section > .wrap > .stack-lg > h2, h2{font-size:clamp(1.55rem,1.25rem + 1.2vw,2.15rem)}
+h3{font-size:1.15rem;margin-top:.4rem}
+h4{font-size:.95rem;letter-spacing:.01em}
+
+/* --- figures ------------------------------------------------------------- */
+figure{margin:0;display:flex;flex-direction:column;gap:.6rem}
+figure img{
+  border:1px solid var(--line-strong);border-radius:6px;box-shadow:var(--shadow);
+  background:var(--surface);
+}
+figcaption{font-size:.875rem;color:var(--ink-3);max-width:68ch}
+.shots{display:flex;flex-direction:column;gap:2.5rem}
+.shots-pair{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:2rem}
+
+/* --- the eleven steps ---------------------------------------------------- */
+/* Numbered because the Core workflow genuinely is a sequence: a project exists
+   before it has assets, and a build fails before you read the failure. */
+.steps{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.step{
+  display:grid;grid-template-columns:3.25rem 1fr;gap:0 1.1rem;
+  padding-block:1.4rem;border-top:1px solid var(--line);
+}
+.step:first-child{border-top:0;padding-top:.4rem}
+.step-n{
+  font-family:"IBM Plex Mono",monospace;font-size:.8125rem;font-variant-numeric:tabular-nums;
+  color:var(--accent);padding-top:.28rem;
+}
+.step h3{margin:0 0 .35rem}
+.step .body{display:flex;flex-direction:column;gap:.7rem;max-width:64ch}
+.step p{color:var(--ink-2)}
+
+/* --- absence list -------------------------------------------------------- */
+/* Not cards: these are decisions, and a grid of tiles would read as a roadmap. */
+.absent{display:flex;flex-direction:column;gap:.9rem;max-width:68ch}
+.absent li{
+  list-style:none;padding-left:1.6rem;position:relative;color:var(--ink-2);
+}
+.absent li::before{
+  content:"";position:absolute;left:0;top:.72em;width:.8rem;height:1px;background:var(--line-strong);
+}
+.absent b{color:var(--ink);font-weight:600}
+
+/* --- code ---------------------------------------------------------------- */
+pre{
+  margin:0;background:var(--surface-2);border:1px solid var(--line);
+  border-radius:6px;padding:1rem 1.1rem;overflow-x:auto;
+  font-size:.8125rem;line-height:1.65;color:var(--ink);
+}
+pre .c{color:var(--ink-3)}
+pre .o{color:var(--accent)}
+
+/* --- tables -------------------------------------------------------------- */
+.tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:6px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:.875rem;min-width:30rem}
+th,td{text-align:left;padding:.6rem .85rem;border-bottom:1px solid var(--line);vertical-align:top}
+thead th{
+  font-family:"IBM Plex Sans Condensed",sans-serif;font-size:.8125rem;font-weight:600;
+  letter-spacing:.03em;text-transform:uppercase;color:var(--ink-3);
+  background:var(--surface-2);white-space:nowrap;
+}
+tbody tr:last-child td{border-bottom:0}
+td code{white-space:nowrap}
+kbd{
+  font-size:.75rem;border:1px solid var(--line-strong);border-bottom-width:2px;
+  border-radius:4px;padding:.1rem .4rem;background:var(--surface-2);white-space:nowrap;
+}
+
+/* --- callout ------------------------------------------------------------- */
+.note{
+  border-left:2px solid var(--accent);background:var(--accent-wash);
+  padding:.9rem 1.1rem;border-radius:0 4px 4px 0;font-size:.9375rem;color:var(--ink-2);
+  max-width:68ch;
+}
+.note b{color:var(--ink)}
+
+/* --- two-column prose ---------------------------------------------------- */
+.split{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:2rem}
+.split h3{margin-bottom:.5rem}
+.split p{color:var(--ink-2)}
+
+/* --- footer -------------------------------------------------------------- */
+footer{
+  border-top:1px solid var(--line);padding-block:2.5rem 3.5rem;
+  color:var(--ink-3);font-size:.875rem;
+}
+footer .wrap{display:flex;flex-wrap:wrap;gap:1rem 2rem;align-items:baseline}
+footer p{max-width:60ch}
+
+@media (max-width:560px){
+  .hero{padding-block:2.5rem 1.5rem}
+  section{padding-block:2.25rem}
+  .step{grid-template-columns:2.5rem 1fr;gap:0 .75rem}
+}
+@media (prefers-reduced-motion:reduce){
+  *{animation:none!important;transition:none!important;scroll-behavior:auto!important}
+}
+html{scroll-behavior:smooth;scroll-padding-top:4.5rem}
+</style>
+</head>
+<body>
+
+<header class="bar">
+  <div class="bar-in">
+    <a class="mark" href="#top">
+      <svg class="mark-glyph" viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.4">
+        <path d="M1 4.5V1h3.5M11.5 1H15v3.5M15 11.5V15h-3.5M4.5 15H1v-3.5"/>
+        <path d="M8 6.2v3.6M6.2 8h3.6" stroke-width="1.2"/>
+      </svg>
+      CNA Studio
+    </a>
+    <nav aria-label="Sections">
+      <a href="#what">What it is</a>
+      <a href="#look">Screenshots</a>
+      <a href="#start">Get started</a>
+      <a href="#workflow">The eleven steps</a>
+      <a href="#absent">What it doesn't do</a>
+      <a href="#reference">Reference</a>
+    </nav>
+  </div>
+</header>
+
+<main id="top" class="wrap">
+
+  <div class="hero">
+    <p class="eyebrow">Version 1.0.0 &middot; Maintenance mode</p>
+    <h1>The visual half of a CNA project. The C++ stays yours.</h1>
+    <p class="lede">
+      CNA Studio is a lightweight visual development companion for
+      <a href="https://github.com/libcna/cna">CNA</a>, the C++ reimplementation of the XNA&nbsp;4.0
+      framework. It creates projects, manages assets, edits scenes, drives your build, reads your
+      compiler errors and runs your game &mdash; then hands you back to CLion or whatever you write
+      C++ in.
+    </p>
+    <div class="facts">
+      <span class="fact">C++<b>23</b></span>
+      <span class="fact">CMake <b>&ge;&nbsp;3.20</b></span>
+      <span class="fact"><b>1832</b> assertions</span>
+      <span class="fact"><b>69</b> CTest cases</span>
+      <span class="fact">zero <b>dependencies</b> by default</span>
+    </div>
+  </div>
+
+  <!-- ==================================================================== -->
+  <section id="what">
+    <div class="stack-lg">
+      <h2>What it is, and what it is not</h2>
+      <div class="split">
+        <div>
+          <h3>A companion, not an engine editor</h3>
+          <p>
+            Studio does the work that is genuinely easier with a mouse: placing objects, wiring up
+            assets, tuning material and light properties, seeing what you have selected. Eleven
+            steps, each one reliable, documented and covered by a test.
+          </p>
+        </div>
+        <div>
+          <h3>Never a runtime dependency</h3>
+          <p>
+            A project authored here is an ordinary CNA project &mdash; a directory with a
+            <code>CMakeLists.txt</code>, some C++ and some assets. It builds and runs with Studio
+            uninstalled, and CI proves that for every shipped template on every change.
+          </p>
+        </div>
+      </div>
+      <div class="note">
+        <b>The scope is bounded on purpose.</b> Studio is not Unity, Unreal or Godot, and is not
+        trying to become them. It is not an IDE: there is no code editor, no completion and no
+        debugger. The reasoning is written down in
+        <code>docs/ADR-001-SCOPE-REDUCTION.md</code>, and the list of things it deliberately does
+        not do is <a href="#absent">further down this page</a>.
+      </div>
+      <p class="prose">
+        As of 23&nbsp;September&nbsp;2026 all eleven Core deliverables are done and the product is in
+        <b>maintenance mode</b>: bug fixes, compatibility fixes, adaptation to CNA API changes,
+        security and correctness work, and small usability fixes inside the workflow. Planned feature
+        development has stopped.
+      </p>
+    </div>
+  </section>
+
+  <!-- ==================================================================== -->
+  <section id="look">
+    <div class="stack-lg">
+      <h2>What it looks like</h2>
+      <p class="prose">
+        Captures of the shipped binary, not mock-ups. The three wide ones are real frames from a
+        running Studio window rendered by CNA on the OPENGL4 backend; the two panel close-ups are
+        shell previews, which is how a page taller than its dock gets photographed whole.
+      </p>
+
+      <div class="shots">
+        <figure>
+          <img src="images/studio-shell.png" width="1600" height="900"
+               alt="The CNA Studio shell with a project open: outliner on the left, viewport in the middle, Details panel on the right, Content Browser along the bottom.">
+          <figcaption>
+            The shell with the <code>HelloSprites</code> example open and <code>Player</code>
+            selected. World Outliner and its search on the left, the 2D viewport with the project's
+            sprites, the selection outline and translate gizmo in the middle, the Details grid on the
+            right, and the status bar naming the build target and the renderer under it.
+          </figcaption>
+        </figure>
+
+        <figure>
+          <img src="images/studio-3d-selection.png" width="1600" height="900"
+               alt="The 3D viewport with a crate model selected, showing its selection box and the pivot cross.">
+          <figcaption>
+            The 3D viewport with <code>Crate</code> selected: the imported <code>Crate.gltf</code>
+            inside its selection box, the cross marking the point a rotation will turn about, the
+            sprites edge-on and the key light's range drawn as an arc. A multi-selection gets one box
+            round the whole of it and one pivot between them.
+          </figcaption>
+        </figure>
+
+        <figure>
+          <img src="images/studio-light-theme.png" width="1600" height="900"
+               alt="The same shell in the light theme, with a light viewport.">
+          <figcaption>
+            The light theme, chosen under <b>Preferences&nbsp;&rsaquo;&nbsp;Appearance&nbsp;&rsaquo;&nbsp;Theme</b>.
+            It applies as you pick it rather than on an OK button, and it is a <em>user</em>
+            preference &mdash; it travels with the person, not with the project, so choosing it does
+            not make a teammate's Studio light.
+          </figcaption>
+        </figure>
+
+        <div class="shots-pair">
+          <figure>
+            <img src="images/studio-details-grid.png" width="820" height="430"
+                 alt="The Details panel showing a Transform and a Sprite Renderer component as a property grid.">
+            <figcaption>
+              The Details panel. The label column is sized from its labels rather than from a
+              fraction of the panel, so every value in the grid starts at the same x.
+            </figcaption>
+          </figure>
+          <figure>
+            <img src="images/studio-build-panel.png" width="1500" height="510"
+                 alt="The Build panel showing target axes, optional subsystems, and the exact cmake commands it would run.">
+            <figcaption>
+              The Build panel. The renderer and platform axes, the optional CNA subsystems, and the
+              exact <code>cmake</code> commands &mdash; shown before anything runs and copyable in
+              full.
+            </figcaption>
+          </figure>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================================================================== -->
+  <section id="start">
+    <div class="stack-lg">
+      <h2>From a clone to a running game</h2>
+
+      <div class="stack">
+        <h3>1 &nbsp;Build Studio</h3>
+        <p class="prose">
+          You do not need a GPU, a display, or any of CNA's sibling checkouts to build and run
+          Studio itself. The default build has no external dependencies at all.
+        </p>
+<pre><code>git clone https://github.com/libcna/cna-studio
+cd cna-studio
+cmake -S . -B build -G Ninja
+cmake --build build -j4
+
+./build/cna-studio --version
+./build/cna-studio --list-templates</code></pre>
+        <p class="prose">
+          If <code>--list-templates</code> prints four templates, you have a working Studio.
+        </p>
+      </div>
+
+      <div class="stack">
+        <h3>2 &nbsp;Create a project</h3>
+        <p class="prose">
+          From the Project Hub, or &mdash; which is the same code &mdash; from the command line:
+        </p>
+<pre><code>./build/cna-studio --new-project=/tmp/MyGame \
+                   --template=basic-sample \
+                   --project-name="My Game"</code></pre>
+<pre><code>/tmp/MyGame/
+├── My Game.cnaproject   <span class="c">the project file Studio opens</span>
+├── CMakeLists.txt       <span class="c">yours; Studio drives it and never rewrites it</span>
+├── Source/Main.cpp      <span class="c">your game's entry point</span>
+├── Assets/              <span class="c">what the importers watch</span>
+├── Scenes/              <span class="c">what the editor edits</span>
+└── Runtime/             <span class="c">the scene loader the template brought with it</span></code></pre>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Template</th><th>Starts you with</th></tr></thead>
+            <tbody>
+              <tr><td><code>basic-sample</code></td><td>A scene with something in it. The one to pick first</td></tr>
+              <tr><td><code>empty-2d</code></td><td>A 2D project with an empty scene</td></tr>
+              <tr><td><code>empty-3d</code></td><td>A 3D project with an empty scene</td></tr>
+              <tr><td><code>xna-compatible</code></td><td>A hand-written <code>Initialize</code>/<code>LoadContent</code>/<code>Update</code>/<code>Draw</code> game, with no scene model at all</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="prose">
+          The four differ in what they start you with, not in what they let you do.
+        </p>
+      </div>
+
+      <div class="stack">
+        <h3>3 &nbsp;Open it</h3>
+<pre><code>./build/cna-studio --project="/tmp/MyGame/My Game.cnaproject"
+
+<span class="c"># or headless, which is what a test does and what you can do over SSH</span>
+./build/cna-studio --project="/tmp/MyGame/My Game.cnaproject" --headless --frames=2</code></pre>
+        <div class="note">
+          <b>The default build has no viewport.</b> The CNA-backed viewport is opt-in because it
+          needs a CNA checkout beside this one &mdash; see
+          <a href="#viewport">Building with the CNA viewport</a>. Everything else works without it,
+          including creating a project and building the game.
+        </div>
+      </div>
+
+      <div class="stack">
+        <h3>4 &nbsp;Prove it does not need Studio</h3>
+        <p class="prose">
+          The step that matters most, and the one worth doing once on your own machine so that you
+          believe it:
+        </p>
+<pre><code>cmake -S /tmp/MyGame -B /tmp/MyGame/build \
+      -DCNA_ROOT=/path/to/cna -DCNA_GRAPHICS_RENDERER=SOFTWARE
+cmake --build /tmp/MyGame/build -j4
+cd /tmp/MyGame/build &amp;&amp; SDL_VIDEODRIVER=dummy ./My_Game --frames=10
+
+<span class="c">My_Game: loaded 5 entities, drew 2 sprites</span></code></pre>
+        <p class="prose">
+          No Studio anywhere in that. CI does exactly this for every template on every change
+          (<code>ctest -R CnaStudioTemplateBuilds</code>), because the one failure mode this rule has
+          is the one that looks fine until somebody tries it.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================================================================== -->
+  <section id="workflow">
+    <div class="stack-lg">
+      <h2>The eleven steps</h2>
+      <p class="prose">
+        This is the whole product. The list is a sequence rather than a menu: a project exists before
+        it has assets, and a build fails before you read the failure.
+      </p>
+
+      <ol class="steps">
+        <li class="step">
+          <span class="step-n">01</span>
+          <div class="body">
+            <h3>Create or open a project</h3>
+            <p>
+              The <b>Project Hub</b> gives you New, Open and a recent list that greys out what has
+              moved rather than failing when you click it. A project declares its <em>kind</em>, and
+              the kind decides what Studio offers: <code>CnaNative</code> gets scenes, entities,
+              components, the Inspector, gizmos, prefabs, play mode and both viewports;
+              <code>XnaCompatible</code> gets assets, importer settings, previews, renderer
+              configuration and Play, and your game keeps its own
+              <code>Initialize</code>/<code>LoadContent</code>/<code>Update</code>/<code>Draw</code>.
+            </p>
+            <p>
+              There is no native file dialog. The path field and the recent list open any project.
+            </p>
+          </div>
+        </li>
+
+        <li class="step">
+          <span class="step-n">02</span>
+          <div class="body">
+            <h3>Browse, import and manage assets</h3>
+            <p>
+              Put a file in <code>Assets/</code>. There is no import button to find: the <b>Content
+              Browser</b> watches the directory, and an asset gets a UUID that survives being renamed
+              and moved.
+            </p>
+            <p>
+              A text search covers the name, the kind and the path, and <em>leaves the current folder
+              behind</em> &mdash; it looks at the whole project, because searching within one folder
+              is how people conclude an asset is gone when it is one folder over. The type filter
+              narrows what you are browsing, which is the opposite scope on purpose. Both scale: a
+              hundred thousand assets, searched or browsed, cost a screenful.
+            </p>
+          </div>
+        </li>
+
+        <li class="step">
+          <span class="step-n">03</span>
+          <div class="body">
+            <h3>Create, open and edit scenes</h3>
+            <p>
+              Scenes and prefabs are documents, and <b>every mutation goes through the undo
+              history</b> &mdash; there is no path that edits the document directly, and that is
+              enforced by a test rather than by a rule.
+            </p>
+            <p>
+              Tilemaps, layers and tags are here. So is format migration: a scene written by an older
+              Studio is upgraded on load, and one written by a <em>newer</em> Studio is refused with a
+              message rather than half-read.
+            </p>
+          </div>
+        </li>
+
+        <li class="step">
+          <span class="step-n">04</span>
+          <div class="body">
+            <h3>The viewport, selection and gizmos</h3>
+            <p>
+              A 2D viewport and a 3D viewport, with camera navigation, translate/rotate/scale gizmos
+              and band selection. Navigation follows Studio's own scheme, or Maya's, or Blender's
+              &mdash; whichever your hands already know.
+            </p>
+            <p>
+              What is selected is outlined in both. A multi-selection also gets a box round the whole
+              of it, and a cross marks the point a rotation will turn about, which is the thing you
+              need to know before you press <kbd>R</kbd>.
+            </p>
+          </div>
+        </li>
+
+        <li class="step">
+          <span class="step-n">05</span>
+          <div class="body">
+            <h3>Edit properties</h3>
+            <p>
+              The <b>Details</b> panel, driven by a descriptor model rather than by a switch on type:
+              object properties, materials, lights and the scene's environment.
+            </p>
+            <p>
+              The label column is sized from the labels actually on screen, so a property called
+              <code>x</code> sits next to its value instead of a screen away from it. A property that
+              differs from its default is marked and can be reset &mdash; through the history, like
+              everything else.
+            </p>
+          </div>
+        </li>
+
+        <li class="step">
+          <span class="step-n">06</span>
+          <div class="body">
+            <h3>Save</h3>
+            <p>
+              Atomic writes: the file goes to a temporary and is renamed over the old one, so an
+              interrupted save leaves the previous version intact rather than half of both. Dirty
+              tracking, autosave, and recovery of a partially written file.
+            </p>
+          </div>
+        </li>
+
+        <li class="step">
+          <span class="step-n">07</span>
+          <div class="body">
+            <h3>Play</h3>
+            <p>
+              <b>Play</b>, <b>Pause</b>, <b>Step</b>, <b>Stop</b> and <b>Restart</b>, against a real
+              separate <code>cna-player</code> process. That separation is the reason a crash in your
+              game is a crash in <em>your game</em>: Studio reports it, with the exit reason the
+              operating system gave, and stays up.
+            </p>
+            <p>
+              The player's log is routed into the Output panel with its source marked. Assets reload
+              live, and a frame can be captured to a PNG with <kbd>F12</kbd>.
+            </p>
+          </div>
+        </li>
+
+        <li class="step">
+          <span class="step-n">08</span>
+          <div class="body">
+            <h3>Configure and run builds</h3>
+            <p>
+              The <b>Build</b> panel edits the project's target profiles &mdash; operating system,
+              architecture, CNA platform, CNA renderer, configuration and the optional CNA subsystems
+              &mdash; with validation that knows which combinations CNA will actually configure.
+            </p>
+            <p>
+              <b>Build</b> and <b>Clean Build</b> are two gestures. Clean runs your project's own
+              <code>clean</code> target between the configure and the build; it does not delete the
+              directory. Every command is displayed before it runs, and <b>Copy Commands</b> hands you
+              the untruncated, shell-quoted text. Studio drives <em>your</em> CMake and has no build
+              system of its own.
+            </p>
+            <p>
+              An option that is tri-state in CNA is tri-state here:
+              <code>CNA_ENABLE_VIDEO</code> is <code>OFF</code>, <code>AUTO</code> or <code>ON</code>.
+              <code>AUTO</code> uses FFmpeg where the build machine has it; <code>ON</code> requires it
+              and fails the configure without it, which is a thing a shipping project may well want to
+              say.
+            </p>
+          </div>
+        </li>
+
+        <li class="step">
+          <span class="step-n">09</span>
+          <div class="body">
+            <h3>Read the failure</h3>
+            <p>
+              A compiler error is a row naming the file, the line and the message &mdash; GCC, Clang,
+              MSVC and CMake's own configure errors. Activating the row opens that place in your
+              editor. The complete unparsed log is always one button away, whatever the parser made
+              of it.
+            </p>
+          </div>
+        </li>
+
+        <li class="step">
+          <span class="step-n">10</span>
+          <div class="body">
+            <h3>Recover from a crash</h3>
+            <p>
+              Autosave snapshots go to a per-user state directory. On reopening a project Studio finds
+              the snapshot that belongs to it and offers it; a snapshot is written atomically for the
+              same reason a save is. The player reports its own crashes over the bridge, so a game
+              that died tells you how.
+            </p>
+          </div>
+        </li>
+
+        <li class="step">
+          <span class="step-n">11</span>
+          <div class="body">
+            <h3>Carry on in your own IDE</h3>
+            <p>
+              <b>Tools&nbsp;&rsaquo;&nbsp;Open Project in External Editor</b> and
+              <b>Tools&nbsp;&rsaquo;&nbsp;Open Main Source in External Editor</b>, using the editor
+              named under <b>Preferences&nbsp;&rsaquo;&nbsp;Tools</b>. A full path or a name on the
+              <code>PATH</code> &mdash; <code>clion</code>, <code>code</code>, <code>vim</code>,
+              <code>subl</code>, <code>kate</code> and their relatives are known well enough to be
+              told which line to go to.
+            </p>
+            <p>
+              If no editor is configured the gesture is refused with a message naming the setting.
+              Studio does not guess: on Linux, whatever opens a <code>.cpp</code> by default is as
+              likely to be a text viewer as an IDE. This is not an escape hatch &mdash; it is the
+              point.
+            </p>
+          </div>
+        </li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- ==================================================================== -->
+  <section id="absent">
+    <div class="stack-lg">
+      <h2>What Studio does not do</h2>
+      <p class="prose">
+        Named so that each absence is a decision rather than something you are waiting for. None of
+        these is planned.
+      </p>
+      <ul class="absent">
+        <li><b>It does not edit C++.</b> No code editor, no completion, no debugger. That is what step 11 is for.</li>
+        <li><b>No native file-browser dialogs</b> for New and Open Project.</li>
+        <li><b>No packaging, cooking or export pipeline.</b> Your project's own CMake already produces a runnable game, and CI proves it builds with Studio absent.</li>
+        <li><b>No installer for Studio itself</b> on any platform.</li>
+        <li><b>No shader graph</b>, and no node-based authoring of any kind.</li>
+        <li><b>No skeletal animation, particle, audio, terrain, physics or navigation authoring.</b> Sprite animation, audio preview and material and lighting editing are here; authoring tools for the rest are not.</li>
+        <li><b>No integrated profiler and no frame debugger.</b> RenderDoc and an ordinary profiler work on <code>cna-player</code>, which is an ordinary native process.</li>
+        <li><b>No C++ gameplay reflection</b>, no generated component boilerplate, no live property injection into a running game, no native code reload.</li>
+        <li><b>No plugin SDK</b> beyond the plugin host that already exists. Plugins can add panels, menus, component types and importers; there is no versioned public ABI.</li>
+        <li><b>No non-Latin text rendering, IME input, accessibility APIs or localisation.</b> A name in a non-Latin script renders as boxes. This one was cut on budget rather than on merit, and it is written down as such.</li>
+      </ul>
+      <p class="prose">
+        Something on that list can become active work &mdash; but only on a four-part test that starts
+        with a real, maintained CNA application hitting the need repeatedly, and ends with somebody
+        accepting the maintenance cost after it ships. &ldquo;A professional editor has it&rdquo; is
+        not an argument, and neither is &ldquo;it is in the backlog&rdquo;.
+      </p>
+    </div>
+  </section>
+
+  <!-- ==================================================================== -->
+  <section id="reference">
+    <div class="stack-lg">
+      <h2>Reference</h2>
+
+      <div class="stack">
+        <h3>Requirements</h3>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>You need</th><th>Why</th></tr></thead>
+            <tbody>
+              <tr><td>A C++23 compiler &mdash; GCC 13+, Clang 16+ or MSVC 19.38+</td><td>Studio and CNA are both C++23</td></tr>
+              <tr><td>CMake &ge; 3.20</td><td>Studio drives <em>your project's</em> CMake; it never generates a build system of its own</td></tr>
+              <tr><td>A <a href="https://github.com/libcna/cna">CNA</a> checkout</td><td>Only to <b>build a game</b>. Studio itself builds without one</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="stack" id="keyboard">
+        <h3>Keyboard</h3>
+        <p class="prose">
+          Every one of these is rebindable under <b>Preferences&nbsp;&rsaquo;&nbsp;Shortcuts</b>, and
+          every command Studio has is on a menu &mdash; a command reachable only by a chord is one
+          nobody can discover, and a test refuses it.
+        </p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Chord</th><th>Does</th></tr></thead>
+            <tbody>
+              <tr><td><kbd>Ctrl</kbd>+<kbd>N</kbd> / <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>N</kbd></td><td>New Scene / New Project</td></tr>
+              <tr><td><kbd>Ctrl</kbd>+<kbd>S</kbd> / <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>S</kbd></td><td>Save / Save All</td></tr>
+              <tr><td><kbd>Ctrl</kbd>+<kbd>Z</kbd> / <kbd>Ctrl</kbd>+<kbd>Y</kbd></td><td>Undo / Redo</td></tr>
+              <tr><td><kbd>Ctrl</kbd>+<kbd>B</kbd> / <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>B</kbd></td><td>Build / Clean Build</td></tr>
+              <tr><td><kbd>F5</kbd> / <kbd>Ctrl</kbd>+<kbd>F5</kbd> / <kbd>Shift</kbd>+<kbd>F5</kbd></td><td>Play / Pause / Step</td></tr>
+              <tr><td><kbd>F12</kbd></td><td>Capture the running game's frame</td></tr>
+              <tr><td><kbd>F2</kbd></td><td>Rename whatever the Inspector is showing</td></tr>
+              <tr><td><kbd>F1</kbd></td><td>About</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="stack" id="headless">
+        <h3>Running without a window</h3>
+        <p class="prose">
+          Headless mode is not a lesser Studio: it opens projects, reads scenes, creates projects from
+          templates and exports them, with no GPU and no display.
+        </p>
+<pre><code>cna-studio --list-templates
+cna-studio --new-project=DIR --template=ID --project-name=NAME
+cna-studio --project=FILE --headless --frames=N
+cna-studio --project=FILE --export=DIR
+cna-studio --ui-benchmark        <span class="c"># what a frame of UI costs, per panel</span>
+cna-studio --host-capabilities   <span class="c"># what Studio requires of a host renderer</span>
+cna-studio --help                <span class="c"># the rest</span></code></pre>
+        <p class="prose">
+          Studio can also photograph its own interface with no graphics device at all, which is how
+          the two panel close-ups above were taken and how the visual regression suite runs on every
+          commit:
+        </p>
+<pre><code>cna-studio --shell-preview=shell.png --shell-size=1920x1080 \
+           --project=examples/HelloSprites/HelloSprites.cnaproject --select=Player</code></pre>
+      </div>
+
+      <div class="stack" id="viewport">
+        <h3>Building with the CNA viewport</h3>
+        <p class="prose">
+          Opt-in, because it needs two sibling checkouts next to this one:
+        </p>
+<pre><code>cd ..
+git clone https://github.com/libcna/cna.git
+git clone https://github.com/libcna/sharp-runtime.git
+cd cna-studio
+
+cmake -S . -B build-cna -DCNA_STUDIO_WITH_CNA=ON -DCNA_DEVICES=ON
+cmake --build build-cna -j
+
+<span class="c"># opens a real window with Studio in it</span>
+./build-cna/cna-studio --project=examples/HelloSprites/HelloSprites.cnaproject</code></pre>
+        <p class="prose">
+          CNA itself needs SDL3's build dependencies plus FFmpeg headers.
+          <code>-DCNA_DEVICES=ON</code> is what gives Studio a working clipboard.
+        </p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Option</th><th>Default</th><th>Meaning</th></tr></thead>
+            <tbody>
+              <tr><td><code>CNA_STUDIO_WITH_CNA</code></td><td><code>OFF</code></td><td>Build the CNA-backed viewport, UI renderer and input platform</td></tr>
+              <tr><td><code>CNA_STUDIO_BUILD_TESTS</code></td><td><code>ON</code></td><td>Build the test suite</td></tr>
+              <tr><td><code>CNA_STUDIO_WARNINGS_AS_ERRORS</code></td><td><code>OFF</code></td><td><code>-Werror</code> / <code>/WX</code></td></tr>
+              <tr><td><code>CNA_STUDIO_CNA_ROOT</code></td><td><code>../cna</code></td><td>Where to find the CNA checkout</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="stack" id="renderers">
+        <h3>Renderers and platforms</h3>
+        <p class="prose">
+          A build target names two independent things: a <b>CNA platform</b> (the windowing and input
+          layer) and a <b>CNA renderer</b> (the graphics backend). Studio classifies the fifty renderer
+          identities CNA publishes rather than keeping a list of its own, and a guard test refuses any
+          code outside that catalogue that names a renderer &mdash; because a hard-coded backend name
+          stops being true the next time CNA adds one, silently.
+        </p>
+        <div class="note">
+          <b>The renderer Studio draws itself with and the renderer your game targets are unrelated.</b>
+          A machine that cannot run Vulkan can still build a Vulkan game, and a Studio that refused
+          would be wrong.
+        </div>
+      </div>
+
+      <div class="stack">
+        <h3>Where the documentation lives</h3>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Document</th><th>Answers</th></tr></thead>
+            <tbody>
+              <tr><td><code>docs/GETTING-STARTED.md</code></td><td>A clone to a running game, in eight steps</td></tr>
+              <tr><td><code>docs/USER-GUIDE.md</code></td><td>The eleven steps, and what Studio deliberately does not do</td></tr>
+              <tr><td><code>docs/ARCHITECTURE.md</code></td><td>How it is built, and why</td></tr>
+              <tr><td><code>docs/RENDERERS-AND-PLATFORMS.md</code></td><td>Which renderers and platforms a target can name, for contributors</td></tr>
+              <tr><td><code>docs/ADR-001-SCOPE-REDUCTION.md</code></td><td>Why the scope is what it is</td></tr>
+              <tr><td><code>plan.md</code></td><td>What is and is not being worked on</td></tr>
+              <tr><td><code>CHANGELOG.md</code></td><td>Releases, and what the version numbers mean</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <p>
+      CNA Studio 1.0.0 &mdash; a lightweight visual development companion for CNA applications.
+      Source at <a href="https://github.com/libcna/cna-studio">github.com/libcna/cna-studio</a>;
+      CNA itself at <a href="https://github.com/libcna/cna">github.com/libcna/cna</a>.
+    </p>
+  </div>
+</footer>
+
+</body>
+</html>

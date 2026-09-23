@@ -23,7 +23,7 @@ reimplementation of the XNA 4.0 framework.
 > CNA Studio was bootstrapped on 2026-09-14 from the CNA Editor prototype developed in `cna-lab`
 > (see [`docs/ORIGIN.md`](docs/ORIGIN.md)).
 >
-> The default build stays dependency-free: no CNA checkout, no GPU, no window, **1831 assertions
+> The default build stays dependency-free: no CNA checkout, no GPU, no window, **1832 assertions
 > across 69 CTest cases** in about a minute and a half.
 
 ![the CNA Studio shell with the HelloSprites example open](docs/images/studio-shell.png)
@@ -80,6 +80,7 @@ software rasteriser is enough, and is how these were taken.
 
 | | |
 |---|---|
+| **[The presentation site](web/index.html)** | One page: what Studio is, what it is not, and how to use it |
 | **[Getting started](docs/GETTING-STARTED.md)** | A clone to a running game, through the Core workflow |
 | **[User guide](docs/USER-GUIDE.md)** | The eleven steps, and what Studio deliberately does not do |
 | [Architecture](docs/ARCHITECTURE.md) | How it is built and why |
