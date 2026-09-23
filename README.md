@@ -26,12 +26,33 @@ reimplementation of the XNA 4.0 framework.
 > The default build stays dependency-free: no CNA checkout, no GPU, no window, **1831 assertions
 > across 69 CTest cases** in about a minute and a half.
 
-![CNA Studio running on the EASYGL renderer](docs/images/studio-easygl.png)
+![the CNA Studio shell with the HelloSprites example open](docs/images/studio-shell.png)
 
-The 3D viewport, orbited, with the example project's imported `Crate.gltf` standing in the grid
-beside the two sprites.
+The shell at 1.0.0 with `examples/HelloSprites` open and `Player` selected: the World Outliner and
+its search, the viewport and its mode strip, the Details grid, the Content Browser, and the status
+bar naming the target. The viewport draws a grid and no scene because these captures are taken
+headlessly, with no graphics device — which is what the status bar's *Renderer: none, headless
+preview* says.
 
-![the 3D viewport drawing an imported glTF model](docs/images/studio-3d-models.png)
+![the Details panel as a property grid](docs/images/studio-details-grid.png)
+
+The Details panel. The label column is sized from its labels rather than from a fraction of the
+panel, so every value in the grid starts at the same x and a property called `Tint` sits beside its
+value instead of a screen away from it.
+
+![the Build panel showing the CMake commands it would run](docs/images/studio-build-panel.png)
+
+The Build panel, against a project created from the `basic-sample` template. The renderer and
+platform axes, the optional CNA subsystems, and — before anything runs — the exact `cmake` commands
+Studio would execute, copyable in full. **Build** and **Clean Build** are two separate gestures.
+
+Every capture above is one command against the shipped binary, so they can be reproduced rather
+than believed:
+
+```sh
+cna-studio --shell-preview=shell.png --shell-size=1920x1080 \
+           --project=examples/HelloSprites/HelloSprites.cnaproject --select=Player
+```
 
 ---
 
