@@ -75,7 +75,7 @@ legs.
 
 ## The active roadmap
 
-**9 of 11 active deliverables complete.**
+**10 of 11 active deliverables complete.**
 
 Estimates are Opus 5 engineering hours at this repository's working standard — implementation, the
 test its acceptance names, and the documentation it changes.
@@ -91,7 +91,7 @@ test its acceptance names, and the documentation it changes.
 | `CORE-07` | Resize without artefacts | ✅ | 2 | `STUDIO-04011` |
 | `CORE-08` | Answer the four questions the plan left silent | ✅ | 2 | `STUDIO-00015`, `STUDIO-01014`, `STUDIO-01015`, `STUDIO-01016` |
 | `CORE-09` | Documentation to use and maintain the product | ✅ | 5 | `STUDIO-33001`, `STUDIO-33002`, `STUDIO-33003`, `STUDIO-29006` |
-| `CORE-10` | A regression baseline for the Core workflow | ⬜ | 5 | `STUDIO-33020`, `STUDIO-21009`, `STUDIO-35010` |
+| `CORE-10` | A regression baseline for the Core workflow | ✅ | 5 | `STUDIO-33020`, `STUDIO-21009`, `STUDIO-35010` |
 | `CORE-11` | Declare Core complete and enter maintenance mode | ⬜ | 2 | `STUDIO-34001` |
 
 **35 hours estimated.** Budget: a **40-hour target** and a **60-hour hard ceiling**. The ceiling is
@@ -407,6 +407,20 @@ an assertion rather than a state.
 - The existing sprite-animation, material and lighting behaviour is covered against regression
   (`STUDIO-21009`).
 - No unfinished debug text appears anywhere in the Core workflow (`STUDIO-35010`).
+
+**Done.**
+
+| Acceptance | Evidence |
+|------------|----------|
+| One CTest case walks the whole Core workflow against a real CNA build | `CnaStudioCoreWorkflow`, from `tests/CoreWorkflowE2E.cpp`: create from a template, open, import an asset, edit through the history, save, reopen in a context that has never seen it, target a renderer, plan and run a real CMake build, start the real player, wait for its hello, stop it and see Studio notice, autosave and recover unsaved work, and find the file an IDE would be handed. **444 s, all eleven steps.** Its own executable, labelled `slow`, holding the template builds' resource lock |
+| Every Core subsystem has a headless seam | `EveryCoreSubsystemIsBuiltAndTestedWithoutCna` — the ten `STUDIO-33020` names, each checked to be declared *outside* the CNA gate, and the two that genuinely need CNA checked to be still inside it |
+| Sprite animation, material and lighting covered against regression | Already true, and recorded rather than duplicated: `AClipTurnsAFrameIndexIntoASourceRectangle` and `TheSheetsFrameIsSampledFromTheSheetsTexture` (the clip); `PlayingAdvancesTheFrameAndTheViewportIsToldWhichOne` and `SteppingMovesOneFrameAndStopsPlayback` (play, pause, step); `AnAnimatedSpriteIsSizedByItsFrameNotItsSheet` (the viewport drawing the same frame); `PreviewingPutsNothingIntoTheDocument` (playback outside the document). Materials: `StudioMaterialEditorTests.cpp`. Lighting: seventeen cases in `SceneTests.cpp` |
+| No unfinished debug text in the Core workflow | `NothingAUserReadsIsAPlaceholderForWorkNotDone` — every command label and description and every menu row, checked against the shipped registry rather than against the source. It also fails on an empty menu, which is a placeholder with no text in it: `Project` was one, and is gone |
+
+Two things the walk found that the unit suite could not. A `CNA_DBG_TOGGLE` `fprintf` had survived
+in the tree row (removed with `CORE-06`), and the build step plans `--parallel` with no number —
+right on a developer's machine and, on one with less memory than cores, an out-of-memory kill that
+reads in the log as a build failure with no diagnostic in it.
 
 ### `CORE-11` — Declare Core complete and enter maintenance mode
 

@@ -2578,3 +2578,91 @@ CNA_STUDIO_TEST(AnalysisMdIsRetiredAndArchitectureMdCarriesItsDecisions)
             + ". CORE-08 exists to leave none of the four silent.");
     }
 }
+
+// ---------------------------------------------------------------------------------------------
+// `plan.md` CORE-10 — every Core subsystem stays testable with no GPU (`STUDIO-33020`)
+// ---------------------------------------------------------------------------------------------
+
+CNA_STUDIO_TEST(EveryCoreSubsystemIsBuiltAndTestedWithoutCna)
+{
+    // The property that makes this suite worth having. Ten subsystems -- the document model, undo,
+    // the asset database, serialisation, migration, the project model, UI layout and state, the
+    // command system, the player protocol and build planning -- are all testable on a machine with
+    // no CNA checkout, no GPU and no window, and the eighteen hundred cases beside this one are
+    // what that buys.
+    //
+    // The failure it guards is one commit away at any time: a subsystem that grows a CNA
+    // dependency moves behind `if(CNA_STUDIO_WITH_CNA)`, its tests stop running on the leg that
+    // runs on every push, and nobody notices until the leg that does run it is red for an
+    // unrelated reason.
+    //
+    // Checked against `CMakeLists.txt` rather than against a list of headers, because "testable
+    // without CNA" is a property of *how the module is built* and that file is where it is
+    // decided.
+    const std::string cmake = readFileOrEmpty(sourceRoot() / "CMakeLists.txt");
+    CNA_STUDIO_EXPECT(!cmake.empty());
+    if (cmake.empty()) { return; }
+
+    // Where the CNA-only modules begin. Everything declared after it needs a checkout; everything
+    // before it does not.
+    const std::size_t gate = cmake.find("if(CNA_STUDIO_WITH_CNA)");
+    CNA_STUDIO_EXPECT(gate != std::string::npos);
+    if (gate == std::string::npos) { return; }
+
+    struct Subsystem
+    {
+        const char* what;
+        const char* module;
+    };
+
+    // Named as `STUDIO-33020` names them, so a reader can check the list against the acceptance
+    // rather than against this file's opinion of it.
+    static const Subsystem kSubsystems[] = {
+        {"the document model", "cna-studio-scene"},
+        {"undo", "cna-studio-core"},
+        {"the asset database", "cna-studio-assets"},
+        {"serialisation", "cna-studio-core"},
+        {"migration", "cna-studio-core"},
+        {"the project model", "cna-studio-project"},
+        {"UI layout and state", "cna-studio-ui-core"},
+        {"the command system", "cna-studio-core"},
+        {"the player protocol", "cna-studio-runtime-bridge"},
+        {"build planning", "cna-studio-project"},
+    };
+
+    for (const Subsystem& subsystem : kSubsystems)
+    {
+        const std::string declaration = std::string{"add_library("} + subsystem.module;
+        const std::size_t at = cmake.find(declaration);
+
+        if (at == std::string::npos)
+        {
+            CnaStudioTest::reportFailure(__FILE__, __LINE__,
+                std::string{"no module called '"} + subsystem.module + "' is declared, so "
+                + subsystem.what + " has no home. STUDIO-33020 names it as one of the subsystems "
+                "that must be testable with no GPU.");
+            continue;
+        }
+
+        if (at > gate)
+        {
+            CnaStudioTest::reportFailure(__FILE__, __LINE__,
+                std::string{subsystem.module} + " is declared inside the CNA gate, so "
+                + std::string{subsystem.what} + " is no longer testable without a CNA checkout "
+                "(plan.md CORE-10, STUDIO-33020). Its tests have stopped running on the leg that "
+                "runs on every push.");
+        }
+    }
+
+    // And the two that genuinely do need CNA are still the only two. Asserted in the other
+    // direction so this case cannot pass by the gate having been deleted.
+    for (const char* const gated : {"cna-studio-ui-renderer", "cna-studio-viewport"})
+    {
+        const std::size_t at = cmake.find(std::string{"add_library("} + gated);
+        if (at != std::string::npos && at > gate) { continue; }
+
+        CnaStudioTest::reportFailure(__FILE__, __LINE__,
+            std::string{gated} + " is no longer behind the CNA gate. It is the module that links "
+            "CNA, and moving it out would make the dependency-free build need a checkout.");
+    }
+}
