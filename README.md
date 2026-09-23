@@ -28,11 +28,16 @@ reimplementation of the XNA 4.0 framework.
 
 ![the CNA Studio shell with the HelloSprites example open](docs/images/studio-shell.png)
 
-The shell at 1.0.0 with `examples/HelloSprites` open and `Player` selected: the World Outliner and
-its search, the viewport and its mode strip, the Details grid, the Content Browser, and the status
-bar naming the target. The viewport draws a grid and no scene because these captures are taken
-headlessly, with no graphics device — which is what the status bar's *Renderer: none, headless
-preview* says.
+The shell at 1.0.0 with `examples/HelloSprites` open and `Player` selected, drawn by CNA on the
+OPENGL4 renderer: the World Outliner and its search, the 2D viewport with the project's sprites,
+the selection outline and the translate gizmo on the selected entity, the Details grid, the Content
+Browser, and the status bar naming both the build target and the renderer underneath it.
+
+![the 3D viewport with an entity selected](docs/images/studio-3d-selection.png)
+
+The same scene in the 3D viewport with `Crate` selected — the imported `Crate.gltf` inside its
+selection box, the cross at the point it turns about, the two sprites edge-on, and the key light's
+range drawn as an arc. A multi-selection gets one box round all of it and one pivot between them.
 
 ![the Details panel as a property grid](docs/images/studio-details-grid.png)
 
@@ -46,13 +51,22 @@ The Build panel, against a project created from the `basic-sample` template. The
 platform axes, the optional CNA subsystems, and — before anything runs — the exact `cmake` commands
 Studio would execute, copyable in full. **Build** and **Clean Build** are two separate gestures.
 
-Every capture above is one command against the shipped binary, so they can be reproduced rather
-than believed:
+All four are captures of the shipped binary rather than mock-ups, and each is one command. The
+first two are real frames from a running Studio window; the last two are shell previews, which is
+how a page taller than its dock gets photographed whole:
 
 ```sh
-cna-studio --shell-preview=shell.png --shell-size=1920x1080 \
+# a running window, rendered by CNA
+cna-studio --project=examples/HelloSprites/HelloSprites.cnaproject --select=Player \
+           --window-size=1600x900 --frames=8 --workspace=none --screenshot=shell.png
+
+# a single panel, filling the frame, with no graphics device needed
+cna-studio --shell-preview=details.png --shell-size=820x430 --shell-panel-only=details \
            --project=examples/HelloSprites/HelloSprites.cnaproject --select=Player
 ```
+
+On a headless machine the first command needs a display and a GL driver; `Xvfb` plus Mesa's
+software rasteriser is enough, and is how these were taken.
 
 ---
 
