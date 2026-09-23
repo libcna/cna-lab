@@ -36,6 +36,7 @@
 #include "CNA/Studio/Scene/SpriteAnimation.hpp"
 #include "CNA/Studio/Scene/TransformGizmos.hpp"
 #include "CNA/Studio/Ui/UiDrawData.hpp"
+#include "CNA/Studio/UiCore/StudioTheme.hpp"
 #include "CNA/Studio/UiCore/UiRect.hpp"
 
 namespace CNA::Studio
@@ -313,6 +314,17 @@ namespace CNA::Studio
          * A nil id means "everything", which is what a project-wide rescan wants.
          */
         virtual void invalidateAsset(const Uuid& assetId) { (void)assetId; }
+
+        /**
+         * @brief Tells the viewport which colours to clear and draw its grid with.
+         *
+         * Called when the shell's theme changes. A viewport that draws no scene has nothing to do
+         * with it, which is why this defaults to nothing rather than being pure: the null and test
+         * viewports are not the ones with a background.
+         *
+         * @param palette Colours from the current theme.
+         */
+        virtual void setViewportPalette(const StudioViewportPalette& palette) { (void)palette; }
 
         /**
          * @brief Returns a UI texture id previewing @p assetId, or zero when it has none.

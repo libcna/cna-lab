@@ -42,14 +42,8 @@ namespace CNA::Studio
 {
     namespace
     {
-        /** @brief Background behind the scene, distinct from the Studio chrome around it. */
-        const Xna::Color kBackground{24, 24, 27, 255};
-
         /** @brief Behind a model thumbnail: lighter than the viewport, so a dark model still reads. */
         const Xna::Color kThumbnailBackground{52, 52, 60, 255};
-        const Xna::Color kGridMinor{45, 45, 52, 255};
-        const Xna::Color kGridMajor{62, 62, 72, 255};
-        const Xna::Color kAxis{92, 74, 74, 255};
         const Xna::Color kSelection{255, 158, 46, 255};
 
         /** @brief The box round a whole multi-selection. `plan.md` CORE-03. */
@@ -112,6 +106,14 @@ namespace CNA::Studio
 
     struct CnaSceneRenderer::Impl
     {
+        /**
+         * @brief What the editor's views clear and draw their grid with.
+         *
+         * Seeded from the dark theme so a renderer nobody has themed draws what it always drew,
+         * and replaced by @ref CnaSceneRenderer::setViewportPalette when the shell has a theme.
+         */
+        StudioViewportPalette palette = studioViewportPalette(StudioTheme::dark());
+
         XnaGraphics::GraphicsDevice* device = nullptr;
         const AssetDatabase* assets = nullptr;
         const ComponentRegistry* components = nullptr;
@@ -528,7 +530,8 @@ namespace CNA::Studio
                 const bool isMajor = std::fabs(std::fmod(x / spacing, 5.0f)) < 0.001f;
                 const bool isAxis = std::fabs(x) < spacing * 0.001f;
                 drawRect(Xna::Rectangle{screenX, 0, 1, targetHeight},
-                         isAxis ? kAxis : (isMajor ? kGridMajor : kGridMinor));
+                         toXnaColor(isAxis ? palette.axis
+                                           : (isMajor ? palette.gridMajor : palette.gridMinor)));
                 ++stats.gridLines;
             }
 
@@ -539,7 +542,8 @@ namespace CNA::Studio
                 const bool isMajor = std::fabs(std::fmod(y / spacing, 5.0f)) < 0.001f;
                 const bool isAxis = std::fabs(y) < spacing * 0.001f;
                 drawRect(Xna::Rectangle{0, screenY, targetWidth, 1},
-                         isAxis ? kAxis : (isMajor ? kGridMajor : kGridMinor));
+                         toXnaColor(isAxis ? palette.axis
+                                           : (isMajor ? palette.gridMajor : palette.gridMinor)));
                 ++stats.gridLines;
             }
         }
@@ -548,6 +552,11 @@ namespace CNA::Studio
     CnaSceneRenderer::CnaSceneRenderer() : impl_(std::make_unique<Impl>()) {}
 
     CnaSceneRenderer::~CnaSceneRenderer() { shutdown(); }
+
+    void CnaSceneRenderer::setViewportPalette(const StudioViewportPalette& palette)
+    {
+        impl_->palette = palette;
+    }
 
     void CnaSceneRenderer::initialize(XnaGraphics::GraphicsDevice& device,
                                       const AssetDatabase& assets,
@@ -708,7 +717,7 @@ namespace CNA::Studio
 
         impl_->ensureTarget(width, height);
         impl_->device->SetRenderTarget(impl_->target.get());
-        impl_->device->Clear(kBackground);
+        impl_->device->Clear(toXnaColor(impl_->palette.background));
 
         impl_->spriteBatch->Begin(XnaGraphics::SpriteSortMode::Deferred,
                                   XnaGraphics::BlendState::AlphaBlend);
@@ -762,7 +771,7 @@ namespace CNA::Studio
         const Xna::Color clear =
             clearColor != nullptr
                 ? Xna::Color{clearColor->r, clearColor->g, clearColor->b, clearColor->a}
-                : kBackground;
+                : toXnaColor(impl_->palette.background);
         impl_->device->Clear(XnaGraphics::ClearOptions::Target | XnaGraphics::ClearOptions::DepthBuffer,
                              clear, 1.0f, 0);
 
@@ -901,7 +910,7 @@ namespace CNA::Studio
             // game view cleared to the editor's grey would be showing a picture the game will never
             // produce, and the background is part of what a player sees.
             device.Clear(clearColor == nullptr
-                             ? kBackground
+                             ? toXnaColor(impl_->palette.background)
                              : Xna::Color{clearColor->r, clearColor->g, clearColor->b,
                                           clearColor->a});
         }

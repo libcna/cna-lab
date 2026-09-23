@@ -39,6 +39,12 @@ The same scene in the 3D viewport with `Crate` selected — the imported `Crate.
 selection box, the cross at the point it turns about, the two sprites edge-on, and the key light's
 range drawn as an arc. A multi-selection gets one box round all of it and one pivot between them.
 
+![the same shell in the light theme](docs/images/studio-light-theme.png)
+
+The light theme, chosen in **Preferences > Appearance > Theme**. It applies as it is picked rather
+than on an OK button, and it is a user preference — it travels with the person, not with the
+project, so choosing it does not make a teammate's Studio light.
+
 ![the Details panel as a property grid](docs/images/studio-details-grid.png)
 
 The Details panel. The label column is sized from its labels rather than from a fraction of the

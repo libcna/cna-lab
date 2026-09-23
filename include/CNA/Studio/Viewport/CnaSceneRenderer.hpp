@@ -254,6 +254,17 @@ namespace CNA::Studio
         /** @brief Returns the counters from the most recent render(). */
         [[nodiscard]] const SceneRenderStats& getLastStats() const { return lastStats_; }
 
+        /**
+         * @brief Sets the colours the editor viewport clears and draws its grid with.
+         *
+         * Only the *editor's* views. The game view and the camera preview keep clearing to the
+         * camera's own colour, because those are pictures of the game: a game view that took the
+         * editor's theme would be showing a frame the player will never see.
+         *
+         * @param palette Colours from the current theme, via @ref studioViewportPalette.
+         */
+        void setViewportPalette(const StudioViewportPalette& palette);
+
     private:
         /**
          * @brief The one implementation behind render() and renderGameView().

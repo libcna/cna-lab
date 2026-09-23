@@ -366,4 +366,15 @@ namespace CNA::Studio
 
         return t;
     }
+
+    StudioViewportPalette studioViewportPalette(const StudioTheme& theme)
+    {
+        // The axis is the X axis role rather than a fifth viewport role: the 2D viewport's origin
+        // line *is* the world X axis, and giving it its own colour would let the line through the
+        // origin and the gizmo arm that points along it disagree about which direction is red.
+        return StudioViewportPalette{theme.color(StudioColorRole::ViewportBackground),
+                                     theme.color(StudioColorRole::ViewportGrid),
+                                     theme.color(StudioColorRole::ViewportGridMajor),
+                                     theme.color(StudioColorRole::AxisX)};
+    }
 } // namespace CNA::Studio

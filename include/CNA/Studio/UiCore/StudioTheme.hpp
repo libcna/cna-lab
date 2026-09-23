@@ -497,4 +497,41 @@ namespace CNA::Studio
      * @return A stable identifier such as `"Body"`.
      */
     [[nodiscard]] std::string_view studioFontRoleName(StudioFontRole role);
+
+    /**
+     * @brief The colours the scene viewport clears and draws its grid with.
+     *
+     * The viewport is drawn by a *renderer* rather than by the UI draw list, so it cannot reach
+     * into a `StudioFrame` for its theme the way every panel does. Before this existed the CNA
+     * renderer carried its own constants, which made the light theme a light shell round a black
+     * hole: the chrome rethemed and the surface the user actually works on did not.
+     *
+     * A value type rather than a theme reference, because the renderer lives behind an interface
+     * that the CNA-free builds also implement, and because it is what a test can assert on.
+     */
+    struct StudioViewportPalette
+    {
+        /** @brief Behind the scene, and what an empty viewport is. */
+        StudioColor background;
+
+        /** @brief Ordinary grid lines. */
+        StudioColor gridMinor;
+
+        /** @brief Every fifth line, so the grid reads as a measurable scale. */
+        StudioColor gridMajor;
+
+        /** @brief The line through the world origin, which is the X axis in the 2D viewport. */
+        StudioColor axis;
+    };
+
+    /**
+     * @brief Returns the viewport colours @p theme describes.
+     *
+     * Every value comes from a role the theme already defines, so a retheme moves the viewport
+     * with the panels round it rather than leaving the two to drift.
+     *
+     * @param theme Theme to read.
+     * @return Its viewport palette.
+     */
+    [[nodiscard]] StudioViewportPalette studioViewportPalette(const StudioTheme& theme);
 } // namespace CNA::Studio

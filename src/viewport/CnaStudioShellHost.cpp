@@ -722,6 +722,16 @@ namespace CNA::Studio
                 // frame and no change to what is described.
                 shell_->prepareLayout(input.displayWidth, input.displayHeight);
 
+                // The viewport's own colours, from the same theme the panels round it are drawn
+                // from. Every frame rather than on a change: the theme can be replaced by the
+                // Preferences panel between any two frames, and a renderer that kept the colours
+                // it was given at start-up is how the light theme came to be a light shell round
+                // a dark viewport.
+                if (sceneViewport_ != nullptr)
+                {
+                    sceneViewport_->setViewportPalette(studioViewportPalette(shell_->theme()));
+                }
+
                 renderSceneIntoViewport();
 
                 shell_->renderFrame(input);

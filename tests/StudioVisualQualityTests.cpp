@@ -584,6 +584,50 @@ CNA_STUDIO_TEST(TheSelectionMarksAreTellableApartFromEachOtherAndFromTheSceneAro
 }
 
 // ------------------------------------------------------------------------------------------------
+// The viewport is part of the theme, not an exception to it.
+// ------------------------------------------------------------------------------------------------
+
+CNA_STUDIO_TEST(TheViewportPaletteFollowsTheThemeRatherThanTheRenderersOwnConstants)
+{
+    // The defect this fixes: the CNA scene renderer carried its own dark constants, so choosing
+    // the light theme in Preferences produced a light shell round a viewport that stayed black.
+    // The chrome rethemed and the surface the user actually works on did not.
+    const StudioViewportPalette dark = studioViewportPalette(StudioTheme::dark());
+    const StudioViewportPalette light = studioViewportPalette(StudioTheme::light());
+
+    const auto luminance = [](const StudioColor& colour) {
+        return 0.2126f * static_cast<float>(colour.r) + 0.7152f * static_cast<float>(colour.g)
+             + 0.0722f * static_cast<float>(colour.b);
+    };
+
+    // Each theme's viewport is on the same side of the midpoint as the theme itself. A palette
+    // that returned the same colours for both would pass every equality check worth writing and
+    // still be the bug.
+    CNA_STUDIO_EXPECT(luminance(dark.background) < 128.0f);
+    CNA_STUDIO_EXPECT(luminance(light.background) > 128.0f);
+
+    // And it is the theme's own value rather than a second opinion about it, so that a retheme
+    // moves the viewport with the panels instead of leaving the two to drift.
+    CNA_STUDIO_EXPECT(dark.background == StudioTheme::dark().color(StudioColorRole::ViewportBackground));
+    CNA_STUDIO_EXPECT(light.background == StudioTheme::light().color(StudioColorRole::ViewportBackground));
+
+    // The grid has to read *against* that background in both, which is the whole reason a light
+    // viewport cannot simply keep the dark theme's lines.
+    for (const StudioViewportPalette& palette : {dark, light})
+    {
+        const float background = luminance(palette.background);
+        CNA_STUDIO_EXPECT(std::abs(luminance(palette.gridMinor) - background) > 4.0f);
+        CNA_STUDIO_EXPECT(std::abs(luminance(palette.gridMajor) - background) > 10.0f);
+        CNA_STUDIO_EXPECT(std::abs(luminance(palette.axis) - background) > 20.0f);
+
+        // Every fifth line is emphasised, so it has to be further from the background than the
+        // ordinary ones -- otherwise the grid reads as texture rather than as a scale.
+        CNA_STUDIO_EXPECT(std::abs(luminance(palette.gridMajor) - background)
+                          > std::abs(luminance(palette.gridMinor) - background));
+    }
+}
+
+// ------------------------------------------------------------------------------------------------
 // `plan.md` CORE-10 — no unfinished text anywhere in the Core workflow (`STUDIO-35010`)
 // ------------------------------------------------------------------------------------------------
 

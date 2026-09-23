@@ -29,6 +29,19 @@ records where the code came from before any of it.
 
 ---
 
+## Unreleased
+
+### Fixed
+
+- **The light theme now reaches the viewport.** Choosing Light in Preferences rethemed the panels
+  and left the scene viewport black, because the CNA scene renderer carried its own colours instead
+  of reading the theme's. The viewport's background, grid and origin line now come from the same
+  theme the panels do, and the headless preview and the CNA renderer agree about them for the first
+  time. The game view and the camera preview are unchanged: those clear to the *camera's* colour,
+  because they are pictures of the game rather than of the editor.
+
+---
+
 ## 1.0.0 — 2026-09-23
 
 **The Core workflow is complete, and CNA Studio enters maintenance mode.**

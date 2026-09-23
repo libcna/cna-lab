@@ -161,6 +161,11 @@ namespace CNA::Studio
             return renderer_.getModelEffectName();
         }
 
+        void setViewportPalette(const StudioViewportPalette& palette) override
+        {
+            renderer_.setViewportPalette(palette);
+        }
+
         void invalidateAsset(const Uuid& assetId) override
         {
             // The UI's borrowed entry has to go first: it points at a texture the renderer is
