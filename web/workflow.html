@@ -1,0 +1,296 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="styles.css">
+<title>The Core Workflow</title>
+<meta name="description" content="CNA Studio's eleven steps in detail, and the list of things it deliberately does not do.">
+</head>
+<body>
+
+<header class="bar">
+  <div class="bar-in">
+    <a class="mark" href="index.html">
+      <svg class="mark-glyph" viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.4">
+        <path d="M1 4.5V1h3.5M11.5 1H15v3.5M15 11.5V15h-3.5M4.5 15H1v-3.5"/>
+        <path d="M8 6.2v3.6M6.2 8h3.6" stroke-width="1.2"/>
+      </svg>
+      CNA Studio
+    </a>
+    <nav aria-label="Site">
+      <a href="index.html">Overview</a>
+      <a href="tutorial.html">Tutorial</a>
+      <a href="workflow.html" aria-current="page">The workflow</a>
+      <a href="reference.html">Reference</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <div class="pagehead">
+    <p class="eyebrow">Reference &middot; the Core workflow</p>
+    <h1>The eleven steps</h1>
+    <p class="lede">
+      This is the whole product. The list is a sequence rather than a menu: a project exists before
+      it has assets, and a build fails before you read the failure. Each step is reliable, documented
+      and covered by a test &mdash; and when all eleven were, development stopped.
+    </p>
+  </div>
+
+  <section>
+    <div class="stack-lg">
+      <p class="prose">
+        Want to <em>do</em> these rather than read about them? The
+        <a href="tutorial.html">tutorial</a> walks the same eleven in order, with the commands and
+        what you should see after each one.
+      </p>
+      <ol class="steps">
+        <li class="step">
+          <span class="step-n">01</span>
+          <div class="body">
+            <h3>Create or open a project</h3>
+            <p>
+              The <b>Project Hub</b> gives you New, Open and a recent list that greys out what has
+              moved rather than failing when you click it. A project declares its <em>kind</em>, and
+              the kind decides what Studio offers: <code>CnaNative</code> gets scenes, entities,
+              components, the Inspector, gizmos, prefabs, play mode and both viewports;
+              <code>XnaCompatible</code> gets assets, importer settings, previews, renderer
+              configuration and Play, and your game keeps its own
+              <code>Initialize</code>/<code>LoadContent</code>/<code>Update</code>/<code>Draw</code>.
+            </p>
+            <p>
+              There is no native file dialog. The path field and the recent list open any project.
+            </p>
+          </div>
+        </li>
+
+        <li class="step">
+          <span class="step-n">02</span>
+          <div class="body">
+            <h3>Browse, import and manage assets</h3>
+            <p>
+              Put a file in <code>Assets/</code>. There is no import button to find: the <b>Content
+              Browser</b> watches the directory, and an asset gets a UUID that survives being renamed
+              and moved.
+            </p>
+            <p>
+              A text search covers the name, the kind and the path, and <em>leaves the current folder
+              behind</em> &mdash; it looks at the whole project, because searching within one folder
+              is how people conclude an asset is gone when it is one folder over. The type filter
+              narrows what you are browsing, which is the opposite scope on purpose. Both scale: a
+              hundred thousand assets, searched or browsed, cost a screenful.
+            </p>
+          </div>
+        </li>
+
+        <li class="step">
+          <span class="step-n">03</span>
+          <div class="body">
+            <h3>Create, open and edit scenes</h3>
+            <p>
+              Scenes and prefabs are documents, and <b>every mutation goes through the undo
+              history</b> &mdash; there is no path that edits the document directly, and that is
+              enforced by a test rather than by a rule.
+            </p>
+            <p>
+              Tilemaps, layers and tags are here. So is format migration: a scene written by an older
+              Studio is upgraded on load, and one written by a <em>newer</em> Studio is refused with a
+              message rather than half-read.
+            </p>
+          </div>
+        </li>
+
+        <li class="step">
+          <span class="step-n">04</span>
+          <div class="body">
+            <h3>The viewport, selection and gizmos</h3>
+            <p>
+              A 2D viewport and a 3D viewport, with camera navigation, translate/rotate/scale gizmos
+              and band selection. Navigation follows Studio's own scheme, or Maya's, or Blender's
+              &mdash; whichever your hands already know.
+            </p>
+            <p>
+              What is selected is outlined in both. A multi-selection also gets a box round the whole
+              of it, and a cross marks the point a rotation will turn about, which is the thing you
+              need to know before you press <kbd>R</kbd>.
+            </p>
+          </div>
+        </li>
+
+        <li class="step">
+          <span class="step-n">05</span>
+          <div class="body">
+            <h3>Edit properties</h3>
+            <p>
+              The <b>Details</b> panel, driven by a descriptor model rather than by a switch on type:
+              object properties, materials, lights and the scene's environment.
+            </p>
+            <p>
+              The label column is sized from the labels actually on screen, so a property called
+              <code>x</code> sits next to its value instead of a screen away from it. A property that
+              differs from its default is marked and can be reset &mdash; through the history, like
+              everything else.
+            </p>
+          </div>
+        </li>
+
+        <li class="step">
+          <span class="step-n">06</span>
+          <div class="body">
+            <h3>Save</h3>
+            <p>
+              Atomic writes: the file goes to a temporary and is renamed over the old one, so an
+              interrupted save leaves the previous version intact rather than half of both. Dirty
+              tracking, autosave, and recovery of a partially written file.
+            </p>
+          </div>
+        </li>
+
+        <li class="step">
+          <span class="step-n">07</span>
+          <div class="body">
+            <h3>Play</h3>
+            <p>
+              <b>Play</b>, <b>Pause</b>, <b>Step</b>, <b>Stop</b> and <b>Restart</b>, against a real
+              separate <code>cna-player</code> process. That separation is the reason a crash in your
+              game is a crash in <em>your game</em>: Studio reports it, with the exit reason the
+              operating system gave, and stays up.
+            </p>
+            <p>
+              The player's log is routed into the Output panel with its source marked. Assets reload
+              live, and a frame can be captured to a PNG with <kbd>F12</kbd>.
+            </p>
+          </div>
+        </li>
+
+        <li class="step">
+          <span class="step-n">08</span>
+          <div class="body">
+            <h3>Configure and run builds</h3>
+            <p>
+              The <b>Build</b> panel edits the project's target profiles &mdash; operating system,
+              architecture, CNA platform, CNA renderer, configuration and the optional CNA subsystems
+              &mdash; with validation that knows which combinations CNA will actually configure.
+            </p>
+            <p>
+              <b>Build</b> and <b>Clean Build</b> are two gestures. Clean runs your project's own
+              <code>clean</code> target between the configure and the build; it does not delete the
+              directory. Every command is displayed before it runs, and <b>Copy Commands</b> hands you
+              the untruncated, shell-quoted text. Studio drives <em>your</em> CMake and has no build
+              system of its own.
+            </p>
+            <p>
+              An option that is tri-state in CNA is tri-state here:
+              <code>CNA_ENABLE_VIDEO</code> is <code>OFF</code>, <code>AUTO</code> or <code>ON</code>.
+              <code>AUTO</code> uses FFmpeg where the build machine has it; <code>ON</code> requires it
+              and fails the configure without it, which is a thing a shipping project may well want to
+              say.
+            </p>
+          </div>
+        </li>
+
+        <li class="step">
+          <span class="step-n">09</span>
+          <div class="body">
+            <h3>Read the failure</h3>
+            <p>
+              A compiler error is a row naming the file, the line and the message &mdash; GCC, Clang,
+              MSVC and CMake's own configure errors. Activating the row opens that place in your
+              editor. The complete unparsed log is always one button away, whatever the parser made
+              of it.
+            </p>
+          </div>
+        </li>
+
+        <li class="step">
+          <span class="step-n">10</span>
+          <div class="body">
+            <h3>Recover from a crash</h3>
+            <p>
+              Autosave snapshots go to a per-user state directory. On reopening a project Studio finds
+              the snapshot that belongs to it and offers it; a snapshot is written atomically for the
+              same reason a save is. The player reports its own crashes over the bridge, so a game
+              that died tells you how.
+            </p>
+          </div>
+        </li>
+
+        <li class="step">
+          <span class="step-n">11</span>
+          <div class="body">
+            <h3>Carry on in your own IDE</h3>
+            <p>
+              <b>Tools&nbsp;&rsaquo;&nbsp;Open Project in External Editor</b> and
+              <b>Tools&nbsp;&rsaquo;&nbsp;Open Main Source in External Editor</b>, using the editor
+              named under <b>Preferences&nbsp;&rsaquo;&nbsp;Tools</b>. A full path or a name on the
+              <code>PATH</code> &mdash; <code>clion</code>, <code>code</code>, <code>vim</code>,
+              <code>subl</code>, <code>kate</code> and their relatives are known well enough to be
+              told which line to go to.
+            </p>
+            <p>
+              If no editor is configured the gesture is refused with a message naming the setting.
+              Studio does not guess: on Linux, whatever opens a <code>.cpp</code> by default is as
+              likely to be a text viewer as an IDE. This is not an escape hatch &mdash; it is the
+              point.
+            </p>
+          </div>
+        </li>
+      </ol>
+    </div>
+  </section>
+
+  <section id="absent">
+    <div class="stack-lg">
+      <h2>What Studio does not do</h2>
+      <p class="prose">
+        Named so that each absence is a decision rather than something you are waiting for. None of
+        these is planned.
+      </p>
+      <ul class="absent">
+        <li><b>It does not edit C++.</b> No code editor, no completion, no debugger. That is what step 11 is for.</li>
+        <li><b>No native file-browser dialogs</b> for New and Open Project.</li>
+        <li><b>No packaging, cooking or export pipeline.</b> Your project's own CMake already produces a runnable game, and CI proves it builds with Studio absent.</li>
+        <li><b>No installer for Studio itself</b> on any platform.</li>
+        <li><b>No shader graph</b>, and no node-based authoring of any kind.</li>
+        <li><b>No skeletal animation, particle, audio, terrain, physics or navigation authoring.</b> Sprite animation, audio preview and material and lighting editing are here; authoring tools for the rest are not.</li>
+        <li><b>No integrated profiler and no frame debugger.</b> RenderDoc and an ordinary profiler work on <code>cna-player</code>, which is an ordinary native process.</li>
+        <li><b>No C++ gameplay reflection</b>, no generated component boilerplate, no live property injection into a running game, no native code reload.</li>
+        <li><b>No plugin SDK</b> beyond the plugin host that already exists. Plugins can add panels, menus, component types and importers; there is no versioned public ABI.</li>
+        <li><b>No non-Latin text rendering, IME input, accessibility APIs or localisation.</b> A name in a non-Latin script renders as boxes. This one was cut on budget rather than on merit, and it is written down as such.</li>
+      </ul>
+      <p class="prose">
+        Something on that list can become active work &mdash; but only on a four-part test: a real,
+        maintained CNA application hits the need repeatedly; the existing workflow is a demonstrated
+        bottleneck for it; the deliverable is bounded, with a completion condition and an estimate;
+        and somebody accepts the maintenance cost after it ships. All four, with the case written
+        down. &ldquo;A professional editor has it&rdquo; is not an argument, and neither is
+        &ldquo;it is in the backlog&rdquo;.
+      </p>
+    </div>
+  </section>
+
+  <nav class="pager" aria-label="Pagination">
+    <a href="tutorial.html"><span>Back to</span>Tutorial</a>
+    <a class="next" href="reference.html"><span>Next</span>Reference</a>
+  </nav>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <p>
+      CNA Studio 1.0.0 &mdash; a lightweight visual development companion for CNA applications.
+      Source at <a href="https://github.com/libcna/cna-studio">github.com/libcna/cna-studio</a>;
+      CNA itself at <a href="https://github.com/libcna/cna">github.com/libcna/cna</a>.
+      These pages present <code>docs/</code>; where they disagree, <code>docs/</code> is right.
+    </p>
+  </div>
+</footer>
+
+</body>
+</html>
