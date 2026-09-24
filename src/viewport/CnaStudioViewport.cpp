@@ -376,7 +376,6 @@ namespace CNA::Studio
                 case CNA::GraphicsRendererType::WebGL1:
                 case CNA::GraphicsRendererType::WebGL2:
                 case CNA::GraphicsRendererType::WebGPU:
-                case CNA::GraphicsRendererType::Bgfx:
                 case CNA::GraphicsRendererType::SdlGpu:
                     return true;
                 default:
