@@ -2,11 +2,12 @@
 
 #include <array>
 #include <cstdint>
+#include <optional>
 #include <vector>
 
 namespace Backrooms {
 
-constexpr int kFormatVersion = 3;
+constexpr int kFormatVersion = 4;
 constexpr int kChunkCells = 8;
 constexpr int kRegionCells = 6;
 constexpr double kCellSize = 5.0;
@@ -56,6 +57,7 @@ struct WorldConfig {
 struct PortalDefinition {
     int level, cellX, cellZ, target;
     bool alongX;
+    bool operator==(const PortalDefinition&) const = default;
 };
 
 inline constexpr std::array<PortalDefinition,4> kPortals{{
@@ -76,6 +78,8 @@ int CellOf(double position);
 int ChunkOfCell(int cell);
 ChunkCoord ChunkAt(double x, double z);
 std::uint32_t CellHash(const WorldConfig& config, int x, int z, int salt);
+std::optional<PortalDefinition> PortalAt(const WorldConfig& config,
+                                         int cellX, int cellZ);
 RegionKind RegionAt(const WorldConfig& config, int cellX, int cellZ);
 Edge VerticalEdge(const WorldConfig& config, int boundaryX, int z);
 Edge HorizontalEdge(const WorldConfig& config, int x, int boundaryZ);

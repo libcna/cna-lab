@@ -27,10 +27,10 @@ int main() {
     CHECK(ChunkOfCell(-9)==-2);
     CHECK(ChunkAt(-0.01,-40.01)==(ChunkCoord{-1,-2}));
     // Golden values make changes to the versioned procedural world explicit.
-    CHECK(kFormatVersion==3);
-    CHECK(CellHash(world,12,-8,41)==2983917335U);
-    CHECK(VerticalEdge(world,8,3)==Edge::Wide);
-    CHECK(HorizontalEdge(world,-4,-5)==Edge::Wide);
+    CHECK(kFormatVersion==4);
+    CHECK(CellHash(world,12,-8,41)==3279703164U);
+    CHECK(VerticalEdge(world,8,3)==Edge::Open);
+    CHECK(HorizontalEdge(world,-4,-5)==Edge::Door);
     CHECK(CellHash(world,12,-8,41)!=CellHash(world,13,-8,41));
     // Every complete multi-region rectangle must be reachable, including negative cells.
     for (std::uint64_t seed: {0ULL,12345ULL,31337ULL,0xffffffffffffffffULL})
@@ -152,6 +152,25 @@ int main() {
             MoveWithCollision(selected,px,pz,0,1.25,0.31);
             CHECK(pz>cz+1.0);
         }
+    }
+    // Rare entrances share the rendered frame, collider, and trigger geometry.
+    for (const auto [level,cellX,cellZ]: {
+             std::array<int,3>{0,-48,-16},
+             std::array<int,3>{1,16,-16},
+             std::array<int,3>{2,-16,16}}) {
+        const WorldConfig selected{12345,level};
+        const auto portal=PortalAt(selected,cellX,cellZ);
+        CHECK(portal.has_value());
+        CHECK(portal->target==(level+1)%3);
+        CHECK(portal->alongX);
+        CHECK(PortalAt(selected,cellX,cellZ)==portal);
+        CHECK(PropAt(selected,cellX,cellZ).kind==PropKind::None);
+        CHECK(CellObstacles(selected,cellX,cellZ).count==0);
+        const double cx=(cellX+0.5)*kCellSize;
+        const double cz=(cellZ+0.5)*kCellSize;
+        CHECK(!Collides(selected,cx+1.10,cz,0.31));
+        CHECK(Collides(selected,cx+1.10,cz+1.18,0.31));
+        CHECK(Collides(selected,cx+1.92,cz,0.31));
     }
     std::cout << "world tests passed\n";
 }

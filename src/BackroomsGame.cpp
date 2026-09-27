@@ -250,16 +250,15 @@ float LightFactor(const WorldConfig& world, double wx, double wz) {
     return std::min(1.0f,value);
 }
 
-std::optional<int> PortalTarget(int level, double x, double z) {
-    for (const auto& portal:kPortals) {
-        if (portal.level!=level) continue;
-        const double px=(portal.cellX+0.5)*kCellSize;
-        const double pz=(portal.cellZ+0.5)*kCellSize;
-        const double depth=portal.alongX ? x-px : z-pz;
-        const double side=portal.alongX ? z-pz : x-px;
-        if (depth>0.92 && depth<2.05 && std::abs(side)<1.30)
-            return portal.target;
-    }
+std::optional<int> PortalTarget(const WorldConfig& world, double x, double z) {
+    const auto portal=PortalAt(world,CellOf(x),CellOf(z));
+    if (!portal) return std::nullopt;
+    const double px=(portal->cellX+0.5)*kCellSize;
+    const double pz=(portal->cellZ+0.5)*kCellSize;
+    const double depth=portal->alongX ? x-px : z-pz;
+    const double side=portal->alongX ? z-pz : x-px;
+    if (depth>0.92 && depth<2.05 && std::abs(side)<1.30)
+        return portal->target;
     return std::nullopt;
 }
 
@@ -542,10 +541,8 @@ void BackroomsGame::BuildChunk(ChunkCoord coord) {
             else if (HorizontalEdge(world_,gx,gz)==Edge::Solid)
                 FalseDoor(meshes,false,z,x,level);
         }
-        for (const auto& portal:kPortals) {
-            if (portal.level==level && portal.cellX==gx && portal.cellZ==gz)
-                PortalVisual(meshes,level,portal.alongX,x+2.5f,z+2.5f,height);
-        }
+        if (const auto portal=PortalAt(world_,gx,gz))
+            PortalVisual(meshes,level,portal->alongX,x+2.5f,z+2.5f,height);
         const auto entityHash=CellHash(world_,gx,gz,919);
         const unsigned rarity=level==0 ? 850U : level==1 ? 650U : 750U;
         if (entityHash%rarity==0 && obstacles.count==0 &&
@@ -700,7 +697,7 @@ void BackroomsGame::Update(GameTime& time) {
         pitch_=0;
         stepDistance_=0;
     }
-    const auto portal=PortalTarget(world_.level,x_,z_);
+    const auto portal=PortalTarget(world_,x_,z_);
     if (portal && !insidePortal_) Transition(*portal);
     insidePortal_=portal.has_value();
     Stream();

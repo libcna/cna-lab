@@ -102,6 +102,21 @@ std::uint32_t CellHash(const WorldConfig& config, int x, int z, int salt) {
     return static_cast<std::uint32_t>(Mix(v));
 }
 
+std::optional<PortalDefinition> PortalAt(const WorldConfig& config,
+                                         int cellX, int cellZ) {
+    for (const auto& portal:kPortals)
+        if (portal.level==config.level && portal.cellX==cellX &&
+            portal.cellZ==cellZ) return portal;
+    // One candidate every four chunks in each direction, with most omitted.
+    // The cell center belongs to the connected room graph, so a found
+    // entrance can always be approached without a separate route generator.
+    if (ModFloor(cellX,4*kChunkCells)!=2*kChunkCells ||
+        ModFloor(cellZ,4*kChunkCells)!=2*kChunkCells ||
+        CellHash(config,cellX,cellZ,1751)%3!=0) return std::nullopt;
+    return PortalDefinition{config.level,cellX,cellZ,
+                            (config.level+1)%3,true};
+}
+
 RegionKind RegionAt(const WorldConfig& config, int cellX, int cellZ) {
     const int rx=DivFloor(cellX,kRegionCells), rz=DivFloor(cellZ,kRegionCells);
     if (config.level==1 && rx==0 && rz==0) return RegionKind::Storage;
@@ -166,6 +181,7 @@ Edge HorizontalEdge(const WorldConfig& config, int x, int boundaryZ) {
 
 CellProp PropAt(const WorldConfig& config, int cellX, int cellZ) {
     CellProp result;
+    if (PortalAt(config,cellX,cellZ)) return result;
     if ((cellZ==0 && cellX>=0 && cellX<=3) ||
         (cellX==0 && cellZ>=0 && cellZ<=3)) return result;
     const RegionKind region=RegionAt(config,cellX,cellZ);
@@ -210,6 +226,7 @@ CellProp PropAt(const WorldConfig& config, int cellX, int cellZ) {
 
 CellObstacleSet CellObstacles(const WorldConfig& config, int cellX, int cellZ) {
     CellObstacleSet result;
+    if (PortalAt(config,cellX,cellZ)) return result;
     const RegionKind kind=RegionAt(config,cellX,cellZ);
     const int lx=ModFloor(cellX,kRegionCells), lz=ModFloor(cellZ,kRegionCells);
     if (kind==RegionKind::Columns && (lx==1 || lx==4) &&
@@ -260,12 +277,12 @@ std::vector<Wall> NearbyWalls(const WorldConfig& config, double x, double z) {
                 walls.push_back(obstacles.walls[i]);
         }
     }
-    for (const auto& portal:kPortals) {
-        if (portal.level!=config.level) continue;
-        const double px=(portal.cellX+0.5)*kCellSize;
-        const double pz=(portal.cellZ+0.5)*kCellSize;
-        if (std::abs(px-x)>8.0 || std::abs(pz-z)>8.0) continue;
-        if (portal.alongX) {
+    for (int ix=cx-1;ix<=cx+1;++ix) for (int iz=cz-1;iz<=cz+1;++iz) {
+        const auto portal=PortalAt(config,ix,iz);
+        if (!portal) continue;
+        const double px=(ix+0.5)*kCellSize;
+        const double pz=(iz+0.5)*kCellSize;
+        if (portal->alongX) {
             walls.push_back({px+0.43,pz-1.28,px+1.92,pz-1.10});
             walls.push_back({px+0.43,pz+1.10,px+1.92,pz+1.28});
             walls.push_back({px+1.82,pz-1.10,px+2.02,pz+1.10});
