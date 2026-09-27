@@ -8,7 +8,7 @@ Target: Linux desktop, CNA `next`, sharp-runtime `next`, EasyGL `OPENGLES3`. Bud
 | SHOULD HAVE | Distinct industrial/storage and tunnel levels, environmental transitions, harmless entities, long traversal, audio diagnostics | Implemented and validated within the limits below |
 | OPTIONAL | Extra props, visual effects, save file, ambient events | Sparse furniture and false doors added; others can be cut |
 
-The world is an unbounded integer cell grid. Each 8 by 8-cell chunk is regenerated from algorithm version 4, seed, level and global cell coordinates. Six by six-cell regions select room patterns and shared border connectors. Rare maintenance entrances are generated from the same seed so transitions remain discoverable during long walks. Only nearby GPU buffers remain live. This is the complete world format for now; a general scene serialization format would add complexity without improving this game.
+The world is an unbounded integer cell grid. Each 8 by 8-cell chunk is regenerated from algorithm version 5, seed, level and global cell coordinates. Six by six-cell regions select room patterns and shared border connectors. Level 0 enclosed regions now group cells into larger room zones; ceiling tiles and fluorescent layouts are independent of the structural cell grid. Rare maintenance entrances are generated from the same seed so transitions remain discoverable during long walks. Only nearby GPU buffers remain live. This is the complete world format for now; a general scene serialization format would add complexity without improving this game.
 
 ## Visual comparison and next passes
 

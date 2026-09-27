@@ -64,16 +64,17 @@ Color Pixel(Material material, int x, int y) {
         break;
     }
     case Material::Carpet: {
-        const int thread=((x+y)%4==0 ? 5 : 0)-
-                         ((x-y+128)%7==0 ? 3 : 0);
+        const auto fiberNoise=Noise(x,y,61);
+        const int fiber=fiberNoise%7==0 ? 8 :
+                        fiberNoise%19==0 ? -6 : 0;
         const int wear=static_cast<int>(std::lround(
             (SmoothNoise(x,y,32,62)-0.5f)*11.0f));
         const float dirtNoise=SmoothNoise(x,y,32,93);
-        const int dirt=dirtNoise>0.68f ?
-            static_cast<int>((0.68f-dirtNoise)*42.0f) : 0;
-        r=139+grain/2+thread+wear+dirt;
-        g=128+grain/2+thread+wear+dirt;
-        b=100+grain/3+thread/2+wear+dirt;
+        const int dirt=dirtNoise>0.57f ?
+            static_cast<int>((0.57f-dirtNoise)*38.0f) : 0;
+        r=139+grain/2+fiber+wear+dirt;
+        g=128+grain/2+fiber+wear+dirt;
+        b=100+grain/3+fiber/2+wear+dirt;
         break;
     }
     case Material::CeilingTile: {

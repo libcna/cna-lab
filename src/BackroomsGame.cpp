@@ -85,14 +85,25 @@ void WallFace(Meshes& meshes, Material material, bool vertical, float boundary,
               float a, float b, float y0, float y1, Color color) {
     const float u0=a*0.6f,u1=b*0.6f;
     const float v0=1.0f-y0/3.0f,v1=1.0f-y1/3.0f;
+    const auto shade=[&](float height) {
+        if (material==Material::Wallpaper)
+            return 0.83f+0.17f*std::clamp(height/3.0f,0.0f,1.0f);
+        if (material==Material::ConcreteWall)
+            return 0.90f+0.10f*std::clamp(height/4.1f,0.0f,1.0f);
+        return 1.0f;
+    };
+    const Color bottom=Scale(color,shade(y0));
+    const Color top=Scale(color,shade(y1));
     if (vertical)
-        Quad(meshes,material,{boundary,y0,a},{boundary,y0,b},
-             {boundary,y1,b},{boundary,y1,a},color,
-             {u0,v0},{u1,v0},{u1,v1},{u0,v1});
+        QuadColors(meshes,material,{boundary,y0,a},{boundary,y0,b},
+                   {boundary,y1,b},{boundary,y1,a},
+                   {bottom,bottom,top,top},
+                   {u0,v0},{u1,v0},{u1,v1},{u0,v1});
     else
-        Quad(meshes,material,{a,y0,boundary},{b,y0,boundary},
-             {b,y1,boundary},{a,y1,boundary},color,
-             {u0,v0},{u1,v0},{u1,v1},{u0,v1});
+        QuadColors(meshes,material,{a,y0,boundary},{b,y0,boundary},
+                   {b,y1,boundary},{a,y1,boundary},
+                   {bottom,bottom,top,top},
+                   {u0,v0},{u1,v0},{u1,v1},{u0,v1});
 }
 
 void Partition(Meshes& meshes, Material material, Edge edge, bool vertical,
@@ -115,7 +126,8 @@ void Partition(Meshes& meshes, Material material, Edge edge, bool vertical,
         full(along+5.0f-side,along+5.0f);
         const auto cap=[&](float end) {
             WallFace(meshes,material,!vertical,end,
-                     boundary-0.10f,boundary+0.10f,0.19f,height-0.10f,wall);
+                     boundary-0.10f,boundary+0.10f,0.19f,height-0.10f,
+                     Scale(wall,0.82f));
             WallFace(meshes,material,!vertical,end,
                      boundary-0.10f,boundary+0.10f,0,0.19f,trim);
             WallFace(meshes,material,!vertical,end,
@@ -129,11 +141,11 @@ void Partition(Meshes& meshes, Material material, Edge edge, bool vertical,
             if (vertical)
                 Flat(meshes,material,boundary-0.10f,along+side,
                      boundary+0.10f,along+5.0f-side,
-                     doorHeight,wall,0.6f);
+                     doorHeight,Scale(wall,0.83f),0.6f);
             else
                 Flat(meshes,material,along+side,boundary-0.10f,
                      along+5.0f-side,boundary+0.10f,
-                     doorHeight,wall,0.6f);
+                     doorHeight,Scale(wall,0.83f),0.6f);
         }
     }
 }
@@ -247,7 +259,9 @@ LampInfo LampAt(const WorldConfig& world, int gx, int gz) {
         const int phaseZ=static_cast<int>((layout>>7)&1U);
         const auto region=RegionAt(world,gx,gz);
         if (region==RegionKind::OpenOffice || region==RegionKind::Columns)
-            lamp.fixture=(lx+phaseX)%2==0 || (lz+phaseZ)%3==0;
+            lamp.fixture=(layout&0x1000U) ?
+                ((lx+phaseX)%2==0 || (lz+phaseZ)%3==0) :
+                ((lx+phaseX)%2==0 && (lz+phaseZ)%2==0);
         else if (region==RegionKind::Halls)
             lamp.fixture=(lz+phaseZ)%2==0 && (lx+phaseX)%3!=0;
         else
@@ -268,8 +282,8 @@ LampInfo LampAt(const WorldConfig& world, int gx, int gz) {
 }
 
 float LightFactor(const WorldConfig& world, double wx, double wz) {
-    const float base=world.level==0 ? 0.76f : world.level==1 ? 0.60f : 0.55f;
-    const float strength=world.level==0 ? 0.29f : world.level==1 ? 0.38f : 0.41f;
+    const float base=world.level==0 ? 0.68f : world.level==1 ? 0.60f : 0.55f;
+    const float strength=world.level==0 ? 0.38f : world.level==1 ? 0.38f : 0.41f;
     float value=base;
     const int cx=CellOf(wx),cz=CellOf(wz);
     for (int dx=-1;dx<=1;++dx) for (int dz=-1;dz<=1;++dz) {
@@ -497,16 +511,26 @@ void BackroomsGame::BuildChunk(ChunkCoord coord) {
         const float x=lx*5.0f, z=lz*5.0f;
         const auto h=CellHash(world_,gx,gz,41);
         const auto lampInfo=LampAt(world_,gx,gz);
-        const Color floorColor=Vary(floorA,floorB,h);
+        const Color floorColor=level==0 ? floorA : Vary(floorA,floorB,h);
         const double wx=gx*kCellSize,wz=gz*kCellSize;
+        const std::array<float,4> light{{
+            LightFactor(world_,wx,wz),LightFactor(world_,wx+5,wz),
+            LightFactor(world_,wx+5,wz+5),LightFactor(world_,wx,wz+5)
+        }};
         FlatShaded(meshes,floorMat,x,z,x+5,z+5,0,
-            {Scale(floorColor,LightFactor(world_,wx,wz)),
-             Scale(floorColor,LightFactor(world_,wx+5,wz)),
-             Scale(floorColor,LightFactor(world_,wx+5,wz+5)),
-             Scale(floorColor,LightFactor(world_,wx,wz+5))},0.5f);
-        Flat(meshes,ceilingMat,x,z,x+5,z+5,height,
-             Scale(ceiling,lampInfo.lit?1.0f:0.91f),
-             level==0 ? 1.6f : 0.8f);
+            {Scale(floorColor,light[0]),Scale(floorColor,light[1]),
+             Scale(floorColor,light[2]),Scale(floorColor,light[3])},
+             level==0 ? 0.125f : 0.5f);
+        if (level==0) {
+            const auto ceilingLight=[&](float factor) {
+                return Scale(ceiling,0.52f+0.48f*factor);
+            };
+            FlatShaded(meshes,ceilingMat,x,z,x+5,z+5,height,
+                {ceilingLight(light[0]),ceilingLight(light[1]),
+                 ceilingLight(light[2]),ceilingLight(light[3])},1.6f);
+        } else
+            Flat(meshes,ceilingMat,x,z,x+5,z+5,height,
+                 Scale(ceiling,lampInfo.lit?1.0f:0.91f),0.8f);
         if (level==1) {
             BoxRange(meshes,ceilingMat,x+0.22f,z,x+0.42f,z+5,
                      height-0.32f,height-0.10f,grid);
@@ -540,7 +564,8 @@ void BackroomsGame::BuildChunk(ChunkCoord coord) {
                  x+3.60f,z+2.66f,height-0.032f,lamp,1.0f);
         }
         const Color cellWall=Scale(Vary(wallA,wallB,h),
-            lampInfo.lit ? 1.0f : (level==0 ? 0.88f : 0.80f));
+            level==0 ? 0.52f+0.48f*LightFactor(world_,wx+2.5,wz+2.5) :
+            lampInfo.lit ? 1.0f : 0.80f);
         Partition(meshes,wallMat,VerticalEdge(world_,gx,gz),true,x,z,
                   height,doorHeight,cellWall,trim);
         Partition(meshes,wallMat,HorizontalEdge(world_,gx,gz),false,z,x,

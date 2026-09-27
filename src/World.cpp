@@ -78,6 +78,45 @@ Edge TreeEdge(RegionKind kind, std::uint32_t hash) {
         kind==RegionKind::Storage) return hash%3==0 ? Edge::Wide : Edge::Open;
     return hash%4==0 ? Edge::Wide : Edge::Door;
 }
+
+int RoomZoneAt(const WorldConfig& config, int cellX, int cellZ,
+               RegionKind kind) {
+    const int rx=DivFloor(cellX,kRegionCells);
+    const int rz=DivFloor(cellZ,kRegionCells);
+    const int lx=ModFloor(cellX,kRegionCells);
+    const int lz=ModFloor(cellZ,kRegionCells);
+    constexpr std::array<std::array<int,2>,5> anchors{{
+        {{1,1}},{{4,1}},{{1,4}},{{4,4}},{{3,3}}
+    }};
+    const int count=kind==RegionKind::Halls ? 3 :
+                    kind==RegionKind::Irregular ? 5 : 4;
+    int bestZone=0,bestScore=1000;
+    for (int zone=0;zone<count;++zone) {
+        const auto h=CellHash(config,rx,rz,1301+zone);
+        const int sx=std::clamp(anchors[zone][0]+
+                    static_cast<int>((h>>5)%3)-1,0,kRegionCells-1);
+        const int sz=std::clamp(anchors[zone][1]+
+                    static_cast<int>((h>>11)%3)-1,0,kRegionCells-1);
+        const int dx=lx-sx,dz=lz-sz;
+        const int score=dx*dx+dz*dz;
+        if (score<bestScore) { bestScore=score;bestZone=zone; }
+    }
+    return bestZone;
+}
+
+Edge ComposedEdge(const WorldConfig& config, RegionKind kind,
+                  int firstX, int firstZ, int secondX, int secondZ,
+                  bool tree, std::uint32_t hash) {
+    if (config.level!=0 || (kind!=RegionKind::Rooms &&
+        kind!=RegionKind::Halls && kind!=RegionKind::Irregular))
+        return tree ? TreeEdge(kind,hash) : OptionalEdge(kind,hash);
+    if (RoomZoneAt(config,firstX,firstZ,kind)==
+        RoomZoneAt(config,secondX,secondZ,kind))
+        return hash%19==0 ? Edge::Wide : Edge::Open;
+    if (tree) return hash%5==0 ? Edge::Wide : Edge::Door;
+    const auto roll=hash%100;
+    return roll<7 ? Edge::Wide : roll<20 ? Edge::Door : Edge::Solid;
+}
 }
 
 int CellOf(double position) { return static_cast<int>(std::floor(position/kCellSize)); }
@@ -151,10 +190,9 @@ Edge VerticalEdge(const WorldConfig& config, int boundaryX, int z) {
     }
     const RegionKind kind=RegionAt(config,boundaryX-1,z);
     const auto edgeHash=CellHash(config,boundaryX,z,11);
-    if (ParentTowardRegionRoot(config,boundaryX-1,z)==Parent::East ||
-        ParentTowardRegionRoot(config,boundaryX,z)==Parent::West)
-        return TreeEdge(kind,edgeHash);
-    return OptionalEdge(kind,edgeHash);
+    const bool tree=ParentTowardRegionRoot(config,boundaryX-1,z)==Parent::East ||
+                    ParentTowardRegionRoot(config,boundaryX,z)==Parent::West;
+    return ComposedEdge(config,kind,boundaryX-1,z,boundaryX,z,tree,edgeHash);
 }
 
 Edge HorizontalEdge(const WorldConfig& config, int x, int boundaryZ) {
@@ -173,10 +211,9 @@ Edge HorizontalEdge(const WorldConfig& config, int x, int boundaryZ) {
     }
     const RegionKind kind=RegionAt(config,x,boundaryZ-1);
     const auto edgeHash=CellHash(config,x,boundaryZ,23);
-    if (ParentTowardRegionRoot(config,x,boundaryZ-1)==Parent::South ||
-        ParentTowardRegionRoot(config,x,boundaryZ)==Parent::North)
-        return TreeEdge(kind,edgeHash);
-    return OptionalEdge(kind,edgeHash);
+    const bool tree=ParentTowardRegionRoot(config,x,boundaryZ-1)==Parent::South ||
+                    ParentTowardRegionRoot(config,x,boundaryZ)==Parent::North;
+    return ComposedEdge(config,kind,x,boundaryZ-1,x,boundaryZ,tree,edgeHash);
 }
 
 CellProp PropAt(const WorldConfig& config, int cellX, int cellZ) {

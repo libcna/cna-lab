@@ -27,8 +27,8 @@ int main() {
     CHECK(ChunkOfCell(-9)==-2);
     CHECK(ChunkAt(-0.01,-40.01)==(ChunkCoord{-1,-2}));
     // Golden values make changes to the versioned procedural world explicit.
-    CHECK(kFormatVersion==4);
-    CHECK(CellHash(world,12,-8,41)==3279703164U);
+    CHECK(kFormatVersion==5);
+    CHECK(CellHash(world,12,-8,41)==1275415901U);
     CHECK(VerticalEdge(world,8,3)==Edge::Open);
     CHECK(HorizontalEdge(world,-4,-5)==Edge::Door);
     CHECK(CellHash(world,12,-8,41)!=CellHash(world,13,-8,41));
@@ -155,9 +155,9 @@ int main() {
     }
     // Rare entrances share the rendered frame, collider, and trigger geometry.
     for (const auto [level,cellX,cellZ]: {
-             std::array<int,3>{0,-48,-16},
+             std::array<int,3>{0,-48,16},
              std::array<int,3>{1,16,-16},
-             std::array<int,3>{2,-16,16}}) {
+             std::array<int,3>{2,-16,-16}}) {
         const WorldConfig selected{12345,level};
         const auto portal=PortalAt(selected,cellX,cellZ);
         CHECK(portal.has_value());
