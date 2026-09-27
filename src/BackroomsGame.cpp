@@ -178,17 +178,17 @@ void ContactShadow(Meshes& meshes, Edge edge, OpeningSpan opening,
         if (vertical) {
             FlatShaded(meshes,Material::Carpet,boundary-outset,a,
                        boundary-inset,b,y,
-                       {outer,inner,inner,outer},0.125f);
+                       {outer,inner,inner,outer},0.25f);
             FlatShaded(meshes,Material::Carpet,boundary+inset,a,
                        boundary+outset,b,y,
-                       {inner,outer,outer,inner},0.125f);
+                       {inner,outer,outer,inner},0.25f);
         } else {
             FlatShaded(meshes,Material::Carpet,a,boundary-outset,
                        b,boundary-inset,y,
-                       {outer,outer,inner,inner},0.125f);
+                       {outer,outer,inner,inner},0.25f);
             FlatShaded(meshes,Material::Carpet,a,boundary+inset,
                        b,boundary+outset,y,
-                       {inner,inner,outer,outer},0.125f);
+                       {inner,inner,outer,outer},0.25f);
         }
     };
     if (edge==Edge::Solid) section(0,5);
@@ -232,7 +232,7 @@ void Furniture(Meshes& meshes, const CellProp& prop, double chunkX,
     const int turn=prop.quarterTurn;
     const float sink=prop.sink;
     const Material metal=level==0 ? Material::ConcreteWall : Material::TunnelWall;
-    const Color seat=level==0 ? Color(125,113,91) : Color(100,106,103);
+    const Color seat=level==0 ? Color(220,207,177) : Color(153,163,157);
     const Color frame=level==0 ? Color(80,78,69) : Color(67,73,72);
     const auto box=[&](Material mat,float x0,float z0,float x1,float z1,
                        float y0,float y1,Color color) {
@@ -258,8 +258,9 @@ void Furniture(Meshes& meshes, const CellProp& prop, double chunkX,
         box(Material::Wallpaper,-1.28f,-0.14f,1.28f,0.14f,
             2.16f,2.22f,Color(175,164,125));
     } else {
-        const Color top=level==0 ? Color(142,126,96) : Color(109,116,112);
-        box(metal,-0.91f,-0.56f,0.91f,0.56f,0.73f,0.85f,top);
+        const Color top=level==0 ? Color(255,245,223) : Color(201,212,204);
+        box(level==0 ? Material::Wood : Material::IndustrialCeiling,
+            -0.91f,-0.56f,0.91f,0.56f,0.73f,0.85f,top);
         for (float legX: {-0.78f,0.78f})
             for (float legZ: {-0.43f,0.43f})
                 box(metal,legX-0.05f,legZ-0.05f,
@@ -575,7 +576,7 @@ void BackroomsGame::BuildChunk(ChunkCoord coord) {
         FlatShaded(meshes,floorMat,x,z,x+5,z+5,0,
             {Scale(floorColor,light[0]),Scale(floorColor,light[1]),
              Scale(floorColor,light[2]),Scale(floorColor,light[3])},
-             level==0 ? 0.125f : 0.5f);
+             level==0 ? 0.25f : 0.5f);
         if (level==0) {
             const auto ceilingLight=[&](float factor) {
                 return Scale(ceiling,0.52f+0.48f*factor);

@@ -65,16 +65,16 @@ Color Pixel(Material material, int x, int y) {
     }
     case Material::Carpet: {
         const auto fiberNoise=Noise(x,y,61);
-        const int fiber=fiberNoise%7==0 ? 8 :
-                        fiberNoise%19==0 ? -6 : 0;
+        const int fiber=fiberNoise%5==0 ? 10 :
+                        fiberNoise%13==0 ? -8 : 0;
         const int wear=static_cast<int>(std::lround(
-            (SmoothNoise(x,y,32,62)-0.5f)*11.0f));
+            (SmoothNoise(x,y,32,62)-0.5f)*9.0f));
         const float dirtNoise=SmoothNoise(x,y,32,93);
         const int dirt=dirtNoise>0.57f ?
-            static_cast<int>((0.57f-dirtNoise)*38.0f) : 0;
-        r=139+grain/2+fiber+wear+dirt;
-        g=128+grain/2+fiber+wear+dirt;
-        b=100+grain/3+fiber/2+wear+dirt;
+            static_cast<int>((0.57f-dirtNoise)*45.0f) : 0;
+        r=153+grain/2+fiber+wear+dirt;
+        g=141+grain/2+fiber+wear+dirt;
+        b=109+grain/3+fiber/2+wear+dirt;
         break;
     }
     case Material::CeilingTile: {
@@ -111,6 +111,14 @@ Color Pixel(Material material, int x, int y) {
         r=67+grain+blotch; g=68+grain+blotch; b=63+grain+blotch; break;
     case Material::TunnelCeiling:
         r=77+grain+blotch; g=75+grain+blotch; b=69+grain+blotch; break;
+    case Material::Wood: {
+        const int grainLine=static_cast<int>(std::lround(
+            5.0f*std::sin(y*0.39f+SmoothNoise(x,y,16,140)*2.0f)));
+        r=172+grain/2+blotch/2+grainLine;
+        g=138+grain/2+blotch/2+grainLine;
+        b=93+grain/3+blotch/2+grainLine;
+        break;
+    }
     case Material::Fluorescent: {
         const int edge=(x<5 || x>122 || y<5 || y>122) ? -30 : 0;
         r=247+grain/4+edge; g=242+grain/4+edge;

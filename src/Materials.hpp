@@ -11,7 +11,7 @@ enum class Material : int {
     Wallpaper, Carpet, CeilingTile,
     ConcreteWall, ConcreteFloor, IndustrialCeiling,
     TunnelWall, TunnelFloor, TunnelCeiling,
-    Fluorescent, Count
+    Wood, Fluorescent, Count
 };
 
 constexpr int kMaterialCount = static_cast<int>(Material::Count);
