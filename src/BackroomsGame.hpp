@@ -23,7 +23,8 @@ public:
     explicit BackroomsGame(std::uint64_t seed, bool streamTest = false,
                            int startLevel = 0, double startX = 2.5,
                            double startZ = 2.5, double walkSpeed = 3.8,
-                           double runSpeed = 6.5);
+                           double runSpeed = 6.5,
+                           double streamTestMetres = 9600.0);
     const std::string& GetTypeName() const override;
     void Initialize() override;
     void LoadContent() override;
@@ -71,6 +72,7 @@ private:
     double stepDistance_ = 0;
     bool stepWarningShown_ = false;
     bool streamTest_ = false;
+    double streamTestMetres_ = 9600.0;
     double streamTestTime_ = 0;
     int bufferCreations_ = 0;
     int bufferReuses_ = 0;

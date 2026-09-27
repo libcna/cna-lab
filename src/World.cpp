@@ -334,6 +334,73 @@ CellProp PropAt(const WorldConfig& config, int cellX, int cellZ) {
     return result;
 }
 
+CellObstacleSet InteriorPartitionsAt(const WorldConfig& config,
+                                     int cellX, int cellZ) {
+    CellObstacleSet result;
+    if (config.level!=0 || IsEmptyHall(config,cellX,cellZ)) return result;
+    const int rx=DivFloor(cellX,kRegionCells),rz=DivFloor(cellZ,kRegionCells);
+    if (rx==0 && rz==0) return result; // keep the first transition route clear
+    const RegionKind kind=RegionAt(config,cellX,cellZ);
+    if (kind!=RegionKind::OpenOffice && kind!=RegionKind::Irregular &&
+        kind!=RegionKind::Columns && kind!=RegionKind::Rooms) return result;
+    const auto layout=CellHash(config,rx,rz,3119);
+    if (kind==RegionKind::Columns && layout%3!=0) return result;
+    if (kind==RegionKind::Rooms && layout%2!=0) return result;
+
+    const double originX=rx*kRegionCells*kCellSize;
+    const double originZ=rz*kRegionCells*kCellSize;
+    const auto clearBoundary=[](double position) {
+        const double cell=std::fmod(position,kCellSize);
+        if (cell<0.8) return position+(0.8-cell);
+        if (cell>kCellSize-0.8)
+            return position-(cell-(kCellSize-0.8));
+        return position;
+    };
+    const double cross=clearBoundary(8.4+((layout>>5)%17)*0.43);
+    const double start=2.2+((layout>>12)%5)*0.48;
+    const double end=25.8-((layout>>16)%6)*0.52;
+    const double cellMinX=cellX*kCellSize,cellMaxX=cellMinX+kCellSize;
+    const double cellMinZ=cellZ*kCellSize,cellMaxZ=cellMinZ+kCellSize;
+    const auto horizontal=[&](double x0,double x1,double z) {
+        const double near=std::max(z-0.11,cellMinZ);
+        const double far=std::min(z+0.11,cellMaxZ);
+        double a=std::max(x0,cellMinX),b=std::min(x1,cellMaxX);
+        if (x0<cellMinX+0.75 &&
+            VerticalEdge(config,cellX,cellZ)!=Edge::Open)
+            a=std::max(a,cellMinX+0.75);
+        if (x1>cellMaxX-0.75 &&
+            VerticalEdge(config,cellX+1,cellZ)!=Edge::Open)
+            b=std::min(b,cellMaxX-0.75);
+        if (b-a>0.001 && far-near>0.001)
+            result.walls[result.count++]={a,near,b,far};
+    };
+    const auto vertical=[&](double z0,double z1,double x) {
+        const double near=std::max(x-0.11,cellMinX);
+        const double far=std::min(x+0.11,cellMaxX);
+        double a=std::max(z0,cellMinZ),b=std::min(z1,cellMaxZ);
+        if (z0<cellMinZ+0.75 &&
+            HorizontalEdge(config,cellX,cellZ)!=Edge::Open)
+            a=std::max(a,cellMinZ+0.75);
+        if (z1>cellMaxZ-0.75 &&
+            HorizontalEdge(config,cellX,cellZ+1)!=Edge::Open)
+            b=std::min(b,cellMaxZ-0.75);
+        if (b-a>0.001 && far-near>0.001)
+            result.walls[result.count++]={near,a,far,b};
+    };
+    const bool alongX=(layout&1U)!=0;
+    if (alongX) horizontal(originX+start,originX+end,originZ+cross);
+    else vertical(originZ+start,originZ+end,originX+cross);
+    if (layout%3==0) {
+        // A shorter T-shaped return makes an alcove without sealing the room.
+        const double branch=clearBoundary((start+end)*0.59);
+        const double low=std::max(1.5,cross-7.2);
+        const double high=std::min(27.8,cross+5.4);
+        if (alongX) vertical(originZ+low,originZ+high,originX+branch);
+        else horizontal(originX+low,originX+high,originZ+branch);
+    }
+    return result;
+}
+
 CellObstacleSet CellObstacles(const WorldConfig& config, int cellX, int cellZ) {
     CellObstacleSet result;
     if (IsEmptyHall(config,cellX,cellZ)) return result;
@@ -350,6 +417,9 @@ CellObstacleSet CellObstacles(const WorldConfig& config, int cellX, int cellZ) {
     }
     const RegionKind kind=RegionAt(config,cellX,cellZ);
     const int lx=ModFloor(cellX,kRegionCells), lz=ModFloor(cellZ,kRegionCells);
+    const auto interior=InteriorPartitionsAt(config,cellX,cellZ);
+    for (int i=0;i<interior.count;++i)
+        result.walls[result.count++]=interior.walls[i];
     if (kind==RegionKind::Columns && (lx==1 || lx==4) &&
         (lz==1 || lz==4)) {
         const double cx=(cellX+0.5)*kCellSize,cz=(cellZ+0.5)*kCellSize;

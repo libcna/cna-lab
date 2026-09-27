@@ -27,8 +27,8 @@ int main() {
     CHECK(ChunkOfCell(-9)==-2);
     CHECK(ChunkAt(-0.01,-40.01)==(ChunkCoord{-1,-2}));
     // Golden values make changes to the versioned procedural world explicit.
-    CHECK(kFormatVersion==10);
-    CHECK(CellHash(world,12,-8,41)==4248517157U);
+    CHECK(kFormatVersion==11);
+    CHECK(CellHash(world,12,-8,41)==511389911U);
     CHECK(VerticalEdge(world,8,3)==Edge::Open);
     CHECK(HorizontalEdge(world,-4,-5)==Edge::Open);
     CHECK(CellHash(world,12,-8,41)!=CellHash(world,13,-8,41));
@@ -133,6 +133,21 @@ int main() {
         }
     }
     CHECK(openingLeft && openingRight && checkedOpenings>100);
+    // Interior room partitions must not turn a generated door into a dead end.
+    for (std::uint64_t seed: {0ULL,1ULL,12345ULL,31337ULL}) {
+        const WorldConfig selected{seed,0};
+        for (int bx=-60;bx<=60;++bx) for (int bz=-60;bz<=60;++bz)
+            for (bool vertical: {false,true}) {
+                const Edge edge=vertical ? VerticalEdge(selected,bx,bz) :
+                                           HorizontalEdge(selected,bx,bz);
+                if (edge!=Edge::Door && edge!=Edge::Wide) continue;
+                const auto span=OpeningForEdge(selected,edge,vertical,bx,bz);
+                const double middle=(span.start+span.end)*0.5;
+                const double px=(bx+(vertical ? 0.0 : middle/kCellSize))*kCellSize;
+                const double pz=(bz+(vertical ? middle/kCellSize : 0.0))*kCellSize;
+                CHECK(!Collides(selected,px,pz,0.31));
+            }
+    }
     CHECK(foundEmbedded);
     bool foundLowPartition=false;
     for (int ix=-30;ix<=30 && !foundLowPartition;++ix)
@@ -152,6 +167,21 @@ int main() {
             foundTallPartition=true;
         }
     CHECK(foundTallPartition);
+    bool foundInterior=false;
+    for (int ix=-60;ix<=60 && !foundInterior;++ix)
+        for (int iz=-60;iz<=60 && !foundInterior;++iz) {
+            const auto pieces=InteriorPartitionsAt(world,ix,iz);
+            CHECK(pieces.count<=2);
+            if (!pieces.count) continue;
+            const auto repeat=InteriorPartitionsAt(world,ix,iz);
+            CHECK(repeat.count==pieces.count);
+            const auto& wall=pieces.walls[0];
+            const double px=(wall.minX+wall.maxX)*0.5;
+            const double pz=(wall.minZ+wall.maxZ)*0.5;
+            CHECK(Collides(world,px,pz,0.31));
+            foundInterior=true;
+        }
+    CHECK(foundInterior);
     bool foundEmptyHall=false;
     for (int ix=-120;ix<=120 && !foundEmptyHall;ix+=12)
         for (int iz=-120;iz<=120 && !foundEmptyHall;iz+=12) {
@@ -232,11 +262,16 @@ int main() {
         }
     }
     // Rare entrances share the rendered frame, collider, and trigger geometry.
-    for (const auto [level,cellX,cellZ]: {
-             std::array<int,3>{0,-16,-16},
-             std::array<int,3>{1,16,-16},
-             std::array<int,3>{2,-16,16}}) {
+    for (int level=0;level<3;++level) {
         const WorldConfig selected{12345,level};
+        int cellX=0,cellZ=0;
+        bool foundPortal=false;
+        for (int ix=-96;ix<=96 && !foundPortal;ix+=32)
+            for (int iz=-96;iz<=96 && !foundPortal;iz+=32)
+                if (PortalAt(selected,ix+16,iz+16)) {
+                    cellX=ix+16;cellZ=iz+16;foundPortal=true;
+                }
+        CHECK(foundPortal);
         const auto portal=PortalAt(selected,cellX,cellZ);
         CHECK(portal.has_value());
         CHECK(portal->target==(level+1)%3);

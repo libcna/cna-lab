@@ -22,19 +22,22 @@ The September 2026 playable foundation at `aaf67c0` has deterministic regions, b
 - Version 9 adds rare 30-metre Level 2 service chambers with a few structural pillars and denser, irregular ceiling fixtures. Six-sided shaded pipes replace flat-colored wall strips. The concrete floor no longer changes color abruptly from one cell to the next. A 12-view QA round and focused chamber screenshot show a much larger Level 2 space without floor color seams.
 - Version 10 changes Level 1 storage bays from the same four-rack grid to four deterministic layouts with two to four racks. Beams change direction and spacing by region, and shelf metal and boxes are easier to see. A focused rack view and a further 12-view round show less obvious repeated framing.
 - A four-seed, 12-view Level 0 audit sampled spawn and locations hundreds of metres away. It found one camera inside a harmless entity. Entity rendering now stops within 3.5 metres; a repeated screenshot at the exact seed and position shows clear vision.
+- Format 11 adds region-wide Level 0 partitions offset from cell boundaries. They create longer walls and alcoves; the same split boxes drive rendering and collision. Screenshots exposed flat obstacle faces, so office trim, local shading and carpet contact shadows were added. A four-seed scan of over 25,000 opening centers exposed one narrowed doorway; the partition endpoint now leaves clearance and all sampled openings pass.
+- A focused weak-circuit view and another 12-view screenshot round inspected the stronger lit/dark contrast, lighter carpet and framed fluorescent panels. Six Level 0, three Level 1 and three Level 2 views were reviewed again. The visual goal remains active.
+- The bounded spare GPU buffer pool grew from 24 to 48 to hold a retired row of chunk materials. A format 11 9.6 km Level 0 sweep cut fresh buffer creations from 972 to 181 and the warmed RSS plateaued near 181.4 MB.
 
 ## Three highest-priority deficiencies
 
-1. Level 0 resident memory rose a few megabytes over the 9.6 km sweep despite bounded chunks; a longer single-process run should check whether it plateaus.
+1. Level 0's clean axial room boundaries and repeated ceiling grid still reveal its procedural structure in some views; inspect distant regions and improve the most obvious repetition.
 2. Level 2's ordinary tunnel branches can still repeat; inspect more distant seeds and varied view directions.
 3. Level 0 furniture silhouettes remain crude, and real-device subjective audio loudness remains unverified.
 
 ## Latest validation
 
-- Current version 10 passes Debug and Release builds, deterministic world tests, and all four directed live transition checks.
+- Current version 11 passes Debug and Release builds, deterministic world tests, the seven-seed quality scan and all four directed live transition checks.
 - Version 6 Level 0 completed a 9.6 km GPU sweep across both coordinate signs with 24–25 active chunks, near 59 FPS, peak chunk build 26.5 ms, and warmed RSS about 175–178 MB. The earlier Level 2 sweep held near 195–196 MB.
-- Version 10 Level 0 and 1 each completed 9.6 km GPU sweeps with at most 25 active chunks and near 59 FPS. Level 0 peaked at 36.5 ms for a chunk and warmed RSS rose from roughly 178 to 181 MB; Level 1 peaked at 26.3 ms and stabilized near 186 MB. Version 9 Level 2 held near 203 MB. Multiple 12-view QA sets plus focused screenshots are stored under ignored `build/qa-*` paths. The visual goal remains active.
+- Version 10 Level 0 and 1 each completed 9.6 km GPU sweeps with at most 25 active chunks and near 59 FPS. Level 0 peaked at 36.5 ms for a chunk and warmed RSS rose from roughly 178 to 181 MB; Level 1 peaked at 26.3 ms and stabilized near 186 MB. Version 9 Level 2 held near 203 MB. A 19.2 km version 10 Level 0 sweep ended at 25 chunks and 184.5 MB after 11,406 buffer reuses and 1,728 new allocations. Version 11 Level 0 completed 9.6 km at 25 chunks, near 59 FPS, 25.2 ms peak build, 181 new allocations, 6,829 reuses and a warmed RSS plateau near 181.4 MB. Multiple 12-view QA sets plus focused screenshots are stored under ignored `build/qa-*` paths. A real PipeWire sink input appeared during a walking test and CNA reported audio ready; subjective sound quality is untested. The visual goal remains active.
 
 ## Next pass
 
-Run a longer Level 0 memory sweep to assess the small RSS increase. Sample distant Level 2 regions and check remaining visual repetition. Audit audio and continue targeted polish only where screenshots justify it.
+Sample distant Level 2 and Level 0 regions across seeds to check remaining repetition and off-grid wall seams. Continue focused visual fixes and keep validating bounded memory. Ask a human to judge sound loudness when available.

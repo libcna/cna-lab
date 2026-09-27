@@ -7,7 +7,7 @@
 
 namespace Backrooms {
 
-constexpr int kFormatVersion = 10;
+constexpr int kFormatVersion = 11;
 constexpr int kChunkCells = 8;
 constexpr int kRegionCells = 6;
 constexpr double kCellSize = 5.0;
@@ -93,6 +93,8 @@ Edge HorizontalEdge(const WorldConfig& config, int x, int boundaryZ);
 OpeningSpan OpeningForEdge(const WorldConfig& config, Edge edge,
                            bool vertical, int edgeX, int edgeZ);
 CellProp PropAt(const WorldConfig& config, int cellX, int cellZ);
+CellObstacleSet InteriorPartitionsAt(const WorldConfig& config,
+                                     int cellX, int cellZ);
 CellObstacleSet CellObstacles(const WorldConfig& config, int cellX, int cellZ);
 std::vector<Wall> NearbyWalls(const WorldConfig& config, double x, double z);
 bool Collides(const WorldConfig& config, double x, double z, double radius);

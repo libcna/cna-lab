@@ -349,7 +349,9 @@ LampInfo LampAt(const WorldConfig& world, int gx, int gz) {
         else
             lamp.fixture=(lx+phaseX)%2==0 && (lz+phaseZ)%2==0;
         if (h%29==0) lamp.fixture=false;
-        lamp.lit=lamp.fixture && h%17!=0;
+        const bool weakCircuit=layout%13==0;
+        lamp.lit=lamp.fixture && h%17!=0 &&
+                 (!weakCircuit || h%4==0);
         lamp.x=(h&1U) ? 2.1875f : 2.8125f;
         lamp.z=(h&2U) ? 2.1875f : 2.8125f;
         lamp.longAxisX=(layout&1U)!=0;
@@ -366,8 +368,8 @@ LampInfo LampAt(const WorldConfig& world, int gx, int gz) {
 }
 
 float LightFactor(const WorldConfig& world, double wx, double wz) {
-    const float base=world.level==0 ? 0.68f : world.level==1 ? 0.60f : 0.55f;
-    const float strength=world.level==0 ? 0.38f : world.level==1 ? 0.38f : 0.41f;
+    const float base=world.level==0 ? 0.54f : world.level==1 ? 0.60f : 0.55f;
+    const float strength=world.level==0 ? 0.54f : world.level==1 ? 0.38f : 0.41f;
     float value=base;
     const int cx=CellOf(wx),cz=CellOf(wz);
     for (int dx=-1;dx<=1;++dx) for (int dz=-1;dz<=1;++dz) {
@@ -381,6 +383,39 @@ float LightFactor(const WorldConfig& world, double wx, double wz) {
         value+=strength*attenuation;
     }
     return std::min(1.0f,value);
+}
+
+void OfficeObstacle(Meshes& meshes, const WorldConfig& world,
+                    float x0, float z0, float x1, float z1,
+                    double chunkX, double chunkZ, float height,
+                    Color wall, Color trim, Color floor) {
+    const auto light=[&](float x,float z) {
+        return 0.32f+0.68f*LightFactor(world,chunkX+x,chunkZ+z);
+    };
+    const auto face=[&](bool vertical,float boundary,float a,float b) {
+        const float start=vertical ? light(boundary,a) : light(a,boundary);
+        const float end=vertical ? light(boundary,b) : light(b,boundary);
+        WallFace(meshes,Material::Wallpaper,vertical,boundary,a,b,
+                 0,0.19f,trim,start,end);
+        WallFace(meshes,Material::Wallpaper,vertical,boundary,a,b,
+                 0.19f,height-0.10f,wall,start,end);
+        WallFace(meshes,Material::Wallpaper,vertical,boundary,a,b,
+                 height-0.10f,height,trim,start,end);
+    };
+    face(true,x0,z0,z1);face(true,x1,z0,z1);
+    face(false,z0,x0,x1);face(false,z1,x0,x1);
+    const Color outer=Scale(floor,LightFactor(world,chunkX+(x0+x1)*0.5,
+                                            chunkZ+(z0+z1)*0.5));
+    const Color inner=Scale(outer,0.82f);
+    constexpr float y=0.004f;
+    FlatShaded(meshes,Material::Carpet,x0-0.33f,z0,x0-0.10f,z1,y,
+               {outer,inner,inner,outer},0.25f);
+    FlatShaded(meshes,Material::Carpet,x1+0.10f,z0,x1+0.33f,z1,y,
+               {inner,outer,outer,inner},0.25f);
+    FlatShaded(meshes,Material::Carpet,x0,z0-0.33f,x1,z0-0.10f,y,
+               {outer,outer,inner,inner},0.25f);
+    FlatShaded(meshes,Material::Carpet,x0,z1+0.10f,x1,z1+0.33f,y,
+               {inner,inner,outer,outer},0.25f);
 }
 
 std::optional<int> PortalTarget(const WorldConfig& world, double x, double z) {
@@ -437,13 +472,16 @@ void PortalVisual(Meshes& meshes, int level, bool alongX, float cx,
 
 BackroomsGame::BackroomsGame(std::uint64_t seed, bool streamTest,
                              int startLevel, double startX, double startZ,
-                             double walkSpeed, double runSpeed)
-    : graphics_(this), streamTest_(streamTest) {
+                             double walkSpeed, double runSpeed,
+                             double streamTestMetres)
+    : graphics_(this), streamTest_(streamTest),
+      streamTestMetres_(streamTestMetres) {
     if (startLevel<0 || startLevel>2 || !std::isfinite(startX) ||
         !std::isfinite(startZ) || std::abs(startX)>1.0e8 ||
         std::abs(startZ)>1.0e8 || !std::isfinite(walkSpeed) ||
         !std::isfinite(runSpeed) || walkSpeed<=0 || runSpeed<=walkSpeed ||
-        runSpeed>20.0)
+        runSpeed>20.0 || !std::isfinite(streamTestMetres) ||
+        streamTestMetres<400.0 || streamTestMetres>1.0e7)
         throw std::invalid_argument("invalid start level, position, or movement speed");
     world_.seed = seed;
     world_.level=startLevel;
@@ -553,8 +591,11 @@ std::unique_ptr<VertexBuffer> BackroomsGame::AcquireBuffer(int vertexCount) {
 }
 
 void BackroomsGame::RetireChunk(Chunk& chunk) {
+    // Crossing one chunk boundary retires up to five chunks at once. A full
+    // row of material buffers can be reused while their replacements upload.
+    constexpr std::size_t kSpareBufferLimit=48;
     for (auto& buffer:chunk.vertices) {
-        if (buffer && spareVertices_.size()<24)
+        if (buffer && spareVertices_.size()<kSpareBufferLimit)
             spareVertices_.push_back(std::move(buffer));
     }
 }
@@ -646,19 +687,38 @@ void BackroomsGame::BuildChunk(ChunkCoord coord) {
             const float halfX=lampInfo.longAxisX ? 0.625f : 0.3125f;
             const float halfZ=lampInfo.longAxisX ? 0.3125f : 0.625f;
             const float cx=x+lampInfo.x,cz=z+lampInfo.z;
-            Flat(meshes,ceilingMat,cx-halfX-0.025f,cz-halfZ-0.025f,
-                 cx+halfX+0.025f,cz+halfZ+0.025f,
-                 height-0.022f,Color(205,201,181),1.6f);
+            Flat(meshes,Material::IndustrialCeiling,
+                 cx-halfX-0.065f,cz-halfZ-0.065f,
+                 cx+halfX+0.065f,cz+halfZ+0.065f,
+                 height-0.022f,Color(177,169,143),0.8f);
             const Material panelMat=lampInfo.lit ?
                 Material::Fluorescent : Material::IndustrialCeiling;
             const Color panelColor=lampInfo.lit ?
-                Color(255,251,221) : Color(110,107,91);
+                Color(255,252,225) : Color(118,115,99);
             Quad(meshes,panelMat,
                  {cx-halfX,height-0.035f,cz-halfZ},
                  {cx+halfX,height-0.035f,cz-halfZ},
                  {cx+halfX,height-0.035f,cz+halfZ},
                  {cx-halfX,height-0.035f,cz+halfZ},panelColor,
                  {0,0},{1,0},{1,1},{0,1});
+            if (lampInfo.lit) {
+                const Color tube(255,255,246);
+                if (lampInfo.longAxisX) {
+                    Flat(meshes,Material::Fluorescent,
+                         cx-0.50f,cz-0.20f,cx+0.50f,cz-0.11f,
+                         height-0.039f,tube,0.6f);
+                    Flat(meshes,Material::Fluorescent,
+                         cx-0.50f,cz+0.11f,cx+0.50f,cz+0.20f,
+                         height-0.039f,tube,0.6f);
+                } else {
+                    Flat(meshes,Material::Fluorescent,
+                         cx-0.20f,cz-0.50f,cx-0.11f,cz+0.50f,
+                         height-0.039f,tube,0.6f);
+                    Flat(meshes,Material::Fluorescent,
+                         cx+0.11f,cz-0.50f,cx+0.20f,cz+0.50f,
+                         height-0.039f,tube,0.6f);
+                }
+            }
         } else if (level!=0 && lampInfo.lit) {
             Flat(meshes,ceilingMat,x+1.30f,z+2.27f,x+3.70f,z+2.73f,
                  height-0.024f,grid,0.8f);
@@ -743,7 +803,9 @@ void BackroomsGame::BuildChunk(ChunkCoord coord) {
             const float bx1=static_cast<float>(obstacle.maxX-ox*kCellSize);
             const float bz1=static_cast<float>(obstacle.maxZ-oz*kCellSize);
             if (level==0) {
-                BoxRange(meshes,wallMat,bx0,bz0,bx1,bz1,0,height,wallB);
+                OfficeObstacle(meshes,world_,bx0,bz0,bx1,bz1,
+                               ox*kCellSize,oz*kCellSize,height,
+                               wallB,trim,floorColor);
             } else if (level==1) {
                 const Color steel(168,177,172),shelfColor(198,201,188);
                 for (float sx: {bx0,bx1-0.10f})
@@ -873,11 +935,13 @@ void BackroomsGame::Update(GameTime& time) {
         // live renderer. Collision is bypassed so walls cannot stop the sweep.
         streamTestTime_+=dt;
         const double distance=streamTestTime_*45.0;
-        z_=2.5+(distance<2400.0 ? distance :
-                 distance<7200.0 ? 4800.0-distance : distance-9600.0);
+        const double leg=streamTestMetres_*0.25;
+        z_=2.5+(distance<leg ? distance :
+                 distance<3.0*leg ? 2.0*leg-distance :
+                 distance-4.0*leg);
         Stream();
         UpdateTitle(dt);
-        if (distance>=9600.0) Exit();
+        if (distance>=streamTestMetres_) Exit();
         Game::Update(time);
         return;
     }

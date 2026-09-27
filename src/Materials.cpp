@@ -72,9 +72,9 @@ Color Pixel(Material material, int x, int y) {
         const float dirtNoise=SmoothNoise(x,y,32,93);
         const int dirt=dirtNoise>0.57f ?
             static_cast<int>((0.57f-dirtNoise)*45.0f) : 0;
-        r=153+grain/2+fiber+wear+dirt;
-        g=141+grain/2+fiber+wear+dirt;
-        b=109+grain/3+fiber/2+wear+dirt;
+        r=173+grain/2+fiber+wear+dirt;
+        g=160+grain/2+fiber+wear+dirt;
+        b=122+grain/3+fiber/2+wear+dirt;
         break;
     }
     case Material::CeilingTile: {
