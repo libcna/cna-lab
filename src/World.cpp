@@ -105,6 +105,21 @@ int RoomZoneAt(const WorldConfig& config, int cellX, int cellZ,
     return bestZone;
 }
 
+bool StorageRackAt(const WorldConfig& config, int cellX, int cellZ) {
+    if (RegionAt(config,cellX,cellZ)!=RegionKind::Storage) return false;
+    const int rx=DivFloor(cellX,kRegionCells),rz=DivFloor(cellZ,kRegionCells);
+    const int lx=ModFloor(cellX,kRegionCells),lz=ModFloor(cellZ,kRegionCells);
+    const auto layout=CellHash(config,rx,rz,2961)%4;
+    if (layout==0)
+        return (lx==1 || lx==4) && (lz==1 || lz==4);
+    if (layout==1)
+        return lz==2 && (lx==1 || lx==3 || lx==5);
+    if (layout==2)
+        return (lz==1 && (lx==1 || lx==3)) ||
+               (lz==4 && (lx==2 || lx==4));
+    return (lx==2 && lz==1) || (lx==4 && lz==4);
+}
+
 Edge ComposedEdge(const WorldConfig& config, RegionKind kind,
                   int firstX, int firstZ, int secondX, int secondZ,
                   bool tree, std::uint32_t hash) {
@@ -270,8 +285,9 @@ CellProp PropAt(const WorldConfig& config, int cellX, int cellZ) {
         (cellX==0 && cellZ>=0 && cellZ<=3)) return result;
     const RegionKind region=RegionAt(config,cellX,cellZ);
     const int lx=ModFloor(cellX,kRegionCells), lz=ModFloor(cellZ,kRegionCells);
-    if ((region==RegionKind::Columns || region==RegionKind::Storage) &&
-        (lx==1 || lx==4) && (lz==1 || lz==4)) return result;
+    if ((region==RegionKind::Columns &&
+         (lx==1 || lx==4) && (lz==1 || lz==4)) ||
+        StorageRackAt(config,cellX,cellZ)) return result;
     const std::uint32_t hash=CellHash(config,cellX,cellZ,1081);
     const unsigned roll=hash%1000;
     if (config.level==0) {
@@ -339,10 +355,14 @@ CellObstacleSet CellObstacles(const WorldConfig& config, int cellX, int cellZ) {
         const double cx=(cellX+0.5)*kCellSize,cz=(cellZ+0.5)*kCellSize;
         result.walls[result.count++]={cx-0.43,cz-0.43,cx+0.43,cz+0.43};
     }
-    if (kind==RegionKind::Storage && (lx==1 || lx==4) &&
-        (lz==1 || lz==4)) {
+    if (StorageRackAt(config,cellX,cellZ)) {
         const double cx=(cellX+0.5)*kCellSize,cz=(cellZ+0.5)*kCellSize;
-        result.walls[result.count++]={cx-0.8,cz-1.0,cx+0.8,cz+1.0};
+        const int rx=DivFloor(cellX,kRegionCells),rz=DivFloor(cellZ,kRegionCells);
+        const bool alongX=(CellHash(config,rx,rz,2961)&0x10U)!=0;
+        const double halfX=alongX ? 1.0 : 0.8;
+        const double halfZ=alongX ? 0.8 : 1.0;
+        result.walls[result.count++]={cx-halfX,cz-halfZ,
+                                      cx+halfX,cz+halfZ};
     }
     if (kind==RegionKind::Tunnels && (lx+lz)%2==0) {
         const double x=cellX*kCellSize,z=cellZ*kCellSize;

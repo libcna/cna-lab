@@ -27,10 +27,10 @@ int main() {
     CHECK(ChunkOfCell(-9)==-2);
     CHECK(ChunkAt(-0.01,-40.01)==(ChunkCoord{-1,-2}));
     // Golden values make changes to the versioned procedural world explicit.
-    CHECK(kFormatVersion==9);
-    CHECK(CellHash(world,12,-8,41)==3122532824U);
-    CHECK(VerticalEdge(world,8,3)==Edge::Door);
-    CHECK(HorizontalEdge(world,-4,-5)==Edge::Wide);
+    CHECK(kFormatVersion==10);
+    CHECK(CellHash(world,12,-8,41)==4248517157U);
+    CHECK(VerticalEdge(world,8,3)==Edge::Open);
+    CHECK(HorizontalEdge(world,-4,-5)==Edge::Open);
     CHECK(CellHash(world,12,-8,41)!=CellHash(world,13,-8,41));
     // Every complete multi-region rectangle must be reachable, including negative cells.
     for (std::uint64_t seed: {0ULL,12345ULL,31337ULL,0xffffffffffffffffULL})
@@ -81,6 +81,23 @@ int main() {
     CHECK(CellObstacles(tunnels,0,0).count==4);
     CHECK(Collides(tunnels,0.5,0.5,0.31));
     CHECK(!Collides(tunnels,2.5,2.5,0.31));
+    bool sparseBay=false,denseBay=false;
+    const WorldConfig storage{12345,1};
+    for (int rx=-8;rx<=8;++rx) for (int rz=-8;rz<=8;++rz) {
+        if (RegionAt(storage,rx*6,rz*6)!=RegionKind::Storage) continue;
+        int racks=0;
+        for (int lx=0;lx<6;++lx) for (int lz=0;lz<6;++lz) {
+            const int cx=rx*6+lx,cz=rz*6+lz;
+            if (PropAt(storage,cx,cz).kind!=PropKind::None ||
+                CellObstacles(storage,cx,cz).count!=1) continue;
+            ++racks;
+            CHECK(Collides(storage,(cx+0.5)*kCellSize,
+                           (cz+0.5)*kCellSize,0.31));
+        }
+        sparseBay|=racks==2;
+        denseBay|=racks==4;
+    }
+    CHECK(sparseBay && denseBay);
     const CellProp firstChair=PropAt(world,2,1);
     CHECK(firstChair.kind==PropKind::Chair);
     CHECK(PropAt(world,2,1).x==firstChair.x);
@@ -216,9 +233,9 @@ int main() {
     }
     // Rare entrances share the rendered frame, collider, and trigger geometry.
     for (const auto [level,cellX,cellZ]: {
-             std::array<int,3>{0,16,-16},
-             std::array<int,3>{1,16,16},
-             std::array<int,3>{2,16,-16}}) {
+             std::array<int,3>{0,-16,-16},
+             std::array<int,3>{1,16,-16},
+             std::array<int,3>{2,-16,16}}) {
         const WorldConfig selected{12345,level};
         const auto portal=PortalAt(selected,cellX,cellZ);
         CHECK(portal.has_value());

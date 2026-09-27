@@ -625,8 +625,17 @@ void BackroomsGame::BuildChunk(ChunkCoord coord) {
                  x,z,x+5,z+5,height,
                  Scale(ceiling,lampInfo.lit?1.0f:0.91f),0.8f);
         if (level==1) {
-            BoxRange(meshes,ceilingMat,x+0.22f,z,x+0.42f,z+5,
-                     height-0.32f,height-0.10f,grid);
+            const int rx=FloorDiv(gx,kRegionCells),rz=FloorDiv(gz,kRegionCells);
+            const int lx=gx-rx*kRegionCells,lz=gz-rz*kRegionCells;
+            const auto layout=CellHash(world_,rx,rz,2901);
+            const int phase=static_cast<int>((layout>>4)%3);
+            if (layout&1U) {
+                if ((lz+phase)%3==0)
+                    BoxRange(meshes,ceilingMat,x,z+0.22f,x+5,z+0.42f,
+                             height-0.32f,height-0.10f,grid);
+            } else if ((lx+phase)%3==0)
+                BoxRange(meshes,ceilingMat,x+0.22f,z,x+0.42f,z+5,
+                         height-0.32f,height-0.10f,grid);
         } else if (level==2 && !chamber) {
             BoxRange(meshes,Material::TunnelWall,x+0.35f,z,x+0.50f,z+5,
                      height-0.33f,height-0.17f,grid);
@@ -736,7 +745,7 @@ void BackroomsGame::BuildChunk(ChunkCoord coord) {
             if (level==0) {
                 BoxRange(meshes,wallMat,bx0,bz0,bx1,bz1,0,height,wallB);
             } else if (level==1) {
-                const Color steel(111,123,121),shelfColor(133,141,136);
+                const Color steel(168,177,172),shelfColor(198,201,188);
                 for (float sx: {bx0,bx1-0.10f})
                     for (float sz: {bz0,bz1-0.10f})
                         BoxRange(meshes,Material::ConcreteWall,sx,sz,
@@ -747,6 +756,10 @@ void BackroomsGame::BuildChunk(ChunkCoord coord) {
                 BoxRange(meshes,Material::TunnelWall,
                          bx0+0.18f,bz0+0.20f,bx0+0.72f,bz0+0.83f,
                          0.59f,1.13f,Color(142,123,94));
+                if ((h+obstacleId)%3==0)
+                    BoxRange(meshes,Material::Wood,
+                             bx1-0.73f,bz1-0.84f,bx1-0.19f,bz1-0.21f,
+                             1.23f,1.69f,Color(189,172,138));
             } else {
                 BoxRange(meshes,chamber ? Material::ConcreteWall :
                          Material::TunnelWall,bx0,bz0,bx1,bz1,
@@ -968,7 +981,10 @@ void BackroomsGame::Draw(const GameTime& time) {
         for (const auto& entity:chunk.entities) {
             const double ex=entity.x+0.55*std::sin(seconds*0.28f+entity.phase);
             const double ez=entity.z+0.55*std::cos(seconds*0.21f+entity.phase);
-            if (std::hypot(ex-x_,ez-z_)>82.0) continue;
+            const double distance=std::hypot(ex-x_,ez-z_);
+            // These silhouettes are atmosphere, not physical obstacles. Let
+            // them disappear before their mesh can surround the camera.
+            if (distance<3.5 || distance>82.0) continue;
             const float facing=static_cast<float>(std::atan2(x_-ex,z_-ez));
             effect_->setWorldProperty(Matrix::CreateRotationY(facing)*
                 Matrix::CreateTranslation(static_cast<float>(ex-x_),0,
