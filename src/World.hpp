@@ -53,6 +53,16 @@ struct WorldConfig {
     int level = 0;
 };
 
+struct PortalDefinition {
+    int level, cellX, cellZ, target;
+    bool alongX;
+};
+
+inline constexpr std::array<PortalDefinition,4> kPortals{{
+    {0,3,0,1,true}, {1,0,3,0,false},
+    {1,3,0,2,true}, {2,0,3,1,false}
+}};
+
 struct LevelDefinition {
     const char* name;
     float ceilingHeight;

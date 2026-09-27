@@ -20,7 +20,7 @@ cmake -S . -B build -DCNA_USE_SYSTEM_SDL=ON \
   -DCMAKE_PREFIX_PATH=../cna/.sdl-prebuilt-Linux-x86_64-wayland/install
 ```
 
-Run from the repository root or `build/` so the three WAV assets are found. Missing or unavailable audio is logged and the game continues. `--seed` accepts an unsigned decimal or `0x` hexadecimal integer; the default is reproducible. `--level 0|1|2 --position x z` starts at a chosen valid point for inspecting procedural rooms. `--stream-test` runs a 9.6 km automated GPU streaming sweep and exits.
+Run from the repository root or `build/` so the three WAV assets are found. Missing or unavailable audio is logged and the game continues. `--seed` accepts an unsigned decimal or `0x` hexadecimal integer; the default is reproducible. `--level 0|1|2 --position x z` starts at a chosen valid point for inspecting procedural rooms. `--walk-speed` and `--run-speed` set movement speeds in metres per second (defaults: 3.8 and 6.5). `--stream-test` runs a 9.6 km automated GPU streaming sweep and exits.
 
 ## Controls
 
@@ -28,12 +28,12 @@ Run from the repository root or `build/` so the three WAV assets are found. Miss
 | --- | --- |
 | Mouse | Look |
 | W/A/S/D | Move |
-| Left Shift | Toggle walking and running |
+| Shift | Toggle walking and running |
 | R | Return to the current level's spawn |
 | Escape | Release mouse; press again to quit |
 | Left click | Recapture mouse |
 
-The dark maintenance entrances are level transitions. From the Level 0 spawn, one is about 15 metres ahead. Level 1 has a return entrance to the north and a Level 2 entrance to the east. Level 2 has a return entrance to the north. Walking into the entrance changes level immediately.
+The dark maintenance entrances are level transitions. From the Level 0 spawn, one is about 15 metres ahead. From the Level 1 spawn, the return entrance is about 15 metres to the right and the Level 2 entrance is about 15 metres ahead. Level 2's return entrance is about 15 metres ahead. Walking into an entrance changes level immediately.
 
 ## Levels and world generation
 
@@ -43,7 +43,7 @@ The dark maintenance entrances are level transitions. From the Level 0 spawn, on
 
 The world format is algorithm version `3`, a 64-bit seed, and a level id (`0`–`2`). There are no chunk files. Integer cells are 5 metres wide; chunks are 8 by 8 cells. Six by six-cell regions pick spatial patterns, including open rooms, columns, irregular rooms, storage, and tunnels. A deterministic tree within each region and a few shared border connectors preserve connectivity without imposing straight global corridors. Stable hashes control extra openings, props, lighting variation and entities. Recreating a chunk from the same seed gives the same geometry, including across negative coordinates.
 
-The game retains at most a 5 by 5 neighborhood of chunks around the player. Each update prepares at most one missing chunk and uploads its CNA vertex buffers. Distant chunks are removed; a bounded pool holds up to 24 spare vertex buffers for reuse, then destroys excess buffers. Collision queries use the same deterministic walls and prop positions, independent of loaded geometry. Chunk vertices are local to their chunk to reduce float jitter far from the origin. The window title reports position, chunk, active chunks, triangles, buffer reuse, entities, build time, walk/run mode, audio state and FPS.
+The game retains at most a 5 by 5 neighborhood of chunks around the player. Each update prepares at most one missing chunk and uploads its CNA vertex buffers. Distant chunks are removed; a bounded pool holds up to 24 spare vertex buffers for reuse, then destroys excess buffers. Collision queries use the same deterministic walls, props and maintenance frames, independent of loaded geometry. Chunk vertices are local to their chunk to reduce float jitter far from the origin. The window title reports position, chunk, active chunks, triangles, buffer reuse, entities, build time, walk/run mode, audio state and FPS.
 
 ## Assets and limitations
 
@@ -53,6 +53,8 @@ Chunk generation is synchronous and capped at one upload per update. Walking is 
 
 ## Validation
 
-The Linux `OPENGLES3` build and deterministic world tests pass. Private-display play checks covered conventional mouse look, walk/run toggling, collision, screenshots of all three levels, Level 0→1→2 transitions, furniture, low partitions and false doors. A 9.6 km live GPU sweep crossed positive and negative coordinates, returned toward the origin, held 24–25 active chunks near 59 FPS, and peaked near 25 ms per chunk build. The buffer pool reused about 5,200 buffers after fewer than 300 creations. Sampled resident memory stayed below 179 MB after warmup and ended near 156 MB; the earlier run without pooling had risen from roughly 172 to 192 MB.
+The clean Linux Release `OPENGLES3` build and deterministic world tests pass. The tests execute in Release mode and check connectivity, negative coordinates, props, portal geometry and collisions. The clean executable launched on an isolated GPU display and walking reached Level 1. Private-display play checks covered conventional mouse look, Shift walk/run toggling, custom movement speeds, collision, furniture, low partitions, false doors, and all four directed level transitions. A real controller walk crossed a chunk boundary and returned with 25 active chunks and buffer reuse. The default seed and another seed both reached Level 2.
+
+Separate 9.6 km live GPU sweeps of Levels 0 and 2 crossed positive and negative coordinates. Both held 24–25 active chunks near 59 FPS. Level 2, the heavier scene, peaked near 26 ms for a chunk build and about 196 MB sampled resident memory after warmup. The buffer pool reused roughly 5,700 buffers during that run. The Level 0 sweep stayed below 179 MB after warmup; an earlier run without pooling had risen from roughly 172 to 192 MB. These are observations from the test distances, not a claim about unlimited-duration memory behavior.
 
 Audio initialization and event playback have been checked through CNA. A live PulseAudio/PipeWire sink input was observed while the game ran with a normal audio backend. Subjective audibility still needs a person listening on a real machine; private-display runs use SDL's dummy audio device.

@@ -22,7 +22,8 @@ class BackroomsGame final : public Microsoft::Xna::Framework::Game {
 public:
     explicit BackroomsGame(std::uint64_t seed, bool streamTest = false,
                            int startLevel = 0, double startX = 2.5,
-                           double startZ = 2.5);
+                           double startZ = 2.5, double walkSpeed = 3.8,
+                           double runSpeed = 6.5);
     const std::string& GetTypeName() const override;
     void Initialize() override;
     void LoadContent() override;
@@ -60,6 +61,8 @@ private:
     float yaw_ = 1.5707963f, pitch_ = 0;
     bool captured_ = false;
     bool running_ = false;
+    double walkSpeed_ = 3.8;
+    double runSpeed_ = 6.5;
     bool insidePortal_ = false;
     int frameCount_ = 0;
     double statsTime_ = 0;

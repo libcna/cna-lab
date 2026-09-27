@@ -248,7 +248,7 @@ CellObstacleSet CellObstacles(const WorldConfig& config, int cellX, int cellZ) {
 std::vector<Wall> NearbyWalls(const WorldConfig& config, double x, double z) {
     std::vector<Wall> walls;
     const int cx = CellOf(x), cz = CellOf(z);
-    walls.reserve(80);
+    walls.reserve(88);
     for (int ix=cx-1; ix<=cx+1; ++ix) {
         for (int iz=cz-1; iz<=cz+1; ++iz) {
             AppendEdge(walls, VerticalEdge(config, ix, iz), true,
@@ -258,6 +258,21 @@ std::vector<Wall> NearbyWalls(const WorldConfig& config, double x, double z) {
             const auto obstacles=CellObstacles(config,ix,iz);
             for (int i=0;i<obstacles.count;++i)
                 walls.push_back(obstacles.walls[i]);
+        }
+    }
+    for (const auto& portal:kPortals) {
+        if (portal.level!=config.level) continue;
+        const double px=(portal.cellX+0.5)*kCellSize;
+        const double pz=(portal.cellZ+0.5)*kCellSize;
+        if (std::abs(px-x)>8.0 || std::abs(pz-z)>8.0) continue;
+        if (portal.alongX) {
+            walls.push_back({px+0.43,pz-1.28,px+1.92,pz-1.10});
+            walls.push_back({px+0.43,pz+1.10,px+1.92,pz+1.28});
+            walls.push_back({px+1.82,pz-1.10,px+2.02,pz+1.10});
+        } else {
+            walls.push_back({px-1.28,pz+0.43,px-1.10,pz+1.92});
+            walls.push_back({px+1.10,pz+0.43,px+1.28,pz+1.92});
+            walls.push_back({px-1.10,pz+1.82,px+1.10,pz+2.02});
         }
     }
     return walls;

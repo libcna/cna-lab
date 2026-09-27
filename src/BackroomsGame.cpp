@@ -113,9 +113,28 @@ void Partition(Meshes& meshes, Material material, Edge edge, bool vertical,
         const float side=edge==Edge::Wide ? 0.75f : 1.55f;
         full(along,along+side);
         full(along+5.0f-side,along+5.0f);
-        if (edge==Edge::Door)
+        const auto cap=[&](float end) {
+            WallFace(meshes,material,!vertical,end,
+                     boundary-0.10f,boundary+0.10f,0.19f,height-0.10f,wall);
+            WallFace(meshes,material,!vertical,end,
+                     boundary-0.10f,boundary+0.10f,0,0.19f,trim);
+            WallFace(meshes,material,!vertical,end,
+                     boundary-0.10f,boundary+0.10f,height-0.10f,height,trim);
+        };
+        cap(along+side);
+        cap(along+5.0f-side);
+        if (edge==Edge::Door) {
             WallFace(meshes,material,vertical,boundary,along+side,
                      along+5.0f-side,doorHeight,height,trim);
+            if (vertical)
+                Flat(meshes,material,boundary-0.10f,along+side,
+                     boundary+0.10f,along+5.0f-side,
+                     doorHeight,trim,0.6f);
+            else
+                Flat(meshes,material,along+side,boundary-0.10f,
+                     along+5.0f-side,boundary+0.10f,
+                     doorHeight,trim,0.6f);
+        }
     }
 }
 
@@ -231,16 +250,6 @@ float LightFactor(const WorldConfig& world, double wx, double wz) {
     return std::min(1.0f,value);
 }
 
-struct Portal {
-    int level, cellX, cellZ, target;
-    bool alongX;
-};
-
-constexpr std::array<Portal,4> kPortals{{
-    {0,3,0,1,true}, {1,0,3,0,false},
-    {1,3,0,2,true}, {2,0,3,1,false}
-}};
-
 std::optional<int> PortalTarget(int level, double x, double z) {
     for (const auto& portal:kPortals) {
         if (portal.level!=level) continue;
@@ -248,7 +257,7 @@ std::optional<int> PortalTarget(int level, double x, double z) {
         const double pz=(portal.cellZ+0.5)*kCellSize;
         const double depth=portal.alongX ? x-px : z-pz;
         const double side=portal.alongX ? z-pz : x-px;
-        if (depth>0.55 && depth<1.50 && std::abs(side)<1.30)
+        if (depth>0.92 && depth<2.05 && std::abs(side)<1.30)
             return portal.target;
     }
     return std::nullopt;
@@ -259,7 +268,7 @@ void PortalVisual(Meshes& meshes, int level, bool alongX, float cx,
     const Material frameMat=level==0 ? Material::Wallpaper : Material::TunnelWall;
     const Color frame=level==0 ? Color(112,101,68) : Color(129,111,85);
     const Color dark(49,45,40);
-    const float near=0.62f, far=1.2f, half=1.1f;
+    const float near=0.43f, far=1.92f, half=1.1f;
     if (alongX) {
         BoxRange(meshes,frameMat,cx+near,cz-half-0.18f,
                  cx+far,cz-half,0,ceiling,frame);
@@ -269,8 +278,12 @@ void PortalVisual(Meshes& meshes, int level, bool alongX, float cx,
                  cx+far,cz+half,2.25f,ceiling,frame);
         WallFace(meshes,Material::TunnelWall,true,cx+far,cz-half,cz+half,
                  0,2.25f,dark);
-        Flat(meshes,Material::Fluorescent,cx+0.36f,cz-0.45f,
-             cx+0.62f,cz+0.45f,ceiling-0.06f,Color(184,169,125),1.0f);
+        Flat(meshes,Material::TunnelFloor,cx+near,cz-half,
+             cx+far,cz+half,0.012f,Color(115,105,82),0.5f);
+        Flat(meshes,Material::TunnelCeiling,cx+near,cz-half,
+             cx+far,cz+half,2.245f,Color(107,99,79),0.6f);
+        Flat(meshes,Material::Fluorescent,cx+1.08f,cz-0.25f,
+             cx+1.48f,cz+0.25f,2.235f,Color(154,136,99),1.0f);
     } else {
         BoxRange(meshes,frameMat,cx-half-0.18f,cz+near,
                  cx-half,cz+far,0,ceiling,frame);
@@ -280,24 +293,34 @@ void PortalVisual(Meshes& meshes, int level, bool alongX, float cx,
                  cx+half,cz+far,2.25f,ceiling,frame);
         WallFace(meshes,Material::TunnelWall,false,cz+far,cx-half,cx+half,
                  0,2.25f,dark);
-        Flat(meshes,Material::Fluorescent,cx-0.45f,cz+0.36f,
-             cx+0.45f,cz+0.62f,ceiling-0.06f,Color(184,169,125),1.0f);
+        Flat(meshes,Material::TunnelFloor,cx-half,cz+near,
+             cx+half,cz+far,0.012f,Color(115,105,82),0.5f);
+        Flat(meshes,Material::TunnelCeiling,cx-half,cz+near,
+             cx+half,cz+far,2.245f,Color(107,99,79),0.6f);
+        Flat(meshes,Material::Fluorescent,cx-0.25f,cz+1.08f,
+             cx+0.25f,cz+1.48f,2.235f,Color(154,136,99),1.0f);
     }
 }
 }
 
 BackroomsGame::BackroomsGame(std::uint64_t seed, bool streamTest,
-                             int startLevel, double startX, double startZ)
+                             int startLevel, double startX, double startZ,
+                             double walkSpeed, double runSpeed)
     : graphics_(this), streamTest_(streamTest) {
     if (startLevel<0 || startLevel>2 || !std::isfinite(startX) ||
-        !std::isfinite(startZ))
-        throw std::invalid_argument("invalid start level or position");
+        !std::isfinite(startZ) || std::abs(startX)>1.0e8 ||
+        std::abs(startZ)>1.0e8 || !std::isfinite(walkSpeed) ||
+        !std::isfinite(runSpeed) || walkSpeed<=0 || runSpeed<=walkSpeed ||
+        runSpeed>20.0)
+        throw std::invalid_argument("invalid start level, position, or movement speed");
     world_.seed = seed;
     world_.level=startLevel;
     if (Collides(world_,startX,startZ,0.31))
         throw std::invalid_argument("start position intersects generated geometry");
     x_=startX;
     z_=startZ;
+    walkSpeed_=walkSpeed;
+    runSpeed_=runSpeed;
     yaw_=startLevel==2 ? 0.0f : 1.5707963f;
     graphics_.setPreferredBackBufferWidthProperty(1280);
     graphics_.setPreferredBackBufferHeightProperty(720);
@@ -601,7 +624,7 @@ void BackroomsGame::UpdateTitle(double elapsed) {
           << " | VBO " << bufferCreations_ << '/' << bufferReuses_
           << " pool " << spareVertices_.size()
           << " | entities " << entities
-          << " | gen " << std::setprecision(2) << lastBuildMs_ << " ms"
+          << " | build " << std::setprecision(2) << lastBuildMs_ << " ms"
           << " | peak " << peakBuildMs_ << " ms"
           << " | " << (running_ ? "run" : "walk")
           << " | audio " << (hum_ ? "on" : "off")
@@ -628,7 +651,11 @@ void BackroomsGame::Update(GameTime& time) {
         return;
     }
     const auto keys=Keyboard::GetState();
-    if (keys.IsKeyDown(Keys::LeftShift) && previousKeys_.IsKeyUp(Keys::LeftShift))
+    const bool shiftDown=keys.IsKeyDown(Keys::LeftShift) ||
+                         keys.IsKeyDown(Keys::RightShift);
+    const bool wasShiftDown=previousKeys_.IsKeyDown(Keys::LeftShift) ||
+                            previousKeys_.IsKeyDown(Keys::RightShift);
+    if (shiftDown && !wasShiftDown)
         running_=!running_;
     if (keys.IsKeyDown(Keys::Escape) && previousKeys_.IsKeyUp(Keys::Escape)) {
         if (captured_) {
@@ -652,7 +679,7 @@ void BackroomsGame::Update(GameTime& time) {
         double strafe=(keys.IsKeyDown(Keys::D)?1.0:0.0)-(keys.IsKeyDown(Keys::A)?1.0:0.0);
         const double length=std::hypot(forward,strafe);
         if (length>0) { forward/=length; strafe/=length; }
-        const double speed=(running_?6.5:3.8)*dt;
+        const double speed=(running_?runSpeed_:walkSpeed_)*dt;
         const double dx=(std::sin(yaw_)*forward-std::cos(yaw_)*strafe)*speed;
         const double dz=(std::cos(yaw_)*forward+std::sin(yaw_)*strafe)*speed;
         const double oldX=x_, oldZ=z_;
