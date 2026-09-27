@@ -200,12 +200,22 @@ bool IsEmptyHall(const WorldConfig& config, int cellX, int cellZ) {
     return CellHash(config,sx,sz,2511)%17==0;
 }
 
+bool IsServiceChamber(const WorldConfig& config, int cellX, int cellZ) {
+    if (config.level!=2) return false;
+    const int rx=DivFloor(cellX,kRegionCells),rz=DivFloor(cellZ,kRegionCells);
+    if (rx==0 && rz==0) return false; // keep the first maintenance route
+    return CellHash(config,rx,rz,2801)%11==0;
+}
+
 Edge VerticalEdge(const WorldConfig& config, int boundaryX, int z) {
     if (config.level<=1 && z==0 && boundaryX>=1 && boundaryX<=3)
         return Edge::Open; // readable route to the first maintenance entrance
     if (DivFloor(boundaryX-1,2*kRegionCells)==
         DivFloor(boundaryX,2*kRegionCells) &&
         IsEmptyHall(config,boundaryX-1,z)) return Edge::Open;
+    if (DivFloor(boundaryX-1,kRegionCells)==
+        DivFloor(boundaryX,kRegionCells) &&
+        IsServiceChamber(config,boundaryX-1,z)) return Edge::Open;
     const int rx=DivFloor(boundaryX-1,kRegionCells);
     const int rz=DivFloor(z,kRegionCells);
     const int localZ=ModFloor(z,kRegionCells);
@@ -230,6 +240,9 @@ Edge HorizontalEdge(const WorldConfig& config, int x, int boundaryZ) {
     if (DivFloor(boundaryZ-1,2*kRegionCells)==
         DivFloor(boundaryZ,2*kRegionCells) &&
         IsEmptyHall(config,x,boundaryZ-1)) return Edge::Open;
+    if (DivFloor(boundaryZ-1,kRegionCells)==
+        DivFloor(boundaryZ,kRegionCells) &&
+        IsServiceChamber(config,x,boundaryZ-1)) return Edge::Open;
     const int rx=DivFloor(x,kRegionCells);
     const int rz=DivFloor(boundaryZ-1,kRegionCells);
     const int localX=ModFloor(x,kRegionCells);
@@ -251,6 +264,7 @@ Edge HorizontalEdge(const WorldConfig& config, int x, int boundaryZ) {
 CellProp PropAt(const WorldConfig& config, int cellX, int cellZ) {
     CellProp result;
     if (IsEmptyHall(config,cellX,cellZ)) return result;
+    if (IsServiceChamber(config,cellX,cellZ)) return result;
     if (PortalAt(config,cellX,cellZ)) return result;
     if ((cellZ==0 && cellX>=0 && cellX<=3) ||
         (cellX==0 && cellZ>=0 && cellZ<=3)) return result;
@@ -308,6 +322,16 @@ CellObstacleSet CellObstacles(const WorldConfig& config, int cellX, int cellZ) {
     CellObstacleSet result;
     if (IsEmptyHall(config,cellX,cellZ)) return result;
     if (PortalAt(config,cellX,cellZ)) return result;
+    if (IsServiceChamber(config,cellX,cellZ)) {
+        const int lx=ModFloor(cellX,kRegionCells);
+        const int lz=ModFloor(cellZ,kRegionCells);
+        if ((lx==1 || lx==4) && (lz==1 || lz==4)) {
+            const double cx=(cellX+0.5)*kCellSize;
+            const double cz=(cellZ+0.5)*kCellSize;
+            result.walls[result.count++]={cx-0.55,cz-0.55,cx+0.55,cz+0.55};
+        }
+        return result;
+    }
     const RegionKind kind=RegionAt(config,cellX,cellZ);
     const int lx=ModFloor(cellX,kRegionCells), lz=ModFloor(cellZ,kRegionCells);
     if (kind==RegionKind::Columns && (lx==1 || lx==4) &&

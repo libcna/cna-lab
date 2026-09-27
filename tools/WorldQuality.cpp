@@ -14,7 +14,7 @@ constexpr int kMin=-64,kMax=63;
 struct Counts {
     int cells=0,deadEnds=0,openCells=0,blocked=0;
     int openEdges=0,wideEdges=0,doorEdges=0,solidEdges=0;
-    int longestSightline=0,portals=0,emptyHallCells=0;
+    int longestSightline=0,portals=0,emptyHallCells=0,chamberCells=0;
     std::array<int,7> regions{};
 };
 
@@ -46,6 +46,7 @@ Counts Sample(const WorldConfig& world) {
         CountEdge(counts,south);
         counts.portals+=PortalAt(world,x,z).has_value();
         counts.emptyHallCells+=IsEmptyHall(world,x,z);
+        counts.chamberCells+=IsServiceChamber(world,x,z);
         ++counts.regions[static_cast<int>(RegionAt(world,x,z))];
     }
     for (int z=kMin;z<=kMax;++z) {
@@ -88,6 +89,7 @@ int main() {
                       << " | longest sightline " << c.longestSightline
                       << " cells | entrances " << c.portals
                       << " | empty hall cells " << c.emptyHallCells
+                      << " | chamber cells " << c.chamberCells
                       << " | region cells";
             for (int count:c.regions) std::cout << ' ' << count;
             std::cout << '\n';

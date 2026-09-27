@@ -207,6 +207,32 @@ void BoxRange(Meshes& meshes, Material material, float x0, float z0,
     Flat(meshes,material,x0,z0,x1,z1,y1,color,0.6f);
 }
 
+void PipeRun(Meshes& meshes, bool alongZ, float cross, float start,
+             float end, float height, float radius, Color color) {
+    constexpr int facets=6;
+    constexpr float turn=6.28318530718f;
+    for (int facet=0;facet<facets;++facet) {
+        const float a=turn*facet/facets,b=turn*(facet+1)/facets;
+        const float ha=std::cos(a)*radius,hb=std::cos(b)*radius;
+        const float ya=height+std::sin(a)*radius;
+        const float yb=height+std::sin(b)*radius;
+        const float shade=0.77f+0.23f*std::max(0.0f,
+                           std::sin((a+b)*0.5f));
+        const Color face=Scale(color,shade);
+        const Vector3 p0=alongZ ? Vector3(cross+ha,ya,start) :
+                                  Vector3(start,ya,cross+ha);
+        const Vector3 p1=alongZ ? Vector3(cross+ha,ya,end) :
+                                  Vector3(end,ya,cross+ha);
+        const Vector3 p2=alongZ ? Vector3(cross+hb,yb,end) :
+                                  Vector3(end,yb,cross+hb);
+        const Vector3 p3=alongZ ? Vector3(cross+hb,yb,start) :
+                                  Vector3(start,yb,cross+hb);
+        Quad(meshes,Material::IndustrialCeiling,p0,p1,p2,p3,face,
+             {start*0.3f,0.0f},{end*0.3f,0.0f},
+             {end*0.3f,1.0f},{start*0.3f,1.0f});
+    }
+}
+
 void PropBox(Meshes& meshes, Material material, float cx, float cz,
              int quarterTurn, float sink, float x0, float z0, float x1,
              float z1, float y0, float y1, Color color) {
@@ -329,10 +355,12 @@ LampInfo LampAt(const WorldConfig& world, int gx, int gz) {
         lamp.longAxisX=(layout&1U)!=0;
     } else {
         lamp.fixture=world.level==1 ? (gx%3==0 && gz%2==0) :
+                     IsServiceChamber(world,gx,gz) ?
+                     (gx%2==0 && gz%2==0) :
                      ((gx+gz)%3==0 && h%3!=0);
         if (world.level==2 && gx==0 &&
             (gz==0 || gz==1 || gz==3)) lamp.fixture=true;
-        lamp.lit=lamp.fixture;
+        lamp.lit=lamp.fixture && (!IsServiceChamber(world,gx,gz) || h%13!=0);
     }
     return lamp;
 }
@@ -553,8 +581,6 @@ void BackroomsGame::BuildChunk(ChunkCoord coord) {
                      level==1 ? Color(110,130,128) : Color(99,83,67);
     const Color floorA=level==0 ? Color(246,240,222) :
                        level==1 ? Color(218,222,217) : Color(215,204,178);
-    const Color floorB=level==0 ? Color(218,213,197) :
-                       level==1 ? Color(193,201,195) : Color(181,173,153);
     const Color ceiling=level==0 ? Color(255,252,235) :
                         level==1 ? Color(205,220,219) : Color(150,143,124);
     const Color grid=level==0 ? Color(143,139,115) :
@@ -566,17 +592,27 @@ void BackroomsGame::BuildChunk(ChunkCoord coord) {
         const int gx=ox+lx, gz=oz+lz;
         const float x=lx*5.0f, z=lz*5.0f;
         const auto h=CellHash(world_,gx,gz,41);
+        const bool chamber=IsServiceChamber(world_,gx,gz);
         const auto lampInfo=LampAt(world_,gx,gz);
-        const Color floorColor=level==0 ? floorA : Vary(floorA,floorB,h);
+        const Color floorColor=floorA;
         const double wx=gx*kCellSize,wz=gz*kCellSize;
         const std::array<float,4> light{{
             LightFactor(world_,wx,wz),LightFactor(world_,wx+5,wz),
             LightFactor(world_,wx+5,wz+5),LightFactor(world_,wx,wz+5)
         }};
-        FlatShaded(meshes,floorMat,x,z,x+5,z+5,0,
-            {Scale(floorColor,light[0]),Scale(floorColor,light[1]),
-             Scale(floorColor,light[2]),Scale(floorColor,light[3])},
-             level==0 ? 0.25f : 0.5f);
+        const auto floorShade=[&](float u,float v) {
+            const float north=light[0]+(light[1]-light[0])*u;
+            const float south=light[3]+(light[2]-light[3])*u;
+            return Scale(floorColor,north+(south-north)*v);
+        };
+        for (int fx=0;fx<2;++fx) for (int fz=0;fz<2;++fz) {
+            const float u=fx*0.5f,v=fz*0.5f;
+            FlatShaded(meshes,floorMat,x+u*5,z+v*5,
+                x+(u+0.5f)*5,z+(v+0.5f)*5,0,
+                {floorShade(u,v),floorShade(u+0.5f,v),
+                 floorShade(u+0.5f,v+0.5f),floorShade(u,v+0.5f)},
+                level==0 ? 0.25f : 0.5f);
+        }
         if (level==0) {
             const auto ceilingLight=[&](float factor) {
                 return Scale(ceiling,0.52f+0.48f*factor);
@@ -585,12 +621,13 @@ void BackroomsGame::BuildChunk(ChunkCoord coord) {
                 {ceilingLight(light[0]),ceilingLight(light[1]),
                  ceilingLight(light[2]),ceilingLight(light[3])},1.6f);
         } else
-            Flat(meshes,ceilingMat,x,z,x+5,z+5,height,
+            Flat(meshes,chamber ? Material::IndustrialCeiling : ceilingMat,
+                 x,z,x+5,z+5,height,
                  Scale(ceiling,lampInfo.lit?1.0f:0.91f),0.8f);
         if (level==1) {
             BoxRange(meshes,ceilingMat,x+0.22f,z,x+0.42f,z+5,
                      height-0.32f,height-0.10f,grid);
-        } else if (level==2) {
+        } else if (level==2 && !chamber) {
             BoxRange(meshes,Material::TunnelWall,x+0.35f,z,x+0.50f,z+5,
                      height-0.33f,height-0.17f,grid);
             BoxRange(meshes,Material::TunnelWall,x+4.50f,z,x+4.65f,z+5,
@@ -643,30 +680,18 @@ void BackroomsGame::BuildChunk(ChunkCoord coord) {
                           shadowFloor);
         }
         if (level==2) {
-            const Color pipe(151,151,134);
-            const Color darkPipe(105,119,112);
+            const Color pipe(207,190,157);
+            const Color darkPipe(151,147,127);
             const Color cabinet(133,139,126);
             const auto serviceWall=[&](bool vertical, float boundary,
                                        bool positiveSide, std::uint32_t hash) {
                 const float side=positiveSide ? 1.0f : -1.0f;
-                const auto strip=[&](float start,float end,float y0,float y1,
-                                     Color color,float depth) {
-                    if (vertical)
-                        BoxRange(meshes,Material::IndustrialCeiling,
-                                 boundary+side*depth-0.035f,
-                                 start,boundary+side*depth+0.035f,
-                                 end,y0,y1,color);
-                    else
-                        BoxRange(meshes,Material::IndustrialCeiling,
-                                 start,boundary+side*depth-0.035f,
-                                 end,boundary+side*depth+0.035f,
-                                 y0,y1,color);
-                };
-                strip(vertical ? z : x,vertical ? z+5 : x+5,
-                      1.91f,2.00f,pipe,0.18f);
+                const float start=vertical ? z : x;
+                PipeRun(meshes,vertical,boundary+side*0.19f,start,
+                        start+5.0f,1.95f,0.055f,pipe);
                 if (hash%3!=0)
-                    strip(vertical ? z : x,vertical ? z+5 : x+5,
-                          0.85f,0.92f,darkPipe,0.16f);
+                    PipeRun(meshes,vertical,boundary+side*0.19f,start,
+                            start+5.0f,0.89f,0.048f,darkPipe);
                 if (hash%7==0) {
                     const float along=(vertical ? z : x)+2.0f;
                     const float depth=boundary+side*0.16f;
@@ -723,8 +748,10 @@ void BackroomsGame::BuildChunk(ChunkCoord coord) {
                          bx0+0.18f,bz0+0.20f,bx0+0.72f,bz0+0.83f,
                          0.59f,1.13f,Color(142,123,94));
             } else {
-                BoxRange(meshes,Material::TunnelWall,bx0,bz0,bx1,bz1,
-                         0,height-0.23f,Color(136,122,101));
+                BoxRange(meshes,chamber ? Material::ConcreteWall :
+                         Material::TunnelWall,bx0,bz0,bx1,bz1,
+                         0,chamber ? height : height-0.23f,
+                         chamber ? Color(195,190,166) : Color(136,122,101));
             }
         }
         Furniture(meshes,prop,ox*kCellSize,oz*kCellSize,level);

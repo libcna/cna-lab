@@ -101,16 +101,16 @@ Color Pixel(Material material, int x, int y) {
     case Material::TunnelWall: {
         const float rustNoise=SmoothNoise(x,y,32,73);
         const int rust=rustNoise>0.62f ?
-            static_cast<int>((rustNoise-0.62f)*38.0f) : 0;
-        r=101+grain+blotch+rust;
-        g=89+grain+blotch-rust/3;
-        b=74+grain+blotch-rust/2;
+            static_cast<int>((rustNoise-0.62f)*52.0f) : 0;
+        r=113+grain+blotch+rust;
+        g=101+grain+blotch-rust/3;
+        b=84+grain+blotch-rust/2;
         break;
     }
     case Material::TunnelFloor:
-        r=67+grain+blotch; g=68+grain+blotch; b=63+grain+blotch; break;
+        r=77+grain+blotch; g=78+grain+blotch; b=72+grain+blotch; break;
     case Material::TunnelCeiling:
-        r=77+grain+blotch; g=75+grain+blotch; b=69+grain+blotch; break;
+        r=86+grain+blotch; g=83+grain+blotch; b=76+grain+blotch; break;
     case Material::Wood: {
         const int grainLine=static_cast<int>(std::lround(
             5.0f*std::sin(y*0.39f+SmoothNoise(x,y,16,140)*2.0f)));
