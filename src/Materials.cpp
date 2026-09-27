@@ -44,34 +44,46 @@ Color Pixel(Material material, int x, int y) {
     int r=0,g=0,b=0;
     switch (material) {
     case Material::Wallpaper: {
-        const int row=y%64;
-        const int bend=(row<32 ? row : 64-row)/4;
-        const int stripeDistance=std::abs((x+bend)%32-16);
-        const int stripe=stripeDistance<2 ? -6 :
-                         stripeDistance<4 ? 2 : 0;
-        const float stainNoise=SmoothNoise(x,y,16,51);
-        const int stain=stainNoise>0.64f ?
-            static_cast<int>((0.64f-stainNoise)*42.0f) : 0;
-        r=206+grain/2+blotch/2+stripe+stain;
-        g=193+grain/2+blotch/2+stripe+stain;
-        b=127+grain/3+blotch/2+stripe+stain;
+        // A repeating, faded wallpaper motif: wavy vertical stems and broad
+        // ornamental loops. Its contrast remains legible at corridor distance.
+        constexpr float pi=3.14159265358979323846f;
+        const float wave=2.7f*std::sin(y*2.0f*pi/64.0f);
+        const float stem=std::abs(std::remainder(x+wave-16.0f,32.0f));
+        const float localY=std::remainder(static_cast<float>(y),64.0f);
+        const float loop=std::sqrt(std::pow(stem/10.5f,2.0f)+
+                                   std::pow(localY/24.0f,2.0f));
+        const int motif=(stem<1.7f ? -14 : stem<3.3f ? -6 : 0)+
+                        (std::abs(loop-1.0f)<0.10f ? -8 : 0);
+        const int panel=((x/16)&1) ? -2 : 2;
+        const float stainNoise=SmoothNoise(x,y,32,51);
+        const int stain=stainNoise>0.60f ?
+            static_cast<int>((0.60f-stainNoise)*32.0f) : 0;
+        r=211+grain/3+blotch/3+motif+panel+stain;
+        g=198+grain/3+blotch/3+motif+panel+stain;
+        b=133+grain/4+blotch/3+motif/2+panel+stain;
         break;
     }
     case Material::Carpet: {
-        const int fiber=(x%3==0 && Noise(x,y,61)%3==0) ? 11 : 0;
-        const int patch=static_cast<int>(std::lround(
-            (SmoothNoise(x,y,16,62)-0.5f)*22.0f));
-        r=103+grain+blotch+patch+fiber;
-        g=98+grain+blotch+patch+fiber;
-        b=78+grain+blotch+patch+fiber/2;
+        const int thread=((x+y)%4==0 ? 5 : 0)-
+                         ((x-y+128)%7==0 ? 3 : 0);
+        const int wear=static_cast<int>(std::lround(
+            (SmoothNoise(x,y,32,62)-0.5f)*11.0f));
+        const float dirtNoise=SmoothNoise(x,y,32,93);
+        const int dirt=dirtNoise>0.68f ?
+            static_cast<int>((0.68f-dirtNoise)*42.0f) : 0;
+        r=139+grain/2+thread+wear+dirt;
+        g=128+grain/2+thread+wear+dirt;
+        b=100+grain/3+thread/2+wear+dirt;
         break;
     }
     case Material::CeilingTile: {
-        const int seam=(x<3 || y<3) ? -33 :
-                       (x<5 || y<5) ? -11 : 0;
-        r=203+grain+blotch+seam;
-        g=201+grain+blotch+seam;
-        b=182+grain+blotch+seam;
+        const int seam=(x<3 || y<3) ? -64 :
+                       (x<6 || y<6) ? -13 : 0;
+        const int pores=Noise(x,y,108)%19==0 ? -13 :
+                        Noise(x,y,109)%23==0 ? 5 : 0;
+        r=209+grain/2+blotch/3+seam+pores;
+        g=207+grain/2+blotch/3+seam+pores;
+        b=187+grain/2+blotch/3+seam+pores;
         break;
     }
     case Material::ConcreteWall: {
