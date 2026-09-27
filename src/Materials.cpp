@@ -86,9 +86,9 @@ Color Pixel(Material material, int x, int y) {
     case Material::IndustrialCeiling:
         r=100+grain/2+blotch; g=109+grain/2+blotch; b=106+grain/2+blotch; break;
     case Material::TunnelWall: {
-        const float rustNoise=SmoothNoise(x,y,16,73);
+        const float rustNoise=SmoothNoise(x,y,32,73);
         const int rust=rustNoise>0.62f ?
-            static_cast<int>((rustNoise-0.62f)*60.0f) : 0;
+            static_cast<int>((rustNoise-0.62f)*38.0f) : 0;
         r=101+grain+blotch+rust;
         g=89+grain+blotch-rust/3;
         b=74+grain+blotch-rust/2;

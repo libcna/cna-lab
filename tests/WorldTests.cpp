@@ -18,8 +18,9 @@ int main() {
     assert(CellHash(world,12,-8,41)==CellHash(world,12,-8,41));
     assert(CellHash(world,12,-8,41)!=CellHash(world,13,-8,41));
     // Every complete multi-region rectangle must be reachable, including negative cells.
+    for (std::uint64_t seed: {0ULL,12345ULL,31337ULL,0xffffffffffffffffULL})
     for (int level=0;level<3;++level) {
-        WorldConfig selected{12345,level};
+        WorldConfig selected{seed,level};
         std::queue<std::pair<int,int>> pending;
         std::set<std::pair<int,int>> visited;
         pending.push({0,0}); visited.insert({0,0});
@@ -81,5 +82,41 @@ int main() {
         }
     }
     assert(foundEmbedded);
+    bool foundLowPartition=false;
+    for (int ix=-30;ix<=30 && !foundLowPartition;++ix)
+        for (int iz=-30;iz<=30 && !foundLowPartition;++iz) {
+            const auto prop=PropAt(world,ix,iz);
+            if (prop.kind!=PropKind::LowPartition) continue;
+            assert(Collides(world,prop.x,prop.z,0.31));
+            foundLowPartition=true;
+        }
+    assert(foundLowPartition);
+    // Check that the movement collider agrees with generated openings, including
+    // region and chunk boundaries on both sides of the origin.
+    for (int level=0;level<3;++level) {
+        const WorldConfig selected{12345,level};
+        for (int bx=-7;bx<=7;++bx) for (int bz=-7;bz<=7;++bz) {
+            const double borderX=bx*kCellSize;
+            const double midZ=(bz+0.5)*kCellSize;
+            double px=borderX-0.75,pz=midZ;
+            if (!Collides(selected,px,pz,0.31) &&
+                !Collides(selected,borderX+0.75,pz,0.31)) {
+                MoveWithCollision(selected,px,pz,1.5,0,0.31);
+                if (VerticalEdge(selected,bx,bz)==Edge::Solid)
+                    assert(px<borderX-0.25);
+                else assert(px>borderX+0.25);
+            }
+            const double midX=(bx+0.5)*kCellSize;
+            const double borderZ=bz*kCellSize;
+            px=midX; pz=borderZ-0.75;
+            if (!Collides(selected,px,pz,0.31) &&
+                !Collides(selected,px,borderZ+0.75,0.31)) {
+                MoveWithCollision(selected,px,pz,0,1.5,0.31);
+                if (HorizontalEdge(selected,bx,bz)==Edge::Solid)
+                    assert(pz<borderZ-0.25);
+                else assert(pz>borderZ+0.25);
+            }
+        }
+    }
     std::cout << "world tests passed\n";
 }

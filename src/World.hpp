@@ -6,7 +6,7 @@
 
 namespace Backrooms {
 
-constexpr int kFormatVersion = 2;
+constexpr int kFormatVersion = 3;
 constexpr int kChunkCells = 8;
 constexpr int kRegionCells = 6;
 constexpr double kCellSize = 5.0;
@@ -36,7 +36,9 @@ struct CellObstacleSet {
     int count = 0;
 };
 
-enum class PropKind : std::uint8_t { None, Chair, Table, EmbeddedChair };
+enum class PropKind : std::uint8_t {
+    None, Chair, Table, EmbeddedChair, LowPartition
+};
 
 struct CellProp {
     PropKind kind = PropKind::None;

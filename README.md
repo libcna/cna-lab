@@ -20,7 +20,7 @@ cmake -S . -B build -DCNA_USE_SYSTEM_SDL=ON \
   -DCMAKE_PREFIX_PATH=../cna/.sdl-prebuilt-Linux-x86_64-wayland/install
 ```
 
-Run from the repository root or `build/` so the three WAV assets are found. Missing or unavailable audio is logged and the game continues. `--seed` accepts an unsigned decimal or `0x` hexadecimal integer; the default is reproducible. `--stream-test` runs a 9.6 km automated GPU streaming sweep and exits.
+Run from the repository root or `build/` so the three WAV assets are found. Missing or unavailable audio is logged and the game continues. `--seed` accepts an unsigned decimal or `0x` hexadecimal integer; the default is reproducible. `--level 0|1|2 --position x z` starts at a chosen valid point for inspecting procedural rooms. `--stream-test` runs a 9.6 km automated GPU streaming sweep and exits.
 
 ## Controls
 
@@ -37,13 +37,13 @@ The dark maintenance entrances are level transitions. From the Level 0 spawn, on
 
 ## Levels and world generation
 
-- **Level 0, The Yellow Rooms:** patterned yellow wallpaper, stained office carpet, suspended ceiling tiles, fluorescent panels, mixed room sizes, columns, rare furniture and false doors.
+- **Level 0, The Yellow Rooms:** patterned yellow wallpaper, stained office carpet, suspended ceiling tiles, fluorescent panels, mixed room sizes, columns, low partitions, rare furniture and false doors.
 - **Level 1, Service Storage:** tall concrete spaces, support pillars, shelves and industrial lighting.
 - **Level 2, Maintenance Tunnels:** lower ceilings, darker rust-colored materials, narrower passages and utility geometry.
 
-The world format is algorithm version `2`, a 64-bit seed, and a level id (`0`–`2`). There are no chunk files. Integer cells are 5 metres wide; chunks are 8 by 8 cells. Six by six-cell regions pick spatial patterns, including open rooms, columns, irregular rooms, storage, and tunnels. A deterministic hash controls region type, openings, props, lighting variation and entities. Region boundary connectors preserve connectivity, including across chunks and negative coordinates. Recreating a chunk from the same seed gives the same geometry.
+The world format is algorithm version `3`, a 64-bit seed, and a level id (`0`–`2`). There are no chunk files. Integer cells are 5 metres wide; chunks are 8 by 8 cells. Six by six-cell regions pick spatial patterns, including open rooms, columns, irregular rooms, storage, and tunnels. A deterministic tree within each region and a few shared border connectors preserve connectivity without imposing straight global corridors. Stable hashes control extra openings, props, lighting variation and entities. Recreating a chunk from the same seed gives the same geometry, including across negative coordinates.
 
-The game retains at most a 5 by 5 neighborhood of chunks around the player. Each update prepares at most one missing chunk and uploads its CNA vertex buffers; distant chunks and buffers are destroyed. Collision queries use the same deterministic walls and prop positions, independent of loaded geometry. Chunk vertices are local to their chunk to reduce float jitter far from the origin. The window title reports position, chunk, active chunks, triangles, entities, build time, walk/run mode, audio state and FPS.
+The game retains at most a 5 by 5 neighborhood of chunks around the player. Each update prepares at most one missing chunk and uploads its CNA vertex buffers. Distant chunks are removed; a bounded pool holds up to 24 spare vertex buffers for reuse, then destroys excess buffers. Collision queries use the same deterministic walls and prop positions, independent of loaded geometry. Chunk vertices are local to their chunk to reduce float jitter far from the origin. The window title reports position, chunk, active chunks, triangles, buffer reuse, entities, build time, walk/run mode, audio state and FPS.
 
 ## Assets and limitations
 
@@ -53,6 +53,6 @@ Chunk generation is synchronous and capped at one upload per update. Walking is 
 
 ## Validation
 
-The Linux `OPENGLES3` build and deterministic world tests pass. Private-display play checks covered conventional mouse look, walk/run toggling, collision, screenshots of all three levels, and Level 0→1→2 transitions. A 4.8 km live GPU out-and-back sweep stayed at or below 25 active chunks and about 59 FPS, with a peak chunk build near 25 ms; resident memory rose from about 171 MB after warmup to 180 MB, so longer memory observation remains useful. The current `--stream-test` also crosses negative coordinates and is intended for that follow-up.
+The Linux `OPENGLES3` build and deterministic world tests pass. Private-display play checks covered conventional mouse look, walk/run toggling, collision, screenshots of all three levels, Level 0→1→2 transitions, furniture, low partitions and false doors. A 9.6 km live GPU sweep crossed positive and negative coordinates, returned toward the origin, held 24–25 active chunks near 59 FPS, and peaked near 25 ms per chunk build. The buffer pool reused about 5,200 buffers after fewer than 300 creations. Sampled resident memory stayed below 179 MB after warmup and ended near 156 MB; the earlier run without pooling had risen from roughly 172 to 192 MB.
 
 Audio initialization and event playback have been checked through CNA. A live PulseAudio/PipeWire sink input was observed while the game ran with a normal audio backend. Subjective audibility still needs a person listening on a real machine; private-display runs use SDL's dummy audio device.

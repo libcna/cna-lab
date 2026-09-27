@@ -1,6 +1,6 @@
 # Sound asset license
 
-The three WAV files in this directory come from the local **Essentials Series / NOX SOUND** collection. Its `Essentials_Series_README.pdf` states: “All these sounds are under CC0 license.” CC0 permits redistribution and use in this game.
+The three WAV files in this directory come from the **[Essentials Series / NOX SOUND](https://nox-sound-design.itch.io/essentials-series-sfx-nox-sound)** collection. The author's product page and the collection's `Essentials_Series_README.pdf` both state that all sounds are released under CC0. CC0 permits redistribution and use in this game.
 
 | Local file | Original file in the collection |
 | --- | --- |

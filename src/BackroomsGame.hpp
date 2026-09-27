@@ -20,7 +20,9 @@ namespace Backrooms {
 
 class BackroomsGame final : public Microsoft::Xna::Framework::Game {
 public:
-    explicit BackroomsGame(std::uint64_t seed, bool streamTest = false);
+    explicit BackroomsGame(std::uint64_t seed, bool streamTest = false,
+                           int startLevel = 0, double startX = 2.5,
+                           double startZ = 2.5);
     const std::string& GetTypeName() const override;
     void Initialize() override;
     void LoadContent() override;
@@ -51,6 +53,7 @@ private:
     std::unique_ptr<Microsoft::Xna::Framework::Audio::SoundEffect> step_;
     std::unique_ptr<Microsoft::Xna::Framework::Audio::SoundEffect> transition_;
     std::map<ChunkCoord, Chunk> chunks_;
+    std::vector<std::unique_ptr<Microsoft::Xna::Framework::Graphics::VertexBuffer>> spareVertices_;
     WorldConfig world_;
     Microsoft::Xna::Framework::Input::KeyboardState previousKeys_;
     double x_ = 2.5, z_ = 2.5;
@@ -66,9 +69,14 @@ private:
     bool stepWarningShown_ = false;
     bool streamTest_ = false;
     double streamTestTime_ = 0;
+    int bufferCreations_ = 0;
+    int bufferReuses_ = 0;
 
     void BuildChunk(ChunkCoord coord);
     void BuildEntityMesh();
+    std::unique_ptr<Microsoft::Xna::Framework::Graphics::VertexBuffer>
+        AcquireBuffer(int vertexCount);
+    void RetireChunk(Chunk& chunk);
     void Stream();
     void Transition(int level);
     void UpdateTitle(double elapsed);

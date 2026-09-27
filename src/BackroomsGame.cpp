@@ -166,6 +166,11 @@ void Furniture(Meshes& meshes, const CellProp& prop, double chunkX,
             for (float legZ: {-0.24f,0.24f})
                 box(metal,legX-0.035f,legZ-0.035f,
                     legX+0.035f,legZ+0.035f,0,0.41f,frame);
+    } else if (prop.kind==PropKind::LowPartition) {
+        box(Material::Wallpaper,-1.66f,-0.14f,1.66f,0.14f,
+            0,1.34f,Color(214,205,171));
+        box(Material::Wallpaper,-1.70f,-0.16f,1.70f,0.16f,
+            1.34f,1.41f,Color(151,143,112));
     } else {
         const Color top=level==0 ? Color(142,126,96) : Color(109,116,112);
         box(metal,-0.91f,-0.56f,0.91f,0.56f,0.73f,0.85f,top);
@@ -202,14 +207,16 @@ Color Vary(Color first, Color second, std::uint32_t hash) {
 
 bool HasLamp(const WorldConfig& world, int gx, int gz) {
     const auto h=CellHash(world,gx,gz,41);
+    if (world.level==2 && gx==0 &&
+        (gz==0 || gz==1 || gz==3)) return true;
     return world.level==0 ? ((gx+gz)%2==0 && h%7!=0) :
            world.level==1 ? (gx%3==0 && gz%2==0) :
                             ((gx+gz)%3==0 && h%3!=0);
 }
 
 float LightFactor(const WorldConfig& world, double wx, double wz) {
-    const float base=world.level==0 ? 0.76f : world.level==1 ? 0.60f : 0.45f;
-    const float strength=world.level==0 ? 0.29f : world.level==1 ? 0.38f : 0.39f;
+    const float base=world.level==0 ? 0.76f : world.level==1 ? 0.60f : 0.55f;
+    const float strength=world.level==0 ? 0.29f : world.level==1 ? 0.38f : 0.41f;
     float value=base;
     const int cx=CellOf(wx),cz=CellOf(wz);
     for (int dx=-1;dx<=1;++dx) for (int dz=-1;dz<=1;++dz) {
@@ -239,7 +246,10 @@ std::optional<int> PortalTarget(int level, double x, double z) {
         if (portal.level!=level) continue;
         const double px=(portal.cellX+0.5)*kCellSize;
         const double pz=(portal.cellZ+0.5)*kCellSize;
-        if (std::hypot(x-px,z-pz)<0.95) return portal.target;
+        const double depth=portal.alongX ? x-px : z-pz;
+        const double side=portal.alongX ? z-pz : x-px;
+        if (depth>0.55 && depth<1.50 && std::abs(side)<1.30)
+            return portal.target;
     }
     return std::nullopt;
 }
@@ -276,9 +286,19 @@ void PortalVisual(Meshes& meshes, int level, bool alongX, float cx,
 }
 }
 
-BackroomsGame::BackroomsGame(std::uint64_t seed, bool streamTest)
+BackroomsGame::BackroomsGame(std::uint64_t seed, bool streamTest,
+                             int startLevel, double startX, double startZ)
     : graphics_(this), streamTest_(streamTest) {
+    if (startLevel<0 || startLevel>2 || !std::isfinite(startX) ||
+        !std::isfinite(startZ))
+        throw std::invalid_argument("invalid start level or position");
     world_.seed = seed;
+    world_.level=startLevel;
+    if (Collides(world_,startX,startZ,0.31))
+        throw std::invalid_argument("start position intersects generated geometry");
+    x_=startX;
+    z_=startZ;
+    yaw_=startLevel==2 ? 0.0f : 1.5707963f;
     graphics_.setPreferredBackBufferWidthProperty(1280);
     graphics_.setPreferredBackBufferHeightProperty(720);
     graphics_.setSynchronizeWithVerticalRetraceProperty(true);
@@ -301,13 +321,13 @@ void BackroomsGame::LoadContent() {
     effect_->setTextureEnabledProperty(true);
     effect_->setLightingEnabledProperty(false);
     effect_->setFogEnabledProperty(true);
-    effect_->setFogStartProperty(LevelInfo(0).fogStart);
-    effect_->setFogEndProperty(LevelInfo(0).fogEnd);
+    effect_->setFogStartProperty(LevelInfo(world_.level).fogStart);
+    effect_->setFogEndProperty(LevelInfo(world_.level).fogEnd);
     setIsMouseVisibleProperty(false);
     Mouse::setIsRelativeMouseModeEXTProperty(true);
     captured_ = true;
     BuildEntityMesh();
-    BuildChunk({0,0});
+    BuildChunk(ChunkAt(x_,z_));
     try {
         namespace fs = std::filesystem;
         fs::path directory="assets";
@@ -355,6 +375,35 @@ void BackroomsGame::BuildEntityMesh() {
     entityVertices_->SetData(mesh.data(),static_cast<int>(mesh.size()));
 }
 
+std::unique_ptr<VertexBuffer> BackroomsGame::AcquireBuffer(int vertexCount) {
+    std::size_t best=spareVertices_.size();
+    for (std::size_t i=0;i<spareVertices_.size();++i) {
+        const int capacity=spareVertices_[i]->getVertexCountProperty();
+        if (capacity>=vertexCount &&
+            (best==spareVertices_.size() ||
+             capacity<spareVertices_[best]->getVertexCountProperty()))
+            best=i;
+    }
+    if (best!=spareVertices_.size()) {
+        auto buffer=std::move(spareVertices_[best]);
+        spareVertices_.erase(spareVertices_.begin()+static_cast<std::ptrdiff_t>(best));
+        ++bufferReuses_;
+        return buffer;
+    }
+    ++bufferCreations_;
+    const int capacity=((vertexCount+511)/512)*512;
+    return std::make_unique<VertexBuffer>(getGraphicsDeviceProperty(),
+        VertexPositionColorTexture::getVertexDeclarationStatic(),
+        capacity,BufferUsage::WriteOnly);
+}
+
+void BackroomsGame::RetireChunk(Chunk& chunk) {
+    for (auto& buffer:chunk.vertices) {
+        if (buffer && spareVertices_.size()<24)
+            spareVertices_.push_back(std::move(buffer));
+    }
+}
+
 void BackroomsGame::BuildChunk(ChunkCoord coord) {
     const auto start = Clock::now();
     Meshes meshes;
@@ -376,9 +425,9 @@ void BackroomsGame::BuildChunk(ChunkCoord coord) {
     const Color trim=level==0 ? Color(190,180,139) :
                      level==1 ? Color(110,130,128) : Color(99,83,67);
     const Color floorA=level==0 ? Color(246,240,222) :
-                       level==1 ? Color(218,222,217) : Color(155,149,128);
+                       level==1 ? Color(218,222,217) : Color(215,204,178);
     const Color floorB=level==0 ? Color(218,213,197) :
-                       level==1 ? Color(193,201,195) : Color(125,120,103);
+                       level==1 ? Color(193,201,195) : Color(181,173,153);
     const Color ceiling=level==0 ? Color(255,252,235) :
                         level==1 ? Color(205,220,219) : Color(150,143,124);
     const Color grid=level==0 ? Color(143,139,115) :
@@ -424,6 +473,15 @@ void BackroomsGame::BuildChunk(ChunkCoord coord) {
                   height,doorHeight,cellWall,trim);
         Partition(meshes,wallMat,HorizontalEdge(world_,gx,gz),false,z,x,
                   height,doorHeight,cellWall,trim);
+        if (level==2) {
+            const Color conduit(147,137,116);
+            if (VerticalEdge(world_,gx,gz)==Edge::Solid)
+                BoxRange(meshes,Material::IndustrialCeiling,
+                         x+0.11f,z,x+0.21f,z+5,1.90f,2.00f,conduit);
+            if (VerticalEdge(world_,gx+1,gz)==Edge::Solid)
+                BoxRange(meshes,Material::IndustrialCeiling,
+                         x+4.79f,z,x+4.89f,z+5,1.90f,2.00f,conduit);
+        }
         const auto prop=PropAt(world_,gx,gz);
         const auto obstacles=CellObstacles(world_,gx,gz);
         const int structuralCount=obstacles.count-
@@ -437,11 +495,17 @@ void BackroomsGame::BuildChunk(ChunkCoord coord) {
             if (level==0) {
                 BoxRange(meshes,wallMat,bx0,bz0,bx1,bz1,0,height,wallB);
             } else if (level==1) {
-                BoxRange(meshes,Material::ConcreteWall,bx0,bz0,bx1,bz1,
-                         0,2.5f,Color(141,150,148));
-                for (float shelf: {0.58f,1.15f,1.72f})
-                    Flat(meshes,Material::IndustrialCeiling,bx0,bz0,bx1,bz1,
-                         shelf,Color(103,113,111),0.8f);
+                const Color steel(111,123,121),shelfColor(133,141,136);
+                for (float sx: {bx0,bx1-0.10f})
+                    for (float sz: {bz0,bz1-0.10f})
+                        BoxRange(meshes,Material::ConcreteWall,sx,sz,
+                                 sx+0.10f,sz+0.10f,0,2.45f,steel);
+                for (float shelf: {0.52f,1.16f,1.80f,2.38f})
+                    BoxRange(meshes,Material::IndustrialCeiling,
+                             bx0,bz0,bx1,bz1,shelf,shelf+0.07f,shelfColor);
+                BoxRange(meshes,Material::TunnelWall,
+                         bx0+0.18f,bz0+0.20f,bx0+0.72f,bz0+0.83f,
+                         0.59f,1.13f,Color(142,123,94));
             } else {
                 BoxRange(meshes,Material::TunnelWall,bx0,bz0,bx1,bz1,
                          0,height-0.23f,Color(136,122,101));
@@ -468,14 +532,13 @@ void BackroomsGame::BuildChunk(ChunkCoord coord) {
                                       static_cast<float>((entityHash>>8)%628)/100.0f});
         }
     }
+    getGraphicsDeviceProperty().SetVertexBuffer(nullptr);
     for (int id=0;id<kMaterialCount;++id) {
         auto& mesh=meshes[id];
         if (mesh.empty()) continue;
         chunk.materialTriangles[id]=static_cast<int>(mesh.size()/3);
         chunk.triangles+=chunk.materialTriangles[id];
-        chunk.vertices[id]=std::make_unique<VertexBuffer>(getGraphicsDeviceProperty(),
-            VertexPositionColorTexture::getVertexDeclarationStatic(),
-            static_cast<int>(mesh.size()),BufferUsage::WriteOnly);
+        chunk.vertices[id]=AcquireBuffer(static_cast<int>(mesh.size()));
         chunk.vertices[id]->SetData(mesh.data(),static_cast<int>(mesh.size()));
     }
     chunk.buildMs = std::chrono::duration<double,std::milli>(Clock::now()-start).count();
@@ -487,9 +550,10 @@ void BackroomsGame::BuildChunk(ChunkCoord coord) {
 void BackroomsGame::Stream() {
     const auto center=ChunkAt(x_,z_);
     for (auto it=chunks_.begin(); it!=chunks_.end();) {
-        if (std::abs(it->first.x-center.x)>2 || std::abs(it->first.z-center.z)>2)
+        if (std::abs(it->first.x-center.x)>2 || std::abs(it->first.z-center.z)>2) {
+            RetireChunk(it->second);
             it=chunks_.erase(it);
-        else ++it;
+        } else ++it;
     }
     // One upload per update bounds a frame's streaming work. Nearest missing chunk first.
     int best=100;
@@ -511,6 +575,7 @@ void BackroomsGame::Transition(int level) {
         std::cerr << "Audio: transition cue could not acquire a voice\n";
     world_.level=level;
     chunks_.clear();
+    spareVertices_.clear();
     x_=2.5; z_=2.5;
     yaw_=level==2 ? 0.0f : 1.5707963f;
     pitch_=0;
@@ -533,6 +598,8 @@ void BackroomsGame::UpdateTitle(double elapsed) {
           << " | pos " << std::fixed << std::setprecision(1) << x_ << ',' << z_
           << " | chunk " << here.x << ',' << here.z
           << " | loaded " << chunks_.size() << "/25 | tris " << triangles
+          << " | VBO " << bufferCreations_ << '/' << bufferReuses_
+          << " pool " << spareVertices_.size()
           << " | entities " << entities
           << " | gen " << std::setprecision(2) << lastBuildMs_ << " ms"
           << " | peak " << peakBuildMs_ << " ms"
@@ -601,7 +668,10 @@ void BackroomsGame::Update(GameTime& time) {
         }
     }
     if (keys.IsKeyDown(Keys::R) && previousKeys_.IsKeyUp(Keys::R)) {
-        x_=2.5; z_=2.5; yaw_=1.5707963f;
+        x_=2.5; z_=2.5;
+        yaw_=world_.level==2 ? 0.0f : 1.5707963f;
+        pitch_=0;
+        stepDistance_=0;
     }
     const auto portal=PortalTarget(world_.level,x_,z_);
     if (portal && !insidePortal_) Transition(*portal);

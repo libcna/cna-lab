@@ -41,21 +41,42 @@ Edge OptionalEdge(RegionKind kind, std::uint32_t hash) {
     case RegionKind::Columns:
         return roll<78 ? Edge::Open : roll<94 ? Edge::Wide : Edge::Door;
     case RegionKind::Rooms:
-        return roll<22 ? Edge::Open : roll<42 ? Edge::Wide :
-               roll<88 ? Edge::Door : Edge::Solid;
+        return roll<10 ? Edge::Open : roll<24 ? Edge::Wide :
+               roll<65 ? Edge::Door : Edge::Solid;
     case RegionKind::Halls:
-        return roll<32 ? Edge::Open : roll<66 ? Edge::Wide :
-               roll<91 ? Edge::Door : Edge::Solid;
+        return roll<16 ? Edge::Open : roll<37 ? Edge::Wide :
+               roll<68 ? Edge::Door : Edge::Solid;
     case RegionKind::Irregular:
-        return roll<15 ? Edge::Open : roll<35 ? Edge::Wide :
-               roll<79 ? Edge::Door : Edge::Solid;
+        return roll<10 ? Edge::Open : roll<23 ? Edge::Wide :
+               roll<60 ? Edge::Door : Edge::Solid;
     case RegionKind::Storage:
         return roll<50 ? Edge::Open : roll<82 ? Edge::Wide : Edge::Door;
     case RegionKind::Tunnels:
-        return roll<8 ? Edge::Open : roll<20 ? Edge::Wide :
-               roll<84 ? Edge::Door : Edge::Solid;
+        return roll<5 ? Edge::Open : roll<15 ? Edge::Wide :
+               roll<60 ? Edge::Door : Edge::Solid;
     }
     return Edge::Solid;
+}
+
+enum class Parent { Here, West, East, North, South };
+
+Parent ParentTowardRegionRoot(const WorldConfig& config, int x, int z) {
+    const int rx=DivFloor(x,kRegionCells),rz=DivFloor(z,kRegionCells);
+    const auto root=CellHash(config,rx,rz,601);
+    const int rootX=static_cast<int>((root>>8)%kRegionCells);
+    const int rootZ=static_cast<int>((root>>16)%kRegionCells);
+    const int localX=ModFloor(x,kRegionCells),localZ=ModFloor(z,kRegionCells);
+    const int dx=rootX-localX,dz=rootZ-localZ;
+    if (dx==0 && dz==0) return Parent::Here;
+    const bool alongX=dz==0 || (dx!=0 && (CellHash(config,x,z,603)&1U)==0);
+    if (alongX) return dx<0 ? Parent::West : Parent::East;
+    return dz<0 ? Parent::North : Parent::South;
+}
+
+Edge TreeEdge(RegionKind kind, std::uint32_t hash) {
+    if (kind==RegionKind::OpenOffice || kind==RegionKind::Columns ||
+        kind==RegionKind::Storage) return hash%3==0 ? Edge::Wide : Edge::Open;
+    return hash%4==0 ? Edge::Wide : Edge::Door;
 }
 }
 
@@ -113,11 +134,12 @@ Edge VerticalEdge(const WorldConfig& config, int boundaryX, int z) {
         if (config.level!=2 && hash%3==0 && localZ==second) return Edge::Wide;
         return Edge::Solid;
     }
-    const auto pivot=CellHash(config,rx,rz,601);
-    const int pivotZ=static_cast<int>((pivot>>8)%kRegionCells);
-    if ((pivot&1U)!=0 || localZ==pivotZ) return Edge::Open;
-    return OptionalEdge(RegionAt(config,boundaryX-1,z),
-                        CellHash(config,boundaryX,z,11));
+    const RegionKind kind=RegionAt(config,boundaryX-1,z);
+    const auto edgeHash=CellHash(config,boundaryX,z,11);
+    if (ParentTowardRegionRoot(config,boundaryX-1,z)==Parent::East ||
+        ParentTowardRegionRoot(config,boundaryX,z)==Parent::West)
+        return TreeEdge(kind,edgeHash);
+    return OptionalEdge(kind,edgeHash);
 }
 
 Edge HorizontalEdge(const WorldConfig& config, int x, int boundaryZ) {
@@ -134,11 +156,12 @@ Edge HorizontalEdge(const WorldConfig& config, int x, int boundaryZ) {
         if (config.level!=2 && hash%3==0 && localX==second) return Edge::Wide;
         return Edge::Solid;
     }
-    const auto pivot=CellHash(config,rx,rz,601);
-    const int pivotX=static_cast<int>((pivot>>16)%kRegionCells);
-    if ((pivot&1U)==0 || localX==pivotX) return Edge::Open;
-    return OptionalEdge(RegionAt(config,x,boundaryZ-1),
-                        CellHash(config,x,boundaryZ,23));
+    const RegionKind kind=RegionAt(config,x,boundaryZ-1);
+    const auto edgeHash=CellHash(config,x,boundaryZ,23);
+    if (ParentTowardRegionRoot(config,x,boundaryZ-1)==Parent::South ||
+        ParentTowardRegionRoot(config,x,boundaryZ)==Parent::North)
+        return TreeEdge(kind,edgeHash);
+    return OptionalEdge(kind,edgeHash);
 }
 
 CellProp PropAt(const WorldConfig& config, int cellX, int cellZ) {
@@ -153,9 +176,13 @@ CellProp PropAt(const WorldConfig& config, int cellX, int cellZ) {
     const unsigned roll=hash%1000;
     if (config.level==0) {
         if (cellX==2 && cellZ==1) result.kind=PropKind::Chair;
+        else if (cellX==2 && cellZ==2) result.kind=PropKind::LowPartition;
         else if (roll<4) result.kind=PropKind::Chair;
         else if (roll<6) result.kind=PropKind::Table;
-        else if (roll==6) result.kind=PropKind::EmbeddedChair;
+        else if (roll<9) result.kind=PropKind::EmbeddedChair;
+        else if (roll<14 && (region==RegionKind::OpenOffice ||
+                             region==RegionKind::Irregular))
+            result.kind=PropKind::LowPartition;
     } else if (config.level==1) {
         if (roll<10) result.kind=PropKind::Table;
         else if (roll<12) result.kind=PropKind::Chair;
@@ -205,9 +232,13 @@ CellObstacleSet CellObstacles(const WorldConfig& config, int cellX, int cellZ) {
     const CellProp prop=PropAt(config,cellX,cellZ);
     if (prop.kind!=PropKind::None) {
         const double halfX=prop.kind==PropKind::Table ?
-            (prop.quarterTurn%2 ? 0.62 : 0.92) : 0.38;
+            (prop.quarterTurn%2 ? 0.62 : 0.92) :
+            prop.kind==PropKind::LowPartition ?
+            (prop.quarterTurn%2 ? 0.14 : 1.66) : 0.38;
         const double halfZ=prop.kind==PropKind::Table ?
-            (prop.quarterTurn%2 ? 0.92 : 0.62) : 0.38;
+            (prop.quarterTurn%2 ? 0.92 : 0.62) :
+            prop.kind==PropKind::LowPartition ?
+            (prop.quarterTurn%2 ? 1.66 : 0.14) : 0.38;
         result.walls[result.count++]={prop.x-halfX,prop.z-halfZ,
                                       prop.x+halfX,prop.z+halfZ};
     }
