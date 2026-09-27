@@ -61,5 +61,25 @@ int main() {
         found=true;
     }
     assert(found);
+    const WorldConfig tunnels{12345,2};
+    assert(CellObstacles(tunnels,0,0).count==4);
+    assert(Collides(tunnels,0.5,0.5,0.31));
+    assert(!Collides(tunnels,2.5,2.5,0.31));
+    const CellProp firstChair=PropAt(world,2,1);
+    assert(firstChair.kind==PropKind::Chair);
+    assert(PropAt(world,2,1).x==firstChair.x);
+    assert(Collides(world,firstChair.x,firstChair.z,0.31));
+    assert(PropAt(world,0,0).kind==PropKind::None);
+    bool foundEmbedded=false;
+    for (int ix=-80;ix<=80 && !foundEmbedded;++ix) {
+        for (int iz=-80;iz<=80 && !foundEmbedded;++iz) {
+            const auto prop=PropAt(world,ix,iz);
+            if (prop.kind!=PropKind::EmbeddedChair) continue;
+            assert(prop.sink>0);
+            assert(Collides(world,prop.x,prop.z,0.31));
+            foundEmbedded=true;
+        }
+    }
+    assert(foundEmbedded);
     std::cout << "world tests passed\n";
 }

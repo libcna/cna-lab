@@ -1,6 +1,7 @@
 #include "Materials.hpp"
 
 #include <algorithm>
+#include <cmath>
 #include <cstdint>
 #include <vector>
 
@@ -22,24 +23,44 @@ std::uint32_t Noise(int x, int y, int salt) {
     return h ^ (h>>16);
 }
 
+float SmoothNoise(int x, int y, int cellSize, int salt) {
+    const int count=128/cellSize;
+    const int gx=x/cellSize,gy=y/cellSize;
+    const float fx=static_cast<float>(x%cellSize)/cellSize;
+    const float fy=static_cast<float>(y%cellSize)/cellSize;
+    const auto value=[&](int ix,int iy) {
+        return static_cast<float>(Noise(ix%count,iy%count,salt)%1024)/1023.0f;
+    };
+    const float a=value(gx,gy)*(1-fx)+value(gx+1,gy)*fx;
+    const float b=value(gx,gy+1)*(1-fx)+value(gx+1,gy+1)*fx;
+    return a*(1-fy)+b*fy;
+}
+
 Color Pixel(Material material, int x, int y) {
     const int id=static_cast<int>(material);
     const int grain=static_cast<int>(Noise(x,y,id)%17)-8;
-    const int blotch=static_cast<int>(Noise(x/18,y/18,id+37)%15)-7;
+    const int blotch=static_cast<int>(std::lround(
+        (SmoothNoise(x,y,16,id+37)-0.5f)*18.0f));
     int r=0,g=0,b=0;
     switch (material) {
     case Material::Wallpaper: {
-        const int stripe=(x%32==0 || x%32==1) ? -14 :
-                         (x%32==3 || x%32==4) ? 7 : 0;
-        const int stain=(Noise(x/13,y/20,51)%11==0) ? -13 : 0;
-        r=206+grain/2+blotch+stripe+stain;
-        g=193+grain/2+blotch+stripe+stain;
-        b=127+grain/3+blotch+stripe+stain;
+        const int row=y%64;
+        const int bend=(row<32 ? row : 64-row)/4;
+        const int stripeDistance=std::abs((x+bend)%32-16);
+        const int stripe=stripeDistance<2 ? -6 :
+                         stripeDistance<4 ? 2 : 0;
+        const float stainNoise=SmoothNoise(x,y,16,51);
+        const int stain=stainNoise>0.64f ?
+            static_cast<int>((0.64f-stainNoise)*42.0f) : 0;
+        r=206+grain/2+blotch/2+stripe+stain;
+        g=193+grain/2+blotch/2+stripe+stain;
+        b=127+grain/3+blotch/2+stripe+stain;
         break;
     }
     case Material::Carpet: {
         const int fiber=(x%3==0 && Noise(x,y,61)%3==0) ? 11 : 0;
-        const int patch=static_cast<int>(Noise(x/11,y/11,62)%17)-8;
+        const int patch=static_cast<int>(std::lround(
+            (SmoothNoise(x,y,16,62)-0.5f)*22.0f));
         r=103+grain+blotch+patch+fiber;
         g=98+grain+blotch+patch+fiber;
         b=78+grain+blotch+patch+fiber/2;
@@ -65,7 +86,9 @@ Color Pixel(Material material, int x, int y) {
     case Material::IndustrialCeiling:
         r=100+grain/2+blotch; g=109+grain/2+blotch; b=106+grain/2+blotch; break;
     case Material::TunnelWall: {
-        const int rust=(Noise(x/9,y/12,73)%13==0) ? 20 : 0;
+        const float rustNoise=SmoothNoise(x,y,16,73);
+        const int rust=rustNoise>0.62f ?
+            static_cast<int>((rustNoise-0.62f)*60.0f) : 0;
         r=101+grain+blotch+rust;
         g=89+grain+blotch-rust/3;
         b=74+grain+blotch-rust/2;

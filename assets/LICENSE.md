@@ -9,3 +9,5 @@ The three WAV files in this directory come from the local **Essentials Series / 
 | `transition.wav` | `Sample_A_Sound_Effect/Household_Door_Wood_Open_Stereo.wav` |
 
 Source collection supplied locally at `/rv/tmp/Essentials_Series_NOX_SOUND`. The source README is retained in the original collection; the game ships only these selected sounds.
+
+The hum and footstep WAVs have been gain-adjusted by +8 dB and +10 dB respectively so they remain audible at the game's ambient playback levels. The CC0 license covers these edits.

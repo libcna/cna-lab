@@ -1,7 +1,7 @@
 #pragma once
 
+#include <array>
 #include <cstdint>
-#include <optional>
 #include <vector>
 
 namespace Backrooms {
@@ -31,6 +31,21 @@ struct Wall {
     double minX, minZ, maxX, maxZ;
 };
 
+struct CellObstacleSet {
+    std::array<Wall,5> walls{};
+    int count = 0;
+};
+
+enum class PropKind : std::uint8_t { None, Chair, Table, EmbeddedChair };
+
+struct CellProp {
+    PropKind kind = PropKind::None;
+    double x = 0;
+    double z = 0;
+    int quarterTurn = 0;
+    float sink = 0;
+};
+
 struct WorldConfig {
     std::uint64_t seed = 0xBACC0005ULL;
     int level = 0;
@@ -52,7 +67,8 @@ std::uint32_t CellHash(const WorldConfig& config, int x, int z, int salt);
 RegionKind RegionAt(const WorldConfig& config, int cellX, int cellZ);
 Edge VerticalEdge(const WorldConfig& config, int boundaryX, int z);
 Edge HorizontalEdge(const WorldConfig& config, int x, int boundaryZ);
-std::optional<Wall> CellObstacle(const WorldConfig& config, int cellX, int cellZ);
+CellProp PropAt(const WorldConfig& config, int cellX, int cellZ);
+CellObstacleSet CellObstacles(const WorldConfig& config, int cellX, int cellZ);
 std::vector<Wall> NearbyWalls(const WorldConfig& config, double x, double z);
 bool Collides(const WorldConfig& config, double x, double z, double radius);
 void MoveWithCollision(const WorldConfig& config, double& x, double& z,

@@ -8,6 +8,8 @@
 #include <iomanip>
 #include <iostream>
 #include <sstream>
+#include <stdexcept>
+#include <utility>
 #include <vector>
 
 #include "Microsoft/Xna/Framework/Color.hpp"
@@ -37,14 +39,21 @@ using Clock = std::chrono::steady_clock;
 using Mesh = std::vector<VertexPositionColorTexture>;
 using Meshes = std::array<Mesh,kMaterialCount>;
 
+void QuadColors(Meshes& meshes, Material material, Vector3 a, Vector3 b,
+                Vector3 c, Vector3 d, const std::array<Color,4>& colors,
+                Vector2 uvA, Vector2 uvB, Vector2 uvC, Vector2 uvD) {
+    auto& mesh=meshes[static_cast<int>(material)];
+    mesh.emplace_back(a,colors[0],uvA); mesh.emplace_back(b,colors[1],uvB);
+    mesh.emplace_back(c,colors[2],uvC);
+    mesh.emplace_back(a,colors[0],uvA); mesh.emplace_back(c,colors[2],uvC);
+    mesh.emplace_back(d,colors[3],uvD);
+}
+
 void Quad(Meshes& meshes, Material material, Vector3 a, Vector3 b, Vector3 c,
           Vector3 d, Color color, Vector2 uvA, Vector2 uvB, Vector2 uvC,
           Vector2 uvD) {
-    auto& mesh=meshes[static_cast<int>(material)];
-    mesh.emplace_back(a,color,uvA); mesh.emplace_back(b,color,uvB);
-    mesh.emplace_back(c,color,uvC);
-    mesh.emplace_back(a,color,uvA); mesh.emplace_back(c,color,uvC);
-    mesh.emplace_back(d,color,uvD);
+    QuadColors(meshes,material,a,b,c,d,{color,color,color,color},
+               uvA,uvB,uvC,uvD);
 }
 
 void Flat(Meshes& meshes, Material material, float x0, float z0, float x1,
@@ -52,6 +61,24 @@ void Flat(Meshes& meshes, Material material, float x0, float z0, float x1,
     Quad(meshes,material,{x0,y,z0},{x1,y,z0},{x1,y,z1},{x0,y,z1},color,
          {x0*repeat,z0*repeat},{x1*repeat,z0*repeat},
          {x1*repeat,z1*repeat},{x0*repeat,z1*repeat});
+}
+
+void FlatShaded(Meshes& meshes, Material material, float x0, float z0,
+                float x1, float z1, float y,
+                const std::array<Color,4>& colors, float repeat) {
+    QuadColors(meshes,material,{x0,y,z0},{x1,y,z0},{x1,y,z1},
+               {x0,y,z1},colors,
+               {x0*repeat,z0*repeat},{x1*repeat,z0*repeat},
+               {x1*repeat,z1*repeat},{x0*repeat,z1*repeat});
+}
+
+Color Scale(Color color, float factor) {
+    const auto scaled=[&](int channel) {
+        return static_cast<std::uint8_t>(std::clamp(
+            static_cast<int>(std::lround(channel*factor)),0,255));
+    };
+    return Color(scaled(color.getRProperty()),scaled(color.getGProperty()),
+                 scaled(color.getBProperty()));
 }
 
 void WallFace(Meshes& meshes, Material material, bool vertical, float boundary,
@@ -77,9 +104,9 @@ void Partition(Meshes& meshes, Material material, Edge edge, bool vertical,
     };
     const auto full = [&](float a, float b) {
         WallFace(meshes,material,vertical,boundary,a,b,0.0f,0.19f,trim);
-        section(a,b,0.19f,height-0.32f);
+        section(a,b,0.19f,height-0.10f);
         WallFace(meshes,material,vertical,boundary,a,b,
-                 height-0.32f,height,trim);
+                 height-0.10f,height,trim);
     };
     if (edge == Edge::Solid) full(along, along+5.0f);
     else {
@@ -101,8 +128,100 @@ void BoxRange(Meshes& meshes, Material material, float x0, float z0,
     Flat(meshes,material,x0,z0,x1,z1,y1,color,0.6f);
 }
 
+void PropBox(Meshes& meshes, Material material, float cx, float cz,
+             int quarterTurn, float sink, float x0, float z0, float x1,
+             float z1, float y0, float y1, Color color) {
+    const auto rotate=[&](float x,float z) {
+        switch (quarterTurn&3) {
+        case 1: return std::pair{z,-x};
+        case 2: return std::pair{-x,-z};
+        case 3: return std::pair{-z,x};
+        default: return std::pair{x,z};
+        }
+    };
+    const auto a=rotate(x0,z0),b=rotate(x1,z1);
+    BoxRange(meshes,material,cx+std::min(a.first,b.first),
+             cz+std::min(a.second,b.second),cx+std::max(a.first,b.first),
+             cz+std::max(a.second,b.second),y0-sink,y1-sink,color);
+}
+
+void Furniture(Meshes& meshes, const CellProp& prop, double chunkX,
+               double chunkZ, int level) {
+    if (prop.kind==PropKind::None) return;
+    const float x=static_cast<float>(prop.x-chunkX);
+    const float z=static_cast<float>(prop.z-chunkZ);
+    const int turn=prop.quarterTurn;
+    const float sink=prop.sink;
+    const Material metal=level==0 ? Material::ConcreteWall : Material::TunnelWall;
+    const Color seat=level==0 ? Color(125,113,91) : Color(100,106,103);
+    const Color frame=level==0 ? Color(80,78,69) : Color(67,73,72);
+    const auto box=[&](Material mat,float x0,float z0,float x1,float z1,
+                       float y0,float y1,Color color) {
+        PropBox(meshes,mat,x,z,turn,sink,x0,z0,x1,z1,y0,y1,color);
+    };
+    if (prop.kind==PropKind::Chair || prop.kind==PropKind::EmbeddedChair) {
+        box(metal,-0.35f,-0.32f,0.35f,0.32f,0.40f,0.49f,seat);
+        box(metal,-0.35f,0.24f,0.35f,0.32f,0.46f,1.18f,seat);
+        for (float legX: {-0.27f,0.27f})
+            for (float legZ: {-0.24f,0.24f})
+                box(metal,legX-0.035f,legZ-0.035f,
+                    legX+0.035f,legZ+0.035f,0,0.41f,frame);
+    } else {
+        const Color top=level==0 ? Color(142,126,96) : Color(109,116,112);
+        box(metal,-0.91f,-0.56f,0.91f,0.56f,0.73f,0.85f,top);
+        for (float legX: {-0.78f,0.78f})
+            for (float legZ: {-0.43f,0.43f})
+                box(metal,legX-0.05f,legZ-0.05f,
+                    legX+0.05f,legZ+0.05f,0,0.74f,frame);
+    }
+}
+
+void FalseDoor(Meshes& meshes, bool vertical, float boundary, float along,
+               int level) {
+    const float height=level==1 ? 2.58f : level==2 ? 2.15f : 2.18f;
+    const Material material=level==0 ? Material::TunnelWall : Material::ConcreteWall;
+    const Color panel=level==0 ? Color(119,106,79) : Color(85,96,94);
+    const Color frame=level==0 ? Color(166,154,113) : Color(126,136,130);
+    const float left=along+1.90f,right=along+3.10f;
+    const float face=boundary+0.045f;
+    WallFace(meshes,material,vertical,face,left,right,0.02f,height,panel);
+    WallFace(meshes,material,vertical,face+0.004f,left-0.075f,left,
+             0,height+0.08f,frame);
+    WallFace(meshes,material,vertical,face+0.004f,right,right+0.075f,
+             0,height+0.08f,frame);
+    WallFace(meshes,material,vertical,face+0.004f,left,right,
+             height,height+0.08f,frame);
+    WallFace(meshes,Material::Fluorescent,vertical,face+0.008f,
+             right-0.22f,right-0.15f,0.99f,1.06f,
+             Color(116,104,75));
+}
+
 Color Vary(Color first, Color second, std::uint32_t hash) {
     return hash%5 == 0 ? second : first;
+}
+
+bool HasLamp(const WorldConfig& world, int gx, int gz) {
+    const auto h=CellHash(world,gx,gz,41);
+    return world.level==0 ? ((gx+gz)%2==0 && h%7!=0) :
+           world.level==1 ? (gx%3==0 && gz%2==0) :
+                            ((gx+gz)%3==0 && h%3!=0);
+}
+
+float LightFactor(const WorldConfig& world, double wx, double wz) {
+    const float base=world.level==0 ? 0.76f : world.level==1 ? 0.60f : 0.45f;
+    const float strength=world.level==0 ? 0.29f : world.level==1 ? 0.38f : 0.39f;
+    float value=base;
+    const int cx=CellOf(wx),cz=CellOf(wz);
+    for (int dx=-1;dx<=1;++dx) for (int dz=-1;dz<=1;++dz) {
+        const int gx=cx+dx,gz=cz+dz;
+        if (!HasLamp(world,gx,gz)) continue;
+        const double lightX=(gx+0.5)*kCellSize;
+        const double lightZ=(gz+0.5)*kCellSize;
+        const float attenuation=std::max(0.0f,1.0f-
+            static_cast<float>(std::hypot(wx-lightX,wz-lightZ))/6.5f);
+        value+=strength*attenuation;
+    }
+    return std::min(1.0f,value);
 }
 
 struct Portal {
@@ -157,7 +276,8 @@ void PortalVisual(Meshes& meshes, int level, bool alongX, float cx,
 }
 }
 
-BackroomsGame::BackroomsGame(std::uint64_t seed) : graphics_(this) {
+BackroomsGame::BackroomsGame(std::uint64_t seed, bool streamTest)
+    : graphics_(this), streamTest_(streamTest) {
     world_.seed = seed;
     graphics_.setPreferredBackBufferWidthProperty(1280);
     graphics_.setPreferredBackBufferHeightProperty(720);
@@ -186,6 +306,7 @@ void BackroomsGame::LoadContent() {
     setIsMouseVisibleProperty(false);
     Mouse::setIsRelativeMouseModeEXTProperty(true);
     captured_ = true;
+    BuildEntityMesh();
     BuildChunk({0,0});
     try {
         namespace fs = std::filesystem;
@@ -197,18 +318,47 @@ void BackroomsGame::LoadContent() {
         step_=std::make_unique<Audio::SoundEffect>((directory/"step.wav").string());
         transition_=std::make_unique<Audio::SoundEffect>((directory/"transition.wav").string());
         hum_=std::make_unique<Audio::SoundEffectInstance>(humSound_->CreateInstance());
-        hum_->setVolumeProperty(0.17f);
+        hum_->setVolumeProperty(0.34f);
         hum_->setIsLoopedProperty(true);
         hum_->Play();
+        if (hum_->getStateProperty()!=Audio::SoundState::Playing)
+            throw std::runtime_error("fluorescent hum did not start playing");
+        std::cerr << "Audio ready: hum loop and event sounds loaded from "
+                  << directory << '\n';
     } catch (const std::exception& error) {
         hum_.reset(); humSound_.reset(); step_.reset(); transition_.reset();
         std::cerr << "Audio unavailable: " << error.what() << '\n';
     }
 }
 
+void BackroomsGame::BuildEntityMesh() {
+    Meshes meshes;
+    const Material body=Material::TunnelWall;
+    const Color coat(72,72,70),head(85,78,69);
+    BoxRange(meshes,body,-0.27f,-0.17f,0.27f,0.18f,
+             0.72f,1.68f,coat);
+    BoxRange(meshes,body,-0.22f,-0.18f,0.22f,0.20f,
+             1.71f,2.07f,head);
+    BoxRange(meshes,body,-0.22f,-0.15f,-0.04f,0.12f,
+             0,0.76f,coat);
+    BoxRange(meshes,body,0.04f,-0.15f,0.22f,0.12f,
+             0,0.76f,coat);
+    BoxRange(meshes,body,-0.39f,-0.12f,-0.26f,0.12f,
+             0.82f,1.57f,coat);
+    BoxRange(meshes,body,0.26f,-0.12f,0.39f,0.12f,
+             0.82f,1.57f,coat);
+    auto& mesh=meshes[static_cast<int>(body)];
+    entityTriangles_=static_cast<int>(mesh.size()/3);
+    entityVertices_=std::make_unique<VertexBuffer>(getGraphicsDeviceProperty(),
+        VertexPositionColorTexture::getVertexDeclarationStatic(),
+        static_cast<int>(mesh.size()),BufferUsage::WriteOnly);
+    entityVertices_->SetData(mesh.data(),static_cast<int>(mesh.size()));
+}
+
 void BackroomsGame::BuildChunk(ChunkCoord coord) {
     const auto start = Clock::now();
     Meshes meshes;
+    Chunk chunk;
     const int ox=coord.x*kChunkCells, oz=coord.z*kChunkCells;
     const int level=world_.level;
     const float height=LevelInfo(level).ceilingHeight;
@@ -223,7 +373,7 @@ void BackroomsGame::BuildChunk(ChunkCoord coord) {
                       level==1 ? Color(223,229,227) : Color(187,175,149);
     const Color wallB=level==0 ? Color(231,224,204) :
                       level==1 ? Color(188,202,200) : Color(151,139,118);
-    const Color trim=level==0 ? Color(166,156,121) :
+    const Color trim=level==0 ? Color(190,180,139) :
                      level==1 ? Color(110,130,128) : Color(99,83,67);
     const Color floorA=level==0 ? Color(246,240,222) :
                        level==1 ? Color(218,222,217) : Color(155,149,128);
@@ -240,8 +390,16 @@ void BackroomsGame::BuildChunk(ChunkCoord coord) {
         const int gx=ox+lx, gz=oz+lz;
         const float x=lx*5.0f, z=lz*5.0f;
         const auto h=CellHash(world_,gx,gz,41);
-        Flat(meshes,floorMat,x,z,x+5,z+5,0,Vary(floorA,floorB,h),0.5f);
-        Flat(meshes,ceilingMat,x,z,x+5,z+5,height,ceiling,0.8f);
+        const bool hasLamp=HasLamp(world_,gx,gz);
+        const Color floorColor=Vary(floorA,floorB,h);
+        const double wx=gx*kCellSize,wz=gz*kCellSize;
+        FlatShaded(meshes,floorMat,x,z,x+5,z+5,0,
+            {Scale(floorColor,LightFactor(world_,wx,wz)),
+             Scale(floorColor,LightFactor(world_,wx+5,wz)),
+             Scale(floorColor,LightFactor(world_,wx+5,wz+5)),
+             Scale(floorColor,LightFactor(world_,wx,wz+5))},0.5f);
+        Flat(meshes,ceilingMat,x,z,x+5,z+5,height,
+             Scale(ceiling,hasLamp?1.0f:0.91f),0.8f);
         if (level==0) {
             Flat(meshes,ceilingMat,x,z,x+5,z+0.04f,height-0.013f,grid,0.8f);
             Flat(meshes,ceilingMat,x,z,x+0.04f,z+5,height-0.013f,grid,0.8f);
@@ -254,41 +412,62 @@ void BackroomsGame::BuildChunk(ChunkCoord coord) {
             BoxRange(meshes,Material::TunnelWall,x+4.50f,z,x+4.65f,z+5,
                      height-0.33f,height-0.17f,grid);
         }
-        const bool hasLamp=level==0 ? ((gx+gz)%2==0 && h%7!=0) :
-                           level==1 ? (gx%3==0 && gz%2==0) :
-                                      ((gx+gz)%3==0 && h%3!=0);
         if (hasLamp) {
             Flat(meshes,ceilingMat,x+1.30f,z+2.27f,x+3.70f,z+2.73f,
                  height-0.024f,grid,0.8f);
             Flat(meshes,Material::Fluorescent,x+1.40f,z+2.34f,
                  x+3.60f,z+2.66f,height-0.032f,lamp,1.0f);
         }
-        const Color cellWall=Vary(wallA,wallB,h);
+        const Color cellWall=Scale(Vary(wallA,wallB,h),
+            hasLamp ? 1.0f : (level==0 ? 0.88f : 0.80f));
         Partition(meshes,wallMat,VerticalEdge(world_,gx,gz),true,x,z,
                   height,doorHeight,cellWall,trim);
         Partition(meshes,wallMat,HorizontalEdge(world_,gx,gz),false,z,x,
                   height,doorHeight,cellWall,trim);
-        if (const auto obstacle=CellObstacle(world_,gx,gz)) {
-            const float bx0=static_cast<float>(obstacle->minX-ox*kCellSize);
-            const float bz0=static_cast<float>(obstacle->minZ-oz*kCellSize);
-            const float bx1=static_cast<float>(obstacle->maxX-ox*kCellSize);
-            const float bz1=static_cast<float>(obstacle->maxZ-oz*kCellSize);
-            if (level==0)
+        const auto prop=PropAt(world_,gx,gz);
+        const auto obstacles=CellObstacles(world_,gx,gz);
+        const int structuralCount=obstacles.count-
+            static_cast<int>(prop.kind!=PropKind::None);
+        for (int obstacleId=0;obstacleId<structuralCount;++obstacleId) {
+            const auto& obstacle=obstacles.walls[obstacleId];
+            const float bx0=static_cast<float>(obstacle.minX-ox*kCellSize);
+            const float bz0=static_cast<float>(obstacle.minZ-oz*kCellSize);
+            const float bx1=static_cast<float>(obstacle.maxX-ox*kCellSize);
+            const float bz1=static_cast<float>(obstacle.maxZ-oz*kCellSize);
+            if (level==0) {
                 BoxRange(meshes,wallMat,bx0,bz0,bx1,bz1,0,height,wallB);
-            else {
+            } else if (level==1) {
                 BoxRange(meshes,Material::ConcreteWall,bx0,bz0,bx1,bz1,
                          0,2.5f,Color(141,150,148));
                 for (float shelf: {0.58f,1.15f,1.72f})
                     Flat(meshes,Material::IndustrialCeiling,bx0,bz0,bx1,bz1,
                          shelf,Color(103,113,111),0.8f);
+            } else {
+                BoxRange(meshes,Material::TunnelWall,bx0,bz0,bx1,bz1,
+                         0,height-0.23f,Color(136,122,101));
             }
+        }
+        Furniture(meshes,prop,ox*kCellSize,oz*kCellSize,level);
+        const auto doorHash=CellHash(world_,gx,gz,1501);
+        if (doorHash%170==0) {
+            if ((doorHash&1U)==0 && VerticalEdge(world_,gx,gz)==Edge::Solid)
+                FalseDoor(meshes,true,x,z,level);
+            else if (HorizontalEdge(world_,gx,gz)==Edge::Solid)
+                FalseDoor(meshes,false,z,x,level);
         }
         for (const auto& portal:kPortals) {
             if (portal.level==level && portal.cellX==gx && portal.cellZ==gz)
                 PortalVisual(meshes,level,portal.alongX,x+2.5f,z+2.5f,height);
         }
+        const auto entityHash=CellHash(world_,gx,gz,919);
+        const unsigned rarity=level==0 ? 850U : level==1 ? 650U : 750U;
+        if (entityHash%rarity==0 && obstacles.count==0 &&
+            (std::abs(gx)>4 || std::abs(gz)>4)) {
+            chunk.entities.push_back({(gx+0.5)*kCellSize,
+                                      (gz+0.5)*kCellSize,
+                                      static_cast<float>((entityHash>>8)%628)/100.0f});
+        }
     }
-    Chunk chunk;
     for (int id=0;id<kMaterialCount;++id) {
         auto& mesh=meshes[id];
         if (mesh.empty()) continue;
@@ -301,6 +480,7 @@ void BackroomsGame::BuildChunk(ChunkCoord coord) {
     }
     chunk.buildMs = std::chrono::duration<double,std::milli>(Clock::now()-start).count();
     lastBuildMs_ = chunk.buildMs;
+    peakBuildMs_ = std::max(peakBuildMs_,chunk.buildMs);
     chunks_.emplace(coord,std::move(chunk));
 }
 
@@ -323,10 +503,12 @@ void BackroomsGame::Stream() {
         }
     }
     if (found) BuildChunk(next);
+    if (chunks_.size()>25) throw std::runtime_error("streaming exceeded chunk limit");
 }
 
 void BackroomsGame::Transition(int level) {
-    if (transition_) transition_->Play(0.35f,0,0);
+    if (transition_ && !transition_->Play(0.45f,0,0))
+        std::cerr << "Audio: transition cue could not acquire a voice\n";
     world_.level=level;
     chunks_.clear();
     x_=2.5; z_=2.5;
@@ -339,24 +521,48 @@ void BackroomsGame::UpdateTitle(double elapsed) {
     statsTime_+=elapsed;
     ++frameCount_;
     if (statsTime_<1.0) return;
-    int triangles=0;
-    for (const auto& [coord,chunk]:chunks_) { (void)coord; triangles+=chunk.triangles; }
+    int triangles=0,entities=0;
+    for (const auto& [coord,chunk]:chunks_) {
+        (void)coord;
+        triangles+=chunk.triangles;
+        entities+=static_cast<int>(chunk.entities.size());
+    }
     const auto here=ChunkAt(x_,z_);
     std::ostringstream title;
     title << "cna-backrooms | Level " << world_.level << " | seed " << world_.seed
           << " | pos " << std::fixed << std::setprecision(1) << x_ << ',' << z_
           << " | chunk " << here.x << ',' << here.z
           << " | loaded " << chunks_.size() << "/25 | tris " << triangles
+          << " | entities " << entities
           << " | gen " << std::setprecision(2) << lastBuildMs_ << " ms"
+          << " | peak " << peakBuildMs_ << " ms"
+          << " | " << (running_ ? "run" : "walk")
+          << " | audio " << (hum_ ? "on" : "off")
           << " | " << static_cast<int>(frameCount_/statsTime_) << " FPS";
     getWindowProperty().setTitleProperty(title.str());
+    if (streamTest_) std::cout << title.str() << '\n';
     statsTime_=0;
     frameCount_=0;
 }
 
 void BackroomsGame::Update(GameTime& time) {
     const double dt=std::min(0.1,time.getElapsedGameTimeProperty().getTotalSecondsProperty());
+    if (streamTest_) {
+        // Streaming diagnostic: north, south past origin, and back through the
+        // live renderer. Collision is bypassed so walls cannot stop the sweep.
+        streamTestTime_+=dt;
+        const double distance=streamTestTime_*45.0;
+        z_=2.5+(distance<2400.0 ? distance :
+                 distance<7200.0 ? 4800.0-distance : distance-9600.0);
+        Stream();
+        UpdateTitle(dt);
+        if (distance>=9600.0) Exit();
+        Game::Update(time);
+        return;
+    }
     const auto keys=Keyboard::GetState();
+    if (keys.IsKeyDown(Keys::LeftShift) && previousKeys_.IsKeyUp(Keys::LeftShift))
+        running_=!running_;
     if (keys.IsKeyDown(Keys::Escape) && previousKeys_.IsKeyUp(Keys::Escape)) {
         if (captured_) {
             captured_=false;
@@ -379,15 +585,19 @@ void BackroomsGame::Update(GameTime& time) {
         double strafe=(keys.IsKeyDown(Keys::D)?1.0:0.0)-(keys.IsKeyDown(Keys::A)?1.0:0.0);
         const double length=std::hypot(forward,strafe);
         if (length>0) { forward/=length; strafe/=length; }
-        const double speed=(keys.IsKeyDown(Keys::LeftShift)?6.5:3.8)*dt;
+        const double speed=(running_?6.5:3.8)*dt;
         const double dx=(std::sin(yaw_)*forward-std::cos(yaw_)*strafe)*speed;
         const double dz=(std::cos(yaw_)*forward+std::sin(yaw_)*strafe)*speed;
         const double oldX=x_, oldZ=z_;
         MoveWithCollision(world_,x_,z_,dx,dz,0.31);
         stepDistance_ += std::hypot(x_-oldX,z_-oldZ);
-        if (stepDistance_>0.75) {
-            stepDistance_=0;
-            if (step_) step_->Play(0.12f,0,0);
+        const double stepLength=running_?2.0:1.65;
+        if (stepDistance_>stepLength) {
+            stepDistance_-=stepLength;
+            if (step_ && !step_->Play(0.70f,0,0) && !stepWarningShown_) {
+                std::cerr << "Audio: footstep could not acquire a voice\n";
+                stepWarningShown_=true;
+            }
         }
     }
     if (keys.IsKeyDown(Keys::R) && previousKeys_.IsKeyUp(Keys::R)) {
@@ -431,6 +641,27 @@ void BackroomsGame::Draw(const GameTime& time) {
                 passes[i]->Apply();
                 device.DrawPrimitives(PrimitiveType::TriangleList,0,
                                       chunk.materialTriangles[id]);
+            }
+        }
+    }
+    effect_->setTextureProperty(materials_->Get(Material::TunnelWall));
+    device.SetVertexBuffer(entityVertices_.get());
+    const float seconds=static_cast<float>(
+        time.getTotalGameTimeProperty().getTotalSecondsProperty());
+    for (const auto& [coord,chunk]:chunks_) {
+        (void)coord;
+        for (const auto& entity:chunk.entities) {
+            const double ex=entity.x+0.55*std::sin(seconds*0.28f+entity.phase);
+            const double ez=entity.z+0.55*std::cos(seconds*0.21f+entity.phase);
+            if (std::hypot(ex-x_,ez-z_)>82.0) continue;
+            const float facing=static_cast<float>(std::atan2(x_-ex,z_-ez));
+            effect_->setWorldProperty(Matrix::CreateRotationY(facing)*
+                Matrix::CreateTranslation(static_cast<float>(ex-x_),0,
+                                          static_cast<float>(ez-z_)));
+            auto& passes=effect_->getCurrentTechniqueProperty()->getPassesProperty();
+            for (int i=0;i<passes.getCountProperty();++i) {
+                passes[i]->Apply();
+                device.DrawPrimitives(PrimitiveType::TriangleList,0,entityTriangles_);
             }
         }
     }

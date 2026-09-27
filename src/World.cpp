@@ -83,6 +83,8 @@ std::uint32_t CellHash(const WorldConfig& config, int x, int z, int salt) {
 
 RegionKind RegionAt(const WorldConfig& config, int cellX, int cellZ) {
     const int rx=DivFloor(cellX,kRegionCells), rz=DivFloor(cellZ,kRegionCells);
+    if (config.level==1 && rx==0 && rz==0) return RegionKind::Storage;
+    if (config.level==2 && rx==0 && rz==0) return RegionKind::Tunnels;
     const auto roll=CellHash(config,rx,rz,501)%100;
     if (config.level==0)
         return roll<18 ? RegionKind::OpenOffice :
@@ -139,20 +141,77 @@ Edge HorizontalEdge(const WorldConfig& config, int x, int boundaryZ) {
                         CellHash(config,x,boundaryZ,23));
 }
 
-std::optional<Wall> CellObstacle(const WorldConfig& config, int cellX, int cellZ) {
+CellProp PropAt(const WorldConfig& config, int cellX, int cellZ) {
+    CellProp result;
+    if ((cellZ==0 && cellX>=0 && cellX<=3) ||
+        (cellX==0 && cellZ>=0 && cellZ<=3)) return result;
+    const RegionKind region=RegionAt(config,cellX,cellZ);
+    const int lx=ModFloor(cellX,kRegionCells), lz=ModFloor(cellZ,kRegionCells);
+    if ((region==RegionKind::Columns || region==RegionKind::Storage) &&
+        (lx==1 || lx==4) && (lz==1 || lz==4)) return result;
+    const std::uint32_t hash=CellHash(config,cellX,cellZ,1081);
+    const unsigned roll=hash%1000;
+    if (config.level==0) {
+        if (cellX==2 && cellZ==1) result.kind=PropKind::Chair;
+        else if (roll<4) result.kind=PropKind::Chair;
+        else if (roll<6) result.kind=PropKind::Table;
+        else if (roll==6) result.kind=PropKind::EmbeddedChair;
+    } else if (config.level==1) {
+        if (roll<10) result.kind=PropKind::Table;
+        else if (roll<12) result.kind=PropKind::Chair;
+    } else if (roll<2) result.kind=PropKind::EmbeddedChair;
+    if (result.kind==PropKind::None) return result;
+    result.x=(cellX+0.5)*kCellSize+
+        (static_cast<int>((hash>>8)%5)-2)*0.24;
+    result.z=(cellZ+0.5)*kCellSize+
+        (static_cast<int>((hash>>11)%5)-2)*0.24;
+    result.quarterTurn=static_cast<int>((hash>>17)&3U);
+    if (result.kind==PropKind::EmbeddedChair) {
+        const bool left=VerticalEdge(config,cellX,cellZ)==Edge::Solid;
+        const bool right=VerticalEdge(config,cellX+1,cellZ)==Edge::Solid;
+        if (!left && !right) {
+            result.kind=PropKind::Chair;
+        } else {
+            result.x=cellX*kCellSize+(left ? 0.28 : 4.72);
+            result.z=(cellZ+0.5)*kCellSize;
+            result.quarterTurn=left ? 3 : 1;
+            result.sink=0.28f;
+        }
+    }
+    return result;
+}
+
+CellObstacleSet CellObstacles(const WorldConfig& config, int cellX, int cellZ) {
+    CellObstacleSet result;
     const RegionKind kind=RegionAt(config,cellX,cellZ);
     const int lx=ModFloor(cellX,kRegionCells), lz=ModFloor(cellZ,kRegionCells);
     if (kind==RegionKind::Columns && (lx==1 || lx==4) &&
         (lz==1 || lz==4)) {
         const double cx=(cellX+0.5)*kCellSize,cz=(cellZ+0.5)*kCellSize;
-        return Wall{cx-0.43,cz-0.43,cx+0.43,cz+0.43};
+        result.walls[result.count++]={cx-0.43,cz-0.43,cx+0.43,cz+0.43};
     }
     if (kind==RegionKind::Storage && (lx==1 || lx==4) &&
         (lz==1 || lz==4)) {
         const double cx=(cellX+0.5)*kCellSize,cz=(cellZ+0.5)*kCellSize;
-        return Wall{cx-0.8,cz-1.0,cx+0.8,cz+1.0};
+        result.walls[result.count++]={cx-0.8,cz-1.0,cx+0.8,cz+1.0};
     }
-    return std::nullopt;
+    if (kind==RegionKind::Tunnels && (lx+lz)%2==0) {
+        const double x=cellX*kCellSize,z=cellZ*kCellSize;
+        result.walls[result.count++]={x+0.15,z+0.15,x+0.8,z+1.5};
+        result.walls[result.count++]={x+0.15,z+3.5,x+0.8,z+4.85};
+        result.walls[result.count++]={x+4.2,z+0.15,x+4.85,z+1.5};
+        result.walls[result.count++]={x+4.2,z+3.5,x+4.85,z+4.85};
+    }
+    const CellProp prop=PropAt(config,cellX,cellZ);
+    if (prop.kind!=PropKind::None) {
+        const double halfX=prop.kind==PropKind::Table ?
+            (prop.quarterTurn%2 ? 0.62 : 0.92) : 0.38;
+        const double halfZ=prop.kind==PropKind::Table ?
+            (prop.quarterTurn%2 ? 0.92 : 0.62) : 0.38;
+        result.walls[result.count++]={prop.x-halfX,prop.z-halfZ,
+                                      prop.x+halfX,prop.z+halfZ};
+    }
+    return result;
 }
 
 std::vector<Wall> NearbyWalls(const WorldConfig& config, double x, double z) {
@@ -165,8 +224,9 @@ std::vector<Wall> NearbyWalls(const WorldConfig& config, double x, double z) {
                        ix*kCellSize, iz*kCellSize);
             AppendEdge(walls, HorizontalEdge(config, ix, iz), false,
                        iz*kCellSize, ix*kCellSize);
-            if (const auto obstacle=CellObstacle(config,ix,iz))
-                walls.push_back(*obstacle);
+            const auto obstacles=CellObstacles(config,ix,iz);
+            for (int i=0;i<obstacles.count;++i)
+                walls.push_back(obstacles.walls[i]);
         }
     }
     return walls;

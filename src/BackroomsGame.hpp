@@ -20,7 +20,7 @@ namespace Backrooms {
 
 class BackroomsGame final : public Microsoft::Xna::Framework::Game {
 public:
-    explicit BackroomsGame(std::uint64_t seed);
+    explicit BackroomsGame(std::uint64_t seed, bool streamTest = false);
     const std::string& GetTypeName() const override;
     void Initialize() override;
     void LoadContent() override;
@@ -28,10 +28,15 @@ public:
     void Draw(const Microsoft::Xna::Framework::GameTime& time) override;
 
 private:
+    struct Entity {
+        double x = 0, z = 0;
+        float phase = 0;
+    };
     struct Chunk {
         std::array<std::unique_ptr<Microsoft::Xna::Framework::Graphics::VertexBuffer>,
                    kMaterialCount> vertices;
         std::array<int, kMaterialCount> materialTriangles{};
+        std::vector<Entity> entities;
         int triangles = 0;
         double buildMs = 0;
     };
@@ -39,6 +44,8 @@ private:
     Microsoft::Xna::Framework::GraphicsDeviceManager graphics_;
     std::unique_ptr<Microsoft::Xna::Framework::Graphics::BasicEffect> effect_;
     std::unique_ptr<Materials> materials_;
+    std::unique_ptr<Microsoft::Xna::Framework::Graphics::VertexBuffer> entityVertices_;
+    int entityTriangles_ = 0;
     std::unique_ptr<Microsoft::Xna::Framework::Audio::SoundEffect> humSound_;
     std::unique_ptr<Microsoft::Xna::Framework::Audio::SoundEffectInstance> hum_;
     std::unique_ptr<Microsoft::Xna::Framework::Audio::SoundEffect> step_;
@@ -49,13 +56,19 @@ private:
     double x_ = 2.5, z_ = 2.5;
     float yaw_ = 1.5707963f, pitch_ = 0;
     bool captured_ = false;
+    bool running_ = false;
     bool insidePortal_ = false;
     int frameCount_ = 0;
     double statsTime_ = 0;
     double lastBuildMs_ = 0;
+    double peakBuildMs_ = 0;
     double stepDistance_ = 0;
+    bool stepWarningShown_ = false;
+    bool streamTest_ = false;
+    double streamTestTime_ = 0;
 
     void BuildChunk(ChunkCoord coord);
+    void BuildEntityMesh();
     void Stream();
     void Transition(int level);
     void UpdateTitle(double elapsed);
