@@ -27,10 +27,10 @@ int main() {
     CHECK(ChunkOfCell(-9)==-2);
     CHECK(ChunkAt(-0.01,-40.01)==(ChunkCoord{-1,-2}));
     // Golden values make changes to the versioned procedural world explicit.
-    CHECK(kFormatVersion==5);
-    CHECK(CellHash(world,12,-8,41)==1275415901U);
+    CHECK(kFormatVersion==6);
+    CHECK(CellHash(world,12,-8,41)==504158710U);
     CHECK(VerticalEdge(world,8,3)==Edge::Open);
-    CHECK(HorizontalEdge(world,-4,-5)==Edge::Door);
+    CHECK(HorizontalEdge(world,-4,-5)==Edge::Open);
     CHECK(CellHash(world,12,-8,41)!=CellHash(world,13,-8,41));
     // Every complete multi-region rectangle must be reachable, including negative cells.
     for (std::uint64_t seed: {0ULL,12345ULL,31337ULL,0xffffffffffffffffULL})
@@ -96,6 +96,26 @@ int main() {
             foundEmbedded=true;
         }
     }
+    bool openingLeft=false,openingRight=false;
+    int checkedOpenings=0;
+    for (int bx=-20;bx<=20;++bx) for (int bz=-20;bz<=20;++bz) {
+        const Edge edge=VerticalEdge(world,bx,bz);
+        if (edge!=Edge::Door && edge!=Edge::Wide) continue;
+        const auto span=OpeningForEdge(world,edge,true,bx,bz);
+        CHECK(span==OpeningForEdge(world,edge,true,bx,bz));
+        CHECK(span.start>=0.4 && span.end<=4.6);
+        CHECK(std::abs((span.end-span.start)-
+                       (edge==Edge::Wide ? 3.5 : 1.9))<0.00001);
+        const double displacement=(span.start+span.end)*0.5-2.5;
+        openingLeft |= displacement < -0.12;
+        openingRight |= displacement > 0.12;
+        const double z=bz*kCellSize+(span.start+span.end)*0.5;
+        if (std::abs(bx)>4 || std::abs(bz)>4) {
+            CHECK(!Collides(world,bx*kCellSize,z,0.31));
+            ++checkedOpenings;
+        }
+    }
+    CHECK(openingLeft && openingRight && checkedOpenings>100);
     CHECK(foundEmbedded);
     bool foundLowPartition=false;
     for (int ix=-30;ix<=30 && !foundLowPartition;++ix)
@@ -155,9 +175,9 @@ int main() {
     }
     // Rare entrances share the rendered frame, collider, and trigger geometry.
     for (const auto [level,cellX,cellZ]: {
-             std::array<int,3>{0,-48,16},
-             std::array<int,3>{1,16,-16},
-             std::array<int,3>{2,-16,-16}}) {
+             std::array<int,3>{0,-16,16},
+             std::array<int,3>{1,16,-48},
+             std::array<int,3>{2,16,-16}}) {
         const WorldConfig selected{12345,level};
         const auto portal=PortalAt(selected,cellX,cellZ);
         CHECK(portal.has_value());

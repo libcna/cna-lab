@@ -106,7 +106,8 @@ void WallFace(Meshes& meshes, Material material, bool vertical, float boundary,
                    {u0,v0},{u1,v0},{u1,v1},{u0,v1});
 }
 
-void Partition(Meshes& meshes, Material material, Edge edge, bool vertical,
+void Partition(Meshes& meshes, Material material, Edge edge,
+               OpeningSpan opening, bool vertical,
                float boundary, float along, float height, float doorHeight,
                Color wall, Color trim) {
     if (edge == Edge::Open) return;
@@ -121,9 +122,10 @@ void Partition(Meshes& meshes, Material material, Edge edge, bool vertical,
     };
     if (edge == Edge::Solid) full(along, along+5.0f);
     else {
-        const float side=edge==Edge::Wide ? 0.75f : 1.55f;
-        full(along,along+side);
-        full(along+5.0f-side,along+5.0f);
+        const float first=static_cast<float>(opening.start);
+        const float last=static_cast<float>(opening.end);
+        full(along,along+first);
+        full(along+last,along+5.0f);
         const auto cap=[&](float end) {
             WallFace(meshes,material,!vertical,end,
                      boundary-0.10f,boundary+0.10f,0.19f,height-0.10f,
@@ -133,20 +135,53 @@ void Partition(Meshes& meshes, Material material, Edge edge, bool vertical,
             WallFace(meshes,material,!vertical,end,
                      boundary-0.10f,boundary+0.10f,height-0.10f,height,trim);
         };
-        cap(along+side);
-        cap(along+5.0f-side);
+        cap(along+first);
+        cap(along+last);
         if (edge==Edge::Door) {
-            WallFace(meshes,material,vertical,boundary,along+side,
-                     along+5.0f-side,doorHeight,height,wall);
+            WallFace(meshes,material,vertical,boundary,along+first,
+                     along+last,doorHeight,height,wall);
             if (vertical)
-                Flat(meshes,material,boundary-0.10f,along+side,
-                     boundary+0.10f,along+5.0f-side,
+                Flat(meshes,material,boundary-0.10f,along+first,
+                     boundary+0.10f,along+last,
                      doorHeight,Scale(wall,0.83f),0.6f);
             else
-                Flat(meshes,material,along+side,boundary-0.10f,
-                     along+5.0f-side,boundary+0.10f,
+                Flat(meshes,material,along+first,boundary-0.10f,
+                     along+last,boundary+0.10f,
                      doorHeight,Scale(wall,0.83f),0.6f);
         }
+    }
+}
+
+void ContactShadow(Meshes& meshes, Edge edge, OpeningSpan opening,
+                   bool vertical, float boundary, float along,
+                   Color floorColor) {
+    if (edge==Edge::Open) return;
+    const Color outer=floorColor;
+    const Color inner=Scale(floorColor,0.84f);
+    const auto section=[&](float start,float end) {
+        if (end<=start) return;
+        const float a=along+start,b=along+end;
+        constexpr float inset=0.105f,outset=0.34f,y=0.004f;
+        if (vertical) {
+            FlatShaded(meshes,Material::Carpet,boundary-outset,a,
+                       boundary-inset,b,y,
+                       {outer,inner,inner,outer},0.125f);
+            FlatShaded(meshes,Material::Carpet,boundary+inset,a,
+                       boundary+outset,b,y,
+                       {inner,outer,outer,inner},0.125f);
+        } else {
+            FlatShaded(meshes,Material::Carpet,a,boundary-outset,
+                       b,boundary-inset,y,
+                       {outer,outer,inner,inner},0.125f);
+            FlatShaded(meshes,Material::Carpet,a,boundary+inset,
+                       b,boundary+outset,y,
+                       {inner,inner,outer,outer},0.125f);
+        }
+    };
+    if (edge==Edge::Solid) section(0,5);
+    else {
+        section(0,static_cast<float>(opening.start));
+        section(static_cast<float>(opening.end),5);
     }
 }
 
@@ -566,10 +601,22 @@ void BackroomsGame::BuildChunk(ChunkCoord coord) {
         const Color cellWall=Scale(Vary(wallA,wallB,h),
             level==0 ? 0.52f+0.48f*LightFactor(world_,wx+2.5,wz+2.5) :
             lampInfo.lit ? 1.0f : 0.80f);
-        Partition(meshes,wallMat,VerticalEdge(world_,gx,gz),true,x,z,
+        const Edge verticalEdge=VerticalEdge(world_,gx,gz);
+        const Edge horizontalEdge=HorizontalEdge(world_,gx,gz);
+        const auto verticalOpening=OpeningForEdge(world_,verticalEdge,true,gx,gz);
+        const auto horizontalOpening=OpeningForEdge(world_,horizontalEdge,false,gx,gz);
+        Partition(meshes,wallMat,verticalEdge,verticalOpening,true,x,z,
                   height,doorHeight,cellWall,trim);
-        Partition(meshes,wallMat,HorizontalEdge(world_,gx,gz),false,z,x,
+        Partition(meshes,wallMat,horizontalEdge,horizontalOpening,false,z,x,
                   height,doorHeight,cellWall,trim);
+        if (level==0) {
+            const float ambient=(light[0]+light[1]+light[2]+light[3])*0.25f;
+            const Color shadowFloor=Scale(floorColor,ambient);
+            ContactShadow(meshes,verticalEdge,verticalOpening,true,x,z,
+                          shadowFloor);
+            ContactShadow(meshes,horizontalEdge,horizontalOpening,false,z,x,
+                          shadowFloor);
+        }
         if (level==2) {
             const Color conduit(147,137,116);
             if (VerticalEdge(world_,gx,gz)==Edge::Solid)

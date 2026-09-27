@@ -17,7 +17,8 @@ std::uint64_t Mix(std::uint64_t v) {
     return v ^ (v >> 31);
 }
 
-void AppendEdge(std::vector<Wall>& walls, Edge edge, bool vertical,
+void AppendEdge(std::vector<Wall>& walls, const WorldConfig& config,
+                Edge edge, bool vertical, int edgeX, int edgeZ,
                 double boundary, double along) {
     if (edge == Edge::Open) return;
     const double t = 0.10;
@@ -27,9 +28,9 @@ void AppendEdge(std::vector<Wall>& walls, Edge edge, bool vertical,
     };
     if (edge == Edge::Solid) add(along, along+kCellSize);
     else {
-        const double side = (kCellSize-(edge==Edge::Wide ? 3.5 : 1.9))*0.5;
-        add(along, along+side);
-        add(along+kCellSize-side, along+kCellSize);
+        const auto span=OpeningForEdge(config,edge,vertical,edgeX,edgeZ);
+        add(along, along+span.start);
+        add(along+span.end, along+kCellSize);
     }
 }
 
@@ -139,6 +140,20 @@ std::uint32_t CellHash(const WorldConfig& config, int x, int z, int salt) {
     v ^= Mix(static_cast<std::uint32_t>(salt) + 0x37ac891eULL);
     v ^= Mix(static_cast<std::uint32_t>(config.level) + 0x9133a7c5ULL);
     return static_cast<std::uint32_t>(Mix(v));
+}
+
+OpeningSpan OpeningForEdge(const WorldConfig& config, Edge edge,
+                           bool vertical, int edgeX, int edgeZ) {
+    if (edge==Edge::Open) return {0.0,kCellSize};
+    if (edge==Edge::Solid) return {0.0,0.0};
+    const double width=edge==Edge::Wide ? 3.5 : 1.9;
+    const double centered=(kCellSize-width)*0.5;
+    if (config.level!=0) return {centered,centered+width};
+    const auto hash=CellHash(config,edgeX,edgeZ,
+                             vertical ? 1703 : 1709);
+    const double step=static_cast<int>(hash%7)-3;
+    const double shift=step*(edge==Edge::Wide ? 0.32 : 0.54)/3.0;
+    return {centered+shift,centered+shift+width};
 }
 
 std::optional<PortalDefinition> PortalAt(const WorldConfig& config,
@@ -305,10 +320,10 @@ std::vector<Wall> NearbyWalls(const WorldConfig& config, double x, double z) {
     walls.reserve(88);
     for (int ix=cx-1; ix<=cx+1; ++ix) {
         for (int iz=cz-1; iz<=cz+1; ++iz) {
-            AppendEdge(walls, VerticalEdge(config, ix, iz), true,
-                       ix*kCellSize, iz*kCellSize);
-            AppendEdge(walls, HorizontalEdge(config, ix, iz), false,
-                       iz*kCellSize, ix*kCellSize);
+            AppendEdge(walls,config,VerticalEdge(config, ix, iz),true,
+                       ix,iz,ix*kCellSize,iz*kCellSize);
+            AppendEdge(walls,config,HorizontalEdge(config, ix, iz),false,
+                       ix,iz,iz*kCellSize,ix*kCellSize);
             const auto obstacles=CellObstacles(config,ix,iz);
             for (int i=0;i<obstacles.count;++i)
                 walls.push_back(obstacles.walls[i]);

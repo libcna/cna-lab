@@ -7,7 +7,7 @@
 
 namespace Backrooms {
 
-constexpr int kFormatVersion = 5;
+constexpr int kFormatVersion = 6;
 constexpr int kChunkCells = 8;
 constexpr int kRegionCells = 6;
 constexpr double kCellSize = 5.0;
@@ -30,6 +30,11 @@ enum class RegionKind : std::uint8_t {
 
 struct Wall {
     double minX, minZ, maxX, maxZ;
+};
+
+struct OpeningSpan {
+    double start, end;
+    bool operator==(const OpeningSpan&) const = default;
 };
 
 struct CellObstacleSet {
@@ -83,6 +88,8 @@ std::optional<PortalDefinition> PortalAt(const WorldConfig& config,
 RegionKind RegionAt(const WorldConfig& config, int cellX, int cellZ);
 Edge VerticalEdge(const WorldConfig& config, int boundaryX, int z);
 Edge HorizontalEdge(const WorldConfig& config, int x, int boundaryZ);
+OpeningSpan OpeningForEdge(const WorldConfig& config, Edge edge,
+                           bool vertical, int edgeX, int edgeZ);
 CellProp PropAt(const WorldConfig& config, int cellX, int cellZ);
 CellObstacleSet CellObstacles(const WorldConfig& config, int cellX, int cellZ);
 std::vector<Wall> NearbyWalls(const WorldConfig& config, double x, double z);
