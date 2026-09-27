@@ -7,7 +7,7 @@
 
 namespace Backrooms {
 
-constexpr int kFormatVersion = 6;
+constexpr int kFormatVersion = 8;
 constexpr int kChunkCells = 8;
 constexpr int kRegionCells = 6;
 constexpr double kCellSize = 5.0;
@@ -43,7 +43,7 @@ struct CellObstacleSet {
 };
 
 enum class PropKind : std::uint8_t {
-    None, Chair, Table, EmbeddedChair, LowPartition
+    None, Chair, Table, EmbeddedChair, LowPartition, TallPartition
 };
 
 struct CellProp {
@@ -86,6 +86,7 @@ std::uint32_t CellHash(const WorldConfig& config, int x, int z, int salt);
 std::optional<PortalDefinition> PortalAt(const WorldConfig& config,
                                          int cellX, int cellZ);
 RegionKind RegionAt(const WorldConfig& config, int cellX, int cellZ);
+bool IsEmptyHall(const WorldConfig& config, int cellX, int cellZ);
 Edge VerticalEdge(const WorldConfig& config, int boundaryX, int z);
 Edge HorizontalEdge(const WorldConfig& config, int x, int boundaryZ);
 OpeningSpan OpeningForEdge(const WorldConfig& config, Edge edge,

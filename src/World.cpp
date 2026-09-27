@@ -53,8 +53,8 @@ Edge OptionalEdge(RegionKind kind, std::uint32_t hash) {
     case RegionKind::Storage:
         return roll<50 ? Edge::Open : roll<82 ? Edge::Wide : Edge::Door;
     case RegionKind::Tunnels:
-        return roll<5 ? Edge::Open : roll<15 ? Edge::Wide :
-               roll<60 ? Edge::Door : Edge::Solid;
+        return roll<18 ? Edge::Open : roll<31 ? Edge::Wide :
+               roll<47 ? Edge::Door : Edge::Solid;
     }
     return Edge::Solid;
 }
@@ -108,6 +108,9 @@ int RoomZoneAt(const WorldConfig& config, int cellX, int cellZ,
 Edge ComposedEdge(const WorldConfig& config, RegionKind kind,
                   int firstX, int firstZ, int secondX, int secondZ,
                   bool tree, std::uint32_t hash) {
+    if (config.level==2 && tree)
+        return hash%10<7 ? Edge::Open :
+               hash%10<9 ? Edge::Wide : Edge::Door;
     if (config.level!=0 || (kind!=RegionKind::Rooms &&
         kind!=RegionKind::Halls && kind!=RegionKind::Irregular))
         return tree ? TreeEdge(kind,hash) : OptionalEdge(kind,hash);
@@ -189,9 +192,20 @@ RegionKind RegionAt(const WorldConfig& config, int cellX, int cellZ) {
            roll<88 ? RegionKind::Irregular : RegionKind::Halls;
 }
 
+bool IsEmptyHall(const WorldConfig& config, int cellX, int cellZ) {
+    if (config.level!=0) return false;
+    constexpr int extent=2*kRegionCells;
+    const int sx=DivFloor(cellX,extent),sz=DivFloor(cellZ,extent);
+    if (sx==0 && sz==0) return false; // preserve the first transition route
+    return CellHash(config,sx,sz,2511)%17==0;
+}
+
 Edge VerticalEdge(const WorldConfig& config, int boundaryX, int z) {
     if (config.level<=1 && z==0 && boundaryX>=1 && boundaryX<=3)
         return Edge::Open; // readable route to the first maintenance entrance
+    if (DivFloor(boundaryX-1,2*kRegionCells)==
+        DivFloor(boundaryX,2*kRegionCells) &&
+        IsEmptyHall(config,boundaryX-1,z)) return Edge::Open;
     const int rx=DivFloor(boundaryX-1,kRegionCells);
     const int rz=DivFloor(z,kRegionCells);
     const int localZ=ModFloor(z,kRegionCells);
@@ -213,6 +227,9 @@ Edge VerticalEdge(const WorldConfig& config, int boundaryX, int z) {
 Edge HorizontalEdge(const WorldConfig& config, int x, int boundaryZ) {
     if ((config.level==1 || config.level==2) && x==0 &&
         boundaryZ>=1 && boundaryZ<=3) return Edge::Open;
+    if (DivFloor(boundaryZ-1,2*kRegionCells)==
+        DivFloor(boundaryZ,2*kRegionCells) &&
+        IsEmptyHall(config,x,boundaryZ-1)) return Edge::Open;
     const int rx=DivFloor(x,kRegionCells);
     const int rz=DivFloor(boundaryZ-1,kRegionCells);
     const int localX=ModFloor(x,kRegionCells);
@@ -233,6 +250,7 @@ Edge HorizontalEdge(const WorldConfig& config, int x, int boundaryZ) {
 
 CellProp PropAt(const WorldConfig& config, int cellX, int cellZ) {
     CellProp result;
+    if (IsEmptyHall(config,cellX,cellZ)) return result;
     if (PortalAt(config,cellX,cellZ)) return result;
     if ((cellZ==0 && cellX>=0 && cellX<=3) ||
         (cellX==0 && cellZ>=0 && cellZ<=3)) return result;
@@ -251,6 +269,10 @@ CellProp PropAt(const WorldConfig& config, int cellX, int cellZ) {
         else if (roll<14 && (region==RegionKind::OpenOffice ||
                              region==RegionKind::Irregular))
             result.kind=PropKind::LowPartition;
+        else if (roll<22 && (region==RegionKind::OpenOffice ||
+                            region==RegionKind::Irregular ||
+                            region==RegionKind::Rooms))
+            result.kind=PropKind::TallPartition;
     } else if (config.level==1) {
         if (roll<10) result.kind=PropKind::Table;
         else if (roll<12) result.kind=PropKind::Chair;
@@ -260,6 +282,12 @@ CellProp PropAt(const WorldConfig& config, int cellX, int cellZ) {
         (static_cast<int>((hash>>8)%5)-2)*0.24;
     result.z=(cellZ+0.5)*kCellSize+
         (static_cast<int>((hash>>11)%5)-2)*0.24;
+    if (result.kind==PropKind::TallPartition) {
+        result.x=(cellX+0.5)*kCellSize+
+            (static_cast<int>((hash>>8)%5)-2)*0.15;
+        result.z=(cellZ+0.5)*kCellSize+
+            (static_cast<int>((hash>>11)%5)-2)*0.15;
+    }
     result.quarterTurn=static_cast<int>((hash>>17)&3U);
     if (result.kind==PropKind::EmbeddedChair) {
         const bool left=VerticalEdge(config,cellX,cellZ)==Edge::Solid;
@@ -278,6 +306,7 @@ CellProp PropAt(const WorldConfig& config, int cellX, int cellZ) {
 
 CellObstacleSet CellObstacles(const WorldConfig& config, int cellX, int cellZ) {
     CellObstacleSet result;
+    if (IsEmptyHall(config,cellX,cellZ)) return result;
     if (PortalAt(config,cellX,cellZ)) return result;
     const RegionKind kind=RegionAt(config,cellX,cellZ);
     const int lx=ModFloor(cellX,kRegionCells), lz=ModFloor(cellZ,kRegionCells);
@@ -303,11 +332,15 @@ CellObstacleSet CellObstacles(const WorldConfig& config, int cellX, int cellZ) {
         const double halfX=prop.kind==PropKind::Table ?
             (prop.quarterTurn%2 ? 0.62 : 0.92) :
             prop.kind==PropKind::LowPartition ?
-            (prop.quarterTurn%2 ? 0.14 : 1.66) : 0.38;
+            (prop.quarterTurn%2 ? 0.14 : 1.66) :
+            prop.kind==PropKind::TallPartition ?
+            (prop.quarterTurn%2 ? 0.12 : 1.25) : 0.38;
         const double halfZ=prop.kind==PropKind::Table ?
             (prop.quarterTurn%2 ? 0.92 : 0.62) :
             prop.kind==PropKind::LowPartition ?
-            (prop.quarterTurn%2 ? 1.66 : 0.14) : 0.38;
+            (prop.quarterTurn%2 ? 1.66 : 0.14) :
+            prop.kind==PropKind::TallPartition ?
+            (prop.quarterTurn%2 ? 1.25 : 0.12) : 0.38;
         result.walls[result.count++]={prop.x-halfX,prop.z-halfZ,
                                       prop.x+halfX,prop.z+halfZ};
     }

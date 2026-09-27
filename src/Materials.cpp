@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <utility>
 #include <vector>
 
 #include "Microsoft/Xna/Framework/Color.hpp"
@@ -13,6 +14,7 @@ namespace {
 using Microsoft::Xna::Framework::Color;
 using Microsoft::Xna::Framework::Graphics::Texture2D;
 using Microsoft::Xna::Framework::Graphics::GraphicsDevice;
+using Microsoft::Xna::Framework::Graphics::SurfaceFormat;
 
 std::uint32_t Noise(int x, int y, int salt) {
     std::uint32_t h=static_cast<std::uint32_t>(x)*0x9e3779b1U ^
@@ -44,23 +46,21 @@ Color Pixel(Material material, int x, int y) {
     int r=0,g=0,b=0;
     switch (material) {
     case Material::Wallpaper: {
-        // A repeating, faded wallpaper motif: wavy vertical stems and broad
-        // ornamental loops. Its contrast remains legible at corridor distance.
-        constexpr float pi=3.14159265358979323846f;
-        const float wave=2.7f*std::sin(y*2.0f*pi/64.0f);
-        const float stem=std::abs(std::remainder(x+wave-16.0f,32.0f));
-        const float localY=std::remainder(static_cast<float>(y),64.0f);
-        const float loop=std::sqrt(std::pow(stem/10.5f,2.0f)+
-                                   std::pow(localY/24.0f,2.0f));
-        const int motif=(stem<1.7f ? -14 : stem<3.3f ? -6 : 0)+
-                        (std::abs(loop-1.0f)<0.10f ? -8 : 0);
-        const int panel=((x/16)&1) ? -2 : 2;
+        // Small faded lozenges and pinstripes suggest old office wallpaper.
+        // The 16-pixel motif is deliberately much smaller than a wall panel.
+        const float localX=std::abs(std::remainder(x-8.0f,16.0f));
+        const float localY=std::abs(std::remainder(y-8.0f,16.0f));
+        const float diamond=localX/4.5f+localY/6.0f;
+        const int motif=(localX<0.8f ? -5 : 0)+
+                        (std::abs(diamond-1.0f)<0.17f ? -6 : 0)+
+                        (localX<1.3f && localY<1.5f ? -4 : 0);
+        const int panel=((x/16)&1) ? -1 : 1;
         const float stainNoise=SmoothNoise(x,y,32,51);
         const int stain=stainNoise>0.60f ?
             static_cast<int>((0.60f-stainNoise)*32.0f) : 0;
         r=211+grain/3+blotch/3+motif+panel+stain;
-        g=198+grain/3+blotch/3+motif+panel+stain;
-        b=133+grain/4+blotch/3+motif/2+panel+stain;
+        g=200+grain/3+blotch/3+motif+panel+stain;
+        b=138+grain/4+blotch/3+motif/2+panel+stain;
         break;
     }
     case Material::Carpet: {
@@ -132,8 +132,34 @@ Materials::Materials(GraphicsDevice& device) {
         pixels.reserve(size*size);
         for (int y=0;y<size;++y) for (int x=0;x<size;++x)
             pixels.push_back(Pixel(material,x,y));
-        textures_[id]=std::make_unique<Texture2D>(device,size,size);
-        textures_[id]->SetData(pixels.data(),static_cast<int>(pixels.size()));
+        textures_[id]=std::make_unique<Texture2D>(
+            device,size,size,true,SurfaceFormat::Color);
+        int width=size;
+        for (int level=0;level<textures_[id]->getLevelCountProperty();++level) {
+            textures_[id]->SetData(level,nullptr,pixels.data(),0,
+                                   static_cast<int>(pixels.size()));
+            if (width==1) break;
+            const int nextWidth=width/2;
+            std::vector<Color> next(nextWidth*nextWidth);
+            for (int y=0;y<nextWidth;++y) for (int x=0;x<nextWidth;++x) {
+                const auto& a=pixels[(2*y)*width+2*x];
+                const auto& b=pixels[(2*y)*width+2*x+1];
+                const auto& c=pixels[(2*y+1)*width+2*x];
+                const auto& d=pixels[(2*y+1)*width+2*x+1];
+                const auto average=[](int a,int b,int c,int d) {
+                    return static_cast<std::uint8_t>((a+b+c+d+2)/4);
+                };
+                next[y*nextWidth+x]=Color(
+                    average(a.getRProperty(),b.getRProperty(),
+                            c.getRProperty(),d.getRProperty()),
+                    average(a.getGProperty(),b.getGProperty(),
+                            c.getGProperty(),d.getGProperty()),
+                    average(a.getBProperty(),b.getBProperty(),
+                            c.getBProperty(),d.getBProperty()));
+            }
+            pixels=std::move(next);
+            width=nextWidth;
+        }
     }
 }
 

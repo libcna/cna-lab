@@ -27,8 +27,8 @@ int main() {
     CHECK(ChunkOfCell(-9)==-2);
     CHECK(ChunkAt(-0.01,-40.01)==(ChunkCoord{-1,-2}));
     // Golden values make changes to the versioned procedural world explicit.
-    CHECK(kFormatVersion==6);
-    CHECK(CellHash(world,12,-8,41)==504158710U);
+    CHECK(kFormatVersion==8);
+    CHECK(CellHash(world,12,-8,41)==2310992570U);
     CHECK(VerticalEdge(world,8,3)==Edge::Open);
     CHECK(HorizontalEdge(world,-4,-5)==Edge::Open);
     CHECK(CellHash(world,12,-8,41)!=CellHash(world,13,-8,41));
@@ -126,6 +126,29 @@ int main() {
             foundLowPartition=true;
         }
     CHECK(foundLowPartition);
+    bool foundTallPartition=false;
+    for (int ix=-50;ix<=50 && !foundTallPartition;++ix)
+        for (int iz=-50;iz<=50 && !foundTallPartition;++iz) {
+            const auto prop=PropAt(world,ix,iz);
+            if (prop.kind!=PropKind::TallPartition) continue;
+            CHECK(Collides(world,prop.x,prop.z,0.31));
+            foundTallPartition=true;
+        }
+    CHECK(foundTallPartition);
+    bool foundEmptyHall=false;
+    for (int ix=-120;ix<=120 && !foundEmptyHall;ix+=12)
+        for (int iz=-120;iz<=120 && !foundEmptyHall;iz+=12) {
+            if (!IsEmptyHall(world,ix,iz)) continue;
+            for (int dx=0;dx<12;++dx) for (int dz=0;dz<12;++dz) {
+                CHECK(IsEmptyHall(world,ix+dx,iz+dz));
+                CHECK(PropAt(world,ix+dx,iz+dz).kind==PropKind::None);
+                CHECK(CellObstacles(world,ix+dx,iz+dz).count==0);
+                if (dx>0) CHECK(VerticalEdge(world,ix+dx,iz+dz)==Edge::Open);
+                if (dz>0) CHECK(HorizontalEdge(world,ix+dx,iz+dz)==Edge::Open);
+            }
+            foundEmptyHall=true;
+        }
+    CHECK(foundEmptyHall);
     // Check that the movement collider agrees with generated openings, including
     // region and chunk boundaries on both sides of the origin.
     for (int level=0;level<3;++level) {
@@ -176,8 +199,8 @@ int main() {
     // Rare entrances share the rendered frame, collider, and trigger geometry.
     for (const auto [level,cellX,cellZ]: {
              std::array<int,3>{0,-16,16},
-             std::array<int,3>{1,16,-48},
-             std::array<int,3>{2,16,-16}}) {
+             std::array<int,3>{1,-16,-16},
+             std::array<int,3>{2,-48,16}}) {
         const WorldConfig selected{12345,level};
         const auto portal=PortalAt(selected,cellX,cellZ);
         CHECK(portal.has_value());

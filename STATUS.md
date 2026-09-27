@@ -16,19 +16,21 @@ The September 2026 playable foundation at `aaf67c0` has deterministic regions, b
 - Wall-height shading, darker opening reveals, smoother local fluorescent contribution and an 8 m carpet pattern were tried. QA caught carpet moire from regular fibers; irregular flecks removed the strongest checker artifact.
 - Version 6 shifts Level 0 door and wide-opening spans off center. The same span drives rendering and collision; broad collision tests sampled hundreds of openings. A softened carpet contact shadow adds depth at wall bases without creating a dark border.
 - The seven-seed, three-level world-quality scan sampled 16,384 cells per seed/level. It found zero cells with no exits; Level 0 had roughly 59% open edges, 17% solid edges, and varied room-kind proportions. This is structural evidence, not a substitute for long player exploration.
+- Version 8 adds rare 60-metre empty halls and tall partial walls in Level 0, a smaller wallpaper ornament, more open Level 2 tunnels, and pipes, cabinets and overhead ducts. Three additional twelve-view screenshot rounds inspected all levels, plus focused views of an empty hall and tall partition. The seven-seed scan found zero cells without an exit in version 8.
+- Version 8 also shades wall ends from nearby fluorescent samples and builds a full mip chain for each procedural material through CNA's Texture2D API. Focused before/after screenshots show the ceiling-grid moire removed at distance. A fourth 12-view round inspected the result.
 
 ## Three highest-priority deficiencies
 
-1. Some Level 0 regions still expose repeated wall lengths and columns across long sightlines.
-2. Level 2 needs stronger mechanical/service details to move beyond a dark palette and support its tunnel identity.
-3. The wallpaper and carpet repeat over long walks, while real-device subjective audio loudness remains unverified.
+1. Level 0's floor still reads rather flat and gray-brown; the rare furniture meshes are dark and coarse.
+2. Level 2's pipes and broader passages help, but arbitrary views can still look like repeated 5-metre cells. More varied tunnel silhouettes are needed.
+3. Level 1 and 2 need more oblique visual QA; real-device subjective audio loudness remains unverified.
 
 ## Latest validation
 
-- Last committed build passed at `5bfd3b9`. Current version 6 passes Debug and Release builds and world tests. The Release executable launched on isolated OpenGL ES and reached Level 1; live 0→1→2 and both reverse transitions pass.
+- Current version 8 passes Debug and Release builds and world tests. The game launched on isolated OpenGL ES and passed live 0→1→2 and both reverse routes.
 - Version 6 Level 0 completed a 9.6 km GPU sweep across both coordinate signs with 24–25 active chunks, near 59 FPS, peak chunk build 26.5 ms, and warmed RSS about 175–178 MB. The earlier Level 2 sweep held near 195–196 MB.
-- Multiple 12-view QA sets plus focused screenshots are stored under ignored `build/qa-*` paths. The visual goal remains active; further Level 2 and long-run quality checks are pending.
+- Version 8 Level 2 completed a 9.6 km GPU sweep with at most 25 active chunks, near 59 FPS, 25.2 ms peak chunk build, 5,735 buffer reuses, and warmed RSS near 198 MB. Multiple 12-view QA sets plus focused screenshots are stored under ignored `build/qa-*` paths. The visual goal remains active.
 
 ## Next pass
 
-Add a few low-cost Level 2 utility details and occasional Level 0 structural anomalies. Inspect another multi-location screenshot round, then stress Level 2 streaming and perform an extended play audit.
+Improve Level 0 carpet and sparse furniture so each reads as a real material. Inspect oblique views in Level 2 and refine repeated tunnel shapes. Recheck memory after mipmapped textures during a later sweep.
