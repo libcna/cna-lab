@@ -248,15 +248,17 @@ void BackroomsGame::Update(GameTime& time) {
         setIsMouseVisibleProperty(false);
     }
     if (captured_ && getIsActiveProperty()) {
-        yaw_ += mouse.getXProperty()*0.0022f;
+        // CNA/SDL reports positive relative X for physical movement to the right.
+        // With this camera's +Z forward convention, decreasing yaw looks right.
+        yaw_ -= mouse.getXProperty()*0.0022f;
         pitch_=std::clamp(pitch_-mouse.getYProperty()*0.0022f,-1.43f,1.43f);
         double forward=(keys.IsKeyDown(Keys::W)?1.0:0.0)-(keys.IsKeyDown(Keys::S)?1.0:0.0);
         double strafe=(keys.IsKeyDown(Keys::D)?1.0:0.0)-(keys.IsKeyDown(Keys::A)?1.0:0.0);
         const double length=std::hypot(forward,strafe);
         if (length>0) { forward/=length; strafe/=length; }
         const double speed=(keys.IsKeyDown(Keys::LeftShift)?6.5:3.8)*dt;
-        const double dx=(std::sin(yaw_)*forward+std::cos(yaw_)*strafe)*speed;
-        const double dz=(std::cos(yaw_)*forward-std::sin(yaw_)*strafe)*speed;
+        const double dx=(std::sin(yaw_)*forward-std::cos(yaw_)*strafe)*speed;
+        const double dz=(std::cos(yaw_)*forward+std::sin(yaw_)*strafe)*speed;
         const double oldX=x_, oldZ=z_;
         MoveWithCollision(world_,x_,z_,dx,dz,0.31);
         stepDistance_ += std::hypot(x_-oldX,z_-oldZ);
