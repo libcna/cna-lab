@@ -1,7 +1,9 @@
 #pragma once
 
 #include "World.hpp"
+#include "Materials.hpp"
 
+#include <array>
 #include <map>
 #include <memory>
 #include <vector>
@@ -27,13 +29,16 @@ public:
 
 private:
     struct Chunk {
-        std::unique_ptr<Microsoft::Xna::Framework::Graphics::VertexBuffer> vertices;
+        std::array<std::unique_ptr<Microsoft::Xna::Framework::Graphics::VertexBuffer>,
+                   kMaterialCount> vertices;
+        std::array<int, kMaterialCount> materialTriangles{};
         int triangles = 0;
         double buildMs = 0;
     };
 
     Microsoft::Xna::Framework::GraphicsDeviceManager graphics_;
     std::unique_ptr<Microsoft::Xna::Framework::Graphics::BasicEffect> effect_;
+    std::unique_ptr<Materials> materials_;
     std::unique_ptr<Microsoft::Xna::Framework::Audio::SoundEffect> humSound_;
     std::unique_ptr<Microsoft::Xna::Framework::Audio::SoundEffectInstance> hum_;
     std::unique_ptr<Microsoft::Xna::Framework::Audio::SoundEffect> step_;

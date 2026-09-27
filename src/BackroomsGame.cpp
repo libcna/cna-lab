@@ -1,6 +1,7 @@
 #include "BackroomsGame.hpp"
 
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <cmath>
 #include <filesystem>
@@ -11,6 +12,7 @@
 
 #include "Microsoft/Xna/Framework/Color.hpp"
 #include "Microsoft/Xna/Framework/Matrix.hpp"
+#include "Microsoft/Xna/Framework/Vector2.hpp"
 #include "Microsoft/Xna/Framework/Vector3.hpp"
 #include "Microsoft/Xna/Framework/Graphics/DepthStencilState.hpp"
 #include "Microsoft/Xna/Framework/Graphics/EffectPass.hpp"
@@ -19,7 +21,8 @@
 #include "Microsoft/Xna/Framework/Graphics/GraphicsDevice.hpp"
 #include "Microsoft/Xna/Framework/Graphics/PrimitiveType.hpp"
 #include "Microsoft/Xna/Framework/Graphics/RasterizerState.hpp"
-#include "Microsoft/Xna/Framework/Graphics/VertexPositionColor.hpp"
+#include "Microsoft/Xna/Framework/Graphics/SamplerState.hpp"
+#include "Microsoft/Xna/Framework/Graphics/VertexPositionColorTexture.hpp"
 #include "Microsoft/Xna/Framework/Input/ButtonState.hpp"
 #include "Microsoft/Xna/Framework/Input/Keys.hpp"
 #include "Microsoft/Xna/Framework/Input/Mouse.hpp"
@@ -31,45 +34,69 @@ using namespace Microsoft::Xna::Framework::Input;
 
 namespace {
 using Clock = std::chrono::steady_clock;
-using Mesh = std::vector<VertexPositionColor>;
+using Mesh = std::vector<VertexPositionColorTexture>;
+using Meshes = std::array<Mesh,kMaterialCount>;
 
-void Quad(Mesh& mesh, Vector3 a, Vector3 b, Vector3 c, Vector3 d, Color color) {
-    mesh.emplace_back(a,color); mesh.emplace_back(b,color); mesh.emplace_back(c,color);
-    mesh.emplace_back(a,color); mesh.emplace_back(c,color); mesh.emplace_back(d,color);
+void Quad(Meshes& meshes, Material material, Vector3 a, Vector3 b, Vector3 c,
+          Vector3 d, Color color, Vector2 uvA, Vector2 uvB, Vector2 uvC,
+          Vector2 uvD) {
+    auto& mesh=meshes[static_cast<int>(material)];
+    mesh.emplace_back(a,color,uvA); mesh.emplace_back(b,color,uvB);
+    mesh.emplace_back(c,color,uvC);
+    mesh.emplace_back(a,color,uvA); mesh.emplace_back(c,color,uvC);
+    mesh.emplace_back(d,color,uvD);
 }
 
-void Flat(Mesh& mesh, float x0, float z0, float x1, float z1, float y, Color color) {
-    Quad(mesh, {x0,y,z0}, {x1,y,z0}, {x1,y,z1}, {x0,y,z1}, color);
+void Flat(Meshes& meshes, Material material, float x0, float z0, float x1,
+          float z1, float y, Color color, float repeat) {
+    Quad(meshes,material,{x0,y,z0},{x1,y,z0},{x1,y,z1},{x0,y,z1},color,
+         {x0*repeat,z0*repeat},{x1*repeat,z0*repeat},
+         {x1*repeat,z1*repeat},{x0*repeat,z1*repeat});
 }
 
-void WallFace(Mesh& mesh, bool vertical, float boundary, float a, float b,
-              float y0, float y1, Color color) {
+void WallFace(Meshes& meshes, Material material, bool vertical, float boundary,
+              float a, float b, float y0, float y1, Color color) {
+    const float u0=a*0.6f,u1=b*0.6f;
+    const float v0=1.0f-y0/3.0f,v1=1.0f-y1/3.0f;
     if (vertical)
-        Quad(mesh, {boundary,y0,a}, {boundary,y0,b},
-             {boundary,y1,b}, {boundary,y1,a}, color);
+        Quad(meshes,material,{boundary,y0,a},{boundary,y0,b},
+             {boundary,y1,b},{boundary,y1,a},color,
+             {u0,v0},{u1,v0},{u1,v1},{u0,v1});
     else
-        Quad(mesh, {a,y0,boundary}, {b,y0,boundary},
-             {b,y1,boundary}, {a,y1,boundary}, color);
+        Quad(meshes,material,{a,y0,boundary},{b,y0,boundary},
+             {b,y1,boundary},{a,y1,boundary},color,
+             {u0,v0},{u1,v0},{u1,v1},{u0,v1});
 }
 
-void Partition(Mesh& mesh, Edge edge, bool vertical, float boundary, float along,
-               Color wall, Color trim) {
+void Partition(Meshes& meshes, Material material, Edge edge, bool vertical,
+               float boundary, float along, Color wall, Color trim) {
     if (edge == Edge::Open) return;
     const auto section = [&](float a, float b, float y0, float y1) {
-        WallFace(mesh, vertical, boundary, a, b, y0, y1, wall);
+        WallFace(meshes,material,vertical,boundary,a,b,y0,y1,wall);
     };
     const auto full = [&](float a, float b) {
-        WallFace(mesh, vertical, boundary, a, b, 0.0f, 0.19f, trim);
+        WallFace(meshes,material,vertical,boundary,a,b,0.0f,0.19f,trim);
         section(a, b, 0.19f, 2.68f);
-        WallFace(mesh, vertical, boundary, a, b, 2.68f, 3.0f, trim);
+        WallFace(meshes,material,vertical,boundary,a,b,2.68f,3.0f,trim);
     };
     if (edge == Edge::Solid) full(along, along+5.0f);
     else {
-        full(along, along+1.55f);
-        full(along+3.45f, along+5.0f);
-        WallFace(mesh, vertical, boundary, along+1.55f, along+3.45f,
-                 2.25f, 3.0f, trim);
+        const float side=edge==Edge::Wide ? 0.75f : 1.55f;
+        full(along,along+side);
+        full(along+5.0f-side,along+5.0f);
+        if (edge==Edge::Door)
+            WallFace(meshes,material,vertical,boundary,along+side,
+                     along+5.0f-side,2.25f,3.0f,trim);
     }
+}
+
+void Box(Meshes& meshes, Material material, float x0, float z0,
+         float x1, float z1, float height, Color color) {
+    WallFace(meshes,material,true,x0,z0,z1,0,height,color);
+    WallFace(meshes,material,true,x1,z0,z1,0,height,color);
+    WallFace(meshes,material,false,z0,x0,x1,0,height,color);
+    WallFace(meshes,material,false,z1,x0,x1,0,height,color);
+    Flat(meshes,material,x0,z0,x1,z1,height,color,0.6f);
 }
 
 Color Vary(Color first, Color second, std::uint32_t hash) {
@@ -102,7 +129,9 @@ void BackroomsGame::Initialize() {
 
 void BackroomsGame::LoadContent() {
     effect_ = std::make_unique<BasicEffect>(getGraphicsDeviceProperty());
+    materials_ = std::make_unique<Materials>(getGraphicsDeviceProperty());
     effect_->VertexColorEnabled = true;
+    effect_->setTextureEnabledProperty(true);
     effect_->setLightingEnabledProperty(false);
     effect_->setFogEnabledProperty(true);
     effect_->setFogStartProperty(25.0f);
@@ -132,50 +161,74 @@ void BackroomsGame::LoadContent() {
 
 void BackroomsGame::BuildChunk(ChunkCoord coord) {
     const auto start = Clock::now();
-    Mesh mesh;
-    mesh.reserve(16000);
+    Meshes meshes;
     const int ox=coord.x*kChunkCells, oz=coord.z*kChunkCells;
     const bool yellow = world_.level == 0;
-    const Color wallA = yellow ? Color(192,179,113) : Color(95,108,112);
-    const Color wallB = yellow ? Color(182,169,103) : Color(86,100,105);
-    const Color trim = yellow ? Color(128,119,76) : Color(57,69,73);
-    const Color floorA = yellow ? Color(86,79,59) : Color(67,72,70);
-    const Color floorB = yellow ? Color(80,74,54) : Color(62,68,67);
-    const Color ceiling = yellow ? Color(184,179,149) : Color(116,123,120);
-    const Color grid = yellow ? Color(133,131,109) : Color(75,84,84);
-    const Color lamp = yellow ? Color(246,239,185) : Color(201,220,220);
+    const Material wallMat=yellow ? Material::Wallpaper : Material::ConcreteWall;
+    const Material floorMat=yellow ? Material::Carpet : Material::ConcreteFloor;
+    const Material ceilingMat=yellow ? Material::CeilingTile : Material::IndustrialCeiling;
+    const Color wallA=yellow ? Color(255,250,239) : Color(235,239,239);
+    const Color wallB=yellow ? Color(231,224,204) : Color(207,218,220);
+    const Color trim=yellow ? Color(166,156,121) : Color(130,145,145);
+    const Color floorA=yellow ? Color(246,240,222) : Color(238,240,239);
+    const Color floorB=yellow ? Color(218,213,197) : Color(210,217,218);
+    const Color ceiling=yellow ? Color(255,252,235) : Color(237,244,244);
+    const Color grid=yellow ? Color(143,139,115) : Color(125,137,137);
+    const Color lamp=yellow ? Color(255,251,228) : Color(216,238,242);
 
     for (int lx=0; lx<kChunkCells; ++lx) for (int lz=0; lz<kChunkCells; ++lz) {
         const int gx=ox+lx, gz=oz+lz;
         const float x=lx*5.0f, z=lz*5.0f;
         const auto h=CellHash(world_,gx,gz,41);
-        Flat(mesh,x,z,x+5,z+5,0,Vary(floorA,floorB,h));
-        Flat(mesh,x,z,x+5,z+5,3,ceiling);
-        // Thin ceiling strips make the overhead grid readable without textures.
-        Flat(mesh,x,z,x+5,z+0.035f,2.989f,grid);
-        Flat(mesh,x,z,x+0.035f,z+5,2.989f,grid);
+        Flat(meshes,floorMat,x,z,x+5,z+5,0,Vary(floorA,floorB,h),0.5f);
+        Flat(meshes,ceilingMat,x,z,x+5,z+5,3,ceiling,0.8f);
+        Flat(meshes,ceilingMat,x,z,x+5,z+0.04f,2.987f,grid,0.8f);
+        Flat(meshes,ceilingMat,x,z,x+0.04f,z+5,2.987f,grid,0.8f);
         if ((gx+gz)%2 == 0 && h%7 != 0) {
-            Flat(mesh,x+1.42f,z+2.35f,x+3.58f,z+2.65f,2.977f,lamp);
-            Flat(mesh,x+1.37f,z+2.30f,x+3.63f,z+2.70f,2.985f,grid);
-            Flat(mesh,x+1.42f,z+2.35f,x+3.58f,z+2.65f,2.974f,lamp);
+            Flat(meshes,ceilingMat,x+1.30f,z+2.27f,x+3.70f,z+2.73f,
+                 2.976f,grid,0.8f);
+            Flat(meshes,Material::Fluorescent,x+1.40f,z+2.34f,
+                 x+3.60f,z+2.66f,2.968f,lamp,1.0f);
         }
         const Color cellWall=Vary(wallA,wallB,h);
-        Partition(mesh,VerticalEdge(world_,gx,gz),true,x,z,cellWall,trim);
-        Partition(mesh,HorizontalEdge(world_,gx,gz),false,z,x,cellWall,trim);
+        Partition(meshes,wallMat,VerticalEdge(world_,gx,gz),true,x,z,cellWall,trim);
+        Partition(meshes,wallMat,HorizontalEdge(world_,gx,gz),false,z,x,cellWall,trim);
+        if (const auto obstacle=CellObstacle(world_,gx,gz)) {
+            const float bx0=static_cast<float>(obstacle->minX-ox*kCellSize);
+            const float bz0=static_cast<float>(obstacle->minZ-oz*kCellSize);
+            const float bx1=static_cast<float>(obstacle->maxX-ox*kCellSize);
+            const float bz1=static_cast<float>(obstacle->maxZ-oz*kCellSize);
+            if (yellow) Box(meshes,wallMat,bx0,bz0,bx1,bz1,3.0f,wallB);
+            else {
+                Box(meshes,Material::ConcreteWall,bx0,bz0,bx1,bz1,2.3f,
+                    Color(141,150,148));
+                for (float shelf: {0.58f,1.15f,1.72f})
+                    Flat(meshes,Material::IndustrialCeiling,bx0,bz0,bx1,bz1,
+                         shelf,Color(103,113,111),0.8f);
+            }
+        }
         // A cyan-lit floor patch is the physical level transition.
         if ((world_.level==0 && gx==3 && gz==0) ||
             (world_.level==1 && gx==0 && gz==3)) {
-            Flat(mesh,x+1.2f,z+1.2f,x+3.8f,z+3.8f,0.015f,Color(27,118,128));
-            Flat(mesh,x+1.5f,z+1.5f,x+3.5f,z+3.5f,0.017f,Color(65,191,194));
-            Flat(mesh,x+1.2f,z+1.2f,x+3.8f,z+3.8f,2.972f,Color(88,198,202));
+            Flat(meshes,floorMat,x+1.2f,z+1.2f,x+3.8f,z+3.8f,
+                 0.015f,Color(27,118,128),0.5f);
+            Flat(meshes,floorMat,x+1.5f,z+1.5f,x+3.5f,z+3.5f,
+                 0.017f,Color(65,191,194),0.5f);
+            Flat(meshes,ceilingMat,x+1.2f,z+1.2f,x+3.8f,z+3.8f,
+                 2.972f,Color(88,198,202),0.8f);
         }
     }
     Chunk chunk;
-    chunk.triangles = static_cast<int>(mesh.size()/3);
-    chunk.vertices = std::make_unique<VertexBuffer>(getGraphicsDeviceProperty(),
-        VertexPositionColor::getVertexDeclarationStatic(),
-        static_cast<int>(mesh.size()),BufferUsage::WriteOnly);
-    chunk.vertices->SetData(mesh.data(),static_cast<int>(mesh.size()));
+    for (int id=0;id<kMaterialCount;++id) {
+        auto& mesh=meshes[id];
+        if (mesh.empty()) continue;
+        chunk.materialTriangles[id]=static_cast<int>(mesh.size()/3);
+        chunk.triangles+=chunk.materialTriangles[id];
+        chunk.vertices[id]=std::make_unique<VertexBuffer>(getGraphicsDeviceProperty(),
+            VertexPositionColorTexture::getVertexDeclarationStatic(),
+            static_cast<int>(mesh.size()),BufferUsage::WriteOnly);
+        chunk.vertices[id]->SetData(mesh.data(),static_cast<int>(mesh.size()));
+    }
     chunk.buildMs = std::chrono::duration<double,std::milli>(Clock::now()-start).count();
     lastBuildMs_ = chunk.buildMs;
     chunks_.emplace(coord,std::move(chunk));
@@ -296,11 +349,16 @@ void BackroomsGame::Draw(const GameTime& time) {
         effect_->setWorldProperty(Matrix::CreateTranslation(
             static_cast<float>(coord.x*kChunkSize-x_),0,
             static_cast<float>(coord.z*kChunkSize-z_)));
-        device.SetVertexBuffer(chunk.vertices.get());
-        auto& passes=effect_->getCurrentTechniqueProperty()->getPassesProperty();
-        for (int i=0; i<passes.getCountProperty(); ++i) {
-            passes[i]->Apply();
-            device.DrawPrimitives(PrimitiveType::TriangleList,0,chunk.triangles);
+        for (int id=0;id<kMaterialCount;++id) {
+            if (!chunk.vertices[id]) continue;
+            effect_->setTextureProperty(materials_->Get(static_cast<Material>(id)));
+            device.SetVertexBuffer(chunk.vertices[id].get());
+            auto& passes=effect_->getCurrentTechniqueProperty()->getPassesProperty();
+            for (int i=0; i<passes.getCountProperty(); ++i) {
+                passes[i]->Apply();
+                device.DrawPrimitives(PrimitiveType::TriangleList,0,
+                                      chunk.materialTriangles[id]);
+            }
         }
     }
     Game::Draw(time);

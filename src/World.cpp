@@ -5,6 +5,12 @@
 
 namespace Backrooms {
 namespace {
+int DivFloor(int value, int divisor) {
+    const int quotient=value/divisor;
+    return value<0 && value%divisor ? quotient-1 : quotient;
+}
+int ModFloor(int value, int divisor) { return value-DivFloor(value,divisor)*divisor; }
+
 std::uint64_t Mix(std::uint64_t v) {
     v ^= v >> 30; v *= 0xbf58476d1ce4e5b9ULL;
     v ^= v >> 27; v *= 0x94d049bb133111ebULL;
@@ -21,19 +27,50 @@ void AppendEdge(std::vector<Wall>& walls, Edge edge, bool vertical,
     };
     if (edge == Edge::Solid) add(along, along+kCellSize);
     else {
-        const double side = (kCellSize-1.9)*0.5;
+        const double side = (kCellSize-(edge==Edge::Wide ? 3.5 : 1.9))*0.5;
         add(along, along+side);
         add(along+kCellSize-side, along+kCellSize);
     }
 }
+
+Edge OptionalEdge(RegionKind kind, std::uint32_t hash) {
+    const auto roll=hash%100;
+    switch (kind) {
+    case RegionKind::OpenOffice:
+        return roll<72 ? Edge::Open : roll<92 ? Edge::Wide : Edge::Door;
+    case RegionKind::Columns:
+        return roll<78 ? Edge::Open : roll<94 ? Edge::Wide : Edge::Door;
+    case RegionKind::Rooms:
+        return roll<22 ? Edge::Open : roll<42 ? Edge::Wide :
+               roll<88 ? Edge::Door : Edge::Solid;
+    case RegionKind::Halls:
+        return roll<32 ? Edge::Open : roll<66 ? Edge::Wide :
+               roll<91 ? Edge::Door : Edge::Solid;
+    case RegionKind::Irregular:
+        return roll<15 ? Edge::Open : roll<35 ? Edge::Wide :
+               roll<79 ? Edge::Door : Edge::Solid;
+    case RegionKind::Storage:
+        return roll<50 ? Edge::Open : roll<82 ? Edge::Wide : Edge::Door;
+    case RegionKind::Tunnels:
+        return roll<8 ? Edge::Open : roll<20 ? Edge::Wide :
+               roll<84 ? Edge::Door : Edge::Solid;
+    }
+    return Edge::Solid;
+}
 }
 
 int CellOf(double position) { return static_cast<int>(std::floor(position/kCellSize)); }
-int ChunkOfCell(int cell) {
-    const int q = cell/kChunkCells;
-    return cell < 0 && cell%kChunkCells ? q-1 : q;
-}
+int ChunkOfCell(int cell) { return DivFloor(cell,kChunkCells); }
 ChunkCoord ChunkAt(double x, double z) { return {ChunkOfCell(CellOf(x)), ChunkOfCell(CellOf(z))}; }
+
+const LevelDefinition& LevelInfo(int level) {
+    static const LevelDefinition definitions[] = {
+        {"The Yellow Rooms",3.0f,18.0f,85.0f},
+        {"Service Storage",4.1f,20.0f,95.0f},
+        {"Maintenance Tunnels",2.55f,12.0f,65.0f}
+    };
+    return definitions[std::clamp(level,0,2)];
+}
 
 std::uint32_t CellHash(const WorldConfig& config, int x, int z, int salt) {
     std::uint64_t v = config.seed ^ (static_cast<std::uint64_t>(kFormatVersion) << 48);
@@ -44,17 +81,78 @@ std::uint32_t CellHash(const WorldConfig& config, int x, int z, int salt) {
     return static_cast<std::uint32_t>(Mix(v));
 }
 
-Edge VerticalEdge(const WorldConfig& config, int boundaryX, int z) {
-    // Every fourth row is a guaranteed east-west route across chunk borders.
-    if (z % 4 == 0) return Edge::Open;
-    const auto h = CellHash(config, boundaryX, z, 11) % 100;
-    return h < 35 ? Edge::Open : h < 88 ? Edge::Door : Edge::Solid;
+RegionKind RegionAt(const WorldConfig& config, int cellX, int cellZ) {
+    const int rx=DivFloor(cellX,kRegionCells), rz=DivFloor(cellZ,kRegionCells);
+    const auto roll=CellHash(config,rx,rz,501)%100;
+    if (config.level==0)
+        return roll<18 ? RegionKind::OpenOffice :
+               roll<34 ? RegionKind::Columns :
+               roll<65 ? RegionKind::Rooms :
+               roll<86 ? RegionKind::Halls : RegionKind::Irregular;
+    if (config.level==1)
+        return roll<35 ? RegionKind::Storage :
+               roll<58 ? RegionKind::OpenOffice :
+               roll<83 ? RegionKind::Halls : RegionKind::Rooms;
+    return roll<65 ? RegionKind::Tunnels :
+           roll<88 ? RegionKind::Irregular : RegionKind::Halls;
 }
+
+Edge VerticalEdge(const WorldConfig& config, int boundaryX, int z) {
+    if (config.level<=1 && z==0 && boundaryX>=1 && boundaryX<=3)
+        return Edge::Open; // readable route to the first maintenance entrance
+    const int rx=DivFloor(boundaryX-1,kRegionCells);
+    const int rz=DivFloor(z,kRegionCells);
+    const int localZ=ModFloor(z,kRegionCells);
+    if (ModFloor(boundaryX,kRegionCells)==0) {
+        const auto hash=CellHash(config,rx,rz,701);
+        const int first=static_cast<int>(hash%kRegionCells);
+        const int second=(first+2+static_cast<int>((hash>>8)%3))%kRegionCells;
+        if (localZ==first) return Edge::Door;
+        if (config.level!=2 && hash%3==0 && localZ==second) return Edge::Wide;
+        return Edge::Solid;
+    }
+    const auto pivot=CellHash(config,rx,rz,601);
+    const int pivotZ=static_cast<int>((pivot>>8)%kRegionCells);
+    if ((pivot&1U)!=0 || localZ==pivotZ) return Edge::Open;
+    return OptionalEdge(RegionAt(config,boundaryX-1,z),
+                        CellHash(config,boundaryX,z,11));
+}
+
 Edge HorizontalEdge(const WorldConfig& config, int x, int boundaryZ) {
-    // Every fourth column is a guaranteed north-south route.
-    if (x % 4 == 0) return Edge::Open;
-    const auto h = CellHash(config, x, boundaryZ, 23) % 100;
-    return h < 35 ? Edge::Open : h < 88 ? Edge::Door : Edge::Solid;
+    if ((config.level==1 || config.level==2) && x==0 &&
+        boundaryZ>=1 && boundaryZ<=3) return Edge::Open;
+    const int rx=DivFloor(x,kRegionCells);
+    const int rz=DivFloor(boundaryZ-1,kRegionCells);
+    const int localX=ModFloor(x,kRegionCells);
+    if (ModFloor(boundaryZ,kRegionCells)==0) {
+        const auto hash=CellHash(config,rx,rz,797);
+        const int first=static_cast<int>(hash%kRegionCells);
+        const int second=(first+2+static_cast<int>((hash>>8)%3))%kRegionCells;
+        if (localX==first) return Edge::Door;
+        if (config.level!=2 && hash%3==0 && localX==second) return Edge::Wide;
+        return Edge::Solid;
+    }
+    const auto pivot=CellHash(config,rx,rz,601);
+    const int pivotX=static_cast<int>((pivot>>16)%kRegionCells);
+    if ((pivot&1U)==0 || localX==pivotX) return Edge::Open;
+    return OptionalEdge(RegionAt(config,x,boundaryZ-1),
+                        CellHash(config,x,boundaryZ,23));
+}
+
+std::optional<Wall> CellObstacle(const WorldConfig& config, int cellX, int cellZ) {
+    const RegionKind kind=RegionAt(config,cellX,cellZ);
+    const int lx=ModFloor(cellX,kRegionCells), lz=ModFloor(cellZ,kRegionCells);
+    if (kind==RegionKind::Columns && (lx==1 || lx==4) &&
+        (lz==1 || lz==4)) {
+        const double cx=(cellX+0.5)*kCellSize,cz=(cellZ+0.5)*kCellSize;
+        return Wall{cx-0.43,cz-0.43,cx+0.43,cz+0.43};
+    }
+    if (kind==RegionKind::Storage && (lx==1 || lx==4) &&
+        (lz==1 || lz==4)) {
+        const double cx=(cellX+0.5)*kCellSize,cz=(cellZ+0.5)*kCellSize;
+        return Wall{cx-0.8,cz-1.0,cx+0.8,cz+1.0};
+    }
+    return std::nullopt;
 }
 
 std::vector<Wall> NearbyWalls(const WorldConfig& config, double x, double z) {
@@ -67,6 +165,8 @@ std::vector<Wall> NearbyWalls(const WorldConfig& config, double x, double z) {
                        ix*kCellSize, iz*kCellSize);
             AppendEdge(walls, HorizontalEdge(config, ix, iz), false,
                        iz*kCellSize, ix*kCellSize);
+            if (const auto obstacle=CellObstacle(config,ix,iz))
+                walls.push_back(*obstacle);
         }
     }
     return walls;
