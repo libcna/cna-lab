@@ -69,15 +69,17 @@ void WallFace(Meshes& meshes, Material material, bool vertical, float boundary,
 }
 
 void Partition(Meshes& meshes, Material material, Edge edge, bool vertical,
-               float boundary, float along, Color wall, Color trim) {
+               float boundary, float along, float height, float doorHeight,
+               Color wall, Color trim) {
     if (edge == Edge::Open) return;
     const auto section = [&](float a, float b, float y0, float y1) {
         WallFace(meshes,material,vertical,boundary,a,b,y0,y1,wall);
     };
     const auto full = [&](float a, float b) {
         WallFace(meshes,material,vertical,boundary,a,b,0.0f,0.19f,trim);
-        section(a, b, 0.19f, 2.68f);
-        WallFace(meshes,material,vertical,boundary,a,b,2.68f,3.0f,trim);
+        section(a,b,0.19f,height-0.32f);
+        WallFace(meshes,material,vertical,boundary,a,b,
+                 height-0.32f,height,trim);
     };
     if (edge == Edge::Solid) full(along, along+5.0f);
     else {
@@ -86,27 +88,72 @@ void Partition(Meshes& meshes, Material material, Edge edge, bool vertical,
         full(along+5.0f-side,along+5.0f);
         if (edge==Edge::Door)
             WallFace(meshes,material,vertical,boundary,along+side,
-                     along+5.0f-side,2.25f,3.0f,trim);
+                     along+5.0f-side,doorHeight,height,trim);
     }
 }
 
-void Box(Meshes& meshes, Material material, float x0, float z0,
-         float x1, float z1, float height, Color color) {
-    WallFace(meshes,material,true,x0,z0,z1,0,height,color);
-    WallFace(meshes,material,true,x1,z0,z1,0,height,color);
-    WallFace(meshes,material,false,z0,x0,x1,0,height,color);
-    WallFace(meshes,material,false,z1,x0,x1,0,height,color);
-    Flat(meshes,material,x0,z0,x1,z1,height,color,0.6f);
+void BoxRange(Meshes& meshes, Material material, float x0, float z0,
+              float x1, float z1, float y0, float y1, Color color) {
+    WallFace(meshes,material,true,x0,z0,z1,y0,y1,color);
+    WallFace(meshes,material,true,x1,z0,z1,y0,y1,color);
+    WallFace(meshes,material,false,z0,x0,x1,y0,y1,color);
+    WallFace(meshes,material,false,z1,x0,x1,y0,y1,color);
+    Flat(meshes,material,x0,z0,x1,z1,y1,color,0.6f);
 }
 
 Color Vary(Color first, Color second, std::uint32_t hash) {
     return hash%5 == 0 ? second : first;
 }
 
-bool PortalAt(int level, double x, double z) {
-    const double px = level == 0 ? 17.5 : 2.5;
-    const double pz = level == 0 ? 2.5 : 17.5;
-    return std::hypot(x-px,z-pz) < 1.05;
+struct Portal {
+    int level, cellX, cellZ, target;
+    bool alongX;
+};
+
+constexpr std::array<Portal,4> kPortals{{
+    {0,3,0,1,true}, {1,0,3,0,false},
+    {1,3,0,2,true}, {2,0,3,1,false}
+}};
+
+std::optional<int> PortalTarget(int level, double x, double z) {
+    for (const auto& portal:kPortals) {
+        if (portal.level!=level) continue;
+        const double px=(portal.cellX+0.5)*kCellSize;
+        const double pz=(portal.cellZ+0.5)*kCellSize;
+        if (std::hypot(x-px,z-pz)<0.95) return portal.target;
+    }
+    return std::nullopt;
+}
+
+void PortalVisual(Meshes& meshes, int level, bool alongX, float cx,
+                  float cz, float ceiling) {
+    const Material frameMat=level==0 ? Material::Wallpaper : Material::TunnelWall;
+    const Color frame=level==0 ? Color(112,101,68) : Color(129,111,85);
+    const Color dark(49,45,40);
+    const float near=0.62f, far=1.2f, half=1.1f;
+    if (alongX) {
+        BoxRange(meshes,frameMat,cx+near,cz-half-0.18f,
+                 cx+far,cz-half,0,ceiling,frame);
+        BoxRange(meshes,frameMat,cx+near,cz+half,
+                 cx+far,cz+half+0.18f,0,ceiling,frame);
+        BoxRange(meshes,frameMat,cx+near,cz-half,
+                 cx+far,cz+half,2.25f,ceiling,frame);
+        WallFace(meshes,Material::TunnelWall,true,cx+far,cz-half,cz+half,
+                 0,2.25f,dark);
+        Flat(meshes,Material::Fluorescent,cx+0.36f,cz-0.45f,
+             cx+0.62f,cz+0.45f,ceiling-0.06f,Color(184,169,125),1.0f);
+    } else {
+        BoxRange(meshes,frameMat,cx-half-0.18f,cz+near,
+                 cx-half,cz+far,0,ceiling,frame);
+        BoxRange(meshes,frameMat,cx+half,cz+near,
+                 cx+half+0.18f,cz+far,0,ceiling,frame);
+        BoxRange(meshes,frameMat,cx-half,cz+near,
+                 cx+half,cz+far,2.25f,ceiling,frame);
+        WallFace(meshes,Material::TunnelWall,false,cz+far,cx-half,cx+half,
+                 0,2.25f,dark);
+        Flat(meshes,Material::Fluorescent,cx-0.45f,cz+0.36f,
+             cx+0.45f,cz+0.62f,ceiling-0.06f,Color(184,169,125),1.0f);
+    }
 }
 }
 
@@ -134,8 +181,8 @@ void BackroomsGame::LoadContent() {
     effect_->setTextureEnabledProperty(true);
     effect_->setLightingEnabledProperty(false);
     effect_->setFogEnabledProperty(true);
-    effect_->setFogStartProperty(25.0f);
-    effect_->setFogEndProperty(93.0f);
+    effect_->setFogStartProperty(LevelInfo(0).fogStart);
+    effect_->setFogEndProperty(LevelInfo(0).fogEnd);
     setIsMouseVisibleProperty(false);
     Mouse::setIsRelativeMouseModeEXTProperty(true);
     captured_ = true;
@@ -163,59 +210,82 @@ void BackroomsGame::BuildChunk(ChunkCoord coord) {
     const auto start = Clock::now();
     Meshes meshes;
     const int ox=coord.x*kChunkCells, oz=coord.z*kChunkCells;
-    const bool yellow = world_.level == 0;
-    const Material wallMat=yellow ? Material::Wallpaper : Material::ConcreteWall;
-    const Material floorMat=yellow ? Material::Carpet : Material::ConcreteFloor;
-    const Material ceilingMat=yellow ? Material::CeilingTile : Material::IndustrialCeiling;
-    const Color wallA=yellow ? Color(255,250,239) : Color(235,239,239);
-    const Color wallB=yellow ? Color(231,224,204) : Color(207,218,220);
-    const Color trim=yellow ? Color(166,156,121) : Color(130,145,145);
-    const Color floorA=yellow ? Color(246,240,222) : Color(238,240,239);
-    const Color floorB=yellow ? Color(218,213,197) : Color(210,217,218);
-    const Color ceiling=yellow ? Color(255,252,235) : Color(237,244,244);
-    const Color grid=yellow ? Color(143,139,115) : Color(125,137,137);
-    const Color lamp=yellow ? Color(255,251,228) : Color(216,238,242);
+    const int level=world_.level;
+    const float height=LevelInfo(level).ceilingHeight;
+    const float doorHeight=level==0 ? 2.25f : level==1 ? 2.8f : 2.08f;
+    const Material wallMat=level==0 ? Material::Wallpaper :
+                           level==1 ? Material::ConcreteWall : Material::TunnelWall;
+    const Material floorMat=level==0 ? Material::Carpet :
+                            level==1 ? Material::ConcreteFloor : Material::TunnelFloor;
+    const Material ceilingMat=level==0 ? Material::CeilingTile :
+                              level==1 ? Material::IndustrialCeiling : Material::TunnelCeiling;
+    const Color wallA=level==0 ? Color(255,250,239) :
+                      level==1 ? Color(223,229,227) : Color(187,175,149);
+    const Color wallB=level==0 ? Color(231,224,204) :
+                      level==1 ? Color(188,202,200) : Color(151,139,118);
+    const Color trim=level==0 ? Color(166,156,121) :
+                     level==1 ? Color(110,130,128) : Color(99,83,67);
+    const Color floorA=level==0 ? Color(246,240,222) :
+                       level==1 ? Color(218,222,217) : Color(155,149,128);
+    const Color floorB=level==0 ? Color(218,213,197) :
+                       level==1 ? Color(193,201,195) : Color(125,120,103);
+    const Color ceiling=level==0 ? Color(255,252,235) :
+                        level==1 ? Color(205,220,219) : Color(150,143,124);
+    const Color grid=level==0 ? Color(143,139,115) :
+                     level==1 ? Color(94,114,112) : Color(93,79,65);
+    const Color lamp=level==0 ? Color(255,251,228) :
+                     level==1 ? Color(204,230,230) : Color(255,198,137);
 
     for (int lx=0; lx<kChunkCells; ++lx) for (int lz=0; lz<kChunkCells; ++lz) {
         const int gx=ox+lx, gz=oz+lz;
         const float x=lx*5.0f, z=lz*5.0f;
         const auto h=CellHash(world_,gx,gz,41);
         Flat(meshes,floorMat,x,z,x+5,z+5,0,Vary(floorA,floorB,h),0.5f);
-        Flat(meshes,ceilingMat,x,z,x+5,z+5,3,ceiling,0.8f);
-        Flat(meshes,ceilingMat,x,z,x+5,z+0.04f,2.987f,grid,0.8f);
-        Flat(meshes,ceilingMat,x,z,x+0.04f,z+5,2.987f,grid,0.8f);
-        if ((gx+gz)%2 == 0 && h%7 != 0) {
+        Flat(meshes,ceilingMat,x,z,x+5,z+5,height,ceiling,0.8f);
+        if (level==0) {
+            Flat(meshes,ceilingMat,x,z,x+5,z+0.04f,height-0.013f,grid,0.8f);
+            Flat(meshes,ceilingMat,x,z,x+0.04f,z+5,height-0.013f,grid,0.8f);
+        } else if (level==1) {
+            BoxRange(meshes,ceilingMat,x+0.22f,z,x+0.42f,z+5,
+                     height-0.32f,height-0.10f,grid);
+        } else {
+            BoxRange(meshes,Material::TunnelWall,x+0.35f,z,x+0.50f,z+5,
+                     height-0.33f,height-0.17f,grid);
+            BoxRange(meshes,Material::TunnelWall,x+4.50f,z,x+4.65f,z+5,
+                     height-0.33f,height-0.17f,grid);
+        }
+        const bool hasLamp=level==0 ? ((gx+gz)%2==0 && h%7!=0) :
+                           level==1 ? (gx%3==0 && gz%2==0) :
+                                      ((gx+gz)%3==0 && h%3!=0);
+        if (hasLamp) {
             Flat(meshes,ceilingMat,x+1.30f,z+2.27f,x+3.70f,z+2.73f,
-                 2.976f,grid,0.8f);
+                 height-0.024f,grid,0.8f);
             Flat(meshes,Material::Fluorescent,x+1.40f,z+2.34f,
-                 x+3.60f,z+2.66f,2.968f,lamp,1.0f);
+                 x+3.60f,z+2.66f,height-0.032f,lamp,1.0f);
         }
         const Color cellWall=Vary(wallA,wallB,h);
-        Partition(meshes,wallMat,VerticalEdge(world_,gx,gz),true,x,z,cellWall,trim);
-        Partition(meshes,wallMat,HorizontalEdge(world_,gx,gz),false,z,x,cellWall,trim);
+        Partition(meshes,wallMat,VerticalEdge(world_,gx,gz),true,x,z,
+                  height,doorHeight,cellWall,trim);
+        Partition(meshes,wallMat,HorizontalEdge(world_,gx,gz),false,z,x,
+                  height,doorHeight,cellWall,trim);
         if (const auto obstacle=CellObstacle(world_,gx,gz)) {
             const float bx0=static_cast<float>(obstacle->minX-ox*kCellSize);
             const float bz0=static_cast<float>(obstacle->minZ-oz*kCellSize);
             const float bx1=static_cast<float>(obstacle->maxX-ox*kCellSize);
             const float bz1=static_cast<float>(obstacle->maxZ-oz*kCellSize);
-            if (yellow) Box(meshes,wallMat,bx0,bz0,bx1,bz1,3.0f,wallB);
+            if (level==0)
+                BoxRange(meshes,wallMat,bx0,bz0,bx1,bz1,0,height,wallB);
             else {
-                Box(meshes,Material::ConcreteWall,bx0,bz0,bx1,bz1,2.3f,
-                    Color(141,150,148));
+                BoxRange(meshes,Material::ConcreteWall,bx0,bz0,bx1,bz1,
+                         0,2.5f,Color(141,150,148));
                 for (float shelf: {0.58f,1.15f,1.72f})
                     Flat(meshes,Material::IndustrialCeiling,bx0,bz0,bx1,bz1,
                          shelf,Color(103,113,111),0.8f);
             }
         }
-        // A cyan-lit floor patch is the physical level transition.
-        if ((world_.level==0 && gx==3 && gz==0) ||
-            (world_.level==1 && gx==0 && gz==3)) {
-            Flat(meshes,floorMat,x+1.2f,z+1.2f,x+3.8f,z+3.8f,
-                 0.015f,Color(27,118,128),0.5f);
-            Flat(meshes,floorMat,x+1.5f,z+1.5f,x+3.5f,z+3.5f,
-                 0.017f,Color(65,191,194),0.5f);
-            Flat(meshes,ceilingMat,x+1.2f,z+1.2f,x+3.8f,z+3.8f,
-                 2.972f,Color(88,198,202),0.8f);
+        for (const auto& portal:kPortals) {
+            if (portal.level==level && portal.cellX==gx && portal.cellZ==gz)
+                PortalVisual(meshes,level,portal.alongX,x+2.5f,z+2.5f,height);
         }
     }
     Chunk chunk;
@@ -260,7 +330,7 @@ void BackroomsGame::Transition(int level) {
     world_.level=level;
     chunks_.clear();
     x_=2.5; z_=2.5;
-    yaw_=level==0 ? 1.5707963f : 0.0f;
+    yaw_=level==2 ? 0.0f : 1.5707963f;
     pitch_=0;
     BuildChunk({0,0});
 }
@@ -323,9 +393,9 @@ void BackroomsGame::Update(GameTime& time) {
     if (keys.IsKeyDown(Keys::R) && previousKeys_.IsKeyUp(Keys::R)) {
         x_=2.5; z_=2.5; yaw_=1.5707963f;
     }
-    const bool portal=PortalAt(world_.level,x_,z_);
-    if (portal && !insidePortal_) Transition(1-world_.level);
-    insidePortal_=portal;
+    const auto portal=PortalTarget(world_.level,x_,z_);
+    if (portal && !insidePortal_) Transition(*portal);
+    insidePortal_=portal.has_value();
     Stream();
     UpdateTitle(dt);
     previousKeys_=keys;
@@ -334,11 +404,14 @@ void BackroomsGame::Update(GameTime& time) {
 
 void BackroomsGame::Draw(const GameTime& time) {
     auto& device=getGraphicsDeviceProperty();
-    const Color fog=world_.level==0 ? Color(104,99,74) : Color(55,67,70);
+    const Color fog=world_.level==0 ? Color(108,101,78) :
+                    world_.level==1 ? Color(56,67,67) : Color(41,35,29);
     device.Clear(fog);
     device.setDepthStencilStateProperty(DepthStencilState::Default);
     device.setRasterizerStateProperty(RasterizerState::CullNone);
     effect_->setFogColorProperty(fog.ToVector3());
+    effect_->setFogStartProperty(LevelInfo(world_.level).fogStart);
+    effect_->setFogEndProperty(LevelInfo(world_.level).fogEnd);
     const Vector3 eye(0,1.68f,0);
     const Vector3 direction(std::sin(yaw_)*std::cos(pitch_),std::sin(pitch_),
                             std::cos(yaw_)*std::cos(pitch_));
