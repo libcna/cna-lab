@@ -48,3 +48,7 @@ The game keeps at most a 5 by 5 neighborhood of chunks around the player. It cre
 The geometry and colors are generated in code. Three CC0 sounds from the NOX SOUND Essentials Series add fluorescent hum, footsteps, and a transition cue; see [asset license](assets/LICENSE.md) and the bundled source README PDF.
 
 This first release has simple colored geometry rather than textures, no creatures, no save file, and no handcrafted landmarks beyond the transition patch. Chunk generation is synchronous but limited to one chunk per update. Only Linux desktop `OPENGLES3` is an intended target for this milestone. Movement is flat and wall collision uses a horizontal circle rather than full player physics.
+
+## Validation performed
+
+The fresh Linux `OPENGLES3` build and `world_tests` passed. Private-display checks confirmed launch, rendered Level 0 and Level 1, mouse look, movement through the transition patch, and a long out-and-back walk across several chunk boundaries. During that walk, active chunks stayed at 25, the title reported about 59 FPS, and process resident memory did not grow. The private display used SDL's dummy audio device, so audible output still needs a normal desktop check.

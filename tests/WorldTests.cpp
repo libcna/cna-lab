@@ -19,8 +19,9 @@ int main() {
     assert(HorizontalEdge(world,0,-100)==Edge::Open);
     // The center of every guaranteed corridor can be crossed in either direction.
     double x=2.5,z=2.5;
-    MoveWithCollision(world,x,z,20.0,0.0,0.31);
-    assert(std::abs(x-22.5)<0.001);
+    MoveWithCollision(world,x,z,100.0,0.0,0.31);
+    assert(std::abs(x-102.5)<0.001);
+    assert(ChunkAt(x,z)==(ChunkCoord{2,0}));
     assert(!Collides(world,x,z,0.31));
     // A solid partition blocks normal movement; this checks every deterministic edge type.
     bool found=false;
@@ -31,6 +32,16 @@ int main() {
         if (Collides(world,x,z,0.31)) continue;
         MoveWithCollision(world,x,z,2.0,0.0,0.31);
         assert(x<boundary*kCellSize);
+        found=true;
+    }
+    assert(found);
+    found=false;
+    for (int boundary=-30;boundary<30 && !found;++boundary) {
+        if (VerticalEdge(world,boundary,1)!=Edge::Door) continue;
+        x=boundary*kCellSize-0.7;
+        z=1*kCellSize+2.5;
+        MoveWithCollision(world,x,z,2.0,0.0,0.31);
+        assert(x>boundary*kCellSize);
         found=true;
     }
     assert(found);
