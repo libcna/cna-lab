@@ -42,6 +42,7 @@ namespace {
 using Clock = std::chrono::steady_clock;
 using Mesh = std::vector<VertexPositionColorTexture>;
 using Meshes = std::array<Mesh,kMaterialCount>;
+constexpr float kCarpetRepeat=0.5f; // two-metre loop-pile bitmap footprint
 
 Color FromRgb(const LevelDefinition::Rgb& value) {
     return Color(value[0],value[1],value[2]);
@@ -522,7 +523,7 @@ void ContactShadow(Meshes& meshes, BakedLighting& lighting,
         };
         FlatShaded(meshes,Material::Carpet,x0,z0,x1,z1,0.004f,
             {color(x0,z0,strength[0]),color(x1,z0,strength[1]),
-             color(x1,z1,strength[2]),color(x0,z1,strength[3])},0.25f);
+             color(x1,z1,strength[2]),color(x0,z1,strength[3])},kCarpetRepeat);
     };
     const auto section=[&](float start,float end) {
         if (end<=start) return;
@@ -550,7 +551,7 @@ void FloorContactShadow(Meshes& meshes, BakedLighting& lighting,
                          float x0, float z0, float x1, float z1,
                          double chunkX, double chunkZ, Color floor,
                          float dim=0.82f, Material material=Material::Carpet,
-                         float repeat=0.25f) {
+                         float repeat=kCarpetRepeat) {
     constexpr float feather=0.28f;
     const auto shadow=[&](float a,float b,float c,float d,
                          const std::array<float,4>& strength) {
@@ -977,7 +978,7 @@ void BackroomsGame::BuildChunk(ChunkCoord coord) {
                  Scale(floorColor,lightGrid[fx+1][fz]),
                  Scale(floorColor,lightGrid[fx+1][fz+1]),
                  Scale(floorColor,lightGrid[fx][fz+1])},
-                level==0 ? 0.25f : 0.5f);
+                level==0 ? kCarpetRepeat : 0.5f);
         }
         if (level==0) {
             const auto ceilingLight=[&](float factor) {

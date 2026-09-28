@@ -18,3 +18,7 @@ The hum has been gain-adjusted by +8 dB. The hard-floor step has +13 dB gain. Th
 ## Original wallpaper
 
 `wallpaper-v1.png` is an original AI-generated visual asset created specifically for this project, with no input reference image. It is an original project asset, alongside the materials and geometry generated in code. Its prompt and processing are recorded in [wallpaper-generation.md](wallpaper-generation.md). The image is not copied from a Backrooms reference photograph.
+
+## Original carpet
+
+`carpet-v1.png` is an original AI-generated visual asset created specifically for this project with no input reference image. Its prompt, source fingerprint and runtime processing are recorded in [carpet-generation.md](carpet-generation.md). It is not a downloaded photograph or third-party material.
