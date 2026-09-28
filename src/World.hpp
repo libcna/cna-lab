@@ -11,7 +11,7 @@
 
 namespace Backrooms {
 
-constexpr int kFormatVersion = 24;
+constexpr int kFormatVersion = 25;
 constexpr int kChunkCells = 8;
 constexpr int kRegionCells = 6;
 constexpr double kCellSize = 5.0;
@@ -75,6 +75,14 @@ struct LampInfo {
     float x=2.5f,z=2.5f;
     bool longAxisX=true;
     bool operator==(const LampInfo&) const = default;
+};
+
+struct OfficeAlcove {
+    bool vertical=true;
+    int inward=1;
+    double boundary=0,start=0,end=0,depth=0;
+    bool falseDoor=false;
+    bool operator==(const OfficeAlcove&) const = default;
 };
 
 class RoomLayoutCache;
@@ -161,6 +169,9 @@ OpeningSpan OpeningForEdge(const WorldConfig& config, Edge edge,
 CellProp PropAt(const WorldConfig& config, int cellX, int cellZ);
 CellObstacleSet InteriorPartitionsAt(const WorldConfig& config,
                                      int cellX, int cellZ);
+std::optional<OfficeAlcove> OfficeAlcoveAt(const WorldConfig& config,
+                                        int cellX,int cellZ);
+CellObstacleSet OfficeAlcoveWalls(const OfficeAlcove& alcove);
 CellObstacleSet FullHeightObstaclesAt(const WorldConfig& config, int cellX, int cellZ);
 bool UtilityAlongZAt(const WorldConfig& config, int cellX, int cellZ);
 CellObstacleSet CellObstacles(const WorldConfig& config, int cellX, int cellZ);

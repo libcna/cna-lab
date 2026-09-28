@@ -16,7 +16,7 @@ constexpr int kMin=-64,kMax=63;
 struct Counts {
     int cells=0,deadEnds=0,openCells=0,blocked=0;
     int openEdges=0,wideEdges=0,doorEdges=0,solidEdges=0;
-    int longestSightline=0,portals=0,emptyHallCells=0,chamberCells=0;
+    int longestSightline=0,portals=0,emptyHallCells=0,chamberCells=0,alcoves=0;
     std::array<int,7> regions{};
 };
 
@@ -49,6 +49,7 @@ Counts Sample(const WorldConfig& world) {
         counts.portals+=PortalAt(world,x,z).has_value();
         counts.emptyHallCells+=IsEmptyHall(world,x,z);
         counts.chamberCells+=IsServiceChamber(world,x,z);
+        counts.alcoves+=OfficeAlcoveAt(world,x,z).has_value();
         ++counts.regions[static_cast<int>(RegionAt(world,x,z))];
     }
     for (int z=kMin;z<=kMax;++z) {
@@ -69,7 +70,7 @@ Counts Sample(const WorldConfig& world) {
 }
 }
 
-int Run() {
+int Run(bool showAlcoves) {
     const auto levels=LoadLevelCatalog(FindAssetDirectory()/"levels.json");
     RoomLayoutCache cache;
     std::cout << "format " << kFormatVersion << ", sampled "
@@ -94,16 +95,39 @@ int Run() {
                       << " cells | entrances " << c.portals
                       << " | empty hall cells " << c.emptyHallCells
                       << " | chamber cells " << c.chamberCells
+                      << " | alcoves " << c.alcoves
                       << " | region cells";
             for (int count:c.regions) std::cout << ' ' << count;
             std::cout << '\n';
+            if (showAlcoves && level==0) {
+                const WorldConfig world{seed,level,&cache,&levels};
+                std::array<bool,8> sampled{};
+                for (int x=kMin;x<=kMax;++x) for (int z=kMin;z<=kMax;++z) {
+                    const auto alcove=OfficeAlcoveAt(world,x,z);
+                    if (!alcove) continue;
+                    const int style=(alcove->vertical ? 0 : 2)+
+                                     (alcove->inward<0)+(alcove->falseDoor ? 4 : 0);
+                    if (sampled[style]) continue;
+                    sampled[style]=true;
+                    // Approach from the room center, looking toward the back.
+                    std::cout << std::setprecision(2) << "alcove seed " << seed << " cell " << x << ',' << z
+                              << " vertical " << alcove->vertical << " inward " << alcove->inward
+                              << " door " << alcove->falseDoor << " boundary " << alcove->boundary
+                              << " span " << alcove->start << ',' << alcove->end
+                              << " depth " << alcove->depth << std::setprecision(1) << '\n';
+                }
+            }
         }
     }
     return 0;
 }
 
-int main() {
-    try { return Run(); }
+int main(int argc,char** argv) {
+    try {
+        if (argc>2 || (argc==2 && std::string(argv[1])!="--alcoves"))
+            throw std::invalid_argument("usage: world_quality [--alcoves]");
+        return Run(argc==2);
+    }
     catch (const std::exception& e) {
         std::cerr << "world audit: " << e.what() << '\n';
         return 1;

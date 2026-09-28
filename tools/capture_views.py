@@ -47,6 +47,8 @@ def main():
     parser.add_argument('--game',default='build/cna_backrooms')
     parser.add_argument('--output',default='build/visual-qa')
     parser.add_argument('--distant',action='store_true')
+    parser.add_argument('--all-directions',action='store_true',
+                        help='also capture right, back and left views at each location')
     args=parser.parse_args()
     root=pathlib.Path(__file__).resolve().parents[1]
     output=(root/args.output).resolve()
@@ -70,13 +72,19 @@ def main():
                 if turn:
                     xdo('mousemove_relative','--',turn,0)
                     time.sleep(.2)
-                title=xdo('getwindowname',window)
-                subprocess.run(['import','-window',window,str(output/(name+'.png'))],
-                    check=True,timeout=10)
-                manifest.append(dict(name=name,seed=seed,level=level,x=x,z=z,
-                                     relative_mouse_x=turn,title=title))
-                (output/'manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')
-                print(name+' | '+title,flush=True)
+                suffixes=['','_right','_back','_left'] if args.all_directions else ['']
+                for direction,suffix in enumerate(suffixes):
+                    if direction:
+                        xdo('mousemove_relative','--',714,0)
+                        time.sleep(.2)
+                    title=xdo('getwindowname',window)
+                    view=name+suffix
+                    subprocess.run(['import','-window',window,str(output/(view+'.png'))],
+                        check=True,timeout=10)
+                    manifest.append(dict(name=view,seed=seed,level=level,x=x,z=z,
+                                         relative_mouse_x=turn+direction*714,title=title))
+                    (output/'manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')
+                    print(view+' | '+title,flush=True)
             finally:
                 if game.poll() is None:
                     game.terminate()

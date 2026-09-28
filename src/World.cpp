@@ -367,6 +367,15 @@ LampInfo LampAt(const WorldConfig& world, int gx, int gz) {
             }};
             const float halfX=lamp.longAxisX ? 0.625f : 0.3125f;
             const float halfZ=lamp.longAxisX ? 0.3125f : 0.625f;
+            if (const auto alcove=OfficeAlcoveAt(world,gx,gz)) {
+                const double cross=alcove->boundary+alcove->inward*alcove->depth;
+                // The lower acoustic lid must not hide a live ceiling panel.
+                obstacles.walls[obstacles.count++]=alcove->vertical ?
+                    Wall{std::min(alcove->boundary,cross),alcove->start,
+                         std::max(alcove->boundary,cross),alcove->end} :
+                    Wall{alcove->start,std::min(alcove->boundary,cross),
+                         alcove->end,std::max(alcove->boundary,cross)};
+            }
             bool placed=false;
             for (const auto& offset:offsets) {
                 const float x=lamp.x+offset[0],z=lamp.z+offset[1];
@@ -688,6 +697,52 @@ CellObstacleSet InteriorPartitionsAt(const WorldConfig& config,
     return result;
 }
 
+std::optional<OfficeAlcove> OfficeAlcoveAt(const WorldConfig& config,
+                                         int cellX,int cellZ) {
+    if (config.level!=0) return std::nullopt;
+    const int rx=DivFloor(cellX,kRegionCells),rz=DivFloor(cellZ,kRegionCells);
+    const auto h=CellHash(config,rx,rz,4211);
+    // At most one candidate per region; empty offices should stay mostly empty.
+    if (h%4!=0 || ModFloor(cellX,kRegionCells)!=static_cast<int>((h>>6)%6) ||
+        ModFloor(cellZ,kRegionCells)!=static_cast<int>((h>>12)%6) ||
+        (rx==0 && rz==0)) return std::nullopt;
+    const auto kind=RegionAt(config,cellX,cellZ);
+    if (kind==RegionKind::OpenOffice || kind==RegionKind::Columns ||
+        IsEmptyHall(config,cellX,cellZ) || PortalAt(config,cellX,cellZ) ||
+        PropAt(config,cellX,cellZ).kind!=PropKind::None ||
+        InteriorPartitionsAt(config,cellX,cellZ).count>0) return std::nullopt;
+    for (int i=0;i<4;++i) {
+        const int side=(static_cast<int>((h>>18)%4)+i)%4;
+        const bool vertical=side<2;
+        const bool far=side%2!=0;
+        const auto edge=vertical ? VerticalEdge(config,cellX+far,cellZ) :
+                                   HorizontalEdge(config,cellX,cellZ+far);
+        if (edge!=Edge::Solid) continue;
+        const double center=(vertical ? cellZ : cellX)*kCellSize+2.5+
+                            (static_cast<int>((h>>22)%3)-1)*0.12;
+        const double half=1.05+((h>>25)%3)*0.10;
+        return OfficeAlcove{vertical,far ? -1 : 1,
+            ((vertical ? cellX : cellZ)+far)*kCellSize,
+            center-half,center+half,0.90+((h>>28)%3)*0.14,(h&0x10000U)!=0};
+    }
+    return std::nullopt;
+}
+
+CellObstacleSet OfficeAlcoveWalls(const OfficeAlcove& alcove) {
+    CellObstacleSet result;
+    result.count=2;
+    const double cross=alcove.boundary+alcove.inward*alcove.depth;
+    const double near=std::min(alcove.boundary,cross);
+    const double far=std::max(alcove.boundary,cross);
+    for (int i=0;i<2;++i) {
+        const double along=i==0 ? alcove.start : alcove.end;
+        result.walls[i]=alcove.vertical ?
+            Wall{near,along-0.10,far,along+0.10} :
+            Wall{along-0.10,near,along+0.10,far};
+    }
+    return result;
+}
+
 CellObstacleSet FullHeightObstaclesAt(const WorldConfig& config, int cellX, int cellZ) {
     CellObstacleSet result;
     if (IsEmptyHall(config,cellX,cellZ)) return result;
@@ -708,6 +763,10 @@ CellObstacleSet FullHeightObstaclesAt(const WorldConfig& config, int cellX, int 
     if (ColumnAt(config,cellX,cellZ)) {
         const double cx=(cellX+0.5)*kCellSize,cz=(cellZ+0.5)*kCellSize;
         result.walls[result.count++]={cx-0.43,cz-0.43,cx+0.43,cz+0.43};
+    }
+    if (const auto alcove=OfficeAlcoveAt(config,cellX,cellZ)) {
+        const auto sides=OfficeAlcoveWalls(*alcove);
+        for (int i=0;i<sides.count;++i) result.walls[result.count++]=sides.walls[i];
     }
     return result;
 }

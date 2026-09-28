@@ -1,5 +1,6 @@
 #include "World.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdlib>
 #include <iostream>
@@ -28,7 +29,7 @@ int main() {
     CHECK(ChunkOfCell(-9)==-2);
     CHECK(ChunkAt(-0.01,-40.01)==(ChunkCoord{-1,-2}));
     // Golden values make changes to the versioned procedural world explicit.
-    CHECK(kFormatVersion==24);
+    CHECK(kFormatVersion==25);
     CHECK(CellHash(world,12,-8,41)==511389911U);
     CHECK(VerticalEdge(world,8,3)==Edge::Open);
     CHECK(HorizontalEdge(world,-4,-5)==Edge::Open);
@@ -273,6 +274,39 @@ int main() {
             foundInterior=true;
         }
     CHECK(foundInterior);
+    // Shallow alcoves occupy only solid-wall margins. Their mouth and center
+    // remain walkable; side returns and the back wall stop actual movement.
+    int alcoves=0,alcoveDirections=0;
+    for (int cx=-64;cx<64;++cx) for (int cz=-64;cz<64;++cz) {
+        const auto alcove=OfficeAlcoveAt(world,cx,cz);
+        if (!alcove) continue;
+        ++alcoves;
+        CHECK(alcove==OfficeAlcoveAt(world,cx,cz));
+        CHECK(!OfficeAlcoveAt(storage,cx,cz) && !OfficeAlcoveAt(tunnels,cx,cz));
+        alcoveDirections|=1<<((alcove->vertical ? 0 : 2)+(alcove->inward<0));
+        CHECK(PropAt(world,cx,cz).kind==PropKind::None);
+        CHECK(InteriorPartitionsAt(world,cx,cz).count==0);
+        CHECK(alcove->depth>=0.90 && alcove->depth<=1.181);
+        CHECK(!Collides(world,(cx+0.5)*kCellSize,(cz+0.5)*kCellSize,0.55));
+        const auto sides=OfficeAlcoveWalls(*alcove);
+        CHECK(sides.count==2 && FullHeightObstaclesAt(world,cx,cz).count==2);
+        for (int i=0;i<sides.count;++i) {
+            const auto& bounds=sides.walls[i];
+            CHECK(bounds.minX>=cx*kCellSize && bounds.maxX<=(cx+1)*kCellSize);
+            CHECK(bounds.minZ>=cz*kCellSize && bounds.maxZ<=(cz+1)*kCellSize);
+            CHECK(Collides(world,(bounds.minX+bounds.maxX)*0.5,
+                                 (bounds.minZ+bounds.maxZ)*0.5,0.31));
+        }
+        const double center=(alcove->start+alcove->end)*0.5;
+        const double inside=alcove->boundary+alcove->inward*0.65;
+        double px=alcove->vertical ? inside : center;
+        double pz=alcove->vertical ? center : inside;
+        CHECK(!Collides(world,px,pz,0.31));
+        MoveWithCollision(world,px,pz,alcove->vertical ? -alcove->inward*2.0 : 0,
+                          alcove->vertical ? 0 : -alcove->inward*2.0,0.31);
+        CHECK(((alcove->vertical ? px : pz)-alcove->boundary)*alcove->inward>0.39);
+    }
+    CHECK(alcoves>10 && alcoves<100 && alcoveDirections==15);
     bool foundEmptyHall=false;
     for (int ix=-120;ix<=120 && !foundEmptyHall;ix+=12)
         for (int iz=-120;iz<=120 && !foundEmptyHall;iz+=12) {
@@ -410,6 +444,14 @@ int main() {
             CHECK(lamp.z-hz>=0.12 && lamp.z+hz<=4.88);
             const double wx=x*kCellSize+lamp.x,wz=z*kCellSize+lamp.z;
             auto structure=FullHeightObstaclesAt(office,x,z);
+            if (const auto alcove=OfficeAlcoveAt(office,x,z)) {
+                const double cross=alcove->boundary+alcove->inward*alcove->depth;
+                structure.walls[structure.count++]=alcove->vertical ?
+                    Wall{std::min(alcove->boundary,cross),alcove->start,
+                         std::max(alcove->boundary,cross),alcove->end} :
+                    Wall{alcove->start,std::min(alcove->boundary,cross),
+                         alcove->end,std::max(alcove->boundary,cross)};
+            }
             if (const auto portal=PortalAt(office,x,z)) {
                 const auto frames=PortalWalls(*portal);
                 for (int n=0;n<2;++n)

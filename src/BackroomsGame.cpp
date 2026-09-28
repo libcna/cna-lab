@@ -383,23 +383,33 @@ void StorageRack(Meshes& meshes, float x0, float z0, float x1, float z1,
 }
 
 void FalseDoor(Meshes& meshes, bool vertical, float boundary, float along,
-               int level, float illumination) {
-    const float height=level==1 ? 2.58f : level==2 ? 2.15f : 2.18f;
-    const Material material=level==0 ? Material::Wood : Material::ConcreteWall;
-    const Color panel=Scale(level==0 ? Color(190,185,163) : Color(85,96,94),illumination);
+               int level, float illumination,int normal=1,float ceiling=10) {
+    const float height=std::min(ceiling-0.10f,
+                               level==1 ? 2.58f : level==2 ? 2.15f : 2.18f);
+    const Material material=level==0 ? Material::PaintedTrim : Material::ConcreteWall;
+    const Color panel=Scale(level==0 ? Color(197,189,157) : Color(85,96,94),illumination);
     const Color frame=Scale(level==0 ? Color(227,217,188) : Color(126,136,130),illumination);
     const float left=along+2.04f,right=along+2.96f;
-    const float face=boundary+kWallHalfThickness+0.005f;
+    const float face=boundary+normal*(kWallHalfThickness+0.005f);
     WallFace(meshes,material,vertical,face,left,right,0.02f,height,panel);
-    WallFace(meshes,material,vertical,face+0.004f,left-0.075f,left,
+    WallFace(meshes,material,vertical,face+normal*0.004f,left-0.075f,left,
              0,height+0.08f,frame);
-    WallFace(meshes,material,vertical,face+0.004f,right,right+0.075f,
+    WallFace(meshes,material,vertical,face+normal*0.004f,right,right+0.075f,
              0,height+0.08f,frame);
-    WallFace(meshes,material,vertical,face+0.004f,left,right,
+    WallFace(meshes,material,vertical,face+normal*0.004f,left,right,
              height,height+0.08f,frame);
-    WallFace(meshes,Material::IndustrialCeiling,vertical,face+0.008f,
-             right-0.22f,right-0.15f,0.99f,1.06f,
-             Scale(Color(215,209,184),illumination));
+    const Color hardware=Scale(Color(228,232,219),illumination);
+    const float handle=right-0.16f;
+    WallFace(meshes,Material::GalvanizedMetal,vertical,face+normal*0.009f,
+             handle-0.03f,handle+0.03f,0.94f,1.12f,hardware);
+    const auto handleBox=[&](float a,float b,float d0,float d1,float y0,float y1) {
+        const float near=std::min(face+normal*d0,face+normal*d1);
+        const float far=std::max(face+normal*d0,face+normal*d1);
+        if (vertical) BoxRange(meshes,Material::GalvanizedMetal,near,a,far,b,y0,y1,hardware);
+        else BoxRange(meshes,Material::GalvanizedMetal,a,near,b,far,y0,y1,hardware);
+    };
+    handleBox(handle-0.025f,handle+0.025f,0.01f,0.06f,1.015f,1.06f);
+    handleBox(handle-0.15f,handle+0.025f,0.05f,0.073f,1.02f,1.052f);
 }
 
 int FloorDiv(int value, int size) {
@@ -583,6 +593,42 @@ void OfficeObstacle(Meshes& meshes, BakedLighting& lighting,
     face(false,z0,x0,x1,-1);face(false,z1,x0,x1,1);
     FloorContactShadow(meshes,lighting,x0,z0,x1,z1,
                         chunkX,chunkZ,floor);
+}
+
+void OfficeAlcoveVisual(Meshes& meshes,BakedLighting& lighting,
+                        const OfficeAlcove& alcove,double chunkX,double chunkZ,
+                        float ceiling,Color wall,Color tile) {
+    const float boundary=static_cast<float>(alcove.boundary-
+                          (alcove.vertical ? chunkX : chunkZ));
+    const float start=static_cast<float>(alcove.start-
+                       (alcove.vertical ? chunkZ : chunkX));
+    const float end=static_cast<float>(alcove.end-
+                     (alcove.vertical ? chunkZ : chunkX));
+    const float cross=boundary+alcove.inward*static_cast<float>(alcove.depth);
+    const float roof=std::min(2.42f,ceiling-0.15f);
+    const float center=(start+end)*0.5f;
+    const float illumination=lighting.WallSample(
+        chunkX+(alcove.vertical ? cross+alcove.inward*0.04f : center),
+        chunkZ+(alcove.vertical ? center : cross+alcove.inward*0.04f),
+        alcove.vertical ? alcove.inward : 0,alcove.vertical ? 0 : alcove.inward);
+    const auto underside=Scale(tile,0.70f*illumination);
+    const float near=std::min(boundary,cross),far=std::max(boundary,cross);
+    if (alcove.vertical)
+        Flat(meshes,Material::CeilingTile,near,start-0.10f,far,end+0.10f,
+             roof,underside,0.4f);
+    else
+        Flat(meshes,Material::CeilingTile,start-0.10f,near,end+0.10f,far,
+             roof,underside,0.4f);
+    WallFace(meshes,Material::Wallpaper,alcove.vertical,cross,
+             start-0.10f,end+0.10f,roof,ceiling,wall,illumination,illumination);
+    if (alcove.falseDoor) {
+        const float light=lighting.WallSample(
+            chunkX+(alcove.vertical ? boundary+alcove.inward*0.14f : center),
+            chunkZ+(alcove.vertical ? center : boundary+alcove.inward*0.14f),
+            alcove.vertical ? alcove.inward : 0,alcove.vertical ? 0 : alcove.inward);
+        FalseDoor(meshes,alcove.vertical,boundary,center-2.5f,0,
+                  light,alcove.inward,roof);
+    }
 }
 
 void IndustrialColumn(Meshes& meshes, BakedLighting& lighting,
@@ -1210,14 +1256,18 @@ void BackroomsGame::BuildChunk(ChunkCoord coord) {
             FloorContactShadow(meshes,lighting,sx0,sz0,sx1,sz1,
                                 ox*kCellSize,oz*kCellSize,floorColor,0.86f);
         }
+        const auto alcove=OfficeAlcoveAt(world_,gx,gz);
+        if (alcove)
+            OfficeAlcoveVisual(meshes,lighting,*alcove,ox*kCellSize,oz*kCellSize,
+                               height,wallA,ceiling);
         const auto doorHash=CellHash(world_,gx,gz,1501);
-        if (doorHash%170==0) {
+        if (!alcove && doorHash%170==0) {
             if ((doorHash&1U)==0 && VerticalEdge(world_,gx,gz)==Edge::Solid)
                 FalseDoor(meshes,true,x,z,level,level<=1 ?
-                    lighting.WallSample(wx+0.14,wz+2.5,1,0) : 1.0f);
+                    lighting.WallSample(wx+0.14,wz+2.5,1,0) : 1.0f,1,height);
             else if (HorizontalEdge(world_,gx,gz)==Edge::Solid)
                 FalseDoor(meshes,false,z,x,level,level<=1 ?
-                    lighting.WallSample(wx+2.5,wz+0.14,0,1) : 1.0f);
+                    lighting.WallSample(wx+2.5,wz+0.14,0,1) : 1.0f,1,height);
         }
         if (const auto portal=PortalAt(world_,gx,gz))
             PortalVisual(meshes,lighting,world_,*portal,ox*kCellSize,oz*kCellSize,
