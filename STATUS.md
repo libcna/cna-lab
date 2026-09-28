@@ -6,19 +6,20 @@ The product goal remains **active**. Three distinct families, connected determin
 
 ## Current pass
 
-Format 31 compares an original generated concrete bitmap in Level 2. Nine wall-material pairs were inspected; shared wall/floor albedo and a two-metre footprint improve mineral texture and replace the dark regular floor noise. Three close floor views and three missing-asset views were inspected. Native decoding/mipmaps remain; one GPU texture is shared by wall/floor slots, and separate procedural fallbacks remain when unavailable. The original PNG and exact prompt are retained. The 449 m actual return, corrupt-file launch and 24 distant directions pass. All twelve final family views were inspected; no new material seam or floor corruption was found. The original concrete is selected for walls and floors.
+Format 32 compares eight-sided small pipes with shared circumferential vertex shades and continuous cylindrical UVs. The explicit sixteen-sided pressure assemblies retain their geometry. This addresses flat face bands and repeated strip UVs without adding runtime lights or shaders. All nine matched pairs were inspected; pipes look rounder without the previous flat color bands. Release/Debug builds and all three test suites pass. A 2.4 km sweep keeps at most 25 chunks, median 39 draw FPS, 26.70 ms median rolling p95, 37.68 ms sampled maximum, 3.54 ms median and 9.34 ms peak build. Latter-half RSS is 266.5–279.2 MiB as capacities settle; a longer final tunnel run remains necessary.
 
 ## Completed passes
 
+- **31:** original granular concrete walls/floors, a shared native texture, two-metre UVs and separate procedural fallbacks. Nine material pairs, floor views, 24 distant directions and twelve final family views were inspected; the 449 m real return and missing/corrupt launches pass.
 - **30:** native four-sample MSAA, whole-chunk native frustum checks and actual draw timing. Nine culled/unculled images are pixel-identical; 48 directional views and sixteen controller/regression views were inspected. Direct coordinate bounds remove expensive native object copies. Slow-build logs split geometry/upload time.
 - **29:** long/L/T/staggered/short/U-shaped office partitions, with shared clipped geometry/collision and unchanged connectors. Twenty-four paired views, 32 distant directions, 24 controller and eight alcove views were inspected.
 - **Earlier:** original office materials, human scale, local wall lighting, composed room entrances, alcoves/doors, industrial bays, weathered tunnels and bounded caches. Detailed results are in [validation history](docs/validation-history.md).
 
 ## Three highest-priority deficiencies
 
-1. Main tunnel pipes have obvious flat six-sided profiles and blocky collars. Compare modestly rounder geometry and smooth baked circumferential shading.
-2. Industrial supports look uniformly colored in close views. Give their existing shape cast finishes and face-dependent light.
-3. Entities have an obvious six-box silhouette. Refine the inexpensive mesh while preserving harmless behavior.
+1. Industrial supports look uniformly colored in close views. Give their existing shape cast finishes and face-dependent light.
+2. Entities have an obvious six-box silhouette. Refine the inexpensive mesh while preserving harmless behavior.
+3. Recheck all family views and the longer tunnel RSS plateau after the geometry passes.
 
 ## Latest validation
 
@@ -31,4 +32,4 @@ Format 31 compares an original generated concrete bitmap in Level 2. Nine wall-m
 
 ## Next pass
 
-Compare small-pipe shading/profile changes, industrial-support depth and the harmless silhouette. Continue screenshot-driven refinement and actual traversal; the goal remains active.
+Improve industrial-support depth, then the harmless silhouette. Continue screenshot-driven refinement and actual traversal; the goal remains active.

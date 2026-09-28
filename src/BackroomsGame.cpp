@@ -224,16 +224,17 @@ void BoxRange(Meshes& meshes, Material material, float x0, float z0,
 void PipeRun(Meshes& meshes, bool alongZ, float cross, float start,
              float end, float height, float radius, Color color,
              Material material=Material::IndustrialCeiling,bool caps=false,
-             int facets=6) {
+             int facets=8) {
     constexpr float turn=6.28318530718f;
     for (int facet=0;facet<facets;++facet) {
         const float a=turn*facet/facets,b=turn*(facet+1)/facets;
         const float ha=std::cos(a)*radius,hb=std::cos(b)*radius;
         const float ya=height+std::sin(a)*radius;
         const float yb=height+std::sin(b)*radius;
-        const float shade=0.77f+0.23f*std::max(0.0f,
-                           std::sin((a+b)*0.5f));
-        const Color face=Scale(color,shade);
+        // Shared edge colors approximate a round, overhead-lit surface without
+        // adding a normal/light shader or a large number of radial segments.
+        const Color edgeA=Scale(color,0.86f+0.14f*std::sin(a));
+        const Color edgeB=Scale(color,0.86f+0.14f*std::sin(b));
         const Vector3 p0=alongZ ? Vector3(cross+ha,ya,start) :
                                   Vector3(start,ya,cross+ha);
         const Vector3 p1=alongZ ? Vector3(cross+ha,ya,end) :
@@ -242,9 +243,12 @@ void PipeRun(Meshes& meshes, bool alongZ, float cross, float start,
                                   Vector3(end,yb,cross+hb);
         const Vector3 p3=alongZ ? Vector3(cross+hb,yb,start) :
                                   Vector3(start,yb,cross+hb);
-        Quad(meshes,material,p0,p1,p2,p3,face,
-             {start*0.3f,0.0f},{end*0.3f,0.0f},
-             {end*0.3f,1.0f},{start*0.3f,1.0f});
+        const float circumference=turn*radius;
+        QuadColors(meshes,material,p0,p1,p2,p3,{edgeA,edgeA,edgeB,edgeB},
+             {start*0.3f,circumference*facet/facets},
+             {end*0.3f,circumference*facet/facets},
+             {end*0.3f,circumference*(facet+1)/facets},
+             {start*0.3f,circumference*(facet+1)/facets});
     }
     if (caps) for (float along:{start,end}) {
         const Vector3 center=alongZ ? Vector3(cross,height,along) : Vector3(along,height,cross);
