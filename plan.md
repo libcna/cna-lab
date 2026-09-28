@@ -9,8 +9,8 @@ was Phase 0; a successful build is not completion of the visual product goal.
 
 | Priority | Scope | State |
 | --- | --- | --- |
-| MUST HAVE | Launch, conventional first-person controls, collision, recognizable Level 0, deterministic connected generation, bounded streaming | Implemented; visual refinement remains active |
-| SHOULD HAVE | Distinct industrial and tunnel families, environmental transitions, harmless figures, audio, long traversal | Implemented; current composition and runtime passes below |
+| MUST HAVE | Launch, conventional first-person controls, collision, recognizable Level 0, deterministic connected generation, bounded streaming | Delivered; final product audit recorded |
+| SHOULD HAVE | Distinct industrial and tunnel families, environmental transitions, harmless figures, audio, long traversal | Delivered; three types and normal-device audio checked |
 | OPTIONAL | More props, advanced saving, async loading, additional effects | Sparse furniture and false doors exist; other work can be cut |
 
 ## Architecture and CNA audit
@@ -56,30 +56,22 @@ bundled assets. Tapered, faceless figures are atmospheric and cannot harm player
 Normal PipeWire captures verify hum, footsteps and an isolated transition cue on
 an unmuted output; subjective listening remains a human check.
 
-## Current backlog and remaining target allocation
+## Final delivery pass
 
-Industrial bay composition, mineral surfaces, opening returns, attached service
-roof details, smooth figure approaches and continuous pipe returns are complete
-through format 47, including the owner-requested three harmless creature types
-and sparse CC0 voices. The remaining delivery window prioritizes product evidence:
+Feature additions stopped in the stabilization window. Final acoustic-ceiling
+refinement and the industrial beam attachment/underside correction were compared
+in game captures; rejected candidates were not delivered. Three harmless creature
+types and licensed, spatially attenuated voices are implemented.
 
-1. **Office/product QA:** retain the newly varied column-room layouts, audit the default
-   seed and additional arbitrary family locations, then walk actual collision
-   returns. Floor/junction passes and remote weak/broad-room returns are complete.
-   Fix the largest remaining material, scale, lighting or composition defects.
-2. **Long-run stability:** repeat the finite tunnel capacity sweep after the new
-   geometry and inspect positive/negative/return streaming for growth or spikes.
-3. **Atmosphere and runtime audit:** refresh audio routing after external runtime
-   changes, inspect additional family views and verify live transitions.
-4. **19:30 stabilization:** stop feature additions, rebuild/test/run the delivered
-   state, document remaining issues and commit for the owner's 20:00 target.
+The final pass includes clean Release compilation, current Release/Debug tests,
+actual collision returns in all three families, conventional mouse/Shift/recapture
+checks, six live entrance cases, normal-device hum/footstep/transition/creature
+captures and a four-lap 38.4 km native streaming sweep. Full finite measurements
+are in docs/validation-history.md. The screenshot gallery and dedicated product
+audit record the visual result; known limitations state what remains unqualified.
 
-Continue achievable visual or gameplay improvements until the stabilization
-window if these checks finish early. No new renderer or engine framework is needed.
-
-These are scope estimates, not permission to stop at a milestone. Continue the
-highest-value achievable deficiency while the goal is unsatisfied. Cut optional
-features before weakening walking, collision, streaming or maintainability.
-STATUS.md is current project memory; docs/validation-history.md retains exact
-finite measurements and limitations. Screenshots and passing tests alone do not
-establish that the complete visual/product audit has passed.
+No further feature work is planned in this delivery. Possible later development
+should first address measured generation/presentation outliers and subjective
+sound balance, then native Wayland interactive qualification. More room
+compositions, articulated creature movement and saves are optional extensions.
+CNA and Sharp Runtime were inspected only; neither sibling was modified.

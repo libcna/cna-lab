@@ -13,6 +13,8 @@ ctest --test-dir build --output-on-failure
 ./build/cna_backrooms --seed 31337
 ```
 
+The standalone build disables CNA’s dependency-wide developer source-inventory audit; the reason is recorded in [bugs.md](bugs.md). Game tests remain enabled.
+
 CNA normally builds its vendored SDL dependencies. If SDL3, SDL3_image, and SDL3_mixer CMake packages are installed, use `-DCNA_USE_SYSTEM_SDL=ON`. This checkout was validated with CNA's existing SDL install:
 
 ```sh
@@ -41,7 +43,7 @@ Narrow, framed maintenance entrances with recessed dim interiors are level trans
 - **Level 1, Service Storage:** tall concrete spaces, mixed open bays and narrow links, sparse steel shelving with varied shelf spacing and cardboard contents, structural beams and suspended industrial lighting.
 - **Level 2, Maintenance Tunnels:** lower ceilings, weathered concrete, narrower cabinet-lined passages, longer open runs, several supported pipe layouts with smooth baked circumferential shading, sparse pressure assemblies, occasional overhead ducts, and rare open service chambers.
 
-The generated world uses algorithm version `48`, a 64-bit seed and one of the
+The generated world uses algorithm version `49`, a 64-bit seed and one of the
 three [level profiles](docs/level-format.md). Six-cell regions compose connected
 room zones, asymmetric entrances and offset partitions; rare 60-metre halls use
 coherent ceiling-light plans. Geometry and collision regenerate deterministically,
@@ -74,3 +76,9 @@ Private-display rendering is around 39 FPS with about 59 updates per second;
 these measurements do not establish normal desktop presentation performance.
 Own-stream captures verify audio routing and signals. Subjective sound quality
 and native Wayland input still require real-machine checks.
+
+[Known limitations](docs/known-limitations.md) records the remaining lighting,
+animation and desktop qualification limits, including the validated Xwayland
+launch command.
+
+See the [delivery screenshots](docs/screenshots.md), [product audit](docs/product-audit.md) and [known limitations](docs/known-limitations.md).

@@ -1,6 +1,6 @@
 # Generated world and streaming
 
-The world format is algorithm version `48`, a 64-bit seed, and a level id (`0`–`2`). The three families are tuned by a small versioned [level-definition file](level-format.md), loaded through Sharp Runtime. Startup logs record its source fingerprint; a missing file uses built-in defaults and an invalid file reports an error. There are no chunk files.
+The world format is algorithm version `49`, a 64-bit seed, and a level id (`0`–`2`). The three families are tuned by a small versioned [level-definition file](level-format.md), loaded through Sharp Runtime. Startup logs record its source fingerprint; a missing file uses built-in defaults and an invalid file reports an error. There are no chunk files.
 
 ## Spatial representation
 
@@ -27,3 +27,20 @@ The game retains at most a 5 by 5 neighborhood of chunks around the player. Each
 ## Ceiling material revision
 
 Format 48 refines the original procedural acoustic ceiling panels with fine, bent fissures and inset seams. Native mipmaps preserve the quiet surface at a distance; texture size and geometry remain unchanged. The internal hash recipe stays at 11, so existing locations, collision and entrances are reproducible.
+
+## Source map
+
+| File | Responsibility |
+| --- | --- |
+| [World.cpp](../src/World.cpp) | Seeded topology, composed spaces, shared obstacles, entrances and creature candidates |
+| [Lighting.cpp](../src/Lighting.cpp) | Local fluorescent bake, obstruction and material/contact sampling |
+| [BackroomsGame.cpp](../src/BackroomsGame.cpp) | CNA lifecycle, geometry builders, streaming buffers, controller, audio and creature drawing |
+| [Materials.cpp](../src/Materials.cpp) | Native textures, procedural fallbacks and mip generation |
+| [LevelProfiles.cpp](../src/LevelProfiles.cpp) | Strict immutable level-definition parsing and reproduction fingerprint |
+| [tools](../tools) | Offline topology/collision routes, actual input, audio and screenshot QA |
+
+Change visual geometry and its shared collision together. Preserve border
+connector rules and context leases. Before changing the recipe, reproduce a
+recorded seed/position and rerun the negative-coordinate return tests.
+
+Format 49 attaches industrial framing to the ceiling slab and closes its visible soffit. The beam underside and fixture clearances stay fixed; topology, collision, materials and hash recipe 11 are unchanged.

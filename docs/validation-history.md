@@ -587,3 +587,62 @@ exceed 16.67 ms. Median CPU submission is 0.79 ms. Shared scheduling is not
 isolated. Occasional hitches remain, and this capacity sweep bypasses collision
 and uses dummy audio. Exact summary, RSS samples and generation/upload spikes:
 build/repeat48-long. This is not a normal-input or listening test.
+
+## Final format 48 controller and audio refresh
+
+A clean Release build and all three Release suites pass, followed by real
+first-person return walks with native input and collision:
+
+| Family | Metres / waypoints | Player chunks / max active | Warmed RSS MiB / final |
+| --- | --- | --- | --- |
+| Default office seed 3133931525 | 1,186.3 / 136 | 16 / 25 | 174.25–192.95 / 174.25 |
+| Storage seed 12345 | 528.3 / 48 | 8 / 25 | 184.53–185.36 / 185.36 |
+| Tunnels seed 12345 | 448.1 / 60 | 5 / 25 | 263.02–281.68 / 281.68 |
+
+All 104 panorama directions are inspected, including close-wall views and the
+return traversal. These are finite checks. The short tunnel walk does not
+establish a memory plateau; the separate four-lap native probe supplies that
+evidence. Office loading peaks at 8.97 ms, with 185 buffers created/977 reused.
+No owned compiler or other GPU run overlaps these measured walks.
+
+Fresh strict controls pass all mouse directions, 2.4/4.8 m/s movement,
+Shift toggling/holding and Escape/click recapture. All six entrance cases pass.
+Normal own-stream audio is unmuted at 100%, physical Ryzen speaker output at
+57%. Hum is -32.34 dBFS RMS, steps peak at -10.65 dBFS, and isolated transition
+at -13.31 dBFS. Creature peaks are -13.92/-13.22/-12.11 dBFS, no clipping;
+each requested kind emits its voice. Subjective listening is not performed.
+Artifacts: build/controller-default48, controller-storage48,
+controller-tunnels48, controls48, portals48 and audio48*.
+
+The private wrapper reports termination after the completed walk batch;
+all three drivers have written complete summaries and completion records.
+The controls driver separately verifies normal Escape exit. The long native
+capacity probe verifies normal autonomous exit. No aggregate wrapper exit is
+used as proof of these per-game checks.
+
+## Final format 49 delivery checks — 2026-09-28
+
+Implementation revision 975535a attaches industrial framing to the ceiling slab
+and closes its underside. All 16 final views at four positions/four directions
+are inspected in build/beam49-final. The first attachment-only candidate left
+ceiling stripes visible through an open beam bottom and was rejected.
+World recipe 11, profiles and horizontal collision are unchanged.
+
+The final Release and Debug targets build against externally maintained next
+working copies. All three current CTest suites pass in both (Release 0.33 s,
+Debug 5.35 s). The dependency-wide SDL inventory gate required the game-side
+CNA_PLATFORM_RATCHET setting recorded in bugs.md; game tests stay enabled.
+Observed CNA HEAD 200d08fb67f538317fca8363acb04e0363a19857;
+Sharp Runtime 007280bd1cc789f851f7f454a5041c8ce2479e13. Siblings are not edited.
+
+build/final49-qa.log records successful controls, all six actual entrance cases
+and five own-stream normal-output captures. Hum RMS -32.26 dBFS, walking peak
+-10.77 dBFS, isolated transition peak -13.41 dBFS. Stationary creature event
+peaks are -14.66/-13.18/-11.38 dBFS for Wanderer/Watcher/Crawler. The output is
+unmuted, game stream 100%, Ryzen speaker sink 57%, with no clipping. Subjective
+listening is not performed. The private GPU script exits zero.
+
+The final gallery stores six office, three storage, three tunnel and three
+creature illustrations with provenance. The dedicated product audit records
+acceptance and known limitations rather than equating successful compilation
+with visual completion.

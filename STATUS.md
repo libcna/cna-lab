@@ -1,77 +1,74 @@
 # cna-backrooms status
 
-## Delivery schedule
+## Delivery state
 
-Owner target: **2026-09-28 20:00 Europe/Prague (18:00 UTC)**.
-Continue implementation and QA until about **19:30 local (17:30 UTC)**, then
-freeze features, stabilize/build/run, document remaining issues and commit the
-delivery. **20:55 local (18:55 UTC)** is contingency, not a feature extension.
-The visual/product goal remains **active** until its dedicated audit passes.
+The September milestone is stabilized and delivered around the owner's
+2026-09-28 20:00 Europe/Prague target. Final **world format 49**, recipe **11**;
+implementation revision **975535a**. The dedicated visual/product audit passes
+this low-budget exploration scope; exact evidence and qualifications are in
+[product audit](docs/product-audit.md) and
+[known limitations](docs/known-limitations.md).
 
-## Current state
-
-Committed format **48** provides three distinct connected level
-families, patterned office materials, composed rooms/partitions/column plans,
-coherent huge-hall fixtures, sparse furniture/false doors, environmental level
-transitions, conventional FPS input, Shift walk/run toggling and collision.
-World state stays bounded: 25 active chunks, 48 spare buffers and 256 cached
-room layouts. Three harmless creature types share immutable meshes and drift
-within a clear cell. They fade near the player and emit sparse licensed voices.
-There is no combat, health, damage, chasing, inventory or required quest.
-
-Format 48 refines acoustic-panel fissures and inset seams. All 21 matched
-pitched office/hall views and 12 family views have been inspected. The first,
-overly bold candidate was rejected; the final fine fissures retain quiet distant
-panels. Geometry, collision and recipe 11 remain unchanged. A native Wayland
-28.8 km format 47 run completes with bounded chunks/buffers, but rising RSS does
-not establish a plateau. The format 48 run completes four repeats of the same 9.6 km route. RSS stays
-flat through late laps two/three and decreases in lap four; active/pool state
-stays bounded. Final clean Release compilation is now running.
+Three connected, distinct families provide patterned office Backrooms,
+industrial storage bays and mechanical tunnels. Conventional first-person
+controls, Shift walk/run toggling, collision, environmental entrances and
+bounded deterministic streaming work. Three harmless creature types use shared
+meshes, bounded drift, near fade and sparse licensed voices. No combat or harm.
 
 ## Completed passes
 
-- Materials: original wallpaper, office carpet and mineral concrete, native mipmaps/anisotropy, human scale, warm baked wall/floor illumination and contact agreement.
-- Composition: connected room zones, asymmetric openings, six offset partitions, five office support plans, rare 60-metre halls with three coherent fixture plans, service bays and narrower utility tunnels.
-- Geometry: closed wall junctions, painted opening returns, suspended industrial lights, attached ducts/roof ledges and continuous curved pipe returns.
-- Creatures: three deterministic types, shared bodies/contact meshes, bounded drift, smooth proximity fade and sparse attenuated/panned CC0 breath/rustle cues.
-- Runtime: repeated real controller returns, negative-coordinate regeneration, buffer reuse, live entrances, recapture regression fix and technical normal-device audio checks.
-
-Exact pass history and finite limitations: [validation history](docs/validation-history.md).
-
-## Three highest-priority deficiencies
-
-1. Finish the clean Release build and actual controller return against the latest dependency working copies.
-2. Refresh controls, entrances and all normal-device sound paths after the final build.
-3. Complete the delivery product audit, controls/entrances/normal audio and documentation. Native Wayland real input and subjective listening remain unverified; compositor screenshot access is denied.
+- Materials/renderer: reusable original wallpaper, carpet and concrete;
+  acoustic panel seams/fissures; native mipmaps, anisotropy/MSAA; warm baked
+  illumination and wall/floor/contact response. No replacement renderer.
+- Composition: connected zones, asymmetric openings, six offset partition
+  plans, varied supports, occasional large halls and sparse furniture/false doors.
+- Family geometry: storage supports/shelves/hanging fixtures, attached beams
+  with closed undersides, service roof details and continuous pipe returns.
+- Atmosphere: Wanderer, Watcher and Crawler, nine actual approaches/returns,
+  99 inspected stages, licensed attenuated/panned CC0 voices.
+- Validation: repeated real collision returns, negative coordinates,
+  conventional mouse/recapture, six actual entrances and normal-output audio.
 
 ## Latest validation
 
-- Format 48 native Wayland four-lap sweep completes **38.4 km** across 121 player chunks: max 25 active/17 spare buffers, 339 created/38,283 reused, 79.8 MiB peak packed capacity. RSS late laps two/three is flat at 388.66 MiB and finishes at 363.34. Median/peak build 5.14/39.31 ms; maximum sampled frame 106.34 ms. Collision is bypassed and audio is dummy. Exact limits: validation history and build/repeat48-long.
-- Format 48 Release/Debug builds and all three Debug CTest suites pass. Final clean Release validation follows. Kind selection, cached/uncached generation and bounded entity drift are checked.
-- All nine actual six-metre creature approaches/returns pass position and mouse-angle checks. All **99 captured stages** are inspected: distinct silhouettes, grounded feet, ceiling clearance, near fade and restored native depth/alpha state. Artifacts: build/creatures47-approach and build/creatures47-review-0..16.png.
-- All three stationary normal own-stream voice captures pass without footsteps or clipping. Event peaks: **-14.00/-13.85/-11.37 dBFS**, against hum RMS about -32.4 dBFS. Stream is unmuted at 100%, Ryzen speaker sink unmuted at 57%. Artifacts: build/creatures47-audio-0..2. Listening by ear is not performed.
-- Format 46 strict controls cover all mouse directions, walk/run speeds, Shift behavior and Escape/click recapture. All six live entrance cases and all 33 original figure stages pass; images are inspected. Hum is -32.27 dBFS RMS, walking peak -10.13 dBFS, isolated transition peak -13.58 dBFS, no clipping.
-- Format 46 visual evidence includes 48 matched office directions, 36 huge-hall directions, nine pitched floor pairs and twelve family views, all inspected.
-- The unchanged default-world collision route completes **1,187.7 m**, all 136 waypoints, sixteen player chunks and maximum 25 active; all 52 route directions are inspected. Warmed RSS 162.45–181.18 MiB, final 162.58; 185 buffers created/977 reused; peak build 25.40 ms with seven >16.67 ms outliers. No other owned GPU/compiler ran during measurement; shared scheduling is not isolated.
-- Earlier 28.8 km tunnel sweep holds 25 chunks, 17 sampled spares and final-quarter RSS 321.1–332.7 MiB. Native Wayland 45 short run completes 2.4 km, but its short duration does not establish a plateau. The current longer native sweep follows.
+Final Release/Debug compilation and all three CTest suites pass. Final format 49
+controls, entrances and five normal-output captures finish successfully.
+Hum RMS is -32.26 dBFS; walking peak -10.77; isolated transition peak -13.41;
+creature peaks -14.66/-13.18/-11.38. The game stream is unmuted at 100%, speaker
+sink unmuted at 57%; subjective listening is unperformed.
 
-## Dependencies and practical limits
+Three format 48 collision returns cover **1,186.3/528.3/448.1 m** in office,
+storage and tunnels. All **104 panorama views** were inspected. Office warmed
+RSS is 174.25–192.95 MiB; storage 184.53–185.36; tunnels 263.02–281.68.
+Format 49 changes only industrial beam attachment/undersides, checked in 16
+new views; room layout and horizontal collision are unchanged.
 
-Latest observed read-only next heads: CNA **6f6100cd35df6d094d586f8fee2bb6f3498ad2b9**,
-Sharp Runtime **007280bd1cc789f851f7f454a5041c8ce2479e13**. Siblings are changed
-externally; this game agent never modifies them. The explicit CNA context lease
-remains necessary for recycled-buffer uploads, transitions and deletion; see
-[bugs.md](bugs.md). Recheck dependency heads during final validation.
+The four-lap native sweep completes **38.4 km** across 121 player chunks, with
+maximum 25 active chunks/17 sampled spares, 339 buffers created/38,283 reused,
+79.8 MiB peak packed capacity. RSS is flat late in laps two/three at 388.66 MiB
+and finishes at 363.34. Median/peak build 5.14/39.31 ms; maximum sampled frame
+106.34 ms. The sweep bypasses collision and uses dummy audio; actual-controller
+and normal-output checks are separate. Shared scheduling is not isolated.
 
-Lighting is an inexpensive bake; large-room floor pools remain approximate.
-Creature movement is simple drift, not articulated walking. Private-display
-rendering is roughly 39 FPS/59 UPS, not evidence of normal desktop performance.
-Occasional generation/presentation outliers remain. Walking is flat, and saves,
-vertical traversal, moving doors and a story are outside this milestone.
+## Three remaining qualifications
 
-## Next pass
+1. Subjective sound balance/quality requires listening on the owner's machine;
+   routing, event presence and levels are technically checked.
+2. Native Wayland real input remains unqualified on the headless compositor.
+   Startup/long streaming pass; SDL X11/Xwayland is the validated interactive path.
+3. Occasional measured generation/presentation outliers remain. Lighting is
+   baked, creature animation is simple drift, and room plans remain axis aligned.
 
-The repeated native capacity run passes. Finish the clean final Release build,
-walk the default-world controller return with panorama captures, and refresh
-controls, entrances and technical normal-device audio. At 19:30 stop additions;
-complete the delivery product audit, document deficiencies and commit the state.
+## Dependencies and continuation
+
+Observed next heads: CNA **200d08fb67f538317fca8363acb04e0363a19857**;
+Sharp Runtime **007280bd1cc789f851f7f454a5041c8ce2479e13**. Siblings also have
+external working-copy changes; this agent never modified them. The game-side
+context lease and standalone developer-audit setting are documented in bugs.md.
+
+No more features are scheduled for this delivery. Later work should qualify
+subjective audio/native input and address measured spikes before optional
+animation, saving or additional compositions. Start from README and
+[world architecture](docs/world-generation.md); preserve bounded streaming and
+harmless entities. The full finite pass history remains in
+[validation history](docs/validation-history.md).
