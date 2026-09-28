@@ -28,6 +28,7 @@
 #include "Microsoft/Xna/Framework/Graphics/PrimitiveType.hpp"
 #include "Microsoft/Xna/Framework/Graphics/RasterizerState.hpp"
 #include "Microsoft/Xna/Framework/Graphics/SamplerState.hpp"
+#include "Microsoft/Xna/Framework/Graphics/SamplerStateCollection.hpp"
 #include "Microsoft/Xna/Framework/Graphics/VertexPositionColorTexture.hpp"
 #include "Microsoft/Xna/Framework/Input/ButtonState.hpp"
 #include "Microsoft/Xna/Framework/Input/Keys.hpp"
@@ -1456,6 +1457,7 @@ void BackroomsGame::Draw(const GameTime& time) {
     device.Clear(fog);
     device.setDepthStencilStateProperty(DepthStencilState::Default);
     device.setRasterizerStateProperty(RasterizerState::CullNone);
+    device.getSamplerStatesProperty()[0]=SamplerState::AnisotropicWrap;
     effect_->setFogColorProperty(fog.ToVector3());
     effect_->setFogStartProperty(LevelInfo(world_).fogStart);
     effect_->setFogEndProperty(LevelInfo(world_).fogEnd);
