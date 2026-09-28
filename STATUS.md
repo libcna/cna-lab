@@ -1,14 +1,28 @@
 # cna-backrooms visual goal status
 
+## Delivery schedule
+
+Owner deadline: **2026-09-28 around 20:00 Europe/Prague (18:00 UTC)**.
+Continue autonomous implementation and product QA until about **19:30 local
+(17:30 UTC)**. Reserve the final half hour for stabilization, build/runtime
+checks, documenting remaining deficiencies and committing the delivered state.
+Hard outer limit for completing delivery: **20:55 local (18:55 UTC)**, when the
+owner expects subscription/session termination. Aim to finish at 20:00; the
+extra time is contingency for stabilization or committing, not new features.
+This supersedes the original approximate 24-hour target; do not finish early
+merely because a milestone passes. Check the actual clock at major checkpoints.
+
 ## Current state
 
 The product goal remains **active**. Three distinct families, connected deterministic rooms, bounded 5-by-5 streaming, collision, conventional mouse look, Shift toggling, native profiles, licensed audio, transitions and harmless entities work. Level 0 has original wallpaper/carpet, acoustic ceilings, warmer height-dependent fluorescent light, irregular rooms, six offset partition plans, sparse furniture and alcoves. Builds and numeric tests do not finish the visual audit.
 
 ## Current pass
 
-Format 39 proximity fade is validated through actual approach/return paths in all three families. Native depth resolution suppresses overlapping rear surfaces, and contact spots fade with the body. Thirty-three matched approach pairs, eighteen figure views and twelve family views are inspected; all six live entrance cases pass. Pipe termination is the next environmental pass.
+Format 40 gives exposed tunnel pipe ends short curved returns through their supporting wall. Neighbor queries retain continuous runs across chunk borders and stop only when the backing wall or pipe plan ends. Thirty-six paired multi-seed directions, twelve family views and sixteen actual-route views have been inspected. Release/Debug gates pass; the next pass samples broader office compositions and weak lighting circuits. The product goal remains active.
 
 ## Completed passes
+
+- **40:** continuous tunnel pipe runs and curved wall returns. Thirty-six matched directions, twelve family views and sixteen route views inspected. Release/Debug suites pass; the 448.8 m collision return holds at most 25 chunks, with 10.07 ms peak build and final RSS 272.53 MiB.
 
 - **39:** smooth harmless-figure retreat from 5.0 to 1.5 metres, native depth-only resolution and shared fading contact spots. All 33 controller pairs, 18 entity views and 12 family views inspected. Release/Debug suites and six live entrance cases pass.
 
@@ -31,11 +45,13 @@ Format 39 proximity fade is validated through actual approach/return paths in al
 
 ## Three highest-priority deficiencies
 
-1. Tunnel pipe ends stop abruptly near openings; attach their termination coherently to the wall.
-2. Reassess office room repetition and lighting in wider arbitrary views, including dark circuits and broad rooms.
+1. Reassess office room repetition and lighting in wider arbitrary views, including weak circuits and broad rooms.
+2. Measure long-run tunnel buffer capacity after the new pipe geometry; the short return is not plateau evidence.
 3. Refresh audio routing checks after external dependency changes; subjective listening remains unavailable.
 
 ## Latest validation
+
+- Format 40 Release/Debug builds and all three CTest suites pass. The 448.8 m collision-enabled tunnel return completes 60 waypoints in 270.0 seconds, five player chunks and at most 25 active chunks. Peak sampled build is 10.07 ms; warmed RSS is 258.14–273.47 MiB, final 272.53 MiB, with 208 buffer creations and 313 reuses. Draw rate is about 39 FPS on the private display. The two-segment return replaces a costlier four-segment prototype; loaded spawn geometry rises about 30% from format 38. Thirty-six matched directions, twelve family views and sixteen route views were inspected. No compiler or other game owned by this agent ran during the measured walk. Dummy audio is not listening evidence.
 
 - Format 39 Release/Debug builds of the game and all three registered test targets pass, with all CTest suites passing. Actual six-metre figure approaches/returns finish in all three families with measured positions and mouse headings. Nearest-distance/opacity telemetry reaches zero within 1.5 m and returns to one beyond 5 m; all 33 paired stages were inspected. Native depth/alpha state restores correctly in 18 entity and 12 family views. All six actual entrance directions/outside/frame cases pass. The initial QA driver accumulated small key-duration drift; calculating each next move from the measured position resolves it. Baseline screenshot timing overlaps compilation and is not a performance comparison. Dummy audio is not listening evidence.
 
@@ -55,4 +71,4 @@ Format 39 proximity fade is validated through actual approach/return paths in al
 
 ## Next pass
 
-Attach exposed tunnel pipe ends, compare arbitrary views and close details, then sample office lighting/composition further. Continue actual traversal and the product audit; the goal remains active.
+Sample office lighting/composition in broader arbitrary regions, inspect weak circuits and broad rooms, then fix the largest visible deficiency. Follow with actual return traversal, a long tunnel capacity sweep and fresh audio routing checks. Continue until the scheduled stabilization window; the goal remains active.

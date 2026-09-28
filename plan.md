@@ -1,8 +1,11 @@
 # cna-backrooms: development plan
 
 Target: Linux desktop, CNA `next`, sharp-runtime `next`, EasyGL `OPENGLES3`.
-The budget target is about 24 hours. The initial prototype was Phase 0; a
-successful build is not completion of the visual product goal.
+The original budget target was about 24 hours. The owner's revised delivery
+schedule is 2026-09-28 around 20:00 Europe/Prague: continue implementation and
+product QA until about 19:30, then stabilize, document remaining deficiencies
+and commit the delivered state during the final half hour. The initial prototype
+was Phase 0; a successful build is not completion of the visual product goal.
 
 | Priority | Scope | State |
 | --- | --- | --- |
@@ -55,23 +58,22 @@ an unmuted output; subjective listening remains a human check.
 
 ## Current backlog and remaining target allocation
 
-Industrial bay composition, mineral surfaces, opening returns and attached
-service roof details are complete through format 38. Long capacity sweeps,
-uncurated regions and actual returns have supplied the next visible deficiencies.
+Industrial bay composition, mineral surfaces, opening returns, attached service
+roof details, smooth figure approaches and continuous pipe returns are complete
+through format 40. The remaining delivery window prioritizes product evidence:
 
-1. **Near figures (~half an hour):** replace abrupt disappearance with a smooth
-   retreat, compare clear controller approaches in all families and retain
-   unobstructed vision and harmless behavior.
-2. **Service pipe termination (~three quarters of an hour):** inspect exposed
-   pipe ends near openings and attach or terminate them coherently, without a
-   plumbing simulation or changing the renderer.
-3. **Office/product QA (~1.5 hours):** sample further uncurated seeds/headings,
-   including darker and larger spaces, then walk an actual collision return.
-   Fix the largest material, scale, lighting or composition defect found.
-4. **Stability/refinement audit (~1.5 hours):** inspect fresh family screenshots,
-   verify live transitions and audio routing after external runtime changes,
-   update documentation and commit. Continue achievable product improvements
-   if these passes expose more work.
+1. **Office/product QA:** sample further uncurated seeds/headings, including
+   weak lighting circuits and broad spaces, then walk an actual collision return.
+   Fix the largest material, scale, lighting or composition defects found.
+2. **Long-run stability:** repeat the finite tunnel capacity sweep after the new
+   geometry and inspect positive/negative/return streaming for growth or spikes.
+3. **Atmosphere and runtime audit:** refresh audio routing after external runtime
+   changes, inspect additional family views and verify live transitions.
+4. **19:30 stabilization:** stop feature additions, rebuild/test/run the delivered
+   state, document remaining issues and commit for the owner's 20:00 target.
+
+Continue achievable visual or gameplay improvements until the stabilization
+window if these checks finish early. No new renderer or engine framework is needed.
 
 These are scope estimates, not permission to stop at a milestone. Continue the
 highest-value achievable deficiency while the goal is unsatisfied. Cut optional

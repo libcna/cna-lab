@@ -293,6 +293,34 @@ void PipeRun(Meshes& meshes, bool alongZ, float cross, float start,
     }
 }
 
+void PipeWallReturn(Meshes& meshes,bool alongZ,float cross,float straightEnd,
+                    float wallSide,float direction,float height,float radius,
+                    Color color) {
+    constexpr float bendRadius=0.20f,halfPi=1.57079632679f,turn=6.28318530718f;
+    constexpr int segments=2,facets=8;
+    const auto point=[&](float angle,float radial) {
+        const float c=std::cos(angle),s=std::sin(angle);
+        const float across=cross-wallSide*bendRadius*(1-c)+radius*std::cos(radial)*c;
+        const float along=straightEnd+direction*bendRadius*s+
+                          radius*std::cos(radial)*wallSide*direction*s;
+        const float y=height+radius*std::sin(radial);
+        return alongZ ? Vector3(across,y,along) : Vector3(along,y,across);
+    };
+    for (int segment=0;segment<segments;++segment) {
+        const float a=halfPi*segment/segments,b=halfPi*(segment+1)/segments;
+        const float ua=(straightEnd+direction*bendRadius*a)*0.3f;
+        const float ub=(straightEnd+direction*bendRadius*b)*0.3f;
+        for (int facet=0;facet<facets;++facet) {
+            const float ra=turn*facet/facets,rb=turn*(facet+1)/facets;
+            const Color ca=Scale(color,0.86f+0.14f*std::sin(ra));
+            const Color cb=Scale(color,0.86f+0.14f*std::sin(rb));
+            QuadColors(meshes,Material::GalvanizedMetal,
+                point(a,ra),point(b,ra),point(b,rb),point(a,rb),{ca,ca,cb,cb},
+                {ua,radius*ra},{ub,radius*ra},{ub,radius*rb},{ua,radius*rb});
+        }
+    }
+}
+
 void PropBox(Meshes& meshes, Material material, float cx, float cz,
              int quarterTurn, float sink, float x0, float z0, float x1,
              float z1, float y0, float y1, Color color) {
@@ -1207,14 +1235,29 @@ void BackroomsGame::BuildChunk(ChunkCoord coord) {
             const Color cabinet(133,139,126);
             const int regionX=FloorDiv(gx,kRegionCells);
             const int regionZ=FloorDiv(gz,kRegionCells);
-            const int pipeStyle=static_cast<int>(
-                CellHash(world_,regionX,regionZ,3311)%4);
+            const auto pipeLayout=CellHash(world_,regionX,regionZ,3311);
+            const int pipeStyle=static_cast<int>(pipeLayout%4);
             const auto serviceWall=[&](bool vertical, float boundary,
                                        bool positiveSide, std::uint32_t hash) {
                 const float side=positiveSide ? 1.0f : -1.0f;
                 const float start=vertical ? z : x;
                 const float cross=boundary+side*0.21f;
                 const bool hasCabinet=hash%13==0;
+                const int edgeX=gx+(vertical && !positiveSide ? 1 : 0);
+                const int edgeZ=gz+(!vertical && !positiveSide ? 1 : 0);
+                const auto adjacent=[&](int offset) {
+                    const int cellX=gx+(vertical ? 0 : offset);
+                    const int cellZ=gz+(vertical ? offset : 0);
+                    const int bx=edgeX+(vertical ? 0 : offset);
+                    const int bz=edgeZ+(vertical ? offset : 0);
+                    const auto nextLayout=CellHash(world_,FloorDiv(cellX,kRegionCells),
+                                                 FloorDiv(cellZ,kRegionCells),3311);
+                    const Edge nextEdge=vertical ? VerticalEdge(world_,bx,bz) :
+                                                   HorizontalEdge(world_,bx,bz);
+                    return std::pair{nextEdge==Edge::Solid &&
+                                     nextLayout%4==static_cast<unsigned>(pipeStyle),nextLayout};
+                };
+                const auto previous=adjacent(-1),next=adjacent(1);
                 const auto pipe=[&](float pipeHeight,float radius,Color color) {
                     const float illumination=lighting.WallSample(
                         wx+(vertical ? cross-x : 2.5f),
@@ -1226,11 +1269,26 @@ void BackroomsGame::BuildChunk(ChunkCoord coord) {
                         PipeRun(meshes,vertical,cross,from,to,pipeHeight,r,tint,
                                 Material::GalvanizedMetal);
                     };
+                    const auto continues=[&](const auto& neighbor) {
+                        if (!neighbor.first) return false;
+                        const bool optional=pipeStyle==3 || (pipeStyle==0 && pipeHeight<1.0f);
+                        return !optional || neighbor.second%3!=0;
+                    };
+                    const bool before=continues(previous),after=continues(next);
+                    const float from=start+(before ? 0.0f : 0.38f);
+                    const float to=start+5.0f-(after ? 0.0f : 0.38f);
                     if (hasCabinet && pipeHeight+radius>1.03f &&
                         pipeHeight-radius<1.66f) {
-                        run(start,start+1.90f,radius,color);
-                        run(start+2.68f,start+5.0f,radius,color);
-                    } else run(start,start+5.0f,radius,color);
+                        run(from,start+1.90f,radius,color);
+                        run(start+2.68f,to,radius,color);
+                    } else run(from,to,radius,color);
+                    // Neighbor queries use global edges, so a straight run is
+                    // continuous across chunks. Only real terminations bend
+                    // through the wall, without jutting into the opening.
+                    if (!before) PipeWallReturn(meshes,vertical,cross,from,side,-1,
+                                                pipeHeight,radius,color);
+                    if (!after) PipeWallReturn(meshes,vertical,cross,to,side,1,
+                                               pipeHeight,radius,color);
                     for (const float along:{start+0.40f,start+4.30f}) {
                         run(along-0.025f,along+0.025f,radius*1.18f,Scale(color,0.84f));
                         const float wall=boundary+side*0.105f;
@@ -1247,14 +1305,14 @@ void BackroomsGame::BuildChunk(ChunkCoord coord) {
                 };
                 if (pipeStyle==0) {
                     pipe(1.95f,0.075f,Color(225,218,193));
-                    if (hash%3!=0) pipe(0.89f,0.055f,Color(179,186,164));
+                    if (pipeLayout%3!=0) pipe(0.89f,0.055f,Color(179,186,164));
                 } else if (pipeStyle==1) {
                     pipe(1.28f,0.13f,Color(201,212,193));
                     pipe(2.03f,0.05f,Color(223,211,185));
                 } else if (pipeStyle==2) {
                     pipe(2.04f,0.065f,Color(211,165,122));
                     pipe(1.77f,0.055f,Color(192,158,122));
-                } else if (hash%3!=0) {
+                } else if (pipeLayout%3!=0) {
                     pipe(1.70f,0.085f,Color(167,192,176));
                     pipe(0.55f,0.060f,Color(194,199,172));
                 }

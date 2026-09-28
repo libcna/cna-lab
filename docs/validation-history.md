@@ -168,3 +168,27 @@ Figures fade with a smooth proximity curve between 5.0 and 1.5 metres. Their con
 The new world-quality approach selection finds clear six-metre paths with real 0.55 m clearance and rejects entrances. The actual-controller driver captures eleven approach/return stages per family and checks measured position/yaw. Thirty-three baseline/new pairs, eighteen near/mid/distant figure views and twelve family views were inspected; vision remains unobstructed at close range and figures restore smoothly on retreat. The original driver accumulated small timed-key drift; calculating each next move from measured position resolves the QA error, and all three complete returns pass. Baseline captures overlap compilation and are not used for timing comparisons.
 
 Release/Debug builds of the game and all three registered test targets pass; all CTest suites pass. The unrelated default all-target builds were interrupted; final gates explicitly build only the game/audit/test targets in the existing trees. All six live maintenance entrance cases pass against the refreshed external CNA runtime: four directed transitions, movement outside the gate and frame collision. Geometry, collision, profile bytes and hash recipe are unchanged. Dummy audio does not validate listening.
+
+
+## Continuous service pipes, format 40
+
+Pipe presence follows a region plan instead of changing at each five-metre wall.
+Adjacent deterministic edge queries preserve uninterrupted runs across chunk
+borders. Exposed ends receive short curved returns through the supporting wall;
+no path graph, renderer or collision changes are needed. The four-segment
+prototype increased spawn triangle count by about 62%; the two-segment refinement
+reduces that to about 30%, with eight radial facets and 32 triangles per return.
+Thirty-six old/new directions across distant and uncurated multi-seed locations,
+twelve family views and all sixteen actual-route views were inspected. No missing
+floor, ceiling or reused-buffer corruption is observed. Profile fingerprint and
+random hash recipe remain unchanged.
+
+Release/Debug game/audit/test targets and all three CTest suites pass. The real
+collision-enabled return completes all 60 waypoints over 448.8 m in 270.0 seconds,
+five player chunks and at most 25 active chunks. Peak sampled build is 10.07 ms;
+warmed RSS is 258.14–273.47 MiB, final 272.53 MiB. The bounded pool creates 208
+buffers and reuses 313, ending with eight spares and 48.1 MiB packed capacity.
+Actual draw rate holds about 39 FPS on the private display. This short return is
+not final plateau evidence; a fresh long sweep remains planned. No compiler or
+other GPU job owned by this agent runs during the measured walk. Dummy audio does
+not validate audibility.
