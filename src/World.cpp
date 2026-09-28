@@ -205,7 +205,26 @@ bool StorageRackAt(const WorldConfig& config, int cellX, int cellZ) {
 
 bool ColumnAt(const WorldConfig& config,int cellX,int cellZ) {
     const auto kind=RegionAt(config,cellX,cellZ);
-    const int lx=ModFloor(cellX,kRegionCells),lz=ModFloor(cellZ,kRegionCells);
+    int lx=ModFloor(cellX,kRegionCells),lz=ModFloor(cellZ,kRegionCells);
+    if (config.level==0 && kind==RegionKind::Columns) {
+        const int rx=DivFloor(cellX,kRegionCells),rz=DivFloor(cellZ,kRegionCells);
+        const auto style=OfficeColumnStyleAt(config,rx,rz);
+        if (!style) return false;
+        if (CellHash(config,rx,rz,4497)&0x10000U) std::swap(lx,lz);
+        switch (*style) {
+        case OfficeColumnStyle::Rectangular:
+            return (lx==1 || lx==4) && (lz==1 || lz==4);
+        case OfficeColumnStyle::Spine:
+            return lx==2 && (lz==1 || lz==3 || lz==4);
+        case OfficeColumnStyle::LShaped:
+            return (lx==1 && (lz==1 || lz==4)) || (lx==4 && lz==4);
+        case OfficeColumnStyle::DiagonalPair:
+            return (lx==1 && lz==4) || (lx==4 && lz==1);
+        case OfficeColumnStyle::OffsetRectangle:
+            return (lx==1 && (lz==1 || lz==4)) ||
+                   (lx==4 && (lz==2 || lz==4));
+        }
+    }
     if (kind==RegionKind::Columns)
         return (lx==1 || lx==4) && (lz==1 || lz==4);
     return config.level==1 && kind==RegionKind::Storage &&
@@ -647,6 +666,14 @@ std::optional<OfficePartitionStyle> OfficePartitionStyleAt(
     return static_cast<OfficePartitionStyle>((layout>>21)%6);
 }
 
+std::optional<OfficeColumnStyle> OfficeColumnStyleAt(
+    const WorldConfig& config,int rx,int rz) {
+    if (config.level!=0 ||
+        RegionAt(config,rx*kRegionCells,rz*kRegionCells)!=RegionKind::Columns ||
+        IsEmptyHall(config,rx*kRegionCells,rz*kRegionCells)) return std::nullopt;
+    return static_cast<OfficeColumnStyle>(CellHash(config,rx,rz,4497)%5);
+}
+
 CellObstacleSet InteriorPartitionsAt(const WorldConfig& config,
                                      int cellX, int cellZ) {
     CellObstacleSet result;
@@ -809,7 +836,15 @@ CellObstacleSet FullHeightObstaclesAt(const WorldConfig& config, int cellX, int 
     for (int i=0;i<interior.count;++i)
         result.walls[result.count++]=interior.walls[i];
     if (ColumnAt(config,cellX,cellZ)) {
-        const double cx=(cellX+0.5)*kCellSize,cz=(cellZ+0.5)*kCellSize;
+        double cx=(cellX+0.5)*kCellSize,cz=(cellZ+0.5)*kCellSize;
+        if (config.level==0) {
+            // Shift the complete support plan by ceiling tiles, not unrelated
+            // per-column noise. Every support remains well inside its cell.
+            const auto layout=CellHash(config,DivFloor(cellX,kRegionCells),
+                                       DivFloor(cellZ,kRegionCells),4497);
+            cx+=(static_cast<int>((layout>>7)%3)-1)*0.625;
+            cz+=(static_cast<int>((layout>>10)%3)-1)*0.625;
+        }
         result.walls[result.count++]={cx-0.43,cz-0.43,cx+0.43,cz+0.43};
     }
     if (const auto alcove=OfficeAlcoveAt(config,cellX,cellZ)) {

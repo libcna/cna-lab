@@ -20,6 +20,7 @@ struct Counts {
     int longestSightline=0,portals=0,emptyHallCells=0,chamberCells=0,alcoves=0,entities=0;
     std::array<int,7> regions{};
     std::array<int,6> partitionPlans{};
+    std::array<int,5> columnPlans{};
 };
 
 void CountEdge(Counts& counts, Edge edge) {
@@ -57,6 +58,9 @@ Counts Sample(const WorldConfig& world) {
         if (x%kRegionCells==0 && z%kRegionCells==0)
             if (const auto style=OfficePartitionStyleAt(world,x/kRegionCells,z/kRegionCells))
                 ++counts.partitionPlans[static_cast<int>(*style)];
+        if (x%kRegionCells==0 && z%kRegionCells==0)
+            if (const auto style=OfficeColumnStyleAt(world,x/kRegionCells,z/kRegionCells))
+                ++counts.columnPlans[static_cast<int>(*style)];
     }
     for (int z=kMin;z<=kMax;++z) {
         int run=0;
@@ -148,6 +152,40 @@ int OfficeLightingViews() {
             selected=true;
         }
         if (!selected) throw std::runtime_error("could not select an office lighting sample");
+    }
+    return 0;
+}
+
+int OfficeColumnViews() {
+    const auto levels=LoadLevelCatalog(FindAssetDirectory()/"levels.json");
+    RoomLayoutCache cache;
+    constexpr std::array<std::uint64_t,3> seeds{{8723,55291,402717}};
+    constexpr std::array<const char*,5> cases{{"rectangle","spine","L_plan",
+                                             "diagonal_pair","offset_rectangle"}};
+    for (int style=0;style<5;++style) for (int index=0;index<3;++index) {
+        const WorldConfig world{seeds[index],0,&cache,&levels};
+        bool selected=false;
+        for (int attempt=0;attempt<10000 && !selected;++attempt) {
+            const auto a=CellHash(world,style*3+index,attempt,4501);
+            const auto b=CellHash(world,style*3+index,attempt,4507);
+            const int rx=static_cast<int>(a%266)-133;
+            const int rz=static_cast<int>(b%266)-133;
+            const auto plan=OfficeColumnStyleAt(world,rx,rz);
+            if (!plan || static_cast<int>(*plan)!=style) continue;
+            // The central eight-metre square also avoids the legacy four
+            // supports. This permits an exact camera match against format 43.
+            const double x=rx*kRegionCells*kCellSize+11+((a>>12)%801)*0.01;
+            const double z=rz*kRegionCells*kCellSize+11+((b>>12)%801)*0.01;
+            if (Collides(world,x,z,0.55) || PortalAt(world,CellOf(x),CellOf(z))) continue;
+            const double heading=(CellHash(world,rx,rz,4513)%6284)*0.001;
+            std::cout << std::fixed << std::setprecision(6)
+                      << "view seed " << world.seed << " level 0 sample " << style*3+index
+                      << " region " << static_cast<int>(RegionKind::Columns)
+                      << " position " << x << ',' << z << " heading " << heading
+                      << " case " << cases[style] << '\n';
+            selected=true;
+        }
+        if (!selected) throw std::runtime_error("could not select an office support plan");
     }
     return 0;
 }
@@ -261,6 +299,8 @@ int Run(bool showAlcoves,bool showPartitions,bool showEntities) {
             for (int count:c.regions) std::cout << ' ' << count;
             std::cout << " | partition plans";
             for (int count:c.partitionPlans) std::cout << ' ' << count;
+            std::cout << " | column plans";
+            for (int count:c.columnPlans) std::cout << ' ' << count;
             std::cout << '\n';
             if (showEntities) {
                 const WorldConfig world{seed,level,&cache,&levels};
@@ -347,11 +387,12 @@ int main(int argc,char** argv) {
         if (argc>2 || (argc==2 && std::string(argv[1])!="--alcoves" &&
                       std::string(argv[1])!="--partitions" && std::string(argv[1])!="--entities" &&
                       std::string(argv[1])!="--views" && std::string(argv[1])!="--office-lighting" &&
-                      std::string(argv[1])!="--wall-ends" &&
+                      std::string(argv[1])!="--wall-ends" && std::string(argv[1])!="--office-columns" &&
                       std::string(argv[1])!="--entity-approaches"))
-            throw std::invalid_argument("usage: world_quality [--alcoves|--partitions|--entities|--views|--office-lighting|--wall-ends|--entity-approaches]");
+            throw std::invalid_argument("usage: world_quality [--alcoves|--partitions|--entities|--views|--office-lighting|--office-columns|--wall-ends|--entity-approaches]");
         if (argc==2 && std::string(argv[1])=="--views") return ViewSamples();
         if (argc==2 && std::string(argv[1])=="--office-lighting") return OfficeLightingViews();
+        if (argc==2 && std::string(argv[1])=="--office-columns") return OfficeColumnViews();
         if (argc==2 && std::string(argv[1])=="--wall-ends") return WallEndViews();
         if (argc==2 && std::string(argv[1])=="--entity-approaches") return EntityApproaches();
         return Run(argc==2 && std::string(argv[1])=="--alcoves",

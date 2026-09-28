@@ -29,7 +29,7 @@ int main() {
     CHECK(ChunkOfCell(-9)==-2);
     CHECK(ChunkAt(-0.01,-40.01)==(ChunkCoord{-1,-2}));
     // Golden values make changes to the versioned procedural world explicit.
-    CHECK(kFormatVersion==43);
+    CHECK(kFormatVersion==44);
     CHECK(CellHash(world,12,-8,41)==511389911U);
     CHECK(VerticalEdge(world,8,3)==Edge::Open);
     CHECK(HorizontalEdge(world,-4,-5)==Edge::Open);
@@ -68,6 +68,45 @@ int main() {
     }
     const auto restored=cache.Get(world,-3,2,RegionKind::Rooms);
     CHECK(original.east==restored.east && original.south==restored.south);
+    // Composed support plans must regenerate identically, stay inside cells,
+    // and share the exact static collider used by rendering and light sampling.
+    std::array<int,5> columnPlans{};
+    constexpr std::array<int,5> supportCounts{{4,3,3,2,4}};
+    for (const auto seed:{0ULL,12345ULL,31337ULL}) {
+        const WorldConfig office{seed,0,&cache},pure{seed,0};
+        for (int rx=-18;rx<=18;++rx) for (int rz=-18;rz<=18;++rz) {
+            const auto style=OfficeColumnStyleAt(office,rx,rz);
+            CHECK(style==OfficeColumnStyleAt(pure,rx,rz));
+            if (!style) continue;
+            bool hasPortal=false;
+            int supports=0;
+            for (int lx=0;lx<kRegionCells;++lx) for (int lz=0;lz<kRegionCells;++lz) {
+                const int cx=rx*kRegionCells+lx,cz=rz*kRegionCells+lz;
+                hasPortal|=PortalAt(office,cx,cz).has_value();
+                const auto obstacles=FullHeightObstaclesAt(office,cx,cz);
+                const auto regenerated=FullHeightObstaclesAt(pure,cx,cz);
+                CHECK(obstacles.count==regenerated.count);
+                for (int i=0;i<obstacles.count;++i) {
+                    const auto& box=obstacles.walls[i];
+                    const auto& again=regenerated.walls[i];
+                    CHECK(box.minX==again.minX && box.maxX==again.maxX &&
+                          box.minZ==again.minZ && box.maxZ==again.maxZ);
+                    if (std::abs(box.maxX-box.minX-0.86)>1e-6 ||
+                        std::abs(box.maxZ-box.minZ-0.86)>1e-6) continue;
+                    ++supports;
+                    CHECK(box.minX>cx*kCellSize+1.0 && box.maxX<(cx+1)*kCellSize-1.0);
+                    CHECK(box.minZ>cz*kCellSize+1.0 && box.maxZ<(cz+1)*kCellSize-1.0);
+                    CHECK(Collides(office,(box.minX+box.maxX)/2,
+                                   (box.minZ+box.maxZ)/2,0.01));
+                }
+            }
+            if (!hasPortal) CHECK(supports==supportCounts[static_cast<int>(*style)]);
+            ++columnPlans[static_cast<int>(*style)];
+        }
+        CHECK(!OfficeColumnStyleAt(WorldConfig{seed,1,&cache},0,0));
+        CHECK(!OfficeColumnStyleAt(WorldConfig{seed,2,&cache},0,0));
+    }
+    for (const int count:columnPlans) CHECK(count>10);
     double x=2.5,z=2.5;
     CHECK(!Collides(world,x,z,0.31));
     // A solid partition blocks normal movement; this checks every deterministic edge type.

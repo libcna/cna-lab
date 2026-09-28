@@ -18,17 +18,17 @@ The product goal remains **active**. Three distinct families, connected determin
 
 ## Current pass
 
-Format 43 refines only the office floor bake to 1.25-metre triangles and shares
-the grid with contact shading. All forty-eight matched office directions, six
-pitched floor pairs, twelve family views and fifteen route views are inspected.
-Release/Debug suites pass; the 663.2 m remote collision return finishes all 68
-waypoints through nine player chunks, with maximum 25 active and final RSS
-162.25 MiB. Its 35.51 ms peak remains recorded. The matched short capacity comparison
-shows sampled build median 2.41→2.98 ms, bounded memory and unchanged median draw
-rate. Fresh normal PipeWire hum/footstep/isolated-cue captures pass technically.
-Next implementation: less uniform office support layouts.
+Format 44 adds five office support plans, optional transpose and a room-wide
+ceiling-tile offset instead of the identical four-column rectangle. Industrial
+supports remain unchanged. Release/Debug builds and all three suites pass;
+all 63 physical squares have one substantial connected component. All sixty
+matched remote directions and twelve family views are inspected. Actual
+collision-enabled default-seed return is underway; timings/memory remain pending.
+Next investigation: native presentation cadence, without engine modifications.
 
 ## Completed passes
+
+- **44:** five office support plans, room-wide transpose/tile phase and shared bounds. Sixty matched remote directions and twelve family views inspected. Release/Debug suites, seven-seed audit and 63 physical squares pass. Default-seed collision return remains underway.
 
 - **43:** finer office floor illumination and matching contact interpolation. Forty-eight matched directions, six pitched floor pairs, twelve family views and fifteen route views inspected. Release/Debug suites pass. The remote office return walks 663.2 m across nine player chunks with maximum 25 active, 35.51 ms peak build and warmed RSS 162.18–163.61 MiB. The matched short capacity comparison and fresh own-stream audio checks pass.
 
@@ -59,9 +59,9 @@ Next implementation: less uniform office support layouts.
 
 ## Three highest-priority deficiencies
 
-1. Column-room composition remains too regular; vary a few architectural support layouts while preserving clearance.
+1. Native presentation cadence still draws fewer frames than updates on the private display; compare CNA timestep modes before choosing a game-side change.
 2. Audit the default seed and additional arbitrary family locations; rare huge halls still have a regular fixture field.
-3. Refresh real audio routing and presentation measurements after external runtime changes. Subjective listening remains unavailable.
+3. Rare huge halls retain a regular fixture field; assess whether a small composition pass helps. Subjective audio listening remains unavailable.
 
 ## Latest validation
 
@@ -91,8 +91,7 @@ Next implementation: less uniform office support layouts.
 
 ## Next pass
 
-Commit format 43 and vary office
-column composition, compare the same regions and check physical connectivity.
+Finish format 44 office support composition, compare the same regions and check physical connectivity.
 Then audit the default-seed launch, further family locations and presentation
 cadence. Continue useful product/runtime work until the stabilization window.
 The goal remains active.

@@ -11,7 +11,7 @@
 
 namespace Backrooms {
 
-constexpr int kFormatVersion = 43;
+constexpr int kFormatVersion = 44;
 constexpr int kChunkCells = 8;
 constexpr int kRegionCells = 6;
 constexpr double kCellSize = 5.0;
@@ -43,6 +43,10 @@ enum class RegionKind : std::uint8_t {
 
 enum class OfficePartitionStyle : std::uint8_t {
     Straight, LShaped, TShaped, Staggered, ShortWall, DeadSpace
+};
+
+enum class OfficeColumnStyle : std::uint8_t {
+    Rectangular, Spine, LShaped, DiagonalPair, OffsetRectangle
 };
 
 struct Wall {
@@ -178,6 +182,8 @@ OpeningSpan OpeningForEdge(const WorldConfig& config, Edge edge,
                            bool vertical, int edgeX, int edgeZ);
 CellProp PropAt(const WorldConfig& config, int cellX, int cellZ);
 std::optional<OfficePartitionStyle> OfficePartitionStyleAt(
+    const WorldConfig& config,int regionX,int regionZ);
+std::optional<OfficeColumnStyle> OfficeColumnStyleAt(
     const WorldConfig& config,int regionX,int regionZ);
 CellObstacleSet InteriorPartitionsAt(const WorldConfig& config,
                                      int cellX, int cellZ);

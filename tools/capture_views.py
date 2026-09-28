@@ -65,6 +65,8 @@ def main():
                         help='sample empty halls, broad rooms, weak circuits and enclosed offices')
     parser.add_argument('--wall-ends',action='store_true',
                         help='inspect exposed ends and outer corners in all three families')
+    parser.add_argument('--office-columns',action='store_true',
+                        help='sample all five office support plans across three seeds')
     parser.add_argument('--world-quality',default='build/world_quality')
     parser.add_argument('--all-directions',action='store_true',
                         help='also capture right, back and left views at each location')
@@ -73,13 +75,14 @@ def main():
         parser.error('pitch must be finite and within +/-75 degrees')
     pitch_pixels=round(-math.radians(args.pitch)/0.0022)
     root=pathlib.Path(__file__).resolve().parents[1]
-    if sum((args.partitions,args.distant,args.entities,args.sampled,args.office_lighting,args.wall_ends))>1:
+    if sum((args.partitions,args.distant,args.entities,args.sampled,args.office_lighting,args.wall_ends,args.office_columns))>1:
         parser.error('choose one visual sample set')
     views=DISTANT_VIEWS if args.distant else BASE_VIEWS
     profile_source=None
-    if args.partitions or args.entities or args.sampled or args.office_lighting or args.wall_ends:
+    if args.partitions or args.entities or args.sampled or args.office_lighting or args.wall_ends or args.office_columns:
         quality=subprocess.check_output([str((root/args.world_quality).resolve()),
                                          '--wall-ends' if args.wall_ends else
+                                         '--office-columns' if args.office_columns else
                                          '--office-lighting' if args.office_lighting else
                                          '--views' if args.sampled else
                                          '--entities' if args.entities else '--partitions'],cwd=root,text=True,
@@ -88,7 +91,7 @@ def main():
         profile_source=source[1] if source else '0' if 'using built-in defaults' in quality else None
         if profile_source is None:
             raise RuntimeError('world quality did not report its level-profile source')
-        if args.sampled or args.office_lighting or args.wall_ends:
+        if args.sampled or args.office_lighting or args.wall_ends or args.office_columns:
             pattern=r'view seed (\d+) level ([012]) sample (\d+) region \d+ position ([\d.-]+),([\d.-]+) heading ([\d.-]+)'
             views=[]
             for match in re.finditer(pattern,quality):
@@ -97,7 +100,7 @@ def main():
                 turn=(initial-float(heading)+math.pi)%(2*math.pi)-math.pi
                 views.append((f'l{level}_sample_{sample}',int(seed),int(level),
                               float(x),float(z),round(turn/0.0022)))
-            if len(views)!=(18 if args.wall_ends else 12):
+            if len(views)!=(18 if args.wall_ends else 15 if args.office_columns else 12):
                 raise RuntimeError('world quality did not find all requested view samples')
         elif args.entities:
             pattern=r'entity seed (0|12345) level ([012]) band ([012]) cell -?\d+,-?\d+ position ([\d.-]+),([\d.-]+) heading ([\d.-]+)'

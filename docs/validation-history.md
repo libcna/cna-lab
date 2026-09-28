@@ -320,3 +320,27 @@ a footstep peaks at -12.79 dBFS, without clipping. Both actual cases enter Level
 and log audio ready, without audio warnings. No other stream or device setting
 is changed. This establishes technical routing and signal, not subjective
 listening, which remains unperformed by the agent.
+
+## Format 44: composed office supports
+
+Five region-level office plans replace the identical four-column rectangle:
+rectangle, short spine, L plan, diagonal pair and offset rectangle. A room-wide
+transpose and optional 0.625-metre phase keep the supports aligned with ceiling
+tiles while changing sightlines. Each support stays inside its original cell;
+shared full-height bounds drive collision, geometry, local light obstruction
+and fixture clearance. Industrial supports, border connectors, source profile
+and recipe 11 remain unchanged.
+
+Release/Debug builds and all three suites pass. Tests sample all plans across
+three seeds, check cached/uncached regeneration, two-to-four support counts,
+in-cell bounds and collider centers. The full seven-seed world audit passes;
+all 63 physical 90-metre squares have one substantial connected component.
+The new `--office-columns` QA selector covers fifteen remote, off-grid views
+across three seeds, with all four directions and exactly matched baseline
+cameras. It chooses by plan and clearance, not attractive composition.
+All sixty matched directions and twelve family views are inspected. Short
+rows, gaps and sparse pairs break the repeated rectangle without observed
+fixture intersections, missing geometry or new room isolation. Screenshot
+timing is not a performance comparison; dummy audio is not listening evidence.
+
+Actual default-seed collision return and runtime measurements are pending.
