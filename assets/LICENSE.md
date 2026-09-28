@@ -1,4 +1,6 @@
-# Sound asset license
+# Asset licenses
+
+## Sounds
 
 The four WAV files in this directory come from the **[Essentials Series / NOX SOUND](https://nox-sound-design.itch.io/essentials-series-sfx-nox-sound)** collection. The author's product page and the collection's `Essentials_Series_README.pdf` both state that all sounds are released under CC0. CC0 permits redistribution and use in this game.
 
@@ -12,3 +14,7 @@ The four WAV files in this directory come from the **[Essentials Series / NOX SO
 Source collection supplied locally at `/rv/tmp/Essentials_Series_NOX_SOUND`. The source README is retained in the original collection; the game ships only these selected sounds.
 
 The hum has been gain-adjusted by +8 dB. The hard-floor step has +13 dB gain. The carpet step uses a 1.4 kHz low-pass filter and +10 dB gain to soften the source impact. These steps are mono 48 kHz PCM; their measured peaks remain below -7 dBFS before game volume is applied. The CC0 license covers these edits.
+
+## Original wallpaper
+
+`wallpaper-v1.png` is an original AI-generated visual asset created specifically for this project, with no input reference image. It is an original project asset, alongside the materials and geometry generated in code. Its prompt and processing are recorded in [wallpaper-generation.md](wallpaper-generation.md). The image is not copied from a Backrooms reference photograph.

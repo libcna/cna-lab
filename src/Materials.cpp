@@ -3,10 +3,12 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <iostream>
 #include <utility>
 #include <vector>
 
 #include "Microsoft/Xna/Framework/Color.hpp"
+#include "System/IO/File.hpp"
 #include "Microsoft/Xna/Framework/Graphics/GraphicsDevice.hpp"
 
 namespace Backrooms {
@@ -47,9 +49,9 @@ Color Pixel(Material material, int x, int y, int size) {
     switch (material) {
     case Material::Wallpaper: {
         // Small faded lozenges and pinstripes suggest old office wallpaper.
-        // The 16-pixel motif is deliberately much smaller than a wall panel.
-        const float localX=std::abs(std::remainder(x-8.0f,16.0f));
-        const float localY=std::abs(std::remainder(y-8.0f,16.0f));
+        // This fallback matches the approximate scale of the optional bitmap.
+        const float localX=std::abs(std::remainder(x-32.0f,64.0f)/4.0f);
+        const float localY=std::abs(std::remainder(y-32.0f,64.0f)/4.0f);
         const float diamond=localX/4.5f+localY/6.0f;
         const int motif=(localX<0.8f ? -5 : 0)+
                         (std::abs(diamond-1.0f)<0.17f ? -6 : 0)+
@@ -83,8 +85,8 @@ Color Pixel(Material material, int x, int y, int size) {
     case Material::CeilingTile: {
         constexpr int tilePixels=128;
         const int localX=x%tilePixels,localY=y%tilePixels;
-        const int seam=(localX<3 || localY<3) ? -64 :
-                       (localX<6 || localY<6) ? -13 : 0;
+        const int seam=(localX<2 || localY<2) ? 6 :
+                       (localX<5 || localY<5) ? -12 : 0;
         const auto panel=Noise(x/tilePixels,y/tilePixels,193);
         const int age=static_cast<int>(panel%7)-3;
         const int yellowing=panel%11==0 ? 5 : 0;
@@ -135,6 +137,8 @@ Color Pixel(Material material, int x, int y, int size) {
         b=109+grain/3+blotch/2+tape+edge;
         break;
     }
+    case Material::PaintedTrim:
+        r=224+grain/3;g=219+grain/3;b=197+grain/3;break;
     case Material::Upholstery: {
         const int weave=((x+y)%2==0 ? 3 : -2);
         const int worn=static_cast<int>(std::lround(
@@ -157,15 +161,34 @@ Color Pixel(Material material, int x, int y, int size) {
 }
 }
 
-Materials::Materials(GraphicsDevice& device) {
+Materials::Materials(GraphicsDevice& device,const std::filesystem::path& assetDirectory) {
     for (int id=0;id<kMaterialCount;++id) {
         const Material material=static_cast<Material>(id);
-        const int size=(material==Material::Wallpaper ||
-                        material==Material::CeilingTile) ? 512 : 128;
+        int size=(material==Material::Wallpaper ||
+                  material==Material::CeilingTile) ? 512 : 128;
         std::vector<Color> pixels;
-        pixels.reserve(size*size);
-        for (int y=0;y<size;++y) for (int x=0;x<size;++x)
-            pixels.push_back(Pixel(material,x,y,size));
+        const auto wallpaperPath=assetDirectory/"wallpaper-v1.png";
+        if (material==Material::Wallpaper && System::IO::File::Exists(wallpaperPath.string())) {
+            try {
+                auto stream=System::IO::File::OpenRead(wallpaperPath.string());
+                auto decoded=Texture2D::FromStream(device,stream,1024,1024,true);
+                pixels.resize(1024*1024);
+                decoded.GetData(pixels.data(),static_cast<int>(pixels.size()));
+                size=1024;
+                std::cerr << "Material ready: wallpaper loaded from " << wallpaperPath << '\n';
+            } catch (const std::exception& error) {
+                pixels.clear();
+                std::cerr << "Material: wallpaper decode failed; using procedural fallback: "
+                          << error.what() << '\n';
+            }
+        }
+        if (pixels.empty()) {
+            if (material==Material::Wallpaper)
+                std::cerr << "Material: using procedural wallpaper fallback\n";
+            pixels.reserve(size*size);
+            for (int y=0;y<size;++y) for (int x=0;x<size;++x)
+                pixels.push_back(Pixel(material,x,y,size));
+        }
         textures_[id]=std::make_unique<Texture2D>(
             device,size,size,true,SurfaceFormat::Color);
         int width=size;

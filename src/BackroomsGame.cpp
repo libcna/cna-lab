@@ -1,4 +1,5 @@
 #include "BackroomsGame.hpp"
+#include "Assets.hpp"
 
 #include <algorithm>
 #include <array>
@@ -86,7 +87,7 @@ Color Scale(Color color, float factor) {
 void WallFace(Meshes& meshes, Material material, bool vertical, float boundary,
               float a, float b, float y0, float y1, Color color,
               float lightStart=1.0f, float lightEnd=1.0f) {
-    const float repeat=material==Material::Wallpaper ? 0.15f : 0.6f;
+    const float repeat=material==Material::Wallpaper ? 0.8f : 0.6f;
     const float u0=a*repeat,u1=b*repeat;
     const float v0=1.0f-y0*repeat,v1=1.0f-y1*repeat;
     const auto shade=[&](float height) {
@@ -126,12 +127,12 @@ void Partition(Meshes& meshes, Material material, Edge edge,
         return t<=0.5f ? l[0]+(l[1]-l[0])*2.0f*t :
                          l[1]+(l[2]-l[1])*(2.0f*t-1.0f);
     };
-    const auto section=[&](float a,float b,float y0,float y1,Color tint) {
+    const auto section=[&](float a,float b,float y0,float y1,Color tint,bool painted=false) {
         for (int side=0;side<(thick ? 2 : 1);++side) {
             const float face=boundary+(thick ? (side==0 ? -kWallHalfThickness : kWallHalfThickness) : 0);
             const auto draw=[&](float from,float to) {
-                WallFace(meshes,material,vertical,face,from,to,y0,y1,
-                         tint,lightAt(from,side),lightAt(to,side));
+                WallFace(meshes,painted ? Material::PaintedTrim : material,
+                         vertical,face,from,to,y0,y1,tint,lightAt(from,side),lightAt(to,side));
             };
             const float middle=along+2.5f;
             if (thick && a<middle && b>middle) { draw(a,middle);draw(middle,b); }
@@ -139,9 +140,10 @@ void Partition(Meshes& meshes, Material material, Edge edge,
         }
     };
     const auto full=[&](float a,float b) {
-        section(a,b,0,0.19f,trim);
-        section(a,b,0.19f,height-0.10f,wall);
-        section(a,b,height-0.10f,height,trim);
+        const float base=thick ? 0.12f : 0.19f;
+        section(a,b,0,base,trim,thick);
+        section(a,b,base,thick ? height : height-0.10f,wall);
+        if (!thick) section(a,b,height-0.10f,height,trim);
     };
     if (edge==Edge::Solid) full(along,along+5);
     else {
@@ -150,14 +152,16 @@ void Partition(Meshes& meshes, Material material, Edge edge,
         full(along,along+first);full(along+last,along+5);
         const auto cap=[&](float end) {
             const float light=(lightAt(end,0)+lightAt(end,1))*0.5f;
+            const float base=thick ? 0.12f : 0.19f;
             WallFace(meshes,material,!vertical,end,
-                     boundary-kWallHalfThickness,boundary+kWallHalfThickness,0.19f,height-0.10f,
-                     Scale(wall,0.82f),light,light);
-            WallFace(meshes,material,!vertical,end,
-                     boundary-kWallHalfThickness,boundary+kWallHalfThickness,0,0.19f,trim,light,light);
-            WallFace(meshes,material,!vertical,end,
-                     boundary-kWallHalfThickness,boundary+kWallHalfThickness,height-0.10f,height,
-                     trim,light,light);
+                     boundary-kWallHalfThickness,boundary+kWallHalfThickness,base,
+                     thick ? height : height-0.10f,Scale(wall,0.82f),light,light);
+            WallFace(meshes,thick ? Material::PaintedTrim : material,!vertical,end,
+                     boundary-kWallHalfThickness,boundary+kWallHalfThickness,0,base,trim,light,light);
+            if (!thick)
+                WallFace(meshes,material,!vertical,end,
+                         boundary-kWallHalfThickness,boundary+kWallHalfThickness,height-0.10f,height,
+                         trim,light,light);
         };
         cap(along+first);cap(along+last);
         if (edge==Edge::Door) {
@@ -295,14 +299,14 @@ void Furniture(Meshes& meshes, const CellProp& prop, double chunkX,
     } else if (prop.kind==PropKind::LowPartition) {
         box(Material::Wallpaper,-1.66f,-0.14f,1.66f,0.14f,
             0,1.34f,Color(214,205,171));
-        box(Material::Wallpaper,-1.70f,-0.16f,1.70f,0.16f,
+        box(Material::PaintedTrim,-1.70f,-0.16f,1.70f,0.16f,
             1.34f,1.41f,Color(151,143,112));
     } else if (prop.kind==PropKind::TallPartition) {
         box(Material::Wallpaper,-1.25f,-0.12f,1.25f,0.12f,
             0,2.16f,Color(241,232,199));
-        box(Material::Wallpaper,-1.28f,-0.14f,1.28f,0.14f,
+        box(Material::PaintedTrim,-1.28f,-0.14f,1.28f,0.14f,
             0,0.17f,Color(184,173,132));
-        box(Material::Wallpaper,-1.28f,-0.14f,1.28f,0.14f,
+        box(Material::PaintedTrim,-1.28f,-0.14f,1.28f,0.14f,
             2.16f,2.22f,Color(175,164,125));
     } else {
         const Color top=level==0 ? Color(255,245,223) : Color(201,212,204);
@@ -522,12 +526,10 @@ void OfficeObstacle(Meshes& meshes, BakedLighting& lighting,
                                              vertical ? 0 : normal);
         };
         const float start=light(a),end=light(b);
+        WallFace(meshes,Material::PaintedTrim,vertical,boundary,a,b,
+                 0,0.12f,trim,start,end);
         WallFace(meshes,Material::Wallpaper,vertical,boundary,a,b,
-                 0,0.19f,trim,start,end);
-        WallFace(meshes,Material::Wallpaper,vertical,boundary,a,b,
-                 0.19f,height-0.10f,wall,start,end);
-        WallFace(meshes,Material::Wallpaper,vertical,boundary,a,b,
-                 height-0.10f,height,trim,start,end);
+                 0.12f,height,wall,start,end);
     };
     face(true,x0,z0,z1,-1);face(true,x1,z0,z1,1);
     face(false,z0,x0,x1,-1);face(false,z1,x0,x1,1);
@@ -600,7 +602,7 @@ void PortalVisual(Meshes& meshes, int level, bool alongX, float cx,
 BackroomsGame::BackroomsGame(std::uint64_t seed, bool streamTest,
                              int startLevel, double startX, double startZ,
                              double walkSpeed, double runSpeed,
-                             double streamTestMetres)
+                             double streamTestMetres,float verticalFovDegrees)
     : graphics_(this), streamTest_(streamTest),
       streamTestMetres_(streamTestMetres) {
     if (startLevel<0 || startLevel>2 || !std::isfinite(startX) ||
@@ -608,8 +610,10 @@ BackroomsGame::BackroomsGame(std::uint64_t seed, bool streamTest,
         std::abs(startZ)>1.0e8 || !std::isfinite(walkSpeed) ||
         !std::isfinite(runSpeed) || walkSpeed<=0 || runSpeed<=walkSpeed ||
         runSpeed>20.0 || !std::isfinite(streamTestMetres) ||
-        streamTestMetres<400.0 || streamTestMetres>1.0e7)
-        throw std::invalid_argument("invalid start level, position, or movement speed");
+        streamTestMetres<400.0 || streamTestMetres>1.0e7 ||
+        !std::isfinite(verticalFovDegrees) || verticalFovDegrees<45 ||
+        verticalFovDegrees>90)
+        throw std::invalid_argument("invalid start, movement speed, field of view, or streaming distance");
     world_.seed = seed;
     world_.level=startLevel;
     if (Collides(world_,startX,startZ,0.31))
@@ -618,6 +622,7 @@ BackroomsGame::BackroomsGame(std::uint64_t seed, bool streamTest,
     z_=startZ;
     walkSpeed_=walkSpeed;
     runSpeed_=runSpeed;
+    verticalFovDegrees_=verticalFovDegrees;
     yaw_=startLevel==2 ? 0.0f : 1.5707963f;
     graphics_.setPreferredBackBufferWidthProperty(1280);
     graphics_.setPreferredBackBufferHeightProperty(720);
@@ -646,8 +651,9 @@ void BackroomsGame::Initialize() {
 }
 
 void BackroomsGame::LoadContent() {
+    const auto directory=FindAssetDirectory();
     effect_ = std::make_unique<BasicEffect>(getGraphicsDeviceProperty());
-    materials_ = std::make_unique<Materials>(getGraphicsDeviceProperty());
+    materials_ = std::make_unique<Materials>(getGraphicsDeviceProperty(),directory);
     effect_->VertexColorEnabled = true;
     effect_->setTextureEnabledProperty(true);
     effect_->setLightingEnabledProperty(false);
@@ -660,11 +666,6 @@ void BackroomsGame::LoadContent() {
     BuildEntityMesh();
     BuildChunk(ChunkAt(x_,z_));
     try {
-        namespace fs = std::filesystem;
-        fs::path directory="assets";
-        if (!fs::exists(directory/"hum.wav")) directory="../assets";
-        if (!fs::exists(directory/"hum.wav"))
-            directory=fs::read_symlink("/proc/self/exe").parent_path()/"assets";
         humSound_=std::make_unique<Audio::SoundEffect>((directory/"hum.wav").string());
         step_=std::make_unique<Audio::SoundEffect>((directory/"step.wav").string());
         carpetStep_=std::make_unique<Audio::SoundEffect>(
@@ -760,7 +761,7 @@ void BackroomsGame::BuildChunk(ChunkCoord coord) {
                       level==1 ? Color(223,229,227) : Color(187,175,149);
     const Color wallB=level==0 ? Color(231,224,204) :
                       level==1 ? Color(188,202,200) : Color(151,139,118);
-    const Color trim=level==0 ? Color(190,180,139) :
+    const Color trim=level==0 ? Color(255,251,229) :
                      level==1 ? Color(110,130,128) : Color(99,83,67);
     const Color floorA=level==0 ? Color(246,240,222) :
                        level==1 ? Color(218,222,217) : Color(215,204,178);
@@ -1260,7 +1261,8 @@ void BackroomsGame::Draw(const GameTime& time) {
                             std::cos(yaw_)*std::cos(pitch_));
     effect_->setViewProperty(Matrix::CreateLookAt(eye,eye+direction,Vector3::Up));
     effect_->setProjectionProperty(Matrix::CreatePerspectiveFieldOfView(
-        1.20f,device.getViewportProperty().getAspectRatioProperty(),0.08f,105.0f));
+        verticalFovDegrees_*0.01745329252f,
+        device.getViewportProperty().getAspectRatioProperty(),0.08f,105.0f));
     for (const auto& [coord,chunk]:chunks_) {
         effect_->setWorldProperty(Matrix::CreateTranslation(
             static_cast<float>(coord.x*kChunkSize-x_),0,

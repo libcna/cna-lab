@@ -10,7 +10,7 @@ set(CNA_BUILD_EXAMPLES OFF CACHE BOOL "CNA examples" FORCE)
 set(SHARP_RUNTIME_BUILD_TESTS OFF CACHE BOOL "sharp-runtime tests" FORCE)
 set(BUILD_TESTING OFF CACHE BOOL "dependency tests" FORCE)
 add_subdirectory("${CNA_ROOT_DIR}" CNA_BUILD)
-add_executable(cna_backrooms src/main.cpp src/BackroomsGame.cpp src/World.cpp src/Materials.cpp)
+add_executable(cna_backrooms src/main.cpp src/BackroomsGame.cpp src/World.cpp src/Materials.cpp src/Assets.cpp)
 add_custom_target(backrooms_assets
     COMMAND ${CMAKE_COMMAND} -E copy_directory
         "${CMAKE_CURRENT_SOURCE_DIR}/assets" "$<TARGET_FILE_DIR:cna_backrooms>/assets"

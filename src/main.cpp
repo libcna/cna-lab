@@ -14,6 +14,7 @@ int main(int argc, char** argv) {
         double walkSpeed=Backrooms::BackroomsGame::kDefaultWalkSpeed;
         double runSpeed=Backrooms::BackroomsGame::kDefaultRunSpeed;
         double streamTestMetres=9600.0;
+        float verticalFov=Backrooms::BackroomsGame::kDefaultVerticalFov;
         for (int i=1;i<argc;++i) {
             const std::string argument=argv[i];
             if (argument=="--seed" && i+1<argc)
@@ -28,6 +29,8 @@ int main(int argc, char** argv) {
                 walkSpeed=std::stod(argv[++i]);
             else if (argument=="--run-speed" && i+1<argc)
                 runSpeed=std::stod(argv[++i]);
+            else if (argument=="--fov" && i+1<argc)
+                verticalFov=std::stof(argv[++i]);
             else if (argument=="--stream-test") streamTest=true;
             else if (argument=="--stream-test-metres" && i+1<argc) {
                 streamTest=true;
@@ -36,13 +39,13 @@ int main(int argc, char** argv) {
             else {
                 std::cerr << "Usage: cna_backrooms [--seed unsigned-integer] "
                              "[--level 0|1|2] [--position x z] "
-                             "[--walk-speed m/s] [--run-speed m/s] "
+                             "[--walk-speed m/s] [--run-speed m/s] [--fov degrees] "
                              "[--stream-test] [--stream-test-metres distance]\n";
                 return 2;
             }
         }
         Backrooms::BackroomsGame game(seed,streamTest,level,x,z,
-                                      walkSpeed,runSpeed,streamTestMetres);
+                                      walkSpeed,runSpeed,streamTestMetres,verticalFov);
         game.Run();
     } catch (const std::exception& e) {
         std::cerr << "cna-backrooms: " << e.what() << '\n';

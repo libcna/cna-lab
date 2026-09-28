@@ -22,12 +22,14 @@ class BackroomsGame final : public Microsoft::Xna::Framework::Game {
 public:
     static constexpr double kDefaultWalkSpeed=2.4;
     static constexpr double kDefaultRunSpeed=4.8;
+    static constexpr float kDefaultVerticalFov=60.0f;
 
     explicit BackroomsGame(std::uint64_t seed, bool streamTest = false,
                            int startLevel = 0, double startX = 2.5,
                            double startZ = 2.5, double walkSpeed = kDefaultWalkSpeed,
                            double runSpeed = kDefaultRunSpeed,
-                           double streamTestMetres = 9600.0);
+                           double streamTestMetres = 9600.0,
+                           float verticalFovDegrees = kDefaultVerticalFov);
     ~BackroomsGame() override;
     const std::string& GetTypeName() const override;
     void Initialize() override;
@@ -65,6 +67,7 @@ private:
     Microsoft::Xna::Framework::Input::KeyboardState previousKeys_;
     double x_ = 2.5, z_ = 2.5;
     float yaw_ = 1.5707963f, pitch_ = 0;
+    float verticalFovDegrees_ = kDefaultVerticalFov;
     bool captured_ = false;
     bool running_ = false;
     double walkSpeed_ = kDefaultWalkSpeed;

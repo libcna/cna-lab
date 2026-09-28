@@ -6,6 +6,8 @@ The September 2026 playable foundation at `aaf67c0` has deterministic regions, b
 
 ## Completed passes
 
+- Format 16 compares an original imagegen wallpaper against the procedural material in the actual game. Its finer ornament/paper detail, thin painted baseboards, absent heavy top trim and quieter ceiling grid make the spaces less diagram-like. CNA loads the PNG and builds mipmaps; a fallback and executable-relative assets remain. Three matched FOV views favor a 60-degree vertical default, now configurable from the CLI. A twelve-view round and the 326 m controller return route were inspected; 36 waypoints passed in 223.7 seconds near 59 FPS, maximum 25 chunks, 2.24 ms peak and 347 buffer reuses.
+
 - Format 15 removes abrupt cell-sized wallpaper tint patches in favor of a continuous low-amplitude finish variation, and subtly varies acoustic panels. A targeted view exposed false doors hidden inside the new wall thickness; a shared thickness constant and corrected face offset restore them. Debug/Release tests and a new twelve-view round pass. A direct comparison with the original-room photograph identifies overly strong ceiling/trim lines as the next visual deficiency.
 
 - Format 14 replaces bulky concrete-looking chairs with smaller fabric seats, thin steel legs and back frames, and slimmer tables. Shared rotated bounds drive collision. Contact shadows match the floor triangles after a paired screenshot caught a bright patch. Walking/running defaults are now 2.4/4.8 m/s with corresponding step cadence; live measured distances and held-Shift toggles pass.
@@ -43,11 +45,15 @@ The September 2026 playable foundation at `aaf67c0` has deterministic regions, b
 
 ## Three highest-priority deficiencies
 
-1. Ceiling grid and full-height wall top trim are too dark/prominent against the reference's quieter office finish; soften them and reduce baseboard bulk.
-2. Wallpaper reads as a simple diamond pattern rather than a richer faded office ornament; improve the motif without increasing asset dependencies.
-3. Maintenance entrances still read as dark freestanding boxes; integrate their finish and framing with the surrounding architecture.
+1. Maintenance entrances still read as dark freestanding boxes; integrate their finish, framing and lighting with the surrounding architecture.
+2. Level 1 open bays lack convincing structural pillars; improve the industrial silhouette after the current material pass.
+3. Repeat distant material/composition QA with the new wallpaper and camera, then extend normal-controller traversal in the other level families.
 
 ## Latest validation
+
+- Format 16 2.4 km Release GPU sweep: at most 25 chunks, near 59 FPS, 2.98 ms peak, warmed RSS 168.1–168.5 MB; 202 buffers created and 1,955 reused.
+
+- Format 16 Debug/Release builds and world tests pass. PNG loading uses CNA, assets are packaged beside the executable, matched material/FOV screenshots were inspected and the 326 m controller route returned successfully. Eighteen distant views across seeds 0, 1 and 31337 were captured and inspected with tools/capture_views.py. A real-backend /tmp launch loaded the packaged PNG and all sounds; retimed walking/transition signals peak below -9.6 dBFS with no clipping.
 
 - Format 15 Debug/Release builds and world tests pass. The paired door image confirms the occlusion fix, and six Level 0/three Level 1/three Level 2 views were inspected after continuous wall tint and ceiling-age changes.
 
@@ -59,4 +65,4 @@ The September 2026 playable foundation at `aaf67c0` has deterministic regions, b
 
 ## Next pass
 
-Commit the wall/door cleanup, then prototype quieter trim/ceiling lines and a more readable wallpaper ornament against the same screenshots and the original reference. Continue with maintenance entrances and normal-controller traversal. The visual goal remains active.
+The distant capture and packaged-assets/audio check passed. Commit format 16, then improve maintenance entrances and Level 1 structural identity. Keep the goal active; this is another visual pass, not the final product audit.

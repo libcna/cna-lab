@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import math, os, pathlib, re, subprocess, time
-# A normal-controller regression route for world formats 12–14, seed 12345.
+# A normal-controller regression route for world formats 12–16, seed 12345.
 # It deliberately crosses negative chunk coordinates and returns over the path.
 import argparse
 parser=argparse.ArgumentParser(description="Walk a 326 m collision route and capture streaming views.")
@@ -28,7 +28,7 @@ def xdo(*args):
     return subprocess.check_output(['xdotool',*map(str,args)],text=True,timeout=5).strip()
 try:
     time.sleep(3)
-    window=xdo('search','--name','cna-backrooms').splitlines()[0]
+    window=xdo('search','--pid',game.pid,'--name','cna-backrooms').splitlines()[0]
     yaw=math.pi/2
     def position():
         title=xdo('getwindowname',window)
