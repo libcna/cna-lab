@@ -27,7 +27,7 @@ int main() {
     CHECK(ChunkOfCell(-9)==-2);
     CHECK(ChunkAt(-0.01,-40.01)==(ChunkCoord{-1,-2}));
     // Golden values make changes to the versioned procedural world explicit.
-    CHECK(kFormatVersion==16);
+    CHECK(kFormatVersion==17);
     CHECK(CellHash(world,12,-8,41)==511389911U);
     CHECK(VerticalEdge(world,8,3)==Edge::Open);
     CHECK(HorizontalEdge(world,-4,-5)==Edge::Open);
@@ -259,19 +259,34 @@ int main() {
         const double cz=(portal.cellZ+0.5)*kCellSize;
         if (portal.alongX) {
             CHECK(!Collides(selected,cx+1.10,cz,0.31));
-            CHECK(Collides(selected,cx+1.10,cz+1.18,0.31));
+            CHECK(Collides(selected,cx+1.10,cz+kPortalHalfWidth+0.08,0.31));
             CHECK(Collides(selected,cx+1.92,cz,0.31));
             double px=cx,pz=cz;
             MoveWithCollision(selected,px,pz,1.25,0,0.31);
             CHECK(px>cx+1.0);
         } else {
             CHECK(!Collides(selected,cx,cz+1.10,0.31));
-            CHECK(Collides(selected,cx+1.18,cz+1.10,0.31));
+            CHECK(Collides(selected,cx+kPortalHalfWidth+0.08,cz+1.10,0.31));
             CHECK(Collides(selected,cx,cz+1.92,0.31));
             double px=cx,pz=cz;
             MoveWithCollision(selected,px,pz,0,1.25,0.31);
             CHECK(pz>cz+1.0);
         }
+    }
+    for (const auto& portal:kPortals) {
+        const WorldConfig selected{12345,portal.level};
+        const double x=(portal.cellX+0.5)*kCellSize;
+        const double z=(portal.cellZ+0.5)*kCellSize;
+        const double tx=x+(portal.alongX ? 1.0 : 0.0);
+        const double tz=z+(portal.alongX ? 0.0 : 1.0);
+        CHECK(PortalTarget(selected,tx,tz)==portal.target);
+        CHECK(!PortalTarget(selected,x,z));
+        const double side=kPortalHalfWidth+kPortalWallThickness+0.36;
+        const double outsideX=tx+(portal.alongX ? 0.0 : side);
+        const double outsideZ=tz+(portal.alongX ? side : 0.0);
+        CHECK(!Collides(selected,outsideX,outsideZ,0.31));
+        CHECK(!PortalTarget(selected,outsideX,outsideZ));
+        CHECK(PortalWalls(portal).count==3);
     }
     // Rare entrances share the rendered frame, collider, and trigger geometry.
     for (int level=0;level<3;++level) {
@@ -294,7 +309,7 @@ int main() {
         const double cx=(cellX+0.5)*kCellSize;
         const double cz=(cellZ+0.5)*kCellSize;
         CHECK(!Collides(selected,cx+1.10,cz,0.31));
-        CHECK(Collides(selected,cx+1.10,cz+1.18,0.31));
+        CHECK(Collides(selected,cx+1.10,cz+kPortalHalfWidth+0.08,0.31));
         CHECK(Collides(selected,cx+1.92,cz,0.31));
     }
     // Troffers replace two by one ceiling tiles, including negative cells.
@@ -315,7 +330,12 @@ int main() {
             CHECK(lamp.x-hx>=0.12 && lamp.x+hx<=4.88);
             CHECK(lamp.z-hz>=0.12 && lamp.z+hz<=4.88);
             const double wx=x*kCellSize+lamp.x,wz=z*kCellSize+lamp.z;
-            const auto structure=FullHeightObstaclesAt(office,x,z);
+            auto structure=FullHeightObstaclesAt(office,x,z);
+            if (const auto portal=PortalAt(office,x,z)) {
+                const auto frames=PortalWalls(*portal);
+                for (int n=0;n<2;++n)
+                    structure.walls[structure.count++]=frames.walls[n];
+            }
             for (int n=0;n<structure.count;++n) {
                 const auto& wall=structure.walls[n];
                 CHECK(!(wx+hx>wall.minX-0.03 && wx-hx<wall.maxX+0.03 &&

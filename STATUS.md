@@ -6,6 +6,8 @@ The September 2026 playable foundation at `aaf67c0` has deterministic regions, b
 
 ## Completed passes
 
+- Format 17 replaces broad black transition boxes with human-scale service entrances: 1.3 m openings, level-matching exterior finishes, ordinary casing and recessed dim concrete interiors. Shared portal boxes drive graphics, collision, light obstruction and fixture avoidance. Carpet contact shading now follows the actual floor triangles for columns as well as furniture. Paired views of all three entrance families were inspected; Debug/Release tests, the seven-seed scan and 63-square collision audit pass. Real controller input passes all four fixed transition directions, outside-gate traversal and frame collision.
+
 - Format 16 compares an original imagegen wallpaper against the procedural material in the actual game. Its finer ornament/paper detail, thin painted baseboards, absent heavy top trim and quieter ceiling grid make the spaces less diagram-like. CNA loads the PNG and builds mipmaps; a fallback and executable-relative assets remain. Three matched FOV views favor a 60-degree vertical default, now configurable from the CLI. A twelve-view round and the 326 m controller return route were inspected; 36 waypoints passed in 223.7 seconds near 59 FPS, maximum 25 chunks, 2.24 ms peak and 347 buffer reuses.
 
 - Format 15 removes abrupt cell-sized wallpaper tint patches in favor of a continuous low-amplitude finish variation, and subtly varies acoustic panels. A targeted view exposed false doors hidden inside the new wall thickness; a shared thickness constant and corrected face offset restore them. Debug/Release tests and a new twelve-view round pass. A direct comparison with the original-room photograph identifies overly strong ceiling/trim lines as the next visual deficiency.
@@ -45,11 +47,13 @@ The September 2026 playable foundation at `aaf67c0` has deterministic regions, b
 
 ## Three highest-priority deficiencies
 
-1. Maintenance entrances still read as dark freestanding boxes; integrate their finish, framing and lighting with the surrounding architecture.
-2. Level 1 open bays lack convincing structural pillars; improve the industrial silhouette after the current material pass.
-3. Repeat distant material/composition QA with the new wallpaper and camera, then extend normal-controller traversal in the other level families.
+1. Level 1 open bays lack convincing structural pillars; its enclosed areas also expose too many individual cell walls.
+2. Extend normal-controller traversal and return routes in the other level families.
+3. Improve remaining coarse carpet detail and audit floor contact shading in close and distant views.
 
 ## Latest validation
+
+- Format 17 Debug/Release builds and world tests pass, along with seven-seed structural and 63-square physical walkability scans. All four transition directions, a clear path outside the entrance and collision with its narrow frame pass through actual keyboard/mouse input. Three paired entrance views were inspected. Dummy audio was used for this controller test; it does not supersede the separate real-backend audio evidence.
 
 - Format 16 2.4 km Release GPU sweep: at most 25 chunks, near 59 FPS, 2.98 ms peak, warmed RSS 168.1–168.5 MB; 202 buffers created and 1,955 reused.
 
@@ -65,4 +69,4 @@ The September 2026 playable foundation at `aaf67c0` has deterministic regions, b
 
 ## Next pass
 
-The distant capture and packaged-assets/audio check passed. Commit format 16, then improve maintenance entrances and Level 1 structural identity. Keep the goal active; this is another visual pass, not the final product audit.
+Improve Level 1 structural identity with concrete columns and larger connected bays, compare matched screenshots and check physical walkability. Then extend actual controller traversal in Levels 1 and 2. The goal remains active.

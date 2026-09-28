@@ -7,11 +7,15 @@
 
 namespace Backrooms {
 
-constexpr int kFormatVersion = 16;
+constexpr int kFormatVersion = 17;
 constexpr int kChunkCells = 8;
 constexpr int kRegionCells = 6;
 constexpr double kCellSize = 5.0;
 constexpr float kWallHalfThickness = 0.10f;
+constexpr double kPortalEntryDepth = 0.43;
+constexpr double kPortalBackDepth = 1.92;
+constexpr double kPortalHalfWidth = 0.65;
+constexpr double kPortalWallThickness = 0.18;
 constexpr double kChunkSize = kChunkCells * kCellSize;
 constexpr float kChairHalfWidth = 0.285f;
 constexpr float kChairHalfDepth = 0.29f;
@@ -100,6 +104,8 @@ ChunkCoord ChunkAt(double x, double z);
 std::uint32_t CellHash(const WorldConfig& config, int x, int z, int salt);
 std::optional<PortalDefinition> PortalAt(const WorldConfig& config,
                                          int cellX, int cellZ);
+CellObstacleSet PortalWalls(const PortalDefinition& portal);
+std::optional<int> PortalTarget(const WorldConfig& config, double x, double z);
 RegionKind RegionAt(const WorldConfig& config, int cellX, int cellZ);
 LampInfo LampAt(const WorldConfig& config, int cellX, int cellZ);
 bool IsEmptyHall(const WorldConfig& config, int cellX, int cellZ);

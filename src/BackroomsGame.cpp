@@ -514,6 +514,31 @@ private:
     std::map<std::tuple<double,double,int,int>,float> samples_;
 };
 
+void CarpetContactShadow(Meshes& meshes, BakedLighting& lighting,
+                         float x0, float z0, float x1, float z1,
+                         double chunkX, double chunkZ, Color floor,
+                         float dim=0.82f) {
+    constexpr float feather=0.28f;
+    const auto shadow=[&](float a,float b,float c,float d,
+                         const std::array<float,4>& strength) {
+        const auto color=[&](float x,float z,float scale) {
+            return Scale(floor,scale*lighting.FloorSample(chunkX+x,chunkZ+z));
+        };
+        FlatShaded(meshes,Material::Carpet,a,b,c,d,0.005f,
+            {color(a,b,strength[0]),color(c,b,strength[1]),
+             color(c,d,strength[2]),color(a,d,strength[3])},0.25f);
+    };
+    shadow(x0,z0,x1,z1,{dim,dim,dim,dim});
+    shadow(x0-feather,z0,x0,z1,{1,dim,dim,1});
+    shadow(x1,z0,x1+feather,z1,{dim,1,1,dim});
+    shadow(x0,z0-feather,x1,z0,{1,1,dim,dim});
+    shadow(x0,z1,x1,z1+feather,{dim,dim,1,1});
+    shadow(x0-feather,z0-feather,x0,z0,{1,1,dim,1});
+    shadow(x1,z0-feather,x1+feather,z0,{1,1,1,dim});
+    shadow(x1,z1,x1+feather,z1+feather,{dim,1,1,1});
+    shadow(x0-feather,z1,x0,z1+feather,{1,dim,1,1});
+}
+
 void OfficeObstacle(Meshes& meshes, BakedLighting& lighting,
                     float x0, float z0, float x1, float z1,
                     double chunkX, double chunkZ, float height,
@@ -533,69 +558,85 @@ void OfficeObstacle(Meshes& meshes, BakedLighting& lighting,
     };
     face(true,x0,z0,z1,-1);face(true,x1,z0,z1,1);
     face(false,z0,x0,x1,-1);face(false,z1,x0,x1,1);
-    const Color outer=Scale(floor,lighting.Sample(chunkX+(x0+x1)*0.5,
-                                            chunkZ+(z0+z1)*0.5));
-    const Color inner=Scale(outer,0.82f);
-    constexpr float y=0.004f;
-    FlatShaded(meshes,Material::Carpet,x0-0.33f,z0,x0-0.10f,z1,y,
-               {outer,inner,inner,outer},0.25f);
-    FlatShaded(meshes,Material::Carpet,x1+0.10f,z0,x1+0.33f,z1,y,
-               {inner,outer,outer,inner},0.25f);
-    FlatShaded(meshes,Material::Carpet,x0,z0-0.33f,x1,z0-0.10f,y,
-               {outer,outer,inner,inner},0.25f);
-    FlatShaded(meshes,Material::Carpet,x0,z1+0.10f,x1,z1+0.33f,y,
-               {inner,inner,outer,outer},0.25f);
+    CarpetContactShadow(meshes,lighting,x0,z0,x1,z1,
+                        chunkX,chunkZ,floor);
 }
 
-std::optional<int> PortalTarget(const WorldConfig& world, double x, double z) {
-    const auto portal=PortalAt(world,CellOf(x),CellOf(z));
-    if (!portal) return std::nullopt;
-    const double px=(portal->cellX+0.5)*kCellSize;
-    const double pz=(portal->cellZ+0.5)*kCellSize;
-    const double depth=portal->alongX ? x-px : z-pz;
-    const double side=portal->alongX ? z-pz : x-px;
-    if (depth>0.92 && depth<2.05 && std::abs(side)<1.30)
-        return portal->target;
-    return std::nullopt;
-}
-
-void PortalVisual(Meshes& meshes, int level, bool alongX, float cx,
-                  float cz, float ceiling) {
-    const Material frameMat=level==0 ? Material::Wallpaper : Material::TunnelWall;
-    const Color frame=level==0 ? Color(112,101,68) : Color(129,111,85);
-    const Color dark(49,45,40);
-    const float near=0.43f, far=1.92f, half=1.1f;
-    if (alongX) {
-        BoxRange(meshes,frameMat,cx+near,cz-half-0.18f,
-                 cx+far,cz-half,0,ceiling,frame);
-        BoxRange(meshes,frameMat,cx+near,cz+half,
-                 cx+far,cz+half+0.18f,0,ceiling,frame);
-        BoxRange(meshes,frameMat,cx+near,cz-half,
-                 cx+far,cz+half,2.25f,ceiling,frame);
-        WallFace(meshes,Material::TunnelWall,true,cx+far,cz-half,cz+half,
-                 0,2.25f,dark);
-        Flat(meshes,Material::TunnelFloor,cx+near,cz-half,
-             cx+far,cz+half,0.012f,Color(115,105,82),0.5f);
-        Flat(meshes,Material::TunnelCeiling,cx+near,cz-half,
-             cx+far,cz+half,2.245f,Color(107,99,79),0.6f);
-        Flat(meshes,Material::Fluorescent,cx+1.08f,cz-0.25f,
-             cx+1.48f,cz+0.25f,2.235f,Color(154,136,99),1.0f);
-    } else {
-        BoxRange(meshes,frameMat,cx-half-0.18f,cz+near,
-                 cx-half,cz+far,0,ceiling,frame);
-        BoxRange(meshes,frameMat,cx+half,cz+near,
-                 cx+half+0.18f,cz+far,0,ceiling,frame);
-        BoxRange(meshes,frameMat,cx-half,cz+near,
-                 cx+half,cz+far,2.25f,ceiling,frame);
-        WallFace(meshes,Material::TunnelWall,false,cz+far,cx-half,cx+half,
-                 0,2.25f,dark);
-        Flat(meshes,Material::TunnelFloor,cx-half,cz+near,
-             cx+half,cz+far,0.012f,Color(115,105,82),0.5f);
-        Flat(meshes,Material::TunnelCeiling,cx-half,cz+near,
-             cx+half,cz+far,2.245f,Color(107,99,79),0.6f);
-        Flat(meshes,Material::Fluorescent,cx-0.25f,cz+1.08f,
-             cx+0.25f,cz+1.48f,2.235f,Color(154,136,99),1.0f);
+void PortalVisual(Meshes& meshes, BakedLighting& lighting,
+                  const WorldConfig& world, const PortalDefinition& portal,
+                  double chunkX, double chunkZ, float ceiling,
+                  Color wall, Color trim, Color floor) {
+    const int level=world.level;
+    const bool alongX=portal.alongX;
+    const float cx=static_cast<float>((portal.cellX+0.5)*kCellSize-chunkX);
+    const float cz=static_cast<float>((portal.cellZ+0.5)*kCellSize-chunkZ);
+    constexpr float near=static_cast<float>(kPortalEntryDepth);
+    constexpr float back=static_cast<float>(kPortalBackDepth-kWallHalfThickness);
+    constexpr float end=static_cast<float>(kPortalBackDepth+kWallHalfThickness);
+    constexpr float half=static_cast<float>(kPortalHalfWidth);
+    constexpr float doorHeight=2.25f;
+    const Material exterior=level==0 ? Material::Wallpaper :
+                            level==1 ? Material::ConcreteWall : Material::TunnelWall;
+    const float illumination=lighting.Sample(chunkX+cx,chunkZ+cz);
+    const Color exteriorColor=Scale(wall,0.32f+0.68f*illumination);
+    const auto box=[&](Material material,float d0,float s0,float d1,
+                       float s1,float y0,float y1,Color tint) {
+        if (alongX) BoxRange(meshes,material,cx+d0,cz+s0,cx+d1,cz+s1,y0,y1,tint);
+        else BoxRange(meshes,material,cx+s0,cz+d0,cx+s1,cz+d1,y0,y1,tint);
+    };
+    const auto flat=[&](Material material,float d0,float s0,float d1,
+                        float s1,float y,Color tint,float repeat) {
+        if (alongX) Flat(meshes,material,cx+d0,cz+s0,cx+d1,cz+s1,y,tint,repeat);
+        else Flat(meshes,material,cx+s0,cz+d0,cx+s1,cz+d1,y,tint,repeat);
+    };
+    const auto frames=PortalWalls(portal);
+    for (int i=0;i<frames.count;++i) {
+        const auto& bounds=frames.walls[i];
+        const float x0=static_cast<float>(bounds.minX-chunkX);
+        const float z0=static_cast<float>(bounds.minZ-chunkZ);
+        const float x1=static_cast<float>(bounds.maxX-chunkX);
+        const float z1=static_cast<float>(bounds.maxZ-chunkZ);
+        const float height=i==2 ? doorHeight : ceiling;
+        if (level==0)
+            OfficeObstacle(meshes,lighting,x0,z0,x1,z1,chunkX,chunkZ,
+                           height,wall,trim,floor);
+        else BoxRange(meshes,exterior,x0,z0,x1,z1,0,height,exteriorColor);
     }
+    // An ordinary service opening belongs to its level's architecture. Only
+    // the short recessed interior has a different finish and dimmer lighting.
+    box(exterior,near,-half,end,half,doorHeight,ceiling,exteriorColor);
+    const Material casing=level==0 ? Material::PaintedTrim : Material::IndustrialCeiling;
+    const Color frame=Scale(level==0 ? trim : Color(177,182,168),
+                            0.45f+0.55f*illumination);
+    box(casing,near-0.035f,-half-0.075f,near+0.015f,-half,0,doorHeight+0.075f,frame);
+    box(casing,near-0.035f,half,near+0.015f,half+0.075f,0,doorHeight+0.075f,frame);
+    box(casing,near-0.035f,-half,near+0.015f,half,doorHeight,doorHeight+0.075f,frame);
+    const Material interior=level==2 ? Material::TunnelWall : Material::ConcreteWall;
+    const Color innerFront(146,148,131),innerBack(75,77,66);
+    const auto sideFace=[&](float side) {
+        const Vector3 a=alongX ? Vector3(cx+near,0,cz+side) : Vector3(cx+side,0,cz+near);
+        const Vector3 b=alongX ? Vector3(cx+back,0,cz+side) : Vector3(cx+side,0,cz+back);
+        QuadColors(meshes,interior,a,b,{b.X,doorHeight,b.Z},{a.X,doorHeight,a.Z},
+                   {Scale(innerFront,0.87f),Scale(innerBack,0.87f),innerBack,innerFront},
+                   {near*0.6f,1},{back*0.6f,1},{back*0.6f,1-doorHeight*0.6f},
+                   {near*0.6f,1-doorHeight*0.6f});
+    };
+    sideFace(-half+0.003f);sideFace(half-0.003f);
+    WallFace(meshes,interior,alongX,(alongX ? cx : cz)+back-0.003f,
+             (alongX ? cz : cx)-half,(alongX ? cz : cx)+half,
+             0,doorHeight,innerBack);
+    const Material interiorFloor=level==2 ? Material::TunnelFloor : Material::ConcreteFloor;
+    const Color frontFloor(198,195,179),backFloor(103,105,92);
+    if (alongX)
+        FlatShaded(meshes,interiorFloor,cx+near,cz-half,cx+back,cz+half,0.012f,
+                   {frontFloor,backFloor,backFloor,frontFloor},0.5f);
+    else
+        FlatShaded(meshes,interiorFloor,cx-half,cz+near,cx+half,cz+back,0.012f,
+                   {frontFloor,frontFloor,backFloor,backFloor},0.5f);
+    flat(Material::IndustrialCeiling,near,-half,back,half,doorHeight-0.005f,
+         Color(116,121,105),0.6f);
+    flat(Material::Fluorescent,1.08f,-0.20f,1.48f,0.20f,doorHeight-0.015f,
+         Color(173,169,135),1.0f);
 }
 }
 
@@ -1039,26 +1080,8 @@ void BackroomsGame::BuildChunk(ChunkCoord coord) {
             const float sz0=static_cast<float>(bounds.minZ-oz*kCellSize);
             const float sx1=static_cast<float>(bounds.maxX-ox*kCellSize);
             const float sz1=static_cast<float>(bounds.maxZ-oz*kCellSize);
-            constexpr float feather=0.28f,dim=0.86f;
-            const auto shadow=[&](float x0,float z0,float x1,float z1,
-                                   const std::array<float,4>& strength) {
-                const auto color=[&](float px,float pz,float scale) {
-                    return Scale(floorColor,scale*lighting.FloorSample(
-                        ox*kCellSize+px,oz*kCellSize+pz));
-                };
-                FlatShaded(meshes,Material::Carpet,x0,z0,x1,z1,0.005f,
-                    {color(x0,z0,strength[0]),color(x1,z0,strength[1]),
-                     color(x1,z1,strength[2]),color(x0,z1,strength[3])},0.25f);
-            };
-            shadow(sx0,sz0,sx1,sz1,{dim,dim,dim,dim});
-            shadow(sx0-feather,sz0,sx0,sz1,{1,dim,dim,1});
-            shadow(sx1,sz0,sx1+feather,sz1,{dim,1,1,dim});
-            shadow(sx0,sz0-feather,sx1,sz0,{1,1,dim,dim});
-            shadow(sx0,sz1,sx1,sz1+feather,{dim,dim,1,1});
-            shadow(sx0-feather,sz0-feather,sx0,sz0,{1,1,dim,1});
-            shadow(sx1,sz0-feather,sx1+feather,sz0,{1,1,1,dim});
-            shadow(sx1,sz1,sx1+feather,sz1+feather,{dim,1,1,1});
-            shadow(sx0-feather,sz1,sx0,sz1+feather,{1,dim,1,1});
+            CarpetContactShadow(meshes,lighting,sx0,sz0,sx1,sz1,
+                                ox*kCellSize,oz*kCellSize,floorColor,0.86f);
         }
         const auto doorHash=CellHash(world_,gx,gz,1501);
         if (doorHash%170==0) {
@@ -1070,7 +1093,8 @@ void BackroomsGame::BuildChunk(ChunkCoord coord) {
                     lighting.WallSample(wx+2.5,wz+0.14,0,1) : 1.0f);
         }
         if (const auto portal=PortalAt(world_,gx,gz))
-            PortalVisual(meshes,level,portal->alongX,x+2.5f,z+2.5f,height);
+            PortalVisual(meshes,lighting,world_,*portal,ox*kCellSize,oz*kCellSize,
+                         height,wallA,trim,floorColor);
         const auto entityHash=CellHash(world_,gx,gz,919);
         const unsigned rarity=level==0 ? 850U : level==1 ? 650U : 750U;
         if (entityHash%rarity==0 && obstacles.count==0 &&

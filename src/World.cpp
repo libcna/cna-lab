@@ -204,7 +204,12 @@ LampInfo LampAt(const WorldConfig& world, int gx, int gz) {
         lamp.z=lamp.longAxisX ? ((h&2U) ? 2.1875f : 2.8125f) :
                                       ((h&2U) ? 2.5f : 3.125f);
         if (lamp.fixture) {
-            const auto obstacles=FullHeightObstaclesAt(world,gx,gz);
+            auto obstacles=FullHeightObstaclesAt(world,gx,gz);
+            if (const auto portal=PortalAt(world,gx,gz)) {
+                const auto frames=PortalWalls(*portal);
+                for (int n=0;n<2;++n)
+                    obstacles.walls[obstacles.count++]=frames.walls[n];
+            }
             constexpr std::array<std::array<float,2>,9> offsets{{
                 {{0,0}},{{1.25f,0}},{{-1.25f,0}},{{0,1.25f}},{{0,-1.25f}},
                 {{1.25f,1.25f}},{{-1.25f,1.25f}},{{1.25f,-1.25f}},{{-1.25f,-1.25f}}
@@ -268,6 +273,38 @@ std::optional<PortalDefinition> PortalAt(const WorldConfig& config,
         CellHash(config,cellX,cellZ,1751)%3!=0) return std::nullopt;
     return PortalDefinition{config.level,cellX,cellZ,
                             (config.level+1)%3,true};
+}
+
+CellObstacleSet PortalWalls(const PortalDefinition& portal) {
+    const double x=(portal.cellX+0.5)*kCellSize;
+    const double z=(portal.cellZ+0.5)*kCellSize;
+    constexpr double near=kPortalEntryDepth,far=kPortalBackDepth;
+    constexpr double half=kPortalHalfWidth,t=kPortalWallThickness;
+    constexpr double end=far+kWallHalfThickness;
+    CellObstacleSet result;
+    result.count=3;
+    if (portal.alongX) {
+        result.walls[0]={x+near,z-half-t,x+end,z-half};
+        result.walls[1]={x+near,z+half,x+end,z+half+t};
+        result.walls[2]={x+far-kWallHalfThickness,z-half,x+end,z+half};
+    } else {
+        result.walls[0]={x-half-t,z+near,x-half,z+end};
+        result.walls[1]={x+half,z+near,x+half+t,z+end};
+        result.walls[2]={x-half,z+far-kWallHalfThickness,x+half,z+end};
+    }
+    return result;
+}
+
+std::optional<int> PortalTarget(const WorldConfig& world,double x,double z) {
+    const auto portal=PortalAt(world,CellOf(x),CellOf(z));
+    if (!portal) return std::nullopt;
+    const double px=(portal->cellX+0.5)*kCellSize;
+    const double pz=(portal->cellZ+0.5)*kCellSize;
+    const double depth=portal->alongX ? x-px : z-pz;
+    const double side=portal->alongX ? z-pz : x-px;
+    if (depth>0.92 && depth<kPortalBackDepth && std::abs(side)<kPortalHalfWidth)
+        return portal->target;
+    return std::nullopt;
 }
 
 RegionKind RegionAt(const WorldConfig& config, int cellX, int cellZ) {
@@ -568,20 +605,13 @@ static std::vector<Wall> CollectNearbyWalls(const WorldConfig& config, double x,
         }
     }
     for (int ix=cx-1;ix<=cx+1;++ix) for (int iz=cz-1;iz<=cz+1;++iz) {
-        if (fullHeightOnly) continue;
         const auto portal=PortalAt(config,ix,iz);
         if (!portal) continue;
-        const double px=(ix+0.5)*kCellSize;
-        const double pz=(iz+0.5)*kCellSize;
-        if (portal->alongX) {
-            walls.push_back({px+0.43,pz-1.28,px+1.92,pz-1.10});
-            walls.push_back({px+0.43,pz+1.10,px+1.92,pz+1.28});
-            walls.push_back({px+1.82,pz-1.10,px+2.02,pz+1.10});
-        } else {
-            walls.push_back({px-1.28,pz+0.43,px-1.10,pz+1.92});
-            walls.push_back({px+1.10,pz+0.43,px+1.28,pz+1.92});
-            walls.push_back({px-1.10,pz+1.82,px+1.10,pz+2.02});
-        }
+        const auto frames=PortalWalls(*portal);
+        // Side walls meet the main ceiling; the lower rear wall is excluded
+        // from the full-height lighting approximation.
+        const int count=fullHeightOnly ? 2 : frames.count;
+        for (int n=0;n<count;++n) walls.push_back(frames.walls[n]);
     }
     return walls;
 }
