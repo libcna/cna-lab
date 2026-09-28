@@ -107,6 +107,45 @@ int ViewSamples() {
     return 0;
 }
 
+int EntityApproaches() {
+    const auto levels=LoadLevelCatalog(FindAssetDirectory()/"levels.json");
+    RoomLayoutCache cache;
+    for (int level=0;level<3;++level) {
+        const WorldConfig world{12345,level,&cache,&levels};
+        bool selected=false;
+        for (int x=kMin;x<=kMax && !selected;++x)
+            for (int z=kMin;z<=kMax && !selected;++z) {
+                const auto entity=EntityAt(world,x,z);
+                if (!entity) continue;
+                for (int direction=0;direction<8 && !selected;++direction) {
+                    const double angle=direction*0.785398163397;
+                    const double px=entity->x+6*std::cos(angle);
+                    const double pz=entity->z+6*std::sin(angle);
+                    bool clear=true;
+                    for (double step=0;step<=6;step+=0.25) {
+                        const double t=step/6;
+                        const double sx=px+(entity->x-px)*t;
+                        const double sz=pz+(entity->z-pz)*t;
+                        if (Collides(world,sx,sz,0.55) ||
+                            PortalAt(world,CellOf(sx),CellOf(sz))) {
+                            clear=false;break;
+                        }
+                    }
+                    if (!clear) continue;
+                    selected=true;
+                    std::cout << std::fixed << std::setprecision(6)
+                              << "approach seed 12345 level " << level
+                              << " center " << entity->x << ',' << entity->z
+                              << " phase " << entity->phase
+                              << " position " << px << ',' << pz
+                              << " heading " << std::atan2(entity->x-px,entity->z-pz) << '\n';
+                }
+            }
+        if (!selected) throw std::runtime_error("no clear six-metre entity approach");
+    }
+    return 0;
+}
+
 int Run(bool showAlcoves,bool showPartitions,bool showEntities) {
     const auto levels=LoadLevelCatalog(FindAssetDirectory()/"levels.json");
     RoomLayoutCache cache;
@@ -222,9 +261,10 @@ int main(int argc,char** argv) {
     try {
         if (argc>2 || (argc==2 && std::string(argv[1])!="--alcoves" &&
                       std::string(argv[1])!="--partitions" && std::string(argv[1])!="--entities" &&
-                      std::string(argv[1])!="--views"))
-            throw std::invalid_argument("usage: world_quality [--alcoves|--partitions|--entities|--views]");
+                      std::string(argv[1])!="--views" && std::string(argv[1])!="--entity-approaches"))
+            throw std::invalid_argument("usage: world_quality [--alcoves|--partitions|--entities|--views|--entity-approaches]");
         if (argc==2 && std::string(argv[1])=="--views") return ViewSamples();
+        if (argc==2 && std::string(argv[1])=="--entity-approaches") return EntityApproaches();
         return Run(argc==2 && std::string(argv[1])=="--alcoves",
                    argc==2 && std::string(argv[1])=="--partitions",
                    argc==2 && std::string(argv[1])=="--entities");

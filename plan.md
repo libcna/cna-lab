@@ -55,19 +55,23 @@ an unmuted output; subjective listening remains a human check.
 
 ## Current backlog and remaining target allocation
 
-1. **Industrial composition (~1 hour):** format 35 removes residual five-metre
-   wall fragments inside open bays and aligns framing above support rows. Build,
-   compare arbitrary multi-seed views, audit connectivity and walk a return route.
-2. **Industrial materials (~1 hour):** remove conspicuous cloudy floor noise and
-   coarse wall seams using the existing small material system. Compare brightness,
-   scale and missing-asset behavior in actual views.
-3. **Near figures (~half an hour):** soften abrupt proximity disappearance while
-   retaining clear vision, harmless behavior and bounded ownership.
-4. **World/product QA (~2 hours):** finish the current 28.8 km tunnel capacity/RSS
-   check, sample arbitrary office regions and walk actual collision-enabled routes.
-   Inspect unflattering locations as well as landmarks.
-5. **Refinement/audit (~1.5 hours):** fix the three largest visible deficiencies,
-   repeat family screenshots, verify transitions, update documentation and commit.
+Industrial bay composition, mineral surfaces, opening returns and attached
+service roof details are complete through format 38. Long capacity sweeps,
+uncurated regions and actual returns have supplied the next visible deficiencies.
+
+1. **Near figures (~half an hour):** replace abrupt disappearance with a smooth
+   retreat, compare clear controller approaches in all families and retain
+   unobstructed vision and harmless behavior.
+2. **Service pipe termination (~three quarters of an hour):** inspect exposed
+   pipe ends near openings and attach or terminate them coherently, without a
+   plumbing simulation or changing the renderer.
+3. **Office/product QA (~1.5 hours):** sample further uncurated seeds/headings,
+   including darker and larger spaces, then walk an actual collision return.
+   Fix the largest material, scale, lighting or composition defect found.
+4. **Stability/refinement audit (~1.5 hours):** inspect fresh family screenshots,
+   verify live transitions and audio routing after external runtime changes,
+   update documentation and commit. Continue achievable product improvements
+   if these passes expose more work.
 
 These are scope estimates, not permission to stop at a milestone. Continue the
 highest-value achievable deficiency while the goal is unsatisfied. Cut optional

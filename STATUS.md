@@ -6,9 +6,11 @@ The product goal remains **active**. Three distinct families, connected determin
 
 ## Current pass
 
-Format 38 attaches tunnel roof ledges to solid walls and adds duct hangers. Twelve matched uncurated tunnel directions, twelve family views and sixteen actual-route views are inspected. The next pass softens abrupt near-figure disappearance through native CNA blending.
+Format 39 proximity fade is validated through actual approach/return paths in all three families. Native depth resolution suppresses overlapping rear surfaces, and contact spots fade with the body. Thirty-three matched approach pairs, eighteen figure views and twelve family views are inspected; all six live entrance cases pass. Pipe termination is the next environmental pass.
 
 ## Completed passes
+
+- **39:** smooth harmless-figure retreat from 5.0 to 1.5 metres, native depth-only resolution and shared fading contact spots. All 33 controller pairs, 18 entity views and 12 family views inspected. Release/Debug suites and six live entrance cases pass.
 
 - **38:** wall-supported roof ledges and ceiling-mounted duct hangers. Twelve tunnel pairs, twelve family views and sixteen route views inspected. Refreshed Release/Debug suites pass; the 448.3 m return completes all 60 waypoints in 269.9 seconds, maximum 25 chunks, 6.84 ms peak build and final RSS 246.70 MiB.
 
@@ -29,11 +31,13 @@ Format 38 attaches tunnel roof ledges to solid walls and adds duct hangers. Twel
 
 ## Three highest-priority deficiencies
 
-1. Nearby figures disappear abruptly; soften their retreat without interaction or AI complexity.
-2. Tunnel pipe ends stop abruptly near openings; reassess their attachment and termination in actual views.
-3. Reassess office room repetition and lighting in wider arbitrary views after these visible fixes.
+1. Tunnel pipe ends stop abruptly near openings; attach their termination coherently to the wall.
+2. Reassess office room repetition and lighting in wider arbitrary views, including dark circuits and broad rooms.
+3. Refresh audio routing checks after external dependency changes; subjective listening remains unavailable.
 
 ## Latest validation
+
+- Format 39 Release/Debug builds of the game and all three registered test targets pass, with all CTest suites passing. Actual six-metre figure approaches/returns finish in all three families with measured positions and mouse headings. Nearest-distance/opacity telemetry reaches zero within 1.5 m and returns to one beyond 5 m; all 33 paired stages were inspected. Native depth/alpha state restores correctly in 18 entity and 12 family views. All six actual entrance directions/outside/frame cases pass. The initial QA driver accumulated small key-duration drift; calculating each next move from the measured position resolves it. Baseline screenshot timing overlaps compilation and is not a performance comparison. Dummy audio is not listening evidence.
 
 - Format 38 refreshed Release/Debug builds and all three CTest suites pass after externally changing dependencies become consistent. The 448.3 m collision-enabled tunnel return completes 60 waypoints, five player chunks and at most 25 active chunks. Peak sampled build is 6.84 ms, warmed RSS 236.5–246.7 MiB and final 246.7 MiB, with 208 buffer creations and 313 reuses. Draw rate is about 39 FPS on the private display. The short walk does not establish a final tunnel memory plateau; the earlier 28.8 km sweep does. Standard screenshot timing overlapped a dependency rebuild and is not used for performance claims.
 
@@ -51,4 +55,4 @@ Format 38 attaches tunnel roof ledges to solid walls and adds duct hangers. Twel
 
 ## Next pass
 
-Soften near-figure retreat, capture actual approach/return sequences in all three families, then repair the next visible environmental deficiency. Continue the product audit; the goal remains active.
+Attach exposed tunnel pipe ends, compare arbitrary views and close details, then sample office lighting/composition further. Continue actual traversal and the product audit; the goal remains active.

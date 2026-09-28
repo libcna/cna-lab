@@ -15,6 +15,7 @@
 #include "Microsoft/Xna/Framework/Audio/SoundEffectInstance.hpp"
 #include "Microsoft/Xna/Framework/GraphicsDeviceManager.hpp"
 #include "Microsoft/Xna/Framework/Graphics/BasicEffect.hpp"
+#include "Microsoft/Xna/Framework/Graphics/BlendState.hpp"
 #include "Microsoft/Xna/Framework/Graphics/VertexBuffer.hpp"
 #include "Microsoft/Xna/Framework/Input/Keyboard.hpp"
 
@@ -58,6 +59,9 @@ private:
     int entityTriangles_ = 0;
     std::unique_ptr<Microsoft::Xna::Framework::Graphics::VertexBuffer> entityShadowVertices_;
     int entityShadowTriangles_ = 0;
+    Microsoft::Xna::Framework::Graphics::BlendState entityDepthOnlyBlend_;
+    double nearestEntityDistance_ = 0;
+    float nearestEntityOpacity_ = 0;
     std::unique_ptr<Microsoft::Xna::Framework::Audio::SoundEffect> humSound_;
     std::unique_ptr<Microsoft::Xna::Framework::Audio::SoundEffectInstance> hum_;
     std::unique_ptr<Microsoft::Xna::Framework::Audio::SoundEffect> step_;

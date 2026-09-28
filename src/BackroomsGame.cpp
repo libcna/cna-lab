@@ -789,6 +789,7 @@ BackroomsGame::BackroomsGame(std::uint64_t seed, bool streamTest,
     runSpeed_=runSpeed;
     verticalFovDegrees_=verticalFovDegrees;
     yaw_=startLevel==2 ? 0.0f : 1.5707963f;
+    entityDepthOnlyBlend_.setColorWriteChannelsProperty(ColorWriteChannels::None);
     graphics_.setPreferredBackBufferWidthProperty(1280);
     graphics_.setPreferredBackBufferHeightProperty(720);
     graphics_.setSynchronizeWithVerticalRetraceProperty(true);
@@ -1487,6 +1488,8 @@ void BackroomsGame::UpdateTitle(double elapsed) {
           << " pool " << spareVertices_.size() << " gpu " << bufferMiB << " MiB"
           << " | rooms " << roomLayouts_.Size()
           << " | entities " << entities
+          << " | nearest " << std::setprecision(2) << nearestEntityDistance_
+          << '/' << nearestEntityOpacity_
           << " | build " << std::setprecision(2) << lastBuildMs_ << " ms"
           << " | peak " << peakBuildMs_ << " ms"
           << " | " << (running_ ? "run" : "walk")
@@ -1640,15 +1643,25 @@ void BackroomsGame::Draw(const GameTime& time) {
     device.SetVertexBuffer(entityVertices_.get());
     const float seconds=static_cast<float>(
         time.getTotalGameTimeProperty().getTotalSecondsProperty());
+    nearestEntityDistance_=0;
+    nearestEntityOpacity_=0;
+    bool haveNearestEntity=false;
     for (const auto& [coord,chunk]:chunks_) {
         (void)coord;
         for (const auto& entity:chunk.entities) {
             const double ex=entity.x+0.55*std::sin(seconds*0.28f+entity.phase);
             const double ez=entity.z+0.55*std::cos(seconds*0.21f+entity.phase);
             const double distance=std::hypot(ex-x_,ez-z_);
-            // These silhouettes are atmosphere, not physical obstacles. Let
-            // them disappear before their mesh can surround the camera.
-            if (distance<3.5 || distance>82.0) continue;
+            // Retreat gradually as the player approaches. No mesh can surround
+            // the camera, and there is no interaction or physical obstacle.
+            const float proximity=static_cast<float>(std::clamp((distance-1.5)/3.5,0.0,1.0));
+            const float opacity=proximity*proximity*(3-2*proximity);
+            if (!haveNearestEntity || distance<nearestEntityDistance_) {
+                haveNearestEntity=true;
+                nearestEntityDistance_=distance;
+                nearestEntityOpacity_=opacity;
+            }
+            if (opacity<=0 || distance>82.0) continue;
             const float facing=static_cast<float>(std::atan2(x_-ex,z_-ez));
             effect_->setWorldProperty(Matrix::CreateRotationY(facing)*
                 Matrix::CreateTranslation(static_cast<float>(ex-x_),0,
@@ -1658,7 +1671,7 @@ void BackroomsGame::Draw(const GameTime& time) {
                 // Native blending reads depth without writing into the floor.
                 effect_->setTextureEnabledProperty(false);
                 effect_->setFogEnabledProperty(false);
-                effect_->setAlphaProperty(static_cast<float>(1-distance/20));
+                effect_->setAlphaProperty(opacity*static_cast<float>(1-distance/20));
                 device.setBlendStateProperty(BlendState::AlphaBlend);
                 device.setDepthStencilStateProperty(DepthStencilState::DepthRead);
                 device.SetVertexBuffer(entityShadowVertices_.get());
@@ -1675,10 +1688,26 @@ void BackroomsGame::Draw(const GameTime& time) {
             }
             device.SetVertexBuffer(entityVertices_.get());
             auto& passes=effect_->getCurrentTechniqueProperty()->getPassesProperty();
+            if (opacity<1) {
+                // Resolve the nearest cloth surface before blending. This
+                // avoids seeing overlapping back faces through the body and
+                // needs only CNA's native color-write mask and depth states.
+                device.setBlendStateProperty(entityDepthOnlyBlend_);
+                for (int i=0;i<passes.getCountProperty();++i) {
+                    passes[i]->Apply();
+                    device.DrawPrimitives(PrimitiveType::TriangleList,0,entityTriangles_);
+                }
+                device.setBlendStateProperty(BlendState::AlphaBlend);
+                device.setDepthStencilStateProperty(DepthStencilState::DepthRead);
+                effect_->setAlphaProperty(opacity);
+            }
             for (int i=0;i<passes.getCountProperty();++i) {
                 passes[i]->Apply();
                 device.DrawPrimitives(PrimitiveType::TriangleList,0,entityTriangles_);
             }
+            effect_->setAlphaProperty(1);
+            device.setBlendStateProperty(BlendState::Opaque);
+            device.setDepthStencilStateProperty(DepthStencilState::Default);
         }
     }
     Game::Draw(time);
