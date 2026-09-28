@@ -130,6 +130,15 @@ Color Pixel(Material material, int x, int y, int size) {
         b=109+grain/3+blotch/2+tape+edge;
         break;
     }
+    case Material::Upholstery: {
+        const int weave=((x+y)%2==0 ? 3 : -2);
+        const int worn=static_cast<int>(std::lround(
+            (SmoothNoise(x,y,32,184,size)-0.5f)*12));
+        r=158+grain/3+weave+worn;
+        g=143+grain/3+weave+worn;
+        b=108+grain/3+weave+worn;
+        break;
+    }
     case Material::Fluorescent: {
         const int edge=(x<5 || x>122 || y<5 || y>122) ? -30 : 0;
         r=250+grain/4+edge; g=249+grain/4+edge;

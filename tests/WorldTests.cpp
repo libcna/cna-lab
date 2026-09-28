@@ -27,7 +27,7 @@ int main() {
     CHECK(ChunkOfCell(-9)==-2);
     CHECK(ChunkAt(-0.01,-40.01)==(ChunkCoord{-1,-2}));
     // Golden values make changes to the versioned procedural world explicit.
-    CHECK(kFormatVersion==13);
+    CHECK(kFormatVersion==14);
     CHECK(CellHash(world,12,-8,41)==511389911U);
     CHECK(VerticalEdge(world,8,3)==Edge::Open);
     CHECK(HorizontalEdge(world,-4,-5)==Edge::Open);
@@ -103,6 +103,18 @@ int main() {
     CHECK(PropAt(world,2,1).x==firstChair.x);
     CHECK(Collides(world,firstChair.x,firstChair.z,0.31));
     CHECK(PropAt(world,0,0).kind==PropKind::None);
+    // Shared prop bounds include the complete rotated frame and drive collision.
+    for (const auto kind: {PropKind::Chair,PropKind::Table,PropKind::LowPartition,
+                          PropKind::TallPartition}) {
+        CellProp prop{kind,12.0,-9.0,0,0};
+        const auto straight=PropBounds(prop);
+        prop.quarterTurn=1;
+        const auto turned=PropBounds(prop);
+        CHECK(std::abs((straight.maxX-straight.minX)-
+                       (turned.maxZ-turned.minZ))<1e-8);
+        CHECK(std::abs((straight.maxZ-straight.minZ)-
+                       (turned.maxX-turned.minX))<1e-8);
+    }
     bool foundEmbedded=false;
     for (int ix=-80;ix<=80 && !foundEmbedded;++ix) {
         for (int iz=-80;iz<=80 && !foundEmbedded;++iz) {

@@ -415,6 +415,19 @@ CellProp PropAt(const WorldConfig& config, int cellX, int cellZ) {
     return result;
 }
 
+Wall PropBounds(const CellProp& prop) {
+    double halfX=kChairHalfWidth,halfZ=kChairHalfDepth;
+    if (prop.kind==PropKind::Table) {
+        halfX=kTableHalfWidth;halfZ=kTableHalfDepth;
+    } else if (prop.kind==PropKind::LowPartition) {
+        halfX=1.70;halfZ=0.16;
+    } else if (prop.kind==PropKind::TallPartition) {
+        halfX=1.28;halfZ=0.14;
+    }
+    if (prop.quarterTurn%2) std::swap(halfX,halfZ);
+    return {prop.x-halfX,prop.z-halfZ,prop.x+halfX,prop.z+halfZ};
+}
+
 CellObstacleSet InteriorPartitionsAt(const WorldConfig& config,
                                      int cellX, int cellZ) {
     CellObstacleSet result;
@@ -533,20 +546,7 @@ CellObstacleSet CellObstacles(const WorldConfig& config, int cellX, int cellZ) {
     }
     const CellProp prop=PropAt(config,cellX,cellZ);
     if (prop.kind!=PropKind::None) {
-        const double halfX=prop.kind==PropKind::Table ?
-            (prop.quarterTurn%2 ? 0.62 : 0.92) :
-            prop.kind==PropKind::LowPartition ?
-            (prop.quarterTurn%2 ? 0.14 : 1.66) :
-            prop.kind==PropKind::TallPartition ?
-            (prop.quarterTurn%2 ? 0.12 : 1.25) : 0.38;
-        const double halfZ=prop.kind==PropKind::Table ?
-            (prop.quarterTurn%2 ? 0.92 : 0.62) :
-            prop.kind==PropKind::LowPartition ?
-            (prop.quarterTurn%2 ? 1.66 : 0.14) :
-            prop.kind==PropKind::TallPartition ?
-            (prop.quarterTurn%2 ? 1.25 : 0.12) : 0.38;
-        result.walls[result.count++]={prop.x-halfX,prop.z-halfZ,
-                                      prop.x+halfX,prop.z+halfZ};
+        result.walls[result.count++]=PropBounds(prop);
     }
     return result;
 }

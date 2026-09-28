@@ -7,11 +7,15 @@
 
 namespace Backrooms {
 
-constexpr int kFormatVersion = 13;
+constexpr int kFormatVersion = 14;
 constexpr int kChunkCells = 8;
 constexpr int kRegionCells = 6;
 constexpr double kCellSize = 5.0;
 constexpr double kChunkSize = kChunkCells * kCellSize;
+constexpr float kChairHalfWidth = 0.285f;
+constexpr float kChairHalfDepth = 0.29f;
+constexpr float kTableHalfWidth = 0.75f;
+constexpr float kTableHalfDepth = 0.40f;
 
 struct ChunkCoord {
     int x = 0;
@@ -53,6 +57,8 @@ struct CellProp {
     int quarterTurn = 0;
     float sink = 0;
 };
+
+Wall PropBounds(const CellProp& prop);
 
 struct LampInfo {
     bool fixture=false;

@@ -252,32 +252,46 @@ void PropBox(Meshes& meshes, Material material, float cx, float cz,
         }
     };
     const auto a=rotate(x0,z0),b=rotate(x1,z1);
-    BoxRange(meshes,material,cx+std::min(a.first,b.first),
-             cz+std::min(a.second,b.second),cx+std::max(a.first,b.first),
-             cz+std::max(a.second,b.second),y0-sink,y1-sink,color);
+    const float left=cx+std::min(a.first,b.first);
+    const float right=cx+std::max(a.first,b.first);
+    const float near=cz+std::min(a.second,b.second);
+    const float far=cz+std::max(a.second,b.second);
+    WallFace(meshes,material,true,left,near,far,y0-sink,y1-sink,Scale(color,0.84f));
+    WallFace(meshes,material,true,right,near,far,y0-sink,y1-sink,Scale(color,0.90f));
+    WallFace(meshes,material,false,near,left,right,y0-sink,y1-sink,Scale(color,0.96f));
+    WallFace(meshes,material,false,far,left,right,y0-sink,y1-sink,Scale(color,0.86f));
+    Flat(meshes,material,left,near,right,far,y1-sink,color,0.6f);
 }
 
 void Furniture(Meshes& meshes, const CellProp& prop, double chunkX,
-               double chunkZ, int level) {
+               double chunkZ, int level, float illumination, std::uint32_t variation) {
     if (prop.kind==PropKind::None) return;
     const float x=static_cast<float>(prop.x-chunkX);
     const float z=static_cast<float>(prop.z-chunkZ);
     const int turn=prop.quarterTurn;
     const float sink=prop.sink;
-    const Material metal=level==0 ? Material::ConcreteWall : Material::TunnelWall;
-    const Color seat=level==0 ? Color(220,207,177) : Color(153,163,157);
-    const Color frame=level==0 ? Color(80,78,69) : Color(67,73,72);
+    const Material metal=Material::IndustrialCeiling;
+    const std::array<Color,3> fabrics{{Color(231,213,167),Color(175,185,148),
+                                      Color(213,199,173)}};
+    const Color seat=fabrics[variation%fabrics.size()];
+    const Color frame(202,205,194);
     const auto box=[&](Material mat,float x0,float z0,float x1,float z1,
                        float y0,float y1,Color color) {
-        PropBox(meshes,mat,x,z,turn,sink,x0,z0,x1,z1,y0,y1,color);
+        PropBox(meshes,mat,x,z,turn,sink,x0,z0,x1,z1,y0,y1,Scale(color,illumination));
     };
     if (prop.kind==PropKind::Chair || prop.kind==PropKind::EmbeddedChair) {
-        box(metal,-0.35f,-0.32f,0.35f,0.32f,0.40f,0.49f,seat);
-        box(metal,-0.35f,0.24f,0.35f,0.32f,0.46f,1.18f,seat);
-        for (float legX: {-0.27f,0.27f})
-            for (float legZ: {-0.24f,0.24f})
-                box(metal,legX-0.035f,legZ-0.035f,
-                    legX+0.035f,legZ+0.035f,0,0.41f,frame);
+        constexpr float seatX=kChairHalfWidth-0.015f;
+        constexpr float seatZ=kChairHalfDepth-0.025f;
+        box(metal,-seatX,-seatZ,seatX,seatZ,0.41f,0.44f,frame);
+        box(Material::Upholstery,-seatX,-seatZ,seatX,seatZ,0.44f,0.48f,seat);
+        box(Material::Upholstery,-0.24f,0.24f,0.24f,0.285f,0.66f,0.98f,seat);
+        for (float legX: {-0.235f,0.235f})
+            for (float legZ: {-0.23f,0.23f})
+                box(metal,legX-0.018f,legZ-0.018f,
+                    legX+0.018f,legZ+0.018f,0,0.44f,frame);
+        for (float postX: {-0.25f,0.25f})
+            box(metal,postX-0.015f,0.255f,postX+0.015f,0.285f,0.46f,1.01f,frame);
+        box(metal,-0.265f,0.255f,0.265f,0.285f,0.98f,1.01f,frame);
     } else if (prop.kind==PropKind::LowPartition) {
         box(Material::Wallpaper,-1.66f,-0.14f,1.66f,0.14f,
             0,1.34f,Color(214,205,171));
@@ -293,11 +307,14 @@ void Furniture(Meshes& meshes, const CellProp& prop, double chunkX,
     } else {
         const Color top=level==0 ? Color(255,245,223) : Color(201,212,204);
         box(level==0 ? Material::Wood : Material::IndustrialCeiling,
-            -0.91f,-0.56f,0.91f,0.56f,0.73f,0.85f,top);
-        for (float legX: {-0.78f,0.78f})
-            for (float legZ: {-0.43f,0.43f})
-                box(metal,legX-0.05f,legZ-0.05f,
-                    legX+0.05f,legZ+0.05f,0,0.74f,frame);
+            -kTableHalfWidth,-kTableHalfDepth,kTableHalfWidth,kTableHalfDepth,
+            0.73f,0.765f,top);
+        for (float legX: {-0.65f,0.65f})
+            for (float legZ: {-0.30f,0.30f})
+                box(metal,legX-0.025f,legZ-0.025f,
+                    legX+0.025f,legZ+0.025f,0,0.74f,frame);
+        box(metal,-0.675f,-0.325f,0.675f,-0.30f,0.65f,0.73f,frame);
+        box(metal,-0.675f,0.30f,0.675f,0.325f,0.65f,0.73f,frame);
     }
 }
 
@@ -458,6 +475,18 @@ public:
         value=std::min(1.0f,value);
         samples_.emplace(key,value);
         return value;
+    }
+
+    float FloorSample(double wx,double wz) {
+        // Match the existing floor triangles rather than evaluating a brighter
+        // lamp sample at the prop center. Contact shading must only darken it.
+        const double x=std::floor(wx/2.5)*2.5,z=std::floor(wz/2.5)*2.5;
+        const float u=static_cast<float>((wx-x)/2.5);
+        const float v=static_cast<float>((wz-z)/2.5);
+        const float a=Sample(x,z),b=Sample(x+2.5,z);
+        const float c=Sample(x+2.5,z+2.5),d=Sample(x,z+2.5);
+        return u>=v ? a*(1-u)+b*(u-v)+c*v :
+                      a*(1-v)+c*u+d*(v-u);
     }
 
 private:
@@ -984,7 +1013,38 @@ void BackroomsGame::BuildChunk(ChunkCoord coord) {
                          chamber ? Color(195,190,166) : Color(136,122,101));
             }
         }
-        Furniture(meshes,prop,ox*kCellSize,oz*kCellSize,level);
+        if (prop.kind!=PropKind::None)
+            Furniture(meshes,prop,ox*kCellSize,oz*kCellSize,level,
+                      0.30f+0.70f*lighting.Sample(prop.x,prop.z),h);
+        if (level==0 && (prop.kind==PropKind::Chair ||
+                        prop.kind==PropKind::EmbeddedChair ||
+                        prop.kind==PropKind::Table)) {
+            const auto bounds=PropBounds(prop);
+            const float sx0=static_cast<float>(bounds.minX-ox*kCellSize);
+            const float sz0=static_cast<float>(bounds.minZ-oz*kCellSize);
+            const float sx1=static_cast<float>(bounds.maxX-ox*kCellSize);
+            const float sz1=static_cast<float>(bounds.maxZ-oz*kCellSize);
+            constexpr float feather=0.28f,dim=0.86f;
+            const auto shadow=[&](float x0,float z0,float x1,float z1,
+                                   const std::array<float,4>& strength) {
+                const auto color=[&](float px,float pz,float scale) {
+                    return Scale(floorColor,scale*lighting.FloorSample(
+                        ox*kCellSize+px,oz*kCellSize+pz));
+                };
+                FlatShaded(meshes,Material::Carpet,x0,z0,x1,z1,0.005f,
+                    {color(x0,z0,strength[0]),color(x1,z0,strength[1]),
+                     color(x1,z1,strength[2]),color(x0,z1,strength[3])},0.25f);
+            };
+            shadow(sx0,sz0,sx1,sz1,{dim,dim,dim,dim});
+            shadow(sx0-feather,sz0,sx0,sz1,{1,dim,dim,1});
+            shadow(sx1,sz0,sx1+feather,sz1,{dim,1,1,dim});
+            shadow(sx0,sz0-feather,sx1,sz0,{1,1,dim,dim});
+            shadow(sx0,sz1,sx1,sz1+feather,{dim,dim,1,1});
+            shadow(sx0-feather,sz0-feather,sx0,sz0,{1,1,dim,1});
+            shadow(sx1,sz0-feather,sx1+feather,sz0,{1,1,1,dim});
+            shadow(sx1,sz1,sx1+feather,sz1+feather,{dim,1,1,1});
+            shadow(sx0-feather,sz1,sx0,sz1+feather,{1,dim,1,1});
+        }
         const auto doorHash=CellHash(world_,gx,gz,1501);
         if (doorHash%170==0) {
             if ((doorHash&1U)==0 && VerticalEdge(world_,gx,gz)==Edge::Solid)
@@ -1055,6 +1115,7 @@ void BackroomsGame::Transition(int level) {
     x_=2.5; z_=2.5;
     yaw_=level==2 ? 0.0f : 1.5707963f;
     pitch_=0;
+    stepDistance_=0;
     BuildChunk({0,0});
 }
 
@@ -1140,7 +1201,7 @@ void BackroomsGame::Update(GameTime& time) {
         const double oldX=x_, oldZ=z_;
         MoveWithCollision(world_,x_,z_,dx,dz,0.31);
         stepDistance_ += std::hypot(x_-oldX,z_-oldZ);
-        const double stepLength=running_?2.0:1.65;
+        const double stepLength=running_?1.5:1.05;
         if (stepDistance_>stepLength) {
             stepDistance_-=stepLength;
             auto* sound=world_.level==0 ? carpetStep_.get() : step_.get();

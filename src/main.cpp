@@ -11,7 +11,9 @@ int main(int argc, char** argv) {
         bool streamTest=false;
         int level=0;
         double x=2.5,z=2.5;
-        double walkSpeed=3.8,runSpeed=6.5,streamTestMetres=9600.0;
+        double walkSpeed=Backrooms::BackroomsGame::kDefaultWalkSpeed;
+        double runSpeed=Backrooms::BackroomsGame::kDefaultRunSpeed;
+        double streamTestMetres=9600.0;
         for (int i=1;i<argc;++i) {
             const std::string argument=argv[i];
             if (argument=="--seed" && i+1<argc)

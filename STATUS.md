@@ -6,6 +6,8 @@ The September 2026 playable foundation at `aaf67c0` has deterministic regions, b
 
 ## Completed passes
 
+- Format 14 replaces bulky concrete-looking chairs with smaller fabric seats, thin steel legs and back frames, and slimmer tables. Shared rotated bounds drive collision. Contact shadows match the floor triangles after a paired screenshot caught a bright patch. Walking/running defaults are now 2.4/4.8 m/s with corresponding step cadence; live measured distances and held-Shift toggles pass.
+
 - Format 13 bakes wall-occluded and face-dependent fluorescent contribution into vertex colors. A temporary per-chunk sample cache reduces repeat work. Level 0 walls now have two independently shaded faces at their actual collision thickness. Fluorescent panels occupy exactly two acoustic tiles, shift away from full-height obstacles and use warmer white diffusers. A twelve-view round was inspected; deterministic fixture-placement tests and both builds pass.
 
 - Surface-aware steps now use muted carpet and separate hard-floor sounds from the existing CC0 collection, with small pitch variation. An isolated transition was captured without footsteps. The build copies all four sounds beside the binary; a real-backend launch from /tmp loaded them successfully.
@@ -39,12 +41,13 @@ The September 2026 playable foundation at `aaf67c0` has deterministic regions, b
 
 ## Three highest-priority deficiencies
 
-1. Sparse chairs and tables still look like bulky block props; improve proportions and frame/upholstery materials against close screenshots.
-2. Default 3.8 m/s walking and 6.5 m/s running may make human-scale spaces feel too small; assess slower speeds and footstep cadence during actual movement.
-3. Level 0 long walls and ceiling panels remain overly uniform at some distances; continue matched material/lighting QA after the current pass.
+1. Remove visible cell-to-cell tint discontinuities along continuous Level 0 walls and top trim.
+2. Ceiling panels still look mathematically identical beyond the rare stained tiles; improve subtle deterministic variation while retaining believable acoustic grid/fixtures.
+3. Continue distant, unflattering material and composition QA: check close wallpaper/carpet, weak circuits and exceptionally open regions, not only origin views.
 
 ## Latest validation
 
+- Format 14 Debug/Release builds, world tests, physical walkability and the seven-seed scan pass. Matched chair/table/embedded-prop views were inspected. A two-second live movement test measured 4.8 m walking and 9.7 m running; held Shift toggles once in each direction.
 - Format 13 Debug/Release builds and world tests pass. Four seeds over 128 by 128 cells verify reproducible fixtures, acoustic-grid alignment and avoidance of full-height geometry. The latest twelve-view round shows stronger wall depth and properly fitted fixtures. Physical walkability and the seven-seed quality scan pass. A 2.4 km Release GPU sweep held near 59 FPS with at most 25 chunks, 2.36 ms peak build and warmed RSS about 166–168 MB.
 - Corrected-upload 9.6 km sweeps finished for all three levels near 59 FPS and at most 25 active chunks. Level 0: 4.13 ms peak, warmed RSS 178.8–179.6 MB, 181 buffers created/6,829 reused. Level 1: 4.34 ms, 182.2–183.2 MB, 152/6,305. Level 2: 7.51 ms, 194.7–197.4 MB, 160/6,440. Earlier sweeps could render stale pooled buffers and do not validate the fixed rendering path.
 - Format 12 Release normal-controller regression: 326 m return route in 225.8 seconds, all 36 waypoints, maximum 25 chunks, near 59 FPS and 2.05 ms peak. Exact failing view is now correct after 299 reuses. A 400 m automatic-exit check exercised cleanup.
@@ -52,4 +55,4 @@ The September 2026 playable foundation at `aaf67c0` has deterministic regions, b
 
 ## Next pass
 
-Improve furniture and assess walking scale with matched live views, retaining a sparse mostly empty environment. Remove visible cell-to-cell wall tint jumps next. The visual goal remains active.
+The format 14 2.4 km Release GPU sweep passed near 59 FPS with at most 25 chunks and 2.96 ms peak build. Next remove wall tint jumps and judge subtle ceiling/material variation against matched and distant views. The visual goal remains active.
