@@ -107,6 +107,51 @@ int ViewSamples() {
     return 0;
 }
 
+int OfficeLightingViews() {
+    const auto levels=LoadLevelCatalog(FindAssetDirectory()/"levels.json");
+    RoomLayoutCache cache;
+    constexpr std::array<std::uint64_t,3> seeds{{8723,55291,402717}};
+    constexpr std::array<const char*,4> cases{{"empty_hall","broad","weak_circuit","enclosed"}};
+    for (int category=0;category<4;++category) for (int index=0;index<3;++index) {
+        const WorldConfig world{seeds[index],0,&cache,&levels};
+        bool selected=false;
+        for (int attempt=0;attempt<10000 && !selected;++attempt) {
+            const auto a=CellHash(world,category*3+index,attempt,4481);
+            const auto b=CellHash(world,category*3+index,attempt,4487);
+            const int cx=static_cast<int>(a%1600)-800;
+            const int cz=static_cast<int>(b%1600)-800;
+            const auto kind=RegionAt(world,cx,cz);
+            const bool empty=IsEmptyHall(world,cx,cz);
+            const int rx=static_cast<int>(std::floor(static_cast<double>(cx)/kRegionCells));
+            const int rz=static_cast<int>(std::floor(static_cast<double>(cz)/kRegionCells));
+            const bool weak=CellHash(world,rx,rz,1803)%13==0;
+            const bool broad=kind==RegionKind::OpenOffice || kind==RegionKind::Columns;
+            if ((category==0 && !empty) ||
+                (category==1 && (empty || weak || !broad)) ||
+                (category==2 && (empty || !weak)) ||
+                (category==3 && (empty || weak || broad))) continue;
+            const double x=cx*kCellSize+0.8+((a>>12)%341)*0.01;
+            const double z=cz*kCellSize+0.8+((b>>12)%341)*0.01;
+            if (Collides(world,x,z,0.55) || PortalAt(world,cx,cz)) continue;
+            int fixtures=0,lit=0;
+            for (int lx=0;lx<kRegionCells;++lx) for (int lz=0;lz<kRegionCells;++lz) {
+                const auto lamp=LampAt(world,rx*kRegionCells+lx,rz*kRegionCells+lz);
+                fixtures+=lamp.fixture;lit+=lamp.lit;
+            }
+            const double heading=(CellHash(world,cx,cz,4491)%6284)*0.001;
+            std::cout << std::fixed << std::setprecision(6)
+                      << "view seed " << world.seed << " level 0 sample " << category*3+index
+                      << " region " << static_cast<int>(kind)
+                      << " position " << x << ',' << z << " heading " << heading
+                      << " case " << cases[category] << " fixtures " << fixtures
+                      << " lit " << lit << '\n';
+            selected=true;
+        }
+        if (!selected) throw std::runtime_error("could not select an office lighting sample");
+    }
+    return 0;
+}
+
 int EntityApproaches() {
     const auto levels=LoadLevelCatalog(FindAssetDirectory()/"levels.json");
     RoomLayoutCache cache;
@@ -261,9 +306,11 @@ int main(int argc,char** argv) {
     try {
         if (argc>2 || (argc==2 && std::string(argv[1])!="--alcoves" &&
                       std::string(argv[1])!="--partitions" && std::string(argv[1])!="--entities" &&
-                      std::string(argv[1])!="--views" && std::string(argv[1])!="--entity-approaches"))
-            throw std::invalid_argument("usage: world_quality [--alcoves|--partitions|--entities|--views|--entity-approaches]");
+                      std::string(argv[1])!="--views" && std::string(argv[1])!="--office-lighting" &&
+                      std::string(argv[1])!="--entity-approaches"))
+            throw std::invalid_argument("usage: world_quality [--alcoves|--partitions|--entities|--views|--office-lighting|--entity-approaches]");
         if (argc==2 && std::string(argv[1])=="--views") return ViewSamples();
+        if (argc==2 && std::string(argv[1])=="--office-lighting") return OfficeLightingViews();
         if (argc==2 && std::string(argv[1])=="--entity-approaches") return EntityApproaches();
         return Run(argc==2 && std::string(argv[1])=="--alcoves",
                    argc==2 && std::string(argv[1])=="--partitions",

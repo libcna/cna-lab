@@ -87,6 +87,16 @@ void FlatShaded(Meshes& meshes, Material material, float x0, float z0,
                {x1*repeat,z1*repeat},{x0*repeat,z1*repeat});
 }
 
+void LightPanel(Meshes& meshes,float x0,float z0,float x1,float z1,
+                float y,Color color,bool longAxisX) {
+    // Map the entire diffuser once. World-aligned UVs wrapped the dark texture
+    // edge through the face of fixtures and their former tube overlays.
+    Quad(meshes,Material::Fluorescent,{x0,y,z0},{x1,y,z0},
+         {x1,y,z1},{x0,y,z1},color,{0,0},
+         longAxisX ? Vector2(1,0) : Vector2(0,1),{1,1},
+         longAxisX ? Vector2(0,1) : Vector2(1,0));
+}
+
 Color Scale(Color color, float factor) {
     const auto scaled=[&](int channel) {
         return static_cast<std::uint8_t>(std::clamp(
@@ -782,8 +792,11 @@ void PortalVisual(Meshes& meshes, BakedLighting& lighting,
                    {frontFloor,frontFloor,backFloor,backFloor},0.5f);
     flat(Material::IndustrialCeiling,near,-half,back,half,doorHeight-0.005f,
          Color(116,121,105),0.6f);
-    flat(Material::Fluorescent,1.08f,-0.20f,1.48f,0.20f,doorHeight-0.015f,
-         Color(173,169,135),1.0f);
+    LightPanel(meshes,cx+(alongX ? 1.08f : -0.20f),
+               cz+(alongX ? -0.20f : 1.08f),
+               cx+(alongX ? 1.48f : 0.20f),
+               cz+(alongX ? 0.20f : 1.48f),doorHeight-0.015f,
+               Color(173,169,135),alongX);
 }
 }
 
@@ -1146,33 +1159,11 @@ void BackroomsGame::BuildChunk(ChunkCoord coord) {
             Flat(meshes,Material::IndustrialCeiling,
                  cx-halfX,cz-halfZ,cx+halfX,cz+halfZ,
                  height-0.022f,Color(247,240,223),0.8f);
-            const Material panelMat=Material::Fluorescent;
             const Color panelColor=lampInfo.lit ?
                 Color(255,254,244) : Color(137,137,122);
-            Quad(meshes,panelMat,
-                 {cx-halfX+0.035f,height-0.035f,cz-halfZ+0.035f},
-                 {cx+halfX-0.035f,height-0.035f,cz-halfZ+0.035f},
-                 {cx+halfX-0.035f,height-0.035f,cz+halfZ-0.035f},
-                 {cx-halfX+0.035f,height-0.035f,cz+halfZ-0.035f},panelColor,
-                 {0,0},{1,0},{1,1},{0,1});
-            if (lampInfo.lit) {
-                const Color tube(255,255,246);
-                if (lampInfo.longAxisX) {
-                    Flat(meshes,Material::Fluorescent,
-                         cx-0.50f,cz-0.20f,cx+0.50f,cz-0.11f,
-                         height-0.039f,tube,0.6f);
-                    Flat(meshes,Material::Fluorescent,
-                         cx-0.50f,cz+0.11f,cx+0.50f,cz+0.20f,
-                         height-0.039f,tube,0.6f);
-                } else {
-                    Flat(meshes,Material::Fluorescent,
-                         cx-0.20f,cz-0.50f,cx-0.11f,cz+0.50f,
-                         height-0.039f,tube,0.6f);
-                    Flat(meshes,Material::Fluorescent,
-                         cx+0.11f,cz-0.50f,cx+0.20f,cz+0.50f,
-                         height-0.039f,tube,0.6f);
-                }
-            }
+            LightPanel(meshes,cx-halfX+0.035f,cz-halfZ+0.035f,
+                       cx+halfX-0.035f,cz+halfZ-0.035f,height-0.035f,
+                       panelColor,lampInfo.longAxisX);
         } else if (level!=0 && lampInfo.fixture) {
             const float cx=x+lampInfo.x,cz=z+lampInfo.z;
             const float hx=lampInfo.longAxisX ? 1.20f : 0.23f;
@@ -1192,9 +1183,9 @@ void BackroomsGame::BuildChunk(ChunkCoord coord) {
             } else
                 Flat(meshes,ceilingMat,cx-hx,cz-hz,cx+hx,cz+hz,
                      height-0.024f,grid,0.8f);
-            Flat(meshes,Material::Fluorescent,cx-hx+0.10f,cz-hz+0.07f,
-                 cx+hx-0.10f,cz+hz-0.07f,panelY,
-                 lampInfo.lit ? lamp : Color(106,115,102),1.0f);
+            LightPanel(meshes,cx-hx+0.10f,cz-hz+0.07f,
+                       cx+hx-0.10f,cz+hz-0.07f,panelY,
+                       lampInfo.lit ? lamp : Color(106,115,102),lampInfo.longAxisX);
         }
         const Color cellWall=wallA;
         const auto wallLighting=[&](bool vertical) {

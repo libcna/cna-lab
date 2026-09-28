@@ -192,3 +192,24 @@ Actual draw rate holds about 39 FPS on the private display. This short return is
 not final plateau evidence; a fresh long sweep remains planned. No compiler or
 other GPU job owned by this agent runs during the measured walk. Dummy audio does
 not validate audibility.
+
+
+## Coherent fluorescent diffusers, format 41
+
+A shared native textured quad maps each fixture exactly once along its physical
+long axis. The office's two world-UV tube overlays are removed; they wrapped dark
+texture edges into small blocks on the diffuser. A quiet procedural prism texture
+and two broad tube contributions retain a recognizable office panel. Service
+fixtures and small entrance lights share the normalized mapping. Fixture plans,
+lighting values, collision, source profiles and hash recipe are unchanged.
+
+A new deterministic office selection covers three new seeds and twelve off-grid
+locations in empty halls, broad rooms, weak circuits and enclosed spaces. Headings
+are hashed, not selected for appealing compositions. Two consecutive selections
+are byte-identical. All forty-eight baseline/new directions, six pitched ceiling
+pairs and twelve family views were inspected. Weak-circuit samples include only
+one to six live fixtures per region; no missing floor or ceiling is observed.
+They also expose coarse floor light pools, incomplete outer wall corners and
+regular column-room composition for the next passes. Release/Debug game/audit/test
+targets and all three CTest suites pass. Screenshot timing is not a benchmark;
+dummy audio does not validate audibility. A fresh long tunnel sweep is separate.

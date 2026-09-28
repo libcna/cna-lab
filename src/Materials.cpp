@@ -170,9 +170,13 @@ Color Pixel(Material material, int x, int y, int size) {
         break;
     }
     case Material::Fluorescent: {
-        const int edge=(x<5 || x>122 || y<5 || y>122) ? -30 : 0;
-        r=250+grain/4+edge; g=249+grain/4+edge;
-        b=229+grain/4+edge; break;
+        const int edge=(x<3 || x>124 || y<3 || y>124) ? -8 : 0;
+        const float distance=std::min(std::abs(y-32.0f),std::abs(y-96.0f));
+        const int tubes=static_cast<int>(std::lround(8*std::exp(-distance*distance/280)));
+        const int prism=x%4==0 ? -3 : 0;
+        r=244+grain/4+edge+tubes+prism;
+        g=242+grain/4+edge+tubes+prism;
+        b=229+grain/4+edge+tubes+prism; break;
     }
     case Material::Count: break;
     }

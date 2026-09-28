@@ -61,6 +61,8 @@ def main():
                         help='sample harmless figures at near, mid and distant ranges')
     parser.add_argument('--sampled',action='store_true',
                         help='sample uncurated off-grid positions across new seeds')
+    parser.add_argument('--office-lighting',action='store_true',
+                        help='sample empty halls, broad rooms, weak circuits and enclosed offices')
     parser.add_argument('--world-quality',default='build/world_quality')
     parser.add_argument('--all-directions',action='store_true',
                         help='also capture right, back and left views at each location')
@@ -69,12 +71,13 @@ def main():
         parser.error('pitch must be finite and within +/-75 degrees')
     pitch_pixels=round(-math.radians(args.pitch)/0.0022)
     root=pathlib.Path(__file__).resolve().parents[1]
-    if sum((args.partitions,args.distant,args.entities,args.sampled))>1:
-        parser.error('choose one of distant, partition, entity or sampled views')
+    if sum((args.partitions,args.distant,args.entities,args.sampled,args.office_lighting))>1:
+        parser.error('choose one visual sample set')
     views=DISTANT_VIEWS if args.distant else BASE_VIEWS
     profile_source=None
-    if args.partitions or args.entities or args.sampled:
+    if args.partitions or args.entities or args.sampled or args.office_lighting:
         quality=subprocess.check_output([str((root/args.world_quality).resolve()),
+                                         '--office-lighting' if args.office_lighting else
                                          '--views' if args.sampled else
                                          '--entities' if args.entities else '--partitions'],cwd=root,text=True,
                                          stderr=subprocess.STDOUT)
@@ -82,7 +85,7 @@ def main():
         profile_source=source[1] if source else '0' if 'using built-in defaults' in quality else None
         if profile_source is None:
             raise RuntimeError('world quality did not report its level-profile source')
-        if args.sampled:
+        if args.sampled or args.office_lighting:
             pattern=r'view seed (\d+) level ([012]) sample (\d+) region \d+ position ([\d.-]+),([\d.-]+) heading ([\d.-]+)'
             views=[]
             for match in re.finditer(pattern,quality):

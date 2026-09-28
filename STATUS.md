@@ -18,9 +18,16 @@ The product goal remains **active**. Three distinct families, connected determin
 
 ## Current pass
 
-Format 40 gives exposed tunnel pipe ends short curved returns through their supporting wall. Neighbor queries retain continuous runs across chunk borders and stop only when the backing wall or pipe plan ends. Thirty-six paired multi-seed directions, twelve family views and sixteen actual-route views have been inspected. Release/Debug gates pass; the next pass samples broader office compositions and weak lighting circuits. The product goal remains active.
+Format 41's native fluorescent diffusers now use one local UV rectangle and a
+long-axis prism/tube texture. All forty-eight paired office directions, six
+pitched ceiling pairs and twelve family views are inspected; Release/Debug suites
+pass. A fresh 28.8 km tunnel capacity sweep is running. Next implementation:
+close exposed cell-wall ends and the small missing outer corner wedges found in
+uncurated office views, then smooth coarse floor illumination pools.
 
 ## Completed passes
+
+- **41:** coherent fluorescent diffusers, including service fixtures and entrance lights. Forty-eight paired office directions, six close ceiling pairs and twelve family views inspected. Release/Debug suites pass. Additional reproducible office samples cover three new seeds and weak circuits.
 
 - **40:** continuous tunnel pipe runs and curved wall returns. Thirty-six matched directions, twelve family views and sixteen route views inspected. Release/Debug suites pass; the 448.8 m collision return holds at most 25 chunks, with 10.07 ms peak build and final RSS 272.53 MiB.
 
@@ -45,11 +52,13 @@ Format 40 gives exposed tunnel pipe ends short curved returns through their supp
 
 ## Three highest-priority deficiencies
 
-1. Reassess office room repetition and lighting in wider arbitrary views, including weak circuits and broad rooms.
-2. Measure long-run tunnel buffer capacity after the new pipe geometry; the short return is not plateau evidence.
-3. Refresh audio routing checks after external dependency changes; subjective listening remains unavailable.
+1. Original cell walls have uncapped exposed ends and small incomplete outer corner joints.
+2. Broad office floor light pools show coarse triangular interpolation; refine only this bake if measurements permit.
+3. Reassess column-room repetition, finish the fresh tunnel capacity measurement and refresh real audio routing. Subjective listening remains unavailable.
 
 ## Latest validation
+
+- Format 41 Release/Debug builds and all three CTest suites pass. Two consecutive office sample selections are identical. All 48 baseline/new directions across twelve locations, six pitched fixture pairs and twelve family views were inspected. The diffuser no longer has repeated dark UV blocks; failed fixtures remain visibly unlit. Geometry/collision, fixture placement and source profiles are unchanged. Screenshot timing is not a performance comparison, and dummy audio is not listening evidence.
 
 - Format 40 Release/Debug builds and all three CTest suites pass. The 448.8 m collision-enabled tunnel return completes 60 waypoints in 270.0 seconds, five player chunks and at most 25 active chunks. Peak sampled build is 10.07 ms; warmed RSS is 258.14–273.47 MiB, final 272.53 MiB, with 208 buffer creations and 313 reuses. Draw rate is about 39 FPS on the private display. The two-segment return replaces a costlier four-segment prototype; loaded spawn geometry rises about 30% from format 38. Thirty-six matched directions, twelve family views and sixteen route views were inspected. No compiler or other game owned by this agent ran during the measured walk. Dummy audio is not listening evidence.
 
@@ -71,4 +80,7 @@ Format 40 gives exposed tunnel pipe ends short curved returns through their supp
 
 ## Next pass
 
-Sample office lighting/composition in broader arbitrary regions, inspect weak circuits and broad rooms, then fix the largest visible deficiency. Follow with actual return traversal, a long tunnel capacity sweep and fresh audio routing checks. Continue until the scheduled stabilization window; the goal remains active.
+Complete cell-wall joins/terminations, compare the exposed corners and clear
+ends, and walk a fresh office return. Then refine coarse floor light pools and
+continue the product audit, audio routing and finite capacity checks until the
+scheduled stabilization window. The goal remains active.
