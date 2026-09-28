@@ -30,11 +30,13 @@ void AppendEdge(std::vector<Wall>& walls, const WorldConfig& config,
         if (vertical) walls.push_back({boundary-t, a, boundary+t, b});
         else walls.push_back({a, boundary-t, b, boundary+t});
     };
-    if (edge == Edge::Solid) add(along, along+kCellSize);
+    // Full-thickness junction cores close the small diagonal wedges at cell
+    // corners. Keep openings unchanged; only the outer endpoints extend.
+    if (edge == Edge::Solid) add(along-t, along+kCellSize+t);
     else {
         const auto span=OpeningForEdge(config,edge,vertical,edgeX,edgeZ);
-        add(along, along+span.start);
-        add(along+span.end, along+kCellSize);
+        add(along-t, along+span.start);
+        add(along+span.end, along+kCellSize+t);
     }
 }
 

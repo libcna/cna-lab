@@ -18,14 +18,15 @@ The product goal remains **active**. Three distinct families, connected determin
 
 ## Current pass
 
-Format 41's native fluorescent diffusers now use one local UV rectangle and a
-long-axis prism/tube texture. All forty-eight paired office directions, six
-pitched ceiling pairs and twelve family views are inspected; Release/Debug suites
-pass. A fresh 28.8 km tunnel capacity sweep is running. Next implementation:
-close exposed cell-wall ends and the small missing outer corner wedges found in
-uncurated office views, then smooth coarse floor illumination pools.
+Format 42 closes exposed cell-wall ends and missing outer corner wedges. All
+eighteen close pairs, twelve family views and fourteen remote route views are
+inspected. Release/Debug suites and all 63 physical squares pass; the 426.5 m
+collision return holds 25 chunks and warmed RSS about 185 MiB. Native input QA
+exposes a camera jump on recapture; its game-side fix passes the strict native repeat. Next, smooth coarse office floor illumination pools.
 
 ## Completed passes
+
+- **42:** closed cell-wall cores and painted exposed ends. Eighteen close pairs, twelve family views and fourteen route views inspected. Release/Debug suites and 63 physical squares pass. The remote office return walks 426.5 m across six player chunks with maximum 25 active, 12.67 ms peak build and final RSS 184.96 MiB. Recapture regression found and corrected; strict native repeat passes.
 
 - **41:** coherent fluorescent diffusers, including service fixtures and entrance lights. Forty-eight paired office directions, six close ceiling pairs and twelve family views inspected. Release/Debug suites pass. Additional reproducible office samples cover three new seeds and weak circuits.
 
@@ -52,11 +53,13 @@ uncurated office views, then smooth coarse floor illumination pools.
 
 ## Three highest-priority deficiencies
 
-1. Original cell walls have uncapped exposed ends and small incomplete outer corner joints.
-2. Broad office floor light pools show coarse triangular interpolation; refine only this bake if measurements permit.
-3. Reassess column-room repetition, finish the fresh tunnel capacity measurement and refresh real audio routing. Subjective listening remains unavailable.
+1. Broad office floor light pools show coarse triangular interpolation; refine only this bake if measurements permit.
+2. Column-room composition remains too regular; vary a few architectural support layouts while preserving clearance.
+3. Refresh real audio routing and presentation measurements after external runtime changes. Subjective listening remains unavailable.
 
 ## Latest validation
+
+- The format 41 28.8 km tunnel sweep holds at most 25 chunks and 17 sampled spares, with 413 buffer creations and 28,676 reuses. Packed capacity peaks at 77.2 MiB and ends at 71.4 MiB. Final-quarter RSS stays at 321.1–332.7 MiB. Median actual draw FPS is 39, median rolling p95 27.55 ms, maximum sampled interval 108.82 ms, median build 4.93 ms and peak 55.50 ms. Forty-six builds exceed 16.67 ms in about 640 seconds. No compiler or other GPU job owned by this agent runs during measurement; shared-machine scheduling is not isolated. Collision is bypassed, and dummy audio is not listening evidence.
 
 - Format 41 Release/Debug builds and all three CTest suites pass. Two consecutive office sample selections are identical. All 48 baseline/new directions across twelve locations, six pitched fixture pairs and twelve family views were inspected. The diffuser no longer has repeated dark UV blocks; failed fixtures remain visibly unlit. Geometry/collision, fixture placement and source profiles are unchanged. Screenshot timing is not a performance comparison, and dummy audio is not listening evidence.
 
@@ -75,12 +78,13 @@ uncurated office views, then smooth coarse floor illumination pools.
 - The final format 34 tunnel sweep reaches 28.8 km with at most 25 chunks and 18 sampled spare buffers. It creates 390 buffers and reuses 28,699. Packed capacity peaks at 57.2 MiB; late RSS is 295.5–300.6 MiB, with final twelve samples 295.5–298.7 MiB. Median draw FPS is 39, median rolling p95 27.22 ms, sampled maximum interval 72.57 ms, median build 3.87 ms and peak 25.29 ms. Ten builds exceed 16.67 ms in about 640 seconds; occasional spikes remain. Collision is bypassed in this diagnostic, not in controller walks.
 - **Timing correction:** titles through format 29 labeled fixed-step updates as FPS. Historical rates near 59 are UPS. Actual format 30 views/sweeps draw around 39–41 FPS on the isolated Weston/Xwayland display; no real desktop presentation rate is inferred. The title now separates actual FPS, 120-interval p95/max, CPU submission and UPS.
 - Earlier long collision returns, physical audits, fallbacks and family-specific finite measurements are retained in [validation history](docs/validation-history.md).
-- The explicit CNA context lease remains necessary for reused-buffer uploads, transitions and deletion; [bugs.md](bugs.md) records the regression. No sibling edits. Latest observed dependency heads: CNA `c90f0e39f45e7823623058a1063b364735a9214e`, Sharp Runtime `6c4a857de129cf29b5d43430bedf24157d594f12`. Sibling input/runtime files have external uncommitted edits; this agent does not change them. A transient Debug inconsistency and the successful retry are documented in bugs.md.
+- The explicit CNA context lease remains necessary for reused-buffer uploads, transitions and deletion; [bugs.md](bugs.md) records the regression. No sibling edits. Latest observed dependency heads: CNA `967305dd7b93f992f7c177a7055bd5892ba8523e`, Sharp Runtime `6c4a857de129cf29b5d43430bedf24157d594f12`. Sibling input/runtime files have external uncommitted edits; this agent does not change them. A transient Debug inconsistency and the successful retry are documented in bugs.md.
 - Fresh format 34 captures use the game's own normal PipeWire/PulseAudio stream on the unmuted Ryzen speaker output: hum -32.3 dBFS RMS, footsteps -10.8 dBFS peak and an isolated transition without footsteps -13.5 dBFS peak, without clipping. Subjective listening remains unverified. Dummy-audio visual tests do not validate audibility.
 
 ## Next pass
 
-Complete cell-wall joins/terminations, compare the exposed corners and clear
-ends, and walk a fresh office return. Then refine coarse floor light pools and
-continue the product audit, audio routing and finite capacity checks until the
-scheduled stabilization window. The goal remains active.
+Commit format 42 and refine coarse
+office floor light pools, compare the same broad/weak-circuit regions and measure
+the streaming cost. Then vary office column composition and continue the product
+audit, audio routing and finite capacity checks until the scheduled stabilization
+window. The goal remains active.

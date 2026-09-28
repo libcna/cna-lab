@@ -213,3 +213,64 @@ They also expose coarse floor light pools, incomplete outer wall corners and
 regular column-room composition for the next passes. Release/Debug game/audit/test
 targets and all three CTest suites pass. Screenshot timing is not a benchmark;
 dummy audio does not validate audibility. A fresh long tunnel sweep is separate.
+
+
+## Pipe capacity sweep after format 41
+
+The fresh 28.8 km tunnel GPU diagnostic crosses both coordinate signs and returns,
+with collision deliberately bypassed. Active chunks remain at most 25, sampled
+spares at most 17, with 413 buffer creations and 28,676 reuses. Packed capacity is
+41.9–77.2 MiB, ending at 71.4 MiB. RSS quarter ranges are 10.6–332.0 (including
+startup), 332.0–340.1, 322.2–340.1 and 321.1–332.7 MiB; the last twelve samples stay
+at 321.1–332.7 MiB. This finite repeat establishes settling after the added pipe
+geometry rather than continuing growth through the final quarter.
+
+Median actual draw rate is 39 FPS, median rolling p95 27.55 ms and maximum sampled
+interval 108.82 ms. Median sampled build is 4.93 ms and peak build 55.50 ms, with
+46 builds above 16.67 ms during about 640 seconds. The largest geometry component
+is 52.86 ms and the largest upload component 24.48 ms. No compiler or other GPU
+job owned by this agent runs during measurement; shared-machine scheduling is
+not isolated, and no cause is assigned to the concentrated timing outliers.
+These occasional spikes remain a refinement target. Dummy audio is not listening
+evidence, and this diagnostic does not replace actual collision traversal.
+
+## Format 42: closed wall junctions and remote office traversal
+
+Cell-boundary wall faces stop at a shared full-thickness node core. Only exposed
+core faces are emitted, with wallpaper continuations and painted office ends;
+internal faces stay absent. This closes the old ceiling/baseboard corner wedges
+and uncapped isolated ends without coplanar extensions. Collision extends only
+the outer segment endpoints to the same core; doorway spans are unchanged.
+Small four-quadrant probes cover isolated ends and perpendicular outer corners.
+Industrial enclosures have no isolated wall ends, so their dedicated close views
+check continuous joins instead. Eighteen matched views compare format 39 with 42
+(the baseline also predates pipe/diffuser changes). All pairs and twelve family
+views are inspected. Recipe 11 and profile source `6075bcb6c5f3514c` stay unchanged.
+
+Release/Debug game/audit/test builds and all three CTest suites pass; all 63
+physical walkability squares contain one substantial component. Consecutive
+wall-end selections are byte-identical. The remote route planner accepts a start
+position and bounds the route extent to one kilometre per axis. A fresh Level 0
+weak-circuit return, seed 8723, starts at `(1066.5,1711.5)`, completes all 52
+waypoints and walks 426.5 metres in 277.1 seconds. Six player chunks, at most 25
+active chunks, 12.67 ms peak build and warmed/final RSS 184.93–184.96 MiB are
+observed. It creates 176 buffers and reuses 318; packed capacity ends at 8.5 MiB.
+All fourteen route views are inspected. Draw rate is approximately 37–40 FPS on
+the private display. No compiler or other game owned by this agent runs during
+measurement. The preceding close screenshot batch overlaps dependency rebuilds
+and its timings are not performance comparisons. Dummy audio is not audibility
+evidence.
+
+Fresh controller checks expose a game-side camera jump when clicking after
+Escape: the click frame still contains absolute cursor coordinates, which the
+game interpreted as relative motion. The game now skips mouse-look consumption
+on that frame. The QA driver checks recapture orientation explicitly, in addition
+to conventional four-direction relative input, default walk/run distances, a
+held Shift and the next Shift, mouse release and normal exit. The strict repeat
+passes: recapture retains `(90,0)` degrees and a rightward relative move reaches
+`(78.7,0)`, instead of the old absolute-coordinate jump to `(9.3,-45.4)`. Refreshed dependency
+heads are CNA `967305dd7b93f992f7c177a7055bd5892ba8523e` and Sharp Runtime
+`6c4a857de129cf29b5d43430bedf24157d594f12`; siblings remain unmodified by this agent.
+
+Largest remaining product deficiencies: coarse office floor light pools, regular
+column-room composition and the fresh audio/presentation audit.

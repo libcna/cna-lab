@@ -152,6 +152,46 @@ int OfficeLightingViews() {
     return 0;
 }
 
+int WallEndViews() {
+    const auto levels=LoadLevelCatalog(FindAssetDirectory()/"levels.json");
+    RoomLayoutCache cache;
+    for (int level=0;level<3;++level) {
+        const WorldConfig world{12345,level,&cache,&levels};
+        std::array<bool,6> selected{};
+        for (int cx=kMin;cx<=kMax;++cx) for (int cz=kMin;cz<=kMax;++cz) {
+            const bool north=VerticalEdge(world,cx,cz-1)!=Edge::Open;
+            const bool south=VerticalEdge(world,cx,cz)!=Edge::Open;
+            const bool west=HorizontalEdge(world,cx-1,cz)!=Edge::Open;
+            const bool east=HorizontalEdge(world,cx,cz)!=Edge::Open;
+            const int incident=north+south+west+east;
+            const bool corner=incident==2 && north!=south && west!=east;
+            // Enclosed industrial bays have no isolated cell-wall ends.
+            // Inspect their straight joins instead of requiring a nonexistent case.
+            const bool straight=level==1 && incident==2 &&
+                                ((north && south) || (west && east));
+            if (incident!=1 && !corner && !straight) continue;
+            const int index=corner ? 2+south*2+east : north || south ? 0 : 1;
+            if (selected[index]) continue;
+            const double wx=cx*kCellSize,wz=cz*kCellSize;
+            const double x=wx+(corner ? (west ? 0.85 : -0.85) :
+                              straight ? (north ? 0.9 : 0) : west ? 0.9 : east ? -0.9 : 0);
+            const double z=wz+(corner ? (north ? 0.85 : -0.85) :
+                              straight ? (west ? 0.9 : 0) : north ? 0.9 : south ? -0.9 : 0);
+            if (Collides(world,x,z,0.55) || PortalAt(world,CellOf(x),CellOf(z))) continue;
+            selected[index]=true;
+            std::cout << std::fixed << std::setprecision(6)
+                      << "view seed 12345 level " << level << " sample " << index
+                      << " region " << static_cast<int>(RegionAt(world,cx,cz))
+                      << " position " << x << ',' << z
+                      << " heading " << std::atan2(wx-x,wz-z)
+                      << " case " << (corner ? "outer_corner" : straight ? "continuous_joint" : "exposed_end") << '\n';
+        }
+        if (!std::all_of(selected.begin(),selected.end(),[](bool found){return found;}))
+            throw std::runtime_error("could not select all wall end orientations");
+    }
+    return 0;
+}
+
 int EntityApproaches() {
     const auto levels=LoadLevelCatalog(FindAssetDirectory()/"levels.json");
     RoomLayoutCache cache;
@@ -307,10 +347,12 @@ int main(int argc,char** argv) {
         if (argc>2 || (argc==2 && std::string(argv[1])!="--alcoves" &&
                       std::string(argv[1])!="--partitions" && std::string(argv[1])!="--entities" &&
                       std::string(argv[1])!="--views" && std::string(argv[1])!="--office-lighting" &&
+                      std::string(argv[1])!="--wall-ends" &&
                       std::string(argv[1])!="--entity-approaches"))
-            throw std::invalid_argument("usage: world_quality [--alcoves|--partitions|--entities|--views|--office-lighting|--entity-approaches]");
+            throw std::invalid_argument("usage: world_quality [--alcoves|--partitions|--entities|--views|--office-lighting|--wall-ends|--entity-approaches]");
         if (argc==2 && std::string(argv[1])=="--views") return ViewSamples();
         if (argc==2 && std::string(argv[1])=="--office-lighting") return OfficeLightingViews();
+        if (argc==2 && std::string(argv[1])=="--wall-ends") return WallEndViews();
         if (argc==2 && std::string(argv[1])=="--entity-approaches") return EntityApproaches();
         return Run(argc==2 && std::string(argv[1])=="--alcoves",
                    argc==2 && std::string(argv[1])=="--partitions",

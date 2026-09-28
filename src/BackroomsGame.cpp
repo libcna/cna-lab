@@ -194,11 +194,14 @@ void Partition(Meshes& meshes, Material material, Edge edge,
         section(a,b,base,material!=Material::TunnelWall ? height : height-0.10f,wall);
         if (material==Material::TunnelWall) section(a,b,height-0.10f,height,trim);
     };
-    if (edge==Edge::Solid) full(along,along+5);
+    // The shared corner core owns the last wall-half-thickness at each end.
+    // This avoids coplanar overlap and gives exposed ends a proper return.
+    if (edge==Edge::Solid) full(along+kWallHalfThickness,along+5-kWallHalfThickness);
     else {
         const float first=static_cast<float>(opening.start);
         const float last=static_cast<float>(opening.end);
-        full(along,along+first);full(along+last,along+5);
+        full(along+kWallHalfThickness,along+first);
+        full(along+last,along+5-kWallHalfThickness);
         const auto cap=[&](float end) {
             const float light=(lightAt(end,height*0.5f,0)+lightAt(end,height*0.5f,1))*0.5f;
             const float base=office ? 0.12f : 0.16f;
@@ -244,6 +247,51 @@ void Partition(Meshes& meshes, Material material, Edge edge,
                      {underside(a,0),underside(b,0),underside(b,1),underside(a,1)},0.6f);
         }
     }
+}
+
+void PartitionJoint(Meshes& meshes,BakedLighting& lighting,const WorldConfig& world,
+                    int gx,int gz,float x,float z,float height,
+                    Material material,Color wall,Color trim) {
+    const bool north=VerticalEdge(world,gx,gz-1)!=Edge::Open;
+    const bool south=VerticalEdge(world,gx,gz)!=Edge::Open;
+    const bool west=HorizontalEdge(world,gx-1,gz)!=Edge::Open;
+    const bool east=HorizontalEdge(world,gx,gz)!=Edge::Open;
+    if (!north && !south && !west && !east) return;
+    const bool office=world.level==0;
+    const double wx=gx*kCellSize,wz=gz*kCellSize;
+    const float base=office ? 0.12f : 0.16f;
+    const auto face=[&](bool vertical,int normal,bool covered,bool alongWall) {
+        if (covered) return;
+        const float cross=(vertical ? x : z)+normal*kWallHalfThickness;
+        const float center=vertical ? z : x;
+        const double px=wx+(vertical ? normal*0.14 : 0);
+        const double pz=wz+(vertical ? 0 : normal*0.14);
+        const auto light=[&](float y) {
+            return lighting.WallSample(px,pz,vertical ? normal : 0,
+                                        vertical ? 0 : normal,office ? y : -1);
+        };
+        const auto band=[&](float low,float high,Color color,Material finish) {
+            if (office) {
+                const Color bottom=Scale(color,light(low)),top=Scale(color,light(high));
+                WallFaceColors(meshes,finish,vertical,cross,
+                               center-kWallHalfThickness,center+kWallHalfThickness,
+                               low,high,{bottom,bottom,top,top});
+            } else WallFace(meshes,finish,vertical,cross,
+                            center-kWallHalfThickness,center+kWallHalfThickness,
+                            low,high,color,light(low),light(high));
+        };
+        band(0,base,trim,office ? Material::PaintedTrim : material);
+        const Material finish=office && !alongWall ? Material::PaintedTrim : material;
+        const Color color=office && !alongWall ? Scale(wall,0.85f) : wall;
+        const float top=world.level==2 ? height-0.10f : height;
+        band(base,height*0.5f,color,finish);
+        band(height*0.5f,top,color,finish);
+        if (world.level==2) band(top,height,trim,material);
+    };
+    // A face covered by an incident wall stays internal. Exposed faces are
+    // wallpaper continuations or painted end caps, rather than open slices.
+    face(true,-1,west,north || south);face(true,1,east,north || south);
+    face(false,-1,north,west || east);face(false,1,south,west || east);
 }
 
 void BoxRange(Meshes& meshes, Material material, float x0, float z0,
@@ -1216,6 +1264,7 @@ void BackroomsGame::BuildChunk(ChunkCoord coord) {
         if (horizontalEdge!=Edge::Open)
             Partition(meshes,wallMat,horizontalEdge,horizontalOpening,false,z,x,
                       height,doorHeight,cellWall,trim,wallLighting(false));
+        PartitionJoint(meshes,lighting,world_,gx,gz,x,z,height,wallMat,cellWall,trim);
         if (level==0) {
             ContactShadow(meshes,lighting,verticalEdge,verticalOpening,true,x,z,
                           ox*kCellSize,oz*kCellSize,floorColor);
@@ -1585,7 +1634,9 @@ void BackroomsGame::Update(GameTime& time) {
         } else Exit();
     }
     auto mouse=Mouse::GetState();
-    if (!captured_ && mouse.getLeftButtonProperty()==ButtonState::Pressed) {
+    const bool recaptured=!captured_ &&
+                          mouse.getLeftButtonProperty()==ButtonState::Pressed;
+    if (recaptured) {
         captured_=true;
         Mouse::setIsRelativeMouseModeEXTProperty(true);
         setIsMouseVisibleProperty(false);
@@ -1593,8 +1644,12 @@ void BackroomsGame::Update(GameTime& time) {
     if (captured_ && getIsActiveProperty()) {
         // CNA/SDL reports positive relative X for physical movement to the right.
         // With this camera's +Z forward convention, decreasing yaw looks right.
-        yaw_ -= mouse.getXProperty()*0.0022f;
-        pitch_=std::clamp(pitch_-mouse.getYProperty()*0.0022f,-1.43f,1.43f);
+        // The click frame still contains absolute coordinates from before
+        // capture. Consuming them as a delta made the camera jump on recapture.
+        if (!recaptured) {
+            yaw_ -= mouse.getXProperty()*0.0022f;
+            pitch_=std::clamp(pitch_-mouse.getYProperty()*0.0022f,-1.43f,1.43f);
+        }
         double forward=(keys.IsKeyDown(Keys::W)?1.0:0.0)-(keys.IsKeyDown(Keys::S)?1.0:0.0);
         double strafe=(keys.IsKeyDown(Keys::D)?1.0:0.0)-(keys.IsKeyDown(Keys::A)?1.0:0.0);
         const double length=std::hypot(forward,strafe);

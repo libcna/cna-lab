@@ -123,6 +123,7 @@ try:
     trace=(output/'trace.txt').open('w')
     start=time.monotonic()
     rss_samples=[];observed_chunks=set();max_loaded=0
+    manifest=[]
     distance_walked=0;last_position=route[0]
     for index,(tx,tz) in enumerate(waypoints):
         px,pz,title=position()
@@ -157,8 +158,12 @@ try:
         print(line,flush=True)
         trace.write(line+'\n');trace.flush()
         if index%args.capture_every==0 or index==len(waypoints)-1:
+            name=f'view-{index:02d}'
             subprocess.run(['import','-window',window,
-                str(output/f'view-{index:02d}.png')],check=True)
+                str(output/(name+'.png'))],check=True)
+            manifest.append(dict(name=name,seed=int(seed),level=level,
+                                 x=px,z=pz,heading=yaw,title=title))
+            (output/'manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')
         if not args.route_file and index==len(route)-2:
             pixels=round(((yaw+math.pi)%(2*math.pi)-math.pi)/0.0022)
             xdo('mousemove_relative','--',pixels,0)

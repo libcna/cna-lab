@@ -28,15 +28,22 @@ bool NearEntrance(const WorldConfig& world,double x,double z) {
 // This is a QA route planner, not entity pathfinding or game-side navigation.
 int main(int argc,char** argv) {
     try {
-        if (argc!=5) throw std::invalid_argument("usage: world_route level seed target-x target-z");
+        if (argc!=5 && argc!=7)
+            throw std::invalid_argument("usage: world_route level seed target-x target-z [start-x start-z]");
         const auto levels=LoadLevelCatalog(FindAssetDirectory()/"levels.json");
         RoomLayoutCache cache;
         const WorldConfig world{std::stoull(argv[2],nullptr,0),std::stoi(argv[1]),&cache,&levels};
         const double tx=std::stod(argv[3]),tz=std::stod(argv[4]);
+        // Snap an optional remote start to the planner's one-metre lattice.
+        const double startX=argc==7 ? std::floor(std::stod(argv[5]))+0.5 : 2.5;
+        const double startZ=argc==7 ? std::floor(std::stod(argv[6]))+0.5 : 2.5;
         if (world.level<0 || world.level>2 || !std::isfinite(tx) ||
-            !std::isfinite(tz) || std::abs(tx)>1000 || std::abs(tz)>1000)
+            !std::isfinite(tz) || !std::isfinite(startX) || !std::isfinite(startZ) ||
+            std::abs(tx)>1e6 || std::abs(tz)>1e6 ||
+            std::abs(startX)>1e6 || std::abs(startZ)>1e6 ||
+            std::abs(tx-startX)>1000 || std::abs(tz-startZ)>1000)
             throw std::invalid_argument("invalid route arguments");
-        constexpr double startX=2.5,startZ=2.5,radius=0.55,margin=45;
+        constexpr double radius=0.55,margin=45;
         const double ox=std::floor(std::min(startX,tx)-margin)+0.5;
         const double oz=std::floor(std::min(startZ,tz)-margin)+0.5;
         const int width=static_cast<int>(std::ceil(std::max(startX,tx)+margin-ox));

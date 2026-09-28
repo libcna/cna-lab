@@ -29,7 +29,7 @@ int main() {
     CHECK(ChunkOfCell(-9)==-2);
     CHECK(ChunkAt(-0.01,-40.01)==(ChunkCoord{-1,-2}));
     // Golden values make changes to the versioned procedural world explicit.
-    CHECK(kFormatVersion==41);
+    CHECK(kFormatVersion==42);
     CHECK(CellHash(world,12,-8,41)==511389911U);
     CHECK(VerticalEdge(world,8,3)==Edge::Open);
     CHECK(HorizontalEdge(world,-4,-5)==Edge::Open);
@@ -82,6 +82,28 @@ int main() {
         found=true;
     }
     CHECK(found);
+    // A visible wall end/corner has a full-thickness core. Tiny probes in its
+    // four quadrants must not pass through the old missing diagonal wedge.
+    int allExposedEnds=0,allOuterCorners=0;
+    for (int level=0;level<3;++level) {
+        const WorldConfig selected{12345,level,&cache};
+        int exposedEnds=0,outerCorners=0;
+        for (int cx=-20;cx<20;++cx) for (int cz=-20;cz<20;++cz) {
+            const bool north=VerticalEdge(selected,cx,cz-1)!=Edge::Open;
+            const bool south=VerticalEdge(selected,cx,cz)!=Edge::Open;
+            const bool west=HorizontalEdge(selected,cx-1,cz)!=Edge::Open;
+            const bool east=HorizontalEdge(selected,cx,cz)!=Edge::Open;
+            const int incident=north+south+west+east;
+            const bool corner=incident==2 && north!=south && west!=east;
+            if (incident!=1 && !corner) continue;
+            exposedEnds+=incident==1;outerCorners+=corner;
+            for (double dx:{-0.075,0.075}) for (double dz:{-0.075,0.075})
+                CHECK(Collides(selected,cx*kCellSize+dx,cz*kCellSize+dz,0.005));
+        }
+        CHECK(exposedEnds+outerCorners>10);
+        allExposedEnds+=exposedEnds;allOuterCorners+=outerCorners;
+    }
+    CHECK(allExposedEnds>10 && allOuterCorners>10);
     found=false;
     for (int boundary=-30;boundary<30 && !found;++boundary) {
         if (VerticalEdge(world,boundary,1)!=Edge::Door) continue;
