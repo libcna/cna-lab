@@ -54,6 +54,7 @@ private:
     std::unique_ptr<Microsoft::Xna::Framework::Audio::SoundEffect> humSound_;
     std::unique_ptr<Microsoft::Xna::Framework::Audio::SoundEffectInstance> hum_;
     std::unique_ptr<Microsoft::Xna::Framework::Audio::SoundEffect> step_;
+    std::unique_ptr<Microsoft::Xna::Framework::Audio::SoundEffect> carpetStep_;
     std::unique_ptr<Microsoft::Xna::Framework::Audio::SoundEffect> transition_;
     std::map<ChunkCoord, Chunk> chunks_;
     std::vector<std::unique_ptr<Microsoft::Xna::Framework::Graphics::VertexBuffer>> spareVertices_;
@@ -71,6 +72,7 @@ private:
     double lastBuildMs_ = 0;
     double peakBuildMs_ = 0;
     double stepDistance_ = 0;
+    unsigned stepCount_ = 0;
     bool stepWarningShown_ = false;
     bool streamTest_ = false;
     double streamTestMetres_ = 9600.0;

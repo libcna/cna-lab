@@ -11,6 +11,11 @@ set(SHARP_RUNTIME_BUILD_TESTS OFF CACHE BOOL "sharp-runtime tests" FORCE)
 set(BUILD_TESTING OFF CACHE BOOL "dependency tests" FORCE)
 add_subdirectory("${CNA_ROOT_DIR}" CNA_BUILD)
 add_executable(cna_backrooms src/main.cpp src/BackroomsGame.cpp src/World.cpp src/Materials.cpp)
+add_custom_target(backrooms_assets
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        "${CMAKE_CURRENT_SOURCE_DIR}/assets" "$<TARGET_FILE_DIR:cna_backrooms>/assets"
+    COMMENT "Copying the game's licensed audio assets")
+add_dependencies(cna_backrooms backrooms_assets)
 target_include_directories(cna_backrooms PRIVATE src)
 target_link_libraries(cna_backrooms PRIVATE CNA)
 target_compile_options(cna_backrooms PRIVATE -Wall -Wextra -Wpedantic)

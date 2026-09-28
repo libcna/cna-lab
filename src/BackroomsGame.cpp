@@ -618,6 +618,8 @@ void BackroomsGame::LoadContent() {
             directory=fs::read_symlink("/proc/self/exe").parent_path()/"assets";
         humSound_=std::make_unique<Audio::SoundEffect>((directory/"hum.wav").string());
         step_=std::make_unique<Audio::SoundEffect>((directory/"step.wav").string());
+        carpetStep_=std::make_unique<Audio::SoundEffect>(
+            (directory/"step-carpet.wav").string());
         transition_=std::make_unique<Audio::SoundEffect>((directory/"transition.wav").string());
         hum_=std::make_unique<Audio::SoundEffectInstance>(humSound_->CreateInstance());
         hum_->setVolumeProperty(0.34f);
@@ -625,10 +627,11 @@ void BackroomsGame::LoadContent() {
         hum_->Play();
         if (hum_->getStateProperty()!=Audio::SoundState::Playing)
             throw std::runtime_error("fluorescent hum did not start playing");
-        std::cerr << "Audio ready: hum loop and event sounds loaded from "
+        std::cerr << "Audio ready: hum, carpet/hard-floor steps and transition loaded from "
                   << directory << '\n';
     } catch (const std::exception& error) {
-        hum_.reset(); humSound_.reset(); step_.reset(); transition_.reset();
+        hum_.reset(); humSound_.reset(); step_.reset(); carpetStep_.reset();
+        transition_.reset();
         std::cerr << "Audio unavailable: " << error.what() << '\n';
     }
 }
@@ -1126,7 +1129,11 @@ void BackroomsGame::Update(GameTime& time) {
         const double stepLength=running_?2.0:1.65;
         if (stepDistance_>stepLength) {
             stepDistance_-=stepLength;
-            if (step_ && !step_->Play(0.70f,0,0) && !stepWarningShown_) {
+            auto* sound=world_.level==0 ? carpetStep_.get() : step_.get();
+            constexpr std::array<float,4> pitches{{-0.025f,0.016f,-0.009f,0.030f}};
+            const float pitch=pitches[stepCount_++%pitches.size()];
+            const float volume=world_.level==0 ? 0.62f : 0.74f;
+            if (sound && !sound->Play(volume,pitch,0) && !stepWarningShown_) {
                 std::cerr << "Audio: footstep could not acquire a voice\n";
                 stepWarningShown_=true;
             }

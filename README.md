@@ -20,7 +20,7 @@ cmake -S . -B build -DCNA_USE_SYSTEM_SDL=ON \
   -DCMAKE_PREFIX_PATH=../cna/.sdl-prebuilt-Linux-x86_64-wayland/install
 ```
 
-Run from the repository root or `build/` so the three WAV assets are found. Missing or unavailable audio is logged and the game continues. `--seed` accepts an unsigned decimal or `0x` hexadecimal integer; the default is reproducible. `--level 0|1|2 --position x z` starts at a chosen valid point for inspecting procedural rooms. `--walk-speed` and `--run-speed` set movement speeds in metres per second (defaults: 3.8 and 6.5). `--stream-test` runs a 9.6 km automated GPU streaming sweep and exits; `--stream-test-metres 19200` uses another distance and implies the test mode.
+The build copies four WAV assets beside the executable, so the game can be launched from any working directory. Missing or unavailable audio is logged and the game continues. `--seed` accepts an unsigned decimal or `0x` hexadecimal integer; the default is reproducible. `--level 0|1|2 --position x z` starts at a chosen valid point for inspecting procedural rooms. `--walk-speed` and `--run-speed` set movement speeds in metres per second (defaults: 3.8 and 6.5). `--stream-test` runs a 9.6 km automated GPU streaming sweep and exits; `--stream-test-metres 19200` uses another distance and implies the test mode.
 
 ## Controls
 
@@ -47,7 +47,7 @@ The game retains at most a 5 by 5 neighborhood of chunks around the player. Each
 
 ## Assets and limitations
 
-Geometry and reusable textures are generated in code. Three CC0 sounds from the NOX SOUND Essentials Series provide fluorescent hum, footsteps and transition cues. See [asset license](assets/LICENSE.md). Furniture and figures are simple low-poly meshes. The figures wander in place and cannot interact with the player.
+Geometry and reusable textures are generated in code. Four CC0 sounds from the NOX SOUND Essentials Series provide fluorescent hum, muted carpet steps, hard-floor steps and transition cues. See [asset license](assets/LICENSE.md). Furniture and figures are simple low-poly meshes. The figures wander in place and cannot interact with the player.
 
 Chunk generation is synchronous and capped at one upload per update. Walking is flat; collision uses a horizontal circle, not full character physics. The world has no save file, vertical traversal, moving doors or authored story. Linux desktop `OPENGLES3` is the only intended platform for this milestone.
 
@@ -63,6 +63,6 @@ The format 11 Level 0 sweep also covered 9.6 km near 59 FPS with at most 25 chun
 
 Current Level 1 and Level 2 each completed another 9.6 km sweep near 59 FPS with at most 25 chunks. Level 1 peaked at 25.1 ms, reused 6,305 buffers and ended near 187.6 MB RSS; Level 2 peaked at 25.5 ms, reused 6,442 buffers and plateaued near 202.4 MB. `cmake --build build --target world_walkability && ./build/world_walkability` audits 63 complete 90-metre squares using the player's collision movement on a one-metre lattice. It caught a narrow gap beside a Level 0 partition; after increasing clearance, every sample has one substantial connected component. Tiny corner pockets below ten sample points are excluded from useful room space. A live Release controller check stopped against an offset wall, strafed past its end and continued through the passage.
 
-Audio initialization and event playback have been checked through CNA. A live PulseAudio/PipeWire sink input was observed while the game ran and walked with a normal audio backend. Subjective audibility still needs a person listening on a real machine; screenshot and streaming runs use SDL's dummy audio device.
+Audio was captured from only the game's real PulseAudio/PipeWire sink input routed to the Ryzen hardware speaker output. Idle hum measured about -32 dBFS RMS; walking produced peaks near -10 dBFS, and an isolated transition reached -12.5 dBFS without footsteps. No clipping occurred. The hardware sink was muted in this agent environment, so subjective audibility/loudness remains a real-machine listening check. Screenshot and streaming runs use SDL's dummy audio device.
 
 For a normal-controller streaming regression, install `python3`, `xdotool` and ImageMagick, then run `python3 tools/controller_walk.py --game build/cna_backrooms` on an X11/Xwayland display. It walks a 326 m route through negative chunk coordinates and back, retaining screenshots and a trace under ignored `build/controller-qa/`. The dedicated `pooled-buffer-regression.png` must show a complete floor and ceiling. This visual check caught an EasyGL existing-buffer upload problem that passing world tests and numeric streaming sweeps missed; the game-side context workaround is documented in [bugs.md](bugs.md).

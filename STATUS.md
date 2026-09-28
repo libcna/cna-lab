@@ -6,6 +6,8 @@ The September 2026 playable foundation at `aaf67c0` has deterministic regions, b
 
 ## Completed passes
 
+- Surface-aware steps now use muted carpet and separate hard-floor sounds from the existing CC0 collection, with small pitch variation. An isolated transition was captured without footsteps. The build copies all four sounds beside the binary; a real-backend launch from /tmp loaded them successfully.
+
 - A normal-controller route exposed a pooled-buffer upload regression. GPU readback and a deterministic replay identified missing EasyGL context ownership between frame leases. Streaming, transitions and final GPU cleanup now hold CNA context tokens. The 326 m return route, exact failing view and an automatic-exit check pass; bugs.md records the diagnosis without sibling changes.
 
 - Playable foundation and long positive/negative coordinate GPU sweeps.
@@ -36,10 +38,12 @@ The September 2026 playable foundation at `aaf67c0` has deterministic regions, b
 ## Three highest-priority deficiencies
 
 1. Repeat longer GPU sweeps after the context fix: previous sweeps counted chunks but could display stale GPU geometry after reuse.
-2. Finish the surface-aware footstep commit and verify the transition cue independently on the real audio backend.
+2. Improve sparse furniture proportions and readable upholstery/frame materials.
 3. Level 0 still has overly uniform wall lighting and crude furniture proportions. Improve those against matched screenshots rather than adding more level types.
 
 ## Latest validation
+
+- Real PipeWire capture of the game's own sink stream shows idle hum around -32 dBFS RMS, carpet/hard-floor step peaks near -10 dBFS and an isolated transition peak at -12.5 dBFS with no clipping. It is routed to the Ryzen hardware speaker sink, but that sink is muted in the agent environment. Subjective listening remains unverified.
 
 - The format 12 Release normal-controller regression traversed 326 m and returned in 225.8 seconds, including negative chunk coordinates. All 36 waypoints passed; the exact pooled-buffer regression view is correct after 299 reuses, at most 25 chunks, near 59 FPS and a 2.05 ms peak build. A 400 m automatic-exit GPU check also passed, exercising final GPU cleanup. Earlier numeric sweeps did not expose the visually incorrect reused-buffer uploads; their timing/memory results are historical, not visual validation of the fixed renderer.
 
@@ -50,4 +54,4 @@ The September 2026 playable foundation at `aaf67c0` has deterministic regions, b
 
 ## Next pass
 
-Repeat long GPU sweeps with the fixed uploads and inspect further screenshots. Temporary direct GL diagnostics have been removed; the game uses only CNA APIs. Then validate surface-aware footsteps through the real PipeWire sink input and continue visual/product refinement.
+Repeat long GPU sweeps with the fixed uploads and inspect further screenshots. Temporary direct GL diagnostics have been removed; the game uses only CNA APIs. Audio routing and isolated cues are now checked, including launch from /tmp. Continue with matched lighting and furniture screenshots after the long fixed-upload sweeps.
