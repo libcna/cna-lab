@@ -646,3 +646,22 @@ The final gallery stores six office, three storage, three tunnel and three
 creature illustrations with provenance. The dedicated product audit records
 acceptance and known limitations rather than equating successful compilation
 with visual completion.
+
+## Copied-package launch correction — 2026-09-28
+
+The owner moved the existing executable and assets into build/bbb. Its recorded
+absolute build RUNPATH no longer located libcna.so after the original engine
+directory was removed; a library beside an ELF executable is not searched
+automatically. tools/run.sh now prepends its package directory to the library
+path and launches from it. It is copied alongside future builds; CMake also
+adds an origin-relative library search for future executables. The existing
+binary was not rebuilt or rewritten.
+
+The actual copied build/bbb/run.sh completes a 400 m isolated Xwayland/GPU
+streaming check with exit zero. Its log confirms world format 49 and all three
+bitmap materials/audio files loaded from build/bbb/assets. Audio is dummy for
+this launch check, not listening evidence. This copied Debug package reports
+slower timings (median build 60.86 ms, peak 90.35 ms; sampled frame maximum
+1105.47 ms), so these observations do not replace the earlier Release results.
+Artifacts: build/package-launch-check. The launcher leaves the user's display
+backend selection unchanged and forwards all arguments.

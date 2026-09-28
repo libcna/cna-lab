@@ -72,3 +72,11 @@ animation, saving or additional compositions. Start from README and
 [world architecture](docs/world-generation.md); preserve bounded streaming and
 harmless entities. The full finite pass history remains in
 [validation history](docs/validation-history.md).
+
+## Post-delivery package correction
+
+The owner's copied build/bbb package now has run.sh to resolve its local CNA
+library and assets without the deleted original build directory. A 400 m actual
+isolated GPU launch check exits zero and confirms all packaged materials loaded.
+The existing binary is unchanged; the CMake origin-relative setting applies to
+future builds. This is local launch qualification, not a universal Linux bundle.

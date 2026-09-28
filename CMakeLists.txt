@@ -20,9 +20,14 @@ add_library(backrooms_profiles STATIC src/LevelProfiles.cpp src/Assets.cpp)
 target_link_libraries(backrooms_profiles PUBLIC backrooms_world SharpRuntime::Text.Json SharpRuntime::IO)
 target_compile_options(backrooms_profiles PRIVATE -Wall -Wextra -Wpedantic)
 add_executable(cna_backrooms src/main.cpp src/BackroomsGame.cpp src/Materials.cpp)
+set_target_properties(cna_backrooms PROPERTIES
+    BUILD_RPATH "$ORIGIN"
+    INSTALL_RPATH "$ORIGIN")
 add_custom_target(backrooms_assets
     COMMAND ${CMAKE_COMMAND} -E copy_directory
         "${CMAKE_CURRENT_SOURCE_DIR}/assets" "$<TARGET_FILE_DIR:cna_backrooms>/assets"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/run.sh" "$<TARGET_FILE_DIR:cna_backrooms>/run.sh"
     COMMENT "Copying the game's visual and licensed audio assets")
 add_dependencies(cna_backrooms backrooms_assets)
 target_include_directories(cna_backrooms PRIVATE src)

@@ -24,6 +24,20 @@ cmake -S . -B build -DCNA_USE_SYSTEM_SDL=ON \
 
 The build copies assets beside the executable, so the game can be launched from any working directory. Missing or unavailable audio is logged and the game continues. `--seed` accepts an unsigned decimal or `0x` hexadecimal integer; the default is reproducible. `--level 0|1|2 --position x z` starts at a chosen valid point for inspecting procedural rooms. `--walk-speed` and `--run-speed` set movement speeds in metres per second (defaults: 2.4 and 4.8). `--fov` sets vertical field of view in degrees, from 45 to 90 (default: 60, about 91 degrees horizontally at 16:9). `--msaa 0|4` controls native multisampling (default: four samples, capped by the driver; use zero on slower hardware). `--stream-test` runs a 9.6 km automated GPU streaming sweep and exits; `--stream-test-metres 19200` uses another distance and implies the test mode.
 
+## Copying the game
+
+Copy `cna_backrooms`, `run.sh`, the entire `assets/` directory and
+`CNA_BUILD/libcna.so` into one directory. Start it with `./run.sh`; this launcher
+finds libraries beside itself and uses the packaged assets from any working
+directory. Existing build executables may retain absolute dependency paths,
+so use the launcher when moving them. Future builds also search `$ORIGIN`.
+
+On another machine, supply the matching `libSDL3.so.0` and
+`libSDL3_mixer.so.0` if they are not installed. Other dependencies reported by
+`ldd` (including the currently linked FFmpeg libraries), the graphics driver
+and a compatible Linux system are still required. This is a local launch
+package, not a fully self-contained distribution for every Linux version.
+
 ## Controls
 
 | Input | Action |
