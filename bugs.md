@@ -33,3 +33,18 @@ headers succeeds (`build/build38-debug-retry.log`), and all three Debug CTest
 suites pass. The refreshed Release build also succeeds with all three suites
 passing. The actual controller walk uses this refreshed binary, rather than
 inferring that the external runtime/input changes work from the old binary.
+
+## Dependency-wide SDL inventory audit blocks standalone configuration
+
+During final delivery, the externally changing CNA next checkout at
+`200d08fb67f538317fca8363acb04e0363a19857` rejects Debug regeneration in
+`cmake/PlatformRatchet.cmake:102`. Its non-production SDL audit reports new
+Windows/GDI and other renderer test sources, even though this game's CNA tests
+and examples are disabled and only EasyGL OPENGLES3 is selected. Reproduction
+log: `build/beam49-debug-build.log`. This is a dependency configure gate,
+not a failure in the game's world tests or graphics output.
+
+The standalone project's CMake disables `CNA_PLATFORM_RATCHET` before adding
+CNA. That option controls engine developer source-inventory audits. The game's
+CTest suites remain enabled; no CNA or Sharp Runtime source is modified.
+The owning CNA developers can classify their new test files in their inventory.

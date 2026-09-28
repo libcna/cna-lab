@@ -295,12 +295,14 @@ void PartitionJoint(Meshes& meshes,BakedLighting& lighting,const WorldConfig& wo
 }
 
 void BoxRange(Meshes& meshes, Material material, float x0, float z0,
-              float x1, float z1, float y0, float y1, Color color) {
+              float x1, float z1, float y0, float y1, Color color,
+              bool closeBottom=false) {
     WallFace(meshes,material,true,x0,z0,z1,y0,y1,color);
     WallFace(meshes,material,true,x1,z0,z1,y0,y1,color);
     WallFace(meshes,material,false,z0,x0,x1,y0,y1,color);
     WallFace(meshes,material,false,z1,x0,x1,y0,y1,color);
     Flat(meshes,material,x0,z0,x1,z1,y1,color,0.6f);
+    if (closeBottom) Flat(meshes,material,x0,z0,x1,z1,y0,color,0.6f);
 }
 
 void PipeRun(Meshes& meshes, bool alongZ, float cross, float start,
@@ -1274,16 +1276,17 @@ void BackroomsGame::BuildChunk(ChunkCoord coord) {
             const auto kind=RegionAt(world_,gx,gz);
             // Supported bays put the framing over their column centers;
             // enclosed utility rooms keep a separate region-wide phase.
+            // The upper face meets the slab, including spans over openings.
             const bool beam=kind==RegionKind::Columns ? line==1 || line==4 :
                             kind==RegionKind::Storage ? line==2 || line==5 :
                             (line+phase)%3==0;
             if (beam) {
                 if (alongX)
                     BoxRange(meshes,ceilingMat,x,z+2.40f,x+5,z+2.60f,
-                             height-0.32f,height-0.10f,grid);
+                             height-0.32f,height,grid,true);
                 else
                     BoxRange(meshes,ceilingMat,x+2.40f,z,x+2.60f,z+5,
-                             height-0.32f,height-0.10f,grid);
+                             height-0.32f,height,grid,true);
             }
         } else if (level==2 && !chamber) {
             // Roof ledges meet real solid walls instead of tracing every cell

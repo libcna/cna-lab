@@ -9,6 +9,8 @@ set(CNA_BUILD_TESTS OFF CACHE BOOL "CNA tests" FORCE)
 set(CNA_BUILD_EXAMPLES OFF CACHE BOOL "CNA examples" FORCE)
 set(SHARP_RUNTIME_BUILD_TESTS OFF CACHE BOOL "sharp-runtime tests" FORCE)
 set(BUILD_TESTING OFF CACHE BOOL "dependency tests" FORCE)
+# Standalone game builds exclude dependency-wide source inventory audits; see bugs.md.
+set(CNA_PLATFORM_RATCHET OFF CACHE BOOL "Engine developer SDL-coupling audits" FORCE)
 add_subdirectory("${CNA_ROOT_DIR}" CNA_BUILD)
 sharp_runtime_enable_component(Text.Json)
 add_library(backrooms_world STATIC src/World.cpp src/Lighting.cpp)
