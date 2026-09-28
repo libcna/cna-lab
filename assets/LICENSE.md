@@ -22,3 +22,7 @@ The hum has been gain-adjusted by +8 dB. The hard-floor step has +13 dB gain. Th
 ## Original carpet
 
 `carpet-v1.png` is an original AI-generated visual asset created specifically for this project with no input reference image. Its prompt, source fingerprint and runtime processing are recorded in [carpet-generation.md](carpet-generation.md). It is not a downloaded photograph or third-party material.
+
+## Original concrete
+
+`concrete-v1.png` is an original AI-generated visual asset created for this project with no input reference image. Its prompt, source fingerprint and runtime processing are recorded in [concrete-generation.md](concrete-generation.md). It is not a downloaded photograph or third-party material.

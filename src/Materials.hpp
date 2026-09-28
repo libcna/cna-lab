@@ -26,7 +26,7 @@ public:
     }
 
 private:
-    std::array<std::unique_ptr<Microsoft::Xna::Framework::Graphics::Texture2D>,
+    std::array<std::shared_ptr<Microsoft::Xna::Framework::Graphics::Texture2D>,
                kMaterialCount> textures_;
 };
 

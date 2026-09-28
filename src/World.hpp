@@ -11,7 +11,7 @@
 
 namespace Backrooms {
 
-constexpr int kFormatVersion = 30;
+constexpr int kFormatVersion = 31;
 constexpr int kChunkCells = 8;
 constexpr int kRegionCells = 6;
 constexpr double kCellSize = 5.0;

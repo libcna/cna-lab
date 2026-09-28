@@ -180,15 +180,24 @@ Color Pixel(Material material, int x, int y, int size) {
 }
 
 Materials::Materials(GraphicsDevice& device,const std::filesystem::path& assetDirectory) {
+    bool concreteBitmapLoaded=false;
     for (int id=0;id<kMaterialCount;++id) {
         const Material material=static_cast<Material>(id);
+        if (material==Material::TunnelFloor && concreteBitmapLoaded) {
+            // Same mineral albedo, independently tinted/lit floor geometry.
+            // Keep the darker procedural floor if the bitmap is unavailable.
+            textures_[id]=textures_[static_cast<int>(Material::TunnelWall)];
+            continue;
+        }
         int size=material==Material::Carpet ? 1024 :
                  (material==Material::Wallpaper || material==Material::CeilingTile ||
                   material==Material::ConcreteCeiling || material==Material::TunnelWall) ? 512 : 128;
         std::vector<Color> pixels;
         const char* bitmapName=material==Material::Wallpaper ? "wallpaper-v1.png" :
-                               material==Material::Carpet ? "carpet-v1.png" : nullptr;
-        const char* label=material==Material::Wallpaper ? "wallpaper" : "carpet";
+                               material==Material::Carpet ? "carpet-v1.png" :
+                               material==Material::TunnelWall ? "concrete-v1.png" : nullptr;
+        const char* label=material==Material::Wallpaper ? "wallpaper" :
+                          material==Material::Carpet ? "carpet" : "tunnel concrete";
         const auto bitmapPath=assetDirectory/(bitmapName ? bitmapName : "");
         if (bitmapName && System::IO::File::Exists(bitmapPath.string())) {
             try {
@@ -197,6 +206,7 @@ Materials::Materials(GraphicsDevice& device,const std::filesystem::path& assetDi
                 pixels.resize(1024*1024);
                 decoded.GetData(pixels.data(),static_cast<int>(pixels.size()));
                 size=1024;
+                if (material==Material::TunnelWall) concreteBitmapLoaded=true;
                 std::cerr << "Material ready: " << label << " loaded from " << bitmapPath << '\n';
             } catch (const std::exception& error) {
                 pixels.clear();
@@ -211,7 +221,7 @@ Materials::Materials(GraphicsDevice& device,const std::filesystem::path& assetDi
             for (int y=0;y<size;++y) for (int x=0;x<size;++x)
                 pixels.push_back(Pixel(material,x,y,size));
         }
-        textures_[id]=std::make_unique<Texture2D>(
+        textures_[id]=std::make_shared<Texture2D>(
             device,size,size,true,SurfaceFormat::Color);
         int width=size;
         for (int level=0;level<textures_[id]->getLevelCountProperty();++level) {
