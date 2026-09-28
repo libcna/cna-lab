@@ -27,7 +27,7 @@ int main() {
     CHECK(ChunkOfCell(-9)==-2);
     CHECK(ChunkAt(-0.01,-40.01)==(ChunkCoord{-1,-2}));
     // Golden values make changes to the versioned procedural world explicit.
-    CHECK(kFormatVersion==19);
+    CHECK(kFormatVersion==20);
     CHECK(CellHash(world,12,-8,41)==511389911U);
     CHECK(VerticalEdge(world,8,3)==Edge::Open);
     CHECK(HorizontalEdge(world,-4,-5)==Edge::Open);
@@ -85,15 +85,21 @@ int main() {
     const WorldConfig storage{12345,1};
     for (int rx=-8;rx<=8;++rx) for (int rz=-8;rz<=8;++rz) {
         if (RegionAt(storage,rx*6,rz*6)!=RegionKind::Storage) continue;
-        int racks=0;
+        int racks=0,pillars=0,openEdges=0,totalEdges=0;
         for (int lx=0;lx<6;++lx) for (int lz=0;lz<6;++lz) {
             const int cx=rx*6+lx,cz=rz*6+lz;
+            pillars+=FullHeightObstaclesAt(storage,cx,cz).count;
+            if (lx>0) { ++totalEdges;openEdges+=VerticalEdge(storage,cx,cz)==Edge::Open; }
+            if (lz>0) { ++totalEdges;openEdges+=HorizontalEdge(storage,cx,cz)==Edge::Open; }
             if (PropAt(storage,cx,cz).kind!=PropKind::None ||
-                CellObstacles(storage,cx,cz).count!=1) continue;
+                CellObstacles(storage,cx,cz).count!=1 ||
+                FullHeightObstaclesAt(storage,cx,cz).count!=0) continue;
             ++racks;
             CHECK(Collides(storage,(cx+0.5)*kCellSize,
                            (cz+0.5)*kCellSize,0.31));
         }
+        CHECK(pillars>=2 && pillars<=4);
+        CHECK(openEdges>totalEdges*0.75);
         sparseBay|=racks==2;
         denseBay|=racks==4;
     }

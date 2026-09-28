@@ -6,6 +6,8 @@ The September 2026 playable foundation at `aaf67c0` has deterministic regions, b
 
 ## Completed passes
 
+- Format 20 reduces storage-bay internal wall fragments and adds two to four cast-concrete supports around each sparse shelf layout. Shared pillar placement suppresses overlapping props and shifts fixtures. Six paired storage views were inspected; two initially faced nearby walls, so additional turned views inspect their actual bays. Debug/Release builds and tests, the seven-seed structural scan, 63-square collision audit and all six live entrance cases pass. The regenerated Level 1 return route passes 40 waypoints and approximately 512 m in 269.2 seconds, near 59 FPS, 25 maximum chunks, 2.03 ms peak and warmed RSS 173.4–173.9 MiB. A 9.6 km sweep stays near 59 FPS, 25 chunks, 2.43 ms peak and stable late RSS about 174.5 MiB, with 162 buffers created and 6,948 reused.
+
 - Format 19 replaces the cloudy industrial roof with a quieter cast-concrete finish and subtle formwork lines, also used on pillars and service-chamber ceilings. Carpet uses finer 4 mm-scale grain while retaining metre-scale wear. Paired close views exposed overbright wall-base strips; their colors now sample the existing floor triangles. Debug/Release builds and tests, six paired industrial views, three close carpet views and a new twelve-view round pass. A 2.4 km Level 0 Release sweep stays near 59 FPS, maximum 25 chunks, 4.48 ms peak, warmed RSS 177.1–177.8 MB.
 
 - A QA-only collision route planner now emits versioned JSON waypoints with 0.55 m clearance and avoids transition triggers. The controller driver accepts these routes, walks outward and back with real input, captures arbitrary route views and records process RSS. On format 18, Level 1 passed 44 waypoints over approximately 512 m in 284.8 seconds; Level 2 passed 116 over approximately 703 m in 464.1 seconds. Both stay near 59 FPS and at most 25 active chunks. Warmed RSS ranges are 165.8–166.5 and 181.7–183.5 MiB, with 2.15/2.54 ms peak builds respectively. Route screenshots were inspected; they expose excessive storage-bay fragments and overly uniform brown tunnels as the next composition/material deficiencies.
@@ -53,11 +55,13 @@ The September 2026 playable foundation at `aaf67c0` has deterministic regions, b
 
 ## Three highest-priority deficiencies
 
-1. Level 1 storage bays retain too many short cell-boundary wall fragments; open warehouse-like bays around shelving and structural pillars.
-2. Level 2's uniformly brown walls and coarse noise weaken its mechanical tunnel identity. Improve service finishes, local light depth and pipe supports.
-3. Repeat distant multi-seed QA after the industrial and tunnel changes, then assess remaining Level 0 repetition over a longer ordinary walk.
+1. Level 2's uniformly brown walls and coarse noise weaken its mechanical tunnel identity. Improve service finishes, local light depth and pipe supports.
+2. Repeat distant multi-seed QA after the industrial and tunnel changes.
+3. Level 0 room-zone boundaries can still show several openings at five-metre intervals. Investigate fewer composed entrances without losing connectivity.
 
 ## Latest validation
+
+- Format 20 Debug/Release builds, deterministic tests, seven-seed structural scan, 63-square physical audit and six entrance cases pass. The regenerated 512 m Level 1 controller return and 9.6 km positive/negative GPU sweep pass with bounded chunks, stable memory and no large generation spikes. Paired storage and additional turned distant views were inspected.
 
 - Format 19 Debug/Release builds and world tests pass. Three close carpet/shadow views, six matched industrial views and six Level 0/three Level 1/three Level 2 views were inspected. The Level 0 2.4 km Release sweep has a 4.48 ms peak, maximum 25 chunks, near 59 FPS and warmed RSS 177.1–177.8 MB. The 512 m and 703 m controller return walks validate format 18 geometry through real collision and input; they are not a synthetic movement bypass.
 
@@ -79,4 +83,4 @@ The September 2026 playable foundation at `aaf67c0` has deterministic regions, b
 
 ## Next pass
 
-Reduce Level 1 storage fragments while retaining its sparse shelf layouts and adding real structural columns. Then improve Level 2 mechanical finishes and light depth; compare unflattering route locations as well as the fixed visual views. The goal remains active.
+Improve Level 2 mechanical finishes, tighter cabinet-lined runs, supported pipes and baked light depth. Compare both route locations and reference utility-tunnel visual language, then capture another distant multi-seed round. The goal remains active.

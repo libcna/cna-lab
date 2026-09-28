@@ -124,9 +124,24 @@ bool StorageRackAt(const WorldConfig& config, int cellX, int cellZ) {
     return (lx==2 && lz==1) || (lx==4 && lz==4);
 }
 
+bool ColumnAt(const WorldConfig& config,int cellX,int cellZ) {
+    const auto kind=RegionAt(config,cellX,cellZ);
+    const int lx=ModFloor(cellX,kRegionCells),lz=ModFloor(cellZ,kRegionCells);
+    if (kind==RegionKind::Columns)
+        return (lx==1 || lx==4) && (lz==1 || lz==4);
+    return config.level==1 && kind==RegionKind::Storage &&
+           (lx==2 || lx==5) && (lz==2 || lz==5) &&
+           !StorageRackAt(config,cellX,cellZ);
+}
+
 Edge ComposedEdge(const WorldConfig& config, RegionKind kind,
                   int firstX, int firstZ, int secondX, int secondZ,
                   bool tree, std::uint32_t hash) {
+    if (config.level==1 && kind==RegionKind::Storage) {
+        // Shelves and supports compose the bay; every five-metre boundary
+        // should not become another doorway frame.
+        return hash%(tree ? 19 : 11)==0 ? Edge::Wide : Edge::Open;
+    }
     if (config.level==2 && tree)
         return hash%10<7 ? Edge::Open :
                hash%10<9 ? Edge::Wide : Edge::Door;
@@ -415,9 +430,7 @@ CellProp PropAt(const WorldConfig& config, int cellX, int cellZ) {
     if ((cellZ==0 && cellX>=0 && cellX<=3) ||
         (cellX==0 && cellZ>=0 && cellZ<=3)) return result;
     const RegionKind region=RegionAt(config,cellX,cellZ);
-    const int lx=ModFloor(cellX,kRegionCells), lz=ModFloor(cellZ,kRegionCells);
-    if ((region==RegionKind::Columns &&
-         (lx==1 || lx==4) && (lz==1 || lz==4)) ||
+    if (ColumnAt(config,cellX,cellZ) ||
         StorageRackAt(config,cellX,cellZ)) return result;
     const std::uint32_t hash=CellHash(config,cellX,cellZ,1081);
     const unsigned roll=hash%1000;
@@ -559,13 +572,10 @@ CellObstacleSet FullHeightObstaclesAt(const WorldConfig& config, int cellX, int 
         }
         return result;
     }
-    const RegionKind kind=RegionAt(config,cellX,cellZ);
-    const int lx=ModFloor(cellX,kRegionCells), lz=ModFloor(cellZ,kRegionCells);
     const auto interior=InteriorPartitionsAt(config,cellX,cellZ);
     for (int i=0;i<interior.count;++i)
         result.walls[result.count++]=interior.walls[i];
-    if (kind==RegionKind::Columns && (lx==1 || lx==4) &&
-        (lz==1 || lz==4)) {
+    if (ColumnAt(config,cellX,cellZ)) {
         const double cx=(cellX+0.5)*kCellSize,cz=(cellZ+0.5)*kCellSize;
         result.walls[result.count++]={cx-0.43,cz-0.43,cx+0.43,cz+0.43};
     }
