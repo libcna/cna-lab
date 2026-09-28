@@ -174,6 +174,73 @@ std::uint32_t CellHash(const WorldConfig& config, int x, int z, int salt) {
     return static_cast<std::uint32_t>(Mix(v));
 }
 
+LampInfo LampAt(const WorldConfig& world, int gx, int gz) {
+    LampInfo lamp;
+    const auto h=CellHash(world,gx,gz,41);
+    if (world.level==0) {
+        const int rx=DivFloor(gx,kRegionCells);
+        const int rz=DivFloor(gz,kRegionCells);
+        const int lx=gx-rx*kRegionCells,lz=gz-rz*kRegionCells;
+        const auto layout=CellHash(world,rx,rz,1803);
+        const int phaseX=static_cast<int>((layout>>4)&1U);
+        const int phaseZ=static_cast<int>((layout>>7)&1U);
+        const auto region=RegionAt(world,gx,gz);
+        if (region==RegionKind::OpenOffice || region==RegionKind::Columns)
+            lamp.fixture=(layout&0x1000U) ?
+                ((lx+phaseX)%2==0 || (lz+phaseZ)%3==0) :
+                ((lx+phaseX)%2==0 && (lz+phaseZ)%2==0);
+        else if (region==RegionKind::Halls)
+            lamp.fixture=(lz+phaseZ)%2==0 && (lx+phaseX)%3!=0;
+        else
+            lamp.fixture=(lx+phaseX)%2==0 && (lz+phaseZ)%2==0;
+        if (h%29==0) lamp.fixture=false;
+        const bool weakCircuit=layout%13==0;
+        lamp.lit=lamp.fixture && h%17!=0 &&
+                 (!weakCircuit || h%4==0);
+        lamp.longAxisX=(layout&1U)!=0;
+        // A two-by-one tile troffer must start and end on the acoustic grid.
+        lamp.x=lamp.longAxisX ? ((h&1U) ? 2.5f : 3.125f) :
+                                      ((h&1U) ? 2.1875f : 2.8125f);
+        lamp.z=lamp.longAxisX ? ((h&2U) ? 2.1875f : 2.8125f) :
+                                      ((h&2U) ? 2.5f : 3.125f);
+        if (lamp.fixture) {
+            const auto obstacles=FullHeightObstaclesAt(world,gx,gz);
+            constexpr std::array<std::array<float,2>,9> offsets{{
+                {{0,0}},{{1.25f,0}},{{-1.25f,0}},{{0,1.25f}},{{0,-1.25f}},
+                {{1.25f,1.25f}},{{-1.25f,1.25f}},{{1.25f,-1.25f}},{{-1.25f,-1.25f}}
+            }};
+            const float halfX=lamp.longAxisX ? 0.625f : 0.3125f;
+            const float halfZ=lamp.longAxisX ? 0.3125f : 0.625f;
+            bool placed=false;
+            for (const auto& offset:offsets) {
+                const float x=lamp.x+offset[0],z=lamp.z+offset[1];
+                if (x-halfX<0.12f || x+halfX>4.88f ||
+                    z-halfZ<0.12f || z+halfZ>4.88f) continue;
+                const double wx=gx*kCellSize+x,wz=gz*kCellSize+z;
+                bool blocked=false;
+                for (int i=0;i<obstacles.count;++i) {
+                    const auto& wall=obstacles.walls[i];
+                    if (wx+halfX>wall.minX-0.03 && wx-halfX<wall.maxX+0.03 &&
+                        wz+halfZ>wall.minZ-0.03 && wz-halfZ<wall.maxZ+0.03)
+                        blocked=true;
+                }
+                if (blocked) continue;
+                lamp.x=x;lamp.z=z;placed=true;break;
+            }
+            if (!placed) { lamp.fixture=false;lamp.lit=false; }
+        }
+    } else {
+        lamp.fixture=world.level==1 ? (gx%3==0 && gz%2==0) :
+                     IsServiceChamber(world,gx,gz) ?
+                     (gx%2==0 && gz%2==0) :
+                     ((gx+gz)%3==0 && h%3!=0);
+        if (world.level==2 && gx==0 &&
+            (gz==0 || gz==1 || gz==3)) lamp.fixture=true;
+        lamp.lit=lamp.fixture && (!IsServiceChamber(world,gx,gz) || h%13!=0);
+    }
+    return lamp;
+}
+
 OpeningSpan OpeningForEdge(const WorldConfig& config, Edge edge,
                            bool vertical, int edgeX, int edgeZ) {
     if (edge==Edge::Open) return {0.0,kCellSize};
@@ -415,7 +482,7 @@ CellObstacleSet InteriorPartitionsAt(const WorldConfig& config,
     return result;
 }
 
-CellObstacleSet CellObstacles(const WorldConfig& config, int cellX, int cellZ) {
+CellObstacleSet FullHeightObstaclesAt(const WorldConfig& config, int cellX, int cellZ) {
     CellObstacleSet result;
     if (IsEmptyHall(config,cellX,cellZ)) return result;
     if (PortalAt(config,cellX,cellZ)) return result;
@@ -439,6 +506,15 @@ CellObstacleSet CellObstacles(const WorldConfig& config, int cellX, int cellZ) {
         const double cx=(cellX+0.5)*kCellSize,cz=(cellZ+0.5)*kCellSize;
         result.walls[result.count++]={cx-0.43,cz-0.43,cx+0.43,cz+0.43};
     }
+    return result;
+}
+
+CellObstacleSet CellObstacles(const WorldConfig& config, int cellX, int cellZ) {
+    auto result=FullHeightObstaclesAt(config,cellX,cellZ);
+    if (IsEmptyHall(config,cellX,cellZ) || PortalAt(config,cellX,cellZ) ||
+        IsServiceChamber(config,cellX,cellZ)) return result;
+    const RegionKind kind=RegionAt(config,cellX,cellZ);
+    const int lx=ModFloor(cellX,kRegionCells),lz=ModFloor(cellZ,kRegionCells);
     if (StorageRackAt(config,cellX,cellZ)) {
         const double cx=(cellX+0.5)*kCellSize,cz=(cellZ+0.5)*kCellSize;
         const int rx=DivFloor(cellX,kRegionCells),rz=DivFloor(cellZ,kRegionCells);
@@ -475,7 +551,7 @@ CellObstacleSet CellObstacles(const WorldConfig& config, int cellX, int cellZ) {
     return result;
 }
 
-std::vector<Wall> NearbyWalls(const WorldConfig& config, double x, double z) {
+static std::vector<Wall> CollectNearbyWalls(const WorldConfig& config, double x, double z, bool fullHeightOnly) {
     std::vector<Wall> walls;
     const int cx = CellOf(x), cz = CellOf(z);
     walls.reserve(88);
@@ -485,12 +561,14 @@ std::vector<Wall> NearbyWalls(const WorldConfig& config, double x, double z) {
                        ix,iz,ix*kCellSize,iz*kCellSize);
             AppendEdge(walls,config,HorizontalEdge(config, ix, iz),false,
                        ix,iz,iz*kCellSize,ix*kCellSize);
-            const auto obstacles=CellObstacles(config,ix,iz);
+            const auto obstacles=fullHeightOnly ? FullHeightObstaclesAt(config,ix,iz) :
+                                  CellObstacles(config,ix,iz);
             for (int i=0;i<obstacles.count;++i)
                 walls.push_back(obstacles.walls[i]);
         }
     }
     for (int ix=cx-1;ix<=cx+1;++ix) for (int iz=cz-1;iz<=cz+1;++iz) {
+        if (fullHeightOnly) continue;
         const auto portal=PortalAt(config,ix,iz);
         if (!portal) continue;
         const double px=(ix+0.5)*kCellSize;
@@ -506,6 +584,14 @@ std::vector<Wall> NearbyWalls(const WorldConfig& config, double x, double z) {
         }
     }
     return walls;
+}
+
+std::vector<Wall> NearbyWalls(const WorldConfig& config, double x, double z) {
+    return CollectNearbyWalls(config,x,z,false);
+}
+
+std::vector<Wall> NearbyFullHeightWalls(const WorldConfig& config, double x, double z) {
+    return CollectNearbyWalls(config,x,z,true);
 }
 
 bool Collides(const WorldConfig& config, double x, double z, double radius) {

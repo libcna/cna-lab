@@ -27,7 +27,7 @@ int main() {
     CHECK(ChunkOfCell(-9)==-2);
     CHECK(ChunkAt(-0.01,-40.01)==(ChunkCoord{-1,-2}));
     // Golden values make changes to the versioned procedural world explicit.
-    CHECK(kFormatVersion==12);
+    CHECK(kFormatVersion==13);
     CHECK(CellHash(world,12,-8,41)==511389911U);
     CHECK(VerticalEdge(world,8,3)==Edge::Open);
     CHECK(HorizontalEdge(world,-4,-5)==Edge::Open);
@@ -285,5 +285,32 @@ int main() {
         CHECK(Collides(selected,cx+1.10,cz+1.18,0.31));
         CHECK(Collides(selected,cx+1.92,cz,0.31));
     }
+    // Troffers replace two by one ceiling tiles, including negative cells.
+    // Keep them off structural columns and room-spanning partitions.
+    int fixtures=0,deadFixtures=0;
+    for (const auto seed:{0ULL,1ULL,12345ULL,31337ULL}) {
+        const WorldConfig office{seed,0};
+        for (int x=-64;x<64;++x) for (int z=-64;z<64;++z) {
+            const auto lamp=LampAt(office,x,z);
+            CHECK(lamp==LampAt(office,x,z));
+            CHECK(!lamp.lit || lamp.fixture);
+            if (!lamp.fixture) continue;
+            ++fixtures;if (!lamp.lit) ++deadFixtures;
+            const double hx=lamp.longAxisX ? 0.625 : 0.3125;
+            const double hz=lamp.longAxisX ? 0.3125 : 0.625;
+            for (const double edge:{lamp.x-hx,lamp.x+hx,lamp.z-hz,lamp.z+hz})
+                CHECK(std::abs(edge/0.625-std::round(edge/0.625))<1e-5);
+            CHECK(lamp.x-hx>=0.12 && lamp.x+hx<=4.88);
+            CHECK(lamp.z-hz>=0.12 && lamp.z+hz<=4.88);
+            const double wx=x*kCellSize+lamp.x,wz=z*kCellSize+lamp.z;
+            const auto structure=FullHeightObstaclesAt(office,x,z);
+            for (int n=0;n<structure.count;++n) {
+                const auto& wall=structure.walls[n];
+                CHECK(!(wx+hx>wall.minX-0.03 && wx-hx<wall.maxX+0.03 &&
+                        wz+hz>wall.minZ-0.03 && wz-hz<wall.maxZ+0.03));
+            }
+        }
+    }
+    CHECK(fixtures>1000 && deadFixtures>100);
     std::cout << "world tests passed\n";
 }

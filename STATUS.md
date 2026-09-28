@@ -6,6 +6,8 @@ The September 2026 playable foundation at `aaf67c0` has deterministic regions, b
 
 ## Completed passes
 
+- Format 13 bakes wall-occluded and face-dependent fluorescent contribution into vertex colors. A temporary per-chunk sample cache reduces repeat work. Level 0 walls now have two independently shaded faces at their actual collision thickness. Fluorescent panels occupy exactly two acoustic tiles, shift away from full-height obstacles and use warmer white diffusers. A twelve-view round was inspected; deterministic fixture-placement tests and both builds pass.
+
 - Surface-aware steps now use muted carpet and separate hard-floor sounds from the existing CC0 collection, with small pitch variation. An isolated transition was captured without footsteps. The build copies all four sounds beside the binary; a real-backend launch from /tmp loaded them successfully.
 
 - A normal-controller route exposed a pooled-buffer upload regression. GPU readback and a deterministic replay identified missing EasyGL context ownership between frame leases. Streaming, transitions and final GPU cleanup now hold CNA context tokens. The 326 m return route, exact failing view and an automatic-exit check pass; bugs.md records the diagnosis without sibling changes.
@@ -37,21 +39,17 @@ The September 2026 playable foundation at `aaf67c0` has deterministic regions, b
 
 ## Three highest-priority deficiencies
 
-1. Repeat longer GPU sweeps after the context fix: previous sweeps counted chunks but could display stale GPU geometry after reuse.
-2. Improve sparse furniture proportions and readable upholstery/frame materials.
-3. Level 0 still has overly uniform wall lighting and crude furniture proportions. Improve those against matched screenshots rather than adding more level types.
+1. Sparse chairs and tables still look like bulky block props; improve proportions and frame/upholstery materials against close screenshots.
+2. Default 3.8 m/s walking and 6.5 m/s running may make human-scale spaces feel too small; assess slower speeds and footstep cadence during actual movement.
+3. Level 0 long walls and ceiling panels remain overly uniform at some distances; continue matched material/lighting QA after the current pass.
 
 ## Latest validation
 
-- Real PipeWire capture of the game's own sink stream shows idle hum around -32 dBFS RMS, carpet/hard-floor step peaks near -10 dBFS and an isolated transition peak at -12.5 dBFS with no clipping. It is routed to the Ryzen hardware speaker sink, but that sink is muted in the agent environment. Subjective listening remains unverified.
-
-- The format 12 Release normal-controller regression traversed 326 m and returned in 225.8 seconds, including negative chunk coordinates. All 36 waypoints passed; the exact pooled-buffer regression view is correct after 299 reuses, at most 25 chunks, near 59 FPS and a 2.05 ms peak build. A 400 m automatic-exit GPU check also passed, exercising final GPU cleanup. Earlier numeric sweeps did not expose the visually incorrect reused-buffer uploads; their timing/memory results are historical, not visual validation of the fixed renderer.
-
-- Current version 12 passes Debug and Release builds, deterministic world tests, the seven-seed quality scan, 63-square physical walkability and all four directed live transition checks.
-- Current Level 1 and Level 2 completed 9.6 km GPU sweeps near 59 FPS with at most 25 chunks. Level 1 peaked at 25.1 ms, reused 6,305 buffers and ended near 187.6 MB RSS; Level 2 peaked at 25.5 ms, reused 6,442 buffers and plateaued near 202.4 MB. The 63-square collision walkability audit passed after the clearance fix.
-- Version 6 Level 0 completed a 9.6 km GPU sweep across both coordinate signs with 24–25 active chunks, near 59 FPS, peak chunk build 26.5 ms, and warmed RSS about 175–178 MB. The earlier Level 2 sweep held near 195–196 MB.
-- Version 10 Level 0 and 1 each completed 9.6 km GPU sweeps with at most 25 active chunks and near 59 FPS. Level 0 peaked at 36.5 ms for a chunk and warmed RSS rose from roughly 178 to 181 MB; Level 1 peaked at 26.3 ms and stabilized near 186 MB. Version 9 Level 2 held near 203 MB. A 19.2 km version 10 Level 0 sweep ended at 25 chunks and 184.5 MB after 11,406 buffer reuses and 1,728 new allocations. Version 11 Level 0 completed 9.6 km at 25 chunks, near 59 FPS, 25.2 ms peak build, 181 new allocations, 6,829 reuses and a warmed RSS plateau near 181.4 MB. Multiple 12-view QA sets plus focused screenshots are stored under ignored `build/qa-*` paths. A real PipeWire sink input appeared during a walking test and CNA reported audio ready; subjective sound quality is untested. The visual goal remains active.
+- Format 13 Debug/Release builds and world tests pass. Four seeds over 128 by 128 cells verify reproducible fixtures, acoustic-grid alignment and avoidance of full-height geometry. The latest twelve-view round shows stronger wall depth and properly fitted fixtures. Physical walkability and the seven-seed quality scan pass. A 2.4 km Release GPU sweep held near 59 FPS with at most 25 chunks, 2.36 ms peak build and warmed RSS about 166–168 MB.
+- Corrected-upload 9.6 km sweeps finished for all three levels near 59 FPS and at most 25 active chunks. Level 0: 4.13 ms peak, warmed RSS 178.8–179.6 MB, 181 buffers created/6,829 reused. Level 1: 4.34 ms, 182.2–183.2 MB, 152/6,305. Level 2: 7.51 ms, 194.7–197.4 MB, 160/6,440. Earlier sweeps could render stale pooled buffers and do not validate the fixed rendering path.
+- Format 12 Release normal-controller regression: 326 m return route in 225.8 seconds, all 36 waypoints, maximum 25 chunks, near 59 FPS and 2.05 ms peak. Exact failing view is now correct after 299 reuses. A 400 m automatic-exit check exercised cleanup.
+- Real PipeWire capture of the game's own stream: hum about -32 dBFS RMS, steps near -10 dBFS peak, isolated transition -12.5 dBFS, no clipping. Routed to the Ryzen speaker sink, which is muted. Subjective listening remains unverified. Launch from /tmp loaded all four packaged sounds.
 
 ## Next pass
 
-Repeat long GPU sweeps with the fixed uploads and inspect further screenshots. Temporary direct GL diagnostics have been removed; the game uses only CNA APIs. Audio routing and isolated cues are now checked, including launch from /tmp. Continue with matched lighting and furniture screenshots after the long fixed-upload sweeps.
+Improve furniture and assess walking scale with matched live views, retaining a sparse mostly empty environment. Remove visible cell-to-cell wall tint jumps next. The visual goal remains active.

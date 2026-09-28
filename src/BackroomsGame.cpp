@@ -10,6 +10,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <utility>
+#include <tuple>
 #include <vector>
 
 #include "CNA/Internal/Renderers/Common/IGraphicsRenderer.hpp"
@@ -111,66 +112,62 @@ void WallFace(Meshes& meshes, Material material, bool vertical, float boundary,
                    {u0,v0},{u1,v0},{u1,v1},{u0,v1});
 }
 
+using WallLighting=std::array<std::array<float,3>,2>;
+
 void Partition(Meshes& meshes, Material material, Edge edge,
                OpeningSpan opening, bool vertical,
                float boundary, float along, float height, float doorHeight,
-               Color wall, Color trim, float lightStart=1.0f,
-               float lightMiddle=1.0f, float lightEnd=1.0f) {
-    if (edge == Edge::Open) return;
-    const auto lightAt=[&](float coordinate) {
+               Color wall, Color trim, const WallLighting& lights) {
+    if (edge==Edge::Open) return;
+    const bool thick=material==Material::Wallpaper;
+    const auto lightAt=[&](float coordinate,int side) {
         const float t=std::clamp((coordinate-along)/5.0f,0.0f,1.0f);
-        return t<=0.5f ? lightStart+(lightMiddle-lightStart)*2.0f*t :
-                         lightMiddle+(lightEnd-lightMiddle)*(2.0f*t-1.0f);
+        const auto& l=lights[side];
+        return t<=0.5f ? l[0]+(l[1]-l[0])*2.0f*t :
+                         l[1]+(l[2]-l[1])*(2.0f*t-1.0f);
     };
-    const auto section = [&](float a, float b, float y0, float y1) {
-        const auto draw=[&](float from,float to) {
-            WallFace(meshes,material,vertical,boundary,from,to,y0,y1,
-                     wall,lightAt(from),lightAt(to));
-        };
-        const float middle=along+2.5f;
-        if (a<middle && b>middle) {
-            draw(a,middle);
-            draw(middle,b);
-        } else draw(a,b);
+    const auto section=[&](float a,float b,float y0,float y1,Color tint) {
+        for (int side=0;side<(thick ? 2 : 1);++side) {
+            const float face=boundary+(thick ? (side==0 ? -0.10f : 0.10f) : 0);
+            const auto draw=[&](float from,float to) {
+                WallFace(meshes,material,vertical,face,from,to,y0,y1,
+                         tint,lightAt(from,side),lightAt(to,side));
+            };
+            const float middle=along+2.5f;
+            if (thick && a<middle && b>middle) { draw(a,middle);draw(middle,b); }
+            else draw(a,b);
+        }
     };
-    const auto full = [&](float a, float b) {
-        WallFace(meshes,material,vertical,boundary,a,b,0.0f,0.19f,trim,
-                 lightAt(a),lightAt(b));
-        section(a,b,0.19f,height-0.10f);
-        WallFace(meshes,material,vertical,boundary,a,b,
-                 height-0.10f,height,trim,lightAt(a),lightAt(b));
+    const auto full=[&](float a,float b) {
+        section(a,b,0,0.19f,trim);
+        section(a,b,0.19f,height-0.10f,wall);
+        section(a,b,height-0.10f,height,trim);
     };
-    if (edge == Edge::Solid) full(along, along+5.0f);
+    if (edge==Edge::Solid) full(along,along+5);
     else {
         const float first=static_cast<float>(opening.start);
         const float last=static_cast<float>(opening.end);
-        full(along,along+first);
-        full(along+last,along+5.0f);
+        full(along,along+first);full(along+last,along+5);
         const auto cap=[&](float end) {
+            const float light=(lightAt(end,0)+lightAt(end,1))*0.5f;
             WallFace(meshes,material,!vertical,end,
                      boundary-0.10f,boundary+0.10f,0.19f,height-0.10f,
-                     Scale(wall,0.82f),lightAt(end),lightAt(end));
+                     Scale(wall,0.82f),light,light);
             WallFace(meshes,material,!vertical,end,
-                     boundary-0.10f,boundary+0.10f,0,0.19f,trim,
-                     lightAt(end),lightAt(end));
+                     boundary-0.10f,boundary+0.10f,0,0.19f,trim,light,light);
             WallFace(meshes,material,!vertical,end,
-                     boundary-0.10f,boundary+0.10f,height-0.10f,height,trim,
-                     lightAt(end),lightAt(end));
+                     boundary-0.10f,boundary+0.10f,height-0.10f,height,
+                     trim,light,light);
         };
-        cap(along+first);
-        cap(along+last);
+        cap(along+first);cap(along+last);
         if (edge==Edge::Door) {
-            WallFace(meshes,material,vertical,boundary,along+first,
-                     along+last,doorHeight,height,wall,
-                     lightAt(along+first),lightAt(along+last));
+            section(along+first,along+last,doorHeight,height,wall);
             if (vertical)
                 Flat(meshes,material,boundary-0.10f,along+first,
-                     boundary+0.10f,along+last,
-                     doorHeight,Scale(wall,0.83f),0.6f);
+                     boundary+0.10f,along+last,doorHeight,Scale(wall,0.83f),0.6f);
             else
                 Flat(meshes,material,along+first,boundary-0.10f,
-                     along+last,boundary+0.10f,
-                     doorHeight,Scale(wall,0.83f),0.6f);
+                     along+last,boundary+0.10f,doorHeight,Scale(wall,0.83f),0.6f);
         }
     }
 }
@@ -396,83 +393,92 @@ Color Vary(Color first, Color second, std::uint32_t hash) {
     return hash%5 == 0 ? second : first;
 }
 
-struct LampInfo {
-    bool fixture=false;
-    bool lit=false;
-    float x=2.5f,z=2.5f;
-    bool longAxisX=true;
-};
 
 int FloorDiv(int value, int size) {
     return value>=0 ? value/size : (value-size+1)/size;
 }
 
-LampInfo LampAt(const WorldConfig& world, int gx, int gz) {
-    LampInfo lamp;
-    const auto h=CellHash(world,gx,gz,41);
-    if (world.level==0) {
-        const int rx=FloorDiv(gx,kRegionCells);
-        const int rz=FloorDiv(gz,kRegionCells);
-        const int lx=gx-rx*kRegionCells,lz=gz-rz*kRegionCells;
-        const auto layout=CellHash(world,rx,rz,1803);
-        const int phaseX=static_cast<int>((layout>>4)&1U);
-        const int phaseZ=static_cast<int>((layout>>7)&1U);
-        const auto region=RegionAt(world,gx,gz);
-        if (region==RegionKind::OpenOffice || region==RegionKind::Columns)
-            lamp.fixture=(layout&0x1000U) ?
-                ((lx+phaseX)%2==0 || (lz+phaseZ)%3==0) :
-                ((lx+phaseX)%2==0 && (lz+phaseZ)%2==0);
-        else if (region==RegionKind::Halls)
-            lamp.fixture=(lz+phaseZ)%2==0 && (lx+phaseX)%3!=0;
-        else
-            lamp.fixture=(lx+phaseX)%2==0 && (lz+phaseZ)%2==0;
-        if (h%29==0) lamp.fixture=false;
-        const bool weakCircuit=layout%13==0;
-        lamp.lit=lamp.fixture && h%17!=0 &&
-                 (!weakCircuit || h%4==0);
-        lamp.x=(h&1U) ? 2.1875f : 2.8125f;
-        lamp.z=(h&2U) ? 2.1875f : 2.8125f;
-        lamp.longAxisX=(layout&1U)!=0;
-    } else {
-        lamp.fixture=world.level==1 ? (gx%3==0 && gz%2==0) :
-                     IsServiceChamber(world,gx,gz) ?
-                     (gx%2==0 && gz%2==0) :
-                     ((gx+gz)%3==0 && h%3!=0);
-        if (world.level==2 && gx==0 &&
-            (gz==0 || gz==1 || gz==3)) lamp.fixture=true;
-        lamp.lit=lamp.fixture && (!IsServiceChamber(world,gx,gz) || h%13!=0);
+bool LightBlocked(const std::vector<Wall>& walls, double x, double z,
+                  double lightX, double lightZ) {
+    const double dx=lightX-x,dz=lightZ-z;
+    for (const auto& wall:walls) {
+        double enter=0,leave=1;
+        const auto clip=[&](double start,double direction,double low,double high) {
+            if (std::abs(direction)<1e-8) return start>=low && start<=high;
+            double a=(low-start)/direction,b=(high-start)/direction;
+            if (a>b) std::swap(a,b);
+            enter=std::max(enter,a);leave=std::min(leave,b);
+            return enter<=leave;
+        };
+        if (clip(x,dx,wall.minX,wall.maxX) &&
+            clip(z,dz,wall.minZ,wall.maxZ) && enter>1e-5 && enter<0.98)
+            return true;
     }
-    return lamp;
+    return false;
 }
 
-float LightFactor(const WorldConfig& world, double wx, double wz) {
-    const float base=world.level==0 ? 0.54f : world.level==1 ? 0.60f : 0.55f;
-    const float strength=world.level==0 ? 0.54f : world.level==1 ? 0.38f : 0.41f;
-    float value=base;
-    const int cx=CellOf(wx),cz=CellOf(wz);
-    for (int dx=-1;dx<=1;++dx) for (int dz=-1;dz<=1;++dz) {
-        const int gx=cx+dx,gz=cz+dz;
-        const auto lamp=LampAt(world,gx,gz);
-        if (!lamp.lit) continue;
-        const double lightX=gx*kCellSize+lamp.x;
-        const double lightZ=gz*kCellSize+lamp.z;
-        const float attenuation=std::max(0.0f,1.0f-
-            static_cast<float>(std::hypot(wx-lightX,wz-lightZ))/6.5f);
-        value+=strength*attenuation;
-    }
-    return std::min(1.0f,value);
-}
+class BakedLighting {
+public:
+    explicit BakedLighting(const WorldConfig& world):world_(world) {}
 
-void OfficeObstacle(Meshes& meshes, const WorldConfig& world,
+    float Sample(double wx,double wz,int normalX=0,int normalZ=0) {
+        const auto key=std::tuple{wx,wz,normalX,normalZ};
+        if (const auto it=samples_.find(key);it!=samples_.end()) return it->second;
+        const float base=world_.level==0 ? 0.54f : world_.level==1 ? 0.60f : 0.55f;
+        const float strength=world_.level==0 ? 0.54f : world_.level==1 ? 0.38f : 0.41f;
+        float value=base;
+        const int cx=CellOf(wx),cz=CellOf(wz);
+        const std::vector<Wall>* walls=nullptr;
+        if (world_.level==0) {
+            auto [it,inserted]=walls_.try_emplace({cx,cz});
+            if (inserted) it->second=NearbyFullHeightWalls(world_,wx,wz);
+            walls=&it->second;
+        }
+        for (int dx=-1;dx<=1;++dx) for (int dz=-1;dz<=1;++dz) {
+            const int gx=cx+dx,gz=cz+dz;
+            auto [it,inserted]=lamps_.try_emplace({gx,gz});
+            if (inserted) it->second=LampAt(world_,gx,gz);
+            const auto& lamp=it->second;
+            if (!lamp.lit) continue;
+            const double lightX=gx*kCellSize+lamp.x;
+            const double lightZ=gz*kCellSize+lamp.z;
+            const double lx=lightX-wx,lz=lightZ-wz;
+            const float attenuation=std::max(0.0f,1.0f-
+                static_cast<float>(std::hypot(lx,lz))/6.5f);
+            if (attenuation<=0) continue;
+            float incidence=1;
+            if (world_.level==0 && (normalX || normalZ))
+                incidence=static_cast<float>(std::max(0.0,
+                    (lx*normalX+lz*normalZ)/std::sqrt(lx*lx+lz*lz+2.25)));
+            // Keep ambient/bounced illumination in enclosed spaces. These
+            // values become vertex colors; there are no runtime shadow maps.
+            const float visibility=walls && LightBlocked(*walls,wx,wz,lightX,lightZ) ? 0.12f : 1.0f;
+            value+=strength*attenuation*visibility*incidence;
+        }
+        value=std::min(1.0f,value);
+        samples_.emplace(key,value);
+        return value;
+    }
+
+private:
+    const WorldConfig& world_;
+    std::map<std::pair<int,int>,std::vector<Wall>> walls_;
+    std::map<std::pair<int,int>,LampInfo> lamps_;
+    std::map<std::tuple<double,double,int,int>,float> samples_;
+};
+
+void OfficeObstacle(Meshes& meshes, BakedLighting& lighting,
                     float x0, float z0, float x1, float z1,
                     double chunkX, double chunkZ, float height,
                     Color wall, Color trim, Color floor) {
-    const auto light=[&](float x,float z) {
-        return 0.32f+0.68f*LightFactor(world,chunkX+x,chunkZ+z);
-    };
-    const auto face=[&](bool vertical,float boundary,float a,float b) {
-        const float start=vertical ? light(boundary,a) : light(a,boundary);
-        const float end=vertical ? light(boundary,b) : light(b,boundary);
+    const auto face=[&](bool vertical,float boundary,float a,float b,int normal) {
+        const auto light=[&](float along) {
+            const double wx=chunkX+(vertical ? boundary+normal*0.04f : along);
+            const double wz=chunkZ+(vertical ? along : boundary+normal*0.04f);
+            return 0.32f+0.68f*lighting.Sample(wx,wz,vertical ? normal : 0,
+                                                    vertical ? 0 : normal);
+        };
+        const float start=light(a),end=light(b);
         WallFace(meshes,Material::Wallpaper,vertical,boundary,a,b,
                  0,0.19f,trim,start,end);
         WallFace(meshes,Material::Wallpaper,vertical,boundary,a,b,
@@ -480,9 +486,9 @@ void OfficeObstacle(Meshes& meshes, const WorldConfig& world,
         WallFace(meshes,Material::Wallpaper,vertical,boundary,a,b,
                  height-0.10f,height,trim,start,end);
     };
-    face(true,x0,z0,z1);face(true,x1,z0,z1);
-    face(false,z0,x0,x1);face(false,z1,x0,x1);
-    const Color outer=Scale(floor,LightFactor(world,chunkX+(x0+x1)*0.5,
+    face(true,x0,z0,z1,-1);face(true,x1,z0,z1,1);
+    face(false,z0,x0,x1,-1);face(false,z1,x0,x1,1);
+    const Color outer=Scale(floor,lighting.Sample(chunkX+(x0+x1)*0.5,
                                             chunkZ+(z0+z1)*0.5));
     const Color inner=Scale(outer,0.82f);
     constexpr float y=0.004f;
@@ -695,6 +701,7 @@ void BackroomsGame::RetireChunk(Chunk& chunk) {
 void BackroomsGame::BuildChunk(ChunkCoord coord) {
     const auto start = Clock::now();
     Meshes meshes;
+    BakedLighting lighting(world_);
     Chunk chunk;
     const int ox=coord.x*kChunkCells, oz=coord.z*kChunkCells;
     const int level=world_.level;
@@ -730,8 +737,8 @@ void BackroomsGame::BuildChunk(ChunkCoord coord) {
         const Color floorColor=floorA;
         const double wx=gx*kCellSize,wz=gz*kCellSize;
         const std::array<float,4> light{{
-            LightFactor(world_,wx,wz),LightFactor(world_,wx+5,wz),
-            LightFactor(world_,wx+5,wz+5),LightFactor(world_,wx,wz+5)
+            lighting.Sample(wx,wz),lighting.Sample(wx+5,wz),
+            lighting.Sample(wx+5,wz+5),lighting.Sample(wx,wz+5)
         }};
         std::array<std::array<float,3>,3> lightGrid{};
         for (int ix=0;ix<3;++ix) for (int iz=0;iz<3;++iz) {
@@ -739,8 +746,8 @@ void BackroomsGame::BuildChunk(ChunkCoord coord) {
             else if (ix==2 && iz==0) lightGrid[ix][iz]=light[1];
             else if (ix==2 && iz==2) lightGrid[ix][iz]=light[2];
             else if (ix==0 && iz==2) lightGrid[ix][iz]=light[3];
-            else lightGrid[ix][iz]=LightFactor(
-                world_,wx+ix*2.5,wz+iz*2.5);
+            else lightGrid[ix][iz]=lighting.Sample(
+                wx+ix*2.5,wz+iz*2.5);
         }
         for (int fx=0;fx<2;++fx) for (int fz=0;fz<2;++fz) {
             const float tileX=x+fx*2.5f,tileZ=z+fz*2.5f;
@@ -775,8 +782,8 @@ void BackroomsGame::BuildChunk(ChunkCoord coord) {
                     const float pz=z+tileZ*0.625f;
                     const Color stain=(h%37==0) ?
                         Color(191,183,147) : Color(222,213,181);
-                    const float tint=0.52f+0.48f*LightFactor(
-                        world_,wx+(tileX+0.5)*0.625,
+                    const float tint=0.52f+0.48f*lighting.Sample(
+                        wx+(tileX+0.5)*0.625,
                         wz+(tileZ+0.5)*0.625);
                     Flat(meshes,Material::CeilingTile,px,pz,
                          px+0.625f,pz+0.625f,height-0.008f,
@@ -810,18 +817,16 @@ void BackroomsGame::BuildChunk(ChunkCoord coord) {
             const float halfZ=lampInfo.longAxisX ? 0.3125f : 0.625f;
             const float cx=x+lampInfo.x,cz=z+lampInfo.z;
             Flat(meshes,Material::IndustrialCeiling,
-                 cx-halfX-0.065f,cz-halfZ-0.065f,
-                 cx+halfX+0.065f,cz+halfZ+0.065f,
-                 height-0.022f,Color(177,169,143),0.8f);
-            const Material panelMat=lampInfo.lit ?
-                Material::Fluorescent : Material::IndustrialCeiling;
+                 cx-halfX,cz-halfZ,cx+halfX,cz+halfZ,
+                 height-0.022f,Color(247,240,223),0.8f);
+            const Material panelMat=Material::Fluorescent;
             const Color panelColor=lampInfo.lit ?
-                Color(255,252,225) : Color(118,115,99);
+                Color(255,254,244) : Color(137,137,122);
             Quad(meshes,panelMat,
-                 {cx-halfX,height-0.035f,cz-halfZ},
-                 {cx+halfX,height-0.035f,cz-halfZ},
-                 {cx+halfX,height-0.035f,cz+halfZ},
-                 {cx-halfX,height-0.035f,cz+halfZ},panelColor,
+                 {cx-halfX+0.035f,height-0.035f,cz-halfZ+0.035f},
+                 {cx+halfX-0.035f,height-0.035f,cz-halfZ+0.035f},
+                 {cx+halfX-0.035f,height-0.035f,cz+halfZ-0.035f},
+                 {cx-halfX+0.035f,height-0.035f,cz+halfZ-0.035f},panelColor,
                  {0,0},{1,0},{1,1},{0,1});
             if (lampInfo.lit) {
                 const Color tube(255,255,246);
@@ -849,21 +854,30 @@ void BackroomsGame::BuildChunk(ChunkCoord coord) {
         }
         const Color cellWall=Scale(Vary(wallA,wallB,h),
             level==0 ? 1.0f : lampInfo.lit ? 1.0f : 0.80f);
-        const auto wallLight=[&](float factor) {
-            return level==0 ? 0.32f+0.68f*factor : 1.0f;
+        const auto wallLighting=[&](bool vertical) {
+            WallLighting result{{{{1,1,1}},{{1,1,1}}}};
+            if (level!=0) return result;
+            for (int side=0;side<2;++side) {
+                const int normal=side==0 ? -1 : 1;
+                for (int sample=0;sample<3;++sample) {
+                    const double px=wx+(vertical ? normal*0.14 : sample*2.5);
+                    const double pz=wz+(vertical ? sample*2.5 : normal*0.14);
+                    result[side][sample]=0.32f+0.68f*lighting.Sample(
+                        px,pz,vertical ? normal : 0,vertical ? 0 : normal);
+                }
+            }
+            return result;
         };
         const Edge verticalEdge=VerticalEdge(world_,gx,gz);
         const Edge horizontalEdge=HorizontalEdge(world_,gx,gz);
         const auto verticalOpening=OpeningForEdge(world_,verticalEdge,true,gx,gz);
         const auto horizontalOpening=OpeningForEdge(world_,horizontalEdge,false,gx,gz);
-        Partition(meshes,wallMat,verticalEdge,verticalOpening,true,x,z,
-                  height,doorHeight,cellWall,trim,
-                  wallLight(light[0]),wallLight(lightGrid[0][1]),
-                  wallLight(light[3]));
-        Partition(meshes,wallMat,horizontalEdge,horizontalOpening,false,z,x,
-                  height,doorHeight,cellWall,trim,
-                  wallLight(light[0]),wallLight(lightGrid[1][0]),
-                  wallLight(light[1]));
+        if (verticalEdge!=Edge::Open)
+            Partition(meshes,wallMat,verticalEdge,verticalOpening,true,x,z,
+                      height,doorHeight,cellWall,trim,wallLighting(true));
+        if (horizontalEdge!=Edge::Open)
+            Partition(meshes,wallMat,horizontalEdge,horizontalOpening,false,z,x,
+                      height,doorHeight,cellWall,trim,wallLighting(false));
         if (level==0) {
             const float ambient=(light[0]+light[1]+light[2]+light[3])*0.25f;
             const Color shadowFloor=Scale(floorColor,ambient);
@@ -957,7 +971,7 @@ void BackroomsGame::BuildChunk(ChunkCoord coord) {
             const float bx1=static_cast<float>(obstacle.maxX-ox*kCellSize);
             const float bz1=static_cast<float>(obstacle.maxZ-oz*kCellSize);
             if (level==0) {
-                OfficeObstacle(meshes,world_,bx0,bz0,bx1,bz1,
+                OfficeObstacle(meshes,lighting,bx0,bz0,bx1,bz1,
                                ox*kCellSize,oz*kCellSize,height,
                                wallB,trim,floorColor);
             } else if (level==1) {

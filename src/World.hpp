@@ -7,7 +7,7 @@
 
 namespace Backrooms {
 
-constexpr int kFormatVersion = 12;
+constexpr int kFormatVersion = 13;
 constexpr int kChunkCells = 8;
 constexpr int kRegionCells = 6;
 constexpr double kCellSize = 5.0;
@@ -54,6 +54,14 @@ struct CellProp {
     float sink = 0;
 };
 
+struct LampInfo {
+    bool fixture=false;
+    bool lit=false;
+    float x=2.5f,z=2.5f;
+    bool longAxisX=true;
+    bool operator==(const LampInfo&) const = default;
+};
+
 struct WorldConfig {
     std::uint64_t seed = 0xBACC0005ULL;
     int level = 0;
@@ -86,6 +94,7 @@ std::uint32_t CellHash(const WorldConfig& config, int x, int z, int salt);
 std::optional<PortalDefinition> PortalAt(const WorldConfig& config,
                                          int cellX, int cellZ);
 RegionKind RegionAt(const WorldConfig& config, int cellX, int cellZ);
+LampInfo LampAt(const WorldConfig& config, int cellX, int cellZ);
 bool IsEmptyHall(const WorldConfig& config, int cellX, int cellZ);
 bool IsServiceChamber(const WorldConfig& config, int cellX, int cellZ);
 Edge VerticalEdge(const WorldConfig& config, int boundaryX, int z);
@@ -95,8 +104,10 @@ OpeningSpan OpeningForEdge(const WorldConfig& config, Edge edge,
 CellProp PropAt(const WorldConfig& config, int cellX, int cellZ);
 CellObstacleSet InteriorPartitionsAt(const WorldConfig& config,
                                      int cellX, int cellZ);
+CellObstacleSet FullHeightObstaclesAt(const WorldConfig& config, int cellX, int cellZ);
 CellObstacleSet CellObstacles(const WorldConfig& config, int cellX, int cellZ);
 std::vector<Wall> NearbyWalls(const WorldConfig& config, double x, double z);
+std::vector<Wall> NearbyFullHeightWalls(const WorldConfig& config, double x, double z);
 bool Collides(const WorldConfig& config, double x, double z, double radius);
 void MoveWithCollision(const WorldConfig& config, double& x, double& z,
                        double dx, double dz, double radius);

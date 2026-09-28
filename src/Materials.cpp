@@ -132,8 +132,8 @@ Color Pixel(Material material, int x, int y, int size) {
     }
     case Material::Fluorescent: {
         const int edge=(x<5 || x>122 || y<5 || y>122) ? -30 : 0;
-        r=247+grain/4+edge; g=242+grain/4+edge;
-        b=204+grain/4+edge; break;
+        r=250+grain/4+edge; g=249+grain/4+edge;
+        b=229+grain/4+edge; break;
     }
     case Material::Count: break;
     }
