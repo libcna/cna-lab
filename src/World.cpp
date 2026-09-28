@@ -582,6 +582,11 @@ CellObstacleSet FullHeightObstaclesAt(const WorldConfig& config, int cellX, int 
     return result;
 }
 
+bool UtilityAlongZAt(const WorldConfig& config,int cellX,int cellZ) {
+    return (CellHash(config,DivFloor(cellX,kRegionCells),
+                     DivFloor(cellZ,kRegionCells),3929)&1U)==0;
+}
+
 CellObstacleSet CellObstacles(const WorldConfig& config, int cellX, int cellZ) {
     auto result=FullHeightObstaclesAt(config,cellX,cellZ);
     if (IsEmptyHall(config,cellX,cellZ) || PortalAt(config,cellX,cellZ) ||
@@ -599,10 +604,25 @@ CellObstacleSet CellObstacles(const WorldConfig& config, int cellX, int cellZ) {
     }
     if (kind==RegionKind::Tunnels && (lx+lz)%2==0) {
         const double x=cellX*kCellSize,z=cellZ*kCellSize;
-        result.walls[result.count++]={x+0.15,z+0.15,x+0.8,z+1.5};
-        result.walls[result.count++]={x+0.15,z+3.5,x+0.8,z+4.85};
-        result.walls[result.count++]={x+4.2,z+0.15,x+4.85,z+1.5};
-        result.walls[result.count++]={x+4.2,z+3.5,x+4.85,z+4.85};
+        const int rx=DivFloor(cellX,kRegionCells),rz=DivFloor(cellZ,kRegionCells);
+        const auto assembly=CellHash(config,rx,rz,3931);
+        const bool pressureRack=assembly%2==0;
+        // Pressure equipment is a sparse bank on one side. Cabinets can form
+        // tighter paired runs; neither layout obstructs the center junction.
+        if (!pressureRack || CellHash(config,cellX,cellZ,3937)%3==0) {
+            const double inset=CellHash(config,rx,rz,3923)%3==0 ? 1.50 : 1.25;
+            const bool rotate=!UtilityAlongZAt(config,cellX,cellZ);
+            const auto box=[&](double x0,double z0,double x1,double z1) {
+                result.walls[result.count++]=rotate ? Wall{x+z0,z+x0,x+z1,z+x1} :
+                                                        Wall{x+x0,z+z0,x+x1,z+z1};
+            };
+            if (!pressureRack || (assembly&0x10U)==0) {
+                box(0.15,0.15,inset,1.5);box(0.15,3.5,inset,4.85);
+            }
+            if (!pressureRack || (assembly&0x10U)!=0) {
+                box(5-inset,0.15,4.85,1.5);box(5-inset,3.5,4.85,4.85);
+            }
+        }
     }
     const CellProp prop=PropAt(config,cellX,cellZ);
     if (prop.kind!=PropKind::None) {

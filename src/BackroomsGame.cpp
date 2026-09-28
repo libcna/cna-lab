@@ -95,6 +95,8 @@ void WallFace(Meshes& meshes, Material material, bool vertical, float boundary,
             return 0.83f+0.17f*std::clamp(height/3.0f,0.0f,1.0f);
         if (material==Material::ConcreteWall)
             return 0.90f+0.10f*std::clamp(height/4.1f,0.0f,1.0f);
+        if (material==Material::TunnelWall)
+            return 0.86f+0.14f*std::clamp(height/2.55f,0.0f,1.0f);
         return 1.0f;
     };
     const Color bottomStart=Scale(color,shade(y0)*lightStart);
@@ -186,8 +188,9 @@ void BoxRange(Meshes& meshes, Material material, float x0, float z0,
 }
 
 void PipeRun(Meshes& meshes, bool alongZ, float cross, float start,
-             float end, float height, float radius, Color color) {
-    constexpr int facets=6;
+             float end, float height, float radius, Color color,
+             Material material=Material::IndustrialCeiling,bool caps=false,
+             int facets=6) {
     constexpr float turn=6.28318530718f;
     for (int facet=0;facet<facets;++facet) {
         const float a=turn*facet/facets,b=turn*(facet+1)/facets;
@@ -205,9 +208,26 @@ void PipeRun(Meshes& meshes, bool alongZ, float cross, float start,
                                   Vector3(end,yb,cross+hb);
         const Vector3 p3=alongZ ? Vector3(cross+hb,yb,start) :
                                   Vector3(start,yb,cross+hb);
-        Quad(meshes,Material::IndustrialCeiling,p0,p1,p2,p3,face,
+        Quad(meshes,material,p0,p1,p2,p3,face,
              {start*0.3f,0.0f},{end*0.3f,0.0f},
              {end*0.3f,1.0f},{start*0.3f,1.0f});
+    }
+    if (caps) for (float along:{start,end}) {
+        const Vector3 center=alongZ ? Vector3(cross,height,along) : Vector3(along,height,cross);
+        const Color tint=Scale(color,along==start ? 0.65f : 0.78f);
+        auto& mesh=meshes[static_cast<int>(material)];
+        for (int facet=0;facet<facets;++facet) {
+            const float a=turn*facet/facets,b=turn*(facet+1)/facets;
+            const float ha=std::cos(a)*radius,hb=std::cos(b)*radius;
+            const float ya=std::sin(a)*radius,yb=std::sin(b)*radius;
+            const Vector3 pa=alongZ ? Vector3(cross+ha,height+ya,along) :
+                                     Vector3(along,height+ya,cross+ha);
+            const Vector3 pb=alongZ ? Vector3(cross+hb,height+yb,along) :
+                                     Vector3(along,height+yb,cross+hb);
+            mesh.emplace_back(center,tint,Vector2(0.5f,0.5f));
+            mesh.emplace_back(pa,tint,Vector2(0.5f+ha/(2*radius),0.5f+ya/(2*radius)));
+            mesh.emplace_back(pb,tint,Vector2(0.5f+hb/(2*radius),0.5f+yb/(2*radius)));
+        }
     }
 }
 
@@ -377,11 +397,6 @@ void FalseDoor(Meshes& meshes, bool vertical, float boundary, float along,
              Scale(Color(215,209,184),illumination));
 }
 
-Color Vary(Color first, Color second, std::uint32_t hash) {
-    return hash%5 == 0 ? second : first;
-}
-
-
 int FloorDiv(int value, int size) {
     return value>=0 ? value/size : (value-size+1)/size;
 }
@@ -412,16 +427,14 @@ public:
     float Sample(double wx,double wz,int normalX=0,int normalZ=0) {
         const auto key=std::tuple{wx,wz,normalX,normalZ};
         if (const auto it=samples_.find(key);it!=samples_.end()) return it->second;
-        const float base=world_.level==0 ? 0.54f : world_.level==1 ? 0.60f : 0.55f;
-        const float strength=world_.level==0 ? 0.54f : world_.level==1 ? 0.38f : 0.41f;
+        const float base=world_.level==0 ? 0.54f : world_.level==1 ? 0.60f : 0.47f;
+        const float strength=world_.level==0 ? 0.54f : world_.level==1 ? 0.38f : 0.54f;
         float value=base;
         const int cx=CellOf(wx),cz=CellOf(wz);
         const std::vector<Wall>* walls=nullptr;
-        if (world_.level<=1) {
-            auto [it,inserted]=walls_.try_emplace({cx,cz});
-            if (inserted) it->second=NearbyFullHeightWalls(world_,wx,wz);
-            walls=&it->second;
-        }
+        auto [wallIt,insertedWalls]=walls_.try_emplace({cx,cz});
+        if (insertedWalls) wallIt->second=NearbyFullHeightWalls(world_,wx,wz);
+        walls=&wallIt->second;
         for (int dx=-1;dx<=1;++dx) for (int dz=-1;dz<=1;++dz) {
             const int gx=cx+dx,gz=cz+dz;
             auto [it,inserted]=lamps_.try_emplace({gx,gz});
@@ -435,7 +448,7 @@ public:
                 static_cast<float>(std::hypot(lx,lz))/6.5f);
             if (attenuation<=0) continue;
             float incidence=1;
-            if (world_.level<=1 && (normalX || normalZ))
+            if (normalX || normalZ)
                 incidence=static_cast<float>(std::max(0.0,
                     (lx*normalX+lz*normalZ)/std::sqrt(lx*lx+lz*lz+2.25)));
             // Keep ambient/bounced illumination in enclosed spaces. These
@@ -586,6 +599,56 @@ void IndustrialColumn(Meshes& meshes, BakedLighting& lighting,
     face(false,z0,x0,x1,-1);face(false,z1,x0,x1,1);
     FloorContactShadow(meshes,lighting,x0,z0,x1,z1,chunkX,chunkZ,
                        floor,0.80f,Material::ConcreteFloor,0.5f);
+}
+
+void UtilityEquipment(Meshes& meshes, BakedLighting& lighting,
+                      float x0,float z0,float x1,float z1,
+                      float cellX,float cellZ,double chunkX,double chunkZ,
+                      float height,Color floor,bool pressureRack,bool alongZ) {
+    const float cx=(x0+x1)*0.5f,cz=(z0+z1)*0.5f;
+    const bool vertical=alongZ;
+    const int normal=(vertical ? cellX-cx : cellZ-cz)>0 ? 1 : -1;
+    const float face=vertical ? (normal>0 ? x1 : x0) : (normal>0 ? z1 : z0);
+    const float light=lighting.WallSample(
+        chunkX+(vertical ? face+normal*0.04f : cx),
+        chunkZ+(vertical ? cz : face+normal*0.04f),
+        vertical ? normal : 0,vertical ? 0 : normal);
+    if (pressureRack) {
+        const Color frame=Scale(Color(189,199,183),light);
+        const Color pipe=Scale(Color(213,217,196),light);
+        for (float x:{x0+0.04f,x1-0.09f}) for (float z:{z0+0.04f,z1-0.09f})
+            BoxRange(meshes,Material::GalvanizedMetal,x,z,x+0.05f,z+0.05f,
+                     0,height-0.12f,frame);
+        BoxRange(meshes,Material::GalvanizedMetal,x0,z0,x1,z1,0.17f,0.22f,frame);
+        BoxRange(meshes,Material::GalvanizedMetal,x0,z0,x1,z1,1.25f,1.30f,frame);
+        const float radius=std::min(0.44f,(vertical ? x1-x0 : z1-z0)*0.38f);
+        const float cross=vertical ? cx : cz;
+        const float start=(vertical ? z0 : x0)+0.08f;
+        const float end=(vertical ? z1 : x1)-0.08f;
+        for (const float y:{0.68f,1.72f}) {
+            PipeRun(meshes,vertical,cross,start,end,y,radius,pipe,Material::GalvanizedMetal,true,16);
+            for (const float along:{start+0.13f,end-0.13f})
+                PipeRun(meshes,vertical,cross,along-0.035f,along+0.035f,y,
+                        radius*1.08f,Scale(pipe,0.84f),Material::GalvanizedMetal,false,16);
+        }
+    } else {
+        PropBox(meshes,Material::GalvanizedMetal,cx,cz,0,0,x0-cx,z0-cz,x1-cx,z1-cz,
+                0,height,Scale(Color(181,194,177),light));
+        const float near=(vertical ? z0 : x0)+0.13f;
+        const float far=(vertical ? z1 : x1)-0.13f;
+        const float plane=face+normal*0.004f;
+        WallFace(meshes,Material::PaintedTrim,vertical,plane,near,far,
+                 0.14f,height-0.14f,Scale(Color(182,193,173),light));
+        const Color dark=Scale(Color(61,67,58),light);
+        for (int vent=0;vent<4;++vent)
+            WallFace(meshes,Material::GalvanizedMetal,vertical,plane+normal*0.004f,
+                     near+0.12f,far-0.12f,height-0.54f+vent*0.065f,
+                     height-0.515f+vent*0.065f,dark);
+        WallFace(meshes,Material::GalvanizedMetal,vertical,plane+normal*0.006f,
+                 far-0.12f,far-0.08f,0.91f,1.05f,dark);
+    }
+    FloorContactShadow(meshes,lighting,x0,z0,x1,z1,chunkX,chunkZ,
+                       floor,0.82f,Material::TunnelFloor,0.5f);
 }
 
 void PortalVisual(Meshes& meshes, BakedLighting& lighting,
@@ -825,19 +888,19 @@ void BackroomsGame::BuildChunk(ChunkCoord coord) {
     const Material ceilingMat=level==0 ? Material::CeilingTile :
                               level==1 ? Material::IndustrialCeiling : Material::TunnelCeiling;
     const Color wallA=level==0 ? Color(255,250,239) :
-                      level==1 ? Color(223,229,227) : Color(187,175,149);
+                      level==1 ? Color(223,229,227) : Color(239,231,211);
     const Color wallB=level==0 ? Color(231,224,204) :
-                      level==1 ? Color(188,202,200) : Color(151,139,118);
+                      level==1 ? Color(188,202,200) : Color(218,210,188);
     const Color trim=level==0 ? Color(255,251,229) :
-                     level==1 ? Color(110,130,128) : Color(99,83,67);
+                     level==1 ? Color(110,130,128) : Color(105,113,101);
     const Color floorA=level==0 ? Color(246,240,222) :
                        level==1 ? Color(218,222,217) : Color(215,204,178);
     const Color ceiling=level==0 ? Color(255,252,235) :
-                        level==1 ? Color(205,220,219) : Color(150,143,124);
+                        level==1 ? Color(205,220,219) : Color(140,143,131);
     const Color grid=level==0 ? Color(143,139,115) :
-                     level==1 ? Color(94,114,112) : Color(93,79,65);
+                     level==1 ? Color(94,114,112) : Color(104,114,99);
     const Color lamp=level==0 ? Color(255,251,228) :
-                     level==1 ? Color(204,230,230) : Color(255,198,137);
+                     level==1 ? Color(204,230,230) : Color(255,231,181);
 
     for (int lx=0; lx<kChunkCells; ++lx) for (int lz=0; lz<kChunkCells; ++lz) {
         const int gx=ox+lx, gz=oz+lz;
@@ -901,7 +964,7 @@ void BackroomsGame::BuildChunk(ChunkCoord coord) {
                          Scale(stain,tint),0.4f);
                 }
             }
-        } else if (level==1 || chamber) {
+        } else {
             const auto shade=[&](float light) {
                 return Scale(ceiling,0.60f+0.40f*light);
             };
@@ -911,9 +974,7 @@ void BackroomsGame::BuildChunk(ChunkCoord coord) {
                     {shade(lightGrid[fx][fz]),shade(lightGrid[fx+1][fz]),
                      shade(lightGrid[fx+1][fz+1]),shade(lightGrid[fx][fz+1])},0.2f);
             }
-        } else
-            Flat(meshes,ceilingMat,x,z,x+5,z+5,height,
-                 Scale(ceiling,lampInfo.lit?1.0f:0.91f),0.8f);
+        }
         if (level==1) {
             const int rx=FloorDiv(gx,kRegionCells),rz=FloorDiv(gz,kRegionCells);
             const int lx=gx-rx*kRegionCells,lz=gz-rz*kRegionCells;
@@ -976,11 +1037,9 @@ void BackroomsGame::BuildChunk(ChunkCoord coord) {
                  cx+hx-0.10f,cz+hz-0.07f,height-0.032f,
                  lampInfo.lit ? lamp : Color(106,115,102),1.0f);
         }
-        const Color cellWall=Scale(level<=1 ? wallA : Vary(wallA,wallB,h),
-            level<=1 ? 1.0f : lampInfo.lit ? 1.0f : 0.80f);
+        const Color cellWall=wallA;
         const auto wallLighting=[&](bool vertical) {
             WallLighting result{{{{1,1,1}},{{1,1,1}}}};
-            if (level>1) return result;
             for (int side=0;side<2;++side) {
                 const int normal=side==0 ? -1 : 1;
                 for (int sample=0;sample<3;++sample) {
@@ -1018,30 +1077,50 @@ void BackroomsGame::BuildChunk(ChunkCoord coord) {
                                        bool positiveSide, std::uint32_t hash) {
                 const float side=positiveSide ? 1.0f : -1.0f;
                 const float start=vertical ? z : x;
-                const float cross=boundary+side*0.19f;
+                const float cross=boundary+side*0.21f;
                 const bool hasCabinet=hash%13==0;
-                const auto pipe=[&](float height,float radius,Color color) {
-                    if (hasCabinet && height+radius>1.03f &&
-                        height-radius<1.66f) {
-                        PipeRun(meshes,vertical,cross,start,start+1.90f,
-                                height,radius,color);
-                        PipeRun(meshes,vertical,cross,start+2.68f,start+5.0f,
-                                height,radius,color);
-                    } else
-                        PipeRun(meshes,vertical,cross,start,start+5.0f,
-                                height,radius,color);
+                const auto pipe=[&](float pipeHeight,float radius,Color color) {
+                    const float illumination=lighting.WallSample(
+                        wx+(vertical ? cross-x : 2.5f),
+                        wz+(vertical ? 2.5f : cross-z),
+                        vertical ? static_cast<int>(side) : 0,
+                        vertical ? 0 : static_cast<int>(side));
+                    color=Scale(color,illumination);
+                    const auto run=[&](float from,float to,float r,Color tint) {
+                        PipeRun(meshes,vertical,cross,from,to,pipeHeight,r,tint,
+                                Material::GalvanizedMetal);
+                    };
+                    if (hasCabinet && pipeHeight+radius>1.03f &&
+                        pipeHeight-radius<1.66f) {
+                        run(start,start+1.90f,radius,color);
+                        run(start+2.68f,start+5.0f,radius,color);
+                    } else run(start,start+5.0f,radius,color);
+                    for (const float along:{start+0.40f,start+4.30f}) {
+                        run(along-0.025f,along+0.025f,radius*1.18f,Scale(color,0.84f));
+                        const float wall=boundary+side*0.105f;
+                        const float a=std::min(wall,cross),b=std::max(wall,cross);
+                        if (vertical)
+                            BoxRange(meshes,Material::GalvanizedMetal,a,along-0.028f,b,along+0.028f,
+                                     pipeHeight-radius-0.045f,pipeHeight-radius+0.015f,
+                                     Scale(color,0.75f));
+                        else
+                            BoxRange(meshes,Material::GalvanizedMetal,along-0.028f,a,along+0.028f,b,
+                                     pipeHeight-radius-0.045f,pipeHeight-radius+0.015f,
+                                     Scale(color,0.75f));
+                    }
                 };
                 if (pipeStyle==0) {
-                    pipe(1.95f,0.055f,Color(207,190,157));
-                    if (hash%3!=0)
-                        pipe(0.89f,0.048f,Color(151,147,127));
+                    pipe(1.95f,0.075f,Color(225,218,193));
+                    if (hash%3!=0) pipe(0.89f,0.055f,Color(179,186,164));
                 } else if (pipeStyle==1) {
-                    pipe(1.28f,0.080f,Color(174,190,180));
+                    pipe(1.28f,0.13f,Color(201,212,193));
+                    pipe(2.03f,0.05f,Color(223,211,185));
                 } else if (pipeStyle==2) {
-                    pipe(2.04f,0.054f,Color(209,157,111));
-                    pipe(1.79f,0.046f,Color(171,137,105));
+                    pipe(2.04f,0.065f,Color(211,165,122));
+                    pipe(1.77f,0.055f,Color(192,158,122));
                 } else if (hash%3!=0) {
-                    pipe(1.70f,0.061f,Color(132,160,154));
+                    pipe(1.70f,0.085f,Color(167,192,176));
+                    pipe(0.55f,0.060f,Color(194,199,172));
                 }
                 if (hasCabinet) {
                     const float along=(vertical ? z : x)+2.0f;
@@ -1103,11 +1182,16 @@ void BackroomsGame::BuildChunk(ChunkCoord coord) {
                                      ox*kCellSize,oz*kCellSize,height,floorColor);
                 else StorageRack(meshes,bx0,bz0,bx1,bz1,
                                  CellHash(world_,gx,gz,3413+obstacleId));
+            } else if (obstacleId<fullHeightCount) {
+                BoxRange(meshes,Material::ConcreteCeiling,bx0,bz0,bx1,bz1,
+                         0,height,Scale(Color(195,198,174),lighting.Sample(
+                             ox*kCellSize+(bx0+bx1)*0.5f,oz*kCellSize+(bz0+bz1)*0.5f)));
             } else {
-                BoxRange(meshes,chamber ? Material::ConcreteWall :
-                         Material::TunnelWall,bx0,bz0,bx1,bz1,
-                         0,chamber ? height : height-0.23f,
-                         chamber ? Color(195,190,166) : Color(136,122,101));
+                const bool pressureRack=CellHash(world_,FloorDiv(gx,kRegionCells),
+                                                 FloorDiv(gz,kRegionCells),3931)%2==0;
+                UtilityEquipment(meshes,lighting,bx0,bz0,bx1,bz1,
+                                 x+2.5f,z+2.5f,ox*kCellSize,oz*kCellSize,
+                                 height-0.23f,floorColor,pressureRack,UtilityAlongZAt(world_,gx,gz));
             }
         }
         if (prop.kind!=PropKind::None)
@@ -1314,7 +1398,7 @@ void BackroomsGame::Update(GameTime& time) {
 void BackroomsGame::Draw(const GameTime& time) {
     auto& device=getGraphicsDeviceProperty();
     const Color fog=world_.level==0 ? Color(108,101,78) :
-                    world_.level==1 ? Color(56,67,67) : Color(41,35,29);
+                    world_.level==1 ? Color(56,67,67) : Color(39,41,35);
     device.Clear(fog);
     device.setDepthStencilStateProperty(DepthStencilState::Default);
     device.setRasterizerStateProperty(RasterizerState::CullNone);

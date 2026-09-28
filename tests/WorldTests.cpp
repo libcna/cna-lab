@@ -27,7 +27,7 @@ int main() {
     CHECK(ChunkOfCell(-9)==-2);
     CHECK(ChunkAt(-0.01,-40.01)==(ChunkCoord{-1,-2}));
     // Golden values make changes to the versioned procedural world explicit.
-    CHECK(kFormatVersion==20);
+    CHECK(kFormatVersion==21);
     CHECK(CellHash(world,12,-8,41)==511389911U);
     CHECK(VerticalEdge(world,8,3)==Edge::Open);
     CHECK(HorizontalEdge(world,-4,-5)==Edge::Open);
@@ -78,8 +78,26 @@ int main() {
     }
     CHECK(found);
     const WorldConfig tunnels{12345,2};
-    CHECK(CellObstacles(tunnels,0,0).count==4);
-    CHECK(Collides(tunnels,0.5,0.5,0.31));
+    CHECK(CellObstacles(tunnels,0,0).count==0 ||
+          CellObstacles(tunnels,0,0).count==2 ||
+          CellObstacles(tunnels,0,0).count==4);
+    int pairedCabinets=0,sparsePressureBanks=0;
+    for (int cx=-60;cx<60;++cx) for (int cz=-60;cz<60;++cz) {
+        if (RegionAt(tunnels,cx,cz)!=RegionKind::Tunnels ||
+            IsServiceChamber(tunnels,cx,cz) || PortalAt(tunnels,cx,cz) ||
+            PropAt(tunnels,cx,cz).kind!=PropKind::None) continue;
+        const auto equipment=CellObstacles(tunnels,cx,cz);
+        pairedCabinets+=equipment.count==4;
+        sparsePressureBanks+=equipment.count==2;
+        CHECK(equipment.count==0 || equipment.count==2 || equipment.count==4);
+        CHECK(!Collides(tunnels,(cx+0.5)*kCellSize,(cz+0.5)*kCellSize,0.55));
+        for (int i=0;i<equipment.count;++i) {
+            const auto& bounds=equipment.walls[i];
+            CHECK(Collides(tunnels,(bounds.minX+bounds.maxX)*0.5,
+                           (bounds.minZ+bounds.maxZ)*0.5,0.31));
+        }
+    }
+    CHECK(pairedCabinets>100 && sparsePressureBanks>100);
     CHECK(!Collides(tunnels,2.5,2.5,0.31));
     bool sparseBay=false,denseBay=false;
     const WorldConfig storage{12345,1};

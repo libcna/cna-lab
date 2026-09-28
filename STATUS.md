@@ -6,6 +6,8 @@ The September 2026 playable foundation at `aaf67c0` has deterministic regions, b
 
 ## Completed passes
 
+- Format 21 gives Level 2 weathered neutral concrete, cast ceilings, face-dependent occluded light, framed service cabinets, supported wall pipes and sparse pressure banks. Six matched tunnel views exposed excessive mirrored equipment and crude hexagonal ends; the refinement reduces density and uses finer circular profiles. Six refined pairs, three close equipment views, eighteen distant multi-seed views, twelve standard views and controller-route screenshots were inspected. Debug/Release tests, the seven-seed scan, 63-square physical audit and all six live entrance cases pass. A real 711 m return walk passes 114 waypoints in 462.2 seconds, maximum 25 chunks, near 59 FPS and 6.32 ms peak. Warmed RSS grows from 230.5 to 240.8 MiB as the buffer pool fills. A 9.6 km sweep holds near 59 FPS and 25 chunks, 7.72 ms peak, with 270 buffers created and 9,504 reused. Its latter-half RSS is 269.5–281.8 MiB; the active set and spare pool are bounded, but a longer plateau check is still needed for the larger pipe geometry.
+
 - Format 20 reduces storage-bay internal wall fragments and adds two to four cast-concrete supports around each sparse shelf layout. Shared pillar placement suppresses overlapping props and shifts fixtures. Six paired storage views were inspected; two initially faced nearby walls, so additional turned views inspect their actual bays. Debug/Release builds and tests, the seven-seed structural scan, 63-square collision audit and all six live entrance cases pass. The regenerated Level 1 return route passes 40 waypoints and approximately 512 m in 269.2 seconds, near 59 FPS, 25 maximum chunks, 2.03 ms peak and warmed RSS 173.4–173.9 MiB. A 9.6 km sweep stays near 59 FPS, 25 chunks, 2.43 ms peak and stable late RSS about 174.5 MiB, with 162 buffers created and 6,948 reused.
 
 - Format 19 replaces the cloudy industrial roof with a quieter cast-concrete finish and subtle formwork lines, also used on pillars and service-chamber ceilings. Carpet uses finer 4 mm-scale grain while retaining metre-scale wear. Paired close views exposed overbright wall-base strips; their colors now sample the existing floor triangles. Debug/Release builds and tests, six paired industrial views, three close carpet views and a new twelve-view round pass. A 2.4 km Level 0 Release sweep stays near 59 FPS, maximum 25 chunks, 4.48 ms peak, warmed RSS 177.1–177.8 MB.
@@ -55,11 +57,13 @@ The September 2026 playable foundation at `aaf67c0` has deterministic regions, b
 
 ## Three highest-priority deficiencies
 
-1. Level 2's uniformly brown walls and coarse noise weaken its mechanical tunnel identity. Improve service finishes, local light depth and pipe supports.
-2. Repeat distant multi-seed QA after the industrial and tunnel changes.
-3. Level 0 room-zone boundaries can still show several openings at five-metre intervals. Investigate fewer composed entrances without losing connectivity.
+1. Level 0 room boundaries still expose several openings at five-metre intervals. Compose fewer entrances while preserving traversable regions.
+2. Verify a longer memory plateau for the denser Level 2 geometry; current growth tracks retained buffer capacities.
+3. Level parameters remain scattered through code. Consider a small game-specific data definition after the spatial pass.
 
 ## Latest validation
+
+- Format 21 refined geometry passes the checks recorded above. Initial heavy equipment measurements are superseded. Dummy audio was used for these screenshot/controller checks; the separate native audio evidence and subjective-listening limitation still apply.
 
 - Format 20 Debug/Release builds, deterministic tests, seven-seed structural scan, 63-square physical audit and six entrance cases pass. The regenerated 512 m Level 1 controller return and 9.6 km positive/negative GPU sweep pass with bounded chunks, stable memory and no large generation spikes. Paired storage and additional turned distant views were inspected.
 
@@ -83,4 +87,4 @@ The September 2026 playable foundation at `aaf67c0` has deterministic regions, b
 
 ## Next pass
 
-Improve Level 2 mechanical finishes, tighter cabinet-lined runs, supported pipes and baked light depth. Compare both route locations and reference utility-tunnel visual language, then capture another distant multi-seed round. The goal remains active.
+Select one composed entrance per neighboring room pair instead of retaining every crossing in the cell tree. Use connected room components and a bounded game-owned layout cache; preserve region border connectors and deterministic collision. Compare six fixed office locations and rerun physical connectivity, real controller return and streaming. The goal remains active.

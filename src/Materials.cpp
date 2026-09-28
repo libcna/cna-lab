@@ -117,15 +117,22 @@ Color Pixel(Material material, int x, int y, int size) {
     }
     case Material::ConcreteFloor:
         r=83+grain+blotch; g=87+grain+blotch; b=85+grain+blotch; break;
+    case Material::GalvanizedMetal: {
+        const int age=static_cast<int>(std::lround(
+            (SmoothNoise(x,y,16,311,size)-0.5f)*7));
+        const int pit=Noise(x,y,313)%47==0 ? -12 : 0;
+        r=176+grain/3+age+pit;g=179+grain/3+age+pit;b=170+grain/3+age+pit;
+        break;
+    }
     case Material::IndustrialCeiling:
         r=100+grain/2+blotch; g=109+grain/2+blotch; b=106+grain/2+blotch; break;
     case Material::TunnelWall: {
-        const float rustNoise=SmoothNoise(x,y,32,73,size);
+        const float rustNoise=SmoothNoise(x,y,size/4,73,size);
         const int rust=rustNoise>0.62f ?
             static_cast<int>((rustNoise-0.62f)*52.0f) : 0;
-        r=113+grain+blotch+rust;
-        g=101+grain+blotch-rust/3;
-        b=84+grain+blotch-rust/2;
+        r=149+grain/2+blotch/3+rust;
+        g=145+grain/2+blotch/3-rust/2;
+        b=132+grain/2+blotch/3-rust/2;
         break;
     }
     case Material::TunnelFloor:
@@ -177,7 +184,7 @@ Materials::Materials(GraphicsDevice& device,const std::filesystem::path& assetDi
         const Material material=static_cast<Material>(id);
         int size=material==Material::Carpet ? 1024 :
                  (material==Material::Wallpaper || material==Material::CeilingTile ||
-                  material==Material::ConcreteCeiling) ? 512 : 128;
+                  material==Material::ConcreteCeiling || material==Material::TunnelWall) ? 512 : 128;
         std::vector<Color> pixels;
         const auto wallpaperPath=assetDirectory/"wallpaper-v1.png";
         if (material==Material::Wallpaper && System::IO::File::Exists(wallpaperPath.string())) {

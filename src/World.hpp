@@ -7,7 +7,7 @@
 
 namespace Backrooms {
 
-constexpr int kFormatVersion = 20;
+constexpr int kFormatVersion = 21;
 constexpr int kChunkCells = 8;
 constexpr int kRegionCells = 6;
 constexpr double kCellSize = 5.0;
@@ -118,6 +118,7 @@ CellProp PropAt(const WorldConfig& config, int cellX, int cellZ);
 CellObstacleSet InteriorPartitionsAt(const WorldConfig& config,
                                      int cellX, int cellZ);
 CellObstacleSet FullHeightObstaclesAt(const WorldConfig& config, int cellX, int cellZ);
+bool UtilityAlongZAt(const WorldConfig& config, int cellX, int cellZ);
 CellObstacleSet CellObstacles(const WorldConfig& config, int cellX, int cellZ);
 std::vector<Wall> NearbyWalls(const WorldConfig& config, double x, double z);
 std::vector<Wall> NearbyFullHeightWalls(const WorldConfig& config, double x, double z);
