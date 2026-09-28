@@ -99,10 +99,11 @@ Color Pixel(Material material, int x, int y, int size) {
         break;
     }
     case Material::ConcreteWall: {
-        const int seam=(y%64==0 || x%64==0) ? -18 : 0;
-        r=117+grain+blotch+seam;
-        g=121+grain+blotch+seam;
-        b=118+grain+blotch+seam;
+        const int seam=x%128==0 ? -4 : 0;
+        const int pore=Noise(x,y,277)%61==0 ? -10 : 0;
+        r=149+grain/2+blotch/3+seam+pore;
+        g=141+grain/2+blotch/3+seam+pore;
+        b=130+grain/2+blotch/3+seam+pore;
         break;
     }
     case Material::ConcreteCeiling: {
@@ -116,7 +117,9 @@ Color Pixel(Material material, int x, int y, int size) {
         break;
     }
     case Material::ConcreteFloor:
-        r=83+grain+blotch; g=87+grain+blotch; b=85+grain+blotch; break;
+        r=149+grain/2+blotch/4;
+        g=141+grain/2+blotch/4;
+        b=130+grain/2+blotch/4; break;
     case Material::GalvanizedMetal: {
         const int age=static_cast<int>(std::lround(
             (SmoothNoise(x,y,16,311,size)-0.5f)*7));
@@ -197,7 +200,7 @@ Materials::Materials(GraphicsDevice& device,const std::filesystem::path& assetDi
                                material==Material::Carpet ? "carpet-v1.png" :
                                material==Material::TunnelWall ? "concrete-v1.png" : nullptr;
         const char* label=material==Material::Wallpaper ? "wallpaper" :
-                          material==Material::Carpet ? "carpet" : "tunnel concrete";
+                          material==Material::Carpet ? "carpet" : "mineral concrete";
         const auto bitmapPath=assetDirectory/(bitmapName ? bitmapName : "");
         if (bitmapName && System::IO::File::Exists(bitmapPath.string())) {
             try {
@@ -249,6 +252,13 @@ Materials::Materials(GraphicsDevice& device,const std::filesystem::path& assetDi
             pixels=std::move(next);
             width=nextWidth;
         }
+    }
+    if (concreteBitmapLoaded) {
+        // Reuse the same albedo; family tints retain the industrial gray finish.
+        const auto& mineral=textures_[static_cast<int>(Material::TunnelWall)];
+        textures_[static_cast<int>(Material::ConcreteWall)]=mineral;
+        textures_[static_cast<int>(Material::ConcreteFloor)]=mineral;
+        std::cerr << "Material ready: industrial wall/floor share mineral concrete\n";
     }
 }
 

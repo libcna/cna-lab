@@ -100,7 +100,8 @@ void WallFaceColors(Meshes& meshes, Material material, bool vertical, float boun
                     float a, float b, float y0, float y1,
                     const std::array<Color,4>& colors) {
     const float repeat=material==Material::Wallpaper ? 0.8f :
-                       material==Material::TunnelWall ? 0.5f : 0.6f;
+                       (material==Material::TunnelWall ||
+                        material==Material::ConcreteWall) ? 0.5f : 0.6f;
     const float u0=a*repeat,u1=b*repeat;
     const float v0=1.0f-y0*repeat,v1=1.0f-y1*repeat;
     if (vertical)

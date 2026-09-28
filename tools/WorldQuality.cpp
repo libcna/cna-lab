@@ -76,6 +76,37 @@ Counts Sample(const WorldConfig& world) {
 }
 }
 
+int ViewSamples() {
+    const auto levels=LoadLevelCatalog(FindAssetDirectory()/"levels.json");
+    RoomLayoutCache cache;
+    constexpr std::array<std::uint64_t,6> seeds{{42,6502,177013,94081,88801,293781}};
+    for (int level=0;level<3;++level) {
+        const int count=level==0 ? 6 : 3;
+        for (int index=0;index<count;++index) {
+            const WorldConfig world{seeds[index],level,&cache,&levels};
+            bool selected=false;
+            for (int attempt=0;attempt<100 && !selected;++attempt) {
+                const auto a=CellHash(world,index,attempt,4441);
+                const auto b=CellHash(world,index,attempt,4447);
+                const int cx=static_cast<int>(a%1600)-800;
+                const int cz=static_cast<int>(b%1600)-800;
+                const double x=cx*kCellSize+0.8+((a>>12)%341)*0.01;
+                const double z=cz*kCellSize+0.8+((b>>12)%341)*0.01;
+                if (Collides(world,x,z,0.55) || PortalAt(world,cx,cz)) continue;
+                const double heading=(CellHash(world,cx,cz,4451)%6284)*0.001;
+                std::cout << std::fixed << std::setprecision(6)
+                          << "view seed " << world.seed << " level " << level
+                          << " sample " << index << " region "
+                          << static_cast<int>(RegionAt(world,cx,cz))
+                          << " position " << x << ',' << z << " heading " << heading << '\n';
+                selected=true;
+            }
+            if (!selected) throw std::runtime_error("could not select a free visual sample");
+        }
+    }
+    return 0;
+}
+
 int Run(bool showAlcoves,bool showPartitions,bool showEntities) {
     const auto levels=LoadLevelCatalog(FindAssetDirectory()/"levels.json");
     RoomLayoutCache cache;
@@ -190,8 +221,10 @@ int Run(bool showAlcoves,bool showPartitions,bool showEntities) {
 int main(int argc,char** argv) {
     try {
         if (argc>2 || (argc==2 && std::string(argv[1])!="--alcoves" &&
-                      std::string(argv[1])!="--partitions" && std::string(argv[1])!="--entities"))
-            throw std::invalid_argument("usage: world_quality [--alcoves|--partitions|--entities]");
+                      std::string(argv[1])!="--partitions" && std::string(argv[1])!="--entities" &&
+                      std::string(argv[1])!="--views"))
+            throw std::invalid_argument("usage: world_quality [--alcoves|--partitions|--entities|--views]");
+        if (argc==2 && std::string(argv[1])=="--views") return ViewSamples();
         return Run(argc==2 && std::string(argv[1])=="--alcoves",
                    argc==2 && std::string(argv[1])=="--partitions",
                    argc==2 && std::string(argv[1])=="--entities");

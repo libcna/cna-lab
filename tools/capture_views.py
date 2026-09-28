@@ -52,29 +52,48 @@ def main():
                         help='override native multisampling for a matched comparison')
     parser.add_argument('--level',type=int,choices=(0,1,2),
                         help='limit a visual pass to one environment family')
+    parser.add_argument('--pitch',type=float,default=0,
+                        help='camera pitch in degrees, positive looks up (within +/-75)')
     parser.add_argument('--distant',action='store_true')
     parser.add_argument('--partitions',action='store_true',
                         help='sample all six sparse office partition plans')
     parser.add_argument('--entities',action='store_true',
                         help='sample harmless figures at near, mid and distant ranges')
+    parser.add_argument('--sampled',action='store_true',
+                        help='sample uncurated off-grid positions across new seeds')
     parser.add_argument('--world-quality',default='build/world_quality')
     parser.add_argument('--all-directions',action='store_true',
                         help='also capture right, back and left views at each location')
     args=parser.parse_args()
+    if not math.isfinite(args.pitch) or abs(args.pitch)>75:
+        parser.error('pitch must be finite and within +/-75 degrees')
+    pitch_pixels=round(-math.radians(args.pitch)/0.0022)
     root=pathlib.Path(__file__).resolve().parents[1]
-    if sum((args.partitions,args.distant,args.entities))>1:
-        parser.error('choose one of distant, partition or entity views')
+    if sum((args.partitions,args.distant,args.entities,args.sampled))>1:
+        parser.error('choose one of distant, partition, entity or sampled views')
     views=DISTANT_VIEWS if args.distant else BASE_VIEWS
     profile_source=None
-    if args.partitions or args.entities:
+    if args.partitions or args.entities or args.sampled:
         quality=subprocess.check_output([str((root/args.world_quality).resolve()),
+                                         '--views' if args.sampled else
                                          '--entities' if args.entities else '--partitions'],cwd=root,text=True,
                                          stderr=subprocess.STDOUT)
         source=re.search(r'\[levels\] format \d+, world \d+, source ([0-9a-f]+)',quality)
         profile_source=source[1] if source else '0' if 'using built-in defaults' in quality else None
         if profile_source is None:
             raise RuntimeError('world quality did not report its level-profile source')
-        if args.entities:
+        if args.sampled:
+            pattern=r'view seed (\d+) level ([012]) sample (\d+) region \d+ position ([\d.-]+),([\d.-]+) heading ([\d.-]+)'
+            views=[]
+            for match in re.finditer(pattern,quality):
+                seed,level,sample,x,z,heading=match.groups()
+                initial=0 if int(level)==2 else math.pi/2
+                turn=(initial-float(heading)+math.pi)%(2*math.pi)-math.pi
+                views.append((f'l{level}_sample_{sample}',int(seed),int(level),
+                              float(x),float(z),round(turn/0.0022)))
+            if len(views)!=12:
+                raise RuntimeError('world quality did not find all uncurated samples')
+        elif args.entities:
             pattern=r'entity seed (0|12345) level ([012]) band ([012]) cell -?\d+,-?\d+ position ([\d.-]+),([\d.-]+) heading ([\d.-]+)'
             views=[]
             for match in re.finditer(pattern,quality):
@@ -137,8 +156,8 @@ def main():
                     if game.poll() is not None or time.monotonic()>deadline:
                         raise RuntimeError('view did not finish streaming: '+title)
                     time.sleep(.1)
-                if turn:
-                    xdo('mousemove_relative','--',turn,0)
+                if turn or pitch_pixels:
+                    xdo('mousemove_relative','--',turn,pitch_pixels)
                     time.sleep(.2)
                 suffixes=['','_right','_back','_left'] if args.all_directions else ['']
                 for direction,suffix in enumerate(suffixes):
@@ -152,7 +171,8 @@ def main():
                         view_angle=re.search(r'\| view ([\d.-]+),([\d.-]+)',title)
                         if view_angle is None: break # older comparison binaries lack angle telemetry
                         error=(float(view_angle[1])-math.degrees(expected_yaw)+180)%360-180
-                        if abs(error)<0.3: break
+                        pitch_error=float(view_angle[2])-math.degrees(-pitch_pixels*0.0022)
+                        if abs(error)<0.3 and abs(pitch_error)<0.3: break
                         if time.monotonic()>deadline:
                             raise RuntimeError('relative mouse did not reach the requested view: '+title)
                         time.sleep(.1)
@@ -161,7 +181,8 @@ def main():
                     subprocess.run(['import','-window',window,str(output/(view+'.png'))],
                         check=True,timeout=10)
                     manifest.append(dict(name=view,seed=seed,level=level,x=x,z=z,
-                                         relative_mouse_x=turn+direction*714,title=title))
+                                         relative_mouse_x=turn+direction*714,
+                                         relative_mouse_y=pitch_pixels,title=title))
                     (output/'manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')
                     print(view+' | '+title,flush=True)
             finally:

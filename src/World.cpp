@@ -284,8 +284,8 @@ const LevelCatalog& DefaultLevelCatalog() {
         storage.fogStart=20;storage.fogEnd=95;
         storage.ambient=0.60f;storage.lightStrength=0.38f;
         storage.ceilingBounce=0.60f;storage.entityRarity=650;
-        storage.wall={223,229,227};storage.pillar={188,202,200};
-        storage.trim={110,130,128};storage.floor={218,222,217};
+        storage.wall={175,197,206};storage.pillar={188,202,200};
+        storage.trim={110,130,128};storage.floor={122,137,142};
         storage.ceiling={205,220,219};storage.structure={94,114,112};
         storage.fluorescent={204,230,230};storage.fog={56,67,67};
         storage.regions={{{RegionKind::Storage,35},{RegionKind::OpenOffice,18},
