@@ -192,9 +192,22 @@ void Partition(Meshes& meshes, Material material, Edge edge,
         const auto cap=[&](float end) {
             const float light=(lightAt(end,height*0.5f,0)+lightAt(end,height*0.5f,1))*0.5f;
             const float base=office ? 0.12f : 0.16f;
-            WallFace(meshes,material,!vertical,end,
-                     boundary-kWallHalfThickness,boundary+kWallHalfThickness,base,
-                     material!=Material::TunnelWall ? height : height-0.10f,Scale(wall,0.82f),light,light);
+            if (office) {
+                // Painted returns keep the wallpaper motif off narrow reveals.
+                const Color paint=Scale(wall,0.85f);
+                for (int band=0;band<2;++band) {
+                    const float low=band==0 ? base : height*0.5f;
+                    const float high=band==0 ? height*0.5f : height;
+                    const Color bottom=Scale(paint,0.5f*(lightAt(end,low,0)+lightAt(end,low,1)));
+                    const Color top=Scale(paint,0.5f*(lightAt(end,high,0)+lightAt(end,high,1)));
+                    WallFaceColors(meshes,Material::PaintedTrim,!vertical,end,
+                        boundary-kWallHalfThickness,boundary+kWallHalfThickness,
+                        low,high,{bottom,bottom,top,top});
+                }
+            } else WallFace(meshes,material,!vertical,end,
+                        boundary-kWallHalfThickness,boundary+kWallHalfThickness,base,
+                        material!=Material::TunnelWall ? height : height-0.10f,
+                        Scale(wall,0.82f),light,light);
             WallFace(meshes,office ? Material::PaintedTrim : material,!vertical,end,
                      boundary-kWallHalfThickness,boundary+kWallHalfThickness,0,base,trim,light,light);
             if (material==Material::TunnelWall)
@@ -205,12 +218,20 @@ void Partition(Meshes& meshes, Material material, Edge edge,
         cap(along+first);cap(along+last);
         if (edge==Edge::Door) {
             section(along+first,along+last,doorHeight,height,wall);
+            const auto underside=[&](float coordinate,int side) {
+                return Scale(wall,(office ? 0.85f : 1.0f)*0.83f*
+                                  lightAt(coordinate,doorHeight,side));
+            };
+            const float a=along+first,b=along+last;
+            const Material returnMaterial=office ? Material::PaintedTrim : material;
             if (vertical)
-                Flat(meshes,material,boundary-kWallHalfThickness,along+first,
-                     boundary+kWallHalfThickness,along+last,doorHeight,Scale(wall,0.83f),0.6f);
+                FlatShaded(meshes,returnMaterial,boundary-kWallHalfThickness,a,
+                     boundary+kWallHalfThickness,b,doorHeight,
+                     {underside(a,0),underside(a,1),underside(b,1),underside(b,0)},0.6f);
             else
-                Flat(meshes,material,along+first,boundary-kWallHalfThickness,
-                     along+last,boundary+kWallHalfThickness,doorHeight,Scale(wall,0.83f),0.6f);
+                FlatShaded(meshes,returnMaterial,a,boundary-kWallHalfThickness,
+                     b,boundary+kWallHalfThickness,doorHeight,
+                     {underside(a,0),underside(b,0),underside(b,1),underside(a,1)},0.6f);
         }
     }
 }

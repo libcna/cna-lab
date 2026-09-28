@@ -6,9 +6,11 @@ The product goal remains **active**. Three distinct families, connected determin
 
 ## Current pass
 
-Format 36 shares the original mineral albedo between industrial walls/floors and tunnel materials. Cooler profile tints retain industrial brightness; two-metre wall UVs remove coarse seam repetition. Nineteen matched close/wide views, twelve family views and six missing/corrupt-image views were inspected. A new deterministic QA sampler selects uncurated off-grid views across six new seeds; all forty-eight headings were inspected, including views facing nearby walls.
+Format 37 paints office opening returns and lights lintel undersides from the same wall samples. All twenty-four uncurated office pairs, twelve family views and eleven route/regression views were inspected. Release/Debug suites and a 355 m actual-controller return pass. Tunnel roof details and proximity disappearance are next.
 
 ## Completed passes
+
+- **37:** painted, locally lit opening returns. Twenty-four office pairs, twelve family views and eleven route/regression views inspected. The 355.1 m return completes 28 waypoints in 191.6 seconds, at most 25 chunks and steady warmed RSS 187.79 MiB.
 
 - **36:** mineral industrial walls/floors, quieter fallbacks and pitch-controlled QA. Nineteen matched material pairs, twelve family views, six fallback views and forty-eight uncurated directions were inspected. Release/Debug suites and the 9.6 km industrial sweep pass. The new views expose office soffit and tunnel beam problems for the next passes.
 
@@ -25,9 +27,9 @@ Format 36 shares the original mineral albedo between industrial walls/floors and
 
 ## Three highest-priority deficiencies
 
-1. Office opening soffits omit the light bake and show rotated wallpaper strips. Give them a coherent painted finish and local lighting.
-2. Tunnel edge beams float below the ceiling and repeat on every cell. Replace them with wall-supported ceiling details.
-3. Nearby figures disappear abruptly; soften their retreat, then walk and audit the refined environment again.
+1. Tunnel edge beams float below the ceiling and repeat on every cell. Replace them with wall-supported ceiling details.
+2. Nearby figures disappear abruptly; soften their retreat without interaction or AI complexity.
+3. Reassess room repetition and lighting in wider arbitrary views after the visible support and figure fixes.
 
 ## Latest validation
 
@@ -45,4 +47,4 @@ Format 36 shares the original mineral albedo between industrial walls/floors and
 
 ## Next pass
 
-Fix the unlit office opening returns, compare the same close views, then repair floating tunnel beams and near-entity behavior. Continue actual traversal and the product audit; the goal remains active.
+Repair floating tunnel roof details, compare arbitrary directional views, then soften near-entity behavior. Continue actual traversal and the product audit; the goal remains active.
