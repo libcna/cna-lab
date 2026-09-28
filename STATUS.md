@@ -6,6 +6,8 @@ The September 2026 playable foundation at `aaf67c0` has deterministic regions, b
 
 ## Completed passes
 
+- A normal-controller route exposed a pooled-buffer upload regression. GPU readback and a deterministic replay identified missing EasyGL context ownership between frame leases. Streaming, transitions and final GPU cleanup now hold CNA context tokens. The 326 m return route, exact failing view and an automatic-exit check pass; bugs.md records the diagnosis without sibling changes.
+
 - Playable foundation and long positive/negative coordinate GPU sweeps.
 - Initial procedural wallpaper, carpet, ceiling, concrete, and tunnel textures.
 - Distinct level palettes and basic architectural props.
@@ -33,11 +35,13 @@ The September 2026 playable foundation at `aaf67c0` has deterministic regions, b
 
 ## Three highest-priority deficiencies
 
-1. Long GPU sweeps bypass collision. Run a longer controller-driven route through the current generated rooms and return over the same path.
-2. Footsteps use one wood sample on every surface; add a cheap muted carpet/hard-floor distinction with the already licensed collection.
-3. Level 0 furniture silhouettes remain crude, and real-device subjective audio loudness remains unverified.
+1. Repeat longer GPU sweeps after the context fix: previous sweeps counted chunks but could display stale GPU geometry after reuse.
+2. Finish the surface-aware footstep commit and verify the transition cue independently on the real audio backend.
+3. Level 0 still has overly uniform wall lighting and crude furniture proportions. Improve those against matched screenshots rather than adding more level types.
 
 ## Latest validation
+
+- The format 12 Release normal-controller regression traversed 326 m and returned in 225.8 seconds, including negative chunk coordinates. All 36 waypoints passed; the exact pooled-buffer regression view is correct after 299 reuses, at most 25 chunks, near 59 FPS and a 2.05 ms peak build. A 400 m automatic-exit GPU check also passed, exercising final GPU cleanup. Earlier numeric sweeps did not expose the visually incorrect reused-buffer uploads; their timing/memory results are historical, not visual validation of the fixed renderer.
 
 - Current version 12 passes Debug and Release builds, deterministic world tests, the seven-seed quality scan, 63-square physical walkability and all four directed live transition checks.
 - Current Level 1 and Level 2 completed 9.6 km GPU sweeps near 59 FPS with at most 25 chunks. Level 1 peaked at 25.1 ms, reused 6,305 buffers and ended near 187.6 MB RSS; Level 2 peaked at 25.5 ms, reused 6,442 buffers and plateaued near 202.4 MB. The 63-square collision walkability audit passed after the clearance fix.
@@ -46,4 +50,4 @@ The September 2026 playable foundation at `aaf67c0` has deterministic regions, b
 
 ## Next pass
 
-Run a longer controller route with normal collision and inspect images along it. Make a small surface-aware footstep pass using the existing CC0 collection. Continue the product audit from the highest-value deficiency found.
+Repeat long GPU sweeps with the fixed uploads and inspect further screenshots. Temporary direct GL diagnostics have been removed; the game uses only CNA APIs. Then validate surface-aware footsteps through the real PipeWire sink input and continue visual/product refinement.

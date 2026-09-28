@@ -12,6 +12,7 @@
 #include <utility>
 #include <vector>
 
+#include "CNA/Internal/Renderers/Common/IGraphicsRenderer.hpp"
 #include "Microsoft/Xna/Framework/Color.hpp"
 #include "Microsoft/Xna/Framework/Matrix.hpp"
 #include "Microsoft/Xna/Framework/Vector2.hpp"
@@ -575,6 +576,17 @@ BackroomsGame::BackroomsGame(std::uint64_t seed, bool streamTest,
     getWindowProperty().setTitleProperty("cna-backrooms");
 }
 
+BackroomsGame::~BackroomsGame() {
+    // The frame lease has already released the ES context when Run returns.
+    // Keep GPU deletion in the same explicit scope as streaming uploads.
+    auto context=getGraphicsDeviceProperty().GetRenderer().AcquireThreadContextLeaseEXT();
+    chunks_.clear();
+    spareVertices_.clear();
+    entityVertices_.reset();
+    materials_.reset();
+    effect_.reset();
+}
+
 const std::string& BackroomsGame::GetTypeName() const {
     static const std::string name = "Backrooms.BackroomsGame";
     return name;
@@ -990,6 +1002,10 @@ void BackroomsGame::BuildChunk(ChunkCoord coord) {
 }
 
 void BackroomsGame::Stream() {
+    // CNA EasyGL currently does not acquire a context for SetData on existing
+    // vertex buffers during Update. This also covers retiring GPU resources.
+    // See bugs.md; no sibling engine changes are required.
+    auto context=getGraphicsDeviceProperty().GetRenderer().AcquireThreadContextLeaseEXT();
     const auto center=ChunkAt(x_,z_);
     for (auto it=chunks_.begin(); it!=chunks_.end();) {
         if (std::abs(it->first.x-center.x)>2 || std::abs(it->first.z-center.z)>2) {
@@ -1015,6 +1031,7 @@ void BackroomsGame::Stream() {
 void BackroomsGame::Transition(int level) {
     if (transition_ && !transition_->Play(0.45f,0,0))
         std::cerr << "Audio: transition cue could not acquire a voice\n";
+    auto context=getGraphicsDeviceProperty().GetRenderer().AcquireThreadContextLeaseEXT();
     world_.level=level;
     chunks_.clear();
     spareVertices_.clear();

@@ -25,6 +25,7 @@ public:
                            double startZ = 2.5, double walkSpeed = 3.8,
                            double runSpeed = 6.5,
                            double streamTestMetres = 9600.0);
+    ~BackroomsGame() override;
     const std::string& GetTypeName() const override;
     void Initialize() override;
     void LoadContent() override;
