@@ -559,3 +559,31 @@ The native Wayland short gate completes two 400-metre returns in one process:
 Second-lap RSS is constant at 303.68 MiB; this nineteen-second gate verifies
 lap parsing/return checks, not long-duration stability. The following four
 9.6-km returns will establish the finite repeated-route evidence separately.
+
+
+### Format 48 native repeated-route result
+
+The four-lap Wayland/OpenGLES3 run completes **38,400 metres** in **855.6 s**,
+with 853 native title samples and 121 distinct player chunks. Each lap crosses
+both coordinate signs and returns near spawn. There is no owned compiler or
+other GPU run during the measured long probe.
+
+| Lap | Final RSS MiB | Latter-half RSS MiB | Created / reused buffers |
+| --- | ---: | --- | --- |
+| 1 | 375.85 | 360.29–375.85 | 269 / 9,505 |
+| 2 | 388.66 | 388.66–388.66 | 290 / 19,100 |
+| 3 | 388.66 | 388.66–388.66 | 309 / 28,660 |
+| 4 | 363.34 | 363.34–388.66 | 339 / 38,283 |
+
+Active chunks remain at most 25 and sampled spares at most 17. Packed vertex
+capacity peaks at 79.8 MiB and finishes at 75.6 MiB. RSS plateaus during the
+latter halves of laps two and three, then decreases in lap four; these finite
+observations do not indicate continual growth when revisiting the same route.
+The pool is bounded even though occasional buffer replacements still occur.
+
+Actual draw/update medians are 39/59; rolling p95 median is 29.73 ms, maximum
+sampled frame 106.34 ms. Median/peak chunk builds are 5.14/39.31 ms; 75 builds
+exceed 16.67 ms. Median CPU submission is 0.79 ms. Shared scheduling is not
+isolated. Occasional hitches remain, and this capacity sweep bypasses collision
+and uses dummy audio. Exact summary, RSS samples and generation/upload spikes:
+build/repeat48-long. This is not a normal-input or listening test.

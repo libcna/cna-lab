@@ -10,7 +10,7 @@ The visual/product goal remains **active** until its dedicated audit passes.
 
 ## Current state
 
-The accepted format **48** candidate (committed foundation: **47**) provides three distinct connected level
+Committed format **48** provides three distinct connected level
 families, patterned office materials, composed rooms/partitions/column plans,
 coherent huge-hall fixtures, sparse furniture/false doors, environmental level
 transitions, conventional FPS input, Shift walk/run toggling and collision.
@@ -24,8 +24,9 @@ pitched office/hall views and 12 family views have been inspected. The first,
 overly bold candidate was rejected; the final fine fissures retain quiet distant
 panels. Geometry, collision and recipe 11 remain unchanged. A native Wayland
 28.8 km format 47 run completes with bounded chunks/buffers, but rising RSS does
-not establish a plateau. The current format 48 run repeats the same 9.6 km route
-four times to distinguish repeated growth from new-region high water.
+not establish a plateau. The format 48 run completes four repeats of the same 9.6 km route. RSS stays
+flat through late laps two/three and decreases in lap four; active/pool state
+stays bounded. Final clean Release compilation is now running.
 
 ## Completed passes
 
@@ -39,12 +40,13 @@ Exact pass history and finite limitations: [validation history](docs/validation-
 
 ## Three highest-priority deficiencies
 
-1. Complete and interpret the repeated native Wayland capacity run; retain exact memory/loading/presentation measurements.
-2. Refresh clean Release validation and actual controller return after externally changed CNA dependencies.
+1. Finish the clean Release build and actual controller return against the latest dependency working copies.
+2. Refresh controls, entrances and all normal-device sound paths after the final build.
 3. Complete the delivery product audit, controls/entrances/normal audio and documentation. Native Wayland real input and subjective listening remain unverified; compositor screenshot access is denied.
 
 ## Latest validation
 
+- Format 48 native Wayland four-lap sweep completes **38.4 km** across 121 player chunks: max 25 active/17 spare buffers, 339 created/38,283 reused, 79.8 MiB peak packed capacity. RSS late laps two/three is flat at 388.66 MiB and finishes at 363.34. Median/peak build 5.14/39.31 ms; maximum sampled frame 106.34 ms. Collision is bypassed and audio is dummy. Exact limits: validation history and build/repeat48-long.
 - Format 48 Release/Debug builds and all three Debug CTest suites pass. Final clean Release validation follows. Kind selection, cached/uncached generation and bounded entity drift are checked.
 - All nine actual six-metre creature approaches/returns pass position and mouse-angle checks. All **99 captured stages** are inspected: distinct silhouettes, grounded feet, ceiling clearance, near fade and restored native depth/alpha state. Artifacts: build/creatures47-approach and build/creatures47-review-0..16.png.
 - All three stationary normal own-stream voice captures pass without footsteps or clipping. Event peaks: **-14.00/-13.85/-11.37 dBFS**, against hum RMS about -32.4 dBFS. Stream is unmuted at 100%, Ryzen speaker sink unmuted at 57%. Artifacts: build/creatures47-audio-0..2. Listening by ear is not performed.
@@ -55,7 +57,7 @@ Exact pass history and finite limitations: [validation history](docs/validation-
 
 ## Dependencies and practical limits
 
-Latest observed read-only next heads: CNA **a62c40b09e868462077fbf4914ff1a153fa5d324**,
+Latest observed read-only next heads: CNA **6f6100cd35df6d094d586f8fee2bb6f3498ad2b9**,
 Sharp Runtime **007280bd1cc789f851f7f454a5041c8ce2479e13**. Siblings are changed
 externally; this game agent never modifies them. The explicit CNA context lease
 remains necessary for recycled-buffer uploads, transitions and deletion; see
@@ -69,7 +71,7 @@ vertical traversal, moving doors and a story are outside this milestone.
 
 ## Next pass
 
-Finish the repeated native capacity run. Then rebuild/test the final Release,
+The repeated native capacity run passes. Finish the clean final Release build,
 walk the default-world controller return with panorama captures, and refresh
 controls, entrances and technical normal-device audio. At 19:30 stop additions;
 complete the delivery product audit, document deficiencies and commit the state.
