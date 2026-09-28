@@ -87,11 +87,25 @@ Color Pixel(Material material, int x, int y, int size) {
         constexpr int tilePixels=128;
         const int localX=x%tilePixels,localY=y%tilePixels;
         const int seam=(localX<2 || localY<2) ? 6 :
-                       (localX<5 || localY<5) ? -12 : 0;
+                       (localX<5 || localY<5) ? -17 : 0;
         const auto panel=Noise(x/tilePixels,y/tilePixels,193);
         const int age=static_cast<int>(panel%7)-3;
         const int yellowing=panel%11==0 ? 5 : 0;
-        const int pores=Noise(x,y,108)%19==0 ? -13 :
+        const auto fissure=Noise(x/8,y/8,811);
+        const int u=x%8,v=y%8;
+        const bool horizontal=(fissure&8U)!=0;
+        const int along=horizontal ? u : v,across=horizontal ? v : u;
+        const int start=1+static_cast<int>((fissure>>5)%3);
+        const int length=2+static_cast<int>((fissure>>9)%5);
+        const int center=2+static_cast<int>((fissure>>13)%4);
+        const int bend=along>start+length/2 ? ((fissure&0x10000U) ? 1 : -1) : 0;
+        const int width=(fissure>>18)%4==0 ? 2 : 1;
+        // Small irregular fissures remain readable under native mip filtering;
+        // isolated single-pixel noise alone looked like a smooth ceiling.
+        const bool hole=fissure%3!=0 && along>=start && along<start+length &&
+                        across>=center+bend && across<center+bend+width &&
+                        localX>6 && localY>6;
+        const int pores=hole ? -21 : Noise(x,y,108)%31==0 ? -11 :
                         Noise(x,y,109)%23==0 ? 5 : 0;
         r=209+grain/2+blotch/3+seam+pores+age;
         g=207+grain/2+blotch/3+seam+pores+age-yellowing/2;

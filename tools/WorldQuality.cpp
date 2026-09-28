@@ -21,6 +21,7 @@ struct Counts {
     std::array<int,7> regions{};
     std::array<int,6> partitionPlans{};
     std::array<int,5> columnPlans{};
+    std::array<int,kEntityKindCount> entityKinds{};
 };
 
 void CountEdge(Counts& counts, Edge edge) {
@@ -53,7 +54,10 @@ Counts Sample(const WorldConfig& world) {
         counts.emptyHallCells+=IsEmptyHall(world,x,z);
         counts.chamberCells+=IsServiceChamber(world,x,z);
         counts.alcoves+=OfficeAlcoveAt(world,x,z).has_value();
-        counts.entities+=EntityAt(world,x,z).has_value();
+        if (const auto entity=EntityAt(world,x,z)) {
+            ++counts.entities;
+            ++counts.entityKinds[static_cast<int>(entity->kind)];
+        }
         ++counts.regions[static_cast<int>(RegionAt(world,x,z))];
         if (x%kRegionCells==0 && z%kRegionCells==0)
             if (const auto style=OfficePartitionStyleAt(world,x/kRegionCells,z/kRegionCells))
@@ -345,6 +349,8 @@ int Run(bool showAlcoves,bool showPartitions,bool showEntities) {
             for (int count:c.partitionPlans) std::cout << ' ' << count;
             std::cout << " | column plans";
             for (int count:c.columnPlans) std::cout << ' ' << count;
+            std::cout << " | creature kinds";
+            for (int count:c.entityKinds) std::cout << ' ' << count;
             std::cout << '\n';
             if (showEntities) {
                 const WorldConfig world{seed,level,&cache,&levels};

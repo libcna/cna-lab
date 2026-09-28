@@ -33,7 +33,7 @@ public:
                            double runSpeed = kDefaultRunSpeed,
                            double streamTestMetres = 9600.0,
                            float verticalFovDegrees = kDefaultVerticalFov,
-                           int multiSampleCount = 4);
+                           int multiSampleCount = 4, int streamTestLoops = 1);
     ~BackroomsGame() override;
     const std::string& GetTypeName() const override;
     void Initialize() override;
@@ -103,6 +103,7 @@ private:
     bool stepWarningShown_ = false;
     bool streamTest_ = false;
     double streamTestMetres_ = 9600.0;
+    int streamTestLoops_ = 1;
     double streamTestTime_ = 0;
     int bufferCreations_ = 0;
     int bufferReuses_ = 0;

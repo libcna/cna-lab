@@ -1,102 +1,75 @@
-# cna-backrooms visual goal status
+# cna-backrooms status
 
 ## Delivery schedule
 
-Owner deadline: **2026-09-28 around 20:00 Europe/Prague (18:00 UTC)**.
-Continue autonomous implementation and product QA until about **19:30 local
-(17:30 UTC)**. Reserve the final half hour for stabilization, build/runtime
-checks, documenting remaining deficiencies and committing the delivered state.
-Hard outer limit for completing delivery: **20:55 local (18:55 UTC)**, when the
-owner expects subscription/session termination. Aim to finish at 20:00; the
-extra time is contingency for stabilization or committing, not new features.
-This supersedes the original approximate 24-hour target; do not finish early
-merely because a milestone passes. Check the actual clock at major checkpoints.
+Owner target: **2026-09-28 20:00 Europe/Prague (18:00 UTC)**.
+Continue implementation and QA until about **19:30 local (17:30 UTC)**, then
+freeze features, stabilize/build/run, document remaining issues and commit the
+delivery. **20:55 local (18:55 UTC)** is contingency, not a feature extension.
+The visual/product goal remains **active** until its dedicated audit passes.
 
 ## Current state
 
-The product goal remains **active**. Three distinct families, connected deterministic rooms, bounded 5-by-5 streaming, collision, conventional mouse look, Shift toggling, native profiles, licensed audio, transitions and harmless entities work. Level 0 has original wallpaper/carpet, acoustic ceilings, warmer height-dependent fluorescent light, irregular rooms, six offset partition plans, sparse furniture and alcoves. Builds and numeric tests do not finish the visual audit.
+The accepted format **48** candidate (committed foundation: **47**) provides three distinct connected level
+families, patterned office materials, composed rooms/partitions/column plans,
+coherent huge-hall fixtures, sparse furniture/false doors, environmental level
+transitions, conventional FPS input, Shift walk/run toggling and collision.
+World state stays bounded: 25 active chunks, 48 spare buffers and 256 cached
+room layouts. Three harmless creature types share immutable meshes and drift
+within a clear cell. They fade near the player and emit sparse licensed voices.
+There is no combat, health, damage, chasing, inventory or required quest.
 
-## Current pass
-
-Format 47 adds three deterministic harmless creature types and sparse licensed
-voices. Release/Debug builds and all suites pass. All nine real approach/return
-cases and all 99 views are inspected. Each voice passes a stationary normal
-own-stream capture without clipping; subjective listening remains unverified.
-A 28.8 km native Wayland capacity sweep is now running without an owned compiler
-or another GPU job. Continue with arbitrary location views and measured issues.
+Format 48 refines acoustic-panel fissures and inset seams. All 21 matched
+pitched office/hall views and 12 family views have been inspected. The first,
+overly bold candidate was rejected; the final fine fissures retain quiet distant
+panels. Geometry, collision and recipe 11 remain unchanged. A native Wayland
+28.8 km format 47 run completes with bounded chunks/buffers, but rising RSS does
+not establish a plateau. The current format 48 run repeats the same 9.6 km route
+four times to distinguish repeated growth from new-region high water.
 
 ## Completed passes
 
-- **47:** three shared harmless silhouettes, deterministic kinds, bounded slow drift and rare attenuated/panned CC0 breaths/rustles. Release/Debug suites, nine controller approaches and 99 inspected stages pass; all three normal-device voice captures have nonclipping signal above hum. Long capacity validation follows.
+- Materials: original wallpaper, office carpet and mineral concrete, native mipmaps/anisotropy, human scale, warm baked wall/floor illumination and contact agreement.
+- Composition: connected room zones, asymmetric openings, six offset partitions, five office support plans, rare 60-metre halls with three coherent fixture plans, service bays and narrower utility tunnels.
+- Geometry: closed wall junctions, painted opening returns, suspended industrial lights, attached ducts/roof ledges and continuous curved pipe returns.
+- Creatures: three deterministic types, shared bodies/contact meshes, bounded drift, smooth proximity fade and sparse attenuated/panned CC0 breath/rustle cues.
+- Runtime: repeated real controller returns, negative-coordinate regeneration, buffer reuse, live entrances, recapture regression fix and technical normal-device audio checks.
 
-- **46:** modest reflected office floor response with matching contact interpolation. Forty-eight office pairs, 36 hall pairs, nine pitched floor pairs and twelve family views inspected; Release/Debug suites pass. Live controller and final capacity checks follow.
-
-- **45:** coherent huge-hall fluorescent plans and tile phase. Thirty-six matched horizon pairs, nine pitched ceiling pairs and twelve family views inspected; Release/Debug suites pass. The 1,187.7-metre panorama return passes all 136 waypoints with at most 25 chunks; all 52 route directions are inspected. Native Wayland completes a 2.4 km tunnel sweep.
-
-- **44:** five office support plans, room-wide transpose/tile phase and shared bounds. Sixty matched remote directions and twelve family views inspected. Release/Debug suites, seven-seed audit and 63 physical squares pass. The default-seed return completes 686.4 m with at most 25 chunks and final RSS 176.58 MiB.
-
-- **43:** finer office floor illumination and matching contact interpolation. Forty-eight matched directions, six pitched floor pairs, twelve family views and fifteen route views inspected. Release/Debug suites pass. The remote office return walks 663.2 m across nine player chunks with maximum 25 active, 35.51 ms peak build and warmed RSS 162.18–163.61 MiB. The matched short capacity comparison and fresh own-stream audio checks pass.
-
-- **42:** closed cell-wall cores and painted exposed ends. Eighteen close pairs, twelve family views and fourteen route views inspected. Release/Debug suites and 63 physical squares pass. The remote office return walks 426.5 m across six player chunks with maximum 25 active, 12.67 ms peak build and final RSS 184.96 MiB. Recapture regression found and corrected; strict native repeat passes.
-
-- **41:** coherent fluorescent diffusers, including service fixtures and entrance lights. Forty-eight paired office directions, six close ceiling pairs and twelve family views inspected. Release/Debug suites pass. Additional reproducible office samples cover three new seeds and weak circuits.
-
-- **40:** continuous tunnel pipe runs and curved wall returns. Thirty-six matched directions, twelve family views and sixteen route views inspected. Release/Debug suites pass; the 448.8 m collision return holds at most 25 chunks, with 10.07 ms peak build and final RSS 272.53 MiB.
-
-- **39:** smooth harmless-figure retreat from 5.0 to 1.5 metres, native depth-only resolution and shared fading contact spots. All 33 controller pairs, 18 entity views and 12 family views inspected. Release/Debug suites and six live entrance cases pass.
-
-- **38:** wall-supported roof ledges and ceiling-mounted duct hangers. Twelve tunnel pairs, twelve family views and sixteen route views inspected. Refreshed Release/Debug suites pass; the 448.3 m return completes all 60 waypoints in 269.9 seconds, maximum 25 chunks, 6.84 ms peak build and final RSS 246.70 MiB.
-
-- **37:** painted, locally lit opening returns. Twenty-four office pairs, twelve family views and eleven route/regression views inspected. The 355.1 m return completes 28 waypoints in 191.6 seconds, at most 25 chunks and steady warmed RSS 187.79 MiB.
-
-- **36:** mineral industrial walls/floors, quieter fallbacks and pitch-controlled QA. Nineteen matched material pairs, twelve family views, six fallback views and forty-eight uncurated directions were inspected. Release/Debug suites and the 9.6 km industrial sweep pass. The new views expose office soffit and tunnel beam problems for the next passes.
-
-- **35:** complete open industrial bays, framing above supports and suspended fixtures below beam soffits. Sixteen composition pairs, sixteen fixture refinements, twelve family views and thirteen route views were inspected. Release/Debug CTest suites, seven-seed sampling, all 63 physical squares, the 528 m return and all six live entrance cases pass.
-
-- **34:** tapered harmless cloth figures, rounded heads and soft foot contact spots. Eighteen matched pairs, eighteen grounded views, two twelve-view family rounds and eleven controller/regression views were inspected. Final suites and the 356 m return pass. Fresh normal-device captures verify hum, footsteps and an isolated cue on the unmuted hardware output; subjective listening remains unverified.
-
-- **33:** original cast concrete and height/face samples on service supports. All 24 multi-seed pairs and twelve family views were inspected; Debug/Release suites pass. The 9.6 km tunnel sweep holds 25 chunks, median 39 draw FPS and 9.40 ms peak, but still has buffer-capacity RSS growth.
-- **32:** eight-sided small pipes, continuous cylindrical UVs and shared circumferential shading. All nine matched pairs and Debug/Release tests pass; a 2.4 km sweep holds median 39 draw FPS, 25 chunks and 9.34 ms peak build.
-- **31:** original granular concrete walls/floors, a shared native texture, two-metre UVs and separate procedural fallbacks. Nine material pairs, floor views, 24 distant directions and twelve final family views were inspected; the 449 m real return and missing/corrupt launches pass.
-- **30:** native four-sample MSAA, whole-chunk native frustum checks and actual draw timing. Nine culled/unculled images are pixel-identical; 48 directional views and sixteen controller/regression views were inspected. Direct coordinate bounds remove expensive native object copies. Slow-build logs split geometry/upload time.
-- **29:** long/L/T/staggered/short/U-shaped office partitions, with shared clipped geometry/collision and unchanged connectors. Twenty-four paired views, 32 distant directions, 24 controller and eight alcove views were inspected.
-- **Earlier:** original office materials, human scale, local wall lighting, composed room entrances, alcoves/doors, industrial bays, weathered tunnels and bounded caches. Detailed results are in [validation history](docs/validation-history.md).
+Exact pass history and finite limitations: [validation history](docs/validation-history.md).
 
 ## Three highest-priority deficiencies
 
-1. Complete the current long native Wayland capacity sweep and investigate measured loading/presentation spikes only where actionable.
-2. Inspect fresh arbitrary family views and fix the highest-value visible deficiency before the 19:30 stabilization window.
-3. Complete the arbitrary-view product audit and delivery documentation. Native Wayland real input and subjective listening remain unverified; compositor screenshot access is denied.
+1. Complete and interpret the repeated native Wayland capacity run; retain exact memory/loading/presentation measurements.
+2. Refresh clean Release validation and actual controller return after externally changed CNA dependencies.
+3. Complete the delivery product audit, controls/entrances/normal audio and documentation. Native Wayland real input and subjective listening remain unverified; compositor screenshot access is denied.
 
 ## Latest validation
 
-- Format 43: all paired/route views are inspected and Release/Debug suites pass. The 663.2 m remote return holds at most 25 chunks with final RSS 162.25 MiB and 35.51 ms peak build. Sequential 2.4 km baseline/refined diagnostics both hold 25 chunks and median 39 draw FPS; sampled build medians are 2.41/2.98 ms, packed capacity peaks 9.4/13.1 MiB and latter-half RSS 182.14–182.80/189.89–191.83 MiB. This does not establish a cause for the separate return's outlier. Fresh normal own-stream captures verify hum -32.34 dBFS RMS, footsteps -10.60 dBFS peak and isolated cue -12.79 dBFS peak, unmuted, without clipping; listening remains subjective.
+- Format 48 Release/Debug builds and all three Debug CTest suites pass. Final clean Release validation follows. Kind selection, cached/uncached generation and bounded entity drift are checked.
+- All nine actual six-metre creature approaches/returns pass position and mouse-angle checks. All **99 captured stages** are inspected: distinct silhouettes, grounded feet, ceiling clearance, near fade and restored native depth/alpha state. Artifacts: build/creatures47-approach and build/creatures47-review-0..16.png.
+- All three stationary normal own-stream voice captures pass without footsteps or clipping. Event peaks: **-14.00/-13.85/-11.37 dBFS**, against hum RMS about -32.4 dBFS. Stream is unmuted at 100%, Ryzen speaker sink unmuted at 57%. Artifacts: build/creatures47-audio-0..2. Listening by ear is not performed.
+- Format 46 strict controls cover all mouse directions, walk/run speeds, Shift behavior and Escape/click recapture. All six live entrance cases and all 33 original figure stages pass; images are inspected. Hum is -32.27 dBFS RMS, walking peak -10.13 dBFS, isolated transition peak -13.58 dBFS, no clipping.
+- Format 46 visual evidence includes 48 matched office directions, 36 huge-hall directions, nine pitched floor pairs and twelve family views, all inspected.
+- The unchanged default-world collision route completes **1,187.7 m**, all 136 waypoints, sixteen player chunks and maximum 25 active; all 52 route directions are inspected. Warmed RSS 162.45–181.18 MiB, final 162.58; 185 buffers created/977 reused; peak build 25.40 ms with seven >16.67 ms outliers. No other owned GPU/compiler ran during measurement; shared scheduling is not isolated.
+- Earlier 28.8 km tunnel sweep holds 25 chunks, 17 sampled spares and final-quarter RSS 321.1–332.7 MiB. Native Wayland 45 short run completes 2.4 km, but its short duration does not establish a plateau. The current longer native sweep follows.
 
-- The format 41 28.8 km tunnel sweep holds at most 25 chunks and 17 sampled spares, with 413 buffer creations and 28,676 reuses. Packed capacity peaks at 77.2 MiB and ends at 71.4 MiB. Final-quarter RSS stays at 321.1–332.7 MiB. Median actual draw FPS is 39, median rolling p95 27.55 ms, maximum sampled interval 108.82 ms, median build 4.93 ms and peak 55.50 ms. Forty-six builds exceed 16.67 ms in about 640 seconds. No compiler or other GPU job owned by this agent runs during measurement; shared-machine scheduling is not isolated. Collision is bypassed, and dummy audio is not listening evidence.
+## Dependencies and practical limits
 
-- Format 41 Release/Debug builds and all three CTest suites pass. Two consecutive office sample selections are identical. All 48 baseline/new directions across twelve locations, six pitched fixture pairs and twelve family views were inspected. The diffuser no longer has repeated dark UV blocks; failed fixtures remain visibly unlit. Geometry/collision, fixture placement and source profiles are unchanged. Screenshot timing is not a performance comparison, and dummy audio is not listening evidence.
+Latest observed read-only next heads: CNA **a62c40b09e868462077fbf4914ff1a153fa5d324**,
+Sharp Runtime **007280bd1cc789f851f7f454a5041c8ce2479e13**. Siblings are changed
+externally; this game agent never modifies them. The explicit CNA context lease
+remains necessary for recycled-buffer uploads, transitions and deletion; see
+[bugs.md](bugs.md). Recheck dependency heads during final validation.
 
-- Format 40 Release/Debug builds and all three CTest suites pass. The 448.8 m collision-enabled tunnel return completes 60 waypoints in 270.0 seconds, five player chunks and at most 25 active chunks. Peak sampled build is 10.07 ms; warmed RSS is 258.14–273.47 MiB, final 272.53 MiB, with 208 buffer creations and 313 reuses. Draw rate is about 39 FPS on the private display. The two-segment return replaces a costlier four-segment prototype; loaded spawn geometry rises about 30% from format 38. Thirty-six matched directions, twelve family views and sixteen route views were inspected. No compiler or other game owned by this agent ran during the measured walk. Dummy audio is not listening evidence.
-
-- Format 39 Release/Debug builds of the game and all three registered test targets pass, with all CTest suites passing. Actual six-metre figure approaches/returns finish in all three families with measured positions and mouse headings. Nearest-distance/opacity telemetry reaches zero within 1.5 m and returns to one beyond 5 m; all 33 paired stages were inspected. Native depth/alpha state restores correctly in 18 entity and 12 family views. All six actual entrance directions/outside/frame cases pass. The initial QA driver accumulated small key-duration drift; calculating each next move from the measured position resolves it. Baseline screenshot timing overlaps compilation and is not a performance comparison. Dummy audio is not listening evidence.
-
-- Format 38 refreshed Release/Debug builds and all three CTest suites pass after externally changing dependencies become consistent. The 448.3 m collision-enabled tunnel return completes 60 waypoints, five player chunks and at most 25 active chunks. Peak sampled build is 6.84 ms, warmed RSS 236.5–246.7 MiB and final 246.7 MiB, with 208 buffer creations and 313 reuses. Draw rate is about 39 FPS on the private display. The short walk does not establish a final tunnel memory plateau; the earlier 28.8 km sweep does. Standard screenshot timing overlapped a dependency rebuild and is not used for performance claims.
-
-- Format 36 Release/Debug CTest suites pass. The 9.6 km industrial diagnostic holds at most 25 chunks and 19 sampled spare buffers. It creates 251 buffers and reuses 9,143. Packed capacity stays at 5.8–6.4 MiB; warmed RSS holds at 188.74 MiB through the final three quarters. Median actual draw rate is 39 FPS, rolling p95 median 26.28 ms and maximum sampled interval 112.11 ms; median build is 1.13 ms and peak 5.80 ms. Occasional presentation outliers remain. Collision is deliberately bypassed in this diagnostic. Source profile fingerprint is `6075bcb6c5f3514c`.
-
-- Format 35 Release/Debug CTest suites pass. The 528.3 m collision return completes 48 waypoints in 288.6 seconds, eight player chunks, maximum 25 active chunks, 1.97 ms peak build and warmed RSS 188.0–188.4 MiB. All six live entrances/outside/frame cases pass. Sixteen composition pairs, sixteen fixture refinements, twelve family views and thirteen route views were inspected.
-
-- Format 34 final suites pass; eighteen grounded figure views, twelve family views and eleven controller/regression views were inspected. The 356.0 m collision-enabled return crosses five player chunks, stays at 25 loaded chunks and has 9.18 ms peak build. RSS falls from 186.3 MiB to 157.3 MiB; the sampled warmed range is 157.3–174.9 MiB. A twelve-view repeat verifies the new readiness guard. The final longer tunnel result follows below.
-
-- The final format 34 tunnel sweep reaches 28.8 km with at most 25 chunks and 18 sampled spare buffers. It creates 390 buffers and reuses 28,699. Packed capacity peaks at 57.2 MiB; late RSS is 295.5–300.6 MiB, with final twelve samples 295.5–298.7 MiB. Median draw FPS is 39, median rolling p95 27.22 ms, sampled maximum interval 72.57 ms, median build 3.87 ms and peak 25.29 ms. Ten builds exceed 16.67 ms in about 640 seconds; occasional spikes remain. Collision is bypassed in this diagnostic, not in controller walks.
-- **Timing correction:** titles through format 29 labeled fixed-step updates as FPS. Historical rates near 59 are UPS. Actual format 30 views/sweeps draw around 39–41 FPS on the isolated Weston/Xwayland display; no real desktop presentation rate is inferred. The title now separates actual FPS, 120-interval p95/max, CPU submission and UPS.
-- Earlier long collision returns, physical audits, fallbacks and family-specific finite measurements are retained in [validation history](docs/validation-history.md).
-- The explicit CNA context lease remains necessary for reused-buffer uploads, transitions and deletion; [bugs.md](bugs.md) records the regression. No sibling edits. Latest observed dependency heads: CNA `3d5742e84c21ef55ca4a442874ecad35c29c3ab4`, Sharp Runtime `007280bd1cc789f851f7f454a5041c8ce2479e13`. Sibling input/runtime files have external uncommitted edits; this agent does not change them. A transient Debug inconsistency and the successful retry are documented in bugs.md.
-- Fresh format 34 captures use the game's own normal PipeWire/PulseAudio stream on the unmuted Ryzen speaker output: hum -32.3 dBFS RMS, footsteps -10.8 dBFS peak and an isolated transition without footsteps -13.5 dBFS peak, without clipping. Subjective listening remains unverified. Dummy-audio visual tests do not validate audibility.
+Lighting is an inexpensive bake; large-room floor pools remain approximate.
+Creature movement is simple drift, not articulated walking. Private-display
+rendering is roughly 39 FPS/59 UPS, not evidence of normal desktop performance.
+Occasional generation/presentation outliers remain. Walking is flat, and saves,
+vertical traversal, moving doors and a story are outside this milestone.
 
 ## Next pass
 
-Refresh controls, entrances, figure contact/fade and normal audio routing.
-Measure a longer native Wayland capacity return without owned compilation or
-other GPU jobs. Continue useful product/runtime work until the stabilization
-window. The goal remains active.
+Finish the repeated native capacity run. Then rebuild/test the final Release,
+walk the default-world controller return with panorama captures, and refresh
+controls, entrances and technical normal-device audio. At 19:30 stop additions;
+complete the delivery product audit, document deficiencies and commit the state.

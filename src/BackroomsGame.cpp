@@ -852,15 +852,16 @@ BackroomsGame::BackroomsGame(std::uint64_t seed, bool streamTest,
                              int startLevel, double startX, double startZ,
                              double walkSpeed, double runSpeed,
                              double streamTestMetres,float verticalFovDegrees,
-                             int multiSampleCount)
+                             int multiSampleCount,int streamTestLoops)
     : graphics_(this), streamTest_(streamTest),
-      streamTestMetres_(streamTestMetres) {
+      streamTestMetres_(streamTestMetres),streamTestLoops_(streamTestLoops) {
     if (startLevel<0 || startLevel>2 || !std::isfinite(startX) ||
         !std::isfinite(startZ) || std::abs(startX)>1.0e8 ||
         std::abs(startZ)>1.0e8 || !std::isfinite(walkSpeed) ||
         !std::isfinite(runSpeed) || walkSpeed<=0 || runSpeed<=walkSpeed ||
         runSpeed>20.0 || !std::isfinite(streamTestMetres) ||
         streamTestMetres<400.0 || streamTestMetres>1.0e7 ||
+        streamTestLoops<1 || streamTestLoops>8 ||
         !std::isfinite(verticalFovDegrees) || verticalFovDegrees<45 ||
         verticalFovDegrees>90 ||
         (multiSampleCount!=0 && multiSampleCount!=4))
@@ -1699,8 +1700,12 @@ void BackroomsGame::UpdateTitle(double elapsed) {
           << " | draw p95/max " << p95 << '/' << maximum << " ms"
           << " | submit " << drawWorkMs_ << " ms"
           << " | " << static_cast<int>(updateCount_/statsTime_) << " UPS";
+    if (streamTest_)
+        title << " | sweep lap " << std::min(streamTestLoops_,
+            1+static_cast<int>(streamTestTime_*45/streamTestMetres_))
+              << '/' << streamTestLoops_;
     getWindowProperty().setTitleProperty(title.str());
-    if (streamTest_) std::cout << title.str() << '\n';
+    if (streamTest_) std::cout << title.str() << std::endl;
     statsTime_=0;
     updateCount_=0;
 }
@@ -1711,14 +1716,15 @@ void BackroomsGame::Update(GameTime& time) {
         // Streaming diagnostic: north, south past origin, and back through the
         // live renderer. Collision is bypassed so walls cannot stop the sweep.
         streamTestTime_+=dt;
-        const double distance=streamTestTime_*45.0;
+        const double totalDistance=streamTestTime_*45.0;
+        const double distance=std::fmod(totalDistance,streamTestMetres_);
         const double leg=streamTestMetres_*0.25;
         z_=2.5+(distance<leg ? distance :
                  distance<3.0*leg ? 2.0*leg-distance :
                  distance-4.0*leg);
         Stream();
         UpdateTitle(dt);
-        if (distance>=streamTestMetres_) Exit();
+        if (totalDistance>=streamTestMetres_*streamTestLoops_) Exit();
         Game::Update(time);
         return;
     }

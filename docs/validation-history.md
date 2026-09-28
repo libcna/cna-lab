@@ -513,3 +513,49 @@ wanderer/watcher/crawler, against hum peaks near -24.4 dBFS and hum RMS near
 capture clips. Routing remains unmuted at stream 100%, sink 57%. Artifacts:
 build/creatures47-audio-0..2. The agent has not performed subjective listening.
 The checked-in audio driver accepts --creature-kind for reproduction.
+
+
+### Format 47 native Wayland capacity refresh
+
+The native OPENGLES3 four-sample run completes 28.8 km in 642.3 seconds through
+321 player chunks and returns near its spawn. Maximum active chunks is 25,
+maximum sampled spares 17; it creates 406 buffers and reuses 28,683. Packed
+capacity peaks at 78.7 MiB and ends at 73.7 MiB. RSS ends at its 386.31 MiB
+peak; the final quarter spans 374.54–386.31 MiB, so this run alone does not
+prove a final plateau. A repeated route within one process follows to check
+continued growth separately from increasing allocator/capacity high water.
+
+Median actual draw/update rates are 39/59, rolling p95 median 29.70 ms and
+maximum sampled frame 112.39 ms. Median/peak build times are 4.95/44.29 ms;
+91 builds exceed 16.67 ms in the finite run. Median CPU submission is 0.92 ms.
+No owned compiler or other GPU job runs during measurement; shared-machine
+scheduling remains unisolated. Chunk spikes split geometry/upload times in
+build/wayland47-long/game.log; the exact RSS/frame summary is retained there.
+The headless seat/GTK startup warnings are nonfatal. Collision is bypassed,
+input is not exercised, and dummy audio does not validate listening.
+
+## Format 48: acoustic-panel comparison and repeat instrumentation
+
+Twenty-one matched upward office/hall views and twelve ordinary family views
+are captured and inspected. The initial broad/dark fissure prototype is rejected
+as stamped-looking; the final narrow, bent fissures and quieter contrast improve
+the acoustic material without changing texture size, geometry or lighting.
+Artifacts: build/ceiling48b-office, build/ceiling48b-halls,
+build/ceiling48b-families and their paired/review sheets. All 48 earlier fresh
+off-grid family directions are also inspected; close-wall directions are retained,
+not filtered for appearance. The ceiling refinement is the only difference
+between those initial views and the final material.
+
+Release and Debug builds succeed; all three fresh Debug CTest suites pass.
+The unchanged seven-seed/three-family quality audit checks 344,064 cells with
+zero blocked expected connectors, now reporting creature-kind histograms.
+No sibling repository is modified. Observed next heads are CNA
+a62c40b09e868462077fbf4914ff1a153fa5d324 and Sharp Runtime
+007280bd1cc789f851f7f454a5041c8ce2479e13.
+
+The diagnostic accepts --stream-test-loops 1..8 and flushes lap telemetry.
+The native Wayland short gate completes two 400-metre returns in one process:
+25 active chunks, 205 buffers created, 753 reused, 46.7 MiB packed capacity.
+Second-lap RSS is constant at 303.68 MiB; this nineteen-second gate verifies
+lap parsing/return checks, not long-duration stability. The following four
+9.6-km returns will establish the finite repeated-route evidence separately.

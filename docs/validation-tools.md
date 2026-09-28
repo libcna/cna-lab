@@ -25,3 +25,11 @@ The route planner accepts optional `start-x start-z` after the target coordinate
 Fresh captures from the game's own normal PipeWire/PulseAudio stream reach the unmuted Ryzen speaker output. Hum measures about -32.3 dBFS RMS, footsteps peak at -10.6 dBFS, and an isolated transition without footsteps peaks at -12.8 dBFS, with no clipping. `python3 tools/validate_audio.py --game build/cna_backrooms` records routing and events; add `--isolated-transition` to separate the cue or `--creature-kind 0|1|2 --world-quality build/world_quality` to capture a creature without footsteps. This technical capture does not establish subjective audibility or loudness, which remains a human listening check. Screenshot and streaming runs use SDL's dummy audio device.
 
 For a repeatable finite streaming probe, run `python3 tools/stream_probe.py --game build/cna_backrooms --backend wayland --level 2 --metres 28800 --output build/stream-check` on a separate GPU display. Choose `--backend x11` for X11/Xwayland. The tool records native frames, RSS and a summary, checks bounded chunk/buffer counts and return traversal, and requires normal exit. It deliberately bypasses collision and uses dummy audio; it is not an input or listening test.
+
+
+Add `--loops 4 --metres 9600` to stream_probe to repeat one 9.6 km route four
+times within a single process. This separates new-region allocation from
+continued growth while revisiting the same geometry. Native titles report lap
+number, and flushed telemetry labels RSS samples to within one second at a
+boundary. The summary reports final/latter-half RSS and buffer counts per lap.
+The direct game equivalent is `--stream-test-metres 9600 --stream-test-loops 4`.

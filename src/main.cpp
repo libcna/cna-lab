@@ -9,7 +9,7 @@ int main(int argc, char** argv) {
     try {
         std::uint64_t seed = 0xBACC0005ULL;
         bool streamTest=false;
-        int level=0, multiSampleCount=4;
+        int level=0, multiSampleCount=4, streamTestLoops=1;
         double x=2.5,z=2.5;
         double walkSpeed=Backrooms::BackroomsGame::kDefaultWalkSpeed;
         double runSpeed=Backrooms::BackroomsGame::kDefaultRunSpeed;
@@ -38,16 +38,22 @@ int main(int argc, char** argv) {
                 streamTest=true;
                 streamTestMetres=std::stod(argv[++i]);
             }
+            else if (argument=="--stream-test-loops" && i+1<argc) {
+                streamTest=true;
+                streamTestLoops=std::stoi(argv[++i]);
+            }
             else {
                 std::cerr << "Usage: cna_backrooms [--seed unsigned-integer] "
                              "[--level 0|1|2] [--position x z] "
                              "[--walk-speed m/s] [--run-speed m/s] [--fov degrees] "
-                             "[--msaa 0|4] [--stream-test] [--stream-test-metres distance]\n";
+                             "[--msaa 0|4] [--stream-test] [--stream-test-metres distance] "
+                             "[--stream-test-loops 1..8]\n";
                 return 2;
             }
         }
         Backrooms::BackroomsGame game(seed,streamTest,level,x,z,
-                                      walkSpeed,runSpeed,streamTestMetres,verticalFov,multiSampleCount);
+                                      walkSpeed,runSpeed,streamTestMetres,verticalFov,
+                                      multiSampleCount,streamTestLoops);
         game.Run();
     } catch (const std::exception& e) {
         std::cerr << "cna-backrooms: " << e.what() << '\n';
