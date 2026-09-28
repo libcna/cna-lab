@@ -267,6 +267,9 @@ const LevelCatalog& DefaultLevelCatalog() {
         LevelCatalog result;
         auto& office=result.levels[0];
         office.name="The Yellow Rooms";
+        office.ceilingHeight=2.75f;office.doorwayHeight=2.4f;
+        office.ambient=0.42f;office.lightStrength=0.55f;
+        office.wallBounce=0.16f;office.ceilingBounce=0.42f;
         office.wall={255,250,239};office.pillar={231,224,204};
         office.trim={255,251,229};office.floor={246,240,222};
         office.ceiling={255,252,235};office.structure={143,139,115};

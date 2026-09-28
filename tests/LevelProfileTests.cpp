@@ -52,10 +52,10 @@ int main(int argc,char** argv) {
         RejectChanged(source,"\"format\": 1","\"format\": 2");
         RejectChanged(source,"\"id\": 1","\"id\": 0");
         RejectChanged(source,"\"id\": 2","\"id\": 8");
-        RejectChanged(source,"\"ceiling_height\": 3.0","\"ceiling_height\": 1.8");
-        RejectChanged(source,"\"doorway_height\": 2.62","\"doorway_height\": 3.2");
+        RejectChanged(source,"\"ceiling_height\": 2.75","\"ceiling_height\": 1.8");
+        RejectChanged(source,"\"doorway_height\": 2.4","\"doorway_height\": 3.2");
         RejectChanged(source,"\"end\": 85","\"end\": 18");
-        RejectChanged(source,"\"ambient\": 0.54","\"ambient\": 1.0");
+        RejectChanged(source,"\"ambient\": 0.42","\"ambient\": 1.0");
         RejectChanged(source,"[255, 250, 239]","[256, 250, 239]");
         RejectChanged(source,"[255, 250, 239]","[255, 239]");
         RejectChanged(source,"\"weight\": 18","\"weight\": 17");

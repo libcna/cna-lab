@@ -4,7 +4,13 @@
 
 The September 2026 playable foundation at `aaf67c0` has deterministic regions, bounded 5-by-5 chunk streaming, collision, three levels, fixed and rare transitions, harmless entities, audio, and a reusable GPU buffer pool. This is an engineering baseline, not the visual completion target.
 
+## Pass in progress
+
+The next pass will add sparse shallow office alcoves along solid walls, with shared collision, a lower acoustic lid and occasional ordinary false doors. Fixed and distant views will determine whether these break monotony without clutter or a new obvious pattern.
+
 ## Completed passes
+
+- Format 24 applies the six-view independent/combined office comparison: 2.75 m ceiling, 2.4 m openings, lower ambient/bounce and slightly stronger local fluorescents. Debug/Release builds, world/profile tests and the loaded-profile seven-seed scan pass. Twelve standard, eighteen distant, seven close/detail views and controller screenshots were inspected. Furniture, partitions, acoustic panels and maintenance frames fit; all six live entrance cases pass. The repeated real-controller regression completes 28 waypoints over 355.3 m in 196.8 seconds, near 59 FPS, maximum 25 chunks, 2.90 ms peak and warmed RSS 176.2–177.3 MiB. The first interrupted run has no summary and is not counted as a pass. The 9.6 km Release sweep stays near 59 FPS, maximum 25 chunks and 256 cached layouts, with 4.23 ms peak, 221 created/7,918 reused buffers and latter-half RSS 179.1–179.4 MiB. Close views show office materials at sensible scale; long-wall uniformity remains, and several arbitrary camera headings face walls rather than spaces. Dummy audio was used for these visual/controller checks.
 
 - Format 23 loads profile format 1 from `assets/levels.json` through existing Sharp Runtime File/JsonDocument APIs. It centralizes heights, fog, baked-light contributions, tints, ordered room weights and entity rarity for the three fixed families. Game-owned immutable profiles preserve the default format 22 recipe; missing definitions use built-in values, invalid definitions report a path error. Source-byte fingerprints appear in startup logs and route JSON; the controller rejects mismatched definitions. Debug/Release builds and world/profile tests pass, including default geometry equivalence, malformed-field rejection and native file/fallback paths. The loaded-profile seven-seed scan and 63-square physical audit pass. A twelve-view round was inspected, all six live entrance cases pass, and a 60 m matching-profile controller return passes near 59 FPS, 25 chunks and 2.43 ms peak. Actual missing/invalid-file launches and mismatched-route rejection pass. Six-view contrast, ceiling-height and combined probes expose better office depth and scale; those values are not yet applied to the release defaults.
 
@@ -63,11 +69,13 @@ The September 2026 playable foundation at `aaf67c0` has deterministic regions, b
 
 ## Three highest-priority deficiencies
 
-1. Lighting still looks uniformly bright in many office rooms. Compare cheaper contrast/ambient changes at fixed locations, including weak circuits.
-2. Ceiling height and other family parameters are scattered in C++. Centralize a small versioned level definition to support controlled visual comparisons.
-3. Some long walls remain monotonous; revisit sparse architectural anomalies only after the lighting/scale comparison.
+1. Long office walls still lack sparse architectural interruptions; add and inspect shallow alcoves and ordinary door variations.
+2. Carpet reads clearly in close views but becomes very smooth a few metres away; evaluate quiet medium-scale pile/wear detail without reintroducing moire.
+3. Some fixed QA headings face nearby walls. Supplement them with turned views so room composition and weak circuits can be assessed; do not hide the arbitrary originals.
 
 ## Latest validation
+
+- Format 24 passes the checks recorded above. The full controller summary and exact reused-buffer view are available under `build/controller-l0-24-repeat`; the distant/close round and finite streaming evidence remain under ignored `build/` paths.
 
 - Format 23 profile integration passes the checks above. Native JSON configuration does not replace CNA graphics; BasicEffect and existing streaming/collision remain. The README now summarizes current evidence and links the profile format, while historical pass details remain here.
 
@@ -97,4 +105,4 @@ The September 2026 playable foundation at `aaf67c0` has deterministic regions, b
 
 ## Next pass
 
-Apply the visually compared office profile: lower ambient/bounce, 2.75 m ceiling and 2.4 m openings. Compare weak-circuit and arbitrary distant views, inspect furniture/partition/entrance clearances, and repeat controller and streaming evidence. Then evaluate sparse architectural anomalies along monotonous walls. The goal remains active.
+Add sparse office alcoves along solid walls. Keep their walls inside one cell, leave existing entrances clear, share render/collision dimensions and avoid columns, props and offset partitions. Inspect several seeds/directions, repeat collision-level sampling and an actual walk, then evaluate carpet detail. The goal remains active.
