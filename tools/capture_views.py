@@ -47,6 +47,8 @@ def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--game',default='build/cna_backrooms')
     parser.add_argument('--output',default='build/visual-qa')
+    parser.add_argument('--msaa',type=int,choices=(0,4),
+                        help='override native multisampling for a matched comparison')
     parser.add_argument('--distant',action='store_true')
     parser.add_argument('--partitions',action='store_true',
                         help='sample all six sparse office partition plans')
@@ -83,8 +85,11 @@ def main():
     manifest=[]
     for name,seed,level,x,z,turn in views:
         with (output/(name+'.log')).open('w') as log:
-            game=subprocess.Popen([str((root/args.game).resolve()),'--seed',str(seed),
-                '--level',str(level),'--position',str(x),str(z)],
+            game_arguments=[str((root/args.game).resolve()),'--seed',str(seed),
+                '--level',str(level),'--position',str(x),str(z)]
+            if args.msaa is not None:
+                game_arguments+=['--msaa',str(args.msaa)]
+            game=subprocess.Popen(game_arguments,
                 cwd=root,env=env,stdout=log,stderr=log)
             try:
                 time.sleep(3)

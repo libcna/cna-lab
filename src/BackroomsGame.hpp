@@ -4,11 +4,13 @@
 #include "Materials.hpp"
 
 #include <array>
+#include <chrono>
 #include <map>
 #include <memory>
 #include <vector>
 
 #include "Microsoft/Xna/Framework/Game.hpp"
+#include "Microsoft/Xna/Framework/BoundingBox.hpp"
 #include "Microsoft/Xna/Framework/Audio/SoundEffect.hpp"
 #include "Microsoft/Xna/Framework/Audio/SoundEffectInstance.hpp"
 #include "Microsoft/Xna/Framework/GraphicsDeviceManager.hpp"
@@ -29,7 +31,8 @@ public:
                            double startZ = 2.5, double walkSpeed = kDefaultWalkSpeed,
                            double runSpeed = kDefaultRunSpeed,
                            double streamTestMetres = 9600.0,
-                           float verticalFovDegrees = kDefaultVerticalFov);
+                           float verticalFovDegrees = kDefaultVerticalFov,
+                           int multiSampleCount = 4);
     ~BackroomsGame() override;
     const std::string& GetTypeName() const override;
     void Initialize() override;
@@ -47,6 +50,7 @@ private:
                    kMaterialCount> vertices;
         std::array<int, kMaterialCount> materialTriangles{};
         std::vector<Entity> entities;
+        Microsoft::Xna::Framework::BoundingBox bounds;
         int triangles = 0;
         double buildMs = 0;
     };
@@ -75,8 +79,13 @@ private:
     double walkSpeed_ = kDefaultWalkSpeed;
     double runSpeed_ = kDefaultRunSpeed;
     bool insidePortal_ = false;
-    int frameCount_ = 0;
+    int updateCount_ = 0;
+    std::array<double,120> drawIntervals_{};
+    std::size_t drawIntervalCount_ = 0, nextDrawInterval_ = 0;
+    std::chrono::steady_clock::time_point lastDraw_{};
     double statsTime_ = 0;
+    int drawnChunks_ = 0, drawnTriangles_ = 0;
+    double drawWorkMs_ = 0;
     double lastBuildMs_ = 0;
     double peakBuildMs_ = 0;
     double stepDistance_ = 0;
@@ -96,6 +105,7 @@ private:
     void Stream();
     void Transition(int level);
     void UpdateTitle(double elapsed);
+    void RecordDrawInterval();
 };
 
 } // namespace Backrooms

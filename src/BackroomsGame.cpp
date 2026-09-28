@@ -18,6 +18,8 @@
 
 #include "CNA/Internal/Renderers/Common/IGraphicsRenderer.hpp"
 #include "Microsoft/Xna/Framework/Color.hpp"
+#include "Microsoft/Xna/Framework/BoundingFrustum.hpp"
+#include "Microsoft/Xna/Framework/PreparingDeviceSettingsEventArgs.hpp"
 #include "Microsoft/Xna/Framework/Matrix.hpp"
 #include "Microsoft/Xna/Framework/Vector2.hpp"
 #include "Microsoft/Xna/Framework/Vector3.hpp"
@@ -725,7 +727,8 @@ void PortalVisual(Meshes& meshes, BakedLighting& lighting,
 BackroomsGame::BackroomsGame(std::uint64_t seed, bool streamTest,
                              int startLevel, double startX, double startZ,
                              double walkSpeed, double runSpeed,
-                             double streamTestMetres,float verticalFovDegrees)
+                             double streamTestMetres,float verticalFovDegrees,
+                             int multiSampleCount)
     : graphics_(this), streamTest_(streamTest),
       streamTestMetres_(streamTestMetres) {
     if (startLevel<0 || startLevel>2 || !std::isfinite(startX) ||
@@ -735,8 +738,9 @@ BackroomsGame::BackroomsGame(std::uint64_t seed, bool streamTest,
         runSpeed>20.0 || !std::isfinite(streamTestMetres) ||
         streamTestMetres<400.0 || streamTestMetres>1.0e7 ||
         !std::isfinite(verticalFovDegrees) || verticalFovDegrees<45 ||
-        verticalFovDegrees>90)
-        throw std::invalid_argument("invalid start, movement speed, field of view, or streaming distance");
+        verticalFovDegrees>90 ||
+        (multiSampleCount!=0 && multiSampleCount!=4))
+        throw std::invalid_argument("invalid start, movement speed, field of view, multisampling, or streaming distance");
     world_.seed = seed;
     world_.level=startLevel;
     world_.roomLayouts=&roomLayouts_;
@@ -753,6 +757,12 @@ BackroomsGame::BackroomsGame(std::uint64_t seed, bool streamTest,
     graphics_.setPreferredBackBufferWidthProperty(1280);
     graphics_.setPreferredBackBufferHeightProperty(720);
     graphics_.setSynchronizeWithVerticalRetraceProperty(true);
+    graphics_.setPreferMultiSamplingProperty(multiSampleCount>0);
+    graphics_.PreparingDeviceSettings += [multiSampleCount](
+        System::Object*,const PreparingDeviceSettingsEventArgs& args) {
+        args.getGraphicsDeviceInformationEXT().getPresentationParametersProperty()
+            .setMultiSampleCountProperty(multiSampleCount);
+    };
     getWindowProperty().setTitleProperty("cna-backrooms");
 }
 
@@ -777,6 +787,9 @@ void BackroomsGame::Initialize() {
 }
 
 void BackroomsGame::LoadContent() {
+    std::cerr << "Renderer ready: OPENGLES3, MSAA "
+              << getGraphicsDeviceProperty().getPresentationParametersProperty()
+                    .getMultiSampleCountProperty() << " samples applied\n";
     const auto directory=FindAssetDirectory();
     effect_ = std::make_unique<BasicEffect>(getGraphicsDeviceProperty());
     materials_ = std::make_unique<Materials>(getGraphicsDeviceProperty(),directory);
@@ -1227,6 +1240,22 @@ void BackroomsGame::BuildChunk(ChunkCoord coord) {
                                       static_cast<float>((entityHash>>8)%628)/100.0f});
         }
     }
+    bool firstVertex=true;
+    for (const auto& mesh:meshes) for (const auto& vertex:mesh) {
+        const auto& point=vertex.Position;
+        if (firstVertex) {
+            chunk.bounds=BoundingBox(point,point);
+            firstVertex=false;
+        } else {
+            // Avoid copying six native math objects for every generated vertex.
+            auto& low=chunk.bounds.Min;
+            auto& high=chunk.bounds.Max;
+            low.X=std::min(low.X,point.X);high.X=std::max(high.X,point.X);
+            low.Y=std::min(low.Y,point.Y);high.Y=std::max(high.Y,point.Y);
+            low.Z=std::min(low.Z,point.Z);high.Z=std::max(high.Z,point.Z);
+        }
+    }
+    const auto geometryEnd=Clock::now();
     getGraphicsDeviceProperty().SetVertexBuffer(nullptr);
     for (int id=0;id<kMaterialCount;++id) {
         auto& mesh=meshes[id];
@@ -1237,6 +1266,13 @@ void BackroomsGame::BuildChunk(ChunkCoord coord) {
         chunk.vertices[id]->SetData(mesh.data(),static_cast<int>(mesh.size()));
     }
     chunk.buildMs = std::chrono::duration<double,std::milli>(Clock::now()-start).count();
+    if (chunk.buildMs>16.67) {
+        const double cpuMs=std::chrono::duration<double,std::milli>(geometryEnd-start).count();
+        std::cerr << "Chunk build spike " << coord.x << ',' << coord.z
+                  << " level " << world_.level << ": " << chunk.buildMs
+                  << " ms (geometry " << cpuMs << ", upload "
+                  << chunk.buildMs-cpuMs << ")\n";
+    }
     lastBuildMs_ = chunk.buildMs;
     peakBuildMs_ = std::max(peakBuildMs_,chunk.buildMs);
     chunks_.emplace(coord,std::move(chunk));
@@ -1285,8 +1321,16 @@ void BackroomsGame::Transition(int level) {
 
 void BackroomsGame::UpdateTitle(double elapsed) {
     statsTime_+=elapsed;
-    ++frameCount_;
+    ++updateCount_;
     if (statsTime_<1.0) return;
+    auto sorted=drawIntervals_;
+    std::sort(sorted.begin(),sorted.begin()+drawIntervalCount_);
+    double total=0;
+    for (std::size_t i=0;i<drawIntervalCount_;++i) total+=sorted[i];
+    const double fps=total>0 ? 1000.0*drawIntervalCount_/total : 0;
+    const double p95=drawIntervalCount_ ?
+        sorted[(drawIntervalCount_*95+99)/100-1] : 0;
+    const double maximum=drawIntervalCount_ ? sorted[drawIntervalCount_-1] : 0;
     int triangles=0,entities=0;
     for (const auto& [coord,chunk]:chunks_) {
         (void)coord;
@@ -1300,6 +1344,7 @@ void BackroomsGame::UpdateTitle(double elapsed) {
           << " | pos " << std::fixed << std::setprecision(1) << x_ << ',' << z_
           << " | chunk " << here.x << ',' << here.z
           << " | loaded " << chunks_.size() << "/25 | tris " << triangles
+          << " | draw " << drawnChunks_ << "/25 " << drawnTriangles_ << " tris"
           << " | VBO " << bufferCreations_ << '/' << bufferReuses_
           << " pool " << spareVertices_.size()
           << " | rooms " << roomLayouts_.Size()
@@ -1308,11 +1353,14 @@ void BackroomsGame::UpdateTitle(double elapsed) {
           << " | peak " << peakBuildMs_ << " ms"
           << " | " << (running_ ? "run" : "walk")
           << " | audio " << (hum_ ? "on" : "off")
-          << " | " << static_cast<int>(frameCount_/statsTime_) << " FPS";
+          << " | " << static_cast<int>(fps+0.5) << " FPS"
+          << " | draw p95/max " << p95 << '/' << maximum << " ms"
+          << " | submit " << drawWorkMs_ << " ms"
+          << " | " << static_cast<int>(updateCount_/statsTime_) << " UPS";
     getWindowProperty().setTitleProperty(title.str());
     if (streamTest_) std::cout << title.str() << '\n';
     statsTime_=0;
-    frameCount_=0;
+    updateCount_=0;
 }
 
 void BackroomsGame::Update(GameTime& time) {
@@ -1395,7 +1443,22 @@ void BackroomsGame::Update(GameTime& time) {
     Game::Update(time);
 }
 
+void BackroomsGame::RecordDrawInterval() {
+    const auto now=Clock::now();
+    if (lastDraw_!=Clock::time_point{}) {
+        drawIntervals_[nextDrawInterval_]=
+            std::chrono::duration<double,std::milli>(now-lastDraw_).count();
+        nextDrawInterval_=(nextDrawInterval_+1)%drawIntervals_.size();
+        drawIntervalCount_=std::min(drawIntervalCount_+1,drawIntervals_.size());
+    }
+    lastDraw_=now;
+}
+
 void BackroomsGame::Draw(const GameTime& time) {
+    // Start-to-start intervals include streaming, frame submission and present.
+    // A fixed update rate alone can hide render stalls and skipped draws.
+    RecordDrawInterval();
+    const auto drawStart=Clock::now();
     auto& device=getGraphicsDeviceProperty();
     const Color fog=FromRgb(LevelInfo(world_).fog);
     device.Clear(fog);
@@ -1412,10 +1475,16 @@ void BackroomsGame::Draw(const GameTime& time) {
     effect_->setProjectionProperty(Matrix::CreatePerspectiveFieldOfView(
         verticalFovDegrees_*0.01745329252f,
         device.getViewportProperty().getAspectRatioProperty(),0.08f,105.0f));
+    const BoundingFrustum frustum(effect_->getViewProperty()*effect_->getProjectionProperty());
+    drawnChunks_=drawnTriangles_=0;
     for (const auto& [coord,chunk]:chunks_) {
-        effect_->setWorldProperty(Matrix::CreateTranslation(
-            static_cast<float>(coord.x*kChunkSize-x_),0,
-            static_cast<float>(coord.z*kChunkSize-z_)));
+        const Vector3 offset(static_cast<float>(coord.x*kChunkSize-x_),0,
+                             static_cast<float>(coord.z*kChunkSize-z_));
+        if (!frustum.Intersects(BoundingBox(chunk.bounds.Min+offset,
+                                           chunk.bounds.Max+offset))) continue;
+        ++drawnChunks_;
+        drawnTriangles_+=chunk.triangles;
+        effect_->setWorldProperty(Matrix::CreateTranslation(offset));
         for (int id=0;id<kMaterialCount;++id) {
             if (!chunk.vertices[id]) continue;
             effect_->setTextureProperty(materials_->Get(static_cast<Material>(id)));
@@ -1453,6 +1522,7 @@ void BackroomsGame::Draw(const GameTime& time) {
         }
     }
     Game::Draw(time);
+    drawWorkMs_=std::chrono::duration<double,std::milli>(Clock::now()-drawStart).count();
 }
 
 } // namespace Backrooms

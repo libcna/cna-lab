@@ -6,9 +6,11 @@ The visual/product goal remains **active**. The game has three distinct families
 
 ## Pass in progress
 
-Measure real draw intervals separately from fixed-step updates and compare native four-sample antialiasing with the current renderer. This pass must earn its cost through matched screenshots and real pacing measurements.
+The renderer pass is committed and validated. The next visual pass replaces the tunnel wall's smooth, regularly repeated rust spots with an original concrete bitmap and tests scale/seams in actual views. Then refine the harmless silhouette and industrial supports.
 
 ## Completed passes
+
+- **Format 30:** native four-sample MSAA, actual draw timing and native whole-chunk frustum checks. Nine MSAA pairs were inspected; nine culled/unculled images are pixel-identical. All 48 directions at twelve locations and all sixteen controller/regression views were inspected. Visible submission falls from 25 to 9–13 chunks in matched office views, without a demonstrated FPS increase. Bounds use direct coordinate comparisons after the prototype's native-object copies caused tunnel spikes. Slow-build logs split geometry/upload time. MSAA can be disabled from the CLI.
 
 - **Format 29:** six sparse freestanding office plans (long, L, T, staggered, short and U-shaped dead space), with shared clipped geometry/collision and unchanged border connectors. Twenty-four matched views, twelve standard views, 32 distant directions, all 24 controller views and eight alcove views were inspected. Shorter screens and staggered/U plans create different open and dead spaces. `world_quality --partitions` and guarded capture views reproduce each plan.
 
@@ -24,11 +26,16 @@ Measure real draw intervals separately from fixed-step updates and compare nativ
 
 ## Three highest-priority deficiencies
 
-1. Window-title FPS measures updates, which can hide draw pacing under fixed-step catch-up. Measure actual frame intervals; compare native antialiasing on thin ceiling/fixture/trim edges.
-2. Distant entities still have an obvious six-box humanoid silhouette. Refine the inexpensive mesh after the renderer comparison, preserving harmless behavior.
-3. Industrial supports and tunnel pipe profiles remain conspicuously simple in some close views. Reassess with turned/distant views before adding geometry.
+1. Tunnel walls have smooth, conspicuously regular rust spots and little readable mineral texture. Compare an original quiet concrete bitmap at realistic UV scale.
+2. Distant entities still have an obvious six-box humanoid silhouette. Refine the inexpensive mesh, preserving harmless behavior.
+3. Industrial supports and smaller tunnel pipes remain conspicuously simple in close views. Reassess geometry and face-dependent shading after the material pass.
 
 ## Latest validation
+
+- **Timing correction:** through format 29, the title labeled update rate as FPS. Historical rates around 59 are UPS, not actual render measurements. The format 30 isolated Weston/Xwayland display draws around 39–41 FPS. Its 120-interval metrics include streaming/presentation; CPU submission is reported separately. No real-desktop presentation rate is inferred from this test display.
+- Format 30 final Release/Debug builds and world/profile/lighting tests pass. CNA `next` is `b2fd47a45757c32326cbbb5c2b39afffdb7392c5`, Sharp Runtime `next` is `fc033a0e8541a81498c4a496f56a0f59475c6e34`; neither sibling has been edited by this game.
+- A real 355.2 m/28-waypoint return finishes in 204.8 seconds, maximum 25 chunks, 3.55 ms peak build and warmed RSS 175.5–176.3 MiB. Views include the pooled-buffer regression. This precedes the bounds-only optimization; geometry/collision are unchanged. The 2.4 km office sweep has median 40 draw FPS, median rolling p95 26.27 ms and sampled maximum 31.31 ms; latter-half RSS is 175.9–177.1 MiB.
+- The first tunnel prototype reached 54.45 ms build/86.57 ms sampled draw interval and exposed expensive per-vertex `Vector3::Min/Max` object copies. Direct component comparisons replace them. Two final 2.4 km tunnel sweeps (MSAA 0/4) both hold 25 chunks and median 39 draw FPS. Build medians/peaks are 3.04/9.28 and 2.72/7.11 ms; median rolling p95 intervals are 26.38/27.18 ms, sampled maxima 35.09/32.65 ms. Latter-half RSS is 249.0–253.7 and 251.2–256.0 MiB. Neither emits a build over 16.67 ms. These finite observations support retaining four samples; they do not prove absence of future spikes.
 
 - Format 29 Debug/Release world/profile/lighting tests, seven-seed structural scan and all 63 physical 90 m squares pass. The real controller completes 136 waypoints over 1,162.5 m in 674 seconds through 15 player chunks, near 59 update FPS, maximum 25 chunks and 2.70 ms peak build. Warmed RSS is 178.4–179.8 MiB. All four alcove back/side/exit cases pass. A 9.6 km sweep holds 25 chunks and 256 cached layouts, 4.54 ms peak, 209 created/8,041 reused buffers and latter-half RSS 180.5–181.4 MiB. Finite observations, not an unlimited-duration claim. Some controller snapshots face nearby walls; distant four-direction rounds supplement those views.
 
@@ -45,4 +52,4 @@ Measure real draw intervals separately from fixed-step updates and compare nativ
 
 ## Next pass
 
-Native antialiasing and actual draw-pacing comparison, then harmless silhouette refinement. Build, capture matched views and measure finite traversal costs. The goal remains active.
+Original tunnel concrete material, then harmless silhouette and industrial-support refinement. Capture matched close/distant views, retain fallbacks and verify bounded traversal. The goal remains active.

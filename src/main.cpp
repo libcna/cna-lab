@@ -9,7 +9,7 @@ int main(int argc, char** argv) {
     try {
         std::uint64_t seed = 0xBACC0005ULL;
         bool streamTest=false;
-        int level=0;
+        int level=0, multiSampleCount=4;
         double x=2.5,z=2.5;
         double walkSpeed=Backrooms::BackroomsGame::kDefaultWalkSpeed;
         double runSpeed=Backrooms::BackroomsGame::kDefaultRunSpeed;
@@ -31,6 +31,8 @@ int main(int argc, char** argv) {
                 runSpeed=std::stod(argv[++i]);
             else if (argument=="--fov" && i+1<argc)
                 verticalFov=std::stof(argv[++i]);
+            else if (argument=="--msaa" && i+1<argc)
+                multiSampleCount=std::stoi(argv[++i]);
             else if (argument=="--stream-test") streamTest=true;
             else if (argument=="--stream-test-metres" && i+1<argc) {
                 streamTest=true;
@@ -40,12 +42,12 @@ int main(int argc, char** argv) {
                 std::cerr << "Usage: cna_backrooms [--seed unsigned-integer] "
                              "[--level 0|1|2] [--position x z] "
                              "[--walk-speed m/s] [--run-speed m/s] [--fov degrees] "
-                             "[--stream-test] [--stream-test-metres distance]\n";
+                             "[--msaa 0|4] [--stream-test] [--stream-test-metres distance]\n";
                 return 2;
             }
         }
         Backrooms::BackroomsGame game(seed,streamTest,level,x,z,
-                                      walkSpeed,runSpeed,streamTestMetres,verticalFov);
+                                      walkSpeed,runSpeed,streamTestMetres,verticalFov,multiSampleCount);
         game.Run();
     } catch (const std::exception& e) {
         std::cerr << "cna-backrooms: " << e.what() << '\n';
