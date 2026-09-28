@@ -630,18 +630,26 @@ Wall PropBounds(const CellProp& prop) {
     return {prop.x-halfX,prop.z-halfZ,prop.x+halfX,prop.z+halfZ};
 }
 
+std::optional<OfficePartitionStyle> OfficePartitionStyleAt(
+    const WorldConfig& config,int rx,int rz) {
+    if (config.level!=0 || (rx==0 && rz==0) ||
+        IsEmptyHall(config,rx*kRegionCells,rz*kRegionCells)) return std::nullopt;
+    const RegionKind kind=RegionAt(config,rx*kRegionCells,rz*kRegionCells);
+    if (kind!=RegionKind::OpenOffice && kind!=RegionKind::Irregular &&
+        kind!=RegionKind::Columns && kind!=RegionKind::Rooms) return std::nullopt;
+    const auto layout=CellHash(config,rx,rz,3119);
+    if (kind==RegionKind::Columns && layout%3!=0) return std::nullopt;
+    if (kind==RegionKind::Rooms && layout%2!=0) return std::nullopt;
+    return static_cast<OfficePartitionStyle>((layout>>21)%6);
+}
+
 CellObstacleSet InteriorPartitionsAt(const WorldConfig& config,
                                      int cellX, int cellZ) {
     CellObstacleSet result;
-    if (config.level!=0 || IsEmptyHall(config,cellX,cellZ)) return result;
     const int rx=DivFloor(cellX,kRegionCells),rz=DivFloor(cellZ,kRegionCells);
-    if (rx==0 && rz==0) return result; // keep the first transition route clear
-    const RegionKind kind=RegionAt(config,cellX,cellZ);
-    if (kind!=RegionKind::OpenOffice && kind!=RegionKind::Irregular &&
-        kind!=RegionKind::Columns && kind!=RegionKind::Rooms) return result;
+    const auto style=OfficePartitionStyleAt(config,rx,rz);
+    if (!style) return result;
     const auto layout=CellHash(config,rx,rz,3119);
-    if (kind==RegionKind::Columns && layout%3!=0) return result;
-    if (kind==RegionKind::Rooms && layout%2!=0) return result;
 
     const double originX=rx*kRegionCells*kCellSize;
     const double originZ=rz*kRegionCells*kCellSize;
@@ -684,15 +692,51 @@ CellObstacleSet InteriorPartitionsAt(const WorldConfig& config,
             result.walls[result.count++]={near,a,far,b};
     };
     const bool alongX=(layout&1U)!=0;
-    if (alongX) horizontal(originX+start,originX+end,originZ+cross);
-    else vertical(originZ+start,originZ+end,originX+cross);
-    if (layout%3==0) {
-        // A shorter T-shaped return makes an alcove without sealing the room.
-        const double branch=clearBoundary((start+end)*0.59);
+    const auto run=[&](double a,double b,double across) {
+        if (alongX) horizontal(originX+a,originX+b,originZ+across);
+        else vertical(originZ+a,originZ+b,originX+across);
+    };
+    const auto branch=[&](double a,double b,double along) {
+        if (alongX) vertical(originZ+a,originZ+b,originX+along);
+        else horizontal(originX+a,originX+b,originZ+along);
+    };
+    // A small set of plans composes spaces at region scale. Each wall is
+    // clipped to its owning cell with the same clearance around shared doors.
+    switch (*style) {
+    case OfficePartitionStyle::Straight:
+        run(start,end,cross);
+        break;
+    case OfficePartitionStyle::LShaped: {
+        const double corner=clearBoundary(start+11.4);
+        run(start,corner,cross);
+        branch(cross,std::min(27.8,cross+7.2),corner);
+        break;
+    }
+    case OfficePartitionStyle::TShaped: {
+        run(start,end,cross);
+        const double junction=clearBoundary((start+end)*0.59);
         const double low=std::max(1.5,cross-7.2);
         const double high=std::min(27.8,cross+5.4);
-        if (alongX) vertical(originZ+low,originZ+high,originX+branch);
-        else horizontal(originX+low,originX+high,originZ+branch);
+        branch(low,high,junction);
+        break;
+    }
+    case OfficePartitionStyle::Staggered: {
+        run(start,start+9.2,cross);
+        const double second=clearBoundary(std::min(25.7,cross+7.5));
+        run(start+7.4,std::min(end,start+18.4),second);
+        break;
+    }
+    case OfficePartitionStyle::ShortWall:
+        run(start+6.8,std::min(end,start+15.2),cross);
+        break;
+    case OfficePartitionStyle::DeadSpace: {
+        const double left=clearBoundary(start+1.9);
+        const double right=clearBoundary(start+15.9);
+        const double back=std::min(27.8,cross+5.7);
+        run(left,right,cross);
+        branch(cross,back,left);branch(cross,back,right);
+        break;
+    }
     }
     return result;
 }

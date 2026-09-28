@@ -6,9 +6,11 @@ The visual/product goal remains **active**. The game has three distinct families
 
 ## Pass in progress
 
-Format 28 selects height-dependent office wall lighting and a modestly warmer profile after matched comparisons. The next composition pass replaces the repeated long/T-shaped freestanding wall with several sparse region-level plans. Collision and actual room traversal will be rechecked for that geometry change.
+Measure real draw intervals separately from fixed-step updates and compare native four-sample antialiasing with the current renderer. This pass must earn its cost through matched screenshots and real pacing measurements.
 
 ## Completed passes
+
+- **Format 29:** six sparse freestanding office plans (long, L, T, staggered, short and U-shaped dead space), with shared clipped geometry/collision and unchanged border connectors. Twenty-four matched views, twelve standard views, 32 distant directions, all 24 controller views and eight alcove views were inspected. Shorter screens and staggered/U plans create different open and dead spaces. `world_quality --partitions` and guarded capture views reproduce each plan.
 
 - **Format 28:** sampled wall height and distance to ceiling fixtures, with a more local fluorescent response; office faces use two height bands. Nine matched views compared the first and refined responses; twelve standard and 32 distant directional views were inspected. Five warm/neutral pairs select a modestly warmer office tint; final twelve views and six controller views were inspected. The CPU bake is isolated in `Lighting.cpp`, with shared-boundary, negative-coordinate, floor-contact and cache-eviction checks. Other families retain their prior lighting response.
 - **Format 27:** native `SamplerState::AnisotropicWrap` (four taps requested, driver cap/fallback handled by CNA). Nine paired views show clearer mid-distance carpet and ceiling seams without conspicuous moire. All twelve standard views and six actual controller views were inspected. No renderer expansion.
@@ -22,11 +24,13 @@ Format 28 selects height-dependent office wall lighting and a modestly warmer pr
 
 ## Three highest-priority deficiencies
 
-1. Freestanding office partitions repeat a long straight/T-shaped plan. Add sparse L-shaped, staggered and dead-space compositions, preserving door clearance and physical reachability.
-2. Some wall lighting gradients are still broad and simple. Reassess during traversal after the composition pass.
+1. Window-title FPS measures updates, which can hide draw pacing under fixed-step catch-up. Measure actual frame intervals; compare native antialiasing on thin ceiling/fixture/trim edges.
+2. Distant entities still have an obvious six-box humanoid silhouette. Refine the inexpensive mesh after the renderer comparison, preserving harmless behavior.
 3. Industrial supports and tunnel pipe profiles remain conspicuously simple in some close views. Reassess with turned/distant views before adding geometry.
 
 ## Latest validation
+
+- Format 29 Debug/Release world/profile/lighting tests, seven-seed structural scan and all 63 physical 90 m squares pass. The real controller completes 136 waypoints over 1,162.5 m in 674 seconds through 15 player chunks, near 59 update FPS, maximum 25 chunks and 2.70 ms peak build. Warmed RSS is 178.4–179.8 MiB. All four alcove back/side/exit cases pass. A 9.6 km sweep holds 25 chunks and 256 cached layouts, 4.54 ms peak, 209 created/8,041 reused buffers and latter-half RSS 180.5–181.4 MiB. Finite observations, not an unlimited-duration claim. Some controller snapshots face nearby walls; distant four-direction rounds supplement those views.
 
 - Format 28 Debug/Release builds and world/profile/lighting tests pass; source fingerprint `274dca75c397b6e3`. The height-lighting implementation completes a 355.3 m, 28-waypoint real return in 199.7 seconds near 59 FPS, 25 chunks, 2.60 ms peak and warmed RSS 178.0–179.3 MiB. Its 2.4 km office sweep holds 25 chunks, 3.37 ms peak and 195 created/1,990 reused buffers; latter-half RSS is 180.6–181.8 MiB. These longer tests precede the tint-only selection. The final warm profile completes a 65.7 m return across negative chunks in 44.1 seconds, 59 FPS, 6.92 ms peak and warmed RSS 176.8–177.2 MiB. A tunnel screenshot cold build reached 20.03 ms. After avoiding duplicate office-only height lookups in other families, the finite 2.4 km tunnel sweep holds 25 chunks, near 59 FPS and 9.18 ms peak; latter-half RSS is 254.9–259.1 MiB. The cold outlier is recorded, not claimed absent.
 - Format 27 Debug/Release builds and world/profile tests pass. A real 65.8 m negative-coordinate return completes six waypoints in 42.1 seconds near 59 FPS, maximum 25 chunks, 3.12 ms peak and warmed RSS 175.0–175.3 MiB. A 2.4 km sweep stays near 59 FPS, maximum 25 chunks, 3.76 ms peak and 203 created/1,982 reused buffers; latter-half RSS is 178.6–179.7 MiB. Generation/collision are unchanged.
@@ -41,4 +45,4 @@ Format 28 selects height-dependent office wall lighting and a modestly warmer pr
 
 ## Next pass
 
-Vary sparse freestanding office partition compositions. Build, audit physical connectivity, capture matched/distant views and walk a newly generated return route. The goal remains active.
+Native antialiasing and actual draw-pacing comparison, then harmless silhouette refinement. Build, capture matched views and measure finite traversal costs. The goal remains active.

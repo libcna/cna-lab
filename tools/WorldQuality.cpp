@@ -18,6 +18,7 @@ struct Counts {
     int openEdges=0,wideEdges=0,doorEdges=0,solidEdges=0;
     int longestSightline=0,portals=0,emptyHallCells=0,chamberCells=0,alcoves=0;
     std::array<int,7> regions{};
+    std::array<int,6> partitionPlans{};
 };
 
 void CountEdge(Counts& counts, Edge edge) {
@@ -51,6 +52,9 @@ Counts Sample(const WorldConfig& world) {
         counts.chamberCells+=IsServiceChamber(world,x,z);
         counts.alcoves+=OfficeAlcoveAt(world,x,z).has_value();
         ++counts.regions[static_cast<int>(RegionAt(world,x,z))];
+        if (x%kRegionCells==0 && z%kRegionCells==0)
+            if (const auto style=OfficePartitionStyleAt(world,x/kRegionCells,z/kRegionCells))
+                ++counts.partitionPlans[static_cast<int>(*style)];
     }
     for (int z=kMin;z<=kMax;++z) {
         int run=0;
@@ -70,7 +74,7 @@ Counts Sample(const WorldConfig& world) {
 }
 }
 
-int Run(bool showAlcoves) {
+int Run(bool showAlcoves,bool showPartitions) {
     const auto levels=LoadLevelCatalog(FindAssetDirectory()/"levels.json");
     RoomLayoutCache cache;
     std::cout << "format " << kFormatVersion << ", sampled "
@@ -98,7 +102,28 @@ int Run(bool showAlcoves) {
                       << " | alcoves " << c.alcoves
                       << " | region cells";
             for (int count:c.regions) std::cout << ' ' << count;
+            std::cout << " | partition plans";
+            for (int count:c.partitionPlans) std::cout << ' ' << count;
             std::cout << '\n';
+            if (showPartitions && level==0) {
+                const WorldConfig world{seed,level,&cache,&levels};
+                std::array<bool,12> sampled{};
+                for (int rx=-10;rx<=10;++rx) for (int rz=-10;rz<=10;++rz) {
+                    if (RegionAt(world,rx*kRegionCells,rz*kRegionCells)!=RegionKind::OpenOffice)
+                        continue; // inspect the plan without enclosed-room occlusion
+                    const auto style=OfficePartitionStyleAt(world,rx,rz);
+                    if (!style) continue;
+                    const bool alongX=(CellHash(world,rx,rz,3119)&1U)!=0;
+                    const int index=static_cast<int>(*style)*2+alongX;
+                    const double x=rx*kRegionCells*kCellSize+4.5;
+                    const double z=rz*kRegionCells*kCellSize+4.5;
+                    if (sampled[index] || Collides(world,x,z,0.55)) continue;
+                    sampled[index]=true;
+                    std::cout << "partition seed " << seed << " region " << rx << ',' << rz
+                              << " style " << static_cast<int>(*style) << " along_x " << alongX
+                              << " position " << x << ',' << z << '\n';
+                }
+            }
             if (showAlcoves && level==0) {
                 const WorldConfig world{seed,level,&cache,&levels};
                 std::array<bool,8> sampled{};
@@ -124,9 +149,11 @@ int Run(bool showAlcoves) {
 
 int main(int argc,char** argv) {
     try {
-        if (argc>2 || (argc==2 && std::string(argv[1])!="--alcoves"))
-            throw std::invalid_argument("usage: world_quality [--alcoves]");
-        return Run(argc==2);
+        if (argc>2 || (argc==2 && std::string(argv[1])!="--alcoves" &&
+                      std::string(argv[1])!="--partitions"))
+            throw std::invalid_argument("usage: world_quality [--alcoves|--partitions]");
+        return Run(argc==2 && std::string(argv[1])=="--alcoves",
+                   argc==2 && std::string(argv[1])=="--partitions");
     }
     catch (const std::exception& e) {
         std::cerr << "world audit: " << e.what() << '\n';

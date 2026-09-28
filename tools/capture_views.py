@@ -4,6 +4,7 @@ import argparse
 import json
 import os
 import pathlib
+import re
 import subprocess
 import time
 
@@ -47,16 +48,40 @@ def main():
     parser.add_argument('--game',default='build/cna_backrooms')
     parser.add_argument('--output',default='build/visual-qa')
     parser.add_argument('--distant',action='store_true')
+    parser.add_argument('--partitions',action='store_true',
+                        help='sample all six sparse office partition plans')
+    parser.add_argument('--world-quality',default='build/world_quality')
     parser.add_argument('--all-directions',action='store_true',
                         help='also capture right, back and left views at each location')
     args=parser.parse_args()
     root=pathlib.Path(__file__).resolve().parents[1]
+    if args.partitions and args.distant:
+        parser.error('choose either distant or partition views')
+    views=DISTANT_VIEWS if args.distant else BASE_VIEWS
+    profile_source=None
+    if args.partitions:
+        quality=subprocess.check_output([str((root/args.world_quality).resolve()),
+                                         '--partitions'],cwd=root,text=True,
+                                         stderr=subprocess.STDOUT)
+        source=re.search(r'\[levels\] format \d+, world \d+, source ([0-9a-f]+)',quality)
+        profile_source=source[1] if source else '0' if 'using built-in defaults' in quality else None
+        if profile_source is None:
+            raise RuntimeError('world quality did not report its level-profile source')
+        selected={}
+        pattern=r'partition seed 12345 region (-?\d+),(-?\d+) style (\d+) along_x [01] position ([\d.-]+),([\d.-]+)'
+        for match in re.finditer(pattern,quality):
+            rx,rz,style,x,z=match.groups()
+            selected.setdefault(int(style),(f'l0_partition_{style}',12345,0,
+                                             float(x),float(z),357))
+        if len(selected)!=6:
+            raise RuntimeError('world quality did not find all six partition plans')
+        views=[selected[style] for style in sorted(selected)]
     output=(root/args.output).resolve()
     output.mkdir(parents=True,exist_ok=True)
     env=os.environ.copy()
     env.update(SDL_VIDEODRIVER='x11',SDL_AUDIODRIVER='dummy')
     manifest=[]
-    for name,seed,level,x,z,turn in DISTANT_VIEWS if args.distant else BASE_VIEWS:
+    for name,seed,level,x,z,turn in views:
         with (output/(name+'.log')).open('w') as log:
             game=subprocess.Popen([str((root/args.game).resolve()),'--seed',str(seed),
                 '--level',str(level),'--position',str(x),str(z)],
@@ -65,6 +90,12 @@ def main():
                 time.sleep(3)
                 if game.poll() is not None:
                     raise RuntimeError(f'{name}: game failed to launch; inspect its log')
+                if profile_source is not None:
+                    startup=(output/(name+'.log')).read_text()
+                    source=re.search(r'\[levels\] format \d+, world \d+, source ([0-9a-f]+)',startup)
+                    actual=source[1] if source else '0' if 'using built-in defaults' in startup else None
+                    if actual!=profile_source:
+                        raise RuntimeError('world quality and game use different level definitions')
                 def xdo(*arguments):
                     return subprocess.check_output(['xdotool',*map(str,arguments)],
                         text=True,timeout=5).strip()
@@ -78,6 +109,10 @@ def main():
                         xdo('mousemove_relative','--',714,0)
                         time.sleep(.2)
                     title=xdo('getwindowname',window)
+                    if args.partitions:
+                        actual=re.search(r'pos ([\d.-]+),([\d.-]+)',title)
+                        if actual is None or abs(float(actual[1])-x)>0.15 or abs(float(actual[2])-z)>0.15:
+                            raise RuntimeError('partition view reset from the requested position: '+title)
                     view=name+suffix
                     subprocess.run(['import','-window',window,str(output/(view+'.png'))],
                         check=True,timeout=10)

@@ -29,7 +29,7 @@ int main() {
     CHECK(ChunkOfCell(-9)==-2);
     CHECK(ChunkAt(-0.01,-40.01)==(ChunkCoord{-1,-2}));
     // Golden values make changes to the versioned procedural world explicit.
-    CHECK(kFormatVersion==28);
+    CHECK(kFormatVersion==29);
     CHECK(CellHash(world,12,-8,41)==511389911U);
     CHECK(VerticalEdge(world,8,3)==Edge::Open);
     CHECK(HorizontalEdge(world,-4,-5)==Edge::Open);
@@ -241,6 +241,30 @@ int main() {
             }
     }
     CHECK(foundEmbedded);
+    std::array<bool,6> partitionStyles{};
+    for (int rx=-10;rx<=10;++rx) for (int rz=-10;rz<=10;++rz) {
+        const auto style=OfficePartitionStyleAt(world,rx,rz);
+        CHECK(style==OfficePartitionStyleAt(uncached,rx,rz));
+        if (!style) continue;
+        partitionStyles[static_cast<int>(*style)]=true;
+        for (int lx=0;lx<kRegionCells;++lx) for (int lz=0;lz<kRegionCells;++lz) {
+            const int cx=rx*kRegionCells+lx,cz=rz*kRegionCells+lz;
+            const auto walls=InteriorPartitionsAt(world,cx,cz);
+            const auto repeated=InteriorPartitionsAt(uncached,cx,cz);
+            CHECK(walls.count==repeated.count && walls.count<=2);
+            for (int i=0;i<walls.count;++i) {
+                const auto& a=walls.walls[i];const auto& b=repeated.walls[i];
+                CHECK(a.minX==b.minX && a.minZ==b.minZ &&
+                      a.maxX==b.maxX && a.maxZ==b.maxZ);
+                CHECK(a.minX>=cx*kCellSize && a.maxX<=(cx+1)*kCellSize);
+                CHECK(a.minZ>=cz*kCellSize && a.maxZ<=(cz+1)*kCellSize);
+                CHECK(a.maxX>a.minX && a.maxZ>a.minZ);
+            }
+        }
+    }
+    for (bool seen:partitionStyles) CHECK(seen);
+    CHECK(!OfficePartitionStyleAt(tunnels,1,1));
+    CHECK(!OfficePartitionStyleAt(world,0,0));
     bool foundLowPartition=false;
     for (int ix=-30;ix<=30 && !foundLowPartition;++ix)
         for (int iz=-30;iz<=30 && !foundLowPartition;++iz) {
