@@ -5,6 +5,10 @@
 
 namespace Backrooms {
 namespace {
+// Geometry revisions can preserve the random recipe so landmarks and visual
+// QA locations do not reshuffle when room composition changes.
+constexpr std::uint64_t kHashRecipeVersion=11;
+
 int DivFloor(int value, int divisor) {
     const int quotient=value/divisor;
     return value<0 && value%divisor ? quotient-1 : quotient;
@@ -126,6 +130,16 @@ Edge ComposedEdge(const WorldConfig& config, RegionKind kind,
     if (config.level==2 && tree)
         return hash%10<7 ? Edge::Open :
                hash%10<9 ? Edge::Wide : Edge::Door;
+    if (config.level==0 && (kind==RegionKind::OpenOffice ||
+                            kind==RegionKind::Columns)) {
+        if (tree)
+            return hash%(kind==RegionKind::Columns ? 14 : 9)==0 ?
+                   Edge::Wide : Edge::Open;
+        const unsigned roll=hash%100;
+        if (kind==RegionKind::Columns)
+            return roll<95 ? Edge::Open : Edge::Wide;
+        return roll<88 ? Edge::Open : roll<97 ? Edge::Wide : Edge::Door;
+    }
     if (config.level!=0 || (kind!=RegionKind::Rooms &&
         kind!=RegionKind::Halls && kind!=RegionKind::Irregular))
         return tree ? TreeEdge(kind,hash) : OptionalEdge(kind,hash);
@@ -152,7 +166,7 @@ const LevelDefinition& LevelInfo(int level) {
 }
 
 std::uint32_t CellHash(const WorldConfig& config, int x, int z, int salt) {
-    std::uint64_t v = config.seed ^ (static_cast<std::uint64_t>(kFormatVersion) << 48);
+    std::uint64_t v = config.seed ^ (kHashRecipeVersion << 48);
     v ^= Mix(static_cast<std::uint32_t>(x) + 0x99213d67ULL);
     v ^= Mix(static_cast<std::uint32_t>(z) + 0x5c833b45ULL);
     v ^= Mix(static_cast<std::uint32_t>(salt) + 0x37ac891eULL);

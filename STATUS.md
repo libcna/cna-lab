@@ -29,20 +29,21 @@ The September 2026 playable foundation at `aaf67c0` has deterministic regions, b
 - Level 0 now samples fluorescent influence at the center and edges of each 2.5 m floor/ceiling tile and halfway along walls. Paired screenshots show visible warm pools around fixtures. The wallpaper texture is 512 by 512 for a longer, less repetitive span; rare ceiling panels show water staining. Another twelve-view round inspected the result. A 2.4 km GPU pass held near 59 FPS, with a 24.9 ms peak chunk build and warmed RSS near 182.4 MB.
 - Five matched distant storage views exposed nearly identical concrete-looking racks and orange boxes. The rack now uses slimmer steel posts, diagonal braces, varied shelf spacing and varied cardboard boxes with tape. Five wider views inspected the result.
 - A collision-level walkability tool sampled 63 complete 90 m squares at one-metre spacing with actual player movement. It found one narrow partition gap that the cell graph could not detect. Partition offsets and endpoint clearance were increased; the repeat audit has one substantial component in every sample. A live Release controller stopped at a partition, strafed around its end and continued forward with matching collision and geometry.
+- Format 12 removes most short cell-boundary fragments in Level 0 open offices and column rooms. The random hash recipe stays stable so exact before/after views remain comparable. Six matched views across three seeds show substantially emptier column rooms, plus longer offset walls. A further twelve-view round inspected all levels. Debug/Release tests, the 63-square physical walkability audit, all live transition directions and a 2.4 km GPU pass passed; the pass held near 59 FPS with a 24.4 ms peak and at most 25 chunks.
 
 ## Three highest-priority deficiencies
 
-1. Level 0 open regions still contain many short wall fragments on cell boundaries. Reduce these in favor of columns and longer offset walls, then repeat the screenshot and walkability audits.
-2. Level 0 illumination is better but still modest; continue only changes that visibly improve matched screenshots.
+1. Long GPU sweeps bypass collision. Run a longer controller-driven route through the current generated rooms and return over the same path.
+2. Footsteps use one wood sample on every surface; add a cheap muted carpet/hard-floor distinction with the already licensed collection.
 3. Level 0 furniture silhouettes remain crude, and real-device subjective audio loudness remains unverified.
 
 ## Latest validation
 
-- Current version 11 passes Debug and Release builds, deterministic world tests, the seven-seed quality scan and all four directed live transition checks.
+- Current version 12 passes Debug and Release builds, deterministic world tests, the seven-seed quality scan, 63-square physical walkability and all four directed live transition checks.
 - Current Level 1 and Level 2 completed 9.6 km GPU sweeps near 59 FPS with at most 25 chunks. Level 1 peaked at 25.1 ms, reused 6,305 buffers and ended near 187.6 MB RSS; Level 2 peaked at 25.5 ms, reused 6,442 buffers and plateaued near 202.4 MB. The 63-square collision walkability audit passed after the clearance fix.
 - Version 6 Level 0 completed a 9.6 km GPU sweep across both coordinate signs with 24–25 active chunks, near 59 FPS, peak chunk build 26.5 ms, and warmed RSS about 175–178 MB. The earlier Level 2 sweep held near 195–196 MB.
 - Version 10 Level 0 and 1 each completed 9.6 km GPU sweeps with at most 25 active chunks and near 59 FPS. Level 0 peaked at 36.5 ms for a chunk and warmed RSS rose from roughly 178 to 181 MB; Level 1 peaked at 26.3 ms and stabilized near 186 MB. Version 9 Level 2 held near 203 MB. A 19.2 km version 10 Level 0 sweep ended at 25 chunks and 184.5 MB after 11,406 buffer reuses and 1,728 new allocations. Version 11 Level 0 completed 9.6 km at 25 chunks, near 59 FPS, 25.2 ms peak build, 181 new allocations, 6,829 reuses and a warmed RSS plateau near 181.4 MB. Multiple 12-view QA sets plus focused screenshots are stored under ignored `build/qa-*` paths. A real PipeWire sink input appeared during a walking test and CNA reported audio ready; subjective sound quality is untested. The visual goal remains active.
 
 ## Next pass
 
-Reduce Level 0's short cell-boundary fragments in open rooms while keeping region connectivity. Compare the same screenshots, re-run physical walkability, and continue from the largest remaining visible defect.
+Run a longer controller route with normal collision and inspect images along it. Make a small surface-aware footstep pass using the existing CC0 collection. Continue the product audit from the highest-value deficiency found.
