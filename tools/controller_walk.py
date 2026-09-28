@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 import json, math, os, pathlib, re, subprocess, time
-# A normal-controller regression route for world formats 12–18, seed 12345.
+# A normal-controller regression route for world format 22, seed 12345.
 # It deliberately crosses negative chunk coordinates and returns over the path.
 import argparse
-parser=argparse.ArgumentParser(description="Walk a 326 m collision route and capture streaming views.")
+parser=argparse.ArgumentParser(description="Walk a 354 m collision route and capture streaming views.")
 parser.add_argument('--game',default='build/cna_backrooms')
 parser.add_argument('--output',default='build/controller-qa')
 parser.add_argument('--route-file',help='JSON produced by world_route; followed outward and back')
@@ -15,11 +15,66 @@ output=(root/args.output).resolve()
 output.mkdir(parents=True,exist_ok=True)
 # Planned with 0.55 m clearance, leaving tolerance around the 0.31 m player.
 route=[
-    [2.5, 2.5], [-27.5, 2.5], [-27.5, 5.5], [-28.5, 5.5],
-    [-28.5, 6.5], [-44.5, 6.5], [-44.5, 17.5], [-47.5, 17.5],
-    [-47.5, 61.5], [-58.5, 61.5], [-58.5, 67.5], [-71.5, 67.5],
-    [-71.5, 68.5], [-73.5, 68.5], [-73.5, 72.5], [-81.5, 72.5],
-    [-81.5, 76.5], [-77.5, 76.5], [-77.5, 75.5]
+    [
+        2.5,
+        2.5
+    ],
+    [
+        -27.5,
+        2.5
+    ],
+    [
+        -27.5,
+        5.5
+    ],
+    [
+        -28.5,
+        5.5
+    ],
+    [
+        -28.5,
+        6.5
+    ],
+    [
+        -44.5,
+        6.5
+    ],
+    [
+        -44.5,
+        17.5
+    ],
+    [
+        -47.5,
+        17.5
+    ],
+    [
+        -47.5,
+        61.5
+    ],
+    [
+        -58.5,
+        61.5
+    ],
+    [
+        -58.5,
+        67.5
+    ],
+    [
+        -63.5,
+        67.5
+    ],
+    [
+        -63.5,
+        87.5
+    ],
+    [
+        -77.5,
+        87.5
+    ],
+    [
+        -77.5,
+        75.5
+    ]
 ]
 level,seed=0,'12345'
 if args.route_file:

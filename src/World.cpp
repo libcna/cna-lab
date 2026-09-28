@@ -109,6 +109,83 @@ int RoomZoneAt(const WorldConfig& config, int cellX, int cellZ,
     return bestZone;
 }
 
+RoomLayout BuildRoomLayout(const WorldConfig& config,int rx,int rz,RegionKind kind) {
+    constexpr int side=kRegionCells,count=side*side;
+    const int ox=rx*side,oz=rz*side;
+    std::array<int,count> zones{},component{},pending{};
+    component.fill(-1);
+    for (int i=0;i<count;++i)
+        zones[i]=RoomZoneAt(config,ox+i%side,oz+i/side,kind);
+    int components=0;
+    // A discrete Voronoi zone can have disconnected corners. Treat each
+    // connected piece as a room before selecting its shared entrances.
+    for (int start=0;start<count;++start) {
+        if (component[start]>=0) continue;
+        int end=1;pending[0]=start;component[start]=components;
+        for (int cursor=0;cursor<end;++cursor) {
+            const int i=pending[cursor],x=i%side,z=i/side;
+            const auto visit=[&](int next) {
+                if (component[next]<0 && zones[next]==zones[start]) {
+                    component[next]=components;pending[end++]=next;
+                }
+            };
+            if (x>0) visit(i-1);
+            if (x+1<side) visit(i+1);
+            if (z>0) visit(i-side);
+            if (z+1<side) visit(i+side);
+        }
+        ++components;
+    }
+    struct Boundary {
+        int index=0;
+        bool east=false;
+        std::uint32_t hash=0,priority=0;
+    };
+    std::array<Boundary,2*side*(side-1)> boundaries{};
+    std::array<int,count*count> bestTree{},bestOther{};
+    bestTree.fill(-1);bestOther.fill(-1);
+    RoomLayout result;
+    result.east.fill(Edge::Solid);result.south.fill(Edge::Solid);
+    int boundaryCount=0;
+    for (int i=0;i<count;++i) for (bool east:{false,true}) {
+        const int x=i%side,z=i/side;
+        if (east ? x+1==side : z+1==side) continue;
+        const int next=i+(east ? 1 : side);
+        if (component[i]==component[next]) {
+            (east ? result.east : result.south)[i]=Edge::Open;
+            continue;
+        }
+        const int gx=ox+x,gz=oz+z;
+        const int a=std::min(component[i],component[next]);
+        const int b=std::max(component[i],component[next]);
+        const bool tree=east ?
+            ParentTowardRegionRoot(config,gx,gz)==Parent::East ||
+            ParentTowardRegionRoot(config,gx+1,gz)==Parent::West :
+            ParentTowardRegionRoot(config,gx,gz)==Parent::South ||
+            ParentTowardRegionRoot(config,gx,gz+1)==Parent::North;
+        const auto hash=CellHash(config,gx+(east?1:0),gz+(east?0:1),east?11:23);
+        const auto priority=CellHash(config,gx,gz,east?4001:4003);
+        const int id=boundaryCount++;
+        boundaries[id]={i,east,hash,priority};
+        auto& best=(tree ? bestTree : bestOther)[a*count+b];
+        if (best<0 || priority<boundaries[best].priority) best=id;
+    }
+    for (int a=0;a<components;++a) for (int b=a+1;b<components;++b) {
+        const int pair=a*count+b;
+        int selected=bestTree[pair];
+        if (selected<0 && CellHash(config,rx,rz,4021+pair)%7==0)
+            selected=bestOther[pair];
+        if (selected<0) continue;
+        const auto& boundary=boundaries[selected];
+        (boundary.east ? result.east : result.south)[boundary.index]=
+            boundary.hash%5==0 ? Edge::Wide : Edge::Door;
+    }
+    // Contracting connected rooms preserves the original cell tree. Keeping
+    // one crossing per neighboring room pair preserves that connectivity,
+    // without exposing every five-metre tree edge as a separate doorway.
+    return result;
+}
+
 bool StorageRackAt(const WorldConfig& config, int cellX, int cellZ) {
     if (RegionAt(config,cellX,cellZ)!=RegionKind::Storage) return false;
     const int rx=DivFloor(cellX,kRegionCells),rz=DivFloor(cellZ,kRegionCells);
@@ -135,7 +212,7 @@ bool ColumnAt(const WorldConfig& config,int cellX,int cellZ) {
 }
 
 Edge ComposedEdge(const WorldConfig& config, RegionKind kind,
-                  int firstX, int firstZ, int secondX, int secondZ,
+                  int firstX, int firstZ, int secondX,
                   bool tree, std::uint32_t hash) {
     if (config.level==1 && kind==RegionKind::Storage) {
         // Shelves and supports compose the bay; every five-metre boundary
@@ -158,13 +235,27 @@ Edge ComposedEdge(const WorldConfig& config, RegionKind kind,
     if (config.level>1 || (kind!=RegionKind::Rooms &&
         kind!=RegionKind::Halls && kind!=RegionKind::Irregular))
         return tree ? TreeEdge(kind,hash) : OptionalEdge(kind,hash);
-    if (RoomZoneAt(config,firstX,firstZ,kind)==
-        RoomZoneAt(config,secondX,secondZ,kind))
-        return hash%19==0 ? Edge::Wide : Edge::Open;
-    if (tree) return hash%5==0 ? Edge::Wide : Edge::Door;
-    const auto roll=hash%100;
-    return roll<7 ? Edge::Wide : roll<20 ? Edge::Door : Edge::Solid;
+    const int rx=DivFloor(firstX,kRegionCells),rz=DivFloor(firstZ,kRegionCells);
+    const int index=ModFloor(firstZ,kRegionCells)*kRegionCells+
+                    ModFloor(firstX,kRegionCells);
+    const auto select=[&](const RoomLayout& layout) {
+        return (secondX!=firstX ? layout.east : layout.south)[index];
+    };
+    if (config.roomLayouts) return select(config.roomLayouts->Get(config,rx,rz,kind));
+    return select(BuildRoomLayout(config,rx,rz,kind));
 }
+}
+
+const RoomLayout& RoomLayoutCache::Get(const WorldConfig& world,int rx,int rz,
+                                      RegionKind kind) {
+    const Key key{world.seed,world.level,rx,rz,kind};
+    if (const auto it=layouts_.find(key);it!=layouts_.end()) return it->second;
+    if (layouts_.size()==kCapacity) {
+        layouts_.erase(order_.front());order_.pop_front();
+    }
+    auto [it,inserted]=layouts_.emplace(key,BuildRoomLayout(world,rx,rz,kind));
+    order_.push_back(key);
+    return it->second;
 }
 
 int CellOf(double position) { return static_cast<int>(std::floor(position/kCellSize)); }
@@ -392,7 +483,7 @@ Edge VerticalEdge(const WorldConfig& config, int boundaryX, int z) {
     const auto edgeHash=CellHash(config,boundaryX,z,11);
     const bool tree=ParentTowardRegionRoot(config,boundaryX-1,z)==Parent::East ||
                     ParentTowardRegionRoot(config,boundaryX,z)==Parent::West;
-    return ComposedEdge(config,kind,boundaryX-1,z,boundaryX,z,tree,edgeHash);
+    return ComposedEdge(config,kind,boundaryX-1,z,boundaryX,tree,edgeHash);
 }
 
 Edge HorizontalEdge(const WorldConfig& config, int x, int boundaryZ) {
@@ -419,7 +510,7 @@ Edge HorizontalEdge(const WorldConfig& config, int x, int boundaryZ) {
     const auto edgeHash=CellHash(config,x,boundaryZ,23);
     const bool tree=ParentTowardRegionRoot(config,x,boundaryZ-1)==Parent::South ||
                     ParentTowardRegionRoot(config,x,boundaryZ)==Parent::North;
-    return ComposedEdge(config,kind,x,boundaryZ-1,x,boundaryZ,tree,edgeHash);
+    return ComposedEdge(config,kind,x,boundaryZ-1,x,tree,edgeHash);
 }
 
 CellProp PropAt(const WorldConfig& config, int cellX, int cellZ) {

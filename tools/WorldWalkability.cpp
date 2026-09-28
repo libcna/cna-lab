@@ -87,6 +87,7 @@ Audit Scan(const WorldConfig& world, int regionX, int regionZ) {
 }
 
 int main() {
+    RoomLayoutCache cache;
     int failed=0;
     std::cout << "format " << kFormatVersion
               << ", collision walkability on 90 m squares at 1 m spacing\n";
@@ -95,7 +96,7 @@ int main() {
         for (int level=0;level<3;++level)
             for (const auto origin: {std::array<int,2>{-1,-1},
                     std::array<int,2>{-7,-4},std::array<int,2>{5,8}}) {
-                const Audit audit=Scan({seed,level},origin[0],origin[1]);
+                const Audit audit=Scan({seed,level,&cache},origin[0],origin[1]);
                 std::cout << "seed " << seed << " level " << level
                           << " | region origin " << origin[0] << ',' << origin[1]
                           << " | free points " << audit.freePoints

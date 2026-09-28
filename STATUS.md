@@ -6,6 +6,10 @@ The September 2026 playable foundation at `aaf67c0` has deterministic regions, b
 
 ## Completed passes
 
+- Format 22 selects one entrance per neighboring connected room pair instead of retaining every cell-tree crossing. Interiors are open; disconnected pieces are labeled separately, and original tree contraction preserves connectivity. The optional game-owned cache retains at most 256 layouts and has no effect on generated results. Six paired office views, six additional turned views, the twelve-view round and both controller walks were inspected. Debug/Release tests, cached/uncached equivalence and eviction checks, the seven-seed scan, 63-square physical audit and all six entrance cases pass. The regenerated pooled-buffer regression route passes 28 waypoints over 355 m in 196.1 seconds (3.06 ms peak, warmed RSS 175.9–177.2 MiB). A second seed passes 100 waypoints over 770 m in 466.9 seconds (3.28 ms, 177.0–177.2 MiB). Both stay near 59 FPS and maximum 25 chunks. A 9.6 km Release sweep confirms the 256-layout cap, maximum 25 chunks, 3.82 ms peak and latter-half RSS 179.1–179.4 MiB; 221 buffers are created and 7,918 reused.
+
+- The refined format 21 tunnel pass also completed a 28.8 km positive/negative sweep near 59 FPS, maximum 25 chunks and 7.20 ms peak. RSS increases through new high-water buffer capacities: quarter ranges are 231.3–277.5, 277.5–284.7, 284.7–287.1 and 287.1–292.2 MiB. The last twelve samples are 291.4–292.2 MiB. These are finite-run observations, not an unlimited-duration claim; active chunks and spare buffers remain bounded. It creates 383 buffers and reuses 28,706.
+
 - Format 21 gives Level 2 weathered neutral concrete, cast ceilings, face-dependent occluded light, framed service cabinets, supported wall pipes and sparse pressure banks. Six matched tunnel views exposed excessive mirrored equipment and crude hexagonal ends; the refinement reduces density and uses finer circular profiles. Six refined pairs, three close equipment views, eighteen distant multi-seed views, twelve standard views and controller-route screenshots were inspected. Debug/Release tests, the seven-seed scan, 63-square physical audit and all six live entrance cases pass. A real 711 m return walk passes 114 waypoints in 462.2 seconds, maximum 25 chunks, near 59 FPS and 6.32 ms peak. Warmed RSS grows from 230.5 to 240.8 MiB as the buffer pool fills. A 9.6 km sweep holds near 59 FPS and 25 chunks, 7.72 ms peak, with 270 buffers created and 9,504 reused. Its latter-half RSS is 269.5–281.8 MiB; the active set and spare pool are bounded, but a longer plateau check is still needed for the larger pipe geometry.
 
 - Format 20 reduces storage-bay internal wall fragments and adds two to four cast-concrete supports around each sparse shelf layout. Shared pillar placement suppresses overlapping props and shifts fixtures. Six paired storage views were inspected; two initially faced nearby walls, so additional turned views inspect their actual bays. Debug/Release builds and tests, the seven-seed structural scan, 63-square collision audit and all six live entrance cases pass. The regenerated Level 1 return route passes 40 waypoints and approximately 512 m in 269.2 seconds, near 59 FPS, 25 maximum chunks, 2.03 ms peak and warmed RSS 173.4–173.9 MiB. A 9.6 km sweep stays near 59 FPS, 25 chunks, 2.43 ms peak and stable late RSS about 174.5 MiB, with 162 buffers created and 6,948 reused.
@@ -57,11 +61,13 @@ The September 2026 playable foundation at `aaf67c0` has deterministic regions, b
 
 ## Three highest-priority deficiencies
 
-1. Level 0 room boundaries still expose several openings at five-metre intervals. Compose fewer entrances while preserving traversable regions.
-2. Verify a longer memory plateau for the denser Level 2 geometry; current growth tracks retained buffer capacities.
-3. Level parameters remain scattered through code. Consider a small game-specific data definition after the spatial pass.
+1. Lighting still looks uniformly bright in many office rooms. Compare cheaper contrast/ambient changes at fixed locations, including weak circuits.
+2. Ceiling height and other family parameters are scattered in C++. Centralize a small versioned level definition to support controlled visual comparisons.
+3. Some long walls remain monotonous; revisit sparse architectural anomalies only after the lighting/scale comparison.
 
 ## Latest validation
+
+- Format 22 passes the structural, physical, screenshot, entrance and real-controller checks above. The title reports cache size; the long sweep reaches and holds its 256-layout bound. Geometry at the original reused-buffer failure point is complete.
 
 - Format 21 refined geometry passes the checks recorded above. Initial heavy equipment measurements are superseded. Dummy audio was used for these screenshot/controller checks; the separate native audio evidence and subjective-listening limitation still apply.
 
@@ -87,4 +93,4 @@ The September 2026 playable foundation at `aaf67c0` has deterministic regions, b
 
 ## Next pass
 
-Select one composed entrance per neighboring room pair instead of retaining every crossing in the cell tree. Use connected room components and a bounded game-owned layout cache; preserve region border connectors and deterministic collision. Compare six fixed office locations and rerun physical connectivity, real controller return and streaming. The goal remains active.
+Introduce a small three-family level-profile JSON through the existing Sharp Runtime JSON and file APIs. Keep built-in defaults, fixed generation infrastructure and versioned reproducibility. Then compare office lighting contrast and ceiling height using controlled profiles, build, launch and inspect new views. The goal remains active.

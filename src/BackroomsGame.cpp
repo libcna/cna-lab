@@ -746,6 +746,7 @@ BackroomsGame::BackroomsGame(std::uint64_t seed, bool streamTest,
         throw std::invalid_argument("invalid start, movement speed, field of view, or streaming distance");
     world_.seed = seed;
     world_.level=startLevel;
+    world_.roomLayouts=&roomLayouts_;
     if (Collides(world_,startX,startZ,0.31))
         throw std::invalid_argument("start position intersects generated geometry");
     x_=startX;
@@ -1303,6 +1304,7 @@ void BackroomsGame::UpdateTitle(double elapsed) {
           << " | loaded " << chunks_.size() << "/25 | tris " << triangles
           << " | VBO " << bufferCreations_ << '/' << bufferReuses_
           << " pool " << spareVertices_.size()
+          << " | rooms " << roomLayouts_.Size()
           << " | entities " << entities
           << " | build " << std::setprecision(2) << lastBuildMs_ << " ms"
           << " | peak " << peakBuildMs_ << " ms"

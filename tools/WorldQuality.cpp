@@ -68,13 +68,14 @@ Counts Sample(const WorldConfig& world) {
 }
 
 int main() {
+    RoomLayoutCache cache;
     std::cout << "format " << kFormatVersion << ", sampled "
               << (kMax-kMin+1)*(kMax-kMin+1)
               << " cells per seed and level\n";
     for (std::uint64_t seed: {0ULL,1ULL,2ULL,3ULL,12345ULL,
                               31337ULL,0xBACC0005ULL}) {
         for (int level=0;level<3;++level) {
-            const Counts c=Sample({seed,level});
+            const Counts c=Sample({seed,level,&cache});
             const double edges=c.openEdges+c.wideEdges+
                                c.doorEdges+c.solidEdges;
             std::cout << "seed " << seed << " level " << level

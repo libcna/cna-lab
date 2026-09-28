@@ -20,14 +20,15 @@ void Check(bool passed, const char* expression, int line) {
 #define CHECK(expression) Check((expression), #expression, __LINE__)
 
 int main() {
-    const WorldConfig world{12345,0};
+    RoomLayoutCache cache;
+    const WorldConfig world{12345,0,&cache};
     CHECK(CellOf(-0.01)==-1);
     CHECK(ChunkOfCell(-1)==-1);
     CHECK(ChunkOfCell(-8)==-1);
     CHECK(ChunkOfCell(-9)==-2);
     CHECK(ChunkAt(-0.01,-40.01)==(ChunkCoord{-1,-2}));
     // Golden values make changes to the versioned procedural world explicit.
-    CHECK(kFormatVersion==21);
+    CHECK(kFormatVersion==22);
     CHECK(CellHash(world,12,-8,41)==511389911U);
     CHECK(VerticalEdge(world,8,3)==Edge::Open);
     CHECK(HorizontalEdge(world,-4,-5)==Edge::Open);
@@ -35,7 +36,7 @@ int main() {
     // Every complete multi-region rectangle must be reachable, including negative cells.
     for (std::uint64_t seed: {0ULL,12345ULL,31337ULL,0xffffffffffffffffULL})
     for (int level=0;level<3;++level) {
-        WorldConfig selected{seed,level};
+        WorldConfig selected{seed,level,&cache};
         std::queue<std::pair<int,int>> pending;
         std::set<std::pair<int,int>> visited;
         pending.push({0,0}); visited.insert({0,0});
@@ -53,6 +54,19 @@ int main() {
         }
         CHECK(visited.size()==24*24);
     }
+    // Caching is bounded and leaves pure generation unchanged after eviction.
+    const WorldConfig uncached{12345,0};
+    for (int cx=-18;cx<18;++cx) for (int cz=-18;cz<18;++cz) {
+        CHECK(VerticalEdge(world,cx,cz)==VerticalEdge(uncached,cx,cz));
+        CHECK(HorizontalEdge(world,cx,cz)==HorizontalEdge(uncached,cx,cz));
+    }
+    const auto original=cache.Get(world,-3,2,RegionKind::Rooms);
+    for (std::size_t i=0;i<RoomLayoutCache::kCapacity+40;++i) {
+        cache.Get(world,static_cast<int>(i),-31,RegionKind::Rooms);
+        CHECK(cache.Size()<=RoomLayoutCache::kCapacity);
+    }
+    const auto restored=cache.Get(world,-3,2,RegionKind::Rooms);
+    CHECK(original.east==restored.east && original.south==restored.south);
     double x=2.5,z=2.5;
     CHECK(!Collides(world,x,z,0.31));
     // A solid partition blocks normal movement; this checks every deterministic edge type.
@@ -77,7 +91,7 @@ int main() {
         found=true;
     }
     CHECK(found);
-    const WorldConfig tunnels{12345,2};
+    const WorldConfig tunnels{12345,2,&cache};
     CHECK(CellObstacles(tunnels,0,0).count==0 ||
           CellObstacles(tunnels,0,0).count==2 ||
           CellObstacles(tunnels,0,0).count==4);
@@ -100,7 +114,7 @@ int main() {
     CHECK(pairedCabinets>100 && sparsePressureBanks>100);
     CHECK(!Collides(tunnels,2.5,2.5,0.31));
     bool sparseBay=false,denseBay=false;
-    const WorldConfig storage{12345,1};
+    const WorldConfig storage{12345,1,&cache};
     for (int rx=-8;rx<=8;++rx) for (int rz=-8;rz<=8;++rz) {
         if (RegionAt(storage,rx*6,rz*6)!=RegionKind::Storage) continue;
         int racks=0,pillars=0,openEdges=0,totalEdges=0;
@@ -212,7 +226,7 @@ int main() {
     CHECK(openingLeft && openingRight && checkedOpenings>100);
     // Interior room partitions must not turn a generated door into a dead end.
     for (std::uint64_t seed: {0ULL,1ULL,12345ULL,31337ULL}) {
-        const WorldConfig selected{seed,0};
+        const WorldConfig selected{seed,0,&cache};
         for (int bx=-60;bx<=60;++bx) for (int bz=-60;bz<=60;++bz)
             for (bool vertical: {false,true}) {
                 const Edge edge=vertical ? VerticalEdge(selected,bx,bz) :
@@ -294,7 +308,7 @@ int main() {
     // Check that the movement collider agrees with generated openings, including
     // region and chunk boundaries on both sides of the origin.
     for (int level=0;level<3;++level) {
-        const WorldConfig selected{12345,level};
+        const WorldConfig selected{12345,level,&cache};
         for (int bx=-7;bx<=7;++bx) for (int bz=-7;bz<=7;++bz) {
             const double borderX=bx*kCellSize;
             const double midZ=(bz+0.5)*kCellSize;
@@ -319,7 +333,7 @@ int main() {
         }
     }
     for (const auto& portal:kPortals) {
-        const WorldConfig selected{12345,portal.level};
+        const WorldConfig selected{12345,portal.level,&cache};
         const double cx=(portal.cellX+0.5)*kCellSize;
         const double cz=(portal.cellZ+0.5)*kCellSize;
         if (portal.alongX) {
@@ -339,7 +353,7 @@ int main() {
         }
     }
     for (const auto& portal:kPortals) {
-        const WorldConfig selected{12345,portal.level};
+        const WorldConfig selected{12345,portal.level,&cache};
         const double x=(portal.cellX+0.5)*kCellSize;
         const double z=(portal.cellZ+0.5)*kCellSize;
         const double tx=x+(portal.alongX ? 1.0 : 0.0);
@@ -355,7 +369,7 @@ int main() {
     }
     // Rare entrances share the rendered frame, collider, and trigger geometry.
     for (int level=0;level<3;++level) {
-        const WorldConfig selected{12345,level};
+        const WorldConfig selected{12345,level,&cache};
         int cellX=0,cellZ=0;
         bool foundPortal=false;
         for (int ix=-96;ix<=96 && !foundPortal;ix+=32)
@@ -381,7 +395,7 @@ int main() {
     // Keep them off structural columns and room-spanning partitions.
     int fixtures=0,deadFixtures=0;
     for (const auto seed:{0ULL,1ULL,12345ULL,31337ULL}) {
-        const WorldConfig office{seed,0};
+        const WorldConfig office{seed,0,&cache};
         for (int x=-64;x<64;++x) for (int z=-64;z<64;++z) {
             const auto lamp=LampAt(office,x,z);
             CHECK(lamp==LampAt(office,x,z));

@@ -2,12 +2,15 @@
 
 #include <array>
 #include <cstdint>
+#include <deque>
+#include <map>
 #include <optional>
+#include <tuple>
 #include <vector>
 
 namespace Backrooms {
 
-constexpr int kFormatVersion = 21;
+constexpr int kFormatVersion = 22;
 constexpr int kChunkCells = 8;
 constexpr int kRegionCells = 6;
 constexpr double kCellSize = 5.0;
@@ -73,9 +76,29 @@ struct LampInfo {
     bool operator==(const LampInfo&) const = default;
 };
 
+class RoomLayoutCache;
+
 struct WorldConfig {
     std::uint64_t seed = 0xBACC0005ULL;
     int level = 0;
+    // Optional game-owned acceleration; it never changes generated results.
+    RoomLayoutCache* roomLayouts = nullptr;
+};
+
+struct RoomLayout {
+    std::array<Edge,kRegionCells*kRegionCells> east{},south{};
+};
+
+class RoomLayoutCache {
+public:
+    static constexpr std::size_t kCapacity=256;
+    const RoomLayout& Get(const WorldConfig& world,int regionX,int regionZ,
+                          RegionKind kind);
+    std::size_t Size() const { return layouts_.size(); }
+private:
+    using Key=std::tuple<std::uint64_t,int,int,int,RegionKind>;
+    std::map<Key,RoomLayout> layouts_;
+    std::deque<Key> order_;
 };
 
 struct PortalDefinition {
