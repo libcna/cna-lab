@@ -18,16 +18,16 @@ The product goal remains **active**. Three distinct families, connected determin
 
 ## Current pass
 
-Format 46 office floor light is visually accepted. A small reflected
-contribution softens dark pools and preserves carpet detail; ceilings, walls,
-fixtures, geometry and collision are unchanged. Contact interpolation shares
-the response. Release/Debug builds and all three suites pass. All 48 matched
-office directions, 36 huge-hall directions, nine pitched floor pairs and twelve
-family views are inspected. Native Wayland launches all three families and
-completes a 2.4 km tunnel sweep; compositor screenshot access is unavailable.
-The 1,187.7-metre default-world collision return and all 52 route views pass.
+Format 47 adds three deterministic harmless creature types and sparse licensed
+voices. Release/Debug builds and all suites pass. All nine real approach/return
+cases and all 99 views are inspected. Each voice passes a stationary normal
+own-stream capture without clipping; subjective listening remains unverified.
+A 28.8 km native Wayland capacity sweep is now running without an owned compiler
+or another GPU job. Continue with arbitrary location views and measured issues.
 
 ## Completed passes
+
+- **47:** three shared harmless silhouettes, deterministic kinds, bounded slow drift and rare attenuated/panned CC0 breaths/rustles. Release/Debug suites, nine controller approaches and 99 inspected stages pass; all three normal-device voice captures have nonclipping signal above hum. Long capacity validation follows.
 
 - **46:** modest reflected office floor response with matching contact interpolation. Forty-eight office pairs, 36 hall pairs, nine pitched floor pairs and twelve family views inspected; Release/Debug suites pass. Live controller and final capacity checks follow.
 
@@ -64,9 +64,9 @@ The 1,187.7-metre default-world collision return and all 52 route views pass.
 
 ## Three highest-priority deficiencies
 
-1. Refresh live controls, entrances and figure approaches against current runtime dependencies.
-2. Run the longer native Wayland capacity sweep and inspect any measured loading/presentation spikes.
-3. Native Wayland frame capture and real input remain unverified on the headless display; subjective audio listening remains unavailable. Additional arbitrary family views and sparse anomalies still need the delivery audit.
+1. Complete the current long native Wayland capacity sweep and investigate measured loading/presentation spikes only where actionable.
+2. Inspect fresh arbitrary family views and fix the highest-value visible deficiency before the 19:30 stabilization window.
+3. Complete the arbitrary-view product audit and delivery documentation. Native Wayland real input and subjective listening remain unverified; compositor screenshot access is denied.
 
 ## Latest validation
 
@@ -91,7 +91,7 @@ The 1,187.7-metre default-world collision return and all 52 route views pass.
 - The final format 34 tunnel sweep reaches 28.8 km with at most 25 chunks and 18 sampled spare buffers. It creates 390 buffers and reuses 28,699. Packed capacity peaks at 57.2 MiB; late RSS is 295.5–300.6 MiB, with final twelve samples 295.5–298.7 MiB. Median draw FPS is 39, median rolling p95 27.22 ms, sampled maximum interval 72.57 ms, median build 3.87 ms and peak 25.29 ms. Ten builds exceed 16.67 ms in about 640 seconds; occasional spikes remain. Collision is bypassed in this diagnostic, not in controller walks.
 - **Timing correction:** titles through format 29 labeled fixed-step updates as FPS. Historical rates near 59 are UPS. Actual format 30 views/sweeps draw around 39–41 FPS on the isolated Weston/Xwayland display; no real desktop presentation rate is inferred. The title now separates actual FPS, 120-interval p95/max, CPU submission and UPS.
 - Earlier long collision returns, physical audits, fallbacks and family-specific finite measurements are retained in [validation history](docs/validation-history.md).
-- The explicit CNA context lease remains necessary for reused-buffer uploads, transitions and deletion; [bugs.md](bugs.md) records the regression. No sibling edits. Latest observed dependency heads: CNA `967305dd7b93f992f7c177a7055bd5892ba8523e`, Sharp Runtime `6c4a857de129cf29b5d43430bedf24157d594f12`. Sibling input/runtime files have external uncommitted edits; this agent does not change them. A transient Debug inconsistency and the successful retry are documented in bugs.md.
+- The explicit CNA context lease remains necessary for reused-buffer uploads, transitions and deletion; [bugs.md](bugs.md) records the regression. No sibling edits. Latest observed dependency heads: CNA `3d5742e84c21ef55ca4a442874ecad35c29c3ab4`, Sharp Runtime `007280bd1cc789f851f7f454a5041c8ce2479e13`. Sibling input/runtime files have external uncommitted edits; this agent does not change them. A transient Debug inconsistency and the successful retry are documented in bugs.md.
 - Fresh format 34 captures use the game's own normal PipeWire/PulseAudio stream on the unmuted Ryzen speaker output: hum -32.3 dBFS RMS, footsteps -10.8 dBFS peak and an isolated transition without footsteps -13.5 dBFS peak, without clipping. Subjective listening remains unverified. Dummy-audio visual tests do not validate audibility.
 
 ## Next pass

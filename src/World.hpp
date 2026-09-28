@@ -11,7 +11,7 @@
 
 namespace Backrooms {
 
-constexpr int kFormatVersion = 46;
+constexpr int kFormatVersion = 47;
 constexpr int kChunkCells = 8;
 constexpr int kRegionCells = 6;
 constexpr double kCellSize = 5.0;
@@ -87,11 +87,19 @@ struct LampInfo {
     bool operator==(const LampInfo&) const = default;
 };
 
+enum class EntityKind { Wanderer, Watcher, Crawler };
+constexpr int kEntityKindCount = 3;
+
 struct EntitySpawn {
     double x=0,z=0;
     float phase=0;
+    EntityKind kind=EntityKind::Wanderer;
     bool operator==(const EntitySpawn&) const = default;
 };
+
+struct EntityPosition { double x,z; };
+EntityPosition EntityPositionAt(const EntitySpawn& entity,float seconds);
+const char* EntityName(EntityKind kind);
 
 struct OfficeAlcove {
     bool vertical=true;

@@ -458,3 +458,58 @@ path it reports unauthorized output capture. No compositor policy or sibling
 files are changed. Its zero exit does not establish a capture: no PNG exists.
 The normal native frames are therefore not visually inspected by that method.
 Xwayland screenshots and the native Wayland diagnostic are distinct evidence.
+
+
+### Format 46 runtime refresh
+
+Strict native Xwayland controls pass all four mouse directions, measured walk
+and run speeds, held/second Shift behavior, Escape release and click recapture
+without orientation drift. All six real entrance cases pass. All 33 original
+figure approach/return stages are inspected: smooth proximity fade, no camera
+obstruction or damaged depth state. These runs use the actual game controller;
+the floor-only revision does not require repeating the unchanged default-world
+1,187.7-metre collision route.
+
+Normal own-stream audio again reaches the unmuted Ryzen speaker sink at 57%
+with the game stream unmuted at 100%. Hum is -32.27 dBFS RMS; walking peaks at
+-10.13 dBFS. The separate transition without footsteps peaks at -13.58 dBFS.
+No capture clips. Artifacts are under build/controls46, build/portals46,
+build/figures46, build/audio46 and build/audio46-isolated. This verifies signal
+and routing; the agent has not performed subjective listening.
+
+
+## Format 47: three harmless creature types and sparse voices
+
+A deterministic kind field selects clothed wanderers, tall narrow watchers and
+low four-legged crawlers without moving any existing spawn cells, rooms or
+entrances. One immutable body and contact mesh per type serves all active
+instances (440/416/448 body triangles, 16/16/32 shadow triangles). The 2.38-metre
+watcher fits the tunnel ceiling. Drift stays within 0.55 metres of its initial
+cell; watchers and crawlers move more slowly. Existing proximity fading,
+native depth resolution and nonblocking exploration behavior remain intact.
+There is no combat, damage, health, chasing or persistent creature history.
+
+Three short NOX CC0 breath/rustle excerpts use SoundEffect volume, pitch and
+pan. One global cooldown spaces events by 18–31 seconds; nearby obstruction
+samples suppress voices through walls and distance limits audibility. Failure
+to load a voice does not disable existing hum/footsteps. License provenance
+and exact excerpt/filter edits are documented in assets/LICENSE.md.
+
+Release and Debug builds and all three CTest suites pass. Deterministic tests
+cover kind selection, cached/uncached results, bounded movement and clear
+spawn cells. The first coverage assertion incorrectly required every rare type
+in every small seed window; it now checks accumulated coverage, with the native
+QA explicitly finding every type in every family. All nine actual six-metre
+approach/return cases pass position and mouse-angle checks. All 99 captured
+stages are inspected: types are visually distinct, grounded, fit the ceilings,
+fade before the camera, and do not corrupt later depth/alpha state. Artifacts:
+build/creatures47-approach and build/creatures47-review-0..16.png. Capture timing
+is not a performance measurement.
+
+Stationary own-stream captures on the normal unmuted Ryzen output verify all
+three voices without footsteps. Event peaks are -14.00/-13.85/-11.37 dBFS for
+wanderer/watcher/crawler, against hum peaks near -24.4 dBFS and hum RMS near
+-32.4 dBFS. Game logs identify the matching voice at about six metres; no
+capture clips. Routing remains unmuted at stream 100%, sink 57%. Artifacts:
+build/creatures47-audio-0..2. The agent has not performed subjective listening.
+The checked-in audio driver accepts --creature-kind for reproduction.

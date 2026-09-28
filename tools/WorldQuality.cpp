@@ -269,17 +269,20 @@ int WallEndViews() {
     return 0;
 }
 
-int EntityApproaches() {
+int EntityApproaches(bool allKinds=false) {
     const auto levels=LoadLevelCatalog(FindAssetDirectory()/"levels.json");
     RoomLayoutCache cache;
     for (int level=0;level<3;++level) {
         const WorldConfig world{12345,level,&cache,&levels};
-        bool selected=false;
-        for (int x=kMin;x<=kMax && !selected;++x)
-            for (int z=kMin;z<=kMax && !selected;++z) {
+        std::array<bool,kEntityKindCount> selected{};
+        int remaining=allKinds ? kEntityKindCount : 1;
+        for (int x=kMin;x<=kMax && remaining;++x)
+            for (int z=kMin;z<=kMax && remaining;++z) {
                 const auto entity=EntityAt(world,x,z);
                 if (!entity) continue;
-                for (int direction=0;direction<8 && !selected;++direction) {
+                const int kind=static_cast<int>(entity->kind);
+                if (selected[kind]) continue;
+                for (int direction=0;direction<8 && !selected[kind];++direction) {
                     const double angle=direction*0.785398163397;
                     const double px=entity->x+6*std::cos(angle);
                     const double pz=entity->z+6*std::sin(angle);
@@ -294,16 +297,18 @@ int EntityApproaches() {
                         }
                     }
                     if (!clear) continue;
-                    selected=true;
+                    selected[kind]=true;
+                    --remaining;
                     std::cout << std::fixed << std::setprecision(6)
                               << "approach seed 12345 level " << level
                               << " center " << entity->x << ',' << entity->z
                               << " phase " << entity->phase
                               << " position " << px << ',' << pz
-                              << " heading " << std::atan2(entity->x-px,entity->z-pz) << '\n';
+                              << " heading " << std::atan2(entity->x-px,entity->z-pz)
+                              << " kind " << kind << '\n';
                 }
             }
-        if (!selected) throw std::runtime_error("no clear six-metre entity approach");
+        if (remaining) throw std::runtime_error("no clear six-metre creature approach");
     }
     return 0;
 }
@@ -428,14 +433,16 @@ int main(int argc,char** argv) {
                       std::string(argv[1])!="--views" && std::string(argv[1])!="--office-lighting" &&
                       std::string(argv[1])!="--wall-ends" && std::string(argv[1])!="--office-columns" &&
                       std::string(argv[1])!="--hall-lighting" &&
+                      std::string(argv[1])!="--creature-approaches" &&
                       std::string(argv[1])!="--entity-approaches"))
-            throw std::invalid_argument("usage: world_quality [--alcoves|--partitions|--entities|--views|--office-lighting|--office-columns|--hall-lighting|--wall-ends|--entity-approaches]");
+            throw std::invalid_argument("usage: world_quality [--alcoves|--partitions|--entities|--views|--office-lighting|--office-columns|--hall-lighting|--wall-ends|--entity-approaches|--creature-approaches]");
         if (argc==2 && std::string(argv[1])=="--views") return ViewSamples();
         if (argc==2 && std::string(argv[1])=="--office-lighting") return OfficeLightingViews();
         if (argc==2 && std::string(argv[1])=="--office-columns") return OfficeColumnViews();
         if (argc==2 && std::string(argv[1])=="--hall-lighting") return HallLightingViews();
         if (argc==2 && std::string(argv[1])=="--wall-ends") return WallEndViews();
         if (argc==2 && std::string(argv[1])=="--entity-approaches") return EntityApproaches();
+        if (argc==2 && std::string(argv[1])=="--creature-approaches") return EntityApproaches(true);
         return Run(argc==2 && std::string(argv[1])=="--alcoves",
                    argc==2 && std::string(argv[1])=="--partitions",
                    argc==2 && std::string(argv[1])=="--entities");

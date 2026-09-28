@@ -15,7 +15,7 @@ than describing arbitrary scenes.
 | `lighting.wall_bounce`, `ceiling_bounce` | Ambient blend for those surfaces |
 | `tints` | RGB multipliers for generated/textured geometry |
 | `regions` | Ordered `{kind, weight}` entries, unique kinds, total weight 100 |
-| `entity_rarity` | Hash divisor, 250–100000; larger means fewer harmless figures |
+| `entity_rarity` | Hash divisor, 250–100000; larger means fewer harmless creatures |
 
 Office kinds are `open_office`, `columns`, `rooms`, `halls`, `irregular`.
 Storage uses `storage`, `open_office`, `columns`, `halls`, `rooms`.
@@ -39,3 +39,9 @@ JSON alongside any seed used for a custom configuration.
 
 Chunks still regenerate from coordinates. There are no scene/chunk files,
 binary caches, runtime profile editing or asset bundles inside the format.
+
+Creature spawn cells retain the existing hash recipe. Algorithm 47 adds a
+separate deterministic kind field (wanderer, watcher or crawler) from unused
+hash bits, so type selection does not move rooms, entrances or existing
+candidate cells. All three families can contain all types. Their shared mesh,
+slow bounded drift and sparse voice rules are game code, not a scene format.

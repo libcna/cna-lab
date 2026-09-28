@@ -6,6 +6,7 @@ import json
 import math
 import os
 import pathlib
+import re
 import subprocess
 import time
 import wave
@@ -19,8 +20,13 @@ def main():
     parser.add_argument('--isolated-transition', action='store_true',
                         help='start just outside the entrance and trigger the cue without a footstep')
     parser.add_argument('--driver', help='optional SDL audio driver; default uses normal selection')
+    parser.add_argument('--creature-kind', type=int, choices=(0, 1, 2),
+                        help='capture one harmless creature voice without walking')
+    parser.add_argument('--world-quality', default='build-clean/world_quality')
     args = parser.parse_args()
     root = pathlib.Path(__file__).resolve().parents[1]
+    if args.creature_kind is not None and args.isolated_transition:
+        parser.error('choose a creature or transition event')
     output = (root / args.output).resolve()
     output.mkdir(parents=True, exist_ok=True)
     env = os.environ.copy()
@@ -37,6 +43,17 @@ def main():
     capture = None
     with (output / 'game.log').open('w') as log:
         arguments = [str((root / args.game).resolve()), '--seed', '12345']
+        creature=None
+        if args.creature_kind is not None:
+            quality=subprocess.check_output([str((root/args.world_quality).resolve()),
+                                             '--creature-approaches'],cwd=root,text=True)
+            pattern=(r'approach seed 12345 level 0 center [\d.-]+,[\d.-]+ '
+                     r'phase [\d.-]+ position ([\d.-]+),([\d.-]+) heading ([\d.-]+) kind '+
+                     str(args.creature_kind))
+            creature=re.search(pattern,quality)
+            if creature is None:
+                raise RuntimeError('no clear office sample for the creature kind')
+            arguments+=['--position',creature[1],creature[2]]
         if args.isolated_transition:
             arguments += ['--position', '18.36', '2.5']
         game = subprocess.Popen(arguments,
@@ -64,6 +81,9 @@ def main():
             window = command('xdotool', 'search', '--pid', str(game.pid), '--name',
                              'cna-backrooms').splitlines()[0]
             time.sleep(2)
+            if creature:
+                turn=(math.pi/2-float(creature[3])+math.pi)%(2*math.pi)-math.pi
+                command('xdotool','mousemove_relative','--',str(round(turn/.0022)),'0')
             pcm = output / 'game.wav'
             with (output / 'capture.log').open('w') as capture_log:
                 capture = subprocess.Popen(['parec', '--device=' + str(sink.get('monitor_source_name') or sink['monitor_source']),
@@ -71,10 +91,13 @@ def main():
                     '--format=s16le', '--file-format=wav', str(pcm)],
                     env=env, stdout=capture_log, stderr=capture_log)
                 time.sleep(2)
-                command('xdotool', 'keydown', 'w')
-                time.sleep(.15 if args.isolated_transition else 7.2)
-                command('xdotool', 'keyup', 'w')
-                time.sleep(3 if args.isolated_transition else 2)
+                if creature:
+                    time.sleep(6)
+                else:
+                    command('xdotool', 'keydown', 'w')
+                    time.sleep(.15 if args.isolated_transition else 7.2)
+                    command('xdotool', 'keyup', 'w')
+                    time.sleep(3 if args.isolated_transition else 2)
                 title = command('xdotool', 'getwindowname', window)
                 capture.terminate()
                 capture.wait(timeout=3)
@@ -92,27 +115,35 @@ def main():
                 peak = max(abs(v) for v in values) / 32768
                 return {'rms_dbfs': 20 * math.log10(max(rms, 1e-10)),
                         'peak_dbfs': 20 * math.log10(max(peak, 1e-10))}
-            event_range = (1.9, 4.5) if args.isolated_transition else (8, 10.5)
+            event_range = (1.9, 7.5) if creature else (1.9, 4.5) if args.isolated_transition else (8, 10.5)
             result = {'routing': routing, 'hum': levels(.5, 1.5),
-                      'walking': None if args.isolated_transition else levels(2.5, 7),
-                      'transition_window': levels(*event_range), 'final_title': title,
+                      'walking': None if args.isolated_transition or creature else levels(2.5, 7),
+                      'transition_window': None if creature else levels(*event_range),
+                      'creature_window': levels(*event_range) if creature else None,
+                      'creature_kind': args.creature_kind, 'final_title': title,
                       'subjective_listening': 'Not performed by the agent.'}
             (output / 'summary.json').write_text(json.dumps(result, indent=2) + '\n')
             print(json.dumps(result, indent=2), flush=True)
-            if stream['mute'] or stream['corked']:
-                raise RuntimeError('game stream is muted or paused')
+            if stream['mute'] or stream['corked'] or sink['mute']:
+                raise RuntimeError('game stream or its physical output is muted/paused')
             if result['hum']['rms_dbfs'] < -65:
                 raise RuntimeError('hum is technically silent')
-            event = result['transition_window'] if args.isolated_transition else result['walking']
+            event = result['creature_window'] if creature else result['transition_window'] if args.isolated_transition else result['walking']
             if event['peak_dbfs'] < result['hum']['peak_dbfs'] + 6:
                 raise RuntimeError('event sound did not rise above the hum')
             if max(abs(v) for v in samples) >= 32767:
                 raise RuntimeError('captured audio clips')
             if 'Audio: transition cue could not acquire' in (output / 'game.log').read_text():
                 raise RuntimeError('transition audio failed to acquire a voice')
-            if 'Level 1 ' not in title:
+            if creature:
+                name=('wanderer','watcher','crawler')[args.creature_kind]
+                if '[entity-audio] '+name not in (output/'game.log').read_text():
+                    raise RuntimeError('the requested creature did not emit a voice')
+                if 'Level 0 ' not in title:
+                    raise RuntimeError('stationary creature capture changed level')
+            elif 'Level 1 ' not in title:
                 raise RuntimeError('walk did not reach the transition')
-            print('Own-stream events and transition routing checked; listening remains subjective.')
+            print('Own-stream event and routing checked; listening remains subjective.')
         finally:
             subprocess.run(['xdotool', 'keyup', 'w'], check=False, capture_output=True)
             if capture is not None:

@@ -16,21 +16,24 @@ def main():
     parser.add_argument('--world-quality', default='build/world_quality')
     parser.add_argument('--output', default='build/figure-approach')
     parser.add_argument('--level', type=int, choices=(0, 1, 2))
+    parser.add_argument('--all-kinds', action='store_true',
+                        help='approach each harmless creature type in each family')
     args = parser.parse_args()
     root = pathlib.Path(__file__).resolve().parents[1]
     output = (root / args.output).resolve()
     output.mkdir(parents=True, exist_ok=True)
     samples = subprocess.check_output(
-        [str((root / args.world_quality).resolve()), '--entity-approaches'],
+        [str((root / args.world_quality).resolve()),
+         '--creature-approaches' if args.all_kinds else '--entity-approaches'],
         cwd=root, text=True, stderr=subprocess.STDOUT)
     source = re.search(r'\[levels\] format \d+, world \d+, source ([0-9a-f]+)', samples)
     if source is None:
         raise RuntimeError('the approach audit did not report its profile source')
     pattern = (r'approach seed (\d+) level ([012]) center ([\d.-]+),([\d.-]+) '
-               r'phase ([\d.-]+) position ([\d.-]+),([\d.-]+) heading ([\d.-]+)')
+               r'phase ([\d.-]+) position ([\d.-]+),([\d.-]+) heading ([\d.-]+) kind ([012])')
     approaches = list(re.finditer(pattern, samples))
-    if len(approaches) != 3:
-        raise RuntimeError('the audit did not find all three clear approaches')
+    if len(approaches) != (9 if args.all_kinds else 3):
+        raise RuntimeError('the audit did not find all requested clear approaches')
     env = os.environ.copy()
     env.update(SDL_VIDEODRIVER='x11', SDL_AUDIODRIVER='dummy')
     manifest = []
@@ -40,19 +43,20 @@ def main():
                                        text=True, timeout=5).strip()
 
     for sample in approaches:
-        seed, level, cx, cz, phase, sx, sz, heading = sample.groups()
+        seed, level, cx, cz, phase, sx, sz, heading, kind = sample.groups()
         level = int(level)
         if args.level is not None and level != args.level:
             continue
         cx, cz, sx, sz, heading = map(float, (cx, cz, sx, sz, heading))
-        with (output / f'l{level}.log').open('w') as log:
+        prefix=f'l{level}-k{kind}' if args.all_kinds else f'l{level}'
+        with (output / (prefix+'.log')).open('w') as log:
             game = subprocess.Popen(
                 [str((root / args.game).resolve()), '--seed', seed,
                  '--level', str(level), '--position', str(sx), str(sz),
                  '--walk-speed', '2.4'], cwd=root, env=env, stdout=log, stderr=log)
             try:
                 time.sleep(3)
-                startup = (output / f'l{level}.log').read_text()
+                startup = (output / (prefix+'.log')).read_text()
                 actual_source = re.search(
                     r'\[levels\] format \d+, world \d+, source ([0-9a-f]+)', startup)
                 if actual_source is None or actual_source[1] != source[1]:
@@ -93,10 +97,10 @@ def main():
                     error = (yaw - heading + math.pi) % (2 * math.pi) - math.pi
                     if abs(error) > math.radians(.3):
                         raise RuntimeError('figure approach mouse convention mismatch: ' + title)
-                    name = f'l{level}-{index:02d}-d{distance:.1f}'
+                    name = f'{prefix}-{index:02d}-d{distance:.1f}'
                     subprocess.run(['import', '-window', window, str(output / (name + '.png'))],
                                    check=True, timeout=10)
-                    manifest.append(dict(name=name, level=level, seed=seed, center=[cx, cz],
+                    manifest.append(dict(name=name, level=level, kind=int(kind), seed=seed, center=[cx, cz],
                                          phase=float(phase), target_distance=distance, title=title))
                     (output / 'manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')
                     print(name + ' | ' + title, flush=True)

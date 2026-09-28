@@ -55,10 +55,13 @@ private:
     Microsoft::Xna::Framework::GraphicsDeviceManager graphics_;
     std::unique_ptr<Microsoft::Xna::Framework::Graphics::BasicEffect> effect_;
     std::unique_ptr<Materials> materials_;
-    std::unique_ptr<Microsoft::Xna::Framework::Graphics::VertexBuffer> entityVertices_;
-    int entityTriangles_ = 0;
-    std::unique_ptr<Microsoft::Xna::Framework::Graphics::VertexBuffer> entityShadowVertices_;
-    int entityShadowTriangles_ = 0;
+    struct EntityMesh {
+        std::unique_ptr<Microsoft::Xna::Framework::Graphics::VertexBuffer> vertices;
+        int triangles=0;
+        std::unique_ptr<Microsoft::Xna::Framework::Graphics::VertexBuffer> shadowVertices;
+        int shadowTriangles=0;
+    };
+    std::array<EntityMesh,kEntityKindCount> entityMeshes_;
     Microsoft::Xna::Framework::Graphics::BlendState entityDepthOnlyBlend_;
     double nearestEntityDistance_ = 0;
     float nearestEntityOpacity_ = 0;
@@ -67,6 +70,11 @@ private:
     std::unique_ptr<Microsoft::Xna::Framework::Audio::SoundEffect> step_;
     std::unique_ptr<Microsoft::Xna::Framework::Audio::SoundEffect> carpetStep_;
     std::unique_ptr<Microsoft::Xna::Framework::Audio::SoundEffect> transition_;
+    std::array<std::unique_ptr<Microsoft::Xna::Framework::Audio::SoundEffect>,
+               kEntityKindCount> entitySounds_;
+    double entitySoundDelay_=5;
+    unsigned entitySoundCount_=0;
+    bool entitySoundWarningShown_=false;
     std::map<ChunkCoord, Chunk> chunks_;
     std::vector<std::unique_ptr<Microsoft::Xna::Framework::Graphics::VertexBuffer>> spareVertices_;
     LevelCatalog levelCatalog_;
@@ -101,6 +109,7 @@ private:
 
     void BuildChunk(ChunkCoord coord);
     void BuildEntityMesh();
+    void UpdateEntityAudio(float seconds,double elapsed);
     std::unique_ptr<Microsoft::Xna::Framework::Graphics::VertexBuffer>
         AcquireBuffer(int vertexCount);
     void RetireChunk(Chunk& chunk);

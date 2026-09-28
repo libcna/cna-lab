@@ -897,8 +897,10 @@ BackroomsGame::~BackroomsGame() {
     auto context=getGraphicsDeviceProperty().GetRenderer().AcquireThreadContextLeaseEXT();
     chunks_.clear();
     spareVertices_.clear();
-    entityVertices_.reset();
-    entityShadowVertices_.reset();
+    for (auto& mesh:entityMeshes_) {
+        mesh.vertices.reset();
+        mesh.shadowVertices.reset();
+    }
     materials_.reset();
     effect_.reset();
 }
@@ -949,90 +951,194 @@ void BackroomsGame::LoadContent() {
         transition_.reset();
         std::cerr << "Audio unavailable: " << error.what() << '\n';
     }
+    constexpr std::array<const char*,kEntityKindCount> voices{{
+        "entity-wanderer.wav","entity-watcher.wav","entity-crawler.wav"}};
+    for (int kind=0;kind<kEntityKindCount;++kind) {
+        try {
+            entitySounds_[kind]=std::make_unique<Audio::SoundEffect>(
+                (directory/voices[kind]).string());
+        } catch (const std::exception& error) {
+            std::cerr << "Audio: " << EntityName(static_cast<EntityKind>(kind))
+                      << " unavailable: " << error.what() << '\n';
+        }
+    }
+}
+
+void BackroomsGame::UpdateEntityAudio(float seconds,double elapsed) {
+    entitySoundDelay_-=elapsed;
+    if (entitySoundDelay_>0) return;
+    // One global cooldown and the active chunks are sufficient. No persistent
+    // per-creature history accumulates as the player explores new regions.
+    entitySoundDelay_=2;
+    const EntitySpawn* source=nullptr;
+    EntityPosition sourcePosition{};
+    double nearest=18;
+    for (const auto& [coord,chunk]:chunks_) {
+        (void)coord;
+        for (const auto& entity:chunk.entities) {
+            if (!entitySounds_[static_cast<int>(entity.kind)]) continue;
+            const auto position=EntityPositionAt(entity,seconds);
+            const double distance=std::hypot(position.x-x_,position.z-z_);
+            if (distance<2.5 || distance>=nearest) continue;
+            bool clear=true;
+            for (double step=0.18;step<distance;step+=0.18) {
+                const double t=step/distance;
+                if (Collides(world_,x_+(position.x-x_)*t,
+                             z_+(position.z-z_)*t,0.04)) {
+                    clear=false; break;
+                }
+            }
+            if (!clear) continue;
+            source=&entity;
+            sourcePosition=position;
+            nearest=distance;
+        }
+    }
+    if (!source) return;
+    const float volume=0.55f*static_cast<float>(std::pow(1-nearest/20,1.1));
+    // Match the FPS right vector; CNA's SoundEffect pan accepts [-1,1].
+    const float pan=static_cast<float>(std::clamp(
+        ((sourcePosition.x-x_)*-std::cos(yaw_)+
+         (sourcePosition.z-z_)*std::sin(yaw_))/nearest,-0.85,0.85));
+    const float pitch=source->kind==EntityKind::Watcher ? -0.24f :
+                      source->kind==EntityKind::Crawler ? -0.10f : -0.06f;
+    if (entitySounds_[static_cast<int>(source->kind)]->Play(volume,pitch,pan)) {
+        ++entitySoundCount_;
+        std::clog << "[entity-audio] " << EntityName(source->kind)
+                  << " distance " << nearest << " volume " << volume
+                  << " pan " << pan << '\n';
+    } else if (!entitySoundWarningShown_) {
+        std::cerr << "Audio: creature sound could not acquire a voice\n";
+        entitySoundWarningShown_=true;
+    }
+    entitySoundDelay_=18+source->phase*2;
 }
 
 void BackroomsGame::BuildEntityMesh() {
-    Meshes meshes;
-    const Material body=Material::Upholstery;
-    const Color coat(89,95,113),skin(112,110,112);
-    struct Ring { float x,y,z,width,depth; };
-    const auto shape=[&](std::initializer_list<Ring> rings,Color tint,int facets=8) {
-        const auto shade=[&](float angle) {
-            return Scale(tint,0.73f+0.27f*std::max(0.0f,
-                0.5f*std::cos(angle)+0.866f*std::sin(angle)));
-        };
-        const auto point=[](const Ring& ring,float angle) {
-            return Vector3(ring.x+ring.width*std::cos(angle),ring.y,
-                           ring.z+ring.depth*std::sin(angle));
-        };
-        constexpr float turn=6.28318530718f;
-        for (auto lower=rings.begin();lower+1!=rings.end();++lower) {
-            const auto& upper=*(lower+1);
-            for (int face=0;face<facets;++face) {
-                const float a=turn*face/facets,b=turn*(face+1)/facets;
-                QuadColors(meshes,body,point(*lower,a),point(*lower,b),
-                    point(upper,b),point(upper,a),
-                    {shade(a),shade(b),shade(b),shade(a)},
-                    {a/turn,lower->y},{b/turn,lower->y},
-                    {b/turn,upper.y},{a/turn,upper.y});
+    for (int kind=0;kind<kEntityKindCount;++kind) {
+        auto& model=entityMeshes_[kind];
+        Meshes meshes;
+        const Material body=Material::Upholstery;
+        const Color coat(89,95,113),skin(112,110,112);
+        struct Ring { float x,y,z,width,depth; };
+        const auto shape=[&](std::initializer_list<Ring> rings,Color tint,int facets=8) {
+            const auto shade=[&](float angle) {
+                return Scale(tint,0.73f+0.27f*std::max(0.0f,
+                    0.5f*std::cos(angle)+0.866f*std::sin(angle)));
+            };
+            const auto point=[](const Ring& ring,float angle) {
+                return Vector3(ring.x+ring.width*std::cos(angle),ring.y,
+                               ring.z+ring.depth*std::sin(angle));
+            };
+            constexpr float turn=6.28318530718f;
+            for (auto lower=rings.begin();lower+1!=rings.end();++lower) {
+                const auto& upper=*(lower+1);
+                for (int face=0;face<facets;++face) {
+                    const float a=turn*face/facets,b=turn*(face+1)/facets;
+                    QuadColors(meshes,body,point(*lower,a),point(*lower,b),
+                        point(upper,b),point(upper,a),
+                        {shade(a),shade(b),shade(b),shade(a)},
+                        {a/turn,lower->y},{b/turn,lower->y},
+                        {b/turn,upper.y},{a/turn,upper.y});
+                }
             }
+            auto& mesh=meshes[static_cast<int>(body)];
+            for (int end=0;end<2;++end) {
+                const auto& ring=end ? *(rings.end()-1) : *rings.begin();
+                const Vector3 center(ring.x,ring.y,ring.z);
+                const Color cap=Scale(tint,end ? 0.95f : 0.70f);
+                for (int face=0;face<facets;++face) {
+                    const float a=turn*face/facets,b=turn*(face+1)/facets;
+                    mesh.emplace_back(center,cap,Vector2(0.5f,0.5f));
+                    mesh.emplace_back(point(ring,a),cap,
+                        Vector2(0.5f+0.5f*std::cos(a),0.5f+0.5f*std::sin(a)));
+                    mesh.emplace_back(point(ring,b),cap,
+                        Vector2(0.5f+0.5f*std::cos(b),0.5f+0.5f*std::sin(b)));
+                }
+            }
+        };
+        // Three immutable silhouettes are shared by the bounded active population.
+        if (kind==static_cast<int>(EntityKind::Wanderer)) {
+            shape({{0,0.76f,0,0.205f,0.12f},{0,1.13f,0,0.18f,0.105f},
+                   {0,1.55f,0,0.245f,0.135f},{0,1.68f,0,0.085f,0.07f}},coat);
+            for (const float side:{-1.0f,1.0f}) {
+                shape({{side*0.12f,0.0f,0.025f,0.065f,0.105f},
+                       {side*0.12f,0.11f,0,0.06f,0.07f},
+                       {side*0.11f,0.44f,0.015f,0.065f,0.08f},
+                       {side*0.105f,0.82f,0,0.085f,0.10f}},coat);
+                shape({{side*0.30f,0.80f,0.035f,0.042f,0.05f},
+                       {side*0.32f,1.12f,0.02f,0.055f,0.06f},
+                       {side*0.275f,1.53f,0,0.072f,0.075f}},coat);
+            }
+            shape({{0,1.63f,0,0.061f,0.055f},{0,1.76f,0.015f,0.06f,0.055f}},skin);
+            shape({{0,1.69f,0.018f,0.025f,0.03f},
+                   {0,1.74f,0.024f,0.085f,0.088f},
+                   {0,1.84f,0.02f,0.111f,0.105f},
+                   {0,1.95f,0.008f,0.083f,0.081f},
+                   {0,2.005f,0,0.012f,0.012f}},skin,12);
+        } else if (kind==static_cast<int>(EntityKind::Watcher)) {
+            const Color hide(64,68,65),face(115,117,101);
+            shape({{0,1.05f,0,0.10f,0.075f},{0,1.48f,0.02f,0.095f,0.075f},
+                   {0,1.92f,0,0.16f,0.095f},{0,2.09f,0,0.044f,0.045f}},hide);
+            for (const float side:{-1.0f,1.0f}) {
+                shape({{side*0.085f,0,0.045f,0.045f,0.11f},
+                       {side*0.10f,0.10f,0,0.039f,0.05f},
+                       {side*0.11f,0.60f,0.055f,0.047f,0.055f},
+                       {side*0.065f,1.16f,0,0.057f,0.065f}},hide);
+                shape({{side*0.25f,0.63f,0.09f,0.032f,0.045f},
+                       {side*0.29f,1.12f,0.12f,0.041f,0.049f},
+                       {side*0.18f,1.86f,0,0.053f,0.056f}},hide);
+            }
+            shape({{0,2.02f,0,0.043f,0.044f},{0,2.21f,0.015f,0.041f,0.045f}},hide);
+            shape({{0,2.15f,0.01f,0.035f,0.035f},{0,2.22f,0.02f,0.080f,0.070f},
+                   {0,2.32f,0.008f,0.066f,0.062f},{0,2.38f,0,0.013f,0.015f}},face,12);
+        } else {
+            const Color hide(78,73,63),face(111,101,86);
+            shape({{0,0.40f,-0.12f,0.14f,0.26f},{0,0.56f,-0.10f,0.25f,0.40f},
+                   {0,0.76f,-0.12f,0.20f,0.32f},{0,0.83f,-0.18f,0.05f,0.12f}},hide);
+            // Four relaxed, splayed legs give a low silhouette without animation.
+            for (const float side:{-1.0f,1.0f}) for (const float end:{-1.0f,1.0f})
+                shape({{side*0.39f,0,end*0.40f,0.075f,0.12f},
+                       {side*0.40f,0.10f,end*0.40f,0.046f,0.055f},
+                       {side*0.34f,0.32f,end*0.30f,0.065f,0.072f},
+                       {side*0.16f,0.61f,end*0.22f-0.08f,0.076f,0.083f}},hide);
+            shape({{0,0.62f,0.27f,0.09f,0.11f},{0,0.86f,0.39f,0.075f,0.08f}},hide);
+            shape({{0,0.78f,0.38f,0.05f,0.055f},{0,0.86f,0.44f,0.13f,0.15f},
+                   {0,0.98f,0.41f,0.105f,0.12f},{0,1.03f,0.38f,0.015f,0.02f}},face,12);
         }
         auto& mesh=meshes[static_cast<int>(body)];
-        for (int end=0;end<2;++end) {
-            const auto& ring=end ? *(rings.end()-1) : *rings.begin();
-            const Vector3 center(ring.x,ring.y,ring.z);
-            const Color cap=Scale(tint,end ? 0.95f : 0.70f);
-            for (int face=0;face<facets;++face) {
-                const float a=turn*face/facets,b=turn*(face+1)/facets;
-                mesh.emplace_back(center,cap,Vector2(0.5f,0.5f));
-                mesh.emplace_back(point(ring,a),cap,
-                    Vector2(0.5f+0.5f*std::cos(a),0.5f+0.5f*std::sin(a)));
-                mesh.emplace_back(point(ring,b),cap,
-                    Vector2(0.5f+0.5f*std::cos(b),0.5f+0.5f*std::sin(b)));
-            }
+        model.triangles=static_cast<int>(mesh.size()/3);
+        model.vertices=std::make_unique<VertexBuffer>(getGraphicsDeviceProperty(),
+            VertexPositionColorTexture::getVertexDeclarationStatic(),
+            static_cast<int>(mesh.size()),BufferUsage::WriteOnly);
+        model.vertices->SetData(mesh.data(),static_cast<int>(mesh.size()));
+        Mesh shadow;
+        constexpr float turn=6.28318530718f;
+        std::vector<Vector2> feet;
+        if (kind==static_cast<int>(EntityKind::Crawler)) {
+            for (float side:{-1.0f,1.0f}) for (float end:{-1.0f,1.0f})
+                feet.emplace_back(side*0.39f,end*0.40f);
+        } else {
+            const float spread=kind==static_cast<int>(EntityKind::Watcher) ? 0.085f : 0.12f;
+            feet.emplace_back(-spread,0.025f);
+            feet.emplace_back(spread,0.025f);
         }
-    };
-    // The torso and relaxed limbs overlap at joints. One immutable mesh is
-    // shared by every distant figure; no animation or physical agent is needed.
-    shape({{0,0.76f,0,0.205f,0.12f},{0,1.13f,0,0.18f,0.105f},
-           {0,1.55f,0,0.245f,0.135f},{0,1.68f,0,0.085f,0.07f}},coat);
-    for (const float side:{-1.0f,1.0f}) {
-        shape({{side*0.12f,0.0f,0.025f,0.065f,0.105f},
-               {side*0.12f,0.11f,0,0.06f,0.07f},
-               {side*0.11f,0.44f,0.015f,0.065f,0.08f},
-               {side*0.105f,0.82f,0,0.085f,0.10f}},coat);
-        shape({{side*0.30f,0.80f,0.035f,0.042f,0.05f},
-               {side*0.32f,1.12f,0.02f,0.055f,0.06f},
-               {side*0.275f,1.53f,0,0.072f,0.075f}},coat);
+        for (const auto& foot:feet) for (int side=0;side<8;++side) {
+            const float a=turn*side/8,b=turn*(side+1)/8;
+            shadow.emplace_back(Vector3(foot.X,0.007f,foot.Y),Color(0,0,0,56),Vector2(0,0));
+            shadow.emplace_back(Vector3(foot.X+0.16f*std::cos(a),0.007f,
+                                        foot.Y+0.20f*std::sin(a)),Color(0,0,0,0),Vector2(0,0));
+            shadow.emplace_back(Vector3(foot.X+0.16f*std::cos(b),0.007f,
+                                        foot.Y+0.20f*std::sin(b)),Color(0,0,0,0),Vector2(0,0));
+        }
+        model.shadowTriangles=static_cast<int>(shadow.size()/3);
+        model.shadowVertices=std::make_unique<VertexBuffer>(getGraphicsDeviceProperty(),
+            VertexPositionColorTexture::getVertexDeclarationStatic(),
+            static_cast<int>(shadow.size()),BufferUsage::WriteOnly);
+        model.shadowVertices->SetData(shadow.data(),static_cast<int>(shadow.size()));
+        std::clog << "[entity] " << EntityName(static_cast<EntityKind>(kind))
+                  << " shared mesh " << model.triangles << " triangles\n";
     }
-    shape({{0,1.63f,0,0.061f,0.055f},{0,1.76f,0.015f,0.06f,0.055f}},skin);
-    shape({{0,1.69f,0.018f,0.025f,0.03f},
-           {0,1.74f,0.024f,0.085f,0.088f},
-           {0,1.84f,0.02f,0.111f,0.105f},
-           {0,1.95f,0.008f,0.083f,0.081f},
-           {0,2.005f,0,0.012f,0.012f}},skin,12);
-    auto& mesh=meshes[static_cast<int>(body)];
-    entityTriangles_=static_cast<int>(mesh.size()/3);
-    entityVertices_=std::make_unique<VertexBuffer>(getGraphicsDeviceProperty(),
-        VertexPositionColorTexture::getVertexDeclarationStatic(),
-        static_cast<int>(mesh.size()),BufferUsage::WriteOnly);
-    entityVertices_->SetData(mesh.data(),static_cast<int>(mesh.size()));
-    Mesh shadow;
-    constexpr float turn=6.28318530718f;
-    for (float foot:{-0.12f,0.12f}) for (int side=0;side<8;++side) {
-        const float a=turn*side/8,b=turn*(side+1)/8;
-        shadow.emplace_back(Vector3(foot,0.007f,0.025f),Color(0,0,0,56),Vector2(0,0));
-        shadow.emplace_back(Vector3(foot+0.16f*std::cos(a),0.007f,
-                                    0.025f+0.20f*std::sin(a)),Color(0,0,0,0),Vector2(0,0));
-        shadow.emplace_back(Vector3(foot+0.16f*std::cos(b),0.007f,
-                                    0.025f+0.20f*std::sin(b)),Color(0,0,0,0),Vector2(0,0));
-    }
-    entityShadowTriangles_=static_cast<int>(shadow.size()/3);
-    entityShadowVertices_=std::make_unique<VertexBuffer>(getGraphicsDeviceProperty(),
-        VertexPositionColorTexture::getVertexDeclarationStatic(),
-        static_cast<int>(shadow.size()),BufferUsage::WriteOnly);
-    entityShadowVertices_->SetData(shadow.data(),static_cast<int>(shadow.size()));
-
 }
 
 std::unique_ptr<VertexBuffer> BackroomsGame::AcquireBuffer(int vertexCount) {
@@ -1536,6 +1642,7 @@ void BackroomsGame::Transition(int level) {
     yaw_=level==2 ? 0.0f : 1.5707963f;
     pitch_=0;
     stepDistance_=0;
+    entitySoundDelay_=8;
     BuildChunk({0,0});
 }
 
@@ -1562,8 +1669,10 @@ void BackroomsGame::UpdateTitle(double elapsed) {
     }
     for (const auto& buffer:spareVertices_)
         vertexCapacity+=buffer->getVertexCountProperty();
-    if (entityVertices_) vertexCapacity+=entityVertices_->getVertexCountProperty();
-    if (entityShadowVertices_) vertexCapacity+=entityShadowVertices_->getVertexCountProperty();
+    for (const auto& mesh:entityMeshes_) {
+        if (mesh.vertices) vertexCapacity+=mesh.vertices->getVertexCountProperty();
+        if (mesh.shadowVertices) vertexCapacity+=mesh.shadowVertices->getVertexCountProperty();
+    }
     const double bufferMiB=vertexCapacity*
         VertexPositionColorTexture::getVertexDeclarationStatic().getVertexStrideProperty()/1048576.0;
     const auto here=ChunkAt(x_,z_);
@@ -1579,7 +1688,7 @@ void BackroomsGame::UpdateTitle(double elapsed) {
           << " | VBO " << bufferCreations_ << '/' << bufferReuses_
           << " pool " << spareVertices_.size() << " gpu " << bufferMiB << " MiB"
           << " | rooms " << roomLayouts_.Size()
-          << " | entities " << entities
+          << " | entities " << entities << " voices " << entitySoundCount_
           << " | nearest " << std::setprecision(2) << nearestEntityDistance_
           << '/' << nearestEntityOpacity_
           << " | build " << std::setprecision(2) << lastBuildMs_ << " ms"
@@ -1677,6 +1786,7 @@ void BackroomsGame::Update(GameTime& time) {
     if (portal && !insidePortal_) Transition(*portal);
     insidePortal_=portal.has_value();
     Stream();
+    UpdateEntityAudio(static_cast<float>(time.getTotalGameTimeProperty().getTotalSecondsProperty()),dt);
     UpdateTitle(dt);
     previousKeys_=keys;
     Game::Update(time);
@@ -1738,7 +1848,6 @@ void BackroomsGame::Draw(const GameTime& time) {
         }
     }
     effect_->setTextureProperty(materials_->Get(Material::Upholstery));
-    device.SetVertexBuffer(entityVertices_.get());
     const float seconds=static_cast<float>(
         time.getTotalGameTimeProperty().getTotalSecondsProperty());
     nearestEntityDistance_=0;
@@ -1747,8 +1856,9 @@ void BackroomsGame::Draw(const GameTime& time) {
     for (const auto& [coord,chunk]:chunks_) {
         (void)coord;
         for (const auto& entity:chunk.entities) {
-            const double ex=entity.x+0.55*std::sin(seconds*0.28f+entity.phase);
-            const double ez=entity.z+0.55*std::cos(seconds*0.21f+entity.phase);
+            const auto position=EntityPositionAt(entity,seconds);
+            const double ex=position.x,ez=position.z;
+            const auto& model=entityMeshes_[static_cast<int>(entity.kind)];
             const double distance=std::hypot(ex-x_,ez-z_);
             // Retreat gradually as the player approaches. No mesh can surround
             // the camera, and there is no interaction or physical obstacle.
@@ -1765,18 +1875,18 @@ void BackroomsGame::Draw(const GameTime& time) {
                 Matrix::CreateTranslation(static_cast<float>(ex-x_),0,
                                           static_cast<float>(ez-z_)));
             if (distance<20) {
-                // Two soft contact spots follow the same pose as the feet.
+                // Soft contact spots follow the same pose as the feet.
                 // Native blending reads depth without writing into the floor.
                 effect_->setTextureEnabledProperty(false);
                 effect_->setFogEnabledProperty(false);
                 effect_->setAlphaProperty(opacity*static_cast<float>(1-distance/20));
                 device.setBlendStateProperty(BlendState::AlphaBlend);
                 device.setDepthStencilStateProperty(DepthStencilState::DepthRead);
-                device.SetVertexBuffer(entityShadowVertices_.get());
+                device.SetVertexBuffer(model.shadowVertices.get());
                 auto& passes=effect_->getCurrentTechniqueProperty()->getPassesProperty();
                 for (int i=0;i<passes.getCountProperty();++i) {
                     passes[i]->Apply();
-                    device.DrawPrimitives(PrimitiveType::TriangleList,0,entityShadowTriangles_);
+                    device.DrawPrimitives(PrimitiveType::TriangleList,0,model.shadowTriangles);
                 }
                 effect_->setTextureEnabledProperty(true);
                 effect_->setFogEnabledProperty(true);
@@ -1784,7 +1894,7 @@ void BackroomsGame::Draw(const GameTime& time) {
                 device.setBlendStateProperty(BlendState::Opaque);
                 device.setDepthStencilStateProperty(DepthStencilState::Default);
             }
-            device.SetVertexBuffer(entityVertices_.get());
+            device.SetVertexBuffer(model.vertices.get());
             auto& passes=effect_->getCurrentTechniqueProperty()->getPassesProperty();
             if (opacity<1) {
                 // Resolve the nearest cloth surface before blending. This
@@ -1793,7 +1903,7 @@ void BackroomsGame::Draw(const GameTime& time) {
                 device.setBlendStateProperty(entityDepthOnlyBlend_);
                 for (int i=0;i<passes.getCountProperty();++i) {
                     passes[i]->Apply();
-                    device.DrawPrimitives(PrimitiveType::TriangleList,0,entityTriangles_);
+                    device.DrawPrimitives(PrimitiveType::TriangleList,0,model.triangles);
                 }
                 device.setBlendStateProperty(BlendState::AlphaBlend);
                 device.setDepthStencilStateProperty(DepthStencilState::DepthRead);
@@ -1801,7 +1911,7 @@ void BackroomsGame::Draw(const GameTime& time) {
             }
             for (int i=0;i<passes.getCountProperty();++i) {
                 passes[i]->Apply();
-                device.DrawPrimitives(PrimitiveType::TriangleList,0,entityTriangles_);
+                device.DrawPrimitives(PrimitiveType::TriangleList,0,model.triangles);
             }
             effect_->setAlphaProperty(1);
             device.setBlendStateProperty(BlendState::Opaque);

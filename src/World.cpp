@@ -886,7 +886,24 @@ std::optional<EntitySpawn> EntityAt(const WorldConfig& config,int cellX,int cell
         CellObstacles(config,cellX,cellZ).count!=0) return std::nullopt;
     // A deterministic atmosphere candidate, with no collision or interaction state.
     return EntitySpawn{(cellX+0.5)*kCellSize,(cellZ+0.5)*kCellSize,
-                       static_cast<float>((hash>>8)%628)/100.0f};
+                       static_cast<float>((hash>>8)%628)/100.0f,
+                       static_cast<EntityKind>((hash>>24)%kEntityKindCount)};
+}
+
+EntityPosition EntityPositionAt(const EntitySpawn& entity,float seconds) {
+    const float pace=entity.kind==EntityKind::Watcher ? 0.45f :
+                     entity.kind==EntityKind::Crawler ? 0.72f : 1.0f;
+    return {entity.x+0.55*std::sin(seconds*0.28f*pace+entity.phase),
+            entity.z+0.55*std::cos(seconds*0.21f*pace+entity.phase)};
+}
+
+const char* EntityName(EntityKind kind) {
+    switch (kind) {
+        case EntityKind::Wanderer: return "wanderer";
+        case EntityKind::Watcher: return "watcher";
+        case EntityKind::Crawler: return "crawler";
+    }
+    return "unknown";
 }
 
 bool UtilityAlongZAt(const WorldConfig& config,int cellX,int cellZ) {

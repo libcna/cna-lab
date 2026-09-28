@@ -29,7 +29,7 @@ int main() {
     CHECK(ChunkOfCell(-9)==-2);
     CHECK(ChunkAt(-0.01,-40.01)==(ChunkCoord{-1,-2}));
     // Golden values make changes to the versioned procedural world explicit.
-    CHECK(kFormatVersion==46);
+    CHECK(kFormatVersion==47);
     CHECK(CellHash(world,12,-8,41)==511389911U);
     CHECK(VerticalEdge(world,8,3)==Edge::Open);
     CHECK(HorizontalEdge(world,-4,-5)==Edge::Open);
@@ -556,6 +556,7 @@ int main() {
     }
     // Rare figures are reproducible atmosphere in clear cells. They do not
     // enter the static collision set or the initial spawn neighborhood.
+    std::array<int,kEntityKindCount> kinds{};
     for (const auto seed:{0ULL,12345ULL}) for (int level=0;level<3;++level) {
         const WorldConfig selected{seed,level,&cache},pure{seed,level};
         int figures=0;
@@ -564,14 +565,25 @@ int main() {
             CHECK(entity==EntityAt(pure,x,z));
             if (!entity) continue;
             ++figures;
+            const int kind=static_cast<int>(entity->kind);
+            CHECK(kind>=0 && kind<kEntityKindCount);
+            ++kinds[kind];
             CHECK(x<-4 || x>4 || z<-4 || z>4);
             CHECK(CellObstacles(selected,x,z).count==0);
             CHECK(entity->x==(x+0.5)*kCellSize && entity->z==(z+0.5)*kCellSize);
             CHECK(entity->phase>=0 && entity->phase<6.28f);
             CHECK(!Collides(selected,entity->x,entity->z,0.90));
+            for (float seconds:{0.0f,17.0f,3600.0f}) {
+                const auto position=EntityPositionAt(*entity,seconds);
+                CHECK(std::abs(position.x-entity->x)<=0.55);
+                CHECK(std::abs(position.z-entity->z)<=0.55);
+                const auto again=EntityPositionAt(*entity,seconds);
+                CHECK(position.x==again.x && position.z==again.z);
+            }
         }
         CHECK(figures>0 && figures<100);
     }
+    for (int count:kinds) CHECK(count>0);
     // Troffers replace two by one ceiling tiles, including negative cells.
     // Keep them off structural columns and room-spanning partitions.
     int fixtures=0,deadFixtures=0;
