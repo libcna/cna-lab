@@ -351,9 +351,9 @@ CellObstacleSet InteriorPartitionsAt(const WorldConfig& config,
     const double originZ=rz*kRegionCells*kCellSize;
     const auto clearBoundary=[](double position) {
         const double cell=std::fmod(position,kCellSize);
-        if (cell<0.8) return position+(0.8-cell);
-        if (cell>kCellSize-0.8)
-            return position-(cell-(kCellSize-0.8));
+        if (cell<1.2) return position+(1.2-cell);
+        if (cell>kCellSize-1.2)
+            return position-(cell-(kCellSize-1.2));
         return position;
     };
     const double cross=clearBoundary(8.4+((layout>>5)%17)*0.43);
@@ -365,12 +365,12 @@ CellObstacleSet InteriorPartitionsAt(const WorldConfig& config,
         const double near=std::max(z-0.11,cellMinZ);
         const double far=std::min(z+0.11,cellMaxZ);
         double a=std::max(x0,cellMinX),b=std::min(x1,cellMaxX);
-        if (x0<cellMinX+0.75 &&
+        if (x0<cellMinX+1.25 &&
             VerticalEdge(config,cellX,cellZ)!=Edge::Open)
-            a=std::max(a,cellMinX+0.75);
-        if (x1>cellMaxX-0.75 &&
+            a=std::max(a,cellMinX+1.25);
+        if (x1>cellMaxX-1.25 &&
             VerticalEdge(config,cellX+1,cellZ)!=Edge::Open)
-            b=std::min(b,cellMaxX-0.75);
+            b=std::min(b,cellMaxX-1.25);
         if (b-a>0.001 && far-near>0.001)
             result.walls[result.count++]={a,near,b,far};
     };
@@ -378,12 +378,12 @@ CellObstacleSet InteriorPartitionsAt(const WorldConfig& config,
         const double near=std::max(x-0.11,cellMinX);
         const double far=std::min(x+0.11,cellMaxX);
         double a=std::max(z0,cellMinZ),b=std::min(z1,cellMaxZ);
-        if (z0<cellMinZ+0.75 &&
+        if (z0<cellMinZ+1.25 &&
             HorizontalEdge(config,cellX,cellZ)!=Edge::Open)
-            a=std::max(a,cellMinZ+0.75);
-        if (z1>cellMaxZ-0.75 &&
+            a=std::max(a,cellMinZ+1.25);
+        if (z1>cellMaxZ-1.25 &&
             HorizontalEdge(config,cellX,cellZ+1)!=Edge::Open)
-            b=std::min(b,cellMaxZ-0.75);
+            b=std::min(b,cellMaxZ-1.25);
         if (b-a>0.001 && far-near>0.001)
             result.walls[result.count++]={near,a,far,b};
     };

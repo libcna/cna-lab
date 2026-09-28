@@ -25,8 +25,8 @@ std::uint32_t Noise(int x, int y, int salt) {
     return h ^ (h>>16);
 }
 
-float SmoothNoise(int x, int y, int cellSize, int salt) {
-    const int count=128/cellSize;
+float SmoothNoise(int x, int y, int cellSize, int salt, int size) {
+    const int count=size/cellSize;
     const int gx=x/cellSize,gy=y/cellSize;
     const float fx=static_cast<float>(x%cellSize)/cellSize;
     const float fy=static_cast<float>(y%cellSize)/cellSize;
@@ -38,11 +38,11 @@ float SmoothNoise(int x, int y, int cellSize, int salt) {
     return a*(1-fy)+b*fy;
 }
 
-Color Pixel(Material material, int x, int y) {
+Color Pixel(Material material, int x, int y, int size) {
     const int id=static_cast<int>(material);
     const int grain=static_cast<int>(Noise(x,y,id)%17)-8;
     const int blotch=static_cast<int>(std::lround(
-        (SmoothNoise(x,y,16,id+37)-0.5f)*18.0f));
+        (SmoothNoise(x,y,16,id+37,size)-0.5f)*18.0f));
     int r=0,g=0,b=0;
     switch (material) {
     case Material::Wallpaper: {
@@ -55,12 +55,15 @@ Color Pixel(Material material, int x, int y) {
                         (std::abs(diamond-1.0f)<0.17f ? -6 : 0)+
                         (localX<1.3f && localY<1.5f ? -4 : 0);
         const int panel=((x/16)&1) ? -1 : 1;
-        const float stainNoise=SmoothNoise(x,y,32,51);
-        const int stain=stainNoise>0.60f ?
-            static_cast<int>((0.60f-stainNoise)*32.0f) : 0;
-        r=211+grain/3+blotch/3+motif+panel+stain;
-        g=200+grain/3+blotch/3+motif+panel+stain;
-        b=138+grain/4+blotch/3+motif/2+panel+stain;
+        const float stainNoise=SmoothNoise(x,y,128,51,size);
+        const int stain=stainNoise>0.55f ?
+            static_cast<int>((0.55f-stainNoise)*31.0f) : 0;
+        const float streak=SmoothNoise(x,0,64,137,size);
+        const int waterline=streak>0.58f && y>size*3/4 ?
+            static_cast<int>((0.58f-streak)*15.0f) : 0;
+        r=211+grain/3+blotch/3+motif+panel+stain+waterline;
+        g=200+grain/3+blotch/3+motif+panel+stain+waterline;
+        b=138+grain/4+blotch/3+motif/2+panel+stain+waterline;
         break;
     }
     case Material::Carpet: {
@@ -68,8 +71,8 @@ Color Pixel(Material material, int x, int y) {
         const int fiber=fiberNoise%5==0 ? 10 :
                         fiberNoise%13==0 ? -8 : 0;
         const int wear=static_cast<int>(std::lround(
-            (SmoothNoise(x,y,32,62)-0.5f)*9.0f));
-        const float dirtNoise=SmoothNoise(x,y,32,93);
+            (SmoothNoise(x,y,32,62,size)-0.5f)*9.0f));
+        const float dirtNoise=SmoothNoise(x,y,32,93,size);
         const int dirt=dirtNoise>0.57f ?
             static_cast<int>((0.57f-dirtNoise)*45.0f) : 0;
         r=173+grain/2+fiber+wear+dirt;
@@ -99,7 +102,7 @@ Color Pixel(Material material, int x, int y) {
     case Material::IndustrialCeiling:
         r=100+grain/2+blotch; g=109+grain/2+blotch; b=106+grain/2+blotch; break;
     case Material::TunnelWall: {
-        const float rustNoise=SmoothNoise(x,y,32,73);
+        const float rustNoise=SmoothNoise(x,y,32,73,size);
         const int rust=rustNoise>0.62f ?
             static_cast<int>((rustNoise-0.62f)*52.0f) : 0;
         r=113+grain+blotch+rust;
@@ -113,10 +116,18 @@ Color Pixel(Material material, int x, int y) {
         r=86+grain+blotch; g=83+grain+blotch; b=76+grain+blotch; break;
     case Material::Wood: {
         const int grainLine=static_cast<int>(std::lround(
-            5.0f*std::sin(y*0.39f+SmoothNoise(x,y,16,140)*2.0f)));
+            5.0f*std::sin(y*0.39f+SmoothNoise(x,y,16,140,size)*2.0f)));
         r=172+grain/2+blotch/2+grainLine;
         g=138+grain/2+blotch/2+grainLine;
         b=93+grain/3+blotch/2+grainLine;
+        break;
+    }
+    case Material::Cardboard: {
+        const int tape=(x>=54 && x<=72) ? 15 : 0;
+        const int edge=(x<3 || y<3 || x>124 || y>124) ? -12 : 0;
+        r=173+grain/3+blotch/2+tape+edge;
+        g=150+grain/3+blotch/2+tape+edge;
+        b=109+grain/3+blotch/2+tape+edge;
         break;
     }
     case Material::Fluorescent: {
@@ -133,13 +144,13 @@ Color Pixel(Material material, int x, int y) {
 }
 
 Materials::Materials(GraphicsDevice& device) {
-    constexpr int size=128;
     for (int id=0;id<kMaterialCount;++id) {
         const Material material=static_cast<Material>(id);
+        const int size=material==Material::Wallpaper ? 512 : 128;
         std::vector<Color> pixels;
         pixels.reserve(size*size);
         for (int y=0;y<size;++y) for (int x=0;x<size;++x)
-            pixels.push_back(Pixel(material,x,y));
+            pixels.push_back(Pixel(material,x,y,size));
         textures_[id]=std::make_unique<Texture2D>(
             device,size,size,true,SurfaceFormat::Color);
         int width=size;
