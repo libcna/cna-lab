@@ -176,39 +176,6 @@ void Partition(Meshes& meshes, Material material, Edge edge,
     }
 }
 
-void ContactShadow(Meshes& meshes, Edge edge, OpeningSpan opening,
-                   bool vertical, float boundary, float along,
-                   Color floorColor) {
-    if (edge==Edge::Open) return;
-    const Color outer=floorColor;
-    const Color inner=Scale(floorColor,0.84f);
-    const auto section=[&](float start,float end) {
-        if (end<=start) return;
-        const float a=along+start,b=along+end;
-        constexpr float inset=0.105f,outset=0.34f,y=0.004f;
-        if (vertical) {
-            FlatShaded(meshes,Material::Carpet,boundary-outset,a,
-                       boundary-inset,b,y,
-                       {outer,inner,inner,outer},0.25f);
-            FlatShaded(meshes,Material::Carpet,boundary+inset,a,
-                       boundary+outset,b,y,
-                       {inner,outer,outer,inner},0.25f);
-        } else {
-            FlatShaded(meshes,Material::Carpet,a,boundary-outset,
-                       b,boundary-inset,y,
-                       {outer,outer,inner,inner},0.25f);
-            FlatShaded(meshes,Material::Carpet,a,boundary+inset,
-                       b,boundary+outset,y,
-                       {inner,inner,outer,outer},0.25f);
-        }
-    };
-    if (edge==Edge::Solid) section(0,5);
-    else {
-        section(0,static_cast<float>(opening.start));
-        section(static_cast<float>(opening.end),5);
-    }
-}
-
 void BoxRange(Meshes& meshes, Material material, float x0, float z0,
               float x1, float z1, float y0, float y1, Color color) {
     WallFace(meshes,material,true,x0,z0,z1,y0,y1,color);
@@ -514,6 +481,42 @@ private:
     std::map<std::tuple<double,double,int,int>,float> samples_;
 };
 
+void ContactShadow(Meshes& meshes, BakedLighting& lighting,
+                   Edge edge, OpeningSpan opening, bool vertical,
+                   float boundary, float along, double chunkX,
+                   double chunkZ, Color floorColor) {
+    if (edge==Edge::Open) return;
+    const auto strip=[&](float x0,float z0,float x1,float z1,
+                         const std::array<float,4>& strength) {
+        const auto color=[&](float x,float z,float scale) {
+            return Scale(floorColor,scale*lighting.FloorSample(chunkX+x,chunkZ+z));
+        };
+        FlatShaded(meshes,Material::Carpet,x0,z0,x1,z1,0.004f,
+            {color(x0,z0,strength[0]),color(x1,z0,strength[1]),
+             color(x1,z1,strength[2]),color(x0,z1,strength[3])},0.25f);
+    };
+    const auto section=[&](float start,float end) {
+        if (end<=start) return;
+        constexpr float inset=0.105f,outset=0.34f,dim=0.84f;
+        float a=along+start;
+        const float stop=along+end;
+        while (a<stop-0.001f) {
+            const float b=std::min(stop,(std::floor(a/1.25f)+1)*1.25f);
+            if (vertical) {
+                strip(boundary-outset,a,boundary-inset,b,{1,dim,dim,1});
+                strip(boundary+inset,a,boundary+outset,b,{dim,1,1,dim});
+            } else {
+                strip(a,boundary-outset,b,boundary-inset,{1,1,dim,dim});
+                strip(a,boundary+inset,b,boundary+outset,{dim,dim,1,1});
+            }
+            a=b;
+        }
+    };
+    if (edge==Edge::Solid) section(0,5);
+    else { section(0,static_cast<float>(opening.start));
+           section(static_cast<float>(opening.end),5); }
+}
+
 void FloorContactShadow(Meshes& meshes, BakedLighting& lighting,
                          float x0, float z0, float x1, float z1,
                          double chunkX, double chunkZ, Color floor,
@@ -574,7 +577,7 @@ void IndustrialColumn(Meshes& meshes, BakedLighting& lighting,
                 vertical ? normal : 0,vertical ? 0 : normal);
         };
         const float start=sample(a),end=sample(b);
-        WallFace(meshes,Material::ConcreteFloor,vertical,boundary,a,b,
+        WallFace(meshes,Material::ConcreteCeiling,vertical,boundary,a,b,
                  0.20f,height,Color(242,240,222),start,end);
         WallFace(meshes,Material::IndustrialCeiling,vertical,boundary,a,b,
                  0,0.20f,Color(150,163,150),start,end);
@@ -898,9 +901,18 @@ void BackroomsGame::BuildChunk(ChunkCoord coord) {
                          Scale(stain,tint),0.4f);
                 }
             }
+        } else if (level==1 || chamber) {
+            const auto shade=[&](float light) {
+                return Scale(ceiling,0.60f+0.40f*light);
+            };
+            for (int fx=0;fx<2;++fx) for (int fz=0;fz<2;++fz) {
+                const float px=x+fx*2.5f,pz=z+fz*2.5f;
+                FlatShaded(meshes,Material::ConcreteCeiling,px,pz,px+2.5f,pz+2.5f,height,
+                    {shade(lightGrid[fx][fz]),shade(lightGrid[fx+1][fz]),
+                     shade(lightGrid[fx+1][fz+1]),shade(lightGrid[fx][fz+1])},0.2f);
+            }
         } else
-            Flat(meshes,chamber ? Material::IndustrialCeiling : ceilingMat,
-                 x,z,x+5,z+5,height,
+            Flat(meshes,ceilingMat,x,z,x+5,z+5,height,
                  Scale(ceiling,lampInfo.lit?1.0f:0.91f),0.8f);
         if (level==1) {
             const int rx=FloorDiv(gx,kRegionCells),rz=FloorDiv(gz,kRegionCells);
@@ -991,12 +1003,10 @@ void BackroomsGame::BuildChunk(ChunkCoord coord) {
             Partition(meshes,wallMat,horizontalEdge,horizontalOpening,false,z,x,
                       height,doorHeight,cellWall,trim,wallLighting(false));
         if (level==0) {
-            const float ambient=(light[0]+light[1]+light[2]+light[3])*0.25f;
-            const Color shadowFloor=Scale(floorColor,ambient);
-            ContactShadow(meshes,verticalEdge,verticalOpening,true,x,z,
-                          shadowFloor);
-            ContactShadow(meshes,horizontalEdge,horizontalOpening,false,z,x,
-                          shadowFloor);
+            ContactShadow(meshes,lighting,verticalEdge,verticalOpening,true,x,z,
+                          ox*kCellSize,oz*kCellSize,floorColor);
+            ContactShadow(meshes,lighting,horizontalEdge,horizontalOpening,false,z,x,
+                          ox*kCellSize,oz*kCellSize,floorColor);
         }
         if (level==2) {
             const Color cabinet(133,139,126);

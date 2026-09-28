@@ -6,6 +6,10 @@ The September 2026 playable foundation at `aaf67c0` has deterministic regions, b
 
 ## Completed passes
 
+- Format 19 replaces the cloudy industrial roof with a quieter cast-concrete finish and subtle formwork lines, also used on pillars and service-chamber ceilings. Carpet uses finer 4 mm-scale grain while retaining metre-scale wear. Paired close views exposed overbright wall-base strips; their colors now sample the existing floor triangles. Debug/Release builds and tests, six paired industrial views, three close carpet views and a new twelve-view round pass. A 2.4 km Level 0 Release sweep stays near 59 FPS, maximum 25 chunks, 4.48 ms peak, warmed RSS 177.1–177.8 MB.
+
+- A QA-only collision route planner now emits versioned JSON waypoints with 0.55 m clearance and avoids transition triggers. The controller driver accepts these routes, walks outward and back with real input, captures arbitrary route views and records process RSS. On format 18, Level 1 passed 44 waypoints over approximately 512 m in 284.8 seconds; Level 2 passed 116 over approximately 703 m in 464.1 seconds. Both stay near 59 FPS and at most 25 active chunks. Warmed RSS ranges are 165.8–166.5 and 181.7–183.5 MiB, with 2.15/2.54 ms peak builds respectively. Route screenshots were inspected; they expose excessive storage-bay fragments and overly uniform brown tunnels as the next composition/material deficiencies.
+
 - Format 18 adds a distinct industrial column-region family, opens most internal bay boundaries and groups enclosed Level 1 areas into multi-cell room zones. Cast-concrete pillars share full-height collision; industrial fixtures vary by region and avoid pillars. Face-dependent, wall-occluded baked illumination now covers Level 1 too. Walls in all levels have the thickness used by collision. Six matched industrial comparisons and a complete twelve-view round were inspected. Debug/Release tests, the seven-seed scan, 63-square physical audit and six live entrance cases pass. A 2.4 km Level 1 Release sweep holds near 59 FPS, at most 25 chunks, 2.17 ms peak and warmed RSS 167.1–168.3 MB.
 
 - Format 17 replaces broad black transition boxes with human-scale service entrances: 1.3 m openings, level-matching exterior finishes, ordinary casing and recessed dim concrete interiors. Shared portal boxes drive graphics, collision, light obstruction and fixture avoidance. Carpet contact shading now follows the actual floor triangles for columns as well as furniture. Paired views of all three entrance families were inspected; Debug/Release tests, the seven-seed scan and 63-square collision audit pass. Real controller input passes all four fixed transition directions, outside-gate traversal and frame collision.
@@ -49,11 +53,13 @@ The September 2026 playable foundation at `aaf67c0` has deterministic regions, b
 
 ## Three highest-priority deficiencies
 
-1. The industrial ceiling has a coarse cloudy finish that weakens its concrete/service identity.
-2. Extend normal-controller traversal and return routes in Levels 1 and 2; a QA-only collision route planner is being prepared.
-3. Improve coarse carpet detail and audit floor contact shading in close and distant views.
+1. Level 1 storage bays retain too many short cell-boundary wall fragments; open warehouse-like bays around shelving and structural pillars.
+2. Level 2's uniformly brown walls and coarse noise weaken its mechanical tunnel identity. Improve service finishes, local light depth and pipe supports.
+3. Repeat distant multi-seed QA after the industrial and tunnel changes, then assess remaining Level 0 repetition over a longer ordinary walk.
 
 ## Latest validation
+
+- Format 19 Debug/Release builds and world tests pass. Three close carpet/shadow views, six matched industrial views and six Level 0/three Level 1/three Level 2 views were inspected. The Level 0 2.4 km Release sweep has a 4.48 ms peak, maximum 25 chunks, near 59 FPS and warmed RSS 177.1–177.8 MB. The 512 m and 703 m controller return walks validate format 18 geometry through real collision and input; they are not a synthetic movement bypass.
 
 - Format 18 Debug/Release builds and world tests pass. Seven-seed structural and 63-square physical walkability scans pass. Six industrial before/after pairs and another twelve-view round were inspected. The Level 1 2.4 km Release GPU sweep has a 2.17 ms peak, 141 created/1,396 reused buffers, near 59 FPS, maximum 25 chunks and warmed RSS 167.1–168.3 MB. Six real-controller entrance cases pass after changed room geometry. Audio for these controller/streaming checks uses the dummy backend.
 
@@ -73,4 +79,4 @@ The September 2026 playable foundation at `aaf67c0` has deterministic regions, b
 
 ## Next pass
 
-Replace the industrial ceiling's cloudy material and improve carpet grain at close range. Prepare actual controller return walks across generated Levels 1 and 2, with screenshots and bounded-memory observations. The goal remains active.
+Reduce Level 1 storage fragments while retaining its sparse shelf layouts and adding real structural columns. Then improve Level 2 mechanical finishes and light depth; compare unflattering route locations as well as the fixed visual views. The goal remains active.

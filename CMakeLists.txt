@@ -14,7 +14,7 @@ add_executable(cna_backrooms src/main.cpp src/BackroomsGame.cpp src/World.cpp sr
 add_custom_target(backrooms_assets
     COMMAND ${CMAKE_COMMAND} -E copy_directory
         "${CMAKE_CURRENT_SOURCE_DIR}/assets" "$<TARGET_FILE_DIR:cna_backrooms>/assets"
-    COMMENT "Copying the game's licensed audio assets")
+    COMMENT "Copying the game's visual and licensed audio assets")
 add_dependencies(cna_backrooms backrooms_assets)
 target_include_directories(cna_backrooms PRIVATE src)
 target_link_libraries(cna_backrooms PRIVATE CNA)
@@ -34,3 +34,6 @@ endif()
 if(TARGET SDL3::SDL3main)
     target_link_libraries(cna_backrooms PRIVATE SDL3::SDL3main)
 endif()
+add_executable(world_route tools/WorldRoute.cpp src/World.cpp)
+target_include_directories(world_route PRIVATE src)
+target_compile_options(world_route PRIVATE -Wall -Wextra -Wpedantic)

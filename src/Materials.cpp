@@ -70,16 +70,17 @@ Color Pixel(Material material, int x, int y, int size) {
     }
     case Material::Carpet: {
         const auto fiberNoise=Noise(x,y,61);
-        const int fiber=fiberNoise%5==0 ? 10 :
-                        fiberNoise%13==0 ? -8 : 0;
+        const int fiber=fiberNoise%5==0 ? 9 :
+                        fiberNoise%13==0 ? -7 : 0;
+        const int tuft=static_cast<int>(Noise(x/2,y/2,163)%7)-3;
         const int wear=static_cast<int>(std::lround(
-            (SmoothNoise(x,y,32,62,size)-0.5f)*9.0f));
-        const float dirtNoise=SmoothNoise(x,y,32,93,size);
+            (SmoothNoise(x,y,size/4,62,size)-0.5f)*9.0f));
+        const float dirtNoise=SmoothNoise(x,y,size/4,93,size);
         const int dirt=dirtNoise>0.57f ?
             static_cast<int>((0.57f-dirtNoise)*45.0f) : 0;
-        r=173+grain/2+fiber+wear+dirt;
-        g=160+grain/2+fiber+wear+dirt;
-        b=122+grain/3+fiber/2+wear+dirt;
+        r=173+grain/2+fiber+tuft+wear+dirt;
+        g=160+grain/2+fiber+tuft+wear+dirt;
+        b=122+grain/3+fiber/2+tuft+wear+dirt;
         break;
     }
     case Material::CeilingTile: {
@@ -102,6 +103,16 @@ Color Pixel(Material material, int x, int y, int size) {
         r=117+grain+blotch+seam;
         g=121+grain+blotch+seam;
         b=118+grain+blotch+seam;
+        break;
+    }
+    case Material::ConcreteCeiling: {
+        const int mottling=static_cast<int>(std::lround(
+            (SmoothNoise(x,y,128,271,size)-0.5f)*9));
+        const int pore=Noise(x,y,273)%71==0 ? -15 : 0;
+        const int formwork=(x%256<2 || y%256<2) ? -7 : 0;
+        r=161+grain/2+mottling+pore+formwork;
+        g=159+grain/2+mottling+pore+formwork;
+        b=148+grain/2+mottling+pore+formwork;
         break;
     }
     case Material::ConcreteFloor:
@@ -164,8 +175,9 @@ Color Pixel(Material material, int x, int y, int size) {
 Materials::Materials(GraphicsDevice& device,const std::filesystem::path& assetDirectory) {
     for (int id=0;id<kMaterialCount;++id) {
         const Material material=static_cast<Material>(id);
-        int size=(material==Material::Wallpaper ||
-                  material==Material::CeilingTile) ? 512 : 128;
+        int size=material==Material::Carpet ? 1024 :
+                 (material==Material::Wallpaper || material==Material::CeilingTile ||
+                  material==Material::ConcreteCeiling) ? 512 : 128;
         std::vector<Color> pixels;
         const auto wallpaperPath=assetDirectory/"wallpaper-v1.png";
         if (material==Material::Wallpaper && System::IO::File::Exists(wallpaperPath.string())) {
