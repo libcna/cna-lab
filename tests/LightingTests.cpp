@@ -31,7 +31,7 @@ int main() {
             CHECK(floor==second.Sample(x,z));
             CHECK(std::isfinite(floor) && floor>=LevelInfo(world).ambient && floor<=1);
             // The interpolated contact shade agrees exactly with floor vertices.
-            CHECK(std::abs(first.FloorSample(x,z)-floor)<1e-6f);
+            CHECK(std::abs(first.FloorSample(x,z)-FloorLightResponse(level,floor))<1e-6f);
             const float low=first.WallSample(x+0.14,z+2.5,1,0,0);
             const float high=first.WallSample(x+0.14,z+2.5,1,0,
                                                LevelInfo(world).ceilingHeight);
@@ -46,7 +46,8 @@ int main() {
         const double step=kCellSize/FloorGridDivisions(level);
         for (int ix=-2;ix<=2;++ix) for (int iz=-2;iz<=2;++iz) {
             const double x=-40+ix*step,z=iz*step;
-            CHECK(std::abs(first.FloorSample(x,z)-first.Sample(x,z))<1e-6f);
+            CHECK(std::abs(first.FloorSample(x,z)-
+                           FloorLightResponse(level,first.Sample(x,z)))<1e-6f);
             // Both halves of a floor quad meet on the same diagonal, and
             // contact values stay continuous across a negative chunk border.
             CHECK(std::abs(first.FloorSample(x+step*.5-1e-6,z+step*.5)-

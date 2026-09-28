@@ -18,18 +18,20 @@ The product goal remains **active**. Three distinct families, connected determin
 
 ## Current pass
 
-Format 45 hall lighting is visually accepted: rare sixty-metre halls share
-paired-row, staggered or banded fluorescent plans, orientation and a circuit
-across all four underlying regions. Ordinary offices, support plans and
-collision are unchanged. Release/Debug builds and all three suites pass;
-all 36 matched horizon directions, nine pitched ceiling pairs and twelve
-family views are inspected. The longer default-seed panorama return is running.
-Format 44 support composition and its 686.4-metre collision return remain
-committed; native timestep mode is unchanged.
+Format 46 office floor light is visually accepted. A small reflected
+contribution softens dark pools and preserves carpet detail; ceilings, walls,
+fixtures, geometry and collision are unchanged. Contact interpolation shares
+the response. Release/Debug builds and all three suites pass. All 48 matched
+office directions, 36 huge-hall directions, nine pitched floor pairs and twelve
+family views are inspected. Native Wayland launches all three families and
+completes a 2.4 km tunnel sweep; compositor screenshot access is unavailable.
+The 1,187.7-metre default-world collision return and all 52 route views pass.
 
 ## Completed passes
 
-- **45:** coherent huge-hall fluorescent plans and tile phase. Thirty-six matched horizon pairs, nine pitched ceiling pairs and twelve family views inspected; Release/Debug suites pass. The longer default-seed panorama return is pending.
+- **46:** modest reflected office floor response with matching contact interpolation. Forty-eight office pairs, 36 hall pairs, nine pitched floor pairs and twelve family views inspected; Release/Debug suites pass. Live controller and final capacity checks follow.
+
+- **45:** coherent huge-hall fluorescent plans and tile phase. Thirty-six matched horizon pairs, nine pitched ceiling pairs and twelve family views inspected; Release/Debug suites pass. The 1,187.7-metre panorama return passes all 136 waypoints with at most 25 chunks; all 52 route directions are inspected. Native Wayland completes a 2.4 km tunnel sweep.
 
 - **44:** five office support plans, room-wide transpose/tile phase and shared bounds. Sixty matched remote directions and twelve family views inspected. Release/Debug suites, seven-seed audit and 63 physical squares pass. The default-seed return completes 686.4 m with at most 25 chunks and final RSS 176.58 MiB.
 
@@ -62,9 +64,9 @@ committed; native timestep mode is unchanged.
 
 ## Three highest-priority deficiencies
 
-1. Complete and inspect the longer default-seed collision return, including arbitrary route panoramas and memory/timing measurements.
-2. Refresh native Wayland launch/streaming, live controls and entrances on the delivered renderer.
-3. Large bare halls still expose strong local floor-light bands; assess a focused refinement after the return. Subjective audio listening remains unavailable.
+1. Refresh live controls, entrances and figure approaches against current runtime dependencies.
+2. Run the longer native Wayland capacity sweep and inspect any measured loading/presentation spikes.
+3. Native Wayland frame capture and real input remain unverified on the headless display; subjective audio listening remains unavailable. Additional arbitrary family views and sparse anomalies still need the delivery audit.
 
 ## Latest validation
 
@@ -94,6 +96,7 @@ committed; native timestep mode is unchanged.
 
 ## Next pass
 
-Complete the longer default-seed panorama return and inspect every route view.
-Refresh native Wayland launch/streaming and actual entrances next. Continue
-useful product/runtime work until the stabilization window. The goal remains active.
+Refresh controls, entrances, figure contact/fade and normal audio routing.
+Measure a longer native Wayland capacity return without owned compilation or
+other GPU jobs. Continue useful product/runtime work until the stabilization
+window. The goal remains active.

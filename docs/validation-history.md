@@ -399,3 +399,62 @@ geometry or surface seams are observed. Strong local light pools on the floor
 of very large bare halls remain visible. Screenshot timing is not a performance
 comparison; dummy audio is not listening evidence. The longer default-seed
 collision return follows separately.
+
+The actual default-seed panorama return completes all 136 waypoints and
+1,187.7 metres in 821.7 seconds through sixteen player chunks. All 52 route
+directions are inspected, including nearby walls at arbitrary corners and
+return views after buffer reuse. Maximum active chunks is 25. RSS peaks at
+186.77 MiB and ends at 162.58 MiB; warmed samples span 162.45–181.18 MiB.
+There are 185 buffer creations and 977 reuses, final packed capacity 12.8 MiB.
+Peak build is 25.40 ms, with seven builds over 16.67 ms. No owned compiler or
+other GPU job runs during measurement; shared-machine scheduling is not
+isolated. The return reaches within 0.1 metre of its starting point without a
+blocked waypoint or observed geometry corruption.
+
+### Native Wayland refresh
+
+The checked-in `tools/stream_probe.py` runs the finite diagnostic with an
+explicitly selected SDL backend, captures process RSS and parses native
+renderer/streaming telemetry. It requires normal exit, OPENGLES3, packaged
+profile provenance, both coordinate signs, return near the start, maximum 25
+active chunks and at most 48 spares. Logs, frame samples, RSS samples and a
+summary remain under the chosen ignored output directory. Collision is
+bypassed and audio uses the dummy device.
+
+The format 45 native Wayland tunnel run completes 2.4 km in 56.1 seconds
+through 29 player chunks, maximum 25 active and 17 spares. It creates 223
+buffers and reuses 2,347. Packed capacity peaks at 59.0 MiB and ends at
+58.1 MiB; RSS peaks at 325.48 MiB and ends at 257.42 MiB. Final-quarter RSS
+is 257.42–325.48 MiB; this short run does not establish a plateau. Median
+draw/update rates are 37/59; median rolling p95 is 34.87 ms, maximum sampled
+frame 122.53 ms. Median/peak build is 8.60/32.67 ms, with seventeen builds
+over 16.67 ms. No owned compiler or other GPU job runs during measurement;
+shared scheduling is not isolated. This is not a matched X11 comparison.
+
+The headless compositor has no keyboard seat and GTK startup emits
+seat/setlocale warnings; rendering, streaming and normal exit work.
+Native Wayland relative input and subjective audio are not validated by
+this diagnostic. Dummy audio is not listening evidence.
+
+## Format 46: reflected office floor response
+
+A sixteen-percent reflected contribution softens the broad floor illumination
+without adding lights, geometry, queries or persistent state. The ceiling and
+wall bakes remain unchanged. Contact interpolation applies the same affine
+response as the floor vertices, so props and fading figures remain grounded.
+Service floors, source profile and internal recipe 11 are unchanged.
+
+Release/Debug builds and all three suites pass, including floor/contact
+agreement and negative-boundary continuity. All 48 matched office directions,
+36 matched huge-hall directions, nine downward floor pairs and twelve family
+views are inspected. Carpet is more legible in dim areas, with retained local
+light contrast. Huge-hall pools remain an inexpensive baked approximation,
+not physical realtime lighting. No new seams or material/collision changes
+are observed. Screenshot timings are not performance comparisons.
+
+Native Wayland starts all three normal families. The installed Weston
+screenshooter initially lacks its bundled library path; after supplying that
+path it reports unauthorized output capture. No compositor policy or sibling
+files are changed. Its zero exit does not establish a capture: no PNG exists.
+The normal native frames are therefore not visually inspected by that method.
+Xwayland screenshots and the native Wayland diagnostic are distinct evidence.

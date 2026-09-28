@@ -92,8 +92,9 @@ float BakedLighting::FloorSample(double wx,double wz) {
     const float v=static_cast<float>((wz-z)/step);
     const float a=Sample(x,z),b=Sample(x+step,z);
     const float c=Sample(x+step,z+step),d=Sample(x,z+step);
-    return u>=v ? a*(1-u)+b*(u-v)+c*v :
-                  a*(1-v)+c*u+d*(v-u);
+    const float illumination=u>=v ? a*(1-u)+b*(u-v)+c*v :
+                                    a*(1-v)+c*u+d*(v-u);
+    return FloorLightResponse(world_.level,illumination);
 }
 
 } // namespace Backrooms

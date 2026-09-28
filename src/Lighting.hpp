@@ -7,6 +7,12 @@ namespace Backrooms {
 // Keep contact shading on the same triangles as the visible floor bake.
 constexpr int FloorGridDivisions(int level) { return level==0 ? 4 : 2; }
 
+// A small reflected contribution softens the office's isolated light pools.
+// Keep service floors and the ceiling/wall response unchanged.
+constexpr float FloorLightResponse(int level,float illumination) {
+    return level==0 ? 0.16f+0.84f*illumination : illumination;
+}
+
 // A chunk-local CPU bake. Caches die after its vertices are uploaded; none
 // of these values becomes permanently active state in the streamed world.
 class BakedLighting {

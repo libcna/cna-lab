@@ -60,7 +60,7 @@ an unmuted output; subjective listening remains a human check.
 
 Industrial bay composition, mineral surfaces, opening returns, attached service
 roof details, smooth figure approaches and continuous pipe returns are complete
-through format 44. The remaining delivery window prioritizes product evidence:
+through format 46. The remaining delivery window prioritizes product evidence:
 
 1. **Office/product QA:** retain the newly varied column-room layouts, audit the default
    seed and additional arbitrary family locations, then walk actual collision

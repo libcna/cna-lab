@@ -1101,14 +1101,15 @@ void BackroomsGame::BuildChunk(ChunkCoord coord) {
         std::array<std::array<float,5>,5> lightGrid{};
         for (int ix=0;ix<=floorDivisions;++ix) for (int iz=0;iz<=floorDivisions;++iz)
             lightGrid[ix][iz]=lighting.Sample(wx+ix*floorStep,wz+iz*floorStep);
+        const auto floorLight=[&](int ix,int iz) {
+            return Scale(floorColor,FloorLightResponse(level,lightGrid[ix][iz]));
+        };
         for (int fx=0;fx<floorDivisions;++fx) for (int fz=0;fz<floorDivisions;++fz) {
             const float tileX=x+fx*floorStep,tileZ=z+fz*floorStep;
             FlatShaded(meshes,floorMat,tileX,tileZ,
                 tileX+floorStep,tileZ+floorStep,0,
-                {Scale(floorColor,lightGrid[fx][fz]),
-                 Scale(floorColor,lightGrid[fx+1][fz]),
-                 Scale(floorColor,lightGrid[fx+1][fz+1]),
-                 Scale(floorColor,lightGrid[fx][fz+1])},
+                {floorLight(fx,fz),floorLight(fx+1,fz),
+                 floorLight(fx+1,fz+1),floorLight(fx,fz+1)},
                 level==0 ? kCarpetRepeat : 0.5f);
         }
         if (level==0) {
