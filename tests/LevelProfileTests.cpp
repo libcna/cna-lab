@@ -56,8 +56,8 @@ int main(int argc,char** argv) {
         RejectChanged(source,"\"doorway_height\": 2.4","\"doorway_height\": 3.2");
         RejectChanged(source,"\"end\": 85","\"end\": 18");
         RejectChanged(source,"\"ambient\": 0.42","\"ambient\": 1.0");
-        RejectChanged(source,"[255, 250, 239]","[256, 250, 239]");
-        RejectChanged(source,"[255, 250, 239]","[255, 239]");
+        RejectChanged(source,"[255, 250, 214]","[256, 250, 214]");
+        RejectChanged(source,"[255, 250, 214]","[255, 214]");
         RejectChanged(source,"\"weight\": 18","\"weight\": 17");
         RejectChanged(source,"\"kind\": \"columns\"","\"kind\": \"tunnels\"");
         RejectChanged(source,"\"kind\": \"columns\"","\"kind\": \"open_office\"");

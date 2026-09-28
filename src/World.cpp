@@ -270,9 +270,9 @@ const LevelCatalog& DefaultLevelCatalog() {
         office.ceilingHeight=2.75f;office.doorwayHeight=2.4f;
         office.ambient=0.42f;office.lightStrength=0.55f;
         office.wallBounce=0.16f;office.ceilingBounce=0.42f;
-        office.wall={255,250,239};office.pillar={231,224,204};
-        office.trim={255,251,229};office.floor={246,240,222};
-        office.ceiling={255,252,235};office.structure={143,139,115};
+        office.wall={255,250,214};office.pillar={231,224,184};
+        office.trim={255,251,215};office.floor={246,240,207};
+        office.ceiling={255,252,218};office.structure={143,139,115};
         office.fluorescent={255,251,228};office.fog={108,101,78};
         office.regions={{{RegionKind::OpenOffice,18},{RegionKind::Columns,16},
                          {RegionKind::Rooms,31},{RegionKind::Halls,21},
