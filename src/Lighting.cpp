@@ -86,11 +86,12 @@ float BakedLighting::WallSample(double wx,double wz,int normalX,int normalZ,doub
 float BakedLighting::FloorSample(double wx,double wz) {
     // Match the existing floor triangles rather than evaluating a brighter
     // lamp sample at the prop center. Contact shading must only darken it.
-    const double x=std::floor(wx/2.5)*2.5,z=std::floor(wz/2.5)*2.5;
-    const float u=static_cast<float>((wx-x)/2.5);
-    const float v=static_cast<float>((wz-z)/2.5);
-    const float a=Sample(x,z),b=Sample(x+2.5,z);
-    const float c=Sample(x+2.5,z+2.5),d=Sample(x,z+2.5);
+    const double step=kCellSize/FloorGridDivisions(world_.level);
+    const double x=std::floor(wx/step)*step,z=std::floor(wz/step)*step;
+    const float u=static_cast<float>((wx-x)/step);
+    const float v=static_cast<float>((wz-z)/step);
+    const float a=Sample(x,z),b=Sample(x+step,z);
+    const float c=Sample(x+step,z+step),d=Sample(x,z+step);
     return u>=v ? a*(1-u)+b*(u-v)+c*v :
                   a*(1-v)+c*u+d*(v-u);
 }

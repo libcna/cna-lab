@@ -4,6 +4,9 @@
 
 namespace Backrooms {
 
+// Keep contact shading on the same triangles as the visible floor bake.
+constexpr int FloorGridDivisions(int level) { return level==0 ? 4 : 2; }
+
 // A chunk-local CPU bake. Caches die after its vertices are uploaded; none
 // of these values becomes permanently active state in the streamed world.
 class BakedLighting {

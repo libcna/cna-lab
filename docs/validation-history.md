@@ -274,3 +274,49 @@ heads are CNA `967305dd7b93f992f7c177a7055bd5892ba8523e` and Sharp Runtime
 
 Largest remaining product deficiencies: coarse office floor light pools, regular
 column-room composition and the fresh audio/presentation audit.
+
+## Format 43: finer office floor illumination
+
+Level 0 samples the existing local fluorescent field on 1.25-metre floor
+triangles, replacing 2.5-metre interpolation. Floor contact shading uses the
+same shared subdivision count, including negative coordinates and diagonal
+boundaries. Ceilings and the two service-family floors keep their original
+2.5-metre vertices. Lights, materials, room geometry, collision, profile bytes
+and recipe 11 are unchanged. This adds 1,536 triangles per office chunk, or
+38,400 at the 25-chunk cap, instead of refining all surfaces.
+
+All forty-eight matched office directions, six pitched floor pairs, twelve
+family views and fifteen route views are inspected. Light pools have finer,
+less angular transitions, with no missing floor/ceiling or bright contact
+patch observed. Existing broad-hall fixture regularity and uniform column
+arrangements remain composition targets. Release/Debug game/audit/test builds
+and all three suites pass; the lighting tests cover shared vertices, negative
+chunk boundaries and continuity on both halves of a floor quad.
+
+The actual remote return, seed 402717, starts at `(-2476.5,2051.5)`, completes
+68 waypoints and walks 663.2 metres in 433.0 seconds. Nine player chunks, maximum
+25 active, 171 buffer creations and 512 reuses are observed. Packed capacity ends
+at 11.9 MiB; RSS peaks at 187.84 MiB, then holds at 162.18–163.61 MiB warmed,
+ending at 162.25 MiB. Peak build is 35.51 ms. Geometry and upload spikes remain
+in the log; shared-machine scheduling is not isolated. No compiler or other
+GPU job owned by this agent runs during measurement. Screenshot comparison
+frames are not performance comparisons and dummy audio is not listening evidence.
+A matched short capacity comparison and fresh normal-device audio check follow.
+
+The sequential 2.4 km diagnostics use the same seed 12345, coordinates and
+private display, without another compiler/GPU job owned by this agent. Baseline
+42 and refined 43 both hold at most 25 chunks and median 39 draw FPS. Sampled
+build medians are 2.41 and 2.98 ms; rolling p95 medians are 27.33 and 27.41 ms.
+Packed capacities peak at 9.4 and 13.1 MiB. Latter-half RSS ranges are
+182.14–182.80 and 189.89–191.83 MiB. Refined peak build is 6.02 ms on this
+route (baseline 16.43 ms); neither logs a build over 16.67 ms. These finite
+shared-machine observations do not attribute the separate remote return's
+35.51 ms outlier to the subdivision change or prove hitch-free rendering.
+
+Fresh normal PipeWire captures use only this game's unmuted, noncorked stream,
+at 100% stream gain, on the unmuted Ryzen speaker sink at 57%. Hum measures
+-32.34 dBFS RMS, walking peaks at -10.60 dBFS and the separate transition without
+a footstep peaks at -12.79 dBFS, without clipping. Both actual cases enter Level 1
+and log audio ready, without audio warnings. No other stream or device setting
+is changed. This establishes technical routing and signal, not subjective
+listening, which remains unperformed by the agent.

@@ -60,11 +60,12 @@ an unmuted output; subjective listening remains a human check.
 
 Industrial bay composition, mineral surfaces, opening returns, attached service
 roof details, smooth figure approaches and continuous pipe returns are complete
-through format 40. The remaining delivery window prioritizes product evidence:
+through format 43. The remaining delivery window prioritizes product evidence:
 
-1. **Office/product QA:** sample further uncurated seeds/headings, including
-   weak lighting circuits and broad spaces, then walk an actual collision return.
-   Fix the largest material, scale, lighting or composition defects found.
+1. **Office/product QA:** vary the uniform column-room layouts, audit the default
+   seed and additional arbitrary family locations, then walk actual collision
+   returns. Floor/junction passes and remote weak/broad-room returns are complete.
+   Fix the largest remaining material, scale, lighting or composition defects.
 2. **Long-run stability:** repeat the finite tunnel capacity sweep after the new
    geometry and inspect positive/negative/return streaming for growth or spikes.
 3. **Atmosphere and runtime audit:** refresh audio routing after external runtime

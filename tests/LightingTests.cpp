@@ -43,6 +43,17 @@ int main() {
             litSamples+=high>low+0.005f;
         }
         CHECK(litSamples>0);
+        const double step=kCellSize/FloorGridDivisions(level);
+        for (int ix=-2;ix<=2;++ix) for (int iz=-2;iz<=2;++iz) {
+            const double x=-40+ix*step,z=iz*step;
+            CHECK(std::abs(first.FloorSample(x,z)-first.Sample(x,z))<1e-6f);
+            // Both halves of a floor quad meet on the same diagonal, and
+            // contact values stay continuous across a negative chunk border.
+            CHECK(std::abs(first.FloorSample(x+step*.5-1e-6,z+step*.5)-
+                           first.FloorSample(x+step*.5+1e-6,z+step*.5))<1e-5f);
+            CHECK(std::abs(first.FloorSample(x-1e-6,z+step*.3)-
+                           first.FloorSample(x+1e-6,z+step*.3))<1e-5f);
+        }
         const float before=first.Sample(-40,0);
         for (int i=0;i<static_cast<int>(RoomLayoutCache::kCapacity)+16;++i)
             cache.Get(world,i,-31,RegionKind::Rooms);

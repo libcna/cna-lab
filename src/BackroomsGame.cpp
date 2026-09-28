@@ -1096,23 +1096,15 @@ void BackroomsGame::BuildChunk(ChunkCoord coord) {
         const auto lampInfo=LampAt(world_,gx,gz);
         const Color floorColor=floorA;
         const double wx=gx*kCellSize,wz=gz*kCellSize;
-        const std::array<float,4> light{{
-            lighting.Sample(wx,wz),lighting.Sample(wx+5,wz),
-            lighting.Sample(wx+5,wz+5),lighting.Sample(wx,wz+5)
-        }};
-        std::array<std::array<float,3>,3> lightGrid{};
-        for (int ix=0;ix<3;++ix) for (int iz=0;iz<3;++iz) {
-            if (ix==0 && iz==0) lightGrid[ix][iz]=light[0];
-            else if (ix==2 && iz==0) lightGrid[ix][iz]=light[1];
-            else if (ix==2 && iz==2) lightGrid[ix][iz]=light[2];
-            else if (ix==0 && iz==2) lightGrid[ix][iz]=light[3];
-            else lightGrid[ix][iz]=lighting.Sample(
-                wx+ix*2.5,wz+iz*2.5);
-        }
-        for (int fx=0;fx<2;++fx) for (int fz=0;fz<2;++fz) {
-            const float tileX=x+fx*2.5f,tileZ=z+fz*2.5f;
+        const int floorDivisions=FloorGridDivisions(level);
+        const float floorStep=5.0f/floorDivisions;
+        std::array<std::array<float,5>,5> lightGrid{};
+        for (int ix=0;ix<=floorDivisions;++ix) for (int iz=0;iz<=floorDivisions;++iz)
+            lightGrid[ix][iz]=lighting.Sample(wx+ix*floorStep,wz+iz*floorStep);
+        for (int fx=0;fx<floorDivisions;++fx) for (int fz=0;fz<floorDivisions;++fz) {
+            const float tileX=x+fx*floorStep,tileZ=z+fz*floorStep;
             FlatShaded(meshes,floorMat,tileX,tileZ,
-                tileX+2.5f,tileZ+2.5f,0,
+                tileX+floorStep,tileZ+floorStep,0,
                 {Scale(floorColor,lightGrid[fx][fz]),
                  Scale(floorColor,lightGrid[fx+1][fz]),
                  Scale(floorColor,lightGrid[fx+1][fz+1]),
@@ -1126,12 +1118,13 @@ void BackroomsGame::BuildChunk(ChunkCoord coord) {
             };
             for (int fx=0;fx<2;++fx) for (int fz=0;fz<2;++fz) {
                 const float tileX=x+fx*2.5f,tileZ=z+fz*2.5f;
+                const int ix=fx*2,iz=fz*2;
                 FlatShaded(meshes,ceilingMat,tileX,tileZ,
                     tileX+2.5f,tileZ+2.5f,height,
-                    {ceilingLight(lightGrid[fx][fz]),
-                     ceilingLight(lightGrid[fx+1][fz]),
-                     ceilingLight(lightGrid[fx+1][fz+1]),
-                    ceilingLight(lightGrid[fx][fz+1])},0.4f);
+                    {ceilingLight(lightGrid[ix][iz]),
+                     ceilingLight(lightGrid[ix+2][iz]),
+                     ceilingLight(lightGrid[ix+2][iz+2]),
+                     ceilingLight(lightGrid[ix][iz+2])},0.4f);
             }
             if (h%5==0) {
                 const int tileX=static_cast<int>((h>>8)&7U);

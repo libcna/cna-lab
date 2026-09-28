@@ -18,13 +18,19 @@ The product goal remains **active**. Three distinct families, connected determin
 
 ## Current pass
 
-Format 42 closes exposed cell-wall ends and missing outer corner wedges. All
-eighteen close pairs, twelve family views and fourteen remote route views are
-inspected. Release/Debug suites and all 63 physical squares pass; the 426.5 m
-collision return holds 25 chunks and warmed RSS about 185 MiB. Native input QA
-exposes a camera jump on recapture; its game-side fix passes the strict native repeat. Next, smooth coarse office floor illumination pools.
+Format 43 refines only the office floor bake to 1.25-metre triangles and shares
+the grid with contact shading. All forty-eight matched office directions, six
+pitched floor pairs, twelve family views and fifteen route views are inspected.
+Release/Debug suites pass; the 663.2 m remote collision return finishes all 68
+waypoints through nine player chunks, with maximum 25 active and final RSS
+162.25 MiB. Its 35.51 ms peak remains recorded. The matched short capacity comparison
+shows sampled build median 2.41→2.98 ms, bounded memory and unchanged median draw
+rate. Fresh normal PipeWire hum/footstep/isolated-cue captures pass technically.
+Next implementation: less uniform office support layouts.
 
 ## Completed passes
+
+- **43:** finer office floor illumination and matching contact interpolation. Forty-eight matched directions, six pitched floor pairs, twelve family views and fifteen route views inspected. Release/Debug suites pass. The remote office return walks 663.2 m across nine player chunks with maximum 25 active, 35.51 ms peak build and warmed RSS 162.18–163.61 MiB. The matched short capacity comparison and fresh own-stream audio checks pass.
 
 - **42:** closed cell-wall cores and painted exposed ends. Eighteen close pairs, twelve family views and fourteen route views inspected. Release/Debug suites and 63 physical squares pass. The remote office return walks 426.5 m across six player chunks with maximum 25 active, 12.67 ms peak build and final RSS 184.96 MiB. Recapture regression found and corrected; strict native repeat passes.
 
@@ -53,11 +59,13 @@ exposes a camera jump on recapture; its game-side fix passes the strict native r
 
 ## Three highest-priority deficiencies
 
-1. Broad office floor light pools show coarse triangular interpolation; refine only this bake if measurements permit.
-2. Column-room composition remains too regular; vary a few architectural support layouts while preserving clearance.
+1. Column-room composition remains too regular; vary a few architectural support layouts while preserving clearance.
+2. Audit the default seed and additional arbitrary family locations; rare huge halls still have a regular fixture field.
 3. Refresh real audio routing and presentation measurements after external runtime changes. Subjective listening remains unavailable.
 
 ## Latest validation
+
+- Format 43: all paired/route views are inspected and Release/Debug suites pass. The 663.2 m remote return holds at most 25 chunks with final RSS 162.25 MiB and 35.51 ms peak build. Sequential 2.4 km baseline/refined diagnostics both hold 25 chunks and median 39 draw FPS; sampled build medians are 2.41/2.98 ms, packed capacity peaks 9.4/13.1 MiB and latter-half RSS 182.14–182.80/189.89–191.83 MiB. This does not establish a cause for the separate return's outlier. Fresh normal own-stream captures verify hum -32.34 dBFS RMS, footsteps -10.60 dBFS peak and isolated cue -12.79 dBFS peak, unmuted, without clipping; listening remains subjective.
 
 - The format 41 28.8 km tunnel sweep holds at most 25 chunks and 17 sampled spares, with 413 buffer creations and 28,676 reuses. Packed capacity peaks at 77.2 MiB and ends at 71.4 MiB. Final-quarter RSS stays at 321.1–332.7 MiB. Median actual draw FPS is 39, median rolling p95 27.55 ms, maximum sampled interval 108.82 ms, median build 4.93 ms and peak 55.50 ms. Forty-six builds exceed 16.67 ms in about 640 seconds. No compiler or other GPU job owned by this agent runs during measurement; shared-machine scheduling is not isolated. Collision is bypassed, and dummy audio is not listening evidence.
 
@@ -83,8 +91,8 @@ exposes a camera jump on recapture; its game-side fix passes the strict native r
 
 ## Next pass
 
-Commit format 42 and refine coarse
-office floor light pools, compare the same broad/weak-circuit regions and measure
-the streaming cost. Then vary office column composition and continue the product
-audit, audio routing and finite capacity checks until the scheduled stabilization
-window. The goal remains active.
+Commit format 43 and vary office
+column composition, compare the same regions and check physical connectivity.
+Then audit the default-seed launch, further family locations and presentation
+cadence. Continue useful product/runtime work until the stabilization window.
+The goal remains active.
