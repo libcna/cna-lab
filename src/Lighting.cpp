@@ -46,7 +46,7 @@ float BakedLighting::Sample(double wx,double wz,int normalX,int normalZ,double h
         const double lightZ=gz*kCellSize+lamp.z;
         const double lx=lightX-wx,lz=lightZ-wz;
         const double dy=height<0 ? 0 : std::max(0.12,
-                            definition.ceilingHeight-0.04-height);
+                            static_cast<double>(lamp.y)-height);
         const float attenuation=std::max(0.0f,1.0f-
             static_cast<float>(std::sqrt(lx*lx+lz*lz+dy*dy))/6.5f);
         if (attenuation<=0) continue;

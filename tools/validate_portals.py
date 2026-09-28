@@ -42,6 +42,14 @@ def main():
                     raise RuntimeError(name + ': game failed to launch')
                 window = xdo('search', '--pid', game.pid, '--name',
                              'cna-backrooms').splitlines()[0]
+                deadline = time.monotonic() + 15
+                while True:
+                    title = xdo('getwindowname', window)
+                    if 'Level ' + str(level) in title and 'loaded 25/25' in title:
+                        break
+                    if game.poll() is not None or time.monotonic() > deadline:
+                        raise RuntimeError(name + ': initial streaming did not finish: ' + title)
+                    time.sleep(.1)
                 if turn:
                     xdo('mousemove_relative', '--', turn, 0)
                     time.sleep(.2)

@@ -29,7 +29,7 @@ int main() {
     CHECK(ChunkOfCell(-9)==-2);
     CHECK(ChunkAt(-0.01,-40.01)==(ChunkCoord{-1,-2}));
     // Golden values make changes to the versioned procedural world explicit.
-    CHECK(kFormatVersion==34);
+    CHECK(kFormatVersion==35);
     CHECK(CellHash(world,12,-8,41)==511389911U);
     CHECK(VerticalEdge(world,8,3)==Edge::Open);
     CHECK(HorizontalEdge(world,-4,-5)==Edge::Open);
@@ -132,13 +132,12 @@ int main() {
                            (cz+0.5)*kCellSize,0.31));
         }
         CHECK(pillars>=2 && pillars<=4);
-        CHECK(openEdges>totalEdges*0.75);
+        CHECK(openEdges==totalEdges);
         sparseBay|=racks==2;
         denseBay|=racks==4;
     }
     CHECK(sparseBay && denseBay);
-    // Industrial columns occupy real floor space, while larger room zones
-    // leave the majority of their internal edges open.
+    // Industrial supports occupy real floor space in complete open bays.
     int industrialColumns=0,industrialOpenEdges=0,industrialEdges=0;
     for (int rx=-8;rx<=8;++rx) for (int rz=-8;rz<=8;++rz) {
         if (RegionAt(storage,rx*6,rz*6)!=RegionKind::Columns) continue;
@@ -162,6 +161,7 @@ int main() {
             }
             const auto fixture=LampAt(storage,cx,cz);
             if (fixture.fixture) {
+                CHECK(fixture.y+0.08f<LevelInfo(storage).ceilingHeight-0.32f);
                 const double hx=fixture.longAxisX ? 1.20 : 0.23;
                 const double hz=fixture.longAxisX ? 0.23 : 1.20;
                 const double wx=cx*kCellSize+fixture.x;
@@ -177,7 +177,24 @@ int main() {
         }
     }
     CHECK(industrialColumns>100);
-    CHECK(industrialOpenEdges>industrialEdges*0.90);
+    CHECK(industrialOpenEdges==industrialEdges);
+    std::array<int,3> industrialBayKinds{};
+    for (const auto seed:{0ULL,31337ULL}) {
+        const WorldConfig selected{seed,1,&cache};
+        for (int rx=-8;rx<=8;++rx) for (int rz=-8;rz<=8;++rz) {
+            const auto kind=RegionAt(selected,rx*kRegionCells,rz*kRegionCells);
+            if (kind!=RegionKind::Storage && kind!=RegionKind::Columns &&
+                kind!=RegionKind::OpenOffice) continue;
+            ++industrialBayKinds[kind==RegionKind::Storage ? 0 :
+                                 kind==RegionKind::Columns ? 1 : 2];
+            for (int lx=0;lx<kRegionCells;++lx) for (int lz=0;lz<kRegionCells;++lz) {
+                const int cx=rx*kRegionCells+lx,cz=rz*kRegionCells+lz;
+                if (lx>0) CHECK(VerticalEdge(selected,cx,cz)==Edge::Open);
+                if (lz>0) CHECK(HorizontalEdge(selected,cx,cz)==Edge::Open);
+            }
+        }
+    }
+    for (const auto count:industrialBayKinds) CHECK(count>50);
     const CellProp firstChair=PropAt(world,2,1);
     CHECK(firstChair.kind==PropKind::Chair);
     CHECK(PropAt(world,2,1).x==firstChair.x);

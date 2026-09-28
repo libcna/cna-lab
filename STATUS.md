@@ -6,9 +6,13 @@ The product goal remains **active**. Three distinct families, connected determin
 
 ## Current pass
 
-Format 34 replaces six-box figures with a tapered cloth silhouette, a rounded head and two soft foot contact spots, using immutable CNA buffers. A pure spawn query supports reproducible near/mid/distant views. All eighteen final figure views and the twelve family views were inspected. Final Release/Debug world/profile/lighting tests pass; the real controller return passes 28 waypoints over 356.0 m in 203.9 seconds. All eleven route/regression views were inspected. QA now waits for actual streaming completion and checks camera angles. Movement defaults remain unchanged.
+Format 35 removes cell-boundary fragments inside Level 1 open, storage and column bays and aligns roof beams with supports. Sixteen paired directions were inspected; they exposed fixtures hidden by the new beams. Industrial lights now hang on short mounts below the beam soffits, with the same height used by the bake. Final Release/Debug suites, sixteen refined directions, twelve family views and thirteen route views pass inspection. The 528.3 m industrial return completes all 48 waypoints with 25 maximum chunks and 1.97 ms peak build. All six live entrance/frame cases pass. The seven-seed scan and all 63 physical squares pass. The completed 28.8 km tunnel sweep reaches a late RSS plateau.
 
 ## Completed passes
+
+- **35:** complete open industrial bays, framing above supports and suspended fixtures below beam soffits. Sixteen composition pairs, sixteen fixture refinements, twelve family views and thirteen route views were inspected. Release/Debug CTest suites, seven-seed sampling, all 63 physical squares, the 528 m return and all six live entrance cases pass.
+
+- **34:** tapered harmless cloth figures, rounded heads and soft foot contact spots. Eighteen matched pairs, eighteen grounded views, two twelve-view family rounds and eleven controller/regression views were inspected. Final suites and the 356 m return pass. Fresh normal-device captures verify hum, footsteps and an isolated cue on the unmuted hardware output; subjective listening remains unverified.
 
 - **33:** original cast concrete and height/face samples on service supports. All 24 multi-seed pairs and twelve family views were inspected; Debug/Release suites pass. The 9.6 km tunnel sweep holds 25 chunks, median 39 draw FPS and 9.40 ms peak, but still has buffer-capacity RSS growth.
 - **32:** eight-sided small pipes, continuous cylindrical UVs and shared circumferential shading. All nine matched pairs and Debug/Release tests pass; a 2.4 km sweep holds median 39 draw FPS, 25 chunks and 9.34 ms peak build.
@@ -19,21 +23,22 @@ Format 34 replaces six-box figures with a tapered cloth silhouette, a rounded he
 
 ## Three highest-priority deficiencies
 
-1. Industrial bays still contain many tall narrow wall fragments. Replace those office-like fragments with broad spaces composed by columns and shelves.
-2. Recheck the longer tunnel RSS plateau and arbitrary Level 0 views after the geometry passes.
+1. The industrial floor remains visibly cloudy, and wall seams are coarse. Improve these inexpensive material details using the existing mineral texture and native materials.
+2. Inspect arbitrary office regions again and fix the largest remaining composition or material problems.
 3. Nearby figures disappear abruptly at the current distance cutoff; soften their retreat without adding interaction or AI complexity.
 
 ## Latest validation
 
+- Format 35 Release/Debug CTest suites pass. The 528.3 m collision return completes 48 waypoints in 288.6 seconds, eight player chunks, maximum 25 active chunks, 1.97 ms peak build and warmed RSS 188.0–188.4 MiB. All six live entrances/outside/frame cases pass. Sixteen composition pairs, sixteen fixture refinements, twelve family views and thirteen route views were inspected.
+
 - Format 34 final suites pass; eighteen grounded figure views, twelve family views and eleven controller/regression views were inspected. The 356.0 m collision-enabled return crosses five player chunks, stays at 25 loaded chunks and has 9.18 ms peak build. RSS falls from 186.3 MiB to 157.3 MiB; the sampled warmed range is 157.3–174.9 MiB. A twelve-view repeat verifies the new readiness guard. The longer tunnel sweep remains pending.
 
-- Format 31 Release/Debug builds and world/profile/lighting tests pass. Geometry/collision are unchanged; source fingerprint remains `274dca75c397b6e3`. The real controller completes 60 waypoints over 449.3 m in 275.3 seconds, five player chunks, maximum 25 chunks and 10.12 ms peak build. Warmed RSS grows from 231.0 to 241.2 MiB as buffer capacities settle. All sixteen route views were inspected. A 2.4 km sweep holds 25 chunks, median 39 draw FPS, median rolling p95 28.57 ms, sampled maximum 39.70 ms and 9.74 ms peak build; latter-half RSS is 255.2–262.3 MiB. The pool is bounded, but this short material-only run does not establish a final plateau. Missing and corrupt PNGs restore separate procedural wall/floor materials.
-- Format 30 final builds/tests pass. A 355.2 m real return holds 25 chunks, 3.55 ms peak and warmed RSS 175.5–176.3 MiB. Final 2.4 km tunnel sweeps with MSAA 0/4 both hold 25 chunks and median 39 draw FPS, 9.28/7.11 ms peak builds, median rolling p95 26.38/27.18 ms and sampled maxima 35.09/32.65 ms. Latter-half RSS is 249.0–253.7/251.2–256.0 MiB. No build over 16.67 ms in those finite repeats.
+- The final format 34 tunnel sweep reaches 28.8 km with at most 25 chunks and 18 sampled spare buffers. It creates 390 buffers and reuses 28,699. Packed capacity peaks at 57.2 MiB; late RSS is 295.5–300.6 MiB, with final twelve samples 295.5–298.7 MiB. Median draw FPS is 39, median rolling p95 27.22 ms, sampled maximum interval 72.57 ms, median build 3.87 ms and peak 25.29 ms. Ten builds exceed 16.67 ms in about 640 seconds; occasional spikes remain. Collision is bypassed in this diagnostic, not in controller walks.
 - **Timing correction:** titles through format 29 labeled fixed-step updates as FPS. Historical rates near 59 are UPS. Actual format 30 views/sweeps draw around 39–41 FPS on the isolated Weston/Xwayland display; no real desktop presentation rate is inferred. The title now separates actual FPS, 120-interval p95/max, CPU submission and UPS.
-- Format 29's 1,162.5 m return, seven-seed scan, all 63 physical squares and four real alcove orientations pass. Its 9.6 km sweep stays at 25 chunks/256 layouts, 4.54 ms peak and latter-half RSS 180.5–181.4 MiB. Earlier tunnel sweeps reach 28.8 km with bounded objects/buffers and a late RSS plateau; see history for finite observations.
+- Earlier long collision returns, physical audits, fallbacks and family-specific finite measurements are retained in [validation history](docs/validation-history.md).
 - The explicit CNA context lease remains necessary for reused-buffer uploads, transitions and deletion; [bugs.md](bugs.md) records the regression. No sibling edits. Latest dependency heads: CNA `b2fd47a45757c32326cbbb5c2b39afffdb7392c5`, Sharp Runtime `fc033a0e8541a81498c4a496f56a0f59475c6e34`.
 - Fresh format 34 captures use the game's own normal PipeWire/PulseAudio stream on the unmuted Ryzen speaker output: hum -32.3 dBFS RMS, footsteps -10.8 dBFS peak and an isolated transition without footsteps -13.5 dBFS peak, without clipping. Subjective listening remains unverified. Dummy-audio visual tests do not validate audibility.
 
 ## Next pass
 
-Open the industrial bays and align their framing with structural supports, then check longer tunnel memory behavior and arbitrary office views. Continue screenshot-driven refinement and actual traversal; the goal remains active.
+Compare improved industrial wall/floor materials, including missing-asset behavior. Continue with arbitrary office views and near-entity behavior; the product goal remains active. Continue screenshot-driven refinement and actual traversal; the goal remains active.

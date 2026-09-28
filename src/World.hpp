@@ -11,7 +11,7 @@
 
 namespace Backrooms {
 
-constexpr int kFormatVersion = 34;
+constexpr int kFormatVersion = 35;
 constexpr int kChunkCells = 8;
 constexpr int kRegionCells = 6;
 constexpr double kCellSize = 5.0;
@@ -76,7 +76,7 @@ Wall PropBounds(const CellProp& prop);
 struct LampInfo {
     bool fixture=false;
     bool lit=false;
-    float x=2.5f,z=2.5f;
+    float x=2.5f,z=2.5f,y=0;
     bool longAxisX=true;
     bool operator==(const LampInfo&) const = default;
 };

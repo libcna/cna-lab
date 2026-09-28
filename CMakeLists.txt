@@ -55,3 +55,10 @@ target_compile_options(level_profile_tests PRIVATE -Wall -Wextra -Wpedantic)
 add_executable(lighting_tests tests/LightingTests.cpp)
 target_link_libraries(lighting_tests PRIVATE backrooms_world)
 target_compile_options(lighting_tests PRIVATE -Wall -Wextra -Wpedantic)
+
+enable_testing()
+add_test(NAME world COMMAND world_tests)
+add_test(NAME level_profiles COMMAND level_profile_tests)
+add_test(NAME lighting COMMAND lighting_tests)
+set_tests_properties(world level_profiles lighting PROPERTIES
+    WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}")

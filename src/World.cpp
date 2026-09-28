@@ -214,15 +214,16 @@ bool ColumnAt(const WorldConfig& config,int cellX,int cellZ) {
 Edge ComposedEdge(const WorldConfig& config, RegionKind kind,
                   int firstX, int firstZ, int secondX,
                   bool tree, std::uint32_t hash) {
-    if (config.level==1 && kind==RegionKind::Storage) {
-        // Shelves and supports compose the bay; every five-metre boundary
-        // should not become another doorway frame.
-        return hash%(tree ? 19 : 11)==0 ? Edge::Wide : Edge::Open;
+    if (config.level==1 && (kind==RegionKind::Storage ||
+        kind==RegionKind::Columns || kind==RegionKind::OpenOffice)) {
+        // Compose an entire industrial bay with supports and shelves. Its
+        // enclosure and entrances belong to the shared region border.
+        return Edge::Open;
     }
     if (config.level==2 && tree)
         return hash%10<7 ? Edge::Open :
                hash%10<9 ? Edge::Wide : Edge::Door;
-    if (config.level<=1 && (kind==RegionKind::OpenOffice ||
+    if (config.level==0 && (kind==RegionKind::OpenOffice ||
                             kind==RegionKind::Columns)) {
         if (tree)
             return hash%(kind==RegionKind::Columns ? 14 : 9)==0 ?
@@ -327,6 +328,7 @@ std::uint32_t CellHash(const WorldConfig& config, int x, int z, int salt) {
 
 LampInfo LampAt(const WorldConfig& world, int gx, int gz) {
     LampInfo lamp;
+    lamp.y=LevelInfo(world).ceilingHeight-(world.level==1 ? 0.44f : 0.04f);
     const auto h=CellHash(world,gx,gz,41);
     if (world.level==0) {
         const int rx=DivFloor(gx,kRegionCells);

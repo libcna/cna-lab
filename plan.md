@@ -1,23 +1,77 @@
 # cna-backrooms: development plan
 
-Target: Linux desktop, CNA `next`, sharp-runtime `next`, EasyGL `OPENGLES3`. Budget target: about 24 hours. The initial walking prototype was Phase 0; visual, layout and validation passes are part of the playable milestone.
+Target: Linux desktop, CNA `next`, sharp-runtime `next`, EasyGL `OPENGLES3`.
+The budget target is about 24 hours. The initial prototype was Phase 0; a
+successful build is not completion of the visual product goal.
 
-| Priority | Scope | Status |
+| Priority | Scope | State |
 | --- | --- | --- |
-| MUST HAVE | Build, conventional first-person controls, collision, textured Level 0, deterministic connected world, bounded chunk streaming | Implemented and validated |
-| SHOULD HAVE | Distinct industrial/storage and tunnel levels, environmental transitions, harmless entities, long traversal, audio diagnostics | Implemented and validated within the limits below |
-| OPTIONAL | Extra props, visual effects, save file, ambient events | Sparse furniture and false doors added; others can be cut |
+| MUST HAVE | Launch, conventional first-person controls, collision, recognizable Level 0, deterministic connected generation, bounded streaming | Implemented; visual refinement remains active |
+| SHOULD HAVE | Distinct industrial and tunnel families, environmental transitions, harmless figures, audio, long traversal | Implemented; current composition and runtime passes below |
+| OPTIONAL | More props, advanced saving, async loading, additional effects | Sparse furniture and false doors exist; other work can be cut |
 
-The world is an unbounded integer cell grid. Each 8 by 8-cell chunk is regenerated from algorithm version 31, seed, level and global cell coordinates. Six by six-cell regions select room patterns and shared border connectors. Level 0 enclosed regions group cells into larger room zones; openings shift off center with matching collision, and ceiling tiles and fluorescent layouts are independent of the structural cell grid. Open regions now use fewer boundary fragments, with columns and longer offset walls defining the space. Longer partitions sit away from cell lines, using the same deterministic boxes for graphics and collision. Rare 60-metre halls interrupt the smaller rooms. Level 1 varies its storage-bay shelf pattern and ceiling beam orientation by region. Level 2 favors connected open runs, visible service fittings and occasional 30-metre service chambers. Rare maintenance entrances are generated from the same seed so transitions remain discoverable during long walks. Only nearby GPU buffers remain live. A small profile-format-1 JSON centralizes three fixed family definitions (heights, fog, lighting, tints, ordered room weights and entity rarity). Sharp Runtime loads it once, with a source fingerprint and tested built-in fallback. Chunk geometry still regenerates; a general scene serialization format would add complexity without improving this game.
+## Architecture and CNA audit
 
-## Visual comparison and next passes
+CNA supplies Game, GraphicsDevice, textured vertex buffers, BasicEffect, native
+textures/mipmaps, anisotropic sampling, multisampling, fog and frustum helpers.
+Its input APIs drive the controller; SoundEffect supplies licensed audio.
+Sharp Runtime File/JsonDocument loads the three immutable level profiles.
+Geometry uses boxes, quads and simple pipe/figure meshes. Paired screenshots
+selected inexpensive baked fluorescent lighting; no new renderer is needed.
 
-The [original Backrooms image and history](https://en.wikipedia.org/wiki/The_Backrooms) and [Level 0 description](https://backrooms-wiki.wikidot.com/level-0) emphasize yellow patterned walls, damp carpet, ceiling fluorescents, vacant rooms and repetitive sightlines. Current screenshots show these materials and broader composition, including offset walls and large empty halls. The visual goal remains active: several long walls still look too uniform, and rare furniture has crude proportions.
+The versioned world consists of a seed, level, algorithm version and exact
+profile bytes. Five-metre cells are an implementation detail. Six-cell regions
+compose larger rooms; eight-cell chunks stream around the player. Shared border
+connectors and contracted room trees preserve connectivity. Collision queries
+regenerate the same boxes independently of loaded rendering. Only 25 chunks,
+48 spare buffers and 256 cached room layouts remain live. Context leases around
+uploads/deletion are a game-side workaround documented in bugs.md; sibling
+repositories remain unmodified.
 
-Completed passes include room zones, off-grid partitions, asymmetric openings, fewer short wall fragments in open regions, more readable materials with mipmaps, warm fluorescent pools, distinct industrial racks and tunnel pipe layouts. Format 13 adds wall-occluded, face-dependent fluorescent contribution, wall thickness and tile-aligned fixtures that avoid obstacles. Simple baked lighting was chosen after paired screenshots; CNA BasicEffect remains the renderer. A cached per-chunk implementation avoids repeatedly evaluating the same samples.
+Office spaces combine room zones, asymmetric openings, six offset partition
+plans, columns, rare 60-metre halls, shallow alcoves and sparse furniture.
+Industrial spaces combine broad storage/column bays and enclosed utility rooms.
+Tunnels use narrower pipe-lined spaces, cabinets and occasional service chambers.
+Profiles tune family heights, fog, lighting, tints, ordered room weights and
+entity rarity. This is a small generated-world recipe, not a generic scene format.
 
-Validation exposed two issues that broad cell connectivity did not catch: a narrow partition gap and reused GPU buffers uploaded without an active EasyGL context. The physical walkability audit and a 326 m normal-controller regression now cover these. The context token workaround is game-side only; sibling repositories remain unmodified. Corrected-upload 9.6 km sweeps of all three levels remain bounded. Real audio routing and signal levels are verified, but subjective listening is unavailable on the muted environment speaker sink.
+## Reference and completed passes
 
-Chairs and tables now have human-scale dimensions, lighter frames and readable upholstery. Default walk/run speeds are 2.4/4.8 m/s, with retimed steps. Long-wall tint now changes continuously and false doors sit on the actual thick wall face. A direct comparison with the original-room photograph suggests quieter ceiling-grid lines, less prominent trim and a richer faded wallpaper ornament; these changes are now implemented and were compared in paired screenshots. Original generated wallpaper and loop-pile carpet are the bitmap visual assets, both with procedural fallbacks. Maintenance entrances now have human-scale frames and level-matching finishes; live entry, outside-gate movement and frame collision pass. Level 1 now has structural column rooms, larger bays and occluded baked lighting. The concrete ceiling, carpet grain and wall contact shading have also been refined. Actual return walks in the other levels passed, but their screenshots show excess storage wall fragments and overly uniform brown tunnel finishes. Storage bays now have fewer internal wall fragments and two to four structural supports. A regenerated 512 m return walk and 9.6 km sweep pass. The tunnel pass now adds weathered concrete, occluded light, sparse pressure banks, framed cabinets and supported pipe layouts. Paired, close and distant views were inspected; controller and streaming checks pass. Room boundaries now retain one entrance per neighboring connected room pair; six matched and six turned views plus two real return walks were inspected. The 9.6 km office sweep confirms a bounded 256-region layout cache, and the tunnels completed a 28.8 km sweep. The three family profiles are now centralized and validated through actual native JSON/file paths. Six fixed views compared lighting contrast and office ceiling height. The combined 2.75 m ceiling and lower ambient/bounce profile is applied; close views, all entrances, a 355 m controller return and a bounded 9.6 km sweep pass. Sparse shallow alcoves now interrupt some solid walls with a lower acoustic lid and occasional painted doors. Shared geometry/collision, four live collision/exit cases, 72 distant directional views and a new 972 m return walk pass. Seven matched close/wide/seam views now compare an original loop-pile carpet bitmap with the procedural floor. A two-metre footprint is selected, with matching contact shading and native missing/corrupt-file fallbacks. Native anisotropic filtering preserves shallow-angle material detail. Height-dependent office wall lighting and a warmer profile now improve local fluorescent depth; a small CPU lighting module has deterministic boundary/eviction checks. Six sparse freestanding partition plans now include L-shaped, staggered and U-shaped dead spaces; 24 paired directions, 32 distant directions, all 63 physical squares and a 1.16 km controller return pass. Native four-sample MSAA and whole-chunk frustum checks are now compared in matched views. Real draw timing exposes the difference from fixed-step update rates; direct coordinate bounds remove costly per-vertex math-object copies. Original concrete now gives tunnel walls and floors mineral texture at a two-metre footprint, sharing one GPU texture and retaining procedural missing/corrupt-file fallbacks. Matched, close, distant and actual controller views were inspected. Small pipes now use eight sides and continuous circumferential baked shading. Service supports share the original cast-concrete finish with height- and face-dependent illumination; 24 paired directions and twelve family views were inspected. Crude entity silhouettes and office-like industrial wall fragments remain the next visual priorities. Continue consuming the largest visible deficiencies rather than increasing level count or creating a general scene format. STATUS.md records the latest results and remaining priorities.
+The [original image/history](https://en.wikipedia.org/wiki/The_Backrooms) and
+[Level 0 description](https://backrooms-wiki.wikidot.com/level-0) guide patterned
+yellow walls, worn carpet, acoustic ceilings, fluorescent illumination and vacant
+irregular spaces. Original generated wallpaper/carpet and height-dependent baked
+light now supply these materials. Human scale, ceiling grids, fixture placement,
+wall thickness, contact shading, partitions and narrow-gap collision have gone
+through repeated screenshot and actual-controller passes.
 
-The [Level 1 environment description](https://backrooms-wiki.wikidot.com/level-1) reinforces broad concrete service/warehouse bays and structural columns. The [Level 2 reference images and description](https://backrooms-wiki.wikidot.com/level-2) emphasize weathered concrete and intrusive industrial piping. These guide architecture and finish choices; reference photographs are not bundled game assets, and the game's entities remain harmless.
+[Level 1](https://backrooms-wiki.wikidot.com/level-1) guides concrete warehouse/service
+bays and supports; [Level 2](https://backrooms-wiki.wikidot.com/level-2) guides weathered
+concrete and intrusive piping. Original mineral concrete, rounded pipe shading
+and cast supports have been compared in matched views. Reference images are not
+bundled assets. Tapered, faceless figures are atmospheric and cannot harm players.
+Normal PipeWire captures verify hum, footsteps and an isolated transition cue on
+an unmuted output; subjective listening remains a human check.
+
+## Current backlog and remaining target allocation
+
+1. **Industrial composition (~1 hour):** format 35 removes residual five-metre
+   wall fragments inside open bays and aligns framing above support rows. Build,
+   compare arbitrary multi-seed views, audit connectivity and walk a return route.
+2. **Industrial materials (~1 hour):** remove conspicuous cloudy floor noise and
+   coarse wall seams using the existing small material system. Compare brightness,
+   scale and missing-asset behavior in actual views.
+3. **Near figures (~half an hour):** soften abrupt proximity disappearance while
+   retaining clear vision, harmless behavior and bounded ownership.
+4. **World/product QA (~2 hours):** finish the current 28.8 km tunnel capacity/RSS
+   check, sample arbitrary office regions and walk actual collision-enabled routes.
+   Inspect unflattering locations as well as landmarks.
+5. **Refinement/audit (~1.5 hours):** fix the three largest visible deficiencies,
+   repeat family screenshots, verify transitions, update documentation and commit.
+
+These are scope estimates, not permission to stop at a milestone. Continue the
+highest-value achievable deficiency while the goal is unsatisfied. Cut optional
+features before weakening walking, collision, streaming or maintainability.
+STATUS.md is current project memory; docs/validation-history.md retains exact
+finite measurements and limitations. Screenshots and passing tests alone do not
+establish that the complete visual/product audit has passed.

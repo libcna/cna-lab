@@ -1056,13 +1056,22 @@ void BackroomsGame::BuildChunk(ChunkCoord coord) {
             const int lx=gx-rx*kRegionCells,lz=gz-rz*kRegionCells;
             const auto layout=CellHash(world_,rx,rz,2901);
             const int phase=static_cast<int>((layout>>4)%3);
-            if (layout&1U) {
-                if ((lz+phase)%3==0)
-                    BoxRange(meshes,ceilingMat,x,z+0.22f,x+5,z+0.42f,
+            const bool alongX=(layout&1U)!=0;
+            const int line=alongX ? lz : lx;
+            const auto kind=RegionAt(world_,gx,gz);
+            // Supported bays put the framing over their column centers;
+            // enclosed utility rooms keep a separate region-wide phase.
+            const bool beam=kind==RegionKind::Columns ? line==1 || line==4 :
+                            kind==RegionKind::Storage ? line==2 || line==5 :
+                            (line+phase)%3==0;
+            if (beam) {
+                if (alongX)
+                    BoxRange(meshes,ceilingMat,x,z+2.40f,x+5,z+2.60f,
                              height-0.32f,height-0.10f,grid);
-            } else if ((lx+phase)%3==0)
-                BoxRange(meshes,ceilingMat,x+0.22f,z,x+0.42f,z+5,
-                         height-0.32f,height-0.10f,grid);
+                else
+                    BoxRange(meshes,ceilingMat,x+2.40f,z,x+2.60f,z+5,
+                             height-0.32f,height-0.10f,grid);
+            }
         } else if (level==2 && !chamber) {
             BoxRange(meshes,Material::TunnelWall,x+0.35f,z,x+0.50f,z+5,
                      height-0.33f,height-0.17f,grid);
@@ -1107,10 +1116,23 @@ void BackroomsGame::BuildChunk(ChunkCoord coord) {
             const float cx=x+lampInfo.x,cz=z+lampInfo.z;
             const float hx=lampInfo.longAxisX ? 1.20f : 0.23f;
             const float hz=lampInfo.longAxisX ? 0.23f : 1.20f;
-            Flat(meshes,ceilingMat,cx-hx,cz-hz,cx+hx,cz+hz,
-                 height-0.024f,grid,0.8f);
+            const float panelY=level==1 ? lampInfo.y : height-0.032f;
+            if (level==1) {
+                // Hanging fixtures clear the structural beam soffits.
+                BoxRange(meshes,Material::GalvanizedMetal,cx-hx,cz-hz,cx+hx,cz+hz,
+                         panelY+0.008f,panelY+0.08f,grid);
+                for (float offset:{-0.85f,0.85f}) {
+                    const float mx=cx+(lampInfo.longAxisX ? offset : 0);
+                    const float mz=cz+(lampInfo.longAxisX ? 0 : offset);
+                    BoxRange(meshes,Material::GalvanizedMetal,
+                             mx-0.018f,mz-0.018f,mx+0.018f,mz+0.018f,
+                             panelY+0.08f,height,grid);
+                }
+            } else
+                Flat(meshes,ceilingMat,cx-hx,cz-hz,cx+hx,cz+hz,
+                     height-0.024f,grid,0.8f);
             Flat(meshes,Material::Fluorescent,cx-hx+0.10f,cz-hz+0.07f,
-                 cx+hx-0.10f,cz+hz-0.07f,height-0.032f,
+                 cx+hx-0.10f,cz+hz-0.07f,panelY,
                  lampInfo.lit ? lamp : Color(106,115,102),1.0f);
         }
         const Color cellWall=wallA;
