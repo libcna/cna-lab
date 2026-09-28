@@ -27,7 +27,7 @@ int main() {
     CHECK(ChunkOfCell(-9)==-2);
     CHECK(ChunkAt(-0.01,-40.01)==(ChunkCoord{-1,-2}));
     // Golden values make changes to the versioned procedural world explicit.
-    CHECK(kFormatVersion==17);
+    CHECK(kFormatVersion==18);
     CHECK(CellHash(world,12,-8,41)==511389911U);
     CHECK(VerticalEdge(world,8,3)==Edge::Open);
     CHECK(HorizontalEdge(world,-4,-5)==Edge::Open);
@@ -98,6 +98,47 @@ int main() {
         denseBay|=racks==4;
     }
     CHECK(sparseBay && denseBay);
+    // Industrial columns occupy real floor space, while larger room zones
+    // leave the majority of their internal edges open.
+    int industrialColumns=0,industrialOpenEdges=0,industrialEdges=0;
+    for (int rx=-8;rx<=8;++rx) for (int rz=-8;rz<=8;++rz) {
+        if (RegionAt(storage,rx*6,rz*6)!=RegionKind::Columns) continue;
+        for (int lx=0;lx<6;++lx) for (int lz=0;lz<6;++lz) {
+            const int cx=rx*6+lx,cz=rz*6+lz;
+            const auto pillars=FullHeightObstaclesAt(storage,cx,cz);
+            industrialColumns+=pillars.count;
+            for (int i=0;i<pillars.count;++i) {
+                const auto& bounds=pillars.walls[i];
+                CHECK(Collides(storage,(bounds.minX+bounds.maxX)*0.5,
+                               (bounds.minZ+bounds.maxZ)*0.5,0.31));
+                CHECK(PropAt(storage,cx,cz).kind==PropKind::None);
+            }
+            if (lx>0) {
+                ++industrialEdges;
+                industrialOpenEdges+=VerticalEdge(storage,cx,cz)==Edge::Open;
+            }
+            if (lz>0) {
+                ++industrialEdges;
+                industrialOpenEdges+=HorizontalEdge(storage,cx,cz)==Edge::Open;
+            }
+            const auto fixture=LampAt(storage,cx,cz);
+            if (fixture.fixture) {
+                const double hx=fixture.longAxisX ? 1.20 : 0.23;
+                const double hz=fixture.longAxisX ? 0.23 : 1.20;
+                const double wx=cx*kCellSize+fixture.x;
+                const double wz=cz*kCellSize+fixture.z;
+                CHECK(fixture.x-hx>0 && fixture.x+hx<kCellSize);
+                CHECK(fixture.z-hz>0 && fixture.z+hz<kCellSize);
+                for (int i=0;i<pillars.count;++i) {
+                    const auto& bounds=pillars.walls[i];
+                    CHECK(!(wx+hx>bounds.minX && wx-hx<bounds.maxX &&
+                            wz+hz>bounds.minZ && wz-hz<bounds.maxZ));
+                }
+            }
+        }
+    }
+    CHECK(industrialColumns>100);
+    CHECK(industrialOpenEdges>industrialEdges*0.90);
     const CellProp firstChair=PropAt(world,2,1);
     CHECK(firstChair.kind==PropKind::Chair);
     CHECK(PropAt(world,2,1).x==firstChair.x);

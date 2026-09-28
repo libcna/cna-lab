@@ -6,6 +6,8 @@ The September 2026 playable foundation at `aaf67c0` has deterministic regions, b
 
 ## Completed passes
 
+- Format 18 adds a distinct industrial column-region family, opens most internal bay boundaries and groups enclosed Level 1 areas into multi-cell room zones. Cast-concrete pillars share full-height collision; industrial fixtures vary by region and avoid pillars. Face-dependent, wall-occluded baked illumination now covers Level 1 too. Walls in all levels have the thickness used by collision. Six matched industrial comparisons and a complete twelve-view round were inspected. Debug/Release tests, the seven-seed scan, 63-square physical audit and six live entrance cases pass. A 2.4 km Level 1 Release sweep holds near 59 FPS, at most 25 chunks, 2.17 ms peak and warmed RSS 167.1–168.3 MB.
+
 - Format 17 replaces broad black transition boxes with human-scale service entrances: 1.3 m openings, level-matching exterior finishes, ordinary casing and recessed dim concrete interiors. Shared portal boxes drive graphics, collision, light obstruction and fixture avoidance. Carpet contact shading now follows the actual floor triangles for columns as well as furniture. Paired views of all three entrance families were inspected; Debug/Release tests, the seven-seed scan and 63-square collision audit pass. Real controller input passes all four fixed transition directions, outside-gate traversal and frame collision.
 
 - Format 16 compares an original imagegen wallpaper against the procedural material in the actual game. Its finer ornament/paper detail, thin painted baseboards, absent heavy top trim and quieter ceiling grid make the spaces less diagram-like. CNA loads the PNG and builds mipmaps; a fallback and executable-relative assets remain. Three matched FOV views favor a 60-degree vertical default, now configurable from the CLI. A twelve-view round and the 326 m controller return route were inspected; 36 waypoints passed in 223.7 seconds near 59 FPS, maximum 25 chunks, 2.24 ms peak and 347 buffer reuses.
@@ -47,11 +49,13 @@ The September 2026 playable foundation at `aaf67c0` has deterministic regions, b
 
 ## Three highest-priority deficiencies
 
-1. Level 1 open bays lack convincing structural pillars; its enclosed areas also expose too many individual cell walls.
-2. Extend normal-controller traversal and return routes in the other level families.
-3. Improve remaining coarse carpet detail and audit floor contact shading in close and distant views.
+1. The industrial ceiling has a coarse cloudy finish that weakens its concrete/service identity.
+2. Extend normal-controller traversal and return routes in Levels 1 and 2; a QA-only collision route planner is being prepared.
+3. Improve coarse carpet detail and audit floor contact shading in close and distant views.
 
 ## Latest validation
+
+- Format 18 Debug/Release builds and world tests pass. Seven-seed structural and 63-square physical walkability scans pass. Six industrial before/after pairs and another twelve-view round were inspected. The Level 1 2.4 km Release GPU sweep has a 2.17 ms peak, 141 created/1,396 reused buffers, near 59 FPS, maximum 25 chunks and warmed RSS 167.1–168.3 MB. Six real-controller entrance cases pass after changed room geometry. Audio for these controller/streaming checks uses the dummy backend.
 
 - Format 17 Debug/Release builds and world tests pass, along with seven-seed structural and 63-square physical walkability scans. All four transition directions, a clear path outside the entrance and collision with its narrow frame pass through actual keyboard/mouse input. Three paired entrance views were inspected. Dummy audio was used for this controller test; it does not supersede the separate real-backend audio evidence.
 
@@ -69,4 +73,4 @@ The September 2026 playable foundation at `aaf67c0` has deterministic regions, b
 
 ## Next pass
 
-Improve Level 1 structural identity with concrete columns and larger connected bays, compare matched screenshots and check physical walkability. Then extend actual controller traversal in Levels 1 and 2. The goal remains active.
+Replace the industrial ceiling's cloudy material and improve carpet grain at close range. Prepare actual controller return walks across generated Levels 1 and 2, with screenshots and bounded-memory observations. The goal remains active.

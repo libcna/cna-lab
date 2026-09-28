@@ -130,7 +130,7 @@ Edge ComposedEdge(const WorldConfig& config, RegionKind kind,
     if (config.level==2 && tree)
         return hash%10<7 ? Edge::Open :
                hash%10<9 ? Edge::Wide : Edge::Door;
-    if (config.level==0 && (kind==RegionKind::OpenOffice ||
+    if (config.level<=1 && (kind==RegionKind::OpenOffice ||
                             kind==RegionKind::Columns)) {
         if (tree)
             return hash%(kind==RegionKind::Columns ? 14 : 9)==0 ?
@@ -140,7 +140,7 @@ Edge ComposedEdge(const WorldConfig& config, RegionKind kind,
             return roll<95 ? Edge::Open : Edge::Wide;
         return roll<88 ? Edge::Open : roll<97 ? Edge::Wide : Edge::Door;
     }
-    if (config.level!=0 || (kind!=RegionKind::Rooms &&
+    if (config.level>1 || (kind!=RegionKind::Rooms &&
         kind!=RegionKind::Halls && kind!=RegionKind::Irregular))
         return tree ? TreeEdge(kind,hash) : OptionalEdge(kind,hash);
     if (RoomZoneAt(config,firstX,firstZ,kind)==
@@ -235,13 +235,25 @@ LampInfo LampAt(const WorldConfig& world, int gx, int gz) {
             if (!placed) { lamp.fixture=false;lamp.lit=false; }
         }
     } else {
-        lamp.fixture=world.level==1 ? (gx%3==0 && gz%2==0) :
-                     IsServiceChamber(world,gx,gz) ?
+        lamp.fixture=IsServiceChamber(world,gx,gz) ?
                      (gx%2==0 && gz%2==0) :
                      ((gx+gz)%3==0 && h%3!=0);
+        if (world.level==1) {
+            const int rx=DivFloor(gx,kRegionCells),rz=DivFloor(gz,kRegionCells);
+            const int lx=ModFloor(gx,kRegionCells),lz=ModFloor(gz,kRegionCells);
+            const auto layout=CellHash(world,rx,rz,2901);
+            const int phaseX=static_cast<int>((layout>>3)%3);
+            const int phaseZ=static_cast<int>((layout>>8)%2);
+            lamp.fixture=(lx+phaseX)%3==0 && (lz+phaseZ)%2==0;
+            lamp.longAxisX=(layout&1U)==0;
+            if (FullHeightObstaclesAt(world,gx,gz).count>0) {
+                lamp.x=1.15f;lamp.longAxisX=false;
+            }
+        }
         if (world.level==2 && gx==0 &&
             (gz==0 || gz==1 || gz==3)) lamp.fixture=true;
-        lamp.lit=lamp.fixture && (!IsServiceChamber(world,gx,gz) || h%13!=0);
+        lamp.lit=lamp.fixture && (world.level==1 ? h%19!=0 :
+                    !IsServiceChamber(world,gx,gz) || h%13!=0);
     }
     return lamp;
 }
@@ -319,8 +331,9 @@ RegionKind RegionAt(const WorldConfig& config, int cellX, int cellZ) {
                roll<86 ? RegionKind::Halls : RegionKind::Irregular;
     if (config.level==1)
         return roll<35 ? RegionKind::Storage :
-               roll<58 ? RegionKind::OpenOffice :
-               roll<83 ? RegionKind::Halls : RegionKind::Rooms;
+               roll<53 ? RegionKind::OpenOffice :
+               roll<68 ? RegionKind::Columns :
+               roll<86 ? RegionKind::Halls : RegionKind::Rooms;
     return roll<65 ? RegionKind::Tunnels :
            roll<88 ? RegionKind::Irregular : RegionKind::Halls;
 }
