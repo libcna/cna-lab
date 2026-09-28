@@ -6,10 +6,11 @@ The product goal remains **active**. Three distinct families, connected determin
 
 ## Current pass
 
-Format 32 compares eight-sided small pipes with shared circumferential vertex shades and continuous cylindrical UVs. The explicit sixteen-sided pressure assemblies retain their geometry. This addresses flat face bands and repeated strip UVs without adding runtime lights or shaders. All nine matched pairs were inspected; pipes look rounder without the previous flat color bands. Release/Debug builds and all three test suites pass. A 2.4 km sweep keeps at most 25 chunks, median 39 draw FPS, 26.70 ms median rolling p95, 37.68 ms sampled maximum, 3.54 ms median and 9.34 ms peak build. Latter-half RSS is 266.5–279.2 MiB as capacities settle; a longer final tunnel run remains necessary.
+Format 33 compares cast structural supports in both service families. Columns reuse the original concrete texture, take profile tints, and sample local light at three heights on each face. Their collider bounds are unchanged. Tunnel chamber supports gain the same base band and floor contact shading as industrial columns. All 24 multi-seed paired directions and twelve standard family views were inspected. The selected finish removes the plain beige post appearance and retains recognizable face shading. Release/Debug world/profile/lighting suites pass. A longer 9.6 km tunnel return sweep is running before the next compile.
 
 ## Completed passes
 
+- **32:** eight-sided small pipes, continuous cylindrical UVs and shared circumferential shading. All nine matched pairs and Debug/Release tests pass; a 2.4 km sweep holds median 39 draw FPS, 25 chunks and 9.34 ms peak build.
 - **31:** original granular concrete walls/floors, a shared native texture, two-metre UVs and separate procedural fallbacks. Nine material pairs, floor views, 24 distant directions and twelve final family views were inspected; the 449 m real return and missing/corrupt launches pass.
 - **30:** native four-sample MSAA, whole-chunk native frustum checks and actual draw timing. Nine culled/unculled images are pixel-identical; 48 directional views and sixteen controller/regression views were inspected. Direct coordinate bounds remove expensive native object copies. Slow-build logs split geometry/upload time.
 - **29:** long/L/T/staggered/short/U-shaped office partitions, with shared clipped geometry/collision and unchanged connectors. Twenty-four paired views, 32 distant directions, 24 controller and eight alcove views were inspected.
@@ -17,9 +18,9 @@ Format 32 compares eight-sided small pipes with shared circumferential vertex sh
 
 ## Three highest-priority deficiencies
 
-1. Industrial supports look uniformly colored in close views. Give their existing shape cast finishes and face-dependent light.
-2. Entities have an obvious six-box silhouette. Refine the inexpensive mesh while preserving harmless behavior.
-3. Recheck all family views and the longer tunnel RSS plateau after the geometry passes.
+1. Entities have an obvious six-box silhouette. Refine the inexpensive mesh while preserving harmless behavior.
+2. Industrial bays still contain many tall narrow wall fragments. Replace those office-like fragments with broad spaces composed by columns and shelves.
+3. Recheck the longer tunnel RSS plateau and arbitrary Level 0 views after the geometry passes.
 
 ## Latest validation
 
@@ -32,4 +33,4 @@ Format 32 compares eight-sided small pipes with shared circumferential vertex sh
 
 ## Next pass
 
-Improve industrial-support depth, then the harmless silhouette. Continue screenshot-driven refinement and actual traversal; the goal remains active.
+Refine the harmless silhouette, then the industrial bay composition. Continue screenshot-driven refinement and actual traversal; the goal remains active.

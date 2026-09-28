@@ -111,3 +111,8 @@ An original 1,254-square concrete image replaces regular tunnel wall spots and f
 ## Pipe profiles, format 32
 
 Small service pipes use eight radial sides, shared circumferential vertex shades and continuous cylindrical UVs; sixteen-sided pressure assemblies keep their geometry. All nine matched camera pairs were inspected. The loaded tunnel triangle count rises by about 10% in the sampled spawn area (375,312 to 414,244), while the 2.4 km sweep holds median 39 draw FPS and at most 25 chunks. Median rolling p95 is 26.70 ms, sampled maximum 37.68 ms, median build 3.54 ms and peak build 9.34 ms, with no build above 16.67 ms. Latter-half RSS is 266.5–279.2 MiB as the bounded buffer pool settles; a longer final tunnel plateau check remains. Release/Debug builds and world/profile/lighting suites pass. Collision, generation and profile bytes are unchanged. This visual pass uses dummy audio and does not validate audibility.
+
+
+## Service supports, format 33
+
+Structural columns reuse the original concrete texture with profile tints and baked samples at three heights on each face. Industrial and tunnel chamber columns share one helper, base band and floor contact shading; collider bounds are unchanged. All 24 directions at six multi-seed service locations and twelve standard family views were inspected. The finish replaces plain beige posts; broad industrial views still expose narrow office-like wall fragments as a separate composition deficiency. Release/Debug world/profile/lighting suites pass. A longer 9.6 km tunnel sweep is in progress; its result will be recorded in the next pass.

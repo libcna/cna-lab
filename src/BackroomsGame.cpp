@@ -579,26 +579,32 @@ void OfficeAlcoveVisual(Meshes& meshes,BakedLighting& lighting,
     }
 }
 
-void IndustrialColumn(Meshes& meshes, BakedLighting& lighting,
+void StructuralColumn(Meshes& meshes, BakedLighting& lighting,
                       float x0,float z0,float x1,float z1,
-                      double chunkX,double chunkZ,float height,Color floor) {
+                      double chunkX,double chunkZ,float height,
+                      Color body,Color base,Color floor,Material floorMaterial) {
+    constexpr float baseHeight=0.20f;
     const auto face=[&](bool vertical,float boundary,float a,float b,int normal) {
-        const auto sample=[&](float coordinate) {
+        const auto sample=[&](float coordinate,float y) {
             return lighting.WallSample(
                 chunkX+(vertical ? boundary+normal*0.04f : coordinate),
                 chunkZ+(vertical ? coordinate : boundary+normal*0.04f),
-                vertical ? normal : 0,vertical ? 0 : normal);
+                vertical ? normal : 0,vertical ? 0 : normal,y);
         };
-        const float start=sample(a),end=sample(b);
-        WallFace(meshes,Material::ConcreteCeiling,vertical,boundary,a,b,
-                 0.20f,height,Color(242,240,222),start,end);
+        const auto band=[&](float low,float high) {
+            WallFaceColors(meshes,Material::TunnelWall,vertical,boundary,a,b,
+                low,high,{Scale(body,sample(a,low)),Scale(body,sample(b,low)),
+                          Scale(body,sample(b,high)),Scale(body,sample(a,high))});
+        };
+        band(baseHeight,height*0.5f);band(height*0.5f,height);
+        const float start=sample(a,baseHeight),end=sample(b,baseHeight);
         WallFace(meshes,Material::IndustrialCeiling,vertical,boundary,a,b,
-                 0,0.20f,Color(150,163,150),start,end);
+                 0,baseHeight,base,start,end);
     };
     face(true,x0,z0,z1,-1);face(true,x1,z0,z1,1);
     face(false,z0,x0,x1,-1);face(false,z1,x0,x1,1);
     FloorContactShadow(meshes,lighting,x0,z0,x1,z1,chunkX,chunkZ,
-                       floor,0.80f,Material::ConcreteFloor,0.5f);
+                       floor,0.80f,floorMaterial,0.5f);
 }
 
 void UtilityEquipment(Meshes& meshes, BakedLighting& lighting,
@@ -1190,14 +1196,15 @@ void BackroomsGame::BuildChunk(ChunkCoord coord) {
                                wallB,trim,floorColor);
             } else if (level==1) {
                 if (obstacleId<fullHeightCount)
-                    IndustrialColumn(meshes,lighting,bx0,bz0,bx1,bz1,
-                                     ox*kCellSize,oz*kCellSize,height,floorColor);
+                    StructuralColumn(meshes,lighting,bx0,bz0,bx1,bz1,
+                                     ox*kCellSize,oz*kCellSize,height,
+                                     Scale(wallB,1.20f),trim,floorColor,floorMat);
                 else StorageRack(meshes,bx0,bz0,bx1,bz1,
                                  CellHash(world_,gx,gz,3413+obstacleId));
             } else if (obstacleId<fullHeightCount) {
-                BoxRange(meshes,Material::ConcreteCeiling,bx0,bz0,bx1,bz1,
-                         0,height,Scale(Color(195,198,174),lighting.Sample(
-                             ox*kCellSize+(bx0+bx1)*0.5f,oz*kCellSize+(bz0+bz1)*0.5f)));
+                StructuralColumn(meshes,lighting,bx0,bz0,bx1,bz1,
+                                 ox*kCellSize,oz*kCellSize,height,
+                                 wallB,trim,floorColor,floorMat);
             } else {
                 const bool pressureRack=CellHash(world_,FloorDiv(gx,kRegionCells),
                                                  FloorDiv(gz,kRegionCells),3931)%2==0;
