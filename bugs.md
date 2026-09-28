@@ -13,3 +13,23 @@ Observed with CNA `next` at `1ca684199f9bbf56c522a4f0d4e13446d4bae7e1`, sharp-ru
 **Game workaround:** `BackroomsGame::Stream` holds CNA's existing `GetRenderer().AcquireThreadContextLeaseEXT()` token through buffer retirement and uploads. Level transitions and final GPU resource cleanup use the same RAII scope. The bounded 48-buffer pool remains enabled. The game continues to use ordinary CNA vertex buffers and BasicEffect; no direct GL calls are used by the workaround.
 
 **Engine follow-up:** have existing vertex/index-buffer operations acquire a device context lease, including their resource deletion paths, as framework texture operations already do. Add an EasyGL regression which writes an existing buffer between frame leases and then compares its GPU rendering. This repository does not modify CNA or sharp-runtime.
+
+
+## Shared next-branch edits interrupted an incremental Debug build
+
+During the format 38 pass, an incremental Debug build failed in CNA
+`modules/runtime/src/Game.cpp`: its lifecycle visitor called
+`setIsActiveProperty`, while the declaration was unavailable to that compile.
+The log is `build/build38-debug.log` (local ignored evidence). Sibling checkouts
+were being changed externally; the subsequent read showed CNA HEAD
+`c90f0e39f45e7823623058a1063b364735a9214e`, Sharp Runtime HEAD
+`6c4a857de129cf29b5d43430bedf24157d594f12`, additional uncommitted CNA input/runtime
+edits, and the setter declaration present again in Game.hpp.
+
+This is a transient shared-checkout consistency observation, not a diagnosed
+persistent CNA bug. No sibling files, refs or working changes were altered by
+this game agent. Retrying the normal incremental build against the consistent
+headers succeeds (`build/build38-debug-retry.log`), and all three Debug CTest
+suites pass. The refreshed Release build also succeeds with all three suites
+passing. The actual controller walk uses this refreshed binary, rather than
+inferring that the external runtime/input changes work from the old binary.

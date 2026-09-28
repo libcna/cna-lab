@@ -6,9 +6,11 @@ The product goal remains **active**. Three distinct families, connected determin
 
 ## Current pass
 
-Format 37 paints office opening returns and lights lintel undersides from the same wall samples. All twenty-four uncurated office pairs, twelve family views and eleven route/regression views were inspected. Release/Debug suites and a 355 m actual-controller return pass. Tunnel roof details and proximity disappearance are next.
+Format 38 attaches tunnel roof ledges to solid walls and adds duct hangers. Twelve matched uncurated tunnel directions, twelve family views and sixteen actual-route views are inspected. The next pass softens abrupt near-figure disappearance through native CNA blending.
 
 ## Completed passes
+
+- **38:** wall-supported roof ledges and ceiling-mounted duct hangers. Twelve tunnel pairs, twelve family views and sixteen route views inspected. Refreshed Release/Debug suites pass; the 448.3 m return completes all 60 waypoints in 269.9 seconds, maximum 25 chunks, 6.84 ms peak build and final RSS 246.70 MiB.
 
 - **37:** painted, locally lit opening returns. Twenty-four office pairs, twelve family views and eleven route/regression views inspected. The 355.1 m return completes 28 waypoints in 191.6 seconds, at most 25 chunks and steady warmed RSS 187.79 MiB.
 
@@ -27,11 +29,13 @@ Format 37 paints office opening returns and lights lintel undersides from the sa
 
 ## Three highest-priority deficiencies
 
-1. Tunnel edge beams float below the ceiling and repeat on every cell. Replace them with wall-supported ceiling details.
-2. Nearby figures disappear abruptly; soften their retreat without interaction or AI complexity.
-3. Reassess room repetition and lighting in wider arbitrary views after the visible support and figure fixes.
+1. Nearby figures disappear abruptly; soften their retreat without interaction or AI complexity.
+2. Tunnel pipe ends stop abruptly near openings; reassess their attachment and termination in actual views.
+3. Reassess office room repetition and lighting in wider arbitrary views after these visible fixes.
 
 ## Latest validation
+
+- Format 38 refreshed Release/Debug builds and all three CTest suites pass after externally changing dependencies become consistent. The 448.3 m collision-enabled tunnel return completes 60 waypoints, five player chunks and at most 25 active chunks. Peak sampled build is 6.84 ms, warmed RSS 236.5–246.7 MiB and final 246.7 MiB, with 208 buffer creations and 313 reuses. Draw rate is about 39 FPS on the private display. The short walk does not establish a final tunnel memory plateau; the earlier 28.8 km sweep does. Standard screenshot timing overlapped a dependency rebuild and is not used for performance claims.
 
 - Format 36 Release/Debug CTest suites pass. The 9.6 km industrial diagnostic holds at most 25 chunks and 19 sampled spare buffers. It creates 251 buffers and reuses 9,143. Packed capacity stays at 5.8–6.4 MiB; warmed RSS holds at 188.74 MiB through the final three quarters. Median actual draw rate is 39 FPS, rolling p95 median 26.28 ms and maximum sampled interval 112.11 ms; median build is 1.13 ms and peak 5.80 ms. Occasional presentation outliers remain. Collision is deliberately bypassed in this diagnostic. Source profile fingerprint is `6075bcb6c5f3514c`.
 
@@ -42,9 +46,9 @@ Format 37 paints office opening returns and lights lintel undersides from the sa
 - The final format 34 tunnel sweep reaches 28.8 km with at most 25 chunks and 18 sampled spare buffers. It creates 390 buffers and reuses 28,699. Packed capacity peaks at 57.2 MiB; late RSS is 295.5–300.6 MiB, with final twelve samples 295.5–298.7 MiB. Median draw FPS is 39, median rolling p95 27.22 ms, sampled maximum interval 72.57 ms, median build 3.87 ms and peak 25.29 ms. Ten builds exceed 16.67 ms in about 640 seconds; occasional spikes remain. Collision is bypassed in this diagnostic, not in controller walks.
 - **Timing correction:** titles through format 29 labeled fixed-step updates as FPS. Historical rates near 59 are UPS. Actual format 30 views/sweeps draw around 39–41 FPS on the isolated Weston/Xwayland display; no real desktop presentation rate is inferred. The title now separates actual FPS, 120-interval p95/max, CPU submission and UPS.
 - Earlier long collision returns, physical audits, fallbacks and family-specific finite measurements are retained in [validation history](docs/validation-history.md).
-- The explicit CNA context lease remains necessary for reused-buffer uploads, transitions and deletion; [bugs.md](bugs.md) records the regression. No sibling edits. Latest dependency heads: CNA `b2fd47a45757c32326cbbb5c2b39afffdb7392c5`, Sharp Runtime `fc033a0e8541a81498c4a496f56a0f59475c6e34`.
+- The explicit CNA context lease remains necessary for reused-buffer uploads, transitions and deletion; [bugs.md](bugs.md) records the regression. No sibling edits. Latest observed dependency heads: CNA `c90f0e39f45e7823623058a1063b364735a9214e`, Sharp Runtime `6c4a857de129cf29b5d43430bedf24157d594f12`. Sibling input/runtime files have external uncommitted edits; this agent does not change them. A transient Debug inconsistency and the successful retry are documented in bugs.md.
 - Fresh format 34 captures use the game's own normal PipeWire/PulseAudio stream on the unmuted Ryzen speaker output: hum -32.3 dBFS RMS, footsteps -10.8 dBFS peak and an isolated transition without footsteps -13.5 dBFS peak, without clipping. Subjective listening remains unverified. Dummy-audio visual tests do not validate audibility.
 
 ## Next pass
 
-Repair floating tunnel roof details, compare arbitrary directional views, then soften near-entity behavior. Continue actual traversal and the product audit; the goal remains active.
+Soften near-figure retreat, capture actual approach/return sequences in all three families, then repair the next visible environmental deficiency. Continue the product audit; the goal remains active.

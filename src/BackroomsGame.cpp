@@ -1095,10 +1095,20 @@ void BackroomsGame::BuildChunk(ChunkCoord coord) {
                              height-0.32f,height-0.10f,grid);
             }
         } else if (level==2 && !chamber) {
-            BoxRange(meshes,Material::TunnelWall,x+0.35f,z,x+0.50f,z+5,
-                     height-0.33f,height-0.17f,grid);
-            BoxRange(meshes,Material::TunnelWall,x+4.50f,z,x+4.65f,z+5,
-                     height-0.33f,height-0.17f,grid);
+            // Roof ledges meet real solid walls instead of tracing every cell
+            // through open space. Their upper edge is attached to the ceiling.
+            if (VerticalEdge(world_,gx,gz)==Edge::Solid)
+                BoxRange(meshes,Material::TunnelWall,x+0.09f,z,x+0.26f,z+5,
+                         height-0.22f,height,grid);
+            if (VerticalEdge(world_,gx+1,gz)==Edge::Solid)
+                BoxRange(meshes,Material::TunnelWall,x+4.74f,z,x+4.91f,z+5,
+                         height-0.22f,height,grid);
+            if (HorizontalEdge(world_,gx,gz)==Edge::Solid)
+                BoxRange(meshes,Material::TunnelWall,x,z+0.09f,x+5,z+0.26f,
+                         height-0.22f,height,grid);
+            if (HorizontalEdge(world_,gx,gz+1)==Edge::Solid)
+                BoxRange(meshes,Material::TunnelWall,x,z+4.74f,x+5,z+4.91f,
+                         height-0.22f,height,grid);
         }
         if (level==0 && lampInfo.fixture) {
             const float halfX=lampInfo.longAxisX ? 0.625f : 0.3125f;
@@ -1281,6 +1291,10 @@ void BackroomsGame::BuildChunk(ChunkCoord coord) {
                 BoxRange(meshes,Material::IndustrialCeiling,
                          x+0.42f,z+0.73f,x+4.58f,z+1.12f,
                          height-0.45f,height-0.17f,duct);
+                for (const float support:{x+1.0f,x+4.0f})
+                    BoxRange(meshes,Material::GalvanizedMetal,
+                             support-0.025f,z+0.89f,support+0.025f,z+0.96f,
+                             height-0.17f,height,Scale(duct,1.2f));
                 Flat(meshes,Material::IndustrialCeiling,
                      x+0.42f,z+0.73f,x+4.58f,z+1.12f,
                      height-0.45f,Scale(duct,0.75f),0.5f);
