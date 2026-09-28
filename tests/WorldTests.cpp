@@ -29,7 +29,7 @@ int main() {
     CHECK(ChunkOfCell(-9)==-2);
     CHECK(ChunkAt(-0.01,-40.01)==(ChunkCoord{-1,-2}));
     // Golden values make changes to the versioned procedural world explicit.
-    CHECK(kFormatVersion==33);
+    CHECK(kFormatVersion==34);
     CHECK(CellHash(world,12,-8,41)==511389911U);
     CHECK(VerticalEdge(world,8,3)==Edge::Open);
     CHECK(HorizontalEdge(world,-4,-5)==Edge::Open);
@@ -448,6 +448,24 @@ int main() {
         CHECK(!Collides(selected,cx+1.10,cz,0.31));
         CHECK(Collides(selected,cx+1.10,cz+kPortalHalfWidth+0.08,0.31));
         CHECK(Collides(selected,cx+1.92,cz,0.31));
+    }
+    // Rare figures are reproducible atmosphere in clear cells. They do not
+    // enter the static collision set or the initial spawn neighborhood.
+    for (const auto seed:{0ULL,12345ULL}) for (int level=0;level<3;++level) {
+        const WorldConfig selected{seed,level,&cache},pure{seed,level};
+        int figures=0;
+        for (int x=-64;x<64;++x) for (int z=-64;z<64;++z) {
+            const auto entity=EntityAt(selected,x,z);
+            CHECK(entity==EntityAt(pure,x,z));
+            if (!entity) continue;
+            ++figures;
+            CHECK(x<-4 || x>4 || z<-4 || z>4);
+            CHECK(CellObstacles(selected,x,z).count==0);
+            CHECK(entity->x==(x+0.5)*kCellSize && entity->z==(z+0.5)*kCellSize);
+            CHECK(entity->phase>=0 && entity->phase<6.28f);
+            CHECK(!Collides(selected,entity->x,entity->z,0.90));
+        }
+        CHECK(figures>0 && figures<100);
     }
     // Troffers replace two by one ceiling tiles, including negative cells.
     // Keep them off structural columns and room-spanning partitions.

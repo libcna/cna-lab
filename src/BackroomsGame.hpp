@@ -41,15 +41,11 @@ public:
     void Draw(const Microsoft::Xna::Framework::GameTime& time) override;
 
 private:
-    struct Entity {
-        double x = 0, z = 0;
-        float phase = 0;
-    };
     struct Chunk {
         std::array<std::unique_ptr<Microsoft::Xna::Framework::Graphics::VertexBuffer>,
                    kMaterialCount> vertices;
         std::array<int, kMaterialCount> materialTriangles{};
-        std::vector<Entity> entities;
+        std::vector<EntitySpawn> entities;
         Microsoft::Xna::Framework::BoundingBox bounds;
         int triangles = 0;
         double buildMs = 0;
@@ -60,6 +56,8 @@ private:
     std::unique_ptr<Materials> materials_;
     std::unique_ptr<Microsoft::Xna::Framework::Graphics::VertexBuffer> entityVertices_;
     int entityTriangles_ = 0;
+    std::unique_ptr<Microsoft::Xna::Framework::Graphics::VertexBuffer> entityShadowVertices_;
+    int entityShadowTriangles_ = 0;
     std::unique_ptr<Microsoft::Xna::Framework::Audio::SoundEffect> humSound_;
     std::unique_ptr<Microsoft::Xna::Framework::Audio::SoundEffectInstance> hum_;
     std::unique_ptr<Microsoft::Xna::Framework::Audio::SoundEffect> step_;

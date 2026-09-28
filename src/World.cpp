@@ -815,6 +815,16 @@ CellObstacleSet FullHeightObstaclesAt(const WorldConfig& config, int cellX, int 
     return result;
 }
 
+std::optional<EntitySpawn> EntityAt(const WorldConfig& config,int cellX,int cellZ) {
+    const auto hash=CellHash(config,cellX,cellZ,919);
+    if (hash%LevelInfo(config).entityRarity!=0 ||
+        (cellX>=-4 && cellX<=4 && cellZ>=-4 && cellZ<=4) ||
+        CellObstacles(config,cellX,cellZ).count!=0) return std::nullopt;
+    // A deterministic atmosphere candidate, with no collision or interaction state.
+    return EntitySpawn{(cellX+0.5)*kCellSize,(cellZ+0.5)*kCellSize,
+                       static_cast<float>((hash>>8)%628)/100.0f};
+}
+
 bool UtilityAlongZAt(const WorldConfig& config,int cellX,int cellZ) {
     return (CellHash(config,DivFloor(cellX,kRegionCells),
                      DivFloor(cellZ,kRegionCells),3929)&1U)==0;

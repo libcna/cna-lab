@@ -2,6 +2,7 @@
 """Capture reproducible game views on an X11/Xwayland QA display."""
 import argparse
 import json
+import math
 import os
 import pathlib
 import re
@@ -49,35 +50,55 @@ def main():
     parser.add_argument('--output',default='build/visual-qa')
     parser.add_argument('--msaa',type=int,choices=(0,4),
                         help='override native multisampling for a matched comparison')
+    parser.add_argument('--level',type=int,choices=(0,1,2),
+                        help='limit a visual pass to one environment family')
     parser.add_argument('--distant',action='store_true')
     parser.add_argument('--partitions',action='store_true',
                         help='sample all six sparse office partition plans')
+    parser.add_argument('--entities',action='store_true',
+                        help='sample harmless figures at near, mid and distant ranges')
     parser.add_argument('--world-quality',default='build/world_quality')
     parser.add_argument('--all-directions',action='store_true',
                         help='also capture right, back and left views at each location')
     args=parser.parse_args()
     root=pathlib.Path(__file__).resolve().parents[1]
-    if args.partitions and args.distant:
-        parser.error('choose either distant or partition views')
+    if sum((args.partitions,args.distant,args.entities))>1:
+        parser.error('choose one of distant, partition or entity views')
     views=DISTANT_VIEWS if args.distant else BASE_VIEWS
     profile_source=None
-    if args.partitions:
+    if args.partitions or args.entities:
         quality=subprocess.check_output([str((root/args.world_quality).resolve()),
-                                         '--partitions'],cwd=root,text=True,
+                                         '--entities' if args.entities else '--partitions'],cwd=root,text=True,
                                          stderr=subprocess.STDOUT)
         source=re.search(r'\[levels\] format \d+, world \d+, source ([0-9a-f]+)',quality)
         profile_source=source[1] if source else '0' if 'using built-in defaults' in quality else None
         if profile_source is None:
             raise RuntimeError('world quality did not report its level-profile source')
-        selected={}
-        pattern=r'partition seed 12345 region (-?\d+),(-?\d+) style (\d+) along_x [01] position ([\d.-]+),([\d.-]+)'
-        for match in re.finditer(pattern,quality):
-            rx,rz,style,x,z=match.groups()
-            selected.setdefault(int(style),(f'l0_partition_{style}',12345,0,
-                                             float(x),float(z),357))
-        if len(selected)!=6:
-            raise RuntimeError('world quality did not find all six partition plans')
-        views=[selected[style] for style in sorted(selected)]
+        if args.entities:
+            pattern=r'entity seed (0|12345) level ([012]) band ([012]) cell -?\d+,-?\d+ position ([\d.-]+),([\d.-]+) heading ([\d.-]+)'
+            views=[]
+            for match in re.finditer(pattern,quality):
+                seed,level,band,x,z,heading=match.groups()
+                initial=0 if int(level)==2 else math.pi/2
+                turn=(initial-float(heading)+math.pi)%(2*math.pi)-math.pi
+                views.append((f'l{level}_entity_s{seed}_b{band}',int(seed),int(level),
+                              float(x),float(z),round(turn/0.0022)))
+            if len(views)!=18:
+                raise RuntimeError('world quality did not find all entity distance samples')
+        else:
+            selected={}
+            pattern=r'partition seed 12345 region (-?\d+),(-?\d+) style (\d+) along_x [01] position ([\d.-]+),([\d.-]+)'
+            for match in re.finditer(pattern,quality):
+                rx,rz,style,x,z=match.groups()
+                selected.setdefault(int(style),(f'l0_partition_{style}',12345,0,
+                                                 float(x),float(z),357))
+            if len(selected)!=6:
+                raise RuntimeError('world quality did not find all six partition plans')
+            views=[selected[style] for style in sorted(selected)]
+    if args.level is not None:
+        views=[view for view in views if view[2]==args.level]
+        if not views:
+            parser.error('the selected view set has no locations in this level')
     output=(root/args.output).resolve()
     output.mkdir(parents=True,exist_ok=True)
     env=os.environ.copy()
@@ -105,6 +126,17 @@ def main():
                     return subprocess.check_output(['xdotool',*map(str,arguments)],
                         text=True,timeout=5).strip()
                 window=xdo('search','--pid',game.pid,'--name','cna-backrooms').splitlines()[0]
+                deadline=time.monotonic()+15
+                while True:
+                    title=xdo('getwindowname',window)
+                    actual=re.search(r'pos ([\d.-]+),([\d.-]+)',title)
+                    if actual is not None and 'loaded 25/25' in title:
+                        if abs(float(actual[1])-x)>0.15 or abs(float(actual[2])-z)>0.15:
+                            raise RuntimeError('view reset from the requested position: '+title)
+                        break
+                    if game.poll() is not None or time.monotonic()>deadline:
+                        raise RuntimeError('view did not finish streaming: '+title)
+                    time.sleep(.1)
                 if turn:
                     xdo('mousemove_relative','--',turn,0)
                     time.sleep(.2)
@@ -114,10 +146,17 @@ def main():
                         xdo('mousemove_relative','--',714,0)
                         time.sleep(.2)
                     title=xdo('getwindowname',window)
-                    if args.partitions:
-                        actual=re.search(r'pos ([\d.-]+),([\d.-]+)',title)
-                        if actual is None or abs(float(actual[1])-x)>0.15 or abs(float(actual[2])-z)>0.15:
-                            raise RuntimeError('partition view reset from the requested position: '+title)
+                    expected_yaw=(0 if level==2 else math.pi/2)-(turn+direction*714)*0.0022
+                    deadline=time.monotonic()+2.5
+                    while True:
+                        view_angle=re.search(r'\| view ([\d.-]+),([\d.-]+)',title)
+                        if view_angle is None: break # older comparison binaries lack angle telemetry
+                        error=(float(view_angle[1])-math.degrees(expected_yaw)+180)%360-180
+                        if abs(error)<0.3: break
+                        if time.monotonic()>deadline:
+                            raise RuntimeError('relative mouse did not reach the requested view: '+title)
+                        time.sleep(.1)
+                        title=xdo('getwindowname',window)
                     view=name+suffix
                     subprocess.run(['import','-window',window,str(output/(view+'.png'))],
                         check=True,timeout=10)

@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <array>
 #include <cstdint>
+#include <cmath>
 #include <iomanip>
 #include <iostream>
 
@@ -16,7 +17,7 @@ constexpr int kMin=-64,kMax=63;
 struct Counts {
     int cells=0,deadEnds=0,openCells=0,blocked=0;
     int openEdges=0,wideEdges=0,doorEdges=0,solidEdges=0;
-    int longestSightline=0,portals=0,emptyHallCells=0,chamberCells=0,alcoves=0;
+    int longestSightline=0,portals=0,emptyHallCells=0,chamberCells=0,alcoves=0,entities=0;
     std::array<int,7> regions{};
     std::array<int,6> partitionPlans{};
 };
@@ -51,6 +52,7 @@ Counts Sample(const WorldConfig& world) {
         counts.emptyHallCells+=IsEmptyHall(world,x,z);
         counts.chamberCells+=IsServiceChamber(world,x,z);
         counts.alcoves+=OfficeAlcoveAt(world,x,z).has_value();
+        counts.entities+=EntityAt(world,x,z).has_value();
         ++counts.regions[static_cast<int>(RegionAt(world,x,z))];
         if (x%kRegionCells==0 && z%kRegionCells==0)
             if (const auto style=OfficePartitionStyleAt(world,x/kRegionCells,z/kRegionCells))
@@ -74,7 +76,7 @@ Counts Sample(const WorldConfig& world) {
 }
 }
 
-int Run(bool showAlcoves,bool showPartitions) {
+int Run(bool showAlcoves,bool showPartitions,bool showEntities) {
     const auto levels=LoadLevelCatalog(FindAssetDirectory()/"levels.json");
     RoomLayoutCache cache;
     std::cout << "format " << kFormatVersion << ", sampled "
@@ -99,12 +101,50 @@ int Run(bool showAlcoves,bool showPartitions) {
                       << " cells | entrances " << c.portals
                       << " | empty hall cells " << c.emptyHallCells
                       << " | chamber cells " << c.chamberCells
-                      << " | alcoves " << c.alcoves
+                      << " | alcoves " << c.alcoves << " | entities " << c.entities
                       << " | region cells";
             for (int count:c.regions) std::cout << ' ' << count;
             std::cout << " | partition plans";
             for (int count:c.partitionPlans) std::cout << ' ' << count;
             std::cout << '\n';
+            if (showEntities) {
+                const WorldConfig world{seed,level,&cache,&levels};
+                std::array<bool,3> sampled{};
+                constexpr std::array<double,3> distances{{4.5,9,18}};
+                for (int x=kMin;x<=kMax;++x) for (int z=kMin;z<=kMax;++z) {
+                    const auto entity=EntityAt(world,x,z);
+                    if (!entity) continue;
+                    for (int band=0;band<3;++band) {
+                        if (sampled[band]) continue;
+                        for (int direction=0;direction<8;++direction) {
+                            const double angle=direction*0.785398163397;
+                            const double px=entity->x+distances[band]*std::cos(angle);
+                            const double pz=entity->z+distances[band]*std::sin(angle);
+                            if (Collides(world,px,pz,0.55) ||
+                                PortalAt(world,CellOf(px),CellOf(pz))) continue;
+                            bool clear=true;
+                            for (double step=0;step<distances[band];step+=0.25) {
+                                const double t=step/distances[band];
+                                if (Collides(world,px+(entity->x-px)*t,
+                                            pz+(entity->z-pz)*t,0.06)) {
+                                    clear=false;break;
+                                }
+                            }
+                            if (!clear) continue;
+                            sampled[band]=true;
+                            std::cout << std::setprecision(6) << "entity seed " << seed
+                                      << " level " << level << " band " << band
+                                      << " cell " << x << ',' << z
+                                      << " position " << px << ',' << pz
+                                      << " heading " << std::atan2(entity->x-px,entity->z-pz)
+                                      << std::setprecision(1) << '\n';
+                            break;
+                        }
+                    }
+                }
+                if (!sampled[0] || !sampled[1] || !sampled[2])
+                    throw std::runtime_error("entity view sample missing a distance band");
+            }
             if (showPartitions && level==0) {
                 const WorldConfig world{seed,level,&cache,&levels};
                 std::array<bool,12> sampled{};
@@ -150,10 +190,11 @@ int Run(bool showAlcoves,bool showPartitions) {
 int main(int argc,char** argv) {
     try {
         if (argc>2 || (argc==2 && std::string(argv[1])!="--alcoves" &&
-                      std::string(argv[1])!="--partitions"))
-            throw std::invalid_argument("usage: world_quality [--alcoves|--partitions]");
+                      std::string(argv[1])!="--partitions" && std::string(argv[1])!="--entities"))
+            throw std::invalid_argument("usage: world_quality [--alcoves|--partitions|--entities]");
         return Run(argc==2 && std::string(argv[1])=="--alcoves",
-                   argc==2 && std::string(argv[1])=="--partitions");
+                   argc==2 && std::string(argv[1])=="--partitions",
+                   argc==2 && std::string(argv[1])=="--entities");
     }
     catch (const std::exception& e) {
         std::cerr << "world audit: " << e.what() << '\n';

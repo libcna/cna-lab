@@ -9,6 +9,7 @@
 #include <cmath>
 #include <filesystem>
 #include <iomanip>
+#include <initializer_list>
 #include <iostream>
 #include <sstream>
 #include <stdexcept>
@@ -24,6 +25,7 @@
 #include "Microsoft/Xna/Framework/Vector2.hpp"
 #include "Microsoft/Xna/Framework/Vector3.hpp"
 #include "Microsoft/Xna/Framework/Graphics/DepthStencilState.hpp"
+#include "Microsoft/Xna/Framework/Graphics/BlendState.hpp"
 #include "Microsoft/Xna/Framework/Graphics/EffectPass.hpp"
 #include "Microsoft/Xna/Framework/Graphics/EffectPassCollection.hpp"
 #include "Microsoft/Xna/Framework/Graphics/EffectTechnique.hpp"
@@ -784,6 +786,7 @@ BackroomsGame::~BackroomsGame() {
     chunks_.clear();
     spareVertices_.clear();
     entityVertices_.reset();
+    entityShadowVertices_.reset();
     materials_.reset();
     effect_.reset();
 }
@@ -838,26 +841,86 @@ void BackroomsGame::LoadContent() {
 
 void BackroomsGame::BuildEntityMesh() {
     Meshes meshes;
-    const Material body=Material::TunnelWall;
-    const Color coat(72,72,70),head(85,78,69);
-    BoxRange(meshes,body,-0.27f,-0.17f,0.27f,0.18f,
-             0.72f,1.68f,coat);
-    BoxRange(meshes,body,-0.22f,-0.18f,0.22f,0.20f,
-             1.71f,2.07f,head);
-    BoxRange(meshes,body,-0.22f,-0.15f,-0.04f,0.12f,
-             0,0.76f,coat);
-    BoxRange(meshes,body,0.04f,-0.15f,0.22f,0.12f,
-             0,0.76f,coat);
-    BoxRange(meshes,body,-0.39f,-0.12f,-0.26f,0.12f,
-             0.82f,1.57f,coat);
-    BoxRange(meshes,body,0.26f,-0.12f,0.39f,0.12f,
-             0.82f,1.57f,coat);
+    const Material body=Material::Upholstery;
+    const Color coat(89,95,113),skin(112,110,112);
+    struct Ring { float x,y,z,width,depth; };
+    const auto shape=[&](std::initializer_list<Ring> rings,Color tint,int facets=8) {
+        const auto shade=[&](float angle) {
+            return Scale(tint,0.73f+0.27f*std::max(0.0f,
+                0.5f*std::cos(angle)+0.866f*std::sin(angle)));
+        };
+        const auto point=[](const Ring& ring,float angle) {
+            return Vector3(ring.x+ring.width*std::cos(angle),ring.y,
+                           ring.z+ring.depth*std::sin(angle));
+        };
+        constexpr float turn=6.28318530718f;
+        for (auto lower=rings.begin();lower+1!=rings.end();++lower) {
+            const auto& upper=*(lower+1);
+            for (int face=0;face<facets;++face) {
+                const float a=turn*face/facets,b=turn*(face+1)/facets;
+                QuadColors(meshes,body,point(*lower,a),point(*lower,b),
+                    point(upper,b),point(upper,a),
+                    {shade(a),shade(b),shade(b),shade(a)},
+                    {a/turn,lower->y},{b/turn,lower->y},
+                    {b/turn,upper.y},{a/turn,upper.y});
+            }
+        }
+        auto& mesh=meshes[static_cast<int>(body)];
+        for (int end=0;end<2;++end) {
+            const auto& ring=end ? *(rings.end()-1) : *rings.begin();
+            const Vector3 center(ring.x,ring.y,ring.z);
+            const Color cap=Scale(tint,end ? 0.95f : 0.70f);
+            for (int face=0;face<facets;++face) {
+                const float a=turn*face/facets,b=turn*(face+1)/facets;
+                mesh.emplace_back(center,cap,Vector2(0.5f,0.5f));
+                mesh.emplace_back(point(ring,a),cap,
+                    Vector2(0.5f+0.5f*std::cos(a),0.5f+0.5f*std::sin(a)));
+                mesh.emplace_back(point(ring,b),cap,
+                    Vector2(0.5f+0.5f*std::cos(b),0.5f+0.5f*std::sin(b)));
+            }
+        }
+    };
+    // The torso and relaxed limbs overlap at joints. One immutable mesh is
+    // shared by every distant figure; no animation or physical agent is needed.
+    shape({{0,0.76f,0,0.205f,0.12f},{0,1.13f,0,0.18f,0.105f},
+           {0,1.55f,0,0.245f,0.135f},{0,1.68f,0,0.085f,0.07f}},coat);
+    for (const float side:{-1.0f,1.0f}) {
+        shape({{side*0.12f,0.0f,0.025f,0.065f,0.105f},
+               {side*0.12f,0.11f,0,0.06f,0.07f},
+               {side*0.11f,0.44f,0.015f,0.065f,0.08f},
+               {side*0.105f,0.82f,0,0.085f,0.10f}},coat);
+        shape({{side*0.30f,0.80f,0.035f,0.042f,0.05f},
+               {side*0.32f,1.12f,0.02f,0.055f,0.06f},
+               {side*0.275f,1.53f,0,0.072f,0.075f}},coat);
+    }
+    shape({{0,1.63f,0,0.061f,0.055f},{0,1.76f,0.015f,0.06f,0.055f}},skin);
+    shape({{0,1.69f,0.018f,0.025f,0.03f},
+           {0,1.74f,0.024f,0.085f,0.088f},
+           {0,1.84f,0.02f,0.111f,0.105f},
+           {0,1.95f,0.008f,0.083f,0.081f},
+           {0,2.005f,0,0.012f,0.012f}},skin,12);
     auto& mesh=meshes[static_cast<int>(body)];
     entityTriangles_=static_cast<int>(mesh.size()/3);
     entityVertices_=std::make_unique<VertexBuffer>(getGraphicsDeviceProperty(),
         VertexPositionColorTexture::getVertexDeclarationStatic(),
         static_cast<int>(mesh.size()),BufferUsage::WriteOnly);
     entityVertices_->SetData(mesh.data(),static_cast<int>(mesh.size()));
+    Mesh shadow;
+    constexpr float turn=6.28318530718f;
+    for (float foot:{-0.12f,0.12f}) for (int side=0;side<8;++side) {
+        const float a=turn*side/8,b=turn*(side+1)/8;
+        shadow.emplace_back(Vector3(foot,0.007f,0.025f),Color(0,0,0,56),Vector2(0,0));
+        shadow.emplace_back(Vector3(foot+0.16f*std::cos(a),0.007f,
+                                    0.025f+0.20f*std::sin(a)),Color(0,0,0,0),Vector2(0,0));
+        shadow.emplace_back(Vector3(foot+0.16f*std::cos(b),0.007f,
+                                    0.025f+0.20f*std::sin(b)),Color(0,0,0,0),Vector2(0,0));
+    }
+    entityShadowTriangles_=static_cast<int>(shadow.size()/3);
+    entityShadowVertices_=std::make_unique<VertexBuffer>(getGraphicsDeviceProperty(),
+        VertexPositionColorTexture::getVertexDeclarationStatic(),
+        static_cast<int>(shadow.size()),BufferUsage::WriteOnly);
+    entityShadowVertices_->SetData(shadow.data(),static_cast<int>(shadow.size()));
+
 }
 
 std::unique_ptr<VertexBuffer> BackroomsGame::AcquireBuffer(int vertexCount) {
@@ -1243,14 +1306,8 @@ void BackroomsGame::BuildChunk(ChunkCoord coord) {
         if (const auto portal=PortalAt(world_,gx,gz))
             PortalVisual(meshes,lighting,world_,*portal,ox*kCellSize,oz*kCellSize,
                          height,wallA,trim,floorColor);
-        const auto entityHash=CellHash(world_,gx,gz,919);
-        const unsigned rarity=definition.entityRarity;
-        if (entityHash%rarity==0 && obstacles.count==0 &&
-            (std::abs(gx)>4 || std::abs(gz)>4)) {
-            chunk.entities.push_back({(gx+0.5)*kCellSize,
-                                      (gz+0.5)*kCellSize,
-                                      static_cast<float>((entityHash>>8)%628)/100.0f});
-        }
+        if (const auto entity=EntityAt(world_,gx,gz))
+            chunk.entities.push_back(*entity);
     }
     bool firstVertex=true;
     for (const auto& mesh:meshes) for (const auto& vertex:mesh) {
@@ -1344,21 +1401,32 @@ void BackroomsGame::UpdateTitle(double elapsed) {
         sorted[(drawIntervalCount_*95+99)/100-1] : 0;
     const double maximum=drawIntervalCount_ ? sorted[drawIntervalCount_-1] : 0;
     int triangles=0,entities=0;
+    std::size_t vertexCapacity=0;
     for (const auto& [coord,chunk]:chunks_) {
         (void)coord;
         triangles+=chunk.triangles;
         entities+=static_cast<int>(chunk.entities.size());
+        for (const auto& buffer:chunk.vertices)
+            if (buffer) vertexCapacity+=buffer->getVertexCountProperty();
     }
+    for (const auto& buffer:spareVertices_)
+        vertexCapacity+=buffer->getVertexCountProperty();
+    if (entityVertices_) vertexCapacity+=entityVertices_->getVertexCountProperty();
+    if (entityShadowVertices_) vertexCapacity+=entityShadowVertices_->getVertexCountProperty();
+    const double bufferMiB=vertexCapacity*
+        VertexPositionColorTexture::getVertexDeclarationStatic().getVertexStrideProperty()/1048576.0;
     const auto here=ChunkAt(x_,z_);
     std::ostringstream title;
     title << "cna-backrooms | Level " << world_.level << " (" << LevelInfo(world_).name
           << ") | seed " << world_.seed
           << " | pos " << std::fixed << std::setprecision(1) << x_ << ',' << z_
+          << " | view " << std::remainder(yaw_*57.2957795f,360.0f)
+          << ',' << pitch_*57.2957795f
           << " | chunk " << here.x << ',' << here.z
           << " | loaded " << chunks_.size() << "/25 | tris " << triangles
           << " | draw " << drawnChunks_ << "/25 " << drawnTriangles_ << " tris"
           << " | VBO " << bufferCreations_ << '/' << bufferReuses_
-          << " pool " << spareVertices_.size()
+          << " pool " << spareVertices_.size() << " gpu " << bufferMiB << " MiB"
           << " | rooms " << roomLayouts_.Size()
           << " | entities " << entities
           << " | build " << std::setprecision(2) << lastBuildMs_ << " ms"
@@ -1475,6 +1543,7 @@ void BackroomsGame::Draw(const GameTime& time) {
     const Color fog=FromRgb(LevelInfo(world_).fog);
     device.Clear(fog);
     device.setDepthStencilStateProperty(DepthStencilState::Default);
+    device.setBlendStateProperty(BlendState::Opaque);
     device.setRasterizerStateProperty(RasterizerState::CullNone);
     device.getSamplerStatesProperty()[0]=SamplerState::AnisotropicWrap;
     effect_->setFogColorProperty(fog.ToVector3());
@@ -1509,7 +1578,7 @@ void BackroomsGame::Draw(const GameTime& time) {
             }
         }
     }
-    effect_->setTextureProperty(materials_->Get(Material::TunnelWall));
+    effect_->setTextureProperty(materials_->Get(Material::Upholstery));
     device.SetVertexBuffer(entityVertices_.get());
     const float seconds=static_cast<float>(
         time.getTotalGameTimeProperty().getTotalSecondsProperty());
@@ -1526,6 +1595,27 @@ void BackroomsGame::Draw(const GameTime& time) {
             effect_->setWorldProperty(Matrix::CreateRotationY(facing)*
                 Matrix::CreateTranslation(static_cast<float>(ex-x_),0,
                                           static_cast<float>(ez-z_)));
+            if (distance<20) {
+                // Two soft contact spots follow the same pose as the feet.
+                // Native blending reads depth without writing into the floor.
+                effect_->setTextureEnabledProperty(false);
+                effect_->setFogEnabledProperty(false);
+                effect_->setAlphaProperty(static_cast<float>(1-distance/20));
+                device.setBlendStateProperty(BlendState::AlphaBlend);
+                device.setDepthStencilStateProperty(DepthStencilState::DepthRead);
+                device.SetVertexBuffer(entityShadowVertices_.get());
+                auto& passes=effect_->getCurrentTechniqueProperty()->getPassesProperty();
+                for (int i=0;i<passes.getCountProperty();++i) {
+                    passes[i]->Apply();
+                    device.DrawPrimitives(PrimitiveType::TriangleList,0,entityShadowTriangles_);
+                }
+                effect_->setTextureEnabledProperty(true);
+                effect_->setFogEnabledProperty(true);
+                effect_->setAlphaProperty(1);
+                device.setBlendStateProperty(BlendState::Opaque);
+                device.setDepthStencilStateProperty(DepthStencilState::Default);
+            }
+            device.SetVertexBuffer(entityVertices_.get());
             auto& passes=effect_->getCurrentTechniqueProperty()->getPassesProperty();
             for (int i=0;i<passes.getCountProperty();++i) {
                 passes[i]->Apply();

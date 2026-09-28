@@ -11,7 +11,7 @@
 
 namespace Backrooms {
 
-constexpr int kFormatVersion = 33;
+constexpr int kFormatVersion = 34;
 constexpr int kChunkCells = 8;
 constexpr int kRegionCells = 6;
 constexpr double kCellSize = 5.0;
@@ -79,6 +79,12 @@ struct LampInfo {
     float x=2.5f,z=2.5f;
     bool longAxisX=true;
     bool operator==(const LampInfo&) const = default;
+};
+
+struct EntitySpawn {
+    double x=0,z=0;
+    float phase=0;
+    bool operator==(const EntitySpawn&) const = default;
 };
 
 struct OfficeAlcove {
@@ -179,6 +185,7 @@ std::optional<OfficeAlcove> OfficeAlcoveAt(const WorldConfig& config,
                                         int cellX,int cellZ);
 CellObstacleSet OfficeAlcoveWalls(const OfficeAlcove& alcove);
 CellObstacleSet FullHeightObstaclesAt(const WorldConfig& config, int cellX, int cellZ);
+std::optional<EntitySpawn> EntityAt(const WorldConfig& config,int cellX,int cellZ);
 bool UtilityAlongZAt(const WorldConfig& config, int cellX, int cellZ);
 CellObstacleSet CellObstacles(const WorldConfig& config, int cellX, int cellZ);
 std::vector<Wall> NearbyWalls(const WorldConfig& config, double x, double z);

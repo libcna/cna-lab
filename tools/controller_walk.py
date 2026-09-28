@@ -103,6 +103,14 @@ try:
         if actual!=data['profile_source']:
             raise RuntimeError('route and game use different level definitions; regenerate the route')
     window=xdo('search','--pid',game.pid,'--name','cna-backrooms').splitlines()[0]
+    deadline=time.monotonic()+15
+    while True:
+        title=xdo('getwindowname',window)
+        if 'Level '+str(level) in title and 'loaded 25/25' in title:
+            break
+        if game.poll() is not None or time.monotonic()>deadline:
+            raise RuntimeError('initial streaming did not finish: '+title)
+        time.sleep(.1)
     yaw=0 if level==2 else math.pi/2
     def position():
         title=xdo('getwindowname',window)
