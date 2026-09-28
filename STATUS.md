@@ -18,18 +18,18 @@ The product goal remains **active**. Three distinct families, connected determin
 
 ## Current pass
 
-Format 44 adds five office support plans, optional transpose and a room-wide
-ceiling-tile offset instead of the identical four-column rectangle. Industrial
-supports remain unchanged. Release/Debug builds and all three suites pass;
-all 63 physical squares have one substantial connected component. All sixty
-matched remote directions and twelve family views are inspected. The actual
-default-seed return completes 686.4 metres and 108 waypoints, eight player chunks,
-maximum 25 active, peak build 35.20 ms and final RSS 176.58 MiB. Fourteen route
-views are inspected; the next traversal will capture all directions at corners.
-Native fixed/variable comparison shows no consistent improvement; the temporary
-option is removed. Next implementation: room-level huge-hall fluorescent plans.
+Format 45 hall lighting is visually accepted: rare sixty-metre halls share
+paired-row, staggered or banded fluorescent plans, orientation and a circuit
+across all four underlying regions. Ordinary offices, support plans and
+collision are unchanged. Release/Debug builds and all three suites pass;
+all 36 matched horizon directions, nine pitched ceiling pairs and twelve
+family views are inspected. The longer default-seed panorama return is running.
+Format 44 support composition and its 686.4-metre collision return remain
+committed; native timestep mode is unchanged.
 
 ## Completed passes
+
+- **45:** coherent huge-hall fluorescent plans and tile phase. Thirty-six matched horizon pairs, nine pitched ceiling pairs and twelve family views inspected; Release/Debug suites pass. The longer default-seed panorama return is pending.
 
 - **44:** five office support plans, room-wide transpose/tile phase and shared bounds. Sixty matched remote directions and twelve family views inspected. Release/Debug suites, seven-seed audit and 63 physical squares pass. The default-seed return completes 686.4 m with at most 25 chunks and final RSS 176.58 MiB.
 
@@ -62,9 +62,9 @@ option is removed. Next implementation: room-level huge-hall fluorescent plans.
 
 ## Three highest-priority deficiencies
 
-1. Rare huge-hall ceiling fields still inherit unrelated smaller-region layouts; compose room-level fluorescent plans and compare all directions.
-2. Audit the default seed and additional arbitrary family locations; rare huge halls still have a regular fixture field.
-3. Native Wayland launch/streaming remains to be refreshed; subjective audio listening remains unavailable.
+1. Complete and inspect the longer default-seed collision return, including arbitrary route panoramas and memory/timing measurements.
+2. Refresh native Wayland launch/streaming, live controls and entrances on the delivered renderer.
+3. Large bare halls still expose strong local floor-light bands; assess a focused refinement after the return. Subjective audio listening remains unavailable.
 
 ## Latest validation
 
@@ -94,7 +94,6 @@ option is removed. Next implementation: room-level huge-hall fluorescent plans.
 
 ## Next pass
 
-Finish format 44 office support composition, compare the same regions and check physical connectivity.
-Then audit the default-seed launch, further family locations and presentation
-cadence. Continue useful product/runtime work until the stabilization window.
-The goal remains active.
+Complete the longer default-seed panorama return and inspect every route view.
+Refresh native Wayland launch/streaming and actual entrances next. Continue
+useful product/runtime work until the stabilization window. The goal remains active.

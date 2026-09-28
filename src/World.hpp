@@ -11,7 +11,7 @@
 
 namespace Backrooms {
 
-constexpr int kFormatVersion = 44;
+constexpr int kFormatVersion = 45;
 constexpr int kChunkCells = 8;
 constexpr int kRegionCells = 6;
 constexpr double kCellSize = 5.0;
@@ -48,6 +48,8 @@ enum class OfficePartitionStyle : std::uint8_t {
 enum class OfficeColumnStyle : std::uint8_t {
     Rectangular, Spine, LShaped, DiagonalPair, OffsetRectangle
 };
+
+enum class HallLightingStyle : std::uint8_t { PairedRows, Staggered, Bands };
 
 struct Wall {
     double minX, minZ, maxX, maxZ;
@@ -175,6 +177,8 @@ std::optional<int> PortalTarget(const WorldConfig& config, double x, double z);
 RegionKind RegionAt(const WorldConfig& config, int cellX, int cellZ);
 LampInfo LampAt(const WorldConfig& config, int cellX, int cellZ);
 bool IsEmptyHall(const WorldConfig& config, int cellX, int cellZ);
+std::optional<HallLightingStyle> HallLightingStyleAt(
+    const WorldConfig& config,int cellX,int cellZ);
 bool IsServiceChamber(const WorldConfig& config, int cellX, int cellZ);
 Edge VerticalEdge(const WorldConfig& config, int boundaryX, int z);
 Edge HorizontalEdge(const WorldConfig& config, int x, int boundaryZ);

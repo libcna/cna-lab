@@ -156,6 +156,45 @@ int OfficeLightingViews() {
     return 0;
 }
 
+int HallLightingViews() {
+    const auto levels=LoadLevelCatalog(FindAssetDirectory()/"levels.json");
+    RoomLayoutCache cache;
+    constexpr std::array<std::uint64_t,3> seeds{{8723,55291,402717}};
+    constexpr std::array<const char*,3> cases{{"paired_rows","staggered","bands"}};
+    for (int style=0;style<3;++style) for (int index=0;index<3;++index) {
+        const WorldConfig world{seeds[index],0,&cache,&levels};
+        bool selected=false;
+        for (int attempt=0;attempt<10000 && !selected;++attempt) {
+            const auto a=CellHash(world,style*3+index,attempt,4537);
+            const auto b=CellHash(world,style*3+index,attempt,4541);
+            const int mx=static_cast<int>(a%134)-67;
+            const int mz=static_cast<int>(b%134)-67;
+            const int cx=mx*2*kRegionCells,cz=mz*2*kRegionCells;
+            const auto plan=HallLightingStyleAt(world,cx,cz);
+            if (!plan || static_cast<int>(*plan)!=style) continue;
+            const double x=cx*kCellSize+8+((a>>12)%4401)*0.01;
+            const double z=cz*kCellSize+8+((b>>12)%4401)*0.01;
+            if (Collides(world,x,z,0.55) || PortalAt(world,CellOf(x),CellOf(z))) continue;
+            int fixtures=0,lit=0;
+            for (int lx=0;lx<2*kRegionCells;++lx)
+                for (int lz=0;lz<2*kRegionCells;++lz) {
+                    const auto lamp=LampAt(world,cx+lx,cz+lz);
+                    fixtures+=lamp.fixture;lit+=lamp.lit;
+                }
+            const double heading=(CellHash(world,mx,mz,4547)%6284)*0.001;
+            std::cout << std::fixed << std::setprecision(6)
+                      << "view seed " << world.seed << " level 0 sample " << style*3+index
+                      << " region " << static_cast<int>(RegionAt(world,CellOf(x),CellOf(z)))
+                      << " position " << x << ',' << z << " heading " << heading
+                      << " case " << cases[style] << " fixtures " << fixtures
+                      << " lit " << lit << '\n';
+            selected=true;
+        }
+        if (!selected) throw std::runtime_error("could not select a huge-hall lighting plan");
+    }
+    return 0;
+}
+
 int OfficeColumnViews() {
     const auto levels=LoadLevelCatalog(FindAssetDirectory()/"levels.json");
     RoomLayoutCache cache;
@@ -388,11 +427,13 @@ int main(int argc,char** argv) {
                       std::string(argv[1])!="--partitions" && std::string(argv[1])!="--entities" &&
                       std::string(argv[1])!="--views" && std::string(argv[1])!="--office-lighting" &&
                       std::string(argv[1])!="--wall-ends" && std::string(argv[1])!="--office-columns" &&
+                      std::string(argv[1])!="--hall-lighting" &&
                       std::string(argv[1])!="--entity-approaches"))
-            throw std::invalid_argument("usage: world_quality [--alcoves|--partitions|--entities|--views|--office-lighting|--office-columns|--wall-ends|--entity-approaches]");
+            throw std::invalid_argument("usage: world_quality [--alcoves|--partitions|--entities|--views|--office-lighting|--office-columns|--hall-lighting|--wall-ends|--entity-approaches]");
         if (argc==2 && std::string(argv[1])=="--views") return ViewSamples();
         if (argc==2 && std::string(argv[1])=="--office-lighting") return OfficeLightingViews();
         if (argc==2 && std::string(argv[1])=="--office-columns") return OfficeColumnViews();
+        if (argc==2 && std::string(argv[1])=="--hall-lighting") return HallLightingViews();
         if (argc==2 && std::string(argv[1])=="--wall-ends") return WallEndViews();
         if (argc==2 && std::string(argv[1])=="--entity-approaches") return EntityApproaches();
         return Run(argc==2 && std::string(argv[1])=="--alcoves",

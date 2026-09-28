@@ -379,3 +379,23 @@ angle telemetry checks each quarter turn and restores the original heading;
 the route continues and returns to spawn without collision drift or a reset.
 This exposes surrounding rooms at the same corners whose forward views are
 often walls. It does not change the game controller.
+
+## Format 45: whole-hall fluorescent composition
+
+Rare sixty-metre empty halls choose paired rows, staggered fixtures or bands.
+All four constituent regions share the plan, tile phase, long-axis orientation
+and weak-circuit choice. Individual missing/dead fixtures retain deterministic
+variation. Ordinary offices, support bounds, collision, internal recipe 11 and
+the source profile remain unchanged. Tests sample three seeds and check full
+hall agreement, cached/pure regeneration, all three plans and fixture bounds.
+
+Release/Debug builds and all three suites pass. The new `--hall-lighting`
+selector reproduces nine remote off-grid cameras, three per plan across three
+seeds. Selection requires clearance and the requested plan, not an attractive
+view. All 36 matched horizon directions, nine pitched ceiling pairs and twelve
+family views are inspected. Ceiling orientation and spacing now read as one
+room rather than four unrelated plans. No new fixture intersections, missing
+geometry or surface seams are observed. Strong local light pools on the floor
+of very large bare halls remain visible. Screenshot timing is not a performance
+comparison; dummy audio is not listening evidence. The longer default-seed
+collision return follows separately.

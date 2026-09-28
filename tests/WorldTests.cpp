@@ -29,7 +29,7 @@ int main() {
     CHECK(ChunkOfCell(-9)==-2);
     CHECK(ChunkAt(-0.01,-40.01)==(ChunkCoord{-1,-2}));
     // Golden values make changes to the versioned procedural world explicit.
-    CHECK(kFormatVersion==44);
+    CHECK(kFormatVersion==45);
     CHECK(CellHash(world,12,-8,41)==511389911U);
     CHECK(VerticalEdge(world,8,3)==Edge::Open);
     CHECK(HorizontalEdge(world,-4,-5)==Edge::Open);
@@ -423,6 +423,33 @@ int main() {
             foundEmptyHall=true;
         }
     CHECK(foundEmptyHall);
+    // All four streamed subregions of a huge hall share its fixture plan and
+    // orientation, including negative coordinates and independent caches.
+    std::array<int,3> hallPlans{};
+    for (const auto seed:{0ULL,12345ULL,31337ULL}) {
+        const WorldConfig hallWorld{seed,0,&cache},pure{seed,0};
+        for (int mx=-12;mx<=12;++mx) for (int mz=-12;mz<=12;++mz) {
+            const int ix=mx*2*kRegionCells,iz=mz*2*kRegionCells;
+            const auto style=HallLightingStyleAt(hallWorld,ix,iz);
+            CHECK(style==HallLightingStyleAt(pure,ix,iz));
+            if (!style) continue;
+            ++hallPlans[static_cast<int>(*style)];
+            int fixtures=0,lit=0;
+            const bool alongX=LampAt(hallWorld,ix,iz).longAxisX;
+            for (int dx=0;dx<2*kRegionCells;++dx)
+                for (int dz=0;dz<2*kRegionCells;++dz) {
+                    CHECK(HallLightingStyleAt(hallWorld,ix+dx,iz+dz)==style);
+                    const auto lamp=LampAt(hallWorld,ix+dx,iz+dz);
+                    CHECK(lamp==LampAt(pure,ix+dx,iz+dz));
+                    CHECK(lamp.longAxisX==alongX);
+                    fixtures+=lamp.fixture;lit+=lamp.lit;
+                }
+            CHECK(fixtures>20 && fixtures<=48 && lit>0 && lit<=fixtures);
+        }
+        CHECK(!HallLightingStyleAt(WorldConfig{seed,1,&cache},-12,-12));
+        CHECK(!HallLightingStyleAt(WorldConfig{seed,2,&cache},12,12));
+    }
+    for (int count:hallPlans) CHECK(count>10);
     bool foundChamber=false;
     for (int ix=-60;ix<=60 && !foundChamber;ix+=6)
         for (int iz=-60;iz<=60 && !foundChamber;iz+=6) {

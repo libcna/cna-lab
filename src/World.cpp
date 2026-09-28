@@ -352,14 +352,31 @@ LampInfo LampAt(const WorldConfig& world, int gx, int gz) {
     lamp.y=LevelInfo(world).ceilingHeight-(world.level==1 ? 0.44f : 0.04f);
     const auto h=CellHash(world,gx,gz,41);
     if (world.level==0) {
-        const int rx=DivFloor(gx,kRegionCells);
-        const int rz=DivFloor(gz,kRegionCells);
-        const int lx=gx-rx*kRegionCells,lz=gz-rz*kRegionCells;
-        const auto layout=CellHash(world,rx,rz,1803);
+        const auto hallStyle=HallLightingStyleAt(world,gx,gz);
+        const int extent=hallStyle ? 2*kRegionCells : kRegionCells;
+        const int rx=DivFloor(gx,extent),rz=DivFloor(gz,extent);
+        int lx=ModFloor(gx,extent),lz=ModFloor(gz,extent);
+        const auto layout=CellHash(world,rx,rz,hallStyle ? 4531 : 1803);
         const int phaseX=static_cast<int>((layout>>4)&1U);
         const int phaseZ=static_cast<int>((layout>>7)&1U);
         const auto region=RegionAt(world,gx,gz);
-        if (region==RegionKind::OpenOffice || region==RegionKind::Columns)
+        if (hallStyle) {
+            if (layout&0x10000U) std::swap(lx,lz);
+            // A sixty-metre room has one ceiling plan and circuit, rather
+            // than four unrelated plans inherited from hidden region types.
+            switch (*hallStyle) {
+            case HallLightingStyle::PairedRows:
+                lamp.fixture=(lx+phaseX)%3!=2 && (lz+phaseZ)%2==0;
+                break;
+            case HallLightingStyle::Staggered:
+                lamp.fixture=(lx+phaseX)%2==0 &&
+                             (lz+phaseZ+lx/2)%2==0;
+                break;
+            case HallLightingStyle::Bands:
+                lamp.fixture=(lx+phaseX)%2==0 && (lz+phaseZ)%4<2;
+                break;
+            }
+        } else if (region==RegionKind::OpenOffice || region==RegionKind::Columns)
             lamp.fixture=(layout&0x1000U) ?
                 ((lx+phaseX)%2==0 || (lz+phaseZ)%3==0) :
                 ((lx+phaseX)%2==0 && (lz+phaseZ)%2==0);
@@ -371,12 +388,13 @@ LampInfo LampAt(const WorldConfig& world, int gx, int gz) {
         const bool weakCircuit=layout%13==0;
         lamp.lit=lamp.fixture && h%17!=0 &&
                  (!weakCircuit || h%4==0);
-        lamp.longAxisX=(layout&1U)!=0;
+        lamp.longAxisX=hallStyle ? (layout&0x10000U)==0 : (layout&1U)!=0;
         // A two-by-one tile troffer must start and end on the acoustic grid.
-        lamp.x=lamp.longAxisX ? ((h&1U) ? 2.5f : 3.125f) :
-                                      ((h&1U) ? 2.1875f : 2.8125f);
-        lamp.z=lamp.longAxisX ? ((h&2U) ? 2.1875f : 2.8125f) :
-                                      ((h&2U) ? 2.5f : 3.125f);
+        const auto placement=hallStyle ? layout : h;
+        lamp.x=lamp.longAxisX ? ((placement&1U) ? 2.5f : 3.125f) :
+                                      ((placement&1U) ? 2.1875f : 2.8125f);
+        lamp.z=lamp.longAxisX ? ((placement&2U) ? 2.1875f : 2.8125f) :
+                                      ((placement&2U) ? 2.5f : 3.125f);
         if (lamp.fixture) {
             auto obstacles=FullHeightObstaclesAt(world,gx,gz);
             if (const auto portal=PortalAt(world,gx,gz)) {
@@ -521,6 +539,13 @@ bool IsEmptyHall(const WorldConfig& config, int cellX, int cellZ) {
     const int sx=DivFloor(cellX,extent),sz=DivFloor(cellZ,extent);
     if (sx==0 && sz==0) return false; // preserve the first transition route
     return CellHash(config,sx,sz,2511)%17==0;
+}
+
+std::optional<HallLightingStyle> HallLightingStyleAt(
+    const WorldConfig& config,int cellX,int cellZ) {
+    if (!IsEmptyHall(config,cellX,cellZ)) return std::nullopt;
+    return static_cast<HallLightingStyle>(CellHash(config,
+        DivFloor(cellX,2*kRegionCells),DivFloor(cellZ,2*kRegionCells),4531)%3);
 }
 
 bool IsServiceChamber(const WorldConfig& config, int cellX, int cellZ) {
