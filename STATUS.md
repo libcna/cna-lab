@@ -6,6 +6,8 @@ The September 2026 playable foundation at `aaf67c0` has deterministic regions, b
 
 ## Completed passes
 
+- Format 15 removes abrupt cell-sized wallpaper tint patches in favor of a continuous low-amplitude finish variation, and subtly varies acoustic panels. A targeted view exposed false doors hidden inside the new wall thickness; a shared thickness constant and corrected face offset restore them. Debug/Release tests and a new twelve-view round pass. A direct comparison with the original-room photograph identifies overly strong ceiling/trim lines as the next visual deficiency.
+
 - Format 14 replaces bulky concrete-looking chairs with smaller fabric seats, thin steel legs and back frames, and slimmer tables. Shared rotated bounds drive collision. Contact shadows match the floor triangles after a paired screenshot caught a bright patch. Walking/running defaults are now 2.4/4.8 m/s with corresponding step cadence; live measured distances and held-Shift toggles pass.
 
 - Format 13 bakes wall-occluded and face-dependent fluorescent contribution into vertex colors. A temporary per-chunk sample cache reduces repeat work. Level 0 walls now have two independently shaded faces at their actual collision thickness. Fluorescent panels occupy exactly two acoustic tiles, shift away from full-height obstacles and use warmer white diffusers. A twelve-view round was inspected; deterministic fixture-placement tests and both builds pass.
@@ -41,11 +43,13 @@ The September 2026 playable foundation at `aaf67c0` has deterministic regions, b
 
 ## Three highest-priority deficiencies
 
-1. Remove visible cell-to-cell tint discontinuities along continuous Level 0 walls and top trim.
-2. Ceiling panels still look mathematically identical beyond the rare stained tiles; improve subtle deterministic variation while retaining believable acoustic grid/fixtures.
-3. Continue distant, unflattering material and composition QA: check close wallpaper/carpet, weak circuits and exceptionally open regions, not only origin views.
+1. Ceiling grid and full-height wall top trim are too dark/prominent against the reference's quieter office finish; soften them and reduce baseboard bulk.
+2. Wallpaper reads as a simple diamond pattern rather than a richer faded office ornament; improve the motif without increasing asset dependencies.
+3. Maintenance entrances still read as dark freestanding boxes; integrate their finish and framing with the surrounding architecture.
 
 ## Latest validation
+
+- Format 15 Debug/Release builds and world tests pass. The paired door image confirms the occlusion fix, and six Level 0/three Level 1/three Level 2 views were inspected after continuous wall tint and ceiling-age changes.
 
 - Format 14 Debug/Release builds, world tests, physical walkability and the seven-seed scan pass. Matched chair/table/embedded-prop views were inspected. A two-second live movement test measured 4.8 m walking and 9.7 m running; held Shift toggles once in each direction.
 - Format 13 Debug/Release builds and world tests pass. Four seeds over 128 by 128 cells verify reproducible fixtures, acoustic-grid alignment and avoidance of full-height geometry. The latest twelve-view round shows stronger wall depth and properly fitted fixtures. Physical walkability and the seven-seed quality scan pass. A 2.4 km Release GPU sweep held near 59 FPS with at most 25 chunks, 2.36 ms peak build and warmed RSS about 166–168 MB.
@@ -55,4 +59,4 @@ The September 2026 playable foundation at `aaf67c0` has deterministic regions, b
 
 ## Next pass
 
-The format 14 2.4 km Release GPU sweep passed near 59 FPS with at most 25 chunks and 2.96 ms peak build. Next remove wall tint jumps and judge subtle ceiling/material variation against matched and distant views. The visual goal remains active.
+Commit the wall/door cleanup, then prototype quieter trim/ceiling lines and a more readable wallpaper ornament against the same screenshots and the original reference. Continue with maintenance entrances and normal-controller traversal. The visual goal remains active.

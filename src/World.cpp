@@ -25,7 +25,7 @@ void AppendEdge(std::vector<Wall>& walls, const WorldConfig& config,
                 Edge edge, bool vertical, int edgeX, int edgeZ,
                 double boundary, double along) {
     if (edge == Edge::Open) return;
-    const double t = 0.10;
+    const double t = kWallHalfThickness;
     auto add = [&](double a, double b) {
         if (vertical) walls.push_back({boundary-t, a, boundary+t, b});
         else walls.push_back({a, boundary-t, b, boundary+t});

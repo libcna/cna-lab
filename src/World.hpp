@@ -7,10 +7,11 @@
 
 namespace Backrooms {
 
-constexpr int kFormatVersion = 14;
+constexpr int kFormatVersion = 15;
 constexpr int kChunkCells = 8;
 constexpr int kRegionCells = 6;
 constexpr double kCellSize = 5.0;
+constexpr float kWallHalfThickness = 0.10f;
 constexpr double kChunkSize = kChunkCells * kCellSize;
 constexpr float kChairHalfWidth = 0.285f;
 constexpr float kChairHalfDepth = 0.29f;

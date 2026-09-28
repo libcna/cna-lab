@@ -128,7 +128,7 @@ void Partition(Meshes& meshes, Material material, Edge edge,
     };
     const auto section=[&](float a,float b,float y0,float y1,Color tint) {
         for (int side=0;side<(thick ? 2 : 1);++side) {
-            const float face=boundary+(thick ? (side==0 ? -0.10f : 0.10f) : 0);
+            const float face=boundary+(thick ? (side==0 ? -kWallHalfThickness : kWallHalfThickness) : 0);
             const auto draw=[&](float from,float to) {
                 WallFace(meshes,material,vertical,face,from,to,y0,y1,
                          tint,lightAt(from,side),lightAt(to,side));
@@ -151,23 +151,23 @@ void Partition(Meshes& meshes, Material material, Edge edge,
         const auto cap=[&](float end) {
             const float light=(lightAt(end,0)+lightAt(end,1))*0.5f;
             WallFace(meshes,material,!vertical,end,
-                     boundary-0.10f,boundary+0.10f,0.19f,height-0.10f,
+                     boundary-kWallHalfThickness,boundary+kWallHalfThickness,0.19f,height-0.10f,
                      Scale(wall,0.82f),light,light);
             WallFace(meshes,material,!vertical,end,
-                     boundary-0.10f,boundary+0.10f,0,0.19f,trim,light,light);
+                     boundary-kWallHalfThickness,boundary+kWallHalfThickness,0,0.19f,trim,light,light);
             WallFace(meshes,material,!vertical,end,
-                     boundary-0.10f,boundary+0.10f,height-0.10f,height,
+                     boundary-kWallHalfThickness,boundary+kWallHalfThickness,height-0.10f,height,
                      trim,light,light);
         };
         cap(along+first);cap(along+last);
         if (edge==Edge::Door) {
             section(along+first,along+last,doorHeight,height,wall);
             if (vertical)
-                Flat(meshes,material,boundary-0.10f,along+first,
-                     boundary+0.10f,along+last,doorHeight,Scale(wall,0.83f),0.6f);
+                Flat(meshes,material,boundary-kWallHalfThickness,along+first,
+                     boundary+kWallHalfThickness,along+last,doorHeight,Scale(wall,0.83f),0.6f);
             else
-                Flat(meshes,material,along+first,boundary-0.10f,
-                     along+last,boundary+0.10f,doorHeight,Scale(wall,0.83f),0.6f);
+                Flat(meshes,material,along+first,boundary-kWallHalfThickness,
+                     along+last,boundary+kWallHalfThickness,doorHeight,Scale(wall,0.83f),0.6f);
         }
     }
 }
@@ -387,13 +387,13 @@ void StorageRack(Meshes& meshes, float x0, float z0, float x1, float z1,
 }
 
 void FalseDoor(Meshes& meshes, bool vertical, float boundary, float along,
-               int level) {
+               int level, float illumination) {
     const float height=level==1 ? 2.58f : level==2 ? 2.15f : 2.18f;
-    const Material material=level==0 ? Material::TunnelWall : Material::ConcreteWall;
-    const Color panel=level==0 ? Color(119,106,79) : Color(85,96,94);
-    const Color frame=level==0 ? Color(166,154,113) : Color(126,136,130);
-    const float left=along+1.90f,right=along+3.10f;
-    const float face=boundary+0.045f;
+    const Material material=level==0 ? Material::Wood : Material::ConcreteWall;
+    const Color panel=Scale(level==0 ? Color(190,185,163) : Color(85,96,94),illumination);
+    const Color frame=Scale(level==0 ? Color(227,217,188) : Color(126,136,130),illumination);
+    const float left=along+2.04f,right=along+2.96f;
+    const float face=boundary+(level==0 ? kWallHalfThickness+0.005f : 0.045f);
     WallFace(meshes,material,vertical,face,left,right,0.02f,height,panel);
     WallFace(meshes,material,vertical,face+0.004f,left-0.075f,left,
              0,height+0.08f,frame);
@@ -401,9 +401,9 @@ void FalseDoor(Meshes& meshes, bool vertical, float boundary, float along,
              0,height+0.08f,frame);
     WallFace(meshes,material,vertical,face+0.004f,left,right,
              height,height+0.08f,frame);
-    WallFace(meshes,Material::Fluorescent,vertical,face+0.008f,
+    WallFace(meshes,Material::IndustrialCeiling,vertical,face+0.008f,
              right-0.22f,right-0.15f,0.99f,1.06f,
-             Color(116,104,75));
+             Scale(Color(215,209,184),illumination));
 }
 
 Color Vary(Color first, Color second, std::uint32_t hash) {
@@ -477,6 +477,20 @@ public:
         return value;
     }
 
+    float WallSample(double wx,double wz,int normalX,int normalZ) {
+        const double span=kRegionCells*kCellSize;
+        const int rx=static_cast<int>(std::floor(wx/span));
+        const int rz=static_cast<int>(std::floor(wz/span));
+        const float u=static_cast<float>(wx/span-rx);
+        const float v=static_cast<float>(wz/span-rz);
+        const auto finish=[&](int x,int z) {
+            return 0.98f+static_cast<float>(CellHash(world_,x,z,4001)%401)*0.0001f;
+        };
+        const float a=finish(rx,rz)*(1-u)+finish(rx+1,rz)*u;
+        const float b=finish(rx,rz+1)*(1-u)+finish(rx+1,rz+1)*u;
+        return (0.32f+0.68f*Sample(wx,wz,normalX,normalZ))*(a*(1-v)+b*v);
+    }
+
     float FloorSample(double wx,double wz) {
         // Match the existing floor triangles rather than evaluating a brighter
         // lamp sample at the prop center. Contact shading must only darken it.
@@ -504,8 +518,8 @@ void OfficeObstacle(Meshes& meshes, BakedLighting& lighting,
         const auto light=[&](float along) {
             const double wx=chunkX+(vertical ? boundary+normal*0.04f : along);
             const double wz=chunkZ+(vertical ? along : boundary+normal*0.04f);
-            return 0.32f+0.68f*lighting.Sample(wx,wz,vertical ? normal : 0,
-                                                    vertical ? 0 : normal);
+            return lighting.WallSample(wx,wz,vertical ? normal : 0,
+                                             vertical ? 0 : normal);
         };
         const float start=light(a),end=light(b);
         WallFace(meshes,Material::Wallpaper,vertical,boundary,a,b,
@@ -799,7 +813,7 @@ void BackroomsGame::BuildChunk(ChunkCoord coord) {
                     {ceilingLight(lightGrid[fx][fz]),
                      ceilingLight(lightGrid[fx+1][fz]),
                      ceilingLight(lightGrid[fx+1][fz+1]),
-                    ceilingLight(lightGrid[fx][fz+1])},1.6f);
+                    ceilingLight(lightGrid[fx][fz+1])},0.4f);
             }
             if (h%5==0) {
                 const int tileX=static_cast<int>((h>>8)&7U);
@@ -816,7 +830,7 @@ void BackroomsGame::BuildChunk(ChunkCoord coord) {
                         wz+(tileZ+0.5)*0.625);
                     Flat(meshes,Material::CeilingTile,px,pz,
                          px+0.625f,pz+0.625f,height-0.008f,
-                         Scale(stain,tint),1.6f);
+                         Scale(stain,tint),0.4f);
                 }
             }
         } else
@@ -881,7 +895,7 @@ void BackroomsGame::BuildChunk(ChunkCoord coord) {
             Flat(meshes,Material::Fluorescent,x+1.40f,z+2.34f,
                  x+3.60f,z+2.66f,height-0.032f,lamp,1.0f);
         }
-        const Color cellWall=Scale(Vary(wallA,wallB,h),
+        const Color cellWall=Scale(level==0 ? wallA : Vary(wallA,wallB,h),
             level==0 ? 1.0f : lampInfo.lit ? 1.0f : 0.80f);
         const auto wallLighting=[&](bool vertical) {
             WallLighting result{{{{1,1,1}},{{1,1,1}}}};
@@ -891,7 +905,7 @@ void BackroomsGame::BuildChunk(ChunkCoord coord) {
                 for (int sample=0;sample<3;++sample) {
                     const double px=wx+(vertical ? normal*0.14 : sample*2.5);
                     const double pz=wz+(vertical ? sample*2.5 : normal*0.14);
-                    result[side][sample]=0.32f+0.68f*lighting.Sample(
+                    result[side][sample]=lighting.WallSample(
                         px,pz,vertical ? normal : 0,vertical ? 0 : normal);
                 }
             }
@@ -1048,9 +1062,11 @@ void BackroomsGame::BuildChunk(ChunkCoord coord) {
         const auto doorHash=CellHash(world_,gx,gz,1501);
         if (doorHash%170==0) {
             if ((doorHash&1U)==0 && VerticalEdge(world_,gx,gz)==Edge::Solid)
-                FalseDoor(meshes,true,x,z,level);
+                FalseDoor(meshes,true,x,z,level,level==0 ?
+                    lighting.WallSample(wx+0.14,wz+2.5,1,0) : 1.0f);
             else if (HorizontalEdge(world_,gx,gz)==Edge::Solid)
-                FalseDoor(meshes,false,z,x,level);
+                FalseDoor(meshes,false,z,x,level,level==0 ?
+                    lighting.WallSample(wx+2.5,wz+0.14,0,1) : 1.0f);
         }
         if (const auto portal=PortalAt(world_,gx,gz))
             PortalVisual(meshes,level,portal->alongX,x+2.5f,z+2.5f,height);

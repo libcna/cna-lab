@@ -81,13 +81,18 @@ Color Pixel(Material material, int x, int y, int size) {
         break;
     }
     case Material::CeilingTile: {
-        const int seam=(x<3 || y<3) ? -64 :
-                       (x<6 || y<6) ? -13 : 0;
+        constexpr int tilePixels=128;
+        const int localX=x%tilePixels,localY=y%tilePixels;
+        const int seam=(localX<3 || localY<3) ? -64 :
+                       (localX<6 || localY<6) ? -13 : 0;
+        const auto panel=Noise(x/tilePixels,y/tilePixels,193);
+        const int age=static_cast<int>(panel%7)-3;
+        const int yellowing=panel%11==0 ? 5 : 0;
         const int pores=Noise(x,y,108)%19==0 ? -13 :
                         Noise(x,y,109)%23==0 ? 5 : 0;
-        r=209+grain/2+blotch/3+seam+pores;
-        g=207+grain/2+blotch/3+seam+pores;
-        b=187+grain/2+blotch/3+seam+pores;
+        r=209+grain/2+blotch/3+seam+pores+age;
+        g=207+grain/2+blotch/3+seam+pores+age-yellowing/2;
+        b=187+grain/2+blotch/3+seam+pores+age-yellowing;
         break;
     }
     case Material::ConcreteWall: {
@@ -155,7 +160,8 @@ Color Pixel(Material material, int x, int y, int size) {
 Materials::Materials(GraphicsDevice& device) {
     for (int id=0;id<kMaterialCount;++id) {
         const Material material=static_cast<Material>(id);
-        const int size=material==Material::Wallpaper ? 512 : 128;
+        const int size=(material==Material::Wallpaper ||
+                        material==Material::CeilingTile) ? 512 : 128;
         std::vector<Color> pixels;
         pixels.reserve(size*size);
         for (int y=0;y<size;++y) for (int x=0;x<size;++x)
