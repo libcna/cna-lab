@@ -6,6 +6,8 @@ The September 2026 playable foundation at `aaf67c0` has deterministic regions, b
 
 ## Completed passes
 
+- Format 23 loads profile format 1 from `assets/levels.json` through existing Sharp Runtime File/JsonDocument APIs. It centralizes heights, fog, baked-light contributions, tints, ordered room weights and entity rarity for the three fixed families. Game-owned immutable profiles preserve the default format 22 recipe; missing definitions use built-in values, invalid definitions report a path error. Source-byte fingerprints appear in startup logs and route JSON; the controller rejects mismatched definitions. Debug/Release builds and world/profile tests pass, including default geometry equivalence, malformed-field rejection and native file/fallback paths. The loaded-profile seven-seed scan and 63-square physical audit pass. A twelve-view round was inspected, all six live entrance cases pass, and a 60 m matching-profile controller return passes near 59 FPS, 25 chunks and 2.43 ms peak. Actual missing/invalid-file launches and mismatched-route rejection pass. Six-view contrast, ceiling-height and combined probes expose better office depth and scale; those values are not yet applied to the release defaults.
+
 - Format 22 selects one entrance per neighboring connected room pair instead of retaining every cell-tree crossing. Interiors are open; disconnected pieces are labeled separately, and original tree contraction preserves connectivity. The optional game-owned cache retains at most 256 layouts and has no effect on generated results. Six paired office views, six additional turned views, the twelve-view round and both controller walks were inspected. Debug/Release tests, cached/uncached equivalence and eviction checks, the seven-seed scan, 63-square physical audit and all six entrance cases pass. The regenerated pooled-buffer regression route passes 28 waypoints over 355 m in 196.1 seconds (3.06 ms peak, warmed RSS 175.9–177.2 MiB). A second seed passes 100 waypoints over 770 m in 466.9 seconds (3.28 ms, 177.0–177.2 MiB). Both stay near 59 FPS and maximum 25 chunks. A 9.6 km Release sweep confirms the 256-layout cap, maximum 25 chunks, 3.82 ms peak and latter-half RSS 179.1–179.4 MiB; 221 buffers are created and 7,918 reused.
 
 - The refined format 21 tunnel pass also completed a 28.8 km positive/negative sweep near 59 FPS, maximum 25 chunks and 7.20 ms peak. RSS increases through new high-water buffer capacities: quarter ranges are 231.3–277.5, 277.5–284.7, 284.7–287.1 and 287.1–292.2 MiB. The last twelve samples are 291.4–292.2 MiB. These are finite-run observations, not an unlimited-duration claim; active chunks and spare buffers remain bounded. It creates 383 buffers and reuses 28,706.
@@ -67,6 +69,8 @@ The September 2026 playable foundation at `aaf67c0` has deterministic regions, b
 
 ## Latest validation
 
+- Format 23 profile integration passes the checks above. Native JSON configuration does not replace CNA graphics; BasicEffect and existing streaming/collision remain. The README now summarizes current evidence and links the profile format, while historical pass details remain here.
+
 - Format 22 passes the structural, physical, screenshot, entrance and real-controller checks above. The title reports cache size; the long sweep reaches and holds its 256-layout bound. Geometry at the original reused-buffer failure point is complete.
 
 - Format 21 refined geometry passes the checks recorded above. Initial heavy equipment measurements are superseded. Dummy audio was used for these screenshot/controller checks; the separate native audio evidence and subjective-listening limitation still apply.
@@ -93,4 +97,4 @@ The September 2026 playable foundation at `aaf67c0` has deterministic regions, b
 
 ## Next pass
 
-Introduce a small three-family level-profile JSON through the existing Sharp Runtime JSON and file APIs. Keep built-in defaults, fixed generation infrastructure and versioned reproducibility. Then compare office lighting contrast and ceiling height using controlled profiles, build, launch and inspect new views. The goal remains active.
+Apply the visually compared office profile: lower ambient/bounce, 2.75 m ceiling and 2.4 m openings. Compare weak-circuit and arbitrary distant views, inspect furniture/partition/entrance clearances, and repeat controller and streaming evidence. Then evaluate sparse architectural anomalies along monotonous walls. The goal remains active.

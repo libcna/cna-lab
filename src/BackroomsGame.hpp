@@ -63,6 +63,7 @@ private:
     std::unique_ptr<Microsoft::Xna::Framework::Audio::SoundEffect> transition_;
     std::map<ChunkCoord, Chunk> chunks_;
     std::vector<std::unique_ptr<Microsoft::Xna::Framework::Graphics::VertexBuffer>> spareVertices_;
+    LevelCatalog levelCatalog_;
     RoomLayoutCache roomLayouts_;
     WorldConfig world_;
     Microsoft::Xna::Framework::Input::KeyboardState previousKeys_;

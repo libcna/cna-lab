@@ -1,5 +1,6 @@
 #include "BackroomsGame.hpp"
 #include "Assets.hpp"
+#include "LevelProfiles.hpp"
 
 #include <algorithm>
 #include <array>
@@ -41,6 +42,10 @@ namespace {
 using Clock = std::chrono::steady_clock;
 using Mesh = std::vector<VertexPositionColorTexture>;
 using Meshes = std::array<Mesh,kMaterialCount>;
+
+Color FromRgb(const LevelDefinition::Rgb& value) {
+    return Color(value[0],value[1],value[2]);
+}
 
 void QuadColors(Meshes& meshes, Material material, Vector3 a, Vector3 b,
                 Vector3 c, Vector3 d, const std::array<Color,4>& colors,
@@ -427,9 +432,9 @@ public:
     float Sample(double wx,double wz,int normalX=0,int normalZ=0) {
         const auto key=std::tuple{wx,wz,normalX,normalZ};
         if (const auto it=samples_.find(key);it!=samples_.end()) return it->second;
-        const float base=world_.level==0 ? 0.54f : world_.level==1 ? 0.60f : 0.47f;
-        const float strength=world_.level==0 ? 0.54f : world_.level==1 ? 0.38f : 0.54f;
-        float value=base;
+        const auto& definition=LevelInfo(world_);
+        const float strength=definition.lightStrength;
+        float value=definition.ambient;
         const int cx=CellOf(wx),cz=CellOf(wz);
         const std::vector<Wall>* walls=nullptr;
         auto [wallIt,insertedWalls]=walls_.try_emplace({cx,cz});
@@ -472,7 +477,8 @@ public:
         };
         const float a=finish(rx,rz)*(1-u)+finish(rx+1,rz)*u;
         const float b=finish(rx,rz+1)*(1-u)+finish(rx+1,rz+1)*u;
-        return (0.32f+0.68f*Sample(wx,wz,normalX,normalZ))*(a*(1-v)+b*v);
+        const float bounce=LevelInfo(world_).wallBounce;
+        return (bounce+(1-bounce)*Sample(wx,wz,normalX,normalZ))*(a*(1-v)+b*v);
     }
 
     float FloorSample(double wx,double wz) {
@@ -747,6 +753,8 @@ BackroomsGame::BackroomsGame(std::uint64_t seed, bool streamTest,
     world_.seed = seed;
     world_.level=startLevel;
     world_.roomLayouts=&roomLayouts_;
+    levelCatalog_=LoadLevelCatalog(FindAssetDirectory()/"levels.json");
+    world_.levels=&levelCatalog_;
     if (Collides(world_,startX,startZ,0.31))
         throw std::invalid_argument("start position intersects generated geometry");
     x_=startX;
@@ -789,8 +797,8 @@ void BackroomsGame::LoadContent() {
     effect_->setTextureEnabledProperty(true);
     effect_->setLightingEnabledProperty(false);
     effect_->setFogEnabledProperty(true);
-    effect_->setFogStartProperty(LevelInfo(world_.level).fogStart);
-    effect_->setFogEndProperty(LevelInfo(world_.level).fogEnd);
+    effect_->setFogStartProperty(LevelInfo(world_).fogStart);
+    effect_->setFogEndProperty(LevelInfo(world_).fogEnd);
     setIsMouseVisibleProperty(false);
     Mouse::setIsRelativeMouseModeEXTProperty(true);
     captured_ = true;
@@ -880,28 +888,19 @@ void BackroomsGame::BuildChunk(ChunkCoord coord) {
     Chunk chunk;
     const int ox=coord.x*kChunkCells, oz=coord.z*kChunkCells;
     const int level=world_.level;
-    const float height=LevelInfo(level).ceilingHeight;
-    const float doorHeight=level==0 ? 2.62f : level==1 ? 2.8f : 2.08f;
+    const auto& definition=LevelInfo(world_);
+    const float height=definition.ceilingHeight;
+    const float doorHeight=definition.doorwayHeight;
     const Material wallMat=level==0 ? Material::Wallpaper :
                            level==1 ? Material::ConcreteWall : Material::TunnelWall;
     const Material floorMat=level==0 ? Material::Carpet :
                             level==1 ? Material::ConcreteFloor : Material::TunnelFloor;
     const Material ceilingMat=level==0 ? Material::CeilingTile :
                               level==1 ? Material::IndustrialCeiling : Material::TunnelCeiling;
-    const Color wallA=level==0 ? Color(255,250,239) :
-                      level==1 ? Color(223,229,227) : Color(239,231,211);
-    const Color wallB=level==0 ? Color(231,224,204) :
-                      level==1 ? Color(188,202,200) : Color(218,210,188);
-    const Color trim=level==0 ? Color(255,251,229) :
-                     level==1 ? Color(110,130,128) : Color(105,113,101);
-    const Color floorA=level==0 ? Color(246,240,222) :
-                       level==1 ? Color(218,222,217) : Color(215,204,178);
-    const Color ceiling=level==0 ? Color(255,252,235) :
-                        level==1 ? Color(205,220,219) : Color(140,143,131);
-    const Color grid=level==0 ? Color(143,139,115) :
-                     level==1 ? Color(94,114,112) : Color(104,114,99);
-    const Color lamp=level==0 ? Color(255,251,228) :
-                     level==1 ? Color(204,230,230) : Color(255,231,181);
+    const Color wallA=FromRgb(definition.wall),wallB=FromRgb(definition.pillar);
+    const Color trim=FromRgb(definition.trim),floorA=FromRgb(definition.floor);
+    const Color ceiling=FromRgb(definition.ceiling),grid=FromRgb(definition.structure);
+    const Color lamp=FromRgb(definition.fluorescent);
 
     for (int lx=0; lx<kChunkCells; ++lx) for (int lz=0; lz<kChunkCells; ++lz) {
         const int gx=ox+lx, gz=oz+lz;
@@ -936,7 +935,8 @@ void BackroomsGame::BuildChunk(ChunkCoord coord) {
         }
         if (level==0) {
             const auto ceilingLight=[&](float factor) {
-                return Scale(ceiling,0.52f+0.48f*factor);
+                const float bounce=definition.ceilingBounce;
+                return Scale(ceiling,bounce+(1-bounce)*factor);
             };
             for (int fx=0;fx<2;++fx) for (int fz=0;fz<2;++fz) {
                 const float tileX=x+fx*2.5f,tileZ=z+fz*2.5f;
@@ -967,7 +967,8 @@ void BackroomsGame::BuildChunk(ChunkCoord coord) {
             }
         } else {
             const auto shade=[&](float light) {
-                return Scale(ceiling,0.60f+0.40f*light);
+                const float bounce=definition.ceilingBounce;
+                return Scale(ceiling,bounce+(1-bounce)*light);
             };
             for (int fx=0;fx<2;++fx) for (int fz=0;fz<2;++fz) {
                 const float px=x+fx*2.5f,pz=z+fz*2.5f;
@@ -1222,7 +1223,7 @@ void BackroomsGame::BuildChunk(ChunkCoord coord) {
             PortalVisual(meshes,lighting,world_,*portal,ox*kCellSize,oz*kCellSize,
                          height,wallA,trim,floorColor);
         const auto entityHash=CellHash(world_,gx,gz,919);
-        const unsigned rarity=level==0 ? 850U : level==1 ? 650U : 750U;
+        const unsigned rarity=definition.entityRarity;
         if (entityHash%rarity==0 && obstacles.count==0 &&
             (std::abs(gx)>4 || std::abs(gz)>4)) {
             chunk.entities.push_back({(gx+0.5)*kCellSize,
@@ -1298,7 +1299,8 @@ void BackroomsGame::UpdateTitle(double elapsed) {
     }
     const auto here=ChunkAt(x_,z_);
     std::ostringstream title;
-    title << "cna-backrooms | Level " << world_.level << " | seed " << world_.seed
+    title << "cna-backrooms | Level " << world_.level << " (" << LevelInfo(world_).name
+          << ") | seed " << world_.seed
           << " | pos " << std::fixed << std::setprecision(1) << x_ << ',' << z_
           << " | chunk " << here.x << ',' << here.z
           << " | loaded " << chunks_.size() << "/25 | tris " << triangles
@@ -1399,14 +1401,13 @@ void BackroomsGame::Update(GameTime& time) {
 
 void BackroomsGame::Draw(const GameTime& time) {
     auto& device=getGraphicsDeviceProperty();
-    const Color fog=world_.level==0 ? Color(108,101,78) :
-                    world_.level==1 ? Color(56,67,67) : Color(39,41,35);
+    const Color fog=FromRgb(LevelInfo(world_).fog);
     device.Clear(fog);
     device.setDepthStencilStateProperty(DepthStencilState::Default);
     device.setRasterizerStateProperty(RasterizerState::CullNone);
     effect_->setFogColorProperty(fog.ToVector3());
-    effect_->setFogStartProperty(LevelInfo(world_.level).fogStart);
-    effect_->setFogEndProperty(LevelInfo(world_.level).fogEnd);
+    effect_->setFogStartProperty(LevelInfo(world_).fogStart);
+    effect_->setFogEndProperty(LevelInfo(world_).fogEnd);
     const Vector3 eye(0,1.68f,0);
     const Vector3 direction(std::sin(yaw_)*std::cos(pitch_),std::sin(pitch_),
                             std::cos(yaw_)*std::cos(pitch_));

@@ -1,4 +1,6 @@
 #include "World.hpp"
+#include "Assets.hpp"
+#include "LevelProfiles.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -27,8 +29,9 @@ bool NearEntrance(const WorldConfig& world,double x,double z) {
 int main(int argc,char** argv) {
     try {
         if (argc!=5) throw std::invalid_argument("usage: world_route level seed target-x target-z");
+        const auto levels=LoadLevelCatalog(FindAssetDirectory()/"levels.json");
         RoomLayoutCache cache;
-        const WorldConfig world{std::stoull(argv[2],nullptr,0),std::stoi(argv[1]),&cache};
+        const WorldConfig world{std::stoull(argv[2],nullptr,0),std::stoi(argv[1]),&cache,&levels};
         const double tx=std::stod(argv[3]),tz=std::stod(argv[4]);
         if (world.level<0 || world.level>2 || !std::isfinite(tx) ||
             !std::isfinite(tz) || std::abs(tx)>1000 || std::abs(tz)>1000)
@@ -85,6 +88,7 @@ int main(int argc,char** argv) {
         }
         corners.push_back(path.back());
         std::cout << "{\n  \"format\": " << kFormatVersion
+                  << ",\n  \"profile_source\": \"" << std::hex << levels.sourceHash << std::dec << '"'
                   << ",\n  \"level\": " << world.level
                   << ",\n  \"seed\": \"" << world.seed
                   << "\",\n  \"clearance\": " << radius

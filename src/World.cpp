@@ -262,13 +262,55 @@ int CellOf(double position) { return static_cast<int>(std::floor(position/kCellS
 int ChunkOfCell(int cell) { return DivFloor(cell,kChunkCells); }
 ChunkCoord ChunkAt(double x, double z) { return {ChunkOfCell(CellOf(x)), ChunkOfCell(CellOf(z))}; }
 
+const LevelCatalog& DefaultLevelCatalog() {
+    static const LevelCatalog defaults=[] {
+        LevelCatalog result;
+        auto& office=result.levels[0];
+        office.name="The Yellow Rooms";
+        office.wall={255,250,239};office.pillar={231,224,204};
+        office.trim={255,251,229};office.floor={246,240,222};
+        office.ceiling={255,252,235};office.structure={143,139,115};
+        office.fluorescent={255,251,228};office.fog={108,101,78};
+        office.regions={{{RegionKind::OpenOffice,18},{RegionKind::Columns,16},
+                         {RegionKind::Rooms,31},{RegionKind::Halls,21},
+                         {RegionKind::Irregular,14}}};
+        auto& storage=result.levels[1];
+        storage.name="Service Storage";
+        storage.ceilingHeight=4.1f;storage.doorwayHeight=2.8f;
+        storage.fogStart=20;storage.fogEnd=95;
+        storage.ambient=0.60f;storage.lightStrength=0.38f;
+        storage.ceilingBounce=0.60f;storage.entityRarity=650;
+        storage.wall={223,229,227};storage.pillar={188,202,200};
+        storage.trim={110,130,128};storage.floor={218,222,217};
+        storage.ceiling={205,220,219};storage.structure={94,114,112};
+        storage.fluorescent={204,230,230};storage.fog={56,67,67};
+        storage.regions={{{RegionKind::Storage,35},{RegionKind::OpenOffice,18},
+                          {RegionKind::Columns,15},{RegionKind::Halls,18},
+                          {RegionKind::Rooms,14}}};
+        auto& tunnels=result.levels[2];
+        tunnels.name="Maintenance Tunnels";
+        tunnels.ceilingHeight=2.55f;tunnels.doorwayHeight=2.08f;
+        tunnels.fogStart=12;tunnels.fogEnd=65;
+        tunnels.ambient=0.47f;tunnels.lightStrength=0.54f;
+        tunnels.ceilingBounce=0.60f;tunnels.entityRarity=750;
+        tunnels.wall={239,231,211};tunnels.pillar={218,210,188};
+        tunnels.trim={105,113,101};tunnels.floor={215,204,178};
+        tunnels.ceiling={140,143,131};tunnels.structure={104,114,99};
+        tunnels.fluorescent={255,231,181};tunnels.fog={39,41,35};
+        tunnels.regions={{{RegionKind::Tunnels,65},{RegionKind::Irregular,23},
+                          {RegionKind::Halls,12}}};
+        return result;
+    }();
+    return defaults;
+}
+
 const LevelDefinition& LevelInfo(int level) {
-    static const LevelDefinition definitions[] = {
-        {"The Yellow Rooms",3.0f,18.0f,85.0f},
-        {"Service Storage",4.1f,20.0f,95.0f},
-        {"Maintenance Tunnels",2.55f,12.0f,65.0f}
-    };
-    return definitions[std::clamp(level,0,2)];
+    return DefaultLevelCatalog().levels[std::clamp(level,0,2)];
+}
+
+const LevelDefinition& LevelInfo(const WorldConfig& world) {
+    return world.levels ? world.levels->levels[std::clamp(world.level,0,2)] :
+                          LevelInfo(world.level);
 }
 
 std::uint32_t CellHash(const WorldConfig& config, int x, int z, int salt) {
@@ -430,18 +472,12 @@ RegionKind RegionAt(const WorldConfig& config, int cellX, int cellZ) {
     if (config.level==1 && rx==0 && rz==0) return RegionKind::Storage;
     if (config.level==2 && rx==0 && rz==0) return RegionKind::Tunnels;
     const auto roll=CellHash(config,rx,rz,501)%100;
-    if (config.level==0)
-        return roll<18 ? RegionKind::OpenOffice :
-               roll<34 ? RegionKind::Columns :
-               roll<65 ? RegionKind::Rooms :
-               roll<86 ? RegionKind::Halls : RegionKind::Irregular;
-    if (config.level==1)
-        return roll<35 ? RegionKind::Storage :
-               roll<53 ? RegionKind::OpenOffice :
-               roll<68 ? RegionKind::Columns :
-               roll<86 ? RegionKind::Halls : RegionKind::Rooms;
-    return roll<65 ? RegionKind::Tunnels :
-           roll<88 ? RegionKind::Irregular : RegionKind::Halls;
+    unsigned cumulative=0;
+    for (const auto& entry:LevelInfo(config).regions) {
+        cumulative+=static_cast<unsigned>(entry.weight);
+        if (roll<cumulative) return entry.kind;
+    }
+    return RegionKind::OpenOffice; // profiles validate a total weight of 100
 }
 
 bool IsEmptyHall(const WorldConfig& config, int cellX, int cellZ) {

@@ -96,6 +96,12 @@ def xdo(*args):
     return subprocess.check_output(['xdotool',*map(str,args)],text=True,timeout=5).strip()
 try:
     time.sleep(3)
+    if args.route_file and 'profile_source' in data:
+        startup=(output/'game.log').read_text()
+        source=re.search(r'\[levels\] format \d+, world \d+, source ([0-9a-f]+)',startup)
+        actual=source[1] if source else '0' if 'using built-in defaults' in startup else None
+        if actual!=data['profile_source']:
+            raise RuntimeError('route and game use different level definitions; regenerate the route')
     window=xdo('search','--pid',game.pid,'--name','cna-backrooms').splitlines()[0]
     yaw=0 if level==2 else math.pi/2
     def position():

@@ -5,12 +5,13 @@
 #include <deque>
 #include <map>
 #include <optional>
+#include <string>
 #include <tuple>
 #include <vector>
 
 namespace Backrooms {
 
-constexpr int kFormatVersion = 22;
+constexpr int kFormatVersion = 23;
 constexpr int kChunkCells = 8;
 constexpr int kRegionCells = 6;
 constexpr double kCellSize = 5.0;
@@ -77,12 +78,14 @@ struct LampInfo {
 };
 
 class RoomLayoutCache;
+struct LevelCatalog;
 
 struct WorldConfig {
     std::uint64_t seed = 0xBACC0005ULL;
     int level = 0;
     // Optional game-owned acceleration; it never changes generated results.
     RoomLayoutCache* roomLayouts = nullptr;
+    const LevelCatalog* levels = nullptr;
 };
 
 struct RoomLayout {
@@ -113,13 +116,31 @@ inline constexpr std::array<PortalDefinition,4> kPortals{{
 }};
 
 struct LevelDefinition {
-    const char* name;
-    float ceilingHeight;
-    float fogStart;
-    float fogEnd;
+    using Rgb=std::array<std::uint8_t,3>;
+    struct RoomWeight {
+        RegionKind kind=RegionKind::OpenOffice;
+        int weight=0;
+        bool operator==(const RoomWeight&) const = default;
+    };
+    std::string name;
+    float ceilingHeight=3,doorwayHeight=2.62f;
+    float fogStart=18,fogEnd=85;
+    float ambient=0.54f,lightStrength=0.54f;
+    float wallBounce=0.32f,ceilingBounce=0.52f;
+    unsigned entityRarity=850;
+    Rgb wall{},pillar{},trim{},floor{},ceiling{},structure{},fluorescent{},fog{};
+    std::array<RoomWeight,7> regions{};
+    bool operator==(const LevelDefinition&) const = default;
 };
 
+struct LevelCatalog {
+    std::array<LevelDefinition,3> levels;
+    std::uint64_t sourceHash=0; // zero identifies built-in defaults
+};
+
+const LevelCatalog& DefaultLevelCatalog();
 const LevelDefinition& LevelInfo(int level);
+const LevelDefinition& LevelInfo(const WorldConfig& world);
 
 int CellOf(double position);
 int ChunkOfCell(int cell);

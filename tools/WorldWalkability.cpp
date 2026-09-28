@@ -1,4 +1,6 @@
 #include "World.hpp"
+#include "Assets.hpp"
+#include "LevelProfiles.hpp"
 
 #include <algorithm>
 #include <array>
@@ -86,7 +88,8 @@ Audit Scan(const WorldConfig& world, int regionX, int regionZ) {
 }
 }
 
-int main() {
+int Run() {
+    const auto levels=LoadLevelCatalog(FindAssetDirectory()/"levels.json");
     RoomLayoutCache cache;
     int failed=0;
     std::cout << "format " << kFormatVersion
@@ -96,7 +99,7 @@ int main() {
         for (int level=0;level<3;++level)
             for (const auto origin: {std::array<int,2>{-1,-1},
                     std::array<int,2>{-7,-4},std::array<int,2>{5,8}}) {
-                const Audit audit=Scan({seed,level,&cache},origin[0],origin[1]);
+                const Audit audit=Scan({seed,level,&cache,&levels},origin[0],origin[1]);
                 std::cout << "seed " << seed << " level " << level
                           << " | region origin " << origin[0] << ',' << origin[1]
                           << " | free points " << audit.freePoints
@@ -110,4 +113,12 @@ int main() {
             }
     if (failed) std::cerr << failed << " walkability samples need inspection\n";
     return failed ? 1 : 0;
+}
+
+int main() {
+    try { return Run(); }
+    catch (const std::exception& e) {
+        std::cerr << "world audit: " << e.what() << '\n';
+        return 1;
+    }
 }

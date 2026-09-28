@@ -1,4 +1,6 @@
 #include "World.hpp"
+#include "Assets.hpp"
+#include "LevelProfiles.hpp"
 
 #include <algorithm>
 #include <array>
@@ -67,7 +69,8 @@ Counts Sample(const WorldConfig& world) {
 }
 }
 
-int main() {
+int Run() {
+    const auto levels=LoadLevelCatalog(FindAssetDirectory()/"levels.json");
     RoomLayoutCache cache;
     std::cout << "format " << kFormatVersion << ", sampled "
               << (kMax-kMin+1)*(kMax-kMin+1)
@@ -75,7 +78,7 @@ int main() {
     for (std::uint64_t seed: {0ULL,1ULL,2ULL,3ULL,12345ULL,
                               31337ULL,0xBACC0005ULL}) {
         for (int level=0;level<3;++level) {
-            const Counts c=Sample({seed,level,&cache});
+            const Counts c=Sample({seed,level,&cache,&levels});
             const double edges=c.openEdges+c.wideEdges+
                                c.doorEdges+c.solidEdges;
             std::cout << "seed " << seed << " level " << level
@@ -95,5 +98,14 @@ int main() {
             for (int count:c.regions) std::cout << ' ' << count;
             std::cout << '\n';
         }
+    }
+    return 0;
+}
+
+int main() {
+    try { return Run(); }
+    catch (const std::exception& e) {
+        std::cerr << "world audit: " << e.what() << '\n';
+        return 1;
     }
 }
