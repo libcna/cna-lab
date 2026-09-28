@@ -343,4 +343,39 @@ rows, gaps and sparse pairs break the repeated rectangle without observed
 fixture intersections, missing geometry or new room isolation. Screenshot
 timing is not a performance comparison; dummy audio is not listening evidence.
 
-Actual default-seed collision return and runtime measurements are pending.
+The actual default-seed return (3133931525) completes all 108 waypoints and
+walks 686.4 metres in 500.7 seconds through eight player chunks, with maximum
+25 active. RSS peaks at 188.17 MiB and ends at 176.58 MiB; the warmed range is
+176.22–186.07 MiB. There are 176 buffer creations and 460 reuses, final packed
+capacity 11.4 MiB. Peak build is 35.20 ms, with twenty logged builds over
+16.67 ms. No compiler or other GPU task owned by this agent runs during the
+measurement; shared-machine scheduling is not isolated. Fourteen route views
+are inspected. Many are close wall views at path corners; the optional
+`--pan-views` driver mode is added to inspect all directions at those same
+points on subsequent traversals, rather than choosing flattering locations.
+Native presentation comparisons follow separately.
+
+### Native timestep comparison after format 44
+
+The same Release executable, default seed and three spawn cameras compare
+CNA's fixed and variable timestep modes on one private Xwayland display.
+Five seconds after streaming readiness remove startup intervals, then each
+case samples 25 seconds. Fixed/variable median actual draw rates are 39/38,
+37/38 and 38/37 FPS; rolling p95 medians are 25.91/32.21, 34.96/33.28 and
+32.30/33.58 ms. Fixed updates remain 59 UPS while variable updates follow the
+37–38 draw rate. CPU submission medians span 0.70–1.62 ms. There is no
+consistent presentation improvement, so the temporary game-side option is
+removed and CNA's original fixed mode is retained. No compiler or other GPU
+job owned by this agent runs during measurement; shared scheduling is not
+isolated. These are private-display observations, not real-desktop FPS.
+
+The first probe used synthetic Escape taps shorter than a polling frame and
+failed its normal-exit check. Holding each tap for 150 ms fixes the QA driver;
+all six measured repeats exit normally. This does not report a new game bug.
+
+The optional four-direction route capture completes a 56.5-metre actual return
+through ten waypoints in 67 seconds. All sixteen views are inspected. Native
+angle telemetry checks each quarter turn and restores the original heading;
+the route continues and returns to spawn without collision drift or a reset.
+This exposes surrounding rooms at the same corners whose forward views are
+often walls. It does not change the game controller.

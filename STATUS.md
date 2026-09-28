@@ -22,13 +22,16 @@ Format 44 adds five office support plans, optional transpose and a room-wide
 ceiling-tile offset instead of the identical four-column rectangle. Industrial
 supports remain unchanged. Release/Debug builds and all three suites pass;
 all 63 physical squares have one substantial connected component. All sixty
-matched remote directions and twelve family views are inspected. Actual
-collision-enabled default-seed return is underway; timings/memory remain pending.
-Next investigation: native presentation cadence, without engine modifications.
+matched remote directions and twelve family views are inspected. The actual
+default-seed return completes 686.4 metres and 108 waypoints, eight player chunks,
+maximum 25 active, peak build 35.20 ms and final RSS 176.58 MiB. Fourteen route
+views are inspected; the next traversal will capture all directions at corners.
+Native fixed/variable comparison shows no consistent improvement; the temporary
+option is removed. Next implementation: room-level huge-hall fluorescent plans.
 
 ## Completed passes
 
-- **44:** five office support plans, room-wide transpose/tile phase and shared bounds. Sixty matched remote directions and twelve family views inspected. Release/Debug suites, seven-seed audit and 63 physical squares pass. Default-seed collision return remains underway.
+- **44:** five office support plans, room-wide transpose/tile phase and shared bounds. Sixty matched remote directions and twelve family views inspected. Release/Debug suites, seven-seed audit and 63 physical squares pass. The default-seed return completes 686.4 m with at most 25 chunks and final RSS 176.58 MiB.
 
 - **43:** finer office floor illumination and matching contact interpolation. Forty-eight matched directions, six pitched floor pairs, twelve family views and fifteen route views inspected. Release/Debug suites pass. The remote office return walks 663.2 m across nine player chunks with maximum 25 active, 35.51 ms peak build and warmed RSS 162.18–163.61 MiB. The matched short capacity comparison and fresh own-stream audio checks pass.
 
@@ -59,9 +62,9 @@ Next investigation: native presentation cadence, without engine modifications.
 
 ## Three highest-priority deficiencies
 
-1. Native presentation cadence still draws fewer frames than updates on the private display; compare CNA timestep modes before choosing a game-side change.
+1. Rare huge-hall ceiling fields still inherit unrelated smaller-region layouts; compose room-level fluorescent plans and compare all directions.
 2. Audit the default seed and additional arbitrary family locations; rare huge halls still have a regular fixture field.
-3. Rare huge halls retain a regular fixture field; assess whether a small composition pass helps. Subjective audio listening remains unavailable.
+3. Native Wayland launch/streaming remains to be refreshed; subjective audio listening remains unavailable.
 
 ## Latest validation
 

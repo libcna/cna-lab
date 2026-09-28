@@ -9,6 +9,8 @@ parser.add_argument('--output',default='build/controller-qa')
 parser.add_argument('--route-file',help='JSON produced by world_route; followed outward and back')
 parser.add_argument('--speed',type=float,default=2.0)
 parser.add_argument('--capture-every',type=int,default=3)
+parser.add_argument('--pan-views',action='store_true',
+                    help='capture all four directions at sampled route corners')
 args=parser.parse_args()
 root=pathlib.Path(__file__).resolve().parents[1]
 output=(root/args.output).resolve()
@@ -158,12 +160,34 @@ try:
         print(line,flush=True)
         trace.write(line+'\n');trace.flush()
         if index%args.capture_every==0 or index==len(waypoints)-1:
-            name=f'view-{index:02d}'
-            subprocess.run(['import','-window',window,
-                str(output/(name+'.png'))],check=True)
-            manifest.append(dict(name=name,seed=int(seed),level=level,
-                                 x=px,z=pz,heading=yaw,title=title))
-            (output/'manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')
+            def wait_heading():
+                deadline=time.monotonic()+2.5
+                while True:
+                    current=xdo('getwindowname',window)
+                    angles=re.search(r'\| view ([\d.-]+),([\d.-]+)',current)
+                    if angles is None:
+                        raise RuntimeError('pan views require native angle telemetry')
+                    error=math.remainder(float(angles[1])-math.degrees(yaw),360)
+                    if abs(error)<0.3: return current
+                    if time.monotonic()>deadline:
+                        raise RuntimeError('route camera did not reach the requested heading')
+                    time.sleep(.1)
+            suffixes=['','_right','_back','_left'] if args.pan_views else ['']
+            for direction,suffix in enumerate(suffixes):
+                if direction:
+                    xdo('mousemove_relative','--',714,0)
+                    yaw-=714*0.0022
+                    title=wait_heading()
+                name=f'view-{index:02d}'+suffix
+                subprocess.run(['import','-window',window,
+                    str(output/(name+'.png'))],check=True)
+                manifest.append(dict(name=name,seed=int(seed),level=level,
+                                     x=px,z=pz,heading=yaw,title=title))
+                (output/'manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')
+            if args.pan_views:
+                xdo('mousemove_relative','--',-3*714,0)
+                yaw+=3*714*0.0022
+                title=wait_heading()
         if not args.route_file and index==len(route)-2:
             pixels=round(((yaw+math.pi)%(2*math.pi)-math.pi)/0.0022)
             xdo('mousemove_relative','--',pixels,0)
