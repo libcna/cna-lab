@@ -17,3 +17,6 @@ node_modules/
 # OS
 .DS_Store
 Thumbs.db
+
+# Generated consumer projects (tools/generate.py); the shared name from the build rules
+/build-consumer/

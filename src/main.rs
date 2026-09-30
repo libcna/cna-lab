@@ -77,33 +77,17 @@ fn extensions_smoke() -> Result<()> {
     }
     content_smoke()?;
     standalone_device_smoke()?;
-    engine_layer_smoke()
+    graphics_extensions_smoke()
 }
 
-/// Builds one engine-layer render pipeline and reports what it measured.
+/// Reports whether this library carries CNA's extended graphics layer.
 ///
-/// The engine layer is CNA's own: XNA has no pipeline object, no scene target
-/// and no per-pass GPU timing. It is a build-time choice upstream, so a library
-/// without it answers a version of zero -- which is a fact to print, not a
-/// failure.
-fn engine_layer_smoke() -> Result<()> {
-    use cna::extensions::pbr::engine_layer_version;
-
-    if engine_layer_version()? == 0 {
-        println!(
-            "cna-rust-template: engine layer absent from this library \
-             (built without CNA_CNAEXT); nothing to report"
-        );
-        return Ok(());
-    }
-    // The pipeline needs a device, and a `Game` is what owns one on every
-    // renderer. `--extensions-smoke` deliberately runs no game, so the pipeline
-    // half is reported from the game the template already draws with: see
-    // `TemplateGame::LoadContent`. What is worth printing here is the layer's
-    // own identity, which needs nothing at all.
+/// The layer (retro effects, DebugDraw) is a `CNA_CNAEXT` build option, so a
+/// library without it answers false -- which is a fact to print, not a failure.
+fn graphics_extensions_smoke() -> Result<()> {
     println!(
-        "cna-rust-template: engine layer version {}",
-        engine_layer_version()?
+        "cna-rust-template: extended graphics layer available={}",
+        cna::extensions::graphics::is_available()?
     );
     Ok(())
 }
@@ -115,7 +99,6 @@ fn engine_layer_smoke() -> Result<()> {
 /// CNA's compiled model format. Both are one screen of code, which is the only
 /// reason they are here -- this stays a starter template, not an engine demo.
 fn standalone_device_smoke() -> Result<()> {
-    use cna::extensions::pbr::engine_layer_version;
     use cna::Microsoft::Xna::Framework::Graphics::{
         GraphicsDevice, GraphicsProfile, PresentationParameters,
     };
@@ -147,11 +130,10 @@ fn standalone_device_smoke() -> Result<()> {
     };
     let shape = device.PresentationParameters()?;
     println!(
-        "cna-rust-template: standalone GraphicsDevice {}x{} profile={:?} engine layer {}",
+        "cna-rust-template: standalone GraphicsDevice {}x{} profile={:?}",
         shape.BackBufferWidth(),
         shape.BackBufferHeight(),
         device.GraphicsProfile()?,
-        engine_layer_version()?,
     );
 
     standalone_model_smoke()?;
