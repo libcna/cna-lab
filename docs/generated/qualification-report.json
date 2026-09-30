@@ -15,14 +15,14 @@
   },
   "git": {
     "branch": "main",
-    "head": "7aef1fe398a523564ebed2d14fb7aaba74a799db",
-    "worktreeClean": false
+    "head": "74530abc68db338d6fb090b7082f5c9944c49b75",
+    "worktreeClean": true
   },
   "artifacts": [
     {
       "id": "HEADLESS",
       "library": "/home/robertvokac/deps/cna-c-abi-0.35.0/lib/libcna_c_api.so",
-      "librarySha256": "070ed77bec5af09f64c7215e25c90de0970f0316b6d50982eece85fd1963c449",
+      "librarySha256": "3a6f0edc718a2368d76cd6acd597ac468e33b5f2d23bcd3404fa93f1c1809030",
       "opensADisplay": false,
       "suite": {
         "runs": 1922,
@@ -39,11 +39,11 @@
     {
       "id": "OPENGLES3_FX",
       "library": "/home/robertvokac/deps/cna-c-abi-0.35.0-opengles3-fx/lib/libcna_c_api.so",
-      "librarySha256": "4e38a2dafd68e22c1a77c00a34b2ef6a7b1cb7b6832d904ba4a21b05f374f4d6",
+      "librarySha256": "7b35fd1312660ae2d2bcb8a47670602ead94f885f8b5316254d219f585fe2556",
       "opensADisplay": true,
       "suite": {
         "runs": 1922,
-        "assertions": 56566,
+        "assertions": 56565,
         "failures": 0,
         "errors": 0,
         "skips": 18,
