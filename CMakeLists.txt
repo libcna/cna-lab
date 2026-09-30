@@ -46,7 +46,14 @@ add_executable(cna-killer
     src/Program.cpp
     src/CliOptions.cpp
     src/ChaosLog.cpp
+    src/Findings.cpp
     src/ChaosEngine.cpp
+    src/ChaosAudio.cpp
+    src/ChaosFuzz.cpp
+    src/ChaosGame.cpp
+    src/ChaosMisuse.cpp
+    src/ChaosRender.cpp
+    src/ChaosVerify.cpp
     src/CnaKillerGame.cpp
 )
 

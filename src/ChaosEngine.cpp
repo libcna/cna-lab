@@ -5,9 +5,17 @@
 #include <array>
 #include <cmath>
 #include <cstring>
+#include <exception>
+#include <fstream>
+#include <limits>
 #include <optional>
+#include <ostream>
+#include <set>
 #include <sstream>
 #include <string>
+#include <thread>
+
+#include <unistd.h>
 
 #include "Microsoft/Xna/Framework/Color.hpp"
 #include "Microsoft/Xna/Framework/MathHelper.hpp"
@@ -21,6 +29,8 @@
 #include "Microsoft/Xna/Framework/Graphics/RasterizerState.hpp"
 #include "Microsoft/Xna/Framework/Graphics/VertexPositionColor.hpp"
 #include "Microsoft/Xna/Framework/Graphics/Viewport.hpp"
+
+#include "ChaosComponent.hpp"
 
 using namespace Microsoft::Xna::Framework;
 using namespace Microsoft::Xna::Framework::Graphics;
@@ -69,11 +79,141 @@ namespace CnaKiller
             return rng.Next(1, typicalMax + 1);
         }
 
+        std::vector<std::string> SplitList(const std::string& text)
+        {
+            std::vector<std::string> items;
+            std::stringstream stream(text);
+            std::string item;
+            while (std::getline(stream, item, ','))
+            {
+                if (!item.empty())
+                    items.push_back(item);
+            }
+            return items;
+        }
+
+        /** @brief splitmix64: bulk bytes from one draw of the seeded stream, cheap and deterministic. */
+        std::uint64_t SplitMix(std::uint64_t& state)
+        {
+            std::uint64_t z = (state += 0x9E3779B97F4A7C15ULL);
+            z = (z ^ (z >> 30)) * 0xBF58476D1CE4E5B9ULL;
+            z = (z ^ (z >> 27)) * 0x94D049BB133111EBULL;
+            return z ^ (z >> 31);
+        }
     }
 
-    ChaosEngine::ChaosEngine(CliOptions options, ChaosLog& log)
+    // -----------------------------------------------------------------------------------------
+    // The action table
+    // -----------------------------------------------------------------------------------------
+
+    const std::vector<ChaosEngine::ActionDef>& ChaosEngine::Actions()
+    {
+        static const std::vector<ActionDef> table{
+            // Resource churn: the steady background every other action runs against.
+            {"CreateTexture",              "resource", 10, false, &ChaosEngine::ActionCreateTexture},
+            {"DestroyTexture",             "resource",  6, false, &ChaosEngine::ActionDestroyTexture},
+            {"CopyTexture",                "resource",  2, false, &ChaosEngine::ActionCopyTexture},
+            {"CreateRenderTarget",         "resource",  6, false, &ChaosEngine::ActionCreateRenderTarget},
+            {"DestroyRenderTarget",        "resource",  4, false, &ChaosEngine::ActionDestroyRenderTarget},
+            {"CreateMesh",                 "resource",  8, false, &ChaosEngine::ActionCreateMesh},
+            {"DestroyMesh",                "resource",  5, false, &ChaosEngine::ActionDestroyMesh},
+            {"ReloadShader",               "resource",  5, false, &ChaosEngine::ActionReloadShader},
+            {"CubeAndVolumeTextures",      "resource",  2, false, &ChaosEngine::ActionCubeAndVolumeTextures},
+            // Drawing outside Draw(), with every primitive type, effect and sprite mode.
+            {"RenderToTarget",             "render",    8, false, &ChaosEngine::ActionRenderToTarget},
+            {"DrawMesh",                   "render",    8, false, &ChaosEngine::ActionDrawMesh},
+            {"SpamRenderState",            "render",    6, false, &ChaosEngine::ActionSpamRenderState},
+            {"DrawPrimitiveTypes",         "render",    5, false, &ChaosEngine::ActionDrawPrimitiveTypes},
+            {"DrawStockEffects",           "render",    5, false, &ChaosEngine::ActionDrawStockEffects},
+            {"SpriteBatchChaos",           "render",    5, false, &ChaosEngine::ActionSpriteBatchChaos},
+            {"OcclusionQueries",           "render",    2, false, &ChaosEngine::ActionOcclusionQueries},
+            {"DrawInstanced",              "render",    2, false, &ChaosEngine::ActionDrawInstanced},
+            // Read back what was written or drawn and compare it with XNA's result.
+            {"VerifyTextureRoundTrip",     "verify",    5, false, &ChaosEngine::ActionVerifyTextureRoundTrip},
+            {"VerifyRenderTargetClear",    "verify",    4, false, &ChaosEngine::ActionVerifyRenderTargetClear},
+            {"VerifyMultipleRenderTargets","verify",    2, false, &ChaosEngine::ActionVerifyMultipleRenderTargets},
+            {"VerifyCubeRenderTarget",     "verify",    2, false, &ChaosEngine::ActionVerifyCubeRenderTarget},
+            {"VerifySolidQuad",            "verify",    4, false, &ChaosEngine::ActionVerifySolidQuad},
+            {"VerifySpriteFill",           "verify",    3, false, &ChaosEngine::ActionVerifySpriteFill},
+            {"VerifyBufferRoundTrip",      "verify",    4, false, &ChaosEngine::ActionVerifyBufferRoundTrip},
+            {"VerifyBackBuffer",           "verify",    2, false, &ChaosEngine::ActionVerifyBackBuffer},
+            // Call the API the way XNA refuses, and expect XNA's exception.
+            {"MisuseSpriteBatch",          "misuse",    2, false, &ChaosEngine::ActionMisuseSpriteBatch},
+            {"MisuseDeviceState",          "misuse",    3, false, &ChaosEngine::ActionMisuseDeviceState},
+            {"MisuseDraw",                 "misuse",    2, false, &ChaosEngine::ActionMisuseDraw},
+            {"MisuseRenderTargets",        "misuse",    2, false, &ChaosEngine::ActionMisuseRenderTargets},
+            {"MisuseTextureData",          "misuse",    2, false, &ChaosEngine::ActionMisuseTextureData},
+            {"MisuseDisposed",             "misuse",    2, false, &ChaosEngine::ActionMisuseDisposed},
+            {"MisuseOcclusion",            "misuse",    1, false, &ChaosEngine::ActionMisuseOcclusion},
+            {"MisuseAudio",                "misuse",    2, false, &ChaosEngine::ActionMisuseAudio},
+            {"MisuseGameTiming",           "misuse",    1, false, &ChaosEngine::ActionMisuseGameTiming},
+            // Corrupted input for every decoder a game can hand bytes to.
+            {"FuzzImage",                  "fuzz",      3, false, &ChaosEngine::ActionFuzzImage},
+            {"FuzzWave",                   "fuzz",      2, false, &ChaosEngine::ActionFuzzWave},
+            {"FuzzXnb",                    "fuzz",      3, false, &ChaosEngine::ActionFuzzXnb},
+            {"FuzzEffect",                 "fuzz",      1, false, &ChaosEngine::ActionFuzzEffect},
+            // Audio.
+            {"CreateSound",                "audio",     4, false, &ChaosEngine::ActionCreateSound},
+            {"PlaySound",                  "audio",     6, false, &ChaosEngine::ActionPlaySound},
+            {"DestroySound",               "audio",     3, false, &ChaosEngine::ActionDestroySound},
+            {"SoundInstances",             "audio",     4, false, &ChaosEngine::ActionSoundInstances},
+            {"DynamicSound",               "audio",     3, false, &ChaosEngine::ActionDynamicSound},
+            {"AudioGlobals",               "audio",     1, false, &ChaosEngine::ActionAudioGlobals},
+            // Window chaos.
+            {"ResizeBackBuffer",           "window",    2, true,  &ChaosEngine::ActionResizeBackBuffer},
+            {"ToggleFullScreen",           "window",    1, true,  &ChaosEngine::ActionToggleFullScreen},
+            {"ToggleBorderless",           "window",    1, true,  &ChaosEngine::ActionToggleBorderless},
+            {"ChangeTitle",                "window",    3, false, &ChaosEngine::ActionChangeTitle},
+            {"MinimizeRestore",            "window",    1, true,  &ChaosEngine::ActionMinimizeRestore},
+            {"ToggleMouseVisible",         "window",    2, false, &ChaosEngine::ActionToggleMouseVisible},
+            {"AllowUserResizing",          "window",    1, false, &ChaosEngine::ActionAllowUserResizing},
+            // Device loss and reconfiguration.
+            {"ResetDevice",                "device",    1, true,  &ChaosEngine::ActionResetDevice},
+            {"ChangeGraphicsSettings",     "device",    1, true,  &ChaosEngine::ActionChangeGraphicsSettings},
+            // The game loop itself.
+            {"ChurnComponents",            "loop",      3, false, &ChaosEngine::ActionChurnComponents},
+            {"ChangeGameTiming",           "loop",      1, false, &ChaosEngine::ActionChangeGameTiming},
+            {"WorkerThreadResources",      "thread",    2, false, &ChaosEngine::ActionWorkerThreadResources},
+            {"PokeInput",                  "input",     2, false, &ChaosEngine::ActionPokeInput},
+        };
+        return table;
+    }
+
+    void ChaosEngine::ListActions(std::ostream& out)
+    {
+        for (const ActionDef& action : Actions())
+        {
+            out << action.family << '\t' << action.name << "\tweight=" << action.weight
+                << (action.disruptive ? " (scales with intensity)" : "") << '\n';
+        }
+    }
+
+    bool ChaosEngine::ValidateFilter(const CliOptions& options, std::string& error)
+    {
+        std::set<std::string> known;
+        for (const ActionDef& action : Actions())
+        {
+            known.insert(action.name);
+            known.insert(action.family);
+        }
+        for (const std::string& list : {options.onlyActions, options.excludedActions})
+        {
+            for (const std::string& item : SplitList(list))
+            {
+                if (known.count(item) == 0)
+                {
+                    error = "unknown action or family '" + item + "' (see --list-actions)";
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    ChaosEngine::ChaosEngine(CliOptions options, ChaosLog& log, Findings& findings)
         : options_(std::move(options))
         , log_(log)
+        , findings_(findings)
         , random_(static_cast<SharpRuntime::intcs>(options_.seed))
         , seed_(options_.seed)
         , visualRandom_(static_cast<SharpRuntime::intcs>(~options_.seed))
@@ -101,12 +241,43 @@ namespace CnaKiller
                 maxActionsPerTick_ = 6;
                 break;
         }
+
+        const std::vector<std::string> only = SplitList(options_.onlyActions);
+        const std::vector<std::string> excluded = SplitList(options_.excludedActions);
+        const auto matches = [](const std::vector<std::string>& list, const ActionDef& action) {
+            return std::any_of(list.begin(), list.end(), [&](const std::string& item) {
+                return item == action.name || item == action.family;
+            });
+        };
+        for (const ActionDef& action : Actions())
+        {
+            if (!only.empty() && !matches(only, action))
+                continue;
+            if (matches(excluded, action))
+                continue;
+            enabled_.push_back(&action);
+        }
+    }
+
+    ChaosEngine::~ChaosEngine()
+    {
+        // The game's component collection outlives this engine; it must not keep pointers to
+        // the components destroyed with it.
+        if (game_ != nullptr)
+        {
+            for (const std::unique_ptr<ChaosComponent>& component : components_)
+                (void)game_->getComponentsProperty().Remove(component.get());
+        }
     }
 
     void ChaosEngine::Bind(Game& game, GraphicsDeviceManager& graphicsManager)
     {
         game_ = &game;
         graphicsManager_ = &graphicsManager;
+        Device().DeviceResetting += [this](System::Object*, const System::EventArgs&) { ++deviceResetting_; };
+        Device().DeviceReset += [this](System::Object*, const System::EventArgs&) { ++deviceReset_; };
+        log_.Note(std::to_string(enabled_.size()) + " of " + std::to_string(Actions().size()) +
+                  " actions enabled");
     }
 
     GraphicsDevice& ChaosEngine::Device() const
@@ -119,82 +290,35 @@ namespace CnaKiller
         return game_->getWindowProperty();
     }
 
-    const char* ChaosEngine::NameOf(ActionId id) const
+    const ChaosEngine::ActionDef& ChaosEngine::PickAction()
     {
-        switch (id)
-        {
-            case ActionId::CreateTexture:       return "CreateTexture";
-            case ActionId::DestroyTexture:      return "DestroyTexture";
-            case ActionId::CreateRenderTarget:  return "CreateRenderTarget";
-            case ActionId::DestroyRenderTarget: return "DestroyRenderTarget";
-            case ActionId::RenderToTarget:      return "RenderToTarget";
-            case ActionId::CreateMesh:          return "CreateMesh";
-            case ActionId::DestroyMesh:         return "DestroyMesh";
-            case ActionId::DrawMesh:            return "DrawMesh";
-            case ActionId::CreateSound:         return "CreateSound";
-            case ActionId::PlaySound:           return "PlaySound";
-            case ActionId::DestroySound:        return "DestroySound";
-            case ActionId::ReloadShader:        return "ReloadShader";
-            case ActionId::ResizeBackBuffer:    return "ResizeBackBuffer";
-            case ActionId::ToggleFullScreen:    return "ToggleFullScreen";
-            case ActionId::ToggleBorderless:    return "ToggleBorderless";
-            case ActionId::ChangeTitle:         return "ChangeTitle";
-            case ActionId::MinimizeRestore:     return "MinimizeRestore";
-            case ActionId::ToggleMouseVisible:  return "ToggleMouseVisible";
-            case ActionId::ResetDevice:         return "ResetDevice";
-            case ActionId::SpamRenderState:     return "SpamRenderState";
-        }
-        return "Unknown";
-    }
-
-    ChaosEngine::ActionId ChaosEngine::PickAction()
-    {
-        struct Entry { ActionId id; int weight; };
-
-        // Base weights favor steady resource churn; the "global disruption" actions near the
-        // bottom (resize/fullscreen/reset/window-state) get scaled up at higher intensities
-        // since those are the ones most likely to actually break a real application.
+        // Base weights favor steady resource churn; the "global disruption" actions
+        // (resize/fullscreen/reset/window-state) get scaled up at higher intensities since those
+        // are the ones most likely to actually break a real application.
         const int disruptionScale = 1 + static_cast<int>(options_.intensity); // Low=1 .. Nightmare=4
-
-        const std::array<Entry, 20> table{{
-            {ActionId::CreateTexture,       10},
-            {ActionId::DestroyTexture,       6},
-            {ActionId::CreateRenderTarget,   6},
-            {ActionId::DestroyRenderTarget,  4},
-            {ActionId::RenderToTarget,       8},
-            {ActionId::CreateMesh,           8},
-            {ActionId::DestroyMesh,          5},
-            {ActionId::DrawMesh,             8},
-            {ActionId::CreateSound,          4},
-            {ActionId::PlaySound,            6},
-            {ActionId::DestroySound,         3},
-            {ActionId::ReloadShader,         5},
-            {ActionId::ResizeBackBuffer,     2 * disruptionScale},
-            {ActionId::ToggleFullScreen,     1 * disruptionScale},
-            {ActionId::ToggleBorderless,     1 * disruptionScale},
-            {ActionId::ChangeTitle,          3},
-            {ActionId::MinimizeRestore,      1 * disruptionScale},
-            {ActionId::ToggleMouseVisible,   2},
-            {ActionId::ResetDevice,          1 * disruptionScale},
-            {ActionId::SpamRenderState,      6},
-        }};
+        const auto weightOf = [&](const ActionDef* action) {
+            return action->disruptive ? action->weight * disruptionScale : action->weight;
+        };
 
         int total = 0;
-        for (const auto& entry : table)
-            total += entry.weight;
+        for (const ActionDef* action : enabled_)
+            total += weightOf(action);
 
         int roll = random_.Next(0, total);
-        for (const auto& entry : table)
+        for (const ActionDef* action : enabled_)
         {
-            if (roll < entry.weight)
-                return entry.id;
-            roll -= entry.weight;
+            if (roll < weightOf(action))
+                return *action;
+            roll -= weightOf(action);
         }
-        return table.back().id;
+        return *enabled_.back();
     }
 
     bool ChaosEngine::Tick(std::uint64_t tick, double totalSeconds)
     {
+        tick_ = tick;
+        findings_.SetTick(tick);
+
         if (options_.stopAtTick != 0 && tick >= options_.stopAtTick)
         {
             log_.Note("stop-at-tick " + std::to_string(options_.stopAtTick) + " reached; exiting cleanly");
@@ -210,6 +334,20 @@ namespace CnaKiller
             log_.Note("duration limit reached; exiting cleanly");
             return false;
         }
+        if (enabled_.empty())
+        {
+            log_.Note("no action is enabled; exiting");
+            return false;
+        }
+
+        // Components that removed themselves last tick are destroyed only now, outside the
+        // component iteration they were part of.
+        std::erase_if(components_, [](const std::unique_ptr<ChaosComponent>& component) {
+            return component->PendingDestroy();
+        });
+
+        if (tick % 500 == 0)
+            SampleResidentMemory();
 
         const int actionCount = (minActionsPerTick_ == maxActionsPerTick_)
             ? minActionsPerTick_
@@ -217,38 +355,193 @@ namespace CnaKiller
 
         for (int i = 0; i < actionCount; ++i)
         {
-            const ActionId id = PickAction();
-            lastActionName_ = NameOf(id);
+            const ActionDef& action = PickAction();
+            lastActionName_ = action.name;
             log_.BeginAction(tick, lastActionName_, StatsSummary(tick));
-            Dispatch(id);
+            RunGuarded(lastActionName_, [&] { (this->*action.run)(); });
         }
         return true;
     }
 
-    void ChaosEngine::Dispatch(ActionId id)
+    void ChaosEngine::RunGuarded(const std::string& name, const std::function<void()>& body)
     {
-        switch (id)
+        try
         {
-            case ActionId::CreateTexture:       ActionCreateTexture(); break;
-            case ActionId::DestroyTexture:      ActionDestroyTexture(); break;
-            case ActionId::CreateRenderTarget:  ActionCreateRenderTarget(); break;
-            case ActionId::DestroyRenderTarget: ActionDestroyRenderTarget(); break;
-            case ActionId::RenderToTarget:      ActionRenderToTarget(); break;
-            case ActionId::CreateMesh:          ActionCreateMesh(); break;
-            case ActionId::DestroyMesh:         ActionDestroyMesh(); break;
-            case ActionId::DrawMesh:            ActionDrawMesh(); break;
-            case ActionId::CreateSound:         ActionCreateSound(); break;
-            case ActionId::PlaySound:           ActionPlaySound(); break;
-            case ActionId::DestroySound:        ActionDestroySound(); break;
-            case ActionId::ReloadShader:        ActionReloadShader(); break;
-            case ActionId::ResizeBackBuffer:    ActionResizeBackBuffer(); break;
-            case ActionId::ToggleFullScreen:    ActionToggleFullScreen(); break;
-            case ActionId::ToggleBorderless:    ActionToggleBorderless(); break;
-            case ActionId::ChangeTitle:         ActionChangeTitle(); break;
-            case ActionId::MinimizeRestore:     ActionMinimizeRestore(); break;
-            case ActionId::ToggleMouseVisible:  ActionToggleMouseVisible(); break;
-            case ActionId::ResetDevice:         ActionResetDevice(); break;
-            case ActionId::SpamRenderState:     ActionSpamRenderState(); break;
+            body();
+            return;
+        }
+        catch (const StrictStop&)
+        {
+            throw;
+        }
+        catch (const std::exception& exception)
+        {
+            findings_.Report(FindingKind::UnexpectedException, name, ExceptionTypeName(exception),
+                             exception.what());
+        }
+
+        // Whatever the failed action left bound must not turn every later Present() into a
+        // second, unrelated finding.
+        try
+        {
+            Device().SetRenderTarget(nullptr);
+        }
+        catch (const std::exception&)
+        {
+        }
+    }
+
+    void ChaosEngine::Report(FindingKind kind, const std::string& what, const std::string& detail)
+    {
+        findings_.Report(kind, lastActionName_, what, detail);
+    }
+
+    // -----------------------------------------------------------------------------------------
+    // Shared helpers
+    // -----------------------------------------------------------------------------------------
+
+    int ChaosEngine::RandomInt(int minInclusive, int maxExclusive)
+    {
+        return random_.Next(minInclusive, maxExclusive);
+    }
+
+    bool ChaosEngine::Chance(int oneIn)
+    {
+        return random_.Next(0, oneIn) == 0;
+    }
+
+    float ChaosEngine::RandomFloat(float minValue, float maxValue)
+    {
+        return minValue + static_cast<float>(random_.NextDouble()) * (maxValue - minValue);
+    }
+
+    std::vector<std::uint8_t> ChaosEngine::RandomBytes(std::size_t count)
+    {
+        std::uint64_t state = static_cast<std::uint64_t>(static_cast<std::uint32_t>(random_.Next())) << 32 |
+                              static_cast<std::uint32_t>(random_.Next());
+        std::vector<std::uint8_t> bytes(count);
+        for (std::size_t i = 0; i < count; i += 8)
+        {
+            const std::uint64_t word = SplitMix(state);
+            std::memcpy(bytes.data() + i, &word, std::min<std::size_t>(8, count - i));
+        }
+        return bytes;
+    }
+
+    Color ChaosEngine::RandomOpaqueColor()
+    {
+        return RandomColor(random_);
+    }
+
+    Color ChaosEngine::RandomAnyColor()
+    {
+        return RandomColor(random_, /*randomAlpha=*/true);
+    }
+
+    void ChaosEngine::Mutate(std::vector<std::uint8_t>& bytes)
+    {
+        switch (random_.Next(0, 6))
+        {
+            case 0: // flip a few bits
+            {
+                const int flips = random_.Next(1, 9);
+                for (int i = 0; i < flips && !bytes.empty(); ++i)
+                    bytes[static_cast<std::size_t>(random_.Next(0, static_cast<int>(bytes.size())))] ^=
+                        static_cast<std::uint8_t>(1 << random_.Next(0, 8));
+                break;
+            }
+            case 1: // overwrite a run with a boundary value
+            {
+                if (bytes.empty())
+                    break;
+                static constexpr std::uint8_t kValues[] = {0x00, 0xFF, 0x7F, 0x80, 0x01, 0xFE};
+                const auto start = static_cast<std::size_t>(random_.Next(0, static_cast<int>(bytes.size())));
+                const auto length = std::min<std::size_t>(bytes.size() - start,
+                                                          static_cast<std::size_t>(random_.Next(1, 9)));
+                const std::uint8_t value = kValues[random_.Next(0, 6)];
+                std::fill_n(bytes.begin() + static_cast<std::ptrdiff_t>(start), length, value);
+                break;
+            }
+            case 2: // truncate
+                bytes.resize(static_cast<std::size_t>(random_.Next(0, static_cast<int>(bytes.size()) + 1)));
+                break;
+            case 3: // append garbage
+            {
+                const std::vector<std::uint8_t> tail = RandomBytes(static_cast<std::size_t>(random_.Next(1, 256)));
+                bytes.insert(bytes.end(), tail.begin(), tail.end());
+                break;
+            }
+            case 4: // corrupt a 32-bit little-endian length-looking field inside the first 64 bytes
+            {
+                if (bytes.size() < 8)
+                    break;
+                const auto at = static_cast<std::size_t>(
+                    random_.Next(0, static_cast<int>(std::min<std::size_t>(bytes.size(), 64) - 4)));
+                static constexpr std::uint32_t kLengths[] = {0u, 1u, 0x7FFFFFFFu, 0x80000000u,
+                                                            0xFFFFFFFFu, 0x00010000u};
+                const std::uint32_t value = kLengths[random_.Next(0, 6)];
+                std::memcpy(bytes.data() + at, &value, 4);
+                break;
+            }
+            default: // shuffle two chunks
+            {
+                if (bytes.size() < 16)
+                    break;
+                const auto length = static_cast<std::size_t>(random_.Next(1, static_cast<int>(bytes.size() / 4)));
+                const auto a = static_cast<std::size_t>(random_.Next(0, static_cast<int>(bytes.size() - length)));
+                const auto b = static_cast<std::size_t>(random_.Next(0, static_cast<int>(bytes.size() - length)));
+                std::vector<std::uint8_t> chunk(bytes.begin() + static_cast<std::ptrdiff_t>(a),
+                                                bytes.begin() + static_cast<std::ptrdiff_t>(a + length));
+                std::copy(chunk.begin(), chunk.end(), bytes.begin() + static_cast<std::ptrdiff_t>(b));
+                break;
+            }
+        }
+    }
+
+    Texture2D& ChaosEngine::WhiteTexture()
+    {
+        if (!white_)
+        {
+            white_ = std::make_unique<Texture2D>(Device(), 1, 1);
+            const Color white = Color::White;
+            white_->SetData(&white, 1);
+        }
+        return *white_;
+    }
+
+    void ChaosEngine::RunOnWorkerThread(const std::function<void()>& body)
+    {
+        std::exception_ptr failure;
+        std::thread worker([&] {
+            try
+            {
+                body();
+            }
+            catch (...)
+            {
+                failure = std::current_exception();
+            }
+        });
+        worker.join();
+        if (failure)
+            std::rethrow_exception(failure);
+    }
+
+    void ChaosEngine::QueueDrawCheck(const std::string& name, std::function<void()> check)
+    {
+        drawQueue_.emplace_back(name, std::move(check));
+    }
+
+    void ChaosEngine::SampleResidentMemory()
+    {
+        std::ifstream statm("/proc/self/statm");
+        long pages = 0;
+        long resident = 0;
+        if (statm >> pages >> resident)
+        {
+            const long kib = resident * (sysconf(_SC_PAGESIZE) / 1024);
+            rssSamples_.emplace_back(tick_, kib);
+            log_.Note("rss tick=" + std::to_string(tick_) + " kib=" + std::to_string(kib));
         }
     }
 
@@ -271,6 +564,43 @@ namespace CnaKiller
     void ChaosEngine::ActionDestroyTexture()
     {
         textures_.DestroyRandom(random_);
+    }
+
+    void ChaosEngine::ActionCopyTexture()
+    {
+        // CNA's Texture2D copy is a second handle sharing one GPU resource. The copy joins the
+        // pool, so the original may be destroyed first and the copy drawn afterwards; and data
+        // written through one handle must be what the other reads back.
+        if (textures_.Empty())
+            return;
+        EvictIfFull(textures_);
+        Texture2D& original = textures_.RandomItem(random_);
+        auto copy = std::make_unique<Texture2D>(original);
+
+        if (original.getFormatProperty() == SurfaceFormat::Color && original.getWidthProperty() <= 256 &&
+            original.getHeightProperty() <= 256)
+        {
+            const int count = original.getWidthProperty() * original.getHeightProperty();
+            std::vector<Color> written = MakeNoiseTexture(random_, original.getWidthProperty(),
+                                                          original.getHeightProperty());
+            original.SetData(written.data(), count);
+            std::vector<Color> readBack(static_cast<std::size_t>(count));
+            copy->GetData(readBack.data(), count);
+            findings_.CountCheck();
+            for (int i = 0; i < count; ++i)
+            {
+                if (readBack[static_cast<std::size_t>(i)].getPackedValueProperty() !=
+                    written[static_cast<std::size_t>(i)].getPackedValueProperty())
+                {
+                    Report(FindingKind::Mismatch, "a copied Texture2D does not read what was written through the original",
+                           std::to_string(original.getWidthProperty()) + "x" +
+                               std::to_string(original.getHeightProperty()) + ", first difference at texel " +
+                               std::to_string(i));
+                    break;
+                }
+            }
+        }
+        textures_.Add(std::move(copy));
     }
 
     // -----------------------------------------------------------------------------------------
@@ -395,54 +725,6 @@ namespace CnaKiller
     }
 
     // -----------------------------------------------------------------------------------------
-    // Audio
-    // -----------------------------------------------------------------------------------------
-
-    void ChaosEngine::ActionCreateSound()
-    {
-        EvictIfFull(sounds_);
-
-        const int sampleRate = random_.Next(8000, 48001);
-        const AudioChannels channels = random_.Next(0, 2) == 0 ? AudioChannels::Mono : AudioChannels::Stereo;
-        const double durationSeconds = 0.05 + random_.NextDouble() * 0.4;
-        const int sampleCount =
-            static_cast<int>(durationSeconds * sampleRate) * static_cast<int>(channels);
-
-        // A short, loud burst of tone-ish noise: cheap to synthesize and unpleasant on purpose --
-        // this "game" is not trying to be pleasant, it is trying to break the audio backend.
-        const double frequency = 80.0 + random_.NextDouble() * 4000.0;
-        std::vector<SharpRuntime::bytecs> pcm(static_cast<std::size_t>(sampleCount) * 2);
-        for (int i = 0; i < sampleCount; ++i)
-        {
-            const double t = static_cast<double>(i) / sampleRate;
-            const double sample = std::sin(2.0 * MathHelper::Pi * frequency * t);
-            const auto amplitude = static_cast<std::int16_t>(sample * 20000.0);
-            pcm[static_cast<std::size_t>(i) * 2 + 0] = static_cast<SharpRuntime::bytecs>(amplitude & 0xFF);
-            pcm[static_cast<std::size_t>(i) * 2 + 1] = static_cast<SharpRuntime::bytecs>((amplitude >> 8) & 0xFF);
-        }
-
-        auto sound = std::make_unique<ManagedSound>();
-        sound->soundEffect = std::make_unique<SoundEffect>(pcm, sampleRate, channels);
-        sounds_.Add(std::move(sound));
-    }
-
-    void ChaosEngine::ActionPlaySound()
-    {
-        if (sounds_.Empty())
-        {
-            ActionCreateSound();
-            if (sounds_.Empty())
-                return;
-        }
-        sounds_.RandomItem(random_).soundEffect->Play();
-    }
-
-    void ChaosEngine::ActionDestroySound()
-    {
-        sounds_.DestroyRandom(random_);
-    }
-
-    // -----------------------------------------------------------------------------------------
     // "Shader hot reload" -- BasicEffect churn
     // -----------------------------------------------------------------------------------------
     //
@@ -488,6 +770,21 @@ namespace CnaKiller
         graphicsManager_->setPreferredBackBufferWidthProperty(width);
         graphicsManager_->setPreferredBackBufferHeightProperty(height);
         graphicsManager_->ApplyChanges();
+
+        // Windowed, XNA gives the back buffer exactly the preferred size; fullscreen may pick a
+        // display mode instead.
+        if (!graphicsManager_->getIsFullScreenProperty())
+        {
+            const PresentationParameters& pp = Device().getPresentationParametersProperty();
+            findings_.CountCheck();
+            if (pp.getBackBufferWidthProperty() != width || pp.getBackBufferHeightProperty() != height)
+            {
+                Report(FindingKind::Mismatch, "ApplyChanges in a window did not give the preferred back buffer size",
+                       "preferred " + std::to_string(width) + "x" + std::to_string(height) + ", got " +
+                           std::to_string(pp.getBackBufferWidthProperty()) + "x" +
+                           std::to_string(pp.getBackBufferHeightProperty()));
+            }
+        }
     }
 
     void ChaosEngine::ActionToggleFullScreen()
@@ -504,7 +801,7 @@ namespace CnaKiller
     void ChaosEngine::ActionChangeTitle()
     {
         std::ostringstream title;
-        switch (random_.Next(0, 4))
+        switch (random_.Next(0, 6))
         {
             case 0:
                 title << "";
@@ -518,6 +815,24 @@ namespace CnaKiller
                 const int length = random_.Next(1, 64);
                 for (int i = 0; i < length; ++i)
                     title << kGlyphs[random_.Next(0, static_cast<int>(std::char_traits<char>::length(kGlyphs)))];
+                break;
+            }
+            case 3:
+            {
+                // Multi-byte UTF-8: Czech, CJK, emoji and a right-to-left run.
+                static constexpr const char* kWords[] = {"\xC5\x99\xC3\xAD\xC5\xA1\x65", "\xE6\xBC\xA2\xE5\xAD\x97",
+                                                         "\xF0\x9F\x92\xA3", "\xD7\xA9\xD7\x9C\xD7\x95\xD7\x9D"};
+                const int length = random_.Next(1, 40);
+                for (int i = 0; i < length; ++i)
+                    title << kWords[random_.Next(0, 4)];
+                break;
+            }
+            case 4:
+            {
+                // Bytes that are not UTF-8 at all, including an embedded NUL.
+                const int length = random_.Next(1, 64);
+                for (int i = 0; i < length; ++i)
+                    title << static_cast<char>(random_.Next(0, 256));
                 break;
             }
             default:
@@ -546,24 +861,58 @@ namespace CnaKiller
         game_->setIsMouseVisibleProperty(mouseVisible_);
     }
 
+    void ChaosEngine::ActionAllowUserResizing()
+    {
+        Window().setAllowUserResizingProperty(!Window().getAllowUserResizingProperty());
+    }
+
     void ChaosEngine::ActionResetDevice()
     {
         GraphicsDevice& device = Device();
+        const int resettingBefore = deviceResetting_;
+        const int resetBefore = deviceReset_;
         if (random_.Next(0, 2) == 0)
         {
             device.Reset();
-            return;
+        }
+        else
+        {
+            // The nastier path: mutate a copy of the live presentation parameters and hand it back
+            // directly to GraphicsDevice::Reset(), bypassing GraphicsDeviceManager entirely. Real
+            // games never do this -- they always go through ApplyChanges() -- so this is exactly
+            // the kind of desync between the manager's cached preferences and the device's actual
+            // state that a well-behaved app is never supposed to trigger.
+            PresentationParameters pp = device.getPresentationParametersProperty();
+            pp.setBackBufferWidthProperty(RandomDimension(random_, 1280, 3840, 10));
+            pp.setBackBufferHeightProperty(RandomDimension(random_, 720, 2160, 10));
+            device.Reset(pp);
         }
 
-        // The nastier path: mutate a copy of the live presentation parameters and hand it back
-        // directly to GraphicsDevice::Reset(), bypassing GraphicsDeviceManager entirely. Real
-        // games never do this -- they always go through ApplyChanges() -- so this is exactly
-        // the kind of desync between the manager's cached preferences and the device's actual
-        // state that a well-behaved app is never supposed to trigger.
-        PresentationParameters pp = device.getPresentationParametersProperty();
-        pp.setBackBufferWidthProperty(RandomDimension(random_, 1280, 3840, 10));
-        pp.setBackBufferHeightProperty(RandomDimension(random_, 720, 2160, 10));
-        device.Reset(pp);
+        // XNA's Reset raises DeviceResetting and DeviceReset exactly once each.
+        findings_.CountCheck();
+        if (deviceResetting_ - resettingBefore != 1 || deviceReset_ - resetBefore != 1)
+        {
+            Report(FindingKind::Mismatch, "GraphicsDevice::Reset did not raise DeviceResetting and DeviceReset once each",
+                   "DeviceResetting x" + std::to_string(deviceResetting_ - resettingBefore) +
+                       ", DeviceReset x" + std::to_string(deviceReset_ - resetBefore));
+        }
+    }
+
+    void ChaosEngine::ActionChangeGraphicsSettings()
+    {
+        static constexpr std::array<SurfaceFormat, 5> kBackBufferFormats{
+            SurfaceFormat::Color, SurfaceFormat::Bgr565, SurfaceFormat::Bgra5551, SurfaceFormat::Bgra4444,
+            SurfaceFormat::Rgba1010102};
+        static constexpr std::array<DepthFormat, 4> kDepthFormats{
+            DepthFormat::None, DepthFormat::Depth16, DepthFormat::Depth24, DepthFormat::Depth24Stencil8};
+
+        graphicsManager_->setPreferMultiSamplingProperty(Chance(2));
+        graphicsManager_->setSynchronizeWithVerticalRetraceProperty(Chance(2));
+        graphicsManager_->setPreferredBackBufferFormatProperty(
+            kBackBufferFormats[static_cast<std::size_t>(RandomInt(0, 5))]);
+        graphicsManager_->setPreferredDepthStencilFormatProperty(
+            kDepthFormats[static_cast<std::size_t>(RandomInt(0, 4))]);
+        graphicsManager_->ApplyChanges();
     }
 
     void ChaosEngine::ActionSpamRenderState()
@@ -598,6 +947,17 @@ namespace CnaKiller
 
     void ChaosEngine::Draw(SpriteBatch& spriteBatch)
     {
+        // Draw-phase checks first, against a freshly cleared back buffer.
+        std::vector<std::pair<std::string, std::function<void()>>> queued;
+        queued.swap(drawQueue_);
+        for (auto& [name, check] : queued)
+        {
+            const std::string previous = lastActionName_;
+            lastActionName_ = name;
+            RunGuarded(name, check);
+            lastActionName_ = previous;
+        }
+
         if (textures_.Empty())
             return;
 
@@ -620,6 +980,50 @@ namespace CnaKiller
         spriteBatch.End();
     }
 
+    void ChaosEngine::Shutdown()
+    {
+        SampleResidentMemory();
+
+        // A pool that is bounded while memory still climbs steadily is a leak somewhere below
+        // the public API. Compare the second quarter of the run with the last, so start-up
+        // allocation and the first pool fill are not counted.
+        if (rssSamples_.size() >= 8)
+        {
+            const std::size_t quarter = rssSamples_.size() / 4;
+            const auto mean = [&](std::size_t from, std::size_t to) {
+                long sum = 0;
+                for (std::size_t i = from; i < to; ++i)
+                    sum += rssSamples_[i].second;
+                return sum / static_cast<long>(to - from);
+            };
+            const long early = mean(quarter, 2 * quarter);
+            const long late = mean(rssSamples_.size() - quarter, rssSamples_.size());
+            if (late > early + early / 2 && late - early > 200 * 1024)
+            {
+                findings_.Report(FindingKind::Leak, "Shutdown",
+                                 "resident memory kept growing while every pool stayed bounded",
+                                 "mean RSS " + std::to_string(early / 1024) + " MiB in the second quarter, " +
+                                     std::to_string(late / 1024) + " MiB in the last");
+            }
+        }
+
+        if (game_ != nullptr)
+        {
+            for (const std::unique_ptr<ChaosComponent>& component : components_)
+                (void)game_->getComponentsProperty().Remove(component.get());
+        }
+        components_.clear();
+        drawQueue_.clear();
+        instances_.Clear();
+        dynamicSounds_.Clear();
+        sounds_.Clear();
+        effects_.Clear();
+        meshes_.Clear();
+        renderTargets_.Clear();
+        textures_.Clear();
+        white_.reset();
+    }
+
     std::string ChaosEngine::StatsSummary(std::uint64_t tick) const
     {
         std::ostringstream out;
@@ -630,7 +1034,11 @@ namespace CnaKiller
             << " rt=" << renderTargets_.Size()
             << " mesh=" << meshes_.Size()
             << " snd=" << sounds_.Size()
+            << " inst=" << instances_.Size()
+            << " dyn=" << dynamicSounds_.Size()
             << " fx=" << effects_.Size()
+            << " comp=" << components_.size()
+            << " findings=" << findings_.Distinct()
             << " last=" << lastActionName_;
         return out.str();
     }

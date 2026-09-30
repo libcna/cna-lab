@@ -118,11 +118,16 @@ namespace CnaKiller
             "  --duration=SECONDS  Exit cleanly after SECONDS of wall-clock run time.\n"
             "  --stop-at-tick=N    Exit right before tick N runs (for bisecting a crash).\n"
             "  --log=PATH          Reproduction log path. Default: cna-killer-<seed>.log\n"
+            "  --only=LIST         Run only these actions or families (comma-separated).\n"
+            "  --exclude=LIST      Never run these actions or families (comma-separated).\n"
+            "  --strict            Stop at the first finding (exit status 3).\n"
+            "  --list-actions      Print every action and its family, then exit.\n"
             "  -h, --help          Show this help and exit.\n"
             "\n"
             "Environment variables (overridden by the matching flag above):\n"
             "  CNA_KILLER_SEED, CNA_KILLER_INTENSITY, CNA_KILLER_MAX_TICKS,\n"
-            "  CNA_KILLER_DURATION, CNA_KILLER_LOG\n";
+            "  CNA_KILLER_DURATION, CNA_KILLER_LOG, CNA_KILLER_ONLY, CNA_KILLER_EXCLUDE,\n"
+            "  CNA_KILLER_STRICT (1 = on)\n";
     }
 
     CliOptions CliOptions::Parse(int argc, char** argv)
@@ -163,6 +168,18 @@ namespace CnaKiller
         {
             options.logPath = *env;
         }
+        if (const auto env = GetEnv("CNA_KILLER_ONLY"))
+        {
+            options.onlyActions = *env;
+        }
+        if (const auto env = GetEnv("CNA_KILLER_EXCLUDE"))
+        {
+            options.excludedActions = *env;
+        }
+        if (const auto env = GetEnv("CNA_KILLER_STRICT"))
+        {
+            options.strict = *env == "1";
+        }
 
         // Layer 3: command-line flags, highest priority.
         const std::string programName = (argc > 0) ? argv[0] : "cna-killer";
@@ -175,13 +192,24 @@ namespace CnaKiller
                 options.showHelp = true;
                 continue;
             }
+            if (arg == "--strict")
+            {
+                options.strict = true;
+                continue;
+            }
+            if (arg == "--list-actions")
+            {
+                options.listActions = true;
+                continue;
+            }
 
             std::string flag = arg;
             std::string value;
             bool hasValue = SplitEquals(arg, flag, value);
             if (!hasValue && i + 1 < argc &&
                 (flag == "--seed" || flag == "--intensity" || flag == "--max-ticks" ||
-                 flag == "--duration" || flag == "--stop-at-tick" || flag == "--log"))
+                 flag == "--duration" || flag == "--stop-at-tick" || flag == "--log" ||
+                 flag == "--only" || flag == "--exclude"))
             {
                 value = argv[++i];
                 hasValue = true;
@@ -252,6 +280,16 @@ namespace CnaKiller
                     return options;
                 }
                 options.logPath = value;
+            }
+            else if (flag == "--only" || flag == "--exclude")
+            {
+                if (!hasValue || value.empty())
+                {
+                    options.parseError = true;
+                    options.errorMessage = flag + " requires a comma-separated list of actions";
+                    return options;
+                }
+                (flag == "--only" ? options.onlyActions : options.excludedActions) = value;
             }
             else
             {

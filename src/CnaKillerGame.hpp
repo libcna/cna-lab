@@ -12,6 +12,7 @@
 #include "ChaosEngine.hpp"
 #include "ChaosLog.hpp"
 #include "CliOptions.hpp"
+#include "Findings.hpp"
 
 namespace CnaKiller
 {
@@ -27,7 +28,7 @@ namespace CnaKiller
     class CnaKillerGame : public Microsoft::Xna::Framework::Game
     {
     public:
-        CnaKillerGame(const CliOptions& options, ChaosLog& log);
+        CnaKillerGame(const CliOptions& options, ChaosLog& log, Findings& findings);
         ~CnaKillerGame() override = default;
 
         CnaKillerGame(const CnaKillerGame&) = delete;

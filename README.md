@@ -8,35 +8,56 @@ misbehave.
 
 ## What it actually does
 
-Each `Update()` tick, `cna-killer` rolls the dice and performs one or more of the following,
-entirely through CNA's public XNA-compatible API (`Microsoft::Xna::Framework::*`):
+Each `Update()` tick, `cna-killer` picks one or more actions from a weighted table and runs them
+entirely through CNA's public XNA-compatible API (`Microsoft::Xna::Framework::*`).
+`--list-actions` prints the table. The actions come in families:
 
-- **Textures** — creates `Texture2D`s of wildly varying sizes (occasionally huge spikes) filled
-  with adversarial noise, and destroys existing ones out of order.
-- **Render targets** — creates and destroys `RenderTarget2D`s (including mip chains,
-  depth/stencil formats, MSAA, and content-preservation combinations), and binds/clears them
-  *from `Update()`*, outside the `Draw()`/`BeginDraw()`/`EndDraw()` contract a well-behaved game
-  would respect.
-- **Meshes** — creates and destroys `VertexBuffer`/`IndexBuffer` pairs and draws them with
-  `DrawIndexedPrimitives`.
-- **Audio** — synthesizes short, loud procedural PCM tone bursts into `SoundEffect`s, plays
-  them, and destroys them.
-- **"Shader hot reload"** — churns `BasicEffect` instances (disposing and recreating them with
-  randomized parameters) to reproduce what a real hot-reload pipeline does to a running game:
-  swap the effect object out from under whatever is mid-frame. CNA's public API only accepts
-  pre-compiled effect bytecode, same as real XNA/FNA, so there is no runtime shader source
-  compiler to hot-swap here — this is the closest faithful reproduction of that failure mode.
-- **Window chaos** — resizes the back buffer to arbitrary (including degenerate) dimensions,
-  toggles fullscreen and borderless, changes the title to garbage/unicode/absurdly long
-  strings, and minimizes/restores the window ("alt-tab").
-- **Device loss** — calls `GraphicsDevice::Reset()` directly, sometimes with a mutated
-  `PresentationParameters`, bypassing `GraphicsDeviceManager` entirely (a real game only ever
-  goes through `ApplyChanges()`; this deliberately doesn't).
-- **Render state spam** — randomizes `BlendState`, `DepthStencilState`, `RasterizerState`, and
-  the scissor rectangle every tick.
+- **resource** — creates and destroys textures (with huge spikes), render targets (mip chains,
+  depth/stencil, MSAA, content preservation), meshes, copies of textures, cube and volume
+  textures, and churns `BasicEffect`s the way a shader hot-reload pipeline would.
+- **render** — draws from `Update()`, outside the `Draw()` contract: every primitive type through
+  every draw path (user, indexed 16/32-bit, vertex/index buffers, instancing), every stock effect
+  with hostile parameters (NaN matrices, degenerate projections, 72 bones), SpriteBatch in every
+  sort mode with thousands of hostile sprites, occlusion queries.
+- **verify** — reads back what was written or drawn and compares it with XNA's result: texture
+  `SetData`/`GetData` in all 19 HiDef formats by level and rectangle, render-target clears per
+  format (with MSAA and `PreserveContents`), multiple render targets, cube faces, vertex and index
+  buffers at byte offsets, the back buffer, and full-screen quads whose every pixel is known —
+  blending, viewport, scissor, culling, depth and stencil tests, colour write masks, sprite
+  placement and texture orientation.
+- **misuse** — calls the API the way XNA 4.0 refuses and expects XNA's exception: SpriteBatch
+  pairing, invalid viewports and scissor rectangles, bad draw arguments, active or disposed
+  resources, occlusion-query pairing, audio parameters, game timing. Every rule was read from the
+  XNA 4.0 assemblies (`../xna4-decomp`), not from FNA.
+- **fuzz** — corrupted PNG/JPEG/GIF/BMP images, WAVE files, XNB assets (including LZX- and
+  LZ4-compressed ones) and effect bytecode. Each starts from a valid file generated in memory and
+  checks that the valid file loads correctly first.
+- **audio** — procedural sounds, instances driven through every state and 3D positioning,
+  streaming voices fed from their `BufferNeeded` event, the global settings.
+- **window** / **device** — back buffer resizes (to 1x1 and 4096x4096), fullscreen, borderless,
+  minimize/restore, UTF-8 and invalid-UTF-8 titles, raw `GraphicsDevice::Reset()` with mutated
+  parameters, multisampling and back buffer/depth format changes.
+- **loop** — `GameComponent`s that add, remove and destroy each other while `Game` iterates them,
+  and changes to `TargetElapsedTime`, `IsFixedTimeStep` and `InactiveSleepTime`.
+- **thread** — textures, meshes and render targets created, filled and destroyed on worker
+  threads, which XNA 4.0 allows.
+- **input** — mouse positions far outside the window, gamepad queries and vibration.
 
-Whatever textures and meshes are still alive are drawn every frame so the chaos is visible on
-screen, not just in a log file.
+Whatever textures are still alive are drawn every frame so the chaos is visible on screen.
+
+## Findings
+
+A crash ends the process and is recorded by the log and the signal banner. Everything else is a
+finding: an exception from a call XNA accepts, data or pixels that are not XNA's, a refusal XNA
+makes that CNA does not (or makes with a different exception type), memory that keeps growing
+while every pool stays bounded. A finding is logged with its tick and the run carries on;
+`--strict` stops at the first one. At the end the run prints one line per distinct finding with
+its count.
+
+Exit status: `0` clean run without findings, `4` clean run with findings, `3` stopped by
+`--strict`, `1` ended by an exception, `2` bad arguments.
+
+`CNA_FINDINGS.md` lists what the runs have found so far.
 
 ## Reproducibility: the whole point of the seed
 
@@ -96,11 +117,16 @@ workspace-root `CLAUDE.md` for why.
 | `--duration=SECONDS` | Exit cleanly after this many seconds of wall-clock run time. |
 | `--stop-at-tick=N` | Exit right before tick `N` runs, for bisecting a crash. |
 | `--log=PATH` | Reproduction log path (default `cna-killer-<seed>.log`). |
+| `--only=LIST` | Run only these actions or families (comma-separated), to narrow a finding down. |
+| `--exclude=LIST` | Never run these actions or families. |
+| `--strict` | Stop at the first finding. |
+| `--list-actions` | Print every action with its family and weight, then exit. |
 | `-h`, `--help` | Print usage and exit. |
 
 Every flag above also has a `CNA_KILLER_*` environment variable equivalent (`CNA_KILLER_SEED`,
-`CNA_KILLER_INTENSITY`, `CNA_KILLER_MAX_TICKS`, `CNA_KILLER_DURATION`, `CNA_KILLER_LOG`); a
-command-line flag always wins over the matching environment variable.
+`CNA_KILLER_INTENSITY`, `CNA_KILLER_MAX_TICKS`, `CNA_KILLER_DURATION`, `CNA_KILLER_LOG`,
+`CNA_KILLER_ONLY`, `CNA_KILLER_EXCLUDE`, `CNA_KILLER_STRICT`); a command-line flag always wins
+over the matching environment variable.
 
 The game asks for the HiDef profile: 32-bit index buffers, 2048-texel render targets and MSAA
 are all refused under Reach, which is what an XNA game gets by default.

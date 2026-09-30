@@ -15,10 +15,10 @@ using namespace Microsoft::Xna::Framework::Input;
 
 namespace CnaKiller
 {
-    CnaKillerGame::CnaKillerGame(const CliOptions& options, ChaosLog& log)
+    CnaKillerGame::CnaKillerGame(const CliOptions& options, ChaosLog& log, Findings& findings)
         : graphics_(this)
         , options_(options)
-        , chaos_(options, log)
+        , chaos_(options, log, findings)
     {
         // 32-bit index buffers, 2048-texel render targets and MSAA are HiDef features; an XNA
         // game without a HiDef RuntimeProfile resource gets Reach, which refuses all three.
@@ -46,6 +46,7 @@ namespace CnaKiller
 
     void CnaKillerGame::UnloadContent()
     {
+        chaos_.Shutdown();
         spriteBatch_.reset();
     }
 

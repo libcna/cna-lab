@@ -49,6 +49,20 @@ namespace CnaKiller
             items_.erase(items_.begin() + static_cast<std::ptrdiff_t>(index));
         }
 
+        /** @brief Destroys the entry at @p index. */
+        void DestroyAt(std::size_t index)
+        {
+            items_.erase(items_.begin() + static_cast<std::ptrdiff_t>(index));
+        }
+
+        /** @brief Removes the entry at @p index from the pool and hands it to the caller. */
+        [[nodiscard]] std::unique_ptr<T> Take(std::size_t index)
+        {
+            std::unique_ptr<T> item = std::move(items_[index]);
+            items_.erase(items_.begin() + static_cast<std::ptrdiff_t>(index));
+            return item;
+        }
+
         /** @brief Destroys the oldest surviving entry (front of the pool). No-op if empty. */
         void DestroyOldest()
         {

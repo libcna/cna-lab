@@ -57,6 +57,23 @@ namespace CnaKiller
         /** @brief Path to the append-only reproduction log. Empty means auto-generate one. */
         std::string logPath;
 
+        /**
+         * @brief Action names or families to run exclusively (comma-separated). Empty runs all.
+         *
+         * Filtering changes which actions the seed picks, so a filtered run is reproducible only
+         * with the same filter -- it exists to narrow a finding down to one subsystem.
+         */
+        std::string onlyActions;
+
+        /** @brief Action names or families never to run (comma-separated). */
+        std::string excludedActions;
+
+        /** @brief Stop at the first finding instead of recording it and carrying on. */
+        bool strict = false;
+
+        /** @brief Print every action with its family and exit. */
+        bool listActions = false;
+
         /** @brief True if --help/-h was requested; the caller should print help and exit. */
         bool showHelp = false;
 

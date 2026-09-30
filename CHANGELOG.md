@@ -4,6 +4,17 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- Checking actions next to the churn: read-back verification of textures, render targets,
+  buffers, the back buffer and pixel-exact full-screen quads; calls XNA 4.0 refuses, each
+  expecting XNA's exception; corrupted images, WAVE files, XNB assets and effect bytecode;
+  components that rearrange the collection they are iterated from; worker-thread resources;
+  instancing, occlusion queries, every stock effect, cube and volume textures, streaming audio.
+- Findings: a deviation that does not crash is recorded with its tick and the run carries on;
+  a summary lists every distinct finding at the end. `--strict`, `--only`, `--exclude` and
+  `--list-actions`; exit status 4 when a clean run had findings. `CNA_FINDINGS.md` lists them.
+
 ### Changed
 
 - Builds against the sibling `../cna` (branch `next`) and `../sharp-runtime` checkouts; the
