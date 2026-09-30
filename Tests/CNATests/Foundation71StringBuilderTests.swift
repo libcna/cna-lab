@@ -341,7 +341,7 @@ final class Foundation71StringBuilderTests: XCTestCase {
         _ body: @escaping (BuilderProbeGame, G.GraphicsDevice) throws -> Void
     ) throws -> BuilderProbeGame {
         if ProcessInfo.processInfo.environment["CNA_NATIVE_LIBRARY"] == nil {
-            throw XCTSkip("set CNA_NATIVE_LIBRARY to a CNA C ABI 0.21 or later library")
+            throw XCTSkip("set CNA_NATIVE_LIBRARY to a CNA C ABI 0.35 or later library")
         }
         let game = try BuilderProbeGame(body)
         // Dispose unconditionally. A throwing `Run()` skipped it, and the

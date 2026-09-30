@@ -25,21 +25,22 @@ final class NativeABIPolicyTests: XCTestCase {
 
     func testQualifiedVersionIsTheMinimumOfTheWindow() {
         XCTAssertEqual(NativeABI.admittedMajor, 0)
-        XCTAssertEqual(NativeABI.minimumMinor, 21)
-        XCTAssertEqual(NativeABI.qualifiedVersion, NativeABI.encode(major: 0, minor: 21, patch: 0))
+        XCTAssertEqual(NativeABI.minimumMinor, 35)
+        XCTAssertEqual(NativeABI.qualifiedVersion, NativeABI.encode(major: 0, minor: 35, patch: 0))
         XCTAssertTrue(NativeABI.admits(NativeABI.qualifiedVersion))
     }
 
     func testADifferentMajorIsRejected() {
-        XCTAssertFalse(NativeABI.admits(NativeABI.encode(major: 1, minor: 21, patch: 0)))
+        XCTAssertFalse(NativeABI.admits(NativeABI.encode(major: 1, minor: 35, patch: 0)))
         XCTAssertFalse(NativeABI.admits(NativeABI.encode(major: 1, minor: 99, patch: 0)))
         XCTAssertFalse(NativeABI.admits(NativeABI.encode(major: 2, minor: 0, patch: 0)))
     }
 
     func testALowerMinorIsRejected() {
-        // Every generation this binding was previously pinned to, including
-        // the 0.7.0 the migration replaced.
-        for minor in UInt32(0)...20 {
+        // Every generation this binding was previously pinned to -- 0.7.0 and
+        // 0.21.0 -- and every minor between them and 0.35, none of which was
+        // measured by this binding.
+        for minor in UInt32(0)...34 {
             XCTAssertFalse(
                 NativeABI.admits(NativeABI.encode(major: 0, minor: minor, patch: 0)),
                 "0.\(minor).0 is below the admitted minimum")
@@ -47,8 +48,8 @@ final class NativeABIPolicyTests: XCTestCase {
     }
 
     func testAHigherMinorAndAnyPatchAreAdmitted() {
-        XCTAssertTrue(NativeABI.admits(NativeABI.encode(major: 0, minor: 21, patch: 7)))
-        XCTAssertTrue(NativeABI.admits(NativeABI.encode(major: 0, minor: 22, patch: 0)))
+        XCTAssertTrue(NativeABI.admits(NativeABI.encode(major: 0, minor: 35, patch: 7)))
+        XCTAssertTrue(NativeABI.admits(NativeABI.encode(major: 0, minor: 36, patch: 0)))
         XCTAssertTrue(NativeABI.admits(NativeABI.encode(major: 0, minor: 255, patch: 255)))
     }
 
@@ -62,8 +63,8 @@ final class NativeABIPolicyTests: XCTestCase {
         XCTAssertTrue(message.contains("/opt/cna/libcna_c_api.so"), message)
         XCTAssertTrue(message.contains("0.7.0"), message)
         XCTAssertTrue(message.contains("0x00000700"), message)
-        XCTAssertTrue(message.contains("major 0 with minor 21 or later"), message)
-        XCTAssertTrue(message.contains("qualified against 0.21.0"), message)
+        XCTAssertTrue(message.contains("major 0 with minor 35 or later"), message)
+        XCTAssertTrue(message.contains("qualified against 0.35.0"), message)
     }
 
     /// Every manifest row names a distinct symbol, a distinct Swift property

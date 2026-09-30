@@ -300,14 +300,17 @@ final class NativeLifecycleTests: XCTestCase {
     }
 
     internal func requireNative() throws {
-        if !nativeConfigured { throw XCTSkip("set CNA_NATIVE_LIBRARY to a CNA C ABI 0.21 or later library") }
+        if !nativeConfigured { throw XCTSkip("set CNA_NATIVE_LIBRARY to a CNA C ABI 0.35 or later library") }
     }
 
     func testNativeGameSixtyFramesAndGraphicsCanary() throws {
         try requireNative()
         let game = try LifecycleProbeGame(frameLimit: 60, exerciseGraphics: true)
         try game.Run()
-        XCTAssertEqual(game.Updates, 60)
+        // Exit is requested from the 60th Update; a fixed-step tick that
+        // overran (a real renderer under vsync, never HEADLESS) still finishes
+        // its catch-up Updates, as XNA's Tick does -- SW-44.
+        XCTAssertGreaterThanOrEqual(game.Updates, 60)
         XCTAssertGreaterThan(game.Draws, 0)
         XCTAssertLessThanOrEqual(game.Draws, game.Updates)
         XCTAssertEqual(game.viewport?.Width, 800)
@@ -333,7 +336,7 @@ final class NativeLifecycleTests: XCTestCase {
         try requireNative()
         let game = try LifecycleProbeGame(frameLimit: 600)
         try game.Run()
-        XCTAssertEqual(game.Updates, 600)
+        XCTAssertGreaterThanOrEqual(game.Updates, 600)
         // A fixed-step loop may suppress Draw while it catches up after more
         // than one delayed Update. The soak contract is that rendering stays
         // live and never outruns updates, not that at most one Draw is skipped.
@@ -680,11 +683,15 @@ extension NativeLifecycleTests {
     /// `gameTime.ElapsedGameTime = targetElapsedTime` and
     /// `gameTime.TotalGameTime = totalGameTime` *before* the `finally` adds a
     /// step, while `DrawFrame` re-reads the already advanced `totalGameTime`.
-    /// **Frame 0 is a divergence**: XNA's `Tick` computes
-    /// `accumulated / target` and returns without calling `Update` *or*
-    /// `DrawFrame` when that count is zero, so no XNA callback ever observes a
-    /// zero `ElapsedGameTime` under a fixed time step. CNA 0.21.0 issues that
-    /// leading frame anyway. See `docs/native-abi-migration-evidence.md`.
+    /// **Frame 0's `Update` is XNA's, its `Draw` is the open question.**
+    /// XNA's `RunGame`, after `BeginRun`, runs one pre-loop `Update` with
+    /// `ElapsedGameTime = TimeSpan.Zero` and `TotalGameTime = totalGameTime`
+    /// before the loop starts -- exactly frame 0's `Update`. (This file used to
+    /// say no XNA callback ever sees a zero elapsed time under a fixed step;
+    /// that read `Tick` alone and missed `RunGame`.) What XNA does not do is
+    /// draw before the first `Tick` update: `Tick` returns without `DrawFrame`
+    /// while its step count is zero. CNA 0.21 and 0.35 both draw once there.
+    /// See `docs/native-abi-migration-evidence.md`.
     ///
     /// CNA 0.7.0 diverged differently, and in both halves: its `Update` saw a
     /// total one step ahead of XNA's, and its `Draw` saw the same total as its
@@ -701,10 +708,11 @@ extension NativeLifecycleTests {
         XCTAssertEqual(game.updateTimings.count, 4)
         XCTAssertEqual(game.drawTimings.count, 4)
 
-        // The leading frame CNA issues and XNA does not.
+        // The leading frame: XNA's pre-loop Update, then a Draw XNA's Tick
+        // would not issue yet.
         XCTAssertEqual(game.updateTimings[0].total, .zero)
         XCTAssertEqual(game.updateTimings[0].elapsed, .zero,
-                       "CNA 0.21 issues one leading Update with a zero elapsed time")
+                       "the pre-loop Update carries a zero elapsed time, as RunGame's does")
         XCTAssertEqual(game.drawTimings[0].total, .zero)
         XCTAssertEqual(game.drawTimings[0].elapsed, target)
 

@@ -54,7 +54,7 @@ private final class VolumeProbeGame: F.Game {
 final class Foundation64VolumeTextureTests: XCTestCase {
     private func requireNative() throws {
         if ProcessInfo.processInfo.environment["CNA_NATIVE_LIBRARY"] == nil {
-            throw XCTSkip("set CNA_NATIVE_LIBRARY to a CNA C ABI 0.21 or later library")
+            throw XCTSkip("set CNA_NATIVE_LIBRARY to a CNA C ABI 0.35 or later library")
         }
     }
 
@@ -343,30 +343,32 @@ final class Foundation64VolumeTextureTests: XCTestCase {
         }
     }
 
-    /// The transfer itself, on the qualified artifact.
+    /// The transfer itself, on each qualified artifact.
     ///
     /// Every XNA validation passes and the call reaches
-    /// `cna_texturecube_set_data`, which answers `CNA_RESULT_NOT_SUPPORTED`
-    /// on the HEADLESS artifact. This asserts **that exact refusal on the
-    /// runtime channel** — not "it threw something": a wrong face, a wrong
-    /// count or a wrong plan would fail differently or not at all.
-    ///
-    /// The same code round-trips all six faces on CNA's SOFTWARE artifact,
-    /// which is native evidence recorded in
-    /// `docs/foundation-64-volume-texture-evidence.md` and deliberately not
-    /// asserted here: HEADLESS is the qualified renderer.
+    /// `cna_texturecube_set_data`. Cube storage is the renderer's: HEADLESS
+    /// answers `CNA_RESULT_NOT_SUPPORTED` for every face, and OPENGLES3 (like
+    /// SOFTWARE, `docs/foundation-64-volume-texture-evidence.md`) stores all
+    /// six. Both directions are asserted in full rather than guessed from a
+    /// renderer name: a refusal must name the route for all six faces, and an
+    /// acceptance must read back exactly what was written for all six.
     func testTheFaceTransferReachesTheRouteAndIsRefusedByTheRenderer() throws {
         try requireNative()
         let game = try run { game, device in
             let cube = try self.cube(device)
-            let sixteen = [F.Color](repeating: F.Color(Int32(1), Int32(2), Int32(3), Int32(4)),
-                                    count: 16)
             var outcomes: [String] = []
-            for face in [G.CubeMapFace.PositiveX, .NegativeX, .PositiveY,
-                         .NegativeY, .PositiveZ, .NegativeZ] {
+            for (index, face) in [G.CubeMapFace.PositiveX, .NegativeX, .PositiveY,
+                                  .NegativeY, .PositiveZ, .NegativeZ].enumerated() {
+                let value = Int32(index + 1)
+                let sixteen = [F.Color](repeating: F.Color(value, Int32(2), Int32(3), Int32(4)),
+                                        count: 16)
                 do {
                     try cube.SetData(face, data: sixteen)
-                    outcomes.append("accepted")
+                    var back = [F.Color](repeating: F.Color(Int32(0), Int32(0), Int32(0), Int32(0)),
+                                         count: 16)
+                    try cube.GetData(face, data: &back)
+                    outcomes.append(back.map(\.PackedValue) == sixteen.map(\.PackedValue)
+                                    ? "round-trip" : "mismatch")
                 } catch let error as CNAError {
                     guard case .nativeFailure(let operation, let result, _) = error else {
                         outcomes.append("other CNAError")
@@ -381,8 +383,11 @@ final class Foundation64VolumeTextureTests: XCTestCase {
             try cube.Dispose()
         }
         // 6 == CNA_RESULT_NOT_SUPPORTED. One distinct outcome for all six
-        // faces, and it names the route the call actually reached.
-        XCTAssertEqual(game.observations["set"], "cna_texturecube_set_data=6")
+        // faces: the renderer's refusal naming the route, or a faithful
+        // round trip of every face.
+        XCTAssertTrue(
+            ["cna_texturecube_set_data=6", "round-trip"].contains(game.observations["set"]),
+            "got \(game.observations["set"] ?? "<none>")")
     }
 
     // ------------------------------------------------------------------

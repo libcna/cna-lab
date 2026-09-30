@@ -189,19 +189,26 @@ final class Foundation83FindBestDeviceTests: XCTestCase {
     /// **In full screen the current mode is offered twice, and the duplicate
     /// test is what stops it.**
     ///
-    /// This host reports one supported mode, 800x480, which is also the current
-    /// one — so `AddDevices` offers it once from `CurrentDisplayMode` and again
-    /// from the supported-mode loop. XNA adds a candidate only when the list
-    /// holds no equal one, which is what makes
-    /// `GraphicsDeviceInformation.Equals` load-bearing here rather than
-    /// decorative.
+    /// `AddDevices` offers the current mode once from `CurrentDisplayMode` and
+    /// again from the supported-mode loop whenever it is also a supported mode
+    /// of at least 640x480. XNA adds a candidate only when the list holds no
+    /// equal one, which is what makes `GraphicsDeviceInformation.Equals`
+    /// load-bearing here rather than decorative.
+    ///
+    /// The modes are the host's, not the test's: CNA 0.21 invented one 800x480
+    /// mode, CNA 0.35 reports SDL's display (1024x768 under the dummy video
+    /// driver), and an earlier full-screen game in the same process can leave
+    /// the dummy display in a mode it does not list. So the count is derived
+    /// from what the adapter reports -- one candidate per distinct offered
+    /// mode -- and no two are equal.
     func testFullScreenOffersTheCurrentModeOnlyOnce() throws {
         let game = try FindBestProbeGame(fullScreen: true)
         try game.Run()
         if let failure = game.failure { throw failure }
-        XCTAssertEqual(game.candidateCount, 1,
-                       "the current mode and the one supported mode are the same "
-                       + "candidate, and it is added once")
+        XCTAssertEqual(game.candidateCount, game.distinctOfferedModes,
+                       "one candidate per distinct offered mode; the current "
+                       + "mode is added once even when it is also supported")
+        XCTAssertEqual(game.equalCandidatePairs, 0)
     }
 
     /// **The two refusals cannot be reached on this host**, and the message
@@ -237,6 +244,8 @@ private final class FindBestProbeGame: Microsoft.Xna.Framework.Game {
     var best: Microsoft.Xna.Framework.GraphicsDeviceInformation?
     var flagAfter: Bool?
     var candidateCount: Int32?
+    var distinctOfferedModes: Int32?
+    var equalCandidatePairs: Int?
     var requestedProfile = Microsoft.Xna.Framework.Graphics.GraphicsProfile.Reach
 
     init(preferMultiSampling: Bool = false, fullScreen: Bool = false) throws {
@@ -259,6 +268,25 @@ private final class FindBestProbeGame: Microsoft.Xna.Framework.Game {
                 let found = CNAList<Microsoft.Xna.Framework.GraphicsDeviceInformation>()
                 try manager.testOnlyAddDevices(true, found)
                 candidateCount = found.Count
+                var pairs = 0
+                for i in 0 ..< found.Count {
+                    for j in (i + 1) ..< max(i + 1, found.Count)
+                    where try found.Item(i).Equals(found.Item(j)) { pairs += 1 }
+                }
+                equalCandidatePairs = pairs
+                var offered: [String] = []
+                var supported: [String] = []
+                let adapter = Microsoft.Xna.Framework.Graphics.GraphicsAdapter.DefaultAdapter
+                let key = { (mode: Microsoft.Xna.Framework.Graphics.DisplayMode) in
+                    "\(mode.Width)x\(mode.Height)/\(mode.Format)" }
+                if let current = adapter.CurrentDisplayMode { offered.append(key(current)) }
+                if let modes = adapter.SupportedDisplayModes {
+                    let cursor = modes.GetEnumerator()
+                    while let mode = try cursor.Next() {
+                        if mode.Width >= 640 && mode.Height >= 480 { supported.append(key(mode)) }
+                    }
+                }
+                distinctOfferedModes = Int32(Set(offered + supported).count)
                 return
             }
             best = try manager.FindBestDevice(true)

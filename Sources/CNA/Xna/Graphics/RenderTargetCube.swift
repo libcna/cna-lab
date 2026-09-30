@@ -12,15 +12,13 @@ extension Microsoft.Xna.Framework.Graphics {
     /// subscription, and a `Dispose` that releases the subscription before the
     /// base releases the handle.
     ///
-    /// **Its description does not come from the cube route.**
-    /// `cna_texturecube_get_info` accepts a render-target-cube handle and
-    /// answers `CNA_RESULT_SUCCESS` with **size 0, level count 0 and format 0**
-    /// — measured in `build-probe/f65_rtcube.c`. A projection that read `Size`
-    /// through the inherited path would therefore report a zero-sized cube and
-    /// no call would have failed. `cna_render_target_get_info` answers the real
-    /// 4×4, one level, `Color`, so that is the route this type reads, and the
-    /// divergence is recorded in `docs/runtime-capabilities.json` rather than
-    /// worked around silently.
+    /// **Its description comes from the render-target route.** Under CNA 0.21
+    /// `cna_texturecube_get_info` answered a render-target-cube handle with
+    /// `CNA_RESULT_SUCCESS` and **size 0, level count 0 and format 0** (SW-07),
+    /// so this type reads `cna_render_target_get_info`, which answered the real
+    /// size, one level and `Color`. CNA 0.35 answers the cube route correctly
+    /// too (re-measured on HEADLESS and OPENGLES3); the render-target route
+    /// stays because it also carries the usage, sample count and depth format.
     open class RenderTargetCube: TextureCube {
         /// `RenderTargetCube.RenderTargetUsage`, read once at construction.
         public let RenderTargetUsage: Microsoft.Xna.Framework.Graphics.RenderTargetUsage

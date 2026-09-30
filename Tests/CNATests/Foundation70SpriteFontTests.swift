@@ -51,7 +51,7 @@ private final class FontProbeGame: F.Game {
 final class Foundation70SpriteFontTests: XCTestCase {
     private func requireNative() throws {
         if ProcessInfo.processInfo.environment["CNA_NATIVE_LIBRARY"] == nil {
-            throw XCTSkip("set CNA_NATIVE_LIBRARY to a CNA C ABI 0.21 or later library")
+            throw XCTSkip("set CNA_NATIVE_LIBRARY to a CNA C ABI 0.35 or later library")
         }
     }
 

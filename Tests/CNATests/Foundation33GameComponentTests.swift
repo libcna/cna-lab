@@ -104,7 +104,7 @@ final class GameComponentEngineTests: XCTestCase {
 
     private func makeGame() throws -> Microsoft.Xna.Framework.Game {
         if !nativeConfigured {
-            throw XCTSkip("set CNA_NATIVE_LIBRARY to an exact ABI-0.7 library")
+            throw XCTSkip("set CNA_NATIVE_LIBRARY to a CNA C ABI 0.35 or later library")
         }
         return try Microsoft.Xna.Framework.Game()
     }

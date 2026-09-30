@@ -45,7 +45,7 @@ private final class SlotProbeGame: F.Game {
 final class Foundation66TextureCollectionTests: XCTestCase {
     private func requireNative() throws {
         if ProcessInfo.processInfo.environment["CNA_NATIVE_LIBRARY"] == nil {
-            throw XCTSkip("set CNA_NATIVE_LIBRARY to a CNA C ABI 0.21 or later library")
+            throw XCTSkip("set CNA_NATIVE_LIBRARY to a CNA C ABI 0.35 or later library")
         }
     }
 
@@ -416,12 +416,14 @@ final class Foundation66TextureCollectionTests: XCTestCase {
     }
 
     /// A `TextureCube`'s transfer is scanned too — the same two checks in the
-    /// same order, on a type whose transfer this renderer refuses anyway.
+    /// same order, whether or not the renderer stores cube data at all.
     ///
     /// That is the point: the managed refusal must come **first**, so the
-    /// caller sees XNA's `ResourceInUse` rather than the renderer's
-    /// `NOT_SUPPORTED`. Without the scan the same call would report the native
-    /// failure, which is a different exception on a different channel.
+    /// caller sees XNA's `ResourceInUse` rather than whatever the renderer
+    /// answers. HEADLESS refuses the unbound upload with `NOT_SUPPORTED`, so
+    /// without the scan the bound call would report that native failure on a
+    /// different channel; OPENGLES3 stores it, so without the scan the bound
+    /// call would silently succeed.
     func testACubesTransferIsScannedBeforeTheRendererRefusesIt() throws {
         try requireNative()
         let game = try run { game, device in
@@ -432,7 +434,8 @@ final class Foundation66TextureCollectionTests: XCTestCase {
                                          mipMap: false, format: .Color)
             let pixels = [F.Color](repeating: F.Color(Int32(1), Int32(1), Int32(1), Int32(1)),
                                    count: 16)
-            // Unbound, the renderer refuses it on the runtime channel.
+            // Unbound, the renderer either stores it or refuses it on the
+            // runtime channel.
             var unbound = "no error"
             do {
                 try cube.SetData(.PositiveX, data: pixels)
@@ -455,7 +458,9 @@ final class Foundation66TextureCollectionTests: XCTestCase {
             try textures.SetItem(5, nil)
             try cube.Dispose()
         }
-        XCTAssertEqual(game.observations["unbound"], "cna_texturecube_set_data=6")
+        XCTAssertTrue(
+            ["no error", "cna_texturecube_set_data=6"].contains(game.observations["unbound"]),
+            "got \(game.observations["unbound"] ?? "<none>")")
     }
 
     /// A texture bound in one callback is still bound in the next, which is

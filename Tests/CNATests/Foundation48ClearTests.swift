@@ -14,10 +14,12 @@ private final class ClearProbeGame: Microsoft.Xna.Framework.Game {
     var observations: [String: String] = [:]
     private var body: ((ClearProbeGame, G.GraphicsDevice) throws -> Void)?
 
-    init(_ body: @escaping (ClearProbeGame, G.GraphicsDevice) throws -> Void) throws {
+    init(hiDef: Bool = false,
+         _ body: @escaping (ClearProbeGame, G.GraphicsDevice) throws -> Void) throws {
         try super.init()
         self.body = body
         manager = try Microsoft.Xna.Framework.GraphicsDeviceManager(game: self)
+        if hiDef { manager?.GraphicsProfile = .HiDef }
     }
 
     override func LoadContent() throws {
@@ -43,14 +45,15 @@ private final class ClearProbeGame: Microsoft.Xna.Framework.Game {
 final class Foundation48ClearTests: XCTestCase {
     private func requireNative() throws {
         if ProcessInfo.processInfo.environment["CNA_NATIVE_LIBRARY"] == nil {
-            throw XCTSkip("set CNA_NATIVE_LIBRARY to a CNA C ABI 0.21 or later library")
+            throw XCTSkip("set CNA_NATIVE_LIBRARY to a CNA C ABI 0.35 or later library")
         }
     }
 
     private func run(
+        hiDef: Bool = false,
         _ body: @escaping (ClearProbeGame, G.GraphicsDevice) throws -> Void
     ) throws -> ClearProbeGame {
-        let game = try ClearProbeGame(body)
+        let game = try ClearProbeGame(hiDef: hiDef, body)
         // Dispose unconditionally. A throwing `Run()` skipped it, and the
         // native game it leaked is the process's ONE active CNA game -- a
         // later `Game.Run()` then blocks forever, which is how a caught
@@ -82,6 +85,36 @@ final class Foundation48ClearTests: XCTestCase {
                 }
             }
         }
+    }
+
+    /// Under HiDef the managed checks pass and the read reaches the renderer,
+    /// which either returns what the clear wrote or refuses on the runtime
+    /// channel -- HEADLESS has no readback (`CNA_RESULT_NOT_SUPPORTED`),
+    /// OPENGLES3 does. Both directions are asserted exactly.
+    func testHiDefBackBufferReadbackReturnsTheClearOrTheRenderersRefusal() throws {
+        try requireNative()
+        let game = try run(hiDef: true) { game, device in
+            try device.Clear(.Red)
+            var pixels = [Microsoft.Xna.Framework.Color](repeating: .Transparent, count: 4)
+            do {
+                try device.GetBackBufferData(
+                    Microsoft.Xna.Framework.Rectangle(0, 0, 2, 2),
+                    data: &pixels, startIndex: 0, elementCount: 4)
+                game.observations["read"] = pixels
+                    .map { String($0.PackedValue, radix: 16) }.joined(separator: ",")
+            } catch let error as CNAError {
+                if case .nativeFailure(let operation, let result, _) = error {
+                    game.observations["read"] = "\(operation)=\(result)"
+                }
+            }
+        }
+        print("CNA_BACKBUFFER_READ=\(game.observations["read"] ?? "<none>")")
+        let red = String(Microsoft.Xna.Framework.Color.Red.PackedValue, radix: 16)
+        XCTAssertTrue(
+            [Array(repeating: red, count: 4).joined(separator: ","),
+             "cna_graphics_device_get_backbuffer_data_window=6"]
+                .contains(game.observations["read"]),
+            "got \(game.observations["read"] ?? "<none>")")
     }
 
     func testReachRefusesBackBufferReadbackBeforeArrayValidation() throws {

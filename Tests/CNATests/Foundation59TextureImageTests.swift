@@ -45,7 +45,7 @@ private final class ImageProbeGame: F.Game {
 final class Foundation59TextureImageTests: XCTestCase {
     private func requireNative() throws {
         if ProcessInfo.processInfo.environment["CNA_NATIVE_LIBRARY"] == nil {
-            throw XCTSkip("set CNA_NATIVE_LIBRARY to a CNA C ABI 0.21 or later library")
+            throw XCTSkip("set CNA_NATIVE_LIBRARY to a CNA C ABI 0.35 or later library")
         }
     }
 
@@ -401,6 +401,36 @@ final class Foundation59TextureImageTests: XCTestCase {
             game.observations["3x6 zoom"] = try decode(width: 3, height: 6, zoom: true)
             game.observations["6x3 fit"] = try decode(width: 6, height: 3, zoom: false)
             game.observations["3x6 fit"] = try decode(width: 3, height: 6, zoom: false)
+
+            // A square source zoomed into a target wider than tall: CNA 0.21
+            // refused it ("crop rectangle lies outside the source image",
+            // SW-05); CNA 0.35 (BINDFIX-043) fills and crops like the rest --
+            // except, still, where the crop is under one source pixel high.
+            let square = try G.Texture2D(graphicsDevice: device, width: 2, height: 2)
+            try square.SetData(self.colors([
+                (255, 0, 0, 255), (0, 255, 0, 255), (0, 0, 255, 255), (255, 255, 0, 255),
+            ]))
+            let squareSaved = OutputStream.toMemory()
+            try square.SaveAsPng(squareSaved, width: 2, height: 2)
+            squareSaved.close()
+            let squareEncoded = Data(self.written(squareSaved))
+            try square.Dispose()
+            let wide = try G.Texture2D.FromStream(
+                device, stream: InputStream(data: squareEncoded),
+                width: 4, height: 2, zoom: true)
+            game.observations["square 4x2 zoom"] = "\(wide.Width)x\(wide.Height)"
+            try wide.Dispose()
+            do {
+                let wider = try G.Texture2D.FromStream(
+                    device, stream: InputStream(data: squareEncoded),
+                    width: 8, height: 2, zoom: true)
+                game.observations["square 8x2 zoom"] = "\(wider.Width)x\(wider.Height)"
+                try wider.Dispose()
+            } catch let error as CNAError {
+                if case .nativeFailure(let operation, let result, _) = error {
+                    game.observations["square 8x2 zoom"] = "\(operation)=\(result)"
+                }
+            }
         }
         XCTAssertEqual(game.observations["natural"], "4x2")
         XCTAssertEqual(game.observations["6x3 zoom"], "6x3")
@@ -410,6 +440,13 @@ final class Foundation59TextureImageTests: XCTestCase {
         // sweeps sixteen targets under both settings.
         XCTAssertEqual(game.observations["6x3 fit"], "6x3")
         XCTAssertEqual(game.observations["3x6 fit"], "3x1")
+        XCTAssertEqual(game.observations["square 4x2 zoom"], "4x2")
+        // CURRENT UPSTREAM DEFECT (SW-05 residual, CNA 0.35 at 4228ff913): a
+        // 2x2 source zoomed to 8x2 needs a half-pixel crop and is still refused
+        // with INVALID_ARGUMENT. Reproducer:
+        // cna/build-probe/qual-probes/sw-decode-zoom.c. Expect "8x2" once fixed.
+        XCTAssertEqual(game.observations["square 8x2 zoom"],
+                       "cna_texture2d_create_from_encoded_memory=1")
     }
 
     /// The decoded texels are the source's, so the stream really is decoded.

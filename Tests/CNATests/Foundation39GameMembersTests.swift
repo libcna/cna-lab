@@ -42,7 +42,7 @@ final class Foundation39GameMembersTests: XCTestCase {
 
     private func requireNative() throws {
         if !nativeConfigured {
-            throw XCTSkip("set CNA_NATIVE_LIBRARY to a CNA C ABI 0.21 or later library")
+            throw XCTSkip("set CNA_NATIVE_LIBRARY to a CNA C ABI 0.35 or later library")
         }
     }
 

@@ -102,7 +102,7 @@ MUTATIONS: list[tuple[str, str, Path, str, str]] = [
     ),
     (
         "wrong-abi-window", "an admitted ABI window the canonical header does not satisfy", FUNCTIONS,
-        "static let minimumMinor: UInt32 = 21",
+        "static let minimumMinor: UInt32 = 35",
         "static let minimumMinor: UInt32 = 99",
     ),
     (

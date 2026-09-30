@@ -179,7 +179,7 @@ final class Foundation42ObjectDisposedTests: XCTestCase {
     /// `CNAError`, which `catch is CNAException` could not see.
     func testUsingADisposedResourceRaisesTheProjectedClass() throws {
         guard ProcessInfo.processInfo.environment["CNA_NATIVE_LIBRARY"] != nil else {
-            throw XCTSkip("set CNA_NATIVE_LIBRARY to a CNA C ABI 0.21 or later library")
+            throw XCTSkip("set CNA_NATIVE_LIBRARY to a CNA C ABI 0.35 or later library")
         }
         let game = try DisposedProbeGame()
         // Dispose unconditionally. A throwing `Run()` skipped it, and the

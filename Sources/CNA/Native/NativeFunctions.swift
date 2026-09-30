@@ -29,9 +29,9 @@ internal enum NativeABI {
     /// The only admitted major. A different major is rejected outright.
     static let admittedMajor: UInt32 = 0
     /// The lowest admitted minor within `admittedMajor`.
-    static let minimumMinor: UInt32 = 21
+    static let minimumMinor: UInt32 = 35
     /// The exact version this binding's native gates were qualified against.
-    static let qualifiedVersion: UInt32 = encode(major: 0, minor: 21, patch: 0)
+    static let qualifiedVersion: UInt32 = encode(major: 0, minor: 35, patch: 0)
 
     static func admits(_ encoded: UInt32) -> Bool {
         major(encoded) == admittedMajor && minor(encoded) >= minimumMinor

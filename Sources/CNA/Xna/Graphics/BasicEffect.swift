@@ -10,11 +10,13 @@ extension Microsoft.Xna.Framework.Graphics {
     /// `GraphicsDevice`, `Parameters`, `Techniques`, `CurrentTechnique` and
     /// `Dispose` all come from the base.
     ///
-    /// **Nothing in this type reads a shader parameter, because there are
-    /// none.** `build-probe/f69_lights.c` measures it: a native `BasicEffect`
-    /// publishes `parameter count -> 0`, where `AlphaTestEffect` publishes six
-    /// and `SkinnedEffect` twelve. Its state lives behind named CNA routes
-    /// instead, and the defaults CNA gives a fresh one are XNA's own:
+    /// **Nothing in this type reads a shader parameter.** Under CNA 0.21 there
+    /// were none to read -- `build-probe/f69_lights.c` measured a native
+    /// `BasicEffect` publishing `parameter count -> 0`, where `AlphaTestEffect`
+    /// published six and `SkinnedEffect` twelve (SW-40). CNA 0.35 publishes
+    /// XNA's 21, and they reach `Parameters` through the base; the state this
+    /// type exposes still lives behind the named CNA routes, and the defaults
+    /// CNA gives a fresh one are XNA's own:
     ///
     /// ```text
     /// light0 enabled=1 dir=(0 -1 0) diff=(1 1 1) spec=(0 0 0)
