@@ -63,8 +63,10 @@ def dump_symbol_graph(swift: Path, timeout: int) -> None:
 
 
 def diagnostics(symbol_graph: Path, timeout: int) -> list[dict[str, object]]:
+    (ROOT / "build-probe").mkdir(exist_ok=True)
     with tempfile.NamedTemporaryFile(
-        prefix="cna-swift-content-reader-leak-", suffix=".json", delete=True
+        prefix="cna-swift-content-reader-leak-", suffix=".json", delete=True,
+        dir=ROOT / "build-probe",
     ) as output:
         result = run([
             sys.executable, str(VERIFY),

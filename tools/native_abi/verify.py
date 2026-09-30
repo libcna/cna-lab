@@ -679,7 +679,10 @@ def main() -> int:
             mismatches.append(
                 f"CNA_{name}: shim signature {translated} != canonical {(c_return, c_params)}")
 
-    with tempfile.TemporaryDirectory(prefix="cna-swift-abi-") as temporary:
+    # Probes are compiled beside the package (build-probe/ is gitignored), never under /tmp:
+    # the machine's build rules forbid compiling where nothing can be reused or audited.
+    (ROOT / "build-probe").mkdir(exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix="cna-swift-abi-", dir=ROOT / "build-probe") as temporary:
         temp = Path(temporary)
         probe_output = compile_and_run(
             args.cc, PROBE, args.cna_include, temp / "probe",

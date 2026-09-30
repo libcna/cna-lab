@@ -55,7 +55,8 @@ def main() -> int:
 
     environment = os.environ.copy()
     environment["CNA_NATIVE_LIBRARY"] = str(args.library)
-    with tempfile.TemporaryDirectory(prefix="cna-swift-gamepad-") as directory:
+    (ROOT / "build-probe").mkdir(exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix="cna-swift-gamepad-", dir=ROOT / "build-probe") as directory:
         snapshot_path = Path(directory) / "snapshot.json"
         route_environment = environment.copy()
         route_environment["CNA_GAMEPAD_EVIDENCE_OUTPUT"] = str(snapshot_path)

@@ -34,7 +34,7 @@ Run from the repository root:
     python3 tools/status_gate/verify.py --self-test
     python3 tools/status_gate/verify.py \
         --symbol-graph .build/x86_64-pc-linux-gnu/symbolgraph/CNA.symbols.json \
-        --cna-include /path/to/cnanext/modules/c-api/include \
+        --cna-include /path/to/cna/modules/c-api/include \
         --library "$CNA_NATIVE_LIBRARY"
 """
 
@@ -506,7 +506,8 @@ def regenerate_and_compare(
     # letting the two look identical.
     skipped = sum(1 for argument in (symbol_graph, cna_include, assembly_dir,
                                      bcl_dir) if argument is None)
-    with tempfile.TemporaryDirectory(prefix="cna-status-gate-") as raw:
+    (ROOT / "build-probe").mkdir(exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix="cna-status-gate-", dir=ROOT / "build-probe") as raw:
         temporary = Path(raw)
 
         # Why a regeneration produced nothing, not merely that it did. A
@@ -754,7 +755,8 @@ def self_test() -> int:
             failures.append(description)
 
     facts = {"FOUNDATION": 57, "COMPLETE_TYPES": 150, "BOUND_FUNCTIONS": 87}
-    with tempfile.TemporaryDirectory(prefix="cna-status-gate-self-") as raw:
+    (ROOT / "build-probe").mkdir(exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix="cna-status-gate-self-", dir=ROOT / "build-probe") as raw:
         temporary = Path(raw)
         clean = temporary / "clean.md"
         clean.write_text(excused_fixture(SELF_TEST_DOCUMENT), encoding="utf-8")
