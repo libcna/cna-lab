@@ -29,13 +29,13 @@ def main() -> None:
                         help="compile and decode one .cnj asset through "
                              "cna.extensions.content, then exit without starting the game")
     parser.add_argument("--verify-engine", action="store_true",
-                        help="check the CNA engine layer through cna.extensions.engine, "
-                             "then exit without starting the game")
+                        help="check CNA's graphics extension layer through "
+                             "cna.extensions.engine, then exit without starting the game")
     arguments = parser.parse_args()
     if arguments.verify_engine:
-        # Separate for the same reason --verify-cnb is: the engine layer is a
-        # CNA-only rendering vocabulary, a game drawing sprites never touches it,
-        # and a CNA build may be configured without one at all.
+        # Separate for the same reason --verify-cnb is: the extension layer is a
+        # CNA-only vocabulary, a game drawing sprites never touches it, and a CNA
+        # build may be configured without it at all.
         from tools.verify_engine import run as verify_engine
 
         verify_engine()

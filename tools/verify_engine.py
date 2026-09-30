@@ -1,77 +1,116 @@
-"""An optional smoke test for the CNA engine-layer extension.
+"""An optional smoke test for CNA's graphics extension layer.
 
-Deliberately small, deliberately separate, and deliberately device-free. The
-starter's own 60- and 600-frame runs must not need the engine layer at all: it
-is a CNA-only rendering vocabulary, and a game drawing sprites never touches it.
-Making basic startup depend on it would be a claim that it does.
+Deliberately small and deliberately separate. The starter's own 60- and
+600-frame runs must not need it: ``cna.extensions.engine`` is a CNA-only
+vocabulary (CNA kept DebugDraw and the ASCII effect when it retired its engine
+layer at C ABI 0.30), and a game drawing sprites never touches it.
 
-What this proves, in well under a second and with no renderer, is that
-`cna.extensions.engine` is importable, that this CNA build's engine layer is
-present and reports the revision the binding was written against, that a value
-type reads its defaults from CNA rather than from a transcription, and that a
-pure shading function answers what the physics says it should. Four assertions,
-each exact.
+What this proves, in one real frame, is that the package is importable from the
+installed wheel, that the loaded CNA build reports whether it carries the layer,
+and -- when it does -- that a debug batch builds exactly the lines its shapes
+are made of and an ASCII effect keeps the cell size it was given.
 
-**A build with no engine layer is a result, not a failure.** CNA can be
-configured without one, and every route then reports itself unavailable rather
-than answering with a plausible number. This says so and exits cleanly, because
-"the extension is absent" and "the extension is broken" are different facts and
-a smoke test that conflated them would be worse than none.
+**A build without the layer is a result, not a failure.** CNA can be configured
+without ``CNA_CNAEXT``, and every route then reports itself unavailable. This
+says so and exits cleanly, because "absent" and "broken" are different facts.
 """
 
 from __future__ import annotations
 
 import argparse
 
-from Microsoft.Xna.Framework import Vector3
+from Microsoft.Xna.Framework import (
+    BoundingBox, Color, Game, GraphicsDeviceManager, Matrix, Vector3,
+)
 from cna.extensions import engine
 
 
+def _measure_in_one_frame() -> dict:
+    observed: dict = {}
+    failure: list[BaseException] = []
+
+    class Probe(Game):
+        def __init__(self) -> None:
+            super().__init__()
+            self.manager = GraphicsDeviceManager(self)
+            self.done = False
+
+        def Draw(self, gameTime) -> None:
+            if self.done:
+                return
+            self.done = True
+            try:
+                device = self.GraphicsDevice
+                with engine.DebugDraw(device) as debug:
+                    debug.begin(Matrix.Identity, Matrix.Identity)
+                    debug.add_box(BoundingBox(Vector3(0, 0, 0), Vector3(1, 2, 3)), Color.Red)
+                    debug.add_cross(Vector3(0, 0, 0), 1.0, Color.Green)
+                    observed["lines"] = debug.line_count
+                    observed["vertices"] = len(debug.vertices(True))
+                with engine.AsciiEffect(device) as ascii_effect:
+                    ascii_effect.cell_size = (6, 10)
+                    observed["cell"] = ascii_effect.cell_size
+            except BaseException as error:  # re-raised outside the frame
+                failure.append(error)
+            self.Exit()
+
+        def Update(self, gameTime) -> None:
+            if self.done:
+                self.Exit()
+
+    game = Probe()
+    try:
+        game.Run()
+    finally:
+        game.Dispose()
+    if failure:
+        raise failure[0]
+    return observed
+
+
 def verify() -> str:
-    """Checks the engine layer without a device, and returns a one-line result."""
-    if not engine.is_available():
-        return ("ENGINE_VERIFICATION=absent this CNA build has no engine layer, "
-                "which is a supported configuration")
+    """Checks the extension layer, and returns a one-line result."""
+    probe = _availability()
+    if not probe:
+        return ("ENGINE_VERIFICATION=absent this CNA build has no graphics extension "
+                "layer, which is a supported configuration")
+    observed = _measure_in_one_frame()
+    expected_lines = engine.DEBUG_DRAW_BOX_EDGE_COUNT + 3
+    if observed.get("lines") != expected_lines:
+        raise RuntimeError(f"a box and a cross built {observed.get('lines')} lines, "
+                           f"not {expected_lines}")
+    if observed.get("vertices") != 2 * expected_lines:
+        raise RuntimeError(f"the depth-tested list holds {observed.get('vertices')} "
+                           f"vertices, not {2 * expected_lines}")
+    if observed.get("cell") != (6, 10):
+        raise RuntimeError(f"the ASCII effect kept cell size {observed.get('cell')}")
+    return (f"ENGINE_VERIFICATION=ok debug lines {observed['lines']}, "
+            f"ASCII cell {observed['cell'][0]}x{observed['cell'][1]}")
 
-    revision = engine.layer_version()
-    if revision != engine.HEADER_LAYER_VERSION:
-        raise RuntimeError(
-            f"this CNA build reports engine layer {revision}; the binding was "
-            f"written against {engine.HEADER_LAYER_VERSION}")
-    if str(revision) not in engine.layer_version_string():
-        raise RuntimeError(
-            f"the engine layer's own version string {engine.layer_version_string()!r} "
-            f"does not mention revision {revision}")
 
-    # A value type, read from CNA rather than transcribed. A default a binding
-    # wrote down would survive CNA changing its mind, which is the whole reason
-    # these are read.
-    light = engine.ClusteredLight.default()
-    if not light.range_ > 0.0:
-        raise RuntimeError(f"a default clustered light has range {light.range_}")
-    if not light.is_usable:
-        raise RuntimeError("CNA's own default clustered light is not usable")
+def _availability() -> bool:
+    """Whether the layer exists; asked inside a live game, as CNA's routes need one."""
+    answer: list[bool] = []
 
-    # A pure shading function, against the physics rather than against itself.
-    # Beer-Lambert: a medium that leaves half the light in one attenuation
-    # distance leaves a quarter in two.
-    attenuation = engine.volume_attenuation(Vector3(0.5, 0.5, 0.5), 1.0, 2.0)
-    if abs(attenuation.X - 0.25) > 1e-5:
-        raise RuntimeError(
-            f"two attenuation distances of a half-transmitting medium should leave "
-            f"0.25, got {attenuation.X}")
+    class Ask(Game):
+        def __init__(self) -> None:
+            super().__init__()
+            self.manager = GraphicsDeviceManager(self)
 
-    return (f"ENGINE_VERIFICATION=ok engine layer {revision}, "
-            f"default light range {light.range_}, "
-            f"two-thickness transmission {attenuation.X}")
+        def Update(self, gameTime) -> None:
+            answer.append(engine.is_available())
+            self.Exit()
+
+    game = Ask()
+    try:
+        game.Run()
+    finally:
+        game.Dispose()
+    return bool(answer and answer[0])
 
 
 def run() -> str:
-    """Runs the check and prints its one-line result.
-
-    Separate from :func:`main` so the starter can call it without a second
-    argument parser seeing the starter's own flags.
-    """
+    """Runs the check and prints its one-line result."""
     line = verify()
     print(f"cna-python-template: {line}")
     return line
@@ -79,7 +118,7 @@ def run() -> str:
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Check the CNA engine layer through cna.extensions.engine")
+        description="Check CNA's graphics extension layer through cna.extensions.engine")
     parser.parse_args()
     run()
 

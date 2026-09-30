@@ -4,7 +4,7 @@ import math
 from pathlib import Path
 
 from Microsoft.Xna.Framework import Color, Game, GraphicsDeviceManager, PlayerIndex, Vector2
-from Microsoft.Xna.Framework.Graphics import SpriteBatch, SpriteEffects, Texture2D
+from Microsoft.Xna.Framework.Graphics import GraphicsProfile, SpriteBatch, SpriteEffects, Texture2D
 from Microsoft.Xna.Framework.Input import ButtonState, Buttons, GamePad, Keyboard, Keys, Mouse
 
 
@@ -22,6 +22,10 @@ class HelloGame(Game):
         #: False until a back-buffer read succeeds on this backend.
         self.FrameVerificationAvailable = False
         self.Graphics = GraphicsDeviceManager(self)
+        if verify_frame:
+            # XNA's GetBackBufferData is a HiDef feature, and CNA enforces the
+            # profile: a Reach device refuses the read.
+            self.Graphics.GraphicsProfile = GraphicsProfile.HiDef
         self.Content.RootDirectory = "Content"
         self.RequestedFrames = requested_frames
         self.DrawnFrames = 0
