@@ -18,7 +18,7 @@ intensity, 2026-09-30. Every XNA rule cited was read from the XNA 4.0 assemblies
 
 | id | finding | cause, as far as known |
 |---|---|---|
-| KF-4 | Data written with `SetData` through one `Texture2D` handle is not what `GetData` returns through a copy of it, although a copy "shares the underlying texture resource". | Each copy holds its own `cpuPixels_` pointer; `SetData` replaces the writer's pointer instead of updating the shared cache. |
+| KF-4 | **Not a defect.** Data written with a full-level `SetData` through one `Texture2D` handle is not what a copy reads back: copies are copy-on-write by design (REMED-GFX-223), pinned by `UploadThroughOneHandleDoesNotReachAnother`. The copy constructor's comment claimed plain sharing; corrected in CNA `f2752e2a8`. | |
 | KF-5 | A multisampled render target resolved while a scissor rectangle is active keeps stale pixels outside the rectangle. | `EasyGLRenderTargetRenderer::ResolveColorEXT` and `EasyGLRenderer::ResolveMsaa` call `glBlitFramebuffer`, which obeys the scissor test, without disabling it (the compiled-flip copy already does). |
 | KF-6 | `GetBackBufferData` right after `Clear` returns `(0,0,0,0)` outside some rectangle. | Probably KF-5: with a multisampled back buffer the read first resolves through `ResolveMsaa`. Recheck after KF-5. |
 | KF-7 | `DynamicSoundEffectInstance.GetSampleDuration` truncates to whole milliseconds; XNA rounds (`TimeSpan.FromMilliseconds` on .NET Framework). 2236 bytes of stereo at 31184 Hz: XNA 18 ms, CNA 17 ms. | |

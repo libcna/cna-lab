@@ -31,6 +31,7 @@
 #include "Microsoft/Xna/Framework/Graphics/Viewport.hpp"
 
 #include "ChaosComponent.hpp"
+#include "ChaosSupport.hpp"
 
 using namespace Microsoft::Xna::Framework;
 using namespace Microsoft::Xna::Framework::Graphics;
@@ -568,9 +569,10 @@ namespace CnaKiller
 
     void ChaosEngine::ActionCopyTexture()
     {
-        // CNA's Texture2D copy is a second handle sharing one GPU resource. The copy joins the
-        // pool, so the original may be destroyed first and the copy drawn afterwards; and data
-        // written through one handle must be what the other reads back.
+        // CNA's Texture2D copy is a second handle to one texture, copy-on-write for a full-level
+        // SetData (REMED-GFX-223): the copy joins the pool, so the original may be destroyed first
+        // and the copy drawn afterwards, and a full-level upload through the original must leave
+        // the copy's pixels as they were.
         if (textures_.Empty())
             return;
         EvictIfFull(textures_);
@@ -581,18 +583,22 @@ namespace CnaKiller
             original.getHeightProperty() <= 256)
         {
             const int count = original.getWidthProperty() * original.getHeightProperty();
-            std::vector<Color> written = MakeNoiseTexture(random_, original.getWidthProperty(),
-                                                          original.getHeightProperty());
+            Support::UnbindAll(Device());
+            std::vector<Color> before(static_cast<std::size_t>(count));
+            copy->GetData(before.data(), count);
+            const std::vector<Color> written = MakeNoiseTexture(random_, original.getWidthProperty(),
+                                                                original.getHeightProperty());
             original.SetData(written.data(), count);
-            std::vector<Color> readBack(static_cast<std::size_t>(count));
-            copy->GetData(readBack.data(), count);
+            std::vector<Color> after(static_cast<std::size_t>(count));
+            copy->GetData(after.data(), count);
             findings_.CountCheck();
             for (int i = 0; i < count; ++i)
             {
-                if (readBack[static_cast<std::size_t>(i)].getPackedValueProperty() !=
-                    written[static_cast<std::size_t>(i)].getPackedValueProperty())
+                if (after[static_cast<std::size_t>(i)].getPackedValueProperty() !=
+                    before[static_cast<std::size_t>(i)].getPackedValueProperty())
                 {
-                    Report(FindingKind::Mismatch, "a copied Texture2D does not read what was written through the original",
+                    Report(FindingKind::Mismatch,
+                           "a full-level SetData through one Texture2D handle changed a copy's pixels",
                            std::to_string(original.getWidthProperty()) + "x" +
                                std::to_string(original.getHeightProperty()) + ", first difference at texel " +
                                std::to_string(i));
@@ -655,9 +661,32 @@ namespace CnaKiller
 
         RenderTarget2D& target = renderTargets_.RandomItem(random_);
         GraphicsDevice& device = Device();
+        const Color color = RandomColor(random_);
         device.SetRenderTarget(&target);
-        device.Clear(RandomColor(random_));
+        device.Clear(color);
         device.SetRenderTarget(nullptr);
+
+        // Nothing earlier in this tick has necessarily touched the device, so this is also the
+        // check that a bind and clear issued from Update() reach the target at all.
+        if (target.getWidthProperty() * target.getHeightProperty() <= 256 * 256)
+        {
+            std::vector<Color> pixels(static_cast<std::size_t>(target.getWidthProperty()) *
+                                      static_cast<std::size_t>(target.getHeightProperty()));
+            target.GetData(pixels.data(), static_cast<int>(pixels.size()));
+            findings_.CountCheck();
+            const auto wrong = std::find_if(pixels.begin(), pixels.end(), [&](const Color& p) {
+                return p.getPackedValueProperty() != color.getPackedValueProperty();
+            });
+            if (wrong != pixels.end())
+            {
+                Report(FindingKind::Mismatch, "a render target cleared from Update() does not hold the colour",
+                       std::to_string(target.getWidthProperty()) + "x" + std::to_string(target.getHeightProperty()) +
+                           " target with " + std::to_string(target.getMultiSampleCountProperty()) +
+                           " samples, texel " + std::to_string(wrong - pixels.begin()) + " reads " +
+                           std::to_string(wrong->getPackedValueProperty()) + " for " +
+                           std::to_string(color.getPackedValueProperty()));
+            }
+        }
     }
 
     // -----------------------------------------------------------------------------------------
