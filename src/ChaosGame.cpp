@@ -228,6 +228,9 @@ namespace CnaKiller
         // worker starts, and the worker is joined before this action returns, so the action
         // sequence stays reproducible even though the device is touched from another thread.
         const int kind = RandomInt(0, 5);
+        static constexpr const char* kKinds[] = {"texture", "mesh", "render-target", "destroy-textures",
+                                                 "two-workers"};
+        log_.Note(std::string("worker-thread operation: ") + kKinds[kind]);
         const int width = RandomInt(1, 257);
         const int height = RandomInt(1, 257);
         std::vector<Color> pixels(static_cast<std::size_t>(width) * static_cast<std::size_t>(height));
