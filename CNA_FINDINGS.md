@@ -9,20 +9,21 @@ intensity, 2026-09-30. Every XNA rule cited was read from the XNA 4.0 assemblies
 
 | id | status |
 |---|---|
-| KF-1, KF-1a, KF-2, KF-16 | fixed, `1c04beed5`: the game thread holds the context for whole frames; resource operations lease it on any thread; `resources_` is guarded; no MSAA back buffer is built while the drawable is 0x0 |
-| KF-3 | not reproduced after `1c04beed5` (seed 2 nightmare runs past tick 61); a real resize resets the scissor rectangle, the throw followed KF-2's failed reset |
+| KF-16, KF-2 | fixed, `a033a9184`: the game thread holds the context for whole frames; no MSAA back buffer is built while the drawable is 0x0 |
+| KF-1, KF-1a | fixed, `00b9c9898`: resource operations lease the context on any thread; `resources_` is guarded |
+| KF-3 | not reproduced after `a033a9184` (seed 2 nightmare runs past tick 61); a real resize resets the scissor rectangle, the throw followed KF-2's failed reset |
 | KF-4 | not a defect; comment corrected in `f2752e2a8` |
 | KF-5 | fixed, `5c5a58cf4` |
-| KF-6 | partly fixed, `8052300d2`: EasyGL reads the back buffer at its own size through the presentation rectangle (Letterbox, Stretch, display scale); the rest is a documented limitation (see the row) |
+| KF-6 | partly fixed, `64b02d468`: EasyGL reads the back buffer at its own size through the presentation rectangle (Letterbox, Stretch, display scale); the rest is a documented limitation (see the row) |
 | KF-7, KF-8 | fixed, `4874c521d` |
-| KF-9 | fixed, `d2020f892` |
+| KF-9 | fixed, `0af45cbd4` |
 | KF-10 | not a defect: cna-killer's own rectangle fit exactly in an odd-width back buffer; the check is corrected |
-| KF-11 | kept deliberately, `d3273a9fe`; cna-killer accepts either outcome |
-| KF-12 | fixed, `9335b38f0` |
-| KF-13 | fixed, `ca2745cf5` |
-| KF-14 | fixed, `a5c559786`, with a use-after-free the rejected add exposed |
-| KF-15 | fixed, `d532a50f7` |
-| KF-17 | fixed, `2a820f991` |
+| KF-11 | kept deliberately, `b52f344bc`; cna-killer accepts either outcome |
+| KF-12 | fixed, `49119a34c` |
+| KF-13 | fixed, `2d85a276f` |
+| KF-14 | fixed, `d82c81a4e`, with a use-after-free the rejected add exposed |
+| KF-15 | fixed, `16a1b67d9` |
+| KF-17 | fixed, `c63056ea4` |
 
 ## The run ends
 
