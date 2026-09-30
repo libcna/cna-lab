@@ -21,10 +21,20 @@ class StockEffectsTest < Minitest::Test
   STRICT = JSON.parse(ROOT.join("docs", "generated", "api-compat-report.json").read).freeze
   FAMILY = %w[BasicEffect SkinnedEffect AlphaTestEffect DualTextureEffect EnvironmentMapEffect].freeze
 
-  # The parameter collections CNA 0.21.0 builds, measured identically on `HEADLESS`, `OPENGL33` and
-  # the compiled-effects artifact: `[name, RowCount, ColumnCount]` in declaration order.
+  # The parameter collections CNA 0.35.0 builds, measured identically on `HEADLESS` and the
+  # `OPENGLES3` compiled-effects artifact: `[name, RowCount, ColumnCount]` in declaration order.
+  # `BasicEffect`'s was empty through 0.21.0 (docs/stock-effect-parameter-upstream-defect.md); its
+  # `WorldInverseTranspose` is XNA's own `float3x3`.
   STOCK_EFFECT_PARAMETERS = {
-    "BasicEffect" => [],
+    "BasicEffect" => [
+      ["Texture", 0, 0], ["DiffuseColor", 1, 4], ["EmissiveColor", 1, 3], ["SpecularColor", 1, 3],
+      ["SpecularPower", 1, 1],
+      ["DirLight0Direction", 1, 3], ["DirLight0DiffuseColor", 1, 3], ["DirLight0SpecularColor", 1, 3],
+      ["DirLight1Direction", 1, 3], ["DirLight1DiffuseColor", 1, 3], ["DirLight1SpecularColor", 1, 3],
+      ["DirLight2Direction", 1, 3], ["DirLight2DiffuseColor", 1, 3], ["DirLight2SpecularColor", 1, 3],
+      ["EyePosition", 1, 3], ["FogColor", 1, 3], ["FogVector", 1, 4],
+      ["World", 4, 4], ["WorldInverseTranspose", 3, 3], ["WorldViewProj", 4, 4], ["ShaderIndex", 1, 1]
+    ],
     "SkinnedEffect" => [
       ["DiffuseColor", 1, 4], ["EmissiveColor", 1, 3], ["SpecularColor", 1, 3],
       ["SpecularPower", 1, 1], ["EyePosition", 1, 3], ["FogColor", 1, 3], ["FogVector", 1, 4],
@@ -200,8 +210,8 @@ class StockEffectsTest < Minitest::Test
 
   # ------------------------------------------------------------------ the parameter collections
 
-  # MEASURED, and the correction to what `BasicEffect` alone suggested: four of the five **do**
-  # declare parameters, and only `BasicEffect` answers an empty collection. The names and shapes
+  # MEASURED: all five declare parameters (through ABI 0.21.0 `BasicEffect` alone answered an empty
+  # collection). The names and shapes
   # below are CNA's, asserted so a change upstream is caught rather than absorbed; XNA's own shader
   # parameters are not claimed to be these. See
   # `docs/stock-effect-parameter-upstream-defect.md`.
@@ -224,8 +234,8 @@ class StockEffectsTest < Minitest::Test
     assert_equal STOCK_EFFECT_PARAMETERS, measured.transform_values(&:first)
   end
 
-  # The empty one, kept as its own assertion so it reads as the gap it is rather than as a shape.
-  def test_basic_effect_is_the_only_one_with_an_empty_parameter_collection
+  # The former gap, kept as its own assertion: no stock effect answers an empty collection now.
+  def test_no_stock_effect_has_an_empty_parameter_collection
     empty = with_device do |device|
       FAMILY.select do |name|
         effect = G.const_get(name).new(device)
@@ -236,7 +246,7 @@ class StockEffectsTest < Minitest::Test
         end
       end
     end
-    assert_equal %w[BasicEffect], empty
+    assert_empty empty
   end
 
   # ------------------------------------------------------------------ SkinnedEffect

@@ -1,25 +1,23 @@
 {
   "schemaVersion": 2,
-  "abiVersion": "0x00001500",
-  "abiVersionName": "0.21.0",
+  "abiVersion": "0x00002300",
+  "abiVersionName": "0.35.0",
   "admittedAbiVersions": [
-    "0.7.0",
-    "0.21.0"
+    "0.35.0"
   ],
   "headerRoots": [
-    "/home/robertvokac/deps/cna-c-abi-0.21.0/include",
-    "/home/robertvokac/deps/cna-c-abi-0.7.0/include"
+    "/home/robertvokac/deps/cna-c-abi-0.35.0/include"
   ],
-  "library": "/home/robertvokac/deps/cna-c-abi-0.21.0/libcna_c_api.so",
-  "BOUND_FUNCTIONS": 760,
-  "SIGNATURE_MEASUREMENTS": 2694,
-  "C_LAYOUT_MEASUREMENTS": 1156,
-  "RUBY_LAYOUT_MEASUREMENTS": 1156,
-  "STRUCT_LAYOUTS": 68,
-  "CALLBACKS": 7,
-  "CONSTANTS": 152,
-  "ADMITTED_ABI_VERSIONS": 2,
-  "HEADER_ROOTS_VERIFIED": 2,
+  "library": "/home/robertvokac/deps/cna-c-abi-0.35.0/lib/libcna_c_api.so",
+  "BOUND_FUNCTIONS": 777,
+  "SIGNATURE_MEASUREMENTS": 2779,
+  "C_LAYOUT_MEASUREMENTS": 1212,
+  "RUBY_LAYOUT_MEASUREMENTS": 1212,
+  "STRUCT_LAYOUTS": 71,
+  "CALLBACKS": 8,
+  "CONSTANTS": 148,
+  "ADMITTED_ABI_VERSIONS": 1,
+  "HEADER_ROOTS_VERIFIED": 1,
   "CROSS_VERSION_MISMATCHES": 0,
   "MISSING_HEADER_SYMBOLS": 0,
   "MISSING_LIBRARY_SYMBOLS": 0,

@@ -21,7 +21,7 @@ module NativeSurfaceCensus
 
   # The census the repository last reviewed. `test_native_abi_gate.rb` compares the two, so this
   # file cannot drift from the manifest silently in either direction.
-  REVIEWED = { functions: 760, callbacks: 7, constants: 152, layouts: 68 }.freeze
+  REVIEWED = { functions: 777, callbacks: 8, constants: 148, layouts: 71 }.freeze
 end
 
 # The strict XNA scoreboard, for exactly the same reason and with exactly the same rule: a milestone
@@ -32,15 +32,17 @@ end
 module ReviewedScoreboard
   # Foundation 105 moved every one of these: the thirteen `Design` converters were the whole of the
   # `BCL_PROJECTION_SCOPE` remainder, and projecting them left only the three types the measured
-  # CNA adapter defect blocks. TARGET_TYPES 241 -> 254, COMPLETE_TYPES 239 -> 252,
-  # MISSING_TYPES 16 -> 3, and the remaining eight partial members are the adapter defect's.
-  TARGET_TYPES = 254
-  TARGET_MEMBERS = 2880
-  COMPLETE_TYPES = 252
-  PARTIAL_TYPES = 2
-  MISSING_TYPES = 3
-  MISSING_MEMBER = 8
-  OVERLOAD_MAPPING_MISMATCH = 5
+  # CNA adapter defect blocked. The 2026-09-30 ABI 0.35.0 requalification found that defect fixed
+  # upstream (BINDFIX-001) and projected the rest: `GraphicsAdapter`, `GraphicsDeviceInformation`,
+  # `PreparingDeviceSettingsEventArgs` and the eight members. TARGET_TYPES 254 -> 257,
+  # COMPLETE_TYPES 252 -> 257, and every diagnostic is zero.
+  TARGET_TYPES = 257
+  TARGET_MEMBERS = 2915
+  COMPLETE_TYPES = 257
+  PARTIAL_TYPES = 0
+  MISSING_TYPES = 0
+  MISSING_MEMBER = 0
+  OVERLOAD_MAPPING_MISMATCH = 0
   # Zero since Foundation 89 projected `GraphicsDevice::Viewport`'s setter. The one entry this
   # carried for its whole history was that property's `"override": { "set": false }`, and it was
   # never a Ruby limitation — see `test_api_verifier.rb`'s inverted guard.
@@ -54,13 +56,12 @@ module ReviewedScoreboard
   BCL_PROJECTED_IDENTITIES = 50
   BCL_EXCEPTION_BASES = 2
   BCL_THROWN_EXCEPTIONS = 9
-  EVENT_IDENTITIES = 48
+  EVENT_IDENTITIES = 49
   EVENT_OWNER_TYPES = 24
   # `GraphicsDevice`'s projected surface, in one place and for the same reason the counts are in
-  # one place: it is still a partial type, so every slice that lands on it moves this list, and five
-  # unrelated tests should not each pin it as a literal.
+  # one place, so five unrelated tests do not each pin it as a literal.
   GRAPHICS_DEVICE_SURFACE = %i[
-    IsDisposed Viewport Viewport= Clear Textures VertexTextures SamplerStates VertexSamplerStates
+    Adapter DisplayMode IsDisposed Viewport Viewport= Clear Textures VertexTextures SamplerStates VertexSamplerStates
     GraphicsProfile GraphicsDeviceStatus PresentationParameters Present Reset
     Disposing DeviceLost DeviceReset DeviceResetting ResourceCreated ResourceDestroyed
     DrawUserPrimitives DrawUserIndexedPrimitives GetBackBufferData Dispose
@@ -80,15 +81,11 @@ module ReviewedScoreboard
   # whole thing: a member closed without review fails, and so does one that quietly reappears.
   #
   # Update these together with the milestone that moves them, never to make a red test green.
-  # Three left, and all three are the same upstream defect: each needs `Graphics.GraphicsAdapter`,
-  # whose every route answers invented display data.
-  GRAPHICS_DEVICE_OUTSTANDING = %w[.ctor Adapter DisplayMode].sort.freeze
+  # Both are empty since the ABI 0.35.0 requalification: the upstream adapter defect that held all
+  # eight members was fixed (BINDFIX-001) and the members are projected.
+  GRAPHICS_DEVICE_OUTSTANDING = [].freeze
 
-  # Five left, and every one of them names `GraphicsDeviceInformation` or the event args that
-  # carry one — which is `GraphicsAdapter` a fifth time.
-  GRAPHICS_DEVICE_MANAGER_OUTSTANDING = %w[
-    CanResetDevice FindBestDevice OnPreparingDeviceSettings PreparingDeviceSettings RankDevices
-  ].sort.freeze
+  GRAPHICS_DEVICE_MANAGER_OUTSTANDING = [].freeze
 
   # The remainder as bare member names, sorted, so a test can compare it with a reviewed list.
   def self.outstanding(strict, name)

@@ -276,9 +276,7 @@ class SpriteFontTest < Minitest::Test
                  "SpriteBatch completed when the Effect cluster gave Begin its last two overloads"
     # The nine `Effect` types left this list when the cluster was built; what this milestone
     # claimed, and still claims, is that **it** built none of them.
-    %i[GraphicsAdapter].each do |absent|
-      refute G.const_defined?(absent, false), absent.to_s
-    end
+    # `GraphicsAdapter` left this list at the ABI 0.35.0 requalification, which projected it.
     symbols = CNA::Native::Manifest::FUNCTIONS.map(&:symbol)
     assert_equal 7, symbols.count { |s| s.start_with?("cna_sprite_font_") }
     refute_includes symbols, "cna_sprite_font_create"

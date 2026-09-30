@@ -155,9 +155,7 @@ class DisposableCollapseTest < Minitest::Test
     # `Dispose(Boolean)` is projected since Foundation 96 — protected, as the metadata says — and
     # the public `Dispose()` is still an explicit `IDisposable` implementation, which projects to
     # nothing. That is the whole point of this test and it is unchanged.
-    assert_includes STRICT.fetch("partialTypes").keys, manager.fetch("name")
-    refute(STRICT.fetch("partialTypes").fetch(manager.fetch("name"))
-                 .any? { |entry| entry.include?("::Dispose") })
+    assert_includes STRICT.fetch("completeTypeNames"), manager.fetch("name")
     assert F::GraphicsDeviceManager.public_method_defined?(:Dispose)
   end
 
@@ -300,7 +298,8 @@ class DisposableCollapseTest < Minitest::Test
     # effects and the Model family were built. What this collapse claimed is unchanged throughout.
     # And 1 -> 0 for BCL_PROJECTION at Foundation 105: the thirteen Design converters were the
     # whole of that category. What this collapse claimed is unchanged throughout.
-    assert_equal({"NATIVE_RUNTIME" => 1}, FRONTIER.fetch("blockerSummary"))
+    # And NATIVE_RUNTIME 1 -> 0 when the adapter family was built at the ABI 0.35.0 requalification.
+    assert_empty FRONTIER.fetch("blockerSummary")
     assert_includes FRONTIER.fetch("mappedBclTypes"), CLR
   end
 

@@ -35,9 +35,7 @@ class GraphicsDevicePresentResetTest < Minitest::Test
     %w[Present Reset].each { |member| refute_includes remainder, "::#{member} ", member }
     overloads = STRICT.fetch("details").fetch("OVERLOAD_MAPPING_MISMATCH").join(" ")
     %w[Present Reset].each { |member| refute_includes overloads, "GraphicsDevice::#{member} ", member }
-    %w[Adapter DisplayMode].each do |member|
-      assert_includes remainder, "::#{member} ", member
-    end
+    assert_empty remainder, "Adapter and DisplayMode left with the ABI 0.35.0 requalification"
   end
 
   def test_the_five_overloads_are_selected
@@ -283,15 +281,17 @@ class GraphicsDevicePresentResetTest < Minitest::Test
     assert_equal ArgumentError, outcomes.fetch(:three).fetch(0)
   end
 
-  # The blocker's fourth appearance, and it is named rather than implied.
-  def test_the_adapter_overload_refuses_and_says_why
+  # The adapter overload refused through ABI 0.21.0; it now takes the device's own adapter (the
+  # only one this host has) and resets, and anything else in the adapter's place is a type error.
+  def test_the_adapter_overload_resets_on_the_given_adapter
     outcome = with_device do |device|
-      error_of { device.Reset(device.PresentationParameters.Clone, Object.new) }
+      [error_of { device.Reset(device.PresentationParameters.Clone, Object.new) },
+       error_of { device.Reset(device.PresentationParameters.Clone, device.Adapter) },
+       device.Adapter.equal?(G::GraphicsAdapter.DefaultAdapter)]
     end
-    assert_equal CNA::CapabilityError, outcome.fetch(0)
-    assert_includes outcome.fetch(1), "Graphics.GraphicsAdapter is not projected"
-    assert_includes outcome.fetch(1), "graphics-adapter-ordering-upstream-defect"
-    refute Microsoft::Xna::Framework::Graphics.const_defined?(:GraphicsAdapter, false)
+    assert_equal TypeError, outcome.fetch(0).fetch(0)
+    assert_equal :ok, outcome.fetch(1)
+    assert outcome.fetch(2)
   end
 
   # ------------------------------------------------------------------ scope and disposal

@@ -361,9 +361,7 @@ class PureManagedEnumBatchTest < Minitest::Test
     # they were; what this milestone claimed, and still claims, is that **it** built none of them.
     # The four remaining stock effects left this list when the family was completed; what this
     # batch claimed, and still claims, is that **it** built none of them.
-    %i[GraphicsAdapter].each do |name|
-      refute G.const_defined?(name, false), "Graphics::#{name}"
-    end
+    # `GraphicsAdapter` left this list at the ABI 0.35.0 requalification, which projected it.
     # `Texture3D` and `TextureCube` exist now, and this batch built neither: it selected
     # `CubeMapFace`, which `TextureCube.SetData` takes, and nothing that holds one.
     %i[BlendState DepthStencilState RasterizerState SamplerState SamplerStateCollection

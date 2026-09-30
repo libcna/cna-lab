@@ -51,9 +51,16 @@
     {
       "id": "game_is_active.guide_unobservable",
       "operation": "GameIsActive.GuideUnobservable",
-      "args": [],
+      "args": [
+    
+      ],
       "provenance": "RUBY_MAPPING_QUALIFICATION",
-      "expected": [false, true, false, false]
+      "expected": [
+        false,
+        false,
+        3
+      ],
+      "note": "Corrected at the ABI 0.35.0 requalification (2026-09-30): ABI 0.34.0 removed cna_guide_set_is_visible, so the row now measures that the setter is gone and that Guide.IsVisible refuses with CNA_RESULT_INVALID_STATE (3) while gamer services are not initialized -- XNA's GamerServicesNotInitialized. The guide branch of IsActive is still proved wired rather than exercised."
     }
   ]
 }

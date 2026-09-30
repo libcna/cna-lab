@@ -111,10 +111,10 @@ class QualificationReportTest < Minitest::Test
 
   # ------------------------------------------------------------------ the artifacts
 
-  # The three qualified artifacts, each still on disk and still the bytes that were qualified.
+  # The two qualified artifacts, each still on disk and still the bytes that were qualified.
   def test_every_qualified_artifact_is_the_one_that_was_measured
     ids = REPORT.fetch("artifacts").map { |artifact| artifact.fetch("id") }
-    assert_equal %w[HEADLESS OPENGL33 OPENGLES3_FX], ids
+    assert_equal %w[HEADLESS OPENGLES3_FX], ids
     REPORT.fetch("artifacts").each do |artifact|
       path = Pathname(artifact.fetch("library"))
       next skip("#{artifact.fetch("id")} artifact is not on this host") unless path.exist?
@@ -131,7 +131,7 @@ class QualificationReportTest < Minitest::Test
   # so a real regression on a windowed artifact cannot be absorbed by the environment's flake.
   def test_the_same_suite_runs_on_all_three_and_nothing_is_unexplained
     runs = REPORT.fetch("artifacts").map { |artifact| artifact.fetch("suite").fetch("runs") }
-    assert_equal 1, runs.uniq.length, "the three artifacts must run the same suite"
+    assert_equal 1, runs.uniq.length, "the artifacts must run the same suite"
     REPORT.fetch("artifacts").each do |artifact|
       suite = artifact.fetch("suite")
       assert_empty suite.fetch("unexplained"), artifact.fetch("id")
@@ -160,7 +160,7 @@ class QualificationReportTest < Minitest::Test
 
       assert_equal 0, artifact.fetch("suite").fetch("xDisplayAcquisitionFlakes"), artifact.fetch("id")
     end
-    assert_equal %w[OPENGL33 OPENGLES3_FX],
+    assert_equal %w[OPENGLES3_FX],
                  REPORT.fetch("artifacts").select { |a| a.fetch("opensADisplay") }.map { |a| a.fetch("id") }
   end
 

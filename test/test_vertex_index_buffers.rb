@@ -40,22 +40,21 @@ class VertexIndexBufferTest < Minitest::Test
   end
 
   # The route choice this milestone had to make, stated where it can be checked.
-  def test_the_two_version_admission_chose_the_dynamic_route
+  def test_the_admission_chose_the_dynamic_route
     symbols = CNA::Native::Manifest::FUNCTIONS.map(&:symbol)
     assert_equal NativeSurfaceCensus::REVIEWED.fetch(:functions), CNA::Native::Manifest::FUNCTIONS.length
     assert_equal NativeSurfaceCensus::REVIEWED.fetch(:layouts), CNA::Native::Layouts::STRUCTURES.length
     # The static path is the raw family: any element layout, no options.
     assert_includes symbols, "cna_vertex_buffer_set_data_raw_at"
     assert_includes symbols, "cna_vertex_buffer_get_data_raw"
-    # The dynamic path is the typed one, because the raw route that carries SetDataOptions exists
-    # only in 0.21.0 and binding it would end the retired 0.7.0 headers' admission.
-    assert_includes symbols, "cna_vertex_buffer_set_data"
-    refute_includes symbols, "cna_vertex_buffer_set_data_raw_at_with_options"
+    # The dynamic path is the same raw family carrying SetDataOptions, so neither path is limited
+    # to CNA's built-in layouts. The typed route is not bound at all.
+    assert_includes symbols, "cna_vertex_buffer_set_data_raw_at_with_options"
+    refute_includes symbols, "cna_vertex_buffer_set_data"
     refute_includes symbols, "cna_vertex_buffer_set_data_raw_with_options"
-    # Both index routes are declared by both versions, so the index path needed no such choice.
     assert_includes symbols, "cna_index_buffer_set_data"
     assert_includes symbols, "cna_index_buffer_set_data_at"
-    assert_equal 2, CNA::Native::Manifest::ADMITTED_ABI_VERSIONS.length
+    assert_equal [0x0000_2300], CNA::Native::Manifest::ADMITTED_ABI_VERSIONS
   end
 
   # ------------------------------------------------------------------------------ live behaviour
@@ -63,10 +62,12 @@ class VertexIndexBufferTest < Minitest::Test
   class BufferGame < F::Game
     attr_reader :result
 
-    def initialize(&body)
+    # Thirty-two-bit indices are a HiDef feature (XNA's Reach ProfileCapabilities.IndexElementSize32
+    # is false), so the game asks for HiDef as an XNA game using them must.
+    def initialize(profile, &body)
       @body = body
       super()
-      F::GraphicsDeviceManager.new(self)
+      F::GraphicsDeviceManager.new(self).GraphicsProfile = profile
     end
 
     def Draw(_time)
@@ -76,10 +77,10 @@ class VertexIndexBufferTest < Minitest::Test
     end
   end
 
-  def with_device
+  def with_device(profile = G::GraphicsProfile::HiDef)
     skip "CNA_NATIVE_LIBRARY not supplied" unless ENV["CNA_NATIVE_LIBRARY"]
 
-    game = BufferGame.new { |device| yield device }
+    game = BufferGame.new(profile) { |device| yield device }
     begin
       game.Run
       game.result
@@ -166,6 +167,14 @@ class VertexIndexBufferTest < Minitest::Test
     assert_equal expected[1, 2], values[1]
     assert_equal 48, values[2]
     assert_equal [1.0, 2.0, 3.0], values[3]
+  end
+
+  def test_a_reach_device_refuses_thirty_two_bit_indices
+    value = with_device(G::GraphicsProfile::Reach) do |device|
+      error_of { G::IndexBuffer.new(device, G::IndexElementSize::ThirtyTwoBits, 4, G::BufferUsage::None) }
+    end
+    assert_equal CNA::CapabilityError, value.first
+    assert_match(/Reach/, value.last)
   end
 
   def test_indices_round_trip_at_both_widths
@@ -344,18 +353,26 @@ class VertexIndexBufferTest < Minitest::Test
     assert_equal :ok, values[1], "and the declaration's own stride is accepted"
   end
 
-  # DEVIATION, recorded: the option-bearing route is CNA's typed one, so its element type must be
-  # one of the built-in layouts. XNA accepts any struct there.
-  def test_the_dynamic_buffers_take_options_and_the_typed_route_limits_the_element_type
+  # XNA's option-bearing overloads are generic over any struct, and so is the raw route that carries
+  # them: four floats are sixteen bytes, VertexPositionColor's own stride, so they are a whole vertex.
+  def test_the_dynamic_buffers_take_options_and_any_element_type
     values = with_device do |device|
-      buffer = G::DynamicVertexBuffer.new(device, G::VertexPositionColor, 3, G::BufferUsage::WriteOnly)
+      # Readable, so the round trip can be observed: GetData on a WriteOnly buffer is refused.
+      buffer = G::DynamicVertexBuffer.new(device, G::VertexPositionColor, 3, G::BufferUsage::None)
       indices = G::DynamicIndexBuffer.new(device, G::IndexElementSize::ThirtyTwoBits, 4,
                                           G::BufferUsage::WriteOnly)
       result = { content_lost: buffer.IsContentLost,
                  index_content_lost: indices.IsContentLost,
                  vertex_options: error_of { buffer.SetData(G::VertexPositionColor, vertices, 0, 3, G::SetDataOptions::Discard) },
                  index_options: error_of { indices.SetData(::Integer, [1, 2, 3, 4], 0, 4, G::SetDataOptions::Discard) },
-                 refused: error_of { buffer.SetData(F::Color, [F::Color.new(1, 2, 3, 4)], 0, 1, G::SetDataOptions::Discard) },
+                 any_type: error_of { buffer.SetData(::Float, [1.0, 2.0, 3.0, 4.0], 0, 4, G::SetDataOptions::NoOverwrite) },
+                 at_offset: error_of { buffer.SetData(::Float, 16, [5.0, 6.0, 7.0, 8.0], 0, 4, 0, G::SetDataOptions::Discard) },
+                 read_back: begin
+                   back = ::Array.new(8, 0.0)
+                   buffer.GetData(::Float, back, 0, 8)
+                   back
+                 end,
+                 partial: error_of { buffer.SetData(F::Color, [F::Color.new(1, 2, 3, 4)], 0, 1, G::SetDataOptions::Discard) },
                  # The two option-bearing shapes are the dynamic buffer's own; the static one has
                  # neither, and its four-argument list is the offset form.
                  static_refuses: begin
@@ -375,7 +392,12 @@ class VertexIndexBufferTest < Minitest::Test
     refute values.fetch(:index_content_lost)
     assert_equal :ok, values.fetch(:vertex_options)
     assert_equal :ok, values.fetch(:index_options)
-    assert_equal CNA::Runtime::NotSupportedError, values.fetch(:refused).first
+    assert_equal :ok, values.fetch(:any_type)
+    assert_equal :ok, values.fetch(:at_offset)
+    assert_equal [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0], values.fetch(:read_back),
+                 "four floats are one sixteen-byte vertex, and the offset form writes the second"
+    assert_equal CNA::Runtime::NotSupportedError, values.fetch(:partial).first,
+                 "a four-byte element is a partial vertex, which no raw route addresses"
     assert_equal ::ArgumentError, values.fetch(:static_refuses).first
     assert_equal :ok, values.fetch(:inherited)
     assert values.fetch(:event), "ContentLost is subscribable, and never fires here"

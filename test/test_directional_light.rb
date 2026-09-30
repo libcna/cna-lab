@@ -248,7 +248,7 @@ class DirectionalLightTest < Minitest::Test
     # milestone claimed, and still claims, is that **it** built none of the five -- it built the
     # light they hand out. `GraphicsAdapter` stands in their place as the graphics identity that
     # stays absent, blocked upstream on invented hardware.
-    %i[GraphicsAdapter].each { |absent| refute G.const_defined?(absent, false), absent.to_s }
+    # `GraphicsAdapter` left this list at the ABI 0.35.0 requalification, which projected it.
     # The light is a plain object: it has no handle, no disposal and no device.
     light = G::DirectionalLight.new(nil, nil, nil, nil)
     refute light.respond_to?(:Dispose)

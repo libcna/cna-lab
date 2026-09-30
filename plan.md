@@ -14,14 +14,13 @@ The only native boundary is `Ruby XNA facade -> CNA private runtime -> CNA C ABI
 binding never resolves C++ symbols and never loads another language binding. MRI Ruby and Fiddle are
 the only qualified Ruby/native combination.
 
-The admitted ABI is a **measured set**, not a single version and not a version range. The manifest
-admits encoded `0x00000700` (CNA 0.7.0) and `0x00001500` (CNA 0.21.0), because CNA's own contract
-rules out both easy policies: `0.x` is experimental, so a later minor may be incompatible — `0.20.0`
-really was — and the incompatibility travels forward rather than backward, so neither "same major"
-nor "minimum minor" is sound. Admission is qualified by measuring both header roots and requiring
-them to agree over the whole bound surface; `docs/native-abi-migration-evidence.md` records the
-derivation and `test/test_native_abi_gate.rb` carries the mutation controls that prove the gate
-fails when it should.
+The admitted ABI is a **measured set**, not a single version and not a version range. Since the
+2026-09-30 requalification the manifest admits encoded `0x00002300` (CNA 0.35.0) alone: its headers
+measure the whole bound surface identically to 0.21.0's, but only the 0.35.0 runtime has been run by
+this suite, and CNA's own contract rules out the easy policies -- `0.x` is experimental, so a later
+minor may be incompatible, and the incompatibility travels forward rather than backward.
+`docs/native-abi-migration-evidence.md` records the derivation for the earlier 0.7.0/0.21.0 pair and
+`test/test_native_abi_gate.rb` carries the mutation controls that prove the gate fails when it should.
 
 ## Surface
 
@@ -42,12 +41,12 @@ the prose would have fixed exactly that one milestone.
 | count | what it measures |
 | ---: | --- |
 | 257 | XNA 4.0 Windows reference types |
-| 254 | types this binding projects |
-| 2880 | Ruby member identities |
-| 252 | complete types |
-| 2 | partial types |
-| 3 | missing types |
-| 48 | event identities |
+| 257 | types this binding projects |
+| 2915 | Ruby member identities |
+| 257 | complete types |
+| 0 | partial types |
+| 0 | missing types |
+| 49 | event identities |
 | 24 | types owning an event |
 | 50 | projected BCL identities |
 
@@ -55,10 +54,10 @@ the prose would have fixed exactly that one milestone.
 
 | count | what it measures |
 | ---: | --- |
-| 16 | strict diagnostics in total |
-| 3 | `MISSING_TYPE` |
-| 8 | `MISSING_MEMBER` |
-| 5 | `OVERLOAD_MAPPING_MISMATCH` |
+| 0 | strict diagnostics in total |
+| 0 | `MISSING_TYPE` |
+| 0 | `MISSING_MEMBER` |
+| 0 | `OVERLOAD_MAPPING_MISMATCH` |
 | 0 | `PROPERTY_MAPPING_MISMATCH` |
 | 0 | every other structural category, summed |
 | 0 | allowlist entries |
@@ -68,19 +67,19 @@ the prose would have fixed exactly that one milestone.
 
 | count | what it measures |
 | ---: | --- |
-| 3 | members `GraphicsDevice` still owes |
-| 5 | members `GraphicsDeviceManager` still owes |
+| 0 | partial types |
+| 0 | members partial types still owe |
 
 **Native ABI**
 
 | count | what it measures |
 | ---: | --- |
-| 760 | bound C functions |
-| 7 | callbacks |
-| 152 | constants |
-| 68 | struct layouts |
-| 2 | admitted encoded ABI versions |
-| 2 | header roots cross-verified |
+| 777 | bound C functions |
+| 8 | callbacks |
+| 148 | constants |
+| 71 | struct layouts |
+| 1 | admitted encoded ABI versions |
+| 1 | header roots cross-verified |
 | 0 | `ABI_MISMATCHES` |
 | 0 | `CROSS_VERSION_MISMATCHES` |
 | 0 | missing header symbols |
@@ -97,7 +96,7 @@ the prose would have fixed exactly that one milestone.
 
 | count | what it measures |
 | ---: | --- |
-| 1 | dependency-complete frontier candidates |
+| 0 | dependency-complete frontier candidates |
 | 0 | of them consumable now |
 
 **Capability registry**
@@ -114,10 +113,10 @@ empty and `UNMEASURED_STRUCTURAL_CATEGORY` is zero. `EVENT_MAPPING_MISMATCH` is 
 projected event, and the projected BCL identities all go through the measured
 `CNA::Runtime::BclProjection` register.
 
-The partial types are the graphics runtime — `GraphicsDevice` and `GraphicsDeviceManager` — and
-nothing else. They are enumerated family by family in `docs/graphics-runtime-member-audit.md`, the
-audit that replaced the blanket "graphics runtime" deferral this section used to carry and which
-found that the overwhelming majority of them are not blocked by anything. `Media.Song` was a third
+No partial type is left. The last two were the graphics runtime — `GraphicsDevice` and
+`GraphicsDeviceManager` — enumerated family by family in `docs/graphics-runtime-member-audit.md`;
+their final eight members waited on the upstream adapter defect and were projected at the ABI 0.35.0
+requalification. `Media.Song` was a third
 for one milestone, on a blocker that turned out to be **false**: the three routes Foundation 103
 recorded as absent are in both admitted header roots and in the shipped library, and Foundation 104
 bound them. `docs/remaining-surface-audit.md` records the correction and classifies every member
@@ -156,7 +155,8 @@ Complete clusters, by area:
   `SpriteFont` over a real MonoGame font, `Viewport`, `TextureCollection`, `Texture`,
   `DisplayMode`, `DisplayModeCollection`, `PresentationParameters` and the enum closure, the nine-type
   `Effect` graph, the four buffer types, both render targets, `OcclusionQuery` and the device's own
-  state, binding, render-target and draw slices, beside the two partial runtime types.
+  state, binding, render-target and draw slices -- and, since the ABI 0.35.0 requalification, the
+  adapter family, which leaves the zero partial runtime types there are now.
 
 ## Admission and safety
 
@@ -312,13 +312,12 @@ delimited and checked against `docs/generated/missing-type-inventory.md` by
 `test/test_plan_boundaries.rb`, so every name in it is a type the strict report really calls missing.
 
 <!-- absent-types:begin -->
-`GraphicsAdapter`, `GraphicsDeviceInformation`, `PreparingDeviceSettingsEventArgs`
 <!-- absent-types:end -->
 
-The graphics runtime is the large remaining area, and `GraphicsDevice` and
-`GraphicsDeviceManager` are the only partial types left — the scoreboard above carries what each
-still owes, and `docs/graphics-runtime-member-audit.md` says, family by family, what each of those
-members needs. All eight trace to the one adapter defect. `SpriteBatch` left this paragraph when the `Effect` cluster gave `Begin` its last two
+No selected type is absent and no partial type is left. The last three missing types and the eight
+members of `GraphicsDevice` and `GraphicsDeviceManager` all traced to one upstream adapter defect,
+which the 2026-09-30 ABI 0.35.0 requalification found fixed in CNA (BINDFIX-001) and projected.
+`SpriteBatch` left this paragraph when the `Effect` cluster gave `Begin` its last two
 overloads; `SetRenderTarget` and the three device-driven draw calls are projected, so a render
 target can be made current and drawn into.
 

@@ -1,5 +1,15 @@
 # Upstream CNA defect — the adapter list is cached before the display exists
 
+**Fixed upstream; re-measured 2026-09-30 against CNA C ABI 0.35.0.** CNA `5726b1a82` and `92ed418b3`
+(`BINDFIX-001`) acquire the video subsystem before the adapter list is built. On the OPENGLES3 artifact
+in a private Xwayland display the adapter's description is the window's own screen name
+(`"XWAYLAND0 23\""`), the current mode is the display's 1920x1080 and 35 real modes are listed;
+`docs/generated/renderer-native-report.json` records `adapterContradictsTheWindow: false`. The HEADLESS
+artifact creates no window and still answers the no-display fallback, which is true of it.
+`GraphicsAdapter`, `GraphicsDeviceInformation`, `PreparingDeviceSettingsEventArgs` and the eight
+`GraphicsDevice`/`GraphicsDeviceManager` members this document blocked are projected. Everything below
+is the ABI 0.21.0 record (it named the category `UPSTREAM_CNA_BLOCKED`).
+
 **Measured 2026-09-01 against `libcna_c_api.so` built from `cnanext` at `e5ae0820e`,
 `CNA_PLATFORM=SDL3`, `CNA_GRAPHICS_RENDERER=OPENGL33`, SHA-256
 `f7da256097338aacd77cd72eb778e8ab5d80525dd16fddac7cdd9a1885343d5c`.** Recorded here because it is

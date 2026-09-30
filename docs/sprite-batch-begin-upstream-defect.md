@@ -1,7 +1,10 @@
-# `cna_sprite_batch_begin_with_effect`: a documented null the route refuses
+# `cna_sprite_batch_begin_with_effect`: a documented null the route refused
 
-Classified **UPSTREAM_CNA_DEFECT**. Reproduced at the C ABI with no Ruby in the path, documented,
-and left in place: no CNA source was changed.
+**Fixed upstream.** CNA c04a193c4 (`BINDFIX-010`, 2026-09-04) made both routes honour the documented
+null. Re-measured on 2026-09-30 against ABI 0.35.0 (CNA `next`, HEADLESS and OPENGLES3):
+`cna_sprite_batch_begin_with_effect` with four null descriptors answers `SUCCESS`, pinned by
+`test/test_sprite_batch_begin_states.rb` `test_the_route_accepts_the_null_its_header_documents`.
+The rest of this document is the original record, measured against ABI 0.21.0.
 
 ## What the header promises
 

@@ -138,10 +138,10 @@ class GameWindowTest < Minitest::Test
     skip RendererEnvironment::UNMEASURED unless RendererEnvironment.measured?
 
     with_window do |window, _game|
-      # The initial value is the host's. A build with no native window answers false, which is also
-      # XNA's own field default; a build whose renderer creates one answers CNA's windowed default,
-      # which is true. DEVIATION, recorded: XNA's `WindowsGameWindow` starts false either way.
-      assert_equal RendererEnvironment.windowed?, window.AllowUserResizing
+      # The initial value is the host's, and on ABI 0.35.0 it is XNA's field default on every
+      # artifact: false. (Through 0.21.0 a windowed build answered CNA's old windowed default, true,
+      # which was recorded as a deviation.)
+      assert_equal false, window.AllowUserResizing
       assert_equal true, (window.AllowUserResizing = true)
       assert window.AllowUserResizing
       window.AllowUserResizing = false

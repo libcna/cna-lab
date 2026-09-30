@@ -22,18 +22,19 @@ require "open3"
 # What this measures that no other report does is the **suite itself, on every qualified artifact**.
 # `rake test` is run once per artifact and its totals are parsed out. The two windowed artifacts
 # need an X display and `SDL_VIDEODRIVER=x11`, and each attempt gets a **fresh private `Xvfb`** —
-# never an inherited `DISPLAY`, because two of the three artifacts really do create windows and a
+# never an inherited `DISPLAY`, because the windowed artifact really does create windows and a
 # qualification run must not open them on whatever session happens to be logged in.
 module CNAQualification
   ROOT = File.expand_path("..", __dir__)
   DEPS = File.join(Dir.home, "deps")
 
-  # The three qualified artifacts, in the order the evidence documents name them. `renderer` is what
-  # each one's own `[INFO][RENDER]` line reports, asserted below rather than assumed.
+  # The qualified artifacts of the ABI 0.35.0 requalification (2026-09-30), both built from CNA
+  # `next` and described by the `PROVENANCE.txt` beside each library: HEADLESS, and OPENGLES3 with
+  # compiled effects, CNAEXT and the device layer. The 0.21.0 set -- HEADLESS, OPENGL33,
+  # OPENGLES3_FX -- is in Git history.
   ARTIFACTS = [
-    { "id" => "HEADLESS", "root" => "cna-c-abi-0.21.0", "display" => false },
-    { "id" => "OPENGL33", "root" => "cna-c-abi-0.21.0-opengl33", "display" => true },
-    { "id" => "OPENGLES3_FX", "root" => "cna-c-abi-0.21.0-opengles3-fx", "display" => true }
+    { "id" => "HEADLESS", "root" => "cna-c-abi-0.35.0", "display" => false },
+    { "id" => "OPENGLES3_FX", "root" => "cna-c-abi-0.35.0-opengles3-fx", "display" => true }
   ].freeze
 
   SUITE_LINE = /^(\d+) runs, (\d+) assertions, (\d+) failures, (\d+) errors, (\d+) skips/
@@ -138,7 +139,9 @@ module CNAQualification
     end
 
     # A private display, started for one attempt and stopped after it.
-    # `CNA_QUALIFICATION_DISPLAY` overrides, for a host with no `Xvfb`.
+    # `CNA_QUALIFICATION_DISPLAY` overrides. On the CNA development host the qualification is run
+    # inside CNA's `tools/platform/run_gpu_tests_private.sh --exec`, with this set to the private
+    # rootful Xwayland it provides -- the real GPU, which Xvfb cannot offer.
     #
     # The number is **claimed** rather than guessed. A first draft picked `90 + rand(9)`; when that
     # collided with a display already on the host, `Xvfb` exited immediately and the whole suite ran
@@ -182,7 +185,7 @@ module CNAQualification
     # at all, is clean outright.
     def qualify(entry)
       root = File.join(DEPS, entry.fetch("root"))
-      library = File.join(root, "libcna_c_api.so")
+      library = File.join(root, "lib", "libcna_c_api.so")
       raise "qualified artifact missing: #{library}" unless File.exist?(library)
 
       warn "qualifying #{entry.fetch("id")}…"

@@ -267,7 +267,33 @@ module Microsoft
           def Unproject: (Vector3 source, Matrix projection, Matrix view, Matrix world) -> Vector3
         end
 
+        class GraphicsAdapter
+          def self.Adapters: () -> CNA::Runtime::ReadOnlyCollection
+          def self.DefaultAdapter: () -> GraphicsAdapter
+          def self.UseNullDevice: () -> bool
+          def self.UseNullDevice=: (bool value) -> bool
+          def self.UseReferenceDevice: () -> bool
+          def self.UseReferenceDevice=: (bool value) -> bool
+          def Description: () -> String
+          def DeviceName: () -> String
+          def VendorId: () -> Integer
+          def DeviceId: () -> Integer
+          def SubSystemId: () -> Integer
+          def Revision: () -> Integer
+          def IsDefaultAdapter: () -> bool
+          def IsWideScreen: () -> bool
+          def MonitorHandle: () -> Integer
+          def CurrentDisplayMode: () -> DisplayMode
+          def SupportedDisplayModes: () -> DisplayModeCollection
+          def IsProfileSupported: (GraphicsProfile | Integer graphicsProfile) -> bool
+          def QueryBackBufferFormat: (GraphicsProfile | Integer graphicsProfile, SurfaceFormat | Integer format, DepthFormat | Integer depthFormat, Integer multiSampleCount) -> [bool, SurfaceFormat, DepthFormat, Integer]
+          def QueryRenderTargetFormat: (GraphicsProfile | Integer graphicsProfile, SurfaceFormat | Integer format, DepthFormat | Integer depthFormat, Integer multiSampleCount) -> [bool, SurfaceFormat, DepthFormat, Integer]
+        end
+
         class GraphicsDevice
+          def initialize: (GraphicsAdapter adapter, GraphicsProfile | Integer graphicsProfile, PresentationParameters presentationParameters) -> void
+          def Adapter: () -> GraphicsAdapter
+          def DisplayMode: () -> DisplayMode
           attr_reader IsDisposed: bool
           def Viewport: () -> Viewport
           def Viewport=: (Viewport value) -> Viewport

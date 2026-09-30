@@ -285,9 +285,8 @@ class MicrophoneTest < Minitest::Test
 
   # ------------------------------------------------------------------------- BufferDuration
 
-  # XNA: `100 <= ms <= 1000 && ms % 10 == 0`. CNA's own accepted domain, measured tick by tick, is
-  # `[100, 990]` on the same 10 ms boundary — so the single value XNA admits that CNA refuses is
-  # 1000 ms, and it is also the device's own initial value.
+  # XNA: `100 <= ms <= 1000 && ms % 10 == 0`. CNA's own accepted domain is the same on ABI 0.35.0
+  # (through 0.21.0 it stopped at 990 ms and this projection clamped).
   def test_the_setter_validates_as_xna_does_and_the_getter_answers_the_request
     values = with_default_microphone do |m|
       initial = m.BufferDuration
@@ -307,24 +306,17 @@ class MicrophoneTest < Minitest::Test
     # setter's rule admits — which is exactly what the next test shows is not guaranteed upstream.
     assert_includes 0.1..1.0, initial
     assert_equal 0, (initial * 1000).round % 10
-    assert_equal [[0.1, 1_000_000], [0.25, 2_500_000], [0.99, 9_900_000]], accepted[0..2],
-                 "inside CNA's domain the property and the device agree exactly"
-    assert_equal [1.0, 9_900_000], accepted[3],
-                 "at 1000 ms the property answers the request and the device holds 990 ms"
+    assert_equal [[0.1, 1_000_000], [0.25, 2_500_000], [0.99, 9_900_000], [1.0, 10_000_000]], accepted,
+                 "the property and the device agree exactly, 1000 ms included"
     assert_equal [RangeError] * 6, refused
     assert_equal TypeError, wrong_type
   end
 
-  # The upstream inconsistency, reproduced rather than described: one second is a duration
-  # `cna_microphone_get_buffer_duration_ticks_at` reports — it is the value a device that nothing has
-  # reconfigured answers, which `docs/microphone-evidence.md` §4 records from a cold probe — and it
-  # is outside `cna_microphone_set_buffer_duration_ticks_at`'s accepted domain, so `set(get())` fails
-  # at the C ABI. Classified UPSTREAM_CNA_CONTRACT there; it changes nothing here, because the
-  # projection never forwards a value CNA refuses.
-  #
-  # The assertion is written on the **property**, not on a one-shot initial reading, because the
-  # device is process-wide and the suite's own order would otherwise decide the answer.
-  def test_one_second_is_reportable_but_not_settable_at_the_c_abi
+  # The former upstream inconsistency: one second is what an unconfigured device reports, and
+  # through ABI 0.21.0 `cna_microphone_set_buffer_duration_ticks_at` refused it, so `set(get())`
+  # failed at the C ABI (`docs/microphone-evidence.md` §4, UPSTREAM_CNA_CONTRACT). CNA fb62662c9
+  # (BINDFIX-032) fixed it; on ABI 0.35.0 the round trip holds and 1010 ms is refused as XNA refuses.
+  def test_one_second_is_reportable_and_settable_at_the_c_abi
     outcome = with_default_microphone do |m|
       library = CNA::Native.library
       host = CNA::Runtime::Context.native_host("microphone round-trip probe")
@@ -337,17 +329,15 @@ class MicrophoneTest < Minitest::Test
       # The round trip is measured on whatever the device currently holds, before anything here
       # changes it, so this reads the defect on a cold device without depending on being first.
       entry = m.__send__(:native_buffer_duration_ticks)
-      [entry, attempt.call(entry), attempt.call(10_000_000), attempt.call(9_900_000),
+      [entry, attempt.call(entry), attempt.call(10_000_000), attempt.call(10_100_000),
        m.__send__(:native_buffer_duration_ticks)]
     end
-    entry, entry_round_trip, one_second, ninety_nine_hundredths, after = outcome
+    entry, entry_round_trip, one_second, above_maximum, after = outcome
 
-    assert_equal(entry <= 9_900_000 ? :accepted : CNA::NativeError, entry_round_trip,
-                 "set(get()) round-trips exactly when the getter's value is inside the setter's " \
-                 "domain — and on a device nothing has reconfigured it is not")
-    assert_equal CNA::NativeError, one_second, "one second — XNA's maximum — is refused"
-    assert_equal :accepted, ninety_nine_hundredths, "990 ms, ten milliseconds less, is accepted"
-    assert_equal 9_900_000, after
+    assert_equal :accepted, entry_round_trip, "set(get()) round-trips"
+    assert_equal :accepted, one_second, "one second — XNA's maximum — is accepted"
+    assert_equal CNA::NativeError, above_maximum, "1010 ms is outside XNA's domain and refused"
+    assert_equal 10_000_000, after
   end
 
   # --------------------------------------------------------------------------------- GetData

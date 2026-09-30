@@ -232,14 +232,10 @@ class TextureCollectionTest < Minitest::Test
     # milestone claimed, and still claims, is that **it** built none of them. `GraphicsAdapter`
     # stands in their place: it reports invented hardware on every qualified artifact and is
     # blocked upstream, so it is the graphics identity that stays absent.
-    %i[GraphicsAdapter].each do |absent|
-      refute G.const_defined?(absent, false), absent.to_s
-    end
+    # `GraphicsAdapter` left this list at the ABI 0.35.0 requalification, which projected it.
     # `BlendState` and `DepthStencilState` left this list when the device's state slice landed.
     # The three device-buffer draw calls left this list when the draw slice landed; what is
     # still absent is the user-primitive families, which take the vertices as an argument.
-    %i[Adapter DisplayMode].each do |absent|
-      refute G::GraphicsDevice.public_method_defined?(absent), absent.to_s
-    end
+    # `Adapter` and `DisplayMode` left this list at the ABI 0.35.0 requalification.
   end
 end

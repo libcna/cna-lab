@@ -1,5 +1,27 @@
 # Upstream CNA defect — a loaded `Model` makes process shutdown segfault
 
+## Status, re-measured 2026-09-30 against ABI 0.35.0 (CNA `next` c536b6807)
+
+| Crash | ABI 0.21.0 | ABI 0.35.0 |
+| --- | --- | --- |
+| load a model, then shut down normally | SIGSEGV 139 | **exit 0** — fixed by CNA 1480cea4c (`BINDFIX-006`) |
+| `cna_model_destroy` on a content-loaded model | SIGSEGV 139 | **`CNA_RESULT_SUCCESS`**, clean exit — same fix |
+| `cna_effect_get_parameters` / `_get_techniques` / `_get_current_technique` on a model-owned effect | SIGSEGV | **SIGSEGV 139 — still reproduces** |
+
+The third crash was recorded in commit 3cf1e4e but never in this document. It is reproduced with no
+Ruby in the path by CNA's `build-probe/qual-probes/rb-model-owned-effect.c`:
+
+    rb-model-owned-effect <cna>/tests/assets/xnb/monogame/windows/uncompressed BlenderDefaultCube params
+    ... part_get_effect -> 0, has_effect=1 handle=4294967300   then SIGSEGV, exit 139
+
+(modes `techs` and `current` crash identically; `none` and `destroy` exit 0). The `cna_basic_effect_*`
+routes on the same handle answer correctly, so `Model` still projects the part's `Effect` with empty
+`Parameters`/`Techniques` and a nil `CurrentTechnique`, and `Model.Draw` forwards to `cna_model_draw`.
+`ModelTest#test_the_generic_effect_route_still_faults_on_a_model_owned_handle` pins it. The first two
+rows' child-process `exit!` workaround is gone: model tests now shut down normally.
+
+The rest of this document is the original ABI 0.21.0 record.
+
 **Measured 2026-09-04 against all three qualified artifacts: `~/deps/cna-c-abi-0.21.0` (`HEADLESS`),
 `~/deps/cna-c-abi-0.21.0-opengl33` and `~/deps/cna-c-abi-0.21.0-opengles3-fx` (the last two under a
 private `Xvfb` with `SDL_VIDEODRIVER=x11`).** All three crash identically.

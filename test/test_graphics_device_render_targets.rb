@@ -25,13 +25,14 @@ class GraphicsDeviceRenderTargetsTest < Minitest::Test
                  ReviewedScoreboard.outstanding(STRICT, NAME)
   end
 
+  # HiDef by default: XNA's Reach binds a single render target, and most of these tests bind more.
   class TargetGame < F::Game
     attr_reader :result
 
-    def initialize(&body)
+    def initialize(profile, &body)
       @body = body
       super()
-      F::GraphicsDeviceManager.new(self)
+      F::GraphicsDeviceManager.new(self).GraphicsProfile = profile
     end
 
     def Draw(_time)
@@ -41,10 +42,10 @@ class GraphicsDeviceRenderTargetsTest < Minitest::Test
     end
   end
 
-  def with_device
+  def with_device(profile = G::GraphicsProfile::HiDef)
     skip "CNA_NATIVE_LIBRARY not supplied" unless ENV["CNA_NATIVE_LIBRARY"]
 
-    game = TargetGame.new { |device| yield device }
+    game = TargetGame.new(profile) { |device| yield device }
     begin
       game.Run
       game.result
@@ -130,6 +131,23 @@ class GraphicsDeviceRenderTargetsTest < Minitest::Test
     assert_equal "NegativeY", values[0]
     assert_equal G::CubeMapFace::NegativeY.to_i, values[1], "and the face reaches the C structure"
     assert values[2]
+  end
+
+  # Reach's ProfileCapabilities.MaxRenderTargets is one, so binding two is refused -- by CNA, as a
+  # capability of the profile rather than by a managed rule of this binding.
+  def test_a_reach_device_binds_one_target_only
+    values = with_device(G::GraphicsProfile::Reach) do |device|
+      first = G::RenderTarget2D.new(device, 4, 4)
+      second = G::RenderTarget2D.new(device, 4, 4)
+      result = [error_of { device.SetRenderTarget(first) },
+                error_of { device.SetRenderTargets(G::RenderTargetBinding.new(first), G::RenderTargetBinding.new(second)) }]
+      device.SetRenderTarget(nil)
+      [first, second].each(&:Dispose)
+      result
+    end
+    assert_equal :ok, values[0]
+    assert_equal CNA::CapabilityError, values[1].first
+    assert_match(/Reach/, values[1].last)
   end
 
   # `SetRenderTargets` is `params`, so the three shapes a caller can write are the same call.
@@ -262,8 +280,7 @@ class GraphicsDeviceRenderTargetsTest < Minitest::Test
     assert_includes symbols, "cna_graphics_device_set_render_targets"
     # The three device-buffer draw calls left this list when the draw slice landed; what is
     # still absent is the user-primitive families, which take the vertices as an argument.
-    %i[Adapter DisplayMode]
-      .each { |absent| refute G::GraphicsDevice.public_method_defined?(absent), absent.to_s }
+    # `Adapter` and `DisplayMode` left this list at the ABI 0.35.0 requalification.
     assert_equal NativeSurfaceCensus::REVIEWED.fetch(:functions), CNA::Native::Manifest::FUNCTIONS.length
     assert_equal NativeSurfaceCensus::REVIEWED.fetch(:layouts), CNA::Native::Layouts::STRUCTURES.length
   end

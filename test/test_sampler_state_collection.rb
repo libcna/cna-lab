@@ -54,7 +54,7 @@ class SamplerStateCollectionTest < Minitest::Test
     # ends an active EffectPass, and no Effect was projected then. Both halves have since landed,
     # and what this milestone claimed is unchanged: it added the two collections and nothing else.
     %w[BlendState DepthStencilState RasterizerState].each { |name| refute_includes remainder, name }
-    %w[Adapter DisplayMode].each { |name| assert_includes remainder, name }
+    assert_empty remainder, "Adapter and DisplayMode left at the ABI 0.35.0 requalification"
     refute_includes FRONTIER.fetch("dependencyCompleteCandidates").map { |c| c.fetch("name") }, NAME
   end
 
@@ -214,9 +214,7 @@ class SamplerStateCollectionTest < Minitest::Test
     # milestone claimed, and still claims, is that **it** added neither them nor any draw surface.
     # The three device-buffer draw calls left this list when the draw slice landed; what is
     # still absent is the user-primitive families, which take the vertices as an argument.
-    %i[Adapter DisplayMode].each do |absent|
-      refute G::GraphicsDevice.public_method_defined?(absent), absent.to_s
-    end
+    # `Adapter` and `DisplayMode` left this list at the ABI 0.35.0 requalification.
     # The nine `Effect` types left this list when the cluster was built and `RenderTarget2D` when
     # the render targets were; what this milestone claimed, and still claims, is that **it** built
     # none of them, and `SetRenderTarget` above is still absent -- a target that exists is not a
@@ -225,7 +223,7 @@ class SamplerStateCollectionTest < Minitest::Test
     # milestone claimed, and still claims, is that **it** built none of them. `GraphicsAdapter`
     # stands in their place: it reports invented hardware on every qualified artifact and is
     # blocked upstream, so it is the graphics identity that stays absent.
-    %i[GraphicsAdapter].each { |absent| refute G.const_defined?(absent, false), absent.to_s }
+    # `GraphicsAdapter` left this list at the ABI 0.35.0 requalification, which projected it.
     # XNA's own `Apply` stays unprojected on the state it holds, which is what makes the setter's
     # native step this collection's rather than SamplerState's.
     refute G::SamplerState.public_method_defined?(:Apply)

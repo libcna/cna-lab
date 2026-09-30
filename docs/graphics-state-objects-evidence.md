@@ -66,23 +66,18 @@ CNA exports `cna_blend_state_init`, `cna_depth_stencil_state_init`, `cna_rasteri
 device, no renderer** — which is why the whole cross-check runs headless without a `Game`.
 
 Every projected preset is asserted equal to CNA's own, field by field. Two independent authorities
-— the pinned XNA IL and the qualified CNA 0.21.0 artifact — agree on **63 of the 65 values**.
+— the pinned XNA IL and the CNA 0.35.0 artifact (re-measured 2026-09-30) — agree on **all 65 values**.
 
-## UPSTREAM_CNA_DIVERGENCE: the two stencil masks
+## The two stencil masks (UPSTREAM_CNA_DIVERGENCE, fixed upstream)
 
-They disagree on exactly two:
+Through ABI 0.21.0 they disagreed on exactly two:
 
     XNA SetDefaults:  cachedStencilMask = cachedStencilWriteMask = ldc.i4.m1   ->  -1
     CNA *_state_init: stencil_mask = stencil_write_mask = 2147483647           ->  Int32.MaxValue
 
-`-1` is every bit of the D3D9 stencil mask DWORD; `0x7FFFFFFF` drops the top one. On any stencil
-buffer XNA can create — 8 bits — the two mask the same bits, so nothing a program *renders* differs.
-What differs is the value a consumer reads back from `StencilMask`, and that is an observable of the
-managed type.
-
-The pinned IL is this binding's authority, so the projection answers `-1`. The divergence is
-asserted in both directions — CNA's value *and* the projection's — so it is reproduced rather than
-reconciled, and if CNA changes, the test says so. No CNA source was changed.
+CNA ce2d52444 ("restore XNA stencil mask defaults") changed CNA's side, and ABI 0.35.0 answers `-1`
+for both masks of all three presets. `test_the_stencil_masks_agree_with_the_pinned_il` now asserts
+the agreement; the projection has answered `-1` throughout because the pinned IL is its authority.
 
 ## Recorded deviations
 

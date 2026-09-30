@@ -174,7 +174,8 @@ class GraphicsDeviceBindingTest < Minitest::Test
       bound = [device.Indices.equal?(buffer), native_index_handle(device).positive?]
       device.Indices = nil
       cleared = [device.Indices, native_index_handle(device)]
-      dynamic = G::DynamicIndexBuffer.new(device, G::IndexElementSize::ThirtyTwoBits, 4,
+      # Sixteen-bit: this is a Reach device, and 32-bit indices are HiDef-only in XNA.
+      dynamic = G::DynamicIndexBuffer.new(device, G::IndexElementSize::SixteenBits, 4,
                                           G::BufferUsage::WriteOnly)
       device.Indices = dynamic
       derived = device.Indices.equal?(dynamic)
@@ -223,9 +224,7 @@ class GraphicsDeviceBindingTest < Minitest::Test
     # claimed, and still claims, is that **it** bound no render target and drew nothing.
     # The three device-buffer draw calls left this list when the draw slice landed; what is
     # still absent is the user-primitive families, which take the vertices as an argument.
-    %i[Adapter DisplayMode].each do |absent|
-      refute G::GraphicsDevice.public_method_defined?(absent), absent.to_s
-    end
+    # `Adapter` and `DisplayMode` left this list at the ABI 0.35.0 requalification.
     symbols = CNA::Native::Manifest::FUNCTIONS.map(&:symbol)
     # The two draw routes left this list when the draw slice landed, and the single-target route
     # is unbound because XNA's own overloads forward to the array form.

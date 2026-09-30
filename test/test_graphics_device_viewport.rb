@@ -42,9 +42,10 @@ class GraphicsDeviceViewportTest < Minitest::Test
   def test_the_selection_declares_no_override
     selection = JSON.parse(ROOT.join("tools", "api_compat", "selection.json").read)
     device = selection.fetch("types").find { |type| type.fetch("name") == NAME }
-    viewport = device.fetch("include").find { |entry| entry["kind"] == "property" && entry["name"] == "Viewport" }
-    refute_nil viewport
-    refute viewport.key?("override"), "the setter is projected, so nothing is overridden"
+    # The device is selected whole since the ABI 0.35.0 requalification, so there is no member
+    # entry to carry an override at all.
+    assert device.fetch("complete")
+    refute device.key?("include")
   end
 
   def test_both_accessors_are_projected

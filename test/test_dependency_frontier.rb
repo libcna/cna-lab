@@ -425,6 +425,8 @@ class DependencyFrontierTest < Minitest::Test
       Microsoft.Xna.Framework.Graphics.EffectTechnique
       Microsoft.Xna.Framework.Graphics.EffectTechniqueCollection
       Microsoft.Xna.Framework.Graphics.EnvironmentMapEffect
+      Microsoft.Xna.Framework.Graphics.GraphicsAdapter
+      Microsoft.Xna.Framework.Graphics.GraphicsDevice
       Microsoft.Xna.Framework.Graphics.IndexBuffer
       Microsoft.Xna.Framework.Graphics.Model
       Microsoft.Xna.Framework.Graphics.ModelMesh
@@ -442,6 +444,7 @@ class DependencyFrontierTest < Minitest::Test
       Microsoft.Xna.Framework.Graphics.TextureCollection
       Microsoft.Xna.Framework.Graphics.TextureCube
       Microsoft.Xna.Framework.Graphics.VertexBuffer
+      Microsoft.Xna.Framework.GraphicsDeviceManager
       Microsoft.Xna.Framework.Input.GamePad
       Microsoft.Xna.Framework.Input.Mouse
       Microsoft.Xna.Framework.Media.Album
@@ -557,8 +560,9 @@ class DependencyFrontierTest < Minitest::Test
     # the fewest this frontier has ever carried, and both entries left are genuinely blocked.
     # ...and **1** at Foundation 105, when the thirteen Design converters were built and the
     # `BCL_PROJECTION` blocker left the frontier entirely. One is the fewest it has ever carried,
-    # and the entry left is the measured CNA adapter defect.
-    assert_equal 1, REPORT.fetch("dependencyCompleteCandidates").length
+    # and the entry left is the measured CNA adapter defect -- and **0** at the ABI 0.35.0
+    # requalification, when that defect was found fixed upstream and the adapter family built.
+    assert_equal 0, REPORT.fetch("dependencyCompleteCandidates").length
     assert_equal REPORT.fetch("dependencyCompleteCandidates").length,
                  REPORT.fetch("blockerSummary").values.sum
     # Foundation 31 completed the TouchCollection pair, which made TouchPanel consumable, and
@@ -698,8 +702,9 @@ class DependencyFrontierTest < Minitest::Test
     assert_includes STRICT.fetch("completeTypeNames"), name
     type = BY_NAME.fetch(name)
     assert_includes type.fetch("members").map { |member| member.fetch("kind") }, "event", name
-    # The type-level rule's reason is still the truth about the graph: `GraphicsDevice` is partial.
-    refute_includes STRICT.fetch("completeTypeNames"), "Microsoft.Xna.Framework.Graphics.GraphicsDevice"
+    # `GraphicsDevice`, the partial type the type-level rule once named, is complete since the ABI
+    # 0.35.0 requalification.
+    assert_includes STRICT.fetch("completeTypeNames"), "Microsoft.Xna.Framework.Graphics.GraphicsDevice"
 
     # Game *was* one of the deferred partial runtime types when this was written, and the point
     # was that a partial Game declaring Components and Services was already enough: what a missing
@@ -791,8 +796,8 @@ class DependencyFrontierTest < Minitest::Test
       # `SetVertexBuffer`, `Indices` and `DrawIndexedPrimitives`, all three since projected -- and
       # the Model family built it. Two entries are left and both are real.
       # `MathTypeConverter` was the BCL_PROJECTION entry until Foundation 105 built it, and with
-      # it the whole blocker category left the frontier.
-      "Microsoft.Xna.Framework.Graphics.GraphicsAdapter" => "NATIVE_RUNTIME"
+      # it the whole blocker category left the frontier. `GraphicsAdapter`, the last, was built at
+      # the ABI 0.35.0 requalification, so no example is left to name.
     }.each do |name, expected|
       candidate = REPORT.fetch("dependencyCompleteCandidates").find { |item| item.fetch("name") == name }
       refute_nil candidate, name

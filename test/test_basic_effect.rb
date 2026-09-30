@@ -142,14 +142,12 @@ class BasicEffectTest < Minitest::Test
 
   # ------------------------------------------------------------------ the recorded deviations
 
-  # `cna_basic_effect_create`'s effect declares no parameters, where XNA's shader declares one per
-  # property — and where CNA's own four sibling stock effects each declare theirs. Measured, and
-  # asserted so that a future CNA that does declare them fails here rather than silently changing
-  # what `Parameters` means. `docs/stock-effect-parameter-upstream-defect.md` carries the whole
-  # family's measurement; `test/test_stock_effects.rb` asserts the other four.
-  def test_a_stock_effect_has_no_parameters_and_one_technique
+  # `cna_basic_effect_create`'s effect declared no parameters through ABI 0.21.0
+  # (`docs/stock-effect-parameter-upstream-defect.md`); on 0.35.0 it declares XNA's shader's 21 and
+  # one technique. `test/test_stock_effects.rb` asserts the names and shapes of all five.
+  def test_a_stock_effect_declares_its_shader_parameters_and_one_technique
     counts = with_effect { |effect, _device| [effect.Parameters.Count, effect.Techniques.Count] }
-    assert_equal [0, 1], counts
+    assert_equal [21, 1], counts
   end
 
   # Every setter writes through, so nothing is pending and `OnApply` has nothing to flush.

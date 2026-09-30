@@ -16,10 +16,10 @@ module CNA
     # XNA's stock effects are `Effect` subclasses whose properties write into `EffectParameter`s
     # that the built-in compiled shader declares. CNA's are **native objects with typed accessors**:
     # every property here reaches its own route, and none of them goes near the parameter
-    # collection. Four of the five publish one anyway — `SkinnedEffect` 12, `AlphaTestEffect` 6,
-    # `DualTextureEffect` 5, `EnvironmentMapEffect` 12 — and `BasicEffect` alone answers zero on
-    # every qualified artifact. That asymmetry is an upstream gap rather than a shape, recorded in
-    # `docs/stock-effect-parameter-upstream-defect.md` and fixed upstream after the 0.21.0 pin.
+    # collection. All five publish one anyway — `BasicEffect` 21, `SkinnedEffect` 12,
+    # `AlphaTestEffect` 6, `DualTextureEffect` 5, `EnvironmentMapEffect` 12 on ABI 0.35.0. Through
+    # 0.21.0 `BasicEffect` answered zero, the upstream gap recorded in
+    # `docs/stock-effect-parameter-upstream-defect.md`.
     #
     # ## The two by-value shapes
     #

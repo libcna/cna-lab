@@ -20,12 +20,12 @@ class GraphicsDeviceReadbackDisposalTest < Minitest::Test
   STRICT = JSON.parse(ROOT.join("docs", "generated", "api-compat-report.json").read).freeze
   NAME = "Microsoft.Xna.Framework.Graphics.GraphicsDevice"
 
-  def test_what_the_device_still_owes_is_only_the_adapter_defect
-    assert_equal %w[.ctor Adapter DisplayMode], ReviewedScoreboard.outstanding(STRICT, NAME).sort
+  def test_the_device_owes_nothing
+    assert_empty ReviewedScoreboard.outstanding(STRICT, NAME)
     assert_equal ReviewedScoreboard::GRAPHICS_DEVICE_OUTSTANDING,
                  ReviewedScoreboard.outstanding(STRICT, NAME)
-    refute G.const_defined?(:GraphicsAdapter, false),
-           "all three are blocked by the type this binding does not project"
+    assert G.const_defined?(:GraphicsAdapter, false),
+           "the three the adapter defect held are projected since ABI 0.35.0"
   end
 
   def test_the_six_overloads_are_selected
@@ -57,10 +57,12 @@ class GraphicsDeviceReadbackDisposalTest < Minitest::Test
   class ReadbackGame < F::Game
     attr_reader :result
 
-    def initialize(width = nil, height = nil, &body)
+    # HiDef: XNA's Reach ProfileCapabilities has `GetBackBufferData = false`, and CNA enforces it.
+    def initialize(width = nil, height = nil, profile = G::GraphicsProfile::HiDef, &body)
       @body = body
       super()
       manager = F::GraphicsDeviceManager.new(self)
+      manager.GraphicsProfile = profile
       return if width.nil?
 
       manager.PreferredBackBufferWidth = width
@@ -75,10 +77,10 @@ class GraphicsDeviceReadbackDisposalTest < Minitest::Test
     end
   end
 
-  def with_device(width = nil, height = nil, &body)
+  def with_device(width = nil, height = nil, profile = G::GraphicsProfile::HiDef, &body)
     skip "CNA_NATIVE_LIBRARY not supplied" unless ENV["CNA_NATIVE_LIBRARY"]
 
-    game = ReadbackGame.new(width, height, &body)
+    game = ReadbackGame.new(width, height, profile, &body)
     begin
       game.Run
       game.result
@@ -158,6 +160,23 @@ class GraphicsDeviceReadbackDisposalTest < Minitest::Test
 
     outcome = with_device(8, 4) { |device| error_of { device.GetBackBufferData(colours(32)) } }
     assert_equal CNA::CapabilityError, outcome.fetch(0)
+  end
+
+  # `ProfileCapabilities.ThrowNotSupportedException(ProfileFeatureNotSupported, "GetBackBufferData")`
+  # on Reach, which CNA reports as NOT_SUPPORTED before any renderer is asked.
+  def test_a_reach_device_refuses_the_back_buffer_read
+    value = with_device(nil, nil, G::GraphicsProfile::Reach) do |device|
+      begin
+        # A buffer of the whole back buffer, so the only thing wrong is the profile.
+        pp = device.PresentationParameters
+        device.GetBackBufferData(Array.new(pp.BackBufferWidth * pp.BackBufferHeight) { F::Color.new(0, 0, 0, 0) })
+        :ok
+      rescue StandardError => error
+        [error.class, error.message]
+      end
+    end
+    assert_equal CNA::CapabilityError, value.first
+    assert_match(/Reach/, value.last)
   end
 
   # The read is real: an 8x4 back buffer cleared to one colour comes back as thirty-two pixels of

@@ -90,6 +90,20 @@ module CNA
         buffer[0, bytes].force_encoding(Encoding::UTF_8)
       end
 
+      # The two-call copy for a route whose single copy call both sizes and fills: it takes a
+      # handle and an index before the destination, and a zero-capacity call answers the count.
+      def counted_string_indexed(copy_symbol, handle, index)
+        size = pointer_for("Q", 0)
+        result = function(copy_symbol).call(handle, index, nil, 0, size)
+        check(result, copy_symbol) unless result == RESULT_BUFFER_TOO_SMALL
+        bytes = size[0, 8].unpack1("Q")
+        return "" if bytes.zero?
+
+        buffer = Fiddle::Pointer.malloc(bytes, Fiddle::RUBY_FREE)
+        call(copy_symbol, handle, index, buffer, bytes, size)
+        buffer[0, bytes].force_encoding(Encoding::UTF_8)
+      end
+
       # `counted_string` for a route whose copy takes an **index** as well as the buffer, and whose
       # count route takes the same leading arguments. `StorageContainer.GetDirectoryNames` is the
       # shape: one count call for the pattern, then one copy call per index.

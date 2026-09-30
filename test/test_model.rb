@@ -104,7 +104,8 @@ class ModelTest < Minitest::Test
   end
 
   # `cna_model_destroy` is deliberately absent from the manifest: XNA's `Model` is not
-  # `IDisposable`, so nothing wants it, and calling it on a content-loaded model segfaults.
+  # `IDisposable`, so nothing wants it. (Through ABI 0.21.0 it also segfaulted on a content-loaded
+  # model; CNA 1480cea4c fixed that, re-measured on 0.35.0.)
   def test_the_model_declares_no_disposal_and_the_destroy_route_is_unbound
     FAMILY.each { |name| refute G.const_get(name).method_defined?(:Dispose), name }
     refute_includes CNA::Native::Manifest::FUNCTIONS.map(&:symbol), "cna_model_destroy"
@@ -150,9 +151,10 @@ class ModelTest < Minitest::Test
     end
   CHILD
 
-  # Runs `body` in a child. `hard_exit: false` leaves the crashing shutdown path in, which is what
-  # the upstream-defect test needs.
-  def child(body, hard_exit: true)
+  # Runs `body` in a child. Through ABI 0.21.0 every child ended with `exit!` because a loaded model
+  # made the normal shutdown path segfault; on 0.35.0 that path is clean, so a child now shuts down
+  # exactly as a consumer's process does. `hard_exit: true` remains for the control below.
+  def child(body, hard_exit: false)
     script = +CHILD_PREAMBLE
     script << body
     script << "\n$stdout.flush\nexit!(0)\n" if hard_exit
@@ -175,26 +177,24 @@ class ModelTest < Minitest::Test
 
   # ------------------------------------------------------------------ the upstream crash
 
-  # The defect itself, asserted from the outside. The child does exactly one thing — load a model —
-  # and is allowed to shut down normally. It must die on a signal.
-  def test_loading_a_model_still_crashes_at_shutdown
-    skip_unless_fixture
-
-    _output, status = child(<<~'BODY', hard_exit: false)
-      in_a_game { |host| host.Content.Load(G::Model, "BlenderDefaultCube") && nil }
-      puts "{}"
-    BODY
-    refute status.success?, "the shutdown crash is fixed upstream — remove the child-process " \
-                            "workaround in test/test_model.rb and in the evidence document"
-    assert status.signaled?, "expected a signal, got #{status.inspect}"
-    assert_equal Signal.list.fetch("SEGV"), status.termsig
-  end
-
-  # And the same child *with* `exit!` is clean, which is what makes every test below possible.
-  def test_the_same_child_is_clean_when_it_skips_the_shutdown_path
+  # The former defect (`docs/model-load-shutdown-upstream-defect.md`), asserted from the outside:
+  # the child does exactly one thing — load a model — and shuts down normally. Through ABI 0.21.0
+  # it died on SIGSEGV; CNA 1480cea4c (BINDFIX-006) fixed it and 0.35.0 exits cleanly.
+  def test_loading_a_model_shuts_down_cleanly
     skip_unless_fixture
 
     output, status = child(<<~'BODY')
+      in_a_game { |host| host.Content.Load(G::Model, "BlenderDefaultCube") && nil }
+      puts "{}"
+    BODY
+    assert status.success?, "#{status.inspect}\n#{output}"
+  end
+
+  # And the same child with `exit!`, the control the ABI 0.21.0 workaround relied on.
+  def test_the_same_child_is_clean_when_it_skips_the_shutdown_path
+    skip_unless_fixture
+
+    output, status = child(<<~'BODY', hard_exit: true)
       in_a_game { |host| host.Content.Load(G::Model, "BlenderDefaultCube") && nil }
       puts "{}"
     BODY
@@ -413,11 +413,11 @@ class ModelTest < Minitest::Test
     assert_equal "TypeError", result.fetch("nil_view")
   end
 
-  # UPSTREAM, recorded from both sides: every generic `Effect` route segfaults on the effect a
-  # loaded model publishes, while the `cna_basic_effect_*` routes on the same handle answer
-  # correctly. So `Parameters` and `Techniques` are empty here and `CurrentTechnique` is nil, and
-  # the raw route is asserted to still fault so the record stays honest if CNA changes.
-  def test_a_models_effect_carries_no_parameters_because_the_route_faults
+  # Through ABI 0.21.0 every generic `Effect` route segfaulted on the effect a loaded model
+  # publishes, so `Parameters`/`Techniques` were empty and `CurrentTechnique` nil. CNA 41c6bedef
+  # (BINDFIX-040) fixed it; the model's effect now carries the collections the content wrote and
+  # a current technique, and its views are released with the model's.
+  def test_a_models_effect_carries_its_parameters_and_techniques
     skip_unless_fixture
 
     result = measured(<<~'BODY')
@@ -428,41 +428,43 @@ class ModelTest < Minitest::Test
           klass: effect.class.name,
           parameters: effect.Parameters.Count,
           techniques: effect.Techniques.Count,
-          current: effect.CurrentTechnique.nil?,
-          device: effect.GraphicsDevice.equal?(host.GraphicsDevice)
+          current: effect.CurrentTechnique&.Name,
+          first_technique: effect.Techniques[0]&.Name,
+          device: effect.GraphicsDevice.equal?(host.GraphicsDevice),
+          diffuse: effect.Parameters["DiffuseColor"]&.GetValueVector4&.then { |v| [v.X, v.Y, v.Z] }
         }
       end
       puts JSON.generate(out)
     BODY
     assert_equal "Microsoft::Xna::Framework::Graphics::Effect", result.fetch("klass")
-    assert_equal 0, result.fetch("parameters")
-    assert_equal 0, result.fetch("techniques")
-    assert result.fetch("current")
+    assert_operator result.fetch("parameters"), :>, 0
+    assert_operator result.fetch("techniques"), :>, 0
+    assert_equal result.fetch("first_technique"), result.fetch("current")
     assert result.fetch("device")
   end
 
-  # The raw route, called with no Ruby object in the path, must still fault. If it stops faulting
-  # this fails, and the deviation above comes out with it.
-  def test_the_generic_effect_route_still_faults_on_a_model_owned_handle
+  # The raw route, called with no Ruby object in the path, answers on a model-owned handle.
+  def test_the_generic_effect_route_answers_on_a_model_owned_handle
     skip_unless_fixture
 
-    _output, status = child(<<~'BODY', hard_exit: false)
+    output, status = child(<<~'BODY')
       require "fiddle"
-      in_a_game do |host|
+      out = in_a_game do |host|
         model = host.Content.Load(G::Model, "BlenderDefaultCube")
         handle = model.Meshes[0].MeshParts[0].Effect.__send__(:native_handle)
         library = CNA::Native.library.instance_variable_get(:@handle)
         route = Fiddle::Function.new(library["cna_effect_get_parameters"],
                                      [Fiddle::TYPE_UINT64_T, Fiddle::TYPE_VOIDP],
                                      Fiddle::TYPE_UINT32_T)
-        $stdout.flush
-        route.call(handle, Fiddle::Pointer.malloc(8, Fiddle::RUBY_FREE))
-        nil
+        view = Fiddle::Pointer.malloc(8, Fiddle::RUBY_FREE)
+        result = route.call(handle, view)
+        CNA::Native.library.call("cna_effect_parameter_collection_destroy", view[0, 8].unpack1("Q"))
+        { result: result }
       end
-      puts "{}"
+      puts JSON.generate(out)
     BODY
-    refute status.success?, "cna_effect_get_parameters no longer faults on a model-owned effect — " \
-                            "build the Effect graph again and delete the recorded deviation"
+    assert status.success?, "#{status.inspect}\n#{output}"
+    assert_equal 0, JSON.parse(output[/^\{.*\}$/]).fetch("result")
   end
 
   # The three model-owned resources refuse politely, which is why their wrappers are `PARENT_OWNED`.

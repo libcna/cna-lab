@@ -180,22 +180,23 @@ class Texture2DPixelsTest < Minitest::Test
     assert_equal [ArgumentError, ArgumentError], values[4..5], "only three arities exist"
   end
 
-  # DEVIATION, recorded: XNA reaches `CannotUseFormatTypeAsManualParameter` by asking the **adapter**
-  # whether the element type suits the texture's format, and every adapter value is fabricated on
-  # the qualified artifact. So that check is not reproduced from invented data, and CNA's own
-  # refusal is what surfaces -- measured here rather than described.
-  def test_an_element_type_the_format_does_not_take_is_refused_by_cna
+  # XNA's `Texture.GetAndValidateSizes<T>` admits an element whose size divides the format's -- a
+  # `byte` is one of `Color`'s four -- and `ValidateTotalSize` then requires 16 bytes for a 2x2 Color
+  # texture. CNA refused the byte view through ABI 0.21.0; early 0.35.0 builds transferred only four
+  # of the sixteen bytes, which CNA 79799cf09 (BINDFIX-042) fixed. Both directions now move all 16,
+  # in AABBGGRR order.
+  def test_a_byte_view_of_a_colour_texture_transfers_every_byte
     values = with_texture do |texture|
       texture.SetData(F::Color, colours)
-      begin
-        texture.GetData(::String, +"\0".b * 16)
-        :ok
-      rescue StandardError => error
-        [error.class, error.message]
-      end
+      read = +"\xAA".b * 16
+      texture.GetData(::String, read)
+      texture.SetData(::String, (1..16).to_a.pack("C*"))
+      back = Array.new(4) { F::Color.new(0, 0, 0, 0) }
+      texture.GetData(F::Color, back)
+      [read, back.map(&:PackedValue)]
     end
-    assert_equal CNA::NativeError, values[0]
-    assert_includes values[1], "format", "CNA names the format rule it is enforcing"
+    assert_equal colours.map(&:PackedValue).pack("V*"), values[0]
+    assert_equal (1..16).to_a.pack("C*").unpack("V*"), values[1]
   end
 
   def test_a_disposed_texture_refuses_both
@@ -289,13 +290,11 @@ class Texture2DFromStreamTest < Minitest::Test
     assert_equal [32, 32], values, "128x128 fitted into 64x32 is 32x32"
   end
 
-  # UPSTREAM_CNA_DEFECT, reproduced rather than worked around: the cover-and-crop path is
-  # **asymmetric**. From a square source a taller-than-wide target crops correctly and a
-  # wider-than-tall one fails, which cover-and-crop cannot be by definition. Measured at the C ABI
-  # too, with no Ruby in the path; `docs/texture-decode-upstream-defect.md` records the whole of it.
-  #
-  # If the upstream path is fixed, this test fails and says so.
-  def test_the_zoom_path_is_asymmetric_and_the_binding_does_not_paper_over_it
+  # The cover-and-crop path. Through ABI 0.35.0's first builds it was **asymmetric**: from a square
+  # source a taller-than-wide target cropped correctly and a wider-than-tall one failed
+  # (`docs/texture-decode-upstream-defect.md`). CNA 4228ff913 (BINDFIX-043) fixed it; every aspect
+  # now fills and crops to the requested size.
+  def test_the_zoom_path_fills_and_crops_every_aspect
     values = with_device do |device, png|
       attempt = lambda do |width, height|
         texture = G::Texture2D.FromStream(device, StringIO.new(png), width, height, true)
@@ -307,10 +306,10 @@ class Texture2DFromStreamTest < Minitest::Test
       end
       [attempt.call(32, 64), attempt.call(64, 32), attempt.call(200, 100), attempt.call(64, 64)]
     end
-    assert_equal [32, 64], values[0], "taller than wide crops and scales correctly"
-    assert_equal CNA::NativeError, values[1], "wider than tall does not, which is the defect"
-    assert_equal CNA::NativeError, values[2]
-    assert_equal [64, 64], values[3], "and a matching aspect ratio is unaffected"
+    assert_equal [32, 64], values[0], "taller than wide"
+    assert_equal [64, 32], values[1], "wider than tall"
+    assert_equal [200, 100], values[2]
+    assert_equal [64, 64], values[3], "and a matching aspect ratio"
   end
 
   def test_the_five_argument_form_validates_what_the_constructor_validates

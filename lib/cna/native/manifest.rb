@@ -207,7 +207,12 @@ module CNA
       # requires each to report a version in this list, and requires every measurement except
       # `CNA_ABI_VERSION` itself to agree across them. A version leaves this list the moment that
       # measurement stops holding -- which is a fact about headers, not a preference.
-      ADMITTED_ABI_VERSIONS = [0x0000_0700, 0x0000_1500].freeze
+      #
+      # The set is `0.35.0` alone. On 2026-09-30 the whole bound surface measured identically
+      # against the 0.21.0 and 0.35.0 headers, but the 0.7.0 and 0.21.0 *runtimes* were not
+      # requalified -- several of the behaviours this suite asserts changed underneath them -- so a
+      # version whose library has not been run here is not admitted merely because its headers agree.
+      ADMITTED_ABI_VERSIONS = [0x0000_2300].freeze
 
       def self.decode_abi_version(encoded)
         format("%d.%d.%d", (encoded >> 16) & 0xFFFF, (encoded >> 8) & 0xFF, encoded & 0xFF)
@@ -388,6 +393,11 @@ module CNA
         signature("cna_graphics_device_manager_set_supported_orientations", T[:result], [handle("CNA_GraphicsDeviceManagerHandle"), enum("CNA_DisplayOrientation")], ownership: "borrows manager"),
         signature("cna_graphics_device_manager_dispose", T[:result], [handle("CNA_GraphicsDeviceManagerHandle")], ownership: "borrows manager; canonical dispose"),
         signature("cna_graphics_device_manager_destroy", T[:result], [handle("CNA_GraphicsDeviceManagerHandle")], ownership: "consumes OWNED manager"),
+        # `PreparingDeviceSettings`, with the settings mutable for the handler's duration -- XNA's
+        # event is how an application overrides them before the device exists.
+        signature("cna_graphics_device_manager_subscribe_preparing_device_settings_ext", T[:result],
+                  [handle("CNA_GraphicsDeviceManagerHandle"), callback_pointer("CNA_PreparingDeviceSettingsMutatorEXT"), T[:ptr], pointer("CNA_GameEventRegistrationHandle")],
+                  ownership: "borrows manager; returns OWNED registration released with cna_game_unsubscribe; retains callback and context"),
         signature("cna_graphics_device_get_viewport", T[:result], [T[:handle], pointer("CNA_Viewport")], ownership: "caller output"),
         # `CNA_Viewport` is 24 bytes, which the System V x86-64 classification puts in MEMORY: the
         # aggregate is pushed onto the stack rather than carried in registers, so `by_value` cannot
@@ -399,13 +409,31 @@ module CNA
         # `PresentationParameters` are `ldfld` in XNA and asked here; `GraphicsDeviceStatus` is a
         # live native query in both.
         #
-        # `cna_graphics_device_get_display_mode` is deliberately **not** bound. It exists, it
-        # succeeds, and what it answers is the fabricated 800x480 no-display fallback -- measured
-        # byte-for-byte identical to `cna_graphics_adapter_get_current_display_mode` on a real
-        # 1280x800 display with a 320x200 back buffer, so it is neither. Binding it would give
-        # `GraphicsDevice.DisplayMode` invented hardware to report, which is the same reason
-        # `GraphicsAdapter` is not projected.
+        # `DisplayMode` and `Adapter` complete the family. Through ABI 0.21.0 neither was bound:
+        # every adapter route and `cna_graphics_device_get_display_mode` answered a fabricated
+        # 800x480 "Default Display" (docs/graphics-adapter-ordering-upstream-defect.md). CNA fixed
+        # the ordering (BINDFIX-001), and on ABI 0.35.0 the private Xwayland display answers its
+        # own name, its 1920x1080 mode and 35 real modes, so both are bound.
         signature("cna_graphics_device_get_status", T[:result], [T[:handle], pointer("CNA_GraphicsDeviceStatus")], ownership: "borrows device; caller output"),
+        signature("cna_graphics_device_get_display_mode", T[:result], [T[:handle], pointer("CNA_DisplayMode")], ownership: "borrows device; caller-initialized versioned output"),
+        signature("cna_graphics_device_get_adapter_index", T[:result], [T[:handle], pointer("uint32_t")], ownership: "borrows device; caller output"),
+        # `GraphicsDevice`'s public constructor: an independent device the caller owns.
+        signature("cna_presentation_parameters_init", T[:result], [pointer("CNA_PresentationParameters")], ownership: "caller output"),
+        signature("cna_graphics_device_create", T[:result], [T[:u32], T[:u32], pointer("CNA_PresentationParameters", const: true), pointer("CNA_Handle")], ownership: "returns OWNED device; its resources belong to it"),
+        signature("cna_graphics_device_destroy", T[:result], [T[:handle]], ownership: "consumes OWNED device"),
+        # `GraphicsAdapter`. Every route is device-scoped -- the device proves the runtime and
+        # thread context -- where XNA's adapter statics answer at any time; see `GraphicsAdapter`.
+        signature("cna_graphics_adapter_get_count", T[:result], [T[:handle], pointer("uint64_t")], ownership: "borrows device; caller output"),
+        signature("cna_graphics_adapter_get_info", T[:result], [T[:handle], T[:u32], pointer("CNA_GraphicsAdapterInfo")], ownership: "borrows device; caller-initialized versioned output"),
+        signature("cna_graphics_adapter_copy_description", T[:result], [T[:handle], T[:u32], pointer("char"), T[:u64], pointer("uint64_t")], ownership: "borrows device; caller output"),
+        signature("cna_graphics_adapter_copy_device_name", T[:result], [T[:handle], T[:u32], pointer("char"), T[:u64], pointer("uint64_t")], ownership: "borrows device; caller output"),
+        signature("cna_graphics_adapter_get_current_display_mode", T[:result], [T[:handle], T[:u32], pointer("CNA_DisplayMode")], ownership: "borrows device; caller-initialized versioned output"),
+        signature("cna_graphics_adapter_get_display_mode_count", T[:result], [T[:handle], T[:u32], T[:bool], enum("CNA_SurfaceFormat"), pointer("uint64_t")], ownership: "borrows device; caller output"),
+        signature("cna_graphics_adapter_copy_display_modes", T[:result], [T[:handle], T[:u32], T[:bool], enum("CNA_SurfaceFormat"), pointer("CNA_DisplayMode"), T[:u64], pointer("uint64_t")], ownership: "borrows device; caller-initialized versioned output array"),
+        signature("cna_graphics_adapter_is_profile_supported", T[:result], [T[:handle], T[:u32], enum("CNA_GraphicsProfile"), pointer("CNA_Bool")], ownership: "borrows device; caller output"),
+        signature("cna_graphics_adapter_query_backbuffer_format", T[:result], [T[:handle], T[:u32], enum("CNA_GraphicsProfile"), enum("CNA_SurfaceFormat"), enum("CNA_DepthFormat"), T[:i32], pointer("CNA_GraphicsFormatSelection")], ownership: "borrows device; caller-initialized versioned output"),
+        signature("cna_graphics_adapter_query_render_target_format", T[:result], [T[:handle], T[:u32], enum("CNA_GraphicsProfile"), enum("CNA_SurfaceFormat"), enum("CNA_DepthFormat"), T[:i32], pointer("CNA_GraphicsFormatSelection")], ownership: "borrows device; caller-initialized versioned output"),
+        signature("cna_graphics_adapter_get_native_monitor_handle", T[:result], [T[:handle], T[:u32], pointer("CNA_NativeHandleValue")], ownership: "borrows device; NOT_SUPPORTED by contract"),
         # Presenting and resetting. `cna_graphics_device_present` takes neither a present rectangle
         # nor an override window handle, which is why `Present`'s three-argument overload refuses
         # both rather than ignoring them; `reset_with_parameters` takes a nullable adapter index,
@@ -588,10 +616,9 @@ module CNA
         #
         # CNA's stock effect is a **native object with typed accessors**, not a parameter-driven
         # one: every property goes through its own route rather than an `EffectParameter`. Four of
-        # the five do also publish a parameter collection — 12, 6, 5 and 12 named entries — and
-        # `BasicEffect` alone answers zero on all three artifacts, which is an upstream gap
-        # `docs/stock-effect-parameter-upstream-defect.md` records and upstream has since fixed.
-        # Nothing is fabricated to fill it.
+        # the five also publish a parameter collection. `BasicEffect` answered zero through ABI
+        # 0.21.0, an upstream gap `docs/stock-effect-parameter-upstream-defect.md` records; on ABI
+        # 0.35.0 it answers its shader's 21, beside 12, 6, 5 and 12 for the other four.
         #
         # Two by-value shapes appear here for the first time. `CNA_Vector3` is three floats, so both
         # its eightbytes are SSE-class and travel in `xmm0`/`xmm1`; `by_value_sse` expands it, and
@@ -795,25 +822,21 @@ module CNA
         # family -- bytes, a vertex count and a stride -- which the header documents as existing for
         # exactly that asymmetry.
         #
-        # The dynamic path needs `SetDataOptions`, and here the **two-version admission policy chose
-        # the route**: `cna_vertex_buffer_set_data_raw_at_with_options` carries both the offset and
-        # the options, and it exists only in 0.21.0. Binding it would make the retired 0.7.0 headers
-        # report a missing symbol and end their admission, which is not a decision a buffer milestone
-        # gets to take on its own. The typed `cna_vertex_buffer_set_data` is declared by both, and
-        # its transfer carries the options -- at the cost of the seven built-in layouts, which are a
-        # superset of the four vertex structs this binding projects. See
-        # `docs/vertex-index-buffer-evidence.md`.
+        # The dynamic path needs `SetDataOptions`, and `cna_vertex_buffer_set_data_raw_at_with_options`
+        # is the same raw family carrying the offset and the options, so both paths take any element
+        # type. (While the 0.7.0 headers were admitted the route did not exist there, and the
+        # dynamic path used the typed `cna_vertex_buffer_set_data`, limited to CNA's built-in
+        # layouts; see `docs/vertex-index-buffer-evidence.md`.)
         #
-        # `cna_index_buffer_set_data_at` needs no such choice: both versions declare it and its
-        # transfer carries the element width and the options, so one route covers all five XNA
-        # `SetData` overloads across the static and dynamic classes.
+        # `cna_index_buffer_set_data_at`'s transfer carries the element width and the options, so
+        # one route covers all five XNA `SetData` overloads across the static and dynamic classes.
         signature("cna_vertex_declaration_create_with_stride", T[:result], [T[:i32], pointer("CNA_VertexElement", const: true), T[:u64], pointer("CNA_VertexDeclarationHandle")], ownership: "copies the elements; returns OWNED VertexDeclaration"),
         signature("cna_vertex_buffer_create", T[:result], [T[:handle], pointer("CNA_VertexBufferCreateInfo", const: true), pointer("CNA_VertexBufferHandle")], ownership: "borrows device; returns OWNED vertex buffer"),
         signature("cna_vertex_buffer_destroy", T[:result], [handle("CNA_VertexBufferHandle")], ownership: "consumes OWNED vertex buffer"),
         signature("cna_vertex_buffer_get_info", T[:result], [handle("CNA_VertexBufferHandle"), pointer("CNA_VertexBufferInfo")], ownership: "caller output"),
         signature("cna_vertex_buffer_copy_declaration_elements", T[:result], [handle("CNA_VertexBufferHandle"), pointer("CNA_VertexElement"), T[:u64], pointer("uint64_t")], ownership: "borrows buffer; caller output"),
         signature("cna_vertex_buffer_set_data_raw_at", T[:result], [handle("CNA_VertexBufferHandle"), T[:u64], pointer("void", const: true), T[:u64], T[:u64], T[:u32]], ownership: "borrows buffer; copies the bytes"),
-        signature("cna_vertex_buffer_set_data", T[:result], [handle("CNA_VertexBufferHandle"), pointer("CNA_VertexBufferTransfer", const: true), pointer("void", const: true), T[:u64]], ownership: "borrows buffer; copies the vertices"),
+        signature("cna_vertex_buffer_set_data_raw_at_with_options", T[:result], [handle("CNA_VertexBufferHandle"), T[:u64], pointer("void", const: true), T[:u64], T[:u64], T[:u32], enum("CNA_SetDataOptions")], ownership: "borrows buffer; copies the bytes"),
         signature("cna_vertex_buffer_get_data_raw", T[:result], [handle("CNA_VertexBufferHandle"), T[:u64], T[:ptr], T[:u64], T[:u64], T[:u32]], ownership: "borrows buffer; caller output"),
         signature("cna_vertex_buffer_binding_init", T[:result], [handle("CNA_VertexBufferHandle"), T[:i32], T[:i32], pointer("CNA_VertexBufferBinding")], ownership: "borrows buffer; caller output"),
         signature("cna_index_buffer_create", T[:result], [T[:handle], pointer("CNA_IndexBufferCreateInfo", const: true), pointer("CNA_IndexBufferHandle")], ownership: "borrows device; returns OWNED index buffer"),
@@ -1083,7 +1106,7 @@ module CNA
         # `cna_model_bone_collection_get_at(c, 0)` twice answers two different handles for one bone.
         # A part's retained effect, vertex buffer and index buffer are the opposite: the same handle
         # every time, and the model owns them.
-        signature("cna_content_manager_load_model", T[:result], [T[:handle], *by_value("CNA_StringView", pointer("char", const: true), T[:u64]), pointer("CNA_ModelHandle")], ownership: "borrows content manager; the model is CACHED BY THE MANAGER -- cna_model_destroy on it segfaults, see docs/model-destroy-upstream-defect.md", since: 0x0000_1500),
+        signature("cna_content_manager_load_model", T[:result], [T[:handle], *by_value("CNA_StringView", pointer("char", const: true), T[:u64]), pointer("CNA_ModelHandle")], ownership: "borrows content manager; the model is CACHED BY THE MANAGER, which releases it; cna_model_destroy is not bound (XNA's Model is not IDisposable)"),
         signature("cna_model_get_bones", T[:result], [handle("CNA_ModelHandle"), pointer("CNA_ModelBoneCollectionHandle")], ownership: "borrows model; returns an OWNED live collection view"),
         signature("cna_model_get_meshes", T[:result], [handle("CNA_ModelHandle"), pointer("CNA_ModelMeshCollectionHandle")], ownership: "borrows model; returns an OWNED live collection view"),
         signature("cna_model_get_root", T[:result], [handle("CNA_ModelHandle"), pointer("CNA_Bool"), pointer("CNA_ModelBoneHandle")], ownership: "borrows model; returns an OWNED optional root view"),
@@ -1394,7 +1417,10 @@ module CNA
         # The device's data-free event handler takes the device handle as well as the context,
         # which is what makes it a different identity from CNA_GameEventCallback rather than
         # another shape-identical one.
-        { name: "CNA_GraphicsDeviceEventCallback", c_return: "void", c_arguments: ["CNA_Handle", "void*"], calling_convention: "platform C", fiddle_return: VOID, fiddle_arguments: [U64, PTR] }
+        { name: "CNA_GraphicsDeviceEventCallback", c_return: "void", c_arguments: ["CNA_Handle", "void*"], calling_convention: "platform C", fiddle_return: VOID, fiddle_arguments: [U64, PTR] },
+        # The settings are borrowed and mutable for the call, and what the handler leaves in them is
+        # what the device is created from.
+        { name: "CNA_PreparingDeviceSettingsMutatorEXT", c_return: "void", c_arguments: ["CNA_GraphicsDeviceInformation*", "void*"], calling_convention: "platform C", fiddle_return: VOID, fiddle_arguments: [PTR, PTR] }
       ].freeze
 
       # `CNA_ABI_VERSION` is deliberately **not** here. It is not a constant this binding consumes;
@@ -1472,11 +1498,6 @@ module CNA
         "CNA_EFFECT_PARAMETER_TYPE_STRING" => 4, "CNA_EFFECT_PARAMETER_TYPE_TEXTURE" => 5,
         "CNA_EFFECT_PARAMETER_TYPE_TEXTURE1D" => 6, "CNA_EFFECT_PARAMETER_TYPE_TEXTURE2D" => 7,
         "CNA_EFFECT_PARAMETER_TYPE_TEXTURE3D" => 8, "CNA_EFFECT_PARAMETER_TYPE_TEXTURE_CUBE" => 9,
-        # The four built-in vertex layouts this binding projects a type for. CNA's typed
-        # vertex-buffer transfer is what carries `SetDataOptions`, and these are the identities it
-        # accepts; the other three built-ins name types no XNA 4.0 profile has.
-        "CNA_VERTEX_TYPE_POSITION_COLOR" => 0, "CNA_VERTEX_TYPE_POSITION_COLOR_TEXTURE" => 1,
-        "CNA_VERTEX_TYPE_POSITION_NORMAL_TEXTURE" => 4, "CNA_VERTEX_TYPE_POSITION_TEXTURE" => 6,
         "CNA_MICROPHONE_STATE_STARTED" => 0,
         "CNA_MICROPHONE_STATE_STOPPED" => 1,
         "CNA_MICROPHONE_STATE_MAXIMUM" => 1,

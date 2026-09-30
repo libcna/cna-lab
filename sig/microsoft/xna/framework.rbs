@@ -184,7 +184,26 @@ module Microsoft
         def DeviceReset: () -> CNA::Runtime::Event
         def DeviceResetting: () -> CNA::Runtime::Event
         def Disposed: () -> CNA::Runtime::Event
+        def PreparingDeviceSettings: () -> CNA::Runtime::Event
         def Dispose: (?bool disposing) -> nil
+      end
+
+      class GraphicsDeviceInformation
+        def initialize: () -> void
+        def Adapter: () -> Graphics::GraphicsAdapter?
+        def Adapter=: (Graphics::GraphicsAdapter? value) -> Graphics::GraphicsAdapter?
+        def GraphicsProfile: () -> Graphics::GraphicsProfile
+        def GraphicsProfile=: (Graphics::GraphicsProfile | Integer value) -> Graphics::GraphicsProfile
+        def PresentationParameters: () -> Graphics::PresentationParameters?
+        def PresentationParameters=: (Graphics::PresentationParameters? value) -> Graphics::PresentationParameters?
+        def Equals: (Object? obj) -> bool
+        def GetHashCode: () -> Integer
+        def Clone: () -> GraphicsDeviceInformation
+      end
+
+      class PreparingDeviceSettingsEventArgs < CNA::Runtime::EventArgs
+        def initialize: (GraphicsDeviceInformation graphicsDeviceInformation) -> void
+        attr_reader GraphicsDeviceInformation: GraphicsDeviceInformation
       end
 
       # System.Type projects to a Ruby Module, which is what a service key is here.

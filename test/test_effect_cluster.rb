@@ -64,8 +64,8 @@ class EffectClusterTest < Minitest::Test
     # milestone: `Media.Song` joined them when the Media namespace was built, on three members
     # recorded as having no route, and left again when Foundation 104 measured that the routes
     # exist. What this milestone claimed, and still claims, is that **it** left neither partial.
-    assert_equal %w[GraphicsDeviceManager GraphicsDevice],
-                 STRICT.fetch("partialTypes").keys.map { |key| key.split(".").last }
+    # Both left at the ABI 0.35.0 requalification, when the adapter defect was found fixed upstream.
+    assert_empty STRICT.fetch("partialTypes").keys
   end
 
   def test_the_cluster_grew_the_reviewed_native_surface

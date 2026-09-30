@@ -54,6 +54,52 @@ module CNA
       end
     end
 
+    # The owner of a device made by `GraphicsDevice`'s public constructor. A game's device and its
+    # resources belong to the game; a caller-made device (`cna_graphics_device_create`) belongs to
+    # itself -- CNA documents that its resources "belong to this device, not to a game, and are
+    # released with it" -- so this plays the game's part for them: one generation, one owner
+    # thread, and the children released before the device.
+    class StandaloneDeviceOwner
+      attr_reader :generation, :owner_thread
+
+      def initialize
+        @generation = Generation.new
+        @owner_thread = Thread.current
+        @children = []
+        @disposed = false
+      end
+
+      def disposed? = @disposed
+
+      def assert_owner_thread! = generation.assert_owner_thread!
+
+      def register_native_child(child)
+        @children << child unless @children.any? { |value| value.equal?(child) }
+      end
+
+      def unregister_native_child(child)
+        @children.reject! { |value| value.equal?(child) }
+      end
+
+      # A caller-made device raises its events from inside the Ruby call that caused them, so there
+      # is no later lifecycle boundary to defer an exception to.
+      def record_callback_exception(exception) = raise(exception)
+
+      def release_children
+        @children.reverse_each do |child|
+          child.Dispose
+        rescue CNA::Error
+          nil
+        end
+        @children.clear
+      end
+
+      def invalidate!
+        @disposed = true
+        generation.invalidate!
+      end
+    end
+
     module NativeResource
       def initialize_native_resource(game, handle, release)
         @native_game = game

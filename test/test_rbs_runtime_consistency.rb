@@ -921,10 +921,7 @@ class RbsRuntimeConsistencyTest < Minitest::Test
     # The five stock effects left this list when the family was built; what this batch claimed, and
     # still claims, is that **it** declared none of them -- it declared `CompareFunction`, which is
     # the enum `AlphaTestEffect.AlphaFunction` answers, and nothing that holds one.
-    %w[GraphicsAdapter].each do |absent|
-      refute_includes source, "class #{absent}\n"
-      refute_includes source, "class #{absent} <"
-    end
+    # `GraphicsAdapter` left this list at the ABI 0.35.0 requalification, which projected it.
     assert_includes source, "class RenderTarget2D < Texture2D"
     assert_includes source, "class RenderTargetCube < TextureCube"
     assert_includes source, "class RenderTargetBinding\n"

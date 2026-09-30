@@ -56,7 +56,7 @@ class PlanBoundariesTest < Minitest::Test
   GENERIC_SPELLINGS = { "ContentTypeReader`1" => "ContentTypeReader" }.freeze
 
   def test_the_delimited_list_names_every_absent_type
-    refute_empty ABSENT.strip, "plan.md must delimit its absent-type list for this guard to read"
+    assert PLAN.include?("<!-- absent-types:begin -->"), "plan.md must delimit its absent-type list for this guard to read"
     expected = missing_types.map { |name| self.class.leaf(name) }
                             .map { |leaf| GENERIC_SPELLINGS.fetch(leaf, leaf) }.uniq
     assert_empty expected - listed_absent, "plan.md's absent list is missing a type the report names"
@@ -95,7 +95,7 @@ class PlanBoundariesTest < Minitest::Test
     partial = STRICT.fetch("partialTypes").keys.map { |name| self.class.leaf(name) }
     flat = SECTION.gsub(/\s+/, " ")
     partial.each { |name| assert_includes flat, "`#{name}`" }
-    assert_includes flat, "are the only partial types left"
+    assert_includes flat, partial.empty? ? "no partial type is left" : "are the only partial types left"
     complete_types.map { |name| self.class.leaf(name) }.each do |name|
       refute_match(/`#{Regexp.escape(name)}` (?:and `\w+` )?are the only partial types left/, flat)
     end

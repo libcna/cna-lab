@@ -1,5 +1,13 @@
 # Upstream CNA gap — `BasicEffect` alone declares no `EffectParameter`s
 
+**Fixed upstream; re-measured 2026-09-30 against ABI 0.35.0** (CNA `next`, `~/deps/cna-c-abi-0.35.0`
+HEADLESS and `~/deps/cna-c-abi-0.35.0-opengles3-fx`): `BasicEffect` answers **21** parameters and one
+technique -- `Texture`, `DiffuseColor`, `EmissiveColor`, `SpecularColor`, `SpecularPower`, the nine
+`DirLight0..2{Direction,DiffuseColor,SpecularColor}`, `EyePosition`, `FogColor`, `FogVector`, `World`,
+`WorldInverseTranspose` (3×3, XNA's own `float3x3`), `WorldViewProj`, `ShaderIndex` -- and the other
+four are unchanged. `StockEffectsTest::STOCK_EFFECT_PARAMETERS` asserts all five. The record below is
+the original ABI 0.21.0 measurement.
+
 **Measured 2026-09-03 against all three qualified artifacts:
 `~/deps/cna-c-abi-0.21.0` (`HEADLESS`), `~/deps/cna-c-abi-0.21.0-opengl33` and
 `~/deps/cna-c-abi-0.21.0-opengles3-fx` (the last two under `xvfb-run` with `SDL_VIDEODRIVER=x11`,

@@ -150,16 +150,13 @@ class RenderTargetsTest < Minitest::Test
     assert_equal [4, 1, "Color", "DiscardContents", false, true], values
   end
 
-  # The inherited texture surface is the point of deriving, and it works in one direction.
+  # The inherited texture surface is the point of deriving, and it works in both directions.
   #
-  # UPSTREAM_CNA_DEFECT, reproduced at the C ABI with no Ruby in the path: `cna_texture2d_set_data`
-  # over a **render-target** handle returns `CNA_RESULT_SUCCESS` and writes nothing, while the same
-  # call over a plain `Texture2D` handle round-trips exactly. Readback itself is fine -- the renderer
-  # qualification clears a target and reads the cleared colour back -- so what is lost is the upload,
-  # silently. The projection reports what CNA does rather than inventing a refusal XNA does not have,
-  # and this test pins the defect so the record stays honest if CNA changes.
-  # See docs/render-target-upload-upstream-defect.md.
-  def test_the_inherited_texture_transfer_reads_back_and_the_upload_is_dropped
+  # Through ABI 0.21.0 `cna_texture2d_set_data` over a **render-target** handle returned
+  # `CNA_RESULT_SUCCESS` and wrote nothing (UPSTREAM_CNA_DEFECT,
+  # docs/render-target-upload-upstream-defect.md). On ABI 0.35.0 (OPENGLES3) the upload round-trips
+  # exactly, as it does over a plain `Texture2D`.
+  def test_the_inherited_texture_transfer_round_trips
     values = with_device do |device|
       target = G::RenderTarget2D.new(device, 2, 2)
       plain = G::Texture2D.new(device, 2, 2)
@@ -185,9 +182,9 @@ class RenderTargetsTest < Minitest::Test
     end
 
     assert_equal :ok, values[0], "the readback itself works"
-    assert_equal [0, 0, 0, 0], values[1], "and the upload was dropped -- the recorded upstream defect"
+    assert_equal values[4], values[1], "and the upload reaches the target"
     assert_equal :ok, values[2]
-    assert_equal values[4], values[3], "while the same upload over a plain texture round-trips"
+    assert_equal values[4], values[3], "exactly as the same upload over a plain texture does"
   end
 
   # `_contentLost` latches in the IL: once true the getter returns the field without asking again.
@@ -271,8 +268,7 @@ class RenderTargetsTest < Minitest::Test
     end
     # The three device-buffer draw calls left this list when the draw slice landed; what is
     # still absent is the user-primitive families, which take the vertices as an argument.
-    %i[Adapter DisplayMode]
-      .each { |absent| refute G::GraphicsDevice.public_method_defined?(absent), absent.to_s }
+    # `Adapter` and `DisplayMode` left this list at the ABI 0.35.0 requalification.
     assert_equal NativeSurfaceCensus::REVIEWED.fetch(:functions), CNA::Native::Manifest::FUNCTIONS.length
     assert_equal NativeSurfaceCensus::REVIEWED.fetch(:layouts), CNA::Native::Layouts::STRUCTURES.length
   end

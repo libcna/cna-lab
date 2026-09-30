@@ -126,7 +126,7 @@ class DepthFormatTest < Minitest::Test
     # The two render targets left this list when they were built: they are the first types in this
     # binding to carry a `DepthStencilFormat`, which is this enum's first real consumer, and they
     # still add no manager property and no state object. This batch built neither of them.
-    %i[GraphicsAdapter DepthFormatConverter].each do |name|
+    %i[DepthFormatConverter].each do |name|
       refute G.const_defined?(name, false), name.to_s
     end
     assert G::RenderTarget2D.public_method_defined?(:DepthStencilFormat),

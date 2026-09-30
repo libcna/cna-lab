@@ -1779,16 +1779,17 @@ class ApiVerifierTest < Minitest::Test
       Microsoft.Xna.Framework.Game::Exiting
       Microsoft.Xna.Framework.Game::Disposed
       Microsoft.Xna.Framework.GraphicsDeviceManager::DeviceCreated
-      Microsoft.Xna.Framework.GraphicsDeviceManager::DeviceDisposing
-      Microsoft.Xna.Framework.GraphicsDeviceManager::DeviceReset
       Microsoft.Xna.Framework.GraphicsDeviceManager::DeviceResetting
+      Microsoft.Xna.Framework.GraphicsDeviceManager::DeviceReset
+      Microsoft.Xna.Framework.GraphicsDeviceManager::DeviceDisposing
+      Microsoft.Xna.Framework.GraphicsDeviceManager::PreparingDeviceSettings
       Microsoft.Xna.Framework.GraphicsDeviceManager::Disposed
       Microsoft.Xna.Framework.Graphics.GraphicsDevice::Disposing
+      Microsoft.Xna.Framework.Graphics.GraphicsDevice::ResourceDestroyed
+      Microsoft.Xna.Framework.Graphics.GraphicsDevice::ResourceCreated
       Microsoft.Xna.Framework.Graphics.GraphicsDevice::DeviceLost
       Microsoft.Xna.Framework.Graphics.GraphicsDevice::DeviceReset
       Microsoft.Xna.Framework.Graphics.GraphicsDevice::DeviceResetting
-      Microsoft.Xna.Framework.Graphics.GraphicsDevice::ResourceCreated
-      Microsoft.Xna.Framework.Graphics.GraphicsDevice::ResourceDestroyed
       Microsoft.Xna.Framework.Graphics.GraphicsResource::Disposing
       Microsoft.Xna.Framework.GameWindow::ScreenDeviceNameChanged
       Microsoft.Xna.Framework.GameWindow::ClientSizeChanged
@@ -1842,9 +1843,11 @@ class ApiVerifierTest < Minitest::Test
     end
     # Two handler types until Foundation 93: the device's two resource events are the first
     # selected identities whose args are neither `EventArgs` nor the component-collection's.
+    # `PreparingDeviceSettingsEventArgs` joined when the manager's sixth event was projected.
     assert_equal ["System.EventHandler`1[Microsoft.Xna.Framework.GameComponentCollectionEventArgs]",
                   "System.EventHandler`1[Microsoft.Xna.Framework.Graphics.ResourceCreatedEventArgs]",
                   "System.EventHandler`1[Microsoft.Xna.Framework.Graphics.ResourceDestroyedEventArgs]",
+                  "System.EventHandler`1[Microsoft.Xna.Framework.PreparingDeviceSettingsEventArgs]",
                   "System.EventHandler`1[System.EventArgs]"],
                  signature_contract.fetch("types").flat_map { |type|
                    type.fetch("members").select { |member| member.fetch("kind") == "event" }
@@ -1950,10 +1953,9 @@ class ApiVerifierTest < Minitest::Test
     # `Media.Song` was here for one milestone and left the way a partial type should: Foundation
     # 104 re-measured the blocker Foundation 103 wrote, found the three routes in both admitted
     # header roots and in the shipped library, and bound them.
-    assert_equal %w[
-      Microsoft.Xna.Framework.GraphicsDeviceManager
-      Microsoft.Xna.Framework.Graphics.GraphicsDevice
-    ].sort, partial.keys.sort
+    # The last two left at the ABI 0.35.0 requalification, when the upstream adapter defect that
+    # held both was found fixed and their eight members were projected.
+    assert_empty partial.keys
     # 132 until Foundation 37 closed Game::Components and Game::Services, 130 until Foundation
     # 41 closed Game's four events and their three protected raisers -- the three methods among
     # those are also why the overload count fell by three -- and 117 until Foundation 44 closed
@@ -1967,10 +1969,8 @@ class ApiVerifierTest < Minitest::Test
     # Every batch enum that a deferred member mentions left that member deferred *by this batch*.
     # `PreferredDepthStencilFormat` was closed by a much later milestone, which is the point rather
     # than a loss: the enum did not close it, a milestone that bound the manager's routes did.
-    deferred = strict.fetch("details").fetch("MISSING_MEMBER")
-    %w[Adapter DisplayMode].each do |name|
-      assert deferred.any? { |label| label.include?(name) }, name
-    end
+    # The last deferred members, `Adapter` and `DisplayMode`, closed at the ABI 0.35.0 requalification.
+    assert_empty strict.fetch("details").fetch("MISSING_MEMBER")
     assert_equal ReviewedScoreboard::GRAPHICS_DEVICE_SURFACE,
                  Microsoft::Xna::Framework::Graphics::GraphicsDevice.public_instance_methods(false).sort
   end

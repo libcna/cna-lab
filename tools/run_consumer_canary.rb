@@ -12,7 +12,9 @@
 # The single most important thing it proves is negative: a subclass that overrides `Update` and
 # omits `super` gets **no** base component pass, and the native host does not run one behind it.
 
-abort "the working tree must not be on the load path" if $LOAD_PATH.any? { |path| path.include?("_bindings/cna-ruby/lib") }
+# The working tree is this file's own repository; its `lib` must not be on the load path.
+WORKING_TREE = File.expand_path("..", __dir__)
+abort "the working tree must not be on the load path" if $LOAD_PATH.any? { |path| File.expand_path(path).start_with?(File.join(WORKING_TREE, "lib")) }
 require "cna"
 
 F = Microsoft::Xna::Framework
@@ -29,7 +31,7 @@ end
 
 puts "gem: #{Gem.loaded_specs.fetch("cna-ruby").full_name} from #{Gem.loaded_specs.fetch("cna-ruby").full_gem_path}"
 check("the gem is the installed one, not the working tree") do
-  !Gem.loaded_specs.fetch("cna-ruby").full_gem_path.include?("_bindings/cna-ruby")
+  !File.expand_path(Gem.loaded_specs.fetch("cna-ruby").full_gem_path).start_with?(WORKING_TREE)
 end
 
 # --------------------------------------------------------------------------- real consumer types

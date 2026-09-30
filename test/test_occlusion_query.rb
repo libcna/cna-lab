@@ -37,10 +37,12 @@ class OcclusionQueryTest < Minitest::Test
   class QueryGame < F::Game
     attr_reader :result
 
-    def initialize(&body)
+    # OcclusionQuery is a HiDef feature: XNA's Reach ProfileCapabilities has none, so a game that
+    # uses one asks for HiDef exactly as this one does.
+    def initialize(profile, &body)
       @body = body
       super()
-      F::GraphicsDeviceManager.new(self)
+      F::GraphicsDeviceManager.new(self).GraphicsProfile = profile
     end
 
     def Draw(_time)
@@ -50,10 +52,10 @@ class OcclusionQueryTest < Minitest::Test
     end
   end
 
-  def with_device
+  def with_device(profile = G::GraphicsProfile::HiDef)
     skip "CNA_NATIVE_LIBRARY not supplied" unless ENV["CNA_NATIVE_LIBRARY"]
 
-    game = QueryGame.new { |device| yield device }
+    game = QueryGame.new(profile) { |device| yield device }
     begin
       game.Run
       game.result
@@ -155,6 +157,17 @@ class OcclusionQueryTest < Minitest::Test
     assert_equal ArgumentError, values[2].first, "one parameter, and no overload"
   end
 
+  # XNA's constructor refuses a Reach device with NotSupportedException, and CNA refuses it the same
+  # way: the renderer is not asked at all.
+  def test_a_reach_device_refuses_construction
+    value = with_device(G::GraphicsProfile::Reach) do |device|
+      [device.GraphicsProfile, error_of { G::OcclusionQuery.new(device) }]
+    end
+    assert_equal G::GraphicsProfile::Reach, value[0]
+    assert_equal CNA::CapabilityError, value[1].first
+    assert_match(/graphics profile/, value[1].last)
+  end
+
   def test_disposal_consumes_the_native_query
     values = with_device do |device|
       query = G::OcclusionQuery.new(device)
@@ -181,8 +194,7 @@ class OcclusionQueryTest < Minitest::Test
     # `SetRenderTarget` left this list when the device's render-target slice landed.
     # The three device-buffer draw calls left this list when the draw slice landed; what is
     # still absent is the user-primitive families, which take the vertices as an argument.
-    %i[Adapter DisplayMode]
-      .each { |absent| refute G::GraphicsDevice.public_method_defined?(absent), absent.to_s }
+    # `Adapter` and `DisplayMode` left this list at the ABI 0.35.0 requalification.
     assert_equal NativeSurfaceCensus::REVIEWED.fetch(:functions), CNA::Native::Manifest::FUNCTIONS.length
     assert_equal NativeSurfaceCensus::REVIEWED.fetch(:layouts), CNA::Native::Layouts::STRUCTURES.length
     # A query holds no layout of its own: every route it uses takes scalars.

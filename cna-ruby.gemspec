@@ -8,7 +8,7 @@ Gem::Specification.new do |spec|
   spec.authors = ["OpenEggbert contributors"]
   spec.summary = "Measured Ruby projection of selected XNA 4.0 API over the CNA C ABI"
   spec.description = "Foundation binding for desktop MRI Ruby. The selected XNA surface is intentionally incomplete."
-  spec.homepage = "https://github.com/openeggbert/cna-ruby"
+  spec.homepage = "https://github.com/libcna/cna-ruby"
   spec.license = "MIT"
   spec.required_ruby_version = ">= 3.2"
   spec.files = Dir.chdir(__dir__) do

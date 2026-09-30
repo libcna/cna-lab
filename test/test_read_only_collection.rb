@@ -380,9 +380,9 @@ class ReadOnlyCollectionTest < Minitest::Test
   def test_the_frontier_records_exactly_what_the_projection_moved
     by_name = FRONTIER.fetch("dependencyCompleteCandidates").to_h { |entry| [entry.fetch("name"), entry] }
 
-    adapter = by_name.fetch("Microsoft.Xna.Framework.Graphics.GraphicsAdapter")
-    assert_equal ["NATIVE_RUNTIME"], adapter.fetch("blockers")
-    assert_empty adapter.fetch("unmappedBclTypes")
+    # `GraphicsAdapter`, which kept a NATIVE_RUNTIME blocker here, was projected at the ABI 0.35.0
+    # requalification and left the frontier.
+    refute(by_name.key?("Microsoft.Xna.Framework.Graphics.GraphicsAdapter"))
 
     # VisualizationData dropped to RUNTIME_DATA alone here and left the frontier entirely in
     # Foundation 51, once that deferral was measured as being about the filler rather than the type.
@@ -440,9 +440,9 @@ class ReadOnlyCollectionTest < Minitest::Test
     # projection claimed, and still claims, is that **it** completed none of them: each is complete
     # because its own three members were projected over a real model, not because a BCL base
     # arrived under it.
-    %w[
-      Microsoft.Xna.Framework.Graphics.GraphicsAdapter
-    ].each { |name| assert_includes STRICT.fetch("missingTypeNames"), name }
+    # `GraphicsAdapter.Adapters` is a `ReadOnlyCollection` too; it is complete because the adapter
+    # was projected at the ABI 0.35.0 requalification, not because this base arrived under it.
+    assert_empty STRICT.fetch("missingTypeNames")
 
     # Four XNA collections take the CLR generic as their base, and all four are the `Model*`
     # ones. This used to assert that **none** was selected; now that they are, what it asserts is

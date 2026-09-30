@@ -46,7 +46,8 @@ class VertexStructsTest < Minitest::Test
     # test claims -- that the queue these four came from was consumed -- is unchanged.
     # ...and 1 when the Design converters were built. What this test claims -- that the queue
     # these four came from was consumed -- is unchanged.
-    assert_equal 1, FRONTIER.fetch("dependencyCompleteCandidates").length
+    # ...and 0 when the adapter family was built at the ABI 0.35.0 requalification.
+    assert_equal 0, FRONTIER.fetch("dependencyCompleteCandidates").length
   end
 
   def test_each_is_a_value_type_declaring_the_interface_with_the_same_six_member_shape
@@ -244,16 +245,14 @@ class VertexStructsTest < Minitest::Test
     # milestone claimed, and still claims, is that **it** built none of them. `GraphicsAdapter`
     # stands in their place: it reports invented hardware on every qualified artifact and is
     # blocked upstream, so it is the graphics identity that stays absent.
-    %i[GraphicsAdapter VertexPositionNormalColorTexture].each do |absent|
+    %i[VertexPositionNormalColorTexture].each do |absent|
       refute G.const_defined?(absent, false), absent.to_s
     end
     # `SetVertexBuffer` and `Indices` left this list when the device's binding slice landed; what
     # this milestone claimed, and still claims, is that **it** added neither, and nothing draws yet.
     # The three device-buffer draw calls left this list when the draw slice landed; what is
     # still absent is the user-primitive families, which take the vertices as an argument.
-    %i[Adapter DisplayMode].each do |absent|
-      refute G::GraphicsDevice.public_method_defined?(absent), absent.to_s
-    end
+    # `Adapter` and `DisplayMode` left this list at the ABI 0.35.0 requalification.
     # The helper module is in CNA::Runtime, not the XNA namespace, which the verifier measures as
     # INTERNAL_TYPE_LEAK and which this binding has got wrong before.
     refute G.const_defined?(:VertexStruct, false)

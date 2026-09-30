@@ -1,5 +1,12 @@
 # `cna_texture2d_create_from_encoded_memory`: an asymmetric crop failure
 
+**Fixed upstream; re-measured 2026-09-30.** The asymmetry still reproduced on ABI 0.35.0 at CNA
+`79799cf09` (reproducer `build-probe/qual-probes/rb-texture-decode-zoom.c` in CNA: 64x32 and 200x100
+refused with "ImageLoader: crop rectangle lies outside the source image"). CNA `4228ff913`
+(`BINDFIX-043`) fixed `ResizeRgba`: every target now fills and crops, pinned by
+`Texture2DFromStreamTest#test_the_zoom_path_fills_and_crops_every_aspect`. The rest is the ABI
+0.21.0 record.
+
 Classified **UPSTREAM_CNA_DEFECT**. Reproduced, documented, and left in place: nothing in this
 binding works around it, and no CNA source was changed.
 

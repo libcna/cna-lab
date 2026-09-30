@@ -228,7 +228,7 @@ class ManagedDescriptorsTest < Minitest::Test
     # The two render targets left this list when they were built. They hold a negotiated format,
     # a depth format and a sample count -- the same three values this descriptor holds -- and no
     # device, adapter or swap chain, so what this test claims is unchanged.
-    %i[GraphicsAdapter].each { |absent| refute G.const_defined?(absent, false), "Graphics::#{absent}" }
+    # `GraphicsAdapter` left this list at the ABI 0.35.0 requalification, which projected it.
     assert_equal ReviewedScoreboard::GRAPHICS_DEVICE_SURFACE, G::GraphicsDevice.public_instance_methods(false).sort
   end
 
@@ -375,7 +375,6 @@ class ManagedDescriptorsTest < Minitest::Test
   # `new` and nothing else can. `GraphicsAdapter`, which would enumerate `DisplayMode`, stays
   # absent — the one blocker this whole graphics sweep found.
   def test_the_event_args_producers_are_the_device_and_nothing_else
-    refute G.const_defined?(:GraphicsAdapter, false)
     %i[ResourceCreated ResourceDestroyed].each do |present|
       assert G::GraphicsDevice.method_defined?(present), present.to_s
     end

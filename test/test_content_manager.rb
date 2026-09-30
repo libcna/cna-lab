@@ -375,7 +375,7 @@ class ContentManagerTest < Minitest::Test
     # The nine `Effect` types left this list when the cluster was built, and `Model` when the
     # Model family was; what this milestone claimed, and still claims, is that **it** built none of
     # them and registered no materializer of its own beyond `Texture2D`.
-    %i[GraphicsAdapter].each { |absent| refute G.const_defined?(absent, false), absent.to_s }
+    # `GraphicsAdapter` left this list at the ABI 0.35.0 requalification, which projected it.
     [G::TextureCube, G::Texture3D].each { |built| refute_includes CM.supported_types, built }
     assert_equal NativeSurfaceCensus::REVIEWED.fetch(:functions), CNA::Native::Manifest::FUNCTIONS.length
     assert_equal NativeSurfaceCensus::REVIEWED.fetch(:constants), CNA::Native::Manifest::CONSTANTS.length

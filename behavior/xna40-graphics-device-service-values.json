@@ -29,9 +29,23 @@
     {
       "id": "graphics_device_service.producer_declaration",
       "operation": "GraphicsDeviceService.ProducerDeclaration",
-      "args": [],
+      "args": [
+    
+      ],
       "provenance": "PURE_XNA_DERIVED",
-      "expected": [["Microsoft.Xna.Framework.GraphicsDeviceManager"], ["Microsoft.Xna.Framework.Graphics.IGraphicsDeviceService", "Microsoft.Xna.Framework.IGraphicsDeviceManager", "System.IDisposable"], true, true]
+      "expected": [
+        [
+          "Microsoft.Xna.Framework.GraphicsDeviceManager"
+        ],
+        [
+          "Microsoft.Xna.Framework.Graphics.IGraphicsDeviceService",
+          "Microsoft.Xna.Framework.IGraphicsDeviceManager",
+          "System.IDisposable"
+        ],
+        false,
+        true
+      ],
+      "note": "Corrected at the ABI 0.35.0 requalification: GraphicsDeviceManager is complete (its last five members were projected once the upstream adapter defect was found fixed), so the third element -- is it still a partial type -- is false. The declaration facts are unchanged."
     },
     {
       "id": "graphics_device_service.producer_absent",

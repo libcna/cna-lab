@@ -95,6 +95,202 @@ module Microsoft
           end
         end
 
+        # Derived from the pinned Microsoft.Xna.Framework.Graphics.dll IL (SHA-256 560080fc…).
+        #
+        # `sealed`, over an adapter ordinal. The private constructor reads the adapter's identity
+        # once -- description, device name, vendor, device, subsystem and revision -- and
+        # `CurrentDisplayMode` and `SupportedDisplayModes` are each built on first read and cached.
+        # `Adapters` is a process-global `ReadOnlyCollection` built once, and `DefaultAdapter` is its
+        # element 0.
+        #
+        # Through ABI 0.21.0 this type was not projected: every `cna_graphics_adapter_*` route
+        # answered a fabricated 800x480 "Default Display" whatever the machine had
+        # (docs/graphics-adapter-ordering-upstream-defect.md). CNA fixed the ordering (BINDFIX-001);
+        # on ABI 0.35.0 the adapter answers the display the window is on, its real mode and its
+        # real mode list, which `tools/run_renderer_qualification.rb` records.
+        #
+        # DEVIATION, recorded: **CNA's adapter routes are device-scoped** -- each takes a
+        # callback-scoped graphics-device handle "proving active runtime/thread context" -- where
+        # XNA's statics answer at any time, device or no device. So every read that reaches CNA
+        # needs a live `GraphicsDevice` inside a lifecycle callback, and refuses outside one with
+        # `CNA::InvalidBindingStateError`, which is the rule `Microphone.All` already follows.
+        # `DefaultAdapter` needs no read -- it is ordinal 0 -- so it answers anywhere, the same
+        # object `Adapters[0]` is, which is what `GraphicsDeviceInformation`'s field initializer
+        # needs. The identity is therefore read on first use rather than in the constructor.
+        class GraphicsAdapter
+          N = CNA::Runtime::Numeric
+          private_constant :N
+
+          # `(double)CurrentDisplayMode.AspectRatio > 1.600000023841858`, which is `1.6f` widened.
+          WIDE_SCREEN_ASPECT = 1.600000023841858
+          private_constant :WIDE_SCREEN_ASPECT
+
+          @use_null_device = false
+          @use_reference_device = false
+
+          class << self
+            # `get_Adapters` is `ldsfld pAdapterList`: one collection for the process. It is rebuilt
+            # only if CNA's adapter count changes, and each ordinal keeps its one object throughout.
+            def Adapters
+              handle = live_device_handle("GraphicsAdapter.Adapters")
+              output = CNA::Native.library.pointer_for("Q", 0)
+              CNA::Native.library.call("cna_graphics_adapter_get_count", handle, output)
+              count = output[0, 8].unpack1("Q")
+              if @adapters.nil? || @adapters.Count != count
+                @adapters = CNA::Runtime::ReadOnlyCollection.new((0...count).map { |index| adapter_at(index) })
+              end
+              @adapters
+            end
+
+            # `ldsfld pAdapterList; ldc.i4.0; callvirt get_Item`.
+            def DefaultAdapter = adapter_at(0)
+
+            # Two auto-properties whose only reader is XNA's own device creation and `QueryFormat`,
+            # through `CurrentDeviceType`. CNA's device creation does not consult them, and its
+            # format negotiation takes no device type, so they are stored exactly as the IL stores
+            # them and change nothing native. DEVIATION, recorded.
+            def UseNullDevice = @use_null_device
+
+            def UseNullDevice=(value)
+              raise ::TypeError, "value must be true or false" unless [true, false].include?(value)
+
+              @use_null_device = value
+            end
+
+            def UseReferenceDevice = @use_reference_device
+
+            def UseReferenceDevice=(value)
+              raise ::TypeError, "value must be true or false" unless [true, false].include?(value)
+
+              @use_reference_device = value
+            end
+
+            private
+
+            def adapter_at(index)
+              (@instances ||= {})[index] ||= new(index)
+            end
+
+            def live_device_handle(operation)
+              game = CNA::Runtime::Context.current_game(operation)
+              game.__send__(:assert_owner_thread!)
+              device = game.instance_variable_get(:@GraphicsDevice)
+              raise CNA::InvalidBindingStateError, "#{operation} requires a GraphicsDevice" if device.nil?
+
+              device.__send__(:native_handle)
+            end
+          end
+          private_class_method :new
+
+          def initialize(index)
+            @index = index
+          end
+
+          def Description = identity.fetch(:description)
+          def DeviceName = identity.fetch(:device_name)
+          def VendorId = identity.fetch(:vendor_id)
+          def DeviceId = identity.fetch(:device_id)
+          def SubSystemId = identity.fetch(:subsystem_id)
+          def Revision = identity.fetch(:revision)
+
+          # `adapter == 0`.
+          def IsDefaultAdapter = @index.zero?
+
+          def IsWideScreen = self.CurrentDisplayMode.AspectRatio > WIDE_SCREEN_ASPECT
+
+          # `IDirect3D9::GetAdapterMonitor`. CNA's route answers `CNA_RESULT_NOT_SUPPORTED` by
+          # contract -- "unavailable at the stable C boundary" -- so this raises
+          # `CNA::CapabilityError` rather than inventing a handle.
+          def MonitorHandle
+            output = CNA::Native.library.pointer_for("Q", 0)
+            CNA::Native.library.call("cna_graphics_adapter_get_native_monitor_handle", device_handle, @index, output)
+            output[0, 8].unpack1("q")
+          end
+
+          # Built on first read and cached, as the IL's `_currentDisplayMode` is. A format below
+          # `Color` is raised to `Color`, which is the IL's one adjustment.
+          def CurrentDisplayMode
+            @current_display_mode ||= begin
+              mode = CNA::Native::Layouts::DisplayMode.new
+              CNA::Native.library.call("cna_graphics_adapter_get_current_display_mode", device_handle, @index, mode.pointer)
+              DisplayMode.__send__(:new, mode.read_i32(8), mode.read_i32(12), [mode.read_u32(20), 0].max)
+            end
+          end
+
+          # Built on first read and cached. The IL walks every HiDef texture format and keeps the
+          # first mode of each width and height **per format**; CNA answers its whole mode list,
+          # and the same per-format de-duplication is applied to it.
+          def SupportedDisplayModes
+            @supported_display_modes ||= begin
+              handle = device_handle
+              count = CNA::Native.library.pointer_for("Q", 0)
+              CNA::Native.library.call("cna_graphics_adapter_get_display_mode_count", handle, @index, 0, 0, count)
+              total = count[0, 8].unpack1("Q")
+              modes = []
+              unless total.zero?
+                size = CNA::Native::Layouts::DisplayMode.size
+                buffer = Fiddle::Pointer.malloc(size * total, Fiddle::RUBY_FREE)
+                buffer[0, size * total] = ([size, 1].pack("LL") + ("\0" * (size - 8))) * total
+                CNA::Native.library.call("cna_graphics_adapter_copy_display_modes", handle, @index, 0, 0,
+                                         buffer, total, count)
+                seen = {}
+                count[0, 8].unpack1("Q").times do |position|
+                  width, height, _aspect, format = buffer[(position * size) + 8, 16].unpack("llfL")
+                  next if seen.key?([format, width, height])
+
+                  seen[[format, width, height]] = true
+                  modes << DisplayMode.__send__(:new, width, height, format)
+                end
+              end
+              DisplayModeCollection.__send__(:new, modes)
+            end
+          end
+
+          def IsProfileSupported(graphicsProfile)
+            profile = GraphicsProfile.coerce(graphicsProfile)
+            output = CNA::Native.library.pointer_for("C", 0)
+            CNA::Native.library.call("cna_graphics_adapter_is_profile_supported", device_handle, @index, profile.to_i, output)
+            output[0, 1].unpack1("C") == 1
+          end
+
+          # Three out parameters after a Boolean return: `[supported, selectedFormat,
+          # selectedDepthFormat, selectedMultiSampleCount]`, the binding's multiple-out rule.
+          def QueryBackBufferFormat(graphicsProfile, format, depthFormat, multiSampleCount)
+            query_format("cna_graphics_adapter_query_backbuffer_format", graphicsProfile, format, depthFormat, multiSampleCount)
+          end
+
+          def QueryRenderTargetFormat(graphicsProfile, format, depthFormat, multiSampleCount)
+            query_format("cna_graphics_adapter_query_render_target_format", graphicsProfile, format, depthFormat, multiSampleCount)
+          end
+
+          private
+
+          def device_handle = self.class.__send__(:live_device_handle, "GraphicsAdapter")
+
+          def adapter_index = @index
+
+          def identity
+            @identity ||= begin
+              handle = device_handle
+              info = CNA::Native::Layouts::GraphicsAdapterInfo.new
+              CNA::Native.library.call("cna_graphics_adapter_get_info", handle, @index, info.pointer)
+              { vendor_id: info.read_i32(16), device_id: info.read_i32(20), revision: info.read_i32(24),
+                subsystem_id: info.read_i32(28),
+                description: CNA::Native.library.counted_string_indexed("cna_graphics_adapter_copy_description", handle, @index).freeze,
+                device_name: CNA::Native.library.counted_string_indexed("cna_graphics_adapter_copy_device_name", handle, @index).freeze }
+            end
+          end
+
+          def query_format(route, graphicsProfile, format, depthFormat, multiSampleCount)
+            selection = CNA::Native::Layouts::GraphicsFormatSelection.new
+            CNA::Native.library.call(route, device_handle, @index, GraphicsProfile.coerce(graphicsProfile).to_i,
+                                     SurfaceFormat.coerce(format).to_i, DepthFormat.coerce(depthFormat).to_i,
+                                     N.int32(multiSampleCount, "multiSampleCount"), selection.pointer)
+            [selection.read_u8(8) == 1, SurfaceFormat.coerce(selection.read_u32(12)),
+             DepthFormat.coerce(selection.read_u32(16)), selection.read_i32(20)]
+          end
+        end
+
         # `assembly .ctor(object resource)`: base() then one store.
         class ResourceCreatedEventArgs < CNA::Runtime::EventArgs
           attr_reader :Resource
@@ -815,7 +1011,6 @@ module Microsoft
 
         class GraphicsDevice
           extend CNA::Runtime::EventOwner
-          private_class_method :new
 
           # The device's six events. Four are CNA's to raise and two are this projection's, and
           # which is which was measured rather than chosen -- see `subscribe_device_events` and
@@ -853,7 +1048,45 @@ module Microsoft
           NOT_SUPPORTED = CNA::Native::Library::RESULT_NOT_SUPPORTED
           private_constant :NOT_SUPPORTED
 
-          def initialize(game)
+          # `GraphicsDevice(adapter, graphicsProfile, presentationParameters)`, XNA's public
+          # constructor: an independent device on the given adapter, which is exactly
+          # `cna_graphics_device_create`. The IL's two null checks come first, parameters before
+          # adapter. DEVIATION, recorded: `adapter.IsProfileSupported(profile)` needs a live device
+          # to ask through (see `GraphicsAdapter`), so the profile refusal is CNA's -- the route
+          # refuses an unknown profile or an out-of-range adapter. The device and every resource made
+          # on it belong to it rather than to a game, and `Dispose` releases them and then the device.
+          def initialize(adapter, graphicsProfile, presentationParameters)
+            raise ::ArgumentError, "presentationParameters" if presentationParameters.nil?
+            raise ::ArgumentError, "adapter" if adapter.nil?
+            raise ::TypeError, "adapter must be a GraphicsAdapter" unless adapter.instance_of?(GraphicsAdapter)
+            unless presentationParameters.instance_of?(PresentationParameters)
+              raise ::TypeError, "presentationParameters must be a PresentationParameters"
+            end
+
+            profile = GraphicsProfile.coerce(graphicsProfile)
+            initialize_for_game(CNA::Runtime::StandaloneDeviceOwner.new)
+            native = CNA::Native::Layouts::PresentationParameters.new
+            CNA::Native.library.call("cna_presentation_parameters_init", native.pointer)
+            write_presentation_parameters(native, presentationParameters)
+            output = CNA::Native.library.pointer_for("Q", 0)
+            CNA::Native.library.call("cna_graphics_device_create", adapter.__send__(:adapter_index),
+                                     profile.to_i, native.pointer, output)
+            @standalone_handle = output[0, 8].unpack1("Q")
+            @callback_handle = @standalone_handle
+            subscribe_device_events(@standalone_handle)
+            @internal_presentation_parameters = presentationParameters.Clone
+            @presentation_parameters = presentationParameters.Clone
+          end
+
+          class << self
+            private
+
+            # The canonical device a `GraphicsDeviceManager` wraps: the game's, borrowed inside each
+            # lifecycle callback.
+            def for_game(game) = allocate.__send__(:initialize_for_game, game)
+          end
+
+          private def initialize_for_game(game)
             @game = game
             @callback_handle = 0
             @invalidated = false
@@ -863,6 +1096,7 @@ module Microsoft
             @event_registrations = nil
             @event_callbacks = []
             @pending_event_exception = nil
+            self
           end
 
           def IsDisposed = @invalidated || @game.__send__(:disposed?)
@@ -1096,8 +1330,11 @@ module Microsoft
           # unbind that `SavedDeviceState` deliberately does *not* restore, and the two cached
           # parameter objects.
           #
-          # The third overload's second argument is a `GraphicsAdapter`, which this binding does not
-          # project, so it refuses -- the blocker's fourth appearance, and named as such.
+          # The third overload's second argument is a `GraphicsAdapter`. Its null check follows the
+          # parameters' as in the IL, and the adapter's ordinal travels in
+          # `cna_graphics_device_reset_with_parameters`' nullable adapter index; CNA moves the
+          # device when it names another adapter. (Through ABI 0.21.0 it refused, because the
+          # adapter type could not be projected.)
           def Reset(*arguments)
             case arguments.length
             when 0 then parameters = internal_presentation_parameters
@@ -1109,14 +1346,14 @@ module Microsoft
               raise ::TypeError, "presentationParameters must be a PresentationParameters"
             end
 
+            adapter_index = nil
             if arguments.length == 2
               raise ::ArgumentError, "graphicsAdapter" if arguments[1].nil?
+              unless arguments[1].instance_of?(GraphicsAdapter)
+                raise ::TypeError, "graphicsAdapter must be a GraphicsAdapter"
+              end
 
-              raise CNA::CapabilityError.new("cna_graphics_device_reset_with_parameters", NOT_SUPPORTED),
-                    "Reset(presentationParameters, graphicsAdapter) is not supported: " \
-                    "Graphics.GraphicsAdapter is not projected, because every cna_graphics_adapter_* " \
-                    "route answers invented display data -- see " \
-                    "docs/graphics-adapter-ordering-upstream-defect.md"
+              adapter_index = [arguments[1].__send__(:adapter_index)].pack("L")
             end
 
             set_render_target_bindings([])
@@ -1127,7 +1364,8 @@ module Microsoft
               CNA::Native.library.call("cna_graphics_device_reset", native_handle)
             else
               CNA::Native.library.call("cna_graphics_device_reset_with_parameters", native_handle,
-                                       to_native_presentation_parameters(parameters).pointer, 0)
+                                       to_native_presentation_parameters(parameters).pointer,
+                                       adapter_index ? Fiddle::Pointer[adapter_index] : 0)
             end
             @internal_presentation_parameters = parameters.Clone
             @presentation_parameters = parameters.Clone
@@ -1139,10 +1377,16 @@ module Microsoft
 
           # ------------------------------------------------------------ the four simple properties
           #
-          # `docs/graphics-runtime-member-audit.md` measured these five as a family. Four are here;
-          # the fifth, `Adapter`, is one `ldfld` whose *type* is `Graphics.GraphicsAdapter`, and
-          # that type is the single blocker the whole audit found —
-          # `docs/graphics-adapter-ordering-upstream-defect.md`.
+          # `docs/graphics-runtime-member-audit.md` measured these five as a family.
+
+          # `ldfld pCurrentAdapter`. DEVIATION, recorded: asked rather than cached, like
+          # `GraphicsProfile` below -- CNA owns the device and knows its adapter ordinal -- and the
+          # ordinal names the one `GraphicsAdapter` object `Adapters` holds for it.
+          def Adapter
+            output = CNA::Native.library.pointer_for("L", 0)
+            CNA::Native.library.call("cna_graphics_device_get_adapter_index", native_handle, output)
+            GraphicsAdapter.__send__(:adapter_at, output[0, 4].unpack1("L"))
+          end
 
           # `ldfld _graphicsProfile`, a field the constructor fills and nothing else writes.
           #
@@ -1165,16 +1409,26 @@ module Microsoft
             Graphics::GraphicsDeviceStatus.coerce(output[0, 4].unpack1("L"))
           end
 
-          # `DisplayMode` is **not** here, and the audit that put it in this family had it wrong.
-          # `docs/graphics-runtime-member-audit.md` first classified it buildable on the strength of
-          # `cna_graphics_device_get_display_mode` existing. Measuring it is what settled it: with a
-          # 320x200 back buffer on a real 1280x800 X display, that route answers **800x480** — which
-          # is neither — and it answers byte-for-byte what
-          # `cna_graphics_adapter_get_current_display_mode` answers, on the `HEADLESS` artifact and
-          # on the `OPENGL33` one alike. It is the same fabricated no-display fallback
-          # `docs/graphics-adapter-ordering-upstream-defect.md` records, so projecting this getter
-          # would report invented hardware — the exact reason `GraphicsAdapter` itself is not
-          # projected. `BLOCKED_UPSTREAM_CNA`, and the second member that blocker takes.
+          # `IDirect3DDevice9::GetDisplayMode` on every read, written into **one** cached
+          # `DisplayMode` object the device keeps: the first read creates it and later reads update
+          # its fields in place, so the same object answers every time with the current mode.
+          # (Through ABI 0.21.0 the route answered the fabricated 800x480 fallback and this getter
+          # was not projected; docs/graphics-adapter-ordering-upstream-defect.md.)
+          def DisplayMode
+            mode = CNA::Native::Layouts::DisplayMode.new
+            CNA::Native.library.call("cna_graphics_device_get_display_mode", native_handle, mode.pointer)
+            width = mode.read_i32(8)
+            height = mode.read_i32(12)
+            format = SurfaceFormat.coerce(mode.read_u32(20))
+            if @display_mode.nil?
+              @display_mode = Graphics::DisplayMode.__send__(:new, width, height, format)
+            else
+              @display_mode.instance_variable_set(:@Width, width)
+              @display_mode.instance_variable_set(:@Height, height)
+              @display_mode.instance_variable_set(:@Format, format)
+            end
+            @display_mode
+          end
 
           # `ldfld pPublicCachedParams`: one field read, so the **same object** every call, and a
           # consumer that mutates what it gets back sees the mutation next time. Only device
@@ -1555,8 +1809,10 @@ module Microsoft
           # What **is** managed is the failure rule, and it is reproduced: when the native clear
           # fails, XNA asks whether the depth and stencil bits the caller requested are ones the
           # current target actually has, and answers `InvalidOperationException(CannotClearNullDepth)`
-          # when they are not. CNA reports exactly that case as `CNA_RESULT_NOT_SUPPORTED`, "when the
-          # backend cannot clear a selected buffer".
+          # when they are not. CNA refuses that case itself -- `CNA_RESULT_INVALID_STATE` "when a
+          # selected depth or stencil buffer does not exist", measured on ABI 0.35.0 -- and answers
+          # `CNA_RESULT_NOT_SUPPORTED` when the backend cannot clear one that does. Either failure
+          # goes through the IL's own test, so the exception is XNA's whichever code arrives.
           # ------------------------------------------------------------ the user-primitive draws
           #
           #     DrawUserPrimitives<T>(type, data, offset, count)                     T : IVertexType
@@ -1684,7 +1940,7 @@ module Microsoft
             begin
               CNA::Native.library.call("cna_graphics_device_clear_options", native_handle,
                                        options.to_i, color.PackedValue, depth, stencil)
-            rescue CNA::CapabilityError
+            rescue CNA::NativeError
               raise ::RuntimeError, "CannotClearNullDepth" unless requested_buffers_exist?(options)
 
               raise
@@ -1785,6 +2041,10 @@ module Microsoft
             output = CNA::Native::Layouts::PresentationParameters.new
             CNA::Native.library.call("cna_graphics_device_get_presentation_parameters",
                                      native_handle, output.pointer)
+            write_presentation_parameters(output, parameters)
+          end
+
+          def write_presentation_parameters(output, parameters)
             output.write_u32(8, parameters.BackBufferFormat.to_i)
             output.write_i32(12, parameters.BackBufferWidth)
             output.write_i32(16, parameters.BackBufferHeight)
@@ -2160,6 +2420,7 @@ module Microsoft
           def release_device(raise_event:)
             return nil if @invalidated
 
+            @game.release_children if @standalone_handle
             unsubscribe_device_events
             release_declarations
             begin
@@ -2167,6 +2428,12 @@ module Microsoft
             ensure
               @invalidated = true
               @callback_handle = 0
+              if @standalone_handle
+                handle = @standalone_handle
+                @standalone_handle = nil
+                CNA::Native.library.call("cna_graphics_device_destroy", handle)
+                @game.invalidate!
+              end
             end
             nil
           end
@@ -3227,9 +3494,10 @@ module Microsoft
           # the element type is usable with the texture's format, through
           # `GraphicsDevice.Adapter.CurrentDisplayMode`. Every adapter value is fabricated on the
           # qualified artifact, which `docs/native-abi.md` records, so that check is *not*
-          # reproduced from invented data: CNA's own `cna_texture2d_set_data` refuses a mismatched
-          # data type and that refusal surfaces. The other `InvalidOperationException`,
+          # reproduced from invented data: CNA's own `cna_texture2d_set_data` validates the data
+          # type against the format and its refusal surfaces. The other `InvalidOperationException`,
           # `MustResolveRenderTarget`, is unreachable because no render target is projected.
+
           def SetData(type, *arguments)
             level, rect, data, start_index, element_count = transfer_arguments(type, arguments, "SetData")
             data_type, element_size = Texture.__send__(:texture_data_type, type)
@@ -3719,26 +3987,13 @@ module Microsoft
         # ## Which CNA route carries which overload, and why
         #
         # XNA's `SetData<T>` is generic over any struct. CNA's **typed** vertex transfer carries only
-        # its seven built-in `CNA_VertexType` layouts, so the static overloads use the `_raw` family,
+        # its seven built-in `CNA_VertexType` layouts, so every overload uses the `_raw` family,
         # which takes bytes, a vertex count and a stride and accepts any layout. The dynamic
-        # overloads need `SetDataOptions`, which the raw family carries only in a route 0.21.0 added
-        # and the retired 0.7.0 headers do not declare -- so they use the typed route, whose transfer
-        # has carried the options in both versions. The cost is recorded rather than hidden: a
-        # dynamic `SetData` accepts the four projected vertex structs and refuses another element
-        # type, where XNA accepts any.
+        # overloads' `SetDataOptions` travel in `cna_vertex_buffer_set_data_raw_at_with_options`,
+        # the same route with one more argument.
         class VertexBuffer < GraphicsResource
           public_class_method :new
           attr_reader :VertexDeclaration, :VertexCount, :BufferUsage
-
-          # CNA's seven built-in vertex identities, and the four this binding projects a type for.
-          # A dynamic `SetData` needs one of these because it is the typed route that carries the
-          # streaming option.
-          NATIVE_VERTEX_TYPES = {
-            "VertexPositionColor" => "CNA_VERTEX_TYPE_POSITION_COLOR",
-            "VertexPositionColorTexture" => "CNA_VERTEX_TYPE_POSITION_COLOR_TEXTURE",
-            "VertexPositionNormalTexture" => "CNA_VERTEX_TYPE_POSITION_NORMAL_TEXTURE",
-            "VertexPositionTexture" => "CNA_VERTEX_TYPE_POSITION_TEXTURE"
-          }.freeze
 
           # `VertexBuffer(GraphicsDevice, Type, int, BufferUsage)` resolves the type through
           # `VertexDeclaration.FromType`, which is `assembly`-visible in XNA and therefore not a
@@ -4050,14 +4305,10 @@ module Microsoft
         # `DynamicVertexBuffer` adds the two option-bearing `SetData` overloads, `IsContentLost` and
         # the `ContentLost` event.
         #
-        # DEVIATION, recorded: the option-bearing route is CNA's **typed** one, so its element type
-        # must be one of the four vertex structs this binding projects. XNA accepts any struct there.
-        # The static overloads it inherits keep the raw route and accept every element type.
-        #
         # DEVIATION, recorded: `ContentLost` is projected as a subscribable event and **never
         # fires**. CNA exposes `cna_vertex_buffer_subscribe_content_lost`, and it is deliberately
         # unbound: `CNA_VertexBufferInfo::is_content_lost` is documented false on every renderer
-        # family that cannot lose a device, which is all three qualified artifacts, so a bound
+        # family that cannot lose a device, which is both qualified artifacts, so a bound
         # callback would be native surface with nothing to deliver.
         class DynamicVertexBuffer < VertexBuffer
           public_class_method :new
@@ -4072,32 +4323,13 @@ module Microsoft
             return super unless [4, 6].include?(arguments.length)
 
             options = SetDataOptions.coerce(arguments.last)
-            identity = VertexBuffer::NATIVE_VERTEX_TYPES[type.to_s.split("::").last]
-            if identity.nil?
-              raise CNA::Runtime::NotSupportedError,
-                    "the option-bearing route is CNA's typed one and carries only its built-in " \
-                    "vertex layouts; XNA accepts any element type here"
-            end
-
             window = transfer_arguments(type, arguments[0...-1], "SetData")
-            transfer = CNA::Native::Layouts::VertexBufferTransfer.new
-            transfer.write_u32(8, CNA::Native::Manifest::CONSTANTS.fetch(identity))
-            transfer.write_u32(12, options.to_i)
-            transfer.write_u64(16, 0)
-            transfer.write_u64(24, window.fetch(:element_count))
-            # The typed route replaces the whole contents, so it takes no byte offset; XNA's
-            # option-bearing overload that does is refused rather than silently ignoring it.
-            unless window.fetch(:offset).zero?
-              raise CNA::Runtime::NotSupportedError,
-                    "the typed route that carries SetDataOptions replaces the whole buffer and " \
-                    "takes no byte offset"
-            end
-
             bytes = self.class.__send__(:pack_elements, type, window.fetch(:data),
                                         window.fetch(:start_index), window.fetch(:element_count),
                                         window.fetch(:element_size))
-            CNA::Native.library.call("cna_vertex_buffer_set_data", native_handle, transfer.pointer,
-                                     Fiddle::Pointer[bytes], window.fetch(:element_count))
+            CNA::Native.library.call("cna_vertex_buffer_set_data_raw_at_with_options", native_handle,
+                                     window.fetch(:offset), Fiddle::Pointer[bytes], bytes.bytesize,
+                                     window.fetch(:vertex_count), window.fetch(:stride), options.to_i)
             nil
           end
 
@@ -4401,12 +4633,11 @@ module Microsoft
         # `Begin` through: every later one has to be preceded by an `IsComplete` read. That is the
         # rule a reader would not guess, and it is why `IsComplete` is not a pure query.
         #
-        # DEVIATION, recorded: XNA refuses construction on a `GraphicsProfile` whose
-        # `ProfileCapabilities.OcclusionQuery` is false -- `Reach` -- with `NotSupportedException`.
-        # That is a device capability rather than a managed rule, and CNA answers the same question
-        # from the backend: `cna_occlusion_query_create` reports `CNA_RESULT_NOT_SUPPORTED` where the
-        # renderer has no query object, which surfaces as `CNA::CapabilityError`. No profile table is
-        # invented here.
+        # XNA refuses construction on a `GraphicsProfile` whose `ProfileCapabilities.OcclusionQuery`
+        # is false -- `Reach` -- with `NotSupportedException`. CNA applies the same profile rule
+        # (measured on ABI 0.35.0): `cna_occlusion_query_create` reports `CNA_RESULT_NOT_SUPPORTED`
+        # on a Reach device, and on a renderer with no query object, which surfaces as
+        # `CNA::CapabilityError`. No profile table is invented here.
         class OcclusionQuery < GraphicsResource
           public_class_method :new
 
@@ -4535,9 +4766,8 @@ module Microsoft
           #
           # DEVIATION, recorded: `ContentLost` is projected as a subscribable event and **never
           # fires**, for the reason the dynamic buffers' does. `is_content_lost` is false on every
-          # renderer family that cannot lose a device, which is all three qualified artifacts, and
-          # `cna_render_target_subscribe_content_lost` exists only in 0.21.0, so binding it would
-          # both deliver nothing and end the retired headers' admission.
+          # renderer family that cannot lose a device, which is both qualified artifacts, so binding
+          # `cna_render_target_subscribe_content_lost` would deliver nothing.
           def IsContentLost
             return true if @content_lost
 
@@ -4805,10 +5035,10 @@ module Microsoft
           #
           # The scalar branch really does broadcast: `GetValueVector3` on a scalar answers
           # `(f, f, f)`. `GetValueQuaternion` is the same shape with `ColumnCount == 4`.
-          def GetValueVector2 = vector_value(2) { |c| Vector2.new(c[0], c[1]) }
-          def GetValueVector3 = vector_value(3) { |c| Vector3.new(c[0], c[1], c[2]) }
-          def GetValueVector4 = vector_value(4) { |c| Vector4.new(c[0], c[1], c[2], c[3]) }
-          def GetValueQuaternion = vector_value(4) { |c| Quaternion.new(c[0], c[1], c[2], c[3]) }
+          def GetValueVector2 = vector_value(2, "CNA_EFFECT_VALUE_VECTOR2") { |c| Vector2.new(c[0], c[1]) }
+          def GetValueVector3 = vector_value(3, "CNA_EFFECT_VALUE_VECTOR3") { |c| Vector3.new(c[0], c[1], c[2]) }
+          def GetValueVector4 = vector_value(4, "CNA_EFFECT_VALUE_VECTOR4") { |c| Vector4.new(c[0], c[1], c[2], c[3]) }
+          def GetValueQuaternion = vector_value(4, "CNA_EFFECT_VALUE_QUATERNION") { |c| Quaternion.new(c[0], c[1], c[2], c[3]) }
 
           # `GetValueMatrix` and `GetValueMatrixTranspose` share the vector getters' first branch and
           # then check only the class — there is **no** row/column test:
@@ -4930,7 +5160,10 @@ module Microsoft
             buffer[0, 4 * count].unpack("f#{count}")
           end
 
-          def vector_value(columns)
+          # The read uses the getter's own value type. Reading every width as a `Vector4` worked
+          # through ABI 0.21.0; on 0.35.0 CNA applies XNA's rule and refuses `GetValueVector4` on a
+          # three-column parameter, exactly as XNA's `InvalidCastException` does.
+          def vector_value(columns, value_type)
             if @Elements.Count.zero?
               if @ParameterClass.to_i == SCALAR
                 broadcast = read_value("CNA_EFFECT_VALUE_SINGLE", "f", 4)
@@ -4939,7 +5172,7 @@ module Microsoft
               raise ::TypeError, "InvalidCastException" unless @ParameterClass.to_i == VECTOR
               raise ::TypeError, "InvalidCastException" unless @ColumnCount == columns && @RowCount == 1
             end
-            yield read_floats("CNA_EFFECT_VALUE_VECTOR4", 4)
+            yield read_floats(value_type, columns)
           end
 
           def matrix_value(value_type)
@@ -5142,9 +5375,9 @@ module Microsoft
 
             def from_native(effect, collection) = allocate.__send__(:initialize_from_native, effect, collection)
 
-            # An empty collection with no native backing, for the one place a collection exists but
-            # its routes do not: a model-owned effect, whose `cna_effect_get_parameters` and
-            # `cna_effect_get_techniques` both segfault upstream.
+            # An empty collection with no native backing. Through ABI 0.21.0 a model-owned effect
+            # used it, because `cna_effect_get_parameters` segfaulted on one; CNA 41c6bedef
+            # (BINDFIX-040) fixed that and the model's effect now carries its real collections.
             def from_items(items) = allocate.__send__(:initialize_items, items)
 
             def build(effect, collection)
@@ -5469,9 +5702,7 @@ module Microsoft
 
             def from_native(effect, collection) = allocate.__send__(:initialize_from_native, effect, collection)
 
-            # An empty collection with no native backing, for the one place a collection exists but
-            # its routes do not: a model-owned effect, whose `cna_effect_get_parameters` and
-            # `cna_effect_get_techniques` both segfault upstream.
+            # An empty collection with no native backing; see `EffectParameterCollection.from_items`.
             def from_items(items) = allocate.__send__(:initialize_items, items)
           end
         end
@@ -5563,26 +5794,18 @@ module Microsoft
           # `cna_effect_destroy` on one with `CNA_RESULT_INVALID_STATE`, so the wrapper takes
           # `PARENT_OWNED` and releases nothing.
           #
-          # UPSTREAM, and the reason `build_graph` is not called: **every generic `Effect` route
-          # segfaults on this handle.** `cna_effect_get_parameters`, `cna_effect_get_techniques` and
-          # `cna_effect_get_current_technique` each fault immediately, measured through a bare
-          # `Fiddle::Function` with no Ruby object in the path, while `cna_basic_effect_*` on the
-          # same handle answers correctly — `get_diffuse_color` returns the fixture's documented
-          # 0.64000004529953. The same three routes work on an effect from `cna_basic_effect_create`,
-          # so it is the content-loaded one that is broken. DEVIATION, recorded: `Parameters` and
-          # `Techniques` are therefore **empty** on a model's effect and `CurrentTechnique` is nil,
-          # where XNA's carry the built-in shader's. Nothing is fabricated to fill them, and
-          # `docs/model-load-shutdown-upstream-defect.md` carries the measurement.
+          # The graph is built exactly as any effect's is. Through ABI 0.21.0 every generic `Effect`
+          # route segfaulted on this handle, so `Parameters` and `Techniques` were left empty and
+          # `CurrentTechnique` nil (`docs/model-load-shutdown-upstream-defect.md`); CNA 41c6bedef
+          # (BINDFIX-040) fixed the routes. The views are released with the model's own, by
+          # `Model#release_content_views`, since nothing here may destroy the effect itself.
           def initialize_model_owned(device, handle)
             @views = []
             @GraphicsDevice = device
             @Name = nil
             @Tag = nil
             initialize_parent_owned_resource(device.__send__(:game), handle)
-            @Parameters = EffectParameterCollection.__send__(:from_items, [])
-            @Techniques = EffectTechniqueCollection.__send__(:from_items, [])
-            @current_technique = nil
-            self
+            build_graph
           end
 
           # The construction path the five stock effects take. XNA's stock effects call
@@ -5820,8 +6043,8 @@ module Microsoft
           # The **second** producer, and the one the five stock effects use.
           #
           # XNA's `DirectionalLight` writes through three `EffectParameter`s that the built-in
-          # shader declares. CNA's stock effect declares **no parameters at all** — measured, a
-          # collection of zero — and carries its three lights as native member views instead. So a
+          # shader declares. CNA's stock effect carries its three lights as native member views
+          # (its parameter collection is read-only evidence, not the write path). So a
           # light over one of those views writes through `cna_directional_light_set_*` where a light
           # over a shader writes through `SetValue`, and every managed rule above is unchanged:
           # the `beq` short-circuit on `Enabled`, the colours written only while enabled, and the
@@ -5944,13 +6167,10 @@ module Microsoft
         # objects with typed accessors**: `cna_<name>_effect_create` builds one and every property
         # has its own route.
         #
-        # MEASURED, and recorded as a deviation because a consumer can see it: `BasicEffect` alone
-        # answers a parameter collection of **zero** — on `HEADLESS`, `OPENGL33` and the
-        # compiled-effects artifact alike — while its four siblings answer 12, 6, 5 and 12 named
-        # parameters. That asymmetry is an upstream gap rather than a design, and it is now fixed
-        # upstream: `docs/stock-effect-parameter-upstream-defect.md` carries the measurement, the
-        # four sibling collections and the corroborating commit. Nothing is fabricated to fill the
-        # empty one, and `Techniques` holds exactly one on all five.
+        # MEASURED: on ABI 0.35.0 all five publish their shader's parameters -- `BasicEffect` 21,
+        # the other four 12, 6, 5 and 12 -- and `Techniques` holds exactly one on all five. Through
+        # ABI 0.21.0 `BasicEffect` alone answered **zero**, an upstream gap
+        # `docs/stock-effect-parameter-upstream-defect.md` records and CNA has since fixed.
         #
         # MEASURED, and the reason these are projections rather than re-implementations: **CNA's
         # defaults are XNA's, member for member.** For `BasicEffect` that is World, View and
@@ -6549,14 +6769,11 @@ module Microsoft
           # `RasterizerState.CullCounterClockwise`. CNA's `begin_with_effect` documents exactly those
           # four for a null descriptor, which is two independent authorities agreeing on the values.
           #
-          # UPSTREAM_CNA_DEFECT: the route does **not** honour that documented null. Passing a null
-          # descriptor is refused with `INVALID_ARGUMENT` and "The BlendState descriptor is invalid",
-          # reproduced at the C ABI with no Ruby in the path
-          # (`docs/sprite-batch-begin-upstream-defect.md`). So this projection substitutes the four
-          # defaults **itself**, and that is not a workaround dressed up: `SetRenderState` performs
-          # exactly that substitution in the IL, so passing the resolved state is reproducing XNA
-          # rather than compensating for CNA. What the defect costs is only that the substitution
-          # happens here instead of there, which nothing observable distinguishes.
+          # This projection substitutes the four defaults **itself**, because `SetRenderState`
+          # performs exactly that substitution in the IL. The route once refused a null descriptor
+          # (`docs/sprite-batch-begin-upstream-defect.md`, fixed in CNA c04a193c4 and re-measured on
+          # ABI 0.35.0); passing the resolved state was never a workaround and nothing observable
+          # distinguishes the two.
           #
           # Three of the five are projected: the zero-argument one, `(sortMode, blendState)` and the
           # five-argument one. The other two take an `Effect`, which is not projected, so
@@ -7078,10 +7295,9 @@ module Microsoft
         # The views the graph holds — the bone, mesh and part views and the four collection views —
         # are the caller's and are released by `Model#release_content_views`, which
         # `ContentManager#Unload` and `#Dispose` call. `cna_model_destroy` is **not** in the
-        # manifest: XNA's `Model` is not `IDisposable` so no projected member wants it, and calling
-        # it on a content-loaded model segfaults. See `docs/model-load-shutdown-upstream-defect.md`,
-        # which also records that merely loading a model makes process shutdown segfault — an
-        # upstream fault this binding does not cause and cannot repair.
+        # manifest: XNA's `Model` is not `IDisposable` so no projected member wants it.
+        # `docs/model-load-shutdown-upstream-defect.md` records the ABI 0.21.0 crashes (destroy,
+        # shutdown after a load, generic effect routes); all three are fixed upstream.
 
         # `sealed`, five properties, an `assembly` constructor and an `assembly` `AddChildren`.
         # `Name` and `Index` are `ldfld`; `Transform` is a field pair; `Parent` and `Children` are
@@ -7376,10 +7592,10 @@ module Microsoft
 
           # XNA's IL is: for every part, for every pass of that part's effect, apply the pass then
           # draw the part; a part with no effect is `InvalidOperationException(ModelHasNoEffect)`.
-          # That loop is **unreachable** here — `CurrentTechnique` on a model's effect segfaults
-          # upstream — so this forwards to `cna_model_mesh_draw`, which performs the same loop
-          # natively and answers success on `HEADLESS` and `OPENGL33`. DEVIATION, recorded: the
-          # `ModelHasNoEffect` refusal is CNA's to make, and it makes its own.
+          # This forwards to `cna_model_mesh_draw`, which performs the same loop natively and
+          # answers success on `HEADLESS` and `OPENGLES3`, so it matches `Model.Draw` below. (Through
+          # ABI 0.21.0 the managed loop was unreachable: `CurrentTechnique` on a model's effect
+          # segfaulted.) DEVIATION, recorded: the `ModelHasNoEffect` refusal is CNA's to make.
           def Draw
             CNA::Native.library.call("cna_model_mesh_draw", @handle)
             nil
@@ -7541,12 +7757,12 @@ module Microsoft
           # effect with `InvalidOperationException(ModelHasNoEffect)` and one that is not
           # `IEffectMatrices` with `ModelHasNoIEffectMatrices`.
           #
-          # None of that loop can run here: reaching an effect's matrices means reaching the effect,
-          # and every generic `Effect` route segfaults on the one a loaded model publishes. So this
+          # That loop needs every effect to be `IEffectMatrices`, and a content-loaded effect is
+          # projected here as `Effect` -- the ABI publishes it as a generic effect handle -- so this
           # keeps the three managed type checks and forwards to `cna_model_draw`, which performs the
           # identical sequence natively — the header documents it as "draws every model mesh after
           # applying world, view and projection matrices" — and answers success on `HEADLESS` and
-          # `OPENGL33`. DEVIATION, recorded: both `InvalidOperationException`s are CNA's to raise.
+          # `OPENGLES3`. DEVIATION, recorded: both `InvalidOperationException`s are CNA's to raise.
           #
           # The three matrices are three MEMORY-class by-value aggregates in one call, which is the
           # first route in this manifest to carry more than one. Only the **first** needs register
@@ -7704,10 +7920,12 @@ module Microsoft
                                                   .__send__(:initialize_model_owned, @device, handle)
           end
 
-          # Every view this graph took, released in reverse. `ContentManager` calls it on `Unload`
-          # and on `Dispose`; nothing else does, because XNA's `Model` declares no disposal member
-          # and this binding adds none.
+          # Every view this graph took, released in reverse -- the model-owned effects' own
+          # parameter and technique views first. `ContentManager` calls it on `Unload` and on
+          # `Dispose`; nothing else does, because XNA's `Model` declares no disposal member and this
+          # binding adds none.
           def release_content_views
+            @effects.each_value { |effect| effect.__send__(:release_views) }
             views = @views
             @views = []
             views.reverse_each do |handle, destroy|
@@ -7727,6 +7945,145 @@ module Microsoft
           end
         end
 
+      end
+
+      # Derived from the pinned Microsoft.Xna.Framework.Game.dll IL (SHA-256 b5dffdd8…).
+      #
+      # Three fields with initializers -- a new `PresentationParameters`, `GraphicsAdapter.DefaultAdapter`
+      # and the profile's CLR zero, `Reach` -- and a public parameterless constructor. `Equals`
+      # compares the adapter by reference, the profile and ten of the parameters; `GetHashCode` XORs
+      # the same twelve; `Clone` copies the parameters and shares the adapter.
+      class GraphicsDeviceInformation
+        def initialize
+          @presentation_parameters = Graphics::PresentationParameters.new
+          @adapter = Graphics::GraphicsAdapter.DefaultAdapter
+          @graphics_profile = Graphics::GraphicsProfile::Reach
+        end
+
+        def Adapter = @adapter
+
+        # The IL tests the **field**, not the value: `if (adapter == null) throw
+        # ArgumentNullException("value", NoNullUseDefaultAdapter)`. So a null is accepted while an
+        # adapter is set, and nothing can be stored once the field is null.
+        def Adapter=(value)
+          raise ::ArgumentError, "value" if @adapter.nil?
+          unless value.nil? || value.instance_of?(Graphics::GraphicsAdapter)
+            raise ::TypeError, "value must be a GraphicsAdapter"
+          end
+
+          @adapter = value
+        end
+
+        def GraphicsProfile = @graphics_profile
+
+        def GraphicsProfile=(value)
+          @graphics_profile = Graphics::GraphicsProfile.coerce(value)
+        end
+
+        def PresentationParameters = @presentation_parameters
+
+        def PresentationParameters=(value)
+          unless value.nil? || value.instance_of?(Graphics::PresentationParameters)
+            raise ::TypeError, "value must be a PresentationParameters"
+          end
+
+          @presentation_parameters = value
+        end
+
+        def Equals(obj)
+          return false unless obj.is_a?(GraphicsDeviceInformation)
+          return false unless obj.Adapter.equal?(@adapter)
+          return false unless obj.GraphicsProfile == @graphics_profile
+
+          PARAMETERS.all? { |name| obj.PresentationParameters.public_send(name) == @presentation_parameters.public_send(name) }
+        end
+
+        def GetHashCode
+          values = [@graphics_profile.to_i, @adapter.hash] +
+                   PARAMETERS.map { |name| hash_of(@presentation_parameters.public_send(name)) }
+          CNA::Runtime::Numeric.wrap_int32(values.map { |value| CNA::Runtime::Numeric.wrap_int32(value) }.reduce(:^))
+        end
+
+        def Clone
+          copy = self.class.new
+          copy.instance_variable_set(:@presentation_parameters, @presentation_parameters.Clone)
+          copy.instance_variable_set(:@adapter, @adapter)
+          copy.instance_variable_set(:@graphics_profile, @graphics_profile)
+          copy
+        end
+
+        # The ten `PresentationParameters` members `Equals` and `GetHashCode` read, in the IL's order.
+        PARAMETERS = %i[BackBufferWidth BackBufferHeight BackBufferFormat DepthStencilFormat
+                        MultiSampleCount DisplayOrientation PresentationInterval RenderTargetUsage
+                        DeviceWindowHandle IsFullScreen].freeze
+        private_constant :PARAMETERS
+
+        private
+
+        # `Int32.GetHashCode` is the value, an enum's is its underlying value, `Boolean`'s is 1 or 0
+        # and `IntPtr`'s is its low 32 bits.
+        def hash_of(value)
+          case value
+          when true then 1
+          when false then 0
+          when ::Integer then value
+          else value.to_i
+          end
+        end
+
+        class << self
+          private
+
+          # The one reader of a native configuration: the `PreparingDeviceSettings` subscription.
+          def from_native(layout)
+            information = allocate
+            information.instance_variable_set(:@adapter, Graphics::GraphicsAdapter.__send__(:adapter_at, layout.read_i32(8)))
+            information.instance_variable_set(:@graphics_profile, Graphics::GraphicsProfile.coerce(layout.read_u32(12)))
+            base = CNA::Native::Layouts::GraphicsDeviceInformation::PRESENTATION_PARAMETERS
+            parameters = Graphics::PresentationParameters.new
+            parameters.BackBufferFormat = layout.read_u32(base + 8)
+            parameters.BackBufferWidth = layout.read_i32(base + 12)
+            parameters.BackBufferHeight = layout.read_i32(base + 16)
+            parameters.DepthStencilFormat = layout.read_u32(base + 20)
+            parameters.MultiSampleCount = layout.read_i32(base + 24)
+            parameters.PresentationInterval = layout.read_u32(base + 28)
+            parameters.DisplayOrientation = layout.read_u32(base + 32)
+            parameters.RenderTargetUsage = layout.read_u32(base + 36)
+            parameters.IsFullScreen = !layout.read_u8(base + 40).zero?
+            information.instance_variable_set(:@presentation_parameters, parameters)
+            information
+          end
+        end
+
+        # What the handlers left, written back into CNA's mutable configuration. CNA validates it
+        # and ignores a structure it cannot use, so nothing here second-guesses a value.
+        def write_native(layout)
+          layout.write_i32(8, @adapter.nil? ? 0 : @adapter.__send__(:adapter_index))
+          layout.write_u32(12, @graphics_profile.to_i)
+          parameters = @presentation_parameters
+          return if parameters.nil?
+
+          base = CNA::Native::Layouts::GraphicsDeviceInformation::PRESENTATION_PARAMETERS
+          layout.write_u32(base + 8, parameters.BackBufferFormat.to_i)
+          layout.write_i32(base + 12, parameters.BackBufferWidth)
+          layout.write_i32(base + 16, parameters.BackBufferHeight)
+          layout.write_u32(base + 20, parameters.DepthStencilFormat.to_i)
+          layout.write_i32(base + 24, parameters.MultiSampleCount)
+          layout.write_u32(base + 28, parameters.PresentationInterval.to_i)
+          layout.write_u32(base + 32, parameters.DisplayOrientation.to_i)
+          layout.write_u32(base + 36, parameters.RenderTargetUsage.to_i)
+          layout.write_u8(base + 40, parameters.IsFullScreen ? 1 : 0)
+        end
+      end
+
+      # `EventArgs` over one field, with a public constructor and a get-only property.
+      class PreparingDeviceSettingsEventArgs < CNA::Runtime::EventArgs
+        attr_reader :GraphicsDeviceInformation
+
+        def initialize(graphicsDeviceInformation)
+          super()
+          @GraphicsDeviceInformation = graphicsDeviceInformation
+        end
       end
 
       class GraphicsDeviceManager
@@ -7756,6 +8113,18 @@ module Microsoft
         xna_event :DeviceReset
         xna_event :DeviceResetting
         xna_event :Disposed
+        # The sixth, and the one that is **not** a relay: XNA raises it from `ChangeDevice` with the
+        # configuration it is about to create the device from, and what a handler writes into it is
+        # what the device gets. CNA's manager does the preparation, so this is its subscription --
+        # `cna_graphics_device_manager_subscribe_preparing_device_settings_ext`, whose configuration
+        # is mutable for the handler's duration -- and the Ruby configuration is written back when
+        # the handlers return.
+        #
+        # DEVIATION, recorded: the handler runs before the device exists, and `GraphicsAdapter`'s
+        # routes need a live device (see that type), so reading the adapter's properties from inside
+        # this handler refuses; choosing an adapter by ordinal, and every presentation parameter and
+        # the profile, work.
+        xna_event :PreparingDeviceSettings
 
         # The constructor's IL, in its order: a null game is
         # `ArgumentNullException("game", GameCannotBeNull)`, a game that already has an
@@ -7783,7 +8152,7 @@ module Microsoft
           end
 
           @game = game
-          @GraphicsDevice = Graphics::GraphicsDevice.__send__(:new, game)
+          @GraphicsDevice = Graphics::GraphicsDevice.__send__(:for_game, game)
           @native_handle = nil
           @disposed = false
           initialize_preferences
@@ -7847,12 +8216,72 @@ module Microsoft
           nil
         end
 
+        def OnPreparingDeviceSettings(sender, args)
+          self.PreparingDeviceSettings.__send__(:dispatch, sender, args)
+          nil
+        end
+
         def OnDeviceResetting(sender, args)
           self.DeviceResetting.__send__(:dispatch, sender, args)
           nil
         end
 
-        protected :OnDeviceCreated, :OnDeviceDisposing, :OnDeviceReset, :OnDeviceResetting
+        # ------------------------------------------------------------ choosing a device
+        #
+        # `FindBestDevice`, `RankDevices` and `CanResetDevice` are `family virtual` in XNA and are
+        # what its private `ChangeDevice` consults. They are reproduced here from the IL --
+        # `FindBestPlatformDevice`, both `AddDevices` and `GraphicsDeviceInformationComparer` -- over
+        # the real adapter data CNA answers since ABI 0.35.0.
+        #
+        # DEVIATION, recorded: **CNA's manager chooses and creates the device**, so these compute
+        # XNA's answer and a subclass may call or override them, but an override does not steer
+        # CNA's creation. The configuration CNA actually uses is the one `PreparingDeviceSettings`
+        # delivers, and a handler's changes to it are applied. Like every adapter read they need a
+        # live device, so they answer inside a lifecycle callback. XNA's `IsWindowOnAdapter`
+        # compares screens; CNA exposes no window-to-adapter mapping, so the window is taken to be on
+        # the adapter the game's device was created on.
+
+        def FindBestDevice(anySuitableDevice)
+          raise ::TypeError, "anySuitableDevice must be true or false" unless [true, false].include?(anySuitableDevice)
+
+          found = []
+          add_devices(anySuitableDevice, found)
+          if found.empty? && @prefer_multi_sampling
+            self.PreferMultiSampling = false
+            add_devices(anySuitableDevice, found)
+          end
+          if found.empty?
+            raise Graphics::NoSuitableGraphicsDeviceException,
+                  "Could not find a Direct3D device that has a Direct3D9-level driver and supports " \
+                  "#{@graphics_profile}."
+          end
+
+          self.RankDevices(found)
+          if found.empty?
+            raise Graphics::NoSuitableGraphicsDeviceException,
+                  "No compatible Direct3D devices remained after ranking."
+          end
+          found[0]
+        end
+
+        # `device.GraphicsProfile != newDeviceInfo.GraphicsProfile` is the whole test.
+        def CanResetDevice(newDeviceInfo)
+          raise ::TypeError, "newDeviceInfo must be a GraphicsDeviceInformation" unless newDeviceInfo.is_a?(GraphicsDeviceInformation)
+
+          @GraphicsDevice.GraphicsProfile == newDeviceInfo.GraphicsProfile
+        end
+
+        # `foundDevices.Sort(new GraphicsDeviceInformationComparer(this))`, in place. `List.Sort`
+        # is not stable and neither is this; equal entries may come out in either order.
+        def RankDevices(foundDevices)
+          raise ::TypeError, "foundDevices must be an Array" unless foundDevices.is_a?(::Array)
+
+          foundDevices.sort! { |left, right| compare_devices(left, right) }
+          nil
+        end
+
+        protected :OnDeviceCreated, :OnDeviceDisposing, :OnDeviceReset, :OnDeviceResetting,
+                  :OnPreparingDeviceSettings, :FindBestDevice, :CanResetDevice, :RankDevices
 
         # `Dispose(bool disposing)`, in the IL's order:
         #
@@ -8001,6 +8430,7 @@ module Microsoft
 
           push_preferences
           @device_dirty = false
+          drain_preparing_exception
           nil
         end
 
@@ -8096,13 +8526,16 @@ module Microsoft
             handle: handle, ownership: CNA::Runtime::Ownership::OWNED,
             generation: @game.__send__(:generation), parent: @game,
             release: lambda do |value|
+              unsubscribe_preparing_device_settings
               CNA::Native.library.call("cna_graphics_device_manager_dispose", value)
               CNA::Native.library.call("cna_graphics_device_manager_destroy", value)
             end
           )
+          subscribe_preparing_device_settings(handle)
           # Whatever the consumer set before `Run` is pushed now, which is the moment XNA's own
           # `ChangeDevice` would first have run.
           push_preferences
+          drain_preparing_exception
           # `CreateDevice` ends with `OnDeviceCreated(this, EventArgs.Empty)`. This is that moment:
           # CNA's manager — which owns the device — now exists, and it is still before `Run`, so a
           # consumer that subscribed after `GraphicsDeviceManager.new` sees it, exactly as one who
@@ -8114,6 +8547,163 @@ module Microsoft
             CNA::Native.library.call("cna_graphics_device_manager_destroy", handle)
           end
           raise
+        end
+
+        def add_devices(any_suitable, found)
+          device_adapter = @GraphicsDevice.Adapter
+          window = @game.Window
+          Graphics::GraphicsAdapter.Adapters.GetEnumerator.each do |adapter|
+            next if !any_suitable && !adapter.equal?(device_adapter)
+            next unless adapter.IsProfileSupported(@graphics_profile)
+
+            base = GraphicsDeviceInformation.new
+            base.Adapter = adapter
+            base.GraphicsProfile = @graphics_profile
+            base.PresentationParameters.DeviceWindowHandle = window.Handle
+            base.PresentationParameters.MultiSampleCount = 0
+            base.PresentationParameters.IsFullScreen = @is_full_screen
+            base.PresentationParameters.PresentationInterval =
+              @synchronize_with_vertical_retrace ? Graphics::PresentInterval::One : Graphics::PresentInterval::Immediate
+            add_device(adapter, adapter.CurrentDisplayMode, base, found)
+            next unless @is_full_screen
+
+            adapter.SupportedDisplayModes.GetEnumerator.each do |mode|
+              add_device(adapter, mode, base, found) if mode.Width >= 640 && mode.Height >= 480
+            end
+          rescue CNA::Runtime::NotSupportedError, CNA::CapabilityError
+            next
+          end
+        end
+
+        def add_device(adapter, mode, base, found)
+          information = base.Clone
+          parameters = information.PresentationParameters
+          if @is_full_screen
+            parameters.BackBufferWidth = mode.Width
+            parameters.BackBufferHeight = mode.Height
+          elsif @use_resized_back_buffer
+            bounds = @game.Window.ClientBounds
+            parameters.BackBufferWidth = bounds.Width
+            parameters.BackBufferHeight = bounds.Height
+          else
+            parameters.BackBufferWidth = @back_buffer_width
+            parameters.BackBufferHeight = @back_buffer_height
+          end
+          _supported, format, depth, samples = adapter.QueryBackBufferFormat(
+            information.GraphicsProfile, mode.Format, @depth_stencil_format, @prefer_multi_sampling ? 16 : 0
+          )
+          parameters.BackBufferFormat = format
+          parameters.DepthStencilFormat = depth
+          parameters.MultiSampleCount = samples
+          found << information unless found.any? { |entry| entry.Equals(information) }
+        end
+
+        # `GraphicsDeviceInformationComparer.Compare`, branch for branch.
+        def compare_devices(first, second)
+          if first.GraphicsProfile != second.GraphicsProfile
+            return first.GraphicsProfile.to_i <= second.GraphicsProfile.to_i ? 1 : -1
+          end
+
+          one = first.PresentationParameters
+          two = second.PresentationParameters
+          if one.IsFullScreen != two.IsFullScreen
+            return @is_full_screen != one.IsFullScreen ? 1 : -1
+          end
+
+          rank_one = rank_format(one.BackBufferFormat)
+          rank_two = rank_format(two.BackBufferFormat)
+          return rank_one >= rank_two ? 1 : -1 if rank_one != rank_two
+
+          if one.MultiSampleCount != two.MultiSampleCount
+            return one.MultiSampleCount <= two.MultiSampleCount ? 1 : -1
+          end
+
+          n = CNA::Runtime::Numeric
+          preferred = n.div32(n.f32(preferred_width), n.f32(preferred_height))
+          aspect_one = n.div32(n.f32(one.BackBufferWidth), n.f32(one.BackBufferHeight))
+          aspect_two = n.div32(n.f32(two.BackBufferWidth), n.f32(two.BackBufferHeight))
+          distance_one = n.f32((aspect_one - preferred).abs)
+          distance_two = n.f32((aspect_two - preferred).abs)
+          if n.f32((distance_one - distance_two).abs) > n.f32(0.2)
+            return distance_one < distance_two ? -1 : 1
+          end
+
+          if !@is_full_screen
+            area_one = area_two = preferred_width * preferred_height
+          elsif @back_buffer_width.zero? || @back_buffer_height.zero?
+            area_one = first.Adapter.CurrentDisplayMode.Width * first.Adapter.CurrentDisplayMode.Height
+            area_two = second.Adapter.CurrentDisplayMode.Width * second.Adapter.CurrentDisplayMode.Height
+          else
+            area_one = area_two = @back_buffer_width * @back_buffer_height
+          end
+          gap_one = ((one.BackBufferWidth * one.BackBufferHeight) - area_one).abs
+          gap_two = ((two.BackBufferWidth * two.BackBufferHeight) - area_two).abs
+          return gap_one >= gap_two ? 1 : -1 if gap_one != gap_two
+
+          if !first.Adapter.equal?(second.Adapter)
+            return -1 if first.Adapter.IsDefaultAdapter
+            return 1 if second.Adapter.IsDefaultAdapter
+          end
+          0
+        end
+
+        def preferred_width = @back_buffer_width.zero? || @back_buffer_height.zero? ? DefaultBackBufferWidth : @back_buffer_width
+
+        def preferred_height = @back_buffer_width.zero? || @back_buffer_height.zero? ? DefaultBackBufferHeight : @back_buffer_height
+
+        def rank_format(format)
+          return 0 if format == @back_buffer_format
+          return 1 if format_bit_depth(format) == format_bit_depth(@back_buffer_format)
+
+          2_147_483_647
+        end
+
+        def format_bit_depth(format)
+          case format
+          when Graphics::SurfaceFormat::Color, Graphics::SurfaceFormat::Rgba1010102 then 32
+          when Graphics::SurfaceFormat::Bgr565, Graphics::SurfaceFormat::Bgra5551, Graphics::SurfaceFormat::Bgra4444 then 16
+          else 0
+          end
+        end
+
+        def subscribe_preparing_device_settings(handle)
+          @preparing_callback = Fiddle::Closure::BlockCaller.new(Fiddle::TYPE_VOID,
+                                                                 [Fiddle::TYPE_VOIDP, Fiddle::TYPE_VOIDP]) do |information, _context|
+            begin
+              if @pending_preparing_exception.nil?
+                layout = CNA::Native::Layouts::GraphicsDeviceInformation.at(information)
+                settings = GraphicsDeviceInformation.__send__(:from_native, layout)
+                OnPreparingDeviceSettings(self, PreparingDeviceSettingsEventArgs.new(settings))
+                settings.__send__(:write_native, layout)
+              end
+            rescue Exception => exception # rubocop:disable Lint/RescueException
+              # Nothing may escape into C; the frame that caused the event re-raises it.
+              @pending_preparing_exception ||= exception
+            end
+            nil
+          end
+          output = CNA::Native.library.pointer_for("Q", 0)
+          CNA::Native.library.call("cna_graphics_device_manager_subscribe_preparing_device_settings_ext",
+                                   handle, @preparing_callback, nil, output)
+          @preparing_registration = output[0, 8].unpack1("Q")
+        end
+
+        def unsubscribe_preparing_device_settings
+          registration = @preparing_registration
+          @preparing_registration = nil
+          CNA::Native.library.call("cna_game_unsubscribe", registration) if registration && !registration.zero?
+          @preparing_callback = nil
+        end
+
+        # A handler's exception from a preparation this manager started surfaces from the call that
+        # started it; one raised during a preparation the running game started is handed to the
+        # Game host's pending channel, which is where every other callback exception goes.
+        def drain_preparing_exception
+          exception = @pending_preparing_exception
+          @pending_preparing_exception = nil
+          raise exception if exception
+
+          nil
         end
 
         # A disposed manager has no device to borrow, so it attaches none.
@@ -8133,6 +8723,10 @@ module Microsoft
         # callback **or when no device exists**" -- which is exactly the situation a disposed
         # manager is in.
         def begin_native_callback
+          if @pending_preparing_exception
+            @game.__send__(:record_callback_exception, @pending_preparing_exception)
+            @pending_preparing_exception = nil
+          end
           return if @native_handle.nil? || @native_handle.disposed? || @GraphicsDevice.nil?
           output = CNA::Native.library.pointer_for("Q", 0)
           result = CNA::Native.library.function("cna_graphics_device_manager_get_graphics_device").call(@native_handle.value, output)
@@ -8243,12 +8837,9 @@ end
 # `ContentManager.Load(Model, name)` is the only producer XNA gives a consumer -- `Model`'s
 # constructor is `assembly` -- and `cna_content_manager_load_model` is its canonical route.
 #
-# UPSTREAM: loading a model makes **process shutdown** segfault, on every qualified artifact, with
-# the game already disposed and with or without `cna_content_manager_unload`. The API itself is
-# correct and the model is complete; only teardown is not. Nothing here works around it and nothing
-# hides it -- `docs/model-load-shutdown-upstream-defect.md` carries the whole measurement and
-# `test/test_model.rb` asserts the crash so that a later CNA fixing it fails a test rather than
-# passing unnoticed.
+# Through ABI 0.21.0 loading a model made **process shutdown** segfault; CNA 1480cea4c fixed it and
+# ABI 0.35.0 shuts down cleanly (`docs/model-load-shutdown-upstream-defect.md`,
+# `ModelTest#test_loading_a_model_shuts_down_cleanly`).
 Microsoft::Xna::Framework::Content::ContentManager.__send__(
   :register_materializer, Microsoft::Xna::Framework::Graphics::Model
 ) do |manager, asset_name|

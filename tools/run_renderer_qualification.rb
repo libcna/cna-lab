@@ -66,11 +66,13 @@ end
 class QualificationGame < F::Game
   attr_reader :captured
 
+  # HiDef: the report records what the renderer can do, and XNA's Reach table (which CNA enforces
+  # since ABI 0.35.0) refuses volume textures, occlusion queries and a second render target outright.
   def initialize(&body)
     @body = body
     @captured = nil
     super()
-    F::GraphicsDeviceManager.new(self)
+    F::GraphicsDeviceManager.new(self).GraphicsProfile = F::Graphics::GraphicsProfile::HiDef
   end
 
   def Draw(_time)

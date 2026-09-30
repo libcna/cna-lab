@@ -37,7 +37,7 @@ class RendererQualificationTest < Minitest::Test
   # so the assertion is that the two the milestone qualified are still there and that every recorded
   # artifact is a distinct binary.
   def test_the_qualified_artifacts_are_recorded_and_differ_only_in_the_renderer
-    assert_equal %w[HEADLESS OPENGL33], (runs.keys & %w[HEADLESS OPENGL33]).sort
+    assert_equal %w[HEADLESS OPENGLES3], (runs.keys & %w[HEADLESS OPENGLES3]).sort
     paths = runs.values.map { |run| run.fetch("artifact").fetch("path") }
     assert_equal runs.length, paths.uniq.length
     digests = runs.values.map { |run| run.fetch("artifact").fetch("sha256") }
@@ -104,19 +104,19 @@ class RendererQualificationTest < Minitest::Test
     end
   end
 
-  # `docs/graphics-adapter-ordering-upstream-defect.md`. Recorded as a fact of the artifact rather
-  # than argued: on a build with a real window, two canonical routes disagree in one frame about
-  # whether this host has a display.
+  # `docs/graphics-adapter-ordering-upstream-defect.md`. Through ABI 0.21.0, on a build with a real
+  # window, two canonical routes disagreed in one frame about whether this host has a display. CNA
+  # fixed the ordering (BINDFIX-001); on ABI 0.35.0 a windowed build's adapter is the window's
+  # display, and only a windowless one answers the no-display fallback.
   def self.conflict_findings(name, run, windowless)
     conflict = run.fetch("displayEvidenceConflict")
     findings = []
-    findings << "#{name}: the adapter is no longer the no-display fallback" unless
-      conflict.fetch("adapterIsTheNoDisplayFallback")
+    findings << "#{name}: the adapter fallback does not match the renderer's own kind" unless
+      conflict.fetch("adapterIsTheNoDisplayFallback") == windowless
     findings << "#{name}: cna_graphics_adapters_refresh no longer refuses" unless conflict.fetch("refreshRefused")
     findings << "#{name}: window surface disagrees with the renderer's own kind" unless
       conflict.fetch("windowHasANativeSurface") == !windowless
-    findings << "#{name}: the adapter/window contradiction is not recorded" unless
-      conflict.fetch("adapterContradictsTheWindow") == !windowless
+    findings << "#{name}: the adapter contradicts the window" if conflict.fetch("adapterContradictsTheWindow")
     findings
   end
 
@@ -151,7 +151,7 @@ class RendererQualificationTest < Minitest::Test
   end
 
   def test_a_windowed_renderer_reads_a_cleared_render_target_back_exactly
-    windowed = runs.fetch("OPENGL33").fetch("renderTarget")
+    windowed = runs.fetch("OPENGLES3").fetch("renderTarget")
     assert_equal 0, windowed.fetch("readResult")
     assert_equal [64, 128, 191, 255], windowed.fetch("clearedTo")
     assert_equal [64, 128, 191, 255], windowed.fetch("firstPixel")
@@ -190,13 +190,18 @@ class RendererQualificationTest < Minitest::Test
 
   # ------------------------------------------------------------------- the upstream defect it found
 
-  def test_the_adapter_contradicts_the_window_on_a_windowed_renderer
-    conflict = runs.fetch("OPENGL33").fetch("displayEvidenceConflict")
+  # The defect this milestone found, re-measured on ABI 0.35.0: fixed. The window and the adapter
+  # now name the same display, and the adapter reports that display's own mode.
+  def test_the_adapter_agrees_with_the_window_on_a_windowed_renderer
+    run = runs.fetch("OPENGLES3")
+    conflict = run.fetch("displayEvidenceConflict")
     assert conflict.fetch("windowHasANativeSurface")
-    assert conflict.fetch("adapterIsTheNoDisplayFallback")
-    assert conflict.fetch("adapterContradictsTheWindow")
+    refute conflict.fetch("adapterIsTheNoDisplayFallback")
+    refute conflict.fetch("adapterContradictsTheWindow")
     assert conflict.fetch("refreshRefused")
-    refute_equal conflict.fetch("windowReportsADisplayNamed"), conflict.fetch("adapterReportsDescription")
+    assert_equal conflict.fetch("windowReportsADisplayNamed"), conflict.fetch("adapterReportsDescription")
+    refute_equal [800, 480], conflict.fetch("adapterReportsCurrentMode")
+    assert_operator run.fetch("adapter").fetch("supportedDisplayModes").length, :>, 1
   end
 
   # It is not the renderer selection, which is what this repository recorded for several milestones,
@@ -205,7 +210,7 @@ class RendererQualificationTest < Minitest::Test
     defect = ROOT.join("docs", "graphics-adapter-ordering-upstream-defect.md").read
     assert_includes defect, "getDefaultAdapterProperty"
     assert_includes defect, "cna_graphics_adapters_refresh"
-    assert_includes defect, "UPSTREAM_CNA_BLOCKED"
+    assert_includes defect, "Fixed upstream"
 
     qualification = ROOT.join("docs", "real-renderer-qualification-evidence.md").read
     assert_includes qualification, "needsWindow"
@@ -213,7 +218,7 @@ class RendererQualificationTest < Minitest::Test
 
     registry = JSON.parse(ROOT.join("docs", "runtime-capabilities.json").read).fetch("capabilities")
     adapter = registry.find { |row| row.fetch("id") == "display.adapter-enumeration" }
-    assert_equal "UPSTREAM_CNA_BLOCKED", adapter.fetch("category")
+    assert_equal "VERIFIED_NATIVE_RENDERER", adapter.fetch("category")
     # Every claim in this category needs a renderer that really rasterises. The three the milestone
     # itself added are named; a later one that earns the category joins them, and the assertion is
     # that the three are still there rather than that nothing else ever will be.
@@ -233,8 +238,8 @@ class RendererQualificationTest < Minitest::Test
       { "renderTarget" => { "firstPixel" => [0, 0, 0, 0] } },
     "a windowed renderer recorded as windowless" =>
       { "renderer" => { "nativeWindowSystem" => 0, "clientBounds" => [0, 0, 0, 0] } },
-    "the upstream defect quietly declared fixed" =>
-      { "displayEvidenceConflict" => { "adapterContradictsTheWindow" => false } },
+    "the upstream defect quietly returning" =>
+      { "displayEvidenceConflict" => { "adapterContradictsTheWindow" => true, "adapterIsTheNoDisplayFallback" => true } },
     "a short run passed off as the long one" =>
       { "frames" => { "long" => { "completed" => 59 } } },
     "a readback that failed reported as a pass" =>
@@ -245,11 +250,11 @@ class RendererQualificationTest < Minitest::Test
 
   def test_every_guard_fails_on_its_own_planted_defect
     MUTATIONS.each do |description, mutation|
-      mutated = deep_merge(runs.fetch("OPENGL33"), mutation)
-      refute_empty findings_for("OPENGL33", mutated), description
+      mutated = deep_merge(runs.fetch("OPENGLES3"), mutation)
+      refute_empty findings_for("OPENGLES3", mutated), description
     end
     # And the control: the unmutated run passes the same rule.
-    assert_empty findings_for("OPENGL33", runs.fetch("OPENGL33"))
+    assert_empty findings_for("OPENGLES3", runs.fetch("OPENGLES3"))
   end
 
   private

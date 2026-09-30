@@ -250,7 +250,7 @@ class InterfaceContractsTest < Minitest::Test
     # milestone claimed, and still claims, is that **it** built none of them. `GraphicsAdapter`
     # stands in their place: it reports invented hardware on every qualified artifact and is
     # blocked upstream, so it is the graphics identity that stays absent.
-    %i[GraphicsAdapter IEffectSkinning].each do |name|
+    %i[IEffectSkinning].each do |name|
       refute G.const_defined?(name, false), "Graphics::#{name}"
     end
     assert_kind_of Module, G::IEffectLights

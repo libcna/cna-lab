@@ -38,12 +38,13 @@ class GraphicsDeviceManagerEventsTest < Minitest::Test
     assert_equal 0, STRICT.fetch("EVENT_MAPPING_MISMATCH")
   end
 
-  # The whole point: ten members and **no** new native surface.
+  # The whole point: ten members and **no** new native surface. (The sixth event,
+  # `PreparingDeviceSettings`, arrived later with its own route,
+  # `cna_graphics_device_manager_subscribe_preparing_device_settings_ext`.)
   def test_no_native_route_was_added_for_any_of_them
     symbols = CNA::Native::Manifest::FUNCTIONS.map(&:symbol)
     %w[cna_graphics_device_manager_subscribe
        cna_graphics_device_manager_subscribe_preparing_device_settings
-       cna_graphics_device_manager_subscribe_preparing_device_settings_ext
        cna_graphics_device_manager_create_device
        cna_graphics_device_manager_begin_draw
        cna_graphics_device_manager_end_draw].each { |absent| refute_includes symbols, absent }

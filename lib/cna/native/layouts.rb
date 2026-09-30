@@ -478,8 +478,8 @@ module CNA
       # parameters are read from. It is a *caller-initialized* output -- `display.h` says so -- so
       # it fills its size and version in the constructor, exactly as `CNA_BackBufferInfo` does.
       #
-      # `CNA_DisplayMode` is deliberately absent: no bound route reads one, because the route that
-      # would answers invented hardware. See `Manifest`'s note beside the display properties.
+      # `CNA_DisplayMode` (below) was absent while every route that fills one answered invented
+      # hardware; see `Manifest`'s note beside the display properties.
       class PresentationParameters < Structure
         layout size: 44, alignment: 4, fields: [
           Layouts.field("struct_size", "uint32_t", 0, 4), Layouts.field("struct_version", "uint32_t", 4, 4),
@@ -499,6 +499,74 @@ module CNA
           super
           write_u32(0, self.class.size)
           write_u32(4, 1)
+        end
+      end
+
+      class DisplayMode < Structure
+        layout size: 24, alignment: 4, fields: [
+          Layouts.field("struct_size", "uint32_t", 0, 4), Layouts.field("struct_version", "uint32_t", 4, 4),
+          Layouts.field("width", "int32_t", 8, 4), Layouts.field("height", "int32_t", 12, 4),
+          Layouts.field("aspect_ratio", "float", 16, 4), Layouts.field("format", "CNA_SurfaceFormat", 20, 4)
+        ]
+
+        def initialize
+          super
+          write_u32(0, self.class.size)
+          write_u32(4, 1)
+        end
+      end
+
+      class GraphicsAdapterInfo < Structure
+        layout size: 48, alignment: 8, fields: [
+          Layouts.field("struct_size", "uint32_t", 0, 4), Layouts.field("struct_version", "uint32_t", 4, 4),
+          Layouts.field("adapter_index", "uint32_t", 8, 4),
+          Layouts.field("is_default_adapter", "CNA_Bool", 12, 1), Layouts.field("is_wide_screen", "CNA_Bool", 13, 1),
+          Layouts.field("use_null_device", "CNA_Bool", 14, 1), Layouts.field("use_reference_device", "CNA_Bool", 15, 1),
+          Layouts.field("vendor_id", "int32_t", 16, 4), Layouts.field("device_id", "int32_t", 20, 4),
+          Layouts.field("revision", "int32_t", 24, 4), Layouts.field("subsystem_id", "int32_t", 28, 4),
+          Layouts.field("description_byte_length", "uint64_t", 32, 8),
+          Layouts.field("device_name_byte_length", "uint64_t", 40, 8)
+        ]
+
+        def initialize
+          super
+          write_u32(0, self.class.size)
+          write_u32(4, 1)
+        end
+      end
+
+      class GraphicsFormatSelection < Structure
+        layout size: 24, alignment: 4, fields: [
+          Layouts.field("struct_size", "uint32_t", 0, 4), Layouts.field("struct_version", "uint32_t", 4, 4),
+          Layouts.field("exact_match", "CNA_Bool", 8, 1), Layouts.field("reserved", "uint8_t[3]", 9, 3),
+          Layouts.field("format", "CNA_SurfaceFormat", 12, 4), Layouts.field("depth_format", "CNA_DepthFormat", 16, 4),
+          Layouts.field("multi_sample_count", "int32_t", 20, 4)
+        ]
+
+        def initialize
+          super
+          write_u32(0, self.class.size)
+          write_u32(4, 1)
+        end
+      end
+
+      # `CNA_GraphicsDeviceInformation` embeds a whole `CNA_PresentationParameters` at 16. It only
+      # ever arrives from CNA -- borrowed by the `PreparingDeviceSettings` handler -- so this layout
+      # is read and written in place through `at` rather than allocated.
+      class GraphicsDeviceInformation < Structure
+        PRESENTATION_PARAMETERS = 16
+
+        layout size: 60, alignment: 4, fields: [
+          Layouts.field("struct_size", "uint32_t", 0, 4), Layouts.field("struct_version", "uint32_t", 4, 4),
+          Layouts.field("adapter_index", "int32_t", 8, 4),
+          Layouts.field("graphics_profile", "CNA_GraphicsProfile", 12, 4),
+          Layouts.field("presentation_parameters", "CNA_PresentationParameters", 16, 44)
+        ]
+
+        def self.at(pointer)
+          instance = allocate
+          instance.instance_variable_set(:@pointer, pointer)
+          instance
         end
       end
 
@@ -767,22 +835,6 @@ module CNA
           Layouts.field("has_renderer", "CNA_Bool", 18, 1),
           Layouts.field("vertex_stride", "int32_t", 20, 4),
           Layouts.field("vertex_element_count", "uint64_t", 24, 8)
-        ]
-
-        def initialize
-          super
-          write_u32(0, self.class.size)
-          write_u32(4, 1)
-        end
-      end
-
-      class VertexBufferTransfer < Structure
-        layout size: 32, alignment: 8, fields: [
-          Layouts.field("struct_size", "uint32_t", 0, 4), Layouts.field("struct_version", "uint32_t", 4, 4),
-          Layouts.field("vertex_type", "CNA_VertexType", 8, 4),
-          Layouts.field("options", "CNA_SetDataOptions", 12, 4),
-          Layouts.field("start_index", "uint64_t", 16, 8),
-          Layouts.field("element_count", "uint64_t", 24, 8)
         ]
 
         def initialize

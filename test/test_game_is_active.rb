@@ -97,13 +97,22 @@ class GameIsActiveTest < Minitest::Test
     assert_equal %w[CNA_Handle CNA_Bool], game_route.c_arguments
   end
 
-  # They really answer with no Game in the process, which is what makes the IL's evaluation order
-  # — both GamerServices terms first, `isActive` second — projectable as written.
+  # They need no Game in the process, which is what makes the IL's evaluation order — both
+  # GamerServices terms first, `isActive` second — projectable as written. `IsInitialized` always
+  # answers; `Guide.IsVisible` answers only once the dispatcher is initialized and otherwise refuses,
+  # which is XNA's `InvalidOperationException(GamerServicesNotInitialized)` (CNA ABI 0.35.0 refuses
+  # with `CNA_RESULT_INVALID_STATE`). The IL reads it only after `IsInitialized` says yes, and so
+  # does `IsActive` here.
   def test_the_gamer_services_routes_answer_without_a_game
     library = CNA::Native.library
-    ROUTES.drop(1).each do |route|
-      output = library.pointer_for("C", 0)
-      assert_equal 0, library.call(route, output)
+    initialized = library.pointer_for("C", 0)
+    assert_equal 0, library.call("cna_gamer_services_dispatcher_get_is_initialized", initialized)
+    visible = library.pointer_for("C", 0)
+    if initialized[0, 1].unpack1("C") == 1
+      assert_equal 0, library.call("cna_guide_get_is_visible", visible)
+    else
+      error = assert_raises(CNA::NativeError) { library.call("cna_guide_get_is_visible", visible) }
+      assert_equal 3, error.result
     end
   end
 

@@ -104,12 +104,12 @@ block below is **generated** by `tools/scoreboard.rb` from the reports, rewritte
 | count | what it measures |
 | ---: | --- |
 | 257 | XNA 4.0 Windows reference types |
-| 254 | types this binding projects |
-| 2880 | Ruby member identities |
-| 252 | complete types |
-| 2 | partial types |
-| 3 | missing types |
-| 48 | event identities |
+| 257 | types this binding projects |
+| 2915 | Ruby member identities |
+| 257 | complete types |
+| 0 | partial types |
+| 0 | missing types |
+| 49 | event identities |
 | 24 | types owning an event |
 | 50 | projected BCL identities |
 
@@ -117,10 +117,10 @@ block below is **generated** by `tools/scoreboard.rb` from the reports, rewritte
 
 | count | what it measures |
 | ---: | --- |
-| 16 | strict diagnostics in total |
-| 3 | `MISSING_TYPE` |
-| 8 | `MISSING_MEMBER` |
-| 5 | `OVERLOAD_MAPPING_MISMATCH` |
+| 0 | strict diagnostics in total |
+| 0 | `MISSING_TYPE` |
+| 0 | `MISSING_MEMBER` |
+| 0 | `OVERLOAD_MAPPING_MISMATCH` |
 | 0 | `PROPERTY_MAPPING_MISMATCH` |
 | 0 | every other structural category, summed |
 | 0 | allowlist entries |
@@ -130,19 +130,19 @@ block below is **generated** by `tools/scoreboard.rb` from the reports, rewritte
 
 | count | what it measures |
 | ---: | --- |
-| 3 | members `GraphicsDevice` still owes |
-| 5 | members `GraphicsDeviceManager` still owes |
+| 0 | partial types |
+| 0 | members partial types still owe |
 
 **Native ABI**
 
 | count | what it measures |
 | ---: | --- |
-| 760 | bound C functions |
-| 7 | callbacks |
-| 152 | constants |
-| 68 | struct layouts |
-| 2 | admitted encoded ABI versions |
-| 2 | header roots cross-verified |
+| 777 | bound C functions |
+| 8 | callbacks |
+| 148 | constants |
+| 71 | struct layouts |
+| 1 | admitted encoded ABI versions |
+| 1 | header roots cross-verified |
 | 0 | `ABI_MISMATCHES` |
 | 0 | `CROSS_VERSION_MISMATCHES` |
 | 0 | missing header symbols |
@@ -159,7 +159,7 @@ block below is **generated** by `tools/scoreboard.rb` from the reports, rewritte
 
 | count | what it measures |
 | ---: | --- |
-| 1 | dependency-complete frontier candidates |
+| 0 | dependency-complete frontier candidates |
 | 0 | of them consumable now |
 
 **Capability registry**
@@ -170,44 +170,37 @@ block below is **generated** by `tools/scoreboard.rb` from the reports, rewritte
 
 <!-- scoreboard:end -->
 
-`GraphicsDevice` and `GraphicsDeviceManager` are the two partial types, and
-`docs/graphics-runtime-member-audit.md` enumerates every member each still owes together with what
-that member actually needs. `Media.Song` was a third for one milestone, on a blocker Foundation 104
-measured false: `cna_song_get_album`, `_artist` and `_genre` are in both admitted header roots and
-in the shipped library, and are bound now.
+`GraphicsDevice` and `GraphicsDeviceManager` were the last partial types, and since the ABI 0.35.0
+requalification (2026-09-30) they are the zero partial types in the report: nothing is left.
 
-## What is left, and what each thing is waiting for
+## The ABI 0.35.0 requalification (2026-09-30)
 
-`docs/remaining-surface-audit.md` classifies **every** remaining member and type at Foundation 105,
-with the evidence for each rather than a judgement. In summary:
+This repository is being archived into `cna-lab`, and before that it was requalified against CNA
+`next` (C ABI 0.35.0). What that pass measured and changed:
 
-| What | Count | Classification |
-| --- | ---: | --- |
-| `GraphicsDevice`'s 3 and `GraphicsDeviceManager`'s 5 | 8 members | `BLOCKED_UPSTREAM_CNA` — all eight trace to the one adapter defect |
-| `GraphicsAdapter`, `GraphicsDeviceInformation`, `PreparingDeviceSettingsEventArgs` | 3 types | `BLOCKED_UPSTREAM_CNA` — the same defect |
-
-The thirteen `Design` converters were on this table as `BCL_PROJECTION_SCOPE` for four milestones,
-and Foundation 105 removed them by building them. That classification was a scope decision rather
-than a blocker — the authority was on the machine and the reach was measurable — so the milestone
-admitted `System.dll` as a second pinned BCL authority, projected the demand-driven
-`System.ComponentModel` closure the converters actually reach, and left the adapter defect as the
-only thing on this page.
-
-**What is left is one upstream defect.** The blocks that were local are Foundations 103, 104 and
-105, and
-each was surveyed before it was built rather than guessed at. `Media` bound 167 routes, each with a
-production call site, against a library this host really has — 35 pictures, an empty music half,
-`ABI_MISMATCHES` 0 on both roots. The `ContentReader` family bound **none**: the register decision
-turned out to be one line, `System.IO.BinaryReader`, and the thirty-one `cna_content_reader_*`
-routes turned out to be unreachable rather than unwanted, because `cna_content_reader_create` takes
-a save-game `CNA_StorageStreamHandle` and an XNA `ContentReader` reads a title asset.
-`docs/content-reader-native-route-audit.md` records that measurement. `PROPERTY_MAPPING_MISMATCH` is **zero**: the one entry it used to carry
-was `GraphicsDevice::Viewport`, and `docs/graphics-device-viewport-evidence.md` records why that was
-never a Ruby limitation -- `CNA_Viewport` is MEMORY class, and the setter works once the manifest
-expands it the way the System V classification says it travels.
-
-CNA ABI counts above are measured on **two admitted encoded versions** cross-verified across both
-header roots. **No CNA source was changed and no new native binary was built.**
+- **Admission.** The whole bound surface measures identically on the 0.21.0 and 0.35.0 headers, but
+  only the 0.35.0 runtime was run, so the admitted set is `0.35.0` alone. None of the 855 routes
+  CNA removed between 0.21.0 and 0.35.0 was bound.
+- **Upstream findings re-measured**, each against the artifact rather than the note: the adapter
+  ordering defect, the SpriteBatch null descriptors, the render-target upload, the stencil masks,
+  the microphone buffer duration, the BasicEffect parameters, and the model load/shutdown and
+  model-destroy crashes are all **fixed** upstream, and their pins now assert the fixed behaviour.
+  Four more were found or confirmed during the pass and fixed in CNA the same day: the generic
+  effect routes faulting on a model-owned effect (BINDFIX-040), a model load leaving the game
+  undestroyable (2eb950cf9), a byte view of a `Color` texture transferring four bytes of sixteen
+  (BINDFIX-042) and the decode-zoom asymmetry (BINDFIX-043). The microphone sample arithmetic,
+  `LaunchParameters` and the `SoundEffectInstance` setter differences remain XNA divergences this
+  binding reproduces in managed code.
+- **The adapter tail is built.** `GraphicsAdapter`, `GraphicsDeviceInformation`,
+  `PreparingDeviceSettingsEventArgs`, `GraphicsDevice.Adapter`/`DisplayMode`/public constructor and
+  `GraphicsDeviceManager.FindBestDevice`/`CanResetDevice`/`RankDevices`/`OnPreparingDeviceSettings`/
+  `PreparingDeviceSettings` are projected; `docs/generated/api-compat-report.json` is complete.
+- **Profile rules.** CNA now enforces XNA's Reach table (32-bit indices, one render target, no volume
+  textures, no occlusion query, no `GetBackBufferData`), so the tests that use HiDef features ask for
+  HiDef as an XNA game must, and each rule has its own Reach refusal test.
+- **Artifacts.** `~/deps/cna-c-abi-0.35.0` (HEADLESS) and `~/deps/cna-c-abi-0.35.0-opengles3-fx`
+  (OPENGLES3, compiled effects, CNAEXT, devices), each with a `PROVENANCE.txt`. Windowed runs use
+  CNA's `tools/platform/run_gpu_tests_private.sh`, never the desktop.
 
 The suite's own totals are **not** in that block and are no longer quoted here either. They used to
 be a hand-written paragraph — the one measurement in this document that no report wrote — and they

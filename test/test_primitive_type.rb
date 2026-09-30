@@ -171,7 +171,7 @@ class PrimitiveTypeTest < Minitest::Test
     # milestone claimed, and still claims, is that **it** built none of them. `GraphicsAdapter`
     # stands in their place: it reports invented hardware on every qualified artifact and is
     # blocked upstream, so it is the graphics identity that stays absent.
-    %i[GraphicsAdapter PrimitiveTypeConverter].each do |name|
+    %i[PrimitiveTypeConverter].each do |name|
       refute G.const_defined?(name, false), name.to_s
     end
     # `SetVertexBuffer` and `Indices` left this list when the device's binding slice landed. A

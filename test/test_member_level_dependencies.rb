@@ -275,7 +275,7 @@ class MemberLevelDependenciesTest < Minitest::Test
       assert_includes STRICT.fetch("completeTypeNames"), name
       assert_nil REPORT.fetch("ilOnlyBlockedCandidates").find { |item| item.fetch("name") == name }
     end
-    assert_includes STRICT.fetch("missingTypeNames"), "Microsoft.Xna.Framework.Graphics.GraphicsAdapter"
+    assert_includes STRICT.fetch("completeTypeNames"), "Microsoft.Xna.Framework.Graphics.GraphicsAdapter"
 
     # And the Graphics example that resolved: both halves of EffectAnnotation's are complete now.
     %w[Microsoft.Xna.Framework.Graphics.EffectAnnotation
@@ -317,8 +317,9 @@ class MemberLevelDependenciesTest < Minitest::Test
     # ...and 5 when the four buffer types and the binding were built, which made ModelMeshPart
     # dependency-complete: the frontier keeps uncovering what a completed base was hiding.
     # ...and 2 when the Model family was built, which took ModelMeshPart off it again.
-    # ...and 1 when the Design converters were built, which took MathTypeConverter off it.
-    assert_equal 1, REPORT.fetch("dependencyCompleteCandidates").length
+    # ...and 1 when the Design converters were built, which took MathTypeConverter off it, and 0
+    # when the adapter family was built at the ABI 0.35.0 requalification.
+    assert_equal 0, REPORT.fetch("dependencyCompleteCandidates").length
     assert_empty REPORT.fetch("consumableCandidates")
     assert_equal "none-consumable", REPORT.fetch("selectionRoute")
     assert_nil REPORT.fetch("selectedNext")
@@ -360,7 +361,7 @@ class MemberLevelDependenciesTest < Minitest::Test
     # member of the partial GraphicsDevice whose type its property names.
     assert_empty edges(name)
     assert_equal 0, edges(name).grep(/Graphics\.GraphicsDevice::/).length
-    assert_includes STRICT.fetch("partialTypes").keys, "Microsoft.Xna.Framework.Graphics.GraphicsDevice"
+    assert_includes STRICT.fetch("completeTypeNames"), "Microsoft.Xna.Framework.Graphics.GraphicsDevice"
 
     # A partial dependency is therefore *satisfiable*: the rule must stay member-level and must
     # never regress to "any reference to a partial type blocks". The

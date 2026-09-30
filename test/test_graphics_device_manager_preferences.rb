@@ -47,24 +47,24 @@ class GraphicsDeviceManagerPreferencesTest < Minitest::Test
       assert F::GraphicsDeviceManager.public_method_defined?(closed), closed
     end
     assert_equal ReviewedScoreboard::GRAPHICS_DEVICE_MANAGER_OUTSTANDING, remainder
-    # What is left names `GraphicsDeviceInformation`, or the event args that carry one.
-    %w[FindBestDevice CanResetDevice RankDevices
-       OnPreparingDeviceSettings PreparingDeviceSettings].each do |deferred|
-      assert_includes remainder, deferred
-      refute F::GraphicsDeviceManager.public_method_defined?(deferred), deferred
+    # The last five named `GraphicsDeviceInformation` or the event args that carry one; both types
+    # are projected since the ABI 0.35.0 requalification. The event is public and the four methods
+    # are `family`, so protected.
+    assert F::GraphicsDeviceManager.public_method_defined?(:PreparingDeviceSettings)
+    %w[FindBestDevice CanResetDevice RankDevices OnPreparingDeviceSettings].each do |closed|
+      assert F::GraphicsDeviceManager.protected_method_defined?(closed), closed
     end
     assert_equal ReviewedScoreboard::MISSING_MEMBER, STRICT.fetch("MISSING_MEMBER")
   end
 
-  # `GraphicsDeviceInformation` really is missing, so the three that name it are blocked by a type
-  # rather than by the audit — measured rather than asserted.
-  def test_the_three_that_are_not_the_audits_name_a_missing_type
+  # The three that name `GraphicsDeviceInformation` name a type the strict report calls complete.
+  def test_the_three_that_are_not_the_audits_name_a_complete_type
     %w[FindBestDevice CanResetDevice RankDevices].each do |name|
       member = REFERENCE.fetch(NAME).fetch("members").find { |m| m.fetch("name") == name }
       signature = [member["returnType"], *member.fetch("parameters", []).map { |p| p.fetch("type") }].join(" ")
       assert_includes signature, "GraphicsDeviceInformation", name
     end
-    assert_includes STRICT.fetch("missingTypeNames"), "Microsoft.Xna.Framework.GraphicsDeviceInformation"
+    assert_includes STRICT.fetch("completeTypeNames"), "Microsoft.Xna.Framework.GraphicsDeviceInformation"
   end
 
   # ------------------------------------------------------------------------------ live behaviour

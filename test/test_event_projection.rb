@@ -476,16 +476,17 @@ class EventProjectionTest < Minitest::Test
       Microsoft.Xna.Framework.Game::Exiting
       Microsoft.Xna.Framework.Game::Disposed
       Microsoft.Xna.Framework.GraphicsDeviceManager::DeviceCreated
-      Microsoft.Xna.Framework.GraphicsDeviceManager::DeviceDisposing
-      Microsoft.Xna.Framework.GraphicsDeviceManager::DeviceReset
       Microsoft.Xna.Framework.GraphicsDeviceManager::DeviceResetting
+      Microsoft.Xna.Framework.GraphicsDeviceManager::DeviceReset
+      Microsoft.Xna.Framework.GraphicsDeviceManager::DeviceDisposing
+      Microsoft.Xna.Framework.GraphicsDeviceManager::PreparingDeviceSettings
       Microsoft.Xna.Framework.GraphicsDeviceManager::Disposed
       Microsoft.Xna.Framework.Graphics.GraphicsDevice::Disposing
+      Microsoft.Xna.Framework.Graphics.GraphicsDevice::ResourceDestroyed
+      Microsoft.Xna.Framework.Graphics.GraphicsDevice::ResourceCreated
       Microsoft.Xna.Framework.Graphics.GraphicsDevice::DeviceLost
       Microsoft.Xna.Framework.Graphics.GraphicsDevice::DeviceReset
       Microsoft.Xna.Framework.Graphics.GraphicsDevice::DeviceResetting
-      Microsoft.Xna.Framework.Graphics.GraphicsDevice::ResourceCreated
-      Microsoft.Xna.Framework.Graphics.GraphicsDevice::ResourceDestroyed
       Microsoft.Xna.Framework.Graphics.GraphicsResource::Disposing
       Microsoft.Xna.Framework.GameWindow::ScreenDeviceNameChanged
       Microsoft.Xna.Framework.GameWindow::ClientSizeChanged

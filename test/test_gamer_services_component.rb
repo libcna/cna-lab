@@ -2,6 +2,7 @@
 
 require "minitest/autorun"
 require "json"
+require "open3"
 require "pathname"
 require_relative "reviewed_measurements"
 require_relative "../lib/cna"
@@ -76,33 +77,50 @@ class GamerServicesComponentTest < Minitest::Test
 
   # ---------------------------------------------------------------------------- live behaviour
 
-  class HostGame < F::Game
-    attr_reader :component, :updates
+  # `GamerServicesDispatcher` is a process-global static that XNA initializes once per process:
+  # its `Initialize` opens with `if (IsInitialized) throw new
+  # InvalidOperationException(GamerServicesAlreadyInitialized)`, and CNA (ABI 0.35.0) refuses a
+  # second initialization the same way. So every live scenario runs in a fresh child process, which
+  # is exactly one process lifetime as XNA knows it.
+  CHILD_PREAMBLE = <<~'CHILD'
+    require "cna"
+    require "json"
+    F = Microsoft::Xna::Framework
+    GS = Microsoft::Xna::Framework::GamerServices
 
-    def initialize
-      @updates = 0
-      super
-      @component = GS::GamerServicesComponent.new(self)
-      self.Components.Add(@component)
+    class HostGame < F::Game
+      attr_reader :component, :updates
+
+      def initialize
+        @updates = 0
+        super
+        @component = GS::GamerServicesComponent.new(self)
+        self.Components.Add(@component)
+      end
+
+      def Update(gameTime)
+        @updates += 1
+        self.Exit if @updates >= 2
+        super
+      end
     end
 
-    def Update(gameTime)
-      @updates += 1
-      self.Exit if @updates >= 2
-      super
-    end
-  end
-
-  def with_game
-    skip "CNA_NATIVE_LIBRARY not supplied" unless ENV["CNA_NATIVE_LIBRARY"]
-
-    game = HostGame.new
-    begin
+    def with_game
+      game = HostGame.new
       game.Run
       yield game
     ensure
-      game.Dispose
+      game&.Dispose
     end
+  CHILD
+
+  def measured(body)
+    skip "CNA_NATIVE_LIBRARY not supplied" unless ENV["CNA_NATIVE_LIBRARY"]
+
+    output, status = Open3.capture2e("ruby", "-I#{ROOT.join("lib")}", "-e", CHILD_PREAMBLE + body,
+                                     chdir: ROOT.to_s)
+    assert status.success?, "child failed:\n#{output}"
+    JSON.parse(output[/^\{.*\}$/] || "{}")
   end
 
   # The dispatcher routes are process-global statics with no handle, which is what XNA's
@@ -118,24 +136,36 @@ class GamerServicesComponentTest < Minitest::Test
     assert_equal ["CNA_Handle"], handles.fetch("cna_gamer_services_dispatcher_initialize")
   end
 
-  # `Initialize` runs through the component engine, and it really reaches the dispatcher: the window
-  # handle it pushed is readable back through the dispatcher's own getter.
+  # `Initialize` runs through the component engine, and it really reaches the dispatcher: the
+  # subscription is a real owned registration and the dispatcher reports itself initialized.
   def test_initialize_pushes_the_window_handle_and_registers_a_subscription
-    with_game do |game|
-      refute_equal 0, game.component.instance_variable_get(:@registration),
-                   "the title-update subscription is a real owned registration"
-      assert game.component.Enabled, "and the component is an ordinary enabled GameComponent"
-      assert_same game, game.component.Game
-    end
+    result = measured(<<~'BODY')
+      out = nil
+      with_game do |game|
+        flag = CNA::Native.library.pointer_for("C", 0)
+        CNA::Native.library.call("cna_gamer_services_dispatcher_get_is_initialized", flag)
+        out = { registration: game.component.instance_variable_get(:@registration),
+                enabled: game.component.Enabled, same_game: game.component.Game.equal?(game),
+                initialized: flag[0, 1].unpack1("C") == 1 }
+      end
+      puts JSON.generate(out)
+    BODY
+    refute_equal 0, result.fetch("registration"), "the title-update subscription is a real owned registration"
+    assert result.fetch("enabled"), "and the component is an ordinary enabled GameComponent"
+    assert result.fetch("same_game")
+    assert result.fetch("initialized")
   end
 
   # `GamerServicesDispatcher.Update()` then `base.Update(gameTime)`. The component engine drives it,
   # so a running Game pumps the dispatcher without the consumer doing anything.
   def test_the_component_updates_with_the_game
-    with_game do |game|
-      assert_operator game.updates, :>=, 1
-      assert_includes game.Components, game.component
-    end
+    result = measured(<<~'BODY')
+      out = nil
+      with_game { |game| out = { updates: game.updates, listed: game.Components.include?(game.component) } }
+      puts JSON.generate(out)
+    BODY
+    assert_operator result.fetch("updates"), :>=, 1
+    assert result.fetch("listed")
   end
 
   # XNA subscribes to a static event and never unsubscribes. Here the subscription is a native
@@ -143,14 +173,38 @@ class GamerServicesComponentTest < Minitest::Test
   # event rather than by declaring a `Dispose` the contract does not have.
   def test_the_registration_is_released_on_disposal_without_declaring_dispose
     refute GS::GamerServicesComponent.public_instance_methods(false).include?(:Dispose)
-    with_game do |game|
-      component = game.component
-      refute_equal 0, component.instance_variable_get(:@registration)
-      component.Dispose
-      assert_equal 0, component.instance_variable_get(:@registration)
-      component.Dispose # idempotent
-      assert_equal 0, component.instance_variable_get(:@registration)
-    end
+    result = measured(<<~'BODY')
+      out = nil
+      with_game do |game|
+        component = game.component
+        before = component.instance_variable_get(:@registration)
+        component.Dispose
+        after = component.instance_variable_get(:@registration)
+        component.Dispose # idempotent
+        out = { before: before, after: after, again: component.instance_variable_get(:@registration) }
+      end
+      puts JSON.generate(out)
+    BODY
+    refute_equal 0, result.fetch("before")
+    assert_equal 0, result.fetch("after")
+    assert_equal 0, result.fetch("again")
+  end
+
+  # A second component in the same process is XNA's second `GamerServicesDispatcher.Initialize`,
+  # which the IL refuses with `InvalidOperationException(GamerServicesAlreadyInitialized)` -- after
+  # the window handle and the subscription, which come first in `GamerServicesComponent.Initialize`.
+  def test_a_second_initialization_in_one_process_is_xnas_invalid_operation
+    result = measured(<<~'BODY')
+      with_game { |_game| nil }
+      second = begin
+        with_game { |_game| nil }
+        "ok"
+      rescue StandardError => error
+        [error.class.name, error.message]
+      end
+      puts JSON.generate({ second: second })
+    BODY
+    assert_equal ["RuntimeError", "GamerServicesAlreadyInitialized"], result.fetch("second")
   end
 
   # ------------------------------------------------------------------- and exactly what it does not

@@ -1,5 +1,9 @@
 # The remaining surface, classified member by member
 
+**Superseded 2026-09-30 by the ABI 0.35.0 requalification:** the adapter defect every entry below
+traces to is fixed upstream, and the three types and eight members are projected. The strict report
+is complete (257/257, zero diagnostics). The rest is the Foundation 105 record.
+
 **Measured 2026-09-04 at Foundation 105**, against the strict report
 (`docs/generated/api-compat-report.json`), the pinned XNA IL, the two pinned BCL authorities and the
 qualified CNA C ABI 0.21.0 artifacts. 254 target types, **252 complete**, 2 partial, 3 missing.

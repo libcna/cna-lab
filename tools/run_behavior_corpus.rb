@@ -1179,21 +1179,24 @@ def execute(item)
       end
     end
   when "GameIsActive.GuideUnobservable"
-    # Why the guide branch is proved wired rather than exercised: the reviewed artifact accepts
-    # cna_guide_set_is_visible and never reflects it, so CNA reports no visible guide either way.
+    # Why the guide branch is proved wired rather than exercised. Through ABI 0.21.0 CNA accepted
+    # cna_guide_set_is_visible and never reflected it. ABI 0.34.0 removed that setter -- the Guide is
+    # visible exactly while one of its screens is up -- and Guide.IsVisible refuses until gamer
+    # services are initialized, which is XNA's GamerServicesNotInitialized. So no process that has
+    # not initialized them can observe a visible guide at all.
     library = CNA::Native.library
-    read = lambda do
-      output = library.pointer_for("C", 0)
-      library.call("cna_guide_get_is_visible", output)
-      output[0, 1].unpack1("C") != 0
-    end
     handle = library.instance_variable_get(:@handle)
-    setter = Fiddle::Function.new(handle["cna_guide_set_is_visible"], [Fiddle::TYPE_INT], Fiddle::TYPE_UINT32_T)
-    before = read.call
-    accepted = setter.call(1).zero?
-    after = read.call
-    setter.call(0)
-    [before, accepted, after, read.call]
+    exported = begin
+      handle["cna_guide_set_is_visible"]
+      true
+    rescue Fiddle::DLError
+      false
+    end
+    initialized = library.pointer_for("C", 0)
+    library.call("cna_gamer_services_dispatcher_get_is_initialized", initialized)
+    visible = library.pointer_for("C", 0)
+    result = library.function("cna_guide_get_is_visible").call(visible)
+    [exported, initialized[0, 1].unpack1("C") != 0, result]
   when "GameEvent.Contract"
     # The four Game events and the three protected raisers, re-derived from the pinned metadata.
     # There are three raisers and not four: Disposed has no `On...` method, because the IL raises it

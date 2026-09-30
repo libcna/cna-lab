@@ -66,10 +66,8 @@ module CNAScoreboard
           fact("ALLOWLIST_ENTRIES", strict.fetch("ALLOWLIST_ENTRIES"), "allowlist entries", "Strict diagnostics"),
           fact("UNMEASURED_STRUCTURAL_CATEGORY", strict.fetch("UNMEASURED_STRUCTURAL_CATEGORY"), "`UNMEASURED_STRUCTURAL_CATEGORY`", "Strict diagnostics"),
 
-          fact("GRAPHICS_DEVICE_OUTSTANDING", outstanding(partial, "Microsoft.Xna.Framework.Graphics.GraphicsDevice"),
-               "members `GraphicsDevice` still owes", "Partial remainders"),
-          fact("GRAPHICS_DEVICE_MANAGER_OUTSTANDING", outstanding(partial, "Microsoft.Xna.Framework.GraphicsDeviceManager"),
-               "members `GraphicsDeviceManager` still owes", "Partial remainders"),
+          fact("PARTIAL_TYPES", strict.fetch("PARTIAL_TYPES"), "partial types", "Partial remainders"),
+          fact("PARTIAL_MEMBERS_OUTSTANDING", partial.values.sum(&:length), "members partial types still owe", "Partial remainders"),
 
           fact("ABI_FUNCTIONS", abi.fetch("BOUND_FUNCTIONS"), "bound C functions", "Native ABI"),
           fact("ABI_CALLBACKS", abi.fetch("CALLBACKS"), "callbacks", "Native ABI"),

@@ -153,10 +153,14 @@ module RendererEnvironment
   def measure
     snapshot = nil
     game = Class.new(Microsoft::Xna::Framework::Game) do
+      # HiDef, because the question is what the renderer can do: XNA's Reach profile refuses volume
+      # textures outright, and CNA applies that table (ABI 0.35.0), so a Reach snapshot would report
+      # every renderer as having no volume storage.
       def initialize(&body)
         @body = body
         super()
-        Microsoft::Xna::Framework::GraphicsDeviceManager.new(self)
+        Microsoft::Xna::Framework::GraphicsDeviceManager.new(self).GraphicsProfile =
+          Microsoft::Xna::Framework::Graphics::GraphicsProfile::HiDef
       end
 
       # In `Draw`, not `LoadContent`: a renderer's frame is what `BeginDraw`/`EndDraw` open and

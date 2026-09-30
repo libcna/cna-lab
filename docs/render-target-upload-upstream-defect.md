@@ -1,5 +1,12 @@
 # Upstream CNA defect — an upload into a render target reports success and is dropped
 
+**Fixed upstream; re-measured 2026-09-30 against ABI 0.35.0** (`~/deps/cna-c-abi-0.35.0-opengles3-fx`,
+OPENGLES3, private Xwayland): `cna_texture2d_set_data` over a `RenderTarget2D` handle now writes the
+four pixels and `cna_texture2d_get_data` reads them back exactly (`0x04030201`, `0x08070605`, …),
+pinned by `RenderTargetsTest#test_the_inherited_texture_transfer_round_trips`. HEADLESS still has no
+render-target readback and says so with `CNA_RESULT_NOT_SUPPORTED`. The rest is the ABI 0.21.0 record.
+
+
 **Measured 2026-09-01 against `~/deps/cna-c-abi-0.21.0-opengl33/libcna_c_api.so`
 (`CNA_PLATFORM=SDL3`, `CNA_GRAPHICS_RENDERER=OPENGL33`), on a live 1280×800 X display, and again
 against `~/deps/cna-c-abi-0.21.0-opengles3-fx/libcna_c_api.so`.** Recorded here because

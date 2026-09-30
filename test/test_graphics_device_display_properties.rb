@@ -190,23 +190,21 @@ class GraphicsDeviceDisplayPropertiesTest < Minitest::Test
     assert_equal 0, values.fetch(:handle)
   end
 
-  # ------------------------------------------------------------------ the two that are blocked
+  # ------------------------------------------------------------------ the two that were blocked
 
-  def test_neither_blocked_property_is_projected
-    refute G::GraphicsDevice.public_method_defined?(:DisplayMode)
-    refute G::GraphicsDevice.public_method_defined?(:Adapter)
-    remainder = ReviewedScoreboard.partial_remainder(STRICT, NAME).join(" ")
-    assert_includes remainder, "::DisplayMode "
-    assert_includes remainder, "::Adapter "
+  # Both were blocked on the upstream adapter defect through ABI 0.21.0 and are projected since the
+  # ABI 0.35.0 requalification found it fixed.
+  def test_both_formerly_blocked_properties_are_projected
+    assert G::GraphicsDevice.public_method_defined?(:DisplayMode)
+    assert G::GraphicsDevice.public_method_defined?(:Adapter)
+    assert_empty ReviewedScoreboard.partial_remainder(STRICT, NAME)
   end
 
-  # No production call site, so no manifest entry: the route that would answer `DisplayMode` is
-  # deliberately unbound, and this is what stops it drifting back in.
-  def test_the_display_mode_route_is_not_bound
+  def test_the_display_mode_routes_are_bound
     symbols = CNA::Native::Manifest::FUNCTIONS.map(&:symbol)
-    refute_includes symbols, "cna_graphics_device_get_display_mode"
-    refute_includes symbols, "cna_graphics_adapter_get_current_display_mode"
-    refute CNA::Native::Layouts.const_defined?(:DisplayMode, false)
+    assert_includes symbols, "cna_graphics_device_get_display_mode"
+    assert_includes symbols, "cna_graphics_adapter_get_current_display_mode"
+    assert CNA::Native::Layouts.const_defined?(:DisplayMode, false)
   end
 
   # **The measurement itself.** Both routes are called through raw Fiddle — the tool the native

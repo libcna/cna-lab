@@ -64,13 +64,14 @@ class TextureVolumeTest < Minitest::Test
 
   # ------------------------------------------------------------------------------ live behaviour
 
+  # HiDef: volume textures do not exist in XNA's Reach profile, which CNA enforces.
   class TextureGame < F::Game
     attr_reader :result
 
     def initialize(&body)
       @body = body
       super()
-      F::GraphicsDeviceManager.new(self)
+      F::GraphicsDeviceManager.new(self).GraphicsProfile = G::GraphicsProfile::HiDef
     end
 
     def Draw(_time)

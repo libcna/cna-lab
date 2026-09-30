@@ -1023,21 +1023,16 @@ module Microsoft
           def IsHeadset = true
 
           # `get_BufferDuration` returns the cached field, not a device read -- so it answers what
-          # was last **requested**, which is what makes the deviation below observable rather than
-          # hidden.
+          # was last **requested**.
           def BufferDuration = @buffer_duration_ticks / 10_000_000.0
 
           # `if (ms < 100 || ms > 1000 || ms % 10 != 0) throw new ArgumentOutOfRangeException(...)`,
           # then `SetCaptureBufferDuration(Handle, (int)ms)`, then store the field.
           #
-          # DEVIATION, recorded: CNA's accepted domain is `[100, 990]` milliseconds on a 10 ms
-          # boundary -- measured tick by tick, not read from a document -- so the single value XNA
-          # admits that CNA refuses is exactly 1000 ms. That value is also the device's **own
-          # initial** buffer duration, which `cna_microphone_get_buffer_duration_ticks_at` reports as
-          # 10 000 000 ticks, so `set(get())` fails upstream. Rather than raise where XNA does not,
-          # the projection sends the largest duration CNA accepts and caches the requested one, which
-          # is the value XNA's getter would answer. `docs/microphone-evidence.md` §4 records the
-          # sweep and classifies the upstream inconsistency.
+          # CNA's accepted domain is XNA's -- `[100, 1000]` milliseconds on a 10 ms boundary,
+          # re-measured on ABI 0.35.0 -- so the value is forwarded as given. Through ABI 0.21.0 CNA
+          # refused 1000 ms and this projection clamped to 990 ms (`docs/microphone-evidence.md` §4,
+          # fixed upstream in CNA fb62662c9).
           def BufferDuration=(value)
             ticks = self.class.__send__(:ticks_from, value, "value")
             milliseconds = ticks / 10_000.0
@@ -1047,7 +1042,7 @@ module Microsoft
               raise ::RangeError, "value"
             end
 
-            call("cna_microphone_set_buffer_duration_ticks_at", [ticks, CNA_MAXIMUM_BUFFER_DURATION_TICKS].min)
+            call("cna_microphone_set_buffer_duration_ticks_at", ticks)
             @buffer_duration_ticks = ticks
             value
           end
@@ -1149,11 +1144,6 @@ module Microsoft
           def Finalize = nil
 
           private
-
-          # The largest buffer duration CNA accepts, measured by sweeping every whole millisecond in
-          # `[95, 1005]` and every tick in `[1_000_000, 1_000_020]`: the predicate is
-          # `(ticks / 10_000) % 10 == 0 && 100 <= ticks / 10_000 <= 990`, on integer division.
-          CNA_MAXIMUM_BUFFER_DURATION_TICKS = 9_900_000
 
           def call(symbol, *arguments)
             CNA::Native.library.call(symbol, @host.handle, @index, *arguments)

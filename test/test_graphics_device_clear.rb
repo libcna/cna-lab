@@ -246,11 +246,10 @@ class GraphicsDeviceClearTest < Minitest::Test
 
   # ------------------------------------------------------------------ CannotClearNullDepth
 
-  # XNA's one managed failure rule, and this artifact cannot exercise it: **CNA's clear never
-  # fails**, not even asking for `Stencil` on a `Depth24` device or for `DepthBuffer` on a render
-  # target whose depth format is `None` — both measured, both `CNA_RESULT_SUCCESS`. So the rule is
-  # proved by a truth table and one stub, the way `Game.IsActive`'s guide term is, rather than by an
-  # exercise this host cannot produce.
+  # XNA's one managed failure rule, exercised for real. Through ABI 0.21.0 CNA's clear never failed
+  # -- `DepthBuffer` on a depth-less render target answered `CNA_RESULT_SUCCESS` -- so the rule could
+  # only be proved by a truth table and a stub. On ABI 0.35.0 CNA refuses that clear with
+  # `CNA_RESULT_INVALID_STATE`, and the projection's IL rule turns it into `CannotClearNullDepth`.
   def test_the_managed_rule_is_the_ils
     outcome = with_device do |device|
       target = G::RenderTarget2D.new(device, 8, 8)
@@ -271,8 +270,8 @@ class GraphicsDeviceClearTest < Minitest::Test
     assert_equal true, outcome.fetch(1), "the colour bit is never a depth bit"
     assert_equal false, outcome.fetch(2)
     assert_equal false, outcome.fetch(3)
-    assert_equal :ok, outcome.fetch(4),
-                 "MEASURED: CNA clears a buffer the target does not have rather than refusing"
+    assert_equal [RuntimeError, "CannotClearNullDepth"], outcome.fetch(4),
+                 "a depth clear on a depth-less target is XNA's InvalidOperationException"
   end
 
   # The branch is wired, which is the half a truth table cannot show: with the native call made to

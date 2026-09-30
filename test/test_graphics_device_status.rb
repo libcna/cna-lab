@@ -79,6 +79,5 @@ class GraphicsDeviceStatusTest < Minitest::Test
     refute F.const_defined?(:GraphicsProfile, false)
     # Foundation 24 added PresentationParameters as a managed descriptor; it creates no device.
     assert G.const_defined?(:PresentationParameters, false)
-    refute G.const_defined?(:GraphicsAdapter, false)
   end
 end

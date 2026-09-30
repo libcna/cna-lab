@@ -31494,35 +31494,6 @@
           ]
         },
         {
-          "kind": "property",
-          "name": "GraphicsDevice",
-          "type": "Microsoft.Xna.Framework.Graphics.GraphicsDevice",
-          "static": false,
-          "get": true,
-          "set": false,
-          "getAccess": "public",
-          "setAccess": null,
-          "parameters": [
-
-          ]
-        },
-        {
-          "kind": "field",
-          "name": "DefaultBackBufferWidth",
-          "type": "System.Int32",
-          "static": true,
-          "constant": false,
-          "value": null
-        },
-        {
-          "kind": "field",
-          "name": "DefaultBackBufferHeight",
-          "type": "System.Int32",
-          "static": true,
-          "constant": false,
-          "value": null
-        },
-        {
           "kind": "method",
           "name": "ApplyChanges",
           "static": false,
@@ -31549,120 +31520,63 @@
           ]
         },
         {
-          "kind": "property",
-          "name": "GraphicsProfile",
-          "type": "Microsoft.Xna.Framework.Graphics.GraphicsProfile",
+          "kind": "method",
+          "name": "FindBestDevice",
           "static": false,
-          "get": true,
-          "set": true,
-          "getAccess": "public",
-          "setAccess": "public",
-          "parameters": [
+          "access": "protected",
+          "returnType": "Microsoft.Xna.Framework.GraphicsDeviceInformation",
+          "genericParameters": [
 
+          ],
+          "parameters": [
+            {
+              "name": "anySuitableDevice",
+              "type": "System.Boolean",
+              "ref": false,
+              "out": false,
+              "in": false,
+              "optional": false
+            }
           ]
         },
         {
-          "kind": "property",
-          "name": "PreferredDepthStencilFormat",
-          "type": "Microsoft.Xna.Framework.Graphics.DepthFormat",
+          "kind": "method",
+          "name": "CanResetDevice",
           "static": false,
-          "get": true,
-          "set": true,
-          "getAccess": "public",
-          "setAccess": "public",
-          "parameters": [
+          "access": "protected",
+          "returnType": "System.Boolean",
+          "genericParameters": [
 
+          ],
+          "parameters": [
+            {
+              "name": "newDeviceInfo",
+              "type": "Microsoft.Xna.Framework.GraphicsDeviceInformation",
+              "ref": false,
+              "out": false,
+              "in": false,
+              "optional": false
+            }
           ]
         },
         {
-          "kind": "property",
-          "name": "PreferredBackBufferFormat",
-          "type": "Microsoft.Xna.Framework.Graphics.SurfaceFormat",
+          "kind": "method",
+          "name": "RankDevices",
           "static": false,
-          "get": true,
-          "set": true,
-          "getAccess": "public",
-          "setAccess": "public",
-          "parameters": [
+          "access": "protected",
+          "returnType": "System.Void",
+          "genericParameters": [
 
-          ]
-        },
-        {
-          "kind": "property",
-          "name": "PreferredBackBufferWidth",
-          "type": "System.Int32",
-          "static": false,
-          "get": true,
-          "set": true,
-          "getAccess": "public",
-          "setAccess": "public",
+          ],
           "parameters": [
-
-          ]
-        },
-        {
-          "kind": "property",
-          "name": "PreferredBackBufferHeight",
-          "type": "System.Int32",
-          "static": false,
-          "get": true,
-          "set": true,
-          "getAccess": "public",
-          "setAccess": "public",
-          "parameters": [
-
-          ]
-        },
-        {
-          "kind": "property",
-          "name": "IsFullScreen",
-          "type": "System.Boolean",
-          "static": false,
-          "get": true,
-          "set": true,
-          "getAccess": "public",
-          "setAccess": "public",
-          "parameters": [
-
-          ]
-        },
-        {
-          "kind": "property",
-          "name": "SynchronizeWithVerticalRetrace",
-          "type": "System.Boolean",
-          "static": false,
-          "get": true,
-          "set": true,
-          "getAccess": "public",
-          "setAccess": "public",
-          "parameters": [
-
-          ]
-        },
-        {
-          "kind": "property",
-          "name": "PreferMultiSampling",
-          "type": "System.Boolean",
-          "static": false,
-          "get": true,
-          "set": true,
-          "getAccess": "public",
-          "setAccess": "public",
-          "parameters": [
-
-          ]
-        },
-        {
-          "kind": "property",
-          "name": "SupportedOrientations",
-          "type": "Microsoft.Xna.Framework.DisplayOrientation",
-          "static": false,
-          "get": true,
-          "set": true,
-          "getAccess": "public",
-          "setAccess": "public",
-          "parameters": [
-
+            {
+              "name": "foundDevices",
+              "type": "System.Collections.Generic.List`1[Microsoft.Xna.Framework.GraphicsDeviceInformation]",
+              "ref": false,
+              "out": false,
+              "in": false,
+              "optional": false
+            }
           ]
         },
         {
@@ -31798,24 +31712,166 @@
           ]
         },
         {
+          "kind": "method",
+          "name": "OnPreparingDeviceSettings",
+          "static": false,
+          "access": "protected",
+          "returnType": "System.Void",
+          "genericParameters": [
+
+          ],
+          "parameters": [
+            {
+              "name": "sender",
+              "type": "System.Object",
+              "ref": false,
+              "out": false,
+              "in": false,
+              "optional": false
+            },
+            {
+              "name": "args",
+              "type": "Microsoft.Xna.Framework.PreparingDeviceSettingsEventArgs",
+              "ref": false,
+              "out": false,
+              "in": false,
+              "optional": false
+            }
+          ]
+        },
+        {
+          "kind": "property",
+          "name": "GraphicsProfile",
+          "type": "Microsoft.Xna.Framework.Graphics.GraphicsProfile",
+          "static": false,
+          "get": true,
+          "set": true,
+          "getAccess": "public",
+          "setAccess": "public",
+          "parameters": [
+
+          ]
+        },
+        {
+          "kind": "property",
+          "name": "PreferredDepthStencilFormat",
+          "type": "Microsoft.Xna.Framework.Graphics.DepthFormat",
+          "static": false,
+          "get": true,
+          "set": true,
+          "getAccess": "public",
+          "setAccess": "public",
+          "parameters": [
+
+          ]
+        },
+        {
+          "kind": "property",
+          "name": "PreferredBackBufferFormat",
+          "type": "Microsoft.Xna.Framework.Graphics.SurfaceFormat",
+          "static": false,
+          "get": true,
+          "set": true,
+          "getAccess": "public",
+          "setAccess": "public",
+          "parameters": [
+
+          ]
+        },
+        {
+          "kind": "property",
+          "name": "PreferredBackBufferWidth",
+          "type": "System.Int32",
+          "static": false,
+          "get": true,
+          "set": true,
+          "getAccess": "public",
+          "setAccess": "public",
+          "parameters": [
+
+          ]
+        },
+        {
+          "kind": "property",
+          "name": "PreferredBackBufferHeight",
+          "type": "System.Int32",
+          "static": false,
+          "get": true,
+          "set": true,
+          "getAccess": "public",
+          "setAccess": "public",
+          "parameters": [
+
+          ]
+        },
+        {
+          "kind": "property",
+          "name": "IsFullScreen",
+          "type": "System.Boolean",
+          "static": false,
+          "get": true,
+          "set": true,
+          "getAccess": "public",
+          "setAccess": "public",
+          "parameters": [
+
+          ]
+        },
+        {
+          "kind": "property",
+          "name": "SynchronizeWithVerticalRetrace",
+          "type": "System.Boolean",
+          "static": false,
+          "get": true,
+          "set": true,
+          "getAccess": "public",
+          "setAccess": "public",
+          "parameters": [
+
+          ]
+        },
+        {
+          "kind": "property",
+          "name": "PreferMultiSampling",
+          "type": "System.Boolean",
+          "static": false,
+          "get": true,
+          "set": true,
+          "getAccess": "public",
+          "setAccess": "public",
+          "parameters": [
+
+          ]
+        },
+        {
+          "kind": "property",
+          "name": "SupportedOrientations",
+          "type": "Microsoft.Xna.Framework.DisplayOrientation",
+          "static": false,
+          "get": true,
+          "set": true,
+          "getAccess": "public",
+          "setAccess": "public",
+          "parameters": [
+
+          ]
+        },
+        {
+          "kind": "property",
+          "name": "GraphicsDevice",
+          "type": "Microsoft.Xna.Framework.Graphics.GraphicsDevice",
+          "static": false,
+          "get": true,
+          "set": false,
+          "getAccess": "public",
+          "setAccess": null,
+          "parameters": [
+
+          ]
+        },
+        {
           "kind": "event",
           "name": "DeviceCreated",
-          "type": "System.EventHandler`1[System.EventArgs]",
-          "static": false,
-          "add": true,
-          "remove": true
-        },
-        {
-          "kind": "event",
-          "name": "DeviceDisposing",
-          "type": "System.EventHandler`1[System.EventArgs]",
-          "static": false,
-          "add": true,
-          "remove": true
-        },
-        {
-          "kind": "event",
-          "name": "DeviceReset",
           "type": "System.EventHandler`1[System.EventArgs]",
           "static": false,
           "add": true,
@@ -31831,11 +31887,51 @@
         },
         {
           "kind": "event",
+          "name": "DeviceReset",
+          "type": "System.EventHandler`1[System.EventArgs]",
+          "static": false,
+          "add": true,
+          "remove": true
+        },
+        {
+          "kind": "event",
+          "name": "DeviceDisposing",
+          "type": "System.EventHandler`1[System.EventArgs]",
+          "static": false,
+          "add": true,
+          "remove": true
+        },
+        {
+          "kind": "event",
+          "name": "PreparingDeviceSettings",
+          "type": "System.EventHandler`1[Microsoft.Xna.Framework.PreparingDeviceSettingsEventArgs]",
+          "static": false,
+          "add": true,
+          "remove": true
+        },
+        {
+          "kind": "event",
           "name": "Disposed",
           "type": "System.EventHandler`1[System.EventArgs]",
           "static": false,
           "add": true,
           "remove": true
+        },
+        {
+          "kind": "field",
+          "name": "DefaultBackBufferWidth",
+          "type": "System.Int32",
+          "static": true,
+          "constant": false,
+          "value": null
+        },
+        {
+          "kind": "field",
+          "name": "DefaultBackBufferHeight",
+          "type": "System.Int32",
+          "static": true,
+          "constant": false,
+          "value": null
         }
       ],
       "rubyName": "Microsoft::Xna::Framework::GraphicsDeviceManager"
@@ -32160,62 +32256,34 @@
       ],
       "members": [
         {
-          "kind": "method",
-          "name": "Clear",
+          "kind": "constructor",
+          "name": ".ctor",
           "static": false,
           "access": "public",
-          "returnType": "System.Void",
+          "returnType": null,
           "genericParameters": [
 
           ],
           "parameters": [
             {
-              "name": "color",
-              "type": "Microsoft.Xna.Framework.Color",
-              "ref": false,
-              "out": false,
-              "in": false,
-              "optional": false
-            }
-          ]
-        },
-        {
-          "kind": "method",
-          "name": "Clear",
-          "static": false,
-          "access": "public",
-          "returnType": "System.Void",
-          "genericParameters": [
-
-          ],
-          "parameters": [
-            {
-              "name": "options",
-              "type": "Microsoft.Xna.Framework.Graphics.ClearOptions",
+              "name": "adapter",
+              "type": "Microsoft.Xna.Framework.Graphics.GraphicsAdapter",
               "ref": false,
               "out": false,
               "in": false,
               "optional": false
             },
             {
-              "name": "color",
-              "type": "Microsoft.Xna.Framework.Color",
+              "name": "graphicsProfile",
+              "type": "Microsoft.Xna.Framework.Graphics.GraphicsProfile",
               "ref": false,
               "out": false,
               "in": false,
               "optional": false
             },
             {
-              "name": "depth",
-              "type": "System.Single",
-              "ref": false,
-              "out": false,
-              "in": false,
-              "optional": false
-            },
-            {
-              "name": "stencil",
-              "type": "System.Int32",
+              "name": "presentationParameters",
+              "type": "Microsoft.Xna.Framework.Graphics.PresentationParameters",
               "ref": false,
               "out": false,
               "in": false,
@@ -32225,7 +32293,7 @@
         },
         {
           "kind": "method",
-          "name": "Clear",
+          "name": "Present",
           "static": false,
           "access": "public",
           "returnType": "System.Void",
@@ -32234,381 +32302,103 @@
           ],
           "parameters": [
             {
-              "name": "options",
-              "type": "Microsoft.Xna.Framework.Graphics.ClearOptions",
+              "name": "sourceRectangle",
+              "type": "System.Nullable`1[Microsoft.Xna.Framework.Rectangle]",
               "ref": false,
               "out": false,
               "in": false,
               "optional": false
             },
             {
-              "name": "color",
-              "type": "Microsoft.Xna.Framework.Vector4",
+              "name": "destinationRectangle",
+              "type": "System.Nullable`1[Microsoft.Xna.Framework.Rectangle]",
               "ref": false,
               "out": false,
               "in": false,
               "optional": false
             },
             {
-              "name": "depth",
-              "type": "System.Single",
+              "name": "overrideWindowHandle",
+              "type": "System.IntPtr",
+              "ref": false,
+              "out": false,
+              "in": false,
+              "optional": false
+            }
+          ]
+        },
+        {
+          "kind": "method",
+          "name": "Present",
+          "static": false,
+          "access": "public",
+          "returnType": "System.Void",
+          "genericParameters": [
+
+          ],
+          "parameters": [
+
+          ]
+        },
+        {
+          "kind": "method",
+          "name": "Reset",
+          "static": false,
+          "access": "public",
+          "returnType": "System.Void",
+          "genericParameters": [
+
+          ],
+          "parameters": [
+
+          ]
+        },
+        {
+          "kind": "method",
+          "name": "Reset",
+          "static": false,
+          "access": "public",
+          "returnType": "System.Void",
+          "genericParameters": [
+
+          ],
+          "parameters": [
+            {
+              "name": "presentationParameters",
+              "type": "Microsoft.Xna.Framework.Graphics.PresentationParameters",
+              "ref": false,
+              "out": false,
+              "in": false,
+              "optional": false
+            }
+          ]
+        },
+        {
+          "kind": "method",
+          "name": "Reset",
+          "static": false,
+          "access": "public",
+          "returnType": "System.Void",
+          "genericParameters": [
+
+          ],
+          "parameters": [
+            {
+              "name": "presentationParameters",
+              "type": "Microsoft.Xna.Framework.Graphics.PresentationParameters",
               "ref": false,
               "out": false,
               "in": false,
               "optional": false
             },
             {
-              "name": "stencil",
-              "type": "System.Int32",
+              "name": "graphicsAdapter",
+              "type": "Microsoft.Xna.Framework.Graphics.GraphicsAdapter",
               "ref": false,
               "out": false,
               "in": false,
               "optional": false
             }
-          ]
-        },
-        {
-          "kind": "property",
-          "name": "IsDisposed",
-          "type": "System.Boolean",
-          "static": false,
-          "get": true,
-          "set": false,
-          "getAccess": "public",
-          "setAccess": null,
-          "parameters": [
-
-          ]
-        },
-        {
-          "kind": "property",
-          "name": "Viewport",
-          "type": "Microsoft.Xna.Framework.Graphics.Viewport",
-          "static": false,
-          "get": true,
-          "set": true,
-          "getAccess": "public",
-          "setAccess": "public",
-          "parameters": [
-
-          ]
-        },
-        {
-          "kind": "property",
-          "name": "Textures",
-          "type": "Microsoft.Xna.Framework.Graphics.TextureCollection",
-          "static": false,
-          "get": true,
-          "set": false,
-          "getAccess": "public",
-          "setAccess": null,
-          "parameters": [
-
-          ]
-        },
-        {
-          "kind": "property",
-          "name": "VertexTextures",
-          "type": "Microsoft.Xna.Framework.Graphics.TextureCollection",
-          "static": false,
-          "get": true,
-          "set": false,
-          "getAccess": "public",
-          "setAccess": null,
-          "parameters": [
-
-          ]
-        },
-        {
-          "kind": "property",
-          "name": "SamplerStates",
-          "type": "Microsoft.Xna.Framework.Graphics.SamplerStateCollection",
-          "static": false,
-          "get": true,
-          "set": false,
-          "getAccess": "public",
-          "setAccess": null,
-          "parameters": [
-
-          ]
-        },
-        {
-          "kind": "property",
-          "name": "VertexSamplerStates",
-          "type": "Microsoft.Xna.Framework.Graphics.SamplerStateCollection",
-          "static": false,
-          "get": true,
-          "set": false,
-          "getAccess": "public",
-          "setAccess": null,
-          "parameters": [
-
-          ]
-        },
-        {
-          "kind": "property",
-          "name": "BlendState",
-          "type": "Microsoft.Xna.Framework.Graphics.BlendState",
-          "static": false,
-          "get": true,
-          "set": true,
-          "getAccess": "public",
-          "setAccess": "public",
-          "parameters": [
-
-          ]
-        },
-        {
-          "kind": "property",
-          "name": "DepthStencilState",
-          "type": "Microsoft.Xna.Framework.Graphics.DepthStencilState",
-          "static": false,
-          "get": true,
-          "set": true,
-          "getAccess": "public",
-          "setAccess": "public",
-          "parameters": [
-
-          ]
-        },
-        {
-          "kind": "property",
-          "name": "RasterizerState",
-          "type": "Microsoft.Xna.Framework.Graphics.RasterizerState",
-          "static": false,
-          "get": true,
-          "set": true,
-          "getAccess": "public",
-          "setAccess": "public",
-          "parameters": [
-
-          ]
-        },
-        {
-          "kind": "property",
-          "name": "BlendFactor",
-          "type": "Microsoft.Xna.Framework.Color",
-          "static": false,
-          "get": true,
-          "set": true,
-          "getAccess": "public",
-          "setAccess": "public",
-          "parameters": [
-
-          ]
-        },
-        {
-          "kind": "property",
-          "name": "MultiSampleMask",
-          "type": "System.Int32",
-          "static": false,
-          "get": true,
-          "set": true,
-          "getAccess": "public",
-          "setAccess": "public",
-          "parameters": [
-
-          ]
-        },
-        {
-          "kind": "property",
-          "name": "ReferenceStencil",
-          "type": "System.Int32",
-          "static": false,
-          "get": true,
-          "set": true,
-          "getAccess": "public",
-          "setAccess": "public",
-          "parameters": [
-
-          ]
-        },
-        {
-          "kind": "property",
-          "name": "ScissorRectangle",
-          "type": "Microsoft.Xna.Framework.Rectangle",
-          "static": false,
-          "get": true,
-          "set": true,
-          "getAccess": "public",
-          "setAccess": "public",
-          "parameters": [
-
-          ]
-        },
-        {
-          "kind": "property",
-          "name": "Indices",
-          "type": "Microsoft.Xna.Framework.Graphics.IndexBuffer",
-          "static": false,
-          "get": true,
-          "set": true,
-          "getAccess": "public",
-          "setAccess": "public",
-          "parameters": [
-
-          ]
-        },
-        {
-          "kind": "method",
-          "name": "SetVertexBuffer",
-          "static": false,
-          "access": "public",
-          "returnType": "System.Void",
-          "genericParameters": [
-
-          ],
-          "parameters": [
-            {
-              "name": "vertexBuffer",
-              "type": "Microsoft.Xna.Framework.Graphics.VertexBuffer",
-              "ref": false,
-              "out": false,
-              "in": false,
-              "optional": false
-            }
-          ]
-        },
-        {
-          "kind": "method",
-          "name": "SetVertexBuffer",
-          "static": false,
-          "access": "public",
-          "returnType": "System.Void",
-          "genericParameters": [
-
-          ],
-          "parameters": [
-            {
-              "name": "vertexBuffer",
-              "type": "Microsoft.Xna.Framework.Graphics.VertexBuffer",
-              "ref": false,
-              "out": false,
-              "in": false,
-              "optional": false
-            },
-            {
-              "name": "vertexOffset",
-              "type": "System.Int32",
-              "ref": false,
-              "out": false,
-              "in": false,
-              "optional": false
-            }
-          ]
-        },
-        {
-          "kind": "method",
-          "name": "SetVertexBuffers",
-          "static": false,
-          "access": "public",
-          "returnType": "System.Void",
-          "genericParameters": [
-
-          ],
-          "parameters": [
-            {
-              "name": "vertexBuffers",
-              "type": "Microsoft.Xna.Framework.Graphics.VertexBufferBinding[]",
-              "ref": false,
-              "out": false,
-              "in": false,
-              "optional": false
-            }
-          ]
-        },
-        {
-          "kind": "method",
-          "name": "GetVertexBuffers",
-          "static": false,
-          "access": "public",
-          "returnType": "Microsoft.Xna.Framework.Graphics.VertexBufferBinding[]",
-          "genericParameters": [
-
-          ],
-          "parameters": [
-
-          ]
-        },
-        {
-          "kind": "method",
-          "name": "SetRenderTarget",
-          "static": false,
-          "access": "public",
-          "returnType": "System.Void",
-          "genericParameters": [
-
-          ],
-          "parameters": [
-            {
-              "name": "renderTarget",
-              "type": "Microsoft.Xna.Framework.Graphics.RenderTarget2D",
-              "ref": false,
-              "out": false,
-              "in": false,
-              "optional": false
-            }
-          ]
-        },
-        {
-          "kind": "method",
-          "name": "SetRenderTarget",
-          "static": false,
-          "access": "public",
-          "returnType": "System.Void",
-          "genericParameters": [
-
-          ],
-          "parameters": [
-            {
-              "name": "renderTarget",
-              "type": "Microsoft.Xna.Framework.Graphics.RenderTargetCube",
-              "ref": false,
-              "out": false,
-              "in": false,
-              "optional": false
-            },
-            {
-              "name": "cubeMapFace",
-              "type": "Microsoft.Xna.Framework.Graphics.CubeMapFace",
-              "ref": false,
-              "out": false,
-              "in": false,
-              "optional": false
-            }
-          ]
-        },
-        {
-          "kind": "method",
-          "name": "SetRenderTargets",
-          "static": false,
-          "access": "public",
-          "returnType": "System.Void",
-          "genericParameters": [
-
-          ],
-          "parameters": [
-            {
-              "name": "renderTargets",
-              "type": "Microsoft.Xna.Framework.Graphics.RenderTargetBinding[]",
-              "ref": false,
-              "out": false,
-              "in": false,
-              "optional": false
-            }
-          ]
-        },
-        {
-          "kind": "method",
-          "name": "GetRenderTargets",
-          "static": false,
-          "access": "public",
-          "returnType": "Microsoft.Xna.Framework.Graphics.RenderTargetBinding[]",
-          "genericParameters": [
-
-          ],
-          "parameters": [
-
           ]
         },
         {
@@ -32776,319 +32566,6 @@
           ]
         },
         {
-          "kind": "property",
-          "name": "GraphicsProfile",
-          "type": "Microsoft.Xna.Framework.Graphics.GraphicsProfile",
-          "static": false,
-          "get": true,
-          "set": false,
-          "getAccess": "public",
-          "setAccess": null,
-          "parameters": [
-
-          ]
-        },
-        {
-          "kind": "property",
-          "name": "GraphicsDeviceStatus",
-          "type": "Microsoft.Xna.Framework.Graphics.GraphicsDeviceStatus",
-          "static": false,
-          "get": true,
-          "set": false,
-          "getAccess": "public",
-          "setAccess": null,
-          "parameters": [
-
-          ]
-        },
-        {
-          "kind": "property",
-          "name": "PresentationParameters",
-          "type": "Microsoft.Xna.Framework.Graphics.PresentationParameters",
-          "static": false,
-          "get": true,
-          "set": false,
-          "getAccess": "public",
-          "setAccess": null,
-          "parameters": [
-
-          ]
-        },
-        {
-          "kind": "method",
-          "name": "Present",
-          "static": false,
-          "access": "public",
-          "returnType": "System.Void",
-          "genericParameters": [
-
-          ],
-          "parameters": [
-
-          ]
-        },
-        {
-          "kind": "method",
-          "name": "Present",
-          "static": false,
-          "access": "public",
-          "returnType": "System.Void",
-          "genericParameters": [
-
-          ],
-          "parameters": [
-            {
-              "name": "sourceRectangle",
-              "type": "System.Nullable`1[Microsoft.Xna.Framework.Rectangle]",
-              "ref": false,
-              "out": false,
-              "in": false,
-              "optional": false
-            },
-            {
-              "name": "destinationRectangle",
-              "type": "System.Nullable`1[Microsoft.Xna.Framework.Rectangle]",
-              "ref": false,
-              "out": false,
-              "in": false,
-              "optional": false
-            },
-            {
-              "name": "overrideWindowHandle",
-              "type": "System.IntPtr",
-              "ref": false,
-              "out": false,
-              "in": false,
-              "optional": false
-            }
-          ]
-        },
-        {
-          "kind": "method",
-          "name": "Reset",
-          "static": false,
-          "access": "public",
-          "returnType": "System.Void",
-          "genericParameters": [
-
-          ],
-          "parameters": [
-
-          ]
-        },
-        {
-          "kind": "method",
-          "name": "Reset",
-          "static": false,
-          "access": "public",
-          "returnType": "System.Void",
-          "genericParameters": [
-
-          ],
-          "parameters": [
-            {
-              "name": "presentationParameters",
-              "type": "Microsoft.Xna.Framework.Graphics.PresentationParameters",
-              "ref": false,
-              "out": false,
-              "in": false,
-              "optional": false
-            }
-          ]
-        },
-        {
-          "kind": "method",
-          "name": "Reset",
-          "static": false,
-          "access": "public",
-          "returnType": "System.Void",
-          "genericParameters": [
-
-          ],
-          "parameters": [
-            {
-              "name": "presentationParameters",
-              "type": "Microsoft.Xna.Framework.Graphics.PresentationParameters",
-              "ref": false,
-              "out": false,
-              "in": false,
-              "optional": false
-            },
-            {
-              "name": "graphicsAdapter",
-              "type": "Microsoft.Xna.Framework.Graphics.GraphicsAdapter",
-              "ref": false,
-              "out": false,
-              "in": false,
-              "optional": false
-            }
-          ]
-        },
-        {
-          "kind": "event",
-          "name": "Disposing",
-          "type": "System.EventHandler`1[System.EventArgs]",
-          "static": false,
-          "add": true,
-          "remove": true
-        },
-        {
-          "kind": "event",
-          "name": "DeviceLost",
-          "type": "System.EventHandler`1[System.EventArgs]",
-          "static": false,
-          "add": true,
-          "remove": true
-        },
-        {
-          "kind": "event",
-          "name": "DeviceReset",
-          "type": "System.EventHandler`1[System.EventArgs]",
-          "static": false,
-          "add": true,
-          "remove": true
-        },
-        {
-          "kind": "event",
-          "name": "DeviceResetting",
-          "type": "System.EventHandler`1[System.EventArgs]",
-          "static": false,
-          "add": true,
-          "remove": true
-        },
-        {
-          "kind": "event",
-          "name": "ResourceCreated",
-          "type": "System.EventHandler`1[Microsoft.Xna.Framework.Graphics.ResourceCreatedEventArgs]",
-          "static": false,
-          "add": true,
-          "remove": true
-        },
-        {
-          "kind": "event",
-          "name": "ResourceDestroyed",
-          "type": "System.EventHandler`1[Microsoft.Xna.Framework.Graphics.ResourceDestroyedEventArgs]",
-          "static": false,
-          "add": true,
-          "remove": true
-        },
-        {
-          "kind": "method",
-          "name": "DrawUserPrimitives",
-          "static": false,
-          "access": "public",
-          "returnType": "System.Void",
-          "genericParameters": [
-            {
-              "name": "T",
-              "position": 0,
-              "specialConstraints": [
-                "struct",
-                "new"
-              ],
-              "typeConstraints": [
-                "Microsoft.Xna.Framework.Graphics.IVertexType"
-              ]
-            }
-          ],
-          "parameters": [
-            {
-              "name": "primitiveType",
-              "type": "Microsoft.Xna.Framework.Graphics.PrimitiveType",
-              "ref": false,
-              "out": false,
-              "in": false,
-              "optional": false
-            },
-            {
-              "name": "vertexData",
-              "type": "!!0[]",
-              "ref": false,
-              "out": false,
-              "in": false,
-              "optional": false
-            },
-            {
-              "name": "vertexOffset",
-              "type": "System.Int32",
-              "ref": false,
-              "out": false,
-              "in": false,
-              "optional": false
-            },
-            {
-              "name": "primitiveCount",
-              "type": "System.Int32",
-              "ref": false,
-              "out": false,
-              "in": false,
-              "optional": false
-            }
-          ]
-        },
-        {
-          "kind": "method",
-          "name": "DrawUserPrimitives",
-          "static": false,
-          "access": "public",
-          "returnType": "System.Void",
-          "genericParameters": [
-            {
-              "name": "T",
-              "position": 0,
-              "specialConstraints": [
-                "struct",
-                "new"
-              ],
-              "typeConstraints": [
-
-              ]
-            }
-          ],
-          "parameters": [
-            {
-              "name": "primitiveType",
-              "type": "Microsoft.Xna.Framework.Graphics.PrimitiveType",
-              "ref": false,
-              "out": false,
-              "in": false,
-              "optional": false
-            },
-            {
-              "name": "vertexData",
-              "type": "!!0[]",
-              "ref": false,
-              "out": false,
-              "in": false,
-              "optional": false
-            },
-            {
-              "name": "vertexOffset",
-              "type": "System.Int32",
-              "ref": false,
-              "out": false,
-              "in": false,
-              "optional": false
-            },
-            {
-              "name": "primitiveCount",
-              "type": "System.Int32",
-              "ref": false,
-              "out": false,
-              "in": false,
-              "optional": false
-            },
-            {
-              "name": "vertexDeclaration",
-              "type": "Microsoft.Xna.Framework.Graphics.VertexDeclaration",
-              "ref": false,
-              "out": false,
-              "in": false,
-              "optional": false
-            }
-          ]
-        },
-        {
           "kind": "method",
           "name": "DrawUserIndexedPrimitives",
           "static": false,
@@ -33418,7 +32895,7 @@
         },
         {
           "kind": "method",
-          "name": "GetBackBufferData",
+          "name": "DrawUserPrimitives",
           "static": false,
           "access": "public",
           "returnType": "System.Void",
@@ -33431,14 +32908,38 @@
                 "new"
               ],
               "typeConstraints": [
-
+                "Microsoft.Xna.Framework.Graphics.IVertexType"
               ]
             }
           ],
           "parameters": [
             {
-              "name": "data",
+              "name": "primitiveType",
+              "type": "Microsoft.Xna.Framework.Graphics.PrimitiveType",
+              "ref": false,
+              "out": false,
+              "in": false,
+              "optional": false
+            },
+            {
+              "name": "vertexData",
               "type": "!!0[]",
+              "ref": false,
+              "out": false,
+              "in": false,
+              "optional": false
+            },
+            {
+              "name": "vertexOffset",
+              "type": "System.Int32",
+              "ref": false,
+              "out": false,
+              "in": false,
+              "optional": false
+            },
+            {
+              "name": "primitiveCount",
+              "type": "System.Int32",
               "ref": false,
               "out": false,
               "in": false,
@@ -33448,7 +32949,7 @@
         },
         {
           "kind": "method",
-          "name": "GetBackBufferData",
+          "name": "DrawUserPrimitives",
           "static": false,
           "access": "public",
           "returnType": "System.Void",
@@ -33467,7 +32968,15 @@
           ],
           "parameters": [
             {
-              "name": "data",
+              "name": "primitiveType",
+              "type": "Microsoft.Xna.Framework.Graphics.PrimitiveType",
+              "ref": false,
+              "out": false,
+              "in": false,
+              "optional": false
+            },
+            {
+              "name": "vertexData",
               "type": "!!0[]",
               "ref": false,
               "out": false,
@@ -33475,7 +32984,7 @@
               "optional": false
             },
             {
-              "name": "startIndex",
+              "name": "vertexOffset",
               "type": "System.Int32",
               "ref": false,
               "out": false,
@@ -33483,13 +32992,210 @@
               "optional": false
             },
             {
-              "name": "elementCount",
+              "name": "primitiveCount",
+              "type": "System.Int32",
+              "ref": false,
+              "out": false,
+              "in": false,
+              "optional": false
+            },
+            {
+              "name": "vertexDeclaration",
+              "type": "Microsoft.Xna.Framework.Graphics.VertexDeclaration",
+              "ref": false,
+              "out": false,
+              "in": false,
+              "optional": false
+            }
+          ]
+        },
+        {
+          "kind": "method",
+          "name": "Clear",
+          "static": false,
+          "access": "public",
+          "returnType": "System.Void",
+          "genericParameters": [
+
+          ],
+          "parameters": [
+            {
+              "name": "options",
+              "type": "Microsoft.Xna.Framework.Graphics.ClearOptions",
+              "ref": false,
+              "out": false,
+              "in": false,
+              "optional": false
+            },
+            {
+              "name": "color",
+              "type": "Microsoft.Xna.Framework.Vector4",
+              "ref": false,
+              "out": false,
+              "in": false,
+              "optional": false
+            },
+            {
+              "name": "depth",
+              "type": "System.Single",
+              "ref": false,
+              "out": false,
+              "in": false,
+              "optional": false
+            },
+            {
+              "name": "stencil",
               "type": "System.Int32",
               "ref": false,
               "out": false,
               "in": false,
               "optional": false
             }
+          ]
+        },
+        {
+          "kind": "method",
+          "name": "Clear",
+          "static": false,
+          "access": "public",
+          "returnType": "System.Void",
+          "genericParameters": [
+
+          ],
+          "parameters": [
+            {
+              "name": "options",
+              "type": "Microsoft.Xna.Framework.Graphics.ClearOptions",
+              "ref": false,
+              "out": false,
+              "in": false,
+              "optional": false
+            },
+            {
+              "name": "color",
+              "type": "Microsoft.Xna.Framework.Color",
+              "ref": false,
+              "out": false,
+              "in": false,
+              "optional": false
+            },
+            {
+              "name": "depth",
+              "type": "System.Single",
+              "ref": false,
+              "out": false,
+              "in": false,
+              "optional": false
+            },
+            {
+              "name": "stencil",
+              "type": "System.Int32",
+              "ref": false,
+              "out": false,
+              "in": false,
+              "optional": false
+            }
+          ]
+        },
+        {
+          "kind": "method",
+          "name": "Clear",
+          "static": false,
+          "access": "public",
+          "returnType": "System.Void",
+          "genericParameters": [
+
+          ],
+          "parameters": [
+            {
+              "name": "color",
+              "type": "Microsoft.Xna.Framework.Color",
+              "ref": false,
+              "out": false,
+              "in": false,
+              "optional": false
+            }
+          ]
+        },
+        {
+          "kind": "method",
+          "name": "SetRenderTargets",
+          "static": false,
+          "access": "public",
+          "returnType": "System.Void",
+          "genericParameters": [
+
+          ],
+          "parameters": [
+            {
+              "name": "renderTargets",
+              "type": "Microsoft.Xna.Framework.Graphics.RenderTargetBinding[]",
+              "ref": false,
+              "out": false,
+              "in": false,
+              "optional": false
+            }
+          ]
+        },
+        {
+          "kind": "method",
+          "name": "SetRenderTarget",
+          "static": false,
+          "access": "public",
+          "returnType": "System.Void",
+          "genericParameters": [
+
+          ],
+          "parameters": [
+            {
+              "name": "renderTarget",
+              "type": "Microsoft.Xna.Framework.Graphics.RenderTargetCube",
+              "ref": false,
+              "out": false,
+              "in": false,
+              "optional": false
+            },
+            {
+              "name": "cubeMapFace",
+              "type": "Microsoft.Xna.Framework.Graphics.CubeMapFace",
+              "ref": false,
+              "out": false,
+              "in": false,
+              "optional": false
+            }
+          ]
+        },
+        {
+          "kind": "method",
+          "name": "SetRenderTarget",
+          "static": false,
+          "access": "public",
+          "returnType": "System.Void",
+          "genericParameters": [
+
+          ],
+          "parameters": [
+            {
+              "name": "renderTarget",
+              "type": "Microsoft.Xna.Framework.Graphics.RenderTarget2D",
+              "ref": false,
+              "out": false,
+              "in": false,
+              "optional": false
+            }
+          ]
+        },
+        {
+          "kind": "method",
+          "name": "GetRenderTargets",
+          "static": false,
+          "access": "public",
+          "returnType": "Microsoft.Xna.Framework.Graphics.RenderTargetBinding[]",
+          "genericParameters": [
+
+          ],
+          "parameters": [
+
           ]
         },
         {
@@ -33548,7 +33254,96 @@
         },
         {
           "kind": "method",
-          "name": "Dispose",
+          "name": "GetBackBufferData",
+          "static": false,
+          "access": "public",
+          "returnType": "System.Void",
+          "genericParameters": [
+            {
+              "name": "T",
+              "position": 0,
+              "specialConstraints": [
+                "struct",
+                "new"
+              ],
+              "typeConstraints": [
+
+              ]
+            }
+          ],
+          "parameters": [
+            {
+              "name": "data",
+              "type": "!!0[]",
+              "ref": false,
+              "out": false,
+              "in": false,
+              "optional": false
+            },
+            {
+              "name": "startIndex",
+              "type": "System.Int32",
+              "ref": false,
+              "out": false,
+              "in": false,
+              "optional": false
+            },
+            {
+              "name": "elementCount",
+              "type": "System.Int32",
+              "ref": false,
+              "out": false,
+              "in": false,
+              "optional": false
+            }
+          ]
+        },
+        {
+          "kind": "method",
+          "name": "GetBackBufferData",
+          "static": false,
+          "access": "public",
+          "returnType": "System.Void",
+          "genericParameters": [
+            {
+              "name": "T",
+              "position": 0,
+              "specialConstraints": [
+                "struct",
+                "new"
+              ],
+              "typeConstraints": [
+
+              ]
+            }
+          ],
+          "parameters": [
+            {
+              "name": "data",
+              "type": "!!0[]",
+              "ref": false,
+              "out": false,
+              "in": false,
+              "optional": false
+            }
+          ]
+        },
+        {
+          "kind": "method",
+          "name": "GetVertexBuffers",
+          "static": false,
+          "access": "public",
+          "returnType": "Microsoft.Xna.Framework.Graphics.VertexBufferBinding[]",
+          "genericParameters": [
+
+          ],
+          "parameters": [
+
+          ]
+        },
+        {
+          "kind": "method",
+          "name": "SetVertexBuffer",
           "static": false,
           "access": "public",
           "returnType": "System.Void",
@@ -33556,7 +33351,62 @@
 
           ],
           "parameters": [
+            {
+              "name": "vertexBuffer",
+              "type": "Microsoft.Xna.Framework.Graphics.VertexBuffer",
+              "ref": false,
+              "out": false,
+              "in": false,
+              "optional": false
+            },
+            {
+              "name": "vertexOffset",
+              "type": "System.Int32",
+              "ref": false,
+              "out": false,
+              "in": false,
+              "optional": false
+            }
+          ]
+        },
+        {
+          "kind": "method",
+          "name": "SetVertexBuffer",
+          "static": false,
+          "access": "public",
+          "returnType": "System.Void",
+          "genericParameters": [
 
+          ],
+          "parameters": [
+            {
+              "name": "vertexBuffer",
+              "type": "Microsoft.Xna.Framework.Graphics.VertexBuffer",
+              "ref": false,
+              "out": false,
+              "in": false,
+              "optional": false
+            }
+          ]
+        },
+        {
+          "kind": "method",
+          "name": "SetVertexBuffers",
+          "static": false,
+          "access": "public",
+          "returnType": "System.Void",
+          "genericParameters": [
+
+          ],
+          "parameters": [
+            {
+              "name": "vertexBuffers",
+              "type": "Microsoft.Xna.Framework.Graphics.VertexBufferBinding[]",
+              "ref": false,
+              "out": false,
+              "in": false,
+              "optional": false
+            }
           ]
         },
         {
@@ -33581,6 +33431,19 @@
         },
         {
           "kind": "method",
+          "name": "Dispose",
+          "static": false,
+          "access": "public",
+          "returnType": "System.Void",
+          "genericParameters": [
+
+          ],
+          "parameters": [
+
+          ]
+        },
+        {
+          "kind": "method",
           "name": "Finalize",
           "static": false,
           "access": "protected",
@@ -33591,6 +33454,301 @@
           "parameters": [
 
           ]
+        },
+        {
+          "kind": "property",
+          "name": "IsDisposed",
+          "type": "System.Boolean",
+          "static": false,
+          "get": true,
+          "set": false,
+          "getAccess": "public",
+          "setAccess": null,
+          "parameters": [
+
+          ]
+        },
+        {
+          "kind": "property",
+          "name": "ScissorRectangle",
+          "type": "Microsoft.Xna.Framework.Rectangle",
+          "static": false,
+          "get": true,
+          "set": true,
+          "getAccess": "public",
+          "setAccess": "public",
+          "parameters": [
+
+          ]
+        },
+        {
+          "kind": "property",
+          "name": "Indices",
+          "type": "Microsoft.Xna.Framework.Graphics.IndexBuffer",
+          "static": false,
+          "get": true,
+          "set": true,
+          "getAccess": "public",
+          "setAccess": "public",
+          "parameters": [
+
+          ]
+        },
+        {
+          "kind": "property",
+          "name": "Viewport",
+          "type": "Microsoft.Xna.Framework.Graphics.Viewport",
+          "static": false,
+          "get": true,
+          "set": true,
+          "getAccess": "public",
+          "setAccess": "public",
+          "parameters": [
+
+          ]
+        },
+        {
+          "kind": "property",
+          "name": "DisplayMode",
+          "type": "Microsoft.Xna.Framework.Graphics.DisplayMode",
+          "static": false,
+          "get": true,
+          "set": false,
+          "getAccess": "public",
+          "setAccess": null,
+          "parameters": [
+
+          ]
+        },
+        {
+          "kind": "property",
+          "name": "GraphicsDeviceStatus",
+          "type": "Microsoft.Xna.Framework.Graphics.GraphicsDeviceStatus",
+          "static": false,
+          "get": true,
+          "set": false,
+          "getAccess": "public",
+          "setAccess": null,
+          "parameters": [
+
+          ]
+        },
+        {
+          "kind": "property",
+          "name": "GraphicsProfile",
+          "type": "Microsoft.Xna.Framework.Graphics.GraphicsProfile",
+          "static": false,
+          "get": true,
+          "set": false,
+          "getAccess": "public",
+          "setAccess": null,
+          "parameters": [
+
+          ]
+        },
+        {
+          "kind": "property",
+          "name": "Adapter",
+          "type": "Microsoft.Xna.Framework.Graphics.GraphicsAdapter",
+          "static": false,
+          "get": true,
+          "set": false,
+          "getAccess": "public",
+          "setAccess": null,
+          "parameters": [
+
+          ]
+        },
+        {
+          "kind": "property",
+          "name": "PresentationParameters",
+          "type": "Microsoft.Xna.Framework.Graphics.PresentationParameters",
+          "static": false,
+          "get": true,
+          "set": false,
+          "getAccess": "public",
+          "setAccess": null,
+          "parameters": [
+
+          ]
+        },
+        {
+          "kind": "property",
+          "name": "RasterizerState",
+          "type": "Microsoft.Xna.Framework.Graphics.RasterizerState",
+          "static": false,
+          "get": true,
+          "set": true,
+          "getAccess": "public",
+          "setAccess": "public",
+          "parameters": [
+
+          ]
+        },
+        {
+          "kind": "property",
+          "name": "ReferenceStencil",
+          "type": "System.Int32",
+          "static": false,
+          "get": true,
+          "set": true,
+          "getAccess": "public",
+          "setAccess": "public",
+          "parameters": [
+
+          ]
+        },
+        {
+          "kind": "property",
+          "name": "DepthStencilState",
+          "type": "Microsoft.Xna.Framework.Graphics.DepthStencilState",
+          "static": false,
+          "get": true,
+          "set": true,
+          "getAccess": "public",
+          "setAccess": "public",
+          "parameters": [
+
+          ]
+        },
+        {
+          "kind": "property",
+          "name": "MultiSampleMask",
+          "type": "System.Int32",
+          "static": false,
+          "get": true,
+          "set": true,
+          "getAccess": "public",
+          "setAccess": "public",
+          "parameters": [
+
+          ]
+        },
+        {
+          "kind": "property",
+          "name": "BlendFactor",
+          "type": "Microsoft.Xna.Framework.Color",
+          "static": false,
+          "get": true,
+          "set": true,
+          "getAccess": "public",
+          "setAccess": "public",
+          "parameters": [
+
+          ]
+        },
+        {
+          "kind": "property",
+          "name": "BlendState",
+          "type": "Microsoft.Xna.Framework.Graphics.BlendState",
+          "static": false,
+          "get": true,
+          "set": true,
+          "getAccess": "public",
+          "setAccess": "public",
+          "parameters": [
+
+          ]
+        },
+        {
+          "kind": "property",
+          "name": "VertexTextures",
+          "type": "Microsoft.Xna.Framework.Graphics.TextureCollection",
+          "static": false,
+          "get": true,
+          "set": false,
+          "getAccess": "public",
+          "setAccess": null,
+          "parameters": [
+
+          ]
+        },
+        {
+          "kind": "property",
+          "name": "Textures",
+          "type": "Microsoft.Xna.Framework.Graphics.TextureCollection",
+          "static": false,
+          "get": true,
+          "set": false,
+          "getAccess": "public",
+          "setAccess": null,
+          "parameters": [
+
+          ]
+        },
+        {
+          "kind": "property",
+          "name": "VertexSamplerStates",
+          "type": "Microsoft.Xna.Framework.Graphics.SamplerStateCollection",
+          "static": false,
+          "get": true,
+          "set": false,
+          "getAccess": "public",
+          "setAccess": null,
+          "parameters": [
+
+          ]
+        },
+        {
+          "kind": "property",
+          "name": "SamplerStates",
+          "type": "Microsoft.Xna.Framework.Graphics.SamplerStateCollection",
+          "static": false,
+          "get": true,
+          "set": false,
+          "getAccess": "public",
+          "setAccess": null,
+          "parameters": [
+
+          ]
+        },
+        {
+          "kind": "event",
+          "name": "Disposing",
+          "type": "System.EventHandler`1[System.EventArgs]",
+          "static": false,
+          "add": true,
+          "remove": true
+        },
+        {
+          "kind": "event",
+          "name": "ResourceDestroyed",
+          "type": "System.EventHandler`1[Microsoft.Xna.Framework.Graphics.ResourceDestroyedEventArgs]",
+          "static": false,
+          "add": true,
+          "remove": true
+        },
+        {
+          "kind": "event",
+          "name": "ResourceCreated",
+          "type": "System.EventHandler`1[Microsoft.Xna.Framework.Graphics.ResourceCreatedEventArgs]",
+          "static": false,
+          "add": true,
+          "remove": true
+        },
+        {
+          "kind": "event",
+          "name": "DeviceLost",
+          "type": "System.EventHandler`1[System.EventArgs]",
+          "static": false,
+          "add": true,
+          "remove": true
+        },
+        {
+          "kind": "event",
+          "name": "DeviceReset",
+          "type": "System.EventHandler`1[System.EventArgs]",
+          "static": false,
+          "add": true,
+          "remove": true
+        },
+        {
+          "kind": "event",
+          "name": "DeviceResetting",
+          "type": "System.EventHandler`1[System.EventArgs]",
+          "static": false,
+          "add": true,
+          "remove": true
         }
       ],
       "rubyName": "Microsoft::Xna::Framework::Graphics::GraphicsDevice"
@@ -59419,6 +59577,548 @@
         }
       ],
       "rubyName": "Microsoft::Xna::Framework::Design::Vector4Converter"
+    },
+    {
+      "name": "Microsoft.Xna.Framework.Graphics.GraphicsAdapter",
+      "kind": "class",
+      "flags": false,
+      "sealed": true,
+      "underlyingType": null,
+      "baseType": "System.Object",
+      "interfaces": [
+
+      ],
+      "directInterfaces": [
+
+      ],
+      "genericParameters": [
+
+      ],
+      "members": [
+        {
+          "kind": "method",
+          "name": "QueryBackBufferFormat",
+          "static": false,
+          "access": "public",
+          "returnType": "System.Boolean",
+          "genericParameters": [
+
+          ],
+          "parameters": [
+            {
+              "name": "graphicsProfile",
+              "type": "Microsoft.Xna.Framework.Graphics.GraphicsProfile",
+              "ref": false,
+              "out": false,
+              "in": false,
+              "optional": false
+            },
+            {
+              "name": "format",
+              "type": "Microsoft.Xna.Framework.Graphics.SurfaceFormat",
+              "ref": false,
+              "out": false,
+              "in": false,
+              "optional": false
+            },
+            {
+              "name": "depthFormat",
+              "type": "Microsoft.Xna.Framework.Graphics.DepthFormat",
+              "ref": false,
+              "out": false,
+              "in": false,
+              "optional": false
+            },
+            {
+              "name": "multiSampleCount",
+              "type": "System.Int32",
+              "ref": false,
+              "out": false,
+              "in": false,
+              "optional": false
+            },
+            {
+              "name": "selectedFormat",
+              "type": "Microsoft.Xna.Framework.Graphics.SurfaceFormat&",
+              "ref": true,
+              "out": true,
+              "in": false,
+              "optional": false
+            },
+            {
+              "name": "selectedDepthFormat",
+              "type": "Microsoft.Xna.Framework.Graphics.DepthFormat&",
+              "ref": true,
+              "out": true,
+              "in": false,
+              "optional": false
+            },
+            {
+              "name": "selectedMultiSampleCount",
+              "type": "System.Int32&",
+              "ref": true,
+              "out": true,
+              "in": false,
+              "optional": false
+            }
+          ]
+        },
+        {
+          "kind": "method",
+          "name": "QueryRenderTargetFormat",
+          "static": false,
+          "access": "public",
+          "returnType": "System.Boolean",
+          "genericParameters": [
+
+          ],
+          "parameters": [
+            {
+              "name": "graphicsProfile",
+              "type": "Microsoft.Xna.Framework.Graphics.GraphicsProfile",
+              "ref": false,
+              "out": false,
+              "in": false,
+              "optional": false
+            },
+            {
+              "name": "format",
+              "type": "Microsoft.Xna.Framework.Graphics.SurfaceFormat",
+              "ref": false,
+              "out": false,
+              "in": false,
+              "optional": false
+            },
+            {
+              "name": "depthFormat",
+              "type": "Microsoft.Xna.Framework.Graphics.DepthFormat",
+              "ref": false,
+              "out": false,
+              "in": false,
+              "optional": false
+            },
+            {
+              "name": "multiSampleCount",
+              "type": "System.Int32",
+              "ref": false,
+              "out": false,
+              "in": false,
+              "optional": false
+            },
+            {
+              "name": "selectedFormat",
+              "type": "Microsoft.Xna.Framework.Graphics.SurfaceFormat&",
+              "ref": true,
+              "out": true,
+              "in": false,
+              "optional": false
+            },
+            {
+              "name": "selectedDepthFormat",
+              "type": "Microsoft.Xna.Framework.Graphics.DepthFormat&",
+              "ref": true,
+              "out": true,
+              "in": false,
+              "optional": false
+            },
+            {
+              "name": "selectedMultiSampleCount",
+              "type": "System.Int32&",
+              "ref": true,
+              "out": true,
+              "in": false,
+              "optional": false
+            }
+          ]
+        },
+        {
+          "kind": "method",
+          "name": "IsProfileSupported",
+          "static": false,
+          "access": "public",
+          "returnType": "System.Boolean",
+          "genericParameters": [
+
+          ],
+          "parameters": [
+            {
+              "name": "graphicsProfile",
+              "type": "Microsoft.Xna.Framework.Graphics.GraphicsProfile",
+              "ref": false,
+              "out": false,
+              "in": false,
+              "optional": false
+            }
+          ]
+        },
+        {
+          "kind": "property",
+          "name": "UseReferenceDevice",
+          "type": "System.Boolean",
+          "static": true,
+          "get": true,
+          "set": true,
+          "getAccess": "public",
+          "setAccess": "public",
+          "parameters": [
+
+          ]
+        },
+        {
+          "kind": "property",
+          "name": "UseNullDevice",
+          "type": "System.Boolean",
+          "static": true,
+          "get": true,
+          "set": true,
+          "getAccess": "public",
+          "setAccess": "public",
+          "parameters": [
+
+          ]
+        },
+        {
+          "kind": "property",
+          "name": "MonitorHandle",
+          "type": "System.IntPtr",
+          "static": false,
+          "get": true,
+          "set": false,
+          "getAccess": "public",
+          "setAccess": null,
+          "parameters": [
+
+          ]
+        },
+        {
+          "kind": "property",
+          "name": "SupportedDisplayModes",
+          "type": "Microsoft.Xna.Framework.Graphics.DisplayModeCollection",
+          "static": false,
+          "get": true,
+          "set": false,
+          "getAccess": "public",
+          "setAccess": null,
+          "parameters": [
+
+          ]
+        },
+        {
+          "kind": "property",
+          "name": "CurrentDisplayMode",
+          "type": "Microsoft.Xna.Framework.Graphics.DisplayMode",
+          "static": false,
+          "get": true,
+          "set": false,
+          "getAccess": "public",
+          "setAccess": null,
+          "parameters": [
+
+          ]
+        },
+        {
+          "kind": "property",
+          "name": "IsWideScreen",
+          "type": "System.Boolean",
+          "static": false,
+          "get": true,
+          "set": false,
+          "getAccess": "public",
+          "setAccess": null,
+          "parameters": [
+
+          ]
+        },
+        {
+          "kind": "property",
+          "name": "IsDefaultAdapter",
+          "type": "System.Boolean",
+          "static": false,
+          "get": true,
+          "set": false,
+          "getAccess": "public",
+          "setAccess": null,
+          "parameters": [
+
+          ]
+        },
+        {
+          "kind": "property",
+          "name": "Revision",
+          "type": "System.Int32",
+          "static": false,
+          "get": true,
+          "set": false,
+          "getAccess": "public",
+          "setAccess": null,
+          "parameters": [
+
+          ]
+        },
+        {
+          "kind": "property",
+          "name": "SubSystemId",
+          "type": "System.Int32",
+          "static": false,
+          "get": true,
+          "set": false,
+          "getAccess": "public",
+          "setAccess": null,
+          "parameters": [
+
+          ]
+        },
+        {
+          "kind": "property",
+          "name": "DeviceId",
+          "type": "System.Int32",
+          "static": false,
+          "get": true,
+          "set": false,
+          "getAccess": "public",
+          "setAccess": null,
+          "parameters": [
+
+          ]
+        },
+        {
+          "kind": "property",
+          "name": "VendorId",
+          "type": "System.Int32",
+          "static": false,
+          "get": true,
+          "set": false,
+          "getAccess": "public",
+          "setAccess": null,
+          "parameters": [
+
+          ]
+        },
+        {
+          "kind": "property",
+          "name": "DeviceName",
+          "type": "System.String",
+          "static": false,
+          "get": true,
+          "set": false,
+          "getAccess": "public",
+          "setAccess": null,
+          "parameters": [
+
+          ]
+        },
+        {
+          "kind": "property",
+          "name": "Description",
+          "type": "System.String",
+          "static": false,
+          "get": true,
+          "set": false,
+          "getAccess": "public",
+          "setAccess": null,
+          "parameters": [
+
+          ]
+        },
+        {
+          "kind": "property",
+          "name": "DefaultAdapter",
+          "type": "Microsoft.Xna.Framework.Graphics.GraphicsAdapter",
+          "static": true,
+          "get": true,
+          "set": false,
+          "getAccess": "public",
+          "setAccess": null,
+          "parameters": [
+
+          ]
+        },
+        {
+          "kind": "property",
+          "name": "Adapters",
+          "type": "System.Collections.ObjectModel.ReadOnlyCollection`1[Microsoft.Xna.Framework.Graphics.GraphicsAdapter]",
+          "static": true,
+          "get": true,
+          "set": false,
+          "getAccess": "public",
+          "setAccess": null,
+          "parameters": [
+
+          ]
+        }
+      ],
+      "rubyName": "Microsoft::Xna::Framework::Graphics::GraphicsAdapter"
+    },
+    {
+      "name": "Microsoft.Xna.Framework.GraphicsDeviceInformation",
+      "kind": "class",
+      "flags": false,
+      "sealed": false,
+      "underlyingType": null,
+      "baseType": "System.Object",
+      "interfaces": [
+
+      ],
+      "directInterfaces": [
+
+      ],
+      "genericParameters": [
+
+      ],
+      "members": [
+        {
+          "kind": "constructor",
+          "name": ".ctor",
+          "static": false,
+          "access": "public",
+          "returnType": null,
+          "genericParameters": [
+
+          ],
+          "parameters": [
+
+          ]
+        },
+        {
+          "kind": "method",
+          "name": "Equals",
+          "static": false,
+          "access": "public",
+          "returnType": "System.Boolean",
+          "genericParameters": [
+
+          ],
+          "parameters": [
+            {
+              "name": "obj",
+              "type": "System.Object",
+              "ref": false,
+              "out": false,
+              "in": false,
+              "optional": false
+            }
+          ]
+        },
+        {
+          "kind": "method",
+          "name": "GetHashCode",
+          "static": false,
+          "access": "public",
+          "returnType": "System.Int32",
+          "genericParameters": [
+
+          ],
+          "parameters": [
+
+          ]
+        },
+        {
+          "kind": "method",
+          "name": "Clone",
+          "static": false,
+          "access": "public",
+          "returnType": "Microsoft.Xna.Framework.GraphicsDeviceInformation",
+          "genericParameters": [
+
+          ],
+          "parameters": [
+
+          ]
+        },
+        {
+          "kind": "property",
+          "name": "Adapter",
+          "type": "Microsoft.Xna.Framework.Graphics.GraphicsAdapter",
+          "static": false,
+          "get": true,
+          "set": true,
+          "getAccess": "public",
+          "setAccess": "public",
+          "parameters": [
+
+          ]
+        },
+        {
+          "kind": "property",
+          "name": "GraphicsProfile",
+          "type": "Microsoft.Xna.Framework.Graphics.GraphicsProfile",
+          "static": false,
+          "get": true,
+          "set": true,
+          "getAccess": "public",
+          "setAccess": "public",
+          "parameters": [
+
+          ]
+        },
+        {
+          "kind": "property",
+          "name": "PresentationParameters",
+          "type": "Microsoft.Xna.Framework.Graphics.PresentationParameters",
+          "static": false,
+          "get": true,
+          "set": true,
+          "getAccess": "public",
+          "setAccess": "public",
+          "parameters": [
+
+          ]
+        }
+      ],
+      "rubyName": "Microsoft::Xna::Framework::GraphicsDeviceInformation"
+    },
+    {
+      "name": "Microsoft.Xna.Framework.PreparingDeviceSettingsEventArgs",
+      "kind": "class",
+      "flags": false,
+      "sealed": false,
+      "underlyingType": null,
+      "baseType": "System.EventArgs",
+      "interfaces": [
+
+      ],
+      "directInterfaces": [
+
+      ],
+      "genericParameters": [
+
+      ],
+      "members": [
+        {
+          "kind": "constructor",
+          "name": ".ctor",
+          "static": false,
+          "access": "public",
+          "returnType": null,
+          "genericParameters": [
+
+          ],
+          "parameters": [
+            {
+              "name": "graphicsDeviceInformation",
+              "type": "Microsoft.Xna.Framework.GraphicsDeviceInformation",
+              "ref": false,
+              "out": false,
+              "in": false,
+              "optional": false
+            }
+          ]
+        },
+        {
+          "kind": "property",
+          "name": "GraphicsDeviceInformation",
+          "type": "Microsoft.Xna.Framework.GraphicsDeviceInformation",
+          "static": false,
+          "get": true,
+          "set": false,
+          "getAccess": "public",
+          "setAccess": null,
+          "parameters": [
+
+          ]
+        }
+      ],
+      "rubyName": "Microsoft::Xna::Framework::PreparingDeviceSettingsEventArgs"
     }
   ]
 }

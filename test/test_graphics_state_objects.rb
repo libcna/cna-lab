@@ -359,13 +359,10 @@ class GraphicsStateObjectsTest < Minitest::Test
     end
   end
 
-  # The one disagreement, isolated. XNA's `SetDefaults` writes `ldc.i4.m1` into both stencil masks;
-  # CNA answers `Int32.MaxValue`. `-1` is every bit of the D3D9 DWORD mask and `0x7FFFFFFF` drops
-  # the top one, so on any stencil buffer XNA can create the two are behaviourally identical -- but
-  # the value a consumer reads back is not, and the pinned IL is this binding's authority.
-  # Classified UPSTREAM_CNA_DIVERGENCE, reproduced rather than reconciled: if CNA changes, this
-  # fails and says so.
-  def test_the_stencil_masks_are_where_cna_and_the_pinned_il_disagree
+  # XNA's `SetDefaults` writes `ldc.i4.m1` into both stencil masks. CNA answered `Int32.MaxValue`
+  # through ABI 0.21.0 (classified UPSTREAM_CNA_DIVERGENCE); CNA ce2d52444 restored XNA's value and
+  # ABI 0.35.0 answers -1, so every field of all three presets now agrees with the pinned IL.
+  def test_the_stencil_masks_agree_with_the_pinned_il
     skip "CNA_NATIVE_LIBRARY not supplied" unless ENV["CNA_NATIVE_LIBRARY"]
 
     depth = L::DepthStencilState.new
@@ -387,11 +384,10 @@ class GraphicsStateObjectsTest < Minitest::Test
                     state.CounterClockwiseStencilDepthBufferFail.value,
                     state.CounterClockwiseStencilPass.value]
 
-      # The divergence, in both directions so neither side is assumed.
-      assert_equal 2_147_483_647, depth.read_i32(20), "CNA answers Int32.MaxValue"
-      assert_equal 2_147_483_647, depth.read_i32(24), "CNA answers Int32.MaxValue"
-      assert_equal(-1, state.StencilMask, "the pinned IL writes ldc.i4.m1")
-      assert_equal(-1, state.StencilWriteMask, "the pinned IL writes ldc.i4.m1")
+      assert_equal(-1, depth.read_i32(20), "CNA answers XNA's -1")
+      assert_equal(-1, depth.read_i32(24), "CNA answers XNA's -1")
+      assert_equal depth.read_i32(20), state.StencilMask, state.Name
+      assert_equal depth.read_i32(24), state.StencilWriteMask, state.Name
     end
   end
 

@@ -71,10 +71,10 @@ class GraphicsDeviceEventsTest < Minitest::Test
   class EventGame < F::Game
     attr_reader :result
 
-    def initialize(&body)
+    def initialize(profile = G::GraphicsProfile::Reach, &body)
       @body = body
       super()
-      F::GraphicsDeviceManager.new(self)
+      F::GraphicsDeviceManager.new(self).GraphicsProfile = profile
     end
 
     def Draw(_time)
@@ -84,10 +84,10 @@ class GraphicsDeviceEventsTest < Minitest::Test
     end
   end
 
-  def with_device
+  def with_device(profile = G::GraphicsProfile::Reach)
     skip "CNA_NATIVE_LIBRARY not supplied" unless ENV["CNA_NATIVE_LIBRARY"]
 
-    game = EventGame.new { |device| yield device }
+    game = EventGame.new(profile) { |device| yield device }
     begin
       game.Run
       game.result
@@ -312,9 +312,9 @@ class GraphicsDeviceEventsTest < Minitest::Test
   end
 
   # Every kind of graphics resource this binding builds is a tracked one, so every kind raises the
-  # pair. Nothing here is special-cased to `Texture2D`.
+  # pair. Nothing here is special-cased to `Texture2D`. HiDef, because an OcclusionQuery is one.
   def test_every_tracked_resource_kind_raises_the_pair
-    counts = with_device do |device|
+    counts = with_device(G::GraphicsProfile::HiDef) do |device|
       created = []
       destroyed = []
       device.ResourceCreated.add(->(_s, args) { created << args.Resource.class.name.split("::").last })

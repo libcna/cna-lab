@@ -119,23 +119,23 @@ class SpriteBatchBeginStatesTest < Minitest::Test
     assert_equal %i[ok ok ok], values
   end
 
-  # UPSTREAM_CNA_DEFECT, reproduced rather than hidden: the route documents "or null for AlphaBlend"
-  # and refuses a null descriptor. The projection therefore resolves the default itself -- which is
-  # what `SetRenderState` does anyway -- and the raw route is asserted to still refuse, so the
-  # document stays honest if CNA changes.
-  def test_the_route_still_refuses_the_null_its_header_documents
+  # The route documents "or null for AlphaBlend" (and the other three defaults). It used to refuse a
+  # null descriptor (docs/sprite-batch-begin-upstream-defect.md); CNA c04a193c4 (BINDFIX-010) made it
+  # honour the documented null, re-measured on ABI 0.35.0. The projection still resolves the default
+  # itself, because that is what XNA's own `SetRenderState` does.
+  def test_the_route_accepts_the_null_its_header_documents
     values = with_batch do |batch|
       handle = batch.__send__(:native_handle)
       begin
         CNA::Native.library.call("cna_sprite_batch_begin_with_effect", handle,
                                  G::SpriteSortMode::Deferred.to_i, 0, 0, 0, 0, 0, 0)
+        CNA::Native.library.call("cna_sprite_batch_end", handle)
         :accepted
       rescue => error
         [error.class, error.message]
       end
     end
-    assert_equal CNA::NativeError, values[0]
-    assert_includes values[1], "BlendState descriptor is invalid"
+    assert_equal :accepted, values
   end
 
   def test_the_arity_and_type_refusals
@@ -183,9 +183,7 @@ class SpriteBatchBeginStatesTest < Minitest::Test
     # four state descriptors to one SpriteBatch route and touched no device property.
     # The three device-buffer draw calls left this list when the draw slice landed; what is
     # still absent is the user-primitive families, which take the vertices as an argument.
-    %i[Adapter DisplayMode].each do |absent|
-      refute G::GraphicsDevice.public_method_defined?(absent), absent.to_s
-    end
+    # `Adapter` and `DisplayMode` left this list at the ABI 0.35.0 requalification.
     symbols = CNA::Native::Manifest::FUNCTIONS.map(&:symbol)
     # `begin_with_states` stays unbound: `begin_with_effect` is the route XNA's seven-argument
     # Begin maps to, and its last two parameters are what the Effect-taking overloads now fill.

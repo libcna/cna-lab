@@ -1,13 +1,12 @@
 {
   "schemaVersion": 3,
   "referenceTypes": 257,
-  "targetTypes": 254,
-  "completeTypes": 252,
+  "targetTypes": 257,
+  "completeTypes": 257,
   "partialTypes": [
-    "Microsoft.Xna.Framework.GraphicsDeviceManager",
-    "Microsoft.Xna.Framework.Graphics.GraphicsDevice"
+
   ],
-  "missingTypes": 3,
+  "missingTypes": 0,
   "candidatePolicy": "missing type; all XNA public-signature dependencies complete, which is a type-level test the member-level edges recorded in the IL inventory can now refine but deliberately do not relax; consumable only when no BCL_PROJECTION, IL_UNAVAILABLE, NATIVE_RUNTIME, RUNTIME_DATA or INTERFACE_PRODUCER_MISSING blocker applies; a selected partial remainder reverse edge wins the tie; then fewest expected Ruby identities",
   "ilProvenance": {
     "register": "tools/api_compat/reference/XNA_IL_PROVENANCE.md",
@@ -39,6 +38,7 @@
     "System.Collections.Generic.IEnumerable`1",
     "System.Collections.Generic.IEnumerator`1",
     "System.Collections.Generic.IList`1",
+    "System.Collections.Generic.List`1",
     "System.Collections.Generic.List`1+Enumerator",
     "System.Collections.ICollection",
     "System.Collections.IComparer",
@@ -78,6 +78,7 @@
     "System.IO.Stream",
     "System.IServiceProvider",
     "System.Int16",
+    "System.Int16[]",
     "System.Int32",
     "System.Int32[]",
     "System.Int64",
@@ -157,7 +158,6 @@
     }
   },
   "blockerSummary": {
-    "NATIVE_RUNTIME": 1
   },
   "partialDependencySatisfiedCandidates": [
 
@@ -169,80 +169,7 @@
 
   ],
   "dependencyCompleteCandidates": [
-    {
-      "name": "Microsoft.Xna.Framework.Graphics.GraphicsAdapter",
-      "kind": "class",
-      "expectedRubyIdentities": 18,
-      "dependencies": [
-        "Microsoft.Xna.Framework.Graphics.DepthFormat",
-        "Microsoft.Xna.Framework.Graphics.DisplayMode",
-        "Microsoft.Xna.Framework.Graphics.DisplayModeCollection",
-        "Microsoft.Xna.Framework.Graphics.GraphicsProfile",
-        "Microsoft.Xna.Framework.Graphics.SurfaceFormat"
-      ],
-      "unmetDependencies": [
 
-      ],
-      "missingTypeDependencies": [
-
-      ],
-      "partialTypeDependencies": {
-      },
-      "ilOnlyDependencies": [
-        "Microsoft.Xna.Framework.Point"
-      ],
-      "ilOnlyUnmetDependencies": [
-
-      ],
-      "partialDependencySatisfied": false,
-      "partialRemainderReverseEdges": [
-        "Microsoft.Xna.Framework.Graphics.GraphicsDevice::.ctor (1 overload)",
-        "Microsoft.Xna.Framework.Graphics.GraphicsDevice::Adapter (1 overload)"
-      ],
-      "dependencyComplete": true,
-      "blockers": [
-        "NATIVE_RUNTIME"
-      ],
-      "unmappedBclTypes": [
-
-      ],
-      "reachedInterfaces": [
-
-      ],
-      "producerlessInterfaces": [
-
-      ],
-      "eventMembers": [
-
-      ],
-      "behaviourBearingMembers": [
-        "QueryBackBufferFormat",
-        "QueryRenderTargetFormat",
-        "IsProfileSupported"
-      ],
-      "ilDerivationRequired": true,
-      "ilAvailable": true,
-      "ilAssembly": "Microsoft.Xna.Framework.Graphics.dll",
-      "nativeReachableMethods": [
-        ".cctor",
-        ".ctor",
-        "InitializeAdapterList",
-        "IsProfileSupported",
-        "IsValidDepthFormat",
-        "IsValidSurfaceFormat",
-        "QueryBackBufferFormat",
-        "QueryDepthFormat",
-        "QueryFormat",
-        "QueryMultiSampleCount",
-        "QueryRenderTargetFormat",
-        "QuerySurfaceFormat",
-        "get_CurrentDisplayMode",
-        "get_IsWideScreen",
-        "get_MonitorHandle",
-        "get_SupportedDisplayModes"
-      ],
-      "runtimeDataDetail": null
-    }
   ],
   "pureManagedEnumCandidates": [
 

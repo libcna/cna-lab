@@ -61,11 +61,19 @@ module Microsoft
 
           # The order is the IL's and is observable: the window handle is pushed **before** the
           # dispatcher is initialized, and `base.Initialize()` runs last, after both.
+          #
+          # `GamerServicesDispatcher.Initialize` opens with `if (IsInitialized) throw new
+          # InvalidOperationException(GamerServicesAlreadyInitialized)`: the dispatcher is a
+          # process-global static initialized once per process. CNA refuses the same case with
+          # `CNA_RESULT_INVALID_STATE` (ABI 0.35.0); the IL's own check is made first so the
+          # exception is XNA's.
           def Initialize
             library = CNA::Native.library
             host = CNA::Runtime::Context.native_host("GamerServicesComponent.Initialize")
             library.call("cna_gamer_services_dispatcher_set_window_handle", self.Game.Window.Handle)
             subscribe_installing_title_update
+            raise ::RuntimeError, "GamerServicesAlreadyInitialized" if dispatcher_initialized?
+
             library.call("cna_gamer_services_dispatcher_initialize", host.handle)
             super
           end
@@ -98,6 +106,12 @@ module Microsoft
             CNA::Native.library.call("cna_gamer_services_dispatcher_subscribe_installing_title_update_ext",
                                      @callback, nil, output)
             @registration = output[0, 8].unpack1("Q")
+          end
+
+          def dispatcher_initialized?
+            output = CNA::Native.library.pointer_for("C", 0)
+            CNA::Native.library.call("cna_gamer_services_dispatcher_get_is_initialized", output)
+            output[0, 1].unpack1("C") == 1
           end
 
           def release_registration

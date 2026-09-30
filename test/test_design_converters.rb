@@ -814,9 +814,9 @@ class DesignConvertersTest < Minitest::Test
   def test_the_bcl_projection_grew_and_the_xna_reference_did_not
     assert_equal 257, STRICT.fetch("REFERENCE_TYPES")
     assert_equal 2964, STRICT.fetch("REFERENCE_MEMBERS")
-    assert_equal 254, STRICT.fetch("TARGET_TYPES")
-    assert_equal 252, STRICT.fetch("COMPLETE_TYPES")
-    assert_equal 3, STRICT.fetch("MISSING_TYPES")
+    assert_equal 257, STRICT.fetch("TARGET_TYPES")
+    assert_equal 257, STRICT.fetch("COMPLETE_TYPES")
+    assert_equal 0, STRICT.fetch("MISSING_TYPES")
     assert_operator STRICT.fetch("BCL_PROJECTED_IDENTITIES"), :>=, 48
 
     projection = STRICT.fetch("bclProjection").fetch("types")
@@ -877,7 +877,7 @@ class DesignConvertersTest < Minitest::Test
   def test_a_selected_family_can_never_be_classified_bcl_projection_scope
     selection = JSON.parse(ROOT.join("tools", "api_compat", "selection.json").read)
     selected = selection.fetch("types").map { |entry| entry.fetch("name") }
-    assert_equal 254, selected.length
+    assert_equal 257, selected.length
     assert_equal 13, selected.count { |name| name.include?(".Design.") }
 
     # 1. The strict report. A selected type is complete or partial; it is never missing, and a
@@ -906,15 +906,12 @@ class DesignConvertersTest < Minitest::Test
                  "the Design family reaches a System.ComponentModel identity the register does not project"
   end
 
-  # The remaining three missing types are the adapter defect and nothing else. This is the assertion
-  # that would fail if `BCL_PROJECTION_SCOPE` were ever reintroduced for a selected family.
+  # Nothing is missing: the three types the adapter defect held were projected at the ABI 0.35.0
+  # requalification. This is the assertion that would fail if `BCL_PROJECTION_SCOPE` were ever
+  # reintroduced for a selected family.
   def test_no_design_type_remains_missing
-    assert_equal %w[
-      Microsoft.Xna.Framework.Graphics.GraphicsAdapter
-      Microsoft.Xna.Framework.GraphicsDeviceInformation
-      Microsoft.Xna.Framework.PreparingDeviceSettingsEventArgs
-    ].sort, STRICT.fetch("missingTypeNames").sort
-    assert_equal 16, STRICT.fetch("TOTAL_DIAGNOSTICS")
+    assert_empty STRICT.fetch("missingTypeNames")
+    assert_equal 0, STRICT.fetch("TOTAL_DIAGNOSTICS")
     %w[TYPE_KIND_MISMATCH BASE_MAPPING_MISMATCH INTERFACE_MAPPING_MISMATCH FIELD_MAPPING_MISMATCH
        PROPERTY_MAPPING_MISMATCH METHOD_SIGNATURE_MAPPING_MISMATCH PARAMETER_MAPPING_MISMATCH
        RETURN_MAPPING_MISMATCH GENERIC_MAPPING_MISMATCH ENUM_VALUE_MISMATCH FLAGS_MAPPING_MISMATCH

@@ -62,13 +62,14 @@ class GraphicsDeviceUserPrimitivesTest < Minitest::Test
     end
   end
 
+  # HiDef, because one probe draws with 32-bit user indices, which XNA's Reach profile refuses.
   class UserGame < F::Game
     attr_reader :result
 
     def initialize(&body)
       @body = body
       super()
-      F::GraphicsDeviceManager.new(self)
+      F::GraphicsDeviceManager.new(self).GraphicsProfile = G::GraphicsProfile::HiDef
     end
 
     def Draw(_time)
