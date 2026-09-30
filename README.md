@@ -1,6 +1,6 @@
 # cna-killer
 
-A deliberately malicious "game" that exists purely to break [CNA](../cnanext), the C++
+A deliberately malicious "game" that exists purely to break [CNA](../cna), the C++
 reimplementation of the XNA 4.0 programming model. It is a fuzz tester wearing a game's
 clothes: every frame it hammers the CNA runtime with the kind of resource churn and state
 abuse a real game would never do on purpose, hoping to make the framework crash, leak, or
@@ -69,8 +69,8 @@ still leaves behind the seed and the tick it died on.
 
 ## Building
 
-`cna-killer` builds against sibling checkouts of `../cnanext` and `../sharp-runtimenext`,
-exactly like `cna-samples` does — `CMakeLists.txt` adds `../cnanext` as a subdirectory itself,
+`cna-killer` builds against sibling checkouts of `../cna` (branch `next`) and `../sharp-runtime`,
+exactly like `cna-samples` does — `CMakeLists.txt` adds `../cna` as a subdirectory itself,
 so no extra setup is needed beyond having those two repositories checked out next to this one.
 
 ```sh
@@ -101,6 +101,13 @@ workspace-root `CLAUDE.md` for why.
 Every flag above also has a `CNA_KILLER_*` environment variable equivalent (`CNA_KILLER_SEED`,
 `CNA_KILLER_INTENSITY`, `CNA_KILLER_MAX_TICKS`, `CNA_KILLER_DURATION`, `CNA_KILLER_LOG`); a
 command-line flag always wins over the matching environment variable.
+
+The game asks for the HiDef profile: 32-bit index buffers, 2048-texel render targets and MSAA
+are all refused under Reach, which is what an XNA game gets by default.
+
+On a headless machine or a private test display with no sound server, `SoundEffect` creation
+throws `NoAudioHardwareException`, as it does in XNA; run with `SDL_AUDIO_DRIVER=dummy` to keep the
+audio actions in play without an audio device.
 
 Press `Escape` or the gamepad Back button to quit at any time — the run is otherwise unbounded
 by default, so it will keep hammering CNA until something gives or you stop it.

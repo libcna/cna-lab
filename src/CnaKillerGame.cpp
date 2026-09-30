@@ -20,6 +20,9 @@ namespace CnaKiller
         , options_(options)
         , chaos_(options, log)
     {
+        // 32-bit index buffers, 2048-texel render targets and MSAA are HiDef features; an XNA
+        // game without a HiDef RuntimeProfile resource gets Reach, which refuses all three.
+        graphics_.setGraphicsProfileProperty(GraphicsProfile::HiDef);
         graphics_.setPreferredBackBufferWidthProperty(1280);
         graphics_.setPreferredBackBufferHeightProperty(720);
 

@@ -40,7 +40,7 @@ namespace CnaKiller
     };
 
     /**
-     * @brief Deliberately hostile stress engine that drives the CNA runtime (../cnanext) into
+     * @brief Deliberately hostile stress engine that drives the CNA runtime (../cna) into
      * the ground through its own public XNA-compatible API.
      *
      * It continuously creates and destroys textures, render targets, meshes and audio

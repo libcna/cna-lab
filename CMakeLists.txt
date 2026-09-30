@@ -7,11 +7,21 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 # ---------------------------------------------------------------------------
-# cna-killer is a deliberately malicious CNA game: it drives ../cnanext (the
-# CNA runtime) through the sibling ../sharp-runtimenext checkout, exactly like
-# cna-samples does, so a single sibling checkout is fixed up by every consumer
-# in the same session.
+# cna-killer is a deliberately malicious CNA game: it drives the sibling ../cna
+# checkout (the CNA runtime, branch next) and ../sharp-runtime, consumed with
+# add_subdirectory() exactly like the other CNA consumer projects.
 # ---------------------------------------------------------------------------
+
+set(CNA_KILLER_CNA_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../cna" CACHE PATH
+    "CNA checkout used by cna-killer")
+set(CNA_SHARP_RUNTIME_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../sharp-runtime" CACHE PATH
+    "sharp-runtime checkout used by cna-killer")
+foreach(_cna_killer_dep IN ITEMS CNA_KILLER_CNA_ROOT CNA_SHARP_RUNTIME_ROOT)
+    if(NOT EXISTS "${${_cna_killer_dep}}/CMakeLists.txt")
+        message(FATAL_ERROR "cna-killer: ${_cna_killer_dep} does not name a checkout: "
+                            "'${${_cna_killer_dep}}'")
+    endif()
+endforeach()
 
 if(EMSCRIPTEN)
     set(_cna_killer_reference_renderer "WEBGL2")
@@ -21,15 +31,16 @@ endif()
 set(CNA_GRAPHICS_RENDERER "${_cna_killer_reference_renderer}" CACHE STRING
     "CNA Killer reference renderer")
 
-set(CNA_SHARP_RUNTIME_ROOT
-    "${CMAKE_CURRENT_SOURCE_DIR}/../sharp-runtimenext"
-    CACHE PATH "sharp-runtimenext checkout used by cna-killer")
-
-set(CNA_BUILD_TESTS    OFF CACHE BOOL "Build CNA tests")
-set(CNA_BUILD_EXAMPLES OFF CACHE BOOL "Build CNA examples")
+set(CNA_BUILD_TESTS       OFF CACHE BOOL "Build CNA tests")
+set(CNA_BUILD_EXAMPLES    OFF CACHE BOOL "Build CNA examples")
+set(CNA_BUILD_C_API       OFF CACHE BOOL "Build the CNA C API")
+set(CNA_ENABLE_NET        OFF CACHE BOOL "Build CNA networking")
+set(CNA_ENABLE_VIDEO      OFF CACHE STRING "CNA VideoPlayer backend")
+set(EASYGL_BUILD_TESTS    OFF CACHE BOOL "Build EasyGL tests")
+set(EASYGL_BUILD_EXAMPLES OFF CACHE BOOL "Build EasyGL examples")
 set(SHARP_RUNTIME_BUILD_TESTS OFF CACHE BOOL "Build sharp-runtime tests")
 
-add_subdirectory(../cnanext CNA_BUILD)
+add_subdirectory("${CNA_KILLER_CNA_ROOT}" CNA_BUILD EXCLUDE_FROM_ALL)
 
 add_executable(cna-killer
     src/Program.cpp

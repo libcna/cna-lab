@@ -389,7 +389,7 @@ namespace CnaKiller
 
         device.SetVertexBuffer(mesh.vertexBuffer.get());
         device.SetIndexBuffer(mesh.indexBuffer.get());
-        effect.getCurrentTechniqueProperty()->getPassesProperty()[0].Apply();
+        effect.getCurrentTechniqueProperty()->getPassesProperty()[0]->Apply();
         device.DrawIndexedPrimitives(PrimitiveType::TriangleList, 0, 0,
                                      mesh.primitiveCount * 3, 0, mesh.primitiveCount);
     }
