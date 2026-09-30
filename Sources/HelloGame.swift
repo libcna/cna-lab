@@ -52,6 +52,9 @@ final class HelloGame: Microsoft.Xna.Framework.Game {
         requestedFrames = frames
         try super.init()
         graphics = try Microsoft.Xna.Framework.GraphicsDeviceManager(game: self)
+        // The canary reads an OcclusionQuery, which XNA constructs only under
+        // HiDef; Reach refuses it at construction.
+        graphics?.GraphicsProfile = .HiDef
     }
 
     override func Initialize() throws {
