@@ -221,8 +221,29 @@ extension Microsoft.Xna.Framework {
             try? Dispose()
         }
 
+        /// The first step of XNA's `RunGame`, before `Initialize`:
+        ///
+        /// ```text
+        /// graphicsDeviceManager = Services.GetService(typeof(IGraphicsDeviceManager))
+        ///                         as IGraphicsDeviceManager;
+        /// if (graphicsDeviceManager != null) graphicsDeviceManager.CreateDevice();
+        /// ```
+        ///
+        /// This is the moment a manager's recorded preferences -- a profile or
+        /// a back-buffer size set in the game's constructor -- reach the
+        /// device. Without it they reached CNA only on an explicit
+        /// `ApplyChanges`, so a constructor-time `GraphicsProfile = .HiDef`
+        /// ran the whole game under Reach.
+        private func createDeviceThroughTheManager() throws {
+            if let manager = Services.GetService(IGraphicsDeviceManager.self)
+                as? IGraphicsDeviceManager {
+                try manager.CreateDevice()
+            }
+        }
+
         public func Run() throws {
             let handle = try validatedHandle("Game.Run")
+            try createDeviceThroughTheManager()
             runtime.clearCallbackError()
             callbackFailureWasSurfaced = false
             let result = runtime.functions.gameRun(handle)
@@ -233,8 +254,11 @@ extension Microsoft.Xna.Framework {
             try runtime.functions.check(result, operation: "cna_game_run")
         }
 
+        /// The native frame runs the whole `RunGame` sequence -- `Initialize`
+        /// through `UnloadContent` -- so it starts where `Run` does.
         public func RunOneFrame() throws {
             let handle = try validatedHandle("Game.RunOneFrame")
+            try createDeviceThroughTheManager()
             runtime.clearCallbackError()
             callbackFailureWasSurfaced = false
             let result = runtime.functions.gameRunOneFrame(handle)

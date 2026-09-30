@@ -193,6 +193,9 @@ private final class QueryProbeGame: Microsoft.Xna.Framework.Game {
         // Game.GraphicsDevice resolves IGraphicsDeviceService out of Services,
         // and raises NoGraphicsDeviceService when there is none.
         manager = try Microsoft.Xna.Framework.GraphicsDeviceManager(game: self)
+        // XNA builds an OcclusionQuery only when the profile advertises one,
+        // and Reach does not; CNA follows that IL since ABI 0.35.
+        manager?.GraphicsProfile = .HiDef
     }
 
     override func Update(_ gameTime: Microsoft.Xna.Framework.GameTime) throws {

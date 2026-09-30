@@ -17,6 +17,10 @@ private final class BeginProbeGame: F.Game {
         try super.init()
         self.body = body
         manager = try F.GraphicsDeviceManager(game: self)
+        // The custom state below blends alpha separately, which XNA's Reach
+        // profile refuses and CNA enforces since ABI 0.35, so the probe asks
+        // for HiDef the way an XNA game using such a state must.
+        manager?.GraphicsProfile = .HiDef
     }
 
     override func LoadContent() throws {
@@ -39,7 +43,7 @@ private final class BeginProbeGame: F.Game {
 final class Foundation54BeginStatesTests: XCTestCase {
     private func requireNative() throws {
         if ProcessInfo.processInfo.environment["CNA_NATIVE_LIBRARY"] == nil {
-            throw XCTSkip("set CNA_NATIVE_LIBRARY to a CNA C ABI 0.21 or later library")
+            throw XCTSkip("set CNA_NATIVE_LIBRARY to a CNA C ABI 0.35 or later library")
         }
     }
 
