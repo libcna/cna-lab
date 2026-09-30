@@ -809,18 +809,29 @@ try {
         try { backend.Effects.createStockEffect(deviceHandle, 99); }
         catch (error) { unknownKind = error?.constructor?.name ?? "unknown"; }
 
-        // XNA's public `GraphicsDevice` constructor, which this backend deliberately does not
-        // offer: upstream finding 32 says a standalone device leaves the game undestroyable on
-        // this target. What is asserted is the refusal, so a repaired CNA fails here.
-        let standalone = "CONSTRUCTED";
+        // XNA's public `GraphicsDevice` constructor: a device that belongs to no game. Upstream
+        // finding 32 made the game undestroyable after one on this target until CNA 17281e841;
+        // the page's own `game.Dispose()` below is what now has to succeed after it.
+        let standalone = "REFUSED";
         try {
           const parameters = new Graphics.PresentationParameters();
           parameters.BackBufferWidth = 64;
           parameters.BackBufferHeight = 48;
-          new Graphics.GraphicsDevice(
+          const device = new Graphics.GraphicsDevice(
             Graphics.GraphicsAdapter.DefaultAdapter, Graphics.GraphicsProfile.Reach, parameters,
           );
-        } catch (error) { standalone = `${error?.constructor?.name}`; }
+          try {
+            const viewport = device.Viewport;
+            standalone = {
+              width: viewport.Width, height: viewport.Height,
+              profile: device.GraphicsProfile,
+              ownDevice: device !== this.GraphicsDevice,
+            };
+          } finally {
+            device.Dispose();
+          }
+          standalone.disposed = device.IsDisposed;
+        } catch (error) { standalone = `${error?.constructor?.name}: ${error?.message}`; }
 
         return {
           microphones, microphoneCapture, stock, unknownKind, standalone,

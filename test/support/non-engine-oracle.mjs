@@ -631,13 +631,17 @@ export function assertLateMemberEvidence(evidence) {
   assert.equal(evidence.unknownKind, "RangeError",
     "and a kind that is not one is refused by range rather than created");
 
-  // A device that belongs to no game, which this backend refuses on purpose. Upstream finding 32:
-  // the device itself works -- 64x48 viewport, destroys cleanly -- and the *game* afterwards does
-  // not, throwing an Emscripten ErrnoError out of `cna_game_destroy` with no CNA result at all. A
-  // repaired CNA makes this assertion fail, which is the point of making it.
-  assert.notEqual(evidence.standalone, "CONSTRUCTED",
-    "a standalone GraphicsDevice is refused by name on this backend rather than silently making " +
-    "Game.Dispose fail");
+  // A device that belongs to no game: XNA's public GraphicsDevice constructor. It is its own
+  // device at the size its presentation parameters asked for, it disposes, and -- upstream finding
+  // 32, fixed in CNA 17281e841 -- the game still disposes cleanly afterwards, which the page's own
+  // status and disposal assert.
+  assert.equal(typeof evidence.standalone, "object",
+    `a standalone GraphicsDevice is constructed: ${evidence.standalone}`);
+  assert.deepEqual(
+    [evidence.standalone.width, evidence.standalone.height], [64, 48],
+    "its viewport is the size its presentation parameters asked for, not the game's");
+  assert.equal(evidence.standalone.ownDevice, true, "and it is not the game's device");
+  assert.equal(evidence.standalone.disposed, true, "and it disposes");
 
   assert.equal(evidence.dispatcherUpdated, true,
     "FrameworkDispatcher.Update reaches CNA rather than checking a handle and returning");

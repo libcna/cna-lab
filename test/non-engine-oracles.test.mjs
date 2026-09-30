@@ -173,7 +173,7 @@ const WORKING = {
     },
     stock: [0, 1, 2, 3, 4].map((kind) => ({ kind, created: true, applied: true })),
     unknownKind: "RangeError",
-    standalone: "NativeUnavailableError",
+    standalone: { width: 64, height: 48, profile: 0, ownDevice: true, disposed: true },
     dispatcherUpdated: true,
     mouseWindowHandle: "0",
   },
@@ -629,9 +629,16 @@ const CASES = [
     broken.stock = broken.stock.slice(0, 1);
     return () => assertLateMemberEvidence(broken);
   }],
-  ["upstream finding 32 repaired, which this suite must notice", () => {
+  ["a standalone GraphicsDevice refused again (finding 32's withdrawal)", () => {
     const broken = clone(WORKING.lateMembers);
-    broken.standalone = "CONSTRUCTED";
+    broken.standalone = "NativeUnavailableError: Direct GraphicsDevice construction requires a CNA standalone-device route";
+    return () => assertLateMemberEvidence(broken);
+  }],
+  ["a standalone GraphicsDevice that is only a view of the game's", () => {
+    const broken = clone(WORKING.lateMembers);
+    broken.standalone.width = 800;
+    broken.standalone.height = 480;
+    broken.standalone.ownDevice = false;
     return () => assertLateMemberEvidence(broken);
   }],
   ["upstream finding 11 back: enumerating after a destroyed test camera traps", () => {

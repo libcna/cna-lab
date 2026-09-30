@@ -45,6 +45,7 @@ import type {
   CnaGameConfiguration,
   CnaGameTimeSnapshot,
   GraphicsManagerConfiguration,
+  StandaloneDeviceParameters,
   SpriteBatchCommand,
   Texture2DInfo,
   Texture2DTransfer,
@@ -131,6 +132,9 @@ const ROUTES = [
   "cna_index_buffer_set_data_at",
   "cna_index_buffer_get_data",
   "cna_index_buffer_destroy",
+  "cna_presentation_parameters_init",
+  "cna_graphics_device_create",
+  "cna_graphics_device_destroy",
   "cna_graphics_device_set_vertex_buffers",
   "cna_graphics_device_set_index_buffer",
   "cna_graphics_device_set_rasterizer_state",
@@ -1304,19 +1308,39 @@ export class WasmBackend extends CnaBackendBase implements CnaRuntimeServicesBac
 
   public override initialize(): Promise<void> { return Promise.resolve(); }
 
-  // XNA's public `GraphicsDevice` constructor -- a device that belongs to no game -- is
-  // deliberately *not* offered here, and it was written and then withdrawn rather than never
-  // attempted. It works: the device is created, its viewport is the 64x48 its presentation
-  // parameters asked for rather than the game's 800x480, and destroying it succeeds. What does not
-  // work is the game afterwards. Measured in plain C calls with no binding involved --
-  // `cna_presentation_parameters_init`, `cna_graphics_device_create`,
-  // `cna_graphics_device_destroy`, `cna_game_destroy` -- the game's destroy throws an Emscripten
-  // `ErrnoError` with errno 44 rather than returning a CNA result at all, and CNA's own last-error
-  // message is empty, so the failure is below its exception barrier. See upstream finding 32.
-  //
-  // A public constructor that silently makes `Game.Dispose` fail is worse than one that refuses by
-  // name, so `CnaBackendBase` keeps refusing it and the browser suite asserts the blocker, which is
-  // what makes a repaired CNA fail here rather than pass unnoticed.
+  // XNA's public `GraphicsDevice` constructor: a device that belongs to no game. It was written,
+  // measured and withdrawn once, because on CNA before 17281e841 the game's destroy afterwards threw
+  // an Emscripten `ErrnoError` (errno 44) from SDL's file-drop teardown -- upstream finding 32.
+  // CNA fixed that for Emscripten, and the browser suite asserts both the device and the game's
+  // clean disposal after it. The presentation parameters are seeded by CNA's own initialiser, so
+  // the reserved bytes are CNA's, and only the fields XNA has are written over them.
+  public createStandaloneGraphicsDevice(
+    adapterIndex: number, graphicsProfile: number, parameters: StandaloneDeviceParameters,
+  ): NativeHandle {
+    const scope = new WasmScope(this.#module);
+    try {
+      const presentation = allocateStruct(this.#module, scope, "CNA_PresentationParameters");
+      this.#invoke("cna_presentation_parameters_init", presentation.pointer);
+      presentation
+        .setI32("back_buffer_format", parameters.BackBufferFormat)
+        .setI32("back_buffer_width", parameters.BackBufferWidth)
+        .setI32("back_buffer_height", parameters.BackBufferHeight)
+        .setI32("depth_stencil_format", parameters.DepthStencilFormat)
+        .setI32("multi_sample_count", parameters.MultiSampleCount)
+        .setI32("presentation_interval", parameters.PresentationInterval)
+        .setI32("display_orientation", parameters.DisplayOrientation)
+        .setI32("render_target_usage", parameters.RenderTargetUsage)
+        .setU8("is_full_screen", parameters.IsFullScreen ? 1 : 0);
+      return this.#outHandle(
+        "cna_graphics_device_create", adapterIndex, graphicsProfile, presentation.pointer);
+    } finally {
+      scope.dispose();
+    }
+  }
+
+  public destroyStandaloneGraphicsDevice(device: NativeHandle): void {
+    this.#invoke("cna_graphics_device_destroy", device);
+  }
 
   public override getLastError(): string | null { return this.#routes.lastError(); }
 

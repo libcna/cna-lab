@@ -38,15 +38,5 @@
     "status": "DELIBERATE_NON_BINDING",
     "reason": "the WebAssembly backend reads a CNB model's external effect name through the copy route's own length probe, which reports the byte count when it is given a null destination -- so the separate size route has nothing left to answer. One route instead of two, the same string out, and one fewer place for the two to disagree about a length",
     "evidence": "test/cnb-content.integration.mjs and test/wasm-browser.mjs load the same CNB model on both backends and compare every name"
-  },
-  "Backend.createStandaloneGraphicsDevice": {
-    "status": "BLOCKED_UPSTREAM",
-    "reason": "a standalone GraphicsDevice is created successfully on this target -- its viewport is the 64x48 its presentation parameters asked for rather than the game's 800x480 -- and destroying it succeeds. The *game* afterwards does not: cna_game_destroy throws an Emscripten ErrnoError with errno 44 instead of returning a CNA result, and CNA's own last-error message is empty, so the failure is below its exception barrier. Measured in plain C calls with no binding involved. The implementation was written, measured, and withdrawn: a public XNA constructor that silently makes Game.Dispose fail is worse than one that refuses by name. Upstream finding 32",
-    "evidence": "test/wasm-browser-non-engine.mjs asserts the refusal through assertLateMemberEvidence, so a repaired CNA fails that assertion rather than passing unnoticed"
-  },
-  "Backend.destroyStandaloneGraphicsDevice": {
-    "status": "BLOCKED_UPSTREAM",
-    "reason": "the release half of the constructor above, which has nothing to release while the constructor is withheld. Upstream finding 32",
-    "evidence": "test/wasm-browser-non-engine.mjs asserts the refusal through assertLateMemberEvidence, so a repaired CNA fails that assertion rather than passing unnoticed"
   }
 }
