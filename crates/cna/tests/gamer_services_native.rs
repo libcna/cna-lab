@@ -842,10 +842,9 @@ fn an_avatar_draw_reports_what_the_renderer_can_do() -> Result<()> {
     let description = AvatarDescription::CreateRandom()?;
     let renderer = AvatarRenderer::new(&description)?;
     let animation = AvatarAnimation::new(AvatarAnimationPreset::Stand0)?;
-    // Let CNA's background assembly finish before the process can exit:
-    // exiting with a load still running crashes or hangs inside CNA's static
-    // destruction (RUST-UPSTREAM-031, reproducer in tools/reproducers).
-    wait_until_loaded(&renderer)?;
+    // No wait for the background assembly: exiting with a load still running
+    // used to crash or hang in CNA's static destruction (RUST-UPSTREAM-031,
+    // fixed upstream by CNA BINDFIX-046), so this test leaves one running.
 
     // Nothing here claims a frame appeared. The call reaches CNA and whatever
     // CNA answers -- a success on a build that can draw, a refusal on one that

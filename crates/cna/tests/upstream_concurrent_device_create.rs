@@ -1,11 +1,11 @@
 //! RUST-UPSTREAM-023: building independent `GraphicsDevice`s from several
 //! threads at once must not corrupt the process.
 //!
-//! `cna_graphics_device_create` races with itself on the GL renderers -- the
-//! SDL3/EGL context construction underneath it is not thread-safe, and the ABI
-//! neither documents a thread affinity nor answers `CNA_RESULT_THREAD`. The
-//! binding serialises construction so that safe Rust does not expose the race;
-//! this test is what says the serialisation is still there.
+//! `cna_graphics_device_create` used to race with itself on the GL renderers,
+//! and this crate serialised construction to keep safe Rust out of it. CNA now
+//! serialises window, renderer and context construction itself (BINDFIX-050)
+//! and documents that several threads may create and destroy devices at once,
+//! so the crate's lock is gone and this test drives the race directly.
 //!
 //! It is a *crash* test. There is no assertion that catches the defect: an
 //! unserialised build dies with `SIGSEGV` or glibc's "double free or

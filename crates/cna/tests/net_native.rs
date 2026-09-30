@@ -79,12 +79,13 @@ fn a_local_session_reports_the_state_it_was_created_with() -> Result<()> {
     assert_eq!(session.RemoteGamers()?.Count()?, 0);
     assert_eq!(session.PreviousGamers()?.Count()?, 0);
     assert!(session.IsHost()?);
-    // The host exists, but CNA's C layer has no gamer-base access for a
-    // network gamer, so its gamertag is a refusal rather than a guess. The
-    // session-local identity it *does* publish is readable.
+    // The host is the signed-in gamer who created the session, and a network
+    // gamer answers its inherited Gamer members (RUST-BEHAVIOR-010, fixed
+    // upstream by CNA BINDFIX-047).
     let host = session.Host()?;
     assert_eq!(host.Id()?, 0);
-    assert!(matches!(host.Gamertag(), Err(CnaError::Native { .. })));
+    let host_tag = host.Gamertag()?;
+    assert!(!host_tag.is_empty(), "the host carries its gamertag");
     assert!(session.FindGamerById(200)?.is_none());
 
     // Settable session state round-trips through CNA.
@@ -228,17 +229,12 @@ fn a_local_gamer_joins_the_session_and_carries_its_signed_in_gamer() -> Result<(
     // The session it belongs to is the one that admitted it.
     assert_eq!(local.Session()?.MaxGamers()?, session.MaxGamers()?);
 
-    // CNA still has no gamer-base access for a network gamer, so the gamertag
-    // a roster read could trivially have guessed from the published roster is
-    // a refusal instead. Reporting the refusal is the point, and the message
-    // is CNA's own rather than a summary of it. (RUST-BEHAVIOR-010,
-    // re-measured on cnanext 599d14e5 and still blocked.)
-    assert!(
-        matches!(local.Gamertag(), Err(CnaError::Native { message, .. })
-            if message.contains("does not name a gamer this call can use")),
-        "a network gamer still cannot answer its inherited Gamer members"
-    );
-    assert!(matches!(local.DisplayName(), Err(CnaError::Native { .. })));
+    // A network gamer is a Gamer: its inherited members answer through the
+    // gamer base routes (RUST-BEHAVIOR-010, fixed upstream by CNA BINDFIX-047;
+    // they used to refuse a network-gamer handle). The published gamertag is
+    // what a local gamer carries.
+    assert_eq!(local.Gamertag()?, "host");
+    assert!(!local.DisplayName()?.is_empty());
 
     // The signed-in gamer behind a local gamer *is* reachable now.
     // RUST-BEHAVIOR-011 recorded `NOT_SUPPORTED` -- "Signed-in gamers have no

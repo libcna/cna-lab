@@ -481,9 +481,8 @@ impl Drop for SkinnedPbrEffect {
 
 /// The per-slot texture state, on a live effect rather than in a material value.
 ///
-/// [`PbrMaterialFull`] carries the numbers a material was authored with;
-/// these read and write what the effect is set to *now*, including the textures
-/// themselves, which a material value deliberately does not hold.
+/// These read and write what the effect is set to *now*, including the
+/// textures themselves.
 impl PbrEffect {
     /// Binds a texture to one slot, or clears it with `None`.
     pub fn set_texture(&self, slot: TextureSlot, texture: Option<&Texture2D>) -> Result<()> {

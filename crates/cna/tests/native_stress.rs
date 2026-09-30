@@ -1426,27 +1426,10 @@ impl Game for EffectStressGame {
                 },
             ],
         );
-        // RUST-UPSTREAM-030, a current CNA defect: a technique added to an
-        // effect's own collection through the C API is built with no owning
-        // Effect, so selecting it -- which a reflection effect does for its
-        // first technique, as XNA's CurrentTechnique defaults to Techniques[0]
-        // -- is refused with InvalidOperationException although the C route
-        // has already checked that the technique belongs to this effect. The
-        // binding reports the refusal rather than leaving a current technique
-        // unselected; this case qualifies the rest of the reflection surface
-        // once CNA builds the technique with its owner.
-        let mut effect = match created {
-            Ok(effect) => effect,
-            Err(CnaError::Native {
-                category: ErrorCategory::State,
-                ref message,
-                ..
-            }) if message.contains("Operation is not valid due to the current state") => {
-                println!("MEASURED RUST-UPSTREAM-030: a reflection effect's first technique cannot be selected: {message}");
-                return Ok(());
-            }
-            Err(error) => return Err(error),
-        };
+        // A technique added through the C API is selectable as its effect's
+        // current technique (RUST-UPSTREAM-030, fixed upstream by CNA
+        // BINDFIX-045; it used to be refused as InvalidOperationException).
+        let mut effect = created?;
 
         let parameters = effect.Parameters()?;
         assert!(Arc::ptr_eq(&parameters, &effect.Parameters()?));

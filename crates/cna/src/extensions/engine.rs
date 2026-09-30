@@ -602,14 +602,13 @@ impl IndirectDrawIndexedArguments {
     }
 }
 
-/// A mesh part CNA owns, built to feed the engine layer.
+/// A mesh part CNA owns.
 ///
 /// `OWNED`. Deliberately **not** the crate's
 /// [`ModelMeshPart`](crate::Microsoft::Xna::Framework::Graphics::ModelMeshPart),
-/// which is a managed Rust projection with no native handle: the engine layer's
-/// [`InstancedRenderer`] and [`LodGroup::add_part_level`] take a
-/// `CNA_ModelMeshPartHandle`, and nothing in the XNA projection can produce
-/// one. This type exists so those routes are reachable without publishing a raw
+/// which is a managed Rust projection with no native handle: the skinned-model
+/// and morph-target extension routes take a `CNA_ModelMeshPartHandle`, and
+/// nothing in the XNA projection can produce one. This type exists so those routes are reachable without publishing a raw
 /// handle, and it lives in `cna::extensions` because it is not XNA.
 ///
 /// Its two buffers are `RETAINED_DEPENDENCY`: CNA holds them by pointer, so
@@ -626,9 +625,7 @@ impl NativeMeshPart {
     /// Creates a part over a vertex and index buffer.
     ///
     /// The four counts are preserved verbatim -- CNA validates nothing here --
-    /// so they are what the drawing routes will believe. An
-    /// [`InstancedRenderer`] additionally requires both buffers and at least one
-    /// primitive, and refuses a part that has neither.
+    /// so they are what the drawing routes will believe.
     pub fn new(
         vertex_buffer: Option<VertexBuffer>,
         index_buffer: Option<IndexBuffer>,
