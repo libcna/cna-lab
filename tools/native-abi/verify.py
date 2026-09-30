@@ -46,7 +46,7 @@ def resolve_cna_root(argument: str | None) -> Path:
     """Resolve the authoritative CNA checkout, refusing to guess a different one."""
     candidate = argument or os.environ.get("CNA_ROOT")
     if not candidate:
-        raise SystemExit("CNA_ROOT or --cna-root is required; CNA-Java qualifies against ../../cnanext")
+        raise SystemExit("CNA_ROOT or --cna-root is required; CNA-Java qualifies against the sibling ../cna")
     root = Path(candidate).resolve()
     if not (root / "modules/c-api/include/CNA/C/cna.h").is_file():
         raise SystemExit(f"not a CNA checkout with a C API: {root}")

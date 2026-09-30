@@ -68,6 +68,11 @@ public final class NativeGamerServicesRoutes {
     public static native int achievementCopyName(long achievement, byte[] destination, long[] outBytes);
 
     /**
+     * cna_achievement_copy_picture (gamer_services.h).
+     */
+    public static native int achievementCopyPicture(long achievement, byte[] destination, long[] outBytes);
+
+    /**
      * cna_achievement_get_description_size (gamer_services.h).
      */
     public static native int achievementGetDescriptionSize(long achievement, long[] outBytes);
@@ -106,11 +111,6 @@ public final class NativeGamerServicesRoutes {
      * cna_achievement_get_picture_size (gamer_services.h).
      */
     public static native int achievementGetPictureSize(long achievement, long[] outBytes);
-
-    /**
-     * cna_avatar_animation_copy_real_clip_name_ext (gamer_services.h).
-     */
-    public static native int avatarAnimationCopyRealClipNameExt(long animation, byte[] destination, long[] outBytes);
 
     /**
      * cna_avatar_animation_create (gamer_services.h).
@@ -182,73 +182,14 @@ public final class NativeGamerServicesRoutes {
     public static native int avatarAnimationGetInfo(long animation, byte[] outInfoBytes, long[] outInfoIntegral);
 
     /**
-     * cna_avatar_animation_get_real_clip_name_size_ext (gamer_services.h).
-     */
-    public static native int avatarAnimationGetRealClipNameSizeExt(long animation, long[] outBytes);
-
-    /**
-     * cna_avatar_animation_preset_copy_clip_name_ext (gamer_services.h).
-     */
-    public static native int avatarAnimationPresetCopyClipNameExt(int preset, byte[] destination, long[] outBytes);
-
-    /**
-     * cna_avatar_animation_preset_get_clip_name_size_ext (gamer_services.h).
-     */
-    public static native int avatarAnimationPresetGetClipNameSizeExt(int preset, long[] outBytes);
-
-    /**
      * cna_avatar_animation_set_current_position (gamer_services.h).
      */
     public static native int avatarAnimationSetCurrentPosition(long animation, long positionTicks);
 
     /**
-     * cna_avatar_animation_set_real_clip_name_ext (gamer_services.h).
-     */
-    public static native int avatarAnimationSetRealClipNameExt(long animation, byte[] clipName);
-
-    /**
      * cna_avatar_animation_update (gamer_services.h).
      */
     public static native int avatarAnimationUpdate(long animation, long elapsedTicks, boolean loop);
-
-    /**
-     * cna_avatar_appearance_init_ext (gamer_services.h).
-     *
-     * <p>outAppearanceIntegral carries CNA_AvatarAppearanceEXT in this order:
-     * <ol start="0">
-     *   <li>{@code skin_color.r} (uint8_t)</li>
-     *   <li>{@code skin_color.g} (uint8_t)</li>
-     *   <li>{@code skin_color.b} (uint8_t)</li>
-     *   <li>{@code skin_color.a} (uint8_t)</li>
-     *   <li>{@code hair_color.r} (uint8_t)</li>
-     *   <li>{@code hair_color.g} (uint8_t)</li>
-     *   <li>{@code hair_color.b} (uint8_t)</li>
-     *   <li>{@code hair_color.a} (uint8_t)</li>
-     *   <li>{@code shirt_color.r} (uint8_t)</li>
-     *   <li>{@code shirt_color.g} (uint8_t)</li>
-     *   <li>{@code shirt_color.b} (uint8_t)</li>
-     *   <li>{@code shirt_color.a} (uint8_t)</li>
-     *   <li>{@code pants_color.r} (uint8_t)</li>
-     *   <li>{@code pants_color.g} (uint8_t)</li>
-     *   <li>{@code pants_color.b} (uint8_t)</li>
-     *   <li>{@code pants_color.a} (uint8_t)</li>
-     *   <li>{@code shoes_color.r} (uint8_t)</li>
-     *   <li>{@code shoes_color.g} (uint8_t)</li>
-     *   <li>{@code shoes_color.b} (uint8_t)</li>
-     *   <li>{@code shoes_color.a} (uint8_t)</li>
-     * </ol>
-     */
-    public static native int avatarAppearanceInitExt(long[] outAppearanceIntegral);
-
-    /**
-     * cna_avatar_body_type_copy_content_name_ext (gamer_services.h).
-     */
-    public static native int avatarBodyTypeCopyContentNameExt(int bodyType, byte[] destination, long[] outBytes);
-
-    /**
-     * cna_avatar_body_type_get_content_name_size_ext (gamer_services.h).
-     */
-    public static native int avatarBodyTypeGetContentNameSizeExt(int bodyType, long[] outBytes);
 
     /**
      * cna_avatar_description_copy_description (gamer_services.h).
@@ -338,16 +279,6 @@ public final class NativeGamerServicesRoutes {
     public static native int avatarRendererDrawBones(long renderer, float[] bonesFloating, long[] expressionIntegral);
 
     /**
-     * cna_avatar_renderer_draw_real_ext (gamer_services.h).
-     */
-    public static native int avatarRendererDrawRealExt(long renderer, byte[] animationClipName, long positionTicks, boolean loop);
-
-    /**
-     * cna_avatar_renderer_enable_real_rendering_ext (gamer_services.h).
-     */
-    public static native int avatarRendererEnableRealRenderingExt(long renderer, long device, long model);
-
-    /**
      * cna_avatar_renderer_get_bind_pose_at (gamer_services.h).
      *
      * <p>outTransformFloating carries CNA_Matrix in this order:
@@ -379,13 +310,13 @@ public final class NativeGamerServicesRoutes {
      * <ol start="0">
      *   <li>{@code reserved[0]} (uint8_t)</li>
      *   <li>{@code reserved[1]} (uint8_t)</li>
+     *   <li>{@code reserved[2]} (uint8_t)</li>
      * </ol>
      *
      * <p>outInfoIntegral carries CNA_AvatarRendererInfo in this order:
      * <ol start="0">
      *   <li>{@code state} (CNA_AvatarRendererState)</li>
      *   <li>{@code is_disposed} (CNA_Bool)</li>
-     *   <li>{@code is_real_rendering_enabled} (CNA_Bool)</li>
      * </ol>
      */
     public static native int avatarRendererGetInfo(long renderer, byte[] outInfoBytes, long[] outInfoIntegral);
@@ -485,35 +416,6 @@ public final class NativeGamerServicesRoutes {
      * </ol>
      */
     public static native int avatarRendererGetTransforms(long renderer, float[] outWorldFloating, float[] outViewFloating, float[] outProjectionFloating);
-
-    /**
-     * cna_avatar_renderer_set_appearance_ext (gamer_services.h).
-     *
-     * <p>appearanceIntegral carries CNA_AvatarAppearanceEXT in this order:
-     * <ol start="0">
-     *   <li>{@code skin_color.r} (uint8_t)</li>
-     *   <li>{@code skin_color.g} (uint8_t)</li>
-     *   <li>{@code skin_color.b} (uint8_t)</li>
-     *   <li>{@code skin_color.a} (uint8_t)</li>
-     *   <li>{@code hair_color.r} (uint8_t)</li>
-     *   <li>{@code hair_color.g} (uint8_t)</li>
-     *   <li>{@code hair_color.b} (uint8_t)</li>
-     *   <li>{@code hair_color.a} (uint8_t)</li>
-     *   <li>{@code shirt_color.r} (uint8_t)</li>
-     *   <li>{@code shirt_color.g} (uint8_t)</li>
-     *   <li>{@code shirt_color.b} (uint8_t)</li>
-     *   <li>{@code shirt_color.a} (uint8_t)</li>
-     *   <li>{@code pants_color.r} (uint8_t)</li>
-     *   <li>{@code pants_color.g} (uint8_t)</li>
-     *   <li>{@code pants_color.b} (uint8_t)</li>
-     *   <li>{@code pants_color.a} (uint8_t)</li>
-     *   <li>{@code shoes_color.r} (uint8_t)</li>
-     *   <li>{@code shoes_color.g} (uint8_t)</li>
-     *   <li>{@code shoes_color.b} (uint8_t)</li>
-     *   <li>{@code shoes_color.a} (uint8_t)</li>
-     * </ol>
-     */
-    public static native int avatarRendererSetAppearanceExt(long renderer, long[] appearanceIntegral);
 
     /**
      * cna_avatar_renderer_set_lighting (gamer_services.h).
@@ -766,6 +668,11 @@ public final class NativeGamerServicesRoutes {
     public static native int gamerProfileCopyMotto(long profile, byte[] destination, long[] outBytes);
 
     /**
+     * cna_gamer_profile_copy_picture (gamer_services.h).
+     */
+    public static native int gamerProfileCopyPicture(long profile, byte[] destination, long[] outBytes);
+
+    /**
      * cna_gamer_profile_copy_region_name (gamer_services.h).
      */
     public static native int gamerProfileCopyRegionName(long profile, byte[] destination, long[] outBytes);
@@ -960,16 +867,6 @@ public final class NativeGamerServicesRoutes {
      * cna_guide_set_is_screen_saver_enabled (gamer_services.h).
      */
     public static native int guideSetIsScreenSaverEnabled(boolean isEnabled);
-
-    /**
-     * cna_guide_set_is_trial_mode (gamer_services.h).
-     */
-    public static native int guideSetIsTrialMode(boolean isTrialMode);
-
-    /**
-     * cna_guide_set_is_visible (gamer_services.h).
-     */
-    public static native int guideSetIsVisible(boolean isVisible);
 
     /**
      * cna_guide_set_notification_position (gamer_services.h).

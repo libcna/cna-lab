@@ -27,11 +27,6 @@ import java.util.Objects;
  * hand CNA a vertex and a fragment shader as text, and set uniforms on the result by name and by
  * type.
  *
- * <p>It is the missing half of two families that were already here. {@link ShaderEffectFactory}
- * compiles and caches an effect by name, and {@link FullscreenPass} draws a texture through one --
- * but until now nothing could give that effect a value to work with, which made a custom shader
- * a shader with no inputs.
- *
  * <p><strong>Creation succeeding is not the source compiling, and CNA is explicit about it.</strong>
  * A renderer decides for itself whether to compile at construction and whether to look at the
  * source at all, and this ABI does not normalize that. {@link #isValid()} is the question to ask
@@ -41,28 +36,19 @@ import java.util.Objects;
  * is the question to ask <em>before</em>.
  *
  * <p><strong>The effect is an ordinary graphics resource.</strong> {@link #getEffect()} hands back
- * an XNA {@link Effect} that {@code SpriteBatch.Begin} and {@link FullscreenPass} both take, and
- * the game owns it: disposing the effect is what releases it.
+ * an XNA {@link Effect} that {@code SpriteBatch.Begin} takes, and the game owns it: disposing the
+ * effect is what releases it.
  *
- * <p><strong>Apply the effect before setting a uniform.</strong> CNA's GL renderers write a
- * uniform to whichever shader program is <em>current</em>, and nothing makes an effect's program
- * current until the effect is applied -- so a uniform set beforehand is silently discarded.
- * {@link #apply()} is that step, and the order it imposes is:
+ * <p><strong>Uniforms may be set in any order.</strong> A uniform set before the effect is
+ * applied reaches the shader: SpriteBatch applies the effect it is given, as XNA's does, and
+ * {@link #apply()} is only needed for a draw that does not. CNA's GL renderers once wrote a
+ * uniform to whichever program happened to be current, so one set before the apply was lost
+ * ({@code JAVA-UPSTREAM-016}); CNA fixed that, and
+ * {@code tools/native-abi/probes/shader_effect_uniform_binding.c} measures all three orders.
  *
- * <pre>{@code
- * shader.apply();
- * shader.setUniform("u_colour", new Vector4(1f, 0f, 0f, 1f));
- * pass.draw(source, target, shader.getEffect(), width, height, null);
- * }</pre>
- *
- * <p>Measured in {@code tools/native-abi/probes/shader_effect_uniform_binding.c} and recorded as
- * {@code JAVA-UPSTREAM-016}: every setter answers {@code SUCCESS} either way, and only the pixel
- * tells the two apart. This is not enforced here, because applying an effect changes device state
- * a caller may be managing itself -- it is documented and tested instead.
- *
- * <p><strong>The dialect is the renderer's.</strong> CNA's own shaders are GLSL ES -- every one in
- * its engine layer opens with {@code #version 300 es} -- and that is what compiles on every
- * renderer here that compiles anything.
+ * <p><strong>The dialect is the renderer's.</strong> CNA's own shaders are GLSL ES -- they open
+ * with {@code #version 300 es} -- and that is what compiles on every renderer here that compiles
+ * anything.
  */
 public final class ShaderEffect implements AutoCloseable {
 
@@ -100,7 +86,7 @@ public final class ShaderEffect implements AutoCloseable {
      * @return the effect, which the caller closes
      * @throws IllegalArgumentException when both sources are empty, which is the one refusal CNA
      *         makes identically on every renderer
-     * @throws ExtensionNotSupportedException when this build has no engine layer
+     * @throws ExtensionNotSupportedException when this build has no extended graphics layer
      */
     public static ShaderEffect compile(GraphicsDevice graphicsDevice, String vertexSource,
             String fragmentSource) {
@@ -118,9 +104,8 @@ public final class ShaderEffect implements AutoCloseable {
     /**
      * Returns the effect a draw takes.
      *
-     * <p>An ordinary XNA {@link Effect}: {@code SpriteBatch.Begin} and
-     * {@link FullscreenPass#draw} both accept it. It is this object's, not a fresh view, and
-     * closing this closes it.
+     * <p>An ordinary XNA {@link Effect}, which {@code SpriteBatch.Begin} accepts. It is this
+     * object's, not a fresh view, and closing this closes it.
      *
      * @return the effect
      */
@@ -132,11 +117,8 @@ public final class ShaderEffect implements AutoCloseable {
     /**
      * Makes this effect's shader program the current one.
      *
-     * <p>XNA's {@code effect.CurrentTechnique.Passes[0].Apply()}, and on CNA's GL renderers it is
-     * what a uniform needs before it will land: those renderers write a uniform to the current
-     * program, and an effect that has not been applied is not it. Every setter below answers
-     * {@code SUCCESS} whether or not this was called, so the ordering is a contract rather than
-     * something a result code will remind a caller of.
+     * <p>XNA's {@code effect.CurrentTechnique.Passes[0].Apply()}, for a draw that does not apply
+     * the effect itself. SpriteBatch does, so a sprite draw needs no call here.
      */
     public void apply() {
         open();

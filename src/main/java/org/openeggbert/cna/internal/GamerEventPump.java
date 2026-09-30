@@ -236,6 +236,7 @@ public final class GamerEventPump {
      * kept, the drain continues, and the failure is rethrown once the queue is empty.
      */
     public static void drain() {
+        RuntimeException completion = completeWatches();
         long[] numeric = new long[6];
         long[] text = new long[6];
         boolean hasNumeric = NativeGamerServices.nativePollEvent(numeric);
@@ -265,9 +266,50 @@ public final class GamerEventPump {
                 payload = NativeGamerServices.nativePollTextEvent(text);
             }
         }
+        if (completion != null) {
+            if (failure == null) {
+                failure = completion;
+            } else {
+                failure.addSuppressed(completion);
+            }
+        }
         if (failure != null) {
             throw failure;
         }
+    }
+
+    /**
+     * Runs {@code onCompletion} from the first pump that finds {@code completed} true.
+     *
+     * <p>For an operation CNA completes later without calling back into Java -- a Guide screen
+     * waiting for its player -- so its XNA callback runs from the same pump XNA's own
+     * dispatcher completes it from.
+     */
+    public static void watch(java.util.function.BooleanSupplier completed, Runnable onCompletion) {
+        WATCHES.add(new Watch(completed, onCompletion));
+    }
+
+    private record Watch(java.util.function.BooleanSupplier completed, Runnable onCompletion) {
+    }
+
+    private static final List<Watch> WATCHES = new CopyOnWriteArrayList<>();
+
+    private static RuntimeException completeWatches() {
+        RuntimeException failure = null;
+        for (Watch watch : WATCHES) {
+            try {
+                if (watch.completed().getAsBoolean() && WATCHES.remove(watch)) {
+                    watch.onCompletion().run();
+                }
+            } catch (RuntimeException exception) {
+                if (failure == null) {
+                    failure = exception;
+                } else {
+                    failure.addSuppressed(exception);
+                }
+            }
+        }
+        return failure;
     }
 
     /**

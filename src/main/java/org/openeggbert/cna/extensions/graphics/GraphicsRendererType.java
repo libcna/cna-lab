@@ -6,14 +6,16 @@ import java.util.Objects;
  * One renderer identity CNA knows how to name.
  *
  * <p>A CNA extension with no XNA counterpart at all: XNA had one renderer, on one operating
- * system, and no notion of choosing. CNA defines identities for backends spanning four decades of
- * graphics APIs, of which any given build compiles in a handful -- see
+ * system, and no notion of choosing. CNA defines eighteen public renderer identities, of which any
+ * given build compiles in a handful -- see
  * {@link GraphicsRenderer#available()} for which ones this build has, which is a different and
  * much shorter list.
  *
  * <p>The identities are CNA's own numbers, deliberately not consecutive: a retired backend keeps
  * its number rather than letting a later one inherit it, so a value recorded in a config file or
- * a crash report still means what it meant. {@link #UNKNOWN} is the zero value and names nothing.
+ * a crash report still means what it meant. A retired identity is not listed here, and CNA refuses
+ * its number with an invalid-argument result. {@link #UNKNOWN} is the zero value and names
+ * nothing.
  */
 public enum GraphicsRendererType {
 
@@ -31,8 +33,6 @@ public enum GraphicsRendererType {
     WEBGL1(5),
     /** WebGL 2. */
     WEBGL2(6),
-    /** bgfx. */
-    BGFX(7),
     /** Vulkan. */
     VULKAN(8),
     /** WebGPU. */
@@ -47,56 +47,16 @@ public enum GraphicsRendererType {
     DIRECTX11(14),
     /** Direct3D 12. */
     DIRECTX12(15),
-    /** Direct2D. */
-    DIRECT2D(16),
     /** An HTML canvas. */
     CANVAS(17),
-    /** The HTML DOM itself. */
-    HTML_DOM(18),
-    /** FreeDirect. */
-    FREEDIRECT(21),
     /** Direct3D 9. */
     DIRECTX9(22),
-    /** Direct3D 1. */
-    DIRECTX1(23),
-    /** Direct3D 2. */
-    DIRECTX2(24),
-    /** Direct3D 3. */
-    DIRECTX3(25),
-    /** Direct3D 5. */
-    DIRECTX5(26),
-    /** Direct3D 6. */
-    DIRECTX6(27),
-    /** Direct3D 7. */
-    DIRECTX7(28),
-    /** Direct3D 8. */
-    DIRECTX8(29),
-    /** Direct3D 10. */
-    DIRECTX10(30),
     /** SDL's GPU API. */
     SDL_GPU(31),
-    /** OpenGL ES 1.x. */
-    OPENGLES1(32),
-    /** Desktop OpenGL 4. */
-    OPENGL4(33),
-    /** Desktop OpenGL 1.x. */
-    OPENGL1(34),
-    /** Desktop OpenGL 2.x. */
-    OPENGL2(35),
-    /** 3dfx Glide. */
-    GLIDE(39),
-    /** Windows GDI. */
-    GDI(40),
     /** Metal. */
     METAL(42),
     /** FNA3D. */
-    FNA3D(43),
-    /** An SVG DOM. */
-    SVG_DOM(44),
-    /** PortableGL. */
-    PORTABLEGL(46),
-    /** PixiJS. */
-    PIXIJS(49);
+    FNA3D(43);
 
     private final int value;
 

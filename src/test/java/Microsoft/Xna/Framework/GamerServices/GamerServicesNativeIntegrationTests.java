@@ -30,7 +30,6 @@ final class GamerServicesNativeIntegrationTests {
     @Test
     void dispatcherStateAndGuideValuesRoundTripThroughCna() {
         try (Game game = new Game()) {
-            new ProbeComponent(game);
             ProbeComponent probe = new ProbeComponent(game);
             game.getComponents().add(probe);
             game.RunOneFrame();
@@ -50,7 +49,15 @@ final class GamerServicesNativeIntegrationTests {
         }
     }
 
-    private static final class ProbeComponent extends GamerServicesComponent {
+    /**
+     * Drives the dispatcher the way GamerServicesComponent does, without being one.
+     *
+     * <p>The dispatcher is process-wide and XNA refuses a second initialization, while this test
+     * JVM runs many suites; so the probe initializes only when nothing has yet. The component's
+     * own first-initialization-and-refusal contract is asserted in a child JVM by
+     * GamerServicesComponentTests.
+     */
+    private static final class ProbeComponent extends Microsoft.Xna.Framework.GameComponent {
 
         private boolean ran;
         private Throwable failure;
@@ -60,7 +67,17 @@ final class GamerServicesNativeIntegrationTests {
         }
 
         @Override
+        public void Initialize() {
+            if (!GamerServicesDispatcher.getIsInitialized()) {
+                GamerServicesDispatcher.setWindowHandle(getGame().getWindow().getHandle());
+                GamerServicesDispatcher.Initialize(getGame().getServices());
+            }
+            super.Initialize();
+        }
+
+        @Override
         public void Update(GameTime gameTime) {
+            GamerServicesDispatcher.Update();
             super.Update(gameTime);
             if (ran) {
                 return;
@@ -113,6 +130,12 @@ final class GamerServicesNativeIntegrationTests {
                     assertFalse(achievements.getIsDisposed(), "achievements IsDisposed");
                     assertThrows(UnsupportedOperationException.class, achievements::clear);
                 }
+                if (!gamer.getIsSignedInToLive()) {
+                    // A local profile has no friends list: CNA refuses rather than inventing an
+                    // empty one (ABI 0.32), and the projection surfaces that refusal.
+                    assertThrows(GamerServicesNotAvailableException.class, gamer::GetFriends);
+                    continue;
+                }
                 try (FriendCollection friends = gamer.GetFriends()) {
                     assertFalse(friends.getIsDisposed(), "friends IsDisposed");
                     assertEquals(friends.size(), friends.GetEnumerator() == null ? -1
@@ -157,13 +180,11 @@ final class GamerServicesNativeIntegrationTests {
 
             Guide.DelayNotifications(Duration.ofSeconds(1));
 
-            // CNA implements the Guide in process rather than deferring to a platform shell,
-            // so these screens are accepted on this runtime instead of refusing. What the
-            // projection guarantees is that the call reaches CNA and its visibility answer
-            // stays consistent; whether pixels appear is the renderer's business.
-            assertDoesNotThrow(() -> Guide.ShowFriends(PlayerIndex.One));
+            // With no account service configured, CNA refuses the social screens rather than
+            // showing an empty one (ABI 0.32): the XNA answer is GamerServicesNotAvailable.
+            assertThrows(GamerServicesNotAvailableException.class,
+                    () -> Guide.ShowFriends(PlayerIndex.One));
             assertEquals(Guide.getIsVisible(), Guide.getIsVisible());
-            assertDoesNotThrow(() -> Guide.ShowSignIn(1, false));
 
             leaderboardColumnsRoundTrip();
         }

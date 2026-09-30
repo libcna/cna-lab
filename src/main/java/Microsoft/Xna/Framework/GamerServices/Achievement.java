@@ -23,15 +23,18 @@ public final class Achievement {
     /**
      * Returns the achievement's picture as a readable stream.
      *
-     * <p>XNA returns the tile the title shipped with its achievement definition. CNA reports a
-     * size of zero when a build carries no picture for the achievement, and this returns an
-     * empty stream for that, exactly as reading a zero-length picture would.
+     * <p>XNA returns the tile the title shipped with its achievement definition. CNA copies the
+     * configured artwork -- the service catalog's, or offline the PNG the title's achievement
+     * catalog names -- and refuses when there is none.
      */
     public Stream GetPicture() {
         long[] bytes = new long[1];
         NativeGamerServices.check("Achievement.GetPicture",
                 NativeGamerServicesRoutes.achievementGetPictureSize(handle, bytes));
-        return new Stream(new ByteArrayInputStream(new byte[Math.toIntExact(bytes[0])]));
+        byte[] picture = new byte[Math.toIntExact(bytes[0])];
+        NativeGamerServices.check("Achievement.GetPicture",
+                NativeGamerServicesRoutes.achievementCopyPicture(handle, picture, bytes));
+        return new Stream(new ByteArrayInputStream(picture, 0, Math.toIntExact(bytes[0])));
     }
 
     public String getDescription() {

@@ -3,14 +3,16 @@ package org.openeggbert.cna.extensions.graphics;
 import Microsoft.Xna.Framework.Graphics.Texture2D;
 import Microsoft.Xna.Framework.Graphics.TextureCube;
 import org.openeggbert.cna.internal.NativeBindings;
-import org.openeggbert.cna.internal.generated.NativeEngineLayerRoutes;
+import org.openeggbert.cna.internal.generated.NativeGraphicsExtensionRoutes;
 
 /**
  * The three textures a PBR shader needs to light a surface from an environment.
  *
- * <p>A CNA extension, and what {@link EnvironmentProcessor} exists to produce: an irradiance cube
- * for the diffuse half, a prefiltered specular cube whose mip levels are roughness levels, and
- * the BRDF lookup that combines them. {@link #intensity()} scales the lot.
+ * <p>A CNA extension: an irradiance cube for the diffuse half, a prefiltered specular cube whose
+ * mip levels are roughness levels, and the BRDF lookup that combines them. {@link #intensity()}
+ * scales the lot. CNA ABI 0.30 removed the environment processor that produced these and the
+ * effect routes that consumed them; {@code graphics_ext.h} still declares the structure, its
+ * initializer and its validity check, so it is kept as a value.
  *
  * <p><strong>The textures are borrowed and retained here.</strong> CNA's structure records them
  * and never owns them, so this holds Java references to keep them alive and disposes none of
@@ -29,14 +31,14 @@ public record ImageBasedLight(TextureCube irradiance, TextureCube prefilteredSpe
      * Returns the light CNA itself defaults to, which names no textures.
      *
      * @return the default light
-     * @throws ExtensionNotSupportedException when this build has no engine layer
+     * @throws ExtensionNotSupportedException when this build has no extended graphics layer
      */
     public static ImageBasedLight createDefault() {
         GraphicsExtension.requireBackend();
         long[] integral = new long[4];
         float[] floating = new float[1];
         GraphicsExtension.check("ImageBasedLight.createDefault",
-                NativeEngineLayerRoutes.imageBasedLightExtInit(integral, floating));
+                NativeGraphicsExtensionRoutes.imageBasedLightExtInit(integral, floating));
         return new ImageBasedLight(null, null, null, Math.toIntExact(integral[3]), floating[0]);
     }
 
@@ -47,13 +49,13 @@ public record ImageBasedLight(TextureCube irradiance, TextureCube prefilteredSpe
      * mip level, cannot be sampled.
      *
      * @return whether the light is usable
-     * @throws ExtensionNotSupportedException when this build has no engine layer
+     * @throws ExtensionNotSupportedException when this build has no extended graphics layer
      */
     public boolean isValid() {
         GraphicsExtension.requireBackend();
         boolean[] valid = new boolean[1];
         GraphicsExtension.check("ImageBasedLight.isValid",
-                NativeEngineLayerRoutes.imageBasedLightExtIsValid(integral(), floating(),
+                NativeGraphicsExtensionRoutes.imageBasedLightExtIsValid(integral(), floating(),
                         valid));
         return valid[0];
     }

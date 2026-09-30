@@ -62,8 +62,9 @@ final class GraphicsResourceTests {
         assertTrue(depth.getDepthBufferWriteEnable());
         assertEquals(CompareFunction.LessEqual, depth.getDepthBufferFunction());
         assertFalse(depth.getStencilEnable());
-        assertEquals(Integer.MAX_VALUE, depth.getStencilMask());
-        assertEquals(Integer.MAX_VALUE, depth.getStencilWriteMask());
+        // XNA's constructor writes -1 (every bit) to both masks; CNA once used Int32.MaxValue.
+        assertEquals(-1, depth.getStencilMask());
+        assertEquals(-1, depth.getStencilWriteMask());
         assertEquals(StencilOperation.Keep, depth.getStencilPass());
 
         RasterizerState rasterizer = new RasterizerState();

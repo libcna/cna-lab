@@ -17,11 +17,9 @@ import java.util.Set;
  * OpenGL 4.6, and a game that wants to know whether it may dispatch a compute shader has nowhere
  * in XNA to ask.
  *
- * <p><strong>Ask before you construct.</strong> Several CNA objects need a capability at
- * construction and have no way to exist without it -- {@link ComputeShader}, {@link StorageBuffer}
- * and {@link AutoExposure} all need {@link GraphicsCapability#ComputeShaders} -- so their
- * constructors raise {@link ExtensionNotSupportedException} rather than producing an object that
- * refuses everything. {@link #supports} is how a game chooses a path instead of catching one.
+ * <p><strong>Ask before you construct.</strong> A CNA object that needs a capability raises
+ * {@link ExtensionNotSupportedException} rather than producing an object that refuses everything;
+ * {@link #supports} is how a game chooses a path instead of catching one.
  *
  * <p><strong>The name is the renderer's, not the build's.</strong> CNA can be built with several
  * renderers compiled in and one chosen at run time, so {@link #getRendererName} answers about the

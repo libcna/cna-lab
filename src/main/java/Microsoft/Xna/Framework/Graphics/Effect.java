@@ -69,8 +69,8 @@ public class Effect extends GraphicsResource {
      * Adopts an effect the extended layer already built, as an ordinary XNA {@link Effect}.
      *
      * <p>The sibling of {@link #adoptExtensionEffect}, for the case where the native effect
-     * exists already and this is a Java name for it -- a shader-effect factory's cached effect,
-     * for one, which CNA lends as a view that is given back by disposing it. Package-private for
+     * exists already and this is a Java name for it -- a physically based effect, for one, which
+     * is released by disposing it. Package-private for
      * the same reason: a native handle must not appear in this type's public contract, which XNA
      * has no counterpart for.
      */

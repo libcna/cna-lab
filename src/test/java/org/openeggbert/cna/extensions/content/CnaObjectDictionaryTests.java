@@ -146,6 +146,92 @@ final class CnaObjectDictionaryTests {
         return file.toByteArray();
     }
 
+    /**
+     * A one-bone model whose {@code Tag} is a dictionary, laid out exactly as CNA's own
+     * {@code ContentSmoke.c} writes its tagged-model fixture.
+     */
+    private static byte[] taggedModelAsset() {
+        ByteArrayOutputStream body = new ByteArrayOutputStream();
+        writeSevenBit(body, 5);   // 1 model, 2 string, 3 dictionary, 4 Vector3 array, 5 sphere
+        writeReader(body, "Microsoft.Xna.Framework.Content.ModelReader");
+        writeReader(body, "Microsoft.Xna.Framework.Content.StringReader");
+        writeReader(body,
+                "Microsoft.Xna.Framework.Content.DictionaryReader`2"
+                        + "[[System.String],[System.Object]]");
+        writeReader(body,
+                "Microsoft.Xna.Framework.Content.ArrayReader`1"
+                        + "[[Microsoft.Xna.Framework.Vector3]]");
+        writeReader(body, "Microsoft.Xna.Framework.Content.BoundingSphereReader");
+        writeSevenBit(body, 0);   // no shared resources
+        writeSevenBit(body, 1);   // the root object is the model
+
+        writeInt32(body, 1);      // one bone
+        writeSevenBit(body, 2);
+        writeString(body, "Root");
+        for (int index = 0; index < 16; index++) {
+            writeSingle(body, index % 5 == 0 ? 1f : 0f);
+        }
+        body.write(0);            // no parent
+        writeInt32(body, 0);      // no children
+        writeInt32(body, 0);      // no meshes
+        body.write(1);            // root bone reference
+
+        writeSevenBit(body, 3);   // Tag: the dictionary
+        writeInt32(body, 2);
+        writeSevenBit(body, 2);
+        writeString(body, "BoundingSphere");
+        writeSevenBit(body, 5);
+        writeSingle(body, 1f);
+        writeSingle(body, 2f);
+        writeSingle(body, 3f);
+        writeSingle(body, 4f);
+        writeSevenBit(body, 2);
+        writeString(body, "Vertices");
+        writeSevenBit(body, 4);
+        writeInt32(body, TRIANGLE.length);
+        for (float[] vertex : TRIANGLE) {
+            writeSingle(body, vertex[0]);
+            writeSingle(body, vertex[1]);
+            writeSingle(body, vertex[2]);
+        }
+        return frame(body.toByteArray());
+    }
+
+    private static byte[] frame(byte[] payload) {
+        ByteArrayOutputStream file = new ByteArrayOutputStream();
+        file.write('X');
+        file.write('N');
+        file.write('B');
+        file.write('w');
+        file.write(5);
+        file.write(0);
+        writeInt32(file, payload.length + 10);
+        file.write(payload, 0, payload.length);
+        return file.toByteArray();
+    }
+
+    @Test
+    void aModelLoadedByCnaCarriesTheTagItsProcessorWrote(@TempDir Path root) throws IOException {
+        Files.write(root.resolve("tagged.xnb"), taggedModelAsset());
+        run(root, manager -> {
+            CnaObjectDictionary tag;
+            try (CnaModel model = CnaModel.Load(manager, "tagged")) {
+                assertEquals(1, model.getBoneCount());
+                tag = model.getContentTag();
+            }
+            // The tag outlives the model, which is what CNA documents for it.
+            try (CnaObjectDictionary dictionary = tag) {
+                assertTrue(dictionary != null, "the model's Tag is a dictionary");
+                assertEquals(List.of("BoundingSphere", "Vertices"), dictionary.keys());
+                assertEquals(4f, dictionary.getBoundingSphere("BoundingSphere").Radius, 0f);
+                List<Vector3> triangle = dictionary.getVector3Array("Vertices");
+                assertEquals(3, triangle.size());
+                assertEquals(1f, triangle.get(1).X, 0f);
+            }
+            assertThrows(NullPointerException.class, () -> CnaModel.Load(manager, null));
+        });
+    }
+
     @Test
     void anAssetWhoseRootIsADictionaryReadsBackEveryValue(@TempDir Path root) throws IOException {
         Files.write(root.resolve("triangles.xnb"), dictionaryAsset());

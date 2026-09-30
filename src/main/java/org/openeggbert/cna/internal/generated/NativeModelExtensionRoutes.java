@@ -68,6 +68,11 @@ public final class NativeModelExtensionRoutes {
     public static native int animationPlayerUpdate(long player, double timeSeconds, boolean relativeToCurrentTime, boolean loop);
 
     /**
+     * cna_content_manager_load_model (models.h).
+     */
+    public static native int contentManagerLoadModel(long contentManager, byte[] assetName, long[] outModel);
+
+    /**
      * cna_effect_copy_type_name (effects.h).
      */
     public static native int effectCopyTypeName(long effect, byte[] destination, long[] outByteCount);
@@ -472,6 +477,11 @@ public final class NativeModelExtensionRoutes {
      * cna_model_get_camera_name_byte_count_ext (models.h).
      */
     public static native int modelGetCameraNameByteCountExt(long model, long index, long[] outByteCount);
+
+    /**
+     * cna_model_get_content_tag_dictionary_ext (models.h).
+     */
+    public static native int modelGetContentTagDictionaryExt(long model, boolean[] outHasTag, long[] outDictionary);
 
     /**
      * cna_model_get_gltf_import_diagnostic_code_byte_count_ext (models.h).

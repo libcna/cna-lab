@@ -1,7 +1,6 @@
 package Microsoft.Xna.Framework.GamerServices;
 
 import Microsoft.Xna.Framework.PlayerIndex;
-import org.openeggbert.cna.internal.CompletedAsyncResult;
 import org.openeggbert.cna.internal.NativeGamerServices;
 import org.openeggbert.cna.internal.generated.NativeGamerServicesRoutes;
 import System.AsyncCallback;
@@ -29,10 +28,10 @@ public final class Guide {
     public static IAsyncResult BeginShowKeyboardInput(
             PlayerIndex player, String title, String description, String defaultText,
             AsyncCallback callback, Object state, boolean usePasswordMode) {
-        return CompletedAsyncResult.begin(callback, state, () -> {
-            showKeyboardInput(player, title, description, defaultText, usePasswordMode);
-            return keyboardInputResult();
-        });
+        showKeyboardInput(player, title, description, defaultText, usePasswordMode);
+        return PendingGuideResult.start(callback, state,
+                NativeGamerServicesRoutes::guideGetHasPendingKeyboardInputExt,
+                Guide::keyboardInputResult);
     }
 
     public static IAsyncResult BeginShowKeyboardInput(
@@ -45,10 +44,10 @@ public final class Guide {
     public static IAsyncResult BeginShowMessageBox(
             PlayerIndex player, String title, String text, Iterable<String> buttons,
             int focusButton, MessageBoxIcon icon, AsyncCallback callback, Object state) {
-        return CompletedAsyncResult.begin(callback, state, () -> {
-            showMessageBox(player, title, text, buttons, focusButton, icon);
-            return messageBoxResult();
-        });
+        showMessageBox(player, title, text, buttons, focusButton, icon);
+        return PendingGuideResult.start(callback, state,
+                NativeGamerServicesRoutes::guideGetHasPendingMessageBoxExt,
+                Guide::messageBoxResult);
     }
 
     public static IAsyncResult BeginShowMessageBox(
@@ -65,12 +64,12 @@ public final class Guide {
 
     /** Returns the text the player entered, or {@code null} when they cancelled. */
     public static String EndShowKeyboardInput(IAsyncResult result) {
-        return CompletedAsyncResult.end(result, String.class);
+        return PendingGuideResult.end(result, String.class);
     }
 
     /** Returns the chosen button's index, or {@code null} when the player dismissed the box. */
     public static Integer EndShowMessageBox(IAsyncResult result) {
-        return CompletedAsyncResult.end(result, Integer.class);
+        return PendingGuideResult.end(result, Integer.class);
     }
 
     public static void ShowComposeMessage(PlayerIndex player, String text,
@@ -153,8 +152,14 @@ public final class Guide {
         return value[0];
     }
 
+    /**
+     * XNA's framework-internal trial-mode setter. CNA derives the value -- a CNA title is fully
+     * licensed, so trial mode follows {@link #setSimulateTrialMode} alone -- and CNA ABI 0.34
+     * removed the route that set it, so this refuses rather than pretending to store a value.
+     */
     protected static void setIsTrialMode(boolean value) {
-        check("Guide.IsTrialMode", NativeGamerServicesRoutes.guideSetIsTrialMode(value));
+        throw new UnsupportedOperationException(
+                "Guide.IsTrialMode follows Guide.SimulateTrialMode in CNA and cannot be set");
     }
 
     public static boolean getIsVisible() {
@@ -163,8 +168,14 @@ public final class Guide {
         return value[0];
     }
 
+    /**
+     * XNA's framework-internal visibility setter. CNA's Guide is visible exactly while one of its
+     * screens is up, and CNA ABI 0.34 removed the route that set it, so this refuses rather than
+     * pretending to store a value.
+     */
     protected static void setIsVisible(boolean value) {
-        check("Guide.IsVisible", NativeGamerServicesRoutes.guideSetIsVisible(value));
+        throw new UnsupportedOperationException(
+                "Guide.IsVisible is true exactly while a Guide screen is up and cannot be set");
     }
 
     public static NotificationPosition getNotificationPosition() {
@@ -276,5 +287,93 @@ public final class Guide {
     private static boolean isVisibleQuiet() {
         boolean[] value = new boolean[1];
         return NativeGamerServicesRoutes.guideGetIsVisible(value) == 0 && value[0];
+    }
+
+    /**
+     * A Guide screen that stays up until its player answers it.
+     *
+     * <p>CNA's keyboard input and message box are genuinely asynchronous: Begin opens the screen
+     * and returns, and End waits -- presenting the Guide -- until the player confirms, chooses or
+     * cancels, exactly as XNA's End does. CNA calls no Java callback, so completion is observed
+     * from the dispatcher pump ({@code FrameworkDispatcher.Update} and
+     * {@code GamerServicesDispatcher.Update}), which is where XNA completes it too, and the XNA
+     * callback runs from there. An End called first simply waits and then runs the callback if
+     * the pump had not yet.
+     */
+    private static final class PendingGuideResult implements IAsyncResult {
+
+        private interface PendingQuery {
+            int query(boolean[] out);
+        }
+
+        private final AsyncCallback callback;
+        private final Object state;
+        private final PendingQuery pending;
+        private final java.util.function.Supplier<Object> reader;
+        private boolean notified;
+        private boolean ended;
+
+        private PendingGuideResult(AsyncCallback callback, Object state, PendingQuery pending,
+                java.util.function.Supplier<Object> reader) {
+            this.callback = callback;
+            this.state = state;
+            this.pending = pending;
+            this.reader = reader;
+        }
+
+        static IAsyncResult start(AsyncCallback callback, Object state, PendingQuery pending,
+                java.util.function.Supplier<?> reader) {
+            PendingGuideResult result = new PendingGuideResult(callback, state, pending,
+                    reader::get);
+            org.openeggbert.cna.internal.GamerEventPump.watch(result::getIsCompleted,
+                    result::notifyOnce);
+            return result;
+        }
+
+        static <T> T end(IAsyncResult result, Class<T> type) {
+            if (!(result instanceof PendingGuideResult guide)) {
+                throw new NullPointerException("result");
+            }
+            Object value = guide.finish();
+            guide.notifyOnce();
+            return value == null ? null : type.cast(value);
+        }
+
+        private synchronized Object finish() {
+            if (ended) {
+                throw new IllegalStateException("End cannot be called twice on one IAsyncResult");
+            }
+            ended = true;
+            return reader.get();
+        }
+
+        private void notifyOnce() {
+            synchronized (this) {
+                if (notified) {
+                    return;
+                }
+                notified = true;
+            }
+            if (callback != null) {
+                callback.invoke(this);
+            }
+        }
+
+        @Override
+        public Object getAsyncState() {
+            return state;
+        }
+
+        @Override
+        public boolean getCompletedSynchronously() {
+            return false;
+        }
+
+        @Override
+        public boolean getIsCompleted() {
+            boolean[] stillPending = new boolean[1];
+            check("Guide.IsCompleted", pending.query(stillPending));
+            return !stillPending[0];
+        }
     }
 }

@@ -14,10 +14,15 @@
  * cold start and one of which does not.
  *
  * This measures it with no Java in the picture: a fragment shader that writes nothing but a
- * uniform, drawn into a render target and read back, once with the uniform set before the effect
- * is applied and once after.
+ * uniform, drawn through SpriteBatch into a render target and read back -- with the uniform set
+ * and the effect never applied by the caller (SpriteBatch applies it, as XNA's does), set before
+ * an explicit apply, and set after one. Every case uses a fresh effect, so the first draw through
+ * a new ShaderEffect is measured each time.
  *
- *   CNA_GRAPHICS_RENDERER=OPENGL33 ./build-probe/shader_effect_uniform_binding
+ * CNA fixed the EasyGL setters in BINDFIX-025 (they now make their own program current); on a
+ * library with the fix all three cases paint the uniform.
+ *
+ *   ./build-probe/shader_effect_uniform_binding     (on a windowed EasyGL artifact)
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -48,9 +53,9 @@ static CNA_StringView view_of(const char* text)
     return view;
 }
 
-/* The vertex program every full-screen pass inside CNA shares: position, texture coordinate and
-   colour at locations nought, one and two, and a `projection` uniform the pass sets. A shader
-   that names its attributes anything else compiles and draws nothing. */
+/* SpriteBatch's vertex layout: position, texture coordinate and colour at locations nought, one
+   and two, and a `projection` uniform SpriteBatch sets. A shader that names its attributes
+   anything else compiles and draws nothing. */
 static const char* const kVertex =
     "#version 300 es\n"
     "precision highp float;\n"
@@ -69,7 +74,9 @@ static const char* const kFragment =
     "uniform vec4 u_colour;\n"
     "void main() { FragColor = u_colour; }\n";
 
-static void one_case(CNA_Handle device, const char* label, int apply_first)
+enum { kNoApply = 0, kApplyAfterUniform = 1, kApplyBeforeUniform = 2 };
+
+static void one_case(CNA_Handle device, const char* label, int order)
 {
     CNA_EffectHandle shader = 0;
     const CNA_Result made =
@@ -103,21 +110,42 @@ static void one_case(CNA_Handle device, const char* label, int apply_first)
     CNA_Handle destination = CNA_INVALID_HANDLE;
     cna_render_target2d_create(device, &target_info, &destination);
 
-    CNA_FullscreenPassHandle pass = 0;
-    cna_fullscreen_pass_create(device, &pass);
+    CNA_Handle batch = CNA_INVALID_HANDLE;
+    cna_sprite_batch_create(device, &batch);
 
     CNA_Result applied = CNA_RESULT_SUCCESS;
-    if (apply_first) {
-        /* Applying the effect makes its program the current one, which is the state the uniform
-           setters assume without saying so. */
+    if (order == kApplyBeforeUniform) {
         applied = cna_effect_apply(shader);
     }
     CNA_Vector4 colour;
     colour.x = 1.0F; colour.y = 0.0F; colour.z = 0.0F; colour.w = 1.0F;
     const CNA_Result set =
         cna_shader_effect_set_uniform_vector4(shader, view_of("u_colour"), colour);
-    const CNA_Result drew =
-        cna_fullscreen_pass_draw(pass, source, destination, shader, kSize, kSize, NULL);
+    if (order == kApplyAfterUniform) {
+        applied = cna_effect_apply(shader);
+    }
+
+    CNA_SpriteCommand command;
+    memset(&command, 0, sizeof command);
+    command.struct_size = (uint32_t)(sizeof command);
+    command.struct_version = 1U;
+    command.texture = source;
+    command.destination.width = kSize;
+    command.destination.height = kSize;
+    command.source.width = kSize;
+    command.source.height = kSize;
+    command.color.r = 255U; command.color.g = 255U; command.color.b = 255U; command.color.a = 255U;
+    const CNA_Result bound = cna_graphics_device_set_render_target2d(device, destination);
+    CNA_Result drew = cna_sprite_batch_begin_with_effect(batch, CNA_SPRITE_SORT_MODE_IMMEDIATE,
+        NULL, NULL, NULL, NULL, shader, NULL);
+    if (drew == CNA_RESULT_SUCCESS) {
+        drew = cna_sprite_batch_submit_many(batch, &command, 1U);
+        const CNA_Result ended = cna_sprite_batch_end(batch);
+        if (drew == CNA_RESULT_SUCCESS) {
+            drew = ended;
+        }
+    }
+    (void)cna_graphics_device_set_render_target2d(device, CNA_INVALID_HANDLE);
 
     CNA_Color out[kSize * kSize];
     memset(out, 0, sizeof out);
@@ -129,11 +157,11 @@ static void one_case(CNA_Handle device, const char* label, int apply_first)
     uint64_t written = 0;
     const CNA_Result read = cna_texture2d_get_data(destination, CNA_TEXTURE_DATA_COLOR, &transfer,
                                                    out, (uint64_t)(kSize * kSize), &written);
-    printf("  %-22s valid=%s apply=%s set=%s draw=%s read=%s -> %u,%u,%u,%u\n", label,
-           valid ? "yes" : "no", name_of(applied), name_of(set), name_of(drew), name_of(read),
-           out[0].r, out[0].g, out[0].b, out[0].a);
+    printf("  %-26s valid=%s apply=%s set=%s bind=%s draw=%s read=%s -> %u,%u,%u,%u\n", label,
+           valid ? "yes" : "no", name_of(applied), name_of(set), name_of(bound), name_of(drew),
+           name_of(read), out[0].r, out[0].g, out[0].b, out[0].a);
 
-    (void)cna_fullscreen_pass_destroy(pass);
+    (void)cna_sprite_batch_destroy(batch);
     (void)cna_render_target_destroy(destination);
     (void)cna_texture2d_destroy(source);
     (void)cna_effect_destroy(shader);
@@ -152,8 +180,9 @@ static CNA_Result on_update(CNA_Handle game, const CNA_GameTime* game_time, void
         printf("no device\n");
         return CNA_RESULT_SUCCESS;
     }
-    one_case(device, "uniform, then apply", 0);
-    one_case(device, "apply, then uniform", 1);
+    one_case(device, "uniform, SpriteBatch applies", kNoApply);
+    one_case(device, "uniform, then apply", kApplyAfterUniform);
+    one_case(device, "apply, then uniform", kApplyBeforeUniform);
     return CNA_RESULT_SUCCESS;
 }
 

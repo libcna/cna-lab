@@ -27,6 +27,10 @@ public final class DepthEffect implements AutoCloseable {
     public DepthEffect(GraphicsDevice graphicsDevice) {
         Objects.requireNonNull(graphicsDevice, "graphicsDevice");
         GraphicsExtension.requireBackend();
+        if (!GraphicsExtension.isAvailable()) {
+            throw new ExtensionNotSupportedException(
+                    "DepthEffect is not available: this build has no extended graphics layer");
+        }
         effect = FacadeFactory.createExtensionEffect(
                 graphicsDevice, NativeBindings.EXTENSION_EFFECT_DEPTH);
     }

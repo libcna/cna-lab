@@ -510,13 +510,18 @@ final class NativeIntegrationTests {
             game.RunOneFrame();
             assertTrue(game.completed);
             assertEquals(150, game.routedDrawCalls);
-            assertArrayEquals(new int[]{12, 12, 12, 12, 12, 12}, game.drawResults);
+            // A draw with nothing bound is XNA's InvalidOperationException: CNA answers
+            // INVALID_STATE for it (it answered INTERNAL before its exception barrier learned
+            // std::logic_error, BINDFIX-003).
+            assertArrayEquals(new int[]{3, 3, 3, 3, 3, 3}, game.drawResults);
             assertTrue(game.bufferRouteReached);
             if (game.bufferRoutesSupported) {
                 assertEquals(25, game.completedBufferCycles);
                 assertEquals(25, game.autoUnboundBufferCycles);
                 assertEquals(0, game.refusedBufferCreations);
-                assertEquals(12, game.boundDrawResult);
+                // Buffers bound but no effect applied: XNA's InvalidOperationException, which
+                // CNA answers as INVALID_STATE since BINDFIX-003.
+                assertEquals(3, game.boundDrawResult);
                 assertFalse(game.liveVertexBuffer.getIsDisposed());
                 assertFalse(game.liveIndexBuffer.getIsDisposed());
 
@@ -802,6 +807,11 @@ final class NativeIntegrationTests {
     private static final class GraphicsStateGame extends Game {
         private boolean completed;
 
+        /** HiDef: the separate alpha blending this game sets is HiDef-only in XNA. */
+        private GraphicsStateGame() {
+            new GraphicsDeviceManager(this).setGraphicsProfile(GraphicsProfile.HiDef);
+        }
+
         @Override
         protected void Update(GameTime gameTime) {
             GraphicsDevice device = getGraphicsDevice();
@@ -812,9 +822,10 @@ final class NativeIntegrationTests {
             assertSame(DepthStencilState.Default, device.getDepthStencilState());
             assertSame(RasterizerState.CullCounterClockwise, device.getRasterizerState());
 
+            // Min and Max take One/One factors in XNA, and CNA enforces the same.
             BlendState blend = new BlendState();
-            blend.setColorSourceBlend(Blend.SourceAlpha);
-            blend.setColorDestinationBlend(Blend.InverseSourceAlpha);
+            blend.setColorSourceBlend(Blend.One);
+            blend.setColorDestinationBlend(Blend.One);
             blend.setColorBlendFunction(BlendFunction.Min);
             blend.setColorWriteChannels(ColorWriteChannels.Red.Or(ColorWriteChannels.Blue));
             Color blendColor = new Color(4, 8, 16, 32);
@@ -922,6 +933,11 @@ final class NativeIntegrationTests {
         private Texture2D texture;
         private SpriteBatch batch;
         private boolean completed;
+
+        /** HiDef: separate alpha blending, which this game begins with, is HiDef-only in XNA. */
+        private SpriteBatchStateGame() {
+            new GraphicsDeviceManager(this).setGraphicsProfile(GraphicsProfile.HiDef);
+        }
 
         @Override
         protected void LoadContent() {
@@ -1371,6 +1387,11 @@ final class NativeIntegrationTests {
         private boolean bufferRouteReached;
         private boolean bufferRoutesSupported;
         private boolean completed;
+
+        /** HiDef: the 32-bit index buffers this game creates are HiDef-only in XNA. */
+        private VertexIndexRouteGame() {
+            new GraphicsDeviceManager(this).setGraphicsProfile(GraphicsProfile.HiDef);
+        }
 
         @Override
         protected void Draw(GameTime gameTime) {

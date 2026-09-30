@@ -69,12 +69,15 @@ public enum GraphicsCapability {
     /**
      * Compute shaders.
      *
-     * <p>What {@link ComputeShader} and {@link AutoExposure} both need, and the one capability in
-     * this list that decides whether a whole family of CNA objects can be created at all.
+     * <p>Still answered by every renderer, although CNA ABI 0.30 removed the compute objects it
+     * used to gate.
      */
     ComputeShaders,
 
-    /** Draws whose arguments the GPU reads from a buffer rather than the CPU passing them. */
+    /**
+     * Draws whose arguments the GPU reads from a buffer rather than the CPU passing them. Still
+     * answered by every renderer, although CNA ABI 0.30 removed the indirect draw routes.
+     */
     IndirectDraw;
 
     int toValue() {

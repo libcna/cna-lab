@@ -272,6 +272,15 @@ final class EffectNativeIntegrationTests {
     private static final class StockEffectsGame extends Game {
         private boolean completed;
 
+        /**
+         * HiDef, because what this game exercises -- occlusion queries, 32-bit indices -- is
+         * HiDef-only in XNA, and CNA enforces the default Reach profile's limits.
+         */
+        private StockEffectsGame() {
+            new Microsoft.Xna.Framework.GraphicsDeviceManager(this)
+                    .setGraphicsProfile(GraphicsProfile.HiDef);
+        }
+
         @Override
         protected void Update(GameTime gameTime) {
             try (Texture2D texture = new Texture2D(getGraphicsDevice(), 1, 1);

@@ -2,7 +2,7 @@ package Microsoft.Xna.Framework.Net;
 
 import Microsoft.Xna.Framework.Game;
 import Microsoft.Xna.Framework.GameTime;
-import Microsoft.Xna.Framework.GamerServices.GamerServicesComponent;
+import Microsoft.Xna.Framework.GamerServices.GamerServicesDispatcher;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 
@@ -42,7 +42,11 @@ final class NetworkSessionNativeIntegrationTests {
         }
     }
 
-    private static final class SessionProbe extends GamerServicesComponent {
+    /**
+     * Drives the process-wide dispatcher as GamerServicesComponent does, initializing it only if
+     * no earlier suite in this JVM has: XNA refuses a second initialization.
+     */
+    private static final class SessionProbe extends Microsoft.Xna.Framework.GameComponent {
 
         private boolean ran;
         private Throwable failure;
@@ -52,7 +56,16 @@ final class NetworkSessionNativeIntegrationTests {
         }
 
         @Override
+        public void Initialize() {
+            if (!GamerServicesDispatcher.getIsInitialized()) {
+                GamerServicesDispatcher.Initialize(getGame().getServices());
+            }
+            super.Initialize();
+        }
+
+        @Override
         public void Update(GameTime gameTime) {
+            GamerServicesDispatcher.Update();
             super.Update(gameTime);
             if (ran) {
                 return;
@@ -157,14 +170,17 @@ final class NetworkSessionNativeIntegrationTests {
          */
         private void sessionProperties() {
             NetworkSessionProperties properties = new NetworkSessionProperties();
-            assertEquals(0, properties.size(), "CNA creates the list empty");
-            assertEquals(0, properties.toArray().length);
-            properties.add(0, 41);
-            properties.add(1, null);
-            properties.add(2, -7);
-            properties.add(3, Integer.MAX_VALUE);
+            // XNA's list is eight fixed slots, all unset at first; CNA answers the same.
+            assertEquals(8, properties.size(), "eight slots, as XNA declares");
+            Object[] fresh = properties.toArray();
+            assertEquals(8, fresh.length);
+            for (Object slot : fresh) {
+                assertNull(slot, "a new slot is unset rather than zero");
+            }
+            properties.set(0, 41);
+            properties.set(2, -7);
+            properties.set(3, Integer.MAX_VALUE);
             Object[] copied = properties.toArray();
-            assertEquals(4, copied.length);
             assertEquals(41, copied[0]);
             assertNull(copied[1], "an unset slot stays absent rather than becoming zero");
             assertEquals(-7, copied[2]);
@@ -172,6 +188,11 @@ final class NetworkSessionNativeIntegrationTests {
             properties.set(1, 0);
             assertEquals(0, properties.toArray()[1],
                     "a slot set to zero is a value, not an absent slot");
+            assertThrows(UnsupportedOperationException.class, () -> properties.add(5));
+            assertThrows(UnsupportedOperationException.class, () -> properties.add(0, 5));
+            assertThrows(UnsupportedOperationException.class, () -> properties.remove(0));
+            assertThrows(UnsupportedOperationException.class, properties::clear);
+            assertEquals(8, properties.size(), "and the refusals changed nothing");
             propertiesGoBackToCna();
         }
 
@@ -187,8 +208,8 @@ final class NetworkSessionNativeIntegrationTests {
             int before = org.openeggbert.cna.internal.NativeDeferredRelease.pendingCount();
             for (int index = 0; index < 32; index++) {
                 NetworkSessionProperties discarded = new NetworkSessionProperties();
-                discarded.add(0, index);
-                assertEquals(1, discarded.size());
+                discarded.set(0, index);
+                assertEquals(index, discarded.get(0));
             }
             // Nothing is owed until the collector has actually run, so the loop is the honest
             // shape: ask for a collection, pump, and see whether anything came back.

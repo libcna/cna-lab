@@ -89,8 +89,12 @@ final class DeviceExtensionTests {
         }
 
         private void probe() {
-            assertTrue(DeviceExtension.isAvailable(),
-                    "this build was configured with the device extensions");
+            if (!DeviceExtension.isAvailable()) {
+                // A build without CNA_DEVICES: every host query is refused rather than guessed.
+                assertThrows(DeviceNotSupportedException.class,
+                        SystemInformation::getLogicalCpuCoreCount);
+                return;
+            }
 
             // The headless platform does not report every host fact. What the projection can
             // guarantee is that each query answers, answers the same way twice, and never

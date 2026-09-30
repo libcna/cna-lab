@@ -2,7 +2,6 @@ package org.openeggbert.cna.extensions.graphics;
 
 import Microsoft.Xna.Framework.Graphics.GraphicsDevice;
 import Microsoft.Xna.Framework.Matrix;
-import org.openeggbert.cna.internal.generated.NativeEngineLayerRoutes;
 import org.openeggbert.cna.internal.generated.NativePbrEffectRoutes;
 
 import java.util.ArrayList;
@@ -91,15 +90,4 @@ public final class SkinnedPbrEffect extends PbrEffect {
         return List.copyOf(transforms);
     }
 
-    @Override
-    int applyMaterial(long effectHandle, byte[] bytes, long[] integral, float[] floating) {
-        return NativeEngineLayerRoutes.skinnedPbrEffectApplyMaterial(effectHandle, bytes,
-                integral, floating);
-    }
-
-    @Override
-    int extractMaterial(long effectHandle, byte[] bytes, long[] integral, float[] floating) {
-        return NativeEngineLayerRoutes.skinnedPbrEffectExtractMaterial(effectHandle, bytes,
-                integral, floating);
-    }
 }

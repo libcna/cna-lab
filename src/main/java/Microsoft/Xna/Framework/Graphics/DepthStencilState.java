@@ -25,9 +25,9 @@ public class DepthStencilState extends GraphicsResource {
     private boolean stencilEnable;
     private StencilOperation stencilFail = StencilOperation.Keep;
     private CompareFunction stencilFunction = CompareFunction.Always;
-    private int stencilMask = Integer.MAX_VALUE;
+    private int stencilMask = -1;
     private StencilOperation stencilPass = StencilOperation.Keep;
-    private int stencilWriteMask = Integer.MAX_VALUE;
+    private int stencilWriteMask = -1;
     private boolean twoSidedStencilMode;
     private boolean bound;
 

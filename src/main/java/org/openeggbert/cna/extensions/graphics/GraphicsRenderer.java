@@ -26,37 +26,29 @@ import java.util.Set;
  * selection is fixed and every setter here answers {@link ExtensionNotSupportedException}'s
  * neighbour, an {@link IllegalStateException}, rather than quietly doing nothing.
  *
- * <p><strong>Never name a renderer this build does not have.</strong> The API path is safe:
- * {@link #setPreferred} refuses an absent renderer with {@link IllegalStateException} and
- * {@link #isAvailable} answers the question without side effects. The environment path is not.
- * Setting {@code CNA_GRAPHICS_RENDERER} to a renderer this build was compiled without
- * <strong>aborts the process while the native library is loading</strong> -- before {@code main},
- * before any Java code runs, inside {@code System.loadLibrary} -- with a C++ exception that never
- * becomes a result code. Nothing in this class, or anywhere in Java, can guard that; it is
- * recorded as JAVA-UPSTREAM-017. Read {@link #available()} and choose through {@link #setPreferred}
- * instead of letting a user's environment variable reach the loader unchecked.
+ * <p><strong>A renderer this build does not have is refused, not fatal.</strong>
+ * {@link #setPreferred} refuses an absent renderer with {@link IllegalStateException}, and
+ * {@link #isAvailable} answers the question without side effects. Setting
+ * {@code CNA_GRAPHICS_RENDERER} to one used to abort the process while the native library was
+ * loading (JAVA-UPSTREAM-017); CNA now reads the variable on first use and refuses it with a
+ * result code, so {@link #getSelected} throws {@link IllegalStateException} and creating a game
+ * fails with an ordinary native error until a renderer is chosen explicitly.
  *
- * <p><strong>Three of CNA's query routes stop working once a device exists</strong>, which is
- * JAVA-UPSTREAM-018 and is why they are not projected here. Until the first {@code GraphicsDevice}
- * they are all correct; creating one resets them. {@code get_available_count_ext} answers five and
- * then zero for the same build, {@code get_selected_ext} names the chosen renderer and then
- * {@code UNKNOWN}, and {@code get_is_latched_ext} says "not latched" both before and after, so it
- * never reports the state it exists to report. {@link #available()} therefore sizes its buffer
- * with the zero-capacity probe that every count/copy pair in this API supports, rather than
- * trusting the count, and it keeps working after a device exists because the copy route does.
+ * <p><strong>The selection queries answer before and after a device exists.</strong>
+ * {@link #available()}, {@link #getSelected()} and {@link #isLatched()} read the same process-wide
+ * state CNA latches when it creates a renderer. JAVA-UPSTREAM-018 once recorded them as reset by
+ * that creation; the probe that measured it read each output before the route had written it,
+ * and measured correctly they agree at every point.
  *
  * <p><strong>{@link #getActive()} is the route to trust for "which renderer am I on".</strong>
  * CNA also has three routes with {@code current} in their names -- {@code get_current_type} and
  * the two backend classifiers behind {@link org.openeggbert.cna.extensions.runtime.CnaRuntime} --
- * and on a multi-renderer build they report the <em>compile-time default</em> rather than the
- * renderer that was chosen. On the build this was measured on they say {@code HEADLESS} whatever
- * is running. {@link RendererCapabilities#getRendererName} is the other correct answer, and it is
+ * and CNA documents them as the <em>compiled-in</em> renderer: on a single-renderer build that is
+ * the running one, and on a multi-renderer build it is the default rather than the renderer that
+ * was chosen. {@link RendererCapabilities#getRendererName} is the other correct answer, and it is
  * correct for a different reason: it asks the device rather than the selection.
  */
 public final class GraphicsRenderer {
-
-    /** CNA's own result for a buffer that could not hold the answer. */
-    private static final int RESULT_BUFFER_TOO_SMALL = 14;
 
     /** CNA's own result for an operation attempted at the wrong time. */
     private static final int RESULT_INVALID_STATE = 3;
@@ -78,14 +70,8 @@ public final class GraphicsRenderer {
     public static List<GraphicsRendererType> available() {
         GraphicsExtension.requireBackend();
         long[] count = new long[1];
-        // A zero-capacity probe reports the count and writes nothing, so BUFFER_TOO_SMALL is the
-        // expected answer rather than a failure. CNA's own count route answers zero here
-        // (JAVA-UPSTREAM-018), which is why the probe rather than the count is what sizes this.
-        int probe = NativeRuntimeExtensionRoutes
-                .graphicsRendererCopyAvailableExt(new int[0], count);
-        if (probe != RESULT_BUFFER_TOO_SMALL) {
-            GraphicsExtension.check("GraphicsRenderer.available", probe);
-        }
+        GraphicsExtension.check("GraphicsRenderer.available",
+                NativeRuntimeExtensionRoutes.graphicsRendererGetAvailableCountExt(count));
         int length = Math.toIntExact(count[0]);
         if (length == 0) {
             return Collections.emptyList();
@@ -101,11 +87,50 @@ public final class GraphicsRenderer {
     }
 
     /**
+     * Returns the renderer CNA will attempt first.
+     *
+     * <p>The selection, not the result: it is what {@link #setPreferred} or the
+     * {@code CNA_GRAPHICS_RENDERER} environment variable chose, and {@link #getActive} is what was
+     * actually created from it.
+     *
+     * @return the selected renderer
+     * @throws IllegalStateException while the environment names a renderer this build refuses and
+     *         nothing was set explicitly
+     * @throws ExtensionNotSupportedException when this build has no extended runtime layer
+     */
+    public static GraphicsRendererType getSelected() {
+        GraphicsExtension.requireBackend();
+        int[] type = new int[1];
+        int result = NativeRuntimeExtensionRoutes.graphicsRendererGetSelectedExt(type);
+        if (result == RESULT_INVALID_STATE) {
+            throw new IllegalStateException("the renderer selection is refused: "
+                    + "CNA_GRAPHICS_RENDERER names a renderer this build does not have");
+        }
+        GraphicsExtension.check("GraphicsRenderer.getSelected", result);
+        return GraphicsRendererType.fromValue(type[0]);
+    }
+
+    /**
+     * Reports whether the selection can no longer be changed, which it cannot once a renderer has
+     * been created.
+     *
+     * @return whether the selection is latched
+     * @throws ExtensionNotSupportedException when this build has no extended runtime layer
+     */
+    public static boolean isLatched() {
+        GraphicsExtension.requireBackend();
+        boolean[] latched = new boolean[1];
+        GraphicsExtension.check("GraphicsRenderer.isLatched",
+                NativeRuntimeExtensionRoutes.graphicsRendererGetIsLatchedExt(latched));
+        return latched[0];
+    }
+
+    /**
      * Returns the renderer that was actually created.
      *
-     * <p>The one route in this family that answers "which renderer am I on" correctly after a
-     * device exists. It equals what {@link #setPreferred} asked for unless a configured fallback
-     * chain substituted another, which {@link #getFallbackHistory} explains.
+     * <p>The route in this family that answers "which renderer am I on" once a device exists. It
+     * equals {@link #getSelected} unless a configured fallback chain substituted another, which
+     * {@link #getFallbackHistory} explains.
      *
      * @return the running renderer
      * @throws IllegalStateException while nothing has been created yet -- until then there is no

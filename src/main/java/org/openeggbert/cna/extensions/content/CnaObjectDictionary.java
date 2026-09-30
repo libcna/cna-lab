@@ -59,6 +59,11 @@ public final class CnaObjectDictionary implements AutoCloseable {
         this.handle = handle;
     }
 
+    /** Takes ownership of a dictionary handle another CNA route returned. */
+    static CnaObjectDictionary adopt(long handle) {
+        return new CnaObjectDictionary(handle);
+    }
+
     /**
      * Loads an asset whose root object is a {@code Dictionary<string, object>}.
      *

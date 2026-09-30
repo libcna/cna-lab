@@ -371,6 +371,22 @@ Java_org_openeggbert_cna_internal_generated_NativeRuntimeExtensionRoutes_graphic
 }
 
 JNIEXPORT jint JNICALL
+Java_org_openeggbert_cna_internal_generated_NativeRuntimeExtensionRoutes_graphicsRendererGetAvailableCountExt(
+    JNIEnv* environment, jclass declaring_class, jlongArray out_count)
+{
+    (void)environment;
+    (void)declaring_class;
+    uint64_t out_count_value = 0;
+    CNA_Result call_result = cna.graphics_renderer_get_available_count_ext(&out_count_value);
+    if (call_result == CNA_RESULT_SUCCESS || call_result == CNA_RESULT_BUFFER_TOO_SMALL) {
+        jlong out_count_element = (jlong)out_count_value;
+        (*environment)->SetLongArrayRegion(
+            environment, out_count, 0, 1, &out_count_element);
+    }
+    return (jint)call_result;
+}
+
+JNIEXPORT jint JNICALL
 Java_org_openeggbert_cna_internal_generated_NativeRuntimeExtensionRoutes_graphicsRendererGetCurrentNameSize(
     JNIEnv* environment, jclass declaring_class, jlongArray out_bytes)
 {
@@ -440,6 +456,38 @@ Java_org_openeggbert_cna_internal_generated_NativeRuntimeExtensionRoutes_graphic
         jboolean out_available_element = (jboolean)out_available_value;
         (*environment)->SetBooleanArrayRegion(
             environment, out_available, 0, 1, &out_available_element);
+    }
+    return (jint)call_result;
+}
+
+JNIEXPORT jint JNICALL
+Java_org_openeggbert_cna_internal_generated_NativeRuntimeExtensionRoutes_graphicsRendererGetIsLatchedExt(
+    JNIEnv* environment, jclass declaring_class, jbooleanArray out_latched)
+{
+    (void)environment;
+    (void)declaring_class;
+    CNA_Bool out_latched_value = 0;
+    CNA_Result call_result = cna.graphics_renderer_get_is_latched_ext(&out_latched_value);
+    if (call_result == CNA_RESULT_SUCCESS || call_result == CNA_RESULT_BUFFER_TOO_SMALL) {
+        jboolean out_latched_element = (jboolean)out_latched_value;
+        (*environment)->SetBooleanArrayRegion(
+            environment, out_latched, 0, 1, &out_latched_element);
+    }
+    return (jint)call_result;
+}
+
+JNIEXPORT jint JNICALL
+Java_org_openeggbert_cna_internal_generated_NativeRuntimeExtensionRoutes_graphicsRendererGetSelectedExt(
+    JNIEnv* environment, jclass declaring_class, jintArray out_type)
+{
+    (void)environment;
+    (void)declaring_class;
+    CNA_GraphicsRendererType out_type_value = 0;
+    CNA_Result call_result = cna.graphics_renderer_get_selected_ext(&out_type_value);
+    if (call_result == CNA_RESULT_SUCCESS || call_result == CNA_RESULT_BUFFER_TOO_SMALL) {
+        jint out_type_element = (jint)out_type_value;
+        (*environment)->SetIntArrayRegion(
+            environment, out_type, 0, 1, &out_type_element);
     }
     return (jint)call_result;
 }

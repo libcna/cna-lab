@@ -60,8 +60,13 @@ final class PostProcessEffectNativeTests {
         }
 
         private void probe() {
-            assertTrue(GraphicsExtension.isAvailable(),
-                    "this build was configured with the extended graphics layer");
+            if (!GraphicsExtension.isAvailable()) {
+                // A build without CNA_CNAEXT refuses the effects rather than faking one.
+                org.junit.jupiter.api.Assertions.assertThrows(
+                        ExtensionNotSupportedException.class,
+                        () -> new CrtEffect(getGraphicsDevice()));
+                return;
+            }
 
             try (CrtEffect crt = new CrtEffect(getGraphicsDevice())) {
                 // It is a real XNA Effect: the game owns it and the ordinary effect surface

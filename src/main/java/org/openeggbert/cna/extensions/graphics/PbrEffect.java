@@ -20,10 +20,8 @@ import java.util.Objects;
  * own coordinate set and placement -- so a glTF asset can be drawn as it was authored rather than
  * approximated.
  *
- * <p>Every value can be set one at a time, or the whole surface at once with a
- * {@link PbrMaterialExt}: {@link #applyMaterial} writes all of it and {@link #extractMaterial()}
- * reads all of it back, which is what makes a material a thing a game can store, compare and
- * hand around.
+ * <p>Every value is set one at a time. CNA ABI 0.30 removed the whole-material routes together
+ * with the rest of the engine layer, so there is no material object to apply or extract.
  *
  * <p><strong>Ownership.</strong> The effect is OWNED and released by {@link #close()}. Textures
  * are RETAINED by CNA when assigned -- it says so, and it means an assigned texture stays alive --
@@ -64,59 +62,6 @@ public class PbrEffect implements AutoCloseable {
      */
     public final Effect getEffect() {
         return effect;
-    }
-
-    /**
-     * Writes a whole material into the effect.
-     *
-     * @param material the material; its textures are retained by the effect
-     */
-    public final void applyMaterial(PbrMaterialExt material) {
-        Objects.requireNonNull(material, "material");
-        GraphicsExtension.check("PbrEffect.applyMaterial", applyMaterial(handle(),
-                material.bytes(), material.integral(), material.floating()));
-        // And then again, slot by slot -- because CNA's material route sets the effect's texture
-        // pointers without telling the C API's handle registry, so a texture applied that way is
-        // invisible to cna_pbr_effect_get_texture and comes back invalid from
-        // cna_pbr_effect_extract_material. JAVA-UPSTREAM-010, measured in
-        // tools/native-abi/probes/pbr_effect_material.c. Setting each slot the other way round
-        // makes the registry agree with the effect, so a game's read-modify-write of a material
-        // does not silently unbind every map. When CNA closes the gap this is redundant rather
-        // than wrong.
-        Texture2D[] applied = material.retainedTextures();
-        for (PbrTextureSlot slot : PbrTextureSlot.values()) {
-            setTexture(slot, applied[slot.ordinal()]);
-        }
-    }
-
-    /**
-     * Reads the whole material back out of the effect.
-     *
-     * <p>The textures come from what this object retained rather than from CNA's handles: CNA
-     * gives back the handle it was given, and a second Java facade over an already-owned texture
-     * would be a double release waiting to happen.
-     *
-     * @return the material
-     */
-    public final PbrMaterialExt extractMaterial() {
-        byte[] bytes = new byte[3];
-        long[] integral = new long[24];
-        float[] floating = new float[48];
-        GraphicsExtension.check("PbrEffect.extractMaterial",
-                extractMaterial(handle(), bytes, integral, floating));
-        return PbrMaterialExt.fromLeaves(integral, floating, textures);
-    }
-
-    /** Overridden by the skinned effect, which has its own pair of routes for the same job. */
-    int applyMaterial(long effectHandle, byte[] bytes, long[] integral, float[] floating) {
-        return org.openeggbert.cna.internal.generated.NativeEngineLayerRoutes
-                .pbrEffectApplyMaterial(effectHandle, bytes, integral, floating);
-    }
-
-    /** Overridden by the skinned effect. */
-    int extractMaterial(long effectHandle, byte[] bytes, long[] integral, float[] floating) {
-        return org.openeggbert.cna.internal.generated.NativeEngineLayerRoutes
-                .pbrEffectExtractMaterial(effectHandle, bytes, integral, floating);
     }
 
     /**

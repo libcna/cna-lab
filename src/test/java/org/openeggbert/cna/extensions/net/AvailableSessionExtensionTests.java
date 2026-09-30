@@ -2,12 +2,13 @@ package org.openeggbert.cna.extensions.net;
 
 import Microsoft.Xna.Framework.Game;
 import Microsoft.Xna.Framework.GameTime;
-import Microsoft.Xna.Framework.GamerServices.GamerServicesComponent;
 import Microsoft.Xna.Framework.Net.AvailableNetworkSession;
 import Microsoft.Xna.Framework.Net.AvailableNetworkSessionCollection;
 import Microsoft.Xna.Framework.Net.NetworkSession;
 import Microsoft.Xna.Framework.Net.NetworkSessionType;
 import org.junit.jupiter.api.Test;
+
+import java.util.List;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -57,7 +58,11 @@ final class AvailableSessionExtensionTests {
     }
 
     /** Runs one body inside a frame, because CNA's session layer needs a live game. */
-    private static final class Probe extends GamerServicesComponent {
+    /**
+     * Drives the process-wide dispatcher as GamerServicesComponent does, initializing it only if
+     * no earlier suite in this JVM has: XNA refuses a second initialization.
+     */
+    private static final class Probe extends Microsoft.Xna.Framework.GameComponent {
 
         private final Runnable body;
         private boolean ran;
@@ -69,7 +74,17 @@ final class AvailableSessionExtensionTests {
         }
 
         @Override
+        public void Initialize() {
+            if (!Microsoft.Xna.Framework.GamerServices.GamerServicesDispatcher.getIsInitialized()) {
+                Microsoft.Xna.Framework.GamerServices.GamerServicesDispatcher.Initialize(
+                        getGame().getServices());
+            }
+            super.Initialize();
+        }
+
+        @Override
         public void Update(GameTime gameTime) {
+            Microsoft.Xna.Framework.GamerServices.GamerServicesDispatcher.Update();
             super.Update(gameTime);
             if (ran) {
                 return;
@@ -122,13 +137,11 @@ final class AvailableSessionExtensionTests {
         assertThrows(NullPointerException.class,
                 () -> AvailableSessionExtensions.getSessionType(null));
 
-        // A described session is joinable, which is why it exists. On this runtime the join
-        // succeeds against an address nothing is listening on: CNA's transport here does not
-        // contact the host, so this proves the description reaches Join in a form it accepts
-        // and NOT that a connection was made.
-    try (NetworkSession joined = NetworkSession.Join(described)) {
-        assertNotNull(joined);
-    }
+        // A described session is what Join takes. CNA's SystemLink transport now contacts the
+        // host (GS-007n), and nothing listens at this address on the qualification host, so the
+        // join is refused with XNA's own exception rather than succeeding against nobody.
+        assertThrows(Microsoft.Xna.Framework.Net.NetworkSessionJoinException.class,
+                () -> NetworkSession.Join(described));
     }
 
     /**
@@ -179,15 +192,18 @@ final class AvailableSessionExtensionTests {
         assertThrows(RuntimeException.class,
                 () -> NetworkSession.Find(NetworkSessionType.Local, 1, null),
                 "CNA refuses a search for local sessions, which are not discoverable");
-        for (NetworkSessionType type : NetworkSessionType.values()) {
-            if (type == NetworkSessionType.Local) {
-                continue;
-            }
-            try (AvailableNetworkSessionCollection found =
-                         NetworkSession.Find(type, 1, null)) {
-            assertEquals(0, found.size(), type + " found a session on a network with no "
-                    + "peer, which this qualification cannot have");
+        // SystemLink searches the local network, and with no peer finds nothing.
+        try (AvailableNetworkSessionCollection found =
+                     NetworkSession.Find(NetworkSessionType.SystemLink, 1, null)) {
+            assertEquals(0, found.size(), "a SystemLink search found a session on a network with "
+                    + "no peer, which this qualification cannot have");
         }
-    }
+        // PlayerMatch and Ranked need a configured CNA account service; with none CNA refuses,
+        // which is XNA's GamerServicesNotAvailable rather than an empty result.
+        for (NetworkSessionType type : List.of(NetworkSessionType.PlayerMatch,
+                NetworkSessionType.Ranked)) {
+            assertThrows(Microsoft.Xna.Framework.GamerServices.GamerServicesNotAvailableException.class,
+                    () -> NetworkSession.Find(type, 1, null), type.toString());
+        }
     }
 }

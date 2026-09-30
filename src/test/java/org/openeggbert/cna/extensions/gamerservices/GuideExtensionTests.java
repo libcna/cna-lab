@@ -1,16 +1,19 @@
 package org.openeggbert.cna.extensions.gamerservices;
 
+import Microsoft.Xna.Framework.FrameworkDispatcher;
 import Microsoft.Xna.Framework.Game;
 import Microsoft.Xna.Framework.GameTime;
 import Microsoft.Xna.Framework.PlayerIndex;
 import Microsoft.Xna.Framework.GamerServices.Guide;
 import Microsoft.Xna.Framework.GamerServices.MessageBoxIcon;
+import System.IAsyncResult;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -76,6 +79,7 @@ final class GuideExtensionTests {
 
             keyboardInputIsHandedToTheGame();
             messageBoxChoiceReachesXna();
+            xnaSeesTheAnswerThroughEndAndTheCallback();
 
             assertThrows(NullPointerException.class,
                     () -> GuideExtensions.ShowAchievements(null));
@@ -120,6 +124,31 @@ final class GuideExtensionTests {
             // it, because that is the API a game already wrote against.
             GuideExtensions.ClickMessageBox(0);
             assertNull(GuideExtensions.getPendingMessageBox());
+        }
+
+        private void xnaSeesTheAnswerThroughEndAndTheCallback() {
+            // CNA's Guide is genuinely asynchronous: Begin returns with the screen up, and the
+            // XNA result is incomplete until the player answers.
+            List<IAsyncResult> called = new java.util.ArrayList<>();
+            IAsyncResult keyboard = Guide.BeginShowKeyboardInput(PlayerIndex.One, "Name",
+                    "Your name", "Ada", called::add, "keyboard-state");
+            assertFalse(keyboard.getIsCompleted(), "nobody has answered yet");
+            assertFalse(keyboard.getCompletedSynchronously());
+            assertEquals("keyboard-state", keyboard.getAsyncState());
+            GuideExtensions.CancelKeyboardInput();
+            assertTrue(keyboard.getIsCompleted());
+            FrameworkDispatcher.Update();
+            assertEquals(List.of(keyboard), called,
+                    "the dispatcher pump runs the XNA callback once the answer exists");
+            assertNull(Guide.EndShowKeyboardInput(keyboard),
+                    "a cancelled input ends with null, as XNA's does");
+            assertThrows(IllegalStateException.class, () -> Guide.EndShowKeyboardInput(keyboard));
+
+            IAsyncResult box = Guide.BeginShowMessageBox(PlayerIndex.One, "Quit?", "Really",
+                    List.of("Quit", "Stay"), 0, MessageBoxIcon.Warning, null, null);
+            GuideExtensions.ClickMessageBox(1);
+            assertEquals(Integer.valueOf(1), Guide.EndShowMessageBox(box),
+                    "EndShowMessageBox returns the button the player chose");
         }
     }
 }

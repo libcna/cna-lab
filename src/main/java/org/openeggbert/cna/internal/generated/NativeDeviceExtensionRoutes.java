@@ -13,6 +13,91 @@ public final class NativeDeviceExtensionRoutes {
     }
 
     /**
+     * cna_camera_copy_name_at_ext (devices.h).
+     */
+    public static native int cameraCopyNameAtExt(long game, long index, byte[] destination, long[] outBytes);
+
+    /**
+     * cna_camera_create (devices.h).
+     */
+    public static native int cameraCreate(long game, long[] outCamera);
+
+    /**
+     * cna_camera_create_with_test_backend_ext (devices.h).
+     */
+    public static native int cameraCreateWithTestBackendExt(long game, long[] outCamera);
+
+    /**
+     * cna_camera_destroy (devices.h).
+     */
+    public static native int cameraDestroy(long camera);
+
+    /**
+     * cna_camera_device_info_init (devices.h).
+     *
+     * <p>outInfoIntegral carries CNA_CameraDeviceInfo in this order:
+     * <ol start="0">
+     *   <li>{@code position} (CNA_CameraPosition)</li>
+     * </ol>
+     */
+    public static native int cameraDeviceInfoInit(long[] outInfoIntegral);
+
+    /**
+     * cna_camera_get_count_ext (devices.h).
+     */
+    public static native int cameraGetCountExt(long game, long[] outCount);
+
+    /**
+     * cna_camera_get_frame_height_ext (devices.h).
+     */
+    public static native int cameraGetFrameHeightExt(long camera, int[] outHeight);
+
+    /**
+     * cna_camera_get_frame_width_ext (devices.h).
+     */
+    public static native int cameraGetFrameWidthExt(long camera, int[] outWidth);
+
+    /**
+     * cna_camera_get_info_at_ext (devices.h).
+     *
+     * <p>outInfoIntegral carries CNA_CameraDeviceInfo in this order:
+     * <ol start="0">
+     *   <li>{@code position} (CNA_CameraPosition)</li>
+     * </ol>
+     */
+    public static native int cameraGetInfoAtExt(long game, long index, long[] outInfoIntegral);
+
+    /**
+     * cna_camera_get_is_supported_ext (devices.h).
+     */
+    public static native int cameraGetIsSupportedExt(long game, boolean[] outSupported);
+
+    /**
+     * cna_camera_get_name_size_at_ext (devices.h).
+     */
+    public static native int cameraGetNameSizeAtExt(long game, long index, long[] outBytes);
+
+    /**
+     * cna_camera_get_state_ext (devices.h).
+     */
+    public static native int cameraGetStateExt(long camera, int[] outState);
+
+    /**
+     * cna_camera_set_test_frame_ext (devices.h).
+     */
+    public static native int cameraSetTestFrameExt(long camera, int width, int height, long[] pixelsIntegral);
+
+    /**
+     * cna_camera_set_test_state_ext (devices.h).
+     */
+    public static native int cameraSetTestStateExt(long camera, int state);
+
+    /**
+     * cna_camera_try_acquire_frame_ext (devices.h).
+     */
+    public static native int cameraTryAcquireFrameExt(long camera, long texture, boolean[] outAcquired);
+
+    /**
      * cna_clipboard_copy_text (input_devices.h).
      */
     public static native int clipboardCopyText(long game, byte[] destination, long[] outBytes);

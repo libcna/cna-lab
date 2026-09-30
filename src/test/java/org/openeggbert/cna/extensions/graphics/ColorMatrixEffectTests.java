@@ -122,7 +122,6 @@ final class ColorMatrixEffectTests {
             GraphicsDevice device = probe.device();
             final int size = 8;
             try (ColorMatrixEffect effect = ColorMatrixEffect.create(device);
-                    FullscreenPass pass = FullscreenPass.create(device);
                     Texture2D source = new Texture2D(device, 2, 2);
                     RenderTarget2D plainTarget = new RenderTarget2D(device, size, size);
                     RenderTarget2D greyTarget = new RenderTarget2D(device, size, size)) {
@@ -130,7 +129,7 @@ final class ColorMatrixEffectTests {
 
                 // The control first, and it is not optional: a renderer that draws nothing
                 // would let a black frame read as agreement with any expectation at all.
-                pass.draw(source, plainTarget, null, size, size, null);
+                GameProbe.drawOver(device, source, plainTarget, null, null);
                 Color[] plain;
                 try {
                     plain = read(plainTarget, size);
@@ -145,7 +144,7 @@ final class ColorMatrixEffectTests {
                                 + "is claimed about an image");
 
                 effect.setGrayscale();
-                pass.draw(source, greyTarget, effect.getEffect(), size, size, null);
+                GameProbe.drawOver(device, source, greyTarget, effect.getEffect(), null);
                 Color[] grey = read(greyTarget, size);
 
                 if (grey[0].getR() == plain[0].getR() && grey[0].getG() == plain[0].getG()) {
@@ -181,7 +180,7 @@ final class ColorMatrixEffectTests {
                 effect.reset();
                 effect.setOffset(new Vector4(0f, 1f, 0f, 0f));
                 try (RenderTarget2D offsetTarget = new RenderTarget2D(device, size, size)) {
-                    pass.draw(source, offsetTarget, effect.getEffect(), size, size, null);
+                    GameProbe.drawOver(device, source, offsetTarget, effect.getEffect(), null);
                     Color shifted = read(offsetTarget, size)[0];
                     assertTrue(shifted.getR() > 200, "the identity kept the red");
                     assertTrue(shifted.getG() > 200,

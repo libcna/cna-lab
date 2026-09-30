@@ -9,7 +9,7 @@ import Microsoft.Xna.Framework.Vector3;
 import Microsoft.Xna.Framework.Graphics.GraphicsDevice;
 
 import org.openeggbert.cna.internal.NativeBindings;
-import org.openeggbert.cna.internal.generated.NativeEngineLayerRoutes;
+import org.openeggbert.cna.internal.generated.NativeGraphicsExtensionRoutes;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -55,13 +55,13 @@ public final class DebugDraw implements AutoCloseable {
      *
      * @param graphicsDevice the device to draw with
      * @return the renderer, which the caller closes
-     * @throws ExtensionNotSupportedException when this build has no engine layer
+     * @throws ExtensionNotSupportedException when this build has no extended graphics layer
      */
     public static DebugDraw create(GraphicsDevice graphicsDevice) {
         GraphicsExtension.requireBackend();
         Objects.requireNonNull(graphicsDevice, "graphicsDevice");
         long[] debug = new long[1];
-        GraphicsExtension.check("DebugDraw.create", NativeEngineLayerRoutes.debugDrawCreate(
+        GraphicsExtension.check("DebugDraw.create", NativeGraphicsExtensionRoutes.debugDrawCreate(
                 NativeBindings.nativeGraphicsDeviceValue(graphicsDevice), debug));
         return new DebugDraw(debug[0]);
     }
@@ -75,19 +75,19 @@ public final class DebugDraw implements AutoCloseable {
     public void begin(Matrix view, Matrix projection) {
         Objects.requireNonNull(view, "view");
         Objects.requireNonNull(projection, "projection");
-        GraphicsExtension.check("DebugDraw.begin", NativeEngineLayerRoutes
+        GraphicsExtension.check("DebugDraw.begin", NativeGraphicsExtensionRoutes
                 .debugDrawBegin(open(), floats(view), floats(projection)));
     }
 
     /** Draws both line lists and closes the frame. */
     public void end() {
-        GraphicsExtension.check("DebugDraw.end", NativeEngineLayerRoutes.debugDrawEnd(open()));
+        GraphicsExtension.check("DebugDraw.end", NativeGraphicsExtensionRoutes.debugDrawEnd(open()));
     }
 
     /** Discards both line lists without drawing them. */
     public void clear() {
         GraphicsExtension.check("DebugDraw.clear",
-                NativeEngineLayerRoutes.debugDrawClear(open()));
+                NativeGraphicsExtensionRoutes.debugDrawClear(open()));
     }
 
     /**
@@ -98,7 +98,7 @@ public final class DebugDraw implements AutoCloseable {
      * @param color the colour to draw it in
      */
     public void addLine(Vector3 from, Vector3 to, Color color) {
-        GraphicsExtension.check("DebugDraw.addLine", NativeEngineLayerRoutes.debugDrawAddLine(
+        GraphicsExtension.check("DebugDraw.addLine", NativeGraphicsExtensionRoutes.debugDrawAddLine(
                 open(), floats(from, "from"), floats(to, "to"), channels(color)));
     }
 
@@ -110,7 +110,7 @@ public final class DebugDraw implements AutoCloseable {
      */
     public void addBox(BoundingBox bounds, Color color) {
         Objects.requireNonNull(bounds, "bounds");
-        GraphicsExtension.check("DebugDraw.addBox", NativeEngineLayerRoutes.debugDrawAddBox(
+        GraphicsExtension.check("DebugDraw.addBox", NativeGraphicsExtensionRoutes.debugDrawAddBox(
                 open(),
                 new float[] {bounds.Min.X, bounds.Min.Y, bounds.Min.Z,
                     bounds.Max.X, bounds.Max.Y, bounds.Max.Z},
@@ -126,7 +126,7 @@ public final class DebugDraw implements AutoCloseable {
      * @param segments how many segments each ring is drawn with
      */
     public void addSphere(Vector3 center, float radius, Color color, int segments) {
-        GraphicsExtension.check("DebugDraw.addSphere", NativeEngineLayerRoutes
+        GraphicsExtension.check("DebugDraw.addSphere", NativeGraphicsExtensionRoutes
                 .debugDrawAddSphere(open(), floats(center, "center"), radius,
                         channels(color), segments));
     }
@@ -140,7 +140,7 @@ public final class DebugDraw implements AutoCloseable {
      */
     public void addBoundingSphere(BoundingSphere sphere, Color color, int segments) {
         Objects.requireNonNull(sphere, "sphere");
-        GraphicsExtension.check("DebugDraw.addBoundingSphere", NativeEngineLayerRoutes
+        GraphicsExtension.check("DebugDraw.addBoundingSphere", NativeGraphicsExtensionRoutes
                 .debugDrawAddBoundingSphere(open(),
                         new float[] {sphere.Center.X, sphere.Center.Y, sphere.Center.Z,
                             sphere.Radius},
@@ -155,109 +155,8 @@ public final class DebugDraw implements AutoCloseable {
      */
     public void addFrustum(BoundingFrustum frustum, Color color) {
         Objects.requireNonNull(frustum, "frustum");
-        GraphicsExtension.check("DebugDraw.addFrustum", NativeEngineLayerRoutes
+        GraphicsExtension.check("DebugDraw.addFrustum", NativeGraphicsExtensionRoutes
                 .debugDrawAddFrustum(open(), floats(frustum.getMatrix()), channels(color)));
-    }
-
-    /**
-     * Queues an arrow through a point, showing where a directional light comes from.
-     *
-     * <p>A directional light has no position, so the caller says where to draw it.
-     *
-     * @param light the light to draw
-     * @param at where to draw the arrow
-     * @param length how long to draw it
-     * @param color the colour to draw it in
-     */
-    public void addDirectionalLightGizmo(DirectionalLight light, Vector3 at, float length,
-            Color color) {
-        Objects.requireNonNull(light, "light");
-        GraphicsExtension.check("DebugDraw.addDirectionalLightGizmo", NativeEngineLayerRoutes
-                .debugDrawAddDirectionalLightGizmo(open(), new byte[3], light.integral(),
-                        light.floating(), floats(at, "at"), length, channels(color)));
-    }
-
-    /**
-     * Queues a sphere at a point light's range, showing how far it reaches.
-     *
-     * @param light the light to draw
-     * @param color the colour to draw it in
-     */
-    public void addPointLightGizmo(PointLight light, Color color) {
-        Objects.requireNonNull(light, "light");
-        GraphicsExtension.check("DebugDraw.addPointLightGizmo", NativeEngineLayerRoutes
-                .debugDrawAddPointLightGizmo(open(), new byte[3], light.integral(),
-                        light.floating(), channels(color)));
-    }
-
-    /**
-     * Queues a cone showing where a spot light points and how wide it opens.
-     *
-     * @param light the light to draw
-     * @param color the colour to draw it in
-     * @param segments how many segments the cone is drawn with; clamped like a sphere's
-     */
-    public void addSpotLightGizmo(SpotLight light, Color color, int segments) {
-        Objects.requireNonNull(light, "light");
-        GraphicsExtension.check("DebugDraw.addSpotLightGizmo", NativeEngineLayerRoutes
-                .debugDrawAddSpotLightGizmo(open(), new byte[3], light.integral(),
-                        light.floating(), channels(color), segments));
-    }
-
-    /**
-     * Queues the outline of each of a light grid's depth slices, in world space.
-     *
-     * <p>What clustered lighting is doing, made visible: one box per <em>slice</em> rather than
-     * per cluster -- twenty-seven clusters in a three-slice grid are still three boxes -- which
-     * is how a game sees whether its logarithmic slice spacing covers the frustum it thought it
-     * did.
-     *
-     * <p><strong>An unshaped grid draws nothing and succeeds.</strong> CNA's own rule: there is
-     * nothing to place the slices with until the grid has a projection, and an overlay that
-     * refused would be harder to use than one that stays empty until the grid is ready.
-     *
-     * @param grid the grid to outline
-     * @param inverseView the inverse of the camera view the grid was built with, which is what
-     *        takes a slice's view-space bounds back into world space
-     * @param color the colour to draw it in
-     */
-    public void addClusterSliceGizmo(ClusteredLightGrid grid, Matrix inverseView, Color color) {
-        Objects.requireNonNull(grid, "grid");
-        GraphicsExtension.check("DebugDraw.addClusterSliceGizmo", NativeEngineLayerRoutes
-                .debugDrawAddClusterSliceGizmo(open(), grid.handle(),
-                        floats(inverseView, "inverseView"), channels(color)));
-    }
-
-    /**
-     * Queues a cross at every probe in a light-probe volume, and the volume's own box.
-     *
-     * <p>Where the probes actually are, which is the thing a game gets wrong when its ambient
-     * light is subtly in the wrong place.
-     *
-     * @param volume the volume to outline
-     * @param color the colour to draw it in
-     * @param crossSize how far each probe's cross extends
-     */
-    public void addProbeVolumeGizmo(LightProbeVolume volume, Color color, float crossSize) {
-        Objects.requireNonNull(volume, "volume");
-        GraphicsExtension.check("DebugDraw.addProbeVolumeGizmo", NativeEngineLayerRoutes
-                .debugDrawAddProbeVolumeGizmo(open(), volume.handle(), channels(color),
-                        crossSize));
-    }
-
-    /**
-     * Queues each of a cascaded shadow map's cascades as its frustum.
-     *
-     * <p>The other half of {@link CascadedShadowMap#setDebugTintEnabled}: the tint says which
-     * cascade shaded a pixel, and this says where each cascade reaches.
-     *
-     * @param cascades the map to outline
-     * @param color the colour to draw it in
-     */
-    public void addCascadeGizmo(CascadedShadowMap cascades, Color color) {
-        Objects.requireNonNull(cascades, "cascades");
-        GraphicsExtension.check("DebugDraw.addCascadeGizmo", NativeEngineLayerRoutes
-                .debugDrawAddCascadeGizmo(open(), cascades.handle(), channels(color)));
     }
 
     /**
@@ -268,7 +167,7 @@ public final class DebugDraw implements AutoCloseable {
      * @param color the colour to draw it in
      */
     public void addCross(Vector3 position, float size, Color color) {
-        GraphicsExtension.check("DebugDraw.addCross", NativeEngineLayerRoutes
+        GraphicsExtension.check("DebugDraw.addCross", NativeGraphicsExtensionRoutes
                 .debugDrawAddCross(open(), floats(position, "position"), size,
                         channels(color)));
     }
@@ -277,7 +176,7 @@ public final class DebugDraw implements AutoCloseable {
     public boolean isDepthTested() {
         boolean[] tested = new boolean[1];
         GraphicsExtension.check("DebugDraw.isDepthTested",
-                NativeEngineLayerRoutes.debugDrawIsDepthTested(open(), tested));
+                NativeGraphicsExtensionRoutes.debugDrawIsDepthTested(open(), tested));
         return tested[0];
     }
 
@@ -288,14 +187,14 @@ public final class DebugDraw implements AutoCloseable {
      */
     public void setDepthTested(boolean depthTested) {
         GraphicsExtension.check("DebugDraw.setDepthTested",
-                NativeEngineLayerRoutes.debugDrawSetDepthTested(open(), depthTested));
+                NativeGraphicsExtensionRoutes.debugDrawSetDepthTested(open(), depthTested));
     }
 
     /** Returns how many lines are queued, across both lists. */
     public int getLineCount() {
         int[] count = new int[1];
         GraphicsExtension.check("DebugDraw.getLineCount",
-                NativeEngineLayerRoutes.debugDrawGetLineCount(open(), count));
+                NativeGraphicsExtensionRoutes.debugDrawGetLineCount(open(), count));
         return count[0];
     }
 
@@ -310,7 +209,7 @@ public final class DebugDraw implements AutoCloseable {
         long[] count = new long[1];
         // A zero-capacity probe reports the count and writes nothing, so BUFFER_TOO_SMALL is the
         // expected answer to the first call rather than a failure.
-        int probe = NativeEngineLayerRoutes.debugDrawCopyVertices(
+        int probe = NativeGraphicsExtensionRoutes.debugDrawCopyVertices(
                 debug, depthTested, new long[0], new float[0], count);
         if (probe != RESULT_BUFFER_TOO_SMALL) {
             GraphicsExtension.check("DebugDraw.readVertices", probe);
@@ -318,7 +217,7 @@ public final class DebugDraw implements AutoCloseable {
         int vertices = Math.toIntExact(count[0]);
         long[] integral = new long[Math.multiplyExact(vertices, VERTEX_INTEGRAL_LEAVES)];
         float[] floating = new float[Math.multiplyExact(vertices, VERTEX_FLOAT_LEAVES)];
-        GraphicsExtension.check("DebugDraw.readVertices", NativeEngineLayerRoutes
+        GraphicsExtension.check("DebugDraw.readVertices", NativeGraphicsExtensionRoutes
                 .debugDrawCopyVertices(debug, depthTested, integral, floating, count));
         List<DebugVertex> read = new ArrayList<>(vertices);
         for (int vertex = 0; vertex < count[0]; vertex++) {
@@ -343,7 +242,7 @@ public final class DebugDraw implements AutoCloseable {
             closed = true;
         }
         GraphicsExtension.check("DebugDraw.close",
-                NativeEngineLayerRoutes.debugDrawDestroy(handle));
+                NativeGraphicsExtensionRoutes.debugDrawDestroy(handle));
     }
 
     private static long[] channels(Color color) {

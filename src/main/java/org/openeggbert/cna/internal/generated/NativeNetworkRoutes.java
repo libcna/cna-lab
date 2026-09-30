@@ -457,11 +457,6 @@ public final class NativeNetworkRoutes {
     public static native int networkSessionJoinInvitedWithLocalGamers(long[] localGamers, long[] outSession);
 
     /**
-     * cna_network_session_properties_clear (net.h).
-     */
-    public static native int networkSessionPropertiesClear(long properties);
-
-    /**
      * cna_network_session_properties_contains (net.h).
      */
     public static native int networkSessionPropertiesContains(long properties, byte[] valueBytes, long[] valueIntegral, boolean[] outContains);
@@ -508,16 +503,6 @@ public final class NativeNetworkRoutes {
      * cna_network_session_properties_index_of (net.h).
      */
     public static native int networkSessionPropertiesIndexOf(long properties, byte[] valueBytes, long[] valueIntegral, int[] outIndex);
-
-    /**
-     * cna_network_session_properties_insert (net.h).
-     */
-    public static native int networkSessionPropertiesInsert(long properties, int index, byte[] valueBytes, long[] valueIntegral);
-
-    /**
-     * cna_network_session_properties_remove_at (net.h).
-     */
-    public static native int networkSessionPropertiesRemoveAt(long properties, int index);
 
     /**
      * cna_network_session_properties_set_item (net.h).

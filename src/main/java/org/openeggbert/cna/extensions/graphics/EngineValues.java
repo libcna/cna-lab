@@ -13,7 +13,7 @@ import java.util.Objects;
  * Flattens XNA's value types into the arrays the generated native boundary takes.
  *
  * <p>Not public and not an API: the generator projects a struct as its scalar leaves in
- * declaration order, so every engine-layer family needs the same handful of conversions and
+ * declaration order, so every extension family needs the same handful of conversions and
  * writing them once means one place can be wrong. The leaf order here is CNA's own
  * {@code CNA_Matrix}, {@code CNA_BoundingBox}, {@code CNA_BoundingSphere} and {@code CNA_Color}
  * declaration order, which is what the adapter reads.

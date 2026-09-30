@@ -31,8 +31,8 @@ import java.util.Objects;
  * identically with the Rec. 709 weights, which only makes sense read this way.
  *
  * <p><strong>The effect is an ordinary graphics resource.</strong> {@link #getEffect()} hands back
- * an XNA {@link Effect} that {@code SpriteBatch.Begin} and {@link FullscreenPass#draw} both take,
- * and the game owns it: closing this releases it.
+ * an XNA {@link Effect} that {@code SpriteBatch.Begin} takes, and the game owns it: closing this
+ * releases it.
  *
  * <p><strong>Only a CPU rasterizer executes the transform, and CNA says so rather than leaving
  * it to chance.</strong> The matrix travels through the shared CPU {@code SpriteBatch} path, and

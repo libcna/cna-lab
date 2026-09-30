@@ -393,22 +393,18 @@ _Static_assert(offsetof(CNA_GameTime, elapsed_game_time_ticks) == 8U, "CNA_GameT
 _Static_assert(offsetof(CNA_GameTime, is_running_slowly) == 16U, "CNA_GameTime.bool offset");
 _Static_assert(offsetof(CNA_StringView, data) == 0U, "CNA_StringView.data offset");
 _Static_assert(offsetof(CNA_StringView, byte_length) >= sizeof(void*), "CNA_StringView.length offset");
-_Static_assert(CNA_ABI_VERSION == CNA_ABI_VERSION_ENCODE(0, 21, 0), "unexpected CNA header ABI");
+_Static_assert(CNA_ABI_VERSION == CNA_ABI_VERSION_ENCODE(0, 35, 0), "unexpected CNA header ABI");
 
-/* The compute family's two wire formats and the three identity sets Java hard-codes.
+/* The indirect-draw wire formats and the capability identities Java hard-codes.
  *
  * IndirectDrawArguments and IndirectDrawIndexedArguments are not marshalled field by field the
- * way every other structure here is: they are the GPU's own command format, and a game writes
- * them into a storage buffer as bytes for the command processor to read. Java's toBytes() lays
- * out four and five little-endian words respectively, and nothing in the generated boundary
+ * way every other structure here is: they are the GPU's own command format, and Java's toBytes()
+ * lays out four and five little-endian words respectively, and nothing in the generated boundary
  * would notice if CNA reordered or resized them. These assertions are what does.
  *
- * The identity constants below are the other half of the same problem. GraphicsCapability,
- * ImageAccess and MemoryBarrier are Java enums whose values are their ordinals or their bit
- * positions, which is only correct while CNA's own constants are what they are today. A runtime
- * route could not check this -- cna_graphics_memory_barrier_has takes the caller's own integers
- * and tells it nothing about CNA's -- so the check belongs here, against the live header, where
- * a change stops the build instead of silently sending the wrong bit.
+ * GraphicsCapability is a Java enum whose values are its ordinals, which is only correct while
+ * CNA's own constants are what they are today, so the check belongs here, against the live
+ * header, where a change stops the build instead of silently asking the wrong question.
  */
 _Static_assert(sizeof(CNA_IndirectDrawArguments) == 16U,
     "CNA_IndirectDrawArguments must be four 32-bit words");
@@ -440,31 +436,6 @@ _Static_assert(CNA_GRAPHICS_CAPABILITY_INDIRECT_DRAW == 18U,
     "GraphicsCapability.IndirectDraw ordinal");
 _Static_assert(CNA_GRAPHICS_CAPABILITY_MAXIMUM == CNA_GRAPHICS_CAPABILITY_INDIRECT_DRAW,
     "GraphicsCapability has gained a constant Java has no enum for");
-
-_Static_assert(CNA_GRAPHICS_IMAGE_ACCESS_READ_ONLY == 0U, "ImageAccess.ReadOnly ordinal");
-_Static_assert(CNA_GRAPHICS_IMAGE_ACCESS_WRITE_ONLY == 1U, "ImageAccess.WriteOnly ordinal");
-_Static_assert(CNA_GRAPHICS_IMAGE_ACCESS_READ_WRITE == 2U, "ImageAccess.ReadWrite ordinal");
-
-_Static_assert(CNA_GRAPHICS_MEMORY_BARRIER_VERTEX_ATTRIB_ARRAY == (UINT32_C(1) << 0),
-    "MemoryBarrier.VertexAttribArray bit");
-_Static_assert(CNA_GRAPHICS_MEMORY_BARRIER_ELEMENT_ARRAY == (UINT32_C(1) << 1),
-    "MemoryBarrier.ElementArray bit");
-_Static_assert(CNA_GRAPHICS_MEMORY_BARRIER_UNIFORM == (UINT32_C(1) << 2),
-    "MemoryBarrier.Uniform bit");
-_Static_assert(CNA_GRAPHICS_MEMORY_BARRIER_TEXTURE_FETCH == (UINT32_C(1) << 3),
-    "MemoryBarrier.TextureFetch bit");
-_Static_assert(CNA_GRAPHICS_MEMORY_BARRIER_SHADER_IMAGE_ACCESS == (UINT32_C(1) << 4),
-    "MemoryBarrier.ShaderImageAccess bit");
-_Static_assert(CNA_GRAPHICS_MEMORY_BARRIER_SHADER_STORAGE == (UINT32_C(1) << 5),
-    "MemoryBarrier.ShaderStorage bit");
-_Static_assert(CNA_GRAPHICS_MEMORY_BARRIER_BUFFER_UPDATE == (UINT32_C(1) << 6),
-    "MemoryBarrier.BufferUpdate bit");
-_Static_assert(CNA_GRAPHICS_MEMORY_BARRIER_FRAMEBUFFER == (UINT32_C(1) << 7),
-    "MemoryBarrier.Framebuffer bit");
-_Static_assert(CNA_GRAPHICS_MEMORY_BARRIER_INDIRECT_COMMAND == (UINT32_C(1) << 8),
-    "MemoryBarrier.IndirectCommand bit");
-_Static_assert(CNA_GRAPHICS_MEMORY_BARRIER_ALL == UINT32_C(0x1FF),
-    "MemoryBarrier has gained a bit Java has no constant for");
 
 
 #define ASSERT_SIGNATURE(name, ...) \

@@ -91,8 +91,10 @@ final class AudioNativeIntegrationTests {
                 assertEquals("native-null-audio", effect.getName());
                 effect.setName("");
                 assertEquals("", effect.getName());
-                assertFalse(effect.Play());
-                assertFalse(effect.Play(0.5f, -0.25f, 0.75f));
+                // Play answers whether a voice was started: false with no mixer (NULL audio), true
+                // with one (SDL3). Either way the two overloads agree.
+                boolean played = effect.Play();
+                assertEquals(played, effect.Play(0.5f, -0.25f, 0.75f));
 
                 SoundEffectInstance first = effect.CreateInstance();
                 disposedWithParent = first;

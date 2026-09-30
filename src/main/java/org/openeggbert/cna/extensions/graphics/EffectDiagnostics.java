@@ -19,7 +19,7 @@ import java.util.Objects;
  *
  * <p>Static, because these are questions <em>about</em> an XNA type rather than members of it: an
  * {@code Effect} lives in {@code Microsoft.Xna.Framework.Graphics} and nothing CNA-specific may
- * appear on it. That is the same arrangement {@link EffectLighting} already uses.
+ * appear on it.
  */
 public final class EffectDiagnostics {
 

@@ -47,10 +47,10 @@ def test_inventory(include: Path) -> dict:
     check(not live["problems"], "inventory reports no unparsable declaration")
     check(all(value["name"].startswith("cna_") for value in live["functions"].values()),
           "every extracted function carries a cna_ symbol name")
-    check(inventory_tool.identity_prefix("CNA_TonemappingMode") == "CNA_TONEMAPPING_MODE_",
+    check(inventory_tool.identity_prefix("CNA_SpriteSortMode") == "CNA_SPRITE_SORT_MODE_",
           "identity value prefixes derive from the identity type name")
-    tonemapping = live["identities"].get("CNA_TonemappingMode")
-    check(tonemapping is not None and tonemapping["values"],
+    sort_mode = live["identities"].get("CNA_SpriteSortMode")
+    check(sort_mode is not None and sort_mode["values"],
           "an identity collects the constants that name its values")
     return live
 
@@ -269,11 +269,16 @@ def test_binding_status(report: dict, rules: dict) -> None:
     check(not prefixed(coverage_tool.rule_problems(rules, bound, each_decides_one),
                        "STALE_BLOCKER_RULE_DECIDES_NOTHING"),
           "a blocker that still decides an unbound route is not called stale")
-    live_blocker = next(index for index, rule in enumerate(rules["rules"])
-                        if rule["bindingStatus"].startswith("BLOCKED_"))
+    # Every upstream blocker this repository recorded has been lifted, so the checks below
+    # plant one: the first rule, restated as a blocker, exactly as a new finding would be.
+    blocked = copy.deepcopy(rules)
+    blocked["rules"][0]["bindingStatus"] = "BLOCKED_UPSTREAM"
+    check(not prefixed(coverage_tool.rule_problems(blocked, bound, each_decides_one),
+                       "STALE_BLOCKER_RULE_DECIDES_NOTHING"),
+          "a planted blocker that still decides an unbound route is not called stale")
     emptied = dict(each_decides_one)
-    emptied[live_blocker] = 0
-    check(prefixed(coverage_tool.rule_problems(rules, bound, emptied),
+    emptied[0] = 0
+    check(prefixed(coverage_tool.rule_problems(blocked, bound, emptied),
                    "STALE_BLOCKER_RULE_DECIDES_NOTHING"),
           "a blocker that decides no unbound route is refused, even with others still live")
     check(not prefixed(coverage_tool.rule_problems(rules, bound),
@@ -285,12 +290,12 @@ def test_binding_status(report: dict, rules: dict) -> None:
             if rule["bindingStatus"].startswith("BLOCKED_"):
                 rule["bindingStatus"] = "DELIBERATE_NON_BINDING"
                 rule["evidence"] = "Measured; the managed path answers identically."
-    copied = copy.deepcopy(rules)
+    copied = copy.deepcopy(blocked)
     non_blocker_decides_nothing(copied)
     check(not prefixed(coverage_tool.rule_problems(copied, bound, {}),
                        "STALE_BLOCKER_RULE_DECIDES_NOTHING"),
           "only a blocker is stale for deciding nothing: a decision still stands")
-    check(prefixed(coverage_tool.rule_problems(rules, bound, {}),
+    check(prefixed(coverage_tool.rule_problems(blocked, bound, {}),
                    "STALE_BLOCKER_RULE_DECIDES_NOTHING"),
           "the same rule set with its blockers intact is refused when none decides anything")
 
@@ -303,8 +308,8 @@ def test_binding_status(report: dict, rules: dict) -> None:
     exceptions = rules.get("pairExceptions", [])
     check(not coverage_tool.pair_problems(report["functions"], exceptions),
           "every two-call pair is decided as one, bar the exceptions the rules record")
-    check(len(exceptions) == 1,
-          "exactly one pair is decided apart, and it is written down rather than tolerated")
+    check(not exceptions,
+          "no pair is decided apart: the one exception went with JAVA-UPSTREAM-018")
 
     def apart(field: str, value: str) -> list[str]:
         copied = copy.deepcopy(report["functions"])
@@ -331,7 +336,7 @@ def test_binding_status(report: dict, rules: dict) -> None:
           "an exception for a pair that does not exist is refused")
     check(prefixed(coverage_tool.pair_problems(
               report["functions"],
-              [dict(entry, reason="  ") for entry in exceptions]),
+              [{"size": pairs[0][0], "copy": pairs[0][1], "reason": "  "}]),
           "PAIR_EXCEPTION_WITHOUT_REASON"),
           "an exception that states no reason is refused")
 
@@ -417,16 +422,15 @@ def test_generator(live: dict) -> None:
     # A non-const struct pointer is an output, or it is read and written, and the declaration
     # does not say which. Guessing wrong is silent: an in/out structure treated as an output
     # starts zeroed, so the caller's values are discarded and the route answers about a structure
-    # nobody asked about. That is exactly what happened to the render-pipeline settings.
+    # nobody asked about.
     try:
-        plan("cna_render_pipeline_settings_ext_normalize")
+        plan("cna_viewport_set_bounds")
         check(False, "an undeclared non-const struct pointer is refused rather than guessed at")
     except generator_tool.Unsupported:
         check(True, "an undeclared non-const struct pointer is refused rather than guessed at")
 
     declared = generator_tool.plan(
-        {"java": "probe", "symbol": "cna_render_pipeline_settings_ext_normalize",
-         "inOut": ["settings"]}, live)
+        {"java": "probe", "symbol": "cna_viewport_set_bounds", "inOut": ["viewport"]}, live)
     adapter = generator_tool.render_c("Probe", [declared])
     check("GetLongArrayRegion" in adapter,
           "a declared in/out structure reads the caller's values in")
@@ -538,29 +542,66 @@ def test_generator(live: dict) -> None:
     # the element count. A caller whose other arrays are shorter would have every element past
     # their end read out of bounds in C -- a heap overread inside the marshalling loop, not a
     # Java exception -- so a mismatch has to be refused before anything is allocated.
-    lights = plan("cna_clustered_light_set_copy_lights")
-    check(struct_step(lights)["shape"] == "struct_array",
-          "a light set's copy-out is an array of structs")
-    emitted = generator_tool.render_c("Probe", [lights])
-    check("destination_count * 2" in emitted and "destination_count * 13" in emitted,
+    vertices = plan("cna_debug_draw_copy_vertices")
+    check(struct_step(vertices)["shape"] == "struct_array",
+          "a debug renderer's copy-out is an array of structs")
+    emitted = generator_tool.render_c("Probe", [vertices])
+    check("destination_count * 4" in emitted and "destination_count * 3" in emitted,
           "every parallel carrier's length is checked against the element count")
     check("return (jint)CNA_RESULT_INVALID_ARGUMENT;" in emitted,
           "a mismatched carrier is refused rather than read past its end")
     guard = emitted.index("CNA_RESULT_INVALID_ARGUMENT")
     check(guard < emitted.index("calloc("),
           "the refusal happens before anything is allocated")
-    check(guard < emitted.index("GetByteArrayRegion"),
+    check(guard < emitted.index("GetLongArrayRegion"),
           "and before any carrier is read")
+
+    # Shapes no live route has any more. The routes that had them went with CNA's engine layer at
+    # ABI 0.30, but the generator still has to refuse and marshal them correctly, so they are
+    # declared here as synthetic functions and structures beside the live inventory.
+    synthetic = copy.deepcopy(live)
+    synthetic["functions"]["cna_probe_corners"] = {
+        "name": "cna_probe_corners", "header": "probe.h", "returnType": "CNA_Result",
+        "parameters": [
+            {"type": "const CNA_BoundingBox*", "name": "box", "doc": "The box."},
+            {"type": "CNA_Vector3*", "name": "out_corners",
+             "doc": "Destination for eight corners."}]}
+    synthetic["functions"]["cna_probe_set_environment"] = {
+        "name": "cna_probe_set_environment", "header": "probe.h", "returnType": "CNA_Result",
+        "parameters": [{"type": "CNA_Handle", "name": "probe", "doc": "The probe."},
+                       {"type": "CNA_Handle", "name": "environment", "doc": "Its environment."}]}
+    synthetic["structures"]["CNA_ProbeSamplerSet"] = {
+        "name": "CNA_ProbeSamplerSet", "header": "probe.h", "fields": [
+            {"type": "uint32_t", "name": "struct_size"},
+            {"type": "uint32_t", "name": "struct_version"},
+            {"type": "CNA_SamplerState[3]", "name": "samplers"}]}
+    synthetic["structures"]["CNA_ProbeContext"] = {
+        "name": "CNA_ProbeContext", "header": "probe.h", "fields": [
+            {"type": "uint32_t", "name": "struct_size"},
+            {"type": "uint32_t", "name": "struct_version"},
+            {"type": "CNA_Handle", "name": "source"},
+            {"type": "int32_t", "name": "width"},
+            {"type": "float", "name": "elapsed_seconds"},
+            {"type": "const CNA_SamplerState*", "name": "settings"},
+            {"type": "float", "name": "tail"}]}
+    synthetic["constants"]["CNA_PROBE_CONTEXT_SIZE_V1"] = {
+        "name": "CNA_PROBE_CONTEXT_SIZE_V1", "header": "probe.h", "value": "UINT32_C(32)",
+        "integer": 32}
+    synthetic["functions"]["cna_probe_apply"] = {
+        "name": "cna_probe_apply", "header": "probe.h", "returnType": "CNA_Result",
+        "parameters": [{"type": "CNA_Handle", "name": "chain", "doc": "The chain."},
+                       {"type": "const CNA_ProbeContext*", "name": "context",
+                        "doc": "The context."}]}
 
     # A bare `T*` is one structure or an array of them, and the C declaration does not say
     # which. CNA states the difference in prose -- "destination for eight corners" -- so the
     # generator reads the parameter's own documentation and refuses rather than marshalling one
-    # element and handing it to a function that writes eight. This was a real defect: both
+    # element and handing it to a function that writes eight. This was a real defect: two
     # cascade helpers were generated as single Vector3 parameters, which is a stack overflow on
     # the way out and a heap overread on the way in.
     corners = generator_tool.plan(
-        {"java": "probe", "symbol": "cna_cascaded_shadow_map_compute_frustum_corners",
-         "arrayLengths": {"out_corners": {"length": 8}}}, live)
+        {"java": "probe", "symbol": "cna_probe_corners",
+         "arrayLengths": {"out_corners": {"length": 8}}}, synthetic)
     step = next(entry for entry in corners["steps"] if entry["name"] == "out_corners")
     check(step["shape"] == "struct_array" and step["extent"] == 8,
           "a declared eight-element destination is marshalled as eight, not one")
@@ -573,17 +614,16 @@ def test_generator(live: dict) -> None:
           "a fixed-extent array passes no count, because CNA already knows it")
 
     try:
-        generator_tool.plan({"java": "probe",
-                             "symbol": "cna_cascaded_shadow_map_compute_frustum_corners"}, live)
+        generator_tool.plan({"java": "probe", "symbol": "cna_probe_corners"}, synthetic)
         check(False, "an undeclared counted destination is refused rather than guessed at")
     except generator_tool.Unsupported as refusal:
         check("arrayLengths" in str(refusal),
               "an undeclared counted destination is refused rather than guessed at")
 
-    # The detector reads prose, so it has to tell a number of *things* from a number. CNA
-    # describes an area light's defaults as "range twenty" and its BRDF terms as "the four
-    # terms"; the first is a value and the second is one structure with four fields, and
-    # neither is an array. A number alone never fires, and a route can say so explicitly.
+    # The detector reads prose, so it has to tell a number of *things* from a number. A value
+    # such as "range twenty" is not a count, and "two zero positions" describes one structure
+    # with two fields; neither is an array. A number alone never fires, and a route can say so
+    # explicitly.
     check(not generator_tool.counts_more_than_one(
               "Receives a rectangle at the origin, half a unit across each way, white, at "
               "intensity one and range twenty."),
@@ -591,33 +631,33 @@ def test_generator(live: dict) -> None:
     check(generator_tool.counts_more_than_one("Destination for eight corners."),
           "a number of things does")
     check(generator_tool.counts_more_than_one(
-              "Receives CNA_AREA_LIGHT_QUAD_CORNER_COUNT corners."),
+              "Receives CNA_BOUNDING_BOX_CORNER_COUNT corners."),
           "and so does one of CNA's own count constants")
-    terms = generator_tool.plan(
-        {"java": "probe", "symbol": "cna_area_light_brdf_table_evaluate",
-         "singleStructs": ["out_terms"]}, live)
-    check(any(entry["shape"] == "struct" and entry["name"] == "out_terms"
-              for entry in terms["steps"]),
+    sticks = generator_tool.plan(
+        {"java": "probe", "symbol": "cna_gamepad_thumb_sticks_init",
+         "singleStructs": ["out_thumb_sticks"]}, live)
+    check(any(entry["shape"] == "struct" and entry["name"] == "out_thumb_sticks"
+              for entry in sticks["steps"]),
           "singleStructs says the count in the prose is the structure's own fields")
 
     # And the detector must not fire on an ordinary single structure, or every route taking a
     # box or a matrix would need a declaration it does not want.
-    single = plan("cna_shadow_map_begin")
-    check(any(entry["shape"] == "struct" and entry["name"] == "scene_bounds"
+    single = plan("cna_debug_draw_add_box")
+    check(any(entry["shape"] == "struct" and entry["name"] == "bounds"
               for entry in single["steps"]),
           "a single structure whose documentation names no count stays a single structure")
 
-    # The adapter's own JNI parameters are called `environment` and `declaring_class`, and CNA
-    # has routes whose parameter is called `environment` too. Two parameters of one C function
-    # cannot share a name, and the first version of this generator emitted exactly that -- the
-    # whole adapter stopped compiling the moment the skybox family was bound.
-    skybox = plan("cna_skybox_set_environment")
-    emitted = generator_tool.render_c("Probe", [skybox])
+    # The adapter's own JNI parameters are called `environment` and `declaring_class`, and a CNA
+    # route whose parameter is called `environment` too cannot share that name. The first
+    # version of this generator emitted exactly that, and the whole adapter stopped compiling.
+    renamed = generator_tool.plan({"java": "probe", "symbol": "cna_probe_set_environment"},
+                                  synthetic)
+    emitted = generator_tool.render_c("Probe", [renamed])
     check("jlong environment_parameter" in emitted,
           "a CNA parameter that collides with the adapter's own is renamed in C")
     check("JNIEnv* environment," in emitted,
           "and the adapter keeps its own name")
-    _, parameters = generator_tool.java_signature(skybox)
+    _, parameters = generator_tool.java_signature(renamed)
     check(any(value == "long environment" for value in parameters),
           "the Java declaration is untouched, because nothing a caller sees changed")
 
@@ -638,36 +678,32 @@ def test_generator(live: dict) -> None:
           "the array write-back still happens only on success, because a refused copy wrote "
           "nothing into the buffer")
 
-    # A fixed array inside a structure is a layout, not a shape to refuse. Two of them were
-    # refused until now for reasons that were nothing to do with the array: an extent written as
-    # one of CNA's own macros, and elements that are themselves structures.
-    cascades = generator_tool.flatten_struct("CNA_ShadowCascadeStateEXT", live)
-    check(("world_to_atlas[3].m44", "float") in cascades,
+    # A fixed array inside a structure is a layout, not a shape to refuse: an extent written as
+    # one of CNA's own macros, and elements that are themselves structures, both expand.
+    touches = generator_tool.flatten_struct("CNA_TouchState", live)
+    check(("touches[7].previous_position.y", "float") in touches,
           "a macro extent is resolved through CNA's own constant rather than refused")
-    check(sum(1 for path, _ in cascades if path.startswith("world_to_atlas[")) == 64,
-          "four cascade transforms are sixty-four leaves, not one matrix")
-    check(("split_distance[3]", "float") in cascades,
-          "and the scalar array beside it expands the same way")
-
-    material = generator_tool.flatten_struct("CNA_PbrMaterialEXT", live)
-    check(("texture_transforms[6].offset.x", "float") in material,
+    check(sum(1 for path, _ in touches
+              if path.startswith("touches[") and path.endswith(".id")) == 8,
           "an array whose elements are structures expands element by element")
-    check(sum(1 for path, _ in material if path.startswith("texture_coordinate_sets[")) == 7,
-          "and the plain array beside it keeps its own extent")
+    visualization = generator_tool.flatten_struct("CNA_VisualizationData", live)
+    check(("samples[255]", "float") in visualization
+          and sum(1 for path, _ in visualization if path.startswith("frequencies[")) == 256,
+          "and a scalar array with a macro extent expands the same way")
 
     # The half of that which is silent when it is wrong: every element of an array of versioned
-    # structures has to be stamped, not just the first. Seven unstamped texture transforms would
-    # each tell CNA they were zero bytes long, and nothing in Java would ever say so.
-    stamped = generator_tool.version_paths("CNA_PbrMaterialEXT", live)
+    # structures has to be stamped, not just the first. Unstamped elements would each tell CNA
+    # they were zero bytes long, and nothing in Java would ever say so.
+    stamped = generator_tool.version_paths("CNA_ProbeSamplerSet", synthetic)
     check(sum(1 for path, _, _ in stamped
-              if path.startswith("texture_transforms[") and path.endswith("struct_size")) == 7,
+              if path.startswith("samplers[") and path.endswith("struct_size")) == 3,
           "every element of an array of versioned structures is stamped")
-    lines = generator_tool.stamp_versions("material", stamped)
-    check("    material.texture_transforms[6].struct_size = "
-          "(uint32_t)(sizeof material.texture_transforms[6]);" in lines,
+    lines = generator_tool.stamp_versions("probe", stamped)
+    check("    probe.samplers[2].struct_size = (uint32_t)(sizeof probe.samplers[2]);" in lines,
           "and each is sized from itself rather than from the outer structure")
     check(not any(path.rsplit(".", 1)[-1] in generator_tool.VERSION_FIELDS
-                  for path, _ in generator_tool.group_leaves(material)["integral"]),
+                  for path, _ in generator_tool.group_leaves(generator_tool.flatten_struct(
+                      "CNA_ProbeSamplerSet", synthetic))["integral"]),
           "a nested stamped field never crosses into Java, however deeply nested it is")
 
     # An extent the generator cannot resolve to a plain positive integer is refused rather than
@@ -678,67 +714,41 @@ def test_generator(live: dict) -> None:
             check(False, f"an unresolvable array extent {bad} is refused")
         except generator_tool.Unsupported:
             check(True, f"an unresolvable array extent {bad} is refused")
-    check(generator_tool.array_extent("probe.field", "CNA_SHADOW_CASCADE_MAX_EXT", live) == 4,
-          "a resolvable one is resolved")
-    # CNA writes some of its own counts with the standard fixed-width constant macros. That form
-    # means exactly its argument, so unwrapping it is reading the header rather than evaluating
-    # an expression -- and it is the difference between the glTF material bridge being reachable
-    # and being refused for a spelling.
-    check(generator_tool.array_extent("probe.field", "CNA_PBR_TEXTURE_SLOT_COUNT", live) == 7,
-          "an INT32_C-wrapped extent is read as the integer it is")
-    check(len(generator_tool.group_leaves(
-              generator_tool.flatten_struct("CNA_GltfMaterialTexturesEXT", live))["integral"]) == 7,
-          "and the structure that uses it carries its seven slots into Java")
+    # CNA writes its counts with the standard fixed-width constant macros. That form means
+    # exactly its argument, so unwrapping it is reading the header rather than evaluating an
+    # expression.
+    check(generator_tool.array_extent("probe.field", "CNA_TOUCH_MAX_TOUCHES", live) == 8,
+          "a UINT32_C-wrapped extent is read as the integer it is")
 
     # CNA grows some structures by appending and documents the earlier size as a constant, so a
     # caller compiled against version one sets struct_size to it and every route still works.
-    # That is the mechanism the post-process context's `settings` pointer is reached past --
-    # a pointer field the generator would otherwise refuse the whole route over.
+    # That is the mechanism a pointer field is reached past -- a field the generator would
+    # otherwise refuse the whole route over.
     context_prefix = {"stopBefore": "settings",
-                      "sizeConstant": "CNA_POST_PROCESS_CONTEXT_SIZE_V1", "version": 1}
-    full = generator_tool.flatten_struct("CNA_PostProcessContext", live,
-                                         prefix=dict(context_prefix, stopBefore="settings"))
-    check(not any(path.startswith("settings") for path, _ in full),
+                      "sizeConstant": "CNA_PROBE_CONTEXT_SIZE_V1", "version": 1}
+    full = generator_tool.flatten_struct("CNA_ProbeContext", synthetic, prefix=context_prefix)
+    check(not any(path.startswith("settings") or path == "tail" for path, _ in full),
           "a declared prefix stops before the field it names")
-    check(any(path.startswith("previous_view_projection") for path, _ in full),
+    check(any(path == "elapsed_seconds" for path, _ in full),
           "and keeps everything before it")
     applied = generator_tool.plan(
-        {"java": "probe", "symbol": "cna_post_process_chain_apply",
-         "structPrefixes": {"context": context_prefix}}, live)
+        {"java": "probe", "symbol": "cna_probe_apply",
+         "structPrefixes": {"context": context_prefix}}, synthetic)
     emitted = generator_tool.render_c("Probe", [applied])
-    check("context_value.struct_size = (uint32_t)(CNA_POST_PROCESS_CONTEXT_SIZE_V1);" in emitted,
+    check("context_value.struct_size = (uint32_t)(CNA_PROBE_CONTEXT_SIZE_V1);" in emitted,
           "the stamped size is CNA's own constant, not sizeof")
     check("(uint32_t)(sizeof context_value)" not in emitted,
           "because sizeof would tell CNA the tail was written when it never was")
 
-    # The post-process context is write-only: CNA has no route that reads one back, so nothing at
-    # runtime can catch a Java constant that names the wrong leaf. These pin the layout against
-    # the live header instead, which is the only place the check can honestly live -- and the
-    # numbers here are exactly the offsets PostProcessContext declares.
-    context_leaves = generator_tool.group_leaves(
-        generator_tool.flatten_struct("CNA_PostProcessContext", live, prefix=context_prefix))
-    integral_paths = [path for path, _ in context_leaves["integral"]]
-    check(integral_paths == ["source", "source_depth", "source_normals", "source_velocity",
-                             "destination", "width", "height", "has_previous_frame"],
-          "the context's integral leaves are the eight PostProcessContext writes, in order")
-    floating_paths = [path for path, _ in context_leaves["floating"]]
-    for offset, path in ((0, "elapsed_seconds"), (1, "near_plane"), (2, "far_plane"),
-                         (3, "projection.m11"), (19, "inverse_projection.m11"),
-                         (35, "inverse_view.m11"), (51, "previous_view_projection.m11")):
-        check(floating_paths[offset] == path,
-              f"the context's floating leaf {offset} is {path}")
-    check(len(floating_paths) == 67 and len(context_leaves["bytes"]) == 3,
-          "and the version-1 prefix is sixty-seven floats and three padding bytes")
-
-    # And the declaration is checked against the live headers rather than believed: a field that
+    # And the declaration is checked against the headers rather than believed: a field that
     # does not exist, or a constant CNA does not define, is refused.
     for broken in ({"stopBefore": "not_a_field", "sizeConstant":
-                    "CNA_POST_PROCESS_CONTEXT_SIZE_V1", "version": 1},
+                    "CNA_PROBE_CONTEXT_SIZE_V1", "version": 1},
                    {"stopBefore": "settings", "sizeConstant": "CNA_NOT_A_CONSTANT",
                     "version": 1}):
         try:
-            generator_tool.plan({"java": "probe", "symbol": "cna_post_process_chain_apply",
-                                 "structPrefixes": {"context": broken}}, live)
+            generator_tool.plan({"java": "probe", "symbol": "cna_probe_apply",
+                                 "structPrefixes": {"context": broken}}, synthetic)
             check(False, f"a prefix declaration that the headers contradict is refused: {broken}")
         except generator_tool.Unsupported:
             check(True, f"a prefix declaration that the headers contradict is refused")
@@ -746,7 +756,7 @@ def test_generator(live: dict) -> None:
     # Without the declaration the route stays refused, because a borrowed pointer inside a
     # structure is exactly the shape this generator will not guess at.
     try:
-        generator_tool.plan({"java": "probe", "symbol": "cna_post_process_chain_apply"}, live)
+        generator_tool.plan({"java": "probe", "symbol": "cna_probe_apply"}, synthetic)
         check(False, "a struct carrying a pointer is refused when no prefix is declared")
     except generator_tool.Unsupported:
         check(True, "a struct carrying a pointer is refused when no prefix is declared")
@@ -754,41 +764,42 @@ def test_generator(live: dict) -> None:
     # A struct carrier that arrived null would make every GetXArrayRegion below it raise and
     # then be read as uninitialised stack -- a JVM-level fault for what is an ordinary missing
     # argument. Every input struct now refuses it with the result CNA would have given.
-    light = plan("cna_effect_set_punctual_light_ext")
-    emitted = generator_tool.render_c("Probe", [light])
-    check("if (lightIntegral == NULL || lightFloating == NULL) {" in emitted,
+    reading = plan("cna_accelerometer_reading_copy_string")
+    emitted = generator_tool.render_c("Probe", [reading])
+    check("if (readingIntegral == NULL || readingFloating == NULL) {" in emitted,
           "a null struct carrier is refused before anything is read")
     check(emitted.index("== NULL") < emitted.index("GetLongArrayRegion"),
           "and refused before it, not after")
 
-    # An optional structure is a different thing again: CNA documents the full-screen pass's
-    # sampler as "or null for the pass's own default", and a null pointer says that where an
-    # all-zero structure would say wrap-addressed linear filtering, which is a real setting that
-    # happens to look like an absence.
+    # An optional structure is a different thing again: CNA documents SpriteBatch's sampler as
+    # "or null" for its default, and a null pointer says that where an all-zero structure would
+    # say wrap-addressed linear filtering, which is a real setting that happens to look like an
+    # absence.
     sampler = generator_tool.plan(
-        {"java": "probe", "symbol": "cna_fullscreen_pass_draw",
-         "optionalStructs": ["sampler"]}, live)
+        {"java": "probe", "symbol": "cna_sprite_batch_begin_with_effect",
+         "optionalStructs": ["sampler_state"]}, live)
     emitted = generator_tool.render_c("Probe", [sampler])
-    check("const CNA_SamplerState* sampler_pointer = NULL;" in emitted,
+    check("const CNA_SamplerState* sampler_state_pointer = NULL;" in emitted,
           "an optional structure starts as no pointer at all")
-    check("if (samplerIntegral != NULL && samplerFloating != NULL) {" in emitted,
+    check("if (sampler_stateIntegral != NULL && sampler_stateFloating != NULL) {" in emitted,
           "and is built only when Java sent one")
-    check(", sampler_pointer);" in emitted,
+    check("sampler_state_pointer," in emitted,
           "so a caller that sent none passes NULL rather than a zeroed structure")
-    without = generator_tool.render_c("Probe", [plan("cna_fullscreen_pass_draw")])
-    check("&sampler_value);" in without,
+    without = generator_tool.render_c(
+        "Probe", [plan("cna_sprite_batch_begin_with_effect")])
+    check("&sampler_state_value" in without,
           "and a structure not declared optional is still passed by address")
 
-    # The sampler is write-only on this runtime too: no renderer here reads it back, and the
-    # headless one accepts anything, so no Java assertion can catch a carrier packed in the wrong
-    # order. Pinned against the live header instead, exactly as the post-process context is --
-    # these are the positions FullscreenPass writes.
+    # The sampler is write-only on this runtime: no route reads one back and the headless
+    # renderer accepts anything, so no Java assertion can catch a carrier packed in the wrong
+    # order. Pinned against the live header instead -- these are the positions SamplerState's
+    # snapshot for SpriteBatch.Begin writes.
     sampler_leaves = generator_tool.group_leaves(
         generator_tool.flatten_struct("CNA_SamplerState", live))
     check([path for path, _ in sampler_leaves["integral"]]
           == ["address_u", "address_v", "address_w", "filter", "max_anisotropy",
               "max_mip_level", "reserved"],
-          "the sampler's integral leaves are the seven FullscreenPass writes, in order")
+          "the sampler's integral leaves are the seven SamplerState writes, in order")
     check([path for path, _ in sampler_leaves["floating"]] == ["mip_map_level_of_detail_bias"],
           "and its one float is the level-of-detail bias")
 
@@ -796,7 +807,7 @@ def test_generator(live: dict) -> None:
     # many bytes CNA touches, and not whether that count is one parameter or the product of two --
     # so the generator refuses it until routes.json states the extent.
     try:
-        plan("cna_storage_buffer_set_bytes")
+        plan("cna_vertex_buffer_set_data_raw")
         check(False, "an undeclared void* is refused rather than guessed at")
     except generator_tool.Unsupported:
         check(True, "an undeclared void* is refused rather than guessed at")
@@ -804,7 +815,7 @@ def test_generator(live: dict) -> None:
     # A declared extent that names something which is not a parameter of the route is refused
     # too, rather than emitting C that will not compile or, worse, reading a stale name.
     try:
-        generator_tool.plan({"java": "probe", "symbol": "cna_storage_buffer_set_bytes",
+        generator_tool.plan({"java": "probe", "symbol": "cna_vertex_buffer_set_data_raw",
                              "byteBuffers": {"data": {"extent": ["not_a_parameter"]}}}, live)
         check(False, "a byteBuffers extent naming a non-parameter is refused")
     except generator_tool.Unsupported:
@@ -813,16 +824,17 @@ def test_generator(live: dict) -> None:
     # An empty extent would mean "no bytes at all", which is not a shape any of these routes has
     # and would silently pass a pointer CNA reads with a size from somewhere else.
     try:
-        generator_tool.plan({"java": "probe", "symbol": "cna_storage_buffer_set_bytes",
+        generator_tool.plan({"java": "probe", "symbol": "cna_vertex_buffer_set_data_raw",
                              "byteBuffers": {"data": {"extent": []}}}, live)
         check(False, "a byteBuffers entry with no extent is refused")
     except generator_tool.Unsupported:
         check(True, "a byteBuffers entry with no extent is refused")
 
-    single = generator_tool.plan({"java": "probe", "symbol": "cna_storage_buffer_set_bytes",
-                                  "byteBuffers": {"data": {"extent": ["byte_size"]}}}, live)
+    single = generator_tool.plan({"java": "probe", "symbol": "cna_vertex_buffer_set_data_raw",
+                                  "byteBuffers": {"data": {"extent": ["data_byte_count"]}}}, live)
     _, parameters = generator_tool.java_signature(single)
-    check(parameters == ["long buffer", "byte[] data", "long byteSize"],
+    check(parameters == ["long vertexBuffer", "byte[] data", "long dataByteCount",
+                         "long vertexCount", "int vertexStride"],
           "a declared void* is a byte[] and its extent stays a parameter of its own")
     adapter = generator_tool.render_c("Probe", [single])
     check("(const void*)data_bytes" in adapter,
@@ -832,8 +844,9 @@ def test_generator(live: dict) -> None:
 
     # The output form differs in exactly two places: the cast and the release mode. Getting the
     # second wrong would leave every read-back buffer holding what it held before the call.
-    output = generator_tool.plan({"java": "probe", "symbol": "cna_storage_buffer_get_bytes",
-                                  "byteBuffers": {"destination": {"extent": ["byte_size"]}}}, live)
+    output = generator_tool.plan(
+        {"java": "probe", "symbol": "cna_vertex_buffer_get_data_raw",
+         "byteBuffers": {"destination": {"extent": ["destination_byte_count"]}}}, live)
     adapter = generator_tool.render_c("Probe", [output])
     check("(void*)destination_bytes" in adapter,
           "a non-const void* output reaches CNA as a writable void*")
@@ -843,22 +856,23 @@ def test_generator(live: dict) -> None:
     # The whole reason the extent is declared rather than inferred: the adapter checks the Java
     # array against what it was told to pass, factor by factor, and each multiplication is
     # checked BEFORE it happens. A product that overflowed would wrap into a small number that
-    # passed the final comparison and let CNA read far past the end of a pinned array.
+    # passed the final comparison and let CNA read far past the end of a pinned array. The two
+    # factors here are the route's vertex count and stride, declared as the extent for the test.
     product = generator_tool.plan(
-        {"java": "probe", "symbol": "cna_storage_buffer_set_elements",
-         "byteBuffers": {"data": {"extent": ["element_count", "element_byte_size"]}}}, live)
+        {"java": "probe", "symbol": "cna_vertex_buffer_set_data_raw",
+         "byteBuffers": {"data": {"extent": ["vertex_count", "vertex_stride"]}}}, live)
     adapter = generator_tool.render_c("Probe", [product])
-    check("data_required > (jlong)data_length / (jlong)element_count" in adapter,
+    check("data_required > (jlong)data_length / (jlong)vertex_count" in adapter,
           "the first factor is checked against the array before it is multiplied in")
-    check("data_required > (jlong)data_length / (jlong)element_byte_size" in adapter,
+    check("data_required > (jlong)data_length / (jlong)vertex_stride" in adapter,
           "and so is the second")
-    check("(jlong)element_count < 0" in adapter and "(jlong)element_byte_size < 0" in adapter,
+    check("(jlong)vertex_count < 0" in adapter and "(jlong)vertex_stride < 0" in adapter,
           "a negative extent is refused rather than sign-extended into a huge one")
     check("return (jint)CNA_RESULT_INVALID_ARGUMENT;" in adapter,
           "and a refused extent never reaches CNA")
     _, parameters = generator_tool.java_signature(product)
-    check(parameters == ["long buffer", "byte[] data", "long elementCount",
-                         "long elementByteSize"],
+    check(parameters == ["long vertexBuffer", "byte[] data", "long dataByteCount",
+                         "long vertexCount", "int vertexStride"],
           "both extent parameters stay in the Java signature, because CNA reads both")
 
     # A counted array whose count is NOT its length. A vec3 uniform array is three tightly packed

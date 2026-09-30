@@ -44,8 +44,13 @@ public final class GamerProfile implements AutoCloseable {
         long[] bytes = new long[1];
         NativeGamerServices.check("GamerProfile.GetGamerPicture",
                 NativeGamerServicesRoutes.gamerProfileGetPictureSize(handle, hasPicture, bytes));
-        int length = hasPicture[0] ? Math.toIntExact(bytes[0]) : 0;
-        return new Stream(new ByteArrayInputStream(new byte[length]));
+        if (!hasPicture[0] || bytes[0] == 0L) {
+            return new Stream(new ByteArrayInputStream(new byte[0]));
+        }
+        byte[] picture = new byte[Math.toIntExact(bytes[0])];
+        NativeGamerServices.check("GamerProfile.GetGamerPicture",
+                NativeGamerServicesRoutes.gamerProfileCopyPicture(handle, picture, bytes));
+        return new Stream(new ByteArrayInputStream(picture, 0, Math.toIntExact(bytes[0])));
     }
 
     public int getGamerScore() {

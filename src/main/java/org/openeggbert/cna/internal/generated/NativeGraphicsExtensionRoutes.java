@@ -116,6 +116,167 @@ public final class NativeGraphicsExtensionRoutes {
     public static native int crtEffectSetVignetteIntensity(long effect, float value);
 
     /**
+     * cna_debug_draw_add_bounding_sphere (graphics_ext.h).
+     *
+     * <p>sphereFloating carries CNA_BoundingSphere in this order:
+     * <ol start="0">
+     *   <li>{@code center.x} (float)</li>
+     *   <li>{@code center.y} (float)</li>
+     *   <li>{@code center.z} (float)</li>
+     *   <li>{@code radius} (float)</li>
+     * </ol>
+     */
+    public static native int debugDrawAddBoundingSphere(long debug, float[] sphereFloating, long[] colourIntegral, int segments);
+
+    /**
+     * cna_debug_draw_add_box (graphics_ext.h).
+     *
+     * <p>boundsFloating carries CNA_BoundingBox in this order:
+     * <ol start="0">
+     *   <li>{@code min.x} (float)</li>
+     *   <li>{@code min.y} (float)</li>
+     *   <li>{@code min.z} (float)</li>
+     *   <li>{@code max.x} (float)</li>
+     *   <li>{@code max.y} (float)</li>
+     *   <li>{@code max.z} (float)</li>
+     * </ol>
+     */
+    public static native int debugDrawAddBox(long debug, float[] boundsFloating, long[] colourIntegral);
+
+    /**
+     * cna_debug_draw_add_cross (graphics_ext.h).
+     *
+     * <p>positionFloating carries CNA_Vector3 in this order:
+     * <ol start="0">
+     *   <li>{@code x} (float)</li>
+     *   <li>{@code y} (float)</li>
+     *   <li>{@code z} (float)</li>
+     * </ol>
+     */
+    public static native int debugDrawAddCross(long debug, float[] positionFloating, float size, long[] colourIntegral);
+
+    /**
+     * cna_debug_draw_add_frustum (graphics_ext.h).
+     */
+    public static native int debugDrawAddFrustum(long debug, float[] frustumFloating, long[] colourIntegral);
+
+    /**
+     * cna_debug_draw_add_line (graphics_ext.h).
+     *
+     * <p>fromFloating carries CNA_Vector3 in this order:
+     * <ol start="0">
+     *   <li>{@code x} (float)</li>
+     *   <li>{@code y} (float)</li>
+     *   <li>{@code z} (float)</li>
+     * </ol>
+     *
+     * <p>toFloating carries CNA_Vector3 in this order:
+     * <ol start="0">
+     *   <li>{@code x} (float)</li>
+     *   <li>{@code y} (float)</li>
+     *   <li>{@code z} (float)</li>
+     * </ol>
+     */
+    public static native int debugDrawAddLine(long debug, float[] fromFloating, float[] toFloating, long[] colourIntegral);
+
+    /**
+     * cna_debug_draw_add_sphere (graphics_ext.h).
+     *
+     * <p>centreFloating carries CNA_Vector3 in this order:
+     * <ol start="0">
+     *   <li>{@code x} (float)</li>
+     *   <li>{@code y} (float)</li>
+     *   <li>{@code z} (float)</li>
+     * </ol>
+     */
+    public static native int debugDrawAddSphere(long debug, float[] centreFloating, float radius, long[] colourIntegral, int segments);
+
+    /**
+     * cna_debug_draw_begin (graphics_ext.h).
+     *
+     * <p>viewFloating carries CNA_Matrix in this order:
+     * <ol start="0">
+     *   <li>{@code m11} (float)</li>
+     *   <li>{@code m12} (float)</li>
+     *   <li>{@code m13} (float)</li>
+     *   <li>{@code m14} (float)</li>
+     *   <li>{@code m21} (float)</li>
+     *   <li>{@code m22} (float)</li>
+     *   <li>{@code m23} (float)</li>
+     *   <li>{@code m24} (float)</li>
+     *   <li>{@code m31} (float)</li>
+     *   <li>{@code m32} (float)</li>
+     *   <li>{@code m33} (float)</li>
+     *   <li>{@code m34} (float)</li>
+     *   <li>{@code m41} (float)</li>
+     *   <li>{@code m42} (float)</li>
+     *   <li>{@code m43} (float)</li>
+     *   <li>{@code m44} (float)</li>
+     * </ol>
+     *
+     * <p>projectionFloating carries CNA_Matrix in this order:
+     * <ol start="0">
+     *   <li>{@code m11} (float)</li>
+     *   <li>{@code m12} (float)</li>
+     *   <li>{@code m13} (float)</li>
+     *   <li>{@code m14} (float)</li>
+     *   <li>{@code m21} (float)</li>
+     *   <li>{@code m22} (float)</li>
+     *   <li>{@code m23} (float)</li>
+     *   <li>{@code m24} (float)</li>
+     *   <li>{@code m31} (float)</li>
+     *   <li>{@code m32} (float)</li>
+     *   <li>{@code m33} (float)</li>
+     *   <li>{@code m34} (float)</li>
+     *   <li>{@code m41} (float)</li>
+     *   <li>{@code m42} (float)</li>
+     *   <li>{@code m43} (float)</li>
+     *   <li>{@code m44} (float)</li>
+     * </ol>
+     */
+    public static native int debugDrawBegin(long debug, float[] viewFloating, float[] projectionFloating);
+
+    /**
+     * cna_debug_draw_clear (graphics_ext.h).
+     */
+    public static native int debugDrawClear(long debug);
+
+    /**
+     * cna_debug_draw_copy_vertices (graphics_ext.h).
+     */
+    public static native int debugDrawCopyVertices(long debug, boolean depthTested, long[] destinationIntegral, float[] destinationFloating, long[] outCount);
+
+    /**
+     * cna_debug_draw_create (graphics_ext.h).
+     */
+    public static native int debugDrawCreate(long graphicsDevice, long[] outDebug);
+
+    /**
+     * cna_debug_draw_destroy (graphics_ext.h).
+     */
+    public static native int debugDrawDestroy(long debug);
+
+    /**
+     * cna_debug_draw_end (graphics_ext.h).
+     */
+    public static native int debugDrawEnd(long debug);
+
+    /**
+     * cna_debug_draw_get_line_count (graphics_ext.h).
+     */
+    public static native int debugDrawGetLineCount(long debug, int[] outCount);
+
+    /**
+     * cna_debug_draw_is_depth_tested (graphics_ext.h).
+     */
+    public static native int debugDrawIsDepthTested(long debug, boolean[] outDepthTested);
+
+    /**
+     * cna_debug_draw_set_depth_tested (graphics_ext.h).
+     */
+    public static native int debugDrawSetDepthTested(long debug, boolean depthTested);
+
+    /**
      * cna_depth_effect_create (graphics_ext.h).
      */
     public static native int depthEffectCreate(long graphicsDevice, long[] outEffect);
@@ -176,64 +337,65 @@ public final class NativeGraphicsExtensionRoutes {
     public static native int graphicsExtIsAvailable(boolean[] outAvailable);
 
     /**
-     * cna_pbr_material_init (graphics_ext.h).
+     * cna_image_based_light_ext_init (graphics_ext.h).
      *
-     * <p>outMaterialBytes carries CNA_PbrMaterial in this order:
+     * <p>outLightIntegral carries CNA_ImageBasedLightEXT in this order:
      * <ol start="0">
-     *   <li>{@code reserved[0]} (uint8_t)</li>
-     *   <li>{@code reserved[1]} (uint8_t)</li>
-     *   <li>{@code reserved[2]} (uint8_t)</li>
+     *   <li>{@code irradiance} (CNA_Handle)</li>
+     *   <li>{@code prefiltered_specular} (CNA_Handle)</li>
+     *   <li>{@code brdf_lut} (CNA_Handle)</li>
+     *   <li>{@code prefiltered_mip_count} (int32_t)</li>
      * </ol>
      *
-     * <p>outMaterialIntegral carries CNA_PbrMaterial in this order:
+     * <p>outLightFloating carries CNA_ImageBasedLightEXT in this order:
      * <ol start="0">
-     *   <li>{@code albedo_texture} (CNA_Handle)</li>
-     *   <li>{@code normal_texture} (CNA_Handle)</li>
-     *   <li>{@code metallic_roughness_texture} (CNA_Handle)</li>
-     *   <li>{@code ambient_occlusion_texture} (CNA_Handle)</li>
-     *   <li>{@code emissive_texture} (CNA_Handle)</li>
-     *   <li>{@code albedo_color.r} (uint8_t)</li>
-     *   <li>{@code albedo_color.g} (uint8_t)</li>
-     *   <li>{@code albedo_color.b} (uint8_t)</li>
-     *   <li>{@code albedo_color.a} (uint8_t)</li>
-     *   <li>{@code emissive_color.r} (uint8_t)</li>
-     *   <li>{@code emissive_color.g} (uint8_t)</li>
-     *   <li>{@code emissive_color.b} (uint8_t)</li>
-     *   <li>{@code emissive_color.a} (uint8_t)</li>
-     *   <li>{@code alpha_blend_enabled} (CNA_Bool)</li>
-     * </ol>
-     *
-     * <p>outMaterialFloating carries CNA_PbrMaterial in this order:
-     * <ol start="0">
-     *   <li>{@code metallic_factor} (float)</li>
-     *   <li>{@code roughness_factor} (float)</li>
-     *   <li>{@code normal_scale} (float)</li>
-     *   <li>{@code occlusion_strength} (float)</li>
-     *   <li>{@code alpha_cutoff} (float)</li>
+     *   <li>{@code intensity} (float)</li>
      * </ol>
      */
-    public static native int pbrMaterialInit(byte[] outMaterialBytes, long[] outMaterialIntegral, float[] outMaterialFloating);
+    public static native int imageBasedLightExtInit(long[] outLightIntegral, float[] outLightFloating);
 
     /**
-     * cna_render_pipeline_settings_init (graphics_ext.h).
+     * cna_image_based_light_ext_is_valid (graphics_ext.h).
      *
-     * <p>outSettingsIntegral carries CNA_RenderPipelineSettings in this order:
+     * <p>lightIntegral carries CNA_ImageBasedLightEXT in this order:
      * <ol start="0">
-     *   <li>{@code tonemapping_mode} (CNA_TonemappingMode)</li>
-     *   <li>{@code render_quality} (CNA_RenderQuality)</li>
-     *   <li>{@code shadow_quality} (CNA_ShadowQuality)</li>
-     *   <li>{@code hdr_enabled} (CNA_Bool)</li>
-     *   <li>{@code bloom_enabled} (CNA_Bool)</li>
-     *   <li>{@code ssao_enabled} (CNA_Bool)</li>
-     *   <li>{@code shadows_enabled} (CNA_Bool)</li>
+     *   <li>{@code irradiance} (CNA_Handle)</li>
+     *   <li>{@code prefiltered_specular} (CNA_Handle)</li>
+     *   <li>{@code brdf_lut} (CNA_Handle)</li>
+     *   <li>{@code prefiltered_mip_count} (int32_t)</li>
      * </ol>
      *
-     * <p>outSettingsFloating carries CNA_RenderPipelineSettings in this order:
+     * <p>lightFloating carries CNA_ImageBasedLightEXT in this order:
      * <ol start="0">
-     *   <li>{@code exposure} (float)</li>
-     *   <li>{@code gamma} (float)</li>
-     *   <li>{@code bloom_intensity} (float)</li>
+     *   <li>{@code intensity} (float)</li>
      * </ol>
      */
-    public static native int renderPipelineSettingsInit(long[] outSettingsIntegral, float[] outSettingsFloating);
+    public static native int imageBasedLightExtIsValid(long[] lightIntegral, float[] lightFloating, boolean[] outValid);
+
+    /**
+     * cna_indirect_draw_arguments_init (graphics_ext.h).
+     *
+     * <p>outArgumentsIntegral carries CNA_IndirectDrawArguments in this order:
+     * <ol start="0">
+     *   <li>{@code vertex_count} (uint32_t)</li>
+     *   <li>{@code instance_count} (uint32_t)</li>
+     *   <li>{@code first_vertex} (uint32_t)</li>
+     *   <li>{@code base_instance} (uint32_t)</li>
+     * </ol>
+     */
+    public static native int indirectDrawArgumentsInit(long[] outArgumentsIntegral);
+
+    /**
+     * cna_indirect_draw_indexed_arguments_init (graphics_ext.h).
+     *
+     * <p>outArgumentsIntegral carries CNA_IndirectDrawIndexedArguments in this order:
+     * <ol start="0">
+     *   <li>{@code index_count} (uint32_t)</li>
+     *   <li>{@code instance_count} (uint32_t)</li>
+     *   <li>{@code first_index} (uint32_t)</li>
+     *   <li>{@code base_vertex} (int32_t)</li>
+     *   <li>{@code base_instance} (uint32_t)</li>
+     * </ol>
+     */
+    public static native int indirectDrawIndexedArgumentsInit(long[] outArgumentsIntegral);
 }

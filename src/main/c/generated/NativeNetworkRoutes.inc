@@ -1425,16 +1425,6 @@ Java_org_openeggbert_cna_internal_generated_NativeNetworkRoutes_networkSessionJo
 }
 
 JNIEXPORT jint JNICALL
-Java_org_openeggbert_cna_internal_generated_NativeNetworkRoutes_networkSessionPropertiesClear(
-    JNIEnv* environment, jclass declaring_class, jlong properties)
-{
-    (void)environment;
-    (void)declaring_class;
-    CNA_Result call_result = cna.network_session_properties_clear((CNA_NetworkSessionPropertiesHandle)properties);
-    return (jint)call_result;
-}
-
-JNIEXPORT jint JNICALL
 Java_org_openeggbert_cna_internal_generated_NativeNetworkRoutes_networkSessionPropertiesContains(
     JNIEnv* environment, jclass declaring_class, jlong properties, jbyteArray valueBytes, jlongArray valueIntegral, jbooleanArray out_contains)
 {
@@ -1656,41 +1646,6 @@ Java_org_openeggbert_cna_internal_generated_NativeNetworkRoutes_networkSessionPr
         (*environment)->SetIntArrayRegion(
             environment, out_index, 0, 1, &out_index_element);
     }
-    return (jint)call_result;
-}
-
-JNIEXPORT jint JNICALL
-Java_org_openeggbert_cna_internal_generated_NativeNetworkRoutes_networkSessionPropertiesInsert(
-    JNIEnv* environment, jclass declaring_class, jlong properties, jint index, jbyteArray valueBytes, jlongArray valueIntegral)
-{
-    (void)environment;
-    (void)declaring_class;
-    CNA_OptionalInt32 value_value;
-    memset(&value_value, 0, sizeof value_value);
-    {
-        jbyte valueBytes_values[3];
-        (*environment)->GetByteArrayRegion(environment, valueBytes, 0, 3, valueBytes_values);
-        value_value.reserved[0] = (uint8_t)valueBytes_values[0];
-        value_value.reserved[1] = (uint8_t)valueBytes_values[1];
-        value_value.reserved[2] = (uint8_t)valueBytes_values[2];
-    }
-    {
-        jlong valueIntegral_values[2];
-        (*environment)->GetLongArrayRegion(environment, valueIntegral, 0, 2, valueIntegral_values);
-        value_value.has_value = (CNA_Bool)valueIntegral_values[0];
-        value_value.value = (int32_t)valueIntegral_values[1];
-    }
-    CNA_Result call_result = cna.network_session_properties_insert((CNA_NetworkSessionPropertiesHandle)properties, (int32_t)index, value_value);
-    return (jint)call_result;
-}
-
-JNIEXPORT jint JNICALL
-Java_org_openeggbert_cna_internal_generated_NativeNetworkRoutes_networkSessionPropertiesRemoveAt(
-    JNIEnv* environment, jclass declaring_class, jlong properties, jint index)
-{
-    (void)environment;
-    (void)declaring_class;
-    CNA_Result call_result = cna.network_session_properties_remove_at((CNA_NetworkSessionPropertiesHandle)properties, (int32_t)index);
     return (jint)call_result;
 }
 

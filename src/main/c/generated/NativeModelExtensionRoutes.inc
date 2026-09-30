@@ -393,6 +393,29 @@ Java_org_openeggbert_cna_internal_generated_NativeModelExtensionRoutes_animation
 }
 
 JNIEXPORT jint JNICALL
+Java_org_openeggbert_cna_internal_generated_NativeModelExtensionRoutes_contentManagerLoadModel(
+    JNIEnv* environment, jclass declaring_class, jlong content_manager, jbyteArray asset_name, jlongArray out_model)
+{
+    (void)environment;
+    (void)declaring_class;
+    jsize asset_name_size = (*environment)->GetArrayLength(environment, asset_name);
+    jbyte* asset_name_bytes = (*environment)->GetByteArrayElements(environment, asset_name, NULL);
+    if (asset_name_bytes == NULL) {
+        return (jint)CNA_RESULT_OUT_OF_MEMORY;
+    }
+    CNA_StringView asset_name_view = {(const char*)asset_name_bytes, (uint64_t)asset_name_size};
+    CNA_ModelHandle out_model_value = 0;
+    CNA_Result call_result = cna.content_manager_load_model((CNA_Handle)content_manager, asset_name_view, &out_model_value);
+    (*environment)->ReleaseByteArrayElements(environment, asset_name, asset_name_bytes, JNI_ABORT);
+    if (call_result == CNA_RESULT_SUCCESS || call_result == CNA_RESULT_BUFFER_TOO_SMALL) {
+        jlong out_model_element = (jlong)out_model_value;
+        (*environment)->SetLongArrayRegion(
+            environment, out_model, 0, 1, &out_model_element);
+    }
+    return (jint)call_result;
+}
+
+JNIEXPORT jint JNICALL
 Java_org_openeggbert_cna_internal_generated_NativeModelExtensionRoutes_effectCopyTypeName(
     JNIEnv* environment, jclass declaring_class, jlong effect, jbyteArray destination, jlongArray out_byte_count)
 {
@@ -1720,6 +1743,26 @@ Java_org_openeggbert_cna_internal_generated_NativeModelExtensionRoutes_modelGetC
         jlong out_byte_count_element = (jlong)out_byte_count_value;
         (*environment)->SetLongArrayRegion(
             environment, out_byte_count, 0, 1, &out_byte_count_element);
+    }
+    return (jint)call_result;
+}
+
+JNIEXPORT jint JNICALL
+Java_org_openeggbert_cna_internal_generated_NativeModelExtensionRoutes_modelGetContentTagDictionaryExt(
+    JNIEnv* environment, jclass declaring_class, jlong model, jbooleanArray out_has_tag, jlongArray out_dictionary)
+{
+    (void)environment;
+    (void)declaring_class;
+    CNA_Bool out_has_tag_value = 0;
+    CNA_ObjectDictionaryHandle out_dictionary_value = 0;
+    CNA_Result call_result = cna.model_get_content_tag_dictionary_ext((CNA_ModelHandle)model, &out_has_tag_value, &out_dictionary_value);
+    if (call_result == CNA_RESULT_SUCCESS || call_result == CNA_RESULT_BUFFER_TOO_SMALL) {
+        jboolean out_has_tag_element = (jboolean)out_has_tag_value;
+        (*environment)->SetBooleanArrayRegion(
+            environment, out_has_tag, 0, 1, &out_has_tag_element);
+        jlong out_dictionary_element = (jlong)out_dictionary_value;
+        (*environment)->SetLongArrayRegion(
+            environment, out_dictionary, 0, 1, &out_dictionary_element);
     }
     return (jint)call_result;
 }

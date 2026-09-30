@@ -170,8 +170,11 @@ static CNA_Result minimal_acquire(CNA_Handle game, CNA_Handle device, int set_fr
     printf("  texture               %s\n",
            name_of(cna_texture2d_create_from_rgba8(device, 2U, 2U, blank, 4U, &target)));
     CNA_Bool took = PROBE_POISON;
-    printf("  acquire               %s acquired=%s\n",
-           name_of(cna_camera_try_acquire_frame_ext(only, target, &took)), took_it(took));
+    {
+        const CNA_Result result = cna_camera_try_acquire_frame_ext(only, target, &took);
+        printf("  acquire               %s acquired=%s\n",
+               name_of(result), took_it(took));
+    }
     fflush(stdout);
     printf("  destroy texture       %s\n", name_of(cna_texture2d_destroy(target)));
     fflush(stdout);
@@ -204,8 +207,11 @@ static CNA_Result minimal_two_used(CNA_Handle game, CNA_Handle device)
     CNA_Handle target_a = 0;
     cna_texture2d_create_from_rgba8(device, 2U, 2U, blank, 4U, &target_a);
     CNA_Bool took_a = PROBE_POISON;
-    printf("  acquire from A        %s acquired=%s\n",
-           name_of(cna_camera_try_acquire_frame_ext(a, target_a, &took_a)), took_it(took_a));
+    {
+        const CNA_Result result = cna_camera_try_acquire_frame_ext(a, target_a, &took_a);
+        printf("  acquire from A        %s acquired=%s\n",
+               name_of(result), took_it(took_a));
+    }
     fflush(stdout);
 
     CNA_CameraHandle b = 0;
@@ -214,8 +220,11 @@ static CNA_Result minimal_two_used(CNA_Handle game, CNA_Handle device)
     CNA_Handle target_b = 0;
     cna_texture2d_create_from_rgba8(device, 2U, 2U, blank, 4U, &target_b);
     CNA_Bool took_b = PROBE_POISON;
-    printf("  acquire from B        %s acquired=%s\n",
-           name_of(cna_camera_try_acquire_frame_ext(b, target_b, &took_b)), took_it(took_b));
+    {
+        const CNA_Result result = cna_camera_try_acquire_frame_ext(b, target_b, &took_b);
+        printf("  acquire from B        %s acquired=%s\n",
+               name_of(result), took_it(took_b));
+    }
     fflush(stdout);
     printf("  destroy B's texture   %s\n", name_of(cna_texture2d_destroy(target_b)));
     fflush(stdout);
@@ -273,11 +282,17 @@ static CNA_Result on_update(CNA_Handle game, const CNA_GameTime* game_time, void
     {
         CNA_Bool supported = CNA_FALSE;
         uint64_t count = 0;
-        printf("  is_supported          %s %s\n",
-               name_of(cna_camera_get_is_supported_ext(game, &supported)),
-               supported ? "yes" : "no");
-        printf("  count                 %s %llu\n",
-               name_of(cna_camera_get_count_ext(game, &count)), (unsigned long long)count);
+        {
+            const CNA_Result result = cna_camera_get_is_supported_ext(game, &supported);
+            printf("  is_supported          %s %s\n",
+                   name_of(result),
+                   supported ? "yes" : "no");
+        }
+        {
+            const CNA_Result result = cna_camera_get_count_ext(game, &count);
+            printf("  count                 %s %llu\n",
+                   name_of(result), (unsigned long long)count);
+        }
         for (uint64_t i = 0; i < count; i++) {
             CNA_CameraDeviceInfo info;
             memset(&info, 0, sizeof info);
@@ -313,12 +328,18 @@ static CNA_Result on_update(CNA_Handle game, const CNA_GameTime* game_time, void
     }
     {
         CNA_CameraState state = 0;
-        printf("  state at birth        %s %s\n",
-               name_of(cna_camera_get_state_ext(camera, &state)), state_name(state));
+        {
+            const CNA_Result result = cna_camera_get_state_ext(camera, &state);
+            printf("  state at birth        %s %s\n",
+                   name_of(result), state_name(state));
+        }
         int32_t width = -1, height = -1;
-        printf("  frame size at birth   %s %d x %s %d\n",
-               name_of(cna_camera_get_frame_width_ext(camera, &width)), width,
-               name_of(cna_camera_get_frame_height_ext(camera, &height)), height);
+        {
+            const CNA_Result result = cna_camera_get_frame_width_ext(camera, &width);
+            printf("  frame size at birth   %s %d x %s %d\n",
+                   name_of(result), width,
+                   name_of(cna_camera_get_frame_height_ext(camera, &height)), height);
+        }
     }
 
     printf("\n== every state the test backend can be put in ==\n");
@@ -358,9 +379,12 @@ static CNA_Result on_update(CNA_Handle game, const CNA_GameTime* game_time, void
         CNA_Handle wrong = 0;
         cna_texture2d_create_from_rgba8(device, 2U, 2U, blank, 4U, &wrong);
         CNA_Bool acquired = PROBE_POISON;
-        printf("  acquire, wrong size   %s acquired=%s\n",
-               name_of(cna_camera_try_acquire_frame_ext(camera, wrong, &acquired)),
-               took_it(acquired));
+        {
+            const CNA_Result result = cna_camera_try_acquire_frame_ext(camera, wrong, &acquired);
+            printf("  acquire, wrong size   %s acquired=%s\n",
+                   name_of(result),
+                   took_it(acquired));
+        }
         if (wrong != 0) cna_texture2d_destroy(wrong);
 
         CNA_Handle texture = 0;

@@ -10,7 +10,6 @@
 #include "NativeContentExtensionRoutes.inc"
 #include "NativeDeviceExtensionRoutes.inc"
 #include "NativeEffectExtensionRoutes.inc"
-#include "NativeEngineLayerRoutes.inc"
 #include "NativeGamerServicesRoutes.inc"
 #include "NativeGraphicsExtensionRoutes.inc"
 #include "NativeInputExtensionRoutes.inc"

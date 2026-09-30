@@ -92,6 +92,12 @@ final class HostDialogAndTrayTests {
             }
             ran = true;
             try {
+                if (!DeviceExtension.isAvailable()) {
+                    // A build without CNA_DEVICES refuses the host dialogs rather than faking one.
+                    org.junit.jupiter.api.Assertions.assertThrows(
+                            DeviceNotSupportedException.class, MessageBox::getIsSupported);
+                    return;
+                }
                 messageBox();
                 fileDialog();
                 systemTray();

@@ -16,7 +16,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -55,29 +54,14 @@ final class NativeShutdownSubprocessTests {
         // because it is what this suite is for.
         assertTrue(output.contains("CNA_JAVA_SHUTDOWN_GRAPH_READY"), output);
 
-        String renderer = rendererOf(output);
-        if (KNOWN_ABORT_AT_EXIT.contains(renderer)) {
-            // JAVA-UPSTREAM-014, and reproduced with no Java in the picture by
-            // tools/native-abi/probes/exit_with_live_graph.c: on CNA's EasyGL renderer, a
-            // process that exits while a vertex buffer is alive AND the thread that created it
-            // has already ended aborts in a static destructor. A JVM does both without saying
-            // so -- the `java` launcher runs main on a thread it creates -- so every Java
-            // program that exits with a live buffer hits it.
-            //
-            // Asserted as the exact signature rather than tolerated, so the day CNA fixes it
-            // this fails and the arm is removed.
-            assertEquals(134, process.exitValue(),
-                    "the known abort is SIGABRT and nothing else: " + output);
-            assertTrue(output.contains("terminate called without an active exception"),
-                    "and it is the C++ terminate, not another fault: " + output);
-            return;
-        }
-        assertEquals(0, process.exitValue(), output);
+        // Every renderer, the EasyGL family included. On those a process that exited while a
+        // vertex buffer was alive and the thread that created it had ended used to abort in a
+        // static destructor -- JAVA-UPSTREAM-014, which every JVM satisfies because the launcher
+        // runs main on a thread it creates. CNA fixed it (BINDFIX-041), and
+        // tools/native-abi/probes/exit_with_live_graph.c reproduces the shape with no Java in it.
+        assertEquals(0, process.exitValue(),
+                "exit with a live graph on " + rendererOf(output) + ": " + output);
     }
-
-    /** Renderers on which a process exiting with a live buffer is known to abort upstream. */
-    private static final Set<String> KNOWN_ABORT_AT_EXIT =
-            Set.of("OPENGLES2", "OPENGLES3", "OPENGL33", "WEBGL1", "WEBGL2");
 
     /** The renderer the child really used, which it reports rather than the parent assuming. */
     private static String rendererOf(String output) {

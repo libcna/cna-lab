@@ -7,6 +7,279 @@
  */
 
 JNIEXPORT jint JNICALL
+Java_org_openeggbert_cna_internal_generated_NativeDeviceExtensionRoutes_cameraCopyNameAtExt(
+    JNIEnv* environment, jclass declaring_class, jlong game, jlong index, jbyteArray destination, jlongArray out_bytes)
+{
+    (void)environment;
+    (void)declaring_class;
+    jsize destination_size = (*environment)->GetArrayLength(environment, destination);
+    jbyte* destination_bytes = (*environment)->GetByteArrayElements(environment, destination, NULL);
+    if (destination_bytes == NULL) {
+        return (jint)CNA_RESULT_OUT_OF_MEMORY;
+    }
+    uint64_t destination_written = 0;
+    CNA_Result call_result = cna.camera_copy_name_at_ext((CNA_Handle)game, (uint64_t)index, (char*)destination_bytes, (uint64_t)destination_size, &destination_written);
+    (*environment)->ReleaseByteArrayElements(environment, destination, destination_bytes, 0);
+    if (call_result == CNA_RESULT_SUCCESS || call_result == CNA_RESULT_BUFFER_TOO_SMALL) {
+        jlong destination_element = (jlong)destination_written;
+        (*environment)->SetLongArrayRegion(
+            environment, out_bytes, 0, 1, &destination_element);
+    }
+    return (jint)call_result;
+}
+
+JNIEXPORT jint JNICALL
+Java_org_openeggbert_cna_internal_generated_NativeDeviceExtensionRoutes_cameraCreate(
+    JNIEnv* environment, jclass declaring_class, jlong game, jlongArray out_camera)
+{
+    (void)environment;
+    (void)declaring_class;
+    CNA_CameraHandle out_camera_value = 0;
+    CNA_Result call_result = cna.camera_create((CNA_Handle)game, &out_camera_value);
+    if (call_result == CNA_RESULT_SUCCESS || call_result == CNA_RESULT_BUFFER_TOO_SMALL) {
+        jlong out_camera_element = (jlong)out_camera_value;
+        (*environment)->SetLongArrayRegion(
+            environment, out_camera, 0, 1, &out_camera_element);
+    }
+    return (jint)call_result;
+}
+
+JNIEXPORT jint JNICALL
+Java_org_openeggbert_cna_internal_generated_NativeDeviceExtensionRoutes_cameraCreateWithTestBackendExt(
+    JNIEnv* environment, jclass declaring_class, jlong game, jlongArray out_camera)
+{
+    (void)environment;
+    (void)declaring_class;
+    CNA_CameraHandle out_camera_value = 0;
+    CNA_Result call_result = cna.camera_create_with_test_backend_ext((CNA_Handle)game, &out_camera_value);
+    if (call_result == CNA_RESULT_SUCCESS || call_result == CNA_RESULT_BUFFER_TOO_SMALL) {
+        jlong out_camera_element = (jlong)out_camera_value;
+        (*environment)->SetLongArrayRegion(
+            environment, out_camera, 0, 1, &out_camera_element);
+    }
+    return (jint)call_result;
+}
+
+JNIEXPORT jint JNICALL
+Java_org_openeggbert_cna_internal_generated_NativeDeviceExtensionRoutes_cameraDestroy(
+    JNIEnv* environment, jclass declaring_class, jlong camera)
+{
+    (void)environment;
+    (void)declaring_class;
+    CNA_Result call_result = cna.camera_destroy((CNA_CameraHandle)camera);
+    return (jint)call_result;
+}
+
+JNIEXPORT jint JNICALL
+Java_org_openeggbert_cna_internal_generated_NativeDeviceExtensionRoutes_cameraDeviceInfoInit(
+    JNIEnv* environment, jclass declaring_class, jlongArray out_infoIntegral)
+{
+    (void)environment;
+    (void)declaring_class;
+    if (out_infoIntegral == NULL) {
+        return (jint)CNA_RESULT_INVALID_ARGUMENT;
+    }
+    CNA_CameraDeviceInfo out_info_value;
+    memset(&out_info_value, 0, sizeof out_info_value);
+    out_info_value.struct_size = (uint32_t)(sizeof out_info_value);
+    out_info_value.struct_version = UINT32_C(1);
+    CNA_Result call_result = cna.camera_device_info_init(&out_info_value);
+    if (call_result == CNA_RESULT_SUCCESS || call_result == CNA_RESULT_BUFFER_TOO_SMALL) {
+        jlong out_infoIntegral_values[] = {
+            (jlong)out_info_value.position
+        };
+        (*environment)->SetLongArrayRegion(environment, out_infoIntegral, 0,
+            (jsize)(sizeof out_infoIntegral_values / sizeof out_infoIntegral_values[0]),
+            out_infoIntegral_values);
+    }
+    return (jint)call_result;
+}
+
+JNIEXPORT jint JNICALL
+Java_org_openeggbert_cna_internal_generated_NativeDeviceExtensionRoutes_cameraGetCountExt(
+    JNIEnv* environment, jclass declaring_class, jlong game, jlongArray out_count)
+{
+    (void)environment;
+    (void)declaring_class;
+    uint64_t out_count_value = 0;
+    CNA_Result call_result = cna.camera_get_count_ext((CNA_Handle)game, &out_count_value);
+    if (call_result == CNA_RESULT_SUCCESS || call_result == CNA_RESULT_BUFFER_TOO_SMALL) {
+        jlong out_count_element = (jlong)out_count_value;
+        (*environment)->SetLongArrayRegion(
+            environment, out_count, 0, 1, &out_count_element);
+    }
+    return (jint)call_result;
+}
+
+JNIEXPORT jint JNICALL
+Java_org_openeggbert_cna_internal_generated_NativeDeviceExtensionRoutes_cameraGetFrameHeightExt(
+    JNIEnv* environment, jclass declaring_class, jlong camera, jintArray out_height)
+{
+    (void)environment;
+    (void)declaring_class;
+    int32_t out_height_value = 0;
+    CNA_Result call_result = cna.camera_get_frame_height_ext((CNA_CameraHandle)camera, &out_height_value);
+    if (call_result == CNA_RESULT_SUCCESS || call_result == CNA_RESULT_BUFFER_TOO_SMALL) {
+        jint out_height_element = (jint)out_height_value;
+        (*environment)->SetIntArrayRegion(
+            environment, out_height, 0, 1, &out_height_element);
+    }
+    return (jint)call_result;
+}
+
+JNIEXPORT jint JNICALL
+Java_org_openeggbert_cna_internal_generated_NativeDeviceExtensionRoutes_cameraGetFrameWidthExt(
+    JNIEnv* environment, jclass declaring_class, jlong camera, jintArray out_width)
+{
+    (void)environment;
+    (void)declaring_class;
+    int32_t out_width_value = 0;
+    CNA_Result call_result = cna.camera_get_frame_width_ext((CNA_CameraHandle)camera, &out_width_value);
+    if (call_result == CNA_RESULT_SUCCESS || call_result == CNA_RESULT_BUFFER_TOO_SMALL) {
+        jint out_width_element = (jint)out_width_value;
+        (*environment)->SetIntArrayRegion(
+            environment, out_width, 0, 1, &out_width_element);
+    }
+    return (jint)call_result;
+}
+
+JNIEXPORT jint JNICALL
+Java_org_openeggbert_cna_internal_generated_NativeDeviceExtensionRoutes_cameraGetInfoAtExt(
+    JNIEnv* environment, jclass declaring_class, jlong game, jlong index, jlongArray out_infoIntegral)
+{
+    (void)environment;
+    (void)declaring_class;
+    if (out_infoIntegral == NULL) {
+        return (jint)CNA_RESULT_INVALID_ARGUMENT;
+    }
+    CNA_CameraDeviceInfo out_info_value;
+    memset(&out_info_value, 0, sizeof out_info_value);
+    out_info_value.struct_size = (uint32_t)(sizeof out_info_value);
+    out_info_value.struct_version = UINT32_C(1);
+    CNA_Result call_result = cna.camera_get_info_at_ext((CNA_Handle)game, (uint64_t)index, &out_info_value);
+    if (call_result == CNA_RESULT_SUCCESS || call_result == CNA_RESULT_BUFFER_TOO_SMALL) {
+        jlong out_infoIntegral_values[] = {
+            (jlong)out_info_value.position
+        };
+        (*environment)->SetLongArrayRegion(environment, out_infoIntegral, 0,
+            (jsize)(sizeof out_infoIntegral_values / sizeof out_infoIntegral_values[0]),
+            out_infoIntegral_values);
+    }
+    return (jint)call_result;
+}
+
+JNIEXPORT jint JNICALL
+Java_org_openeggbert_cna_internal_generated_NativeDeviceExtensionRoutes_cameraGetIsSupportedExt(
+    JNIEnv* environment, jclass declaring_class, jlong game, jbooleanArray out_supported)
+{
+    (void)environment;
+    (void)declaring_class;
+    CNA_Bool out_supported_value = 0;
+    CNA_Result call_result = cna.camera_get_is_supported_ext((CNA_Handle)game, &out_supported_value);
+    if (call_result == CNA_RESULT_SUCCESS || call_result == CNA_RESULT_BUFFER_TOO_SMALL) {
+        jboolean out_supported_element = (jboolean)out_supported_value;
+        (*environment)->SetBooleanArrayRegion(
+            environment, out_supported, 0, 1, &out_supported_element);
+    }
+    return (jint)call_result;
+}
+
+JNIEXPORT jint JNICALL
+Java_org_openeggbert_cna_internal_generated_NativeDeviceExtensionRoutes_cameraGetNameSizeAtExt(
+    JNIEnv* environment, jclass declaring_class, jlong game, jlong index, jlongArray out_bytes)
+{
+    (void)environment;
+    (void)declaring_class;
+    uint64_t out_bytes_value = 0;
+    CNA_Result call_result = cna.camera_get_name_size_at_ext((CNA_Handle)game, (uint64_t)index, &out_bytes_value);
+    if (call_result == CNA_RESULT_SUCCESS || call_result == CNA_RESULT_BUFFER_TOO_SMALL) {
+        jlong out_bytes_element = (jlong)out_bytes_value;
+        (*environment)->SetLongArrayRegion(
+            environment, out_bytes, 0, 1, &out_bytes_element);
+    }
+    return (jint)call_result;
+}
+
+JNIEXPORT jint JNICALL
+Java_org_openeggbert_cna_internal_generated_NativeDeviceExtensionRoutes_cameraGetStateExt(
+    JNIEnv* environment, jclass declaring_class, jlong camera, jintArray out_state)
+{
+    (void)environment;
+    (void)declaring_class;
+    CNA_CameraState out_state_value = 0;
+    CNA_Result call_result = cna.camera_get_state_ext((CNA_CameraHandle)camera, &out_state_value);
+    if (call_result == CNA_RESULT_SUCCESS || call_result == CNA_RESULT_BUFFER_TOO_SMALL) {
+        jint out_state_element = (jint)out_state_value;
+        (*environment)->SetIntArrayRegion(
+            environment, out_state, 0, 1, &out_state_element);
+    }
+    return (jint)call_result;
+}
+
+JNIEXPORT jint JNICALL
+Java_org_openeggbert_cna_internal_generated_NativeDeviceExtensionRoutes_cameraSetTestFrameExt(
+    JNIEnv* environment, jclass declaring_class, jlong camera, jint width, jint height, jlongArray pixelsIntegral)
+{
+    (void)environment;
+    (void)declaring_class;
+    jsize pixels_count = (*environment)->GetArrayLength(environment, pixelsIntegral) / 4;
+    if ((*environment)->GetArrayLength(environment, pixelsIntegral) != pixels_count * 4) {
+        return (jint)CNA_RESULT_INVALID_ARGUMENT;
+    }
+    CNA_Color* pixels_values = (CNA_Color*)calloc(
+        (size_t)pixels_count + 1U, sizeof(*pixels_values));
+    if (pixels_values == NULL) {
+        return (jint)CNA_RESULT_OUT_OF_MEMORY;
+    }
+    {
+        jsize pixelsIntegral_length = (*environment)->GetArrayLength(environment, pixelsIntegral);
+        jlong* pixelsIntegral_values = (jlong*)malloc(
+            ((size_t)pixelsIntegral_length + 1U) * sizeof(*pixelsIntegral_values));
+        if (pixelsIntegral_values == NULL) {
+            free(pixels_values);
+            return (jint)CNA_RESULT_OUT_OF_MEMORY;
+        }
+        (*environment)->GetLongArrayRegion(environment, pixelsIntegral, 0, pixelsIntegral_length, pixelsIntegral_values);
+        for (jsize element = 0; element < pixels_count; ++element) {
+            pixels_values[element].r = (uint8_t)pixelsIntegral_values[element * 4 + 0];
+            pixels_values[element].g = (uint8_t)pixelsIntegral_values[element * 4 + 1];
+            pixels_values[element].b = (uint8_t)pixelsIntegral_values[element * 4 + 2];
+            pixels_values[element].a = (uint8_t)pixelsIntegral_values[element * 4 + 3];
+        }
+        free(pixelsIntegral_values);
+    }
+    CNA_Result call_result = cna.camera_set_test_frame_ext((CNA_CameraHandle)camera, (int32_t)width, (int32_t)height, pixels_values, (uint64_t)pixels_count);
+    free(pixels_values);
+    return (jint)call_result;
+}
+
+JNIEXPORT jint JNICALL
+Java_org_openeggbert_cna_internal_generated_NativeDeviceExtensionRoutes_cameraSetTestStateExt(
+    JNIEnv* environment, jclass declaring_class, jlong camera, jint state)
+{
+    (void)environment;
+    (void)declaring_class;
+    CNA_Result call_result = cna.camera_set_test_state_ext((CNA_CameraHandle)camera, (CNA_CameraState)state);
+    return (jint)call_result;
+}
+
+JNIEXPORT jint JNICALL
+Java_org_openeggbert_cna_internal_generated_NativeDeviceExtensionRoutes_cameraTryAcquireFrameExt(
+    JNIEnv* environment, jclass declaring_class, jlong camera, jlong texture, jbooleanArray out_acquired)
+{
+    (void)environment;
+    (void)declaring_class;
+    CNA_Bool out_acquired_value = 0;
+    CNA_Result call_result = cna.camera_try_acquire_frame_ext((CNA_CameraHandle)camera, (CNA_Handle)texture, &out_acquired_value);
+    if (call_result == CNA_RESULT_SUCCESS || call_result == CNA_RESULT_BUFFER_TOO_SMALL) {
+        jboolean out_acquired_element = (jboolean)out_acquired_value;
+        (*environment)->SetBooleanArrayRegion(
+            environment, out_acquired, 0, 1, &out_acquired_element);
+    }
+    return (jint)call_result;
+}
+
+JNIEXPORT jint JNICALL
 Java_org_openeggbert_cna_internal_generated_NativeDeviceExtensionRoutes_clipboardCopyText(
     JNIEnv* environment, jclass declaring_class, jlong game, jbyteArray destination, jlongArray out_bytes)
 {

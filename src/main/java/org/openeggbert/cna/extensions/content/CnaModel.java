@@ -3,6 +3,7 @@ package org.openeggbert.cna.extensions.content;
 import Microsoft.Xna.Framework.BoundingSphere;
 import Microsoft.Xna.Framework.Matrix;
 import Microsoft.Xna.Framework.Vector3;
+import Microsoft.Xna.Framework.Content.ContentManager;
 import Microsoft.Xna.Framework.Graphics.Effect;
 import Microsoft.Xna.Framework.Graphics.GraphicsDevice;
 import Microsoft.Xna.Framework.Graphics.Model;
@@ -32,11 +33,12 @@ import java.util.Objects;
  * the XNA model untouched. Nothing here hands a native handle to a caller, so there is no second
  * owner to get wrong.
  *
- * <p><strong>Loading through CNA's own content manager is not available.</strong>
- * {@code cna_content_manager_load_model} produces a model that segfaults during teardown for any
- * asset with a mesh part -- whether the caller destroys it or leaves it to the content manager --
- * so binding it would hand a consumer a route that kills the process. {@code JAVA-UPSTREAM-004}
- * records the reproduction, and the load entry point lands here when CNA is fixed.
+ * <p><strong>Or loaded by CNA itself.</strong> {@link #Load} opens a {@code .xnb}, {@code .cnb}
+ * or {@code .gltf}/{@code .glb} model through CNA's own content manager, and {@link #getContentTag}
+ * reads back the {@code Dictionary<string, object>} a content processor wrote as its
+ * {@code Tag}. That route once produced a model that segfaulted during teardown
+ * ({@code JAVA-UPSTREAM-004}); CNA fixed it, and
+ * {@code tools/native-abi/probes/content_manager_model_teardown.c} measures the teardown.
  *
  * <p>A model belongs to the game that owns its graphics device, and is built, read, drawn and
  * closed on that game's thread.
@@ -57,6 +59,44 @@ public final class CnaModel implements AutoCloseable {
     private CnaModel(long handle, List<Long> owned) {
         this.handle = handle;
         this.owned = List.copyOf(owned);
+    }
+
+    /**
+     * Loads a model through CNA's own content manager.
+     *
+     * <p>The model owns everything the load published -- its bones, meshes, parts, effects and
+     * buffers -- and the asset stays cached by name in the content manager, so a second load
+     * republishes the same model rather than reading the file again.
+     *
+     * @param contentManager the manager whose root directory and cache to use
+     * @param assetName the asset name, without extension
+     * @return the model, which the caller closes
+     */
+    public static CnaModel Load(ContentManager contentManager, String assetName) {
+        Objects.requireNonNull(contentManager, "contentManager");
+        Objects.requireNonNull(assetName, "assetName");
+        long[] loaded = new long[1];
+        check("Load", NativeModelExtensionRoutes.contentManagerLoadModel(
+                NativeBindings.nativeContentManagerHandle(contentManager), utf8(assetName),
+                loaded));
+        return new CnaModel(loaded[0], List.of());
+    }
+
+    /**
+     * Returns the {@code Dictionary<string, object>} a content processor wrote as this model's
+     * {@code Tag}, or {@code null} when it has none or a tag of another shape.
+     *
+     * <p>Only a model {@linkplain #Load loaded} by CNA carries one; a model built {@link #From} an
+     * XNA one has none. The dictionary is owned by the caller and outlives this model.
+     *
+     * @return the tag, which the caller closes, or {@code null}
+     */
+    public CnaObjectDictionary getContentTag() {
+        boolean[] hasTag = new boolean[1];
+        long[] dictionary = new long[1];
+        check("getContentTag", NativeModelExtensionRoutes.modelGetContentTagDictionaryExt(
+                open(), hasTag, dictionary));
+        return hasTag[0] ? CnaObjectDictionary.adopt(dictionary[0]) : null;
     }
 
     /**

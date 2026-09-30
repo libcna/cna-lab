@@ -76,7 +76,6 @@ static const char* renderer_name(const CNA_GraphicsRendererType type)
         case CNA_GRAPHICS_RENDERER_OPENGLES2: return "OPENGLES2";
         case CNA_GRAPHICS_RENDERER_OPENGLES3: return "OPENGLES3";
         case CNA_GRAPHICS_RENDERER_OPENGL33: return "OPENGL33";
-        case CNA_GRAPHICS_RENDERER_OPENGL4: return "OPENGL4";
         case CNA_GRAPHICS_RENDERER_VULKAN: return "VULKAN";
         case CNA_GRAPHICS_RENDERER_HEADLESS: return "HEADLESS";
         case CNA_GRAPHICS_RENDERER_SOFTWARE: return "SOFTWARE";
@@ -155,8 +154,11 @@ int main(int argc, char** argv)
         const int frame = latch_a_renderer();
         printf("env path: returned normally, frame ran %d\n", frame);
         CNA_GraphicsRendererType active = CNA_GRAPHICS_RENDERER_UNKNOWN;
-        printf("env path: active %s %s\n", name_of(cna_graphics_renderer_get_active_ext(&active)),
-               renderer_name(active));
+        {
+            const CNA_Result result = cna_graphics_renderer_get_active_ext(&active);
+            printf("env path: active %s %s\n", name_of(result),
+                   renderer_name(active));
+        }
         return 0;
     }
 
@@ -189,15 +191,22 @@ int main(int argc, char** argv)
         CNA_Bool latched_after = CNA_FALSE;
         CNA_GraphicsRendererType selected_after = CNA_GRAPHICS_RENDERER_UNKNOWN;
         uint64_t count_after = 0;
+        /* Each route is called before its output is printed. Calling it inside the printf that
+           prints its output is how JAVA-UPSTREAM-018 was "measured": C leaves the order of
+           argument evaluation unspecified, GCC read the output variable before the call wrote
+           it, and the initial values were reported as a CNA defect. */
+        const CNA_Result got_latched_after =
+            cna_graphics_renderer_get_is_latched_ext(&latched_after);
+        const CNA_Result got_selected_after =
+            cna_graphics_renderer_get_selected_ext(&selected_after);
+        const CNA_Result got_count_after =
+            cna_graphics_renderer_get_available_count_ext(&count_after);
         printf("identity, after the device:\n");
-        printf("  get_is_latched_ext             %s %s\n",
-               name_of(cna_graphics_renderer_get_is_latched_ext(&latched_after)),
+        printf("  get_is_latched_ext             %s %s\n", name_of(got_latched_after),
                latched_after ? "latched" : "not latched");
-        printf("  get_selected_ext               %s %s\n",
-               name_of(cna_graphics_renderer_get_selected_ext(&selected_after)),
+        printf("  get_selected_ext               %s %s\n", name_of(got_selected_after),
                renderer_name(selected_after));
-        printf("  get_available_count_ext        %s %llu\n",
-               name_of(cna_graphics_renderer_get_available_count_ext(&count_after)),
+        printf("  get_available_count_ext        %s %llu\n", name_of(got_count_after),
                (unsigned long long)count_after);
         char current_name[64];
         memset(current_name, 0, sizeof current_name);
@@ -239,21 +248,33 @@ int main(int argc, char** argv)
     printf("== before anything is created ==\n");
     {
         CNA_Bool latched = CNA_TRUE;
-        printf("  is_latched            %s %s\n",
-               name_of(cna_graphics_renderer_get_is_latched_ext(&latched)),
-               latched ? "yes" : "no");
+        {
+            const CNA_Result result = cna_graphics_renderer_get_is_latched_ext(&latched);
+            printf("  is_latched            %s %s\n",
+                   name_of(result),
+                   latched ? "yes" : "no");
+        }
         CNA_GraphicsRendererType selected = CNA_GRAPHICS_RENDERER_UNKNOWN;
-        printf("  selected              %s %s\n",
-               name_of(cna_graphics_renderer_get_selected_ext(&selected)),
-               renderer_name(selected));
+        {
+            const CNA_Result result = cna_graphics_renderer_get_selected_ext(&selected);
+            printf("  selected              %s %s\n",
+                   name_of(result),
+                   renderer_name(selected));
+        }
         CNA_GraphicsRendererType active = CNA_GRAPHICS_RENDERER_UNKNOWN;
         /* Documented as refused rather than guessed while nothing has been created. */
-        printf("  active                %s %s\n",
-               name_of(cna_graphics_renderer_get_active_ext(&active)), renderer_name(active));
+        {
+            const CNA_Result result = cna_graphics_renderer_get_active_ext(&active);
+            printf("  active                %s %s\n",
+                   name_of(result), renderer_name(active));
+        }
         CNA_Bool automatic = CNA_FALSE;
-        printf("  automatic fallback    %s %s\n",
-               name_of(cna_graphics_renderer_get_automatic_fallback_ext(&automatic)),
-               automatic ? "on" : "off");
+        {
+            const CNA_Result result = cna_graphics_renderer_get_automatic_fallback_ext(&automatic);
+            printf("  automatic fallback    %s %s\n",
+                   name_of(result),
+                   automatic ? "on" : "off");
+        }
         /* The two already-bound routes answer the same question by name. If the name says
            HEADLESS and the type says UNKNOWN, one of the pair is wrong. */
         CNA_GraphicsRendererType current = CNA_GRAPHICS_RENDERER_UNKNOWN;
@@ -270,9 +291,12 @@ int main(int argc, char** argv)
     printf("\n== what this build has ==\n");
     uint64_t available_count = 0;
     {
-        printf("  available_count       %s %llu\n",
-               name_of(cna_graphics_renderer_get_available_count_ext(&available_count)),
-               (unsigned long long)available_count);
+        {
+            const CNA_Result result = cna_graphics_renderer_get_available_count_ext(&available_count);
+            printf("  available_count       %s %llu\n",
+                   name_of(result),
+                   (unsigned long long)available_count);
+        }
 
         /* The zero-capacity probe, which every count/copy pair in this API supports. */
         uint64_t needed = 0;
@@ -329,7 +353,7 @@ int main(int argc, char** argv)
         const CNA_GraphicsRendererType asked[] = {
             CNA_GRAPHICS_RENDERER_HEADLESS,  CNA_GRAPHICS_RENDERER_SOFTWARE,
             CNA_GRAPHICS_RENDERER_OPENGL33,  CNA_GRAPHICS_RENDERER_OPENGLES3,
-            CNA_GRAPHICS_RENDERER_OPENGL4,   CNA_GRAPHICS_RENDERER_OPENGLES2,
+            CNA_GRAPHICS_RENDERER_OPENGLES2,
             CNA_GRAPHICS_RENDERER_VULKAN,    CNA_GRAPHICS_RENDERER_STUB,
         };
         for (size_t i = 0; i < sizeof asked / sizeof asked[0]; i++) {
@@ -389,9 +413,12 @@ int main(int argc, char** argv)
         printf("  set_preferred_by_name(HEADLESS)   %s\n",
                name_of(cna_graphics_renderer_set_preferred_by_name_ext(view_of("HEADLESS"))));
         CNA_GraphicsRendererType selected = CNA_GRAPHICS_RENDERER_UNKNOWN;
-        printf("  selected now                      %s %s\n",
-               name_of(cna_graphics_renderer_get_selected_ext(&selected)),
-               renderer_name(selected));
+        {
+            const CNA_Result result = cna_graphics_renderer_get_selected_ext(&selected);
+            printf("  selected now                      %s %s\n",
+                   name_of(result),
+                   renderer_name(selected));
+        }
     }
 
     printf("\n== the fallback chain ==\n");
@@ -410,9 +437,12 @@ int main(int argc, char** argv)
         printf("  automatic on          %s\n",
                name_of(cna_graphics_renderer_set_automatic_fallback_ext(CNA_TRUE)));
         uint64_t history = 0;
-        printf("  fallback_count        %s %llu\n",
-               name_of(cna_graphics_renderer_get_fallback_count_ext(&history)),
-               (unsigned long long)history);
+        {
+            const CNA_Result result = cna_graphics_renderer_get_fallback_count_ext(&history);
+            printf("  fallback_count        %s %llu\n",
+                   name_of(result),
+                   (unsigned long long)history);
+        }
     }
 
     printf("\n== the fallback reasons' names ==\n");
@@ -435,26 +465,38 @@ int main(int argc, char** argv)
         const int frame = latch_a_renderer();
         printf("  frame ran             %s\n", frame ? "yes" : "no");
         CNA_Bool latched = CNA_FALSE;
-        printf("  is_latched            %s %s\n",
-               name_of(cna_graphics_renderer_get_is_latched_ext(&latched)),
-               latched ? "yes" : "no");
+        {
+            const CNA_Result result = cna_graphics_renderer_get_is_latched_ext(&latched);
+            printf("  is_latched            %s %s\n",
+                   name_of(result),
+                   latched ? "yes" : "no");
+        }
         CNA_GraphicsRendererType active = CNA_GRAPHICS_RENDERER_UNKNOWN;
-        printf("  active                %s %s\n",
-               name_of(cna_graphics_renderer_get_active_ext(&active)), renderer_name(active));
+        {
+            const CNA_Result result = cna_graphics_renderer_get_active_ext(&active);
+            printf("  active                %s %s\n",
+                   name_of(result), renderer_name(active));
+        }
         CNA_GraphicsRendererType current = CNA_GRAPHICS_RENDERER_UNKNOWN;
         char current_name[64];
         memset(current_name, 0, sizeof current_name);
         uint64_t name_bytes = 0;
-        printf("  current type          %s %s\n",
-               name_of(cna_graphics_renderer_get_current_type(&current)), renderer_name(current));
+        {
+            const CNA_Result result = cna_graphics_renderer_get_current_type(&current);
+            printf("  current type          %s %s\n",
+                   name_of(result), renderer_name(current));
+        }
         printf("  current name          %s \"%s\"\n",
                name_of(cna_graphics_renderer_copy_current_name(current_name, sizeof current_name,
                                                                &name_bytes)),
                current_name);
         uint64_t count_again = 0;
-        printf("  available_count       %s %llu\n",
-               name_of(cna_graphics_renderer_get_available_count_ext(&count_again)),
-               (unsigned long long)count_again);
+        {
+            const CNA_Result result = cna_graphics_renderer_get_available_count_ext(&count_again);
+            printf("  available_count       %s %llu\n",
+                   name_of(result),
+                   (unsigned long long)count_again);
+        }
         /* The process-wide classifiers, which say "current" and are the ones a game would reach
            for first. Compare them against the per-identity answer for the renderer that is
            actually running. */
@@ -505,9 +547,12 @@ int main(int argc, char** argv)
         }
         printf("  reset_for_tests       %s\n",
                name_of(cna_graphics_renderer_reset_selection_for_tests_ext()));
-        printf("  is_latched after      %s %s\n",
-               name_of(cna_graphics_renderer_get_is_latched_ext(&latched)),
-               latched ? "yes" : "no");
+        {
+            const CNA_Result result = cna_graphics_renderer_get_is_latched_ext(&latched);
+            printf("  is_latched after      %s %s\n",
+                   name_of(result),
+                   latched ? "yes" : "no");
+        }
     }
 
     printf("\nPROBE OK\n");

@@ -43,20 +43,19 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
-import java.util.function.BiConsumer;
 import java.util.WeakHashMap;
 
 /** JNI entry point for CNA's stable C ABI. This class is not application API. */
 public final class NativeBindings {
 
     /**
-     * CNA C headers used to compile this binding: ABI 0.21.0.
+     * CNA C headers used to compile this binding: ABI 0.35.0.
      *
      * <p>Kept in step with {@code tools/native-abi/bindings.json}'s {@code compiledAbi} by
      * {@code nativeAbiCheck}, because this constant is what a game actually hits at load time
      * and a manifest that moved without it would pass every gate and then refuse the library.
      */
-    public static final int COMPILED_ABI_VERSION = encodeVersion(0, 21, 0);
+    public static final int COMPILED_ABI_VERSION = encodeVersion(0, 35, 0);
 
     private static boolean bridgeLoaded;
     private static int runtimeAbiVersion;
@@ -833,8 +832,7 @@ public final class NativeBindings {
         long windowValue = getWindowHandle(game);
         check("cna_gamer_services_dispatcher_set_window_handle",
                 nativeSetGamerServicesWindowHandle(windowValue));
-        check("cna_gamer_services_dispatcher_initialize",
-                nativeInitializeGamerServices(gameValue));
+        initializedGamerServices(nativeInitializeGamerServices(gameValue));
     }
 
     /** Pumps the selected-profile GamerServices dispatcher for a live owning game. */
@@ -845,8 +843,21 @@ public final class NativeBindings {
 
     /** Initializes the process-wide GamerServices dispatcher against the running game. */
     public static void initializeGamerServicesDispatcher() {
-        check("cna_gamer_services_dispatcher_initialize", nativeInitializeGamerServices(
+        initializedGamerServices(nativeInitializeGamerServices(
                 currentGameHandle("GamerServicesDispatcher.Initialize").requireValue()));
+    }
+
+    /**
+     * Maps the dispatcher's initialize result. The dispatcher is process-wide and XNA refuses a
+     * second initialization with {@code InvalidOperationException}; CNA answers that case with
+     * {@code INVALID_STATE}, which is Java's {@link IllegalStateException}.
+     */
+    private static void initializedGamerServices(int result) {
+        if (result == 3) {
+            throw new IllegalStateException("Gamer services are already initialized.",
+                    failure("cna_gamer_services_dispatcher_initialize", result));
+        }
+        check("cna_gamer_services_dispatcher_initialize", result);
     }
 
     /** Pumps the process-wide GamerServices dispatcher. */
@@ -900,143 +911,13 @@ public final class NativeBindings {
     }
 
     /**
-     * Adopts a borrow of an engine-layer render target as an owning Java facade.
-     *
-     * <p>CNA's engine layer lends a shadow map's texture as a <em>counted</em> borrow: the map
-     * refuses to be destroyed while one is outstanding, and the borrow is given back with
-     * {@code cna_render_target_destroy}, which does not dispose the map's own target. So the
-     * Java facade owns the borrow rather than the texture -- disposing it hands the borrow back
-     * and leaves the map intact, which is exactly what {@code Texture2D.Dispose()} should mean
-     * here.
-     *
-     * @param graphicsDevice the device the target belongs to
-     * @param nativeTexture the borrowed handle the engine layer just returned
-     * @return the facade, which the caller disposes
-     */
-    public static Texture2D createBorrowedRenderTarget(
-            GraphicsDevice graphicsDevice, long nativeTexture) {
-        Objects.requireNonNull(graphicsDevice, "graphicsDevice");
-        if (nativeTexture == 0L) {
-            throw new IllegalArgumentException("nativeTexture");
-        }
-        Texture2D texture = FacadeFactory.createUninitializedTexture2D(graphicsDevice);
-        registerResource(deviceGame(graphicsDevice), texture, nativeTexture,
-                NativeBindings::destroyRenderTarget);
-        try {
-            FacadeFactory.initializeTexture2D(texture, textureInfoOrClose(texture));
-            return texture;
-        } catch (RuntimeException failure) {
-            closeAfterFailedFacade(texture, failure);
-            throw failure;
-        }
-    }
-
-    /**
-     * Adds one entry to a transparent draw list, naming its callback by index.
-     *
-     * <p>Hand-written rather than generated, because CNA takes a C function pointer and the
-     * generator has no shape for one. The context CNA carries is nothing but {@code index}: the
-     * callbacks themselves are handed to
-     * {@link #transparentDrawListDrawSorted(long, float[], Runnable[])} for the duration of that
-     * one call, which is the only time CNA runs them, so no reference outlives a call and there is
-     * none to leak.
-     *
-     * @param list the native list handle
-     * @param bounds the entry's world-space bounds as six floats, min then max
-     * @param index the entry's index into the callback array the draw will be given
-     * @return CNA's result
-     */
-    public static int transparentDrawListSubmit(long list, float[] bounds, long index) {
-        requireAvailable();
-        return nativeTransparentDrawListSubmit(list, bounds, index);
-    }
-
-    /**
-     * Runs a transparent draw list's callbacks, farthest from the camera first.
-     *
-     * <p>An exception a callback throws is left pending: CNA stops the draw at the first failure
-     * and this returns, so the exception surfaces at the Java call that caused it rather than
-     * being flattened into a result code.
-     *
-     * @param list the native list handle
-     * @param view the camera's view matrix as sixteen floats
-     * @param callbacks the callbacks, indexed as they were submitted
-     * @return CNA's result
-     */
-    public static int transparentDrawListDrawSorted(long list, float[] view,
-            Runnable[] callbacks) {
-        requireAvailable();
-        return nativeTransparentDrawListDrawSorted(list, view, callbacks);
-    }
-
-    private static native int nativeTransparentDrawListSubmit(long list, float[] bounds,
-            long index);
-
-    private static native int nativeTransparentDrawListDrawSorted(long list, float[] view,
-            Runnable[] callbacks);
-
-    /**
-     * Captures one light probe, drawing the scene once per cube face.
-     *
-     * <p>Hand-written for the same reason as the transparent draw list: CNA takes a C function
-     * pointer. The callback runs only inside this call, six times, so it is passed in for the
-     * call's duration and no reference outlives it.
-     *
-     * <p>An exception the callback throws cannot stop the bake -- CNA's callback returns
-     * {@code void} and has no way to refuse -- so the remaining faces are skipped instead and the
-     * exception surfaces here.
-     *
-     * @param baker the native baker handle
-     * @param position where to capture from, as three floats
-     * @param callback receives each face's view and projection as sixteen floats each
-     * @param outProbe receives the new probe handle
-     * @param outFaces receives how many faces were actually drawn
-     * @return CNA's result
-     */
-    public static int lightProbeBakerBakeProbe(long baker, float[] position,
-            BiConsumer<float[], float[]> callback, long[] outProbe, int[] outFaces) {
-        requireAvailable();
-        return nativeLightProbeBakerBakeProbe(baker, position, callback, outProbe, outFaces);
-    }
-
-    /**
-     * Captures every probe of a volume's lighting.
-     *
-     * @param baker the native baker handle
-     * @param volume the native volume handle
-     * @param callback receives each face's view and projection as sixteen floats each
-     * @param outFaces receives how many faces were actually drawn
-     * @return CNA's result
-     */
-    public static int lightProbeBakerBakeLight(long baker, long volume,
-            BiConsumer<float[], float[]> callback, int[] outFaces) {
-        requireAvailable();
-        return nativeLightProbeBakerBakeLight(baker, volume, callback, outFaces);
-    }
-
-    /**
-     * Captures every probe of a volume's visibility.
-     *
-     * @param baker the native baker handle
-     * @param volume the native volume handle
-     * @param callback receives each face's view and projection as sixteen floats each
-     * @param outFaces receives how many faces were actually drawn
-     * @return CNA's result
-     */
-    public static int lightProbeBakerBakeVisibility(long baker, long volume,
-            BiConsumer<float[], float[]> callback, int[] outFaces) {
-        requireAvailable();
-        return nativeLightProbeBakerBakeVisibility(baker, volume, callback, outFaces);
-    }
-
-    /**
      * Pins a Java object so native code may call it after the registering call returns.
      *
-     * <p>The render pipeline's scene callbacks are registered once and run inside every later
-     * frame, so unlike the two families above they need a reference that outlives the call. CNA
-     * offers no unregistration hook beyond passing a null callback, so the reference is made
-     * explicit rather than hidden: this returns it as an opaque token, the caller stores it beside
-     * the registration, and {@link #releaseCallbackToken(long)} deletes it.
+     * <p>A callback registered once and run later -- a tray entry's click handler, a sensor
+     * subscription -- needs a reference that outlives the registering call. CNA offers no
+     * unregistration hook beyond passing a null callback, so the reference is made explicit rather
+     * than hidden: this returns it as an opaque token, the caller stores it beside the
+     * registration, and {@link #releaseCallbackToken(long)} deletes it.
      *
      * @param callback the object to pin
      * @return the token, or zero for a null callback
@@ -1062,63 +943,16 @@ public final class NativeBindings {
         nativeCallbackTokenRelease(token);
     }
 
-    /**
-     * Registers the callback a render pipeline draws transparent geometry from.
-     *
-     * @param pipeline the native pipeline handle
-     * @param token a token from {@link #newCallbackToken(Object)} over a {@link Runnable}, or zero
-     *        to clear the registration
-     * @return CNA's result
-     */
-    public static int renderPipelineSetTransparentScene(long pipeline, long token) {
-        requireAvailable();
-        return nativeRenderPipelineSetTransparentScene(pipeline, token);
-    }
-
-    /**
-     * Registers the shadow map, light and caster callback a render pipeline's shadow pass uses.
-     *
-     * @param pipeline the native pipeline handle
-     * @param shadowMap the native shadow-map handle, or zero to clear the shadow scene
-     * @param lightIntegral the light's one integral leaf
-     * @param lightFloating the light's seven floating leaves, in declaration order
-     * @param sceneBounds the bounds the light's projection must cover, as six floats
-     * @param token a token from {@link #newCallbackToken(Object)} over a {@link Runnable}, or zero
-     *        to register no callback
-     * @return CNA's result
-     */
-    public static int renderPipelineSetShadowScene(long pipeline, long shadowMap,
-            long[] lightIntegral, float[] lightFloating, float[] sceneBounds, long token) {
-        requireAvailable();
-        return nativeRenderPipelineSetShadowScene(pipeline, shadowMap, lightIntegral,
-                lightFloating, sceneBounds, token);
-    }
-
-    private static native int nativeLightProbeBakerBakeProbe(long baker, float[] position,
-            BiConsumer<float[], float[]> callback, long[] outProbe, int[] outFaces);
-
-    private static native int nativeLightProbeBakerBakeLight(long baker, long volume,
-            BiConsumer<float[], float[]> callback, int[] outFaces);
-
-    private static native int nativeLightProbeBakerBakeVisibility(long baker, long volume,
-            BiConsumer<float[], float[]> callback, int[] outFaces);
-
     private static native long nativeCallbackTokenCreate(Object callback);
 
     private static native void nativeCallbackTokenRelease(long token);
-
-    private static native int nativeRenderPipelineSetTransparentScene(long pipeline, long token);
-
-    private static native int nativeRenderPipelineSetShadowScene(long pipeline, long shadowMap,
-            long[] lightIntegral, float[] lightFloating, float[] sceneBounds, long token);
 
     /**
      * Adds a menu entry to a system tray icon, with an optional click handler.
      *
      * <p>Hand-written rather than generated because CNA takes a C function pointer for the
      * handler. The handler's lifetime is the tray's: a person may pick the entry at any time
-     * until the tray is closed, so the token is held by the tray and released when it closes,
-     * the same shape the render pipeline's scene callbacks use.
+     * until the tray is closed, so the token is held by the tray and released when it closes.
      *
      * @param tray the native tray handle
      * @param label the entry's label as UTF-8 bytes
@@ -1551,102 +1385,6 @@ public final class NativeBindings {
 
     private static native int nativeLoggerSetSink(Object sink);
 
-
-    /**
-     * Releases a texture handle that names a texture without keeping it alive.
-     *
-     * <p>The engine layer hands one of these back from routes such as
-     * {@code cna_effect_get_shadow_map_ext}, whose documentation is explicit that the handle is a
-     * fresh name for a texture the effect only borrows: releasing it releases the name and never
-     * the texture. Wrapping such a handle in a facade would be wrong -- the facade would look like
-     * it owned something -- so a caller that only needed to know whether a texture was bound
-     * gives the name straight back here.
-     *
-     * @param nativeTexture the handle the engine layer returned; zero is ignored, because zero is
-     *        how those routes say "none"
-     */
-    public static void releaseBorrowedTextureName(long nativeTexture) {
-        if (nativeTexture == 0L) {
-            return;
-        }
-        destroyRenderTarget(nativeTexture);
-    }
-
-    /**
-     * Releases a cube-texture handle that names a cube without keeping it alive.
-     *
-     * <p>The cube form of {@link #releaseBorrowedTextureName}, for the same shape and the same
-     * reason: {@code cna_effect_get_image_based_light_ext} answers with three fresh names for an
-     * effect's own textures, two of which are cubes, and a caller that only needed to know
-     * whether a light was bound gives all three straight back.
-     *
-     * @param nativeTexture the handle the engine layer returned; zero is ignored
-     */
-    public static void releaseBorrowedTextureCubeName(long nativeTexture) {
-        if (nativeTexture == 0L) {
-            return;
-        }
-        destroyTextureCube(nativeTexture);
-    }
-
-    /**
-     * Adopts a cube-texture handle as an owning Java facade.
-     *
-     * <p>The cube form of {@link #createBorrowedRenderTarget}, and it serves both shapes the
-     * engine layer produces, because both are given back the same way: a <em>borrow</em> of a
-     * cube shadow map, which {@code cna_texturecube_destroy} returns without disposing the map's
-     * own cube, and a cube map the environment processor <em>created</em>, which the same call
-     * destroys outright. Either way disposing the facade is the correct and only thing to do
-     * with it.
-     *
-     * @param graphicsDevice the device the cube belongs to
-     * @param nativeTexture the handle the engine layer just returned
-     * @return the facade, which the caller disposes
-     */
-    public static TextureCube adoptTextureCube(
-            GraphicsDevice graphicsDevice, long nativeTexture) {
-        Objects.requireNonNull(graphicsDevice, "graphicsDevice");
-        if (nativeTexture == 0L) {
-            throw new IllegalArgumentException("nativeTexture");
-        }
-        TextureCube texture = FacadeFactory.createUninitializedTextureCube(graphicsDevice);
-        registerResource(deviceGame(graphicsDevice), texture, nativeTexture,
-                NativeBindings::destroyTextureCube);
-        try {
-            FacadeFactory.initializeTextureCube(texture, textureCubeInfoOrClose(texture));
-            return texture;
-        } catch (RuntimeException failure) {
-            closeAfterFailedFacade(texture, failure);
-            throw failure;
-        }
-    }
-
-    /**
-     * Adopts a two-dimensional texture handle as an owning Java facade.
-     *
-     * <p>For a texture the engine layer <em>created</em> and handed over -- a generated BRDF
-     * lookup, say -- rather than one it lent. Released with {@code cna_texture2d_destroy}.
-     *
-     * @param graphicsDevice the device the texture belongs to
-     * @param nativeTexture the handle the engine layer just returned
-     * @return the facade, which the caller disposes
-     */
-    public static Texture2D adoptTexture2D(GraphicsDevice graphicsDevice, long nativeTexture) {
-        Objects.requireNonNull(graphicsDevice, "graphicsDevice");
-        if (nativeTexture == 0L) {
-            throw new IllegalArgumentException("nativeTexture");
-        }
-        Texture2D texture = FacadeFactory.createUninitializedTexture2D(graphicsDevice);
-        registerResource(deviceGame(graphicsDevice), texture, nativeTexture,
-                NativeBindings::destroyTexture2D);
-        try {
-            FacadeFactory.initializeTexture2D(texture, textureInfoOrClose(texture));
-            return texture;
-        } catch (RuntimeException failure) {
-            closeAfterFailedFacade(texture, failure);
-            throw failure;
-        }
-    }
 
     /**
      * Gives up ownership of a resource's native handle without releasing it.
@@ -2305,13 +2043,12 @@ public final class NativeBindings {
      * Registers an effect handle the extended layer already made as a Java facade.
      *
      * <p>Nothing is created here: the handle exists, and this is the Java name for it. Disposing
-     * the facade calls {@code cna_effect_destroy}, which is how the engine layer's lenders --
-     * the shader-effect factory among them -- are given their borrow back. The lender refuses to
-     * clear or close while one is outstanding, so the facade's disposal is not a nicety.
+     * the facade calls {@code cna_effect_destroy}, which releases the handle the extended layer
+     * created.
      *
      * @param effect the facade to register
      * @param graphicsDevice the device the effect belongs to
-     * @param nativeEffect the handle the engine layer returned
+     * @param nativeEffect the handle the extended layer returned
      */
     public static void adoptEffect(
             Effect effect, GraphicsDevice graphicsDevice, long nativeEffect) {

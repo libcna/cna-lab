@@ -76,7 +76,7 @@ public final class CnaRuntime {
      *
      * <p><strong>Not necessarily the renderer that is running.</strong> On a build with several
      * renderers compiled in, CNA's route behind this answers about the compile-time default rather
-     * than the one chosen at startup -- JAVA-UPSTREAM-018. For the running renderer use
+     * than the one chosen at startup, which is how CNA documents it. For the running renderer use
      * {@code GraphicsRenderer.getCategory(GraphicsRenderer.getActive())}.
      */
     public static GraphicsBackendCategory getBackendCategory() {

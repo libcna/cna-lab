@@ -4,7 +4,7 @@
  *
  * Loading a Model through CNA's own content manager and destroying it segfaults inside
  * `PartResource::~PartResource` for any asset whose meshes have parts -- which is every real
- * model. cnanext's own content fixtures are models with one bone and no meshes, which is why the
+ * model. CNA's own content fixtures are models with one bone and no meshes, which is why the
  * path is uncovered upstream.
  *
  * Kept as a source probe rather than a note, because "still broken" is a measurement that has to

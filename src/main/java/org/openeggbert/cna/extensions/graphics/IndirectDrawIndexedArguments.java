@@ -1,6 +1,6 @@
 package org.openeggbert.cna.extensions.graphics;
 
-import org.openeggbert.cna.internal.generated.NativeEngineLayerRoutes;
+import org.openeggbert.cna.internal.generated.NativeGraphicsExtensionRoutes;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -50,7 +50,7 @@ public final class IndirectDrawIndexedArguments {
         GraphicsExtension.requireBackend();
         long[] fields = new long[5];
         GraphicsExtension.check("IndirectDrawIndexedArguments.defaults",
-                NativeEngineLayerRoutes.indirectDrawIndexedArgumentsInit(fields));
+                NativeGraphicsExtensionRoutes.indirectDrawIndexedArgumentsInit(fields));
         return new IndirectDrawIndexedArguments((int) fields[0], (int) fields[1], (int) fields[2],
                 (int) fields[3], (int) fields[4]);
     }

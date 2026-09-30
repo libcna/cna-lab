@@ -42,20 +42,20 @@ def hostOs = org.gradle.internal.os.OperatingSystem.current()
 def nativeLibraryName = hostOs.isWindows() ? 'cna_java_jni.dll' :
         (hostOs.isMacOsX() ? 'libcna_java_jni.dylib' : 'libcna_java_jni.so')
 def nativeOutput = layout.buildDirectory.file("native/${nativeLibraryName}")
-// The authoritative native development dependency is the sibling `cnanext` checkout.
+// The authoritative native development dependency is the sibling `cna` checkout.
 // CNA_ROOT overrides it explicitly; there is deliberately no fallback to an unrelated
 // historical CNA checkout, because qualifying against one would make every ABI, symbol
 // and layout result in this build describe a library nobody ships.
-def cnaNextDirectory = rootProject.file('../../cnanext')
+def siblingCnaDirectory = rootProject.file('../cna')
 def configuredCnaRoot = providers.environmentVariable('CNA_ROOT').orElse(
         providers.provider {
-            if (!new File(cnaNextDirectory, 'modules/c-api/include/CNA/C/cna.h').isFile()) {
+            if (!new File(siblingCnaDirectory, 'modules/c-api/include/CNA/C/cna.h').isFile()) {
                 throw new GradleException(
-                        'CNA C API headers not found at ' + cnaNextDirectory.absolutePath +
+                        'CNA C API headers not found at ' + siblingCnaDirectory.absolutePath +
                         '. Set CNA_ROOT to a CNA checkout that provides ' +
                         'modules/c-api/include/CNA/C/cna.h.')
             }
-            cnaNextDirectory.absolutePath
+            siblingCnaDirectory.absolutePath
         })
 
 tasks.register('compileJni', Exec) {
@@ -136,6 +136,19 @@ test {
     // asset -- an XNA 4.0 .xnb no fixture generator can honestly stand in for -- reads it from
     // there and skips itself when it is absent, rather than copying someone else's asset in.
     systemProperty 'cna.root', configuredCnaRoot.get()
+    // CNA's gamer services no longer invent a signed-in gamer (ABI 0.32), and a network session
+    // needs one. CNA's documented unattended path signs a local profile in at startup; its
+    // store is kept in the build directory rather than in the developer's own profile store.
+    environment 'CNA_GAMER_SERVICES_AUTO_SIGN_IN', 'CnaJavaTest'
+    environment 'CNA_GAMER_SERVICES_PROFILES_DIR',
+            layout.buildDirectory.dir('tmp/gamer-profiles').get().asFile.absolutePath
+    // Temporary files a test makes live in this project's build directory, not in /tmp, which is
+    // the same disk and is never reused.
+    def testTemporary = layout.buildDirectory.dir('tmp/test-java-io').get().asFile
+    systemProperty 'java.io.tmpdir', testTemporary.absolutePath
+    doFirst {
+        testTemporary.mkdirs()
+    }
 }
 
 sourceSets {

@@ -22,10 +22,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * Effects built from shader source, and the uniforms a game sets on them.
  *
- * <p>The missing half of two families that were already here: {@link ShaderEffectFactory} compiles
- * and caches an effect and {@link FullscreenPass} draws through one, and until this nothing could
- * give that effect a value to work with.
- *
  * <p><strong>The strongest claim in this file is a pixel.</strong> A fragment shader that writes
  * nothing but a uniform is the shortest path from a Java call to a colour on a render target: set
  * the uniform, draw, read the target back, and the colour is either the one that was set or the
@@ -36,13 +32,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 final class ShaderEffectTests {
 
     /**
-     * The vertex program CNA's own full-screen passes use, copied exactly.
+     * The vertex program for SpriteBatch's vertex layout.
      *
-     * <p>A custom effect drawn by {@link FullscreenPass} has to match the layout the pass feeds
-     * it -- position, texture coordinate and colour at locations nought, one and two, and a
-     * {@code projection} uniform the pass sets. Every lens pass inside CNA shares these eight
-     * lines, and a shader that names its attributes anything else compiles and draws nothing,
-     * which is exactly how this test failed before it matched them.
+     * <p>A custom effect SpriteBatch draws through has to match the layout it feeds -- position,
+     * texture coordinate and colour at locations nought, one and two, and a {@code projection}
+     * uniform SpriteBatch sets. A shader that names its attributes anything else compiles and
+     * draws nothing.
      */
     private static final String VERTEX = String.join("\n",
             "#version 300 es",
@@ -198,7 +193,6 @@ final class ShaderEffectTests {
             GraphicsDevice device = probe.device();
             final int size = 8;
             try (Texture2D source = new Texture2D(device, 4, 4);
-                    FullscreenPass pass = FullscreenPass.create(device);
                     RenderTarget2D control = new RenderTarget2D(device, size, size);
                     RenderTarget2D first = new RenderTarget2D(device, size, size);
                     RenderTarget2D second = new RenderTarget2D(device, size, size)) {
@@ -211,7 +205,7 @@ final class ShaderEffectTests {
                 try (ShaderEffect literal =
                         ShaderEffect.compile(device, VERTEX, LITERAL_RED)) {
                     literal.apply();
-                    pass.draw(source, control, literal.getEffect(), size, size, null);
+                    GameProbe.drawOver(device, source, control, literal.getEffect(), null);
                     Color[] controlPixels;
                     try {
                         controlPixels = read(control, size);
@@ -240,7 +234,7 @@ final class ShaderEffectTests {
                     // has not been applied is not it. JAVA-UPSTREAM-016.
                     shader.apply();
                     shader.setUniform("u_colour", new Vector4(1f, 0f, 0f, 1f));
-                    pass.draw(source, first, shader.getEffect(), size, size, null);
+                    GameProbe.drawOver(device, source, first, shader.getEffect(), null);
                     Color[] red = read(first, size);
 
                     // The claim. The fragment shader writes nothing but the uniform, so the
@@ -255,7 +249,7 @@ final class ShaderEffectTests {
                     // that arrived from a shader that happens to write red.
                     shader.apply();
                     shader.setUniform("u_colour", new Vector4(0f, 0.5f, 1f, 1f));
-                    pass.draw(source, second, shader.getEffect(), size, size, null);
+                    GameProbe.drawOver(device, source, second, shader.getEffect(), null);
                     Color[] blue = read(second, size);
                     for (Color pixel : blue) {
                         assertEquals(0, pixel.getR(), "the second colour arrived too: " + pixel);

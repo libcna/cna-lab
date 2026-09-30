@@ -1,6 +1,6 @@
 package org.openeggbert.cna.extensions.graphics;
 
-import org.openeggbert.cna.internal.generated.NativeEngineLayerRoutes;
+import org.openeggbert.cna.internal.generated.NativeGraphicsExtensionRoutes;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -9,16 +9,14 @@ import java.util.Objects;
 /**
  * The arguments of an indirect draw, in the exact layout the GPU reads them in.
  *
- * <p>A CNA extension. In XNA every draw carries its counts from the CPU, so the CPU has to know
- * how much there is to draw; an indirect draw reads its counts out of GPU memory, which is what
- * lets a {@link ComputeShader} decide them -- culling instances, compacting a particle list --
- * without the answer ever coming back across the bus.
+ * <p>A CNA extension. In XNA every draw carries its counts from the CPU; an indirect draw reads
+ * them out of GPU memory. CNA ABI 0.30 removed the indirect draw routes and the storage buffers
+ * that fed them together with the engine layer, but {@code graphics_ext.h} still declares this
+ * structure and its initializer, so it is kept as a value.
  *
  * <p><strong>Sixteen bytes, four words, little-endian.</strong> This is a wire format rather than
  * a convenience type: {@link #toBytes()} produces exactly the bytes the GPU's command processor
- * reads, and they go into a {@link StorageBuffer} that a draw then names. A shader writing the
- * same four words directly is the whole point of the feature, and {@link #fromBytes} is how a
- * game reads back what one wrote.
+ * reads, and {@link #fromBytes} reads them back.
  *
  * <p><strong>{@code baseInstance} must be zero on OpenGL ES.</strong> ES 3.1 has no base-instance
  * parameter and requires the word to be zero; a non-zero value there is undefined rather than
@@ -64,7 +62,7 @@ public final class IndirectDrawArguments {
         GraphicsExtension.requireBackend();
         long[] fields = new long[4];
         GraphicsExtension.check("IndirectDrawArguments.defaults",
-                NativeEngineLayerRoutes.indirectDrawArgumentsInit(fields));
+                NativeGraphicsExtensionRoutes.indirectDrawArgumentsInit(fields));
         return new IndirectDrawArguments((int) fields[0], (int) fields[1], (int) fields[2],
                 (int) fields[3]);
     }

@@ -43,6 +43,15 @@ final class DynamicBufferNativeIntegrationTests {
         private DynamicIndexBuffer liveIndex;
         private boolean completed;
 
+        /**
+         * HiDef, because what this game exercises -- occlusion queries, 32-bit indices -- is
+         * HiDef-only in XNA, and CNA enforces the default Reach profile's limits.
+         */
+        private DynamicBufferGame() {
+            new Microsoft.Xna.Framework.GraphicsDeviceManager(this)
+                    .setGraphicsProfile(GraphicsProfile.HiDef);
+        }
+
         @Override
         protected void Update(GameTime gameTime) {
             GraphicsDevice device = getGraphicsDevice();

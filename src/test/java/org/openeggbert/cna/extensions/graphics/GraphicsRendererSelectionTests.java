@@ -23,11 +23,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *
  * <p>This suite exists because the qualification that produced it walked into the answer: a sweep
  * named a renderer the library was configured without, and the JVM died with SIGABRT inside
- * {@code System.loadLibrary} before a line of Java ran. Nothing here can test that -- a test that
- * kills its own JVM reports nothing -- so it is reproduced in
- * {@code tools/native-abi/probes/renderer_selection.c} and recorded as JAVA-UPSTREAM-017. What
- * this suite tests is the path that exists precisely so a game never has to find out that way:
- * ask what is here, and choose through the API, where a bad choice is a refusal.
+ * {@code System.loadLibrary} before a line of Java ran -- JAVA-UPSTREAM-017, reproduced in
+ * {@code tools/native-abi/probes/renderer_selection.c}. CNA now reads the variable on first use
+ * and refuses it with a result code, and {@link
+ * #anEnvironmentThatNamesAnAbsentRendererIsRefusedRatherThanFatal} checks that in a child JVM.
+ * The rest tests the path a game should take anyway: ask what is here, and choose through the
+ * API, where a bad choice is a refusal.
  *
  * <p><strong>Every test here latches the selection first.</strong> The selection is process-wide
  * and fixed once a renderer exists, so a suite that touched a setter before some other suite had
@@ -113,7 +114,7 @@ final class GraphicsRendererSelectionTests {
                 .orElseThrow(() -> new AssertionError(
                         "this build has every renderer CNA defines, which cannot happen"));
         // The whole point of the API path: this returns, and the process is still alive to assert
-        // that it did. The environment path with the same identity does not (JAVA-UPSTREAM-017).
+        // that it did.
         IllegalStateException refused =
                 assertThrows(IllegalStateException.class, () -> GraphicsRenderer.setPreferred(absent));
         assertTrue(refused.getMessage().contains(absent.toString()),
@@ -158,12 +159,84 @@ final class GraphicsRendererSelectionTests {
                     "the run asked for " + asked + " and no fallback chain is configured, so that"
                             + " is what it must be running");
         }
-        // The routes with "current" in their names answer about the build's compile-time default
-        // instead, which on a multi-renderer build is a different renderer -- JAVA-UPSTREAM-018.
-        // The device-scoped name is the other route that is right, and it agrees with this one.
+        // The routes with "current" in their names answer about the build's compile-time default,
+        // which on a multi-renderer build is a different renderer. The device-scoped name is the
+        // other route that is right, and it agrees with this one.
         GameProbe.run(probe -> assertEquals(active.name(),
                 RendererCapabilities.getRendererName(probe.device()),
                 "the selection and the device name the same renderer"));
+    }
+
+    @Test
+    void theSelectionQueriesAgreeOnceARendererExists() {
+        latch();
+        // JAVA-UPSTREAM-018 recorded these as reset by creating a device. They are not: the probe
+        // that said so read each output before the route had written it.
+        assertTrue(GraphicsRenderer.isLatched(), "a created renderer latches the selection");
+        assertEquals(GraphicsRenderer.getActive(), GraphicsRenderer.getSelected(),
+                "with no fallback chain the selection is what was created");
+        List<GraphicsRendererType> available = GraphicsRenderer.available();
+        assertEquals(GraphicsRenderer.availableSet().size(), available.size(),
+                "the count route and the copy route describe the same inventory");
+        assertTrue(available.contains(GraphicsRenderer.getSelected()),
+                "and the selection is one of them");
+    }
+
+    @Test
+    void anEnvironmentThatNamesAnAbsentRendererIsRefusedRatherThanFatal() throws Exception {
+        latch();
+        Set<GraphicsRendererType> inventory = GraphicsRenderer.availableSet();
+        GraphicsRendererType absent = EnumSet.allOf(GraphicsRendererType.class).stream()
+                .filter(type -> type != GraphicsRendererType.UNKNOWN)
+                .filter(type -> !inventory.contains(type))
+                .findFirst()
+                .orElseThrow();
+        List<String> command = new java.util.ArrayList<>();
+        command.add(java.nio.file.Path.of(System.getProperty("java.home"), "bin", "java")
+                .toString());
+        String jniLibrary = System.getProperty("cna.java.jniLibrary");
+        if (jniLibrary != null && !jniLibrary.isBlank()) {
+            command.add("-Dcna.java.jniLibrary=" + jniLibrary);
+        }
+        command.add("-cp");
+        command.add(System.getProperty("java.class.path"));
+        command.add(GraphicsRendererSelectionTests.class.getName());
+        command.add("child");
+        ProcessBuilder builder = new ProcessBuilder(command).redirectErrorStream(true);
+        builder.environment().put("CNA_GRAPHICS_RENDERER", absent.name());
+        Process process = builder.start();
+        if (!process.waitFor(60, java.util.concurrent.TimeUnit.SECONDS)) {
+            process.destroyForcibly();
+            throw new AssertionError("the child did not finish within 60 seconds");
+        }
+        String output = new String(process.getInputStream().readAllBytes(),
+                java.nio.charset.StandardCharsets.UTF_8);
+        assertEquals(0, process.exitValue(), "the child must survive to report: " + output);
+        assertTrue(output.contains(CHILD_SELECTION_REFUSED),
+                "the selection route refuses the environment's renderer: " + output);
+        assertTrue(output.contains(CHILD_GAME_REFUSED),
+                "and so does creating a game, as an ordinary exception: " + output);
+    }
+
+    private static final String CHILD_SELECTION_REFUSED = "CNA_JAVA_SELECTION_REFUSED";
+    private static final String CHILD_GAME_REFUSED = "CNA_JAVA_GAME_REFUSED";
+
+    /** The child JVM, started with CNA_GRAPHICS_RENDERER naming a renderer this build lacks. */
+    public static void main(String[] arguments) {
+        if (arguments.length != 1 || !"child".equals(arguments[0])) {
+            throw new IllegalArgumentException("Expected the child marker");
+        }
+        try {
+            GraphicsRenderer.getSelected();
+            System.out.println("CNA_JAVA_SELECTION_ANSWERED");
+        } catch (IllegalStateException refused) {
+            System.out.println(CHILD_SELECTION_REFUSED);
+        }
+        try {
+            GameProbe.run(probe -> System.out.println("CNA_JAVA_GAME_RAN"));
+        } catch (RuntimeException refused) {
+            System.out.println(CHILD_GAME_REFUSED);
+        }
     }
 
     @Test

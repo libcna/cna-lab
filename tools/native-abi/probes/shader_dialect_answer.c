@@ -13,11 +13,16 @@
  *
  * Run once per renderer:
  *
- *     for r in HEADLESS SOFTWARE OPENGL4 OPENGLES3 OPENGL33; do
- *         CNA_GRAPHICS_RENDERER=$r ./build-probe/shader_dialect_answer
- *     done
+ *     ./shader_dialect_answer          (once per single-renderer artifact)
  *
- * Measured on cnanext 0a6158e4, CNA C ABI 0.21.0:
+ * Re-measured 2026-09-30 against CNA C ABI 0.35.0:
+ *
+ *     HEADLESS   dialect=UNKNOWN custom_effects=yes glsl_es_compiles=yes
+ *     OPENGLES3  dialect=GLSL_ES custom_effects=yes glsl_es_compiles=yes
+ *
+ * EasyGL now reports its dialect (CNA 6ff9d1b95); HEADLESS still answers UNKNOWN, which is
+ * accurate for a renderer that accepts source without executing it. The original measurement,
+ * on CNA C ABI 0.21.0:
  *
  *     HEADLESS   dialect=UNKNOWN custom_effects=yes shader_compiles=yes
  *     SOFTWARE   dialect=UNKNOWN custom_effects=yes shader_compiles=yes

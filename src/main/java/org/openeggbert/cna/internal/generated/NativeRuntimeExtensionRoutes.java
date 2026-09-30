@@ -108,6 +108,11 @@ public final class NativeRuntimeExtensionRoutes {
     public static native int graphicsRendererGetAutomaticFallbackExt(boolean[] outEnabled);
 
     /**
+     * cna_graphics_renderer_get_available_count_ext (core_ext.h).
+     */
+    public static native int graphicsRendererGetAvailableCountExt(long[] outCount);
+
+    /**
      * cna_graphics_renderer_get_current_name_size (core_ext.h).
      */
     public static native int graphicsRendererGetCurrentNameSize(long[] outBytes);
@@ -132,6 +137,16 @@ public final class NativeRuntimeExtensionRoutes {
      * cna_graphics_renderer_get_is_available_ext (core_ext.h).
      */
     public static native int graphicsRendererGetIsAvailableExt(int type, boolean[] outAvailable);
+
+    /**
+     * cna_graphics_renderer_get_is_latched_ext (core_ext.h).
+     */
+    public static native int graphicsRendererGetIsLatchedExt(boolean[] outLatched);
+
+    /**
+     * cna_graphics_renderer_get_selected_ext (core_ext.h).
+     */
+    public static native int graphicsRendererGetSelectedExt(int[] outType);
 
     /**
      * cna_graphics_renderer_reset_selection_for_tests_ext (core_ext.h).

@@ -190,14 +190,10 @@ final class CnaMorphTargetDataTests {
                 assertEquals(1f, data.getNormalDeltas(1).get(0).Z, 1e-5f);
 
                 // Tangents are set afterwards, which is how a pipeline that derives them works.
-                //
-                // Reading them BEFORE any are set is refused, and the refusal is wrong: CNA
-                // bounds-checks the target index against its tangent array rather than against
-                // its targets, and that array is empty until the first set. So an index that is
-                // in range is reported "outside the valid range". Reproduced and filed as
-                // JAVA-UPSTREAM-023; what a caller can do about it is set before it reads, which
-                // is what the projection documents.
-                assertThrows(IllegalArgumentException.class, () -> data.getTangentDeltas(0));
+                // Reading them before any are set is an empty answer for an in-range target: CNA
+                // once bounded the index by its tangent array instead (JAVA-UPSTREAM-023) and
+                // fixed it (BINDFIX-009).
+                assertTrue(data.getTangentDeltas(0).isEmpty());
 
                 data.setTangentDeltas(0, List.of(new Vector3(1f, 2f, 3f),
                         new Vector3(4f, 5f, 6f), new Vector3(7f, 8f, 9f)));

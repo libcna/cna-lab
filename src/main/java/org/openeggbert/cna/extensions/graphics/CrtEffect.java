@@ -30,6 +30,10 @@ public final class CrtEffect implements AutoCloseable {
     public CrtEffect(GraphicsDevice graphicsDevice) {
         Objects.requireNonNull(graphicsDevice, "graphicsDevice");
         GraphicsExtension.requireBackend();
+        if (!GraphicsExtension.isAvailable()) {
+            throw new ExtensionNotSupportedException(
+                    "CrtEffect is not available: this build has no extended graphics layer");
+        }
         effect = FacadeFactory.createExtensionEffect(
                 graphicsDevice, NativeBindings.EXTENSION_EFFECT_CRT);
     }

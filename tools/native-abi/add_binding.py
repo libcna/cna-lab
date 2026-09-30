@@ -9,7 +9,7 @@ entry cannot describe a signature CNA does not have.  The one thing that
 cannot be derived is ``ownership``: who owns what after the call, which is
 prose, is the reason the manifest is reviewed at all, and is supplied here.
 
-    python3 tools/native-abi/add_binding.py --cna-root ../../cnanext \
+    python3 tools/native-abi/add_binding.py --cna-root ../cna \
         cna_frustum_culler_ext_create="no handle; returns an owned culler handle"
 """
 

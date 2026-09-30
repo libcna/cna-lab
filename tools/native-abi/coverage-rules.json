@@ -12,6 +12,20 @@
   "rules": [
     {
       "match": {
+        "symbols": [
+          "cna_network_session_properties_clear",
+          "cna_network_session_properties_insert",
+          "cna_network_session_properties_remove_at"
+        ]
+      },
+      "classification": "XNA_BACKING",
+      "purposeReason": "The mutators of NetworkSessionProperties, which XNA declares as a fixed list of eight slots.",
+      "bindingStatus": "DELIBERATE_NON_BINDING",
+      "bindingReason": "XNA's Add, Insert, Remove, RemoveAt and Clear throw NotSupportedException because the list has a fixed size, and CNA now enforces the same (GS-007b). Java answers UnsupportedOperationException itself; binding a route that can only refuse would add a boundary without behaviour.",
+      "evidence": "Re-measured 2026-09-30 against ABI 0.35.0: a new NetworkSessionProperties reports eight unset slots; NetworkSessionNativeIntegrationTests asserts the size, the round trip through set, and the refusals."
+    },
+    {
+      "match": {
         "header": "vectors.h"
       },
       "classification": "NOT_USEFUL_IN_JAVA",
@@ -180,29 +194,6 @@
     {
       "match": {
         "symbols": [
-          "cna_post_process_chain_add_owned_pass"
-        ]
-      },
-      "classification": "CNA_EXTENSION_CANDIDATE",
-      "purposeReason": "Consumes the pass handle exactly as documented, but does not decrement the game's owned-child count that the pass's own create incremented, so cna_game_destroy answers INVALID_STATE afterwards and the game cannot be closed. Binding it would give a game a route that makes it undestroyable.",
-      "bindingStatus": "BLOCKED_UPSTREAM",
-      "bindingReason": "It consumes the pass handle as documented but does not decrement the game's owned-child count the pass's own create incremented, so the game can no longer be closed. Binding it would give a game a route that makes it undestroyable.",
-      "evidence": "JAVA-UPSTREAM-011: cna_game_destroy answers INVALID_STATE after the call, reproduced on the live CNA.",
-      "task": "JAVA-UPSTREAM-011"
-    },
-    {
-      "match": {
-        "header": "engine_layer.h"
-      },
-      "classification": "CNA_EXTENSION_CANDIDATE",
-      "purposeReason": "CNA's engine layer (PBR materials, clustered and forward lighting, shadow families, post-processing, particles, instancing, debug drawing) has no XNA 4.0 counterpart and belongs under org.openeggbert.cna.extensions.",
-      "bindingStatus": "DELIBERATE_NON_BINDING",
-      "bindingReason": "Whatever remains here after the named rules above is bound; this catch-all exists so a new engine-layer declaration is classified rather than unexplained, and the thirteen routes that stay out each carry their own rule.",
-      "evidence": "844 of engine_layer.h's 857 routes are bound and reached."
-    },
-    {
-      "match": {
-        "symbols": [
           "cna_pbr_material_ext_init"
         ]
       },
@@ -224,30 +215,14 @@
     {
       "match": {
         "symbols": [
-          "cna_graphics_renderer_get_available_count_ext",
-          "cna_graphics_renderer_get_selected_ext",
-          "cna_graphics_renderer_get_is_latched_ext"
-        ]
-      },
-      "classification": "CNA_EXTENSION_CANDIDATE",
-      "purposeReason": "Correct until a GraphicsDevice exists and reset by creating one: the count answers five and then zero for the same build while copy_available_ext keeps answering five, the selection becomes UNKNOWN, and the latch flag never becomes true. Measured before and after in renderer_selection.c identity mode, on a process that touches the selection at all. GraphicsRenderer.available() uses the zero-capacity probe instead of the count, and getActive() is the route that answers correctly after a device exists.",
-      "bindingStatus": "BLOCKED_UPSTREAM",
-      "bindingReason": "Correct until a GraphicsDevice exists and reset by creating one, so a Java route over them would answer correctly and then wrongly for the same build.",
-      "evidence": "JAVA-UPSTREAM-018, renderer_selection.c identity mode: the count answers five and then zero while copy_available_ext keeps answering five, the selection becomes UNKNOWN, and the latch flag never becomes true. GraphicsRenderer.available() uses the zero-capacity probe instead.",
-      "task": "JAVA-UPSTREAM-018"
-    },
-    {
-      "match": {
-        "symbols": [
           "cna_graphics_renderer_get_current_type"
         ]
       },
       "classification": "CNA_EXTENSION_CANDIDATE",
-      "purposeReason": "Reports the renderer this build was CONFIGURED with rather than the one running -- HEADLESS on a build configured HEADLESS, whatever CNA_GRAPHICS_RENDERER selected. Binding it would give Java a route named \"current\" that answers about something else. GraphicsRenderer.getActive() is bound instead and is right, and RendererCapabilities.getRendererName asks the device.",
-      "bindingStatus": "BLOCKED_UPSTREAM",
-      "bindingReason": "It reports the renderer the build was configured with rather than the one running, so a Java route named 'current' would answer about something else.",
-      "evidence": "JAVA-UPSTREAM-018: answers HEADLESS on a build configured HEADLESS whatever CNA_GRAPHICS_RENDERER selected. GraphicsRenderer.getActive() is bound instead.",
-      "task": "JAVA-UPSTREAM-018"
+      "purposeReason": "Reports the renderer this build was compiled with -- CNA documents it as the compiled-in renderer, which on a multi-renderer build is the default rather than the one chosen. GraphicsRenderer.getActive() answers which renderer is running, and CnaRuntime already projects the compiled-in renderer through its name route.",
+      "bindingStatus": "DELIBERATE_NON_BINDING",
+      "bindingReason": "Its answer is already reachable twice: getActive() for the running renderer and CnaRuntime's name route for the compiled-in one. A third route named 'current' would only invite reading it as the running renderer.",
+      "evidence": "core_ext.h documents cna_graphics_renderer_copy_current_name and its type sibling as the compiled-in renderer (getCurrentGraphicsRendererType is a compile-time constant). JAVA-UPSTREAM-018, which once blocked this family, was a probe artifact and is withdrawn."
     },
     {
       "match": {
@@ -403,17 +378,6 @@
       "purposeReason": "Host sensors are a CNA device extension; XNA 4.0 exposes no sensor API on the desktop profile.",
       "bindingStatus": "DELIBERATE_NON_BINDING",
       "bindingReason": "Nothing is left unbound here; this catch-all exists so a new sensors.h declaration is classified rather than unexplained."
-    },
-    {
-      "match": {
-        "prefix": "cna_camera_"
-      },
-      "classification": "CNA_EXTENSION_CANDIDATE",
-      "purposeReason": "Fully qualifiable without a camera -- create_with_test_backend_ext, set_test_state_ext and set_test_frame_ext make every route exercisable and the pixels checkable, and a 4x3 frame set through the test backend reads back out of a Texture2D texel for texel. Not bound because that qualification found a segfault: destroying a camera after a longer session kills the process, reproducibly on two renderers, and removing one cna_camera_destroy removes it (JAVA-UPSTREAM-019). Binding a family whose teardown can kill a game is worse than leaving it out. Two smaller defects came with it: try_acquire_frame_ext returns SUCCESS without writing out_acquired (JAVA-UPSTREAM-020), and create succeeds where is_supported says no (JAVA-UPSTREAM-021).",
-      "bindingStatus": "BLOCKED_UPSTREAM",
-      "bindingReason": "Fully qualifiable without a camera, and the qualification is what blocks it: destroying a camera after a longer session kills the process. Binding a family whose teardown can kill a game is worse than leaving it out.",
-      "evidence": "JAVA-UPSTREAM-019, camera_lifecycle.c: reproducible segfault in cna_camera_destroy on two renderers, and removing that one call removes it. JAVA-UPSTREAM-020 (try_acquire_frame_ext returns SUCCESS without writing out_acquired) and JAVA-UPSTREAM-021 (create succeeds where is_supported says no) came with it.",
-      "task": "JAVA-UPSTREAM-019"
     },
     {
       "match": {
@@ -984,19 +948,6 @@
     {
       "match": {
         "symbols": [
-          "cna_content_manager_load_model"
-        ]
-      },
-      "classification": "DEFERRED_RUNTIME",
-      "purposeReason": "CNA's own model loader produces a model that segfaults during teardown for any asset with a mesh part, whether the caller destroys it or leaves it to the content manager. Binding it would hand a consumer a route that kills the process, so it stays unbound until CNA is fixed.",
-      "bindingStatus": "BLOCKED_UPSTREAM",
-      "bindingReason": "CNA's own model loader produces a model that segfaults during teardown for any asset with a mesh part, whether the caller destroys it or leaves it to the content manager. Binding it would hand a consumer a route that kills the process.",
-      "evidence": "JAVA-UPSTREAM-004, retaken against the live CNA this session's predecessor ran; still reproduced. It is why CnaModel.Load does not exist.",
-      "task": "JAVA-UPSTREAM-004"
-    },
-    {
-      "match": {
-        "symbols": [
           "cna_model_create_default",
           "cna_model_create",
           "cna_model_bone_create_default",
@@ -1029,19 +980,6 @@
       "purposeReason": "The setter half of CNA's opaque C-owned model tag; see the getter.",
       "bindingStatus": "DELIBERATE_NON_BINDING",
       "bindingReason": "The setter half of the same opaque C-owned tag; see the getter."
-    },
-    {
-      "match": {
-        "symbols": [
-          "cna_model_get_content_tag_dictionary_ext"
-        ]
-      },
-      "classification": "CNA_EXTENSION_CANDIDATE",
-      "purposeReason": "Reads back the CNA_ObjectDictionary a custom ContentProcessor wrote into the .xnb as the model's Tag -- the shape XNA's own TrianglePickingSample uses, where the processor tags the model with its world-space triangles and the game picks against them. It is a CNA extension and not a void*: the handle it lends is an owned object dictionary that outlives the model, and org.openeggbert.cna.extensions.content.CnaObjectDictionary is the Java facade for exactly that handle. It was grouped with the two genuine void* routes beside it until 2026-09-01, which is why it read as a decision rather than as a block.",
-      "bindingStatus": "BLOCKED_UPSTREAM",
-      "bindingReason": "There is no way for a model in Java's hands to carry a content tag. The tag is written by CNA's own content load, and JAVA-UPSTREAM-004 blocks that loader: it produces a model that segfaults during teardown for any asset with a mesh part. A model mirrored from an XNA one by CnaModel.From carries no tag, and no route sets one, so binding this would give a game a route that answers \"no tag\" for every model it can hold.",
-      "evidence": "No cna_model_set_content_tag_* declaration exists in any CNA header at 0.21.0, so the loader is the only writer; JAVA-UPSTREAM-004's reproducer still segfaults against cnanext 96b56b0e4.",
-      "task": "JAVA-UPSTREAM-004"
     },
     {
       "match": {
@@ -1550,11 +1488,5 @@
     "DELIBERATE_NON_BINDING": "Measured and decided against: binding it would add a boundary without adding behaviour a consumer can reach, or would make an existing guarantee weaker.",
     "DEFERRED_TRACKED": "An XNA-backing route a named backlog task owns. Only a DEFERRED_RUNTIME rule carrying a task may use it, which is what keeps it from becoming a synonym for 'not looked at'."
   },
-  "pairExceptions": [
-    {
-      "size": "cna_graphics_renderer_get_available_count_ext",
-      "copy": "cna_graphics_renderer_copy_available_ext",
-      "reason": "The one pair whose halves are honestly decided apart. The copy route answers correctly at every point in a game's life; the count route is correct only until a GraphicsDevice exists and answers zero afterwards, which JAVA-UPSTREAM-018 reproduces in pure C. GraphicsRenderer.available() therefore asks the copy route with zero capacity and reads the count out of the BUFFER_TOO_SMALL answer, so the pair is half bound on purpose and the unbound half names the upstream defect."
-    }
-  ]
+  "pairExceptions": []
 }

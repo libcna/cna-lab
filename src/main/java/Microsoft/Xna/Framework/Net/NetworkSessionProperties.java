@@ -13,9 +13,11 @@ import java.util.ListIterator;
 /**
  * The optional integers a title uses to describe or to search for a session.
  *
- * <p>XNA declares {@code IList<int?>}: an unset slot is null, and a search matches a session on
- * the slots the search actually set. Java's {@link Integer} carries the same distinction, so
- * nothing is adapted for it.
+ * <p>XNA declares {@code IList<int?>} of exactly eight slots: an unset slot is null, a search
+ * matches a session on the slots the search actually set, and the list's size never changes --
+ * {@code Add}, {@code Insert}, {@code Remove}, {@code RemoveAt} and {@code Clear} throw
+ * {@code NotSupportedException}, which is {@link UnsupportedOperationException} here. Java's
+ * {@link Integer} carries the null distinction, so nothing is adapted for it.
  *
  * <p>CLR's base is {@code Object} with {@code IList<T>} as an interface, so this implements
  * {@link List} rather than extending {@link AbstractList}. The derived list operations are
@@ -188,23 +190,17 @@ public class NetworkSessionProperties implements List<Integer> {
 
     @Override
     public final void clear() {
-        NativeGamerServices.check("NetworkSessionProperties.clear",
-                NativeNetworkRoutes.networkSessionPropertiesClear(handle));
+        throw new UnsupportedOperationException("NetworkSessionProperties has a fixed size");
     }
 
     @Override
     public final void add(int index, Integer item) {
-        NativeGamerServices.check("NetworkSessionProperties.add",
-                NativeNetworkRoutes.networkSessionPropertiesInsert(
-                        handle, index, new byte[3], optional(item)));
+        throw new UnsupportedOperationException("NetworkSessionProperties has a fixed size");
     }
 
     @Override
     public final Integer remove(int index) {
-        Integer previous = item(index);
-        NativeGamerServices.check("NetworkSessionProperties.remove",
-                NativeNetworkRoutes.networkSessionPropertiesRemoveAt(handle, index));
-        return previous;
+        throw new UnsupportedOperationException("NetworkSessionProperties has a fixed size");
     }
 
     @Override

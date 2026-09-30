@@ -6,7 +6,6 @@ import Microsoft.Xna.Framework.GamerServices.AchievementCollection;
 import Microsoft.Xna.Framework.GamerServices.FriendCollection;
 import Microsoft.Xna.Framework.GamerServices.Gamer;
 import Microsoft.Xna.Framework.GamerServices.GamerProfile;
-import Microsoft.Xna.Framework.GamerServices.GamerServicesComponent;
 import Microsoft.Xna.Framework.GamerServices.GamerServicesDispatcher;
 import Microsoft.Xna.Framework.GamerServices.SignedInGamer;
 import Microsoft.Xna.Framework.Net.NetworkSession;
@@ -60,7 +59,11 @@ final class GamerServicesOwnershipStressTests {
                 "no event may be dropped across " + LIFETIMES + " game lifetimes");
     }
 
-    private static final class StressProbe extends GamerServicesComponent {
+    /**
+     * Drives the process-wide dispatcher as GamerServicesComponent does, initializing it only if
+     * no earlier suite in this JVM has: XNA refuses a second initialization.
+     */
+    private static final class StressProbe extends Microsoft.Xna.Framework.GameComponent {
 
         private boolean ran;
         private int sessions;
@@ -71,7 +74,17 @@ final class GamerServicesOwnershipStressTests {
         }
 
         @Override
+        public void Initialize() {
+            if (!Microsoft.Xna.Framework.GamerServices.GamerServicesDispatcher.getIsInitialized()) {
+                Microsoft.Xna.Framework.GamerServices.GamerServicesDispatcher.Initialize(
+                        getGame().getServices());
+            }
+            super.Initialize();
+        }
+
+        @Override
         public void Update(GameTime gameTime) {
+            Microsoft.Xna.Framework.GamerServices.GamerServicesDispatcher.Update();
             super.Update(gameTime);
             if (ran) {
                 return;
@@ -119,13 +132,21 @@ final class GamerServicesOwnershipStressTests {
                     assertTrue(achievements.getIsDisposed());
                     achievements.Dispose();
                 }
-                FriendCollection friends = gamer.GetFriends();
-                // Dispose then close then Dispose: all three are the same operation, and the
-                // second and third must be no-ops rather than a double free.
-                friends.Dispose();
-                friends.close();
-                friends.Dispose();
-                assertTrue(friends.getIsDisposed());
+                if (gamer.getIsSignedInToLive()) {
+                    FriendCollection friends = gamer.GetFriends();
+                    // Dispose then close then Dispose: all three are the same operation, and
+                    // the second and third must be no-ops rather than a double free.
+                    friends.Dispose();
+                    friends.close();
+                    friends.Dispose();
+                    assertTrue(friends.getIsDisposed());
+                } else {
+                    // A local profile has no friends list, and CNA refuses rather than
+                    // inventing an empty one.
+                    org.junit.jupiter.api.Assertions.assertThrows(
+                            Microsoft.Xna.Framework.GamerServices.GamerServicesNotAvailableException.class,
+                            gamer::GetFriends);
+                }
                 try (GamerProfile profile = gamer.GetProfile()) {
                     assertNotNull(profile);
                     profile.Dispose();
