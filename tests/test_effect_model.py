@@ -69,10 +69,12 @@ class EffectNativeIdentityTests(unittest.TestCase):
                 light=basic.DirectionalLight0;case.assertIs(light,basic.DirectionalLight0);light.Enabled=True;light.Direction=Vector3(0,-1,0);light.DiffuseColor=Vector3(.5,.6,.7);light.SpecularColor=Vector3(.8,.9,1)
                 case.assertTrue(light.Enabled);case.assertEqual(light.Direction,Vector3(0,-1,0));case.assertEqual(light.DiffuseColor,Vector3(.5,.6,.7));case.assertEqual(light.SpecularColor,Vector3(.8,.9,1))
                 basic.DiffuseColor=Vector3(.3,.4,.5);basic.EmissiveColor=Vector3(.1,.2,.3);basic.SpecularColor=Vector3(.7,.8,.9);basic.SpecularPower=12;basic.Alpha=.75
-                try:reflected_world=basic.Parameters["World"]
-                except KeyError:reflected_world=None
-                if reflected_world is not None:
-                    case.assertEqual(reflected_world.GetValueMatrix(),basic.World);reflected_world.SetValue(Matrix.CreateScale(3));case.assertEqual(basic.World,Matrix.CreateScale(3))
+                # XNA's BasicEffect keeps World in a field and writes its "World"
+                # parameter only in OnApply (lighting on); setting the parameter
+                # never moves the property. CNA 0.35 reflects the same 21 parameters.
+                case.assertEqual(basic.Parameters.Count,21);reflected_world=basic.Parameters["World"]
+                basic.OnApply();case.assertEqual(reflected_world.GetValueMatrix(),basic.World)
+                reflected_world.SetValue(Matrix.CreateScale(3));case.assertEqual(basic.World,Matrix.CreateTranslation(1,2,3))
                 basic.TextureEnabled=True;basic.Texture=texture;basic.VertexColorEnabled=True;basic.PreferPerPixelLighting=True
                 case.assertIs(basic.Texture,texture);case.assertTrue(basic.TextureEnabled);case.assertTrue(basic.VertexColorEnabled);case.assertTrue(basic.PreferPerPixelLighting)
                 clone=BasicEffect(basic);case.assertNotEqual(clone._require_handle(),basic._require_handle());case.assertEqual(clone.World,basic.World);case.assertIs(clone.Texture,texture)

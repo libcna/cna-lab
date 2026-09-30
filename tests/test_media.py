@@ -226,14 +226,22 @@ class MediaNativeTests(unittest.TestCase):
                 player.Volume = float("nan")
                 with case.assertRaises(RuntimeError):
                     player.GetTexture()
-                player.Play(video)
-                case.assertIs(player.Video, video)
-                case.assertIsNone(player.GetTexture())
-                player.Pause()
-                player.Resume()
-                player.Play(video2)
-                case.assertIs(player.Video, video2)
-                player.Stop()
+                try:
+                    player.Play(video)
+                except NativeError as error:
+                    # A build configured without CNA's optional FFmpeg decoder
+                    # answers NOT_SUPPORTED here, as video.h documents.
+                    if error.result != 6:
+                        raise
+                    observations["decoder"] = error.native_message
+                else:
+                    case.assertIs(player.Video, video)
+                    case.assertIsNone(player.GetTexture())
+                    player.Pause()
+                    player.Resume()
+                    player.Play(video2)
+                    case.assertIs(player.Video, video2)
+                    player.Stop()
                 player.Dispose()
                 observations["cached"] = (player.IsDisposed, player.IsLooped,
                                            player.IsMuted, math.isnan(player.Volume))
@@ -253,13 +261,18 @@ class MediaNativeTests(unittest.TestCase):
                 manager.Dispose()
             def Update(self, gameTime): self.Exit()
         game = VideoGame()
-        game.Run()
-        game.Dispose()
+        try:
+            game.Run()
+        finally:
+            game.Dispose()
         self.assertEqual(observations["metadata"],
                          (True, 1.5, 320, 180, 24.0,
                           VideoSoundtrackType.MusicAndDialog, 320))
         self.assertEqual(observations["cached"], (True, True, True, True))
         self.assertTrue(observations["rollback"])
+        if "decoder" in observations:
+            self.skipTest("playback not measured: this CNA build has no video decoder "
+                          f"({observations['decoder']})")
 
     def test_media_event_snapshot_reentrancy_and_exception_containment(self) -> None:
         with tempfile.NamedTemporaryFile(suffix=".wav") as fixture:

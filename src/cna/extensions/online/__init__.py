@@ -3,8 +3,8 @@
 The strict ``Microsoft.Xna.Framework.Net`` and
 ``Microsoft.Xna.Framework.GamerServices`` packages carry exactly XNA's surface.
 CNA has more: it can publish a signed-in gamer, build a session roster, hand a
-title the Guide's pending request so the title can draw it itself, and give an
-avatar a real animation clip. None of that is XNA, so none of it belongs in
+title the Guide's pending request so the title can draw it itself, and subscribe
+to one avatar description's native ``Changed`` event. None of that is XNA, so none of it belongs in
 those namespaces -- it belongs here.
 
 **Nothing in this package is used by the strict profile.** The dependency runs
@@ -26,11 +26,7 @@ package cannot sign one in.
 from __future__ import annotations
 
 from . import avatars, errors, gamers, guide, sessions
-from .avatars import (
-    animation_clip_name, avatar_body_type_content_name, enable_real_avatar_rendering,
-    draw_real_avatar, on_avatar_description_changed, preset_clip_name,
-    set_animation_clip_name, set_avatar_appearance,
-)
+from .avatars import on_avatar_description_changed
 from .errors import OnlineExtensionError, OnlineExtensionStateError
 from .gamers import (
     create_achievement, create_achievement_collection, create_friend_collection,
@@ -44,8 +40,7 @@ from .guide import (
     PendingKeyboardInput, PendingMessageBox, cancel_pending_keyboard_input,
     click_pending_message_box, pending_keyboard_input, pending_message_box,
     render_pending_keyboard_input, render_pending_message_box,
-    reset_pending_keyboard_input, reset_pending_message_box, set_guide_visible,
-    set_trial_mode, show_achievements,
+    reset_pending_keyboard_input, reset_pending_message_box, show_achievements,
 )
 from .sessions import (
     NetworkEventType, active_session_action_count, add_remote_gamer, clear_packet_queue,
@@ -60,9 +55,7 @@ from .sessions import (
 __all__ = [
     "avatars", "errors", "gamers", "guide", "sessions",
     # avatars
-    "animation_clip_name", "avatar_body_type_content_name", "draw_real_avatar",
-    "enable_real_avatar_rendering", "on_avatar_description_changed",
-    "preset_clip_name", "set_animation_clip_name", "set_avatar_appearance",
+    "on_avatar_description_changed",
     # errors
     "OnlineExtensionError", "OnlineExtensionStateError",
     # gamers
@@ -77,7 +70,7 @@ __all__ = [
     "click_pending_message_box", "pending_keyboard_input", "pending_message_box",
     "render_pending_keyboard_input", "render_pending_message_box",
     "reset_pending_keyboard_input", "reset_pending_message_box",
-    "set_guide_visible", "set_trial_mode", "show_achievements",
+    "show_achievements",
     # sessions
     "NetworkEventType", "active_session_action_count", "add_remote_gamer", "clear_packet_queue",
     "create_available_session", "create_available_session_collection",

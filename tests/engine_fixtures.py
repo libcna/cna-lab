@@ -1,19 +1,20 @@
-"""Shared harness for the engine-layer tests.
+"""Shared harness for the ``cna.extensions.engine`` tests.
 
 Two facts decide what an engine test can prove, and they are different
 questions, so both are measured rather than one standing in for the other:
 
 ``ENGINE_PRESENT``
-    the loaded CNA build contains an engine layer at all. A build configured
-    without one still exports every engine symbol, so this is read from
-    ``cna_engine_layer_get_version`` and never from the symbol table.
+    the loaded CNA build contains the graphics extension layer (``CNA_CNAEXT``)
+    at all. A build configured without it still exports every symbol, so this
+    is read from ``cna_graphics_ext_is_available`` and never from the symbol
+    table.
 ``RENDERS``
     the active renderer executes a real graphics pipeline, so a draw can be
     asked what colour it produced.
 
 The control artifact answers ``False`` to the first. That is not a gap in the
 tests: it is the case the public API has to report accurately, and
-:class:`EngineAbsenceTests` asserts it does.
+:class:`DebugAbsenceTests` asserts it does.
 """
 
 from __future__ import annotations
@@ -57,9 +58,9 @@ ENGINE_GPU = ENGINE_PRESENT and RENDERS
 
 requires_native = unittest.skipUnless(NATIVE, "needs a configured CNA library")
 requires_engine = unittest.skipUnless(
-    ENGINE_PRESENT, "the loaded CNA build has no engine layer")
+    ENGINE_PRESENT, "the loaded CNA build has no graphics extension layer")
 requires_engine_gpu = unittest.skipUnless(
-    ENGINE_GPU, "needs a CNA build with an engine layer on a rasterizing renderer")
+    ENGINE_GPU, "needs a CNA build with the graphics extension layer on a rasterizing renderer")
 
 
 def in_game(body):
@@ -103,49 +104,4 @@ def in_game(body):
         raise failure[0]
     if not game.done:
         raise AssertionError("Draw never ran")
-    return observed
-
-
-def over_frames(body, frames: int = 8):
-    """Runs ``body(game, device, observed, frame)`` once per frame, ``frames`` times.
-
-    Some engine state only advances across frames rather than inside one: a GPU
-    timer query the chain opened in one frame is collected in a later one, so a
-    measurement taken entirely inside a single ``Draw`` would see it as absent
-    and conclude the feature does not work. ``frame`` counts from one.
-    """
-    observed: dict = {}
-    failure: list[BaseException] = []
-
-    class Probe(Game):
-        def __init__(self) -> None:
-            super().__init__()
-            self.manager = GraphicsDeviceManager(self)
-            self.frame = 0
-
-        def Draw(self, gameTime) -> None:
-            if failure or self.frame >= frames:
-                self.Exit()
-                return
-            self.frame += 1
-            try:
-                body(self, self.GraphicsDevice, observed, self.frame)
-            except BaseException as error:
-                failure.append(error)
-            if self.frame >= frames:
-                self.Exit()
-
-        def Update(self, gameTime) -> None:
-            if failure:
-                self.Exit()
-
-    game = Probe()
-    try:
-        game.Run()
-    finally:
-        game.Dispose()
-    if failure:
-        raise failure[0]
-    if game.frame < frames:
-        raise AssertionError(f"only {game.frame} of {frames} frames ran")
     return observed

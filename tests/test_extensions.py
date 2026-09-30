@@ -133,11 +133,10 @@ class ExtensionSeparationTests(unittest.TestCase):
             [])
 
     def test_the_gate_reads_every_engine_module(self) -> None:
-        """The family opened this session is inside the surface the gate walks."""
+        """The engine family is inside the surface the gate walks."""
         modules = set(verify_extensions.audit()["modules"])
-        for name in ("cna.extensions.engine", "cna.extensions.engine.clustered",
-                     "cna.extensions.engine.probes", "cna.extensions.engine.culling",
-                     "cna.extensions.engine.debug"):
+        for name in ("cna.extensions.engine", "cna.extensions.engine.ascii",
+                     "cna.extensions.engine.debug", "cna.extensions.engine.errors"):
             self.assertIn(name, modules, name)
 
     def test_xna_namespace_never_imports_the_extension_profile(self) -> None:

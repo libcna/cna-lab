@@ -12,7 +12,7 @@ from Microsoft.Xna.Framework import (
 )
 from Microsoft.Xna.Framework.GamerServices import GamerServicesComponent
 from Microsoft.Xna.Framework.Graphics import (
-    CubeMapFace, DepthFormat, OcclusionQuery, RenderTargetBinding,
+    CubeMapFace, DepthFormat, GraphicsProfile, OcclusionQuery, RenderTargetBinding,
     RenderTargetCube, RenderTargetUsage, SurfaceFormat, TextureCube,
 )
 from Microsoft.Xna.Framework.Input.Touch import (
@@ -111,6 +111,9 @@ class Milestone8NativeTests(unittest.TestCase):
             def __init__(self):
                 super().__init__()
                 self.manager = GraphicsDeviceManager(self)
+                # OcclusionQuery is HiDef-only in XNA, and CNA enforces the
+                # profile; the Reach refusal is asserted below.
+                self.manager.GraphicsProfile = GraphicsProfile.HiDef
                 self.gamer = GamerServicesComponent(self)
                 self.Components.Add(self.gamer)
                 self.completed = False
@@ -164,6 +167,7 @@ class Milestone8NativeTests(unittest.TestCase):
                 cube.Dispose(); cube.Dispose()
                 testcase.assertTrue(cube.IsDisposed)
 
+                testcase.assertEqual(device.GraphicsProfile, GraphicsProfile.HiDef)
                 query = OcclusionQuery(device)
                 testcase.assertFalse(query.IsComplete)
                 with testcase.assertRaises(RuntimeError):
@@ -235,10 +239,39 @@ class Milestone8NativeTests(unittest.TestCase):
                 self.Exit()
 
         game = MilestoneGame()
-        game.Run()
-        self.assertTrue(game.completed)
-        self.assertTrue(game.gamer._initialized)
-        game.Dispose()
+        try:
+            game.Run()
+            self.assertTrue(game.completed)
+            self.assertTrue(game.gamer._initialized)
+        finally:
+            game.Dispose()
+
+    def test_occlusion_query_is_refused_on_reach_as_xna_refuses_it(self):
+        observed = {}
+
+        class ReachGame(Game):
+            def __init__(self):
+                super().__init__()
+                self.manager = GraphicsDeviceManager(self)
+
+            def LoadContent(self):
+                observed["profile"] = self.GraphicsDevice.GraphicsProfile
+                try:
+                    OcclusionQuery(self.GraphicsDevice).Dispose()
+                    observed["query"] = "created"
+                except NativeError as error:
+                    observed["query"] = error.result
+
+            def Update(self, gameTime: GameTime):
+                self.Exit()
+
+        game = ReachGame()
+        try:
+            game.Run()
+        finally:
+            game.Dispose()
+        self.assertEqual(observed["profile"], GraphicsProfile.Reach)
+        self.assertEqual(observed["query"], 6, "CNA_RESULT_NOT_SUPPORTED")
 
 
 if __name__ == "__main__":

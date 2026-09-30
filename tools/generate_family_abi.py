@@ -73,8 +73,12 @@ class Family:
 #: Every family this generator owns, in the order they must be generated: a
 #: family may import the structures of one declared before it.
 FAMILIES = (
-    Family("engine", ("engine_layer.h",),
-           extra_constant_prefixes=("CNA_PBR_TEXTURE_", "CNA_ASCII_QUANTIZE_MODE_")),
+    # CNA retired engine_layer.h at ABI 0.30 (MOD-RETIRE-1) and kept what this
+    # family still projects -- DebugDraw and the ASCII post-process effect -- in
+    # graphics_ext.h. The identifier stays "engine" because it names the public
+    # ``cna.extensions.engine`` package, not the header.
+    Family("engine", ("graphics_ext.h",),
+           extra_constant_prefixes=("CNA_DEBUG_DRAW_",)),
     Family("devices", ("sensors.h", "devices.h")),
     Family("input", ("input_text.h", "input_cursor.h", "input_joystick.h",
                      "input_haptics.h", "input_devices.h"),
@@ -278,7 +282,7 @@ def _dependency_headers(header: Path) -> list[Path]:
     """Every canonical header alongside this one, for resolving referenced types.
 
     An engine structure embeds types other headers declare -- a bounding box, a
-    texture transform, a quality identity. Reading only ``engine_layer.h`` would
+    texture transform, a quality identity. Reading only the family header would
     leave those unresolvable and invite a hand-written stand-in, which is the
     transcription this generator exists to remove.
     """
@@ -393,11 +397,9 @@ def generate(family: Family, include: Path) -> tuple[str, str]:
         structures.append((name, _fields(body)))
     declared = {name for name, _ in structures}
 
-    # A structure an engine *route* takes but no engine structure embeds. The
-    # PBR material is the case that matters: every route that applies, extracts
-    # or compares one takes it by pointer, and it is declared in graphics_ext.h.
-    # Finding it by walking the routes rather than naming it here means the next
-    # such type arrives without an edit.
+    # A structure a family *route* takes but no family structure embeds. Finding
+    # it by walking the routes rather than naming it here means the next such
+    # type arrives without an edit.
     for declaration in [row for path in headers for row in parse_header(path)]:
         for parameter in declaration.parameters:
             spelling = parameter.type_text
@@ -574,6 +576,13 @@ def generate(family: Family, include: Path) -> tuple[str, str]:
                 for part in parameters)
             callback_lines.append(f"    \"{name}\": {flags!r},")
         callback_lines.append("}")
+    else:
+        # A family with no callbacks still publishes both tables, empty, so every
+        # consumer reads every family the same way.
+        callback_lines.append("")
+        callback_lines.append("#: This family hands CNA no function pointers.")
+        callback_lines.append(f"{family.prefix}_CALLBACKS = ()")
+        callback_lines.append(f"{family.prefix}_CALLBACK_CONST_PARAMETERS = {{}}")
     lines.extend(callback_lines)
     lines.append("")
     lines.append("# --- constants derived from a generated layout ------------------------------")

@@ -126,21 +126,6 @@ class ShippedRulesTests(unittest.TestCase):
         self.assertEqual(diagnostics, [], "\n".join(
             f"{entry['kind']} {entry['rule']}" for entry in diagnostics))
 
-    def test_the_three_ownership_transfers_are_all_deliberate_non_bindings(self) -> None:
-        """The routes the shadowed rule names, checked as the census classifies them."""
-        import json
-
-        document = json.loads(census.RULES_PATH.read_text(encoding="utf-8"))
-        declarations = self._declarations()
-        rows = {row["route"]: row
-                for row in census.classify(declarations, set(), document["rules"])}
-        for route in ("cna_post_process_effect_pass_create_owning",
-                      "cna_post_process_chain_add_owned_pass",
-                      "cna_skybox_set_owned_environment"):
-            self.assertIn(route, rows, route)
-            self.assertEqual(rows[route]["rule"], "engine-c-lifetime-transfer", route)
-            self.assertEqual(rows[route]["purpose"], "MANAGED_BY_DESIGN", route)
-
     @staticmethod
     def _declarations():
         """The canonical routes, from the census report this repository ships.
@@ -175,7 +160,8 @@ class NewRouteFalsifiability(unittest.TestCase):
         return census.classify({name: _Declaration(header)}, set(), rules)[0]
 
     def test_a_new_engine_route_is_unreviewed(self) -> None:
-        row = self._classify("cna_brand_new_engine_thing_create", "engine_layer.h")
+        """``graphics_ext.h`` is the selected engine family, with no blanket rule."""
+        row = self._classify("cna_brand_new_engine_thing_create", "graphics_ext.h")
         self.assertEqual(row["status"], "UNREVIEWED")
         self.assertIsNone(row["rule"])
 
@@ -186,15 +172,15 @@ class NewRouteFalsifiability(unittest.TestCase):
     def test_a_new_route_in_a_header_with_a_whole_header_decision_inherits_it(self) -> None:
         """The deliberate exception, named so it is a decision and not an oversight.
 
-        ``graphics_ext.h`` is outside the selected XNA 4.0 profile as a *header*,
-        with that written down, so a route added to it inherits the same
-        decision correctly. That is different in kind from a catch-all matching a
-        name *suffix* across twenty families, which is why one is kept and the
-        other was removed.
+        ``models.h`` -- CNA's native model runtime -- is outside the selected
+        profile as a *header*, with that written down, so a route added to it
+        inherits the same decision correctly. That is different in kind from a
+        catch-all matching a name *suffix* across twenty families, which is why
+        one is kept and the other was removed.
         """
-        row = self._classify("cna_brand_new_thing_ext", "graphics_ext.h")
+        row = self._classify("cna_brand_new_model_thing", "models.h")
         self.assertEqual(row["status"], "DELIBERATE_NON_BINDING")
-        self.assertEqual(row["rule"], "modern-graphics-extensions")
+        self.assertEqual(row["rule"], "native-models")
 
     #: The suffix-only rules this repository has deliberately accepted, and why
     #: each is a decision that really does cover everything it reaches.
@@ -208,7 +194,7 @@ class NewRouteFalsifiability(unittest.TestCase):
         "value-struct-initialisers":
             "three whole route-name tails naming one operation -- filling a "
             "caller-owned value structure -- with an exclusive claim, and every "
-            "engine family that does import an initialiser claims it first",
+            "family that does import an initialiser claims it first",
     }
 
     def test_no_new_suffix_only_rule_appears_unnoticed(self) -> None:

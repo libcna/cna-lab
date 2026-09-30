@@ -33,7 +33,6 @@
 #include "CNA/C/curve.h"
 #include "CNA/C/cnb.h"
 #include "CNA/C/content.h"
-#include "CNA/C/engine_layer.h"
 #include "CNA/C/graphics_ext.h"
 #include "CNA/C/sensors.h"
 #include "CNA/C/devices.h"

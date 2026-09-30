@@ -22,9 +22,9 @@ from Microsoft.Xna.Framework.Graphics import (
     BasicEffect, BufferUsage, CubeMapFace, DepthStencilState, IndexBuffer,
     IndexElementSize, PrimitiveType, RasterizerState, RenderTarget2D, RenderTargetCube,
     SpriteBatch, SpriteEffects, SurfaceFormat, Texture2D, Texture3D, TextureCube,
-    VertexBuffer, VertexPositionColor,
+    VertexBuffer, VertexPositionColor, GraphicsProfile,
 )
-from _cna_native.errors import NativeUnavailableError
+from _cna_native.errors import NativeError, NativeUnavailableError
 from _cna_native.runtime_identity import runtime_identity
 
 
@@ -53,13 +53,21 @@ def _clip_triangle(color: Color) -> list[VertexPositionColor]:
 
 @unittest.skipUnless(RENDERS, "the loaded CNA build has no rasterizing renderer")
 class RenderedPixelTests(unittest.TestCase):
-    def _run(self, body) -> dict:
+    """Pixels read back from the rendered frame.
+
+    XNA's GetBackBufferData and Texture3D are HiDef features -- the IL checks
+    ``_profileCapabilities.GetBackBufferData`` -- and CNA enforces the profile,
+    so these games ask for HiDef; the Reach refusal is asserted separately.
+    """
+
+    def _run(self, body, profile=GraphicsProfile.HiDef) -> dict:
         observed: dict[str, object] = {}
 
         class Probe(Game):
             def __init__(self) -> None:
                 super().__init__()
                 self.manager = GraphicsDeviceManager(self)
+                self.manager.GraphicsProfile = profile
                 self.done = False
 
             def Draw(self, gameTime) -> None:
@@ -137,7 +145,11 @@ class RenderedPixelTests(unittest.TestCase):
             observed["buffered"] = draw(
                 lambda: device.DrawPrimitives(PrimitiveType.TriangleList, 0, 1))
 
+            # XNA refuses SetData on a bound buffer (no Discard/NoOverwrite), and so
+            # does CNA: unbind, write, rebind.
+            device.SetVertexBuffer(None)
             vertices.SetData(_clip_triangle(buffered_indexed))
+            device.SetVertexBuffer(vertices)
             device.Indices = indices
             observed["buffered_indexed"] = draw(
                 lambda: device.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, 3, 0, 1))
@@ -268,6 +280,19 @@ class RenderedPixelTests(unittest.TestCase):
             target.Dispose()
 
         self.assertTrue(self._run(body)["bound"])
+
+    def test_reach_refuses_back_buffer_readback_as_xna_does(self) -> None:
+        def body(game, device, observed):
+            observed["profile"] = device.GraphicsProfile
+            try:
+                self._centre(device)
+                observed["readback"] = "accepted"
+            except NativeError as error:
+                observed["readback"] = error.result
+
+        observed = self._run(body, GraphicsProfile.Reach)
+        self.assertEqual(observed["profile"], GraphicsProfile.Reach)
+        self.assertEqual(observed["readback"], 6, "CNA_RESULT_NOT_SUPPORTED")
 
     def test_texture3d_round_trips_every_voxel(self) -> None:
         def body(game, device, observed):

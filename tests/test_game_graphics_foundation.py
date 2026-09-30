@@ -189,7 +189,14 @@ class NativeGraphicsFoundationTests(unittest.TestCase):
                 testcase.assertEqual(device.VertexSamplerStates.Count,
                                      0 if device.GraphicsProfile == GraphicsProfile.Reach else 4)
 
+                # Reach has no separate alpha blending, and CNA refuses it the
+                # way XNA's Reach validation does.
+                separate = BlendState(); separate.ColorSourceBlend = Blend.SourceAlpha
+                if device.GraphicsProfile == GraphicsProfile.Reach:
+                    with testcase.assertRaises(NativeError):
+                        device.BlendState = separate
                 state = BlendState(); state.ColorSourceBlend = Blend.SourceAlpha
+                state.AlphaSourceBlend = Blend.SourceAlpha
                 device.BlendState = state
                 testcase.assertIs(device.BlendState, state)
                 with testcase.assertRaises(RuntimeError): state.ColorSourceBlend = Blend.One
@@ -226,7 +233,8 @@ class NativeGraphicsFoundationTests(unittest.TestCase):
                     device.DrawIndexedPrimitives(PrimitiveType.TriangleList,
                                                  0, 0, 3, 0, 1)
                 except NativeError as error:
-                    testcase.assertEqual(error.result, 12)  # HEADLESS has no visible 3D route.
+                    # No effect applied: XNA's InvalidOperationException, CNA's INVALID_STATE.
+                    testcase.assertEqual(error.result, 3)
 
                 self.target = RenderTarget2D(device, 8, 8)
                 testcase.assertEqual((self.target.Width, self.target.Height,

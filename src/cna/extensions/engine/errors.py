@@ -1,21 +1,22 @@
 """What went wrong, in categories that say what a caller can do about it.
 
-These are **CNA** errors, not XNA ones. The engine layer has no XNA counterpart
-at all, so translating its refusals into ``NotSupportedException`` or
-``InvalidOperationException`` would claim an equivalence that does not exist and
-would throw away the reason CNA gave.
+These are **CNA** errors, not XNA ones. DebugDraw and the ASCII effect have no
+XNA counterpart at all, so translating their refusals into
+``NotSupportedException`` or ``InvalidOperationException`` would claim an
+equivalence that does not exist and would throw away the reason CNA gave.
 
 The distinction the whole family turns on is between two answers that share one
 CNA result code:
 
-* :class:`EngineUnavailableError` -- **this build has no engine layer.** Every
-  engine route is exported in every CNA build, and the ones needing a native
-  engine object answer ``CNA_RESULT_NOT_SUPPORTED`` when the layer was
-  configured out. Nothing about the machine or the renderer will change that.
+* :class:`EngineUnavailableError` -- **this build has no graphics extension
+  layer** (CNA was configured without ``CNA_CNAEXT``). Every route is exported
+  in every CNA build, and the ones needing the layer answer
+  ``CNA_RESULT_NOT_SUPPORTED`` when it was configured out. Nothing about the
+  machine or the renderer will change that.
 * :class:`EngineUnsupportedError` -- **this renderer or device cannot do it.**
-  The engine layer is present and answered; the capability is not there.
+  The layer is present and answered; the capability is not there.
 
-Which one applies is measured by asking ``cna_engine_layer_get_version``, not
+Which one applies is measured by asking ``cna_graphics_ext_is_available``, not
 inferred from the renderer's name. The exact result code, CNA's error category
 and CNA's own diagnostic stay on every instance.
 """
@@ -31,7 +32,6 @@ __all__ = [
     "EngineDisposedError",
     "EngineThreadError",
     "EngineInternalError",
-    "ComputeShaderCompileError",
 ]
 
 
@@ -53,10 +53,10 @@ class EngineError(Exception):
 
 
 class EngineUnavailableError(EngineError):
-    """The loaded CNA build contains no engine layer.
+    """The loaded CNA build contains no graphics extension layer.
 
-    Measured, not guessed: ``cna_engine_layer_get_version`` answered zero. Every
-    engine route still exists as a symbol, which is what keeps one recorded ABI
+    Measured, not guessed: ``cna_graphics_ext_is_available`` answered false.
+    Every route still exists as a symbol, which is what keeps one recorded ABI
     baseline meaningful across build options, so symbol presence proves nothing
     here. :func:`cna.extensions.engine.is_available` reports the same fact
     without raising.
@@ -64,7 +64,7 @@ class EngineUnavailableError(EngineError):
 
 
 class EngineUnsupportedError(EngineError):
-    """The engine layer is present and this renderer or device cannot do it.
+    """The extension layer is present and this renderer or device cannot do it.
 
     A capability boundary, not a defect and not a missing binding. Where CNA
     offers a support query the public object exposes it, so a caller can ask
@@ -75,8 +75,7 @@ class EngineUnsupportedError(EngineError):
 class EngineStateError(EngineError):
     """The object is not in a state where this operation is valid.
 
-    Ending a pass that never began, sampling a shadow map mid-render, reading a
-    timer result that has not arrived.
+    Ending a debug batch that never began, for example.
     """
 
 
@@ -99,7 +98,7 @@ class EngineDisposedError(EngineError):
 class EngineThreadError(EngineError):
     """The operation ran on a thread CNA does not allow it on.
 
-    Engine work is graphics-thread affine. This binding does not dispatch calls
+    Graphics work is graphics-thread affine. This binding does not dispatch calls
     to another thread on the caller's behalf, because doing so would hide the
     contract rather than keep it.
     """
@@ -111,20 +110,4 @@ class EngineInternalError(EngineError):
     Out of memory, an internal invariant, a platform service, a shutdown in
     progress, or a handle this binding should never have passed. Kept distinct
     so it is never mistaken for a statement about the caller's arguments.
-    """
-
-
-class ComputeShaderCompileError(EngineInternalError):
-    """Compute shader source that the renderer's compiler rejected.
-
-    A subclass rather than a sibling, and deliberately so. CNA answers
-    ``CNA_RESULT_INTERNAL`` for a source that does not compile -- which is not
-    the category a caller's own bad shader belongs in -- and this binding does
-    not relabel it: ``result`` is still 12 and ``except EngineInternalError``
-    still catches this. What the subclass adds is the ability to tell a compiler
-    diagnostic apart from an allocation failure without parsing a message.
-
-    ``native_message`` carries the compiler log verbatim.
-    ``docs/engine-upstream-findings.md`` records both the category and the fact
-    that ``engine_layer.h`` documents creation as succeeding here.
     """

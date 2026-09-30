@@ -1,14 +1,13 @@
 """Debug drawing, checked by counting lines rather than by looking at pixels.
 
 Every shape's line count is exact and determined by its arguments, so what a
-gizmo built can be asserted without a rasterizer deciding anything: a box is
-twelve, a cross three, a sphere three rings of its clamped segment count, a
-probe volume its box plus a cross per probe. :mod:`tests.engine_oracles` states
-each of those independently, and the vertices themselves are read back and
+shape built can be asserted without a rasterizer deciding anything: a box is
+twelve, a cross three, a sphere three rings of its clamped segment count.
+:mod:`tests.engine_oracles` states each of those independently, and the vertices themselves are read back and
 checked against the geometry they should have.
 
-The drawer needs a device, so these need a build with an engine layer; the draw
-itself needs a renderer and is separated out.
+The drawer needs a device, so these need a build with the graphics extension
+layer (``CNA_CNAEXT``); the draw itself needs a renderer and is separated out.
 """
 
 from __future__ import annotations
@@ -21,11 +20,8 @@ from Microsoft.Xna.Framework import (
 )
 
 from cna.extensions.engine import (
-    AsciiEffect, AsciiPass, AsciiQuantizeMode, CascadedShadowMap,
-    ClusteredLightGrid, DEBUG_DRAW_BOX_EDGE_COUNT, DEBUG_DRAW_DEFAULT_SEGMENTS,
-    DEBUG_DRAW_MAXIMUM_SEGMENTS, DEBUG_DRAW_MINIMUM_SEGMENTS, DebugDraw,
-    DebugLineVertex, DirectionalLight, LightProbeVolume, PointLight, ShadowQuality,
-    SpotLight,
+    AsciiEffect, AsciiQuantizeMode, DEBUG_DRAW_BOX_EDGE_COUNT, DEBUG_DRAW_DEFAULT_SEGMENTS,
+    DEBUG_DRAW_MAXIMUM_SEGMENTS, DEBUG_DRAW_MINIMUM_SEGMENTS, DebugDraw, DebugLineVertex,
 )
 from cna.extensions.engine.errors import (
     EngineDisposedError, EngineError, EngineUnavailableError,
@@ -255,178 +251,10 @@ class DebugDrawShapeTests(unittest.TestCase):
         self.assertEqual(observed["raised"], "EngineDisposedError")
 
 
-@requires_engine
-class DebugGizmoTests(unittest.TestCase):
-    """Each gizmo's line count, against the geometry it is made of."""
-
-    def _drawn(self, body):
-        def run(game, device, observed):
-            with DebugDraw(device) as debug:
-                debug.begin(VIEW, PROJECTION)
-                body(debug, device, observed)
-
-        return in_game(run)
-
-    def test_a_point_light_is_a_sphere_at_its_reach_and_a_cross(self) -> None:
-        from dataclasses import replace
-
-        light = replace(PointLight.default(), position=Vector3(1.0, 2.0, -3.0),
-                        range_=4.0)
-
-        def body(debug, device, out):
-            debug.add_point_light_gizmo(light, RED)
-            out.update(count=debug.line_count, vertices=debug.vertices(True))
-
-        observed = self._drawn(body)
-        self.assertEqual(observed["count"], oracle.debug_point_light_lines())
-        # Every point is within the light's reach of its position, and the
-        # furthest is exactly at it.
-        distances = [math.dist((vertex.position.X, vertex.position.Y,
-                                vertex.position.Z), (1.0, 2.0, -3.0))
-                     for vertex in observed["vertices"]]
-        self.assertAlmostEqual(max(distances), 4.0, places=4)
-
-    def test_a_spot_light_is_two_cones_of_four_ribs_each(self) -> None:
-        from dataclasses import replace
-
-        light = replace(SpotLight.default(), position=Vector3(0.0, 5.0, 0.0),
-                        direction=Vector3(0.0, -1.0, 0.0), range_=6.0,
-                        inner_angle=0.2, outer_angle=0.5)
-        for segments in (8, 24, 1000):
-            def body(debug, device, out, segments=segments):
-                debug.add_spot_light_gizmo(light, RED, segments)
-                out.update(count=debug.line_count, vertices=debug.vertices(True))
-
-            observed = self._drawn(body)
-            with self.subTest(segments=segments):
-                self.assertEqual(observed["count"],
-                                 oracle.debug_spot_light_lines(segments))
-                # Eight lines start at the apex: four ribs on each of the two
-                # cones, whatever the segment count.
-                apex = (0.0, 5.0, 0.0)
-                pairs = list(zip(observed["vertices"][::2],
-                                 observed["vertices"][1::2]))
-                ribs = [end for start, end in pairs
-                        if math.dist((start.position.X, start.position.Y,
-                                      start.position.Z), apex) < 1e-4]
-                self.assertEqual(len(ribs), 8)
-                # And they end on two different radii, because the two cones
-                # have different half-angles.
-                radii = sorted({round(math.hypot(end.position.X, end.position.Z), 4)
-                                for end in ribs})
-                self.assertEqual(len(radii), 2)
-                self.assertAlmostEqual(radii[0], 6.0 * math.tan(0.2), places=3)
-                self.assertAlmostEqual(radii[1], 6.0 * math.tan(0.5), places=3)
-
-    def test_a_directional_light_is_a_shaft_and_an_arrowhead(self) -> None:
-        from dataclasses import replace
-
-        light = replace(DirectionalLight.default(),
-                        direction=Vector3(0.0, -1.0, 0.0))
-
-        def body(debug, device, out):
-            debug.add_directional_light_gizmo(light, Vector3(0.0, 0.0, 0.0), 4.0, RED)
-            out.update(count=debug.line_count, vertices=debug.vertices(True))
-
-        observed = self._drawn(body)
-        self.assertEqual(observed["count"], oracle.debug_directional_light_lines())
-        # The shaft runs from four units back along the direction to the point.
-        shaft_start, shaft_end = observed["vertices"][0], observed["vertices"][1]
-        self.assertAlmostEqual(shaft_start.position.Y, 4.0, places=4)
-        self.assertAlmostEqual(shaft_end.position.Y, 0.0, places=4)
-
-    def test_a_probe_volume_is_its_box_and_a_cross_per_probe(self) -> None:
-        def body(debug, device, out):
-            with LightProbeVolume(BOX, 3, 2, 4) as volume:
-                debug.add_probe_volume_gizmo(volume, RED, 0.25)
-                # Indexed by the grid's own flat order, so a transposed lattice
-                # would compare against a different position rather than a
-                # missing one.
-                positions = [None] * volume.probe_count
-                for z in range(4):
-                    for y in range(2):
-                        for x in range(3):
-                            positions[oracle.probe_volume_index(3, 2, x, y, z)] = \
-                                volume.probe_position(x, y, z)
-                out.update(count=debug.line_count, probes=volume.probe_count,
-                           positions=positions, vertices=debug.vertices(True))
-
-        observed = self._drawn(body)
-        self.assertEqual(observed["count"],
-                         oracle.debug_probe_volume_lines(observed["probes"]))
-        # The box first, then three lines per probe, in the grid's own flat
-        # order -- x fastest, then y, then z. Checked as a sequence rather than
-        # as a set, because a set would agree with a transposed lattice.
-        pairs = list(zip(observed["vertices"][::2], observed["vertices"][1::2]))
-        crosses = pairs[DEBUG_DRAW_BOX_EDGE_COUNT:]
-        self.assertEqual(len(crosses), 3 * observed["probes"])
-        for z in range(4):
-            for y in range(2):
-                for x in range(3):
-                    flat = oracle.probe_volume_index(3, 2, x, y, z)
-                    start, end = crosses[flat * 3]
-                    position = observed["positions"][flat]
-                    self.assertAlmostEqual(start.position.X, position.X - 0.25,
-                                           places=4, msg=f"probe ({x}, {y}, {z})")
-                    self.assertAlmostEqual(end.position.X, position.X + 0.25,
-                                           places=4, msg=f"probe ({x}, {y}, {z})")
-                    self.assertAlmostEqual(start.position.Y, position.Y, places=4)
-                    self.assertAlmostEqual(start.position.Z, position.Z, places=4)
-
-    def test_a_cluster_grid_is_one_box_per_slice(self) -> None:
-        def body(debug, device, out):
-            with ClusteredLightGrid(device, 3, 2, 5) as grid:
-                grid.set_projection(PROJECTION, 0.35, 47.5)
-                debug.add_cluster_slice_gizmo(grid, Matrix.Identity, RED)
-                out.update(count=debug.line_count, slices=grid.slice_count)
-
-        observed = self._drawn(body)
-        self.assertEqual(observed["count"],
-                         oracle.debug_cluster_slice_lines(observed["slices"]))
-
-    def test_a_grid_with_no_projection_draws_nothing(self) -> None:
-        """It has no shape yet, so there is nothing to draw and nothing to refuse."""
-        def body(debug, device, out):
-            with ClusteredLightGrid(device, 3, 2, 5) as grid:
-                debug.add_cluster_slice_gizmo(grid, Matrix.Identity, RED)
-                out["count"] = debug.line_count
-
-        self.assertEqual(self._drawn(body)["count"], 0)
-
-    def test_it_refuses_the_wrong_kind_of_engine_object(self) -> None:
-        def body(debug, device, out):
-            for call in (lambda: debug.add_point_light_gizmo(object(), RED),
-                         lambda: debug.add_spot_light_gizmo(object(), RED),
-                         lambda: debug.add_directional_light_gizmo(
-                             object(), Vector3(0.0, 0.0, 0.0), 1.0, RED),
-                         lambda: debug.add_probe_volume_gizmo(object(), RED),
-                         lambda: debug.add_cluster_slice_gizmo(
-                             object(), Matrix.Identity, RED),
-                         lambda: debug.add_cascade_gizmo(object(), RED)):
-                try:
-                    call()
-                    out.setdefault("results", []).append("no error")
-                except TypeError:
-                    out.setdefault("results", []).append("TypeError")
-
-        self.assertEqual(self._drawn(body)["results"], ["TypeError"] * 6)
-
 
 @requires_engine_gpu
 class DebugDrawRenderingTests(unittest.TestCase):
     """The parts that need a rasterizer."""
-
-    def test_a_cascade_gizmo_is_one_frustum_per_cascade(self) -> None:
-        def body(game, device, out):
-            with DebugDraw(device) as debug, \
-                    CascadedShadowMap(device, ShadowQuality.Low, 4) as cascades:
-                debug.begin(VIEW, PROJECTION)
-                debug.add_cascade_gizmo(cascades, RED)
-                out.update(count=debug.line_count, cascades=cascades.cascade_count)
-
-        observed = in_game(body)
-        self.assertEqual(observed["count"],
-                         oracle.debug_cascade_lines(observed["cascades"]))
 
     def test_ending_a_batch_draws_it_and_clears_both_lists(self) -> None:
         def body(game, device, out):
@@ -483,10 +311,11 @@ class StandaloneAsciiEffectTests(unittest.TestCase):
         self.assertEqual(observed["mode"], AsciiQuantizeMode.BlackAndWhite)
         self.assertFalse(observed["closed"])
 
-    def test_constructing_one_with_no_device_says_where_to_get_the_pass_s(self) -> None:
-        with self.assertRaises(TypeError) as caught:
-            AsciiEffect()
-        self.assertIn("AsciiPass.ascii_effect", str(caught.exception))
+    def test_constructing_one_needs_a_graphics_device(self) -> None:
+        with self.assertRaises(TypeError):
+            AsciiEffect()  # type: ignore[call-arg]
+        with self.assertRaises(TypeError):
+            AsciiEffect(object())
 
     def test_the_destination_rectangle_bounds_where_the_glyphs_land(self) -> None:
         """Rendered, because the grid dimensions cannot see the rectangle at all.
@@ -568,21 +397,6 @@ class StandaloneAsciiEffectTests(unittest.TestCase):
             self.assertEqual(wide, expected, f"cell {cell} into 64x32")
             self.assertEqual(offset, expected, f"cell {cell} into an offset rectangle")
 
-    def test_the_pass_s_own_effect_is_still_a_view_the_pass_owns(self) -> None:
-        """Two ways of getting one, and only the standalone form is the caller's."""
-        def body(game, device, out):
-            with AsciiPass(device) as ascii_pass:
-                view = ascii_pass.ascii_effect
-                out["view_is_owned"] = view._owned
-            out["closed_with_pass"] = view.is_closed
-            with AsciiEffect(device) as own:
-                out["own_is_owned"] = own._owned
-
-        observed = in_game(body)
-        self.assertFalse(observed["view_is_owned"])
-        self.assertTrue(observed["closed_with_pass"])
-        self.assertTrue(observed["own_is_owned"])
-
     def test_it_refuses_the_wrong_kind_of_argument(self) -> None:
         def body(game, device, out):
             with AsciiEffect(device) as effect:
@@ -598,10 +412,10 @@ class StandaloneAsciiEffectTests(unittest.TestCase):
 
 
 class DebugAbsenceTests(unittest.TestCase):
-    """What the family answers on a build with no engine layer at all."""
+    """What the family answers on a build with no graphics extension layer at all."""
 
     @requires_native
-    @unittest.skipIf(ENGINE_PRESENT, "this build has an engine layer")
+    @unittest.skipIf(ENGINE_PRESENT, "this build has the graphics extension layer")
     def test_the_drawer_reports_the_layer_as_absent(self) -> None:
         def body(game, device, out):
             try:
@@ -613,7 +427,7 @@ class DebugAbsenceTests(unittest.TestCase):
         self.assertEqual(in_game(body)["raised"], "EngineUnavailableError")
 
     @requires_native
-    @unittest.skipIf(ENGINE_PRESENT, "this build has an engine layer")
+    @unittest.skipIf(ENGINE_PRESENT, "this build has the graphics extension layer")
     def test_the_standalone_ascii_effect_does_too(self) -> None:
         def body(game, device, out):
             try:

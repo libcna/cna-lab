@@ -218,10 +218,12 @@ class AvatarExpression:
 class AvatarDescription:
     """The bytes that describe one avatar."""
 
-    __slots__ = ("_handle", "_disposed")
+    __slots__ = ("_handle", "_disposed", "__weakref__")
 
-    #: XNA raises this when the signed-in gamer changes their avatar.
-    Changed = Event(static=True)
+    #: XNA's instance event, raised when this description changes. CNA's native
+    #: form is ``cna_avatar_description_subscribe_changed_ext`` (per description
+    #: since ABI 0.35), which nothing in CNA's runtime raises today.
+    Changed = Event()
 
     def __init__(self, data) -> None:
         payload = bytes(data)

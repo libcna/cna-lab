@@ -29,7 +29,8 @@ __all__ = [
 
 #: Highest sample rate a file may declare, in Hz.
 MAX_AUDIO_SAMPLE_RATE = _abi.CNA_CNB_MAX_AUDIO_SAMPLE_RATE
-#: Highest ``SoundEffect`` schema version this CNA generation understands.
+#: ``cnb.h``'s ``CNA_CNB_SOUND_EFFECT_SCHEMA_VERSION``. It still reads 1 at C ABI
+#: 0.35 although CNA writes and reads schema 2; see docs/cnb-cnj-extensions.md.
 SOUND_EFFECT_SCHEMA_VERSION = _abi.CNA_CNB_SOUND_EFFECT_SCHEMA_VERSION
 
 
@@ -40,7 +41,8 @@ class AudioFormat(IntEnum):
     declaration order of a runtime enumeration, and no audio backend's
     identifiers are a serialisation ABI. **These values are wire format.**
 
-    Four of the six are identifiers with no schema-1 codec. They are named
+    ``Pcm16`` is readable from schema 1 and ``Pcm8`` from schema 2, the schema
+    CNA writes. The other three are identifiers with no codec; they are named
     because a file may legally declare one and a reader must be able to say
     which it found, not because this build can decode one.
     """

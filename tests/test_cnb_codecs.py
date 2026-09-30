@@ -350,6 +350,14 @@ class SoundEffectCodecTests(unittest.TestCase):
         return b"".join(struct.pack("<h", (index * 61) % 20000 - 10000)
                         for index in range(frames * channels))
 
+    def test_the_header_schema_constant_still_trails_what_cna_writes(self) -> None:
+        """UPSTREAM (CNA C ABI 0.35): ``cnb.h`` still publishes
+        ``CNA_CNB_SOUND_EFFECT_SCHEMA_VERSION`` 1 as the highest schema the build
+        understands, while the encoder writes and the decoder reads schema 2.
+        Reproducer: ``cna/build-probe/qual-probes/py-cnb-sound-schema.c``. This
+        tripwire fails the day CNA corrects the constant."""
+        self.assertEqual(cnb.SOUND_EFFECT_SCHEMA_VERSION, 1)
+
     def test_frame_bytes_follow_from_the_format_and_the_channel_count(self) -> None:
         self.assertEqual(cnb.audio_frame_bytes(cnb.AudioFormat.Pcm16, 1), 2)
         self.assertEqual(cnb.audio_frame_bytes(cnb.AudioFormat.Pcm16, 2), 4)
@@ -362,8 +370,8 @@ class SoundEffectCodecTests(unittest.TestCase):
             image = cnb.encode_sound_effect(sound, content_name="sfx/step")
         with cnb.CnbDocument.parse(image) as document:
             self.assertEqual(document.asset_type, cnb.AssetType.SoundEffect)
-            self.assertEqual(document.asset_schema_version,
-                             cnb.SOUND_EFFECT_SCHEMA_VERSION)
+            # Measured: CNA writes SoundEffect schema 2 since XNASWEEP-197.
+            self.assertEqual(document.asset_schema_version, 2)
             header = document.chunk(
                 document.require_single(int(cnb.SoundEffectChunk.Header)))
             self.assertEqual(header.uncompressed_size, 28)

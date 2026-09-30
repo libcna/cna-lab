@@ -178,14 +178,6 @@
     FIELD(CNA_AvatarExpression, right_eye); \
     FIELD(CNA_AvatarExpression, left_eyebrow); \
     FIELD(CNA_AvatarExpression, right_eyebrow); \
-    TYPE(CNA_AvatarAppearanceEXT); \
-    FIELD(CNA_AvatarAppearanceEXT, struct_size); \
-    FIELD(CNA_AvatarAppearanceEXT, struct_version); \
-    FIELD(CNA_AvatarAppearanceEXT, skin_color); \
-    FIELD(CNA_AvatarAppearanceEXT, hair_color); \
-    FIELD(CNA_AvatarAppearanceEXT, shirt_color); \
-    FIELD(CNA_AvatarAppearanceEXT, pants_color); \
-    FIELD(CNA_AvatarAppearanceEXT, shoes_color); \
     TYPE(CNA_AvatarDescriptionInfo); \
     FIELD(CNA_AvatarDescriptionInfo, struct_size); \
     FIELD(CNA_AvatarDescriptionInfo, struct_version); \
@@ -207,7 +199,6 @@
     FIELD(CNA_AvatarRendererInfo, struct_version); \
     FIELD(CNA_AvatarRendererInfo, state); \
     FIELD(CNA_AvatarRendererInfo, is_disposed); \
-    FIELD(CNA_AvatarRendererInfo, is_real_rendering_enabled); \
     FIELD(CNA_AvatarRendererInfo, reserved); \
     printf("VALUE CNA_NetworkSessionAsyncCallback %zu\n", sizeof(CNA_NetworkSessionAsyncCallback)); \
     printf("VALUE CNA_GameStartedCallback %zu\n", sizeof(CNA_GameStartedCallback)); \

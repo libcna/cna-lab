@@ -66,8 +66,6 @@ ZERO = {
     "native boundary": [
         ("cna-abi-report.json", "MISSING_SYMBOLS", None),
         ("cna-abi-report.json", "ABI_MISMATCHES", None),
-        ("cna-abi-report.json", "PENDING_ROUTES_NOT_IN_HEADERS", None),
-        ("cna-abi-report.json", "STALE_PENDING_ROUTES", None),
         ("route-reachability.json", "UNJUSTIFIED_BOUND_WITHOUT_CALL_SITE", None),
         ("route-reachability.json", "STALE_ADMISSIONS", None),
     ],

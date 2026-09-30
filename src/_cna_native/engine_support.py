@@ -1,9 +1,9 @@
-"""Private plumbing shared by every ``cna.extensions.engine`` slice.
+"""Private plumbing shared by the ``cna.extensions.engine`` modules.
 
-The engine layer differs from every family before it in one way that shapes all
-of this: **a CNA build may not contain it at all.** Every route is exported in
-every build, and the ones that need a native engine object answer
-``CNA_RESULT_NOT_SUPPORTED`` when the layer was configured out. That is a
+The graphics extension layer differs from the strict families in one way that
+shapes all of this: **a CNA build may not contain it at all.** Every route is
+exported in every build, and the ones that need the layer answer
+``CNA_RESULT_NOT_SUPPORTED`` when CNA was configured without ``CNA_CNAEXT``. That is a
 different fact from "this renderer cannot do that", and collapsing the two would
 tell a caller to change GPUs when the answer is to change builds. So the two are
 separated here, once, by asking CNA which case applies.
@@ -18,9 +18,8 @@ Nothing here is public, and no object defined here reaches a caller.
 from __future__ import annotations
 
 import ctypes as c
-from typing import Iterable, Sequence
+from typing import Iterable
 
-from . import abi
 from .errors import NativeError
 from .loader import get_library
 
@@ -61,32 +60,18 @@ _RESULT_CLASSES = {
 }
 
 
-def engine_layer_version() -> int:
-    """The engine-layer revision the loaded library was built with; zero for none.
+def graphics_ext_is_available() -> bool:
+    """Whether the loaded library was built with the graphics extension layer.
 
-    This is the only route in the family that is meaningful in a build with no
-    engine layer, and it is what separates "configured out" from "this renderer
+    This is the one route in the family that is meaningful in a build without
+    the layer, and it is what separates "configured out" from "this renderer
     cannot".
     """
     library = get_library()
-    value = c.c_int32()
-    library.check(library.cna_engine_layer_get_version(c.byref(value)),
-                  "cna_engine_layer_get_version")
-    return int(value.value)
-
-
-def engine_layer_is_present() -> bool:
-    return engine_layer_version() != 0
-
-
-#: Routes whose ``CNA_RESULT_INTERNAL`` is really "the source you gave me does
-#: not compile".  CNA reports a shader compiler diagnostic in the internal
-#: category; the code is preserved verbatim and the exception class is a
-#: subclass of the internal one, so nothing is relabelled -- a caller simply
-#: gains the ability to tell a compiler log apart from an allocation failure.
-_COMPILE_ROUTES = {
-    "cna_compute_shader_create",
-}
+    value = c.c_uint8()
+    library.check(library.cna_graphics_ext_is_available(c.byref(value)),
+                  "cna_graphics_ext_is_available")
+    return value.value != 0
 
 
 def _translate(error: NativeError):
@@ -99,17 +84,15 @@ def _translate(error: NativeError):
 
     name = _RESULT_CLASSES.get(error.result, "EngineInternalError")
     if error.result == _NOT_SUPPORTED:
-        # Asked, not assumed. A build with no engine layer answers the same
+        # Asked, not assumed. A build without the layer answers the same
         # result code as a renderer that lacks a feature, and only one of those
         # is fixed by running somewhere else.
         try:
-            present = engine_layer_is_present()
-        except NativeError:  # pragma: no cover - the version route itself failed
+            present = graphics_ext_is_available()
+        except NativeError:  # pragma: no cover - the availability route itself failed
             present = True
         if not present:
             name = "EngineUnavailableError"
-    if error.result == 12 and error.operation in _COMPILE_ROUTES:
-        name = "ComputeShaderCompileError"
     return getattr(public, name)(
         error.operation, error.result, error.category, error.native_message)
 
@@ -142,16 +125,6 @@ def size_call(operation: str, *arguments: object) -> None:
         raise _translate(error) from None
 
 
-def call_result(operation: str, *arguments: object) -> int:
-    """Invokes one route and returns its raw result without raising.
-
-    Used only where a non-zero result is the answer rather than a failure, and
-    the caller turns it into one. The code never reaches a public caller.
-    """
-    library = get_library()
-    return int(getattr(library, operation)(*arguments))
-
-
 def checked(value: object, width: str, what: str) -> int:
     """Range-checks a Python integer against the native width it is about to take."""
     if isinstance(value, bool) or not isinstance(value, int):
@@ -167,23 +140,6 @@ def real(value: object, what: str) -> float:
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         raise TypeError(f"{what} must be a real number, not {type(value).__name__}")
     return float(value)
-
-
-def string_view(text: str | None, what: str) -> tuple[abi.CNA_StringView, bytes]:
-    """Builds a borrowed ``CNA_StringView`` over ``text``'s UTF-8 bytes.
-
-    The encoded ``bytes`` object is returned alongside and **must** be kept alive
-    by the caller for as long as the view is passed to CNA.
-    """
-    if text is None:
-        text = ""
-    if not isinstance(text, str):
-        raise TypeError(f"{what} must be str, not {type(text).__name__}")
-    encoded = text.encode("utf-8")
-    view = abi.CNA_StringView()
-    view.data = encoded if encoded else None
-    view.byte_length = len(encoded)
-    return view, encoded
 
 
 def out_u8(operation: str, *arguments: object) -> int:
@@ -202,28 +158,10 @@ def out_u32(operation: str, *arguments: object) -> int:
     return int(value.value)
 
 
-def out_u64(operation: str, *arguments: object) -> int:
-    value = c.c_uint64()
-    call(operation, *arguments, c.byref(value))
-    return int(value.value)
-
-
 def out_i32(operation: str, *arguments: object) -> int:
     value = c.c_int32()
     call(operation, *arguments, c.byref(value))
     return int(value.value)
-
-
-def out_f32(operation: str, *arguments: object) -> float:
-    value = c.c_float()
-    call(operation, *arguments, c.byref(value))
-    return float(value.value)
-
-
-def out_f64(operation: str, *arguments: object) -> float:
-    value = c.c_double()
-    call(operation, *arguments, c.byref(value))
-    return float(value.value)
 
 
 def out_handle(operation: str, *arguments: object) -> int:
@@ -232,82 +170,11 @@ def out_handle(operation: str, *arguments: object) -> int:
     return int(handle.value)
 
 
-def borrowed_view(operation: str, arguments: Iterable[object], expected: int,
-                  release: str) -> bool:
-    """Asks CNA for a handle and releases it when it is a fresh counted view.
-
-    Measured across the whole engine layer: a route that answers with a handle
-    almost always answers with a **new** one, which must be released or the
-    object that owns it -- and then the game -- cannot be destroyed. A few
-    answer with the handle they were given, which must *not* be released,
-    because destroying it would take the caller's own object with it.
-
-    Comparing against the handle this binding supplied decides which case
-    applies without having to guess, and without a table that could go stale
-    when CNA changes one route. Returns whether the route reported a handle at
-    all, which is the only part of the answer a caller needs -- the object it
-    refers to is the one they already hold.
-    """
-    handle = out_handle(operation, *tuple(arguments))
-    if handle == 0:
-        return False
-    if handle != expected:
-        call(release, c.c_uint64(handle))
-    return True
-
-
-def out_struct(structure: type, version: int, operation: str, *arguments: object):
-    """Fills a versioned CNA output structure, setting the two header fields first."""
-    value = structure()
-    value.struct_size = c.sizeof(structure)
-    value.struct_version = version
-    call(operation, *arguments, c.byref(value))
-    return value
-
-
-def in_struct(structure: type, version: int):
-    """A caller-owned input structure with its two header fields already set."""
-    value = structure()
-    value.struct_size = c.sizeof(structure)
-    value.struct_version = version
-    return value
-
-
-def copied_text(operation: str, arguments: Iterable[object], what: str) -> str:
-    """The two-call size/copy protocol for a route that answers both by one name.
-
-    Every engine ``*_copy_*`` route writes the required byte count even when the
-    capacity is zero, so calling it once with no destination is how its size is
-    asked for. The text carries no terminator and is documented as UTF-8;
-    decoding strictly keeps a native encoding defect from becoming a
-    plausible-looking string.
-    """
-    arguments = tuple(arguments)
-    size = c.c_uint64()
-    library = get_library()
-    result = int(getattr(library, operation)(*arguments, None, c.c_uint64(0), c.byref(size)))
-    if result not in (0, _BUFFER_TOO_SMALL):
-        try:
-            library.check(result, operation)
-        except NativeError as error:
-            raise _translate(error) from None
-    if size.value == 0:
-        return ""
-    buffer = c.create_string_buffer(size.value)
-    written = c.c_uint64()
-    call(operation, *arguments, buffer, c.c_uint64(size.value), c.byref(written))
-    raw = bytes(buffer.raw[: written.value])
-    try:
-        return raw.decode("utf-8")
-    except UnicodeDecodeError as error:
-        raise ValueError(f"{what} is not well-formed UTF-8") from error
-
-
 def copied_values(element: type, operation: str, arguments: Iterable[object]):
     """The two-call size/copy protocol for a route that copies a range of values.
 
-    The sibling of :func:`copied_text` for the routes whose count is a number of
-    *values* rather than a number of bytes. Sized first because the length is
+    For the routes whose count is a number of *values* rather than a number of
+    bytes. Sized first because the length is
     CNA's and not the caller's: asking for a guessed number answers
     ``CNA_RESULT_BUFFER_TOO_SMALL`` rather than truncating, which is the right
     refusal and the reason it is asked for at all.
@@ -324,17 +191,6 @@ def copied_values(element: type, operation: str, arguments: Iterable[object]):
     written = c.c_uint64()
     call(operation, *arguments, destination, c.c_uint64(count.value), c.byref(written))
     return destination, int(written.value)
-
-
-def float_array(values: Sequence[float], what: str) -> tuple[object, int]:
-    """Copies a real-number sequence into a C array, or ``(None, 0)`` when empty."""
-    try:
-        count = len(values)
-    except TypeError as error:
-        raise TypeError(f"{what} must be a sequence of real numbers") from error
-    if count == 0:
-        return None, 0
-    return (c.c_float * count)(*(real(value, what) for value in values)), count
 
 
 class NativeHandle:

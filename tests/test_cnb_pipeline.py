@@ -176,7 +176,9 @@ class WavImportTests(_Scratch):
             self.assertEqual(info.sample_rate, 22050)
             self.assertEqual(info.channels, 1)
             self.assertEqual(info.frame_count, 40)
-            self.assertEqual(info.loop_length, 0)
+            # A source with no ``smpl`` loops the whole sound, as XNA's build does.
+            self.assertEqual(info.loop_start, 0)
+            self.assertEqual(info.loop_length, 40)
             self.assertEqual(sound.samples, samples)
             self.assertAlmostEqual(info.duration_seconds, 40 / 22050)
 
@@ -198,28 +200,32 @@ class WavImportTests(_Scratch):
             self.assertEqual(sound.info.loop_start, 4)
             self.assertGreater(sound.info.loop_length, 0)
 
-    def test_eight_bit_pcm_is_widened_exactly(self) -> None:
-        # 8-bit unsigned PCM is one of the two encodings that convert to PCM16
-        # exactly; the importer widens rather than resampling.
+    def test_eight_bit_pcm_keeps_its_width(self) -> None:
+        # Since XNASWEEP-197 the importer keeps 8-bit unsigned PCM as Pcm8 (the
+        # SoundEffect schema carries the width from version 2), as XNA's
+        # SoundEffectProcessor does; widening happens on load, not here.
         samples = bytes(range(0, 32))
         path = self.write("eight.wav", wav(samples, bits_per_sample=8))
         with cnb.import_wav_as_sound_effect(path) as sound:
-            self.assertEqual(sound.info.format, cnb.AudioFormat.Pcm16)
+            self.assertEqual(sound.info.format, cnb.AudioFormat.Pcm8)
             self.assertEqual(sound.info.frame_count, 32)
-            widened = sound.samples
-            self.assertEqual(len(widened), 64)
-            for index, value in enumerate(samples):
-                expected = (value - 128) * 256
-                self.assertEqual(struct.unpack_from("<h", widened, index * 2)[0],
-                                 expected, index)
+            self.assertEqual(sound.samples, samples)
 
-    def test_an_encoding_the_importer_refuses_is_refused_by_name(self) -> None:
-        # 24-bit is an authoring decision rather than a compiler's; silently
-        # truncating someone's audio would be worse than saying so.
-        samples = bytes(30)
+    def test_a_wider_encoding_is_narrowed_to_sixteen_bits(self) -> None:
+        # 24-bit integer PCM is narrowed to Pcm16 with round-to-nearest, as
+        # CNA's CNB source importer does since XNASWEEP-197 (cnb.h still says
+        # it is refused -- an upstream documentation defect).
+        frames = [0x000000, 0x7FFFFF, 0x800000, 0x000080]
+        samples = b"".join(value.to_bytes(3, "little") for value in frames)
         path = self.write("wide.wav", wav(samples, bits_per_sample=24))
-        with self.assertRaises(cnb.CnbError):
-            cnb.import_wav_as_sound_effect(path)
+        with cnb.import_wav_as_sound_effect(path) as sound:
+            self.assertEqual(sound.info.format, cnb.AudioFormat.Pcm16)
+            self.assertEqual(sound.info.frame_count, len(frames))
+            narrowed = struct.unpack("<4h", sound.samples)
+            self.assertEqual(narrowed[0], 0)
+            self.assertEqual(narrowed[1], 32767)
+            self.assertEqual(narrowed[2], -32768)
+            self.assertEqual(narrowed[3], 1, "halves round toward positive infinity")
 
     def test_bytes_that_are_not_a_wav_are_refused(self) -> None:
         for data in (b"", b"RIFF", b"not a riff file at all"):

@@ -609,17 +609,6 @@ class CNA_AvatarExpression(c.Structure):
         ("right_eyebrow", c.c_uint32),
     ]
 
-class CNA_AvatarAppearanceEXT(c.Structure):
-    _fields_ = [
-        ("struct_size", c.c_uint32),
-        ("struct_version", c.c_uint32),
-        ("skin_color", abi.CNA_Color),
-        ("hair_color", abi.CNA_Color),
-        ("shirt_color", abi.CNA_Color),
-        ("pants_color", abi.CNA_Color),
-        ("shoes_color", abi.CNA_Color),
-    ]
-
 class CNA_AvatarDescriptionInfo(c.Structure):
     _fields_ = [
         ("struct_size", c.c_uint32),
@@ -648,8 +637,7 @@ class CNA_AvatarRendererInfo(c.Structure):
         ("struct_version", c.c_uint32),
         ("state", c.c_uint32),
         ("is_disposed", c.c_uint8),
-        ("is_real_rendering_enabled", c.c_uint8),
-        ("reserved", c.c_uint8 * 2),
+        ("reserved", c.c_uint8 * 3),
     ]
 
 
@@ -817,10 +805,10 @@ ONLINE_FIELD_DOCUMENTATION = {
         "struct_size": "Size of this caller-provided structure in bytes.",
         "struct_version": "Version of this caller-provided structure.",
         "gamer_score": "The gamer's accumulated score.",
-        "gamer_zone": "One of the `CNA_GAMER_ZONE_ ` identities.",
-        "titles_played": "How many titles this gamer has played.",
+        "gamer_zone": "One of the `CNA_GAMER_ZONE_ ` identities; always `CNA_GAMER_ZONE_UNKNOWN`, as CNA has no gamer zones.",
+        "titles_played": "How many titles this gamer has played: on the CNA service, those with the gamer's presence, an earned achievement or a leaderboard row; offline, this title once the gamer has earned an achievement in it.",
         "total_achievements": "How many achievements this gamer has earned in total.",
-        "reputation": "The gamer's reputation.",
+        "reputation": "The gamer's reputation in stars, 0 to 5; always 0, as CNA keeps no reputation.",
         "is_disposed": "Non-zero once the profile has been disposed.",
         "reserved": "Reserved; must be zero.",
     },
@@ -829,16 +817,16 @@ ONLINE_FIELD_DOCUMENTATION = {
         "struct_version": "Version of this caller-provided structure.",
         "friend_request_received_from": "Non-zero when this friend has sent the local gamer a friend request.",
         "friend_request_sent_to": "Non-zero when the local gamer has sent this friend a friend request.",
-        "has_voice": "Non-zero when this friend has voice hardware.",
-        "invite_accepted": "Non-zero when this friend accepted a game invitation.",
-        "invite_received_from": "Non-zero when this friend has sent a game invitation.",
-        "invite_rejected": "Non-zero when this friend declined a game invitation.",
-        "invite_sent_to": "Non-zero when a game invitation has been sent to this friend.",
-        "is_away": "Non-zero when this friend is away.",
-        "is_busy": "Non-zero when this friend is busy.",
-        "is_joinable": "Non-zero when this friend's session can be joined.",
+        "has_voice": "Non-zero when this friend has voice hardware; always zero, as CNA carries no voice.",
+        "invite_accepted": "Non-zero when this friend accepted the local gamer's game invitation (this title's unexpired invitations).",
+        "invite_received_from": "Non-zero when this friend has a pending game invitation to the local gamer.",
+        "invite_rejected": "Non-zero when this friend declined the local gamer's game invitation (this title's unexpired invitations).",
+        "invite_sent_to": "Non-zero when the local gamer has a pending game invitation to this friend.",
+        "is_away": "Non-zero when this friend is away; always zero, as CNA accounts have no away status.",
+        "is_busy": "Non-zero when this friend is busy; always zero, as CNA accounts have no busy status.",
+        "is_joinable": "Non-zero when this friend is online in this title's player-match session that admits joiners now and has a public slot free.",
         "is_online": "Non-zero when this friend is online.",
-        "is_playing": "Non-zero when this friend is playing.",
+        "is_playing": "Non-zero when this friend is playing; a CNA account is online only from a game.",
         "reserved": "Reserved; must be zero.",
     },
     "CNA_SignedInGamerEventInfo": {
@@ -855,7 +843,7 @@ ONLINE_FIELD_DOCUMENTATION = {
         "earned_online": "Non-zero when the achievement was earned while online.",
         "is_earned": "Non-zero once the achievement has been earned.",
         "reserved": "Reserved; must be zero.",
-        "earned_date_time_ticks": "When the achievement was earned, in 100-nanosecond ticks.",
+        "earned_date_time_ticks": "When the achievement was earned, in 100-nanosecond ticks of local time.",
     },
     "CNA_GameDefaults": {
         "struct_size": "Size of this caller-provided structure in bytes.",
@@ -910,15 +898,6 @@ ONLINE_FIELD_DOCUMENTATION = {
         "left_eyebrow": "One of the `CNA_AVATAR_EYEBROW_ ` identities.",
         "right_eyebrow": "One of the `CNA_AVATAR_EYEBROW_ ` identities.",
     },
-    "CNA_AvatarAppearanceEXT": {
-        "struct_size": "Size of this caller-provided structure in bytes.",
-        "struct_version": "Version of this caller-provided structure.",
-        "skin_color": "Skin color.",
-        "hair_color": "Hair color.",
-        "shirt_color": "Shirt color.",
-        "pants_color": "Trouser color.",
-        "shoes_color": "Shoe color.",
-    },
     "CNA_AvatarDescriptionInfo": {
         "struct_size": "Size of this caller-provided structure in bytes.",
         "struct_version": "Version of this caller-provided structure.",
@@ -942,8 +921,7 @@ ONLINE_FIELD_DOCUMENTATION = {
         "struct_version": "Version of this caller-provided structure.",
         "state": "One of the `CNA_AVATAR_RENDERER_STATE_ ` identities.",
         "is_disposed": "Non-zero once the renderer has been disposed.",
-        "is_real_rendering_enabled": "Non-zero when real rendering has been enabled.",
-        "reserved": "Reserved; must be zero.",
+        "reserved": "Reserved; must be zero (was the retired real-rendering flag before ABI 0.33).",
     },
 }
 
@@ -972,7 +950,6 @@ ONLINE_STRUCTURES = (
     CNA_LeaderboardReaderInfo,
     CNA_LeaderboardEntryInfo,
     CNA_AvatarExpression,
-    CNA_AvatarAppearanceEXT,
     CNA_AvatarDescriptionInfo,
     CNA_AvatarAnimationInfo,
     CNA_AvatarRendererInfo,

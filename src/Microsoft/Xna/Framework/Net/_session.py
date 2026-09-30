@@ -102,8 +102,14 @@ class NetworkGamer(Gamer):
     upstream gap, recorded in ``docs/online-upstream-findings.md``.
     """
 
-    __slots__ = ()
+    __slots__ = ("_session",)
     _destroy = "cna_network_gamer_destroy"
+
+    def __init__(self, handle: int, *, owned: bool) -> None:
+        super().__init__(handle, owned=owned)
+        #: The session facade whose view this is; ``None`` for a gamer an
+        #: extension built without one.
+        self._session: "NetworkSession | None" = None
 
     @property
     def _gamer_handle(self) -> c.c_uint64:
@@ -118,15 +124,22 @@ class NetworkGamer(Gamer):
 
     @property
     def Session(self) -> "NetworkSession":
+        if self._session is not None:
+            return self._session
         return NetworkSession._adopt(
             _support.out_handle("cna_network_gamer_get_session", self._value),
             owned=False)
 
     @property
     def Machine(self) -> "NetworkMachine":
+        # The route hands back an owned copy. A session's gamer keeps one copy,
+        # released with the session; a gamer without a session facade gets an
+        # owned copy the caller's NetworkMachine releases.
+        if self._session is not None:
+            return self._session._machine_of(self)
         return NetworkMachine(
             _support.out_handle("cna_network_gamer_copy_machine", self._value),
-            owned=False)
+            owned=True)
 
     @property
     def IsHost(self) -> bool:
@@ -288,7 +301,7 @@ class LocalNetworkGamer(NetworkGamer):
             _support.call("cna_local_network_gamer_receive_data_into_packet_reader",
                           self._value, destination._value, c.byref(sender),
                           c.byref(received))
-            return int(received.value), _sender(sender)
+            return int(received.value), _sender(self, sender)
         offset = 0
         if len(args) == 2:
             offset = checked(args[1], "int32", "offset")
@@ -310,7 +323,7 @@ class LocalNetworkGamer(NetworkGamer):
         for index in range(count):
             destination[offset + index if len(args) == 2 else index] = \
                 int(buffer[offset + index if len(args) == 2 else index])
-        return count, _sender(sender)
+        return count, _sender(self, sender)
 
 
 LocalNetworkGamer.__xna_arities__ = {"SendData": {2, 3, 4, 5}, "ReceiveData": {1, 2}}
@@ -322,18 +335,25 @@ def _network_gamer(value: object) -> NetworkGamer:
     return value
 
 
-def _sender(handle: c.c_uint64) -> NetworkGamer | None:
-    return NetworkGamer(int(handle.value), owned=False) if handle.value else None
+def _sender(receiver: NetworkGamer, handle: c.c_uint64) -> NetworkGamer | None:
+    """The sender view a receive hands back, as the session's facade for that gamer."""
+    if not handle.value:
+        return None
+    if receiver._session is not None:
+        return receiver._session._gamer_view(int(handle.value))
+    return NetworkGamer(int(handle.value), owned=True)
 
 
 class NetworkMachine:
     """The gamers one machine contributes to a session."""
 
-    __slots__ = ("_handle", "_owned")
+    __slots__ = ("_handle", "_owned", "_session")
 
-    def __init__(self, handle: int, *, owned: bool = False) -> None:
+    def __init__(self, handle: int, *, owned: bool = False,
+                 session: "NetworkSession | None" = None) -> None:
         self._handle = int(handle)
         self._owned = owned
+        self._session = session
 
     @property
     def _value(self) -> c.c_uint64:
@@ -349,11 +369,17 @@ class NetworkMachine:
     @property
     def Gamers(self) -> tuple[NetworkGamer, ...]:
         count = _support.out_i32("cna_network_machine_get_gamer_count", self._value)
-        return tuple(
-            NetworkGamer(_support.out_handle("cna_network_machine_get_gamer",
-                                             self._value, c.c_int32(index)),
-                         owned=False)
-            for index in range(count))
+        gamers = []
+        for index in range(count):
+            view = _support.out_handle("cna_network_machine_get_gamer",
+                                       self._value, c.c_int32(index))
+            if self._session is not None:
+                # The machine's view is released at once; the gamer is the
+                # session's own facade, as XNA hands back the same object.
+                gamers.append(self._session._gamer_by_machine_view(view))
+            else:
+                gamers.append(NetworkGamer(view, owned=True))
+        return tuple(gamers)
 
     def RemoveFromSession(self) -> None:
         _support.call("cna_network_machine_remove_from_session", self._value)
@@ -559,7 +585,7 @@ class NetworkSession(metaclass=staticpropertymeta):
     """A multiplayer session."""
 
     __slots__ = ("_handle", "_owned", "_disposed", "_callbacks",
-                 "_registrations", "__weakref__")
+                 "_registrations", "_gamers", "_machines", "__weakref__")
 
     #: XNA's two published limits, from the pinned contract.
     MaxSupportedGamers = 31
@@ -583,6 +609,13 @@ class NetworkSession(metaclass=staticpropertymeta):
         self._disposed = False
         self._callbacks = CallbackRoot()
         self._registrations: list[int] = []
+        #: One facade per gamer Id. CNA mints a fresh view handle on every
+        #: roster, host, lookup and receive read, and each must be released
+        #: before the session is destroyed; XNA hands back the same NetworkGamer
+        #: object every time. So the first view is kept and the rest released.
+        self._gamers: dict[int, NetworkGamer] = {}
+        #: One owned machine copy per gamer Id, released with the session.
+        self._machines: dict[int, NetworkMachine] = {}
         if owned:
             self._subscribe_all()
 
@@ -594,6 +627,8 @@ class NetworkSession(metaclass=staticpropertymeta):
         session._disposed = False
         session._callbacks = CallbackRoot()
         session._registrations = []
+        session._gamers = {}
+        session._machines = {}
         return session
 
     @property
@@ -613,12 +648,10 @@ class NetworkSession(metaclass=staticpropertymeta):
         """
         self._subscribe("cna_network_session_subscribe_gamer_joined",
                         _online.CNA_GamerJoinedCallback, "GamerJoined",
-                        lambda info: GamerJoinedEventArgs(
-                            NetworkGamer(int(info.gamer), owned=False)))
+                        lambda info: GamerJoinedEventArgs(self._event_gamer(info.gamer)))
         self._subscribe("cna_network_session_subscribe_gamer_left",
                         _online.CNA_GamerLeftCallback, "GamerLeft",
-                        lambda info: GamerLeftEventArgs(
-                            NetworkGamer(int(info.gamer), owned=False)))
+                        lambda info: GamerLeftEventArgs(self._event_gamer(info.gamer)))
         self._subscribe("cna_network_session_subscribe_game_started",
                         _online.CNA_GameStartedCallback, "GameStarted",
                         lambda info: GameStartedEventArgs())
@@ -628,10 +661,8 @@ class NetworkSession(metaclass=staticpropertymeta):
         self._subscribe("cna_network_session_subscribe_host_changed",
                         _online.CNA_HostChangedCallback, "HostChanged",
                         lambda info: HostChangedEventArgs(
-                            NetworkGamer(int(info.old_host), owned=False)
-                            if info.old_host else None,
-                            NetworkGamer(int(info.new_host), owned=False)
-                            if info.new_host else None))
+                            self._event_gamer(info.old_host),
+                            self._event_gamer(info.new_host)))
         self._subscribe("cna_network_session_subscribe_session_ended",
                         _online.CNA_NetworkSessionEndedCallback, "SessionEnded",
                         lambda info: NetworkSessionEndedEventArgs(
@@ -644,8 +675,7 @@ class NetworkSession(metaclass=staticpropertymeta):
                  "WriteUnarbitratedLeaderboard")):
             self._subscribe(route, _online.CNA_WriteLeaderboardsCallback, name,
                             lambda info: WriteLeaderboardsEventArgs(
-                                NetworkGamer(int(info.gamer), owned=False)
-                                if info.gamer else None, bool(info.is_leaving)))
+                                self._event_gamer(info.gamer), bool(info.is_leaving)))
 
     def _subscribe(self, route: str, factory: type, event: str, build) -> None:
         def adapt(_session, pointer, _context) -> None:
@@ -864,11 +894,80 @@ class NetworkSession(metaclass=staticpropertymeta):
     def IsDisposed(self) -> bool:
         return self._disposed
 
+    # -- gamer views ---------------------------------------------------------
+
+    def _gamer_view(self, handle: int) -> "NetworkGamer | None":
+        """Resolves a freshly minted gamer view to this session's facade for it."""
+        if not handle:
+            return None
+        view = c.c_uint64(int(handle))
+        identity = _support.out_u8("cna_network_gamer_get_id", view)
+        cached = self._gamers.get(identity)
+        if cached is not None and not cached._disposed:
+            _support.call("cna_network_gamer_destroy", view)
+            return cached
+        local = _support.out_bool("cna_network_gamer_get_is_local", view)
+        facade = (LocalNetworkGamer if local else NetworkGamer)(int(handle), owned=False)
+        facade._session = self
+        self._gamers[identity] = facade
+        return facade
+
+    def _event_gamer(self, handle: int) -> "NetworkGamer | None":
+        """An event payload's gamer, which CNA lends only for the callback.
+
+        XNA's event arguments carry the session's own NetworkGamer, so the
+        payload is resolved by Id to the persistent facade; a gamer the session
+        no longer lists keeps the callback-scoped handle.
+        """
+        if not handle:
+            return None
+        identity = _support.out_u8("cna_network_gamer_get_id", c.c_uint64(int(handle)))
+        cached = self._gamers.get(identity)
+        if cached is not None and not cached._disposed:
+            return cached
+        found = self._gamer_view(_support.out_handle(
+            "cna_network_session_find_gamer_by_id", self._value, c.c_uint8(identity)))
+        return found if found is not None else NetworkGamer(int(handle), owned=False)
+
+    def _gamer_by_machine_view(self, handle: int) -> "NetworkGamer":
+        """A machine collection's view, released at once, as the session's facade."""
+        view = c.c_uint64(int(handle))
+        identity = _support.out_u8("cna_network_gamer_get_id", view)
+        _support.call("cna_network_gamer_destroy", view)
+        found = self._gamers.get(identity)
+        if found is None or found._disposed:
+            found = self._gamer_view(_support.out_handle(
+                "cna_network_session_find_gamer_by_id", self._value, c.c_uint8(identity)))
+        return found
+
+    def _machine_of(self, gamer: "NetworkGamer") -> "NetworkMachine":
+        identity = gamer.Id
+        machine = self._machines.get(identity)
+        if machine is None or not machine._handle:
+            machine = NetworkMachine(
+                _support.out_handle("cna_network_gamer_copy_machine", gamer._value),
+                owned=True, session=self)
+            self._machines[identity] = machine
+        return machine
+
+    def _release_views(self) -> None:
+        """Releases every machine copy and gamer view before the session goes."""
+        for machine in self._machines.values():
+            machine._release()
+        self._machines.clear()
+        for facade in self._gamers.values():
+            if not facade._disposed and facade._handle:
+                _support.call("cna_network_gamer_destroy", c.c_uint64(facade._handle))
+            facade._disposed = True
+            facade._handle = 0
+        self._gamers.clear()
+
     def Dispose(self) -> None:
         """Ends the session.
 
         Every native subscription is released first, so no event can arrive
-        after the object that would dispatch it is gone.
+        after the object that would dispatch it is gone; every gamer view and
+        machine copy is released before the session itself.
         """
         if self._disposed:
             return
@@ -878,23 +977,24 @@ class NetworkSession(metaclass=staticpropertymeta):
         self._callbacks.clear()
         self._disposed = True
         if self._owned and self._handle:
-            # CNA's dispose *is* the end of the object: ``cna_network_session_destroy``
-            # afterwards answers INVALID_STATE, and the qualification asserts
-            # that rather than calling both and hoping. A session that was never
-            # disposed is destroyed instead, which is the other half of the pair.
+            # XNA's Dispose ends the session; destroy then releases the C handle.
+            # CNA accepts the pair since the gamer-services work (it used to
+            # refuse destroy after dispose, which leaked every disposed session).
             _support.call("cna_network_session_dispose", c.c_uint64(self._handle))
+            self._release_views()
+            _support.call("cna_network_session_destroy", c.c_uint64(self._handle))
         self._handle = 0
 
     def _destroy_without_dispose(self) -> None:
         """Releases a session's handle without disposing the session first.
 
-        The other half of CNA's pair. ``Dispose`` ends the session and the
-        handle with it; this is for a handle whose session was never started --
-        the case a discovery result that nothing joined leaves behind.
+        For a handle whose session was never started -- the case a discovery
+        result that nothing joined leaves behind.
         """
         if self._disposed or not self._handle:
             return
         self._disposed = True
+        self._release_views()
         _support.call("cna_network_session_destroy", c.c_uint64(self._handle))
         self._handle = 0
 
@@ -937,7 +1037,7 @@ class NetworkSession(metaclass=staticpropertymeta):
         handle = _support.out_handle("cna_network_session_find_gamer_by_id",
                                      self._value,
                                      c.c_uint8(checked(gamerId, "uint8", "gamerId")))
-        return NetworkGamer(handle, owned=False) if handle else None
+        return self._gamer_view(handle)
 
     @property
     def SessionType(self) -> NetworkSessionType:
@@ -955,28 +1055,28 @@ class NetworkSession(metaclass=staticpropertymeta):
 
     @property
     def Host(self) -> NetworkGamer | None:
-        handle = _support.out_handle("cna_network_session_get_host", self._value)
-        return NetworkGamer(handle, owned=False) if handle else None
+        return self._gamer_view(
+            _support.out_handle("cna_network_session_get_host", self._value))
 
     @property
     def AllGamers(self) -> GamerCollectionOfT:
         return _SessionGamerCollection(
-            self, _ROSTER_ALL, lambda value: NetworkGamer(value, owned=False))
+            self, _ROSTER_ALL, self._gamer_view)
 
     @property
     def LocalGamers(self) -> GamerCollectionOfT:
         return _SessionGamerCollection(
-            self, _ROSTER_LOCAL, lambda value: LocalNetworkGamer(value, owned=False))
+            self, _ROSTER_LOCAL, self._gamer_view)
 
     @property
     def RemoteGamers(self) -> GamerCollectionOfT:
         return _SessionGamerCollection(
-            self, _ROSTER_REMOTE, lambda value: NetworkGamer(value, owned=False))
+            self, _ROSTER_REMOTE, self._gamer_view)
 
     @property
     def PreviousGamers(self) -> GamerCollectionOfT:
         return _SessionGamerCollection(
-            self, _ROSTER_PREVIOUS, lambda value: NetworkGamer(value, owned=False))
+            self, _ROSTER_PREVIOUS, self._gamer_view)
 
     @property
     def IsEveryoneReady(self) -> bool:

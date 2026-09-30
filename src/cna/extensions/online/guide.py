@@ -29,7 +29,7 @@ __all__ = [
     "pending_keyboard_input", "render_pending_message_box",
     "render_pending_keyboard_input", "reset_pending_message_box",
     "reset_pending_keyboard_input", "click_pending_message_box",
-    "cancel_pending_keyboard_input", "set_guide_visible", "set_trial_mode",
+    "cancel_pending_keyboard_input",
     "show_achievements",
 ]
 
@@ -124,25 +124,6 @@ def click_pending_message_box(button_index: int) -> None:
 def cancel_pending_keyboard_input() -> None:
     """Answers the pending keyboard-input request as a cancellation."""
     _support.call("cna_guide_simulate_keyboard_input_cancel_ext")
-
-
-def set_guide_visible(visible: bool) -> None:
-    """Forces the Guide's visibility.
-
-    XNA's ``Guide.IsVisible`` is read-only, because the platform decides. CNA
-    has the setter a platform layer would use, and it is here rather than there.
-    """
-    _support.call("cna_guide_set_is_visible", c.c_uint8(1 if visible else 0))
-
-
-def set_trial_mode(is_trial_mode: bool) -> None:
-    """Forces the platform's trial-mode answer.
-
-    Distinct from XNA's ``Guide.SimulateTrialMode``, which is a title's own
-    override: this is what the *platform* says, and only a platform layer sets it.
-    """
-    _support.call("cna_guide_set_is_trial_mode",
-                  c.c_uint8(1 if is_trial_mode else 0))
 
 
 def show_achievements(player: PlayerIndex) -> None:

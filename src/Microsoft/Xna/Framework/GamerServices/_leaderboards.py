@@ -147,7 +147,11 @@ class Achievement:
         size = _support.out_u64("cna_achievement_get_picture_size", self._value)
         if not size:
             raise RuntimeError("this achievement has no picture")
-        return io.BytesIO(b"")
+        buffer = (c.c_uint8 * size)()
+        written = c.c_uint64()
+        _support.call("cna_achievement_copy_picture", self._value, buffer,
+                      c.c_uint64(size), c.byref(written))
+        return io.BytesIO(bytes(buffer[:written.value]))
 
 
 class AchievementCollection:

@@ -231,14 +231,11 @@ class NetworkSessionProperties:
         return self._optional(position)
 
     def __setitem__(self, index: int, value: int | None) -> None:
-        # XNA's list has a fixed size and every slot exists from the start;
-        # CNA's starts empty and grows. Assigning slot N therefore creates the
-        # slots up to it, so XNA code that writes ``properties[0] = 5`` means
-        # what it meant. The divergence is recorded rather than smoothed over:
-        # ``Count`` still reports what CNA holds.
+        # XNA's list has eight fixed slots, and so does CNA's since ABI 0.32.
+        count = self.Count
         position = checked(index, "int32", "index")
-        while self.Count <= position:
-            self._append(None)
+        if not 0 <= position < count:
+            raise IndexError(f"index {position} is outside 0..{count - 1}")
         native = _online.CNA_OptionalInt32()
         if value is None:
             native.has_value = 0
@@ -247,16 +244,13 @@ class NetworkSessionProperties:
             native.has_value = 1
             native.value = checked(value, "int32", "value")
         _support.call("cna_network_session_properties_set_item", self._value,
-                      c.c_int32(checked(index, "int32", "index")), native)
+                      c.c_int32(position), native)
 
-    def _append(self, value: int | None) -> None:
+    def _add(self, value: int | None) -> None:
         native = _online.CNA_OptionalInt32()
         native.has_value = 0 if value is None else 1
         native.value = 0 if value is None else checked(value, "int32", "value")
         _support.call("cna_network_session_properties_add", self._value, native)
-
-    def _add(self, value: int | None) -> None:
-        self._append(value)
 
     def _insert(self, index: int, value: int | None) -> None:
         native = _online.CNA_OptionalInt32()

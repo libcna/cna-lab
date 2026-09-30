@@ -1,10 +1,8 @@
 """Seeing what a frame decided, as world-space lines.
 
-A light's reach, a cluster grid's depth slices, a cascade's frustum and a probe
-volume's lattice are all numbers that are hard to check and easy to see. This
-family draws them: :class:`DebugDraw` collects line segments between
-:meth:`~DebugDraw.begin` and :meth:`~DebugDraw.end`, and the gizmo methods build
-a whole picture out of one engine object.
+Bounds, frusta and positions are numbers that are hard to check and easy to
+see. :class:`DebugDraw` collects line segments between :meth:`~DebugDraw.begin`
+and :meth:`~DebugDraw.end` and draws them over the frame.
 
 Two lists, and why
 ------------------
@@ -27,7 +25,7 @@ why both are here rather than only a draw.
 from __future__ import annotations
 
 import ctypes as c
-from typing import TYPE_CHECKING, Iterable
+from typing import TYPE_CHECKING
 
 from Microsoft.Xna.Framework import (
     BoundingBox, BoundingFrustum, BoundingSphere, Color, Matrix, Vector3,
@@ -52,10 +50,10 @@ __all__ = [
 ]
 
 #: The fewest segments a ring is drawn with; fewer would not read as a circle.
-DEBUG_DRAW_MINIMUM_SEGMENTS = 4
+DEBUG_DRAW_MINIMUM_SEGMENTS = _engine.CNA_DEBUG_DRAW_MIN_SEGMENTS
 #: The most; more is a filled disc on screen and shows nothing extra.
-DEBUG_DRAW_MAXIMUM_SEGMENTS = 128
-#: What a sphere uses when a gizmo does not choose.
+DEBUG_DRAW_MAXIMUM_SEGMENTS = _engine.CNA_DEBUG_DRAW_MAX_SEGMENTS
+#: What a sphere uses when a caller does not choose.
 DEBUG_DRAW_DEFAULT_SEGMENTS = 24
 #: A box and a frustum have the same twelve edges, because XNA numbers their
 #: corners the same way.
@@ -151,7 +149,7 @@ class DebugDraw(_EngineObject):
         """One of the two lists, as endpoint pairs.
 
         Two vertices per line, in the order they were added. Exposed because it
-        is how a caller can check what a gizmo built without drawing it -- and
+        is how a caller can check what a shape built without drawing it -- and
         the only way to see the two lists apart, since :attr:`line_count` adds
         them together.
         """
@@ -219,83 +217,6 @@ class DebugDraw(_EngineObject):
                       _native_color(color))
 
     # -- gizmos ---------------------------------------------------------------
-
-    def add_point_light_gizmo(self, light, color: Color) -> None:
-        """A sphere at the light's reach and a small cross at its position."""
-        from .values import PointLight
-
-        if not isinstance(light, PointLight):
-            raise TypeError("light must be a PointLight")
-        native = light._native()
-        _support.call("cna_debug_draw_add_point_light_gizmo", self._handle.argument,
-                      c.byref(native), _native_color(color))
-
-    def add_spot_light_gizmo(self, light, color: Color,
-                             segments: int = DEBUG_DRAW_DEFAULT_SEGMENTS) -> None:
-        """The cone the light lights: a ring at its base and four ribs.
-
-        Four ribs and no more, whatever the segment count: a cone drawn with one
-        rib per ring segment is a filled triangle on screen and shows nothing.
-        """
-        from .values import SpotLight
-
-        if not isinstance(light, SpotLight):
-            raise TypeError("light must be a SpotLight")
-        native = light._native()
-        _support.call("cna_debug_draw_add_spot_light_gizmo", self._handle.argument,
-                      c.byref(native), _native_color(color),
-                      c.c_int32(_support.checked(segments, "int32", "segments")))
-
-    def add_directional_light_gizmo(self, light, at: Vector3, length: float,
-                                    color: Color) -> None:
-        """An arrow through ``at``, pointing the way the light travels."""
-        from .values import DirectionalLight
-
-        if not isinstance(light, DirectionalLight):
-            raise TypeError("light must be a DirectionalLight")
-        native = light._native()
-        native_at = _native_vector(at)
-        _support.call("cna_debug_draw_add_directional_light_gizmo",
-                      self._handle.argument, c.byref(native), c.byref(native_at),
-                      c.c_float(_support.real(length, "length")),
-                      _native_color(color))
-
-    def add_probe_volume_gizmo(self, volume, color: Color,
-                               cross_size: float = 0.1) -> None:
-        """The volume's box, and a small cross at every probe in the lattice."""
-        from .probes import LightProbeVolume
-
-        if not isinstance(volume, LightProbeVolume):
-            raise TypeError("volume must be a LightProbeVolume")
-        _support.call("cna_debug_draw_add_probe_volume_gizmo", self._handle.argument,
-                      volume._handle.argument, _native_color(color),
-                      c.c_float(_support.real(cross_size, "cross_size")))
-
-    def add_cluster_slice_gizmo(self, grid, inverse_view: Matrix,
-                                color: Color) -> None:
-        """One box per depth slice, spanning the whole grid at that depth.
-
-        The grid's clusters are in view space, so ``inverse_view`` brings them
-        back to world. One box per slice rather than one per cluster: the full
-        grid would be tiles times tiles times slices boxes, which is a thicket
-        rather than a picture. A grid with no projection draws nothing.
-        """
-        from .clustered import ClusteredLightGrid
-
-        if not isinstance(grid, ClusteredLightGrid):
-            raise TypeError("grid must be a ClusteredLightGrid")
-        native = _native_matrix(inverse_view)
-        _support.call("cna_debug_draw_add_cluster_slice_gizmo", self._handle.argument,
-                      grid._handle.argument, c.byref(native), _native_color(color))
-
-    def add_cascade_gizmo(self, cascades, color: Color) -> None:
-        """One frustum per cascade, so their overlap can be seen."""
-        from .shadows import CascadedShadowMap
-
-        if not isinstance(cascades, CascadedShadowMap):
-            raise TypeError("cascades must be a CascadedShadowMap")
-        _support.call("cna_debug_draw_add_cascade_gizmo", self._handle.argument,
-                      cascades._handle.argument, _native_color(color))
 
 
 def _color(value: _abi.CNA_Color) -> Color:

@@ -332,7 +332,11 @@ class GamerProfile(_Owned):
                       c.byref(has_picture), c.byref(size))
         if not has_picture.value:
             raise RuntimeError("this gamer profile has no picture")
-        return io.BytesIO(b"")
+        buffer = (c.c_uint8 * size.value)()
+        written = c.c_uint64()
+        _support.call("cna_gamer_profile_copy_picture", self._value, buffer,
+                      c.c_uint64(size.value), c.byref(written))
+        return io.BytesIO(bytes(buffer[:written.value]))
 
 
 class Gamer(_Owned):

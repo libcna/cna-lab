@@ -53,12 +53,14 @@ class LoaderTests(unittest.TestCase):
         return str(library)
 
     def test_superseded_abi_generation_is_rejected(self) -> None:
-        """The historical 0.7.0 generation is a different contract, not a subset."""
-        path = self._build_library(0x00000700)
-        with native_environment(CNA_NATIVE_LIBRARY=path):
-            with self.assertRaises(NativeAbiMismatchError) as caught:
-                get_library()
-        self.assertEqual(caught.exception.actual, 0x00000700)
+        """The historical 0.7.0 and 0.21.0 generations are different contracts, not subsets."""
+        for superseded in (0x00000700, 0x00001500):
+            with self.subTest(abi=hex(superseded)):
+                path = self._build_library(superseded)
+                with native_environment(CNA_NATIVE_LIBRARY=path):
+                    with self.assertRaises(NativeAbiMismatchError) as caught:
+                        get_library()
+                self.assertEqual(caught.exception.actual, superseded)
 
     def test_later_abi_minor_is_rejected(self) -> None:
         """A later minor may change a contract incompatibly, so it is not assumed."""

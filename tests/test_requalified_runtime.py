@@ -13,6 +13,8 @@ import tempfile
 from pathlib import Path
 import unittest
 
+from _cna_native.errors import NativeError
+
 from Microsoft.Xna.Framework import (
     Color, Game, GraphicsDeviceManager, Vector3, Vector4,
 )
@@ -58,6 +60,8 @@ class DroppedWrapperOwnershipTests(unittest.TestCase):
             def __init__(self) -> None:
                 super().__init__()
                 self.manager = GraphicsDeviceManager(self)
+                # OcclusionQuery is HiDef-only in XNA, and CNA enforces the profile.
+                self.manager.GraphicsProfile = GraphicsProfile.HiDef
 
             def Update(self, gameTime) -> None:
                 make(self.GraphicsDevice)  # deliberately not retained and not disposed
@@ -67,10 +71,12 @@ class DroppedWrapperOwnershipTests(unittest.TestCase):
                 self.GraphicsDevice.Clear(Color.Black)
 
         game = Probe()
-        game.Run()
-        # Disposal must complete without a native refusal and without crashing the
-        # process; reaching the assertion below is the observation.
-        game.Dispose()
+        try:
+            game.Run()
+        finally:
+            # Disposal must complete without a native refusal and without crashing
+            # the process; reaching the assertion below is the observation.
+            game.Dispose()
         self.assertTrue(True)
 
     #: Every owned graphics resource kind reachable without a fixture.  A dropped
@@ -258,9 +264,20 @@ class VideoDecodeTests(unittest.TestCase):
                     # Before Play there is no current Video to read a frame from.
                     with case.assertRaises(RuntimeError):
                         self.player.GetTexture()
-                    self.player.Play(self.video)
+                    try:
+                        self.player.Play(self.video)
+                    except NativeError as error:
+                        # A build without CNA's optional FFmpeg decoder answers
+                        # NOT_SUPPORTED, as video.h documents.
+                        if error.result != 6:
+                            raise
+                        observed["decoder"] = error.native_message
+                        self.player.Dispose()
+                        self.Exit()
 
                 def Update(self, gameTime) -> None:
+                    if "decoder" in observed:
+                        return
                     self.frames += 1
                     observed.setdefault("state", self.player.State)
                     texture = self.player.GetTexture()
@@ -288,6 +305,9 @@ class VideoDecodeTests(unittest.TestCase):
                 game.Dispose()
                 _set_title_root_for_tests(None)
 
+        if "decoder" in observed:
+            self.skipTest("decode not measured: this CNA build has no video decoder "
+                          f"({observed['decoder']})")
         self.assertEqual(observed.get("state"), MediaState.Playing)
         self.assertEqual(observed.get("size"), (320, 180))
         self.assertTrue(observed.get("expired"), "an expired frame borrow was not refused")

@@ -33,7 +33,7 @@ from _cna_native.online_support import support as _online_support
 from Microsoft.Xna.Framework import Color, Matrix, PlayerIndex, Quaternion, Vector2, Vector3, Vector4
 from Microsoft.Xna.Framework.GamerServices import (
     Achievement, AvatarBodyType, AvatarDescription, AvatarExpression, AvatarEye,
-    AvatarMouth, Gamer, GamerPresenceMode, Guide, LeaderboardIdentity,
+    AvatarMouth, Gamer, GamerPresenceMode, GamerServicesDispatcher, Guide, LeaderboardIdentity,
     LeaderboardKey, LeaderboardOutcome, LeaderboardWriter, MessageBoxIcon,
     NetworkException, NotificationPosition, PropertyDictionary, SignedInGamer,
 )
@@ -105,6 +105,13 @@ class ValueTests(unittest.TestCase):
         self.assertEqual(NetworkSession.MaxSupportedGamers, 31)
         self.assertEqual(NetworkSession.MaxPreviousGamers, 100)
 
+
+
+def _initialize_gamer_services(game) -> None:
+    """Gamer services are process-wide, and a second ``Initialize`` is refused
+    (as XNA refuses it), so a case initializes them only if nothing has yet."""
+    if not GamerServicesDispatcher.IsInitialized:
+        GamerServicesDispatcher.Initialize(game)
 
 @requires_online
 class SignedInGamerTests(unittest.TestCase):
@@ -349,15 +356,14 @@ class NetworkSessionTests(unittest.TestCase):
 
 @requires_online
 class SessionLifetimeTests(unittest.TestCase):
-    """Which of CNA's two ways of finishing with a session releases it.
+    """Finishing with a session releases its C object either way.
 
-    ``Dispose`` is XNA's, and it is what a game calls; the instance count says
-    it does not release the C object, and ``destroy`` afterwards refuses. Both
-    halves are asserted here so the finding in
-    ``docs/online-upstream-findings.md`` closes itself when CNA changes.
+    Online finding 4 recorded that ``destroy`` refused a disposed session, so
+    XNA's ``Dispose`` leaked every session; CNA accepts ``dispose`` then
+    ``destroy`` since ABI 0.32 and ``Dispose`` now releases the handle.
     """
 
-    def test_dispose_ends_the_session_without_releasing_its_handle(self) -> None:
+    def test_dispose_ends_the_session_and_releases_its_handle(self) -> None:
         def body(game, observed):
             with platform(FIRST_GAMERTAG):
                 observed["before"] = online.live_session_count()
@@ -370,9 +376,7 @@ class SessionLifetimeTests(unittest.TestCase):
         observed = in_game(body)
         self.assertEqual(observed["created"], observed["before"] + 1)
         self.assertGreaterEqual(observed["owned"], 1)
-        self.assertEqual(observed["after_dispose"], observed["created"],
-                         "if this fails, dispose now releases the session and "
-                         "docs/online-upstream-findings.md can drop the entry")
+        self.assertEqual(observed["after_dispose"], observed["before"])
 
     def test_destroying_a_session_that_was_never_disposed_releases_it(self) -> None:
         def body(game, observed):
@@ -442,18 +446,12 @@ class PacketTests(unittest.TestCase):
                          "exactly the wire sizes, with nothing padded between")
         self.assertEqual(observed["rewound"], 0)
 
-    def test_a_colour_cannot_be_read_back_out_of_a_packet(self) -> None:
-        """BLOCKED_UPSTREAM: the writer packs four bytes, the reader wants sixteen.
-
-        ``cna_packet_writer_write_color`` writes a ``Color`` as the four packed
-        bytes XNA does -- the qualification reads them straight out of the
-        buffer -- and ``cna_packet_reader_read_color`` consumes sixteen, the
-        size of four floats. The two are not inverses, so a colour put into a
-        packet can never be taken out of it.
-
-        Both halves are asserted, so the day CNA makes them agree this test
-        fails and the entry in ``docs/online-upstream-findings.md`` can go.
-        """
+    def test_a_colour_round_trips_through_a_packet(self) -> None:
+        """Four packed bytes out, the same four bytes back in, as XNA's IL does
+        (``ReadColor`` reads a packed ``uint``). CNA fixed its reader in
+        BINDFIX-022; ``net.h`` still documents the retired four-float reader
+        (upstream documentation defect, reproducer
+        ``cna/build-probe/qual-probes/py-packet-color.c``)."""
         def body(game, observed):
             writer = PacketWriter()
             writer.Write(Color(10, 20, 30, 40))
@@ -461,30 +459,17 @@ class PacketTests(unittest.TestCase):
             observed["bytes"] = list(writer._data())
             reader = PacketReader()
             reader._set_data(writer._data())
-            try:
-                reader.ReadColor()
-                observed["read"] = "succeeded"
-            except OSError as error:
-                observed["read"] = str(error)
-            wide = PacketReader()
-            wide._set_data(bytes(16))
-            observed["wide"] = wide.Position
-            wide.ReadColor()
-            observed["consumed"] = wide.Position
+            colour = reader.ReadColor()
+            observed["read"] = (colour.R, colour.G, colour.B, colour.A)
+            observed["consumed"] = reader.Position
             writer.Dispose()
             reader.Dispose()
-            wide.Dispose()
 
         observed = in_game(body)
         self.assertEqual(observed["written"], 4)
-        self.assertEqual(observed["bytes"], [10, 20, 30, 40],
-                         "the writer really does pack the four channels")
-        self.assertNotEqual(observed["read"], "succeeded",
-                            "if this passes, the two halves now agree")
-        self.assertEqual(observed["consumed"], 16,
-                         "the reader consumes four floats, not four bytes")
-        self.assertEqual(observed["wide"], 0,
-                         "a reader handed fresh bytes starts at the front")
+        self.assertEqual(observed["bytes"], [10, 20, 30, 40])
+        self.assertEqual(observed["read"], (10, 20, 30, 40))
+        self.assertEqual(observed["consumed"], 4)
 
     def test_the_narrow_float_route_is_reachable_and_narrower(self) -> None:
         def body(game, observed):
@@ -551,11 +536,12 @@ class PacketTests(unittest.TestCase):
         self.assertEqual(observed["received"], (5, [9, 8, 7, 6, 5], 9))
         self.assertFalse(observed["after"])
 
-    def test_a_packet_reader_receive_reports_zero_as_xna_does(self) -> None:
-        """XNA's PacketReader overload always reports zero bytes.
+    def test_a_packet_reader_receive_reports_the_packet_size_as_xna_does(self) -> None:
+        """XNA's PacketReader overload returns the packet size.
 
-        CNA preserves that rather than substituting a plausible count, and so
-        does this: the bytes are in the reader, and the number is XNA's.
+        Its IL resizes the reader to the queued packet and returns the byte
+        overload's answer, ``incomingPacket.Size``. CNA reported zero until GS-007m
+        (RUST-UPSTREAM-028) and this test used to pin that as if it were XNA's.
         """
         def body(game, observed):
             with platform(FIRST_GAMERTAG):
@@ -569,7 +555,7 @@ class PacketTests(unittest.TestCase):
                     reader.Dispose()
 
         observed = in_game(body)
-        self.assertEqual(observed["count"], 0)
+        self.assertEqual(observed["count"], 2)
         self.assertEqual(observed["length"], 2)
 
     def test_a_reader_handed_new_bytes_starts_at_the_front(self) -> None:
@@ -658,33 +644,39 @@ class PacketTests(unittest.TestCase):
 @requires_online
 class SessionPropertiesTests(unittest.TestCase):
     def test_a_slot_nobody_set_is_none_rather_than_zero(self) -> None:
-        """CNA's list starts empty where XNA's has a fixed size.
+        """XNA's list has eight fixed slots, each ``None`` until set.
 
-        Assigning a slot creates the slots up to it, so XNA code that writes
-        ``properties[2] = 5`` means what it meant -- and the two slots before it
-        are ``None``, which is *absent*, not zero. A projection that stored zero
-        there would advertise a property nobody set and change what discovery
-        matches.
+        ``None`` is *absent*, not zero: a projection that stored zero would
+        advertise a property nobody set and change what discovery matches. CNA
+        has held XNA's eight fixed slots since ABI 0.32 (it used to start empty
+        and grow).
         """
         def body(game, observed):
             properties = NetworkSessionProperties()
             observed["initial"] = properties.Count
             properties[2] = 5
-            observed["grown"] = properties.Count
+            observed["after_set"] = properties.Count
             observed["set"] = properties[2]
             observed["before"] = [properties[0], properties[1]]
             properties[2] = None
             observed["cleared"] = properties[2]
             observed["values"] = list(properties)
+            try:
+                properties[properties.Count] = 1
+                observed["past_the_end"] = "accepted"
+            except IndexError:
+                observed["past_the_end"] = "IndexError"
             online.release_session_properties(properties)
 
         observed = in_game(body)
-        self.assertEqual(observed["initial"], 0)
-        self.assertEqual(observed["grown"], 3)
+        self.assertEqual(observed["initial"], 8)
+        self.assertEqual(observed["after_set"], 8)
         self.assertEqual(observed["set"], 5)
         self.assertEqual(observed["before"], [None, None])
         self.assertIsNone(observed["cleared"])
-        self.assertEqual(observed["values"], [None, None, None])
+        self.assertEqual(observed["values"], [None] * 8)
+        self.assertEqual(observed["past_the_end"], "IndexError",
+                         "XNA's indexer throws ArgumentOutOfRangeException past slot 7")
 
     def test_a_session_advertises_the_properties_it_was_created_with(self) -> None:
         def body(game, observed):
@@ -888,24 +880,28 @@ class GuideTests(unittest.TestCase):
         self.assertEqual(observed["pending"], ("Name", "Enter a name", "default"))
         self.assertIsNone(observed["text"], "a cancelled input is None, not ''")
 
-    def test_trial_mode_and_simulated_trial_mode_are_separate(self) -> None:
+    def test_trial_mode_is_latched_from_simulate_trial_mode_at_each_update(self) -> None:
+        """XNA's ``IsTrialMode`` is true until gamer services first update; each
+        update then latches it from the license state, and a CNA title is fully
+        licensed, so it follows ``SimulateTrialMode`` as it was at that update
+        (``gamer_services.h``; the platform setter was retired at ABI 0.34)."""
         def body(game, observed):
-            online.set_trial_mode(False)
-            Guide.SimulateTrialMode = False
-            observed["neither"] = (Guide.IsTrialMode, Guide.SimulateTrialMode)
+            observed["initial"] = Guide.IsTrialMode
+            _initialize_gamer_services(game)
             Guide.SimulateTrialMode = True
+            GamerServicesDispatcher.Update()
             observed["simulated"] = (Guide.IsTrialMode, Guide.SimulateTrialMode)
             Guide.SimulateTrialMode = False
-            online.set_trial_mode(True)
-            observed["platform"] = (Guide.IsTrialMode, Guide.SimulateTrialMode)
-            online.set_trial_mode(False)
+            observed["not_yet_latched"] = Guide.IsTrialMode
+            GamerServicesDispatcher.Update()
+            observed["licensed"] = (Guide.IsTrialMode, Guide.SimulateTrialMode)
 
         observed = in_game(body)
-        self.assertEqual(observed["neither"], (False, False))
-        self.assertEqual(observed["simulated"][1], True)
-        self.assertEqual(observed["platform"][0], True)
-        self.assertEqual(observed["platform"][1], False,
-                         "the platform's answer must not move the title's override")
+        self.assertTrue(observed["initial"])
+        self.assertEqual(observed["simulated"], (True, True))
+        self.assertTrue(observed["not_yet_latched"],
+                        "the override is read at the next update, not at assignment")
+        self.assertEqual(observed["licensed"], (False, False))
 
     def test_the_notification_position_round_trips(self) -> None:
         """The one Guide setting that is the title's own rather than the host's."""
@@ -920,28 +916,34 @@ class GuideTests(unittest.TestCase):
         self.assertEqual(answers, {name: name for name in answers},
                          "every position must come back as the one that was set")
 
-    def test_the_hosts_own_guide_settings_are_answered_without_being_invented(self) -> None:
+    def test_the_guide_is_visible_exactly_while_one_of_its_screens_is_up(self) -> None:
         """What the *platform* owns is reported, not forced.
 
-        The screen saver and the Guide's visibility belong to the host. A build
-        with no Guide overlay answers what it really has, and this asserts the
-        call is accepted and the answer is a boolean rather than asserting a
-        value that would only be true where an overlay exists -- see
+        Since ABI 0.34 CNA has no visibility setter: the Guide is visible exactly
+        while one of its screens is up. The screen saver belongs to the host;
+        this asserts the call is accepted and the answer is a boolean -- see
         :meth:`GuideWindowedTests.test_the_screen_saver_setting_round_trips`.
         """
         def body(game, observed):
+            _initialize_gamer_services(game)
             Guide.IsScreenSaverEnabled = False
             observed["saver"] = Guide.IsScreenSaverEnabled
-            online.set_guide_visible(True)
-            observed["visible"] = Guide.IsVisible
-            online.set_guide_visible(False)
-            observed["hidden"] = Guide.IsVisible
+            observed["idle"] = Guide.IsVisible
+            online.reset_pending_message_box()
+            result = Guide.BeginShowMessageBox(
+                PlayerIndex.One, "Title", "Text", ["Yes", "No"], 0,
+                list(MessageBoxIcon)[0], None, None)
+            observed["showing"] = Guide.IsVisible
+            online.click_pending_message_box(0)
+            Guide.EndShowMessageBox(result)
+            observed["answered"] = Guide.IsVisible
             Guide.DelayNotifications(timedelta(seconds=2))
 
         observed = in_game(body)
         self.assertIsInstance(observed["saver"], bool)
-        self.assertIsInstance(observed["visible"], bool)
-        self.assertIsInstance(observed["hidden"], bool)
+        self.assertFalse(observed["idle"])
+        self.assertTrue(observed["showing"])
+        self.assertFalse(observed["answered"])
 
 
 @unittest.skipUnless(__import__("tests.online_fixtures", fromlist=["RENDERS"]).RENDERS
@@ -1128,15 +1130,9 @@ class AvatarTests(unittest.TestCase):
         self.assertIsInstance(observed["body"], AvatarBodyType)
         self.assertIsInstance(observed["height"], float)
 
-    def test_the_body_type_argument_is_not_honoured_upstream(self) -> None:
-        """BLOCKED_UPSTREAM, with the exact behaviour asserted so a fix is noticed.
-
-        ``cna_avatar_description_create_random_for_body_type`` answers with a
-        description whose body type is ``Female`` whatever it is asked for. The
-        defect is CNA's and is reproduced at the raw C level; this asserts what
-        actually happens so the day CNA honours the argument, this test fails
-        and the finding is closed rather than quietly outliving its cause.
-        """
+    def test_the_body_type_argument_is_honoured(self) -> None:
+        """``cna_avatar_description_create_random_for_body_type`` honours its
+        argument since ABI 0.33 (online finding 2, closed upstream)."""
         def body(game, observed):
             answers = {}
             for body_type in AvatarBodyType:
@@ -1146,9 +1142,7 @@ class AvatarTests(unittest.TestCase):
             observed["answers"] = answers
 
         answers = in_game(body)["answers"]
-        self.assertEqual(set(answers.values()), {"Female"},
-                         "if this fails, CNA now honours the body type and "
-                         "docs/online-upstream-findings.md can drop the entry")
+        self.assertEqual(answers, {name: name for name in answers})
 
     def test_a_description_of_the_wrong_length_is_refused(self) -> None:
         """CNA refuses rather than accepting bytes that cannot be an avatar.
@@ -1174,18 +1168,30 @@ class AvatarTests(unittest.TestCase):
         self.assertIn("bytes", observed["raised"])
         self.assertIsNotNone(observed["short"])
 
-    def test_a_preset_names_a_clip(self) -> None:
-        from Microsoft.Xna.Framework.GamerServices import AvatarAnimationPreset
-
+    def test_changed_is_an_instance_event_with_a_native_subscription(self) -> None:
+        """XNA's ``AvatarDescription.Changed`` is an instance event, and CNA's
+        native form names the description it belongs to since ABI 0.35. Nothing
+        in CNA's runtime raises it, so this proves the subscription's lifetime,
+        not a delivery."""
         def body(game, observed):
-            observed["clip"] = online.preset_clip_name(AvatarAnimationPreset.Stand0)
-            observed["content"] = online.avatar_body_type_content_name(
-                AvatarBodyType.Male if hasattr(AvatarBodyType, "Male")
-                else list(AvatarBodyType)[0])
+            first = AvatarDescription.CreateRandom()
+            second = AvatarDescription.CreateRandom()
+            calls: list[str] = []
+            first.Changed += lambda sender, args: calls.append("first")
+            first.Changed(first, None)
+            second.Changed(second, None)
+            registration = online.on_avatar_description_changed(
+                first, lambda: calls.append("native"))
+            online.unsubscribe_gamer_event(registration)
+            observed["calls"] = calls
+            observed["registration"] = registration
+            first._release()
+            second._release()
 
         observed = in_game(body)
-        self.assertIsInstance(observed["clip"], str)
-        self.assertIsInstance(observed["content"], str)
+        self.assertEqual(observed["calls"], ["first"],
+                         "a handler on one description is not raised by another")
+        self.assertNotEqual(observed["registration"], 0)
 
 
 if __name__ == "__main__":
