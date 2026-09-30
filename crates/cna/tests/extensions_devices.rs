@@ -5,7 +5,7 @@
 //! either state.
 
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use cna::extensions::devices::{
     battery_percent, battery_seconds_remaining, clipboard_text, display_content_scale,
@@ -14,6 +14,9 @@ use cna::extensions::devices::{
 };
 use cna::Microsoft::Xna::Framework::{Game, GameContext};
 use cna::{run_for_frames, CnaError, ErrorCategory, GameState, GameStateAccess, Result};
+
+/// CNA hosts one game per process, so the tests here take turns.
+static ONE_GAME_AT_A_TIME: Mutex<()> = Mutex::new(());
 
 #[derive(Default)]
 struct DeviceGame {
@@ -107,8 +110,102 @@ impl Game for DeviceGame {
 
 #[test]
 fn the_device_layer_answers_or_says_it_is_absent() {
+    let _one_game = ONE_GAME_AT_A_TIME
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
     let game = DeviceGame::default();
     let observed = Arc::clone(&game.observed);
     run_for_frames(game, 1).expect("one frame reaches LoadContent");
     assert!(observed.load(Ordering::SeqCst), "LoadContent ran");
+}
+
+#[derive(Default)]
+struct CameraGame {
+    state: Arc<GameState>,
+    measured: Arc<Mutex<Option<String>>>,
+}
+
+impl GameStateAccess for CameraGame {
+    fn game_state(&self) -> &Arc<GameState> {
+        &self.state
+    }
+}
+
+impl Game for CameraGame {
+    fn LoadContent(&mut self, game: &mut GameContext<'_>) -> Result<()> {
+        use cna::extensions::devices::{Camera, CameraState};
+        use cna::Microsoft::Xna::Framework::Color;
+        use cna::Microsoft::Xna::Framework::Graphics::Texture2D;
+
+        let camera = match Camera::with_test_backend(game) {
+            Ok(camera) => camera,
+            Err(CnaError::Native { category: ErrorCategory::NotSupported, .. }) => {
+                assert!(!is_available()?, "the device layer is present but refused a camera");
+                *self.measured.lock().unwrap() = Some("no device layer".to_owned());
+                return Ok(());
+            }
+            Err(error) => return Err(error),
+        };
+        camera.set_test_state(CameraState::Ready)?;
+        assert_eq!(camera.state()?, CameraState::Ready);
+
+        // A frame the test backend produces arrives in a texture exactly.
+        let pixels = [Color::Red, Color::Lime, Color::Blue, Color::White];
+        camera.set_test_frame(Some((2, 2, &pixels)))?;
+        assert_eq!(camera.frame_size()?, (2, 2));
+        let device = game.GraphicsDevice()?;
+        let texture = Texture2D::new(&device, 2, 2)?;
+        assert!(camera.try_acquire_frame(&texture)?, "a queued test frame is acquired");
+        let mut read = [Color::Transparent; 4];
+        texture.GetData(&mut read)?;
+        assert_eq!(read, pixels);
+        // Clearing the frame leaves nothing to acquire.
+        camera.set_test_frame(None)?;
+        assert!(!camera.try_acquire_frame(&texture)?);
+
+        // The platform list, and each entry's facts, answer after the test
+        // camera is gone (RUST-UPSTREAM-020 is fixed upstream).
+        camera.release()?;
+        let count = Camera::count(game)?;
+        for index in 0..count {
+            let name = Camera::name_at(game, index)?;
+            let _position = Camera::position_at(game, index)?;
+            assert!(!name.is_empty(), "camera {index} has a name");
+        }
+        assert!(Camera::name_at(game, count).is_err(), "an index past the count is refused");
+        // With no platform camera the default is refused with CNA's own
+        // answer. A real camera is only opened on request: switching on a
+        // developer's webcam is not something a test suite does by default.
+        let default = if count == 0 {
+            match Camera::open_default(game) {
+                Ok(_) => panic!("a platform with no camera opened a default one"),
+                Err(CnaError::Native { category, message, .. }) => {
+                    format!("refused {category:?}: {message}")
+                }
+                Err(error) => return Err(error),
+            }
+        } else if std::env::var_os("CNA_RUST_OPEN_REAL_CAMERA").is_some() {
+            let camera = Camera::open_default(game)?;
+            format!("opened, state {:?}", camera.state()?)
+        } else {
+            "not opened (set CNA_RUST_OPEN_REAL_CAMERA=1 to open the real camera)".to_owned()
+        };
+        *self.measured.lock().unwrap() = Some(format!("{count} platform camera(s); default {default}"));
+        Ok(())
+    }
+}
+
+#[test]
+fn a_test_camera_delivers_its_frame_and_the_platform_list_survives_it() {
+    if std::env::var_os("CNA_NATIVE_LIBRARY").is_none() {
+        return;
+    }
+    let _one_game = ONE_GAME_AT_A_TIME
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    let game = CameraGame::default();
+    let measured = Arc::clone(&game.measured);
+    run_for_frames(game, 1).expect("one frame with a camera");
+    let measured = measured.lock().unwrap().clone().expect("the camera case ran");
+    println!("camera: {measured}");
 }

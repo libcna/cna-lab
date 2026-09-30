@@ -1064,7 +1064,6 @@ impl GameStateAccess for ModelXnbGame {
 
 impl Game for ModelXnbGame {
     fn LoadContent(&mut self, game: &mut GameContext<'_>) -> Result<()> {
-        let _ = game;
         self.Content()
             .SetRootDirectory(self.root.to_str().expect("UTF-8 Model fixture path"))?;
 
@@ -1079,6 +1078,21 @@ impl Game for ModelXnbGame {
         assert_eq!(first.Meshes()?.Count()?, 1);
         assert_eq!(first.Root()?.Name()?, "Root");
 
+        // Volume textures are HiDef-only in XNA: on the default Reach device
+        // the content reader refuses them whatever the renderer can store.
+        if game.GraphicsDevice()?.GraphicsProfile()? == GraphicsProfile::Reach {
+            match self.Content().Load::<Texture3D>("texture3d") {
+                // A renderer with no volume storage refuses first, for that
+                // reason; one that has storage refuses for the profile.
+                Err(CnaError::Content(error)) => assert!(
+                    error.to_string().contains("GraphicsProfile.Reach does not support volume")
+                        || error.to_string().contains("does not support real volume (3D) texture storage"),
+                    "unexpected Reach Texture3D refusal: {error}"
+                ),
+                other => panic!("a Reach device loaded a volume texture: {:?}", other.map(|_| ())),
+            }
+            game.GraphicsDevice()?.set_graphics_profile(GraphicsProfile::HiDef)?;
+        }
         match self.Content().Load::<Texture3D>("texture3d") {
             Ok(texture) => {
                 assert_eq!(

@@ -1,19 +1,13 @@
-//! Reproducer for the camera test backend's dangling platform override.
+//! Regression test for the camera test backend's platform override
+//! (RUST-UPSTREAM-020).
 //!
-//! `cna_camera_create_with_test_backend_ext` hands CNA's *global* platform
-//! override a raw pointer into the camera resource:
+//! `cna_camera_create_with_test_backend_ext` points CNA's *global* platform
+//! override at the camera resource's provider. `cna_camera_destroy` used to free
+//! that provider without clearing the override, so the next camera-list query
+//! read freed memory (SIGSEGV). CNA fixed it upstream (`BINDFIX-011`); this pins
+//! that the query after a destroy answers and the process exits cleanly.
 //!
-//! ```text
-//! CNA::C::Detail::GetPlatformOverride().SetCamera(resource->testService.get());
-//! ```
-//!
-//! `cna_camera_destroy` releases the resource -- freeing the `unique_ptr` that
-//! owned that provider -- and never clears the override. Anything that consults
-//! the platform camera list afterwards reads freed memory.
-//!
-//! This runs the sequence in a **child process** on purpose. The failure is a
-//! fault, not a result code, so a test that ran it in-process would take the
-//! whole suite down and prove nothing repeatable.
+//! It runs in a **child process** because the old failure was a fault.
 
 #![allow(non_snake_case)]
 
@@ -76,7 +70,7 @@ fn run_stage() -> Result<()> {
 }
 
 #[test]
-fn a_destroyed_test_camera_leaves_the_platform_override_dangling() {
+fn destroying_a_test_camera_clears_the_platform_override() {
     if std::env::var_os("CNA_NATIVE_LIBRARY").is_none() {
         return;
     }
@@ -94,7 +88,7 @@ fn a_destroyed_test_camera_leaves_the_platform_override_dangling() {
                 "--test-threads=1",
                 "--nocapture",
                 "--exact",
-                "a_destroyed_test_camera_leaves_the_platform_override_dangling",
+                "destroying_a_test_camera_clears_the_platform_override",
             ])
             .env(STAGE, stage)
             .output()
@@ -118,7 +112,7 @@ fn a_destroyed_test_camera_leaves_the_platform_override_dangling() {
     if baseline_text.contains("REPRO: no device layer") {
         println!(
             "this artifact was built without the extended device layer, so there is no \
-             camera to destroy; RUST-UPSTREAM-020 is measured on an artifact that has one"
+             camera to destroy; the camera lifecycle is measured on an artifact that has one"
         );
         assert!(
             baseline_status.success(),
@@ -135,25 +129,11 @@ fn a_destroyed_test_camera_leaves_the_platform_override_dangling() {
         "creating and destroying a test camera is itself fine: {baseline_status:?}"
     );
 
-    // The one call that reads the freed provider. This assertion states what
-    // was measured; if upstream fixes the dangling override it will fail here
-    // and this reproducer becomes the thing that says so.
+    // The one call that used to read the freed provider.
     let (_, after_status, after_text) = &outcomes[1];
-    let survived = after_status.success() && after_text.contains("REPRO: survived");
-    if survived {
-        println!(
-            "NOTE: querying the camera list after destroy no longer faults on this CNA build. \
-             If that is a real upstream fix, RUST-UPSTREAM-020 can be retired and the camera \
-             family reclassified from BLOCKED_UPSTREAM."
-        );
-    } else {
-        println!(
-            "MEASURED: querying the camera list after destroy failed: {after_status:?}. \
-             This is RUST-UPSTREAM-020."
-        );
-    }
     assert!(
-        !survived,
-        "RUST-UPSTREAM-020 no longer reproduces -- re-measure and reclassify the camera family"
+        after_status.success() && after_text.contains("REPRO: survived"),
+        "querying the camera list after a destroy failed -- RUST-UPSTREAM-020 is back: \
+         {after_status:?}"
     );
 }

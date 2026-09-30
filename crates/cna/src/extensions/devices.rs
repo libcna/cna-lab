@@ -253,20 +253,34 @@ impl CameraState {
     }
 }
 
-/// One camera the platform reports.
+/// Which way an enumerated camera faces.
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+#[non_exhaustive]
+pub enum CameraPosition {
+    Unknown,
+    FrontFacing,
+    BackFacing,
+    /// A position a newer CNA introduced.
+    Unrecognized(u32),
+}
+
+impl CameraPosition {
+    const fn from_native(value: sys::CNA_CameraPosition) -> Self {
+        match value {
+            sys::CNA_CAMERA_POSITION_UNKNOWN => Self::Unknown,
+            sys::CNA_CAMERA_POSITION_FRONT_FACING => Self::FrontFacing,
+            sys::CNA_CAMERA_POSITION_BACK_FACING => Self::BackFacing,
+            other => Self::Unrecognized(other),
+        }
+    }
+}
+
+/// One camera: the platform's default one, or CNA's deterministic test camera.
 ///
-/// # This family is blocked upstream
-///
-/// `RUST-UPSTREAM-020`. `cna_camera_create_with_test_backend_ext` hands CNA's
-/// **global** platform override a raw pointer into the camera resource, and
-/// `cna_camera_destroy` frees that resource without clearing the override. Any
-/// later call that consults the platform camera list reads freed memory.
-///
-/// The type is therefore deliberately small: it exists so
-/// `tests/upstream_camera_destroy.rs` can drive the sequence and keep measuring
-/// whether the defect is still there. It is **not** a projection anybody should
-/// build on yet, and the safe API does not pretend the lifecycle is sound --
-/// wrapping a crashing teardown in a friendly `Result` would hide it.
+/// `OWNED`: it holds a camera handle it releases exactly once. Destroying a
+/// test camera used to leave CNA's platform override dangling
+/// (`RUST-UPSTREAM-020`); CNA fixed that upstream (`BINDFIX-011`), which is
+/// what makes this a projection rather than a reproducer.
 pub struct Camera {
     native: std::sync::Arc<crate::native::Native>,
     handle: std::sync::Mutex<sys::CNA_CameraHandle>,
@@ -274,9 +288,6 @@ pub struct Camera {
 
 impl Camera {
     /// How many cameras the platform reports.
-    ///
-    /// After any camera has been destroyed this reads through the dangling
-    /// override described on [`Camera`]. That is the reproducer's payload.
     pub fn count(game: &GameContext<'_>) -> Result<u64> {
         let (native, handle) = game.native_game();
         let mut value = 0_u64;
@@ -295,6 +306,49 @@ impl Camera {
         native
             .check(unsafe { (native.engine.camera_get_is_supported_ext)(handle, &mut value) })?;
         Ok(value != 0)
+    }
+
+    /// Which way camera `index` faces.
+    pub fn position_at(game: &GameContext<'_>, index: u64) -> Result<CameraPosition> {
+        let (native, handle) = game.native_game();
+        let mut info = sys::CNA_CameraDeviceInfo::default();
+        // SAFETY: the output is a live local; init writes its version headers.
+        native.check(unsafe { (native.engine.camera_device_info_init)(&mut info) })?;
+        // SAFETY: the game handle is callback-live and the output is a live,
+        // initialized descriptor.
+        native.check(unsafe { (native.engine.camera_get_info_at_ext)(handle, index, &mut info) })?;
+        Ok(CameraPosition::from_native(info.position))
+    }
+
+    /// Camera `index`'s name.
+    pub fn name_at(game: &GameContext<'_>, index: u64) -> Result<String> {
+        let (native, handle) = game.native_game();
+        let (size, copy) = (native.engine.camera_get_name_size_at_ext, native.engine.camera_copy_name_at_ext);
+        read_string(
+            |result| native.check(result),
+            // SAFETY: the game handle is callback-live and the output is live.
+            |bytes| unsafe { size(handle, index, bytes) },
+            // SAFETY: the destination holds `capacity` bytes.
+            |destination, capacity, written| unsafe {
+                copy(handle, index, destination, capacity, written)
+            },
+        )
+    }
+
+    /// Opens the platform's default camera.
+    ///
+    /// A platform with no camera driver refuses with CNA's `NotSupported`
+    /// answer rather than handing out a camera that never produces a frame.
+    pub fn open_default(game: &GameContext<'_>) -> Result<Self> {
+        let (native, handle) = game.native_game();
+        let mut camera = sys::CNA_INVALID_HANDLE;
+        // SAFETY: the game handle is callback-live and the output is a live
+        // local.
+        native.check(unsafe { (native.engine.camera_create)(handle, &mut camera) })?;
+        Ok(Self {
+            native: std::sync::Arc::clone(native),
+            handle: std::sync::Mutex::new(camera),
+        })
     }
 
     /// Opens CNA's deterministic test camera.
@@ -344,10 +398,72 @@ impl Camera {
         })
     }
 
+    /// The width and height of the frames this camera produces; zero until a
+    /// frame format is known.
+    pub fn frame_size(&self) -> Result<(i32, i32)> {
+        let handle = self.get()?;
+        let (mut width, mut height) = (0_i32, 0_i32);
+        // SAFETY: the handle is owned and both outputs are live locals.
+        self.native.check(unsafe {
+            (self.native.engine.camera_get_frame_width_ext)(handle, &mut width)
+        })?;
+        // SAFETY: as above.
+        self.native.check(unsafe {
+            (self.native.engine.camera_get_frame_height_ext)(handle, &mut height)
+        })?;
+        Ok((width, height))
+    }
+
+    /// Gives the test backend the frame it produces next, or clears it with
+    /// `None`.
+    pub fn set_test_frame(&self, frame: Option<(i32, i32, &[crate::value::Color])>) -> Result<()> {
+        let handle = self.get()?;
+        let (width, height, pixels): (i32, i32, Vec<sys::CNA_Color>) = match frame {
+            Some((width, height, pixels)) => (
+                width,
+                height,
+                pixels
+                    .iter()
+                    .map(|color| sys::CNA_Color {
+                        r: color.R(),
+                        g: color.G(),
+                        b: color.B(),
+                        a: color.A(),
+                    })
+                    .collect(),
+            ),
+            None => (0, 0, Vec::new()),
+        };
+        // SAFETY: the pixel array lives for the call and its length is the
+        // count passed alongside it; null with zero clears the frame.
+        self.native.check(unsafe {
+            (self.native.engine.camera_set_test_frame_ext)(
+                handle,
+                width,
+                height,
+                if frame.is_some() { pixels.as_ptr() } else { core::ptr::null() },
+                pixels.len() as u64,
+            )
+        })
+    }
+
+    /// Copies the next available frame into `texture`, whose dimensions must
+    /// equal [`frame_size`](Self::frame_size). `false` when no frame was ready.
+    pub fn try_acquire_frame(
+        &self,
+        texture: &crate::Microsoft::Xna::Framework::Graphics::Texture2D,
+    ) -> Result<bool> {
+        let handle = self.get()?;
+        let mut acquired = 0_u8;
+        // SAFETY: both handles are live for the call and the output is a
+        // live local.
+        self.native.check(unsafe {
+            (self.native.engine.camera_try_acquire_frame_ext)(handle, texture.handle()?, &mut acquired)
+        })?;
+        Ok(acquired != 0)
+    }
+
     /// Releases the camera.
-    ///
-    /// This is the call that leaves CNA's platform override pointing at freed
-    /// memory; see [`Camera`].
     pub fn release(&self) -> Result<()> {
         let mut guard = self
             .handle
