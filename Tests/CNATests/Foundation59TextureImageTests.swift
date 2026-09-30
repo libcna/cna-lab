@@ -420,15 +420,18 @@ final class Foundation59TextureImageTests: XCTestCase {
                 width: 4, height: 2, zoom: true)
             game.observations["square 4x2 zoom"] = "\(wide.Width)x\(wide.Height)"
             try wide.Dispose()
-            do {
-                let wider = try G.Texture2D.FromStream(
-                    device, stream: InputStream(data: squareEncoded),
-                    width: 8, height: 2, zoom: true)
-                game.observations["square 8x2 zoom"] = "\(wider.Width)x\(wider.Height)"
-                try wider.Dispose()
-            } catch let error as CNAError {
-                if case .nativeFailure(let operation, let result, _) = error {
-                    game.observations["square 8x2 zoom"] = "\(operation)=\(result)"
+            for (width, height) in [(Int32(8), Int32(2)), (2, 8)] {
+                let key = "square \(width)x\(height) zoom"
+                do {
+                    let cropped = try G.Texture2D.FromStream(
+                        device, stream: InputStream(data: squareEncoded),
+                        width: width, height: height, zoom: true)
+                    game.observations[key] = "\(cropped.Width)x\(cropped.Height)"
+                    try cropped.Dispose()
+                } catch let error as CNAError {
+                    if case .nativeFailure(let operation, let result, _) = error {
+                        game.observations[key] = "\(operation)=\(result)"
+                    }
                 }
             }
         }
@@ -441,12 +444,11 @@ final class Foundation59TextureImageTests: XCTestCase {
         XCTAssertEqual(game.observations["6x3 fit"], "6x3")
         XCTAssertEqual(game.observations["3x6 fit"], "3x1")
         XCTAssertEqual(game.observations["square 4x2 zoom"], "4x2")
-        // CURRENT UPSTREAM DEFECT (SW-05 residual, CNA 0.35 at 4228ff913): a
-        // 2x2 source zoomed to 8x2 needs a half-pixel crop and is still refused
-        // with INVALID_ARGUMENT. Reproducer:
-        // cna/build-probe/qual-probes/sw-decode-zoom.c. Expect "8x2" once fixed.
-        XCTAssertEqual(game.observations["square 8x2 zoom"],
-                       "cna_texture2d_create_from_encoded_memory=1")
+        // A 2x2 source zoomed to 8x2 or 2x8 crops under one source pixel. CNA
+        // refused that with INVALID_ARGUMENT until 5b814df79 (SW-05 residual)
+        // kept a crop of at least one pixel.
+        XCTAssertEqual(game.observations["square 8x2 zoom"], "8x2")
+        XCTAssertEqual(game.observations["square 2x8 zoom"], "2x8")
     }
 
     /// The decoded texels are the source's, so the stream really is decoded.

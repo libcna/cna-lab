@@ -52,7 +52,7 @@ directory); every other finding is pinned by a test that passed on 0.35.
 
 | Finding | 0.35 |
 |---|---|
-| SW-05 decode zoom | zoom=true: fixed by CNA BINDFIX-043 except a crop under one source pixel (2x2 to 8x2 or 2x8 still `INVALID_ARGUMENT`, pinned). zoom=false still ignores a square source's requested height (8x2 grants 2x2): an XNA-behaviour question no IL settles |
+| SW-05 decode zoom | zoom=true: fixed by CNA BINDFIX-043, and a crop under one source pixel (2x2 to 8x2 or 2x8, `INVALID_ARGUMENT` at `4228ff913`) by its follow-up `5b814df79`, both pinned. zoom=false still ignores a square source's requested height (8x2 grants 2x2): an XNA-behaviour question no IL settles |
 | SW-06 encoder alpha-0 | fixed: an alpha-0 texel is written (0,0,0,0) |
 | SW-07 RenderTargetCube through `texturecube_get_info` | fixed: reports the real size and levels |
 | SW-10 count of a never-begun query | fixed: refused with `INVALID_STATE` |
