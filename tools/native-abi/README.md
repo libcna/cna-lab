@@ -33,34 +33,33 @@ generated `linked.rs`, splicing them back and diffing -- and the verifier reads
 `linked.rs` either way, so a splice that went wrong is caught there rather than
 trusted.
 
-Current reviewed ABI-0.21 evidence is:
+Current reviewed ABI-0.35 evidence is:
 
 ```text
-reviewed functions                  3247
-prototype functions checked         3247
-prototype type measurements        11566
-layout types                         187
-callback signatures                   39
-constants                            902
-all C/Rust measurements             3174
-symbol acquisitions                 3243
+reviewed functions                  2398
+prototype functions checked         2398
+prototype type measurements         8672
+layout types                         163
+callback signatures                   36
+constants                            834
+all C/Rust measurements             2664
+symbol acquisitions                 2397
 symbol type mismatches                 0
 mismatches                             0
 unaudited declarations                 0
 ```
 
-Measured 2026-09-01 against `cnanext/cmake-build-opengles3`, built from cnanext
-`35268971c826d48ec3d40939e9b34a2b0595f94b`.
+Measured 2026-09-30 against `~/deps/cna-c-abi-0.35.0` (HEADLESS), built from
+`libcna/cna` `next` `5b4edd6cc25d656e8eaf0aee304e75ae7ee5a90d`.
 
-The 3,247-function slice is intentionally smaller than CNA's 4,054 exported C
-functions. It is a reviewed foundation, not a completeness claim; every
-canonical route outside it carries an explicit classification in
-`tools/c-api-inventory/classification.json`, and the census gates on there
-being no route without one. Every new safe native facade route
+The 2,398-function slice covers every one of CNA's 3,202 exported C functions
+that the projection binds; the other 804 are deliberate non-bindings, each
+classified in `tools/c-api-inventory/classification.json`, and the census gates
+on there being no route without one. Every new safe native facade route
 must add its raw declaration and enter this manifest. The version gate follows
 CNA's own `0.x` policy from `docs/c-api/ABI_VERSIONING.md`: the checked library
-must report exactly minor 21, because a `0.x` minor bump is a breaking change
-even when a particular bump -- as `0.21.0` was -- happens to be purely additive.
+must report exactly minor 35, because a `0.x` minor bump may be a breaking
+change -- 0.30, 0.33 and 0.34 were.
 Current ELF/runtime evidence is Linux x86-64 only.
 
 `symbol acquisitions` is a separate gate from `prototype functions checked`. It

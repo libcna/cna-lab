@@ -978,125 +978,17 @@ that rather than smoothing it over. The routes that would install a sensor test
 backend are CNA's own test seams -- classified `TOOLING_ONLY` and deliberately
 unbound, because a binding that called them would fake runtime state.
 
-## PBR materials, effects and pipeline settings (RUST-EXT-005, 2026-08-31)
+## The engine layer, removed with CNA ABI 0.30 (RUST-ABI-035, 2026-09-30)
 
-None of this is XNA. `BasicEffect` has a diffuse colour and a specular power;
-there is no metallic factor, no roughness, no index of refraction, no
-tonemapping operator and no HDR anywhere in
-`Microsoft.Xna.Framework.Graphics`. It lives in `cna::extensions::pbr`.
-
-### Availability is queried, not assumed
-
-These routes need CNA's engine layer, which is a build-time choice. A symbol
-exists either way -- upstream keeps the exported ABI one shape regardless of
-what was built -- so presence proves nothing and `engine_layer_version()` is
-the query that does. Zero means absent, and this artifact answers **2**,
-matching what the header declares.
-
-The two version routes must agree, and a test asserts it: a build where the
-number says "absent" while the string names a revision would send a consumer
-down the wrong path. The string route is also not CNA's usual size-then-copy
-pair, so its size probe answers `BUFFER_TOO_SMALL` rather than success --
-treating that as a failure is the difference between reading the string and
-refusing to.
-
-### Defaults come from CNA
-
-`PbrMaterial::canonical_defaults()` and
-`RenderPipelineSettings::canonical_defaults()` ask the library rather than
-restating values here, because restating them is how a binding ends up quietly
-disagreeing with the renderer about what "default" means. The measured values
-are asserted, so one that changes upstream fails here rather than shipping:
-
-```text
-PbrMaterial          metallic 0, roughness 0.5, normal 1, occlusion 1,
-                     cutoff 0.5, albedo white, emissive black, blend off
-RenderPipeline       exposure 1, gamma 2.2, bloom 1, tonemapping None,
-                     quality Medium, shadows Disabled, every pass off
-```
-
-The plain `PbrMaterial` and the extended `PbrMaterialEXT` do **not** share
-defaults -- the plain one starts non-metallic and half-rough where the extended
-one starts fully metallic and fully rough -- and the comment says so, because
-assuming they matched is the obvious mistake.
-
-Every pass starting off matters: a game opts into HDR, bloom, SSAO and shadows
-rather than discovering it is already paying for them.
-
-### The effect round trip
-
-`PbrEffect` is created on a device -- an independently constructed one works,
-which is what makes this testable without a `Game` -- and every scalar it
-carries round-trips through distinguishable values, so a property read back
-from a neighbouring slot is visible rather than plausible. All three alpha
-modes round-trip, not only the one the main assertion uses, and every
-tonemapping, render-quality and shadow-quality identity is walked in both
-directions so a mapping that collapsed two variants onto one number would fail.
-
-`PbrMaterial` deliberately carries no textures. The canonical structure has
-non-owning handle slots, and a safe Rust value holding raw handles would be a
-raw-handle leak; textures belong on the effect, where the lifetime relationship
-is real.
-
-## Engine-layer render settings (RUST-EXT-010, 2026-08-31)
-
-The engine layer is 857 canonical routes, and binding it wholesale would be
-binding for a percentage. This is one coherent vertical slice, chosen because
-it is genuinely useful to a game -- it is what a graphics-settings screen is
-made of -- and because it can be tested semantically on a headless host, which
-most of the layer cannot.
-
-`EngineRenderSettings` owns CNA's 50-field settings value and exposes typed
-accessors rather than the structure. A `#[repr(C)]` field set is the ABI's
-shape, not an API: making it public would turn every later CNA field addition
-into a breaking change here.
-
-Three operations carry the real semantics, and all three were measured:
-
-### `normalize` -- what the engine will actually use
-
-Upstream runs every field through its own setter and reads it back, so a caller
-can see what a value will become *before* handing it to a pipeline. Thirty-one
-corrections are documented, ten clamping to a two-sided range and twenty-one
-flooring. Measured on this artifact:
-
-| Field | Asked | Used |
-|---|---:|---:|
-| `exposure` | -5.0 | 0.0 |
-| `gamma` | -1.0 | 0.01 -- a positive minimum, not zero, which a renderer would divide by |
-| `bloom_intensity` | -2.0 | 0.0 |
-| `ssao_radius` | -4.0 | 0.0 |
-| `bloom_iterations` | -7 | **-7** |
-| `ssao_sample_count` | -3 | **-3** |
-| `ssr_step_count` | -11 | **-11** |
-
-The last three are the point. The continuous fields are corrected; the integer
-counts are **not**, and are not among the thirty-one. A caller that assumed
-every field was corrected would hand the engine a negative bloom pyramid depth.
-The test asserts the exact pass-through rather than a range, so a future
-upstream change in either direction is visible.
-
-`normalize` is also idempotent, which is what makes it safe to call on every
-settings change.
-
-### `apply_quality_preset` -- only what has been decided
-
-Upstream derives only the fields a quality dial has been settled for -- today
-bloom's pyramid level count and the FXAA edge threshold -- and deliberately
-leaves the rest alone rather than guessing. The test asserts that Low and Ultra
-differ and that Ultra does not use fewer bloom levels, rather than asserting
-that every field follows the dial, which would be asserting a design upstream
-explicitly declined to commit to.
-
-### `apply_from_text` -- a count, not a boolean
-
-Unrecognised fields are skipped rather than refused, and the returned count is
-what makes that usable: a caller compares it with what it meant to set and can
-tell a typo from a stale key. Unrecognised text applies zero and succeeds;
-empty text is the degenerate case of the same rule.
-
-`PbrEffect` from `RUST-EXT-005` is the other engine-layer object already bound,
-so the layer now has two working slices rather than a survey.
+CNA ABI 0.30 (`MOD-RETIRE-1`) removed `engine_layer.h` -- the render pipeline,
+post-process chain, shadow maps, clustered lighting, light probes, particles,
+compute, the PBR material value and settings and the glTF material bridge --
+and ABI 0.29, 0.33 and 0.34 removed the sprite-mesh route, the avatar
+real-rendering extension and the two Guide setters. Their bindings (855 routes)
+and facades went with them in `RUST-ABI-035`; Git history keeps them. What
+remains in `extensions::engine` and `extensions::pbr` is what 0.35 still
+exports: `DebugDraw`, `NativeMeshPart`, the image-based-light and indirect-draw
+values, and `PbrEffect`/`SkinnedPbrEffect` from `effects.h`.
 
 ## Haptics (RUST-EXT-014c, 2026-08-31)
 

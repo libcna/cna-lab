@@ -15,6 +15,28 @@ is semantic rather than incidental, then retire the finding and reclassify the
 routes it blocks -- `tools/c-api-inventory/classification.json` names the
 finding id, so the census will not let the change pass unnoticed.
 
+## Status against CNA C ABI 0.35.0 (re-measured 2026-09-30)
+
+Every finding below was re-run against `libcna/cna` `next` (4228ff913, then 5b4edd6cc, ABI 0.35.0) on the HEADLESS
+artifact and on an OPENGLES3 artifact with the device layer, CNAEXT and compiled effects, both
+staged under `~/deps/cna-c-abi-0.35.0*` with a `PROVENANCE.txt`. The sections keep the original
+write-ups; this table is the current answer.
+
+| Finding | Status at 0.35 | Evidence |
+|---|---|---|
+| 020 camera override dangles | **fixed upstream** (CNA `BINDFIX-011`); camera family now projected, 0 `BLOCKED_UPSTREAM` routes | `upstream_camera_destroy.rs`, `extensions_devices.rs` |
+| 021 content-loaded Model teardown faults | **fixed upstream** (`BINDFIX-006`); destroy and leak both exit cleanly | `upstream_model_destroy.rs`, `extensions_native_model.rs` |
+| 022 imported skin's skeleton unreachable | **fixed upstream** (`BINDFIX-030`); aliasing borrow of the model | `extensions_native_model.rs` |
+| 023 concurrent GL device create corrupts the heap | reproduced on OPENGLES3 at 4228ff913 (aborts, and a create/destroy deadlock in `X11_ShowWindow` against `ReleaseSubsystem`); **fixed upstream** in 5b4edd6cc (`BINDFIX-050`): 40/40 unserialised runs clean, so the crate's `CREATING_A_DEVICE` lock is removed (30/30 Rust runs clean without it) | `tools/reproducers/ext015h_concurrent_device_create.c`, `upstream_concurrent_device_create.rs` |
+| 024 stale morph stride list | **fixed upstream** (`BINDFIX-007`); all eleven canonical strides accepted, 36 refused | `upstream_morph_stride.rs` |
+| 025 area-light BRDF table owned handle | **no longer applicable**: the route left with `engine_layer.h` (ABI 0.30) | -- |
+| 026 launch parameters `add` keeps the first value | header corrected (`BINDFIX-008`); behaviour unchanged, an owner decision in CNA | `extensions_game_runtime.rs` |
+| 027 sample duration/size helpers are not XNA's | **still reproduces** (e.g. 500 ms at 44.1 kHz stereo: CNA 88200, XNA 88198); Rust keeps XNA's arithmetic | `tools/reproducers/ext015q_sample_math.c` |
+| 028 packet truncation | **fixed upstream** (GS-007m): a packet too large for the buffer is refused and stays queued, the reader overload reports its size | `tools/reproducers/census002_packet_truncation.c`, `net_native.rs` |
+| 029 `GamerServicesComponent` skips the base calls | still true in source (CNA follows FNA there); unobservable, because `GameComponent`'s `Initialize`/`Update` are empty | source only |
+| 030 a technique added through the C API cannot be selected | **new**, found in this pass: `cna_effect_set_current_technique` refuses a technique `cna_effect_technique_collection_add_named`/`_add_default` just added to the same effect; **fixed upstream** in 9c78d281c (`BINDFIX-045`); the stress test now selects the technique | `tools/reproducers/census030_effect_technique_owner.c`, `native_stress.rs` |
+| 031 exiting with an avatar load running crashes or hangs | **new**, found in this pass: static destruction frees the tables the avatar loader thread still reads; **fixed upstream** in e6d562454 (`BINDFIX-046`); `gamer_services_native` 0/30 exit failures with a load left running (8/30 before) | `tools/reproducers/census031_avatar_loader_exit.c` |
+
 ---
 
 ## RUST-UPSTREAM-020 — a destroyed camera leaves CNA's platform override dangling

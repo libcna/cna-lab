@@ -1,7 +1,7 @@
 # Native lifetime stress and sanitizer path
 
 The ordinary crash-isolated suite runs when `CNA_NATIVE_LIBRARY` identifies an
-exact ABI-0.20 library:
+exact ABI-0.35 library:
 
 ```bash
 CNA_NATIVE_LIBRARY=/path/to/libcna_c_api.so \
@@ -16,7 +16,7 @@ game-destroy failure path. Fault injection is compiled only by the
 sets `CNA_RUST_TEST_FAULT`.
 
 For sanitizer evidence, build CNA C/C++ separately with AddressSanitizer and
-UndefinedBehaviorSanitizer enabled, while preserving the exact ABI 0.20 exported
+UndefinedBehaviorSanitizer enabled, while preserving the exact ABI 0.35 exported
 contract, then run:
 
 ```bash

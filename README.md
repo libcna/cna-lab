@@ -15,7 +15,7 @@ cna::Microsoft::Xna::Framework::*
   -> safe Rust facades
   -> audited private bridge
   -> cna_sys
-  -> CNA ABI 0.21 cna_* symbols
+  -> CNA ABI 0.35 cna_* symbols
   -> CNA C++
 ```
 
@@ -86,7 +86,7 @@ hierarchy and deliberate CNA extensions.
 - `GraphicsDeviceManager` is Game-associated, publishes the manager/device
   services, retains CNA's Game-owned device, synchronizes preferences, and
   bridges preparing/device lifecycle events without constructing a second
-  device. Re-measured on ABI 0.21: `runtime_graphics_manager.h` still has no
+  device. Re-measured on ABI 0.35: `runtime_graphics_manager.h` still has no
   candidate-ranking route, so `RankDevices` remains an explicit backend
   blocker.
 - Touch/Gesture uses reviewed CNA state, capability, panel, and gesture routes.
@@ -106,7 +106,7 @@ hierarchy and deliberate CNA extensions.
   ABI route is exposed. Six converters accept XNA component strings; six
   deliberately reject string input while retaining value-string output.
 - All nineteen Audio types are complete. SoundEffect, instances, dynamic PCM,
-  microphone facades, and XACT use reviewed ABI-0.21 routes with explicit
+  microphone facades, and XACT use reviewed ABI-0.35 routes with explicit
   ownership and the existing owner-thread FrameworkDispatcher. Multi-listener
   Apply3D reaches its canonical route, with CNA's single-gain-pair mixer as the
   remaining fidelity limit; renderer/look-ahead fidelity and malformed-bank
@@ -115,7 +115,7 @@ hierarchy and deliberate CNA extensions.
 - All 24 Media types are complete as one ownership-safe graph. MediaLibrary,
   seven read-only collection facades, Song, MediaSource, process-global
   MediaPlayer/MediaQueue, owner-thread events, fixed visualization buffers,
-  Video, and VideoPlayer use reviewed CNA ABI-0.21 routes. Catalog population,
+  Video, and VideoPlayer use reviewed CNA ABI-0.35 routes. Catalog population,
   picture providers, decoded video, and assets retain explicit platform,
   backend, or asset qualifications. GetTexture wraps a decoded frame in a
   borrowed `Texture2D` that is never destroyed by Rust and is refused once a
@@ -141,10 +141,12 @@ hierarchy and deliberate CNA extensions.
   six `DrawString` projections submit native glyph commands.
 - The XNA-derived corpus passes 215 named observations and 216 assertions,
   including 20 deterministic Audio and 10 deterministic Media observations.
-- The reviewed ABI slice is 730 functions. It has 2,492 full prototype type
-  positions and 1,028 independent C/Rust measurements across 62 layouts, seven
-  callback signatures, scalar representations, and 262 constants, all with
-  zero mismatches.
+- The reviewed ABI slice is 2,398 of CNA's 3,202 exported functions (the other
+  804 are deliberate non-bindings, 0 blocked upstream). It has 8,662 prototype
+  type positions and 2,664 independent C/Rust measurements across 163 layouts,
+  36 callback signatures, scalar representations, and 834 constants, all with
+  zero mismatches against ABI 0.35.0. CNA ABI 0.30 removed `engine_layer.h`;
+  its bindings were removed with it (see `docs/extensions.md`).
 - Pre-Audio Linux x86-64 HEADLESS validation covers 209 created native game lifetimes,
   ten buffer-binding cycles, ten SpriteFont/content cycles, ten Effect
   parent/child cycles, ten Model/XNB cycles, and ten stock-effect/Texture3D/
@@ -164,16 +166,16 @@ may retain a raw binding. User `UnloadContent` remains exactly once and is
 separate from internal pre-destroy child cleanup. ContentManager owns loaded
 resources, not the native Game.
 
-The unmodified canonical CNA checkout now builds its C API. The previous
-milestone's blocker at `CnaCApiCoreExt.cpp:250` -- a renderer identity
-assertion reducing to `49 == 50` -- is exactly what ABI 0.20.0 repaired when it
-removed eleven renderer identities and moved `CNA_GRAPHICS_RENDERER_MAXIMUM`
-from 50 to 49. Runtime evidence uses an out-of-tree HEADLESS build of that
-checkout; see [docs/abi-migration-evidence.md](docs/abi-migration-evidence.md).
+Runtime evidence (2026-09-30) uses two artifacts built from `libcna/cna`
+`next` at ABI 0.35.0 and staged with their provenance: HEADLESS, and OPENGLES3
+with the device layer, CNAEXT and compiled effects, run inside CNA's private
+GPU display (`tools/platform/run_gpu_tests_private.sh`), never on a live
+desktop. `cargo test --workspace` passes 253 tests with 0 failures on each.
 
 | Platform | Status | Evidence |
 |---|---|---|
-| Linux x86-64, HEADLESS | Experimental runtime verified | 60/600 native frames with the qualification above |
+| Linux x86-64, HEADLESS | Experimental runtime verified | full suite on ABI 0.35; template 60/600 frames |
+| Linux x86-64, OPENGLES3 (windowed, real GPU) | Experimental runtime verified | full suite on ABI 0.35 in a private compositor; template 60/600 frames |
 | Windows | Loader implemented, not compiled here | `LoadLibraryW`/`GetProcAddress`/`FreeLibrary` are in the source. No Windows Rust target is installed on this host, so nothing here compiles or runs a Windows binary. The path encoding is unit-tested on every host, and the loader body type-checks on Linux against stubbed OS pieces. |
 | macOS | Loader shared with Unix, not run | The `#[cfg(unix)]` loader covers macOS in source; no macOS host was available |
 | WebAssembly | Blocked by the toolchain | CNA's WebAssembly C ABI exists and the binding now has a direct-linkage mode, so the architecture no longer blocks it; no wasm standard library is installed here and there is no `rustup` to add one. See [docs/platform-evidence.md](docs/platform-evidence.md) |
@@ -183,7 +185,7 @@ Full platform evidence: [docs/platform-evidence.md](docs/platform-evidence.md).
 
 ## Native setup
 
-Supply a CNA C API library matching ABI 0.21:
+Supply a CNA C API library matching ABI 0.35:
 
 ```text
 CNA_NATIVE_LIBRARY=/absolute/path/to/libcna_c_api.so
@@ -287,7 +289,7 @@ mapping transforms CLR concepts before comparison; it does not compare raw C#
 syntax to Rust syntax or imply other XNA profiles are selected.
 
 `tools/native-stress/run-sanitized.sh` is an optional ASan/UBSan path for a
-separately instrumented exact ABI-0.21 CNA library. Sanitizer status for this
+separately instrumented exact ABI-0.35 CNA library. Sanitizer status for this
 run is `NOT_RUN`; native crash absence is not allocator-level leak proof.
 
 See the [normative mapping](docs/xna-rust-mapping.md),

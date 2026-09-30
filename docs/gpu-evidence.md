@@ -1,6 +1,6 @@
 # GPU-backed qualification
 
-The engine-layer scope decision ([engine-layer-scope.md](engine-layer-scope.md))
+The engine-layer scope decision (docs/engine-layer-scope.md, removed with the engine layer in RUST-ABI-035)
 named one trigger for binding the remaining engine families: **a GPU-backed
 qualified artifact**. This file records the measurement that produced one.
 

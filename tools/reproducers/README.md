@@ -11,18 +11,22 @@ from prose. Build them *into* `build-probe/`, which is where every throwaway
 binary in this repository goes:
 
 ```sh
-CNA=<path to cnanext>
-gcc -O0 -g -rdynamic -D_GNU_SOURCE tools/reproducers/<file>.c \
-  -I$CNA/modules/c-api/include \
-  -L$CNA/cmake-build-headless/modules/c-api -lcna_c_api \
+ART=~/deps/cna-c-abi-0.35.0        # a staged CNA C ABI artifact (lib/ + include/)
+cc -O0 -g -D_GNU_SOURCE -pthread tools/reproducers/<file>.c \
+  -I$ART/include -L$ART/lib -lcna_c_api -Wl,-rpath,$ART/lib \
   -o build-probe/<file>
-LD_LIBRARY_PATH=$CNA/cmake-build-headless/modules/c-api ./build-probe/<file> [args]
+./build-probe/<file> [args]
 ```
 
-`cmake-build-headless` is the artifact these were measured against, because it
-is the one whose renderer makes a `GraphicsDevice` without a window. A GL-family
-renderer refuses that, and each probe says so and exits 0 rather than pretending
-to have measured something.
+The HEADLESS artifact is the default, because its renderer makes a
+`GraphicsDevice` without a window. GL-family probes run inside CNA's private
+GPU display (`tools/platform/run_gpu_tests_private.sh --exec`), never on a
+live desktop.
+
+**Status at ABI 0.35.0 (2026-09-30):** every finding these reproducers were
+written for is fixed upstream except `RUST-UPSTREAM-027` (sample math); see the
+status table at the top of `docs/upstream-findings.md`. The programs are kept
+as regression probes.
 
 | File | Finding | What it shows |
 |---|---|---|
@@ -30,6 +34,8 @@ to have measured something.
 | `ext015g_load_model_destroy.c` | `RUST-UPSTREAM-021` | destroying a content-loaded model with a mesh part faults. Takes a content root and an asset name. |
 | `ext015g_handbuilt_mesh.c` | `RUST-UPSTREAM-021` | the control: the same shape built by hand destroys cleanly, which is what makes *content-loaded* the answer. |
 | `ext015g_manager_teardown.c` | `RUST-UPSTREAM-021` | that leaking the model handle does not avoid the fault; it moves it to process exit. |
+| `census030_effect_technique_owner.c` | `RUST-UPSTREAM-030` | that a technique added to an effect's own collection could not be selected as its current technique. |
+| `census031_avatar_loader_exit.c` | `RUST-UPSTREAM-031` | that exiting while the avatar loader is still assembling a model crashed or hung in static destruction. Takes a count of extra loads. |
 | `census002_packet_truncation.c` | `RUST-UPSTREAM-028` | that a packet larger than the caller's buffer is silently cut and reported as a success -- `out_received` is the buffer, not the packet -- and that the `PacketReader` overload delivers all 5,000 bytes while reporting that it received none. Takes no arguments. |
 
 ## `ext015h_concurrent_device_create.c` — RUST-UPSTREAM-023
@@ -39,10 +45,9 @@ one run in five dies with `SIGSEGV` or glibc's "double free or corruption";
 serialising the create call alone removes it.
 
 ```sh
-CNAX=../../cnanext
-ART=$CNAX/cmake-build-opengles3/modules/c-api
+ART=~/deps/cna-c-abi-0.35.0-opengles3-fx
 cc -O0 -g -pthread tools/reproducers/ext015h_concurrent_device_create.c \
-   -I$CNAX/modules/c-api/include -L$ART -lcna_c_api -Wl,-rpath,$ART \
+   -I$ART/include -L$ART/lib -lcna_c_api -Wl,-rpath,$ART/lib \
    -o build-probe/ext015h_concurrent_device_create
 for i in $(seq 1 40); do ./build-probe/ext015h_concurrent_device_create >/dev/null 2>&1 || echo abort; done
 ```

@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
   "scope": "Microsoft XNA 4.0 Windows Audio/XACT and Media/Video projection, plus every cna::extensions family",
-  "qualifiedArtifactSha256": "94078be94dc1f1e6c8787c1cd17b08c9430d1e4bb5699947cd2b7aafee40281d",
-  "abiVersion": "0.21",
+  "qualifiedArtifactSha256": "3a6f0edc718a2368d76cd6acd597ac468e33b5f2d23bcd3404fa93f1c1809030",
+  "abiVersion": "0.35",
   "rows": [
     {
       "capability": "SoundEffect",
@@ -132,7 +132,7 @@
         "UPSTREAM_CNA_BLOCKED",
         "ASSET_PENDING"
       ],
-      "evidence": "Signature checks, native handles, disposal, parent lifetime, and malformed parser paths are exercised. CNA logs malformed XWB parse failure but still publishes a handle; no legal XNA-authored bank is shipped."
+      "evidence": "Signature checks, native handles, disposal, parent lifetime, and malformed parser paths are exercised. CNA logs malformed XWB parse failure but still publishes a handle; no legal XNA-authored bank is shipped. Re-measured at ABI 0.35: WaveBank::Init still logs the parse error to stderr and publishes the handle (FNA's behaviour; XNA throws)."
     },
     {
       "capability": "SoundBank",
@@ -143,7 +143,7 @@
         "UPSTREAM_CNA_BLOCKED",
         "ASSET_PENDING"
       ],
-      "evidence": "Signature checks, native handles, failed cue lookup, disposal, and parent lifetime are exercised. CNA logs malformed XSB parse failure but still publishes a handle; no legal XNA-authored bank is shipped."
+      "evidence": "Signature checks, native handles, failed cue lookup, disposal, and parent lifetime are exercised. CNA logs malformed XSB parse failure but still publishes a handle; no legal XNA-authored bank is shipped. Re-measured at ABI 0.35: unchanged."
     },
     {
       "capability": "Cue",
@@ -324,7 +324,7 @@
         "VERIFIED_NATIVE",
         "PLATFORM_PENDING"
       ],
-      "evidence": "ABI 0.20 compiler/export probes pass on Linux x86-64; other operating-system/architecture binaries were not measured in this run."
+      "evidence": "ABI 0.35 compiler/export probes pass on Linux x86-64; other operating-system/architecture binaries were not measured in this run."
     },
     {
       "capability": "CLR Audio exception delivery",
@@ -419,17 +419,16 @@
         "VERIFIED_HEADLESS",
         "UPSTREAM_BLOCKED"
       ],
-      "evidence": "The whole GamerServices and Avatar C surface is bound and the strict XNA object model is projected over it. A roster published through SignedInGamerPublisher is read back through Gamer.SignedInGamers, one position keeps one logical identity across reads, an awarded achievement is found again by its key, a leaderboard entry's columns are the entry's own, and a Guide message box is answered through CNA's pending-request routes and reports that exact choice. Guide.IsScreenSaverEnabled is platform state a headless host has no display layer for, so CNA answers true and its setter changes nothing; that is asserted rather than cached."
+      "evidence": "The whole GamerServices and Avatar C surface is bound and the strict XNA object model is projected over it. A roster published through SignedInGamerPublisher is read back through Gamer.SignedInGamers, one position keeps one logical identity across reads, an awarded achievement is found again by its key, a leaderboard entry's columns are the entry's own, and a Guide message box is answered through CNA's pending-request routes and reports that exact choice. Guide.IsScreenSaverEnabled is platform state a headless host has no display layer for, so CNA answers true and its setter changes nothing; that is asserted rather than cached. Re-measured at ABI 0.35 (GS/GSP/GSX): avatars are real CNA avatars (valid random descriptions, 2.5-10 s preset clips, renderers Loading then Ready with a bind pose), Achievement.GetPicture and GamerProfile.GetGamerPicture return the picture bytes through the 0.32 copy routes, GetFriends refuses a profile not signed in online as XNA does, and Guide.IsVisible refuses before gamer services are initialized."
     },
     {
       "family": "extensions::net",
       "routes": 186,
       "statuses": [
         "VERIFIED_HEADLESS",
-        "NO_LIVE_PEER",
-        "UPSTREAM_BLOCKED"
+        "NO_LIVE_PEER"
       ],
-      "evidence": "A local session is created, its rosters read, its properties round-tripped, its state machine driven through Update, and its events proven to fire exactly once and to stop after removal. A single process cannot produce a peer, so RemoteGamerInjection and NetworkEventInjection supply one deliberately and the strict surface reports an empty remote roster without them. A genuine second machine is NO_LIVE_PEER. cna_gamer_* refuses a network gamer handle and cna_local_network_gamer_get_signed_in_gamer answers NOT_SUPPORTED; both refusals are reported rather than guessed around."
+      "evidence": "A local session is created, its rosters read, its properties round-tripped, its state machine driven through Update, and its events proven to fire exactly once and to stop after removal. A single process cannot produce a peer, so RemoteGamerInjection and NetworkEventInjection supply one deliberately and the strict surface reports an empty remote roster without them. A genuine second machine is NO_LIVE_PEER. Re-measured at ABI 0.35 (CNA 5b4edd6cc): cna_local_network_gamer_get_signed_in_gamer answers the signed-in gamer, and the gamer base routes accept a network gamer (BINDFIX-047), so NetworkGamer's inherited Gamertag and DisplayName answer."
     }
   ]
 }
