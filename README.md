@@ -9,9 +9,10 @@ This repository is both a portable managed/build canary and an opt-in real CNA 2
 when an explicit Node CNA backend is loaded, runs `Game`, uploads an embedded PNG with
 `Texture2D.FromStream`, moves it, and draws it through `SpriteBatch`.
 
-Measured on 2026-09-30 against the exact packed `cna-ts-0.1.0.tgz` (SHA-256 `87cdfbbe...08af`),
-installed with `--no-save` as an external project would, and CNA C ABI 0.35.0 (CNA `next`
-5b4edd6cc). The Node bridge was built from the installed package's own source.
+Measured on 2026-09-30 against the exact packed `cna-ts-0.1.0.tgz` (SHA-256 `7c159684...561c`),
+installed with `--no-save` as an external project would, and CNA C ABI 0.35.0: the native
+artifacts at CNA `next` 5b4edd6cc, the WebAssembly artifact at 7dae9216f. The Node bridge was built
+from the installed package's own source.
 
 | Target | Status | Evidence |
 | --- | --- | --- |
