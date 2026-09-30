@@ -22,6 +22,15 @@ All notable changes to this project are documented in this file.
   pointer in current CNA.
 - Requests the HiDef graphics profile. Under XNA's default Reach profile the first 32-bit index
   buffer is refused, so every run ended at the first `CreateMesh`.
+- `WorkerThreadResources` no longer waits for its thread inside `Update`: CNA hands a worker the
+  device between frames, so waiting there deadlocks (as on FNA and MonoGame). A job is started,
+  the game keeps running frames, and the result is collected once the thread has finished.
+- The "Viewport reaching past the back buffer" check used a rectangle that fits exactly in an
+  odd-width back buffer (KF-10 was this); it now reaches one pixel past for every width.
+- `SpriteBatch.End` after a texture was disposed accepts either CNA's documented behaviour
+  (drawing it) or XNA's `ObjectDisposedException` (KF-11).
+- A back-buffer read-back mismatch reports where the cleared colour actually is, with the window
+  and viewport sizes.
 
 ### CNA findings
 
@@ -32,6 +41,10 @@ All notable changes to this project are documented in this file.
   ticks. Seeds 11-13 (nightmare) and 14 (high) run 6000 ticks each without an error.
 - `--max-ticks` logged its stop three times: CNA kept running a slow frame's catch-up `Update`s
   after `Exit()`, where XNA stops. Fixed in CNA by `8dc7a7b99` (KILLER-1).
+- KF-1 to KF-17 (`CNA_FINDINGS.md`): twelve fixed in CNA, KF-3 gone with KF-2, KF-4 and KF-10 not
+  defects, KF-11 kept deliberately, KF-6 fixed for scaled windows and otherwise a documented
+  limitation of the back buffer being the window's surface. KF-17 (a WAVE with zero channels
+  killing the process in SDL_mixer) was found by the final matrix run.
 
 ### Added
 
