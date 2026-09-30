@@ -116,7 +116,7 @@ func (b *binaryReaderBase) ReadBoolean() (bool, error) {
 }
 
 // ReadByte is BinaryReader::ReadByte.
-func (b *binaryReaderBase) ReadByte() (uint8, error) {
+func (b *binaryReaderBase) ReadByte() (byte, error) {
 	buffer, err := b.readExact(1, "ReadByte")
 	if err != nil {
 		return 0, err
@@ -276,7 +276,7 @@ func (r *ContentReader) Dispose() error { return r.close() }
 func (r *ContentReader) ReadBoolean() (bool, error) { return r.base.ReadBoolean() }
 
 // ReadByte is the inherited BinaryReader::ReadByte.
-func (r *ContentReader) ReadByte() (uint8, error) { return r.base.ReadByte() }
+func (r *ContentReader) ReadByte() (byte, error) { return r.base.ReadByte() }
 
 // ReadSByte is the inherited BinaryReader::ReadSByte.
 func (r *ContentReader) ReadSByte() (int8, error) { return r.base.ReadSByte() }

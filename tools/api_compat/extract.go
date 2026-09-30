@@ -15,6 +15,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
@@ -369,8 +370,13 @@ func normalizeExpr(expr ast.Expr, aliases map[string]string) string {
 	for alias, canonical := range aliases {
 		text = strings.ReplaceAll(text, alias+".", canonical+".")
 	}
+	// byte and interface{} are the language's own aliases of uint8 and any, so
+	// a member spelled either way has the same signature.
+	text = predeclaredByte.ReplaceAllString(text, "uint8")
 	return strings.ReplaceAll(text, "interface{}", "any")
 }
+
+var predeclaredByte = regexp.MustCompile(`\bbyte\b`)
 
 func canonicalPackageQualifier(importPath string) string {
 	if importPath == modulePath+"/Microsoft/Xna/Framework" {
