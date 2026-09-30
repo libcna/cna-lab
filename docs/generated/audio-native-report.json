@@ -1,8 +1,8 @@
 {
   "schemaVersion": 2,
   "provenance": "CNA_NATIVE_EVIDENCE; measured output of the reviewed CNA C ABI library, never an XNA fact and never part of the behaviour corpus",
-  "library": "/home/robertvokac/deps/cna-c-abi-0.21.0/libcna_c_api.so",
-  "abiVersion": "0x00001500",
+  "library": "/home/robertvokac/deps/cna-c-abi-0.35.0/lib/libcna_c_api.so",
+  "abiVersion": "0x00002300",
   "audioPlatform": "build-time CNA_AUDIO_PLATFORM; not selectable at runtime",
   "renderer": "build-time CNA_GRAPHICS_RENDERER, overridable at runtime only among renderers compiled in",
   "capabilities": {

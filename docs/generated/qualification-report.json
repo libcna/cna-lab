@@ -2,31 +2,31 @@
   "schemaVersion": 2,
   "generatedBy": "tools/run_qualification.rb",
   "historicalRecord": "docs/qualification-foundations-34-39.json",
-  "milestone": "Foundation 105",
-  "date": "2026-09-04",
+  "milestone": "ABI 0.35.0 requalification (2026-09-30)",
+  "date": "2026-09-30",
   "toolchain": {
     "ruby": "ruby 3.3.8 (2025-04-09 revision b200bad6cd) [x86_64-linux-gnu]",
     "rubyEngine": "ruby",
     "fiddle": "1.1.2",
     "rbs": "3.4.0",
-    "bundler": "2.6.7",
+    "bundler": "2.5.22",
     "rake": "13.2.1",
     "systemRubyPresent": false
   },
   "git": {
-    "branch": "develop",
-    "head": "3f35fc0a160e4db37ed2e3de81f5a223b55aa05d",
+    "branch": "main",
+    "head": "7aef1fe398a523564ebed2d14fb7aaba74a799db",
     "worktreeClean": false
   },
   "artifacts": [
     {
       "id": "HEADLESS",
-      "library": "/home/robertvokac/deps/cna-c-abi-0.21.0/libcna_c_api.so",
-      "librarySha256": "c32bfbd307d695664f906ccf2834ec3f9ebc240fa388d544ac21ee3ebaeb731b",
+      "library": "/home/robertvokac/deps/cna-c-abi-0.35.0/lib/libcna_c_api.so",
+      "librarySha256": "070ed77bec5af09f64c7215e25c90de0970f0316b6d50982eece85fd1963c449",
       "opensADisplay": false,
       "suite": {
-        "runs": 1904,
-        "assertions": 56472,
+        "runs": 1922,
+        "assertions": 56463,
         "failures": 0,
         "errors": 0,
         "skips": 42,
@@ -37,34 +37,17 @@
       }
     },
     {
-      "id": "OPENGL33",
-      "library": "/home/robertvokac/deps/cna-c-abi-0.21.0-opengl33/libcna_c_api.so",
-      "librarySha256": "f7da256097338aacd77cd72eb778e8ab5d80525dd16fddac7cdd9a1885343d5c",
+      "id": "OPENGLES3_FX",
+      "library": "/home/robertvokac/deps/cna-c-abi-0.35.0-opengles3-fx/lib/libcna_c_api.so",
+      "librarySha256": "4e38a2dafd68e22c1a77c00a34b2ef6a7b1cb7b6832d904ba4a21b05f374f4d6",
       "opensADisplay": true,
       "suite": {
-        "runs": 1904,
-        "assertions": 56494,
+        "runs": 1922,
+        "assertions": 56566,
         "failures": 0,
         "errors": 0,
-        "skips": 35,
-        "xDisplayAcquisitionFlakes": 0,
-        "unexplained": [
-
-        ]
-      }
-    },
-    {
-      "id": "OPENGLES3_FX",
-      "library": "/home/robertvokac/deps/cna-c-abi-0.21.0-opengles3-fx/libcna_c_api.so",
-      "librarySha256": "ab055b5e9c10b57d9755445951b118406bc065ca9eaa3fe4c0851a2352bb3e6e",
-      "opensADisplay": true,
-      "suite": {
-        "runs": 1904,
-        "assertions": 56571,
-        "failures": 0,
-        "errors": 2,
         "skips": 18,
-        "xDisplayAcquisitionFlakes": 2,
+        "xDisplayAcquisitionFlakes": 0,
         "unexplained": [
 
         ]
@@ -77,9 +60,9 @@
     "BCL_EXCEPTION_BASES": 2,
     "BCL_PROJECTED_IDENTITIES": 50,
     "BCL_THROWN_EXCEPTIONS": 9,
-    "COMPLETE_TYPES": 252,
+    "COMPLETE_TYPES": 257,
     "ENUM_VALUE_MISMATCH": 0,
-    "EVENT_IDENTITIES": 48,
+    "EVENT_IDENTITIES": 49,
     "EVENT_MAPPING_MISMATCH": 0,
     "EVENT_OWNER_TYPES": 24,
     "EXPECTED_RUBY_MEMBERS": 2915,
@@ -91,22 +74,22 @@
     "INTERNAL_TYPE_LEAK": 0,
     "LANGUAGE_MAPPING_MISMATCH": 0,
     "METHOD_SIGNATURE_MAPPING_MISMATCH": 0,
-    "MISSING_MEMBER": 8,
-    "MISSING_TYPE": 3,
-    "MISSING_TYPES": 3,
+    "MISSING_MEMBER": 0,
+    "MISSING_TYPE": 0,
+    "MISSING_TYPES": 0,
     "OPERATOR_MAPPING_MISMATCH": 0,
-    "OVERLOAD_MAPPING_MISMATCH": 5,
+    "OVERLOAD_MAPPING_MISMATCH": 0,
     "PARAMETER_MAPPING_MISMATCH": 0,
-    "PARTIAL_TYPES": 2,
+    "PARTIAL_TYPES": 0,
     "PROPERTY_MAPPING_MISMATCH": 0,
     "PUBLIC_NATIVE_FFI_LEAK": 0,
     "RAW_HANDLE_LEAK": 0,
     "REFERENCE_MEMBERS": 2964,
     "REFERENCE_TYPES": 257,
     "RETURN_MAPPING_MISMATCH": 0,
-    "TARGET_MEMBERS": 2880,
-    "TARGET_TYPES": 254,
-    "TOTAL_DIAGNOSTICS": 16,
+    "TARGET_MEMBERS": 2915,
+    "TARGET_TYPES": 257,
+    "TOTAL_DIAGNOSTICS": 0,
     "TYPE_KIND_MISMATCH": 0,
     "UNEXPECTED_MEMBER": 0,
     "UNEXPECTED_TYPE": 0,
@@ -114,44 +97,30 @@
     "schemaVersion": 1
   },
   "remainingPartialTypes": {
-    "count": 2,
+    "count": 0,
     "outstanding": {
-      "Microsoft.Xna.Framework.GraphicsDeviceManager": [
-        "Microsoft.Xna.Framework.GraphicsDeviceManager::FindBestDevice (1 overload)",
-        "Microsoft.Xna.Framework.GraphicsDeviceManager::CanResetDevice (1 overload)",
-        "Microsoft.Xna.Framework.GraphicsDeviceManager::RankDevices (1 overload)",
-        "Microsoft.Xna.Framework.GraphicsDeviceManager::OnPreparingDeviceSettings (1 overload)",
-        "Microsoft.Xna.Framework.GraphicsDeviceManager::PreparingDeviceSettings (1 overload)"
-      ],
-      "Microsoft.Xna.Framework.Graphics.GraphicsDevice": [
-        "Microsoft.Xna.Framework.Graphics.GraphicsDevice::.ctor (1 overload)",
-        "Microsoft.Xna.Framework.Graphics.GraphicsDevice::DisplayMode (1 overload)",
-        "Microsoft.Xna.Framework.Graphics.GraphicsDevice::Adapter (1 overload)"
-      ]
     }
   },
   "nativeAbi": {
     "schemaVersion": 2,
-    "abiVersion": "0x00001500",
-    "abiVersionName": "0.21.0",
+    "abiVersion": "0x00002300",
+    "abiVersionName": "0.35.0",
     "admittedAbiVersions": [
-      "0.7.0",
-      "0.21.0"
+      "0.35.0"
     ],
     "headerRoots": [
-      "/home/robertvokac/deps/cna-c-abi-0.21.0/include",
-      "/home/robertvokac/deps/cna-c-abi-0.7.0/include"
+      "/home/robertvokac/deps/cna-c-abi-0.35.0/include"
     ],
-    "library": "/home/robertvokac/deps/cna-c-abi-0.21.0/libcna_c_api.so",
-    "BOUND_FUNCTIONS": 760,
-    "SIGNATURE_MEASUREMENTS": 2694,
-    "C_LAYOUT_MEASUREMENTS": 1156,
-    "RUBY_LAYOUT_MEASUREMENTS": 1156,
-    "STRUCT_LAYOUTS": 68,
-    "CALLBACKS": 7,
-    "CONSTANTS": 152,
-    "ADMITTED_ABI_VERSIONS": 2,
-    "HEADER_ROOTS_VERIFIED": 2,
+    "library": "/home/robertvokac/deps/cna-c-abi-0.35.0/lib/libcna_c_api.so",
+    "BOUND_FUNCTIONS": 777,
+    "SIGNATURE_MEASUREMENTS": 2779,
+    "C_LAYOUT_MEASUREMENTS": 1212,
+    "RUBY_LAYOUT_MEASUREMENTS": 1212,
+    "STRUCT_LAYOUTS": 71,
+    "CALLBACKS": 8,
+    "CONSTANTS": 148,
+    "ADMITTED_ABI_VERSIONS": 1,
+    "HEADER_ROOTS_VERIFIED": 1,
     "CROSS_VERSION_MISMATCHES": 0,
     "MISSING_HEADER_SYMBOLS": 0,
     "MISSING_LIBRARY_SYMBOLS": 0,
@@ -173,7 +142,7 @@
     }
   },
   "dependencyFrontier": {
-    "dependencyCompleteCandidates": 1,
+    "dependencyCompleteCandidates": 0,
     "consumableCandidates": 0,
     "selectionRoute": "none-consumable",
     "selectedNext": null
