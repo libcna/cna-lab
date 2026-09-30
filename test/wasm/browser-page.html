@@ -720,6 +720,9 @@ try {
       // GraphicsDeviceCapabilities: what a page branches on before reaching for an extension.
       result.deviceCapabilities = this.#deviceCapabilityEvidence();
 
+      // --- one stock-effect draw into one bound target, then into two -----------------------
+      result.multipleRenderTargets = this.#multipleRenderTargetEvidence();
+
       // --- the ASCII quantizer, whose every texel is predictable ------------------------------
       result.asciiEffect = (() => {
         const owned = [];
@@ -903,6 +906,59 @@ try {
     }
 
     /** Every `GraphicsCapability` this device answers, and the compute limits beside them. */
+    // Upstream finding 30: on WEBGL2 a draw into two bound targets used to reach neither, while
+    // the Clear reached both. The single-target run is the control and is taken first. BasicEffect
+    // writes one colour output, so the draw belongs in the first target and nowhere else.
+    #multipleRenderTargetEvidence() {
+      const device = this.GraphicsDevice;
+      const WIDTH = 80, HEIGHT = 48;
+      const CLEARED = new Color(12, 34, 56, 255);
+      const one = new Graphics.RenderTarget2D(device, WIDTH, HEIGHT);
+      const two = new Graphics.RenderTarget2D(device, WIDTH, HEIGHT);
+      const effect = new Graphics.BasicEffect(device);
+      const rasterizer = device.RasterizerState;
+      try {
+        effect.VertexColorEnabled = true;
+        effect.World = Matrix.Identity;
+        effect.View = Matrix.CreateLookAt(new Vector3(0, 0, 10), Vector3.Zero, Vector3.Up);
+        effect.Projection = Matrix.CreatePerspectiveFieldOfView(Math.PI / 2, WIDTH / HEIGHT, 1, 100);
+        device.RasterizerState = Graphics.RasterizerState.CullNone;
+        const green = new Color(0, 255, 0, 255);
+        const triangle = [
+          new Graphics.VertexPositionColor(new Vector3(-6, -6, 0), green),
+          new Graphics.VertexPositionColor(new Vector3(10, -6, 0), green),
+          new Graphics.VertexPositionColor(new Vector3(10, -1, 0), green),
+        ];
+        const painted = (texture) => {
+          const texels = new Array(WIDTH * HEIGHT);
+          texture.GetData(texels);
+          return {
+            drawn: texels.filter((texel) => texel.PackedValue !== CLEARED.PackedValue).length,
+            cleared: texels.some((texel) => texel.PackedValue === CLEARED.PackedValue),
+          };
+        };
+        const attempt = (targets) => {
+          try {
+            device.SetRenderTargets(targets.map((item) => new Graphics.RenderTargetBinding(item)));
+            device.Clear(CLEARED);
+            effect.CurrentTechnique.Passes.Get(0).Apply();
+            device.DrawUserPrimitives(Graphics.PrimitiveType.TriangleList, triangle, 0, 1);
+            device.SetRenderTarget(null);
+            return targets.map(painted);
+          } catch (error) {
+            try { device.SetRenderTarget(null); } catch { /* already unbound */ }
+            return `${error?.constructor?.name}: ${error?.message}`;
+          }
+        };
+        return { oneTarget: attempt([one]), twoTargets: attempt([one, two]) };
+      } finally {
+        device.RasterizerState = rasterizer;
+        effect.Dispose();
+        two.Dispose();
+        one.Dispose();
+      }
+    }
+
     #deviceCapabilityEvidence() {
       const device = this.GraphicsDevice;
       const caps = PostProcess.GraphicsDeviceCapabilities;

@@ -509,6 +509,25 @@ test("a browser can ask its device what it supports, and the answers are the dev
   assert.deepEqual(consoleErrors, []);
 });
 
+test("a draw into two bound render targets reaches the target the shader writes", { skip }, async () => {
+  const { result, consoleErrors } = await runFrames(60);
+  assert.equal(result.status, "ok", result.error ?? "");
+  const mrt = result.multipleRenderTargets;
+  assert.ok(mrt, "no multiple-render-target evidence was produced");
+  assert.equal(typeof mrt.oneTarget, "object", `the single-target control failed: ${mrt.oneTarget}`);
+  const [control] = mrt.oneTarget;
+  assert.ok(control.drawn > 0 && control.cleared, "the control: the triangle lands on a cleared target");
+  assert.equal(typeof mrt.twoTargets, "object", `the two-target bind was refused: ${mrt.twoTargets}`);
+  const [first, second] = mrt.twoTargets;
+  // Upstream finding 30, fixed in CNA 7dae9216f: this draw used to reach neither target.
+  assert.equal(first.drawn, control.drawn,
+    "the first target receives exactly the pixels the single-target draw produced");
+  assert.equal(second.drawn, 0, "BasicEffect writes one colour output, so the second target keeps its clear");
+  assert.equal(second.cleared, true, "and the Clear reached it");
+  console.log(`CNA_TS_WASM_MRT=PASS ONE=${control.drawn} TWO=${first.drawn}|${second.drawn}`);
+  assert.deepEqual(consoleErrors, []);
+});
+
 test("the browser artifact is asked whether it has CNA's extension layer, and answers", { skip }, async () => {
   const { result, consoleErrors } = await runFrames(60);
   assert.equal(result.status, "ok", result.error ?? "");
