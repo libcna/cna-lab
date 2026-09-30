@@ -17,34 +17,19 @@ import org.openeggbert.cna.extensions.devices.InputDeviceKind;
 import org.openeggbert.cna.extensions.devices.InputDevices;
 import org.openeggbert.cna.extensions.graphics.ExtensionNotSupportedException;
 import org.openeggbert.cna.extensions.graphics.GraphicsExtension;
+import org.openeggbert.cna.extensions.graphics.DebugDraw;
+import org.openeggbert.cna.extensions.graphics.PbrEffect;
+import org.openeggbert.cna.extensions.graphics.ShaderEffect;
 import Microsoft.Xna.Framework.BoundingBox;
 import Microsoft.Xna.Framework.Color;
-import Microsoft.Xna.Framework.Graphics.Effect;
 import Microsoft.Xna.Framework.Graphics.GraphicsDevice;
 import Microsoft.Xna.Framework.GraphicsDeviceManager;
 import Microsoft.Xna.Framework.Matrix;
 import Microsoft.Xna.Framework.Vector3;
-import org.openeggbert.cna.extensions.graphics.DirectionalLight;
-import org.openeggbert.cna.extensions.graphics.GltfMaterialSource;
 import org.openeggbert.cna.extensions.graphics.PbrEffect;
-import org.openeggbert.cna.extensions.graphics.ShaderEffectFactory;
-import org.openeggbert.cna.extensions.graphics.TransparentDrawList;
-import org.openeggbert.cna.extensions.graphics.FrustumCuller;
-import org.openeggbert.cna.extensions.graphics.LightProbe;
-import org.openeggbert.cna.extensions.graphics.AutoExposure;
-import org.openeggbert.cna.extensions.graphics.ComputeShader;
-import org.openeggbert.cna.extensions.graphics.GpuTimer;
 import org.openeggbert.cna.extensions.graphics.GraphicsCapability;
 import org.openeggbert.cna.extensions.graphics.GraphicsRenderer;
-import org.openeggbert.cna.extensions.graphics.LodGroup;
-import org.openeggbert.cna.extensions.graphics.MemoryBarrier;
 import org.openeggbert.cna.extensions.graphics.RendererCapabilities;
-import org.openeggbert.cna.extensions.graphics.StorageBuffer;
-import org.openeggbert.cna.extensions.graphics.PbrMaterial;
-import org.openeggbert.cna.extensions.graphics.RenderPipeline;
-import org.openeggbert.cna.extensions.graphics.RenderPipelineFrameStatistics;
-import org.openeggbert.cna.extensions.graphics.RenderPipelineSettings;
-import org.openeggbert.cna.extensions.graphics.TonemappingMode;
 import org.openeggbert.cna.extensions.runtime.CnaLogger;
 import org.openeggbert.cna.extensions.runtime.CnaRuntime;
 import org.openeggbert.cna.extensions.runtime.LogCategory;
@@ -118,124 +103,44 @@ final class ExtensionsSmoke {
 
         boolean available = GraphicsExtension.isAvailable();
         System.out.println("cna-java-template: extended graphics layer available " + available);
-
-        // The value routes work in either build, so their defaults come from CNA whichever one
-        // is loaded.
-        RenderPipelineSettings settings = new RenderPipelineSettings();
-        System.out.println("  default tonemapping " + settings.getTonemappingMode()
-                + ", exposure " + settings.getExposure()
-                + ", gamma " + settings.getGamma()
-                + ", shadows " + settings.getShadowQuality());
-        settings.setTonemappingMode(TonemappingMode.Aces);
-        if (settings.getTonemappingMode() != TonemappingMode.Aces) {
-            throw new IllegalStateException("RenderPipelineSettings did not keep its value");
-        }
-
-        PbrMaterial material = new PbrMaterial();
-        System.out.println("  default material metallic " + material.getMetallicFactor()
-                + ", roughness " + material.getRoughnessFactor()
-                + ", albedo " + material.getAlbedoColor());
-
-        // The one route that needs the native extension object. On a build without the layer it
-        // must say so, which is the distinction this smoke exists to check.
-        try {
-            reportEffect(available);
-        } catch (ExtensionNotSupportedException notSupported) {
-            if (available) {
-                throw new IllegalStateException(
-                        "The extended layer reported itself available and then refused", notSupported);
-            }
-            System.out.println("  post-process effect NOT_SUPPORTED, as this build reports");
-        }
-        engine();
+        graphics(available);
         devices();
         content();
         System.out.println("cna-java-template: extensions smoke passed");
     }
 
     /**
-     * Four small things from CNA's engine layer, three of which need no device at all.
+     * The renderer, and the extension effects a game reaches from outside the binding.
      *
-     * <p>Deliberately small. The point is that an external consumer can reach the engine layer
-     * and get an answer back, not to build a scene: one LOD selection, one culled box, one
-     * light's defaults, one probe's irradiance, and one real pipeline frame reporting what it
-     * cost.
+     * <p>Run inside one real frame, because that is where the graphics device is reachable. A
+     * build without the extended graphics layer must refuse DebugDraw rather than hand back an
+     * object that queues nothing, and that refusal is what is checked there.
      */
-    private static void engine() {
-        System.out.println("cna-java-template: engine layer");
-        System.out.println("  revision         " + GraphicsExtension.getEngineLayerVersion());
-
-        // Level of detail: two thresholds, and the group picks by distance.
-        try (LodGroup lod = LodGroup.create()) {
-            lod.addLevel(10.0f);
-            lod.addLevel(50.0f);
-            System.out.println("  lod at 5 units   level " + lod.selectIndex(5.0f)
-                    + ", at 30 units level " + lod.selectIndex(30.0f));
-        }
-
-        // Culling: one box in front of the camera and one behind it.
-        try (FrustumCuller culler = FrustumCuller.create()) {
-            culler.setCamera(
-                    Matrix.CreateLookAt(new Vector3(0f, 0f, 10f), new Vector3(0f, 0f, 0f),
-                            new Vector3(0f, 1f, 0f)),
-                    Matrix.CreatePerspectiveFieldOfView(1.0f, 1.0f, 1.0f, 100.0f));
-            List<BoundingBox> boxes = List.of(
-                    new BoundingBox(new Vector3(-1f, -1f, -1f), new Vector3(1f, 1f, 1f)),
-                    new BoundingBox(new Vector3(-1f, -1f, 39f), new Vector3(1f, 1f, 41f)));
-            System.out.println("  visible boxes    "
-                    + Arrays.toString(culler.cullBoxes(boxes)) + " of 2");
-        }
-
-        DirectionalLight sun = DirectionalLight.createDefault();
-        System.out.println("  default sun      direction " + sun.getDirection()
-                + ", intensity " + sun.getIntensity());
-
-        // Indirect light: a probe holding only its constant term lights every normal alike.
-        try (LightProbe probe = LightProbe.create()) {
-            probe.setCoefficient(0, new Vector3(1f, 1f, 1f));
-            System.out.println("  probe irradiance " + probe.getIrradiance(new Vector3(0f, 1f, 0f)));
-        }
-
-        // Transparency: three boxes submitted nearest first, drawn farthest first.
-        try (TransparentDrawList transparent = TransparentDrawList.create()) {
-            for (float distance : new float[] {2f, 30f, 10f}) {
-                transparent.submit(new BoundingBox(
-                        new Vector3(-0.5f, -0.5f, -distance - 0.5f),
-                        new Vector3(0.5f, 0.5f, -distance + 0.5f)), () -> { });
-            }
-            System.out.println("  back to front    " + Arrays.toString(
-                    transparent.getSortedOrder(Matrix.CreateLookAt(new Vector3(0f, 0f, 0f),
-                            new Vector3(0f, 0f, -1f), new Vector3(0f, 1f, 0f))))
-                    + " of 3 submitted near first");
-        }
-
-        pipelineFrame();
-    }
-
-    /** One real pipeline frame, which is the only part of the engine smoke that needs a device. */
-    private static void pipelineFrame() {
+    private static void graphics(boolean available) {
         try (Game game = new Game()) {
             new GraphicsDeviceManager(game);
-            PipelineReport report = new PipelineReport(game);
+            GraphicsReport report = new GraphicsReport(game, available);
             game.getComponents().add(report);
             game.RunOneFrame();
             if (report.failure != null) {
-                throw new IllegalStateException("engine smoke failed", report.failure);
+                throw new IllegalStateException("graphics smoke failed", report.failure);
             }
             if (!report.ran) {
-                throw new IllegalStateException("engine smoke never ran");
+                throw new IllegalStateException("graphics smoke never ran");
             }
         }
     }
 
-    /** Runs one pipeline frame from inside Update, where the graphics device is reachable. */
-    private static final class PipelineReport extends GameComponent {
+    /** Reports from inside Update, where the graphics device is reachable. */
+    private static final class GraphicsReport extends GameComponent {
 
+        private final boolean available;
         private boolean ran;
         private Throwable failure;
 
-        private PipelineReport(Game game) {
+        private GraphicsReport(Game game, boolean available) {
             super(game);
+            this.available = available;
         }
 
         @Override
@@ -245,135 +150,83 @@ final class ExtensionsSmoke {
                 return;
             }
             ran = true;
-            try (RenderPipeline pipeline = RenderPipeline.create(getGame().getGraphicsDevice())) {
-                pipeline.resize(320, 240);
-                pipeline.setCamera(
-                        Matrix.CreateLookAt(new Vector3(0f, 0f, 4f), new Vector3(0f, 0f, 0f),
-                                new Vector3(0f, 1f, 0f)),
-                        Matrix.CreatePerspectiveFieldOfView(1.0f, 4f / 3f, 0.5f, 200.0f),
-                        0.5f, 200.0f);
-                pipeline.begin(Color.CornflowerBlue);
-                pipeline.end();
-                RenderPipelineFrameStatistics statistics = pipeline.getStatistics();
-                System.out.println("  pipeline frame   " + statistics.passesRun()
-                        + " passes, " + statistics.targetSwitches() + " target switches, "
-                        + statistics.gpuMemoryEstimateBytes() + " estimated bytes");
+            try {
+                report(getGame().getGraphicsDevice());
             } catch (RuntimeException | LinkageError problem) {
                 failure = problem;
+            }
+        }
+
+        private void report(GraphicsDevice device) {
+            System.out.println("cna-java-template: renderer");
+            System.out.println("  name             " + RendererCapabilities.getRendererName(device));
+            System.out.println("  build has        " + GraphicsRenderer.available());
+            System.out.println("  selected         " + GraphicsRenderer.getSelected()
+                    + ", active " + GraphicsRenderer.getActive()
+                    + ", latched " + GraphicsRenderer.isLatched());
+            System.out.println("  3D               "
+                    + RendererCapabilities.supports(device, GraphicsCapability.ThreeD)
+                    + ", compiled effects "
+                    + RendererCapabilities.supports(device, GraphicsCapability.CompiledEffects));
+
+            try (PbrEffect pbr = new PbrEffect(device)) {
+                pbr.setMetallicFactor(0.25f);
+                pbr.setRoughnessFactor(0.75f);
+                if (pbr.getMetallicFactor() != 0.25f || pbr.getRoughnessFactor() != 0.75f) {
+                    throw new IllegalStateException("PbrEffect did not keep its values");
+                }
+                System.out.println("  pbr effect       metallic " + pbr.getMetallicFactor()
+                        + ", roughness " + pbr.getRoughnessFactor());
+            }
+
+            try (ShaderEffect shader = ShaderEffect.compile(device, VERTEX_SOURCE,
+                    FRAGMENT_SOURCE)) {
+                System.out.println("  shader effect    valid " + shader.isValid());
+            }
+
+            if (!available) {
+                try {
+                    DebugDraw.create(device).close();
+                    throw new IllegalStateException(
+                            "DebugDraw was created on a build without the extended layer");
+                } catch (ExtensionNotSupportedException refused) {
+                    System.out.println("  debug draw       NOT_SUPPORTED, as this build reports");
+                }
                 return;
             }
-            try {
-                material(getGame().getGraphicsDevice());
-                shaderCache(getGame().getGraphicsDevice());
-                gpu(getGame().getGraphicsDevice());
-            } catch (RuntimeException | LinkageError problem) {
-                failure = problem;
-            }
-        }
-    }
-
-    /**
-     * What this renderer can do, and one dispatch where it can.
-     *
-     * <p>Deliberately the shortest thing that is not a claim about a call succeeding. Where the
-     * renderer has compute, four known numbers go to the GPU and come back doubled, and the
-     * canary checks them; where it does not, it says so and moves on. A game that needs to know
-     * which of the two it is on asks exactly these questions.
-     */
-    private static void gpu(GraphicsDevice device) {
-        System.out.println("cna-java-template: renderer");
-        System.out.println("  name             " + RendererCapabilities.getRendererName(device));
-        // What this build could have run on, asked of the library rather than assumed. Worth
-        // printing in a canary because naming a renderer that is not on this list in
-        // CNA_GRAPHICS_RENDERER aborts the JVM while the native library loads, with no Java
-        // frame in which to explain itself.
-        System.out.println("  build has        " + GraphicsRenderer.available());
-        boolean compute = RendererCapabilities.supports(device, GraphicsCapability.ComputeShaders);
-        System.out.println("  compute shaders  " + compute);
-        System.out.println("  indirect draw    "
-                + RendererCapabilities.supports(device, GraphicsCapability.IndirectDraw));
-        try (GpuTimer timer = GpuTimer.create(device)) {
-            System.out.println("  gpu timer        " + timer.isSupported()
-                    + (timer.isSupported() ? "" : " (" + timer.getUnsupportedReason() + ")"));
-        }
-        System.out.println("  auto exposure    " + AutoExposure.isSupported(device));
-        if (!compute) {
-            return;
-        }
-        int[] input = {3, 5, 11, 19};
-        try (StorageBuffer source = StorageBuffer.ofElements(device, input.length, Integer.BYTES);
-                StorageBuffer result = StorageBuffer.ofElements(device, input.length,
-                        Integer.BYTES);
-                ComputeShader doubler = ComputeShader.compile(device, DOUBLER)) {
-            java.nio.ByteBuffer upload = StorageBuffer.allocate(input.length * Integer.BYTES);
-            for (int value : input) {
-                upload.putInt(value);
-            }
-            source.setElements(upload.array(), input.length, Integer.BYTES);
-            doubler.bindStorageBuffer(0, source);
-            doubler.bindStorageBuffer(1, result);
-            doubler.dispatch(1, 1, 1);
-            doubler.barrier(MemoryBarrier.ShaderStorage, MemoryBarrier.BufferUpdate);
-
-            byte[] readback = new byte[input.length * Integer.BYTES];
-            result.getElements(readback, input.length, Integer.BYTES);
-            java.nio.ByteBuffer values =
-                    java.nio.ByteBuffer.wrap(readback).order(java.nio.ByteOrder.LITTLE_ENDIAN);
-            StringBuilder shown = new StringBuilder();
-            for (int index = 0; index < input.length; index++) {
-                int got = values.getInt();
-                if (got != input[index] * 2) {
-                    throw new IllegalStateException("the GPU returned " + got + " for "
-                            + input[index] + ", not " + input[index] * 2);
+            try (DebugDraw debug = DebugDraw.create(device)) {
+                debug.begin(Matrix.getIdentity(), Matrix.getIdentity());
+                debug.addBox(new BoundingBox(new Vector3(-1f, -1f, -1f),
+                        new Vector3(1f, 1f, 1f)), Color.Lime);
+                if (debug.getLineCount() != 12) {
+                    throw new IllegalStateException("a box is twelve edges, not "
+                            + debug.getLineCount());
                 }
-                shown.append(index == 0 ? "" : " ").append(got);
+                System.out.println("  debug draw       a box is " + debug.getLineCount()
+                        + " edges");
+                debug.clear();
             }
-            System.out.println("  compute result   " + shown + " (each input doubled)");
         }
     }
 
-    /** Doubles each element of one storage buffer into another, in the dialect CNA's own uses. */
-    private static final String DOUBLER = String.join("\n",
-            "#version 310 es",
-            "layout(local_size_x = 4) in;",
-            "layout(std430, binding = 0) readonly buffer Source { int source_values[]; };",
-            "layout(std430, binding = 1) writeonly buffer Result { int result_values[]; };",
-            "void main() {",
-            "    uint index = gl_GlobalInvocationID.x;",
-            "    result_values[index] = source_values[index] * 2;",
-            "}",
+    /** SpriteBatch's vertex layout, in the dialect CNA's own shaders use. */
+    private static final String VERTEX_SOURCE = String.join("\n",
+            "#version 300 es",
+            "precision highp float;",
+            "layout(location = 0) in vec2 aPos;",
+            "layout(location = 1) in vec2 aTexCoord;",
+            "layout(location = 2) in vec4 aColor;",
+            "out vec2 TexCoord;",
+            "uniform mat4 projection;",
+            "void main() { gl_Position = projection * vec4(aPos, 0.0, 1.0); TexCoord = aTexCoord; }",
             "");
-
-    /** One glTF material, bridged into the effect that draws it. */
-    private static void material(GraphicsDevice device) {
-        GltfMaterialSource source = new GltfMaterialSource();
-        source.setMetallicFactor(0.25f);
-        source.setRoughnessFactor(0.75f);
-        source.setIor(1.45f);
-        try (PbrEffect effect = new PbrEffect(device)) {
-            effect.applyMaterial(source.build());
-            System.out.println("  pbr material     metallic " + effect.getMetallicFactor()
-                    + ", roughness " + effect.getRoughnessFactor()
-                    + ", ior " + effect.getIor());
-        }
-    }
-
-    /** The named shader cache, which is the only route from source to an Effect. */
-    private static void shaderCache(GraphicsDevice device) {
-        try (ShaderEffectFactory factory = ShaderEffectFactory.create(device)) {
-            Effect first = factory.acquire("tint", VERTEX_SOURCE, FRAGMENT_SOURCE);
-            Effect second = factory.acquire("tint", VERTEX_SOURCE, FRAGMENT_SOURCE);
-            System.out.println("  shader cache     two acquires, "
-                    + factory.getCompileCount() + " compile");
-            first.Dispose();
-            second.Dispose();
-        }
-    }
-
-    private static final String VERTEX_SOURCE =
-            "attribute vec4 a_position;\nvoid main() { gl_Position = a_position; }\n";
-    private static final String FRAGMENT_SOURCE =
-            "void main() { gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0); }\n";
+    private static final String FRAGMENT_SOURCE = String.join("\n",
+            "#version 300 es",
+            "precision highp float;",
+            "in vec2 TexCoord;",
+            "out vec4 FragColor;",
+            "void main() { FragColor = vec4(1.0, 0.0, 0.0, 1.0); }",
+            "");
 
     /**
      * Builds content the way a build step would, with no window and no device.
@@ -553,14 +406,5 @@ final class ExtensionsSmoke {
         private String describe(Object value) {
             return value == null ? "not reported" : value.toString();
         }
-    }
-
-
-    private static void reportEffect(boolean available) {
-        if (!available) {
-            throw new ExtensionNotSupportedException(
-                    "this build has no extended graphics layer");
-        }
-        System.out.println("  post-process effect available on this build");
     }
 }

@@ -18,16 +18,20 @@ through `ContentManager.Load(Texture2D.class, ...)`, and draws both through
 `SpriteBatch`. The two Base64 files are transport-safe repository fixtures:
 one decodes to PNG and the other to a deterministic 135-byte Windows XNB v5
 asset. The starter does not yet claim SpriteFont XNB, gamepad/touch, 3D, Model,
-or renderer capability support.
+or renderer capability support, and its runs check frame counts and a clean
+exit rather than pixels.
 
 `--extensions-smoke` is a separate, opt-in mode that exercises the CNA
 extension surface -- the capabilities CNA has and XNA 4.0 never did. It prints
 the platform, the renderer and that backend's category and maturity, writes one
-message through CNA's logger, reports whether this build carries the extended
-graphics layer, and reads CNA's own defaults for the render pipeline and a
-physically based material. It is deliberately not part of `HelloGame`: the
-starter stays an XNA program an XNA developer recognizes, and nothing in
-`HelloGame` imports a CNA extension.
+message through CNA's logger, and reports whether this build carries the
+extended graphics layer. Inside one real frame it asks which renderers the build
+has, which is selected and active, sets and reads back a physically based
+effect, compiles a `ShaderEffect`, and -- where the layer is present -- queues a
+debug box and checks it is twelve edges; where it is absent it checks that
+`DebugDraw` is refused rather than handed back. It is deliberately not part of
+`HelloGame`: the starter stays an XNA program an XNA developer recognizes, and
+nothing in `HelloGame` imports a CNA extension.
 
 What the smoke proves is narrow and honest: the extension packages compile
 against the published artifact from outside the binding, the JNI routes behind
@@ -54,7 +58,8 @@ only if both libraries are already on the system library path.
 
 | Target | Status |
 | --- | --- |
-| Linux x86-64, HEADLESS CNA 0.21.0 | Runtime verified (60 frames, 600 frames, extensions smoke incl. content) |
+| Linux x86-64, CNA C ABI 0.35.0 HEADLESS | Runtime verified 2026-09-30 (60 frames, 600 frames, extensions smoke incl. content, generated project) |
+| Linux x86-64, CNA C ABI 0.35.0 OPENGLES3 | Runtime verified 2026-09-30 in CNA's private GPU runner (same runs; extended layer and compiled effects present) |
 | Windows desktop | Planned; no runtime evidence in this repository |
 | macOS desktop | Planned; no runtime evidence in this repository |
 | Android | Planned; the old non-running Activity scaffold was removed |
@@ -87,15 +92,16 @@ frames), and `--frames N` / `--frames=N` for an explicit positive limit. A run
 without a frame limit continues until the platform requests exit.
 
 From the sibling `cna-java` checkout, `scripts/verify-template.sh` publishes to
-a temporary Maven repository, builds this project against that exact artifact,
-and verifies a freshly generated project. When `CNA_NATIVE_LIBRARY` is set it
-also executes the native smoke test.
+a fresh Maven repository in that checkout's `build-consumer/`, builds this
+project against that exact artifact and JNI library, and verifies a freshly
+generated project. When `CNA_NATIVE_LIBRARY` is set it also runs the 60-frame
+smoke test, the extensions smoke and the 600-frame stability run.
 
 ## Generate a new project
 
 ```bash
 python3 scripts/generate_project.py \
-  --output /tmp/asteroids-java \
+  --output ../asteroids-java \
   --project-name 'Asteroids Java' \
   --package com.example.asteroids \
   --application-id com.example.asteroids \
