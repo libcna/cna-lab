@@ -250,12 +250,6 @@
       "rationale": "backs a Microsoft XNA 4.0 member the Rust projection declares; binding it is a runtime-fidelity improvement"
     },
     {
-      "id": "engine-layer",
-      "category": "CNA_EXTENSION_BACKING",
-      "header": "engine_layer.h",
-      "rationale": "CNAEXT engine layer; belongs under cna::extensions, never inside strict XNA"
-    },
-    {
       "id": "gamer-services",
       "category": "STRICT_XNA_BACKING",
       "header": "gamer_services.h",
@@ -777,14 +771,6 @@
       "outcome": "OUTSIDE_XNA_SURFACE",
       "reason": "XNA implements this member as a **private explicit interface implementation that throws NotSupportedException**. The IL is unambiguous: the collection is fixed, and the mutator exists only because IList<T> demands it. A safe method over this route would be a public API XNA does not have, doing something XNA refuses.",
       "evidence": "xna4-decomp Microsoft.Xna.Framework.GamerServices.dll: AchievementCollection's Add, Clear, Insert, Remove and RemoveAt are private and each throws"
-    },
-    "cna_avatar_appearance_init_ext": {
-      "outcome": "IMPLEMENTED_IN_SAFE_RUST",
-      "reason": "A C convenience that fills `struct_size` and `struct_version` and zeroes the rest. Rust builds these descriptors as literals and has to set both fields anyway, so a call would be a round trip whose result the next line overwrites -- and the layout the literal assumes is the one the ABI verifier pins field by field, which is a stronger check than the initialiser agreeing with itself.",
-      "evidence": "tools/native-abi/verify.py's layout field-set verifier, 187 types",
-      "rustEvidence": [
-        "struct_version: 1"
-      ]
     },
     "cna_avatar_expression_init": {
       "outcome": "IMPLEMENTED_IN_SAFE_RUST",

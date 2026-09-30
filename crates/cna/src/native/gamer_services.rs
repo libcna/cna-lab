@@ -15,14 +15,6 @@ use super::loader::NativeSource;
 #[derive(Debug)]
 #[allow(dead_code)]
 pub(crate) struct GamerServicesApi {
-    pub(crate) avatar_animation_preset_get_clip_name_size_ext:
-        sys::cna_avatar_animation_preset_get_clip_name_size_ext_fn,
-    pub(crate) avatar_animation_preset_copy_clip_name_ext:
-        sys::cna_avatar_animation_preset_copy_clip_name_ext_fn,
-    pub(crate) avatar_body_type_get_content_name_size_ext:
-        sys::cna_avatar_body_type_get_content_name_size_ext_fn,
-    pub(crate) avatar_body_type_copy_content_name_ext:
-        sys::cna_avatar_body_type_copy_content_name_ext_fn,
     pub(crate) signed_in_gamer_create_ext: sys::cna_signed_in_gamer_create_ext_fn,
     pub(crate) signed_in_gamer_get_gamertag_size: sys::cna_signed_in_gamer_get_gamertag_size_fn,
     pub(crate) signed_in_gamer_copy_gamertag: sys::cna_signed_in_gamer_copy_gamertag_fn,
@@ -82,6 +74,7 @@ pub(crate) struct GamerServicesApi {
     pub(crate) gamer_profile_get_region_name_size: sys::cna_gamer_profile_get_region_name_size_fn,
     pub(crate) gamer_profile_copy_region_name: sys::cna_gamer_profile_copy_region_name_fn,
     pub(crate) gamer_profile_get_picture_size: sys::cna_gamer_profile_get_picture_size_fn,
+    pub(crate) gamer_profile_copy_picture: sys::cna_gamer_profile_copy_picture_fn,
     pub(crate) gamer_profile_destroy: sys::cna_gamer_profile_destroy_fn,
     pub(crate) friend_gamer_get_info: sys::cna_friend_gamer_get_info_fn,
     pub(crate) friend_gamer_get_presence_size: sys::cna_friend_gamer_get_presence_size_fn,
@@ -106,9 +99,7 @@ pub(crate) struct GamerServicesApi {
     pub(crate) guide_get_is_screen_saver_enabled: sys::cna_guide_get_is_screen_saver_enabled_fn,
     pub(crate) guide_set_is_screen_saver_enabled: sys::cna_guide_set_is_screen_saver_enabled_fn,
     pub(crate) guide_get_is_trial_mode: sys::cna_guide_get_is_trial_mode_fn,
-    pub(crate) guide_set_is_trial_mode: sys::cna_guide_set_is_trial_mode_fn,
     pub(crate) guide_get_is_visible: sys::cna_guide_get_is_visible_fn,
-    pub(crate) guide_set_is_visible: sys::cna_guide_set_is_visible_fn,
     pub(crate) guide_get_notification_position: sys::cna_guide_get_notification_position_fn,
     pub(crate) guide_set_notification_position: sys::cna_guide_set_notification_position_fn,
     pub(crate) guide_get_simulate_trial_mode: sys::cna_guide_get_simulate_trial_mode_fn,
@@ -192,6 +183,7 @@ pub(crate) struct GamerServicesApi {
     pub(crate) achievement_get_how_to_earn_size: sys::cna_achievement_get_how_to_earn_size_fn,
     pub(crate) achievement_copy_how_to_earn: sys::cna_achievement_copy_how_to_earn_fn,
     pub(crate) achievement_get_picture_size: sys::cna_achievement_get_picture_size_fn,
+    pub(crate) achievement_copy_picture: sys::cna_achievement_copy_picture_fn,
     pub(crate) achievement_equals: sys::cna_achievement_equals_fn,
     pub(crate) achievement_collection_create_ext: sys::cna_achievement_collection_create_ext_fn,
     pub(crate) achievement_collection_destroy: sys::cna_achievement_collection_destroy_fn,
@@ -277,7 +269,6 @@ pub(crate) struct GamerServicesApi {
         sys::cna_leaderboard_entry_set_rating_changed_hook_ext_fn,
     pub(crate) leaderboard_entry_equals: sys::cna_leaderboard_entry_equals_fn,
     pub(crate) avatar_expression_init: sys::cna_avatar_expression_init_fn,
-    pub(crate) avatar_appearance_init_ext: sys::cna_avatar_appearance_init_ext_fn,
     pub(crate) avatar_description_create: sys::cna_avatar_description_create_fn,
     pub(crate) avatar_description_create_random: sys::cna_avatar_description_create_random_fn,
     pub(crate) avatar_description_create_random_for_body_type:
@@ -297,12 +288,6 @@ pub(crate) struct GamerServicesApi {
     pub(crate) avatar_animation_update: sys::cna_avatar_animation_update_fn,
     pub(crate) avatar_animation_get_bone_transform_at:
         sys::cna_avatar_animation_get_bone_transform_at_fn,
-    pub(crate) avatar_animation_get_real_clip_name_size_ext:
-        sys::cna_avatar_animation_get_real_clip_name_size_ext_fn,
-    pub(crate) avatar_animation_copy_real_clip_name_ext:
-        sys::cna_avatar_animation_copy_real_clip_name_ext_fn,
-    pub(crate) avatar_animation_set_real_clip_name_ext:
-        sys::cna_avatar_animation_set_real_clip_name_ext_fn,
     pub(crate) avatar_renderer_create: sys::cna_avatar_renderer_create_fn,
     pub(crate) avatar_renderer_destroy: sys::cna_avatar_renderer_destroy_fn,
     pub(crate) avatar_renderer_get_info: sys::cna_avatar_renderer_get_info_fn,
@@ -314,10 +299,6 @@ pub(crate) struct GamerServicesApi {
     pub(crate) avatar_renderer_get_bind_pose_at: sys::cna_avatar_renderer_get_bind_pose_at_fn,
     pub(crate) avatar_renderer_draw_animation: sys::cna_avatar_renderer_draw_animation_fn,
     pub(crate) avatar_renderer_draw_bones: sys::cna_avatar_renderer_draw_bones_fn,
-    pub(crate) avatar_renderer_enable_real_rendering_ext:
-        sys::cna_avatar_renderer_enable_real_rendering_ext_fn,
-    pub(crate) avatar_renderer_set_appearance_ext: sys::cna_avatar_renderer_set_appearance_ext_fn,
-    pub(crate) avatar_renderer_draw_real_ext: sys::cna_avatar_renderer_draw_real_ext_fn,
 }
 
 impl GamerServicesApi {
@@ -328,18 +309,6 @@ impl GamerServicesApi {
             };
         }
         Ok(Self {
-            avatar_animation_preset_get_clip_name_size_ext: symbol!(cna_avatar_animation_preset_get_clip_name_size_ext,
-                sys::cna_avatar_animation_preset_get_clip_name_size_ext_fn
-            ),
-            avatar_animation_preset_copy_clip_name_ext: symbol!(cna_avatar_animation_preset_copy_clip_name_ext,
-                sys::cna_avatar_animation_preset_copy_clip_name_ext_fn
-            ),
-            avatar_body_type_get_content_name_size_ext: symbol!(cna_avatar_body_type_get_content_name_size_ext,
-                sys::cna_avatar_body_type_get_content_name_size_ext_fn
-            ),
-            avatar_body_type_copy_content_name_ext: symbol!(cna_avatar_body_type_copy_content_name_ext,
-                sys::cna_avatar_body_type_copy_content_name_ext_fn
-            ),
             signed_in_gamer_create_ext: symbol!(cna_signed_in_gamer_create_ext,
                 sys::cna_signed_in_gamer_create_ext_fn
             ),
@@ -486,6 +455,9 @@ impl GamerServicesApi {
             gamer_profile_copy_region_name: symbol!(cna_gamer_profile_copy_region_name,
                 sys::cna_gamer_profile_copy_region_name_fn
             ),
+            gamer_profile_copy_picture: symbol!(cna_gamer_profile_copy_picture,
+                sys::cna_gamer_profile_copy_picture_fn
+            ),
             gamer_profile_get_picture_size: symbol!(cna_gamer_profile_get_picture_size,
                 sys::cna_gamer_profile_get_picture_size_fn
             ),
@@ -561,14 +533,8 @@ impl GamerServicesApi {
             guide_get_is_trial_mode: symbol!(cna_guide_get_is_trial_mode,
                 sys::cna_guide_get_is_trial_mode_fn
             ),
-            guide_set_is_trial_mode: symbol!(cna_guide_set_is_trial_mode,
-                sys::cna_guide_set_is_trial_mode_fn
-            ),
             guide_get_is_visible: symbol!(cna_guide_get_is_visible,
                 sys::cna_guide_get_is_visible_fn
-            ),
-            guide_set_is_visible: symbol!(cna_guide_set_is_visible,
-                sys::cna_guide_set_is_visible_fn
             ),
             guide_get_notification_position: symbol!(cna_guide_get_notification_position,
                 sys::cna_guide_get_notification_position_fn
@@ -741,6 +707,9 @@ impl GamerServicesApi {
             ),
             achievement_copy_how_to_earn: symbol!(cna_achievement_copy_how_to_earn,
                 sys::cna_achievement_copy_how_to_earn_fn
+            ),
+            achievement_copy_picture: symbol!(cna_achievement_copy_picture,
+                sys::cna_achievement_copy_picture_fn
             ),
             achievement_get_picture_size: symbol!(cna_achievement_get_picture_size,
                 sys::cna_achievement_get_picture_size_fn
@@ -957,9 +926,6 @@ impl GamerServicesApi {
             avatar_expression_init: symbol!(cna_avatar_expression_init,
                 sys::cna_avatar_expression_init_fn
             ),
-            avatar_appearance_init_ext: symbol!(cna_avatar_appearance_init_ext,
-                sys::cna_avatar_appearance_init_ext_fn
-            ),
             avatar_description_create: symbol!(cna_avatar_description_create,
                 sys::cna_avatar_description_create_fn
             ),
@@ -1005,15 +971,6 @@ impl GamerServicesApi {
             avatar_animation_get_bone_transform_at: symbol!(cna_avatar_animation_get_bone_transform_at,
                 sys::cna_avatar_animation_get_bone_transform_at_fn
             ),
-            avatar_animation_get_real_clip_name_size_ext: symbol!(cna_avatar_animation_get_real_clip_name_size_ext,
-                sys::cna_avatar_animation_get_real_clip_name_size_ext_fn
-            ),
-            avatar_animation_copy_real_clip_name_ext: symbol!(cna_avatar_animation_copy_real_clip_name_ext,
-                sys::cna_avatar_animation_copy_real_clip_name_ext_fn
-            ),
-            avatar_animation_set_real_clip_name_ext: symbol!(cna_avatar_animation_set_real_clip_name_ext,
-                sys::cna_avatar_animation_set_real_clip_name_ext_fn
-            ),
             avatar_renderer_create: symbol!(cna_avatar_renderer_create,
                 sys::cna_avatar_renderer_create_fn
             ),
@@ -1046,15 +1003,6 @@ impl GamerServicesApi {
             ),
             avatar_renderer_draw_bones: symbol!(cna_avatar_renderer_draw_bones,
                 sys::cna_avatar_renderer_draw_bones_fn
-            ),
-            avatar_renderer_enable_real_rendering_ext: symbol!(cna_avatar_renderer_enable_real_rendering_ext,
-                sys::cna_avatar_renderer_enable_real_rendering_ext_fn
-            ),
-            avatar_renderer_set_appearance_ext: symbol!(cna_avatar_renderer_set_appearance_ext,
-                sys::cna_avatar_renderer_set_appearance_ext_fn
-            ),
-            avatar_renderer_draw_real_ext: symbol!(cna_avatar_renderer_draw_real_ext,
-                sys::cna_avatar_renderer_draw_real_ext_fn
             ),
         })
     }

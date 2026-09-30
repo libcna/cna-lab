@@ -201,22 +201,6 @@ impl ResourceState {
         (handle != sys::CNA_INVALID_HANDLE).then_some(handle)
     }
 
-    /// Gives the native handle away without destroying it.
-    ///
-    /// CNA's engine layer has consuming routes -- a post-process pass can take
-    /// over an effect -- and after one succeeds the new owner destroys the
-    /// object. This value must then forget the handle rather than release it,
-    /// or the second release is a double free. It is deliberately *not* called
-    /// before the consuming route: a refused call must leave this value still
-    /// owning what it owned.
-    pub(crate) fn relinquish(&self) {
-        let mut handle = self
-            .handle
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner);
-        *handle = sys::CNA_INVALID_HANDLE;
-    }
-
     pub(crate) fn require_handle(&self) -> Result<sys::CNA_Handle> {
         self.device.state.ensure_alive()?;
         if let Some(owner) = &self.borrowed {
@@ -349,7 +333,6 @@ impl ResourceState {
         let handle = self.require_handle()?;
         self.device.state.native().graphics_resource_device(handle)
     }
-
 
     pub(super) fn tag(&self) -> Option<Arc<dyn Any + Send + Sync>> {
         self.tag

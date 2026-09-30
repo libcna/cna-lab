@@ -1,33 +1,16 @@
-//! Reproducer for the fault in a content-loaded `Model`'s teardown.
+//! Regression test for a content-loaded `Model`'s teardown (RUST-UPSTREAM-021).
 //!
-//! `MeshResource::~MeshResource` hands each part back its standalone copy:
+//! `MeshResource::~MeshResource` used to move an empty `detachedValue` over a
+//! content-loaded part's live `value`, and `~PartResource` then dereferenced
+//! it: releasing such a model faulted, and so did merely leaking it, because
+//! the C API's handle registry runs the same destructor at process exit. CNA
+//! fixed it upstream (`BINDFIX-006`); re-measured against ABI 0.35.
 //!
-//! ```text
-//! part->parentMesh = nullptr;
-//! part->value = std::move(part->detachedValue);
-//! ```
+//! This runs in **child processes** because the old failure was a fault, not
+//! a result code. Two stages run here and both must now exit cleanly:
 //!
-//! A hand-built part has a `detachedValue` and survives that. A content-loaded
-//! part does not -- `MirrorLoadedModel` fills only `value`, with an aliasing
-//! pointer into the model -- so the move assigns an **empty** `shared_ptr` over
-//! a good one. `~PartResource` then dereferences it two lines later, without
-//! the null check its own next line applies to `detachedValue`.
-//!
-//! This runs in a **child process** on purpose: the failure is a fault, not a
-//! result code. Two stages run here:
-//!
-//! * `destroy` releases the model and does not come back.
-//! * `leak` never releases it, reaches the end of its work, and *still* faults
-//!   -- the C API's handle registry runs the same destructor at process exit.
-//!   That stage is why nothing in the binding guards the teardown: there is no
-//!   ordering on this side that avoids the fault, only one that hides it.
-//!
-//! The control that makes *content-loaded* rather than *has a mesh part* the
-//! answer is `tools/reproducers/ext015g_handbuilt_mesh.c`: the same shape built by
-//! hand destroys cleanly, because a hand-built part has the `detachedValue`
-//! this one lacks. It stays in C because the model-construction routes are a
-//! deliberate non-binding -- `crate::graphics::Model` is the Rust way to build
-//! a model.
+//! * `destroy` releases the model and carries on;
+//! * `leak` never releases it and leaves it to the registry at exit.
 //!
 //! Full write-up: `RUST-UPSTREAM-021` in `docs/upstream-findings.md`.
 
@@ -124,7 +107,7 @@ fn run_stage(stage: &str) -> Result<()> {
 }
 
 #[test]
-fn destroying_a_content_loaded_model_with_a_mesh_part_faults() {
+fn destroying_or_leaking_a_content_loaded_model_is_clean() {
     if std::env::var_os("CNA_NATIVE_LIBRARY").is_none() {
         return;
     }
@@ -142,7 +125,7 @@ fn destroying_a_content_loaded_model_with_a_mesh_part_faults() {
                 "--test-threads=1",
                 "--nocapture",
                 "--exact",
-                "destroying_a_content_loaded_model_with_a_mesh_part_faults",
+                "destroying_or_leaking_a_content_loaded_model_is_clean",
             ])
             .env(STAGE, stage)
             .output()
@@ -172,44 +155,18 @@ fn destroying_a_content_loaded_model_with_a_mesh_part_faults() {
         "the asset must load before its teardown can be measured"
     );
 
-    // Stage one: releasing the model does not come back.
-    let destroy_survived =
-        destroy_status.success() && destroy_text.contains("REPRO: survived");
-
-    // Stage two: not releasing it does not help. Reaching "leaked" and then
-    // failing anyway is the whole finding -- the fault moves to process exit
-    // rather than going away.
-    let (_, leak_status, leak_text) = &outcomes[1];
-    let leaked_then_faulted =
-        leak_text.contains("REPRO: leaked") && !leak_status.success();
-    if leaked_then_faulted {
-        println!(
-            "MEASURED: the model was never released and the process still failed: \
-             {leak_status:?}. The handle registry runs the same destructor at exit, \
-             which is why the binding does not guard the teardown."
-        );
-    }
-
-    if destroy_survived {
-        println!(
-            "NOTE: destroying a content-loaded model with a mesh part no longer faults on \
-             this CNA build. If that is a real upstream fix, RUST-UPSTREAM-021 can be \
-             retired and `NativeModel`'s teardown warning removed."
-        );
-    } else {
-        println!(
-            "MEASURED: destroying a content-loaded model with one mesh part failed: \
-             {destroy_status:?}. This is RUST-UPSTREAM-021."
-        );
-    }
+    // Stage one: releasing the model comes back.
     assert!(
-        !destroy_survived,
-        "RUST-UPSTREAM-021 no longer reproduces -- re-measure and retire the finding"
+        destroy_status.success() && destroy_text.contains("REPRO: survived"),
+        "destroying a content-loaded model with a mesh part failed -- RUST-UPSTREAM-021 \
+         is back. status={destroy_status:?}"
     );
+
+    // Stage two: leaving it to the registry at exit is clean too.
+    let (_, leak_status, leak_text) = &outcomes[1];
     assert!(
-        leaked_then_faulted,
-        "leaking the model was expected to move the fault to process exit, not to avoid \
-         it. If it is avoided now, the binding could guard the teardown after all -- \
-         re-measure RUST-UPSTREAM-021. status={leak_status:?}"
+        leak_text.contains("REPRO: leaked") && leak_status.success(),
+        "a leaked content-loaded model faulted at process exit -- RUST-UPSTREAM-021 is \
+         back. status={leak_status:?}"
     );
 }

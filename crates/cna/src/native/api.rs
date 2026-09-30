@@ -768,7 +768,6 @@ pub(crate) struct Native {
     pub(super) render_target_usage_preserves_contents: sys::cna_render_target_usage_preserves_contents_fn,
     pub(super) sensors_get_accelerometer: sys::cna_sensors_get_accelerometer_fn,
     pub(super) sensors_get_gyroscope: sys::cna_sensors_get_gyroscope_fn,
-    pub(super) sprite_batch_draw_mesh_ext: sys::cna_sprite_batch_draw_mesh_ext_fn,
     pub(super) sprite_batch_submit_scaled_many: sys::cna_sprite_batch_submit_scaled_many_fn,
     pub(super) storage_container_get_is_disposed: sys::cna_storage_container_get_is_disposed_fn,
     pub(super) storage_container_get_storage_device: sys::cna_storage_container_get_storage_device_fn,
@@ -2641,9 +2640,6 @@ impl Native {
             ),
             sensors_get_gyroscope: symbol!(cna_sensors_get_gyroscope,
                 sys::cna_sensors_get_gyroscope_fn
-            ),
-            sprite_batch_draw_mesh_ext: symbol!(cna_sprite_batch_draw_mesh_ext,
-                sys::cna_sprite_batch_draw_mesh_ext_fn
             ),
             sprite_batch_submit_scaled_many: symbol!(cna_sprite_batch_submit_scaled_many,
                 sys::cna_sprite_batch_submit_scaled_many_fn

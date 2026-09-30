@@ -319,11 +319,6 @@ impl TextureCube {
         self.state.require_handle()
     }
 
-    /// Forgets the handle after a consuming route has taken it.
-    pub(crate) fn relinquish(&self) {
-        self.state.relinquish();
-    }
-
     /// Adopts a cube map CNA created and handed over outright.
     ///
     /// The engine layer's environment processor publishes owned cubes -- the
@@ -455,7 +450,6 @@ impl ContentLoadable for TextureCube {
         Some(Arc::clone(value) as Arc<dyn ContentDisposable>)
     }
 }
-
 
 impl crate::extensions::graphics_resource::HasResourceState for TextureCube {
     fn resource_state(&self) -> &super::resource::ResourceState {

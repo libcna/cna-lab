@@ -1037,7 +1037,10 @@ def probe_flag_values(expected: dict[str, dict], actual: dict[str, dict], tempor
     source.mkdir(parents=True)
     (project / "Cargo.toml").write_text(
         "[package]\nname = \"cna-rust-flag-value-probe\"\nversion = \"0.0.0\"\nedition = \"2021\"\n"
-        f"[dependencies]\ncna = {{ package = \"cna-rust\", path = {json.dumps(str(ROOT / 'crates/cna'))} }}\n",
+        f"[dependencies]\ncna = {{ package = \"cna-rust\", path = {json.dumps(str(ROOT / 'crates/cna'))} }}\n"
+        # Its own workspace: TMPDIR may be inside this repository, and Cargo
+        # would otherwise claim the probe for the enclosing workspace.
+        "[workspace]\n",
         encoding="utf-8",
     )
     lines = ["fn main() {"]

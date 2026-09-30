@@ -453,7 +453,11 @@ def abi_probes(cna_root: Path, manifest: dict) -> tuple[dict[str, int], dict[str
         (rust_project / "src").mkdir(parents=True)
         (rust_project / "Cargo.toml").write_text(
             "[package]\nname = \"cna-rust-abi-probe\"\nversion = \"0.0.0\"\nedition = \"2021\"\n"
-            f"[dependencies]\ncna_sys = {{ package = \"cna-rust-sys\", path = {json.dumps(str(ROOT / 'crates/cna-sys'))} }}\n",
+            f"[dependencies]\ncna_sys = {{ package = \"cna-rust-sys\", path = {json.dumps(str(ROOT / 'crates/cna-sys'))} }}\n"
+            # Its own workspace: TMPDIR may be inside this repository (the build
+            # rules keep temporary builds out of /tmp), and Cargo would otherwise
+            # claim the probe for the enclosing workspace and refuse to build it.
+            "[workspace]\n",
             encoding="utf-8",
         )
         # A canonical field may spell a Rust keyword; `type` on the renderer

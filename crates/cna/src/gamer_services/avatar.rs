@@ -92,6 +92,9 @@ pub trait IAvatarAnimation {
 /// XNA `Microsoft.Xna.Framework.GamerServices.AvatarDescription`.
 #[derive(Clone, Debug)]
 pub struct AvatarDescription {
+    // Declared first: the last clone releases its `Changed` registrations
+    // before the owner destroys the description they borrow.
+    changed: Arc<super::events::AvatarChangedSubscriptions>,
     owner: Arc<OwnedHandle>,
 }
 
@@ -99,6 +102,7 @@ impl AvatarDescription {
     fn adopt(runtime: GamerServicesRuntime, handle: sys::CNA_Handle) -> Self {
         let destroy = runtime.native().gamer_services.avatar_description_destroy;
         Self {
+            changed: super::events::AvatarChangedSubscriptions::new(runtime.clone()),
             owner: OwnedHandle::new(runtime, handle, destroy),
         }
     }
@@ -298,28 +302,21 @@ impl AvatarDescription {
     /// Returns the exact error CNA reports.
     #[must_use]
     pub fn AddChangedHandler(&self, handler: Box<dyn EventHandler>) -> u64 {
-        super::events::add_avatar_description_changed(handler).unwrap_or(0)
+        self.owner
+            .get()
+            .and_then(|handle| self.changed.add(handle, handler))
+            .unwrap_or(0)
     }
 
     /// XNA `AvatarDescription.Changed` removal.
     #[must_use]
     pub fn RemoveChangedHandler(&self, registration: u64) -> bool {
-        super::events::remove_avatar_description_changed(registration).unwrap_or(false)
+        self.changed.remove(registration).unwrap_or(false)
     }
 
     pub(crate) fn handle(&self) -> Result<sys::CNA_Handle> {
         self.owner.get()
     }
-}
-
-/// The live handle behind an avatar animation, for the CNA-only surface.
-pub(crate) fn animation_handle(animation: &AvatarAnimation) -> Result<sys::CNA_Handle> {
-    animation.owner.get()
-}
-
-/// The live handle behind an avatar renderer, for the same surface.
-pub(crate) fn renderer_handle(renderer: &AvatarRenderer) -> Result<sys::CNA_Handle> {
-    renderer.owner.get()
 }
 
 /// XNA `Microsoft.Xna.Framework.GamerServices.AvatarAnimation`.

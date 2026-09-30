@@ -541,7 +541,14 @@ fn media_native_stress_isolated() {
         return;
     }
     let fixtures=Fixtures::new();let old_queue=Arc::new(Mutex::new(None));let old_song=Arc::new(Mutex::new(None));let old_video=Arc::new(Mutex::new(None));let old_player=Arc::new(Mutex::new(None));let callbacks=Arc::new(AtomicUsize::new(0));let later=Arc::new(AtomicUsize::new(0));
-    run_for_frames(make_game(&fixtures,Arc::clone(&old_queue),Arc::clone(&old_song),Arc::clone(&old_video),Arc::clone(&old_player),Arc::clone(&callbacks),Arc::clone(&later)),2).expect("Media graph/player/video stress");
+    let first=run_for_frames(make_game(&fixtures,Arc::clone(&old_queue),Arc::clone(&old_song),Arc::clone(&old_video),Arc::clone(&old_player),Arc::clone(&callbacks),Arc::clone(&later)),2);
+    // Video is a CNA build option (CNA_ENABLE_VIDEO). An artifact built without
+    // it refuses VideoPlayer with this exact NotSupported answer, and the video
+    // half of this stress is then qualified on an artifact that has it.
+    if let Err(CnaError::Native{category:cna::ErrorCategory::NotSupported,ref message,..})=first {
+        if message.contains("without the optional FFmpeg video backend") { println!("SKIP: this CNA artifact has no video backend: {message}"); return; }
+    }
+    first.expect("Media graph/player/video stress");
     let prior=old_queue.lock().unwrap().clone().expect("retained Game #1 queue");
     let prior_song=old_song.lock().unwrap().clone().expect("retained Game #1 Song");
     let prior_video=old_video.lock().unwrap().clone().expect("retained Game #1 Video");

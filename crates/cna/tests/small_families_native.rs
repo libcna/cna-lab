@@ -182,6 +182,24 @@ fn the_gamer_services_component_hands_the_dispatcher_the_game_window() {
     if !native_enabled() {
         return;
     }
+    // The dispatcher initializes once per process -- a second Initialize is
+    // refused, as XNA's IL throws `GamerServicesAlreadyInitialized` -- and
+    // other tests in this binary initialize it, so this one runs in a fresh
+    // child process.
+    const CHILD: &str = "CNA_RUST_GAMER_SERVICES_COMPONENT_CHILD";
+    if std::env::var_os(CHILD).is_none() {
+        let status = std::process::Command::new(std::env::current_exe().expect("test binary"))
+            .args([
+                "--exact",
+                "the_gamer_services_component_hands_the_dispatcher_the_game_window",
+                "--nocapture",
+            ])
+            .env(CHILD, "1")
+            .status()
+            .expect("start the component child");
+        assert!(status.success(), "the component child failed: {status}");
+        return;
+    }
     let _native_game = native_game_guard();
 
     // The control, which is also what this component used to do: a game with

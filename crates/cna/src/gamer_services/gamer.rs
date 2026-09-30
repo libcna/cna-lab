@@ -25,6 +25,7 @@
 
 #![allow(non_snake_case)]
 
+use std::io::Read;
 use std::sync::{Arc, Mutex};
 
 use cna_sys as sys;
@@ -799,8 +800,9 @@ impl SignedInGamer {
 
     /// XNA `SignedInGamer.GetFriends`.
     ///
-    /// A host with no friend service answers an empty collection, and that
-    /// success is the true answer rather than a refusal.
+    /// A gamer not signed in to an online account is refused, as XNA's
+    /// `GamerPrivilegeException`; a signed-in account's friends come from the
+    /// configured gamer service.
     ///
     /// # Errors
     ///
@@ -1480,27 +1482,33 @@ impl GamerProfile {
         )
     }
 
-    /// XNA `GamerProfile.GetGamerPicture`, as the picture's byte length.
+    /// XNA `GamerProfile.GetGamerPicture`.
     ///
-    /// CNA publishes only the size on this runtime, which is zero when no
-    /// picture service exists. No stream is fabricated for a picture that is
-    /// not there.
+    /// The standard gamer picture's bytes, read through CNA's size-then-copy
+    /// pair. A profile with no configured picture is an empty stream -- CNA
+    /// answers that as an ordinary success with zero bytes -- rather than a
+    /// fabricated image.
     ///
     /// # Errors
     ///
     /// Returns the exact error CNA reports.
-    pub fn GetGamerPicture(&self) -> Result<Option<u64>> {
+    pub fn GetGamerPicture(&self) -> Result<Box<dyn Read + Send>> {
         let handle = self.owner.get()?;
-        let (mut has_picture, mut bytes) = (0, 0);
-        // SAFETY: the handle is live and both outputs are initialized.
-        self.owner.check(unsafe {
-            (self.owner.native().gamer_services.gamer_profile_get_picture_size)(
-                handle,
-                &mut has_picture,
-                &mut bytes,
-            )
-        })?;
-        Ok((has_picture != 0).then_some(bytes))
+        let api = &self.owner.native().gamer_services;
+        let (size, copy) = (api.gamer_profile_get_picture_size, api.gamer_profile_copy_picture);
+        let bytes = super::core::copy_picture(
+            &self.owner,
+            |bytes| {
+                let mut has_picture = 0;
+                // SAFETY: the handle is live and both outputs are initialized.
+                unsafe { size(handle, &mut has_picture, bytes) }
+            },
+            // SAFETY: the handle is live and the destination holds `capacity`.
+            |destination, capacity, written| unsafe {
+                copy(handle, destination, capacity, written)
+            },
+        )?;
+        Ok(Box::new(std::io::Cursor::new(bytes)))
     }
 
     /// XNA `GamerProfile.Dispose`.

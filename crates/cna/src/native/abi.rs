@@ -7,14 +7,13 @@
 //! than a single comparison.
 //!
 //! While the canonical major is `0` the ABI is experimental, and CNA ships an
-//! incompatible change **as a minor increment** — that is exactly how `0.20.0`
-//! removed eleven renderer identities and moved `CNA_GRAPHICS_RENDERER_MAXIMUM`
-//! from 50 to 49. CNA has also moved the minor for every purely additive
-//! generation since `0.4.0`, and `0.21.0` is one of those: it only adds
-//! `cna_environment_get_device_type` and an object dictionary's retained
-//! managed type name. A minor increment therefore does not distinguish the two
-//! cases, so a `0.x` consumer cannot admit a higher minor without re-reviewing
-//! it, and this binding admits the reviewed minor exactly.
+//! incompatible change **as a minor increment** — that is exactly how `0.30.0`
+//! removed `engine_layer.h`, `0.33.0` the avatar real-rendering extension and
+//! `0.34.0` the two Guide setters XNA keeps internal. CNA also moves the minor
+//! for purely additive generations, so a minor increment does not distinguish
+//! the two cases: a `0.x` consumer cannot admit a higher minor without
+//! re-reviewing it, and this binding admits the reviewed minor, `0.35`,
+//! exactly.
 //!
 //! From ABI `1.0` onward the canonical contract permits only additive,
 //! backward-compatible change within a major, so a higher minor is admissible
@@ -94,31 +93,31 @@ mod tests {
     #[test]
     fn reviewed_version_is_admitted() {
         assert_eq!(admit(sys::CNA_ABI_VERSION), Ok(()));
-        assert_eq!(sys::CNA_ABI_VERSION, version(0, 21, 0));
+        assert_eq!(sys::CNA_ABI_VERSION, version(0, 35, 0));
     }
 
     #[test]
     fn a_different_major_is_rejected() {
-        assert_eq!(admit(version(1, 21, 0)), Err(Rejection::Major));
-        assert_eq!(admit(version(0xFFFF, 21, 0)), Err(Rejection::Major));
+        assert_eq!(admit(version(1, 35, 0)), Err(Rejection::Major));
+        assert_eq!(admit(version(0xFFFF, 35, 0)), Err(Rejection::Major));
     }
 
     #[test]
     fn an_experimental_minor_must_match_exactly() {
-        assert_eq!(admit(version(0, 20, 0)), Err(Rejection::ExperimentalMinor));
-        assert_eq!(admit(version(0, 22, 0)), Err(Rejection::ExperimentalMinor));
-        assert_eq!(admit(version(0, 7, 0)), Err(Rejection::ExperimentalMinor));
+        assert_eq!(admit(version(0, 34, 0)), Err(Rejection::ExperimentalMinor));
+        assert_eq!(admit(version(0, 36, 0)), Err(Rejection::ExperimentalMinor));
+        assert_eq!(admit(version(0, 21, 0)), Err(Rejection::ExperimentalMinor));
     }
 
     #[test]
     fn a_higher_patch_within_the_reviewed_minor_is_additive() {
-        assert_eq!(admit(version(0, 21, 1)), Ok(()));
-        assert_eq!(admit(version(0, 21, 255)), Ok(()));
+        assert_eq!(admit(version(0, 35, 1)), Ok(()));
+        assert_eq!(admit(version(0, 35, 255)), Ok(()));
     }
 
     #[test]
     fn encoding_matches_the_canonical_layout() {
-        assert_eq!(version(0, 21, 0), 0x0000_1500);
+        assert_eq!(version(0, 35, 0), 0x0000_2300);
         assert_eq!(version(1, 2, 3), 0x0001_0203);
         assert_eq!(sys::cna_abi_version_major(0x0001_0203), 1);
         assert_eq!(sys::cna_abi_version_minor(0x0001_0203), 2);

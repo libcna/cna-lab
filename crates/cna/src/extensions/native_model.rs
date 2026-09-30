@@ -234,23 +234,10 @@ pub struct ModelSkin {
 /// module documentation for why this is not [`crate::graphics::Model`] and what
 /// it is for.
 ///
-/// # Loading one faults the process on teardown
-///
-/// Every route below answers correctly. The **teardown** does not: CNA faults
-/// while destroying a content-loaded model that has at least one mesh part,
-/// and it faults again at process exit for a model that was merely leaked.
-/// Both were measured; `RUST-UPSTREAM-021` in `docs/upstream-findings.md` has
-/// the mechanism, the two probes and the hand-built control that isolates it.
-///
-/// There is no ordering on this side that avoids it, so nothing here tries.
-/// Until CNA is fixed, a process that loads a model with a mesh part will fault
-/// before it ends -- which is why this crate's own tests for the type run it in
-/// a **child process** and read the results back, rather than loading a model
-/// in a test binary that has other work to do.
-///
-/// A model with no mesh part is unaffected, and so is every hand-built model
-/// -- but hand-building one is not what this type is for, and
-/// [`crate::graphics::Model`] is the type to reach for anyway.
+/// Releasing it -- or leaving the C API's registry to release it at exit --
+/// used to fault the process for a model with a mesh part
+/// (`RUST-UPSTREAM-021`); CNA fixed that upstream (`BINDFIX-006`), measured
+/// again against ABI 0.35.
 pub struct NativeModel {
     native: Arc<Native>,
     handle: Mutex<sys::CNA_ModelHandle>,
@@ -288,28 +275,9 @@ impl NativeModel {
         handle_of(&self.handle, "the model has been released")
     }
 
-    /// The live handle, for the one other extension that takes a CNA model.
-    pub(crate) fn native_handle(&self) -> Result<sys::CNA_ModelHandle> {
-        self.get()
-    }
-
     /// Releases the model.
     ///
-    /// # This model's teardown faults, and not releasing does not avoid it
-    ///
-    /// `cna_model_destroy` faults on a content-loaded model that has at least
-    /// one mesh part -- `SIGSEGV`, `RUST-UPSTREAM-021` in
-    /// `docs/upstream-findings.md`. `~MeshResource` moves an empty
-    /// `detachedValue` over a loaded part's `value`, and `~PartResource`
-    /// dereferences it two lines later without the null check its own next line
-    /// applies to `detachedValue`.
-    ///
-    /// Leaking the handle was measured and does **not** help: the C API's
-    /// handle registry runs the same destructor when the process exits, with
-    /// the same stack and the same faulting address. There is no order of
-    /// operations on this side that avoids it, which is why this calls the
-    /// route rather than guarding it. A guard would only move a fault from a
-    /// place a caller can see to one they cannot.
+    /// A second call is a no-op.
     pub fn release(&self) -> Result<()> {
         let mut guard = self
             .handle
@@ -1002,15 +970,9 @@ impl NativeModel {
     /// alive for as long as the skin exists, so releasing either never
     /// releases the other's object.
     ///
-    /// # Only for a skin this side added
-    ///
-    /// Upstream answers `INVALID_STATE` -- "The Model skin's skeleton was not
-    /// created through the C API" -- for a skin the *content loader* built, so
-    /// a glTF import's own skeleton is not reachable through this route. The
-    /// error is passed through rather than folded into `None`: "there is no
-    /// skeleton" and "the skeleton exists and cannot be reached" are different
-    /// facts, and [`ModelSkin::has_skeleton`] already reports the first.
-    /// Recorded as `RUST-UPSTREAM-022` in `docs/upstream-findings.md`.
+    /// A skin the *content loader* built publishes its skeleton as an aliasing
+    /// borrow of the model; it used to be refused as "not created through the
+    /// C API" (`RUST-UPSTREAM-022`, fixed upstream by CNA `BINDFIX-030`).
     pub fn skin_skeleton(&self, index: u64) -> Result<Option<SkinningData>> {
         let handle = self.get()?;
         if !self.skin_at(index)?.has_skeleton {

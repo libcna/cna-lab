@@ -404,19 +404,6 @@ fn many_sprites_and_an_arbitrary_mesh_go_through_one_crossing() {
     // marshalling failure.
     println!("NOTE: submit_scaled outside Begin -> {:?}", batch.submit_scaled(&sprites).err().map(|e| e.to_string()));
 
-    // The mesh path validates its arrays here, before CNA sees a pointer.
-    let positions = [Vector2::from_x_and_y(0.0, 0.0), Vector2::from_x_and_y(1.0, 0.0)];
-    let colors = [Color::default(); 2];
-    let coordinates = [Vector2::from_x_and_y(0.0, 0.0), Vector2::from_x_and_y(1.0, 0.0)];
-    assert!(
-        batch.draw_mesh(&positions, &colors[..1], &coordinates, &[0, 1]).is_err(),
-        "mismatched array lengths are refused before CNA is handed a pointer"
-    );
-    assert!(
-        batch.draw_mesh(&positions, &colors, &coordinates, &[0, 5]).is_err(),
-        "an index naming a vertex that does not exist is refused too -- which is \
-         what stops CNA reading past the array"
-    );
 }
 
 /// The process-level settings, which need no device at all.

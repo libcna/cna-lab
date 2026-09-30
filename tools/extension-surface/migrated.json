@@ -266,97 +266,6 @@
       "trait": "cna::extensions::gamer_services::AchievementCollectionExt"
     },
     {
-      "member": "clip_name",
-      "shape": {
-        "parameters": [
-          "self"
-        ],
-        "receiver": "self",
-        "returns": "Result<String>"
-      },
-      "strictType": "cna::Microsoft::Xna::Framework::GamerServices::AvatarAnimation",
-      "trait": "cna::extensions::gamer_services::AvatarAnimationClip"
-    },
-    {
-      "member": "set_clip_name",
-      "shape": {
-        "parameters": [
-          "self",
-          "value"
-        ],
-        "receiver": "self",
-        "returns": "Result<()>"
-      },
-      "strictType": "cna::Microsoft::Xna::Framework::GamerServices::AvatarAnimation",
-      "trait": "cna::extensions::gamer_services::AvatarAnimationClip"
-    },
-    {
-      "member": "content_name",
-      "shape": {
-        "parameters": [
-          "self"
-        ],
-        "receiver": "self",
-        "returns": "Result<String>"
-      },
-      "strictType": "cna::Microsoft::Xna::Framework::GamerServices::AvatarAnimationPreset",
-      "trait": "cna::extensions::gamer_services::AvatarContentNames"
-    },
-    {
-      "member": "content_name",
-      "shape": {
-        "parameters": [
-          "self"
-        ],
-        "receiver": "self",
-        "returns": "Result<String>"
-      },
-      "strictType": "cna::Microsoft::Xna::Framework::GamerServices::AvatarBodyType",
-      "trait": "cna::extensions::gamer_services::AvatarContentNames"
-    },
-    {
-      "member": "draw_clip",
-      "shape": {
-        "parameters": [
-          "self",
-          "clipName",
-          "position",
-          "loop"
-        ],
-        "receiver": "self",
-        "returns": "Result<()>"
-      },
-      "strictType": "cna::Microsoft::Xna::Framework::GamerServices::AvatarRenderer",
-      "trait": "cna::extensions::gamer_services::AvatarRealRendering"
-    },
-    {
-      "member": "set_appearance",
-      "shape": {
-        "parameters": [
-          "self",
-          "appearance"
-        ],
-        "receiver": "self",
-        "returns": "Result<()>"
-      },
-      "strictType": "cna::Microsoft::Xna::Framework::GamerServices::AvatarRenderer",
-      "trait": "cna::extensions::gamer_services::AvatarRealRendering"
-    },
-    {
-      "member": "use_model",
-      "shape": {
-        "parameters": [
-          "self",
-          "device",
-          "model"
-        ],
-        "receiver": "self",
-        "returns": "Result<()>"
-      },
-      "strictType": "cna::Microsoft::Xna::Framework::GamerServices::AvatarRenderer",
-      "trait": "cna::extensions::gamer_services::AvatarRealRendering"
-    },
-    {
       "member": "native_texture_identity",
       "shape": {
         "parameters": [
@@ -2432,22 +2341,6 @@
       },
       "strictType": "cna::Microsoft::Xna::Framework::Graphics::SpriteBatch",
       "trait": "cna::extensions::graphics_resource::NativeGraphicsResource"
-    },
-    {
-      "member": "draw_mesh",
-      "shape": {
-        "parameters": [
-          "self",
-          "positions",
-          "colors",
-          "texture_coordinates",
-          "indices"
-        ],
-        "receiver": "self",
-        "returns": "Result<()>"
-      },
-      "strictType": "cna::Microsoft::Xna::Framework::Graphics::SpriteBatch",
-      "trait": "cna::extensions::device_surface::BatchedSprites"
     },
     {
       "member": "native_is_disposed",

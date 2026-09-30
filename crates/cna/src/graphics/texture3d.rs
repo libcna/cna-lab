@@ -94,24 +94,6 @@ impl Texture3D {
         }
     }
 
-    /// Adopts a volume texture CNA created and handed over outright.
-    ///
-    /// `cna_cube_lut_create_volume_texture` is the caller: the engine allocates
-    /// the texture and the caller destroys it. Destroys the handle on failure
-    /// so a refused wrap never strands one.
-    pub(crate) fn from_owned_handle(
-        graphics_device: &GraphicsDevice,
-        handle: sys::CNA_Handle,
-    ) -> Result<Self> {
-        match Self::from_handle(graphics_device, handle) {
-            Ok(texture) => Ok(texture),
-            Err(error) => {
-                let _ = graphics_device.state.native().destroy_texture3d(handle);
-                Err(error)
-            }
-        }
-    }
-
     fn from_handle(graphics_device: &GraphicsDevice, handle: sys::CNA_Handle) -> Result<Self> {
         let mut info = sys::CNA_Texture3DInfo {
             struct_size: u32::try_from(size_of::<sys::CNA_Texture3DInfo>())
@@ -455,7 +437,6 @@ impl ContentLoadable for Texture3D {
         Some(Arc::clone(value) as Arc<dyn ContentDisposable>)
     }
 }
-
 
 impl crate::extensions::graphics_resource::HasResourceState for Texture3D {
     fn resource_state(&self) -> &super::resource::ResourceState {

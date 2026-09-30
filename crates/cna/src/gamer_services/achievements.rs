@@ -18,6 +18,7 @@
 
 #![allow(non_snake_case)]
 
+use std::io::Read;
 use std::sync::{Arc, Mutex};
 use std::time::SystemTime;
 
@@ -184,27 +185,30 @@ impl Achievement {
         Ok(system_time_from_ticks(self.info()?.earned_date_time_ticks))
     }
 
-    /// XNA `Achievement.GetPicture`, as the picture's byte length.
+    /// XNA `Achievement.GetPicture`.
     ///
-    /// CNA publishes the size of an achievement picture but no route that
-    /// reads its bytes, so the projection answers the size instead of
-    /// fabricating a stream. Zero is a runtime with no picture service.
+    /// The achievement's configured artwork -- the service catalog's, or
+    /// offline the PNG the title's achievement catalog names -- read through
+    /// CNA's size-then-copy pair. An achievement with no artwork is CNA's
+    /// refusal, not an invented picture.
     ///
     /// # Errors
     ///
     /// Returns the exact error CNA reports.
-    pub fn GetPicture(&self) -> Result<u64> {
+    pub fn GetPicture(&self) -> Result<Box<dyn Read + Send>> {
         let handle = self.owner.get()?;
-        let mut bytes = 0;
-        // SAFETY: the handle is live and the output is initialized.
-        self.owner.check(unsafe {
-            (self
-                .owner
-                .native()
-                .gamer_services
-                .achievement_get_picture_size)(handle, &mut bytes)
-        })?;
-        Ok(bytes)
+        let api = &self.owner.native().gamer_services;
+        let (size, copy) = (api.achievement_get_picture_size, api.achievement_copy_picture);
+        let bytes = super::core::copy_picture(
+            &self.owner,
+            // SAFETY: the handle is live and the output is initialized.
+            |bytes| unsafe { size(handle, bytes) },
+            // SAFETY: the handle is live and the destination holds `capacity`.
+            |destination, capacity, written| unsafe {
+                copy(handle, destination, capacity, written)
+            },
+        )?;
+        Ok(Box::new(std::io::Cursor::new(bytes)))
     }
 
     /// CNA's achievement equality, which compares by value.

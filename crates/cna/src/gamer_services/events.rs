@@ -410,29 +410,6 @@ pub(crate) fn add_installing_title_update(handler: Box<dyn EventHandler>) -> Res
     Ok(registration)
 }
 
-static AVATAR_CHANGED: OnceLock<(PlainHandlers, Mutex<Option<sys::CNA_Handle>>)> = OnceLock::new();
-
-fn avatar_changed() -> &'static (PlainHandlers, Mutex<Option<sys::CNA_Handle>>) {
-    AVATAR_CHANGED.get_or_init(|| (Mutex::new(Vec::new()), Mutex::new(None)))
-}
-
-unsafe extern "C" fn avatar_changed_trampoline(_context: *mut c_void) {
-    let handlers = avatar_changed()
-        .0
-        .lock()
-        .unwrap_or_else(std::sync::PoisonError::into_inner)
-        .clone();
-    for (_, handler) in handlers {
-        let mut guard = handler
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner);
-        // Contained: a panicking handler must not unwind into CNA.
-        let _ = catch_unwind(AssertUnwindSafe(|| {
-            guard.invoke(&() as &dyn Any, crate::extensions::events::EventArgs)
-        }));
-    }
-}
-
 static INVITE_ACCEPTED: OnceLock<(
     Mutex<Vec<(u64, Arc<Mutex<Box<dyn EventHandler<InviteAcceptedEventArgs>>>>)>>,
     Mutex<Option<sys::CNA_Handle>>,
@@ -552,66 +529,137 @@ pub(crate) fn remove_invite_accepted(registration: u64) -> bool {
     removed
 }
 
-pub(crate) fn add_avatar_description_changed(handler: Box<dyn EventHandler>) -> Result<u64> {
-    let registry = registry()?;
-    let state = avatar_changed();
-    {
-        let mut subscription = state
-            .1
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner);
-        if subscription.is_none() {
-            let mut handle = 0;
-            // SAFETY: the trampoline is a plain C function and the output is live.
-            registry.runtime.check(unsafe {
-                (registry
-                    .runtime
-                    .native()
-                    .gamer_services
-                    .avatar_description_subscribe_changed_ext)(
-                    Some(avatar_changed_trampoline),
-                    core::ptr::null_mut(),
-                    &mut handle,
-                )
-            })?;
-            *subscription = Some(handle);
-        }
-    }
-    let registration = next_registration(registry);
-    state
-        .0
-        .lock()
-        .unwrap_or_else(std::sync::PoisonError::into_inner)
-        .push((registration, Arc::new(Mutex::new(handler))));
-    Ok(registration)
+/// The `Changed` registrations of one avatar description.
+///
+/// `AvatarDescription.Changed` is an instance event, and CNA's registration
+/// borrows the description it names: every registration has to be released
+/// before the description is destroyed. `AvatarDescription` declares this
+/// field before its owner, so the last clone releases the registrations first.
+pub(crate) struct AvatarChangedSubscriptions {
+    runtime: GamerServicesRuntime,
+    entries: Mutex<Vec<AvatarChangedEntry>>,
 }
 
-pub(crate) fn remove_avatar_description_changed(registration: u64) -> Result<bool> {
-    let registry = registry()?;
-    let state = avatar_changed();
-    let (removed, empty) = {
-        let mut handlers = state
-            .0
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner);
-        let before = handlers.len();
-        handlers.retain(|(value, _)| *value != registration);
-        (before != handlers.len(), handlers.is_empty())
-    };
-    if empty {
-        let taken = state
-            .1
+struct AvatarChangedEntry {
+    registration: u64,
+    native: sys::CNA_Handle,
+    // Boxed so its address -- the callback context -- stays put while it lives.
+    handler: Box<Arc<Mutex<Box<dyn EventHandler>>>>,
+}
+
+impl AvatarChangedSubscriptions {
+    pub(crate) fn new(runtime: GamerServicesRuntime) -> Arc<Self> {
+        Arc::new(Self {
+            runtime,
+            entries: Mutex::new(Vec::new()),
+        })
+    }
+
+    pub(crate) fn add(
+        &self,
+        description: sys::CNA_Handle,
+        handler: Box<dyn EventHandler>,
+    ) -> Result<u64> {
+        let registry = registry()?;
+        let handler = Box::new(Arc::new(Mutex::new(handler)));
+        let context = (&*handler as *const Arc<Mutex<Box<dyn EventHandler>>>)
+            .cast_mut()
+            .cast::<c_void>();
+        let mut native = 0;
+        // SAFETY: the description is live, the trampoline is a plain C function,
+        // and the context stays valid until the registration is released.
+        self.runtime.check(unsafe {
+            (self
+                .runtime
+                .native()
+                .gamer_services
+                .avatar_description_subscribe_changed_ext)(
+                description,
+                Some(avatar_changed_trampoline),
+                context,
+                &mut native,
+            )
+        })?;
+        let registration = next_registration(registry);
+        self.entries
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .take();
-        if let Some(handle) = taken {
-            // SAFETY: the registration came from the subscribe route above.
-            registry.runtime.check(unsafe {
-                (registry.runtime.native().gamer_services.gamer_unsubscribe_ext)(handle)
-            })?;
+            .push(AvatarChangedEntry {
+                registration,
+                native,
+                handler,
+            });
+        Ok(registration)
+    }
+
+    pub(crate) fn remove(&self, registration: u64) -> Result<bool> {
+        let taken = {
+            let mut entries = self
+                .entries
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
+            entries
+                .iter()
+                .position(|entry| entry.registration == registration)
+                .map(|index| entries.remove(index))
+        };
+        let Some(entry) = taken else {
+            return Ok(false);
+        };
+        // SAFETY: the registration came from the subscribe route above.
+        self.runtime.check(unsafe {
+            (self.runtime.native().gamer_services.gamer_unsubscribe_ext)(entry.native)
+        })?;
+        drop(entry.handler);
+        Ok(true)
+    }
+}
+
+impl core::fmt::Debug for AvatarChangedSubscriptions {
+    fn fmt(&self, formatter: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        let count = self
+            .entries
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .len();
+        formatter
+            .debug_struct("AvatarChangedSubscriptions")
+            .field("registrations", &count)
+            .finish()
+    }
+}
+
+impl Drop for AvatarChangedSubscriptions {
+    fn drop(&mut self) {
+        let entries = std::mem::take(
+            self.entries
+                .get_mut()
+                .unwrap_or_else(std::sync::PoisonError::into_inner),
+        );
+        for entry in entries {
+            // SAFETY: each registration came from the subscribe route and is
+            // released once, before its handler's context is freed.
+            let _ = unsafe {
+                (self.runtime.native().gamer_services.gamer_unsubscribe_ext)(entry.native)
+            };
         }
     }
-    Ok(removed)
+}
+
+unsafe extern "C" fn avatar_changed_trampoline(context: *mut c_void) {
+    if context.is_null() {
+        return;
+    }
+    // SAFETY: the context is the boxed handler of a registration that is
+    // released before the box is freed.
+    let handler = unsafe { &*context.cast::<Arc<Mutex<Box<dyn EventHandler>>>>() };
+    let mut guard = handler
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    // Contained: a panicking handler must not unwind into CNA.
+    let _ = catch_unwind(AssertUnwindSafe(|| {
+        guard.invoke(&() as &dyn Any, crate::extensions::events::EventArgs)
+    }));
 }
 
 pub(crate) fn remove_installing_title_update(registration: u64) -> Result<bool> {

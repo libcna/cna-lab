@@ -197,6 +197,31 @@ impl Drop for OwnedHandle {
     }
 }
 
+/// Reads a picture through CNA's size route, then its copy route.
+///
+/// `size` answers the byte count; zero is no picture, which is an empty
+/// buffer rather than a fabricated image.
+pub(crate) fn copy_picture(
+    owner: &OwnedHandle,
+    size: impl Fn(*mut u64) -> sys::CNA_Result,
+    copy: impl Fn(*mut u8, u64, *mut u64) -> sys::CNA_Result,
+) -> Result<Vec<u8>> {
+    let mut required = 0_u64;
+    owner.check(size(&mut required))?;
+    let capacity = usize::try_from(required)
+        .map_err(|_| CnaError::InvalidInput("the picture does not fit in memory"))?;
+    if capacity == 0 {
+        return Ok(Vec::new());
+    }
+    let mut buffer = vec![0_u8; capacity];
+    let mut written = 0_u64;
+    owner.check(copy(buffer.as_mut_ptr(), required, &mut written))?;
+    let written = usize::try_from(written)
+        .map_err(|_| CnaError::InvalidInput("CNA reported a picture larger than memory"))?;
+    buffer.truncate(written.min(capacity));
+    Ok(buffer)
+}
+
 /// Reads a CNA UTF-8 string through a handle's canonical size/copy pair.
 pub(crate) fn read_owned_string(
     owner: &OwnedHandle,

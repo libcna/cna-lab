@@ -13,13 +13,11 @@
 //!
 //! # Why every case runs in a child process
 //!
-//! Loading a model with a mesh part faults this process before it ends --
-//! `RUST-UPSTREAM-021`, and leaking the handle does not avoid it because the C
-//! API's handle registry runs the same destructor at exit. So each case runs in
-//! a child that prints `OK: <case>` when its assertions pass, and the parent
-//! reads that marker rather than the child's exit status. The status is
-//! reported too: a child that exits *cleanly* means upstream has been fixed,
-//! and the parent says so.
+//! Each case runs in a child that prints `OK: <case>` when its assertions
+//! pass, and the parent requires both that marker and a clean exit. The child
+//! exists because a content-loaded model's teardown used to fault the process
+//! (`RUST-UPSTREAM-021`, fixed upstream by CNA `BINDFIX-006`); requiring the
+//! clean exit now is what would catch that fault coming back.
 
 #![allow(clippy::needless_return)]
 
@@ -27,57 +25,15 @@ use std::path::Path;
 use std::process::Command;
 
 use cna::extensions::content::NativeContentManager;
-use cna::extensions::gamer_services::{AvatarAppearance, AvatarRealRendering};
-use cna::extensions::models::SkinnedModel;
 use cna::extensions::native_model::{GltfImportKind, GltfImportSeverity, NativeModel};
 use cna::Microsoft::Xna::Framework::Graphics::{
     GraphicsDevice, GraphicsProfile, PresentationParameters,
 };
-use cna::Microsoft::Xna::Framework::GamerServices::{AvatarDescription, AvatarRenderer};
-use cna::Microsoft::Xna::Framework::{Color, GraphicsDeviceInformation, Matrix, TimeSpan};
+use cna::Microsoft::Xna::Framework::{GraphicsDeviceInformation, Matrix};
 use cna::{CnaError, ErrorCategory, Result};
 
 /// The env var naming which case the child should run.
 const STAGE: &str = "CNA_RUST_NATIVE_MODEL_STAGE";
-
-/// Runs one case whose whole point is the teardown that faults today.
-///
-/// The child cannot reach its marker while `RUST-UPSTREAM-021` stands, so this
-/// asserts the *absence* of the marker and the fault status. The day upstream
-/// fixes it, the marker appears and this fails -- which is what will send
-/// somebody to retire the finding.
-fn in_child_blocked_by_upstream_021(case: &str, body: impl FnOnce()) {
-    if std::env::var_os("CNA_NATIVE_LIBRARY").is_none() {
-        return;
-    }
-    if std::env::var(STAGE).as_deref() == Ok(case) {
-        body();
-        println!("OK: {case}");
-        return;
-    }
-    if std::env::var_os(STAGE).is_some() {
-        return;
-    }
-
-    let Some(output) = spawn_case(case) else { return };
-    let text = String::from_utf8_lossy(&output.stdout).into_owned()
-        + &String::from_utf8_lossy(&output.stderr);
-    if text.contains(&format!("SKIP: {case}")) {
-        println!("SKIP: {case} -- the child could not build a host");
-        return;
-    }
-    let reached_the_end = text.contains(&format!("OK: {case}"));
-    println!(
-        "MEASURED: `{case}` status={:?} reached-the-end={reached_the_end}",
-        output.status
-    );
-    assert!(
-        !reached_the_end,
-        "RUST-UPSTREAM-021 no longer reproduces: destroying a content-loaded model with \
-         mesh parts completed. Re-measure, retire the finding, and take the warning off \
-         `NativeModel`."
-    );
-}
 
 fn spawn_case(case: &str) -> Option<std::process::Output> {
     let exe = std::env::current_exe().expect("this test binary");
@@ -128,13 +84,12 @@ fn in_child(case: &str, body: impl FnOnce()) {
         "the child running `{case}` did not reach its end. status={:?}\n{text}",
         output.status
     );
-    if output.status.success() {
-        println!(
-            "NOTE: `{case}` exited cleanly. Loading a model with a mesh part no longer \
-             faults on this CNA build -- if that is a real upstream fix, RUST-UPSTREAM-021 \
-             can be retired and `NativeModel`'s warning removed."
-        );
-    }
+    assert!(
+        output.status.success(),
+        "the child running `{case}` reached its end but did not exit cleanly -- a model \
+         teardown fault (RUST-UPSTREAM-021) is back. status={:?}",
+        output.status
+    );
 }
 
 /// A triangle, a two-node skeleton, a camera, a skin and a material.
@@ -221,10 +176,8 @@ fn loaded_model() -> Option<(GraphicsDevice, NativeContentManager, &'static Nati
             panic!("loading the glTF model failed: {error}");
         }
     };
-    // Leaked on purpose. Dropping it runs `cna_model_destroy`, which faults --
-    // RUST-UPSTREAM-021 -- and a fault before the `OK:` marker would tell the
-    // parent the assertions failed when they did not. The process still faults
-    // at exit; the marker just gets out first.
+    // Leaked so every case can borrow it for the rest of the child; the C API's
+    // handle registry releases it when the child exits.
     Some((device, manager, Box::leak(Box::new(model))))
 }
 
@@ -334,7 +287,7 @@ fn a_bone_named_lookup_answers_the_same_bone_as_the_collection() {
 
 #[test]
 fn a_view_outlives_the_model_it_came_from() {
-    in_child_blocked_by_upstream_021("a_view_outlives_the_model_it_came_from", || {
+    in_child("a_view_outlives_the_model_it_came_from", || {
         let Some((_device, _manager, model)) = loaded_model() else {
             println!("SKIP: {}", std::env::var(STAGE).unwrap_or_default());
             return;
@@ -350,12 +303,6 @@ fn a_view_outlives_the_model_it_came_from() {
         // The whole reason `ModelBoneView` carries no lifetime parameter. Dropping
         // the model must not invalidate a view taken from it, heap state included;
         // if this ever changes, the type needs a lifetime and this fails first.
-        //
-        // On a CNA carrying RUST-UPSTREAM-021 the child does not return from
-        // this release, so the assertions below are what a fixed CNA will
-        // check. The pure-C probe measured the same property on a *hand-built*
-        // model, where the teardown works, and that is the evidence the type's
-        // missing lifetime parameter actually rests on.
         model.release().expect("release the model");
 
         assert_eq!(
@@ -515,41 +462,21 @@ fn the_imported_skin_names_the_meshes_it_poses() {
             );
         }
 
-        // The skeleton itself is not reachable for a skin the *content loader*
-        // built: upstream answers INVALID_STATE, "The Model skin's skeleton was
-        // not created through the C API". That is a real gap rather than a
-        // binding fault -- `has_skeleton` above is true -- so it is asserted as
-        // measured and recorded as RUST-UPSTREAM-022. When upstream closes it
-        // this fails and says so.
-        match model.skin_skeleton(0) {
-            Err(CnaError::Native {
-                category: ErrorCategory::State,
-                ref message,
-                ..
-            }) if message.contains("not created through the C API") => {
-                println!("MEASURED: a content-loaded skin's skeleton is unreachable: {message}");
-            }
-            Ok(Some(skeleton)) => {
-                let bones = skeleton.bone_count().expect("skeleton bone count");
-                assert!(bones > 0, "the skeleton should carry the source's joints");
-                drop(skeleton);
-                assert_eq!(
-                    model.skins().expect("skins after dropping the skeleton").len(),
-                    1,
-                    "dropping the caller's skeleton handle must not remove the skin"
-                );
-                panic!(
-                    "RUST-UPSTREAM-022 no longer reproduces: a content-loaded skin's \
-                     skeleton is reachable now. Re-measure and retire the finding."
-                );
-            }
-            Ok(None) => panic!(
-                "the skin reports a skeleton but `skin_skeleton` answered None"
-            ),
-            Err(other) => panic!(
-                "unexpected refusal for a content-loaded skin's skeleton: {other}"
-            ),
-        }
+        // The skeleton of a skin the *content loader* built is published as an
+        // aliasing borrow of the model (RUST-UPSTREAM-022, fixed upstream by CNA
+        // `BINDFIX-030`; it used to answer "not created through the C API").
+        let skeleton = model
+            .skin_skeleton(0)
+            .expect("a content-loaded skin's skeleton")
+            .expect("the skin reports a skeleton");
+        let bones = skeleton.bone_count().expect("skeleton bone count");
+        assert!(bones > 0, "the skeleton should carry the source's joints");
+        drop(skeleton);
+        assert_eq!(
+            model.skins().expect("skins after dropping the skeleton").len(),
+            1,
+            "dropping the caller's skeleton handle must not remove the skin"
+        );
     });
 }
 
@@ -637,16 +564,13 @@ fn bone_transforms_round_trip_through_the_bulk_routes() {
 
 #[test]
 fn a_released_model_refuses_further_work() {
-    in_child_blocked_by_upstream_021("a_released_model_refuses_further_work", || {
+    in_child("a_released_model_refuses_further_work", || {
         let Some((_device, _manager, model)) = loaded_model() else {
             println!("SKIP: {}", std::env::var(STAGE).unwrap_or_default());
             return;
         };
 
-        // `release` calls `cna_model_destroy` for real. On a CNA that still
-        // carries RUST-UPSTREAM-021 the child does not come back from this --
-        // which is exactly why the parent reads the `OK:` marker rather than
-        // the exit status. Everything below runs only on a fixed CNA.
+        // `release` calls `cna_model_destroy` for real.
         model.release().expect("release the model");
 
         assert!(
@@ -689,66 +613,4 @@ fn a_missing_asset_fails_rather_than_answering_an_empty_model() {
             "a missing asset must fail the load, not answer a model with nothing in it"
         );
     });
-}
-
-
-#[test]
-fn an_avatar_renderer_draws_a_model_a_game_supplied() {
-    if std::env::var_os("CNA_NATIVE_LIBRARY").is_none() {
-        return;
-    }
-    let Some(device) = independent_device_or_skip(|| {
-        let parameters = PresentationParameters::new();
-        parameters.SetBackBufferWidth(64);
-        parameters.SetBackBufferHeight(64);
-        GraphicsDevice::new(
-            &GraphicsDeviceInformation::new().Adapter(),
-            GraphicsProfile::HiDef,
-            &parameters,
-        )
-    }) else {
-        return;
-    };
-    // The renderer takes CNA's engine-layer model, which a build without the
-    // engine layer does not have. That is an artifact fact, not a binding one.
-    let Ok(model) = SkinnedModel::new() else {
-        println!("this artifact has no engine layer, so it has no skinned model");
-        return;
-    };
-
-    let description = AvatarDescription::CreateRandom().expect("a random avatar");
-    let renderer = AvatarRenderer::new(&description).expect("a renderer for it");
-
-    // The colours are the renderer's own state and need no model.
-    renderer
-        .set_appearance(AvatarAppearance {
-            skin: Color::CornflowerBlue,
-            hair: Color::Black,
-            shirt: Color::White,
-            pants: Color::DarkSlateGray,
-            shoes: Color::Red,
-        })
-        .expect("an appearance the renderer keeps");
-
-    // Drawing a clip before a model is named is refused, which is the
-    // documented answer and the one that proves the route is not a no-op.
-    assert!(
-        matches!(
-            renderer.draw_clip("Stand0", TimeSpan::Zero, false),
-            Err(CnaError::Native { .. })
-        ),
-        "a renderer with no real model must refuse rather than draw nothing"
-    );
-
-    renderer
-        .use_model(&device, &model)
-        .expect("the renderer takes the game's own model");
-
-    // With a model it reaches the renderer. A build that cannot draw answers a
-    // refusal; what must not happen is a Rust-side no-op reported as a draw.
-    match renderer.draw_clip("Stand0", TimeSpan::Zero, true) {
-        Ok(()) => {}
-        Err(CnaError::Native { .. }) => {}
-        Err(other) => panic!("unexpected real avatar draw failure: {other:?}"),
-    }
 }

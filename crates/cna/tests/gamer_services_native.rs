@@ -18,8 +18,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard, OnceLock};
 
 use cna::extensions::gamer_services::{
-    AchievementInjection, AchievementRegistration, AvatarAnimationClip, AvatarContentNames,
-    FreedGamerCount, FriendInjection, FriendRegistration, PendingGuideRequest,
+    AchievementInjection, AchievementRegistration, FreedGamerCount, FriendInjection, FriendRegistration, PendingGuideRequest,
     SetPresenceModeText, SignedInGamerPublisher, SignedInGamerRegistration,
     UpdateDispatcherAsync,
 };
@@ -30,7 +29,7 @@ use cna::Microsoft::Xna::Framework::GamerServices::{
     LeaderboardKey, NotificationPosition, PropertyDictionary, SignedInGamer,
 };
 use cna::Microsoft::Xna::Framework::{Matrix, PlayerIndex, TimeSpan, Vector3};
-use cna::{CnaError, GamerBase, GamerCollectionBase, PropertyValueKind, Result};
+use cna::{CnaError, ErrorCategory, GamerBase, GamerCollectionBase, PropertyValueKind, Result};
 
 fn native_enabled() -> bool {
     std::env::var_os("CNA_NATIVE_LIBRARY").is_some()
@@ -187,10 +186,16 @@ fn a_signed_in_gamers_own_objects_answer_from_cna() -> Result<()> {
         gamer.Privileges()?.AllowOnlineSessions()?
     );
 
-    // No friend service exists here. An empty collection is a success.
-    let friends = gamer.GetFriends()?;
-    assert_eq!(friends.Count()?, 0);
-    assert!(!friends.IsDisposed()?);
+    // A gamer who is not signed in to an online account has no friends list:
+    // XNA's IL throws `GamerPrivilegeException` before asking any service, and
+    // CNA answers the same refusal as a state error.
+    assert!(matches!(
+        gamer.GetFriends(),
+        Err(CnaError::Native {
+            category: ErrorCategory::State,
+            ..
+        })
+    ));
     Ok(())
 }
 
@@ -352,35 +357,6 @@ fn the_dispatcher_reports_whether_it_had_work_and_what_it_freed() -> Result<()> 
 }
 
 #[test]
-fn cna_names_the_avatar_content_xna_left_to_the_console() -> Result<()> {
-    if !native_enabled() {
-        return Ok(());
-    }
-    let _services = gamer_services_guard();
-
-    // XNA resolved a body type and an animation preset on the console and
-    // never told a game what content was behind them. There is no console
-    // here, so the game supplies the content -- and has to be able to ask what
-    // content the identity wants.
-    let female = AvatarBodyType::Female.content_name()?;
-    let male = AvatarBodyType::Male.content_name()?;
-    assert!(!female.is_empty(), "a body type names real content");
-    assert_ne!(female, male, "two body types are not one asset");
-
-    let wave = AvatarAnimationPreset::Wave.content_name()?;
-    let clap = AvatarAnimationPreset::Clap.content_name()?;
-    assert!(!wave.is_empty());
-    assert_ne!(wave, clap);
-
-    // An animation plays its preset's clip until a game names its own.
-    let animation = AvatarAnimation::new(AvatarAnimationPreset::Wave)?;
-    assert_eq!(animation.clip_name()?, wave);
-    animation.set_clip_name("Salute")?;
-    assert_eq!(animation.clip_name()?, "Salute");
-    Ok(())
-}
-
-#[test]
 fn the_leaderboard_writer_keeps_one_entry_per_identity() -> Result<()> {
     if !native_enabled() {
         return Ok(());
@@ -468,7 +444,7 @@ fn a_disposed_object_reports_disposed_rather_than_answering() -> Result<()> {
     // And a disposed object refuses rather than reading a released handle.
     assert!(matches!(profile.Motto(), Err(CnaError::InvalidInput(_))));
 
-    let friends = gamer.GetFriends()?;
+    let friends = FriendInjection::collection(&[])?;
     friends.Dispose()?;
     assert!(friends.IsDisposed()?);
     friends.Dispose()?;
@@ -507,14 +483,25 @@ fn the_guide_reports_what_cna_has_rather_than_a_screen() -> Result<()> {
     Guide::SetSimulateTrialMode(false)?;
     assert!(!Guide::SimulateTrialMode()?);
 
-    // `IsVisible` is derived from whether a Guide request is pending, not from
-    // a stored flag: CNA accepts its own setter and ignores it, and the
-    // projection does not pretend otherwise.
+    // `IsVisible` is derived from whether a Guide screen is up, not from a
+    // stored flag, and it refuses before gamer services are initialized, as
+    // XNA's getter does. Other tests in this binary may already have
+    // initialized them, so the answer is checked against that state.
     PendingGuideRequest::reset_message_box()?;
     PendingGuideRequest::reset_keyboard_input()?;
-    assert!(!Guide::IsVisible()?);
-    PendingGuideRequest::set_visible(true)?;
-    assert!(!Guide::IsVisible()?);
+    let initialized = cna::Microsoft::Xna::Framework::GamerServices::GamerServicesDispatcher::IsInitialized()?;
+    let visible = Guide::IsVisible();
+    if initialized {
+        assert!(!visible?);
+    } else {
+        assert!(matches!(
+            visible,
+            Err(CnaError::Native {
+                category: ErrorCategory::State,
+                ..
+            })
+        ));
+    }
     let pending = Guide::BeginShowKeyboardInput(
         PlayerIndex::One,
         "Name",
@@ -524,7 +511,9 @@ fn the_guide_reports_what_cna_has_rather_than_a_screen() -> Result<()> {
         None,
     )?;
     // Now something *is* pending, so the derived property says so.
-    assert!(Guide::IsVisible()?);
+    if initialized {
+        assert!(Guide::IsVisible()?);
+    }
     assert!(PendingGuideRequest::has_keyboard_input()?);
     assert_eq!(PendingGuideRequest::keyboard_input_title()?, "Name");
     assert_eq!(
@@ -540,7 +529,9 @@ fn the_guide_reports_what_cna_has_rather_than_a_screen() -> Result<()> {
     assert!(PendingGuideRequest::keyboard_input_was_canceled()?);
     assert_eq!(Guide::EndShowKeyboardInput(&pending)?, "");
     PendingGuideRequest::reset_keyboard_input()?;
-    assert!(!Guide::IsVisible()?);
+    if initialized {
+        assert!(!Guide::IsVisible()?);
+    }
     Ok(())
 }
 
@@ -685,34 +676,43 @@ fn sign_in_handlers_stop_receiving_once_removed() -> Result<()> {
 }
 
 #[test]
-fn an_avatar_description_preserves_xnas_own_random_behaviour() -> Result<()> {
+fn an_avatar_description_is_a_real_cna_avatar() -> Result<()> {
     if !native_enabled() {
         return Ok(());
     }
     let _services = gamer_services_guard();
 
-    // Despite its name, XNA's `CreateRandom` randomizes nothing: it answers an
-    // all-zero description, which is invalid. CNA preserves that exactly, and
-    // the projection reports it rather than "fixing" the upstream behaviour.
+    // CNA avatars are real (docs/avatars.md, CNA ABI 0.33): `CreateRandom`
+    // answers a valid 1021-byte description in CNA's own encoding -- a
+    // non-zero format byte, then "CNA" -- with a body type and a height.
     let random = AvatarDescription::CreateRandom()?;
-    assert!(!random.IsValid()?);
+    assert!(random.IsValid()?);
     let bytes = random.Description()?;
-    assert!(!bytes.is_empty());
-    assert!(bytes.iter().all(|byte| *byte == 0));
+    assert_eq!(bytes.len(), 1021);
+    assert_ne!(bytes[0], 0, "XNA's IsValid rule reads the first byte");
+    assert_eq!(&bytes[1..4], b"CNA");
+    let height = random.Height()?;
+    assert!(
+        (1.45..=2.05).contains(&height),
+        "a random avatar is 1.45 to 2.05 m tall: {height}"
+    );
 
-    // The body-type overload validates its argument and then ignores it, which
-    // is also XNA's own behaviour: both answers are the same all-zero
-    // description, and neither reports the body type that was asked for.
+    // The body-type overload honours the body type it was asked for.
     let female = AvatarDescription::CreateRandomWithBodyType(AvatarBodyType::Female)?;
     let male = AvatarDescription::CreateRandomWithBodyType(AvatarBodyType::Male)?;
-    assert_eq!(female.Description()?, bytes);
-    assert_eq!(male.Description()?, bytes);
-    assert_eq!(female.BodyType()?, male.BodyType()?);
+    assert_eq!(female.BodyType()?, AvatarBodyType::Female);
+    assert_eq!(male.BodyType()?, AvatarBodyType::Male);
 
-    // The constructor copies the caller's bytes and answers them back.
+    // The constructor copies the caller's bytes: the same avatar comes back.
     let rebuilt = AvatarDescription::new(&bytes)?;
     assert_eq!(rebuilt.Description()?, bytes);
-    assert!(!rebuilt.IsValid()?);
+    assert!(rebuilt.IsValid()?);
+    assert_eq!(rebuilt.BodyType()?, random.BodyType()?);
+    assert_eq!(rebuilt.Height()?, height);
+
+    // An all-zero buffer is XNA's "no avatar": invalid.
+    let empty = AvatarDescription::new(&vec![0_u8; 1021])?;
+    assert!(!empty.IsValid()?);
     Ok(())
 }
 
@@ -724,31 +724,32 @@ fn an_avatar_animation_advances_its_own_clock() -> Result<()> {
     let _services = gamer_services_guard();
 
     let animation = AvatarAnimation::new(AvatarAnimationPreset::Wave)?;
-    // XNA's animation carries 71 zero bone transforms and a zero length
-    // whichever preset was asked for. Preserved, not corrected.
-    assert_eq!(animation.Length()?.Ticks(), 0);
+    // Each preset is an original CNA clip, 2.5 to 10 seconds long, on XNA's
+    // 71-bone skeleton (docs/avatars.md).
+    let length = animation.Length()?.Ticks();
+    assert!(
+        (25_000_000..=100_000_000).contains(&length),
+        "a preset clip is 2.5 to 10 s long: {length} ticks"
+    );
     assert_eq!(animation.CurrentPosition()?.Ticks(), 0);
     let bones = animation.BoneTransforms()?;
     assert_eq!(bones.len(), AvatarRenderer::BoneCount as usize);
 
-    // The clock is real state, and XNA clamps it to the clip: advancing past
-    // the end pins the position at the length, which for a zero-length clip is
-    // zero. A projection that stored the elapsed time instead of asking CNA
-    // would report 100 ms here.
+    // The clock is real state, read back from CNA rather than stored here.
     let step = TimeSpan::FromMilliseconds(100.0);
     animation.Update(step, false)?;
-    assert_eq!(animation.CurrentPosition()?.Ticks(), 0);
+    assert_eq!(animation.CurrentPosition()?.Ticks(), 1_000_000);
 
-    // Looping is refused for a zero-length clip -- wrapping would not
-    // terminate -- so the clamp applies there too.
+    // A non-looping animation clamps at its length...
+    animation.Update(animation.Length()?, false)?;
+    assert_eq!(animation.CurrentPosition()?.Ticks(), length);
+    // ...and a looping one wraps by the remainder of the length.
     animation.Update(step, true)?;
-    assert_eq!(animation.CurrentPosition()?.Ticks(), 0);
+    assert_eq!(animation.CurrentPosition()?.Ticks(), 1_000_000);
 
-    // The setter clamps by the same rule, in both directions.
-    animation.SetCurrentPosition(step)?;
-    assert_eq!(animation.CurrentPosition()?.Ticks(), 0);
-    animation.SetCurrentPosition(TimeSpan::FromMilliseconds(-100.0))?;
-    assert_eq!(animation.CurrentPosition()?.Ticks(), 0);
+    // The setter places the clock inside the clip.
+    animation.SetCurrentPosition(TimeSpan::FromMilliseconds(500.0))?;
+    assert_eq!(animation.CurrentPosition()?.Ticks(), 5_000_000);
 
     let _expression = animation.Expression()?;
 
@@ -800,17 +801,35 @@ fn an_avatar_renderer_holds_the_state_it_was_given() -> Result<()> {
     assert_eq!(parents.len(), AvatarRenderer::BoneCount as usize);
     assert_eq!(renderer.ParentBones()?, parents);
 
-    // XNA raises unless the renderer has reached `Ready`, and nothing in this
-    // runtime ever sets that state, so the honest answer is the refusal. A
-    // projection that answered 71 identity matrices here would be inventing a
-    // bind pose the avatar service never supplied.
-    assert_eq!(renderer.State()?, AvatarRendererState::Unavailable);
-    assert!(matches!(renderer.BindPose(), Err(CnaError::Native { .. })));
+    // A valid description is `Loading` while CNA assembles the avatar on a
+    // background thread, then `Ready`; XNA raises from `BindPose` until then.
+    if renderer.State()? == AvatarRendererState::Loading {
+        assert!(matches!(renderer.BindPose(), Err(CnaError::Native { .. })));
+    }
+    let state = wait_until_loaded(&renderer)?;
+    assert_eq!(state, AvatarRendererState::Ready, "the avatar finished loading");
+    // Once ready the bind pose is 71 local transforms with identity rotations:
+    // pure translations, scaled to the avatar's height.
+    let bind = renderer.BindPose()?;
+    assert_eq!(bind.len(), AvatarRenderer::BoneCount as usize);
+    assert!(bind.iter().all(|matrix| matrix.M11 == 1.0 && matrix.M22 == 1.0 && matrix.M33 == 1.0));
 
     renderer.Dispose()?;
     assert!(renderer.IsDisposed()?);
     renderer.Dispose()?;
     Ok(())
+}
+
+fn wait_until_loaded(renderer: &AvatarRenderer) -> Result<AvatarRendererState> {
+    let mut state = renderer.State()?;
+    for _ in 0..200 {
+        if state != AvatarRendererState::Loading {
+            break;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(50));
+        state = renderer.State()?;
+    }
+    Ok(state)
 }
 
 #[test]
@@ -823,6 +842,10 @@ fn an_avatar_draw_reports_what_the_renderer_can_do() -> Result<()> {
     let description = AvatarDescription::CreateRandom()?;
     let renderer = AvatarRenderer::new(&description)?;
     let animation = AvatarAnimation::new(AvatarAnimationPreset::Stand0)?;
+    // Let CNA's background assembly finish before the process can exit:
+    // exiting with a load still running crashes or hangs inside CNA's static
+    // destruction (RUST-UPSTREAM-031, reproducer in tools/reproducers).
+    wait_until_loaded(&renderer)?;
 
     // Nothing here claims a frame appeared. The call reaches CNA and whatever
     // CNA answers -- a success on a build that can draw, a refusal on one that

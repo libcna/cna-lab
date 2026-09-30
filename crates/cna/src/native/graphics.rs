@@ -3129,16 +3129,6 @@ impl Native {
         })
     }
 
-    pub(crate) fn draw_sprite_mesh(
-        &self,
-        batch: sys::CNA_Handle,
-        mesh: &sys::CNA_SpriteMeshEXT,
-    ) -> Result<()> {
-        // SAFETY: every array the mesh points at outlives the call; the safe
-        // layer is what holds them and checks the counts against them.
-        self.check(unsafe { (self.sprite_batch_draw_mesh_ext)(batch, mesh) })
-    }
-
     pub(crate) fn set_render_target2d(
         &self,
         device: sys::CNA_Handle,

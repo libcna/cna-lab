@@ -311,23 +311,11 @@ pub struct ScaledSprite {
     pub layer_depth: f32,
 }
 
-/// Batched sprite submission, and the arbitrary-mesh escape hatch.
+/// Batched sprite submission.
 pub trait BatchedSprites {
     /// Submits many scaled sprites in one crossing.
     fn submit_scaled(&self, sprites: &[ScaledSprite]) -> Result<()>;
 
-    /// Draws an arbitrary triangle mesh through the batch.
-    ///
-    /// The three vertex arrays must be the same length, and every index must
-    /// be inside them; both are checked here, because CNA is handed raw
-    /// pointers and counts and would read past the end otherwise.
-    fn draw_mesh(
-        &self,
-        positions: &[crate::value::Vector2],
-        colors: &[Color],
-        texture_coordinates: &[crate::value::Vector2],
-        indices: &[u16],
-    ) -> Result<()>;
 }
 
 impl BatchedSprites for crate::Microsoft::Xna::Framework::Graphics::SpriteBatch {
@@ -364,58 +352,6 @@ impl BatchedSprites for crate::Microsoft::Xna::Framework::Graphics::SpriteBatch 
             .device()
             .state_native()
             .submit_scaled_sprites(state.require_handle()?, &commands)
-    }
-
-    fn draw_mesh(
-        &self,
-        positions: &[crate::value::Vector2],
-        colors: &[Color],
-        texture_coordinates: &[crate::value::Vector2],
-        indices: &[u16],
-    ) -> Result<()> {
-        if positions.len() != colors.len() || positions.len() != texture_coordinates.len() {
-            return Err(CnaError::InvalidInput(
-                "a sprite mesh needs one colour and one texture coordinate per position",
-            ));
-        }
-        let vertex_count = positions.len();
-        if indices.iter().any(|index| usize::from(*index) >= vertex_count) {
-            return Err(CnaError::InvalidInput(
-                "every sprite-mesh index must name a vertex that exists",
-            ));
-        }
-        let native_positions: Vec<sys::CNA_Vector2> = positions
-            .iter()
-            .map(|value| sys::CNA_Vector2 {
-                x: value.X,
-                y: value.Y,
-            })
-            .collect();
-        let native_colors: Vec<sys::CNA_Color> =
-            colors.iter().copied().map(to_native_color).collect();
-        let native_coordinates: Vec<sys::CNA_Vector2> = texture_coordinates
-            .iter()
-            .map(|value| sys::CNA_Vector2 {
-                x: value.X,
-                y: value.Y,
-            })
-            .collect();
-        let state = self.resource_state();
-        let mesh = sys::CNA_SpriteMeshEXT {
-            struct_size: core::mem::size_of::<sys::CNA_SpriteMeshEXT>() as u32,
-            struct_version: 1,
-            effect: sys::CNA_INVALID_HANDLE,
-            positions: native_positions.as_ptr(),
-            colors: native_colors.as_ptr(),
-            texture_coordinates: native_coordinates.as_ptr(),
-            indices: indices.as_ptr(),
-            vertex_count: vertex_count as u64,
-            index_count: indices.len() as u64,
-        };
-        state
-            .device()
-            .state_native()
-            .draw_sprite_mesh(state.require_handle()?, &mesh)
     }
 }
 
