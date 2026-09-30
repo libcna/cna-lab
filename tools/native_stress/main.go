@@ -179,6 +179,12 @@ type counters struct {
 	VertexBufferEffectApplies           int `json:"VERTEX_BUFFER_EFFECT_APPLIES"`
 	VertexBufferEffectApplyRefusals     int `json:"VERTEX_BUFFER_EFFECT_APPLY_REFUSALS"`
 	VertexBufferEffectDisposalChecks    int `json:"VERTEX_BUFFER_EFFECT_DISPOSAL_CHECKS"`
+	// The compiled-bytecode constructor, over the .fxb CNA_GO_COMPILED_EFFECT
+	// names: built on a renderer with CNA_GRAPHICS_CAPABILITY_COMPILED_EFFECTS,
+	// refused by name on one without, skipped loudly with no fixture.
+	CompiledEffectCreations int `json:"COMPILED_EFFECT_CREATIONS"`
+	CompiledEffectRefusals  int `json:"COMPILED_EFFECT_REFUSALS"`
+	CompiledEffectSkips     int `json:"COMPILED_EFFECT_SKIPS"`
 	// Foundation 79. The BasicEffect slice. Creations and creation refusals are
 	// counted apart for the reason every other native creation's are: a run
 	// that only ever refused must not read as a run that made an effect.
@@ -464,6 +470,8 @@ type counters struct {
 	DeviceStateRoundTrips             int `json:"DEVICE_STATE_ROUND_TRIPS"`
 	DeviceStateObjectRefusals         int `json:"DEVICE_STATE_OBJECT_REFUSALS"`
 	DeviceStateObjectBinds            int `json:"DEVICE_STATE_OBJECT_BINDS"`
+	DeviceStateProfileRefusals        int `json:"DEVICE_STATE_PROFILE_REFUSALS"`
+	DeviceStateNullDepthRefusals      int `json:"DEVICE_STATE_NULL_DEPTH_REFUSALS"`
 	SpriteBatchStateBegins            int `json:"SPRITE_BATCH_STATE_BEGINS"`
 	DeviceCollectionIdentityChecks    int `json:"DEVICE_COLLECTION_IDENTITY_CHECKS"`
 	DeviceCollectionRangeChecks       int `json:"DEVICE_COLLECTION_RANGE_CHECKS"`
@@ -745,6 +753,10 @@ func runParent() (counters, error) {
 	if total.DeviceStateCycles < 20 || total.DeviceStateRoundTrips < 100 {
 		return total, errors.New("native device-state round-trip minimum was not met")
 	}
+	if total.DeviceStateProfileRefusals != 5*total.DeviceStateCycles {
+		return total, fmt.Errorf("the Reach separate-alpha refusal ran %d times in %d device-state cycles",
+			total.DeviceStateProfileRefusals, total.DeviceStateCycles)
+	}
 	// Two display-mode checks and three texture creations per cycle, plus the
 	// two refusals the projection makes before it reaches CNA.
 	if total.DeviceStateDisplayModeChecks < 40 || total.DeviceStateTextureCreations < 60 ||
@@ -791,6 +803,10 @@ func runParent() (counters, error) {
 		return total, errors.New("a vertex-buffer proof did not run in every cycle")
 	}
 	// Exactly one of the two draw outcomes per cycle.
+	if total.CompiledEffectCreations+total.CompiledEffectRefusals+total.CompiledEffectSkips != total.VertexBufferCycles {
+		return total, fmt.Errorf("the compiled-effect slice ran %d+%d+%d times in %d vertex-buffer cycles",
+			total.CompiledEffectCreations, total.CompiledEffectRefusals, total.CompiledEffectSkips, total.VertexBufferCycles)
+	}
 	if total.VertexBufferDraws+total.VertexBufferDrawRefusals != total.VertexBufferCycles {
 		return total, fmt.Errorf("vertex-buffer draws %d and refusals %d do not account for %d cycles",
 			total.VertexBufferDraws, total.VertexBufferDrawRefusals, total.VertexBufferCycles)
@@ -2051,6 +2067,19 @@ func (g *stressGame) Initialize(host *framework.Game) error {
 		return err
 	}
 	g.manager = manager
+	// XNA 4.0's Reach profile has no 32-bit indices, no occlusion queries, no
+	// GetBackBufferData and no volume textures, so the four scenarios that
+	// exercise them ask for HiDef the way a game does; the Reach refusals are
+	// proved by the device-state scenario.
+	switch g.scenario {
+	case "index-buffer", "vertex-buffer", "presentation", "texture-volume":
+		if err := graphics.SetGraphicsDeviceManagerGraphicsProfile(manager, graphics.GraphicsProfileHiDef); err != nil {
+			return fmt.Errorf("SetGraphicsProfile(HiDef): %w", err)
+		}
+		if err := manager.ApplyChanges(); err != nil {
+			return fmt.Errorf("ApplyChanges after SetGraphicsProfile(HiDef): %w", err)
+		}
+	}
 	if got := manager.SupportedOrientations(); got != framework.DisplayOrientationDefault {
 		return fmt.Errorf("initial SupportedOrientations = %d, want Default", got)
 	}
@@ -2527,8 +2556,58 @@ func (g *stressGame) exerciseDeviceState() error {
 	}
 	g.result.DeviceStateObjectRefusals++
 
+	// The device is in XNA's default Reach profile, and Reach has no separate
+	// alpha blend: BlendState::Apply throws ProfileNoSeparateAlphaBlend when
+	// the colour and alpha source blends differ, BEFORE it stores a parent or
+	// freezes the state. CNA enforces the same rule, so the refused state must
+	// come back unbound and still writable.
+	separate := graphics.NewBlendState()
+	if err := separate.SetColorSourceBlend(graphics.BlendSourceAlpha); err != nil {
+		return fmt.Errorf("a fresh BlendState refused a write: %w", err)
+	}
+	if refusal := device.SetBlendState(separate); !isNativeRefusal(refusal) {
+		return fmt.Errorf("SetBlendState(separate alpha blend) under Reach = %v, want CNA's NOT_SUPPORTED", refusal)
+	}
+	if separate.GraphicsDevice() != nil {
+		return errors.New("a BlendState the profile refused was given the device as its parent")
+	}
+	if err := separate.SetColorSourceBlend(graphics.BlendOne); err != nil {
+		return fmt.Errorf("a BlendState the profile refused was frozen: %w", err)
+	}
+	g.result.DeviceStateProfileRefusals++
+
+	// Reach has no 32-bit index buffer either (ProfileNoIndexElementSize32),
+	// no occlusion query, no GetBackBufferData and no Texture3D; the
+	// index-buffer, vertex-buffer, presentation and texture-volume scenarios
+	// use all four under HiDef.
+	if _, refusal := graphics.NewIndexBufferByGraphicsDeviceAndIndexElementSizeAndInt32AndBufferUsage(
+		device, graphics.IndexElementSizeThirtyTwoBits, 4, graphics.BufferUsageNone); !isNativeRefusal(refusal) {
+		return fmt.Errorf("a 32-bit IndexBuffer under Reach = %v, want CNA's NOT_SUPPORTED", refusal)
+	}
+	g.result.DeviceStateProfileRefusals++
+	if _, refusal := graphics.NewOcclusionQuery(device); !isNativeRefusal(refusal) {
+		return fmt.Errorf("an OcclusionQuery under Reach = %v, want CNA's NOT_SUPPORTED", refusal)
+	}
+	g.result.DeviceStateProfileRefusals++
+	backBuffer, err := device.PresentationParameters()
+	if err != nil {
+		return fmt.Errorf("PresentationParameters: %w", err)
+	}
+	whole := make([]framework.Color, backBuffer.BackBufferWidth()*backBuffer.BackBufferHeight())
+	if refusal := graphics.GraphicsDeviceGetBackBufferDataBySliceOfT(device, whole); !isNativeRefusal(refusal) {
+		return fmt.Errorf("GetBackBufferData under Reach = %v, want CNA's NOT_SUPPORTED", refusal)
+	}
+	g.result.DeviceStateProfileRefusals++
+	if _, refusal := graphics.NewTexture3D(device, 2, 2, 2, false, graphics.SurfaceFormatColor); !isNativeRefusal(refusal) {
+		return fmt.Errorf("a Texture3D under Reach = %v, want CNA's NOT_SUPPORTED", refusal)
+	}
+	g.result.DeviceStateProfileRefusals++
+
 	ownBlend := graphics.NewBlendState()
 	if err := ownBlend.SetColorSourceBlend(graphics.BlendSourceAlpha); err != nil {
+		return fmt.Errorf("a fresh BlendState refused a write: %w", err)
+	}
+	if err := ownBlend.SetAlphaSourceBlend(graphics.BlendSourceAlpha); err != nil {
 		return fmt.Errorf("a fresh BlendState refused a write: %w", err)
 	}
 	if err := device.SetBlendState(ownBlend); err != nil {
@@ -2831,7 +2910,26 @@ func (g *stressGame) exerciseDeviceState() error {
 	g.result.DeviceStateReadOnlyChecks++
 
 	// Both masked Clear overloads, through the same route, with the same mask.
-	options := graphics.ClearOptionsTarget | graphics.ClearOptionsDepthBuffer
+	// A depth bit needs a depth buffer: XNA's Clear turns the failed clear into
+	// InvalidOperationException(CannotClearNullDepth), and CNA refuses the same
+	// request with CNA_RESULT_INVALID_STATE. So the mask follows the device's
+	// real depth format, and a device without one must refuse the depth bit.
+	parameters, err := device.PresentationParameters()
+	if err != nil {
+		return fmt.Errorf("PresentationParameters: %w", err)
+	}
+	options := graphics.ClearOptionsTarget
+	if parameters.DepthStencilFormat() != graphics.DepthFormatNone {
+		options |= graphics.ClearOptionsDepthBuffer
+	} else {
+		refusal := device.ClearByClearOptionsAndColorAndSingleAndInt32(
+			graphics.ClearOptionsTarget|graphics.ClearOptionsDepthBuffer, factor, 1, 0)
+		var native *interop.NativeError
+		if !errors.As(refusal, &native) || native.Code != 3 {
+			return fmt.Errorf("clearing the depth of a device without one = %v, want CNA's INVALID_STATE", refusal)
+		}
+		g.result.DeviceStateNullDepthRefusals++
+	}
 	if err := device.ClearByClearOptionsAndColorAndSingleAndInt32(options, factor, 1, 0); err != nil {
 		return fmt.Errorf("Clear(ClearOptions, Color, ...): %w", err)
 	}
@@ -4589,6 +4687,9 @@ func (g *stressGame) exerciseContent(host *framework.Game) error {
 //   - Disposal destroys the CNA buffer and every later transfer is refused.
 func (g *stressGame) exerciseIndexBuffer() error {
 	device := g.device
+	if profile, err := device.GraphicsProfile(); err != nil || profile != graphics.GraphicsProfileHiDef {
+		return fmt.Errorf("the device's GraphicsProfile = %d, %v; the manager asked for HiDef", profile, err)
+	}
 
 	sixteen, err := graphics.NewIndexBufferByGraphicsDeviceAndIndexElementSizeAndInt32AndBufferUsage(
 		device, graphics.IndexElementSizeSixteenBits, 6, graphics.BufferUsageNone)
@@ -4917,12 +5018,16 @@ func (g *stressGame) exerciseVertexBuffer(host *framework.Game) error {
 		g.result.VertexBufferDrawRefusalsBeforeApply++
 	}
 
+	if err := g.exerciseCompiledEffect(device); err != nil {
+		return err
+	}
+
 	// A real Effect, through the type's own public surface. The empty-effect
 	// route CNA offers has NO XNA counterpart and is deliberately unbound, so
 	// this is ContentManager.Load<Effect> over CNA's own `.cnj` stock-effect
 	// descriptor -- the one shape that does not need
-	// CNA_GRAPHICS_CAPABILITY_COMPILED_EFFECTS, which the Foundation 72 probe
-	// measured FALSE on all three published artifacts.
+	// CNA_GRAPHICS_CAPABILITY_COMPILED_EFFECTS, which only the OPENGLES3
+	// artifact has.
 	effect, effectErr := g.loadStockEffect(host)
 	switch {
 	case effectErr != nil:
@@ -5883,14 +5988,50 @@ func (g *stressGame) exerciseTextureVolume() error {
 	return nil
 }
 
+// exerciseCompiledEffect is Effect's public constructor over compiled Direct3D
+// 9 Effect Framework bytecode, cna_effect_create_compiled. Whether a renderer
+// accepts it is CNA_GRAPHICS_CAPABILITY_COMPILED_EFFECTS: at ABI 0.35.0 the
+// OPENGLES3 artifact (built with CNA_EASYGL_COMPILED_EFFECTS) builds the whole
+// reflected graph, and HEADLESS refuses it by name. The fixture is an .fxb the
+// run is handed -- CNA ships CnaConformanceEffect.fxb under
+// modules/renderers/fna3d/effects/ -- and a run without one skips loudly.
+func (g *stressGame) exerciseCompiledEffect(device *graphics.GraphicsDevice) error {
+	path := os.Getenv("CNA_GO_COMPILED_EFFECT")
+	if path == "" {
+		g.result.CompiledEffectSkips++
+		fmt.Fprintln(os.Stderr, "compiled effect skipped: CNA_GO_COMPILED_EFFECT names no .fxb")
+		return nil
+	}
+	code, err := os.ReadFile(path)
+	if err != nil {
+		return fmt.Errorf("reading the compiled effect fixture: %w", err)
+	}
+	effect, err := graphics.NewEffectByGraphicsDeviceAndSliceOfByte(device, code)
+	if err != nil {
+		if !isNativeRefusal(err) || !strings.Contains(err.Error(), "CompiledEffects") {
+			return fmt.Errorf("Effect(byte[]): %w", err)
+		}
+		g.result.CompiledEffectRefusals++
+		fmt.Fprintf(os.Stderr, "compiled effect refused: %v\n", err)
+		return nil
+	}
+	if effect.Parameters().Count() == 0 || effect.Techniques().Count() == 0 {
+		return fmt.Errorf("a compiled effect reflected %d parameters and %d techniques",
+			effect.Parameters().Count(), effect.Techniques().Count())
+	}
+	if effect.Parameters() != effect.Parameters() {
+		return errors.New("a compiled effect built its parameter collection twice")
+	}
+	g.result.CompiledEffectCreations++
+	return effect.DisposeByNone()
+}
+
 // stockEffectDescriptor is CNA's own `.cnj` envelope for a stock effect: the
 // envelope's `type` names it and there is no separate field.
 //
-// This is the ONE shape of Effect a qualified artifact can produce. The
-// Foundation 72 probe measured CNA_GRAPHICS_CAPABILITY_COMPILED_EFFECTS FALSE
-// on HEADLESS, SOFTWARE and OPENGL33 alike, so Effect's compiled-bytecode
-// constructor is refused everywhere CNA-Go can be qualified -- and
-// cna_content_manager_load_effect's stock-descriptor path is not gated by it.
+// This is the shape of Effect every qualified artifact can produce:
+// cna_content_manager_load_effect's stock-descriptor path is not gated by
+// CNA_GRAPHICS_CAPABILITY_COMPILED_EFFECTS.
 const stockEffectDescriptor = `{"cnjVersion":1,"type":"BasicEffect"}`
 
 // loadStockEffect writes a `.cnj` stock-effect descriptor and loads it through
@@ -8567,34 +8708,34 @@ func (g *stressGame) exercisePixelDraw(device *graphics.GraphicsDevice, paramete
 	g.result.PixelDrawMaterialChecks++
 
 	// (4) ALPHA premultiplies the colour AND lands in the alpha channel.
-	// Measured exactly: (0,1,0) at Alpha 0.5 comes back (0,127,0,127), which is
-	// 255*0.5 truncated. This is the strongest single assertion in the slice --
-	// nothing but a real shader evaluation produces that pair of numbers.
+	// (0,1,0) at Alpha 0.5 is 127.5 in both channels before the 8-bit store,
+	// and the store's rounding is the renderer's: the SOFTWARE renderer
+	// truncated to (0,127,0,127) at ABI 0.21, while OPENGLES3 on a real GPU
+	// rounds to nearest, (0,128,0,128) at ABI 0.35. Either pair, with green
+	// equal to alpha, is something only a real shader evaluation produces.
 	effect.SetAlpha(0.5)
 	histogram, _, err = draw(half)
 	if err != nil {
 		return err
 	}
-	halfGreen := [4]byte{0, 127, 0, 127}
-	if histogram[halfGreen] < total*2/5 {
-		return fmt.Errorf("Alpha 0.5 over DiffuseColor (0,1,0) produced %v, want (0,127,0,127)", histogram)
+	truncated, rounded := [4]byte{0, 127, 0, 127}, [4]byte{0, 128, 0, 128}
+	if histogram[truncated]+histogram[rounded] < total*2/5 || histogram[truncated]*histogram[rounded] != 0 {
+		return fmt.Errorf("Alpha 0.5 over DiffuseColor (0,1,0) produced %v, want (0,127,0,127) or (0,128,0,128)", histogram)
 	}
 	g.result.PixelDrawAlphaChecks++
 	effect.SetAlpha(1)
 
-	// (5) VertexColorEnabled, which this renderer does NOT honour.
+	// (5) VertexColorEnabled. XNA's BasicEffect MULTIPLIES the material by the
+	// vertex colour (`DiffuseColor.rgb * vin.Color.rgb`), so the material is
+	// set to WHITE first: a renderer that honours the flag comes back the
+	// yellow of the vertices, and one that ignores it comes back white. Before
+	// ABI 0.35 this ran over the green material, where both outcomes are green
+	// and the "ignored" the SOFTWARE artifact recorded was not a measurement.
 	//
-	// The fixture's vertices are yellow and the material is green. XNA's
-	// BasicEffect selects a shader that reads the vertex colour when the flag is
-	// on, so a faithful renderer would come back yellow. CNA's software
-	// renderer comes back GREEN, and the flag reaches it: OnApply pushes
-	// cna_basic_effect_set_vertex_color_enabled on the shader-index dirty bit,
-	// and the push succeeds.
-	//
-	// So this is RECORDED in two counters rather than asserted. The projection
-	// is not masking anything -- the flag crosses and the renderer ignores it --
-	// and a run in which the behaviour changed would move a count rather than
-	// pass in silence.
+	// RECORDED in two counters rather than asserted: the outcome is the
+	// renderer's, and a run in which it changed moves a count rather than
+	// passing in silence.
+	effect.SetDiffuseColor(framework.NewVector3BySingleAndSingleAndSingle(1, 1, 1))
 	effect.SetVertexColorEnabled(true)
 	histogram, _, err = draw(half)
 	if err != nil {
@@ -8603,21 +8744,20 @@ func (g *stressGame) exercisePixelDraw(device *graphics.GraphicsDevice, paramete
 	switch {
 	case histogram[[4]byte{255, 255, 0, 255}] >= total*2/5:
 		g.result.PixelDrawVertexColorHonoured++
-	case histogram[green] >= total*2/5:
+	case histogram[white] >= total*2/5:
 		g.result.PixelDrawVertexColorIgnored++
 	default:
-		return fmt.Errorf("VertexColorEnabled produced neither the vertex colour nor the material: %v", histogram)
+		return fmt.Errorf("VertexColorEnabled over a white material produced neither the vertex colour nor the material: %v", histogram)
 	}
+	effect.SetDiffuseColor(framework.NewVector3BySingleAndSingleAndSingle(0, 1, 0))
 	effect.SetVertexColorEnabled(false)
 
-	// (6) LIGHTING, which this renderer does NOT honour either.
+	// (6) LIGHTING.
 	//
 	// EnableDefaultLighting installs the reference's three measured rigs and
-	// turns lighting on, so a renderer with a lighting model would come back a
-	// different colour. CNA's software renderer comes back the SAME
-	// (0,255,0,255): together with the vertex-colour result above, what it
-	// evaluates is a flat material -- DiffuseColor and Alpha -- and nothing
-	// per-vertex or per-light.
+	// turns lighting on, so a renderer with a lighting model comes back a
+	// different colour. The SOFTWARE artifact at ABI 0.21 came back the SAME
+	// (0,255,0,255), a flat material; OPENGLES3 at ABI 0.35 evaluates the rig.
 	//
 	// Recorded in two counters for the reason the vertex-colour outcome is. The
 	// asserted half is that the draw still covers its half of the buffer, so a

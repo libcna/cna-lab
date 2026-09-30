@@ -288,14 +288,14 @@ var bridgeMutations = []sourceMutation{
 	{
 		name: "qualified-abi-constant-disagrees-with-the-floor",
 		file: "bridge.h",
-		old:  "    CNA_GO_ABI_QUALIFIED_VERSION = 0x00001500u,",
-		new:  "    CNA_GO_ABI_QUALIFIED_VERSION = 0x00001400u,",
+		old:  "    CNA_GO_ABI_QUALIFIED_VERSION = 0x00002300u,",
+		new:  "    CNA_GO_ABI_QUALIFIED_VERSION = 0x00002200u,",
 	},
 	{
 		name: "abi-floor-raised-without-re-encoding",
 		file: "bridge.h",
-		old:  "    CNA_GO_ABI_MINIMUM_MINOR = 21,",
-		new:  "    CNA_GO_ABI_MINIMUM_MINOR = 22,",
+		old:  "    CNA_GO_ABI_MINIMUM_MINOR = 35,",
+		new:  "    CNA_GO_ABI_MINIMUM_MINOR = 36,",
 	},
 	{
 		name: "abi-decoding-mirror-drift",
@@ -680,7 +680,7 @@ var probeMutations = []sourceMutation{
 	{
 		name: "admission-floor-above-the-canonical-minor",
 		file: "bridge.h",
-		old:  "    CNA_GO_ABI_MINIMUM_MINOR = 21,",
+		old:  "    CNA_GO_ABI_MINIMUM_MINOR = 35,",
 		new:  "    CNA_GO_ABI_MINIMUM_MINOR = 99,",
 	},
 	{
@@ -1412,9 +1412,9 @@ func canonicalHeaderRoot(t *testing.T) string {
 	t.Helper()
 	candidates := []string{os.Getenv("CNA_C_API_INCLUDE")}
 	if home, err := os.UserHomeDir(); err == nil {
-		candidates = append(candidates, filepath.Join(home, "deps", "cna-c-abi-0.21.0", "include"))
+		candidates = append(candidates, filepath.Join(home, "deps", "cna-c-abi-0.35.0", "include"))
 	}
-	candidates = append(candidates, filepath.Join(repositoryRoot(t), "..", "..", "cnanext", "modules", "c-api", "include"))
+	candidates = append(candidates, filepath.Join(repositoryRoot(t), "..", "cna", "modules", "c-api", "include"))
 	for _, candidate := range candidates {
 		if candidate == "" {
 			continue
@@ -1555,7 +1555,7 @@ func TestDeliberatelyUnboundRoutesAreChecked(t *testing.T) {
 func TestEveryUnboundRouteIsDeclaredByThePinnedHeaders(t *testing.T) {
 	root := os.Getenv("CNA_GO_CANONICAL_HEADERS")
 	if root == "" {
-		root = filepath.Join(os.Getenv("HOME"), "deps", "cna-c-abi-0.21.0", "include")
+		root = filepath.Join(os.Getenv("HOME"), "deps", "cna-c-abi-0.35.0", "include")
 	}
 	if _, err := os.Stat(filepath.Join(root, "CNA", "C")); err != nil {
 		t.Skipf("pinned canonical headers are not present at %s", root)

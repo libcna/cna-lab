@@ -33,19 +33,13 @@ import (
 // transfer rule takes: the CLR would fail at runtime for an asset whose reader
 // does not match, and reporting the type is more useful than reporting a cast.
 //
-// SoundEffect has a CNA route too and is absent here for one reason: CNA-Go
-// does not project that type yet. It is a missing TYPE rather than a missing
-// loader, and adding a loader for a type that has no Go identity would be a
-// route with nothing to return. SpriteFont left that list in Foundation 69 and
-// Effect in Foundation 72, each when its type became real -- which is the rule
-// working, not an exception to it.
-//
-// TextureCube became real in Foundation 71 and is still absent, for a DIFFERENT
-// reason worth naming: cna_content_manager_load_texture_cube exists, but the
-// type's own transfers are refused by every qualified renderer, so a loader
-// would hand back an object whose data members cannot be reached. That is a
-// renderer limitation rather than a missing type, and it is recorded rather
-// than papered over with a loader nothing can use.
+// SpriteFont joined this list in Foundation 69 and Effect in Foundation 72,
+// each when its type became real. CNA also publishes loaders for SoundEffect,
+// TextureCube and Model. SoundEffect has been a projected type since Foundation
+// 87 and TextureCube since 71 -- and at ABI 0.35.0 a cube's data round-trips on
+// the OPENGLES3 artifact -- so neither is blocked any more; they are unbound
+// because no milestone after those foundations added them, which is recorded
+// rather than hidden.
 
 // errContentUnsupportedAsset projects the refusal a T outside the closed set
 // gets. The reference has no counterpart -- its Load<T> would throw

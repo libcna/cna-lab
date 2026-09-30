@@ -26,14 +26,14 @@ _Static_assert(CNA_ABI_VERSION_MINOR >= CNA_GO_ABI_MINIMUM_MINOR,
 // CNA-Go mirrors CNA_ABI_VERSION_ENCODE so the loader can decode a version
 // without a CNA header. This is the only translation unit that can see both
 // spellings, so it is where the mirror is proven rather than trusted.
-_Static_assert(CNA_GO_ABI_ENCODE(0, 21, 0) == CNA_ABI_VERSION_ENCODE(0, 21, 0),
+_Static_assert(CNA_GO_ABI_ENCODE(0, 35, 0) == CNA_ABI_VERSION_ENCODE(0, 35, 0),
                "encoded-version mirror drift at the qualified version");
 _Static_assert(CNA_GO_ABI_ENCODE(1, 2, 3) == CNA_ABI_VERSION_ENCODE(1, 2, 3),
                "encoded-version mirror drift at a mixed sample");
 _Static_assert(CNA_GO_ABI_ENCODE(0, 255, 255) == CNA_ABI_VERSION_ENCODE(0, 255, 255),
                "encoded-version mirror drift at the field maxima");
-_Static_assert(CNA_GO_ABI_QUALIFIED_VERSION == CNA_ABI_VERSION_ENCODE(0, 21, 0),
-               "the qualified encoded constant must be CNA's own encoding of 0.21.0");
+_Static_assert(CNA_GO_ABI_QUALIFIED_VERSION == CNA_ABI_VERSION_ENCODE(0, 35, 0),
+               "the qualified encoded constant must be CNA's own encoding of 0.35.0");
 
 _Static_assert(CNA_RESULT_SUCCESS == 0, "CNA_RESULT_SUCCESS drift");
 _Static_assert(CNA_RESULT_CALLBACK == 9, "CNA_RESULT_CALLBACK drift");

@@ -185,9 +185,9 @@ func (b *DynamicVertexBuffer) setContentLost(isContentLost bool) {
 // member the device calls on a reset -- it stores the flag and, when true,
 // invokes the delegate with EventArgs.Empty. CNA has a counterpart,
 // `cna_vertex_buffer_subscribe_content_lost`, and its documentation is explicit
-// that only the DirectX9, Direct2D and Skia renderer families can lose a device;
-// families that cannot "never raise it". The qualified artifacts are HEADLESS
-// and SOFTWARE, so the event cannot fire in the qualified environment at all.
+// that only a renderer that can lose a device (DirectX9, for example) raises
+// it; families that cannot "never raise it". The qualified artifacts are
+// HEADLESS and OPENGLES3, so the event cannot fire in the qualified environment.
 //
 // The accessors are projected because the contract declares them and the
 // registration list is real, and the route stays unbound for the reason

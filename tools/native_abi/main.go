@@ -76,7 +76,7 @@ var (
 )
 
 func main() {
-	headers := flag.String("headers", "../../cnanext/modules/c-api/include", "canonical CNA C include root")
+	headers := flag.String("headers", "../cna/modules/c-api/include", "canonical CNA C include root (default: the sibling CNA checkout)")
 	library := flag.String("library", "", "absolute path to an admitted CNA shared library")
 	output := flag.String("output", "docs/generated/native-abi-report.json", "JSON report path")
 	flag.Parse()
@@ -177,9 +177,8 @@ func verify(headerRoot, library string) (report, error) {
 		ABIMismatches: []string{}, Findings: []string{},
 	}
 	// The header tree is pinned by CONTENT, for the reason the library already
-	// is: a path is ephemeral and unverifiable, and this one is now actively
-	// misleading. The default `-headers ../../cnanext/modules/c-api/include`
-	// reads a LIVE checkout, and that checkout has moved past the artifact the
+	// is: a path is ephemeral and unverifiable. The default `-headers` reads the
+	// LIVE sibling CNA checkout, which can move past the artifact the
 	// qualification library was built from -- Milestone 55 measured the two
 	// trees differing. A digest makes "which headers were these" a fact rather
 	// than a claim about a directory that may since have changed.
@@ -498,6 +497,12 @@ var unboundRouteClasses = map[string]string{
 //	                notification, NOT a release
 //	                a repeated dispose -> success, as documented
 //
+// Re-measured on 2026-09-30 against ABI 0.35.0 (HEADLESS, probe
+// cna/build-probe/qual-probes/go-f57-f69.c): the SpriteBatch refusal (result 2)
+// and the embedded-NUL refusal (result 11) are unchanged, but dispose is no
+// longer only a flag -- after it, cna_texture2d_get_encoded_byte_count answers
+// CNA result 3, "Cannot access a disposed object".
+//
 // Two facts decide the whole family. CNA's graphics-resource routes accept a
 // texture and REFUSE a SpriteBatch, and XNA's GraphicsResource members are
 // uniform across every derived type. And CNA's set_name validates UTF-8 while
@@ -603,8 +608,8 @@ var deliberatelyUnboundRoutes = []unboundRoute{
 	{
 		Route:  "cna_graphics_resource_dispose",
 		Member: "Microsoft.Xna.Framework.Graphics.GraphicsResource::Dispose()",
-		Class:  "CONTRACT_DIVERGENCE",
-		Detail: "measured to be a FLAG AND A NOTIFICATION rather than a release: after it, cna_texture2d_copy_encoded still produced 70 bytes from the same texture. The reference's Dispose(true) releases the native object and then sets the flag, which is what CNA-Go's per-kind destroy does; calling this one as well would set a CNA flag on a resource CNA-Go is about to destroy anyway",
+		Class:  "SUBSUMED",
+		Detail: "the reference's Dispose(true) releases the native object and then sets the flag, which is exactly what CNA-Go's per-kind destroy does. At ABI 0.21.0 this route was measured to be only a flag and a notification (cna_texture2d_copy_encoded still produced 70 bytes after it); at 0.35.0 it disposes for real (a later encode answers CNA result 3), but it still leaves the C handle to release, so the per-kind destroy expresses its whole contract and calling both would dispose twice",
 	},
 	{
 		Route:  "cna_graphics_resource_subscribe_disposing",
@@ -645,11 +650,16 @@ var deliberatelyUnboundRoutes = []unboundRoute{
 	// wherever the last glyph's right bearing is non-negative, which is why
 	// "BA" agrees and "AB" does not. CNA does clamp the FIRST glyph's left
 	// bearing, so that half of the algorithm matches.
+	//
+	// Re-measured 2026-09-30 against ABI 0.35.0 with the same glyph table
+	// (cna/build-probe/qual-probes/go-f57-f69.c): every width now agrees with
+	// the IL column -- "B" (6, 12), "AB" (9, 12), "AB\nA" (9, 20) -- and "Z"
+	// is still CNA result 1.
 	{
 		Route:  "cna_sprite_font_measure_utf8",
 		Member: "Microsoft.Xna.Framework.Graphics.SpriteFont::MeasureString(System.String)",
-		Class:  "CONTRACT_DIVERGENCE",
-		Detail: "measured to disagree with SpriteFont::InternalMeasure whenever the last glyph's right bearing is negative: over a font whose 'B' is kerning (-3, 6, -2), CNA measured \"B\" as 4 and the reference's own algorithm as 6, because the reference's final statement is `result.X += Math.Max(rightBearing, 0f)` and CNA adds the bearing unclamped. It also answers CNA result 1 for a character the font has no glyph and no default character for, where the reference throws ArgumentException carrying FrameworkResources.CharacterNotInFont. CNA-Go runs the reference's algorithm over the glyph table cna_sprite_font_copy_glyphs reports, so the DATA is CNA's and the arithmetic is the reference's",
+		Class:  "MANAGED_REFERENCE",
+		Detail: "SpriteFont::MeasureString is the reference's managed InternalMeasure over the glyph table, and CNA-Go runs that algorithm over the table cna_sprite_font_copy_glyphs reports, so the DATA is CNA's and the arithmetic is the reference's. At ABI 0.21.0 the route disagreed whenever the last glyph's right bearing was negative (over a font whose 'B' is kerning (-3, 6, -2) it measured \"B\" as 4 where the reference's `result.X += Math.Max(rightBearing, 0f)` gives 6); re-measured at 0.35.0 it agrees on every width (CNA fb62662c9). It still answers CNA result 1 for a character with no glyph and no default, where the reference throws ArgumentException carrying FrameworkResources.CharacterNotInFont",
 	},
 	// Foundation 72. Foundation 60 bound this one for the two effect-free Begin
 	// overloads; Foundation 72 added the other two and moved all four to

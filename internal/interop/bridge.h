@@ -42,9 +42,9 @@ enum {
        version inside the range that nevertheless lacks a route is rejected on
        the symbol rather than admitted. */
     CNA_GO_ABI_MAJOR = 0,
-    CNA_GO_ABI_MINIMUM_MINOR = 21,
+    CNA_GO_ABI_MINIMUM_MINOR = 35,
     CNA_GO_ABI_QUALIFIED_PATCH = 0,
-    CNA_GO_ABI_QUALIFIED_VERSION = 0x00001500u,
+    CNA_GO_ABI_QUALIFIED_VERSION = 0x00002300u,
     CNA_GO_CALLBACK_INITIALIZE = 1,
     CNA_GO_CALLBACK_LOAD_CONTENT = 2,
     CNA_GO_CALLBACK_UPDATE = 3,

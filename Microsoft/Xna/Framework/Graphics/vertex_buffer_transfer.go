@@ -66,7 +66,7 @@ var errVertexTransferInvalidOperation = errors.New("operation is not valid")
 // Refusing is the honest answer. Writing the gaps would corrupt data a consumer
 // put there through another call, and would do it silently.
 var errVertexStrideUnsupported = errors.New(
-	"a vertex stride larger than the element size needs a CNA route that writes a strided window without touching the gaps, and 0.21.0 publishes none")
+	"a vertex stride larger than the element size needs a CNA route that writes a strided window without touching the gaps, and the CNA C ABI (0.35.0) publishes none")
 
 // VertexBufferSetDataBySliceOfT is VertexBuffer::SetData<T>(T[]).
 func VertexBufferSetDataBySliceOfT[T any](buffer VertexBufferReference, data []T) error {
@@ -228,4 +228,4 @@ func prepareVertexTransfer[T any](
 // one -- has no expression in this ABI. XNA's is a byte memcpy and has no such
 // rule.
 var errVertexPartialVertexUnsupported = errors.New(
-	"CNA describes a raw vertex transfer in whole vertices of the buffer's own stride, and 0.21.0 publishes no byte-granular route")
+	"CNA describes a raw vertex transfer in whole vertices of the buffer's own stride, and the CNA C ABI (0.35.0) publishes no byte-granular route")

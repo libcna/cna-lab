@@ -335,12 +335,12 @@ func (c *EffectTechniqueCollection) dispose() error {
 //
 // and CNA's counterpart is cna_effect_create_compiled, which takes the same
 // Direct3D 9 Effect Framework binary. Whether the running renderer accepts it
-// is CNA_GRAPHICS_CAPABILITY_COMPILED_EFFECTS, and the Foundation 72 probe
-// measured that capability FALSE on all three published artifacts -- HEADLESS,
-// SOFTWARE and OPENGL33 -- so this constructor reports CNA's refusal on every
-// environment CNA-Go can qualify against. That is a renderer property, stated
-// as one, and it is not the type's only door: ContentManager.Load<Effect> reads
-// a `.cnj` descriptor naming a stock effect and needs no such capability.
+// is CNA_GRAPHICS_CAPABILITY_COMPILED_EFFECTS: at ABI 0.35.0 the OPENGLES3
+// artifact built with CNA_EASYGL_COMPILED_EFFECTS builds the whole reflected
+// graph (CnaConformanceEffect.fxb: 6 parameters, 2 techniques), and HEADLESS
+// reports CNA's refusal naming the capability. That is a renderer property,
+// stated as one, and it is not the type's only door: ContentManager.Load<Effect>
+// reads a `.cnj` descriptor naming a stock effect and needs no such capability.
 type Effect struct {
 	resource         *GraphicsResource
 	parameters       *EffectParameterCollection

@@ -144,8 +144,9 @@ func (b *DynamicIndexBuffer) setContentLost(isContentLost bool) {
 // AddContentLostHandler is add_ContentLost. The raise site is the same
 // assembly-internal SetContentLost the vertex side has, and CNA's
 // `cna_index_buffer_subscribe_content_lost` documents the same renderer
-// restriction: only DirectX9, Direct2D and Skia can lose a device. Neither
-// qualified artifact can, so the event cannot fire in this environment.
+// restriction: only a renderer that can lose a device (DirectX9, for example)
+// raises it. Neither qualified artifact can, so the event cannot fire in this
+// environment.
 func (b *DynamicIndexBuffer) AddContentLostHandler(handler framework.EventHandler[*framework.EventArgs]) (framework.EventSubscription, error) {
 	if b == nil {
 		return framework.EventSubscription{}, errDynamicIndexBufferNil

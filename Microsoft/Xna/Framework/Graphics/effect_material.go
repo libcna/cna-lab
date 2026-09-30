@@ -35,16 +35,16 @@ import (
 // answers an Effect rather than an EffectMaterial because the reference does
 // not override it.
 //
-// # A hazard CNA documents and this type does not yet answer
+// # Texture lifetime inside a parameter
 //
-// `cna_effect_material_retain_parameter_texture_ext` exists because "a
-// parameter holds a raw pointer nothing owns", and retaining is the mechanism
-// that removes the hazard. It backs no member of the pinned contract -- XNA's
-// EffectMaterial declares none -- so nothing here calls it, and a consumer who
-// writes a texture into one of this material's parameters and then disposes
-// that texture leaves CNA holding a dangling pointer. That is inherited from
-// Foundation 72's `cna_effect_parameter_set_value_texture` binding rather than
-// introduced here, and it is recorded rather than papered over.
+// `cna_effect_material_retain_parameter_texture_ext` backs no member of the
+// pinned contract -- XNA's EffectMaterial declares none -- so nothing here calls
+// it. It is not needed for safety either: CNA documents that
+// `cna_effect_parameter_set_value_texture`, which Foundation 72 binds, retains
+// the texture against destruction until the slot is replaced or cleared, so a
+// consumer who disposes a texture still set in one of this material's
+// parameters gets CNA's refusal rather than a dangling pointer. (Foundation 80
+// recorded the opposite; the header says otherwise at 0.21 and 0.35 alike.)
 type EffectMaterial struct {
 	// effect is the composed Effect, and it is the whole of this type's state.
 	effect *Effect
