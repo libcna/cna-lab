@@ -84,8 +84,8 @@ python3 tools/verify_consumer.py --wheel dist/cna_python-0.1.0.dev0-py3-none-any
 
 ## What is left
 
-Waiting on CNA: online finding 3 (no route reads a network gamer's gamertag),
-the `cnb.h` SoundEffect schema constant and importer prose, `net.h`'s stale
-packet-colour prose, and the BLOCKED_UPSTREAM capability rows. Waiting on
+Waiting on CNA: the BLOCKED_UPSTREAM capability rows. (Online finding 3, the
+`cnb.h` SoundEffect schema constant and importer prose, and `net.h`'s packet-colour
+prose were fixed in CNA `4a31b3b7d`, `424c09f5c` and `c323ef242`.) Waiting on
 hardware or platforms: Windows, macOS, mobile, real sensors, a console. Nothing
 is pushed.

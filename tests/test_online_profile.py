@@ -246,30 +246,23 @@ class NetworkSessionTests(unittest.TestCase):
         self.assertEqual(observed["signed_in"], FIRST_GAMERTAG)
         self.assertTrue(observed["is_local"])
 
-    def test_a_remote_gamers_inherited_members_name_the_missing_route(self) -> None:
-        """CNA has no route for them, and this says so rather than answering "".
-
-        A remote NetworkGamer is not a Gamer handle as far as CNA is concerned,
-        and net_gamers.h has no gamertag route of its own. Returning an empty
-        string would be a gamertag this package made up.
-        """
+    def test_a_remote_gamers_inherited_members_answer_through_the_gamer_routes(self) -> None:
+        """A remote NetworkGamer is a Gamer: its gamertag comes from the
+        ``cna_gamer_*`` base routes, which accept a network-gamer handle since CNA
+        BINDFIX-047 (online finding 3 -- they refused it, and this package raised
+        NotImplementedError rather than invent a gamertag)."""
         def body(game, observed):
             with platform(FIRST_GAMERTAG):
                 with NetworkSession.Create(NetworkSessionType.Local, 1, 4) as session:
                     remote = online.create_network_gamer(session, "Remote")
                     online.set_gamer_id(remote, 3)
                     online.add_remote_gamer(session, remote)
-                    try:
-                        remote.Gamertag
-                        observed["raised"] = None
-                    except NotImplementedError as error:
-                        observed["raised"] = str(error)
+                    observed["tag"] = remote.Gamertag
                     observed["id"] = remote.Id
                     observed["local"] = remote.IsLocal
 
         observed = in_game(body)
-        self.assertIsNotNone(observed["raised"])
-        self.assertIn("net_gamers.h", observed["raised"])
+        self.assertEqual(observed["tag"], "Remote")
         self.assertEqual(observed["id"], 3)
         self.assertFalse(observed["local"])
 

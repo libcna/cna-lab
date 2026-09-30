@@ -311,10 +311,9 @@ Requalified 2026-09-30 against CNA ABI `0.35.0` (HEADLESS and OPENGLES3
 artifacts named in `docs/runtime-capabilities.json`). What changed in CNA: the
 `SoundEffect` schema is 2 -- the WAV importer keeps 8-bit PCM as `Pcm8`, gives a
 loopless source a loop over the whole sound, and narrows 24/32-bit and float
-PCM to `Pcm16` -- while `cnb.h` still publishes
-`CNA_CNB_SOUND_EFFECT_SCHEMA_VERSION` 1 and describes the importer as refusing
-wider encodings. The binding follows the measured behaviour; the stale constant
-is pinned by a test as an upstream documentation defect.
+PCM to `Pcm16`. `cnb.h` said `CNA_CNB_SOUND_EFFECT_SCHEMA_VERSION` 1 and
+described the importer as refusing wider encodings until CNA corrected both
+(BINDFIX-048); the binding mirrors the corrected constant, 2.
 
 The original 2026-09-01 qualification, against CNA ABI `0.21.0`:
 

@@ -90,16 +90,11 @@ class NetworkGamer(Gamer):
     """A gamer in a session.
 
     XNA derives this from ``Gamer``, so ``Gamertag``, ``DisplayName``, ``Tag``,
-    ``ToString`` and ``GetProfile`` are inherited. CNA keeps network gamers in a
-    **separate handle family**: the ``cna_gamer_*`` routes answer
-    ``CNA_RESULT_INVALID_HANDLE`` for one, and ``net_gamers.h`` declares no
-    gamertag, display-name or profile route of its own.
-
-    A *local* gamer has a signed-in gamer behind it, and the inherited members
-    resolve through that -- which is both correct and what XNA means. A *remote*
-    one has nothing to resolve to, so those members raise an error naming the
-    missing route rather than answering with an empty string. That is a measured
-    upstream gap, recorded in ``docs/online-upstream-findings.md``.
+    ``ToString`` and ``GetProfile`` are inherited. A *local* gamer resolves them
+    through the signed-in gamer behind it, which is what XNA means; a *remote*
+    one passes its own handle, which the ``cna_gamer_*`` base routes accept
+    since CNA BINDFIX-047 (they refused it before; see
+    ``docs/online-upstream-findings.md``).
     """
 
     __slots__ = ("_session",)
@@ -116,11 +111,7 @@ class NetworkGamer(Gamer):
         if self.IsLocal:
             return c.c_uint64(_support.out_handle(
                 "cna_local_network_gamer_get_signed_in_gamer", self._value))
-        raise NotImplementedError(
-            "a remote NetworkGamer's inherited Gamer members have no route to "
-            "reach: CNA's cna_gamer_* routes reject a network-gamer handle, and "
-            "net_gamers.h declares no gamertag, display-name or profile route "
-            "of its own")
+        return self._value
 
     @property
     def Session(self) -> "NetworkSession":

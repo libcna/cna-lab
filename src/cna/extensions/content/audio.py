@@ -29,8 +29,8 @@ __all__ = [
 
 #: Highest sample rate a file may declare, in Hz.
 MAX_AUDIO_SAMPLE_RATE = _abi.CNA_CNB_MAX_AUDIO_SAMPLE_RATE
-#: ``cnb.h``'s ``CNA_CNB_SOUND_EFFECT_SCHEMA_VERSION``. It still reads 1 at C ABI
-#: 0.35 although CNA writes and reads schema 2; see docs/cnb-cnj-extensions.md.
+#: ``cnb.h``'s ``CNA_CNB_SOUND_EFFECT_SCHEMA_VERSION``: the highest SoundEffect schema
+#: CNA reads and writes (2 adds 8-bit PCM).
 SOUND_EFFECT_SCHEMA_VERSION = _abi.CNA_CNB_SOUND_EFFECT_SCHEMA_VERSION
 
 
