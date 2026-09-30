@@ -145,17 +145,13 @@ public final class RendererCapabilities {
      * Returns the shading language a source-built effect must be written in for this device.
      *
      * <p>The question {@link ShaderEffect#compile} does not answer for itself. A renderer's name
-     * is not a safe substitute: this build carries five renderers in one library, and the one
+     * is not a safe substitute: a build can carry several renderers in one library, and the one
      * that is running is chosen after the library loads.
      *
-     * <p><strong>Measured, and today it always answers {@link ShaderDialect#Unknown}.</strong>
-     * Every renderer this build carries returns it -- including the two that demonstrably
-     * compile and execute GLSL ES -- because CNA implements the query on WebGPU alone and every
-     * other renderer inherits a default that declines to say. That is recorded as
-     * {@code JAVA-UPSTREAM-022} and reproduced in
-     * {@code tools/native-abi/probes/shader_dialect_answer.c}. The route is projected anyway:
-     * {@code Unknown} is a real answer meaning "do not guess", a game that refuses to build
-     * sources from it is behaving correctly, and the answer will improve where CNA improves it.
+     * <p>EasyGL answers {@link ShaderDialect#GlslEs}; a renderer that accepts source without
+     * executing it answers {@link ShaderDialect#Unknown}, which means "do not guess".
+     * {@code JAVA-UPSTREAM-022} once found every renderer but WebGPU answering Unknown; CNA
+     * fixed it, and {@code tools/native-abi/probes/shader_dialect_answer.c} re-measures it.
      *
      * @param graphicsDevice the device to ask
      * @return the dialect, or {@link ShaderDialect#Unknown} when the renderer declares none

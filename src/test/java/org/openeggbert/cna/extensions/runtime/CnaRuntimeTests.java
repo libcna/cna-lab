@@ -35,9 +35,10 @@ final class CnaRuntimeTests {
         assertFalse(CnaRuntime.getPlatformName().isEmpty());
         assertEquals(DesktopOperatingSystem.Linux, CnaRuntime.getDesktopOperatingSystem());
 
-        // The qualified runtime is the headless renderer, which is a diagnostic backend rather
-        // than a real GPU one. Asserting that is asserting what CNA says about itself.
-        assertEquals("HEADLESS", CnaRuntime.getRendererName());
+        // The compiled-in renderer, which on these single-renderer builds is also the running
+        // one; the device answers the same question independently.
+        assertTrue(java.util.List.of("HEADLESS", "OPENGLES3", "OPENGL33", "SOFTWARE", "VULKAN")
+                .contains(CnaRuntime.getRendererName()), CnaRuntime.getRendererName());
         assertNotNull(CnaRuntime.getBackendCategory());
         assertNotNull(CnaRuntime.getBackendMaturity());
         assertFalse(CnaRuntime.getName(CnaRuntime.getBackendCategory()).isEmpty());

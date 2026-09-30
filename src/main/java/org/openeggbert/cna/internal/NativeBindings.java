@@ -3489,7 +3489,13 @@ public final class NativeBindings {
             SpriteEffects effects,
             float layerDepth) {
         Rectangle destinationValue = new Rectangle(Objects.requireNonNull(destination, "destination"));
-        Rectangle sourceValue = source == null ? new Rectangle() : new Rectangle(source);
+        // XNA's null source is the whole texture. CNA's rectangle command has no sentinel for it
+        // (only the scaled command reads an empty rectangle that way), so a zero rectangle here
+        // would sample nothing and the sprite would silently not draw.
+        Rectangle sourceValue = source == null
+                ? new Rectangle(0, 0, Objects.requireNonNull(texture, "texture").getWidth(),
+                        texture.getHeight())
+                : new Rectangle(source);
         Color colorValue = new Color(Objects.requireNonNull(color, "color"));
         Vector2 originValue = new Vector2(Objects.requireNonNull(origin, "origin"));
         check("cna_sprite_batch_submit_many", nativeDrawSpriteRectangle(

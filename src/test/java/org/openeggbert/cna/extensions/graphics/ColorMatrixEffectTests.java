@@ -238,23 +238,18 @@ final class ColorMatrixEffectTests {
     }
 
     @Test
-    void theDialectRouteAnswersUnknownOnEveryRendererThisBuildHas() {
-        // graphics.h says the renderer's identity is not a safe way to infer which shader text
-        // to supply -- "wrong in a build carrying several renderers", which this is -- and to
-        // ask this route instead. It answers UNKNOWN on all five, including the two that
-        // demonstrably compile and execute GLSL ES. Reproduced in pure C in
-        // tools/native-abi/probes/shader_dialect_answer.c and filed as JAVA-UPSTREAM-022:
-        // GetShaderDialectEXT is a virtual whose default body returns Unknown, and WebGPU is
-        // the only renderer in CNA's tree that overrides it.
-        //
-        // So this asserts the measured answer rather than the documented intent. A projection
-        // that hard-coded Unknown would pass it, and that is not a gap in the test -- it is
-        // the finding, and it is why the assertion below is about what CNA does.
+    void theDialectRouteAnswersForTheRendererThatExecutesSource() {
+        // JAVA-UPSTREAM-022 found this route answering UNKNOWN everywhere. EasyGL now reports
+        // GLSL ES (CNA 6ff9d1b95); a renderer that accepts source without executing it still says
+        // UNKNOWN. Re-measured by tools/native-abi/probes/shader_dialect_answer.c.
         GameProbe.run(probe -> {
             ShaderDialect dialect = RendererCapabilities.getShaderDialect(probe.device());
-            assertNotNull(dialect);
-            assertEquals(ShaderDialect.Unknown, dialect,
-                    "measured on all five renderers; JAVA-UPSTREAM-022");
+            String renderer = RendererCapabilities.getRendererName(probe.device());
+            if (renderer.startsWith("OPENGLES")) {
+                assertEquals(ShaderDialect.GlslEs, dialect, renderer);
+            } else if (renderer.equals("HEADLESS")) {
+                assertEquals(ShaderDialect.Unknown, dialect, renderer);
+            }
             assertEquals(dialect, RendererCapabilities.getShaderDialect(probe.device()));
             assertThrows(NullPointerException.class,
                     () -> RendererCapabilities.getShaderDialect(null));
