@@ -20,6 +20,9 @@ end
 
 puts "CANARY_UPDATES=#{game.successful_updates}"
 puts "CANARY_DRAWS=#{game.successful_draws}"
-if options[:frames] && (game.successful_updates != options[:frames] || game.successful_draws != options[:frames])
+# `--frames` counts Draw calls. XNA's fixed time step runs as many Updates as it needs to catch up
+# before each Draw, so on a real renderer whose Present waits for the display there are more
+# Updates than Draws -- measured 84 for 60 on OPENGLES3 -- and never fewer.
+if options[:frames] && (game.successful_draws != options[:frames] || game.successful_updates < game.successful_draws)
   abort "native canary frame count mismatch"
 end
