@@ -6,8 +6,9 @@ renderer label, 3D branch, `DrawRect`, Web/Pyodide, Briefcase, Android, or
 mobile claim.
 
 Measured 2026-09-30 on Linux x86-64 against CNA C ABI `0.35.0` (CNA `next`
-`4228ff913`), from a wheel built at cna-python `59c57fe` and installed into an
-isolated venv, with no source checkout on the path:
+`5b4edd6cc`), from a wheel built at cna-python `36242c7` and installed into an
+isolated venv, with no source checkout on the path (first measured at CNA
+`4228ff913` and cna-python `59c57fe`, with the same results):
 
 | CNA artifact | 60 / 600 frames | `--verify-frame` | `--verify-cnb` | `--verify-engine` |
 | --- | --- | --- | --- | --- |
