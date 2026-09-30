@@ -140,8 +140,8 @@
     "OPENGLES3": {
       "artifact": {
         "path": "/home/robertvokac/deps/cna-c-abi-0.35.0-opengles3-fx/lib/libcna_c_api.so",
-        "bytes": 58233312,
-        "sha256": "985c116b05038ffd7f2ac39fd1ff1530463a136b75c07369b550a08930076e6e"
+        "bytes": 58234832,
+        "sha256": "4e38a2dafd68e22c1a77c00a34b2ef6a7b1cb7b6832d904ba4a21b05f374f4d6"
       },
       "environment": {
         "DISPLAY": ":2",
@@ -457,13 +457,13 @@
           "requested": 60,
           "completed": 60,
           "error": null,
-          "seconds": 1.658
+          "seconds": 1.647
         },
         "long": {
           "requested": 600,
           "completed": 600,
           "error": null,
-          "seconds": 15.567
+          "seconds": 15.405
         }
       }
     }

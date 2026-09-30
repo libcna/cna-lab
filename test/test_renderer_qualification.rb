@@ -111,8 +111,10 @@ class RendererQualificationTest < Minitest::Test
   def self.conflict_findings(name, run, windowless)
     conflict = run.fetch("displayEvidenceConflict")
     findings = []
-    findings << "#{name}: the adapter fallback does not match the renderer's own kind" unless
-      conflict.fetch("adapterIsTheNoDisplayFallback") == windowless
+    # A windowed renderer has a display, so its adapter must not be the no-display fallback. A
+    # windowless one answers the fallback or the real display, depending on whether one is reachable.
+    findings << "#{name}: a windowed renderer's adapter is the no-display fallback" if
+      !windowless && conflict.fetch("adapterIsTheNoDisplayFallback")
     findings << "#{name}: cna_graphics_adapters_refresh no longer refuses" unless conflict.fetch("refreshRefused")
     findings << "#{name}: window surface disagrees with the renderer's own kind" unless
       conflict.fetch("windowHasANativeSurface") == !windowless

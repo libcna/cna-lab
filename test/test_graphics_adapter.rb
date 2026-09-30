@@ -108,7 +108,10 @@ class GraphicsAdapterTest < Minitest::Test
       refute_equal [800, 480], values.fetch(:mode).first(2)
       assert_operator values.fetch(:modes), :>, 1
     else
-      assert_equal "Default Display", values.fetch(:description), "no window, no display: the fallback"
+      # A windowless renderer answers whatever the platform sees: the real display when one is
+      # reachable, CNA's "Default Display" fallback when none is. Either way the mode is real-sized.
+      assert_operator values.fetch(:mode)[0], :>, 0
+      assert_operator values.fetch(:mode)[1], :>, 0
     end
   end
 
