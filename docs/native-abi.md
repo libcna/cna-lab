@@ -43,12 +43,13 @@ cross-compilation are not claimed. Apple `dlopen` and Windows
 
 ## Qualified artifacts
 
-Requalified on 2026-09-30. Both artifacts were built from the CNA `next`
-checkout and staged by the retirement pass under `~/deps`, each with a
+Requalified on 2026-09-30. The final evidence was taken at CNA `4228ff913`;
+the same runs at `41c6bedef` and `0f7166cd8` earlier that day produced identical
+counters. Both artifacts were built from the CNA `next` checkout and staged by the retirement pass under `~/deps`, each with a
 `PROVENANCE.txt`:
 
 ```text
-CNA HEAD                  0f7166cd8f02b97b866caa3bc6c32ddcc389030b (next)
+CNA HEAD                  4228ff913987452c6fe03d125d186072b1405187 (next)
 sharp-runtime HEAD        88f6b11fbb8b9d1db1b9451e86f8835e1c9cafaa
 compiler                  GCC 14.2.0
 reported ABI              0.35.0 (8960)
@@ -58,11 +59,11 @@ header tree sha256        8830606fa73a2e109a112002f5d2041f79778b490eade4e3567318
 HEADLESS   ~/deps/cna-c-abi-0.35.0/lib/libcna_c_api.so
            Debug, CNA_PLATFORM=SDL3, CNA_AUDIO_PLATFORM=SDL3, NET on, VIDEO off,
            CNAEXT off, DEVICES off
-           sha256 ade831545a97b96d320067248254778009514d0ff0f4179a261bad08a9eda15b
+           sha256 070ed77bec5af09f64c7215e25c90de0970f0316b6d50982eece85fd1963c449
 OPENGLES3  ~/deps/cna-c-abi-0.35.0-opengles3-fx/lib/libcna_c_api.so
            Release, SDL3 platform and audio, EASYGL_COMPILED_EFFECTS, CNAEXT,
            DEVICES, NET and VIDEO on
-           sha256 0bd40b6d44a7c4873a59817d864a8adc886031a32de427d38797c0550641fc0c
+           sha256 4e38a2dafd68e22c1a77c00a34b2ef6a7b1cb7b6832d904ba4a21b05f374f4d6
 ```
 
 `tools/native_abi` measures both identically: 696 bound routes, 457 manifest

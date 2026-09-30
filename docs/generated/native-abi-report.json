@@ -1,11 +1,11 @@
 {
   "schema_version": 3,
   "status": "PASS",
-  "header_root": "/home/robertvokac/deps/cna-c-abi-0.35.0/include",
+  "header_root": "/rv/data/development/github.com/libcna/cna-go/build-probe/artifacts/cna-c-abi-0.35.0/include",
   "canonical_header_sha256": "8830606fa73a2e109a112002f5d2041f79778b490eade4e3567318b178315b12",
   "canonical_header_files": 60,
   "native_library": "libcna_c_api.so",
-  "native_library_sha256": "ade831545a97b96d320067248254778009514d0ff0f4179a261bad08a9eda15b",
+  "native_library_sha256": "070ed77bec5af09f64c7215e25c90de0970f0316b6d50982eece85fd1963c449",
   "ADMITTED_ABI": "major 0 with minor 35 or newer (qualified at 0.35.0)",
   "CANONICAL_HEADER_ABI": "0.35.0",
   "LOADED_ABI": "0.35.0",

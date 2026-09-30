@@ -3,7 +3,7 @@
   "isolation": "one native Game generation per subprocess",
   "GO_RACE_STATUS": "NOT_RUN",
   "NATIVE_SANITIZER_STATUS": "NOT_RUN",
-  "native_library_sha256": "0bd40b6d44a7c4873a59817d864a8adc886031a32de427d38797c0550641fc0c",
+  "native_library_sha256": "4e38a2dafd68e22c1a77c00a34b2ef6a7b1cb7b6832d904ba4a21b05f374f4d6",
   "counters": {
     "GAME_CYCLES": 20,
     "GAME_RECREATION_CYCLES": 20,
