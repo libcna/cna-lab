@@ -34,12 +34,15 @@ const game = new HelloGame();
 game.NativeFrameTarget = frames;
 await game.Run();
 assert.equal(game.DrawCount, frames);
-assert.equal(game.NativeInputPollCount, frames);
+// Input is polled once per Update, and XNA's fixed time step runs extra Updates before a Draw
+// whenever a frame took longer than the step -- a windowed renderer on a busy host does -- so
+// there are at least as many polls as frames, never fewer.
+assert.ok(game.NativeInputPollCount >= frames, `${game.NativeInputPollCount} polls for ${frames} frames`);
 game.Dispose();
 assert.equal(game.NativeResourcesDisposed, true);
 const finalStatus = GetRuntimeStatus();
 console.log(
-  `CNA_TS_NODE_NATIVE_2D=PASS FRAMES=${frames} ABI=${status.AbiVersion} ` +
+  `CNA_TS_NODE_NATIVE_2D=PASS FRAMES=${frames} UPDATES=${game.NativeInputPollCount} ABI=${status.AbiVersion} ` +
   `FROM_STREAM=PASS SPRITE_BATCH_DRAW=PASS INPUT=PASS ` +
   `RENDERER=${finalStatus.RendererInfo?.Name ?? "unavailable"}`,
 );
@@ -72,16 +75,13 @@ if (extensionsSmoke) {
   // NOT_SUPPORTED where the layer was compiled out, so the truthful branch is reported either way.
   const layer = IsGraphicsExtensionLayerAvailable();
 
-  const { CreatePbrMaterial, CreateRenderPipelineSettings, RenderQuality, TonemappingMode } =
-    await import("cna-ts/extensions/graphics");
-  // Pure value operations: CNA documents these as answering in either build.
-  const material = CreatePbrMaterial();
-  assert.ok(material.RoughnessFactor >= 0 && material.RoughnessFactor <= 1);
-  assert.equal(material.AlbedoColor.A, 255);
-  const pipelineSettings = CreateRenderPipelineSettings();
-  assert.ok(pipelineSettings.Exposure > 0);
-  assert.ok(Object.values(TonemappingMode).includes(pipelineSettings.TonemappingMode));
-  assert.ok(Object.values(RenderQuality).includes(pipelineSettings.RenderQuality));
+  const { CreateTextureTransform, ImageBasedLighting } = await import("cna-ts/extensions/graphics");
+  // Pure value operations: CNA answers these in either build, extension layer or not.
+  const transform = CreateTextureTransform();
+  assert.deepEqual([transform.Scale.X, transform.Scale.Y, transform.Rotation], [1, 1, 0]);
+  const light = ImageBasedLighting.DefaultLight();
+  assert.ok(light.Intensity > 0 && light.PrefilteredMipCount >= 1);
+  assert.equal(ImageBasedLighting.IsLightValid(light), false, "no textures yet, so not usable");
   // The host CNA is running on. XNA had no way to ask any of this, and a game that adapts to a
   // battery or a safe area needs it before it draws its first frame.
   //
@@ -221,6 +221,8 @@ if (extensionsSmoke) {
   let hapticCount = "-";
   let computeSupported = false;
   let capabilityCount = 0;
+  const capabilityIdentities = Object.values(GraphicsCapability)
+    .filter((value) => typeof value === "number");
   const inputGame = new (class extends Game {
     constructor() {
       super();
@@ -236,8 +238,7 @@ if (extensionsSmoke) {
       computeSupported = GraphicsDeviceCapabilities.Supports(
         this.GraphicsDevice, GraphicsCapability.ComputeShaders,
       );
-      capabilityCount = Object.values(GraphicsCapability)
-        .filter((value) => typeof value === "number")
+      capabilityCount = capabilityIdentities
         .filter((value) => GraphicsDeviceCapabilities.Supports(this.GraphicsDevice, value))
         .length;
       super.LoadContent();
@@ -251,23 +252,16 @@ if (extensionsSmoke) {
   await inputGame.Run();
   inputGame.Dispose();
 
-  // One modern pipeline property, read from CNA rather than guessed: a higher quality tier costs
-  // more bloom iterations, and the engine is what decides how many.
-  const { BloomPass } = await import("cna-ts/extensions/graphics");
-  const bloomLow = BloomPass.IterationsForQuality(RenderQuality.Low);
-  const bloomHigh = BloomPass.IterationsForQuality(RenderQuality.High);
-  assert.ok(bloomHigh > bloomLow);
-
   console.log(
     `CNA_TS_EXTENSIONS_DEVICES=${devicesAvailable ? "PASS" : "NOT_SUPPORTED_BACKEND"} ` +
     `CORES=${host?.LogicalCpuCoreCount ?? "-"} POWER=${host ? PowerState[host.Power.State] : "-"} ` +
     `CAMERAS=${cameras ? `${cameras.Devices.length}${cameras.IsSupported ? "" : " (unsupported)"}` : "-"}`,
   );
-  console.log(`CNA_TS_EXTENSIONS_CNB=PASS CHUNKS=${cnbEvidence} MODEL=${rigEvidence} CUSTOM=${customEvidence} BLOOM_LOW_HIGH=${bloomLow}/${bloomHigh}`);
+  console.log(`CNA_TS_EXTENSIONS_CNB=PASS CHUNKS=${cnbEvidence} MODEL=${rigEvidence} CUSTOM=${customEvidence}`);
   console.log(
     `CNA_TS_EXTENSIONS_INPUT=PASS JOYSTICKS=${joystickCount} HAPTICS=${hapticCount} ` +
     `COMPUTE=${computeSupported ? "SUPPORTED" : "NOT_SUPPORTED_RENDERER"} ` +
-    `CAPABILITIES=${capabilityCount}/19`,
+    `CAPABILITIES=${capabilityCount}/${capabilityIdentities.length}`,
   );
   console.log(
     `CNA_TS_EXTENSIONS_RUNTIME=PASS PLATFORM=${platform.Name} ` +
@@ -275,7 +269,6 @@ if (extensionsSmoke) {
     `AVAILABLE=${available.map((renderer) => renderer.Name).join("|")} ` +
     `FALLBACKS=${RendererSelection.GetFallbacks().length} ` +
     `GRAPHICS_EXTENSION_LAYER=${layer ? "AVAILABLE" : "NOT_SUPPORTED_BACKEND"} ` +
-    `PBR_DEFAULTS=PASS TONEMAPPING=${TonemappingMode[pipelineSettings.TonemappingMode]} ` +
-    `RENDER_QUALITY=${RenderQuality[pipelineSettings.RenderQuality]}`,
+    `VALUE_DEFAULTS=PASS IBL_INTENSITY=${light.Intensity} IBL_MIPS=${light.PrefilteredMipCount}`,
   );
 }
