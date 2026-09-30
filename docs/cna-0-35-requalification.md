@@ -17,6 +17,10 @@ the real GPU), SDL audio on the dummy driver. Swift 6.0.3,
 
 ## Results
 
+The final run is against both artifacts restaged at CNA `next` `5b4edd6cc`,
+after BINDFIX-044..050; it repeated every native gate below with the same
+counts, except that SW-05's sub-pixel crop now decodes (see Findings).
+
 | Gate | Result |
 |---|---|
 | `tools/native_abi/verify.py`, both libraries | 778 routes, 2657 prototype positions, 68 layouts / 522 fields, 9 callbacks, 228 constants, 0 missing, 0 mismatches |
@@ -29,7 +33,7 @@ the real GPU), SDL audio on the dummy driver. Swift 6.0.3,
 | `tools/behavior/run.py` | 2331 observations, 0 failures |
 | `tools/consumer_canary/verify.py`, 60 and 600 frames | 32 checks, 0 findings |
 | template `HelloGame`, HEADLESS 60 / 600 | exit 0; 60/60 and 600/600 updates/draws |
-| template `HelloGame`, OPENGLES3 60 / 600 | exit 0; 60 and 600 draws with catch-up updates (85, 910), real 800x480 window |
+| template `HelloGame`, OPENGLES3 60 / 600 | exit 0; 60 and 600 draws with catch-up updates (87, 931), real 800x480 window |
 
 The archive-consumer result is `docs/generated/package-qualification-report.json`.
 

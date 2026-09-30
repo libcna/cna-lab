@@ -8,8 +8,8 @@
     "renderer": "HEADLESS and OPENGLES3 (EasyGL, private Xwayland)",
     "audio": "SDL3 with SDL's dummy driver",
     "cnaAbiAdmittedWindow": "major 0, minor >= 35",
-    "cnaSourceRevision": "4228ff913987452c6fe03d125d186072b1405187",
-    "cnaLibrarySha256": "070ed77bec5af09f64c7215e25c90de0970f0316b6d50982eece85fd1963c449"
+    "cnaSourceRevision": "5b4edd6cc25d656e8eaf0aee304e75ae7ee5a90d",
+    "cnaLibrarySha256": "3a6f0edc718a2368d76cd6acd597ac468e33b5f2d23bcd3404fa93f1c1809030"
   },
   "capabilities": [
     {

@@ -8,8 +8,8 @@ Linux x86-64, canonical CNA C ABI 0.35.0
 (admitted window: major 0, minor >= 35),
 HEADLESS and OPENGLES3 (EasyGL, private Xwayland) renderer, SDL3 with SDL's dummy driver audio.
 
-CNA source revision `4228ff913987452c6fe03d125d186072b1405187`, library SHA-256
-`070ed77bec5af09f64c7215e25c90de0970f0316b6d50982eece85fd1963c449`.
+CNA source revision `5b4edd6cc25d656e8eaf0aee304e75ae7ee5a90d`, library SHA-256
+`3a6f0edc718a2368d76cd6acd597ac468e33b5f2d23bcd3404fa93f1c1809030`.
 
 | Operation | Status | Evidence |
 |---|---|---|

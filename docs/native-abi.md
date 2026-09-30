@@ -82,12 +82,12 @@ Both are CNA `next` built from source during the 2026-09-30 retirement pass and
 staged with a `PROVENANCE.txt` (configuration, source revision, hashes):
 
 ```text
-CNA_SOURCE_REVISION=4228ff913987452c6fe03d125d186072b1405187 (libcna/cna, branch next)
+CNA_SOURCE_REVISION=5b4edd6cc25d656e8eaf0aee304e75ae7ee5a90d (libcna/cna, branch next)
 CNA_ABI_VERSION=0.35.0   EXPORTS=3202   PLATFORM=Linux x86-64   AUDIO_BACKEND=SDL3
 HEADLESS   ~/deps/cna-c-abi-0.35.0                 Debug, CNA_DEVICES=OFF, CNA_CNAEXT=OFF, video OFF
-           NATIVE_LIBRARY_SHA256=070ed77bec5af09f64c7215e25c90de0970f0316b6d50982eece85fd1963c449
+           NATIVE_LIBRARY_SHA256=3a6f0edc718a2368d76cd6acd597ac468e33b5f2d23bcd3404fa93f1c1809030
 OPENGLES3  ~/deps/cna-c-abi-0.35.0-opengles3-fx    Release, EasyGL compiled effects, CNAEXT, DEVICES, video ON
-           NATIVE_LIBRARY_SHA256=4e38a2dafd68e22c1a77c00a34b2ef6a7b1cb7b6832d904ba4a21b05f374f4d6
+           NATIVE_LIBRARY_SHA256=7b35fd1312660ae2d2bcb8a47670602ead94f885f8b5316254d219f585fe2556
 ```
 
 Neither is shipped. The previous boundary, CNA C ABI 0.21.0 (cnanext
