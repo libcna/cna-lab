@@ -50,11 +50,10 @@ export const SPRITE_FONT_STRINGS = Object.freeze([
 /**
  * The strings whose widest line ends in `j`, the only glyph with a negative right side bearing.
  *
- * This is the entire set on which the two implementations disagree, and the difference is exactly
- * that bearing's magnitude. See upstream finding 27.
+ * XNA clamps that trailing bearing at zero. CNA used to count it into the width, so these were the
+ * strings on which the two implementations disagreed, by exactly the bearing (upstream finding
+ * 27, fixed in CNA ABI 0.35); they are kept as the cases that would show it again.
  */
 export const SPRITE_FONT_TRAILING_NEGATIVE_BEARING =
   Object.freeze(["j", "Aj", "jj", "A.j", "AZj"]);
 
-/** The magnitude of `j`'s right side bearing, which is the whole of the divergence. */
-export const SPRITE_FONT_NEGATIVE_BEARING = 3;

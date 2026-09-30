@@ -21,9 +21,7 @@ import test from "node:test";
 
 import {
   SPRITE_FONT_FIXTURE,
-  SPRITE_FONT_NEGATIVE_BEARING,
   SPRITE_FONT_STRINGS,
-  SPRITE_FONT_TRAILING_NEGATIVE_BEARING,
 } from "./fixtures/sprite-font.mjs";
 import {
   assertAvatarEvidence,
@@ -49,9 +47,9 @@ const clone = (value) => structuredClone(value);
 
 const WORKING = {
   avatar: {
-    length: 1021, allZero: true, isValid: false, bodyType: 0, height: 0,
-    twoCallsAgree: true, bodyTypesAgree: true, roundTrip: true,
-    rebuiltValid: false, rebuiltBodyType: 0,
+    length: 1021, isValid: true, bodyType: 1, height: 1.791, distinct: 8,
+    femaleBodyType: 0, maleBodyType: 1, roundTrip: true,
+    rebuiltValid: true, rebuiltBodyType: 1,
     shortRefused: "WasmCnaError", badBodyType: "ArgumentOutOfRangeException",
   },
   window: {
@@ -213,7 +211,7 @@ const WORKING = {
     cameras: { IsSupported: true, Devices: [] },
     clipboardAccepted: true,
     camera: { width: 4, height: 2, states: { 2: 2, 3: 3, 4: 4 }, closedRefused: "1" },
-    afterDestroy: "RuntimeError: table index is out of bounds",
+    afterDestroy: "SURVIVED",
   },
 };
 
@@ -245,7 +243,6 @@ function spriteFont() {
     "W W": 14, "AjW.": 20, "A\nj": 30, "A\n\nW": 42, "A\r\nj": 30, "AjW.AjW.AjW.": 20,
     " ": 4, "  ": 4, " A ": 14, "\n": 14, "\n\n": 28, "?": 14, Z: 14, AZj: 16,
   };
-  const diverging = new Set(SPRITE_FONT_TRAILING_NEGATIVE_BEARING);
   return {
     info: {
       CharacterCount: SPRITE_FONT_FIXTURE.Glyphs.length,
@@ -257,10 +254,7 @@ function spriteFont() {
     rows: SPRITE_FONT_STRINGS.map((text) => ({
       text,
       managed: [widths[text], heights[text]],
-      native: [
-        widths[text] - (diverging.has(text) ? SPRITE_FONT_NEGATIVE_BEARING : 0),
-        heights[text],
-      ],
+      native: [widths[text], heights[text]],
     })),
   };
 }
@@ -293,9 +287,9 @@ test("the non-engine oracles accept the evidence a working backend produces", ()
  * stride, a callback rooted twice, a refusal answered instead of raised.
  */
 const CASES = [
-  ["a description CreateRandom actually randomised", () => {
+  ["a CreateRandom that answers the same description every time", () => {
     const broken = clone(WORKING.avatar);
-    broken.allZero = false;
+    broken.distinct = 1;
     return () => assertAvatarEvidence(broken);
   }],
   ["a description length taken from the wrong constant", () => {
@@ -303,9 +297,9 @@ const CASES = [
     broken.length = 1024;
     return () => assertAvatarEvidence(broken);
   }],
-  ["a body-type overload that stopped being ignored", () => {
+  ["a body-type overload that drops the body type", () => {
     const broken = clone(WORKING.avatar);
-    broken.twoCallsAgree = false;
+    broken.maleBodyType = 0;
     return () => assertAvatarEvidence(broken);
   }],
   ["a wrong-length description that was padded rather than refused", () => {
@@ -313,7 +307,12 @@ const CASES = [
     broken.shortRefused = "ACCEPTED";
     return () => assertAvatarEvidence(broken);
   }],
-  ["a MeasureString that disagrees outside the known divergence", () => {
+  ["a CNA width that counts a trailing negative bearing again (finding 27)", () => {
+    const broken = spriteFont();
+    broken.rows.find((row) => row.text === "j").native[0] -= 3;
+    return () => assertSpriteFontEvidence(broken);
+  }],
+  ["a MeasureString that disagrees anywhere else", () => {
     const broken = spriteFont();
     broken.rows.find((row) => row.text === "W W").native[0] += 1;
     return () => assertSpriteFontEvidence(broken);
@@ -635,9 +634,9 @@ const CASES = [
     broken.standalone = "CONSTRUCTED";
     return () => assertLateMemberEvidence(broken);
   }],
-  ["upstream finding 11 repaired, which this suite must notice", () => {
+  ["upstream finding 11 back: enumerating after a destroyed test camera traps", () => {
     const broken = clone(WORKING.devices);
-    broken.afterDestroy = "SURVIVED";
+    broken.afterDestroy = "RuntimeError: table index is out of bounds";
     return () => assertDeviceLayerEvidence(broken, { expectAvailable: true });
   }],
 ];

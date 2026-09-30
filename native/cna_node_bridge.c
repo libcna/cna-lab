@@ -229,6 +229,7 @@ typedef CNA_Result (*SpriteFontMeasureFn)(CNA_Handle, CNA_StringView, CNA_Vector
 typedef CNA_Result (*AvatarDescriptionCreateFn)(
   const uint8_t*, uint64_t, CNA_AvatarDescriptionHandle*);
 typedef CNA_Result (*AvatarDescriptionRandomFn)(CNA_AvatarDescriptionHandle*);
+typedef CNA_Result (*AvatarDescriptionRandomForBodyTypeFn)(CNA_AvatarBodyType, CNA_AvatarDescriptionHandle*);
 typedef CNA_Result (*AvatarDescriptionInfoFn)(
   CNA_AvatarDescriptionHandle, CNA_AvatarDescriptionInfo*);
 typedef CNA_Result (*AvatarDescriptionCopyFn)(
@@ -1660,6 +1661,7 @@ typedef struct Api {
   GameHandleFn sprite_font_destroy;
   AvatarDescriptionCreateFn avatar_description_create;
   AvatarDescriptionRandomFn avatar_description_create_random;
+  AvatarDescriptionRandomForBodyTypeFn avatar_description_create_random_for_body_type;
   AvatarDescriptionInfoFn avatar_description_get_info;
   AvatarDescriptionCopyFn avatar_description_copy_description;
   GameHandleFn avatar_description_destroy;
@@ -3043,6 +3045,7 @@ static napi_value load_library(napi_env env, napi_callback_info info) {
   LOAD_REQUIRED(sprite_font_destroy, GameHandleFn, "cna_sprite_font_destroy");
   LOAD_REQUIRED(avatar_description_create, AvatarDescriptionCreateFn, "cna_avatar_description_create");
   LOAD_REQUIRED(avatar_description_create_random, AvatarDescriptionRandomFn, "cna_avatar_description_create_random");
+  LOAD_REQUIRED(avatar_description_create_random_for_body_type, AvatarDescriptionRandomForBodyTypeFn, "cna_avatar_description_create_random_for_body_type");
   LOAD_REQUIRED(avatar_description_get_info, AvatarDescriptionInfoFn, "cna_avatar_description_get_info");
   LOAD_REQUIRED(avatar_description_copy_description, AvatarDescriptionCopyFn, "cna_avatar_description_copy_description");
   LOAD_REQUIRED(avatar_description_destroy, GameHandleFn, "cna_avatar_description_destroy");
@@ -17224,21 +17227,33 @@ static napi_value bridge_avatar_description_create(napi_env env, napi_callback_i
 }
 
 /*
- * There is deliberately one route here and not two. CNA's body-type overload validates its
- * argument and then ignores it -- XNA's behaviour, reproduced on purpose -- so its output is
- * byte-identical to the plain route's, and importing it would add a route that provably cannot
- * change any observable. The validation the overload would have done is done in TypeScript
- * instead, where it can raise the exception XNA raises rather than a result code.
+ * createRandomAvatarDescription([bodyType]). CNA draws a description from its avatar catalog, and
+ * its body-type overload keeps the body type it is given, so an argument selects that route and
+ * its absence the plain one. TypeScript has already refused an undefined identity by XNA's name.
  */
 static napi_value bridge_avatar_description_create_random(
   napi_env env, napi_callback_info info
 ) {
   CNA_AvatarDescriptionHandle handle = CNA_INVALID_HANDLE;
-  (void) info;
+  size_t argc = 1;
+  napi_value args[1];
+  napi_valuetype type = napi_undefined;
   if (!require_loaded(env)) return NULL;
-  const CNA_Result result = g_api.avatar_description_create_random(&handle);
-  if (result != CNA_RESULT_SUCCESS) {
-    return throw_result(env, "cna_avatar_description_create_random", result);
+  NAPI_OR_RETURN(env, napi_get_cb_info(env, info, &argc, args, NULL, NULL), "arguments");
+  if (argc >= 1) NAPI_OR_RETURN(env, napi_typeof(env, args[0], &type), "body type");
+  if (type == napi_undefined) {
+    const CNA_Result result = g_api.avatar_description_create_random(&handle);
+    if (result != CNA_RESULT_SUCCESS) {
+      return throw_result(env, "cna_avatar_description_create_random", result);
+    }
+  } else {
+    uint32_t body_type = 0;
+    NAPI_OR_RETURN(env, napi_get_value_uint32(env, args[0], &body_type), "body type");
+    const CNA_Result result =
+      g_api.avatar_description_create_random_for_body_type((CNA_AvatarBodyType) body_type, &handle);
+    if (result != CNA_RESULT_SUCCESS) {
+      return throw_result(env, "cna_avatar_description_create_random_for_body_type", result);
+    }
   }
   return avatar_description_snapshot(env, handle);
 }

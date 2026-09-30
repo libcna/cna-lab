@@ -60,7 +60,10 @@ async function importPlaywright() {
       const specifier = candidate.startsWith(".") || path.isAbsolute(candidate)
         ? pathToFileURL(candidate).href
         : candidate;
-      return await import(specifier);
+      const loaded = await import(specifier);
+      // Playwright's CommonJS entry arrives as a default export; its ES entry names chromium.
+      const playwright = loaded?.chromium ? loaded : loaded?.default;
+      if (playwright?.chromium) return playwright;
     } catch {
       continue;
     }

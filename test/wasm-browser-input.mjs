@@ -499,6 +499,6 @@ test("the input harness game disposes deterministically", { skip }, async () => 
     const { disposed, ready } = await scenario();
     assert.equal(disposed, true);
     assert.equal(ready.backend, "wasm");
-    assert.match(ready.abiVersion, /^0\.21\./);
+    assert.match(ready.abiVersion, /^0\.35\./);
   }
 });

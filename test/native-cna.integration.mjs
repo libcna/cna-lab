@@ -807,6 +807,9 @@ class GamerServicesProbeGame extends Game {
     // The screen saver is a *platform display* property in CNA, not title state: with no platform
     // displays the getter answers true and the setter does nothing. Recording that is the point --
     // a projection that cached the write locally would report a screen saver it had not disabled.
+    // CNA describes its fallback adapter as "Default Display" exactly when the platform
+    // enumerated no display, so the adapter says which of the two cases this host is.
+    this.evidence.platformDisplays = Graphics.GraphicsAdapter.DefaultAdapter.Description !== "Default Display";
     gs.Guide.IsScreenSaverEnabled = false;
     this.evidence.screenSaverAfterDisable = gs.Guide.IsScreenSaverEnabled;
     gs.Guide.IsScreenSaverEnabled = true;
@@ -876,10 +879,12 @@ test("gamer services has a real dispatcher and Guide state, and still refuses a 
   // combines them, and this is the assertion that would notice if it stopped.
   assert.equal(evidence.trialAfterSimulating, true, "simulating a trial changes what a game branches on");
   assert.equal(evidence.trialAfterClearing, false);
-  // HEADLESS has no platform displays, so CNA's screen-saver flag is read-only in effect: the
-  // getter answers true and the setter is a no-op. The projection reports what the platform says
-  // rather than what it was told, which is the whole reason this state moved into CNA.
-  assert.equal(evidence.screenSaverAfterDisable, true, "no platform displays: the write cannot take");
+  // With no platform displays CNA's screen-saver flag is read-only in effect: the getter answers
+  // true and the setter is a no-op. With a display the write takes. Either way the projection
+  // reports what the platform says rather than what it was told, which is the whole reason this
+  // state moved into CNA.
+  assert.equal(evidence.screenSaverAfterDisable, !evidence.platformDisplays,
+    evidence.platformDisplays ? "a platform display: the write takes" : "no platform displays: the write cannot take");
   assert.equal(evidence.screenSaverAfterEnable, true);
   assert.equal(evidence.notificationPosition, GamerServices.NotificationPosition.TopLeft);
   assert.equal(evidence.notificationPositionRestored, GamerServices.NotificationPosition.BottomCenter);
@@ -1233,21 +1238,28 @@ for (const frameCount of [60, 600]) {
   test(`executes ${frameCount} CNA-owned frames with graphics resources`, async () => {
     const game = new NativeProbeGame(frameCount);
     await game.Run();
-    assert.equal(game.updates, frameCount);
-    assert.equal(game.draws, frameCount);
-    assert.equal(game.inputPolls, 1);
-    assert.equal(game.graphicsRouteEvidence["effect SpriteBatch.Begin"], "SUCCESS");
-    assert.equal(game.graphicsRouteEvidence["stock effect construction"], "SUCCESS");
-    assert.equal(game.graphicsRouteEvidence["stock effect execution"], "SUCCESS");
-    assert.equal(game.graphicsRouteEvidence["compiled Effect route"], "HEADLESS_NOT_SUPPORTED");
-    assert.equal(game.graphicsRouteEvidence["Model.Draw"], "SUCCESS");
-    assert.equal(game.graphicsRouteEvidence["RenderTarget2D creation"], "SUCCESS");
-    assert.equal(game.graphicsRouteEvidence["RenderTargetCube creation"], "SUCCESS");
-    assert.equal(game.graphicsRouteEvidence["cube render target binding"], "SUCCESS");
-    assert.ok(game.graphicsRouteEvidence["DrawUserPrimitives"]);
-    assert.ok(game.graphicsRouteEvidence["DrawUserIndexedPrimitives"]);
-    game.Dispose();
-    game.Dispose();
+    // Disposed on every path: a game left alive by a failed assertion refuses every later
+    // cna_game_create in this process, which turns one failure into all of them.
+    try {
+      // XNA's fixed time step runs extra Updates before a Draw whenever a frame took longer than
+      // the step, so on a loaded host there can be more Updates than Draws -- never fewer.
+      assert.equal(game.draws, frameCount);
+      assert.ok(game.updates >= frameCount, `${game.updates} updates for ${frameCount} draws`);
+      assert.equal(game.inputPolls, 1);
+      assert.equal(game.graphicsRouteEvidence["effect SpriteBatch.Begin"], "SUCCESS");
+      assert.equal(game.graphicsRouteEvidence["stock effect construction"], "SUCCESS");
+      assert.equal(game.graphicsRouteEvidence["stock effect execution"], "SUCCESS");
+      assert.equal(game.graphicsRouteEvidence["compiled Effect route"], "HEADLESS_NOT_SUPPORTED");
+      assert.equal(game.graphicsRouteEvidence["Model.Draw"], "SUCCESS");
+      assert.equal(game.graphicsRouteEvidence["RenderTarget2D creation"], "SUCCESS");
+      assert.equal(game.graphicsRouteEvidence["RenderTargetCube creation"], "SUCCESS");
+      assert.equal(game.graphicsRouteEvidence["cube render target binding"], "SUCCESS");
+      assert.ok(game.graphicsRouteEvidence["DrawUserPrimitives"]);
+      assert.ok(game.graphicsRouteEvidence["DrawUserIndexedPrimitives"]);
+      game.Dispose();
+    } finally {
+      game.Dispose();
+    }
   });
 }
 
@@ -2151,10 +2163,10 @@ test("GraphicsAdapter reports CNA's real adapter, its modes and its format answe
 
   const adapter = evidence.adapter;
   assert.equal(typeof adapter, "object", `adapter read failed: ${adapter}`);
-  // These are CNA's canonical adapter identity rather than a probe of the physical GPU -- the same
-  // values appear on HEADLESS and on OPENGLES3, which is measured rather than assumed. They are
-  // asserted because they are what a consumer receives, not because they describe this machine.
-  assert.equal(adapter.description, "Default Display");
+  // With no platform display CNA answers its fallback identity; with one, Description is the
+  // platform's display name. DeviceName is XNA's synthetic primary display name in both cases.
+  assert.equal(typeof adapter.description, "string");
+  assert.ok(adapter.description.length > 0, "an adapter is described");
   assert.equal(adapter.deviceName, "\\\\.\\DISPLAY1", "XNA's canonical primary display name");
   assert.equal(adapter.isDefault, true);
   assert.equal(typeof adapter.vendorId, "number");
@@ -2172,6 +2184,9 @@ test("GraphicsAdapter reports CNA's real adapter, its modes and its format answe
   const mode = evidence.currentMode;
   assert.equal(typeof mode, "object", `current mode failed: ${mode}`);
   assert.ok(mode.width > 0 && mode.height > 0, `implausible mode ${mode.width}x${mode.height}`);
+  if (adapter.description === "Default Display") {
+    assert.deepEqual([mode.width, mode.height], [800, 480], "the fallback adapter's one mode");
+  }
   assert.equal(mode.format, Graphics.SurfaceFormat.Color);
   assert.ok(
     Math.abs(mode.aspectRatio - mode.width / mode.height) < 1e-5,

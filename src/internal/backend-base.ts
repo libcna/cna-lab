@@ -1455,6 +1455,7 @@ export abstract class CnaAvatarBackendBase implements CnaAvatarBackend {
     _bytes: Uint8Array,
   ): AvatarDescriptionSnapshot { return this.unsupported("createAvatarDescription"); }
   public createRandomAvatarDescription(
+    _bodyType?: number,
   ): AvatarDescriptionSnapshot { return this.unsupported("createRandomAvatarDescription"); }
 }
 

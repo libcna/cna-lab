@@ -16,6 +16,7 @@
 //     opened, because XNA asks for them with a method for exactly that reason.
 
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -252,13 +253,29 @@ test("the library reports the media this test planted, not an empty set", () => 
   assert.equal(seen.counts.saved, 0, "nothing has been saved into the library yet");
 });
 
+/**
+ * CNA reads a song's duration from the container through FFmpeg, and an artifact configured
+ * without it (CNA_ENABLE_VIDEO=OFF, as the HEADLESS qualification artifact is) answers zero -- its
+ * documented "unknown". Which of the two this library is, is read from its own dynamic section
+ * rather than assumed.
+ */
+function linksFfmpeg(file) {
+  const result = spawnSync("readelf", ["-d", file], { encoding: "utf8" });
+  if (result.status !== 0) return null;
+  return /libavformat\.so/.test(result.stdout);
+}
+
 test("a song carries the metadata the file actually has", () => {
   const seen = claim("library");
   assert.equal(seen.song.Name, "Track", "the file name without its extension");
+  const probed = linksFfmpeg(path.resolve(library));
+  assert.notEqual(probed, null, "readelf could not read the library's dynamic section");
   assert.equal(
-    seen.song.Milliseconds, EXPECTED_MILLISECONDS,
-    `${FRAMES} frames at ${SAMPLE_RATE}Hz is exactly ${EXPECTED_MILLISECONDS}ms, and the ` +
-    "duration is read from the file rather than defaulted -- a zero here would pass a weaker test",
+    seen.song.Milliseconds, probed ? EXPECTED_MILLISECONDS : 0,
+    probed
+      ? `${FRAMES} frames at ${SAMPLE_RATE}Hz is exactly ${EXPECTED_MILLISECONDS}ms, and the ` +
+        "duration is read from the file rather than defaulted"
+      : "without FFmpeg CNA has no duration probe, and says zero rather than guessing",
   );
   assert.equal(seen.song.AlbumName, "Census Album", "the folder the song sits in");
   assert.equal(seen.song.IsProtected, false);

@@ -673,6 +673,7 @@ const ROUTES = [
   "cna_avatar_description_copy_description",
   "cna_avatar_description_create",
   "cna_avatar_description_create_random",
+  "cna_avatar_description_create_random_for_body_type",
   "cna_avatar_description_destroy",
   "cna_avatar_description_get_info",
   "cna_sprite_font_create",

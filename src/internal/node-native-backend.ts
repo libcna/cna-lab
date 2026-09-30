@@ -562,7 +562,7 @@ interface NativeBridge {
   getCnaSpriteFontInfo(font: bigint): CnaSpriteFontInfoSnapshot;
   measureCnaSpriteFont(font: bigint, text: string): { readonly X: number; readonly Y: number };
   createAvatarDescription(bytes: Uint8Array): AvatarDescriptionSnapshot;
-  createRandomAvatarDescription(): AvatarDescriptionSnapshot;
+  createRandomAvatarDescription(bodyType?: number): AvatarDescriptionSnapshot;
   createMediaLibrary(game: bigint): bigint;
   destroyMediaLibrary(library: bigint): void;
   getMediaLibrarySnapshot(library: bigint): MediaLibrarySnapshot;
@@ -2043,8 +2043,8 @@ export class NodeNativeBackend
   public createAvatarDescription(bytes: Uint8Array): AvatarDescriptionSnapshot {
     return this.#bridge.createAvatarDescription(bytes);
   }
-  public createRandomAvatarDescription(): AvatarDescriptionSnapshot {
-    return this.#bridge.createRandomAvatarDescription();
+  public createRandomAvatarDescription(bodyType?: number): AvatarDescriptionSnapshot {
+    return this.#bridge.createRandomAvatarDescription(bodyType);
   }
   public createMediaLibrary(): NativeHandle {
     return this.#bridge.createMediaLibrary(this.#game());

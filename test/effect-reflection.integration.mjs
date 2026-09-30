@@ -3,9 +3,10 @@
 // `Effect.Parameters` for a compiled effect, on a renderer that can actually run one.
 //
 // This package used to build a natively reflected `Effect` with an **empty** parameter collection.
-// It did not look like a gap: a stock effect's native parameter collection really is empty
-// (`cna_basic_effect_create` then `cna_effect_get_parameters` answers count 0 -- measured on both
-// the headless and the windowed builds), so there appeared to be nothing to reflect.
+// It did not look like a gap: at ABI 0.21 a stock effect's native parameter collection really was
+// empty (`cna_basic_effect_create` then `cna_effect_get_parameters` answered count 0 on both the
+// headless and the windowed builds), so there appeared to be nothing to reflect. At 0.35 the
+// compiled-effect build's stock effects carry XNA's own parameters, asserted below.
 //
 // The measurement that changed it: `CNA_GRAPHICS_CAPABILITY_COMPILED_EFFECTS` is **true** on the
 // windowed OPENGLES3 build and false on HEADLESS, and on the windowed one a compiled `.fxb` loads
@@ -131,6 +132,8 @@ class EffectProbeGame extends Game {
   constructor() {
     super();
     this.graphics = new GraphicsDeviceManager(this);
+    // HiDef: the pending-error probe binds two render targets, and XNA's Reach allows one.
+    this.graphics.GraphicsProfile = Graphics.GraphicsProfile.HiDef;
     this.graphics.PreferredBackBufferWidth = 160;
     this.graphics.PreferredBackBufferHeight = 120;
   }
@@ -341,12 +344,26 @@ class EffectProbeGame extends Game {
       }
     });
 
-    // A stock effect is the control: its collection is empty, and this package's own stock state
-    // stays authoritative. If this ever stops being empty, the managed/native split needs revisiting.
+    // A stock effect on a compiled-effect build. CNA's BasicEffect used to carry an empty native
+    // collection; it now reflects XNA's own parameter set, so the question is whether the managed
+    // properties and those parameters are one state -- XNA's BasicEffect writes its properties
+    // into its parameters when a pass is applied, and derives some of them (DiffuseColor is the
+    // colour premultiplied by Alpha, with the emissive colour folded in when lighting is off).
     record("stock", () => {
       const effect = new Graphics.BasicEffect(device);
-      try { return { Count: effect.Parameters.Count }; }
-      finally { effect.Dispose(); }
+      try {
+        const names = [];
+        for (let index = 0; index < effect.Parameters.Count; index += 1) {
+          names.push(effect.Parameters.Get(index).Name);
+        }
+        effect.DiffuseColor = new Vector3(0.25, 0.5, 0.75);
+        effect.EmissiveColor = new Vector3(0.125, 0, 0);
+        effect.Alpha = 0.5;
+        effect.CurrentTechnique.Passes.Get(0).Apply();
+        const diffuse = readNativeParameterValueForInternalUse(
+          effect.Parameters.Get("DiffuseColor"), VALUE_VECTOR4);
+        return { Count: effect.Parameters.Count, names, diffuse };
+      } finally { effect.Dispose(); }
     });
 
     this.Exit();
@@ -485,12 +502,27 @@ test("a second compiled effect reflects its own parameters, not the first one's"
   );
 });
 
-test("a stock effect stays managed-authoritative", { skip }, () => {
-  assert.deepEqual(
-    evidence.stock, { Count: 0 },
-    "CNA's stock effects carry no native parameter collection, so this package's own stock state " +
-    "remains the only authority for BasicEffect and its siblings",
-  );
+test("a stock effect's properties reach its native parameters the way XNA's do", { skip }, () => {
+  const stock = evidence.stock;
+  assert.equal(typeof stock, "object", `the probe failed: ${stock}`);
+  // XNA's BasicEffect.fx declares exactly these twenty-one parameters.
+  assert.deepEqual([...stock.names].sort(), [
+    "DiffuseColor", "DirLight0DiffuseColor", "DirLight0Direction", "DirLight0SpecularColor",
+    "DirLight1DiffuseColor", "DirLight1Direction", "DirLight1SpecularColor",
+    "DirLight2DiffuseColor", "DirLight2Direction", "DirLight2SpecularColor",
+    "EmissiveColor", "EyePosition", "FogColor", "FogVector", "ShaderIndex", "SpecularColor",
+    "SpecularPower", "Texture", "World", "WorldInverseTranspose", "WorldViewProj",
+  ].sort());
+  assert.equal(stock.Count, 21);
+  // Lighting off: DiffuseColor = ((diffuse + emissive) * alpha, alpha).
+  const expected = [(0.25 + 0.125) * 0.5, 0.5 * 0.5, 0.75 * 0.5, 0.5];
+  assert.ok(Array.isArray(stock.diffuse), `the native parameter was read: ${stock.diffuse}`);
+  for (let index = 0; index < 4; index += 1) {
+    assert.ok(
+      Math.abs(stock.diffuse[index] - expected[index]) < 1e-5,
+      `DiffuseColor component ${index} is ${stock.diffuse[index]}, XNA's rule gives ${expected[index]}`,
+    );
+  }
 });
 
 // ---------------------------------------------------------------------------------------------

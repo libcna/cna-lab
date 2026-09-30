@@ -15,7 +15,8 @@
 //
 // ```sh
 // CNA_WINDOWED_LIBRARY=/path/to/libcna_c_api.so CNA_NODE_BRIDGE=build/cna_node_bridge.node \
-//   xvfb-run -a node --test test/input-devices.integration.mjs
+//   <cna>/tools/platform/run_gpu_tests_private.sh --exec env -u WAYLAND_DISPLAY \
+//   SDL_VIDEODRIVER=x11 node --test test/input-devices.integration.mjs
 // ```
 
 import assert from "node:assert/strict";
@@ -36,7 +37,7 @@ const library = mode === "windowed" ? windowed : headless;
 const skip = mode
   ? false
   : (windowed
-    ? "CNA_WINDOWED_LIBRARY is set but there is no DISPLAY; run under xvfb-run"
+    ? "CNA_WINDOWED_LIBRARY is set but there is no DISPLAY; run under a private display server"
     : "set CNA_WINDOWED_LIBRARY (with a display) or CNA_NATIVE_LIBRARY");
 
 const storageHome = fs.mkdtempSync(path.join(os.tmpdir(), "cna-ts-input-devices-"));
@@ -191,11 +192,11 @@ test("host power answers without the extended device layer", { skip }, () => {
       `${name} is a non-negative integer or null, never -1: ${value}`,
     );
   }
-  if (mode === "headless") {
-    // HEADLESS has no power source to report, so both readings must be *absent* rather than any
-    // number at all. This is what separates a real reading from a field that echoes something
-    // else: State is Unknown here, and a BatteryPercent that came from State would be 1.
-    assert.equal(seen.State, PowerState.Unknown);
+  // Power is the host's, read by the platform whichever renderer draws: the HEADLESS artifact's
+  // SDL3 platform reports this machine's battery. Where there is no battery to read, both
+  // readings must be *absent* rather than any number at all -- which is what separates a real
+  // reading from a field that echoes something else (a BatteryPercent taken from State would be 1).
+  if (seen.State === PowerState.Unknown || seen.State === PowerState.NoBattery) {
     assert.equal(seen.BatteryPercent, null, "no battery is reported, so the charge is absent");
     assert.equal(seen.SecondsRemaining, null);
   }

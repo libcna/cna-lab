@@ -62,7 +62,7 @@ function deviceHarness(previous) {
   Object.assign(backend, {
     Kind: "node-native",
     IsAvailable: true,
-    AbiVersion: "0.21.0-test",
+    AbiVersion: "0.35.0-test",
     Detail: "deterministic standalone-device backend",
     createStandaloneGraphicsDevice(adapterIndex, graphicsProfile, parameters) {
       created.push({ adapterIndex, graphicsProfile, parameters });
@@ -214,7 +214,7 @@ test("without a standalone-device route the constructor refuses by name", () => 
   const previous = getBackend();
   const backend = Object.create(previous);
   Object.assign(backend, {
-    Kind: "node-native", IsAvailable: true, AbiVersion: "0.21.0-test",
+    Kind: "node-native", IsAvailable: true, AbiVersion: "0.35.0-test",
     Detail: "a backend without the standalone-device route",
     createStandaloneGraphicsDevice: undefined,
     destroyStandaloneGraphicsDevice: undefined,

@@ -88,7 +88,7 @@ const requireDeviceLayer = process.env.CNA_REQUIRE_WASM_DEVICE_LAYER === "1";
 
 test("the page ran, drew a frame and released its game", { skip }, () => {
   assert.equal(run.result.status, "ok", run.result.error ?? "");
-  assert.match(run.result.abiVersion, /^0\.21\./);
+  assert.match(run.result.abiVersion, /^0\.35\./);
   assert.ok(run.result.frames >= 1, `expected at least one frame, saw ${run.result.frames}`);
   assert.equal(run.result.disposed, true);
   assert.deepEqual(run.result.errors, []);

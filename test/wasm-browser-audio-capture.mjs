@@ -99,8 +99,7 @@ test("SDL's silence stands in until the capture stream is live, and is not mista
   console.log(`CAPTURE_FIRST_SOUNDED_AT_READ=${evidence.capture.firstSoundedAt}`);
 });
 
-test("the same fake device offers a camera, and CNA enumerates none of it", () => {
-  // Not a camera test that happens to fail: a refusal asserted so that its repair is detectable.
+test("the same fake device offers a camera, and CNA enumerates it", () => {
   // The device layer is only in an artifact built with `-DCNA_DEVICES=ON`, so which branch this
   // run takes comes from what the artifact says about itself, and `CNA_REQUIRE_WASM_DEVICE_LAYER=1`
   // turns the present branch into a claim the way the non-engine suite does.
@@ -119,7 +118,8 @@ test("what this run does and does not claim", () => {
   console.log("SYNTHETIC_BROWSER_CAPTURE_VERIFIED=1");
   console.log("PHYSICAL_MICROPHONE_ACCESSED=0");
   console.log("PHYSICAL_CAPTURE_VERIFIED=0");
-  console.log(`SYNTHETIC_BROWSER_CAMERA_VERIFIED=0  # upstream finding 34: ` +
+  console.log(`SYNTHETIC_BROWSER_CAMERA_ENUMERATED=${evidence.camera ? 1 : 0} ` +
     `browser cameras=${evidence.browserVideoInputs.length}, CNA cameras=` +
-    `${evidence.camera ? evidence.camera.deviceCount : "device layer absent"}`);
+    `${evidence.camera ? evidence.camera.deviceCount : "device layer absent"} ` +
+    `camera=${JSON.stringify(evidence.camera ?? null)}`);
 });

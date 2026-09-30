@@ -438,6 +438,9 @@ class CnbProbeGame extends Game {
     this.sound.Name = "Beep";
     this.results.sound = {
       durationMilliseconds: this.sound.Duration.TotalMilliseconds,
+      // Whether a voice starts is the audio platform's answer: false without a mixer (NULL audio),
+      // true with one. The duration depends on the same thing.
+      mixing: this.sound.Play(0, 0, 0),
       // A real CNA round trip through cna_sound_effect_set_name/_copy_name, which does not depend
       // on a mixer and so is measurable in this configuration.
       name: this.sound.Name,
@@ -491,15 +494,11 @@ test("a CNB texture and font become real XNA resources with the exact pixels CNA
   // its name round-trips through CNA.
   assert.equal(game.results.sound.name, "Beep");
   assert.equal(game.results.sound.sampleBytes, PCM_FRAMES * 2);
-  // Duration is zero here, and that is a property of this artifact rather than of the CNB path:
-  // it is built with CNA_AUDIO_PLATFORM=NULL, and docs/cna-abi-audit.md records CNA's own
-  // CApi_AudioSmoke reporting the same zero for a PCM16 effect without a mixer. The real
-  // measurement -- 250 ms and 2,500,000 ticks for a quarter second of 8 kHz mono -- is made in
-  // test/wasm-browser.mjs, whose artifact has SDL3 audio. Asserting it here would be asserting the
-  // configuration, not the schema.
+  // The duration is the audio platform's: CNA reports zero for a PCM16 effect without a mixer
+  // (CNA_AUDIO_PLATFORM=NULL), and a quarter second of 8 kHz mono -- 250 ms -- with one.
   assert.equal(
-    game.results.sound.durationMilliseconds, 0,
-    "NULL audio reports no duration; when this artifact gains a mixer, this expectation changes",
+    game.results.sound.durationMilliseconds, game.results.sound.mixing ? 250 : 0,
+    `a quarter second with a mixer, zero without (mixing: ${game.results.sound.mixing})`,
   );
   game.Dispose();
 });

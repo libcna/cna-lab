@@ -159,63 +159,39 @@ test("the oracle was built from the managed font's own configuration", () => {
 
 /**
  * The strings whose widest line ends in `j`, the only glyph here with a negative right side
- * bearing. They are the entire divergence set, and the difference is exactly that bearing's
- * magnitude -- see the test below and upstream finding 27.
+ * bearing. CNA used to disagree on exactly these, by that bearing -- upstream finding 27.
  */
 const TRAILING_NEGATIVE_BEARING = new Set(["j", "Aj", "jj", "A.j", "AZj"]);
-const NEGATIVE_BEARING = 3;
 
-test("the two implementations agree everywhere the trailing bearing is not negative", () => {
+test("the two implementations agree on every string", () => {
   assert.equal(evidence.failed, undefined);
   const disagreements = evidence.rows
-    .filter((row) => !TRAILING_NEGATIVE_BEARING.has(row.text))
     .filter((row) => Math.abs(row.managed[0] - row.native[0]) > 1e-4
       || Math.abs(row.managed[1] - row.native[1]) > 1e-4);
   assert.deepEqual(
     disagreements, [],
-    "MeasureString and CNA's own SpriteFont share no code, so a disagreement outside the one " +
-    "known divergence is a defect in one of them rather than a number to update",
+    "MeasureString and CNA's own SpriteFont share no code, so a disagreement is a defect in one " +
+    "of them rather than a number to update",
   );
-  assert.ok(
-    evidence.rows.length - TRAILING_NEGATIVE_BEARING.size >= 15,
-    "and the agreement covers many strings, not a handful",
-  );
+  assert.ok(evidence.rows.length >= 20, "and the agreement covers many strings, not a handful");
 });
 
-test("upstream finding 27: CNA counts a negative trailing bearing into the width", () => {
+test("upstream finding 27 is fixed: a negative trailing bearing is clamped as XNA clamps it", () => {
   assert.equal(evidence.failed, undefined);
-  const diverging = evidence.rows.filter((row) => TRAILING_NEGATIVE_BEARING.has(row.text));
-  assert.equal(diverging.length, TRAILING_NEGATIVE_BEARING.size, "every named string was measured");
-  for (const row of diverging) {
-    assert.ok(
-      Math.abs((row.managed[0] - row.native[0]) - NEGATIVE_BEARING) < 1e-4,
-      `${JSON.stringify(row.text)} differs by exactly the bearing's magnitude: ` +
-      `${row.managed[0]} vs ${row.native[0]}`,
-    );
-    assert.ok(
-      Math.abs(row.managed[1] - row.native[1]) < 1e-4,
-      "and only in width -- the height is unaffected, which is what makes this one rule",
-    );
+  const trailing = evidence.rows.filter((row) => TRAILING_NEGATIVE_BEARING.has(row.text));
+  assert.equal(trailing.length, TRAILING_NEGATIVE_BEARING.size, "every named string was measured");
+  for (const row of trailing) {
+    assert.deepEqual(row.native, row.managed, `${JSON.stringify(row.text)} measures the same in both`);
   }
-  // Which of the two is XNA's is not a matter of opinion here. Microsoft.Xna.Framework.Graphics.dll
-  // was disassembled: SpriteFont::InternalMeasure carries each glyph's right side bearing forward
-  // in a local, adds it *unclamped* before the next glyph on the same line, and adds it
-  //     size.X = size.X + Math.Max(pendingZ, 0f)
-  // at every line break and once more at IL_015C after the loop. So the trailing bearing is
-  // clamped at zero, which is what this package does and what CNA does not -- CNA adds
-  // `cKern.Y + cKern.Z` for every glyph including the last.
-  //
-  // These assertions therefore pin a CNA defect, not a choice. If CNA is repaired they fail, and
-  // the one above starts covering these strings too.
+  // Microsoft.Xna.Framework.Graphics.dll's SpriteFont::InternalMeasure carries each glyph's right
+  // side bearing forward and adds it as `Math.Max(pendingZ, 0f)` at every line break and after
+  // the loop, so the trailing bearing is clamped at zero. CNA used to add `cKern.Y + cKern.Z` for
+  // the last glyph too, answering 4 for a lone 'j'.
   const single = evidence.rows.find((row) => row.text === "j");
   assert.deepEqual(
-    single.managed, [7, 16],
+    single.native, [7, 16],
     "a lone 'j' is its clamped left bearing (1) plus its width (6), with its -3 right bearing " +
     "clamped away -- 7, which is what XNA's IL computes",
-  );
-  assert.deepEqual(
-    single.native, [4, 16],
-    "while CNA answers 4, having subtracted the 3",
   );
 });
 

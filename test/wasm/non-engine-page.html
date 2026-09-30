@@ -92,15 +92,16 @@ try {
     let badBodyType = "ACCEPTED";
     try { GamerServices.AvatarDescription.CreateRandom(99); }
     catch (error) { badBodyType = error?.constructor?.name ?? "unknown"; }
+    const draws = Array.from({ length: 8 }, () => GamerServices.AvatarDescription.CreateRandom().Description.join(","));
     return {
       length: random.Description.length,
-      allZero: random.Description.every((byte) => byte === 0),
       isValid: random.IsValid,
       bodyType: random.BodyType,
       height: random.Height,
-      twoCallsAgree: female.Description.every((b, i) => b === male.Description[i]),
-      bodyTypesAgree: female.BodyType === male.BodyType,
-      roundTrip: rebuilt.Description.every((b, i) => b === random.Description[i]),
+      distinct: new Set(draws).size,
+      femaleBodyType: female.BodyType,
+      maleBodyType: male.BodyType,
+      roundTrip: rebuilt.Description.every((byte, at) => byte === random.Description[at]),
       rebuiltValid: rebuilt.IsValid,
       rebuiltBodyType: rebuilt.BodyType,
       shortRefused,

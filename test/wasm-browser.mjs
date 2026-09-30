@@ -22,7 +22,7 @@ test("the WebAssembly backend runs 60 real browser frames through the public XNA
   const { result, consoleErrors } = await runFrames(60);
   assert.equal(result.status, "ok", result.error ?? "");
   assert.equal(result.backend, "wasm");
-  assert.match(result.abiVersion, /^0\.21\./);
+  assert.match(result.abiVersion, /^0\.35\./);
   assert.equal(result.frames, 60);
   assert.ok(result.updates >= 60, `expected at least 60 updates, saw ${result.updates}`);
   assert.ok(result.draws >= 1, `expected at least one draw, saw ${result.draws}`);
@@ -505,7 +505,7 @@ test("a browser can ask its device what it supports, and the answers are the dev
   assert.equal(typeof caps.maxWorkGroupInvocations, "number");
 
   const on = Object.entries(caps.supported).filter(([, value]) => value).map(([name]) => name);
-  console.log(`CNA_TS_WASM_DEVICE_CAPABILITIES=${on.length}/19 ON=${on.join(",")}`);
+  console.log(`CNA_TS_WASM_DEVICE_CAPABILITIES=${on.length}/${Object.keys(caps.supported).length} ON=${on.join(",")}`);
   assert.deepEqual(consoleErrors, []);
 });
 

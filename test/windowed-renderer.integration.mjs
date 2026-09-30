@@ -98,9 +98,10 @@ let pristineBufferDurationMs = null;
 const CLEAR = new Color(12, 34, 56, 255);
 
 class WindowedProbeGame extends Game {
-  constructor(frames) {
+  constructor(frames, profile = undefined) {
     super();
     this.graphics = new GraphicsDeviceManager(this);
+    if (profile !== undefined) this.graphics.GraphicsProfile = profile;
     this.graphics.PreferredBackBufferWidth = 320;
     this.graphics.PreferredBackBufferHeight = 240;
     this.frameTarget = frames;
@@ -602,7 +603,6 @@ void main() { FragColor = texture(uExtra, TexCoord); }
             target.GetData(pixels);
             return [pixels[0].R, pixels[0].G, pixels[0].B, pixels[0].A];
           };
-          sampleOnce();  // finding 22: the first draw of a fresh effect is lost
           result.sampledUnitOne = sampleOnce();
 
         result.firstDraw = runFlat(probe, 0.125);
@@ -681,8 +681,8 @@ void main() { FragColor = texture(uExtra, TexCoord); }
       const microphone = Audio.Microphone.All[0];
       if (!microphone) return null;
       // The buffer duration is device state for the process, not for this Game, and the sweep
-      // below cannot put it back: the value it started at is the one value the setter refuses,
-      // which is the finding. So the pristine reading is taken once, before anything writes.
+      // below leaves it at its last accepted value. So the pristine reading is taken once, before
+      // anything writes.
       pristineBufferDurationMs ??= microphone.BufferDuration.TotalMilliseconds;
       const initial = pristineBufferDurationMs;
       const rows = [50, 90, 100, 500, 990, 1000, 1100, 1500, 2500, 60000].map((milliseconds) => {
@@ -1115,7 +1115,7 @@ test("a windowed CNA renderer compiles the physically-based effects and keeps th
   );
 });
 
-test("a windowed CNA renderer runs a custom shader, and loses its first draw", { skip }, async () => {
+test("a windowed CNA renderer runs a custom shader, from its first draw", { skip }, async () => {
   const game = new WindowedProbeGame(6);
   await game.Run();
   const evidence = game.evidence;
@@ -1142,10 +1142,10 @@ test("a windowed CNA renderer runs a custom shader, and loses its first draw", {
   }
   assert.equal(fx.compileError, "", "a shader that compiled has an empty log");
 
-  // --- upstream finding 22 ------------------------------------------------------------------------
-  // A fresh ShaderEffect's FIRST SpriteBatch draw produces nothing. Asserted as it is, not worked
-  // around, so the day it is repaired this file says so. Every run below rebinds and clears the
-  // same 4x4 target first, so nothing carries over from one to the next except the effect itself.
+  // --- upstream finding 22 (fixed in CNA) ---------------------------------------------------------
+  // A fresh ShaderEffect's FIRST SpriteBatch draw used to produce nothing; since CNA ABI 0.35 it
+  // draws. Every run below rebinds and clears the same 4x4 target first, so nothing carries over
+  // from one to the next except the effect itself.
   // 0.125 * 255 = 31.875, and the two rasterizers this host can run disagree about it by one:
   // the AMD Radeon 780M answers 32 and Mesa's llvmpipe answers 31. Both are a legal float-to-unorm8
   // conversion of the same shader output, so the assertion is the shader's arithmetic to within a
@@ -1153,7 +1153,6 @@ test("a windowed CNA renderer runs a custom shader, and loses its first draw", {
   // about -- a draw that produced *nothing* versus a draw that produced the colour -- is separated
   // by 31, not by 1, so nothing here is weakened.
   const DRAWN = 0.125 * 255;
-  const nothing = [0, 0, 0, 255];  // the opaque black the target was cleared to
   const assertDrawn = (actual, what) => {
     assert.ok(
       Math.abs(actual[0] - DRAWN) <= 1,
@@ -1161,18 +1160,10 @@ test("a windowed CNA renderer runs a custom shader, and loses its first draw", {
     );
     assert.deepEqual(actual.slice(1), [0, 0, 255], `${what}: the other channels are exact`);
   };
-  assert.deepEqual(
-    fx.firstDraw, nothing,
-    "a fresh ShaderEffect's first SpriteBatch draw produces nothing -- upstream finding 22; when " +
-    "it is fixed this assertion is the one that fails",
-  );
+  assertDrawn(fx.firstDraw, "a fresh ShaderEffect's first SpriteBatch draw (upstream finding 22)");
   assertDrawn(fx.secondDraw, "and its second draw is correct");
   assertDrawn(fx.thirdDraw, "as is every one after that");
-  assert.deepEqual(
-    fx.freshEffectFirstDraw, nothing,
-    "a second, separately created effect loses its own first draw too, so it is once per effect " +
-    "rather than once per process",
-  );
+  assertDrawn(fx.freshEffectFirstDraw, "a second, separately created effect's first draw");
   assertDrawn(fx.freshEffectSecondDraw, "the second effect's second draw");
   assert.deepEqual(
     fx.plainFirstDraw, [40, 80, 120, 255],
@@ -1194,12 +1185,19 @@ test("a windowed CNA renderer runs a custom shader, and loses its first draw", {
   );
 
   console.log(
-    `CNA_TS_WINDOWED_SHADER_EFFECT=PASS RENDERER=${evidence.renderer.name} FIRST_DRAW_LOST=yes`,
+    `CNA_TS_WINDOWED_SHADER_EFFECT=PASS RENDERER=${evidence.renderer.name} FIRST_DRAW_LOST=no`,
   );
 });
 
 test("volume and cube textures execute on a renderer with a device", { skip }, async () => {
-  const game = new WindowedProbeGame(1);
+  // XNA's Reach profile has no volume textures, and CNA enforces that: the default profile refuses.
+  const reach = new WindowedProbeGame(1);
+  await reach.Run();
+  const refused = reach.evidence.volumeAndCubeTextures;
+  reach.Dispose();
+  assert.match(String(refused), /result 6: Texture3D/, `Reach must refuse a Texture3D (${refused})`);
+
+  const game = new WindowedProbeGame(1, Graphics.GraphicsProfile.HiDef);
   await game.Run();
   const seen = game.evidence.volumeAndCubeTextures;
   game.Dispose();
@@ -1340,7 +1338,7 @@ test("a windowed CNA build enumerates the host's real capture devices", { skip }
   console.log(`CNA_TS_MICROPHONES=${microphones.length} DEFAULT=${evidence.defaultMicrophone}`);
 });
 
-test("Microphone.BufferDuration refuses its own default -- upstream finding 28", { skip }, async () => {
+test("Microphone.BufferDuration accepts XNA's range, its own default included -- upstream finding 28", { skip }, async () => {
   const game = new WindowedProbeGame(2);
   await game.Run();
   const evidence = game.evidence;
@@ -1356,36 +1354,19 @@ test("Microphone.BufferDuration refuses its own default -- upstream finding 28",
   const xnaAccepts = (milliseconds) =>
     milliseconds >= 100 && milliseconds <= 1000 && milliseconds % 10 === 0;
 
-  // Where the two agree, they are asserted to agree.
-  for (const milliseconds of [50, 90, 100, 500, 990, 60000]) {
+  // CNA used to read TimeSpan's sub-second component where XNA reads the total, so it refused its
+  // own 1000 ms default and accepted 1100-2500 ms. Every row now answers as XNA's IL does, and the
+  // rows either side of the old defect (1000, 1100, 60000) are the ones that would show it back.
+  for (const [milliseconds] of measured.rows) {
     assert.equal(
       verdict.get(milliseconds) === "accepted", xnaAccepts(milliseconds),
-      `${milliseconds} ms: CNA and XNA agree here`,
+      `${milliseconds} ms: CNA answers ${verdict.get(milliseconds)}, XNA ${xnaAccepts(milliseconds) ? "accepts" : "refuses"}`,
     );
   }
-
-  // Where they differ, the difference is asserted rather than tolerated, so a repair fails here.
-  // CNA reads TimeSpan's sub-second component where XNA reads the total, so 1000 ms arrives as 0.
-  assert.equal(
-    verdict.get(1000), "Error",
-    "CNA refuses 1000 ms, which XNA accepts -- when this starts passing, finding 28 is fixed",
-  );
   assert.equal(
     measured.initial, 1000,
-    "and 1000 ms is the value the property reports before anything writes it, so reading the " +
-    "property and assigning it straight back cannot complete",
+    "1000 ms is the value the property reports before anything writes it, and it is accepted back",
   );
-  for (const milliseconds of [1100, 1500, 2500]) {
-    assert.equal(
-      verdict.get(milliseconds), "accepted",
-      `CNA accepts ${milliseconds} ms, which XNA refuses as above ${1000}`,
-    );
-    assert.equal(xnaAccepts(milliseconds), false, "and XNA's own IL refuses it");
-  }
-  // 60000 ms is refused by both, but only by coincidence: its sub-second component is zero, which
-  // fails the lower bound rather than the upper one. Recorded so the agreement above is not read
-  // as evidence that the upper bound works.
-  assert.equal(verdict.get(60000), "Error");
 });
 
 test("a real audio backend runs the playback state machine, not just its lifetime", { skip }, async () => {

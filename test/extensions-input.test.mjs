@@ -33,7 +33,7 @@ function backendWith(previous, values) {
   Object.assign(result, {
     Kind: "node-native",
     IsAvailable: true,
-    AbiVersion: "0.21.0-test",
+    AbiVersion: "0.35.0-test",
     Detail: "deterministic extended-input backend",
     ...values,
   });

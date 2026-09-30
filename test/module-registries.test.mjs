@@ -70,7 +70,7 @@ function deviceHarness(previous, handles) {
   Object.assign(backend, {
     Kind: "node-native",
     IsAvailable: true,
-    AbiVersion: "0.21.0-test",
+    AbiVersion: "0.35.0-test",
     Detail: "registry-invariant backend",
     // Enough of a graphics slice for one real resource to be created and destroyed on the
     // device, which is what makes the ResourceCreated/ResourceDestroyed test a measurement.

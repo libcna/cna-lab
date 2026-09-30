@@ -1377,7 +1377,8 @@ export interface AvatarDescriptionSnapshot {
 /** CNA's avatar descriptions, which need no gamer service. */
 export interface CnaAvatarBackend {
   createAvatarDescription(bytes: Uint8Array): AvatarDescriptionSnapshot;
-  createRandomAvatarDescription(): AvatarDescriptionSnapshot;
+  /** A random description, of the given body type when one is given. */
+  createRandomAvatarDescription(bodyType?: number): AvatarDescriptionSnapshot;
 }
 
 /** One song as CNA's media index describes it. Relationships are names, not handles. */

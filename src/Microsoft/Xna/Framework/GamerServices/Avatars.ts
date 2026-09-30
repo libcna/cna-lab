@@ -165,16 +165,11 @@ export class AvatarDescription {
   /** Makes a random avatar description of one body type. */
   public static CreateRandom(bodyType: AvatarBodyType): AvatarDescription;
   /**
-   * Makes a "random" avatar description.
+   * Makes a random avatar description.
    *
-   * **It is not random, and that is XNA's behaviour rather than a limitation here.** XNA 4.0's own
-   * implementation never randomises anything: it returns an all-zero — and therefore
-   * {@link IsValid}-false — description, and the `bodyType` overload validates its argument and
-   * then ignores it. CNA reproduces both deliberately, saying so in its source, and this projects
-   * what CNA does rather than inventing the variety the name implies.
-   *
-   * What it does need is nothing: no gamer, no sign-in and no service, which is why it answers
-   * where the rest of the avatar surface still refuses.
+   * CNA draws it from its own avatar catalog, and the `bodyType` overload keeps the body type it
+   * is given. It needs no gamer, no sign-in and no service, which is why it answers where the rest
+   * of the avatar surface still refuses.
    */
   public static CreateRandom(bodyType?: AvatarBodyType): AvatarDescription {
     if (bodyType !== undefined
@@ -184,11 +179,8 @@ export class AvatarDescription {
     // Built through the ordinary constructor rather than around it: CNA generates the bytes, and
     // the constructor is what reads a body type, a height and a validity out of them. One path
     // into a description means one place where those three can disagree with the bytes: none.
-    // The body type is checked above and then dropped, because CNA's own overload checks it and
-    // drops it too -- XNA's behaviour. Sending it would import a second route that cannot change
-    // the answer.
     const generated = avatars("AvatarDescription.CreateRandom")
-      .createRandomAvatarDescription();
+      .createRandomAvatarDescription(bodyType);
     return new AvatarDescription(Array.from(generated.Description));
   }
 

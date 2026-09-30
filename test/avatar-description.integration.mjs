@@ -5,16 +5,10 @@
 // The rest of the avatar surface refuses, and rightly: a renderer needs avatar assets and a
 // signed-in gamer this host does not have. A *description* needs neither, so it is projected.
 //
-// The surprise is what `CreateRandom` returns, and it is worth stating before the assertions read
-// oddly: **it is not random**. XNA 4.0's own implementation never randomises anything -- it hands
-// back an all-zero, and therefore invalid, description, and the `bodyType` overload validates its
-// argument and then ignores it. CNA reproduces both on purpose and says so in its source
-// ("Preserved exactly, not fixed"). This file asserts that behaviour, because projecting the
-// variety the name implies would mean inventing it.
-//
-// The first version of this file assumed randomness and failed. The probe that "confirmed"
-// randomness had read past the end of a buffer; a correctly sequenced one showed 1021 zero bytes
-// every time. Both are recorded in `docs/non-engine-census.md`.
+// `CreateRandom` draws from CNA's avatar catalog. At ABI 0.21 CNA returned XNA-for-Windows' all-zero,
+// invalid description and ignored the body type; CNA's gamer-services work replaced that with
+// real descriptions, and the body-type overload now keeps its argument. This binding used to drop
+// the argument on the grounds that it could not change the answer -- it can now, so it is sent.
 
 import assert from "node:assert/strict";
 import path from "node:path";
@@ -41,13 +35,7 @@ const { AvatarBodyType, AvatarDescription } = GamerServices;
 /** CNA's own constant, and the length the canonical constructor requires. */
 const DESCRIPTION_BYTES = 1021;
 
-/**
- * The same evidence shape the browser page produces, so both backends face one oracle.
- *
- * The point is not to save lines. An avatar description is 1021 zero bytes and a verdict on them
- * whether CNA is reached through a Node-API bridge or an Emscripten module, and two suites with
- * their own copies of that expectation is how they come to disagree about it and both stay green.
- */
+/** The same evidence shape the browser page produces, so both backends face one oracle. */
 function avatarEvidence() {
   const random = AvatarDescription.CreateRandom();
   const female = AvatarDescription.CreateRandom(AvatarBodyType.Female);
@@ -59,14 +47,15 @@ function avatarEvidence() {
   let badBodyType = "ACCEPTED";
   try { AvatarDescription.CreateRandom(99); }
   catch (error) { badBodyType = error?.constructor?.name ?? "unknown"; }
+  const draws = Array.from({ length: 8 }, () => AvatarDescription.CreateRandom().Description.join(","));
   return {
     length: random.Description.length,
-    allZero: random.Description.every((byte) => byte === 0),
     isValid: random.IsValid,
     bodyType: random.BodyType,
     height: random.Height,
-    twoCallsAgree: female.Description.every((byte, at) => byte === male.Description[at]),
-    bodyTypesAgree: female.BodyType === male.BodyType,
+    distinct: new Set(draws).size,
+    femaleBodyType: female.BodyType,
+    maleBodyType: male.BodyType,
     roundTrip: rebuilt.Description.every((byte, at) => byte === random.Description[at]),
     rebuiltValid: rebuilt.IsValid,
     rebuiltBodyType: rebuilt.BodyType,
@@ -79,7 +68,7 @@ test("the Node backend's avatar evidence satisfies the shared oracle", () => {
   assertAvatarEvidence(avatarEvidence());
 });
 
-test("CreateRandom returns XNA's all-zero description, every time", () => {
+test("CreateRandom draws a valid description from CNA's catalog", () => {
   const first = AvatarDescription.CreateRandom();
   const second = AvatarDescription.CreateRandom();
   for (const description of [first, second]) {
@@ -87,40 +76,18 @@ test("CreateRandom returns XNA's all-zero description, every time", () => {
       description.Description.length, DESCRIPTION_BYTES,
       "a description is exactly one description's worth of bytes",
     );
-    assert.ok(
-      description.Description.every((byte) => byte === 0),
-      "and every byte of it is zero -- XNA's own CreateRandom randomises nothing, and CNA " +
-      "reproduces that deliberately rather than inventing variety the name implies",
-    );
-    assert.equal(
-      description.IsValid, false,
-      "an all-zero description is not a usable avatar, which is what makes IsValid worth having",
-    );
+    assert.equal(description.IsValid, true, "and it is a usable avatar");
+    assert.ok(description.Height > 1 && description.Height < 2.5, `height ${description.Height}`);
   }
-  assert.deepEqual(
-    [...first.Description], [...second.Description],
-    "two calls agree, because there is nothing to disagree about",
-  );
 });
 
-test("the bodyType overload validates its argument and then ignores it", () => {
-  // Both halves are XNA's behaviour. Asserting only the first would let a projection that quietly
-  // started honouring the argument pass, and asserting only the second would let one that stopped
-  // validating pass.
-  const female = AvatarDescription.CreateRandom(AvatarBodyType.Female);
-  const male = AvatarDescription.CreateRandom(AvatarBodyType.Male);
-  assert.deepEqual(
-    [...female.Description], [...male.Description],
-    "the requested body type reaches CNA, is checked, and changes nothing about the result",
-  );
-  assert.equal(
-    female.BodyType, male.BodyType,
-    "so both report the same body type -- read out of the zeroed bytes, not echoed back",
-  );
-  assert.equal(
-    female.BodyType, AvatarBodyType.Female,
-    "and that is Female, which is what a description with no body type in it defaults to",
-  );
+test("the bodyType overload validates its argument and keeps it", () => {
+  // Both halves: a projection that stopped validating, or one that dropped the argument (as this
+  // one did while CNA ignored it), fails here.
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    assert.equal(AvatarDescription.CreateRandom(AvatarBodyType.Female).BodyType, AvatarBodyType.Female);
+    assert.equal(AvatarDescription.CreateRandom(AvatarBodyType.Male).BodyType, AvatarBodyType.Male);
+  }
 });
 
 test("a description round-trips through its own bytes", () => {
@@ -174,8 +141,6 @@ test("an all-zero description is well-formed but not valid", () => {
     "validity is decided by the description's first byte, not by whether there are any bytes -- " +
     "which is what IsValid used to answer",
   );
-  // There is deliberately no "and a valid one answers true" here: nothing this package can build
-  // without a gamer *is* valid, so claiming the pair would be claiming something unmeasured.
   assert.equal(
     zeroed.BodyType, AvatarBodyType.Female,
     "and it still reports a body type, which comes from CNA reading the bytes",

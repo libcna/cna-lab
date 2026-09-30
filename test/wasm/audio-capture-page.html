@@ -104,12 +104,10 @@ try {
     .filter((device) => device.kind === "audioinput")
     .map((device) => device.label);
 
-  // ---- and the camera the same fake device is offering, which CNA cannot see -----------------
+  // ---- and the camera the same fake device is offering -----------------------------------------
   //
   // The same launch that made the microphone synthetic makes the camera synthetic too, so the
-  // question costs one page and answers something the sensor/camera row had been carrying as
-  // "physical hardware, not verified". It is not physical hardware: the browser has a camera here,
-  // CNA still enumerates none, and the reason is in CNA rather than in this host.
+  // question costs one page: the browser has a camera here, and CNA is asked whether it sees it.
   evidence.browserVideoInputs = devices
     .filter((device) => device.kind === "videoinput")
     .map((device) => device.label);

@@ -111,6 +111,9 @@ try {
     constructor() {
       super();
       this.graphics = new GraphicsDeviceManager(this);
+      // HiDef: the page binds two render targets and builds a volume texture, and XNA's Reach
+      // profile -- the default, which CNA enforces -- allows one target and no volumes.
+      this.graphics.GraphicsProfile = Graphics.GraphicsProfile.HiDef;
       this.graphics.PreferredBackBufferWidth = 320;
       this.graphics.PreferredBackBufferHeight = 240;
       // A browser drives frames from requestAnimationFrame, so the frame clock is the

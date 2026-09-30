@@ -27,7 +27,6 @@ import assert from "node:assert/strict";
 
 import {
   SPRITE_FONT_FIXTURE,
-  SPRITE_FONT_NEGATIVE_BEARING,
   SPRITE_FONT_STRINGS,
   SPRITE_FONT_TRAILING_NEGATIVE_BEARING,
 } from "../fixtures/sprite-font.mjs";
@@ -38,6 +37,8 @@ const AVATAR_DESCRIPTION_BYTES = 1021;
 
 /** `CNA_AVATAR_BODY_TYPE_FEMALE`, which is what a description with no body type in it reports. */
 const AVATAR_BODY_TYPE_FEMALE = 0;
+/** `CNA_AVATAR_BODY_TYPE_MALE`. */
+const AVATAR_BODY_TYPE_MALE = 1;
 
 function present(evidence, family) {
   assert.ok(evidence, `${family} produced no evidence at all`);
@@ -55,21 +56,20 @@ export function assertAvatarEvidence(evidence) {
   present(evidence, "avatar");
   assert.equal(evidence.length, AVATAR_DESCRIPTION_BYTES,
     "a description is exactly one description's worth of bytes");
-  assert.equal(evidence.allZero, true,
-    "and every byte of it is zero: XNA's CreateRandom randomises nothing, and inventing the " +
-    "variety the name implies would be this binding making something up");
-  assert.equal(evidence.isValid, false,
-    "an all-zero description is not a usable avatar, which is what makes IsValid worth having");
-  assert.equal(evidence.bodyType, AVATAR_BODY_TYPE_FEMALE,
-    "the body type is read out of the bytes rather than defaulted, and zeroed bytes are Female");
-  assert.equal(evidence.height, 0, "the canonical format carries no height, so CNA reports zero");
-  assert.equal(evidence.twoCallsAgree, true,
-    "the requested body type reaches CNA, is checked, and changes nothing about the result");
-  assert.equal(evidence.bodyTypesAgree, true);
+  assert.equal(evidence.isValid, true,
+    "CNA draws the description from its avatar catalog, so it is a usable avatar");
+  assert.ok(evidence.height > 1 && evidence.height < 2.5,
+    `the height is read out of the bytes and is a person's, in metres: ${evidence.height}`);
+  assert.ok(evidence.distinct > 1,
+    `eight draws are not all the same description (${evidence.distinct} distinct)`);
+  assert.equal(evidence.femaleBodyType, AVATAR_BODY_TYPE_FEMALE,
+    "the requested body type reaches CNA and is the one described");
+  assert.equal(evidence.maleBodyType, AVATAR_BODY_TYPE_MALE);
   assert.equal(evidence.roundTrip, true,
     "the bytes survive being handed back to the constructor");
-  assert.equal(evidence.rebuiltValid, false);
-  assert.equal(evidence.rebuiltBodyType, AVATAR_BODY_TYPE_FEMALE);
+  assert.equal(evidence.rebuiltValid, true);
+  assert.equal(evidence.rebuiltBodyType, evidence.bodyType,
+    "and the rebuilt description reports the body type its bytes carry");
   assert.notEqual(evidence.shortRefused, "ACCEPTED",
     "a wrong-length description is refused rather than padded");
   assert.equal(evidence.badBodyType, "ArgumentOutOfRangeException",
@@ -98,24 +98,19 @@ export function assertSpriteFontEvidence(evidence) {
   assert.deepEqual(evidence.rows.map((row) => row.text), [...SPRITE_FONT_STRINGS],
     "every string in the fixture was measured, in order");
 
-  const diverging = new Set(SPRITE_FONT_TRAILING_NEGATIVE_BEARING);
   const disagreements = evidence.rows
-    .filter((row) => !diverging.has(row.text))
     .filter((row) => Math.abs(row.managed[0] - row.native[0]) > 1e-4
       || Math.abs(row.managed[1] - row.native[1]) > 1e-4);
   assert.deepEqual(disagreements, [],
-    "outside the one known divergence the two implementations agree exactly");
-  assert.ok(evidence.rows.length - diverging.size >= 15,
-    "and that agreement covers many strings rather than a handful");
-
-  for (const row of evidence.rows.filter((entry) => diverging.has(entry.text))) {
-    assert.ok(
-      Math.abs((row.managed[0] - row.native[0]) - SPRITE_FONT_NEGATIVE_BEARING) < 1e-4,
-      `${JSON.stringify(row.text)} differs by exactly the bearing's magnitude: ` +
-      `${row.managed[0]} vs ${row.native[0]}`);
-    assert.ok(Math.abs(row.managed[1] - row.native[1]) < 1e-4,
-      "and only in width -- the height is unaffected, which is what makes this one rule");
+    "the two implementations agree exactly on every string, including those ending in a glyph " +
+    "with a negative right side bearing, which CNA used to count into the width (finding 27)");
+  assert.ok(evidence.rows.length >= 20, "and that agreement covers many strings");
+  for (const text of SPRITE_FONT_TRAILING_NEGATIVE_BEARING) {
+    assert.ok(evidence.rows.some((row) => row.text === text), `${JSON.stringify(text)} was measured`);
   }
+  const single = evidence.rows.find((row) => row.text === "j");
+  assert.deepEqual(single.native, [7, 16],
+    "a lone 'j' is its left bearing (1) plus its width (6), its -3 right bearing clamped away");
   // The fixture is not vacuous: if every string measured the same, the agreement above would
   // mean nothing.
   const widths = new Set(evidence.rows.map((row) => row.managed[0]));
@@ -582,10 +577,9 @@ export function assertDeviceLayerEvidence(evidence, { expectAvailable }) {
     "each state the test backend accepts is the state it then reports");
   assert.notEqual(camera.closedRefused, "ACCEPTED",
     "and CNA refuses to be told a camera it opened is closed");
-  assert.notEqual(evidence.afterDestroy, "SURVIVED",
-    "upstream finding 11 still reproduces: enumerating cameras after a test-backend camera has " +
-    "been destroyed calls through a freed platform override. A repaired CNA makes this fail, " +
-    "which is the point of asserting it");
+  assert.equal(evidence.afterDestroy, "SURVIVED",
+    "enumerating cameras after a test-backend camera has been destroyed must not call through a " +
+    "freed platform override (upstream finding 11, fixed in CNA ABI 0.35)");
 }
 
 /**

@@ -21,6 +21,7 @@ import path from "node:path";
 import { after } from "node:test";
 
 import { requiredSuite } from "../../test/support/required-suite.mjs";
+import { CNA_ABI_MAJOR, CNA_ABI_MINOR } from "../../dist/internal/abi.js";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -101,7 +102,7 @@ test("the toolchain adopts a library the runtime already opened", { skip }, asyn
   // The runtime opened it above. A toolchain that tried to open a second library in the same
   // process would be refused by the bridge, so this reports adoption rather than failing.
   assert.equal(status.Opened, false, "the runtime had already opened the library");
-  assert.match(status.AbiVersion, /^0\.21\./);
+  assert.match(status.AbiVersion, new RegExp(`^${CNA_ABI_MAJOR}\\.${CNA_ABI_MINOR}\\.`));
 });
 
 test("an importer refuses before the toolchain is loaded", { skip }, () => {

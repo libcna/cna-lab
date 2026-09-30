@@ -160,8 +160,8 @@ const CAPTURE = {
     },
     browserVideoInputs: ["fake_device_0"],
     deviceLayerAvailable: true,
-    camera: { isSupported: true, deviceCount: 0, deviceNames: [],
-              state: CameraState.NotSupported, width: 0, height: 0, acquired: null },
+    camera: { isSupported: true, deviceCount: 1, deviceNames: ["Web browser's camera"],
+              state: 2, width: 0, height: 0, acquired: null },
   },
 };
 
@@ -423,21 +423,20 @@ const CASES = [
     broken.browserVideoInputs = ["Integrated Webcam (0bda:5657)"];
     return () => assertBrowserCameraEvidence(broken, { expectDeviceLayer: true });
   }],
-  ["upstream finding 34 repaired, which this suite must notice", () => {
+  ["upstream finding 34 back: CNA enumerates none of the browser's camera", () => {
     const broken = clone(CAPTURE.evidence);
-    broken.camera.deviceCount = 1;
-    broken.camera.deviceNames = ["fake_device_0"];
+    broken.camera.deviceCount = 0;
+    broken.camera.deviceNames = [];
     return () => assertBrowserCameraEvidence(broken, { expectDeviceLayer: true });
   }],
-  ["a camera that opened rather than answering NotSupported", () => {
+  ["an enumerated camera answered as unsupported", () => {
     const broken = clone(CAPTURE.evidence);
-    broken.camera.state = CameraState.Ready;
+    broken.camera.state = CameraState.NotSupported;
     return () => assertBrowserCameraEvidence(broken, { expectDeviceLayer: true });
   }],
-  ["a frame size where finding 34 says there is no frame", () => {
+  ["a frame with a width and no height", () => {
     const broken = clone(CAPTURE.evidence);
     broken.camera.width = 640;
-    broken.camera.height = 480;
     return () => assertBrowserCameraEvidence(broken, { expectDeviceLayer: true });
   }],
   ["a device layer that answered present where the artifact has none", () => {

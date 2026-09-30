@@ -471,19 +471,15 @@ export function assertBrowserCameraEvidence(evidence, { expectDeviceLayer }) {
 
   const camera = evidence.camera;
   assert.ok(camera, "the device layer was present and the camera was never asked");
-  assert.equal(camera.isSupported, true,
-    "CNA reports the platform supports cameras, because SDL_GetNumCameraDrivers needs no " +
-    "initialisation to answer");
-  assert.equal(camera.deviceCount, 0,
-    `and then enumerates ${camera.deviceCount} of them beside a browser offering ` +
-    `${evidence.browserVideoInputs.length}. If this now finds the camera, upstream finding 34 is ` +
-    "fixed: initialise the camera subsystem, and this suite should acquire frames rather than " +
-    "record that it cannot");
-  assert.equal(camera.state, CameraState.NotSupported,
-    "opening the platform camera answers NotSupported -- CNA's documented behaviour for a host " +
-    `with no camera, reached here on a host that has one; measured state ${camera.state}`);
-  assert.equal(camera.width, 0);
-  assert.equal(camera.height, 0);
-  assert.equal(camera.acquired, null,
-    "there was no frame to attempt, which is the consequence being recorded");
+  assert.equal(camera.isSupported, true, "CNA reports the platform supports cameras");
+  // Upstream finding 34, fixed in CNA ABI 0.35: CNA now initialises the camera subsystem before
+  // enumerating, so the browser's synthetic camera is one CNA sees.
+  assert.equal(camera.deviceCount, evidence.browserVideoInputs.length,
+    `CNA enumerates the ${evidence.browserVideoInputs.length} camera(s) the browser offers ` +
+    `(saw ${camera.deviceCount})`);
+  for (const name of camera.deviceNames) assert.equal(typeof name, "string");
+  assert.ok(Object.values(CameraState).includes(camera.state), `a CameraState: ${camera.state}`);
+  assert.notEqual(camera.state, CameraState.NotSupported,
+    "a platform camera that is enumerated is not answered as unsupported");
+  assert.equal(camera.width > 0, camera.height > 0, "a frame has both dimensions or neither");
 }

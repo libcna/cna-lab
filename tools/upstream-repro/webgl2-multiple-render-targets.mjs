@@ -50,7 +50,11 @@ try {
   const WIDTH = 80, HEIGHT = 48;
   const CLEARED = new Color(12, 34, 56, 255);
   class ProbeGame extends Game {
-    constructor() { super(); this.g = new GraphicsDeviceManager(this); }
+    constructor() {
+      super(); this.g = new GraphicsDeviceManager(this);
+      // Two bound targets need HiDef: XNA's Reach, the default CNA enforces, allows one.
+      this.g.GraphicsProfile = Graphics.GraphicsProfile.HiDef;
+    }
     LoadContent() {
       const device = this.GraphicsDevice;
       out.capabilities = {

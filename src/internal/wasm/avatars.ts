@@ -50,14 +50,14 @@ export class WasmAvatarBackend extends CnaAvatarBackendBase {
   }
 
   /**
-   * XNA's `CreateRandom`, which randomises nothing.
-   *
-   * That is not this binding's choice and not CNA's either: XNA 4.0 returns an all-zero -- and
-   * therefore invalid -- description, and CNA reproduces it deliberately. The browser gets the
-   * same answer as Node because it is the same implementation being asked.
+   * XNA's `CreateRandom`: CNA draws the description from its avatar catalog, keeping the body type
+   * when one is given. The browser gets the same answer as Node because it is the same
+   * implementation being asked.
    */
-  public override createRandomAvatarDescription(): AvatarDescriptionSnapshot {
-    return this.#snapshot(this.#routes.outHandle("cna_avatar_description_create_random"));
+  public override createRandomAvatarDescription(bodyType?: number): AvatarDescriptionSnapshot {
+    return this.#snapshot(bodyType === undefined
+      ? this.#routes.outHandle("cna_avatar_description_create_random")
+      : this.#routes.outHandle("cna_avatar_description_create_random_for_body_type", bodyType));
   }
 
   /** Copies everything out of an owned description and releases it before returning. */
