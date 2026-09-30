@@ -158,11 +158,10 @@ async function runScenario({ withGamepad, drive }) {
     const page = await context.newPage();
     const consoleErrors = [];
     const runtimeLog = /^\[(INFO|DEBUG|TRACE|WARN|WARNING|EXPERIMENT)\]\[[A-Z]+\] /;
-    const mixerNotice = /^\[AudioMixer\] Requested format=0x[0-9a-f]+ channels=\d+ freq=\d+; /;
     page.on("console", (message) => {
       if (message.type() !== "error") return;
       const text = message.text();
-      if (runtimeLog.test(text) || mixerNotice.test(text)) return;
+      if (runtimeLog.test(text)) return;
       consoleErrors.push(text);
     });
     page.on("pageerror", (error) => consoleErrors.push(String(error)));

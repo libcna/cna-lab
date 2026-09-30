@@ -271,32 +271,16 @@ export async function runFrames(frames, pageFile = "browser-page.html", options 
     // level. An INFO banner is not a page error, so the runtime's own non-error levels are
     // classified out by their exact log-line shape; an ERROR or FATAL from CNA still fails.
     const runtimeLog = /^\[(INFO|DEBUG|TRACE|WARN|WARNING|EXPERIMENT)\]\[[A-Z]+\] /;
-    // One CNA line does not go through that logger: the SDL3 mixer prints its negotiated audio
-    // format to stderr unconditionally, *after* it has successfully created the mixer, and
-    // Emscripten routes stderr to console.error. It is a success notice, so it is classified out
-    // by its exact shape rather than by widening the rule above -- and recorded upstream in
-    // docs/upstream-cna-findings.md, because a browser consumer collecting console errors sees it.
-    const mixerNotice = /^\[AudioMixer\] Requested format=0x[0-9a-f]+ channels=\d+ freq=\d+; /;
-    // That same notice is the only place CNA states the format its mixer actually negotiated:
-    // there is no C ABI route for it (`GetMixerSampleRate` is internal), and the browser's own
-    // `AudioContext.sampleRate` is a different number -- 48000 here, where the mixer runs at
-    // 44100 and SDL resamples between them. A page reading `VisualizationData.Frequencies` needs
-    // the mixer's rate to know what a bin is worth in Hz, so it is captured rather than assumed.
+    // CNA's mixer logs the format it negotiated at INFO (upstream finding 2, fixed in CNA
+    // 9d04c6702: its audio diagnostics used to bypass the logger). That line is also the only place
+    // CNA states the mixer's sample rate: there is no C ABI route for it (finding 35), and the
+    // browser's own `AudioContext.sampleRate` is a different number -- 48000 here, where the mixer
+    // runs at 44100 and SDL resamples between them. A page reading `VisualizationData.Frequencies`
+    // needs the mixer's rate to know what a bin is worth in Hz, so it is captured, not assumed.
+    const mixerNotice = /^\[INFO\]\[AUDIO\] \[AudioMixer\] Requested format=0x[0-9a-f]+ channels=\d+ freq=\d+; /;
     let mixerFormat = null;
     const applicationFormat =
       /application format=0x[0-9a-f]+ channels=(\d+) freq=(\d+)/;
-    // Nor does CNA's PCM plausibility advisory, which is a *warning about the audio* rather than a
-    // failure and is written straight to stderr. It fires on this package's own synthesised XACT
-    // tones: CNA flags raw PCM16 whose byte histogram exceeds 7.9 bits of entropy as probably not
-    // being PCM at all, and a clean high-amplitude sine has a very nearly uniform low byte -- three
-    // of the four fixture tones measure 7.90 and one measures 7.71. Recorded upstream rather than
-    // dodged by making the fixture quieter, which would have hidden a real false positive.
-    const pcmAdvisory = /^\[SoundEffect\] Warning: raw PCM buffer has implausibly high byte-level entropy/;
-    // And three more of the same shape: XACT's loaders each announce a *successful* load on
-    // stderr with no level, so a page that opens an audio engine reports three console errors on a
-    // path where nothing went wrong. Same defect and same fix as the mixer notice above; recorded
-    // together as upstream finding 2.
-    const xactNotice = /^\[(AudioEngine|WaveBank|SoundBank)\] Loaded (XGS|XWB|XSB): /;
     page.on("console", (message) => {
       if (message.type() !== "error") return;
       const text = message.text();
@@ -305,7 +289,7 @@ export async function runFrames(frames, pageFile = "browser-page.html", options 
         if (format) mixerFormat = { channels: Number(format[1]), freq: Number(format[2]) };
         return;
       }
-      if (runtimeLog.test(text) || pcmAdvisory.test(text) || xactNotice.test(text)) return;
+      if (runtimeLog.test(text)) return;
       consoleErrors.push(text);
     });
     page.on("pageerror", (error) => consoleErrors.push(String(error)));
