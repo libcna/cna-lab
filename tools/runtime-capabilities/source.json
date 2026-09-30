@@ -1825,12 +1825,14 @@
     },
     {
       "operation": "Standalone GraphicsDevice construction in a browser",
-      "category": "UPSTREAM_CNA_BLOCKED",
+      "category": "VERIFIED_WEBASSEMBLY",
       "owner": "CNA-TS",
-      "evidence": "Withdrawn after being written and measured. The device is created successfully -- its viewport is the 64x48 its presentation parameters asked for rather than the game's 800x480 -- and destroying it succeeds; the *game* afterwards does not, with cna_game_destroy throwing an Emscripten ErrnoError (errno 44) instead of returning a CNA result and CNA's own last-error message empty. Reproduced in plain C calls with no binding involved. A public XNA constructor that silently makes Game.Dispose fail is worse than one that refuses by name, so the WebAssembly backend leaves the member to the refusing base and the browser suite asserts that refusal. Upstream finding 32; the Node-API backend is unaffected",
+      "evidence": "XNA's public GraphicsDevice constructor in a browser: a real second device at the 64x48 its presentation parameters asked for rather than the game's size, which disposes, after which the game still disposes cleanly. It was withdrawn once because on CNA before 17281e841 the game's destroy then threw an Emscripten ErrnoError (errno 44) from SDL's file-drop teardown -- upstream finding 32, fixed by CNA for Emscripten -- and the WebAssembly backend now implements both halves and the browser suite asserts the device and the clean disposal",
       "proof": [
-        "test:test/wasm-browser-non-engine.mjs",
-        "source:docs/upstream-cna-findings.md"
+        "wasmRoute:cna_presentation_parameters_init",
+        "wasmRoute:cna_graphics_device_create",
+        "wasmRoute:cna_graphics_device_destroy",
+        "test:test/wasm-browser-non-engine.mjs"
       ]
     },
     {

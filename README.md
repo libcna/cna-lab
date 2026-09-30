@@ -15,7 +15,7 @@ TypeScript.
 > `next` 5b4edd6cc). An opt-in Node-API bridge imports 1,040 routes, each prototype-checked against
 > CNA's headers; it runs on Linux against a HEADLESS library (SDL3 platform and audio) and against
 > a windowed OPENGLES3 library under CNA's private display runner, where it draws and reads back
-> real pixels. A WebAssembly backend reaches 1,014 of those routes and runs the same `Game`,
+> real pixels. A WebAssembly backend reaches 1,017 of those routes and runs the same `Game`,
 > `GraphicsDeviceManager`, `Texture2D` and `SpriteBatch` for 60 and 600 frames in headless
 > Chromium on a WebGL2 context. No native binary and no CNA library is bundled, and without an
 > explicitly loaded backend native operations fail rather than simulating execution.

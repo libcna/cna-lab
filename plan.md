@@ -36,8 +36,8 @@ phase is complete. API completeness can only be claimed from a reproducible stri
   `48ab0de7f`, and the assertion failing is how this package found out. Opt-in through
   `CNA_WINDOWED_LIBRARY`; skips with a reason where no windowed library or display exists.
 - [x] A WebAssembly backend runs the same public XNA API for 60 and 600 real frames in headless
-  Chromium on a WebGL2 context, and it is no longer a slice: **23 backend interfaces (one partial), 683
-  members, 1,014 CNA routes** at 0.35.0, with `ACTIONABLE_LOCAL=0` and every remaining difference from the Node adapter
+  Chromium on a WebGL2 context, and it is no longer a slice: **23 backend interfaces, none partial, 683
+  members, 1,017 CNA routes** at 0.35.0, with `ACTIONABLE_LOCAL=0` and every remaining difference from the Node adapter
   carrying a measured blocker.
 - [x] The XNA structural difference count is zero on both profiles, with no missing members and an
   empty allowlist.
@@ -158,7 +158,7 @@ Electron, or mobile support.
   declarations. At 0.30 CNA removed its engine layer; the binding removed the routes, backends,
   public classes and tests that depended on it, and its window moved to 0.35 only after every
   remaining import compiled against the 0.35 prototypes. The Node adapter imports 1,040 routes, the
-  WebAssembly backend 1,014. Earlier generations are recorded in `docs/cna-abi-audit.md`.
+  WebAssembly backend 1,017. Earlier generations are recorded in `docs/cna-abi-audit.md`.
 - [x] The ABI covers version/error handling plus runtime, graphics, textures, SpriteBatch routes,
   input, content, audio/XACT, media, storage, events, and resource handles, and beyond XNA it adds
   CNB, the retained CNAEXT screen effects, devices, sensors and the extended input families.
@@ -856,11 +856,9 @@ Electron, or mobile support.
   `CNA_REQUIRE_WASM_DEVICE_LAYER=1` is what turns the second into a claim.
 - [ ] What a browser still does not get, each with a measurement rather than a name: **video
   decoding**, because `CNA_ENABLE_VIDEO=ON` is a configure-time fatal error on Emscripten in CNA's
-  own CMake; **standalone `GraphicsDevice` construction**, because it leaves the game undestroyable
-  (upstream finding 32); **physical sensors, joysticks, haptics, cameras and microphone capture**,
+  own CMake; **physical sensors, joysticks, haptics, cameras and microphone capture**,
   because headless Chromium has none and the marshalling is verified through CNA's synthetic
-  backends instead; the **signed-in gamer** (finding 29); and the **depth/normal prepass and its
-  consumers** (finding 30). The CNB *content pipeline* is Node-only by architecture: it takes
+  backends instead; and the **signed-in gamer** (finding 29). The CNB *content pipeline* is Node-only by architecture: it takes
   filesystem paths and runs in a build.
 
 ## Node, desktop, and mobile
@@ -895,7 +893,8 @@ Electron, or mobile support.
 
 ## Upstream CNA blockers
 
-Seven findings remain open at 0.35.0 -- 2, 6, 29, 30, 32, 33 and 35 -- all in CNA, none fixed from
-here. Thirteen are fixed upstream and the other fifteen concerned routes CNA removed. The table at the top of
+Four findings remain open -- 6, 29, 33 and 35 -- all in CNA, none fixed from here. Sixteen are
+fixed upstream (2, 30 and 32 after the 0.35.0 requalification, measured against the WebAssembly
+artifact at CNA 7dae9216f) and the other fifteen concerned routes CNA removed. The table at the top of
 `docs/upstream-cna-findings.md` is the current state; each open item has a detector or a
 reproducer that fails when the behaviour changes.

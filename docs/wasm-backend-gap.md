@@ -9,11 +9,11 @@ Artifact: `/home/robertvokac/deps/cna-c-abi-0.35.0-wasm-webgl2`
 ## Totals
 
 ```text
-WASM_BOUND_INTERFACES=22
-WASM_PARTIAL_INTERFACES=1
+WASM_BOUND_INTERFACES=23
+WASM_PARTIAL_INTERFACES=0
 WASM_ABSENT_INTERFACES=0
 WASM_BOUND_METHODS=683
-WASM_ABSENT_METHODS=2
+WASM_ABSENT_METHODS=0
 ACTIONABLE_LOCAL=0
 UNCLASSIFIED_WASM_BACKEND_GAP=0
 STALE_CLASSIFICATIONS=0
@@ -28,7 +28,7 @@ UNCLASSIFIED_PARTIAL_METHODS=0
 | --- | ---: | ---: | ---: |
 | `Audio` | 31 | 31 | 0 |
 | `Avatar` | 2 | 2 | 0 |
-| `Backend` | 54 | 54 | 2 |
+| `Backend` | 54 | 54 | 0 |
 | `Compute` | 4 | 4 | 0 |
 | `Content` | 126 | 126 | 0 |
 | `ContentSurvey` | 10 | 10 | 0 |
@@ -54,6 +54,4 @@ UNCLASSIFIED_PARTIAL_METHODS=0
 
 | interface | method | status | reason | CNA routes |
 | --- | --- | --- | --- | ---: |
-| `Backend` | `createStandaloneGraphicsDevice` | BLOCKED_UPSTREAM | a standalone GraphicsDevice is created successfully on this target -- its viewport is the 64x48 its presentation parameters asked for rather than the game's 800x480 -- and destroying it succeeds. The *game* afterwards does not: cna_game_destroy throws an Emscripten ErrnoError with errno 44 instead of returning a CNA result, and CNA's own last-error message is empty, so the failure is below its exception barrier. Measured in plain C calls with no binding involved. The implementation was written, measured, and withdrawn: a public XNA constructor that silently makes Game.Dispose fail is worse than one that refuses by name. Upstream finding 32 | 4 |
-| `Backend` | `destroyStandaloneGraphicsDevice` | BLOCKED_UPSTREAM | the release half of the constructor above, which has nothing to release while the constructor is withheld. Upstream finding 32 | 3 |
 

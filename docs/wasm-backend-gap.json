@@ -4,11 +4,11 @@
     "CnaHeaders": "/rv/data/development/github.com/libcna/cna/modules/c-api/include/CNA/C"
   },
   "Totals": {
-    "WASM_BOUND_INTERFACES": 22,
-    "WASM_PARTIAL_INTERFACES": 1,
+    "WASM_BOUND_INTERFACES": 23,
+    "WASM_PARTIAL_INTERFACES": 0,
     "WASM_ABSENT_INTERFACES": 0,
     "WASM_BOUND_METHODS": 683,
-    "WASM_ABSENT_METHODS": 2,
+    "WASM_ABSENT_METHODS": 0,
     "ACTIONABLE_LOCAL": 0,
     "UNCLASSIFIED_WASM_BACKEND_GAP": 0,
     "STALE_CLASSIFICATIONS": 0,
@@ -30,7 +30,7 @@
     "Backend": {
       "total": 54,
       "bound": 54,
-      "absent": 2
+      "absent": 0
     },
     "Compute": {
       "total": 4,
@@ -133,45 +133,7 @@
       "absent": 0
     }
   },
-  "Methods": [
-    {
-      "Interface": "Backend",
-      "Method": "createStandaloneGraphicsDevice",
-      "Optional": true,
-      "NodeImplementation": "src/internal/node-native-backend.ts:2148",
-      "BridgeExports": [
-        "createStandaloneGraphicsDevice"
-      ],
-      "CnaRoutes": [
-        "cna_error_copy_last_message",
-        "cna_error_get_last_message_size",
-        "cna_graphics_device_create",
-        "cna_presentation_parameters_init"
-      ],
-      "RoutesNotExported": [],
-      "Status": "BLOCKED_UPSTREAM",
-      "Reason": "a standalone GraphicsDevice is created successfully on this target -- its viewport is the 64x48 its presentation parameters asked for rather than the game's 800x480 -- and destroying it succeeds. The *game* afterwards does not: cna_game_destroy throws an Emscripten ErrnoError with errno 44 instead of returning a CNA result, and CNA's own last-error message is empty, so the failure is below its exception barrier. Measured in plain C calls with no binding involved. The implementation was written, measured, and withdrawn: a public XNA constructor that silently makes Game.Dispose fail is worse than one that refuses by name. Upstream finding 32",
-      "Evidence": "test/wasm-browser-non-engine.mjs asserts the refusal through assertLateMemberEvidence, so a repaired CNA fails that assertion rather than passing unnoticed"
-    },
-    {
-      "Interface": "Backend",
-      "Method": "destroyStandaloneGraphicsDevice",
-      "Optional": true,
-      "NodeImplementation": "src/internal/node-native-backend.ts:2153",
-      "BridgeExports": [
-        "destroyStandaloneGraphicsDevice"
-      ],
-      "CnaRoutes": [
-        "cna_error_copy_last_message",
-        "cna_error_get_last_message_size",
-        "cna_graphics_device_destroy"
-      ],
-      "RoutesNotExported": [],
-      "Status": "BLOCKED_UPSTREAM",
-      "Reason": "the release half of the constructor above, which has nothing to release while the constructor is withheld. Upstream finding 32",
-      "Evidence": "test/wasm-browser-non-engine.mjs asserts the refusal through assertLateMemberEvidence, so a repaired CNA fails that assertion rather than passing unnoticed"
-    }
-  ],
+  "Methods": [],
   "PartialMethods": [
     {
       "Interface": "Backend",

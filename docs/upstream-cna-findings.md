@@ -17,7 +17,7 @@ reproducers for the open items live in CNA's `build-probe/qual-probes/ts-*`.
 | # | Finding | Status at 0.35.0 | Evidence |
 | ---: | --- | --- | --- |
 | 1 | post-process owned pass leaks a count | not applicable: removed | -- |
-| 2 | mixer prints its format to stderr on success | **open** | `AudioMixer.cpp:197` unchanged; the browser harness still filters it |
+| 2 | mixer prints its format to stderr on success | fixed (9d04c6702) | the notice is `[INFO][AUDIO]` through CNA's logger; XACT load lines are DEBUG and the PCM advisory is `[WARN][AUDIO]`; the harness's three special cases are gone |
 | 3 | wasm target did not pin its WebGL version | fixed (0.21) | link contract `OK_ASYNCIFY_OFF_WEBGL2` |
 | 4 | `-sASYNCIFY=1` on every Emscripten link | fixed (0.21) | same |
 | 5 | motion `IsDataValid` disagrees after withdrawal | fixed | native sensor detector flipped |
@@ -38,15 +38,17 @@ reproducers for the open items live in CNA's `build-probe/qual-probes/ts-*`.
 | 27 | `MeasureString` counts a negative trailing bearing | fixed (0.35) | sprite-font oracle, Node and browser |
 | 28 | `Microphone.BufferDuration` range | fixed (0.35) | windowed detector flipped |
 | 29 | no test-only signed-in gamer for net sessions | **open** | `tools/upstream-repro/net-signed-in-gamer.py` |
-| 30 | WEBGL2: a draw into two bound targets reaches none | **open** | `tools/upstream-repro/webgl2-multiple-render-targets.mjs` (HiDef): one target 233 px, two targets 0 |
+| 30 | WEBGL2: a draw into two bound targets reaches none | fixed (7dae9216f) | repro reports REPAIRED; browser test: one target 233 px, two targets 233 / 0 |
 | 31 | XACT example calls a READONLY byte "settable" | fixed | `XactFileGen.hpp:156` writes `0x01` PUBLIC |
-| 32 | wasm: a standalone `GraphicsDevice` makes the game undestroyable | **open** | `ts-wasm-standalone-device.mjs`: game destroy throws `ErrnoError` errno 44; control disposes |
+| 32 | wasm: a standalone `GraphicsDevice` makes the game undestroyable | fixed (17281e841) | the wasm backend's constructor is restored; the non-engine browser suite builds a 64x48 device and the game then disposes |
 | 33 | `FrameworkDispatcher::Update` ages touch state | **open** (by source) | `FrameworkDispatcher.cpp:67-69` still calls `TouchPanel::Update()` |
 | 34 | cameras enumerated without `SDL_INIT_CAMERA` | fixed (0.35) | browser enumerates Chromium's camera; host camera Ready |
 | 35 | mixer sample rate not on the C ABI | **open** (by header) | no route exposes it |
 
-Seven remain open (2, 6, 29, 30, 32, 33, 35). No new CNA defect was found in this pass; the one
-binding defect it found -- `CreateRandom` dropping its body type -- was this package's and is fixed.
+Four remain open (6, 29, 33, 35). No new CNA defect was found in this pass; the one binding defect
+it found -- `CreateRandom` dropping its body type -- was this package's and is fixed. Findings 2, 30
+and 32 were fixed afterwards and re-measured against the WebAssembly artifact restaged at CNA `next`
+7dae9216f (the two native artifacts stay at 5b4edd6cc).
 
 ## 1. `cna_post_process_chain_add_owned_pass` leaks the owned-resource count
 
@@ -104,9 +106,11 @@ assertion fails**, which is what it is for.
 
 ## 2. The SDL3 mixer prints its negotiated format to stderr on the success path
 
-**Status: still present** in `cnanext` 599d14e5. `AudioMixer.cpp:197` is unchanged and still an
-unconditional `std::cerr` on the success path, so `test/wasm-browser.mjs` still carries the
-special case.
+**Status: fixed in CNA 9d04c6702** (re-measured against the WebAssembly artifact at 7dae9216f).
+CNA's audio diagnostics go through its logger: the mixer notice arrives as `[INFO][AUDIO]
+[AudioMixer] Requested format=...` and is still where the mixer's sample rate is read (finding 35),
+the XACT load lines are DEBUG, and the PCM advisory is `[WARN][AUDIO]`. The browser harness
+classifies all of them by the logger's own shape and its three special cases are removed.
 
 **Measured:** CNA ABI 0.20.0, Emscripten build, `CNA_AUDIO_PLATFORM=SDL3`, headless Chromium;
 re-measured unchanged at 0.21.0.
@@ -1607,6 +1611,11 @@ runnable so the sequence can be re-measured when the dependency moves.
 
 ## 30. On WEBGL2, a draw into more than one bound render target reaches none of them
 
+**Status: fixed in CNA 7dae9216f** (EasyGL enables only the draw buffers the program writes, for
+the duration of each draw). `tools/upstream-repro/webgl2-multiple-render-targets.mjs` reports
+`REPAIRED`, and `test/wasm-browser.mjs` asserts it: a BasicEffect triangle is 233 texels in one
+target, the same 233 in the first of two, and the second keeps its clear.
+
 **Severity:** a silent wrong picture, and it takes the whole depth/normal prepass with it.
 **Reproduced on:** WEBGL2 (EasyGL, WebGL 2.0 / OpenGL ES 3.0, headless Chromium with SwiftShader),
 CNA C ABI 0.21.0, 2026-09-01. **Does not reproduce on OPENGLES3.**
@@ -1708,6 +1717,11 @@ ignored are two separate assertions instead of one ambiguous result. `test/suppo
 asserts both, and would fail if CNA started honouring a write to a READONLY variable.
 
 ## 32. On the WebAssembly target, creating a standalone `GraphicsDevice` makes the game undestroyable
+
+**Status: fixed in CNA 17281e841** (SDL's Emscripten file-drop teardown no longer fails to remove
+`/tmp/filedrop`). The WebAssembly backend's standalone-device constructor, withdrawn because of
+this finding, is restored; `test/wasm-browser-non-engine.mjs` builds a 64x48 device, disposes it,
+and the game disposes cleanly afterwards.
 
 **Measured:** CNA ABI 0.21.0, revision 5347b52e, `cmake-build-tswasm-fx` (SDL3 / WEBGL2 /
 `CNA_CNAEXT=ON` / `CNA_DEVICES=ON`), headless Chromium. In **plain C calls with no binding

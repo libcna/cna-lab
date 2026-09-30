@@ -3830,3 +3830,21 @@ WebAssembly (Emscripten 6.0.9, compiled effects, CNAEXT, DEVICES). Earlier entri
 - Package: 947 files, 1,266,055 bytes, SHA-256 87cdfbbe...08af, rebuilt and repacked byte-identical.
 - Upstream findings: 13 fixed, 15 not applicable (removed routes), 7 open (2, 6, 29, 30, 32, 33, 35);
   the table at the top of `docs/upstream-cna-findings.md` is the record.
+
+### Follow-up: findings 2, 30 and 32 fixed upstream
+
+CNA fixed three open findings; the WebAssembly artifact was restaged at CNA `next` 7dae9216f and
+the two native artifacts were left at 5b4edd6cc.
+
+- Finding 32 (BINDFIX-052, 17281e841): the WebAssembly backend's standalone `GraphicsDevice`
+  (`cna_presentation_parameters_init`, `cna_graphics_device_create`, `cna_graphics_device_destroy`)
+  is restored; the non-engine browser suite builds a 64x48 device and the game disposes after it.
+  The gap report is 23 interfaces, none partial, 1,017 routes.
+- Finding 30 (BINDFIX-053, 7dae9216f): a new browser test draws one BasicEffect triangle into one
+  bound target (233 texels) and into two (233 / 0). The repro tool reports `REPAIRED`.
+- Finding 2 (BINDFIX-051, 9d04c6702): CNA's audio lines arrive through its logger, so the harness's
+  mixer, XACT and PCM-advisory special cases are gone; the mixer's rate is still read from the INFO
+  line (finding 35 stays open).
+- Re-run: unit 484/484, differential 182/182, browser 16/16, strong 6/6, non-engine 17/17, input
+  7/7, audio 8/8, audio-capture 5/5. Open findings: 6, 29, 33, 35.
+

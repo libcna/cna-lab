@@ -7,7 +7,8 @@ CNA and sharp-runtime are read-only evidence here; neither was modified.
 CNA_SOURCE=/rv/data/development/github.com/libcna/cna
 HEADLESS_ARTIFACT=~/deps/cna-c-abi-0.35.0            (HEADLESS renderer, SDL3 platform and audio)
 OPENGLES3_ARTIFACT=~/deps/cna-c-abi-0.35.0-opengles3-fx  (compiled effects, CNAEXT, DEVICES, video)
-WASM_ARTIFACT=~/deps/cna-c-abi-0.35.0-wasm-webgl2    (WEBGL2 Release, compiled effects, CNAEXT, DEVICES)
+WASM_ARTIFACT=~/deps/cna-c-abi-0.35.0-wasm-webgl2    (WEBGL2 Release, compiled effects, CNAEXT, DEVICES;
+                                                     restaged at CNA next 7dae9216f)
 ```
 
 Each artifact carries a `PROVENANCE.txt` naming the CNA revision it was built from and the ABI it
@@ -25,7 +26,9 @@ Then `src/internal/abi.ts` moved to 0.35 and the removed families' bridge functi
 public classes, tests and capability rows went with them. Two routes were added:
 `cna_title_location_set_path_ext` (the loader's `TitleLocation`) and
 `cna_avatar_description_create_random_for_body_type` (CNA's `CreateRandom` now keeps the body
-type).
+type). The WebAssembly backend later gained `cna_presentation_parameters_init`,
+`cna_graphics_device_create` and `cna_graphics_device_destroy` -- the standalone `GraphicsDevice`
+it had withdrawn until CNA fixed upstream finding 32.
 
 ```bash
 CNA_SOURCE_PATH=/path/to/cna \
@@ -143,7 +146,7 @@ NODE_BRIDGE_SIGNATURES_VERIFIED=1040
 NODE_BRIDGE_SIGNATURE_MISMATCHES=0
 MISSING_NODE_BRIDGE_SYMBOLS=0
 WASM_ARTIFACT_EXPORTED_FUNCTIONS=3204
-WASM_BACKEND_ROUTES=1014
+WASM_BACKEND_ROUTES=1017
 MISSING_WASM_BACKEND_EXPORTS=0
 WASM_ARTIFACT_ASYNCIFY_RUNTIME=0
 WASM_ARTIFACT_WEBGL_MAJOR_VERSIONS=2

@@ -22,10 +22,10 @@ UNEXPLAINED=0
 
 ```text
 REACHABLE_NODE=1040
-REACHABLE_WASM=1014
+REACHABLE_WASM=1017
 REACHABLE_BY_ANY_BACKEND=1040
-REACHABLE_BY_EVERY_BACKEND=1014
-REACHABLE_NODE_ONLY=26
+REACHABLE_BY_EVERY_BACKEND=1017
+REACHABLE_NODE_ONLY=23
 REACHABLE_WASM_ONLY=0
 REACHABLE_BUT_DEFERRED=0
 ```
@@ -34,8 +34,8 @@ What each backend reaches, by what the routes are for:
 
 | Purpose | Total | NODE reach | WASM reach |
 | --- | ---: | ---: | ---: |
-| `XNA_BACKING` | 1511 | 541 | 537 |
-| `CNA_EXTENSION_BACKING` | 1029 | 479 | 457 |
+| `XNA_BACKING` | 1511 | 541 | 539 |
+| `CNA_EXTENSION_BACKING` | 1029 | 479 | 458 |
 | `INTERNAL_RUNTIME_ONLY` | 1 | 1 | 1 |
 | `MANAGED_BY_DESIGN` | 626 | 13 | 13 |
 | `TOOLING_ONLY` | 35 | 6 | 6 |
@@ -54,11 +54,11 @@ What each backend reaches, by what the routes are for:
 | `core.h` | 2 | 2 | 3 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 | `curve.h` | 13 | 13 | 0 | 0 | 0 | 45 | 0 | 0 | 0 | 0 |
 | `devices.h` | 29 | 29 | 0 | 61 | 0 | 0 | 1 | 0 | 0 | 0 |
-| `display.h` | 14 | 13 | 0 | 22 | 0 | 0 | 0 | 0 | 0 | 0 |
+| `display.h` | 14 | 14 | 0 | 22 | 0 | 0 | 0 | 0 | 0 | 0 |
 | `effects.h` | 186 | 186 | 185 | 35 | 0 | 70 | 0 | 0 | 0 | 0 |
 | `gamer_services.h` | 37 | 37 | 238 | 1 | 0 | 0 | 0 | 0 | 0 | 0 |
 | `geometry.h` | 0 | 0 | 0 | 0 | 0 | 94 | 0 | 0 | 0 | 0 |
-| `graphics_device.h` | 27 | 25 | 73 | 14 | 0 | 0 | 0 | 0 | 0 | 0 |
+| `graphics_device.h` | 27 | 27 | 73 | 14 | 0 | 0 | 0 | 0 | 0 | 0 |
 | `graphics_ext.h` | 44 | 44 | 0 | 44 | 0 | 0 | 0 | 0 | 0 | 0 |
 | `graphics_resource.h` | 0 | 0 | 12 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 | `graphics_state.h` | 8 | 8 | 14 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
