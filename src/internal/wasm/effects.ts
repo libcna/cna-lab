@@ -208,11 +208,8 @@ export class WasmEffectBackend extends CnaEffectBackendBase {
    * copy. So these write the bytes and pass the pointer.
    *
    * Both come from `WasmEngineMemory`, which is the one place in this backend that knows what a
-   * `CNA_Matrix` looks like in wasm32 memory. Deliberately shared with the engine layer rather
-   * than copied here: this file's write is the only one a test can currently *read back* -- the
-   * browser suite round-trips a world matrix through `cna_effect_matrices_get_world` -- so a
-   * transposed write anywhere in the backend is caught here, and a private copy of the same eight
-   * lines would leave the engine layer's cameras unchecked.
+   * `CNA_Matrix` looks like in wasm32 memory, and the browser suite round-trips a world matrix
+   * through `cna_effect_matrices_get_world`, so a transposed write is caught here.
    */
   #matrix(scope: WasmScope, values: readonly number[]): number {
     return this.#mem.writeMatrix(scope, values);

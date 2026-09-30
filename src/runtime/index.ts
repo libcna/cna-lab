@@ -24,6 +24,12 @@ export interface RuntimeRendererInfo {
 export interface NodeNativeLoadOptions {
   readonly CnaLibrary: string;
   readonly BridgeModule: string;
+  /**
+   * The directory `TitleContainer` and title content resolve against. CNA's own default is the
+   * executable's directory, which for a Node program is where `node` is installed, so this defaults
+   * to the process's working directory instead.
+   */
+  readonly TitleLocation?: string;
 }
 
 /** Whether a real CNA backend is currently loaded. This is a live ESM binding. */
@@ -64,8 +70,14 @@ export async function LoadNodeNativeBackend(options: NodeNativeLoadOptions): Pro
     createRequire(url: string): (path: string) => unknown;
   };
   const require = nodeModule.createRequire(import.meta.url);
+  if (options.TitleLocation !== undefined &&
+      (typeof options.TitleLocation !== "string" || options.TitleLocation.length === 0)) {
+    throw new TypeError("TitleLocation must be a non-empty path when given");
+  }
   const bridge = require(options.BridgeModule) as ConstructorParameters<typeof NodeNativeBackend>[0];
-  setBackendForInternalUse(new NodeNativeBackend(bridge, options.CnaLibrary));
+  const nodeProcess = (globalThis as { process?: { cwd(): string } }).process;
+  const titleLocation = options.TitleLocation ?? nodeProcess?.cwd() ?? ".";
+  setBackendForInternalUse(new NodeNativeBackend(bridge, options.CnaLibrary, titleLocation));
   bindingsAvailable = true;
   return GetRuntimeStatus();
 }

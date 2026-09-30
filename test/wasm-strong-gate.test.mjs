@@ -103,7 +103,7 @@ test("compiled effects absent is refused with the other option's name", () => {
   );
 });
 
-test("a missing fixture sends the reader to cnanext, not to a CNA rebuild", () => {
+test("a missing fixture sends the reader to a CNA checkout, not to a CNA rebuild", () => {
   const blocked = gate(strongResult({ compiledEffect: { fixture: "absent" } }));
   assert.match(blocked, /CNA_SOURCE_PATH/);
   assert.ok(

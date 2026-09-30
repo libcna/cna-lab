@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MS-PL
 #
 # Upstream finding 29's reproduction, kept runnable so the sequence can be re-measured whenever
-# `cnanext` moves. It calls the C ABI directly through ctypes rather than as a compiled probe,
+# the CNA checkout moves. It calls the C ABI directly through ctypes rather than as a compiled probe,
 # because nothing here needs building: the whole point is that these are four public C calls and
 # that the third one is a route a binding must not make.
 #

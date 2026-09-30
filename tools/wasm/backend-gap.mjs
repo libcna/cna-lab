@@ -32,7 +32,7 @@
 // The bridge calls CNA through `g_api.<field>`, and the literal name appears only in the error
 // message of a route that has one.
 //
-//   CNA_SOURCE_PATH=/path/to/cnanext \
+//   CNA_SOURCE_PATH=/path/to/cna \
 //   CNA_WASM_ARTIFACT_DIR=/path/to/cmake-build-tswasm-fx/modules/c-api \
 //     node tools/wasm/backend-gap.mjs [--check] [--json <file>] [--markdown <file>]
 
@@ -44,7 +44,7 @@ import { fileURLToPath } from "node:url";
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const CNA_ROOT = process.env.CNA_SOURCE_PATH
   ? path.resolve(process.env.CNA_SOURCE_PATH)
-  : path.resolve(ROOT, "../../cnanext");
+  : path.resolve(ROOT, "../cna");
 const HEADER_DIR = path.join(CNA_ROOT, "modules/c-api/include/CNA/C");
 const BRIDGE = path.join(ROOT, "native/cna_node_bridge.c");
 const NODE_BACKEND = path.join(ROOT, "src/internal/node-native-backend.ts");

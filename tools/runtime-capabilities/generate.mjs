@@ -81,7 +81,7 @@ const wasmRoutes = new Set(
     .matchAll(/"(cna_[A-Za-z0-9_]+)"/g)].map((match) => match[1]),
 );
 const headerRoot = path.resolve(
-  process.env.CNA_SOURCE_PATH ?? path.join(ROOT, "../../cnanext"), "modules/c-api/include/CNA/C",
+  process.env.CNA_SOURCE_PATH ?? path.join(ROOT, "../cna"), "modules/c-api/include/CNA/C",
 );
 const headersPresent = fs.statSync(headerRoot, { throwIfNoEntry: false })?.isDirectory() === true;
 const declaredRoutes = new Set();

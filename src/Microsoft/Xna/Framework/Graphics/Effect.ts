@@ -575,12 +575,8 @@ export function prepareEffectForInternalUse(effect: Effect): void {
 }
 
 /**
- * Wraps a native effect CNA handed out, in an `Effect` that releases it on `Dispose`.
- *
- * CNA's shadow map lends its caster effects: each `get` is a counted borrow that `cna_effect_destroy`
- * gives back, and the map refuses to be destroyed while one is outstanding. That release route is
- * exactly what an owned `Effect` lifetime already calls, so an adopted facade returns the borrow at
- * the moment its owner disposes it.
+ * Wraps a native effect CNA handed out -- a PBR, CRT or depth effect a create route returned -- in
+ * an `Effect` that releases it on `Dispose`, through the same route an owned `Effect` calls.
  */
 export function adoptNativeEffectForInternalUse(
   device: GraphicsDevice, backend: CnaEffectBackend, handle: NativeHandle,
@@ -597,37 +593,6 @@ export function resolveEffectHandleForInternalUse(effect: Effect): NativeHandle 
   const native = effectState(effect).Native;
   if (native == null) throw new NativeUnavailableError("Effect has no native handle");
   return native.Lifetime.Handle;
-}
-
-/** Internal: the Effect twin of {@link trackVertexBufferReleaseForInternalUse}. */
-export function trackEffectReleaseForInternalUse(
-  effect: Effect,
-  teardown: () => void,
-): () => void {
-  const native = effectState(effect).Native;
-  if (native == null) throw new NativeUnavailableError("Effect has no native handle");
-  return native.Lifetime.TrackCallback(teardown);
-}
-
-/**
- * Hands the effect's native handle to another owner and leaves this wrapper owning nothing.
- *
- * For the CNA routes that consume an effect rather than borrowing it --
- * `cna_post_process_effect_pass_create_owning` is the one in the engine layer. After this the
- * wrapper is transferred rather than disposed: releasing it again would be a double free, and CNA
- * refuses the consumed handle with `INVALID_HANDLE` rather than crashing, which is how this was
- * measured.
- *
- * An Effect always has children -- a technique view and a pass view per technique, minted when the
- * reflection is read -- so the views are given back here before the handle goes. They release
- * cleanly on either side of the consume; doing it first is what keeps this wrapper's own teardown
- * from reaching a handle that is no longer ours.
- */
-export function markEffectTransferredForInternalUse(effect: Effect): void {
-  const native = effectState(effect).Native;
-  if (native == null) throw new NativeUnavailableError("Effect has no native handle to transfer");
-  native.Lifetime.ReleaseChildren();
-  native.Lifetime.Transfer();
 }
 
 export function leaseEffectForInternalUse(effect: Effect): () => void {

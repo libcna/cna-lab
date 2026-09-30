@@ -25,7 +25,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const WASM_DIR = process.env.CNA_WASM_ARTIFACT_DIR
   ? path.resolve(process.env.CNA_WASM_ARTIFACT_DIR)
-  : path.join(ROOT, "../../cnanext/cmake-build-tswasm/modules/c-api");
+  : path.join(ROOT, "../cna/cmake-build-webgl2/modules/c-api");
 
 if (!fs.existsSync(path.join(WASM_DIR, "cna_c_api.mjs"))) {
   console.error(`no artifact at ${WASM_DIR}; set CNA_WASM_ARTIFACT_DIR`);

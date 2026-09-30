@@ -2,24 +2,24 @@
   "schemaVersion": 1,
   "generatedFrom": "tools/runtime-capabilities/source.json",
   "profile": "XNA 4.0 Windows runtime",
-  "environment": "Linux x86-64 Node with CNA ABI 0.21.0 HEADLESS renderer and NULL audio, plus headless Chromium with the CNA ABI 0.21.0 WEBGL2 WebAssembly artifact -- in two builds, the default one and one built with CNA_EASYGL_COMPILED_EFFECTS=ON and CNA_CNAEXT=ON, whose rows say which",
+  "environment": "Linux x86-64 Node with CNA ABI 0.35.0 (CNA next): the HEADLESS artifact (SDL3 platform and audio) and the windowed OPENGLES3 artifact (CNA_EASYGL_COMPILED_EFFECTS, CNA_CNAEXT, CNA_DEVICES) inside a private Weston/Xwayland display, plus headless Chromium with the CNA ABI 0.35.0 WEBGL2 WebAssembly artifact built with CNA_EASYGL_COMPILED_EFFECTS, CNA_CNAEXT and CNA_DEVICES",
   "granularity": "Each row is a reviewed operation family; overloads with the same implementation and evidence share a row.",
   "sourceAudit": {
     "roots": [
       "src/Microsoft/Xna/Framework",
       "src/internal/graphics-device-registry.ts"
     ],
-    "nativeUnavailableErrorSites": 64,
+    "nativeUnavailableErrorSites": 62,
     "notSupportedExceptionSites": 10,
     "filesWithExplicitFailureSites": 25,
-    "scope": "All selected-profile framework files containing explicit NativeUnavailableError or NotSupportedException construction were reviewed into the operation families below. Internal construction guards share their public operation family: the seventh NotSupportedException site is Texture2D's internal whole-level byte upload, which belongs to the CNB Texture2D family that uses it. The count fell by one when VideoPlayer.GetTexture stopped refusing outright and began projecting CNA's borrowed frame. It rose by one when Texture3D gained the adopting construction the colour grade's volume LUT arrives through. It rose by one again when Effect gained the internal teardown hook a native model-mesh-part side-car uses to clear its retained effect slot before the effect is released. It rose once more, and brought a new file with it, when AvatarDescription began reaching CNA for the body type, height and validity it used to invent -- Avatars.ts had refused everything up to then and so had no boundary of its own. It rose by three, all in Effect.ts, when a compiled effect's parameters began reaching the shader: SetValue refuses by name a value shape, an array of mixed shapes, or an array element type that CNA's tagged value API cannot carry, rather than storing it managed and letting the draw use the old uniform. The audited surface gained `src/internal/graphics-device-registry.ts` without gaining a site: GraphicsDevice's state registry moved there to break a module cycle that crashed two published subpaths on a cold import, and the device's \"requires a CNA device route\" refusal moved with it. The count is unchanged at 64 because the boundary is unchanged; only the file holding it is. The FILE count rose to 25 rather than staying at 24, because GraphicsDevice.ts keeps refusal sites of its own and the extracted registry now holds one too -- one boundary in two files, which is what an extraction costs and is worth the gate saying."
+    "scope": "All selected-profile framework files containing explicit NativeUnavailableError or NotSupportedException construction were reviewed into the operation families below. Internal construction guards share their public operation family. The count fell from 64 to 62 when CNA C ABI 0.30 removed the engine layer: the refusals guarding an Effect transferred into an engine pass and an Effect teardown hook for the model-mesh-part side-car went with the only callers they had."
   },
   "counts": {
     "VERIFIED_MANAGED": 22,
-    "VERIFIED_NATIVE": 120,
-    "VERIFIED_WEBASSEMBLY": 36,
+    "VERIFIED_NATIVE": 76,
+    "VERIFIED_WEBASSEMBLY": 34,
     "EXPLICITLY_UNAVAILABLE_WITH_CURRENT_BACKEND": 1,
-    "UPSTREAM_CNA_BLOCKED": 6,
+    "UPSTREAM_CNA_BLOCKED": 3,
     "FIXTURE_PENDING": 2,
     "HARDWARE_PENDING": 4,
     "PLATFORM_PENDING": 4,
@@ -159,45 +159,6 @@
         "route:cna_game_destroy",
         "test:test/windowed-renderer.integration.mjs",
         "test:test/native-cna.integration.mjs"
-      ]
-    },
-    {
-      "operation": "GPU instance culling",
-      "category": "UPSTREAM_CNA_BLOCKED",
-      "owner": "CNA",
-      "evidence": "the culler runs and keeps everything. Its compute shader tests each instance against the camera's six frustum planes and increments a visible count the CPU uploaded as zero; the count comes back as the instance count in every case, including three instances ten thousand units outside a hundred-unit frustum. Measured on OPENGLES3, the only renderer built here that supports it -- HEADLESS, SOFTWARE, SDL_RENDERER and WEBGL2 answer NOT_SUPPORTED and the question does not arise. WEBGL2 was asked directly on 2026-09-02, through the same public GpuInstanceCuller a game would use, and answers false with \"this renderer has no compute shaders\" -- so a browser consumer meets CNA's refusal rather than this defect, and the strong browser suite records that refusal rather than requiring the culler. Nothing is announced: is_supported answers true and the unsupported reason is empty, so a game that adopts it pays for the dispatch, the upload and the readback and draws what it would have drawn anyway. Written up as upstream finding 20, with this package's own BoundingFrustum computing the expected count beside each measured one, so the two cullers are compared with each other. One planted defect -- ignoring an instance's world transform -- survives, and that is recorded rather than hidden: while the cull rejects nothing, whether the transform arrived cannot be observed from outside. A repaired culler kills that mutation and fails two of the four asserted rows, which is the point of asserting them",
-      "proof": [
-        "route:cna_gpu_instance_culler_create",
-        "route:cna_gpu_instance_culler_is_supported",
-        "route:cna_gpu_instance_culler_copy_unsupported_reason",
-        "route:cna_gpu_instance_culler_set_instances",
-        "route:cna_gpu_instance_culler_cull",
-        "route:cna_gpu_instance_culler_read_visible_count_ext",
-        "route:cna_gpu_instance_culler_copy_instance_lookup_glsl",
-        "test:test/windowed-renderer.integration.mjs"
-      ]
-    },
-    {
-      "operation": "Handing a post-process pass to a chain with PostProcessChain.AddOwned",
-      "category": "UPSTREAM_CNA_BLOCKED",
-      "owner": "cna-ts/extensions/graphics",
-      "evidence": "cna_post_process_chain_add_owned_pass consumes the handle without the RemoveOwnedGraphicsResourceFor its sibling _destroy performs, so the game's owned-graphics-resource counter never falls and every later cna_game_destroy in the process refuses with CNA_RESULT_INVALID_STATE; measured and written up in docs/upstream-cna-findings.md, characterised in its own process by test/post-process-owned-pass.probe.mjs",
-      "proof": [
-        "route:cna_post_process_chain_add_owned_pass",
-        "test:test/post-process-owned-pass.probe.mjs"
-      ]
-    },
-    {
-      "operation": "Reading a PBR effect's texture slots back",
-      "category": "UPSTREAM_CNA_BLOCKED",
-      "owner": "CNA",
-      "evidence": "the slots have two sources of truth and they never agree. cna_pbr_effect_apply_material writes the C++ effect's texture pointers; cna_pbr_effect_set_texture writes the C API's own retained-handle table, which is the only thing cna_pbr_effect_get_texture reads. Measured identically on HEADLESS and OPENGLES3: a texture applied with a material is invisible to the slot getter, a texture placed through the setter is invisible to the extractor, and applying a material with an empty slot does not clear one the setter filled. So a material carrying a texture cannot be round-tripped through an effect. Written up as upstream finding 19; all three rows are asserted in both suites, and the binding documents on ExtractMaterial that the slots come back empty rather than inventing a Texture2D wrapper for a handle it does not own",
-      "proof": [
-        "route:cna_pbr_effect_get_texture",
-        "route:cna_pbr_effect_apply_material",
-        "route:cna_pbr_effect_extract_material",
-        "test:test/native-cna.integration.mjs",
-        "test:test/windowed-renderer.integration.mjs"
       ]
     },
     {
@@ -427,99 +388,6 @@
       ]
     },
     {
-      "operation": "A post-process pass being told why it could not do its work",
-      "category": "VERIFIED_NATIVE",
-      "owner": "cna-ts/extensions/graphics",
-      "evidence": "the aerial-perspective pass never refuses: a frame missing a depth image, a far plane or the camera's matrices is copied through unchanged and the reason recorded in words. That ladder is qualified as a ladder rather than as one string -- with nothing supplied it says the depth image is missing, with depth and a far plane it says the camera matrices are, and with all three it says nothing at all -- so the reason is asserted to *change* as inputs are supplied, which a constant string could not do. Finding this also closed a real gap in this binding: the post-process frame carried no camera at all, so the passes that rebuild a world position out of the depth image could never do their work through it. It now carries the projection, both inverses, the previous frame's view-projection and whether there was one, each optional and each defaulting to what CNA's own initializer writes",
-      "proof": [
-        "route:cna_aerial_perspective_pass_copy_fallback_reason",
-        "route:cna_post_process_context_init",
-        "route:cna_post_process_pass_apply",
-        "test:test/windowed-renderer.integration.mjs"
-      ]
-    },
-    {
-      "operation": "An effect pass: a caller's own Effect run over a frame, borrowed or taken",
-      "category": "VERIFIED_NATIVE",
-      "owner": "cna-ts/extensions/graphics",
-      "evidence": "two ownership rules, both measured rather than read. A borrowing pass leaves the effect the caller's: reading it four times returns it four times and detaches nothing, SetEffect(null) detaches and setting it back reattaches. An owning pass consumes the handle, which CNA does by releasing it out of its own registry, so the caller's Effect wrapper gives up its child views and stops owning anything, and its Dispose becomes the no-op Dispose always is once a resource has been given away -- established by measuring that CNA refuses the consumed handle with INVALID_HANDLE and that the technique and pass views release cleanly on either side of the consume. The getter is upstream finding 17: its header says the borrow must not be destroyed, and it mints a registered handle anyway, so obeying the header makes cna_game_destroy refuse for the rest of the process. The binding releases it and documents why on itself, and the windowed game's clean shutdown is the other half of that evidence",
-      "proof": [
-        "route:cna_post_process_effect_pass_create",
-        "route:cna_post_process_effect_pass_create_owning",
-        "route:cna_post_process_effect_pass_get_effect",
-        "route:cna_post_process_effect_pass_set_effect",
-        "test:test/windowed-renderer.integration.mjs"
-      ]
-    },
-    {
-      "operation": "Area lights: the shading maths, the linearly-transformed-cosine table, and attaching one to a clustered effect",
-      "category": "VERIFIED_NATIVE",
-      "owner": "cna-ts/extensions/graphics",
-      "evidence": "four of the shading routes are pure functions, so what a lit rectangle does to a surface is checked without one being drawn. Where the maths is closed it is checked exactly: the lobe width is the GGX alpha floored at 0.02, checked at nine roughnesses including the two ends of the clamp and the exact point where the floor takes over; a rectangle's quad is its own four corners at plus and minus each half-extent; a disc's is the rectangle scaled by sqrt(pi)/2, which is the equal-area scale, on both axes and in the light's own plane. A tube is a billboard, and that is asserted as one -- its quad turns with the surface it is seen from, lies in the plane facing that surface, and keeps the cylinder's axis as its long side either way. Where the maths is not closed it is checked as relationships that only the real model satisfies: coverage falls as the lobe widens and a mirror's lobe is almost entirely inside a quad, a lobe pointing away from the quad sees none of it and two-sidedness does not change that -- because two-sidedness is about the QUAD's facing, which is shown separately by winding the same quad the other way and watching only the two-sided light still reach it. Intensity is an exact multiplier, a wider light puts more on the surface, out of range is exactly zero, and a light switched off contributes nothing while remaining a valid light. Metallic and roughness are asserted to reach different places. The table reports the size and sample count the caller chose, its texture is exactly that size, and CNA's own default is larger and better sampled; the four stored terms behave as the model says -- magnitude falls as a surface roughens, the average lobe direction is the normal head-on and leans along the tangent towards grazing, and Fresnel rises towards grazing. Six planted binding defects fail and none survives",
-      "proof": [
-        "route:cna_area_light_ext_init",
-        "route:cna_area_light_ext_is_valid",
-        "route:cna_area_light_shading_lobe_scale_for",
-        "route:cna_area_light_shading_quad_of",
-        "route:cna_area_light_shading_coverage",
-        "route:cna_area_light_shading_contribution",
-        "route:cna_area_light_shading_copy_shading_glsl",
-        "route:cna_area_light_brdf_table_create",
-        "route:cna_area_light_brdf_table_create_with_size",
-        "route:cna_area_light_brdf_table_get_texture",
-        "route:cna_area_light_brdf_table_get_size",
-        "route:cna_area_light_brdf_table_get_sample_count",
-        "route:cna_area_light_brdf_table_evaluate",
-        "route:cna_area_light_brdf_table_copy_lookup_glsl",
-        "route:cna_clustered_forward_effect_set_area_light",
-        "route:cna_clustered_forward_effect_has_area_light",
-        "test:test/native-cna.integration.mjs"
-      ]
-    },
-    {
-      "operation": "Atmospheric rendering: the drawn sky, the captured one, and the environment behind it",
-      "category": "VERIFIED_NATIVE",
-      "owner": "CNA-TS",
-      "evidence": "the strongest acceptance in this package. CNA ships the scattering model twice -- once as the GLSL its sky shader runs and once as cna_atmospheric_sky_radiance, evaluated on the CPU without a device -- and ships a third route that says which way a screen point looks. So every texel of a drawn sky has a prediction assembled from two routes that never touch the GPU, and six skies of 1024 texels each are compared against it on a windowed OPENGLES3 renderer under Xvfb: nowhere do the shader and the model differ by more than one part in 255, which is the resolution the target has, and most texels are bit-identical. The picture is a gradient rather than a fill, a sun below the horizon is ten times darker, a sun placed inside the frustum makes that half of the image the bright one while a sun overhead lights both halves to within two per cent, halving the intensity halves every unclipped texel across the whole image, and a change of turbidity moves the drawn picture the same way and by the same amount as it moves the model -- which is asserted rather than a direction guessed here, because near the horizon aerosol both adds scattered light and takes away sunlight. The captured sky is checked without assuming a cube-map convention: six faces of six flat colours seen down six axes produce six different colours, each the middle of its own face and each of the six that were uploaded, and turning the sky a right angle about the up axis moves exactly the four equatorial faces and leaves the two poles. Intensity and tint multiply what was sampled, a skybox with no environment draws nothing and succeeds, and attaching it again brings the same sky back. The environment processor converts a panorama into a cube map, and handing that cube map over with SetOwnedEnvironment consumes it: the wrapper refuses further use and its Dispose becomes harmless. Two ownership traps were found by writing the binding to the header and measuring: cna_skybox_get_environment mints an owned handle whose loss makes the game undestroyable, and cna_render_pipeline_get_skybox documents the same contract and echoes the caller's own handle, so releasing it destroys their skybox -- upstream finding 15, with the binding doing the opposite thing in each case and saying why. Twenty-three planted binding defects fail and none survives",
-      "proof": [
-        "route:cna_atmospheric_sky_create",
-        "route:cna_atmospheric_sky_draw",
-        "route:cna_atmospheric_sky_set_sun_direction",
-        "route:cna_atmospheric_sky_set_turbidity",
-        "route:cna_atmospheric_sky_set_intensity",
-        "route:cna_skybox_create",
-        "route:cna_skybox_draw",
-        "route:cna_skybox_set_environment",
-        "route:cna_skybox_set_owned_environment",
-        "route:cna_skybox_get_environment",
-        "route:cna_skybox_set_yaw",
-        "route:cna_skybox_set_tint",
-        "route:cna_environment_processor_convert_equirectangular",
-        "route:cna_environment_processor_generate_brdf_lut",
-        "route:cna_render_pipeline_get_skybox",
-        "route:cna_render_pipeline_set_skybox",
-        "test:test/windowed-renderer.integration.mjs",
-        "test:test/native-cna.integration.mjs"
-      ]
-    },
-    {
-      "operation": "Automatic exposure: measuring a scene and adapting to it",
-      "category": "VERIFIED_NATIVE",
-      "owner": "cna-ts/extensions/graphics",
-      "evidence": "it measures with a compute shader, so HEADLESS refuses it honestly and the qualification is windowed. Both halves are exact. The measurement is the average channel value: a white scene measures one and a scene of eight-out-of-255 measures exactly that. The adaptation is an exponential approach to key over luminance, and the test predicts every step of it: the exposure after a step is target + (current - target) * exp(-speed * seconds), where the speed is the brightening one when the scene got brighter and the darkening one when it got darker -- five steps towards a bright scene and five towards a dark one, each matching to a ten-thousandth. Around that: the two directions genuinely differ, each approach is monotone and never overshoots, a two-second step travels further than a tenth-of-a-second one and by exactly the amount the rate implies, and an exposure range clamps the result however long it runs and settles on the bound rather than oscillating. CNA's own defaults are a light meter's: an exposure of one, a key of eighteen per cent grey, and adapting to light faster than to dark",
-      "proof": [
-        "route:cna_auto_exposure_ext_create",
-        "route:cna_auto_exposure_ext_measure_average_luminance",
-        "route:cna_auto_exposure_ext_update",
-        "route:cna_auto_exposure_ext_set_key_value",
-        "route:cna_auto_exposure_ext_set_adaptation_speeds",
-        "route:cna_auto_exposure_ext_set_exposure_range",
-        "route:cna_auto_exposure_ext_get_brightening_speed",
-        "route:cna_auto_exposure_ext_get_darkening_speed",
-        "test:test/windowed-renderer.integration.mjs"
-      ]
-    },
-    {
       "operation": "AvatarDescription: construction from bytes, and XNA's non-random CreateRandom",
       "category": "VERIFIED_NATIVE",
       "owner": "CNA-TS + CNA",
@@ -582,68 +450,6 @@
         "route:cna_camera_set_test_frame_ext",
         "test:test/native-cna.integration.mjs",
         "test:test/wasm-browser-audio-capture.mjs"
-      ]
-    },
-    {
-      "operation": "Cascade splits, spot cones and cube faces: the rest of the shadow-map maths",
-      "category": "VERIFIED_NATIVE",
-      "owner": "CNA-TS",
-      "evidence": "a cascaded shadow map's split distances are checked against both closed forms rather than recorded numbers: lambda 0 is the uniform split exactly, lambda 1 the logarithmic one, and lambda 0.5 their midpoint at every cascade -- and the two schemes are asserted to disagree by more than tenfold near the camera, so those are not all the same check. CNA takes two to four cascades and refuses the rest with its own result code. A view frustum yields eight distinct corners and a bounding sphere that encloses them snugly -- the farthest corner is on the surface, not inside it, which is what stops a cascade shimmering as the camera turns. A spot light's view puts the light at the origin, its projection is perspective rather than orthographic, its range lands exactly on the far plane along the cone axis, and a wider outer angle changes the field of view. The six cube faces each put the light at the origin, each look along a unit axis, and form exactly three opposite pairs. The cube projection is ninety degrees and square. Three planted defects fail: a fixed lambda, a cube face that is always face zero, and a fixed cone angle",
-      "proof": [
-        "route:cna_cascaded_shadow_map_compute_split_distances",
-        "route:cna_cascaded_shadow_map_compute_bounding_sphere",
-        "route:cna_spot_shadow_map_compute_light_projection",
-        "route:cna_cube_shadow_map_compute_face_view",
-        "test:test/native-cna.integration.mjs"
-      ]
-    },
-    {
-      "operation": "Clustered lighting: the assignment a GPU would read",
-      "category": "VERIFIED_NATIVE",
-      "owner": "CNA-TS",
-      "evidence": "the three views of one assignment -- the per-cluster read, the flat index list and the per-cluster offsets -- are checked against each other for every one of sixty-four clusters, not a sample. The final offset equals the index list length equals the reported total reference count, the offsets never go backwards, and the reported maximum lights per cluster is the largest cluster actually produced. A per-cluster read that ignored its argument and an offset list missing its end marker were both planted and both fail",
-      "proof": [
-        "route:cna_clustered_light_assignment_assign",
-        "route:cna_clustered_light_assignment_copy_offsets",
-        "route:cna_clustered_light_assignment_copy_lights_in_cluster",
-        "test:test/native-cna.integration.mjs"
-      ]
-    },
-    {
-      "operation": "Clustered lighting: the cluster grid's exact geometry",
-      "category": "VERIFIED_NATIVE",
-      "owner": "CNA-TS",
-      "evidence": "all sixty-four clusters of a 4x2x8 grid, each flat index checked against slice * tilesX * tilesY + y * tilesX + x rather than a sample. The depth axis is logarithmic and asserted against the closed form near * (far/near)^(slice/count), and separately asserted not to be the linear spacing, which would otherwise satisfy every weaker check. The projection round-trips: multiplying it by the inverse CNA returns gives the identity to within 1e-5 through XNA own Matrix.Multiply. A planted x/y swap in the index mapping fails this",
-      "proof": [
-        "route:cna_clustered_light_grid_cluster_index",
-        "route:cna_clustered_light_grid_slice_distance",
-        "route:cna_clustered_light_grid_get_inverse_projection",
-        "test:test/native-cna.integration.mjs"
-      ]
-    },
-    {
-      "operation": "Clustered lighting: the light set and what CNA refuses to light with",
-      "category": "VERIFIED_NATIVE",
-      "owner": "CNA-TS",
-      "evidence": "three lights with three different values in every field, added, read back one at a time and in bulk, replaced, removed and cleared. A point light influence is a sphere on its own position with its own range; a spot influence is its cone bounding sphere, which is somewhere else entirely, and that difference is what shows CNA computing the bounds rather than copying the position -- a planted position-and-range substitution fails it. The two add paths are cross-checked: a point light added through CNA own conversion agrees with the same light built in the uniform shape on every field that has an effect and on the computed bounds, and differs only in the direction and cone angles a point light does not have, which CNA fills with its own canonical defaults rather than zero -- a rule this package hands to CNA rather than restating. CNA refuses a zero or negative range, a negative intensity and a spot whose inner angle is wider than its outer, each with INVALID_ARGUMENT",
-      "proof": [
-        "route:cna_clustered_light_set_add_point",
-        "route:cna_clustered_light_set_add_spot",
-        "route:cna_clustered_light_set_get_bounds_at",
-        "route:cna_clustered_light_set_is_usable",
-        "test:test/native-cna.integration.mjs"
-      ]
-    },
-    {
-      "operation": "Clustered lighting: the shadow budget, and the refusals it counts",
-      "category": "VERIFIED_NATIVE",
-      "owner": "CNA-TS",
-      "evidence": "two of three lights ask for a shadow map because only two carry the flag, so the request count is a property of the scene rather than of the budget. A budget of one grants one and counts one refusal; a budget of zero grants nothing and refuses every request. IsSelected and GetSelected name the same lights, a selected light has a positive score, and the hysteresis margin round-trips",
-      "proof": [
-        "route:cna_clustered_shadow_policy_select",
-        "route:cna_clustered_shadow_policy_get_refused_count",
-        "route:cna_clustered_shadow_policy_copy_selected",
-        "test:test/native-cna.integration.mjs"
       ]
     },
     {
@@ -792,32 +598,6 @@
       ]
     },
     {
-      "operation": "Colour grading through a .cube LUT, as a strip and as a volume",
-      "category": "VERIFIED_NATIVE",
-      "owner": "cna-ts/extensions/graphics",
-      "evidence": "the acceptance is a table this package wrote and can apply itself. A size-2 .cube whose transfer is the channel rotation (r,g,b) -> (b,r,g) is parsed, every one of its eight corners is read back and checked against that permutation, and it is then handed to a ColorGradePass twice -- once as the 4x2 strip texture CNA builds from it and once as the 2x2x2 volume -- and run over a sixteen-texel gradient on a windowed OPENGLES3 renderer under Xvfb. The rotation is linear in each channel, so trilinear interpolation reproduces it exactly, and every channel of every texel comes back byte-identical to the rotation computed in JavaScript, through both kinds of table, which also proves no flip, mirror or transpose: the source gradient is asserted to be asymmetric under all three first. Strength is a lerp, so half strength is the exact midpoint and zero strength is the exact source, as is a pass with no table at all. LutSizeForStrip is checked against the shape a strip must have -- N slices of N by N -- for six valid sizes and five invalid ones, which are refused with 0 rather than guessed. Text that is not a .cube file is refused by CNA with its own result rather than parsed into a table that would grade nothing, an index outside the cube is refused rather than clamped, and a non-unit DOMAIN is carried through rather than normalised away. One real binding defect was found by running this: the two getters mint different kinds of handle -- a strip comes back as a borrowed render target and a volume as a Texture3D -- and releasing either through the other's route is refused, which is now what the code does and says",
-      "proof": [
-        "route:cna_cube_lut_parse",
-        "route:cna_cube_lut_get_entry",
-        "route:cna_cube_lut_get_size",
-        "route:cna_cube_lut_copy_title",
-        "route:cna_cube_lut_get_domain_min",
-        "route:cna_cube_lut_create_strip_texture",
-        "route:cna_cube_lut_create_volume_texture",
-        "route:cna_color_grade_pass_create",
-        "route:cna_color_grade_pass_set_lut",
-        "route:cna_color_grade_pass_set_volume_lut",
-        "route:cna_color_grade_pass_get_lut",
-        "route:cna_color_grade_pass_get_volume_lut",
-        "route:cna_color_grade_pass_set_strength",
-        "route:cna_color_grade_pass_set_interpolation",
-        "route:cna_color_grade_pass_lut_size_for_strip",
-        "route:cna_color_grade_pass_create_identity_lut",
-        "test:test/windowed-renderer.integration.mjs",
-        "test:test/native-cna.integration.mjs"
-      ]
-    },
-    {
       "operation": "Compass and motion sensors: absence, and a real reading through CNA's own injection",
       "category": "VERIFIED_NATIVE",
       "owner": "cna-ts/extensions/sensors",
@@ -886,40 +666,6 @@
       ]
     },
     {
-      "operation": "Compute shaders and storage buffers: exact GPU computation",
-      "category": "VERIFIED_NATIVE",
-      "owner": "CNA-TS",
-      "evidence": "a dispatch computes values[i] * uScale + uOffset + i over 64 float elements, and all four inputs are separately load-bearing: every element differs, so a dispatch that did nothing leaves the seed, one that ignored either uniform produces a different sequence, and one that ignored the invocation index produces a constant. Two work groups of sixteen touch exactly the first thirty-two elements, which is what proves the dispatch count reaches the GPU. Measured on OPENGLES3 under Xvfb; HEADLESS, SDL_RENDERER and SOFTWARE refuse every create with NOT_SUPPORTED and that refusal is asserted rather than skipped. A typed buffer refuses an element transfer whose element size disagrees with its own",
-      "proof": [
-        "route:cna_compute_shader_dispatch",
-        "route:cna_storage_buffer_set_elements",
-        "route:cna_storage_buffer_get_elements",
-        "test:test/windowed-renderer.integration.mjs",
-        "test:test/native-cna.integration.mjs"
-      ]
-    },
-    {
-      "operation": "Contact shadows: the short screen-space ray that catches what a shadow map misses",
-      "category": "VERIFIED_NATIVE",
-      "owner": "cna-ts/extensions/graphics",
-      "evidence": "the pass's two decisions are published as pure routes, so both are checked against their closed forms without a depth buffer. The occlusion test is a BAND, not a threshold, and every side of it is pinned: a surface does not shadow itself, nor does a ray within the bias of it, a ray behind it by more than the bias and less than the thickness is occluded, and one behind it by more than the thickness has gone around the occluder rather than into it -- which is what stops a contact shadow smearing into a streak behind every object, and is the half a one-sided test would get wrong. Both ends are exclusive, shown at the thickness end where the float arithmetic is exact, and a thickness equal to the bias leaves a band with nothing in it so nothing is ever occluded. The reference is computed in float rather than double, because at a boundary like 1.05 minus 1.0 the two land on opposite sides and the float one is what ships. Combining with a shadow map's own visibility is a clamped product: two half shadows compound rather than one winning, a visibility above one is clamped so it cannot brighten the other, and one below zero is clamped rather than flipping the sign. On a windowed renderer the pass compiles and runs, its own off switch is a byte-exact copy, and it names which input it was missing in a three-state ladder whose second state names the inverse view -- a different input from the one the aerial pass's second state names, so the two ladders are not one string. Five planted binding defects fail and none survives",
-      "proof": [
-        "route:cna_contact_shadow_pass_create",
-        "route:cna_contact_shadow_pass_is_occluded",
-        "route:cna_contact_shadow_pass_combine_visibility",
-        "route:cna_contact_shadow_pass_copy_occlusion_test_glsl",
-        "route:cna_contact_shadow_pass_copy_fallback_reason",
-        "route:cna_contact_shadow_pass_set_light_direction",
-        "route:cna_contact_shadow_pass_set_step_count",
-        "route:cna_contact_shadow_pass_set_thickness",
-        "route:cna_contact_shadow_pass_set_bias",
-        "route:cna_contact_shadow_pass_set_intensity",
-        "route:cna_contact_shadow_pass_set_max_distance",
-        "test:test/native-cna.integration.mjs",
-        "test:test/windowed-renderer.integration.mjs"
-      ]
-    },
-    {
       "operation": "Custom shader effects: an Effect built from GLSL the game wrote itself",
       "category": "VERIFIED_NATIVE",
       "owner": "cna-ts/extensions/graphics",
@@ -951,24 +697,6 @@
         "route:cna_shader_effect_set_projection",
         "test:test/native-cna.integration.mjs",
         "test:test/windowed-renderer.integration.mjs"
-      ]
-    },
-    {
-      "operation": "Deferred decals: a texture projected onto whatever the prepass drew",
-      "category": "VERIFIED_NATIVE",
-      "owner": "CNA-TS",
-      "evidence": "accepted texel for texel, against a prediction that is CNA's own. For every screen texel the test reconstructs the world point the decal shader reconstructs -- the camera is a 90-degree square frustum, so a plane at view depth d spans d world units per unit of device coordinate -- transforms it by the inverse of the box's world matrix and asks cna_decal_pass_is_inside_decal_box whether it lands inside, intersected with the surface the prepass actually rasterised. Five boxes over one surface are each checked against that prediction with an exact texel count and no tolerance at all: the whole rectangle, one half as wide, two small ones in opposite corners that share no texel, and a long box rolled thirty degrees about the view axis that paints a 117-texel diagonal band across the full width -- a shape no axis-aligned box could produce, so the box's rotation demonstrably reaches the projection. A box the surface does not reach paints nothing, and CNA's own box test agrees that it should; a pass with no depth input paints nothing and does not fail. Opacity is checked through the blend rather than through its getter: the pass composites NonPremultiplied, so half opacity over a known clear colour is an arithmetic identity the test computes, including that blend's own alpha rule, and a green tint on a red decal leaves black because the tint multiplies channel by channel. The slope test is semantic: with the prepass normals supplied, a decal projecting the way the surface faces takes none of it and one turned through half a turn takes all of it, and then with the box left exactly where it is, a surface tilted 60 degrees shows, 80 degrees does not, and widening the limit to 85 brings the same picture back -- one number different. Opacity clamps into the unit range, the slope clamps to a right angle and floors at zero, and the tint is taken as given because above one brightens an HDR frame. The input rule is measured rather than left to be discovered: the prepass's own buffers are the depth input and an upload of the same bytes is not, which SetPrepassInputs documents",
-      "proof": [
-        "route:cna_decal_pass_create",
-        "route:cna_decal_pass_draw",
-        "route:cna_decal_pass_set_prepass_inputs",
-        "route:cna_decal_pass_set_camera",
-        "route:cna_decal_pass_set_opacity",
-        "route:cna_decal_pass_set_tint",
-        "route:cna_decal_pass_set_max_slope_angle",
-        "route:cna_decal_pass_is_inside_decal_box",
-        "test:test/windowed-renderer.integration.mjs",
-        "test:test/native-cna.integration.mjs"
       ]
     },
     {
@@ -1063,28 +791,6 @@
       ]
     },
     {
-      "operation": "Frustum culling, and the vertex declarations an instancing stream takes",
-      "category": "VERIFIED_NATIVE",
-      "owner": "cna-ts/extensions/graphics",
-      "evidence": "the acceptance is two implementations of one predicate, neither derived from the other: CNA's culler and this package's own XNA BoundingFrustum, asked about the same eleven boxes and five spheres built for the same camera. They agree on every one, and the fixture is asserted to be mixed -- neither all visible nor nearly none -- so the agreement cannot be vacuous. The batch routes are checked against the single test rather than against recorded indices: culling a batch keeps exactly what testing them one at a time keeps, in order, and an empty batch keeps nothing. A culler set from one view-projection matrix agrees with one set from two on every case. Culling *transforms* has two traps and both are pinned: the bounds are matched by index and are already world-space, so one shared local box keeps every transform rather than testing them all against it, and a transform with no matching bound is KEPT rather than dropped -- CNA's own header says so, and a caller who miscounted would expect the opposite. Given one world-space bound per transform it answers exactly what culling those bounds answers. The instancing streams are described by CNA rather than written down here: four Vector4 rows on consecutive texture-coordinate channels at sixteen-byte offsets with a stride of sixty-four, and one packed Color for a tint with a stride of four. Five planted binding defects fail; a sixth, replacing the stride route with the constant it returns, survives and is recorded rather than hidden -- a test cannot distinguish a correct constant from the route that produces it",
-      "proof": [
-        "route:cna_frustum_culler_ext_create",
-        "route:cna_frustum_culler_ext_set_camera",
-        "route:cna_frustum_culler_ext_set_view_projection",
-        "route:cna_frustum_culler_ext_get_frustum",
-        "route:cna_frustum_culler_ext_is_box_visible",
-        "route:cna_frustum_culler_ext_is_sphere_visible",
-        "route:cna_frustum_culler_ext_cull_boxes",
-        "route:cna_frustum_culler_ext_cull_spheres",
-        "route:cna_frustum_culler_ext_cull_transforms",
-        "route:cna_instanced_renderer_ext_copy_instance_elements",
-        "route:cna_instanced_renderer_ext_get_instance_stride",
-        "route:cna_instanced_renderer_ext_copy_tint_elements",
-        "route:cna_instanced_renderer_ext_get_tint_stride",
-        "test:test/native-cna.integration.mjs"
-      ]
-    },
-    {
       "operation": "Game create, callbacks, one-frame/run/exit/destroy lifecycle",
       "category": "VERIFIED_NATIVE",
       "owner": "CNA-TS + CNA",
@@ -1121,29 +827,6 @@
       ]
     },
     {
-      "operation": "glTF material extensions: clearcoat, sheen, transmission, iridescence and subsurface",
-      "category": "VERIFIED_NATIVE",
-      "owner": "cna-ts/extensions/graphics",
-      "evidence": "bound as a handle rather than a value struct because the canonical type holds nine borrowed Texture2D pointers, which do not belong in caller-writable memory -- and it still behaves as a value, which is what is checked: two fresh sets compare equal and hash alike, copying makes an edited set equal to its source and leaves the source alone, and the printed form is {} when neutral and names each feature that is on. The subtle part is what IsNeutral means, and it is measured one field at a time from a fresh set each time: it reports whether a feature *contributes*, not whether a field was written. A sheen colour, a transmission factor, an iridescence factor, a subsurface colour or a clearcoat factor makes the set non-neutral; a sheen roughness, a thickness, a subsurface wrap, a clearcoat roughness or an attenuation distance does not, even though each stores its value and reads back. Every scalar and vector round-trips at float precision with a value no default equals, and the nine texture slots are empty, then filled in three of them and not the other six, then cleared with null. glTF's own non-zero defaults are asserted as such: an iridescence IOR of 1.3, a thickness range of 100..400nm, and a white attenuation colour",
-      "proof": [
-        "route:cna_pbr_material_extensions_create",
-        "route:cna_pbr_material_extensions_destroy",
-        "route:cna_pbr_material_extensions_copy_from",
-        "route:cna_pbr_material_extensions_equals",
-        "route:cna_pbr_material_extensions_get_hash_code",
-        "route:cna_pbr_material_extensions_copy_to_string",
-        "route:cna_pbr_material_extensions_is_neutral",
-        "route:cna_pbr_material_extensions_is_sheen_enabled",
-        "route:cna_pbr_material_extensions_is_transmission_enabled",
-        "route:cna_pbr_material_extensions_is_iridescence_enabled",
-        "route:cna_pbr_material_extensions_is_subsurface_enabled",
-        "route:cna_pbr_material_extensions_set_clearcoat_factor",
-        "route:cna_pbr_material_extensions_set_sheen_color_factor",
-        "route:cna_pbr_material_extensions_set_clearcoat_texture",
-        "test:test/native-cna.integration.mjs"
-      ]
-    },
-    {
       "operation": "GPU custom-effect and rendering output qualification, by renderer",
       "category": "VERIFIED_NATIVE",
       "owner": "qualification hardware",
@@ -1154,19 +837,6 @@
         "route:cna_effect_create_compiled",
         "route:cna_texture2d_get_data",
         "route:cna_graphics_device_set_render_targets"
-      ]
-    },
-    {
-      "operation": "GPU timers: a measured frame duration",
-      "category": "VERIFIED_NATIVE",
-      "owner": "CNA-TS",
-      "evidence": "a non-blocking timer query wrapped around one real frame of drawing and polled on later frames, collecting a sub-millisecond measurement on OPENGLES3 with exactly one sample. A timer creates even where the renderer has no timer query at all, which is CNA reporting the absence through the object rather than by refusing: on HEADLESS it answers IsSupported false and names the missing GL extension in CNA own words",
-      "proof": [
-        "route:cna_gpu_timer_poll",
-        "route:cna_gpu_timer_get_last_milliseconds",
-        "route:cna_gpu_timer_copy_unsupported_reason",
-        "test:test/windowed-renderer.integration.mjs",
-        "test:test/native-cna.integration.mjs"
       ]
     },
     {
@@ -1253,6 +923,19 @@
       ]
     },
     {
+      "operation": "Indirect-draw argument structures and the image-based-light value",
+      "category": "VERIFIED_NATIVE",
+      "owner": "cna-ts/extensions/graphics",
+      "evidence": "the indirect command format is the GPU's own and is pinned as bytes: four words for a draw and five for an indexed one, in the order the GPU reads them, with a SIGNED base vertex -- minus five packs to 0xFFFFFFFB and reads back as minus five. CNA's defaults are all zero, which draws nothing. CNA's default image-based light has no textures, one prefiltered mip and unit intensity and is not complete; with all three textures present it is, and losing either the mip or one texture makes it incomplete again.",
+      "proof": [
+        "route:cna_indirect_draw_arguments_init",
+        "route:cna_indirect_draw_indexed_arguments_init",
+        "route:cna_image_based_light_ext_init",
+        "route:cna_image_based_light_ext_is_valid",
+        "test:test/native-cna.integration.mjs"
+      ]
+    },
+    {
       "operation": "Keyboard, Mouse, GamePad and Touch polling routes",
       "category": "VERIFIED_NATIVE",
       "owner": "CNA-TS + CNA",
@@ -1262,57 +945,6 @@
         "route:cna_mouse_get_state",
         "route:cna_gamepad_get_state_with_dead_zone",
         "route:cna_touch_get_state"
-      ]
-    },
-    {
-      "operation": "Level-of-detail groups, and the hysteresis that damps a boundary",
-      "category": "VERIFIED_NATIVE",
-      "owner": "CNA-TS",
-      "evidence": "levels added out of order come back sorted, and every band is checked on both sides of every threshold -- a threshold ends its level, and past the last one the answer is -1 rather than a clamp to the coarsest. The hysteresis is the part worth proving: with a margin of 3 around a boundary at 25, climbing holds the near level until 28 and descending holds the far one until 22, and the two walks are asserted not to be each other reversed, which is what separates hysteresis from rounding. A jump of more than one level is deliberately undamped, and that is asserted too. Screen-space selection projects radius * (height / 2) / (distance * tan(fov / 2)) exactly, and halving with distance. Three planted defects fail: a Reset that does not forget, a margin that never reaches CNA, and a projection that ignores its distance. Levels now carry a real ModelMeshPart. Select hands back the very public object that was added -- asserted by identity, not by equality -- because a managed part can lend CNA a native view of itself built over the buffers it already owns. A level added with no part answers null and is separated from an empty group by SelectIndex, which answers 1 for the first and -1 for the second",
-      "proof": [
-        "route:cna_lod_group_ext_select_index",
-        "route:cna_lod_group_ext_select",
-        "route:cna_lod_group_ext_add_level",
-        "route:cna_lod_group_ext_set_hysteresis",
-        "route:cna_lod_group_ext_projected_radius_pixels",
-        "test:test/native-cna.integration.mjs",
-        "test:test/native-model-part.integration.mjs"
-      ]
-    },
-    {
-      "operation": "Light probe baking: six cube faces rendered per probe, and the probe they produce",
-      "category": "VERIFIED_NATIVE",
-      "owner": "CNA-TS",
-      "evidence": "accepted on real captures on a windowed OPENGLES3 renderer under Xvfb. Which face the scene callback is being asked to draw is decided inside the callback by matching the view CNA handed over against what FaceView reports for that face and that capture point, so the callback's own behaviour is the evidence that each face got its own camera -- and a bake that gave one camera to every face, or the six in another order, cannot produce the list the test asserts. Every face is captured through the square 90-degree frustum the test builds itself. Then the acceptance: light exactly one face and the probe is brightest looking that way and a hundredfold darker looking the other, light the opposite face and the two answers swap, light a third and the brightest direction moves with it. Painting the same face at half a byte scales every one of the nine coefficients by that fraction, which is the projection's linearity in radiance measured rather than assumed; an unlit scene bakes a probe that is zero in every direction; a fully lit one bakes an isotropic probe whose direct term is twenty times any other. A two-cell volume is baked with the scene lit only for the cell the callback recognises, and only that cell carries light, so each probe was captured from its own place; the same bake from a point away from the origin produces the same probe. Visibility is a distance rather than a colour: painting every face one known byte records exactly that fraction of the far plane, with the mean squared equal to the mean squared because a uniform face has no variance, and a light bake afterwards keeps every distance. An exception thrown by the scene comes back out of the bake as itself and the device still bakes afterwards, which is what says CNA was not left holding a bound target. HEADLESS cannot read a target back, so its baker reports unsupported, every bake refuses by state, and the scene callback is never called -- asserted rather than skipped, because a bake that drew and threw the result away would look identical from outside",
-      "proof": [
-        "route:cna_light_probe_baker_create_with_face_size",
-        "route:cna_light_probe_baker_is_supported",
-        "route:cna_light_probe_baker_face_view",
-        "route:cna_light_probe_baker_set_planes",
-        "route:cna_light_probe_baker_bake_probe",
-        "route:cna_light_probe_baker_bake_light",
-        "route:cna_light_probe_baker_bake_visibility",
-        "test:test/windowed-renderer.integration.mjs",
-        "test:test/native-cna.integration.mjs"
-      ]
-    },
-    {
-      "operation": "Light probes as values: nine coefficients, six occluder distances, and the grid over them",
-      "category": "VERIFIED_NATIVE",
-      "owner": "CNA-TS",
-      "evidence": "checked against arithmetic with every constant measured from CNA rather than written down. A probe's irradiance is a fixed quadratic in the surface normal with five constants, and the test lights one coefficient at a time to read each of them out of CNA -- twice over for the two that appear in more than one term, which have to agree -- then predicts what a probe with all nine distinct coefficients answers for nine normals, and it does, to 1e-4 on every channel. A direct-only probe is identical in every direction, an overshooting fit comes back at zero because negative light is not a look, a degenerate normal is treated as straight up, and scaling multiplies the irradiance with the coefficients. Equality is by content and content includes the position, which the volume's own behaviour then shows: a probe copied into a cell takes the cell's position, so it stops being equal to its source until the source is moved to match. The grid's probe positions are an even step along each axis computed by the test, an axis holding one probe puts it at the box's minimum, and trilinear sampling is exact at a cell, at a half and at a quarter, with a position outside the box clamped in rather than refused. Visibility floors both distances at zero and the mean squared at the mean squared -- no distribution has negative variance -- and the weight is Chebyshev's bound, computed by the test from the numbers it stored: one when nothing is known to be in the way, and a diagonal between two recorded axes mixing both rather than picking either, which is a third number from either alone. Twenty-two planted binding defects fail and none survives",
-      "proof": [
-        "route:cna_light_probe_ext_create_at",
-        "route:cna_light_probe_ext_set_coefficient",
-        "route:cna_light_probe_ext_irradiance",
-        "route:cna_light_probe_ext_set_visibility",
-        "route:cna_light_probe_ext_visibility_weight",
-        "route:cna_light_probe_ext_equals",
-        "route:cna_light_probe_volume_ext_create",
-        "route:cna_light_probe_volume_ext_get_probe_position",
-        "route:cna_light_probe_volume_ext_sample_probe",
-        "route:cna_light_probe_volume_ext_irradiance",
-        "test:test/native-cna.integration.mjs"
       ]
     },
     {
@@ -1395,16 +1027,6 @@
       ]
     },
     {
-      "operation": "Modern CNA PBR material and render-pipeline value defaults",
-      "category": "VERIFIED_NATIVE",
-      "owner": "cna-ts/extensions/graphics",
-      "evidence": "cna_pbr_material_init and cna_render_pipeline_settings_init are pure value operations CNA documents as answering in either build, and they do on the qualified artifact; the facade seeds its value objects from them rather than from numbers written in TypeScript",
-      "proof": [
-        "route:cna_pbr_material_init",
-        "route:cna_render_pipeline_settings_init"
-      ]
-    },
-    {
       "operation": "Modern CNA platform identity, renderer selection and runtime log",
       "category": "VERIFIED_NATIVE",
       "owner": "cna-ts/extensions/runtime",
@@ -1414,35 +1036,6 @@
         "route:cna_graphics_renderer_get_selected_ext",
         "route:cna_graphics_renderer_copy_available_ext",
         "route:cna_logger_log"
-      ]
-    },
-    {
-      "operation": "Modern CNA post-process chain: bloom, tonemapping, FXAA, SSAO, screen-space reflections",
-      "category": "VERIFIED_NATIVE",
-      "owner": "cna-ts/extensions/graphics",
-      "evidence": "every pass property round-trips through CNA at float precision, CNA's own quality tiers rise with quality and its roughness-blur clamp is recorded rather than avoided, each pass reports its own name and its truthful IsSupportedOn answer on the HEADLESS renderer, a chain applies over real render targets, and GPU timing reports what the renderer actually gave rather than what was asked for",
-      "proof": [
-        "route:cna_post_process_chain_create",
-        "route:cna_post_process_chain_apply",
-        "route:cna_bloom_pass_set_threshold",
-        "route:cna_tonemap_pass_set_mode",
-        "route:cna_ssao_pass_set_sample_count",
-        "route:cna_post_process_pass_is_supported",
-        "test:test/native-cna.integration.mjs"
-      ]
-    },
-    {
-      "operation": "Modern CNA render pipeline object lifetime, resize, frame and statistics",
-      "category": "VERIFIED_NATIVE",
-      "owner": "cna-ts/extensions/graphics",
-      "evidence": "on a CNA_CNAEXT=ON artifact a pipeline is created, resized, begun, ended, queried for statistics and disposed twice safely; where the layer is compiled out construction reports CNA_RESULT_NOT_SUPPORTED and the native suite asserts that branch instead",
-      "proof": [
-        "route:cna_render_pipeline_create",
-        "route:cna_render_pipeline_destroy",
-        "route:cna_render_pipeline_resize",
-        "route:cna_render_pipeline_begin",
-        "route:cna_render_pipeline_end",
-        "route:cna_render_pipeline_get_statistics"
       ]
     },
     {
@@ -1489,19 +1082,6 @@
       ]
     },
     {
-      "operation": "Shadow-map maths: what a quality tier costs, and where a light looks from",
-      "category": "VERIFIED_NATIVE",
-      "owner": "CNA-TS",
-      "evidence": "the quality ladder is asserted both as its exact five values (512/512/1024/2048/4096 and filter radii 0/0/1/2/2) and as a property -- monotonic, and Ultra strictly larger than Disabled -- so a renumbering that kept the same values in a different order still fails. The geometry is checked as geometry rather than against numbers copied out of a run: the light view's rotation is orthonormal, three unit rows mutually perpendicular, and all eight corners of the scene box transformed through view times projection with XNA's own Matrix.Multiply and Vector3.Transform land inside the light's clip volume. Fitted rather than merely contained: the corners reach at least 0.95 of the frustum on both screen axes, measured at 0.998 for a large scene and 0.980 for a unit box, and the depth range is exactly zero to one. A different light direction produces a different view. Three planted defects fail: a quality that never reaches the size lookup, a projection computed from the identity, and a light that always points down. The shadow map object's own state -- size, filter radius and quality read back from its tier, and a depth bias that round-trips -- is verified on HEADLESS at 2048px",
-      "proof": [
-        "route:cna_shadow_map_compute_light_view",
-        "route:cna_shadow_map_compute_light_projection",
-        "route:cna_shadow_map_size_for_quality",
-        "route:cna_shadow_map_get_size",
-        "test:test/native-cna.integration.mjs"
-      ]
-    },
-    {
       "operation": "SoundEffect PCM creation, instances, controls, Apply3D and disposal",
       "category": "VERIFIED_NATIVE",
       "owner": "CNA-TS + CNA",
@@ -1527,21 +1107,6 @@
         "route:cna_sound_effect_instance_set_pitch",
         "route:cna_sound_effect_instance_set_pan",
         "route:cna_sound_effect_get_duration_ticks"
-      ]
-    },
-    {
-      "operation": "Spatial upscaling",
-      "category": "VERIFIED_NATIVE",
-      "owner": "cna-ts/extensions/graphics",
-      "evidence": "a four-by-four source whose left half is black and right half white, drawn at eight by eight over a clear colour that is neither -- so anything the pass fails to write shows up as itself, and the edge says where it landed. Every texel of the target is written, every row is the same because the edge is vertical, each row is monotone from black to white, the black side stays black and the white side stays white, and the edge lands halfway across because it was halfway across the source. A flat source would prove none of that: an upscale of a flat field is that field whatever the sizes are. IsIdentityScale is checked as a pure function -- the same size is nothing to upscale, one axis differing is enough, and downscaling is not an identity either. Two mutations in this family survive and are recorded rather than hidden, and both are equivalent rather than gaps: the roll-off is Reinhard, which is symmetric in its two arguments, and IsIdentityScale asks whether two sizes are equal, which is symmetric by nature. Swapping the draw's own sizes, which is not symmetric, is killed",
-      "proof": [
-        "route:cna_spatial_upscale_pass_create",
-        "route:cna_spatial_upscale_pass_draw",
-        "route:cna_spatial_upscale_pass_is_identity_scale",
-        "route:cna_spatial_upscale_pass_set_sharpness",
-        "route:cna_spatial_upscale_pass_set_edge_adaptive",
-        "test:test/native-cna.integration.mjs",
-        "test:test/windowed-renderer.integration.mjs"
       ]
     },
     {
@@ -1624,86 +1189,6 @@
       ]
     },
     {
-      "operation": "The atmosphere's model, its sampling sequence, and the two mappings around a cube map",
-      "category": "VERIFIED_NATIVE",
-      "owner": "CNA-TS",
-      "evidence": "everything about the atmosphere that is arithmetic rather than rendering, checked on relationships and identities rather than on recorded numbers. A sun below the horizon leaves a sky twenty times darker than one above it; the horizon is brighter than the zenith because a horizontal ray passes through more air; a clear zenith is blue then green then red, which is Rayleigh's fourth-power wavelength dependence; and aerosol brightens the sky and washes the colour out of it, because Mie's has none. A view direction with no length is treated as straight up, and a direction is a direction whatever its length. The roughness ramp is a straight line between mip zero and the last, inverse in both directions, answering rather than refusing for a chain with nothing to index and clamping a roughness outside the unit range. The Hammersley sequence is checked point by point against its own definition -- evenly spaced along one coordinate, the radical inverse of the index in base two along the other, and no two points sharing it. GGX importance sampling at roughness zero is the normal itself, roughening it spreads the sample further, and every sample is a unit direction inside its normal's hemisphere. The six cube faces look down the six axes; the panorama mapping puts the poles at nought and one, every horizon direction halfway down, opposite axes half a turn apart and perpendicular ones a quarter -- and the two routes are made to agree by sending one's answers into the other. The view ray a screen point looks along is checked as geometry too: the centre looks the way the camera does, the edges are forty-five degrees off a ninety-degree frustum, and a yaw rotates every ray about the up axis by exactly that rotation, which is asserted as a rotation rather than as an angle because a tilted ray sweeps through less than the yaw. The three setters that guard three different ways are kept apart and asserted apart: turbidity clamps into the model's range, a sky's negative intensity keeps the previous value while a skybox's is floored at zero, and a sun direction is normalised with a degenerate one a silent no-op",
-      "proof": [
-        "route:cna_atmospheric_sky_radiance",
-        "route:cna_atmospheric_sky_copy_model_glsl",
-        "route:cna_skybox_compute_view_ray",
-        "route:cna_environment_processor_mip_for_roughness",
-        "route:cna_environment_processor_roughness_for_mip",
-        "route:cna_environment_processor_hammersley",
-        "route:cna_environment_processor_importance_sample_ggx",
-        "route:cna_environment_processor_face_direction",
-        "route:cna_environment_processor_direction_to_equirectangular",
-        "test:test/native-cna.integration.mjs"
-      ]
-    },
-    {
-      "operation": "The canonical PBR material as a value: equality, hashing, printing and device state",
-      "category": "VERIFIED_NATIVE",
-      "owner": "cna-ts/extensions/graphics",
-      "evidence": "CNA carries the physically-based material in two C shapes -- the layout frozen before the KHR_materials_* factors existed, and the canonical one every accessor on the C++ type corresponds to -- and this projects the canonical one. It is a value and is checked as one: two materials built the same way compare equal and hash alike, one edited field makes them differ and changes the hash, the same edit twice gives the same material again, and two materials never share their per-slot arrays. CNA's own defaults are glTF's -- fully metallic and fully rough, an IOR of 1.5, an opaque white base colour, every slot on UV channel zero with a neutral transform -- and each is asserted against what glTF specifies rather than against a number recorded from a run. The printed form names the fields it carries, including all four channels of a base colour no default equals. What ApplyState does is qualified by reading CNA's device state back rather than by trusting the wrapper's, which cannot see it: a blended material leaves SourceAlpha/InverseSourceAlpha, an opaque or masked one leaves One/Zero, and a double-sided one leaves CullNone -- each predicted from the XNA state the C++ names, not from a measurement. Fifteen planted binding defects fail and none survives",
-      "proof": [
-        "route:cna_pbr_material_ext_init",
-        "route:cna_pbr_material_ext_equals",
-        "route:cna_pbr_material_ext_get_hash_code",
-        "route:cna_pbr_material_ext_copy_to_string",
-        "route:cna_pbr_material_apply_state",
-        "route:cna_texture_transform_ext_init",
-        "route:cna_graphics_device_get_blend_state",
-        "route:cna_graphics_device_get_rasterizer_state",
-        "test:test/native-cna.integration.mjs",
-        "test:test/windowed-renderer.integration.mjs"
-      ]
-    },
-    {
-      "operation": "The canonical render-pipeline settings: clamping, quality presets and the settings text",
-      "category": "VERIFIED_NATIVE",
-      "owner": "cna-ts/extensions/graphics",
-      "evidence": "forty-seven fields, moved through the bridge by three offsetof tables rather than by hand, so a field added upstream is a compile error in the ABI audit rather than a silently dropped value. It is a value and is checked as one: two bags do not share state, and every operation answers a new bag rather than editing the one it was handed. Normalizing is a floor rather than a two-sided clamp -- a negative exposure, intensity or distance comes up to zero, gamma has a floor of 0.01 because dividing by it is what gamma is for, and a colour-grade strength above one comes down because a grade is a fraction -- while CNA's own defaults pass through completely unchanged, field for field. The enums are validated rather than clamped: an undefined render or shadow quality is refused with CNA's own result, because guessing which tier a caller meant would be worse than saying so. The quality preset sets how much work each pass does and never which passes run: bloom iterations and ambient-occlusion samples rise strictly across the four tiers, eight samples to sixty-four, and every enable flag is left exactly as the caller had it. The settings text is semicolon-separated key=value pairs, and the count it answers is the point -- five of five recognised, one of three when two are typos, none for empty text or a value that will not parse -- so a caller can tell a settings file that loaded from one that did not. A loaded value goes through the same clamping a written one does, which is the trap a stale gamma of zero in a file would otherwise walk straight past. Four planted binding defects fail and none survives",
-      "proof": [
-        "route:cna_render_pipeline_settings_ext_init",
-        "route:cna_render_pipeline_settings_ext_normalize",
-        "route:cna_render_pipeline_settings_ext_apply_render_quality_preset",
-        "route:cna_render_pipeline_settings_ext_apply_from_string",
-        "route:cna_render_pipeline_get_settings",
-        "route:cna_render_pipeline_set_settings",
-        "route:cna_auto_exposure_ext_apply_to",
-        "route:cna_render_pipeline_set_camera",
-        "route:cna_render_pipeline_did_skybox_draw",
-        "route:cna_render_pipeline_get_pass_timing_ext",
-        "test:test/native-cna.integration.mjs"
-      ]
-    },
-    {
-      "operation": "The cascaded, spot and cube shadow passes, beside the flat one",
-      "category": "VERIFIED_NATIVE",
-      "owner": "CNA-TS",
-      "evidence": "each of the three checked against the pure maths beside it, which touches no pass at all. A cascade's split distances are the ones ComputeCascadeSplitDistances returns for the same camera and lambda, twice over with two lambdas that give different answers -- and a lambda of zero divides the range evenly, which the test writes down as a closed form. The splits stay where the camera put them when the light moves, while every cascade transform moves with it, which is the separation the update is for. A spot map's light view-projection is ComputeSpotLightView times ComputeSpotLightProjection for the same light, multiplied by the test itself, and it carries real translation terms rather than being an identity that would agree with anything. A cube's face size is the cube route's answer for its tier and not the flat route's. Snapping is a pure function checked against its own definition: every axis lands on a whole number of the cascade's texels, never moves further than one, and the axis the light looks along is untouched. On a windowed OPENGLES3 renderer under Xvfb the atlas is surveyed slice by slice at six steps, so what is asserted is the change at each one: a fresh atlas is untouched storage rather than a cleared one, the first pass clears every cascade, a cast into cascade zero changes that slice alone, a later cast into the last changes only that one and leaves the first exactly as it was -- which is what says a Begin clears its own viewport rather than the atlas. A spot pass renders a floor and then the same floor raised towards the light: nearer records a smaller depth and covers more of the cone. All six cube faces open and close. HEADLESS compiles no caster program, so all three still allocate their storage and accept the passes they cannot fill while refusing their effects by name -- except the cube, whose faces are larger than that renderer's back buffer, which it says in a message carried by CNA_RESULT_INTERNAL. Twenty-two planted binding defects were run and twenty-one fail; the survivor is recorded rather than hidden, because upstream finding 16 is exactly why it cannot fail",
-      "proof": [
-        "route:cna_cascaded_shadow_map_create",
-        "route:cna_cascaded_shadow_map_update",
-        "route:cna_cascaded_shadow_map_begin",
-        "route:cna_cascaded_shadow_map_get_split_distance",
-        "route:cna_cascaded_shadow_map_select_cascade",
-        "route:cna_cascaded_shadow_map_snap_to_texel_grid",
-        "route:cna_cascaded_shadow_map_get_shadow_texture",
-        "route:cna_spot_shadow_map_create",
-        "route:cna_spot_shadow_map_begin",
-        "route:cna_spot_shadow_map_get_light_view_projection",
-        "route:cna_spot_shadow_map_get_shadow_texture",
-        "route:cna_cube_shadow_map_create",
-        "route:cna_cube_shadow_map_update",
-        "route:cna_cube_shadow_map_begin",
-        "route:cna_cube_shadow_map_get_shadow_texture",
-        "test:test/windowed-renderer.integration.mjs",
-        "test:test/native-cna.integration.mjs"
-      ]
-    },
-    {
       "operation": "The clipboard's reads, the attached-device inventory and an ungated power reading",
       "category": "VERIFIED_NATIVE",
       "owner": "cna-ts/extensions/devices",
@@ -1727,51 +1212,10 @@
       ]
     },
     {
-      "operation": "The clustered forward BRDF and its volume absorption",
+      "operation": "The debug drawer: lines and shapes, read back as geometry",
       "category": "VERIFIED_NATIVE",
       "owner": "cna-ts/extensions/graphics",
-      "evidence": "the shading model is published as a pure route, so the acceptance is a second implementation of it: a Cook-Torrance BRDF with a GGX distribution, a Smith-Schlick geometry term and a Schlick Fresnel, plus the sheen, clearcoat, iridescence and subsurface layers, written out in the test from the model and compared against CNA's at fifteen parameter combinations -- head-on, off to the side and grazing, each layer alone and all of them at once -- agreeing to two parts in a thousand everywhere. The comparison is asserted not to be vacuous: fourteen of the fifteen results are distinct, and each optional layer is asserted to change the answer, so no branch of the reference is dead. A rough sheen is used deliberately, because the lobe's width is one over max(roughness squared, 0.07) and a smooth one is too narrow to reach a grazing geometry at all -- physics, not a defect. Around the comparison: a light past its range, behind the surface, exactly at the surface, or a spot pointing away adds exactly zero; intensity is an exact multiplier; and the light's colour scales each channel and nothing else. The same BRDF driven from a PbrMaterialExtensions set is asserted to give byte-identical answers to the one driven directly, neutral and clearcoated. Volume absorption is Beer-Lambert: at a thickness equal to the attenuation distance the answer IS the attenuation colour, three times as thick cubes it, a white volume absorbs nothing, a zero distance or thickness absorbs nothing, and black is clamped off zero rather than having its logarithm taken. Six planted binding defects fail and none survives",
-      "proof": [
-        "route:cna_clustered_forward_effect_contribution",
-        "route:cna_clustered_forward_effect_contribution_with_extensions",
-        "route:cna_clustered_forward_effect_volume_attenuation",
-        "test:test/native-cna.integration.mjs"
-      ]
-    },
-    {
-      "operation": "The clustered light buffer, the GPU assignment and the forward effect's state",
-      "category": "VERIFIED_NATIVE",
-      "owner": "cna-ts/extensions/graphics",
-      "evidence": "the buffer's three counts are checked against the three objects it was uploaded from rather than against numbers: its light count equals the set's, its cluster count equals the grid's, and its reference count equals the assignment's own total summed over clusters -- three lights, sixty-four clusters, eighty-eight references in the fixture, and the assignment behind it is the CPU path already qualified separately. An assignment can also be adopted from the compressed-row arrays it really is, and the two clusters it describes come back holding the lights its offsets bracket, in the order the indices gave. The GPU assignment says whether it is supported and why not, and reports whether the last run really used compute rather than falling back -- both false before anything has run, which is the honest answer. The forward effect's own state round-trips at float precision, a probe and an extension set and an opaque frame each attach and detach, and a fresh effect turns out to own a neutral extension set already so the four KHR layers are always addressable. The shader is a counted borrow: CNA refuses to destroy the effect while one is outstanding, and finding that is what fixed a real defect in this binding -- Dispose used to clear its handle before the destroy, so a refused destroy stranded the effect and made the game undestroyable. It now gives the handle up only once the destroy has succeeded, and a second attempt after the borrow goes back works",
-      "proof": [
-        "route:cna_clustered_light_buffer_create",
-        "route:cna_clustered_light_buffer_upload",
-        "route:cna_clustered_light_buffer_bind",
-        "route:cna_clustered_light_buffer_get_light_count",
-        "route:cna_clustered_light_buffer_get_cluster_count",
-        "route:cna_clustered_light_buffer_get_reference_count",
-        "route:cna_clustered_light_buffer_copy_light_lookup_glsl",
-        "route:cna_clustered_light_assignment_adopt",
-        "route:cna_clustered_light_compute_create",
-        "route:cna_clustered_light_compute_is_supported",
-        "route:cna_clustered_light_compute_copy_unsupported_reason",
-        "route:cna_clustered_light_compute_assign",
-        "route:cna_clustered_light_compute_used_compute",
-        "route:cna_clustered_forward_effect_create",
-        "route:cna_clustered_forward_effect_begin",
-        "route:cna_clustered_forward_effect_get_effect",
-        "route:cna_clustered_forward_effect_set_base_color",
-        "route:cna_clustered_forward_effect_set_light_probe",
-        "route:cna_clustered_forward_effect_set_material_extensions",
-        "route:cna_debug_draw_add_cluster_slice_gizmo",
-        "test:test/native-cna.integration.mjs"
-      ]
-    },
-    {
-      "operation": "The debug drawer: lines, shapes and light gizmos, read back as geometry",
-      "category": "VERIFIED_NATIVE",
-      "owner": "cna-ts/extensions/graphics",
-      "evidence": "everything the drawer draws is a line list and cna_debug_draw_copy_vertices hands the whole list back, so what a gizmo consists of is read rather than looked at -- which is why this family needs no renderer to be qualified. A line is exactly its two endpoints in order; a cross is three lines reaching its size along each axis and nowhere else; a box is twelve edges over eight corners, asserted as the exact ordered edge list over a box asymmetric in all three axes so that a swapped Min and Max is a different picture rather than the same corners reordered, with each corner used by exactly three edges. A sphere is three rings of its segment count, every vertex exactly on the sphere and on one of the three axis planes through its centre, and twice the segments is twice the lines; a BoundingSphere draws exactly what the same centre and radius draw. A frustum's twelve edges use all eight of the corners BoundingFrustum gives for the same matrix and nothing else -- a second independent implementation, as with the frustum culler. The gizmos are checked against the light they describe: a point light is a sphere at exactly its range plus a cross, a spot light is two cones whose rims are at range times the tangent of the outer and the inner angle on the plane the range reaches, and a directional light is an arrow starting a length back along its direction with a head a fixed fraction of that length. The depth-tested and overlay lists are separate and keep their own colours including alpha, the line count is both together, clearing empties both, and beginning a frame starts it empty. Seven planted binding defects fail and none survives",
+      "evidence": "everything the drawer draws is a line list and cna_debug_draw_copy_vertices hands the whole list back, so what a shape consists of is read rather than looked at -- which is why this family needs no renderer to be qualified. A line is exactly its two endpoints in order; a cross is three lines reaching its size along each axis and nowhere else; a box is twelve edges over eight corners, asserted as the exact ordered edge list over a box asymmetric in all three axes so that a swapped Min and Max is a different picture rather than the same corners reordered, with each corner used by exactly three edges. A sphere is three rings of its segment count, every vertex exactly on the sphere and on one of the three axis planes through its centre, and twice the segments is twice the lines; a BoundingSphere draws exactly what the same centre and radius draw. A frustum's twelve edges use all eight of the corners BoundingFrustum gives for the same matrix and nothing else -- a second independent implementation, as with the frustum culler. The gizmos are checked against the light they describe: a point light is a sphere at exactly its range plus a cross, a spot light is two cones whose rims are at range times the tangent of the outer and the inner angle on the plane the range reaches, and a directional light is an arrow starting a length back along its direction with a head a fixed fraction of that length. The depth-tested and overlay lists are separate and keep their own colours including alpha, the line count is both together, clearing empties both, and beginning a frame starts it empty. Seven planted binding defects fail and none survives",
       "proof": [
         "route:cna_debug_draw_create",
         "route:cna_debug_draw_begin",
@@ -1786,47 +1230,7 @@
         "route:cna_debug_draw_copy_vertices",
         "route:cna_debug_draw_get_line_count",
         "route:cna_debug_draw_set_depth_tested",
-        "route:cna_debug_draw_add_point_light_gizmo",
-        "route:cna_debug_draw_add_spot_light_gizmo",
-        "route:cna_debug_draw_add_directional_light_gizmo",
-        "route:cna_debug_draw_add_probe_volume_gizmo",
-        "route:cna_debug_draw_add_cascade_gizmo",
         "test:test/native-cna.integration.mjs"
-      ]
-    },
-    {
-      "operation": "The depth/normal prepass: linear depth and view-space normals, rasterised and read back",
-      "category": "VERIFIED_NATIVE",
-      "owner": "CNA-TS",
-      "evidence": "accepted against CNA's own rasteriser on a windowed OPENGLES3 renderer under Xvfb. One flat quad is drawn twice in the same frame into render targets of the same size, read back by the same routine: once through a stock BasicEffect, which shares no code with the prepass, and once through the prepass itself. The two rectangles agree to within 1.5 texels on every edge, so this renderer's screen and readback conventions cancel between them and what is left is whether the prepass puts the scene where the renderer puts it. The depth is exact rather than merely below the far plane: a quad at view depth 10 with a far plane of 100 reads back as the number CNA's own pack and unpack routes give for 0.1 through an eight-bit target, to five decimals, and the whole buffer holds exactly two values -- that surface and the far-plane clear -- with the surface count equal to the covered texel count. The normals are exact too: every covered texel carries (128, 128, 255), which is +Z in view space encoded, with the alpha that marks a texel as carrying no velocity. An untouched normal texel carries the depth buffer's white, because one clear serves a bound target set. Roughness round-trips and clamps into the unit range at both ends; the pass count agrees with the multiple-render-target answer; velocity is off and its texture is null rather than an empty buffer; and both prepass programs are lent and are real. Two findings came out of it: the packed encoding delivers one part in 255 rather than the documented one part in 2^24 once it is stored in the eight-bit target it is written for, which the test measures with a sweep and a 256-level control (upstream finding 13), and three of its ordering refusals answer INTERNAL where the header documents INVALID_STATE (upstream finding 14). Both are asserted as they behave, so a repair fails and says so",
-      "proof": [
-        "route:cna_depth_normal_prepass_create",
-        "route:cna_depth_normal_prepass_begin",
-        "route:cna_depth_normal_prepass_end",
-        "route:cna_depth_normal_prepass_get_depth_texture",
-        "route:cna_depth_normal_prepass_get_normal_texture",
-        "route:cna_depth_normal_prepass_get_prepass_effect",
-        "route:cna_depth_normal_prepass_pack_depth",
-        "route:cna_depth_normal_prepass_unpack_depth",
-        "route:cna_depth_normal_prepass_uses_packed_depth_ext",
-        "test:test/windowed-renderer.integration.mjs",
-        "test:test/native-cna.integration.mjs"
-      ]
-    },
-    {
-      "operation": "The glTF material bridge, and the one conversion it performs",
-      "category": "VERIFIED_NATIVE",
-      "owner": "cna-ts/extensions/graphics",
-      "evidence": "the bridge is the only thing in this family that converts rather than carries: a glTF base-colour factor is a linear float vector and a CNA albedo is an eight-bit colour. That conversion is measured over a table of seven inputs rather than from one point, and every one matches round(x * 255) -- (1, 0.5, 0.25, 0.5) becomes (255, 128, 64, 128). Everything else is asserted to arrive unchanged, each factor set to a value no default equals, and the per-slot values are asserted to arrive in their own slot and nowhere else: one coordinate set written to the emissive slot leaves the other six at zero, and one transform written to the metallic-roughness slot leaves the other six neutral. The extension bridge is checked the same way against a fresh extension set. glTF's own defaults come from CNA rather than from numbers written here, so a change upstream is a diagnostic rather than a silent difference",
-      "proof": [
-        "route:cna_gltf_material_source_ext_init",
-        "route:cna_gltf_material_textures_ext_init",
-        "route:cna_gltf_material_extension_source_ext_init",
-        "route:cna_gltf_material_extension_textures_ext_init",
-        "route:cna_gltf_material_bridge_build_material",
-        "route:cna_gltf_material_bridge_build_extensions",
-        "test:test/native-cna.integration.mjs",
-        "test:test/windowed-renderer.integration.mjs"
       ]
     },
     {
@@ -1844,175 +1248,26 @@
       ]
     },
     {
-      "operation": "The HDR display transfer chain: PQ, the wide-gamut primaries, the highlight roll-off, and their composition",
+      "operation": "The physically-based effects, skinned and not",
       "category": "VERIFIED_NATIVE",
       "owner": "cna-ts/extensions/graphics",
-      "evidence": "CNA publishes the whole chain as pure routes, so what a frame will look like is checked without a display that can show it -- and each part is checked against the standard it implements rather than against a run. The PQ curve is SMPTE ST 2084 written out from the standard's own five constants at nine brightnesses, clamped at ten thousand nits and at zero rather than extrapolated or negated, monotone across its range, and an exact inverse of its decode. Half the signal is spent below a hundred nits, which is what a perceptual quantiser is for. The primaries are the BT.2087 matrix, checked on the three Rec.709 primaries, white, black and a mixture: white stays white because the rows sum to one, black stays black, a Rec.709 red becomes a less saturated mixture in the wider gamut, and the conversion is linear. The roll-off turned out to be Reinhard against the peak rather than a knee -- a hundred nits against a thousand-nit peak comes back as ninety-one -- so it pulls everything down a little, approaches the peak without reaching it however large the input, and is strictly rising throughout; the binding's own comment was corrected to say so. The composition is the claim worth making, and it is bit-identical rather than close: brightness and the roll-off happen FIRST, in the source primaries, and only then is the gamut converted and the curve applied. Rolling off after the conversion gives a different answer, which the test also asserts so the ordering claim is not vacuous. An sRGB display gets the scene value unchanged -- proved twice, once from the pure route and once as a byte-exact drawn frame on a windowed renderer -- and scRGB gets it scaled against the eighty-nit reference white",
-      "proof": [
-        "route:cna_hdr_display_output_create",
-        "route:cna_hdr_display_output_encode_pq",
-        "route:cna_hdr_display_output_decode_pq",
-        "route:cna_hdr_display_output_rec709_to_rec2020",
-        "route:cna_hdr_display_output_roll_off",
-        "route:cna_hdr_display_output_encode",
-        "route:cna_hdr_display_output_draw",
-        "route:cna_hdr_display_output_set_color_space",
-        "route:cna_hdr_display_output_set_paper_white_nits",
-        "route:cna_hdr_display_output_set_peak_nits",
-        "route:cna_hdr_display_output_is_supported",
-        "test:test/native-cna.integration.mjs",
-        "test:test/windowed-renderer.integration.mjs"
-      ]
-    },
-    {
-      "operation": "The instanced renderer: uploading transforms and tints, and which draw path ran",
-      "category": "VERIFIED_NATIVE",
-      "owner": "cna-ts/extensions/graphics",
-      "evidence": "Built over one XNB-loaded ModelMeshPart, which the renderer borrows and this object keeps alive. The instance buffer is measured rather than trusted: uploading three then two lowers the count to two while the capacity does not fall, which is CNA reusing the buffer rather than reallocating, and an empty upload is accepted as the documented way to stop drawing without destroying the renderer. Drawing is qualified on what it says it did, not on success: HEADLESS answers false to is_instancing_supported, so with the fallback off the draw refuses, and with it on two instances produce two draw calls with did_last_draw_instance false -- the observable that separates a per-instance loop from one instanced call. The refusal arrives as INTERNAL rather than the documented INVALID_STATE; that is upstream finding 25, reproduced in pure C first and asserted here so a repair fails the assertion and says so. No pixel claim is made on HEADLESS",
-      "proof": [
-        "route:cna_instanced_renderer_ext_create",
-        "route:cna_instanced_renderer_ext_destroy",
-        "route:cna_instanced_renderer_ext_set_instances",
-        "route:cna_instanced_renderer_ext_set_instance_tints",
-        "route:cna_instanced_renderer_ext_is_tints_enabled",
-        "route:cna_instanced_renderer_ext_set_tints_enabled",
-        "route:cna_instanced_renderer_ext_draw",
-        "route:cna_instanced_renderer_ext_is_instancing_supported",
-        "route:cna_instanced_renderer_ext_is_fallback_enabled",
-        "route:cna_instanced_renderer_ext_set_fallback_enabled",
-        "route:cna_instanced_renderer_ext_get_instance_count",
-        "route:cna_instanced_renderer_ext_get_instance_capacity",
-        "route:cna_instanced_renderer_ext_get_last_draw_call_count",
-        "route:cna_instanced_renderer_ext_did_last_draw_instance",
-        "test:test/native-model-part.integration.mjs"
-      ]
-    },
-    {
-      "operation": "The last of the engine layer: indirect draws, the frame's two scenes, and the odds",
-      "category": "VERIFIED_NATIVE",
-      "owner": "cna-ts/extensions/graphics",
-      "evidence": "the indirect command format is the GPU's own, and it is pinned as bytes: four words for a draw and five for an indexed one, in the order the GPU reads them, with a SIGNED base vertex -- minus five packs to 0xFFFFFFFB and reads back as minus five, which a clamp to zero or an unsigned coercion cannot do. The defaults are all zero, which draws nothing, and a default cullable instance's world is a ZERO matrix rather than the identity its header promises (finding 23, in a third place) while the empty box beside it is exact. The memory-barrier membership test is checked across seven bits with three masks -- a mask of bits 0, 2 and 4 contains exactly those three, an empty mask contains nothing, a full one contains everything -- so a test that answered a constant or ignored its second argument fails. The frame's TWO scene callbacks are qualified as a sequence: both are off by default and neither runs however it was registered, because the pipeline skips a phase rather than drawing into nothing; with transparency and shadows switched on both run, and the ORDER is the frame's own -- casters inside Begin, transparent inside End, which is why they are two routes rather than one list. Clearing one leaves the other running. The scene bounds really cross: two boxes ten times apart produce two different light transforms on the shadow map that recorded them. A callback that throws stops the frame and its OWN exception object reaches the caller of End. The post-process chain lends its own render-target pool -- a target acquired through it appears in the chain's pool, and the chain refuses release while the borrowed view is out. The .cube loader reads a table this test wrote, at the size and title the file gave it, and both of its failure modes -- a path that does not exist and a file that is not a .cube -- come back as NOT_SUPPORTED, the code every other route uses for a missing engine layer (finding 24, diagnosed to a catch clause naming a sibling class). Ten planted binding defects fail and none survives",
-      "proof": [
-        "route:cna_indirect_draw_arguments_init",
-        "route:cna_indirect_draw_indexed_arguments_init",
-        "route:cna_graphics_device_draw_primitives_indirect_ext",
-        "route:cna_graphics_device_draw_indexed_primitives_indirect_ext",
-        "route:cna_graphics_memory_barrier_has",
-        "route:cna_gpu_cullable_instance_init",
-        "route:cna_post_process_chain_get_target_pool",
-        "route:cna_cube_lut_load_from_file",
-        "route:cna_engine_layer_get_version",
-        "route:cna_engine_layer_copy_version_string",
-        "route:cna_render_pipeline_set_shadow_scene",
-        "route:cna_render_pipeline_set_transparent_scene",
-        "test:test/native-cna.integration.mjs"
-      ]
-    },
-    {
-      "operation": "The native model-mesh-part side-car a managed ModelMeshPart lends CNA",
-      "category": "VERIFIED_NATIVE",
-      "owner": "CNA-TS",
-      "evidence": "The subject is a real XNB-loaded Model read through the strict ContentManager, so what is measured is the object a consumer actually holds. The claim that matters is that no geometry is uploaded twice: cna_model_mesh_part_create retains the buffers it is given rather than copying them, and the native part is asked for its vertex and index buffers and hands back the same handles the managed VertexBuffer and IndexBuffer own -- checked against the live handles, not assumed. All four scalars round-trip, and the bridge refuses its own side-car at creation if any of them disagrees, so an upstream change that stopped preserving one surfaces as an error rather than as geometry drawn from the wrong offset. Identity is a WeakMap on the public object: borrowing twice yields one native part, and reaching the same part through the collection again yields that same one. The disposal order is the trap and is asserted separately: CNA refuses to destroy a buffer a part retains (INVALID_STATE, measured in pure C), so a side-car that outlived its buffers would break XNA's IDisposable contract. The teardown hangs on the buffer's NativeResourceLifetime rather than on GraphicsResource.Dispose, because the game lifetime also cascades to its children and that path never touches the wrapper -- disposing the managed VertexBuffer succeeds, and re-borrowing afterwards names ObjectDisposedException",
-      "proof": [
-        "route:cna_model_mesh_part_create",
-        "route:cna_model_mesh_part_destroy",
-        "route:cna_model_mesh_part_set_effect",
-        "route:cna_model_mesh_part_get_effect",
-        "route:cna_model_mesh_part_get_vertex_buffer",
-        "route:cna_model_mesh_part_get_index_buffer",
-        "route:cna_model_mesh_part_get_num_vertices",
-        "route:cna_model_mesh_part_get_primitive_count",
-        "route:cna_model_mesh_part_get_start_index",
-        "route:cna_model_mesh_part_get_vertex_offset",
-        "test:test/native-model-part.integration.mjs"
-      ]
-    },
-    {
-      "operation": "The particle draw: live particles painted where the camera puts them",
-      "category": "VERIFIED_NATIVE",
-      "owner": "CNA-TS",
-      "evidence": "accepted on the texels the draw painted into a render target on a windowed OPENGLES3 renderer under Xvfb. The scene is made predictable rather than guessed at: the simulation is pinned to the CPU, every source of variance is zero and the emitter's speed is zero, so all 32 particles stand exactly on the emitter -- which the pool, read back, confirms is the one point and no other. Two systems at different world positions with different particle sizes are drawn through one camera the test built itself from CreateLookAt and CreateOrthographic, and each painted region is checked against where that camera puts that emitter and how wide that particle size is there: both squares land within 1.5 texels on every edge, cover their predicted area to within 20%, and are painted in the particle texture's colour and no other. Drawing either system alone puts its square in the same place, a system with an emission rate of zero paints nothing at all and does not fail, and moving the camera two world units slides both squares by exactly what the new view predicts. CNA's default capacity comes from the route that takes no capacity and is 1024, which tools/cna-abi/contract.json pins to CNA's own header with a _Static_assert, and the storage-buffer binding point the API states is the one CNA's own particle GLSL declares. Nine planted binding defects fail, including a draw that swaps the view and the projection, one that sends the view as both, one that drops the texture, a settings setter that loses the particle size, and a softness setter that never reaches CNA. One survives and is recorded as unkillable: creating at the default capacity by asking for 1024 explicitly is indistinguishable from asking CNA, because no route says which was used. The soft-particle fade is the one thing not accepted -- the depth image and the softness reach CNA and change nothing that is drawn, which is upstream finding 12, asserted as it currently behaves so a repair is noticed",
-      "proof": [
-        "route:cna_particle_system_draw",
-        "route:cna_particle_system_create",
-        "route:cna_particle_system_set_depth_input_ext",
-        "route:cna_particle_system_get_softness_ext",
-        "route:cna_particle_system_set_softness_ext",
-        "route:cna_particle_system_copy_particle_lookup_glsl",
-        "test:test/windowed-renderer.integration.mjs"
-      ]
-    },
-    {
-      "operation": "The particle simulation, and the pure functions behind it",
-      "category": "VERIFIED_NATIVE",
-      "owner": "CNA-TS",
-      "evidence": "cna_particle_system_step integrates one particle with no system, device or GPU, and cna_particle_system_random is the deterministic generator the emitter draws from -- so the simulation is checked against arithmetic rather than against numbers recorded from a run. Gravity of -10 over half a second gives velocity -5 and position -2.5 exactly, an axis with no gravity is unchanged, and the age advances by the step. Two half steps and one whole step both reach velocity -10 but land in different places, which is what shows the elapsed time reaching a stepwise integrator rather than being ignored; a zero step changes nothing; and Step returns a new particle rather than mutating the caller's. The same seed always draws the same value and different seeds draw different ones. The system itself round-trips its emitter settings through a different route than they went in, reports its capacity, and says whether it is simulating on the GPU and why not -- forced onto the CPU here, which is how a game gets the same answer on every renderer. Three planted defects fail: a fixed step, a seed that never reaches the generator, and gravity that is always the default",
-      "proof": [
-        "route:cna_particle_system_step",
-        "route:cna_particle_system_random",
-        "route:cna_particle_system_copy_particles_ext",
-        "route:cna_particle_system_set_settings",
-        "test:test/native-cna.integration.mjs"
-      ]
-    },
-    {
-      "operation": "The physically-based effects, skinned and not, and the material they carry",
-      "category": "VERIFIED_NATIVE",
-      "owner": "cna-ts/extensions/graphics",
-      "evidence": "the acceptance is two independent paths into one state. A whole material goes on with one route, and every field is then read back through the per-field accessors -- routes the apply never touched -- before the extractor is asked for the material again and CNA's own equality compares it with what went on. The per-field setters then move the same state, which is what makes those two paths two rather than one. A fresh effect starts at exactly the material's own defaults, which is what makes them one type. Per-slot state is asserted to land in its own slot: a coordinate set and a transform written to the normal slot arrive there and the base-colour slot keeps its own, and an sRGB flag cleared on one slot leaves the others set. The skinned effect carries the same material and its own skeleton: four bone weights per vertex by default, a translation and a scale that survive the round trip, identity that stays identity, and a request for fewer bones than were set answering with that many. On a windowed renderer both are real compiled effects with named techniques whose passes execute, which HEADLESS constructs and refuses. The texture slots are upstream finding 19 and are asserted as measured rather than as documented",
+      "evidence": "on the windowed OPENGLES3 build both effects are compiled effects with named techniques whose pass applies. Every field written through the per-field accessors reads back through CNA with a value that differs from its default; a texture slot starts empty, holds exactly the texture set into it and no other slot, and clears to empty; the skinned effect keeps its weights per vertex and reads back the bone transforms written, translation included. ABI 0.30 removed the whole-material apply/extract routes, so the per-field and per-slot routes are the only surface.",
       "proof": [
         "route:cna_pbr_effect_create",
         "route:cna_skinned_pbr_effect_create",
-        "route:cna_pbr_effect_apply_material",
-        "route:cna_pbr_effect_extract_material",
-        "route:cna_skinned_pbr_effect_apply_material",
-        "route:cna_skinned_pbr_effect_extract_material",
         "route:cna_pbr_effect_set_metallic_factor",
-        "route:cna_pbr_effect_get_texture_transform_ext",
         "route:cna_pbr_effect_set_texture_coordinate_set_ext",
-        "route:cna_pbr_effect_set_texture_is_srgb_ext",
         "route:cna_pbr_effect_get_texture",
         "route:cna_pbr_effect_set_texture",
         "route:cna_skinned_pbr_effect_set_bone_transforms",
-        "route:cna_skinned_pbr_effect_copy_bone_transforms",
-        "test:test/native-cna.integration.mjs",
         "test:test/windowed-renderer.integration.mjs"
-      ]
-    },
-    {
-      "operation": "The rest of the post-process passes: tonemapping, depth of field, lens flare, motion blur, chromatic aberration and film grain",
-      "category": "VERIFIED_NATIVE",
-      "owner": "cna-ts/extensions/graphics",
-      "evidence": "every pass is checked against something that is not the pass. The tonemapper is the clearest case: CNA ships the curve twice, once as the shader and once as cna_tonemap_pass_tonemap_channel on the CPU, and the headless suite first pins that CPU route to the published closed forms -- Reinhard is exactly v/(1+v), ACES is the Narkowicz fit, None is a clamp not a curve, exposure multiplies before the curve and gamma raises after it -- and the windowed suite then predicts every channel of every texel of a drawn frame through it, at five different settings that produce five different frames. Bloom's extraction is a soft knee, not the subtraction its comment used to claim: measured at (0.8, 0.8) it returns 0.2, a quarter of the channel, and the headless test now predicts the whole ramp from the knee's shape and checks monotonicity in both value and threshold. Depth of field's circle of confusion is checked against the thin-lens equation written out in the test, at five lens settings: it is zero at the focus distance, symmetric about it, and opening two stops doubles it exactly. Each pass's own off switch is an exact identity on a real GPU -- a bloom of no intensity, a bloom whose threshold is above every channel, a flare of either, a blur of no strength, an aberration of no strength, grain of no intensity, and the layer's own blit -- eight of them, all byte-exact. Turned on, each must change the frame in the way its name means: a bloom only ever adds light, chromatic aberration moves red and blue and leaves green untouched at every texel, grain changes most of the frame by amounts that differ per texel rather than a constant offset, and FXAA leaves the smooth interior alone and touches the border it clamps at. The GLSL the layer hands out is never compared against a dialect: what is asserted is that each source is a real program, that the packed-depth SSAO variant is a different program from the plain one, and that the iridescence source is the function library it claims to be",
-      "proof": [
-        "route:cna_tonemap_pass_tonemap_channel",
-        "route:cna_tonemap_pass_set_mode",
-        "route:cna_tonemap_pass_set_exposure",
-        "route:cna_tonemap_pass_set_gamma",
-        "route:cna_bloom_pass_extract_channel",
-        "route:cna_depth_of_field_pass_create",
-        "route:cna_depth_of_field_pass_circle_of_confusion_millimetres",
-        "route:cna_depth_of_field_pass_set_focus_distance",
-        "route:cna_lens_flare_pass_create",
-        "route:cna_lens_flare_pass_set_intensity",
-        "route:cna_motion_blur_pass_create",
-        "route:cna_motion_blur_pass_set_strength",
-        "route:cna_chromatic_aberration_pass_create",
-        "route:cna_chromatic_aberration_pass_set_strength",
-        "route:cna_film_grain_pass_create",
-        "route:cna_film_grain_pass_set_intensity",
-        "route:cna_fullscreen_pass_draw",
-        "route:cna_thin_film_iridescence_evaluate",
-        "route:cna_thin_film_iridescence_copy_glsl",
-        "test:test/windowed-renderer.integration.mjs",
-        "test:test/native-cna.integration.mjs"
       ]
     },
     {
       "operation": "The retro effects: a CRT shader, an ASCII quantiser and a depth-quantising effect",
       "category": "VERIFIED_NATIVE",
       "owner": "cna-ts/extensions/graphics",
-      "evidence": "the CRT is drawn through the layer's own fullscreen pass over a flat grey source, so what comes back is the pattern the shader adds and nothing else. With all four parameters at zero it is a byte-exact copy, which is what makes each later change attributable. Scanlines darken alternate rows by exactly the intensity -- 200 becomes 100 at 0.5 and 150 at 0.25, on every texel of every second row, with the rows between untouched -- and a vignette is verified as radial rather than as recorded numbers: symmetric under both mirrors at all 64 texels, strictly brightening along the diagonal towards the centre, a corner below half the source and a centre above nine tenths of it. Every CRT parameter is written with a value that differs from the default it replaces, so a setter that did nothing is caught rather than agreeing with itself. The ASCII effect's grid is the source size over the cell size and never the destination's: a 32x24 source drawn into a rectangle four times its area gives 4x2 in 8x12 cells, 8x6 in 4x4 and 2x3 in 16x8, each checked against that division, and 0x0 before anything has been quantised. An AsciiPass lends its own effect, and writing a cell size through the borrow changes the pass's own. The depth effect is qualified as native state rather than pixels and says so: it quantises a depth input a colour blit does not supply, so its mode and dither round-trip through CNA and no picture is claimed",
+      "evidence": "the CRT is drawn as one full-screen SpriteBatch quad over a flat grey source, the use CNA documents for it, so what comes back is the pattern the shader adds and nothing else. With all four parameters at zero it is an exact copy; scanlines darken alternate rows by exactly the intensity (200 becomes 100 at 0.5 and 150 at 0.25 on every texel of every second row, the rows between untouched); a vignette is symmetric under both mirrors and strictly brightens towards the centre. Every CRT and depth-effect parameter round-trips through CNA with values that differ from their defaults, and both report a named technique. The ASCII effect's grid is the source size over the cell size whatever the destination rectangle, measured for three cell shapes, and its default cell and quantize mode are CNA's.",
       "proof": [
         "route:cna_crt_effect_create",
         "route:cna_crt_effect_set_scanline_intensity",
@@ -2024,103 +1279,9 @@
         "route:cna_ascii_post_process_effect_draw",
         "route:cna_ascii_post_process_effect_set_cell_size",
         "route:cna_ascii_post_process_effect_get_last_grid_dimensions",
-        "route:cna_ascii_pass_get_effect",
         "route:cna_depth_effect_create",
         "route:cna_depth_effect_set_mode",
         "route:cna_depth_effect_set_dither_mode",
-        "test:test/windowed-renderer.integration.mjs"
-      ]
-    },
-    {
-      "operation": "The shadow depth pass: casters rendered into a shadow map, and the depths read back",
-      "category": "VERIFIED_NATIVE",
-      "owner": "CNA-TS",
-      "evidence": "accepted on the depth texels a real pass produced on a windowed OPENGLES3 renderer under Xvfb, against a prediction the test computes rather than a measurement copied out of a run. The pass transform is cross-checked first: the light view-projection CNA reports for an open pass equals the product of ComputeLightView and ComputeLightProjection -- two pure routes that take the same light and scene box and touch no shadow map -- multiplied in the test itself, so three CNA routes and one local identity have to agree. Then the geometry: one asymmetric quad inside an asymmetric scene box, projected corner by corner through that matrix into texels and depth, and every prediction checked against the rendering. An empty pass leaves all 262144 texels at exactly 1.0; the occluder darkens exactly the predicted rectangle to within 1.5 texels on each edge and fills 98% of its area; the recorded depth is the projected depth to within 1e-5; two heights eight units apart differ by exactly the projection's depth scale times eight and cover identical texels; and the same draw outside Begin/End reaches none of the map, which is what shows End unbinding it. The two lent caster programs are told apart by what they rasterise -- the skinned one writes nothing from vertices carrying no bone weights -- because their handles cannot tell them apart: CNA hands out a fresh handle for every borrow. Borrows are counted: the map refuses destruction while one is outstanding, so each is taken once and returned before the map. Fifteen planted binding defects fail, including a dropped scene box, a negated light direction, an End that reports success without closing the pass, either caster getter wired to the other route, a depth texture re-borrowed on every read, and a Dispose that destroys the map before returning its borrows",
-      "proof": [
-        "route:cna_shadow_map_begin",
-        "route:cna_shadow_map_end",
-        "route:cna_shadow_map_apply_caster",
-        "route:cna_shadow_map_apply_skinned_caster",
-        "route:cna_shadow_map_get_caster_effect",
-        "route:cna_shadow_map_get_skinned_caster_effect",
-        "route:cna_shadow_map_get_shadow_texture",
-        "route:cna_graphics_device_supports_shadow_sampling_ext",
-        "test:test/windowed-renderer.integration.mjs"
-      ]
-    },
-    {
-      "operation": "The shadow-receiver contract: the lighting and shadow state an effect carries",
-      "category": "VERIFIED_NATIVE",
-      "owner": "cna-ts/extensions/graphics",
-      "evidence": "these are not properties of one class, because CNA hangs them off the Effect handle itself -- and that is shown rather than asserted: THREE effects give THREE different answers. A stock BasicEffect is a shadow receiver and NOT an image-based-light receiver; a PbrEffect is both; a ShaderEffect is neither and refuses every route with INVALID_ARGUMENT rather than accepting values nothing will read. Every documented default is checked field by field -- kind NONE, the origin, direction (0,-1,0), white, range 20, inner 0.35, outer 0.5, bias 0.004, no textures, zero cascades, four zero splits, no blend band, no debug tint -- and every one is exact except the transforms, which the header calls identity and which are ZERO matrices in all six places they appear. That is finding 23, and the implementation is the half that is right: its own comments say a defaulted C state must match a defaulted C++ one, where Matrix() is value-initialised to zeros. Asserted as measured, so making the documentation true by moving the code fails the test. The cascade array is a FIXED FOUR whatever the count says: two transforms given come back as two plus two defaults, a count of three with one transform given keeps the init's defaults in the other two rather than whatever the effect held before, and a fifth transform or a count outside the array is refused by name. Every setter writes a value different from the default it replaces, so one that never reached CNA is caught. The punctual light's two shadow textures come back as nothing WHATEVER was set -- the canonical structure holds raw pointers and this ABI will not invent a handle for a texture it does not track -- while every other field of the same structure round-trips, which is what makes that an asymmetry rather than a getter returning defaults. The image-based light's completeness test is checked from both sides: a light with no textures is not valid, and more mips do not make it so, because the textures are what is missing. Eleven planted binding defects were run: ten fail, and the survivor is recorded as equivalent under this ABI with the reason",
-      "proof": [
-        "route:cna_punctual_light_ext_init",
-        "route:cna_shadow_cascade_state_ext_init",
-        "route:cna_image_based_light_ext_init",
-        "route:cna_image_based_light_ext_is_valid",
-        "route:cna_effect_set_punctual_light_ext",
-        "route:cna_effect_get_punctual_light_ext",
-        "route:cna_effect_set_shadow_cascades_ext",
-        "route:cna_effect_get_shadow_cascades_ext",
-        "route:cna_effect_set_image_based_light_ext",
-        "route:cna_effect_get_image_based_light_ext",
-        "route:cna_effect_set_light_view_projection_ext",
-        "route:cna_effect_get_light_view_projection_ext",
-        "route:cna_effect_set_shadows_enabled_ext",
-        "route:cna_effect_is_shadows_enabled_ext",
-        "route:cna_effect_set_shadow_depth_bias_ext",
-        "route:cna_effect_get_shadow_depth_bias_ext",
-        "route:cna_effect_set_shadow_filter_radius_ext",
-        "route:cna_effect_get_shadow_filter_radius_ext",
-        "route:cna_effect_set_shadow_map_ext",
-        "route:cna_effect_get_shadow_map_ext",
-        "test:test/native-cna.integration.mjs"
-      ]
-    },
-    {
-      "operation": "The two engine-layer caches: render targets by shape, shader effects by name",
-      "category": "VERIFIED_NATIVE",
-      "owner": "cna-ts/extensions/graphics",
-      "evidence": "the pool's key is all FIVE arguments, each shown on its own to make a different target: size, surface format, depth format and slot, with the same five returning the one target the pool already holds. The non-square case is asked for deliberately, because a pool handed its size the wrong way round returns a transposed target that costs exactly the same bytes. The byte estimate is COLOUR ONLY -- 8x8 Color is 256 bytes, and adding a half-float target of the same size costs 512, so the estimate reads each entry's own format rather than assuming one; the depth buffers the targets also carry are not counted, which makes it a floor rather than the whole cost. On a windowed renderer the identity is proved by PIXELS rather than by counting: painted through one borrow and read back through a second borrow of the same key, while the neighbouring slot holds its own different colour. The factory's key is the NAME ALONE, and that is shown rather than described -- a second acquire under a cached name draws the CACHED shader even when handed different source, so a caller who edits a shader and keeps the name silently keeps the old one; the same edited source under a NEW name really does compile and really does draw, so the assertion is about the cache and not about a shader that never worked. The compile count survives Clear, because it counts compiles rather than entries, which is what makes it useful for noticing a name rebuilt every frame. Both caches LEND what they hold: reset, clear and destroy are all refused with INVALID_STATE while a borrow is outstanding and all succeed once every borrow is back, and the probe game destroying cleanly is itself the proof that every borrow was returned. A non-positive size is INVALID_ARGUMENT rather than INVALID_STATE, and an empty cache key is refused by this binding before CNA sees it. Ten planted binding defects fail and none survives",
-      "proof": [
-        "route:cna_render_target_pool_create",
-        "route:cna_render_target_pool_acquire",
-        "route:cna_render_target_pool_reset",
-        "route:cna_render_target_pool_get_target_count",
-        "route:cna_render_target_pool_get_estimated_bytes",
-        "route:cna_render_target_pool_destroy",
-        "route:cna_shader_effect_factory_create",
-        "route:cna_shader_effect_factory_acquire",
-        "route:cna_shader_effect_factory_contains",
-        "route:cna_shader_effect_factory_get_compile_count",
-        "route:cna_shader_effect_factory_clear",
-        "route:cna_shader_effect_factory_destroy",
-        "test:test/native-cna.integration.mjs",
-        "test:test/windowed-renderer.integration.mjs"
-      ]
-    },
-    {
-      "operation": "The volumetric and atmospheric screen-space passes: aerial perspective, height fog, light shafts and volumetric fog",
-      "category": "VERIFIED_NATIVE",
-      "owner": "cna-ts/extensions/graphics",
-      "evidence": "three of the four publish the arithmetic their shader runs as a pure C route, and that is where the acceptance is. Air mass is checked against Kasten-Young written out from the published formula at ten directions and distances -- one atmosphere straight up, about thirty-eight along the horizon, linear in distance until that ceiling, clamped at zero for a negative distance, and a zero-length direction treated as straight up rather than divided by. Transmittance is checked against Rayleigh per channel plus a grey Mie term at seven turbidities and air masses: no air takes nothing, blue is scattered hardest, and more aerosol takes more light while narrowing the spread between channels, which is why haze washes colour out rather than tinting it. Height fog's optical depth is the closed form of the integral the shader marches, checked at ten configurations and in all three of its branches: no fog at all, a level ray that accumulates linearly, and a climbing ray that converges while a descending one runs away. Moving the layer up with the camera puts the answer back exactly. On a windowed renderer each pass's own off setting is a byte-exact copy -- five of them -- and turned on, the fog moves every texel monotonically towards its own colour and never past it, a descending camera gathers more than a level one at the same density, and enough density gives exactly the fog colour. Eight planted binding defects fail and none survives",
-      "proof": [
-        "route:cna_aerial_perspective_pass_create",
-        "route:cna_aerial_perspective_pass_air_mass_for_distance",
-        "route:cna_aerial_perspective_pass_transmittance",
-        "route:cna_aerial_perspective_pass_set_turbidity",
-        "route:cna_aerial_perspective_pass_set_scale_height",
-        "route:cna_height_fog_pass_create",
-        "route:cna_height_fog_pass_optical_depth",
-        "route:cna_height_fog_pass_set_density",
-        "route:cna_height_fog_pass_set_color",
-        "route:cna_light_shaft_pass_create",
-        "route:cna_light_shaft_pass_set_light_screen_position",
-        "route:cna_light_shaft_pass_set_intensity",
-        "route:cna_volumetric_fog_pass_create",
-        "route:cna_volumetric_fog_pass_set_light",
-        "route:cna_volumetric_fog_pass_set_anisotropy",
-        "test:test/native-cna.integration.mjs",
         "test:test/windowed-renderer.integration.mjs"
       ]
     },
@@ -2131,36 +1292,6 @@
       "evidence": "qualified integration reads package.json through the CNA title-storage count/copy route; CNA-TS rejects absolute/traversal host paths and default ContentManager appends RootDirectory plus .xnb",
       "proof": [
         "route:cna_title_container_read_ext"
-      ]
-    },
-    {
-      "operation": "Transparency: the back-to-front draw list, and the weighted-blended resolve that needs no order at all",
-      "category": "VERIFIED_NATIVE",
-      "owner": "cna-ts/extensions/graphics",
-      "evidence": "the sorted list is a pure CPU object, so the whole ordering is qualified without a renderer. The camera a view matrix implies is checked against this package's own Matrix.Invert on six views including two with a scale in them -- and the rigid-view shortcut, written out in the test, is shown to disagree on the scaled ones and to agree on the rigid ones, so the scaled cases are the assertion they claim to be. The sort key is the distance to the NEAREST POINT of the box, checked against a float clamp-into-box reference on seven boxes and pinned at the three places it differs from the mistakes it is confused with: a camera inside the box sorts at zero, a box off two axes is measured to its corner, and a large shell around the camera sorts at zero rather than at its half-diagonal. The order is farthest-first and STABLE: two draws at the same distance keep submission order, asserted against a stable descending sort written out in the test rather than borrowed, repeated eight times, and shown to change with the camera. DrawSorted runs the callbacks in exactly that order, and a callback that throws stops the draw where it failed, propagates its own exception object rather than a wrapper, and leaves the list usable. The OIT weight is McGuire and Bavoil's, predicted in float in CNA's own order over seventeen cases: the ceiling is taken exactly at the eye, the depth clamp makes everything past the far plane weigh the same, alpha is a linear factor, the curve decreases across 200 samples, and the published lower clamp is shown to be UNREACHABLE once z is clamped to one -- recorded rather than asserted live. A zero far plane is guarded rather than dividing by zero. The bracket opens on EVERY renderer including one that cannot resolve, which is CNA's corrected behaviour and the opposite of what its header still documents (finding 21); the state machine refuses a second Begin, a resize under itself and a resolve while accumulating, each with the result code that names the kind of mistake. On a windowed renderer both lent targets are half-float, the same shape, resize together, and read back as HalfVector4 zeros; an empty resolve then DISCARDS rather than blending a zero contribution, leaving the target exactly as it was cleared -- measured inside one binding, because binding a render target discards what it held and an earlier clear would have been gone. The accumulation half is qualified to the pixel through a custom shader calling cnaOitEmit: two overlapping layers at very different depths accumulate exactly what McGuire and Bavoil's weight predicts on the CPU, the revealage target holds the SUM of the logs rather than the product of the transmissions, and the resolve divides them into the near layer's own colour at three quarters coverage -- 64,128,255,191, predicted channel by channel and matched exactly. Eleven planted binding defects fail and none survives",
-      "proof": [
-        "route:cna_transparent_draw_list_create",
-        "route:cna_transparent_draw_list_submit",
-        "route:cna_transparent_draw_list_draw_sorted",
-        "route:cna_transparent_draw_list_copy_sorted_order_ext",
-        "route:cna_transparent_draw_list_sort_key",
-        "route:cna_transparent_draw_list_camera_position_of",
-        "route:cna_transparent_draw_list_get_count",
-        "route:cna_transparent_draw_list_clear",
-        "route:cna_weighted_blended_transparency_create",
-        "route:cna_weighted_blended_transparency_is_supported",
-        "route:cna_weighted_blended_transparency_copy_unsupported_reason",
-        "route:cna_weighted_blended_transparency_begin",
-        "route:cna_weighted_blended_transparency_end",
-        "route:cna_weighted_blended_transparency_resolve",
-        "route:cna_weighted_blended_transparency_resize",
-        "route:cna_weighted_blended_transparency_is_accumulating",
-        "route:cna_weighted_blended_transparency_get_accumulation_texture_ext",
-        "route:cna_weighted_blended_transparency_get_revealage_texture_ext",
-        "route:cna_weighted_blended_transparency_weight",
-        "route:cna_weighted_blended_transparency_copy_accumulation_glsl",
-        "test:test/native-cna.integration.mjs",
-        "test:test/windowed-renderer.integration.mjs"
       ]
     },
     {
@@ -2553,28 +1684,18 @@
       ]
     },
     {
-      "operation": "CNA's extended graphics layer over WebAssembly: the post-process family, its chain, and the instancing stream's layout",
+      "operation": "CNA's graphics extensions over WebAssembly: every public extension class, and the ASCII quantizer's texels",
       "category": "VERIFIED_WEBASSEMBLY",
       "owner": "cna-ts/extensions/graphics",
-      "evidence": "Available only on an artifact built with CNA_CNAEXT=ON; the default artifact compiles the layer out, cna_graphics_ext_is_available answers false, and every route answers CNA_RESULT_NOT_SUPPORTED. One family of the layer's 857 routes is bound and the rest of the 603-member interface refuses by name. On a strong artifact, headless Chromium on WebGL2 parses a size-2 .cube whose transfer is the channel rotation (r,g,b) -> (b,r,g), reads all eight entries back out of CNA, builds it as a 4x2 strip and a 2x2x2 volume, and grades a 4x4 gradient through both -- every texel predicted arithmetically rather than recorded, with the blit as the identity control and half/zero strength as the lerp endpoints. The chain composes the same rotation with itself, which is the assertion it exists for: one pass gives (b,r,g) and two give (g,b,r), a third distinct permutation, so a chain that ran one pass -- or ran both and discarded the intermediate -- lands somewhere else. GPU timing is asked for and refused on this WebGL2 context, and the refusal is read back through the getter rather than assumed. AddOwned is refused by name: CNA's owned transfer leaks a runtime counter that then refuses every later cna_game_destroy (upstream finding 1), and a page whose game cannot be destroyed is worse than a named refusal. The instancing stream's two declarations are also read -- four Vector4 elements at TextureCoordinate usage indices one through four filling a 64-byte stride, and one Color at Color index one in four bytes -- asserted against the declaration CNA's own header documents rather than against a recorded run. The renderer itself is not reachable in a browser: it draws a ModelMeshPart, and native model mesh parts arrive through a native content manager this package deliberately does not have, so the layout is the part a page building its own instance buffer needs and the part that can be qualified. The rest of the post-process family is bound beside the colour grade: the blit, the tonemapper, bloom, FXAA, chromatic aberration and film grain. The tonemapper is checked by CNA against itself -- its rendered texels against cna_tonemap_pass_tonemap_channel, a pure scalar of the same arithmetic its shader does, for every channel of every source texel and in two modes that must disagree with each other. Bloom's bright pass is checked the same way against a soft-knee curve restated from BloomPass.cpp rather than pinned. The others assert that they ran, that their output differs from the blit's identity, and that their parameters round-trip -- including CNA's clamp of chromatic aberration to [0, 0.1], which a test that only ever set an in-range value would never find.",
+      "evidence": "on an artifact built with CNA_CNAEXT=ON, headless Chromium on WebGL2 constructs every public extension class -- the PBR and skinned PBR effects, the CRT and depth effects, the ASCII effect and the debug drawer -- reads every accessor and round-trips every settable one, and draws the ASCII quantizer over four uniform quadrants with every texel predicted from AsciiQuantizer.cpp: three dark quadrants exactly their cell background, the white one exactly its two named colours, the collapsed cell its average, and BlackWhite mode with no hue.",
       "proof": [
-        "wasmRoute:cna_fullscreen_pass_draw",
-        "wasmRoute:cna_post_process_pass_apply",
-        "wasmRoute:cna_color_grade_pass_create",
-        "wasmRoute:cna_color_grade_pass_set_lut",
-        "wasmRoute:cna_cube_lut_parse",
-        "wasmRoute:cna_cube_lut_create_volume_texture",
-        "test:test/wasm-browser-strong.mjs",
-        "wasmRoute:cna_post_process_chain_create",
-        "wasmRoute:cna_post_process_chain_add_pass",
-        "wasmRoute:cna_post_process_chain_apply",
-        "wasmRoute:cna_post_process_chain_get_pass_count",
-        "wasmRoute:cna_instanced_renderer_ext_copy_instance_elements",
-        "wasmRoute:cna_instanced_renderer_ext_get_instance_stride",
-        "wasmRoute:cna_tonemap_pass_create",
-        "wasmRoute:cna_tonemap_pass_tonemap_channel",
-        "wasmRoute:cna_bloom_pass_extract_channel",
-        "wasmRoute:cna_fxaa_pass_create"
+        "wasmRoute:cna_ascii_post_process_effect_create",
+        "wasmRoute:cna_ascii_post_process_effect_draw",
+        "wasmRoute:cna_crt_effect_create",
+        "wasmRoute:cna_depth_effect_create",
+        "wasmRoute:cna_pbr_effect_create",
+        "wasmRoute:cna_debug_draw_create",
+        "test:test/wasm-browser-strong.mjs"
       ]
     },
     {
@@ -2671,21 +1792,6 @@
       ]
     },
     {
-      "operation": "Level-of-detail selection over WebAssembly",
-      "category": "VERIFIED_WEBASSEMBLY",
-      "owner": "cna-ts/extensions/graphics",
-      "evidence": "Available only on an artifact built with CNA_CNAEXT=ON, and the one engine family bound whole rather than sliced: every route of it is arithmetic over thresholds and touches no device. Asserted in a browser by prediction rather than recognition -- the distance rule restated from LodGroupEXT.cpp, where the boundary is strict (upper_bound on value < MaxDistance) so a distance equal to a threshold has already moved on; hysteresis holding a settled level against a step back inside the margin and releasing it past one; and the screen-space projection computed from the radius, vertical field of view and viewport height CNA was given, agreeing to one part in ten thousand, halving with doubled distance, and answering the largest representable float at and behind the eye. Levels carry no ModelMeshPart in a browser, which CNA treats as a real state -- a level that deliberately draws nothing -- and separates from an empty group through selectLodIndex.",
-      "proof": [
-        "wasmRoute:cna_lod_group_ext_create",
-        "wasmRoute:cna_lod_group_ext_add_level",
-        "wasmRoute:cna_lod_group_ext_copy_levels",
-        "wasmRoute:cna_lod_group_ext_select_index",
-        "wasmRoute:cna_lod_group_ext_set_hysteresis",
-        "wasmRoute:cna_lod_group_ext_projected_radius_pixels",
-        "test:test/wasm-browser.mjs"
-      ]
-    },
-    {
       "operation": "Modern CNA runtime services over WebAssembly",
       "category": "VERIFIED_WEBASSEMBLY",
       "owner": "cna-ts/extensions/runtime",
@@ -2695,23 +1801,6 @@
         "wasmRoute:cna_graphics_renderer_try_parse_name_ext",
         "wasmRoute:cna_graphics_renderer_copy_available_ext",
         "test:test/wasm-browser.mjs"
-      ]
-    },
-    {
-      "operation": "Shadow maps over WebAssembly: the rigid casting pass and the light transforms",
-      "category": "VERIFIED_WEBASSEMBLY",
-      "owner": "cna-ts/extensions/graphics",
-      "evidence": "Available only on an artifact built with CNA_CNAEXT=ON; the default artifact refuses a ShadowMap with CNA_RESULT_NOT_SUPPORTED. The device was asked rather than assumed and answered yes to both capabilities -- cna_shadow_map_is_supported and cna_graphics_device_supports_shadow_sampling_ext are true on a WebGL2 context in headless Chromium. A 512-texel Low map then clears to the far plane on an empty pass, records an occluder at two heights covering 48,960 identical texels with depths 0.625 and 0.875, refuses a draw made outside Begin/End, and refuses End without Begin, ApplyCaster outside a pass and a second Begin. Every texel extent and depth is predicted from the light view-projection CNA reported for the pass -- and that matrix is cross-checked against the product of the two pure maths routes, so three CNA routes and one local identity have to agree. The skinned caster is not bound: it takes a bone palette, and skinned meshes arrive through a native content manager this package deliberately does not have.",
-      "proof": [
-        "wasmRoute:cna_shadow_map_create",
-        "wasmRoute:cna_shadow_map_begin",
-        "wasmRoute:cna_shadow_map_apply_caster",
-        "wasmRoute:cna_shadow_map_end",
-        "wasmRoute:cna_shadow_map_get_shadow_texture",
-        "wasmRoute:cna_shadow_map_get_light_view_projection",
-        "wasmRoute:cna_shadow_map_compute_light_view",
-        "wasmRoute:cna_graphics_device_supports_shadow_sampling_ext",
-        "test:test/wasm-browser-strong.mjs"
       ]
     },
     {

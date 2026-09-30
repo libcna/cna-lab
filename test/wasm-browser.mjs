@@ -13,21 +13,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { browserBlocked, runFrames } from "./support/browser-harness.mjs";
-import { assertColourGradeEvidence } from "./support/colour-grade-oracle.mjs";
-import {
-  assertParticleEvidence, assertParticleSimulationOracle,
-} from "./support/particle-oracle.mjs";
-import { assertEngineArithmeticEvidence } from "./support/engine-arithmetic-oracle.mjs";
-import {
-  assertEngineCensus, assertNestedStructures, assertStructureFields,
-} from "./support/engine-census-oracle.mjs";
-import { assertPostProcessEvidence } from "./support/post-process-oracle.mjs";
-import { assertShadowVariantEvidence } from "./support/shadow-variant-oracle.mjs";
-import {
-  assertDecalState, assertPrepassMaths, assertPrepassState, multipleRenderTargetsDraw,
-} from "./support/prepass-decal-oracle.mjs";
-import { assertLodEvidence } from "./support/lod-oracle.mjs";
-import { assertShadowPassEvidence } from "./support/shadow-oracle.mjs";
+import { assertAsciiEvidence, assertExtensionCensus } from "./support/extension-oracle.mjs";
 import { assertCompiledEffectEvidence } from "./support/compiled-effect-oracle.mjs";
 
 const skip = browserBlocked;
@@ -444,7 +430,7 @@ test("the browser artifact is asked whether it can run a compiled effect, and an
   const compiled = result.compiledEffect;
   assert.ok(compiled, "no compiled-effect evidence was produced");
   if (compiled.fixture !== "present") {
-    // Only reachable without a `cnanext` checkout to take the bytes from. Said out loud rather
+    // Only reachable without a CNA checkout to take the bytes from. Said out loud rather
     // than passed over, because a fixture that quietly went missing would look like a pass.
     assert.equal(compiled.fixture, "absent");
     console.log("CNA_TS_WASM_COMPILED_EFFECT=NO_FIXTURE");
@@ -489,201 +475,6 @@ test("the browser artifact is asked whether it can run a compiled effect, and an
   assert.deepEqual(consoleErrors, []);
 });
 
-test("the browser artifact is asked whether it has CNA's engine layer, and answers", { skip }, async () => {
-  const { result, consoleErrors } = await runFrames(60);
-  assert.equal(result.status, "ok", result.error ?? "");
-  const grade = result.colourGrade;
-  assert.ok(grade, "no extended-graphics evidence was produced");
-
-  // The same shape as the compiled-effect test above, and for the same reason. Whether CNA's
-  // extended graphics layer is in the artifact is a `-DCNA_CNAEXT` decision a consumer makes when
-  // they build it, so both answers are asserted rather than one of them pinned. Before this slice
-  // existed the question could not be reached at all: the WebAssembly backend had no
-  // `GraphicsExtensions` object, so every public engine API failed with a message about the
-  // *binding* rather than about the artifact.
-  assert.equal(typeof grade.layerAbsent, "boolean", `unexpected shape: ${JSON.stringify(grade)}`);
-
-  if (grade.layerAbsent) {
-    // CNA's own NOT_SUPPORTED, and the second route agreeing with it: a refusal that came from the
-    // binding would not have moved `IsGraphicsExtensionLayerAvailable` at all.
-    assert.equal(grade.cnaResult, 6, `CNA's own NOT_SUPPORTED: ${grade.error}`);
-    assert.equal(grade.extensionLayer, false, "and the availability query agrees");
-    console.log("CNA_TS_WASM_ENGINE_LAYER=ABSENT_FROM_ARTIFACT capability=false");
-  } else {
-    assertColourGradeEvidence(grade);
-    console.log(
-      `CNA_TS_WASM_ENGINE_LAYER=PRESENT COLOUR_GRADE=${grade.lut.title} SIZE=${grade.lut.size}`,
-    );
-  }
-  assert.deepEqual(consoleErrors, []);
-});
-
-test("the rest of the post-process family answers, or says the layer is absent", { skip }, async () => {
-  const { result, consoleErrors } = await runFrames(60);
-  assert.equal(result.status, "ok", result.error ?? "");
-  const postProcess = result.postProcess;
-  assert.ok(postProcess, "no post-process evidence was produced");
-  assert.equal(typeof postProcess.layerAbsent, "boolean");
-
-  if (postProcess.layerAbsent) {
-    assert.equal(postProcess.cnaResult, 6, `CNA's own NOT_SUPPORTED: ${postProcess.error}`);
-    console.log("CNA_TS_WASM_POST_PROCESS=ABSENT_FROM_ARTIFACT");
-    assert.deepEqual(consoleErrors, []);
-    return;
-  }
-  // The same oracle the strong suite applies, and deliberately so: a suite that asserted less here
-  // than there is the gap a planted LOD stride survived through last time. `expectSupported` is
-  // the one thing that differs, because whether a *particular* pass runs is the device's answer
-  // and the ordinary suite records it rather than requiring it.
-  assertPostProcessEvidence(postProcess, { expectSupported: false });
-  const supported = Object.entries(postProcess.passes)
-    .filter(([, pass]) => pass.supported).map(([name]) => name);
-  console.log(
-    `CNA_TS_WASM_POST_PROCESS=PRESENT PASSES=${Object.keys(postProcess.passes).length} ` +
-    `SUPPORTED=${supported.length} ASCII_GRID=${postProcess.ascii.colour.grid.join("x")}`,
-  );
-  assert.deepEqual(consoleErrors, []);
-});
-
-test("particles draw where the camera puts them, or say the layer is absent", { skip }, async () => {
-  const { result, consoleErrors } = await runFrames(60);
-  assert.equal(result.status, "ok", result.error ?? "");
-  const particles = result.particles;
-  assert.ok(particles, "no particle evidence was produced");
-  assert.equal(typeof particles.layerAbsent, "boolean");
-  if (particles.layerAbsent) {
-    assert.equal(particles.cnaResult, 6, `CNA's own NOT_SUPPORTED: ${particles.error}`);
-    console.log("CNA_TS_WASM_PARTICLES=ABSENT_FROM_ARTIFACT");
-    assert.deepEqual(consoleErrors, []);
-    return;
-  }
-  assertParticleEvidence(particles);
-  assertParticleSimulationOracle(particles.simulation);
-  console.log(
-    `CNA_TS_WASM_PARTICLES=DRAWN BLOBS=${particles.straightOn.blobs.length} ` +
-    `ACTIVE=${particles.counts.near}`,
-  );
-  assert.deepEqual(consoleErrors, []);
-});
-
-test("the depth/normal prepass answers, or says the layer is absent", { skip }, async () => {
-  const { result, consoleErrors } = await runFrames(60);
-  assert.equal(result.status, "ok", result.error ?? "");
-  const prepass = result.prepass;
-  assert.ok(prepass, "no prepass evidence was produced");
-  assert.equal(typeof prepass.layerAbsent, "boolean");
-  if (prepass.layerAbsent) {
-    assert.equal(prepass.cnaResult, 6, `CNA's own NOT_SUPPORTED: ${prepass.error}`);
-    console.log("CNA_TS_WASM_PREPASS=ABSENT_FROM_ARTIFACT");
-    assert.deepEqual(consoleErrors, []);
-    return;
-  }
-  assert.equal(prepass.evidenceError ?? null, null, prepass.evidenceStack ?? "");
-  // The same oracle the strong suite applies to the same three things.
-  assertPrepassMaths(prepass.maths);
-  assertPrepassState(prepass.prepass, { width: prepass.width, height: prepass.height });
-  assertDecalState(prepass.decalDefaults);
-  const draws = multipleRenderTargetsDraw(prepass.multipleTargetProbe);
-  console.log(
-    `CNA_TS_WASM_PREPASS=PRESENT MULTIPLE_TARGET_DRAW=${draws ? "YES" : "NO_FINDING_30"} ` +
-    `RASTERISED=${prepass.rasterised.count} PREPASS_OCCUPIED=${prepass.prepassOccupied.count}`,
-  );
-  assert.deepEqual(consoleErrors, []);
-});
-
-test("every public engine class constructs, or CNA refuses it by name", { skip }, async () => {
-  const { result, consoleErrors } = await runFrames(60);
-  assert.equal(result.status, "ok", result.error ?? "");
-  const census = result.engineCensus;
-  assert.ok(census, "no engine census was produced");
-  // Against an artifact with no engine layer every class is refused with CNA's NOT_SUPPORTED,
-  // which is the same code the compute-dependent ones give on the strong artifact -- so the
-  // ordinary suite records the split rather than requiring one.
-  const totals = assertEngineCensus(census, { computeOnly: false });
-  console.log(
-    `CNA_TS_WASM_ENGINE_CENSUS=CLASSES=${totals.classes} CONSTRUCTED=` +
-    `${totals.classes - totals.refused} REFUSED_BY_CNA=${totals.refused} READ=${totals.read}`,
-  );
-  assert.deepEqual(consoleErrors, []);
-});
-
-test("nested structures survive whole, or CNA says the layer is absent", { skip }, async () => {
-  const { result, consoleErrors } = await runFrames(60);
-  assert.equal(result.status, "ok", result.error ?? "");
-  const fields = result.structureFields;
-  const nested = result.nestedStructures;
-  assert.ok(fields, "no structure-field evidence was produced");
-  assert.ok(nested, "no nested-structure evidence was produced");
-
-  // Which artifact this is decides which of the two answers is the truthful one, and the page
-  // records both. On an artifact with the extended layer the structures must survive; on one
-  // without it every route here is refused, and what this suite requires is that the refusal is
-  // CNA's own -- by name and by result code -- rather than the binding declining to try.
-  if (fields.evidenceError == null && nested.gltfError == null) {
-    const fieldTotals = assertStructureFields(fields);
-    const nestedTotals = assertNestedStructures(nested);
-    console.log(
-      `CNA_TS_WASM_STRUCTURE_FIELDS=PRESENT FIELDS_ASKED=${fieldTotals.fields} ` +
-      `BOUNDS_CULLED=${nestedTotals.boundsTested} SLOT_READS=${nestedTotals.slotsTested}`,
-    );
-  } else {
-    for (const [name, message] of [
-      ["structure fields", fields.evidenceError],
-      ["glTF source", nested.gltfError],
-      ["frustum culler", nested.cullerError],
-      ["texture slots", nested.slotError],
-      ["cascade state", nested.cascadeError],
-    ]) {
-      if (message == null) continue;
-      assert.match(
-        message, /extended graphics layer|not supported/i,
-        `${name} must be refused in CNA's own words, not the binding's: ${message}`,
-      );
-    }
-    console.log("CNA_TS_WASM_STRUCTURE_FIELDS=ABSENT REFUSED_BY=CNA");
-  }
-  assert.deepEqual(consoleErrors, []);
-});
-
-test("the sky, light probes and clustered lighting answer, or say the layer is absent", { skip }, async () => {
-  const { result, consoleErrors } = await runFrames(60);
-  assert.equal(result.status, "ok", result.error ?? "");
-  const engine = result.engineArithmetic;
-  assert.ok(engine, "no engine-arithmetic evidence was produced");
-  assert.equal(typeof engine.layerAbsent, "boolean");
-  if (engine.layerAbsent) {
-    assert.equal(engine.cnaResult, 6, `CNA's own NOT_SUPPORTED: ${engine.error}`);
-    console.log("CNA_TS_WASM_ENGINE_ARITHMETIC=ABSENT_FROM_ARTIFACT");
-    assert.deepEqual(consoleErrors, []);
-    return;
-  }
-  assertEngineArithmeticEvidence(engine);
-  console.log(
-    `CNA_TS_WASM_ENGINE_ARITHMETIC=PRESENT SKY=${engine.sky.supported} ` +
-    `BAKER=${engine.baker.supported} CLUSTERS=${engine.grid.tiles[3]}`,
-  );
-  assert.deepEqual(consoleErrors, []);
-});
-
-test("the spot, cube and cascaded shadow maps answer, or say the layer is absent", { skip }, async () => {
-  const { result, consoleErrors } = await runFrames(60);
-  assert.equal(result.status, "ok", result.error ?? "");
-  const variants = result.shadowVariants;
-  assert.ok(variants, "no shadow-variant evidence was produced");
-  assert.equal(typeof variants.layerAbsent, "boolean");
-  if (variants.layerAbsent) {
-    assert.equal(variants.cnaResult, 6, `CNA's own NOT_SUPPORTED: ${variants.error}`);
-    console.log("CNA_TS_WASM_SHADOW_VARIANTS=ABSENT_FROM_ARTIFACT");
-    assert.deepEqual(consoleErrors, []);
-    return;
-  }
-  assertShadowVariantEvidence(variants);
-  console.log(
-    `CNA_TS_WASM_SHADOW_VARIANTS=PRESENT CASCADES=${variants.sizes.cascadeCount} CUBE_FACES=6`,
-  );
-  assert.deepEqual(consoleErrors, []);
-});
-
 test("a browser can ask its device what it supports, and the answers are the device's", { skip }, async () => {
   const { result, consoleErrors } = await runFrames(60);
   assert.equal(result.status, "ok", result.error ?? "");
@@ -718,129 +509,27 @@ test("a browser can ask its device what it supports, and the answers are the dev
   assert.deepEqual(consoleErrors, []);
 });
 
-test("a browser asks what its device can do with a shadow map, and answers", { skip }, async () => {
+test("the browser artifact is asked whether it has CNA's extension layer, and answers", { skip }, async () => {
   const { result, consoleErrors } = await runFrames(60);
   assert.equal(result.status, "ok", result.error ?? "");
-  const shadows = result.shadows;
-  assert.ok(shadows, "no shadow evidence was produced");
-
-  if (shadows.layerAbsent) {
-    // The default artifact, where the engine layer is compiled out entirely.
-    assert.equal(shadows.cnaResult, 6, `CNA's own NOT_SUPPORTED: ${shadows.error}`);
-    console.log("CNA_TS_WASM_SHADOWS=NO_ENGINE_LAYER");
-    return;
+  const census = result.engineCensus;
+  assert.ok(census, "no extension census was produced");
+  // Whether the layer is in the artifact is a `-DCNA_CNAEXT` decision a consumer makes when they
+  // build it, so both answers are asserted rather than one pinned -- but a refusal must be CNA's.
+  const present = result.extensions?.graphicsExtensionLayer === true;
+  const totals = assertExtensionCensus(census, { requireAll: present });
+  const ascii = result.asciiEffect;
+  assert.ok(ascii, "no ASCII evidence was produced");
+  if (present) {
+    assert.equal(ascii.error ?? null, null, `the ASCII effect failed on a layer that is present`);
+    assertAsciiEvidence(ascii);
+    console.log(
+      `CNA_TS_WASM_EXTENSIONS=PRESENT CLASSES=${totals.classes} READ=${totals.read} ` +
+      `ASCII=TEXEL_EXACT`,
+    );
+  } else {
+    assert.equal(ascii.cnaResult, 6, `CNA's own NOT_SUPPORTED: ${ascii.error}`);
+    console.log(`CNA_TS_WASM_EXTENSIONS=ABSENT_FROM_ARTIFACT REFUSED=${totals.refused}`);
   }
-  assert.equal(shadows.evidenceError ?? null, null, "the layer was present and the probe failed");
-
-  // The maths first, because it is the same arithmetic on every renderer and does not depend on
-  // what this context can cast. A light pointing straight down at a scene box asymmetric on all
-  // three axes: a transform that dropped a translation term or swapped an axis lands elsewhere.
-  assert.equal(shadows.math.view.length, 16);
-  assert.equal(shadows.math.projection.length, 16);
-  for (const value of [...shadows.math.view, ...shadows.math.projection]) {
-    assert.ok(Number.isFinite(value), `every component is a real number: ${value}`);
-  }
-  // What the transform has to *do*, rather than which component holds which sign -- the second is
-  // an axis convention this test would only be guessing at, and it guessed wrong once. XNA
-  // multiplies a row vector on the left, so this is v * M.
-  const transform = ([x, y, z], m) => [
-    x * m[0] + y * m[4] + z * m[8] + m[12],
-    x * m[1] + y * m[5] + z * m[9] + m[13],
-    x * m[2] + y * m[6] + z * m[10] + m[14],
-    x * m[3] + y * m[7] + z * m[11] + m[15],
-  ];
-  const MIN = [-10, -4, -6], MAX = [6, 12, 14];
-  const centre = MIN.map((low, axis) => (low + MAX[axis]) / 2);
-
-  // The defining property of a light view fitted to a scene: the scene's centre lands on the view
-  // axis. A dropped translation term or a swapped axis moves it off, by units rather than epsilon.
-  const centreInLight = transform(centre, shadows.math.view);
-  assert.ok(
-    Math.abs(centreInLight[0]) < 1e-3 && Math.abs(centreInLight[1]) < 1e-3,
-    `the scene centre lies on the light's view axis: ${centreInLight.join(",")}`,
-  );
-
-  // And the defining property of the projection fitted to those bounds: every corner of the box
-  // lands inside the unit cube in x and y, and none of them is comfortably inside -- the extreme
-  // corners touch the edges, which is what "fitted" means and what a projection ignoring the
-  // bounds would not do.
-  let widest = 0;
-  for (const x of [MIN[0], MAX[0]]) {
-    for (const y of [MIN[1], MAX[1]]) {
-      for (const z of [MIN[2], MAX[2]]) {
-        const clip = transform(transform([x, y, z], shadows.math.view), shadows.math.projection);
-        for (const axis of [0, 1]) {
-          assert.ok(
-            Math.abs(clip[axis]) <= 1 + 1e-3,
-            `corner ${x},${y},${z} lands inside the light's frustum: ${clip.join(",")}`,
-          );
-          widest = Math.max(widest, Math.abs(clip[axis]));
-        }
-      }
-    }
-  }
-  // Fitted, and fitted *tightly*: the extreme corners reach 0.998 of the way to the frustum edge,
-  // which for a 512-texel map is half a texel of margin on each side -- 1 - 1/512 is 0.998047 --
-  // and is CNA leaving room so a caster exactly on the boundary is not clipped. A projection that
-  // ignored the bounds, or padded them generously, would put this well under 0.99; one that
-  // clipped them would have failed the loop above.
-  assert.ok(
-    widest > 0.99 && widest <= 1,
-    `the box fills the light's frustum to within about half a texel: widest ${widest}`,
-  );
-  // An orthographic projection's last row ends in 1, which a perspective one does not.
-  assert.ok(
-    Math.abs(shadows.math.projection[15] - 1) < 1e-6,
-    "the light's projection is orthographic, as a directional light's must be",
-  );
-
-  // The quality table, which is CNA's and not this package's.
-  assert.deepEqual(
-    shadows.sizeForQuality, [512, 1024, 2048],
-    "Low, Medium and High are 512, 1024 and 2048 texels square",
-  );
-  assert.equal(shadows.size, shadows.sizeForQuality[0], "and a Low map is the Low size");
-  assert.equal(shadows.filterRadius, shadows.radiusForQuality[0]);
-  for (const radius of shadows.radiusForQuality) assert.ok(radius >= 0);
-  assert.ok(
-    Math.abs(shadows.depthBias.afterSet - 0.0125) < 1e-6,
-    `the depth bias round-trips through CNA: ${shadows.depthBias.afterSet}`,
-  );
-  assert.notEqual(
-    shadows.depthBias.afterSet, shadows.depthBias.initial,
-    "and the value written is not the one it already had, so the round trip is testable",
-  );
-
-  // And what the device says about casting. Both answers are legitimate and neither is assumed --
-  // a renderer can rasterise a depth pass it cannot then sample, so the two are asked separately.
-  assert.equal(typeof shadows.supported, "boolean");
-  assert.equal(typeof shadows.sampling, "boolean");
-  // Where it can cast, the whole pass is asserted against the transform CNA reported for it.
-  if (shadows.supported) assertShadowPassEvidence(shadows);
-  console.log(
-    `CNA_TS_WASM_SHADOWS=ENGINE_LAYER_PRESENT CASTING=${shadows.supported} ` +
-    `SAMPLING=${shadows.sampling} SIZE=${shadows.size}`,
-  );
-  assert.deepEqual(consoleErrors, []);
-});
-
-test("a browser selects levels of detail, and the arithmetic is exactly predictable", { skip }, async () => {
-  const { result, consoleErrors } = await runFrames(60);
-  assert.equal(result.status, "ok", result.error ?? "");
-  const lod = result.lod;
-  assert.ok(lod, "no level-of-detail evidence was produced");
-
-  if (lod.layerAbsent) {
-    assert.equal(lod.cnaResult, 6, `CNA's own NOT_SUPPORTED: ${lod.error}`);
-    console.log("CNA_TS_WASM_LOD=NO_ENGINE_LAYER");
-    return;
-  }
-  assert.equal(lod.evidenceError ?? null, null, "the layer was present and the probe failed");
-
-  assertLodEvidence(lod);
-  console.log(
-    `CNA_TS_WASM_LOD=COMPLETE LEVELS=${lod.count} MODES=distance,screen-space ` +
-    `HYSTERESIS=${lod.hysteresis.margin}`,
-  );
   assert.deepEqual(consoleErrors, []);
 });

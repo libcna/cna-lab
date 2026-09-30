@@ -19,6 +19,7 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { requiredSuite } from "./support/required-suite.mjs";
 import { preferTheDisplayWeWereGiven } from "./support/windowed-display.mjs";
 
@@ -37,7 +38,8 @@ const environmentBlocked = library
   ? (display ? null : "no DISPLAY; run this under xvfb-run or on a session with a screen")
   : "set CNA_WINDOWED_LIBRARY to a CNA library built with a windowed renderer";
 
-const cnaSource = path.resolve(process.env.CNA_SOURCE_PATH ?? "../../cnanext");
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const cnaSource = path.resolve(process.env.CNA_SOURCE_PATH ?? path.join(ROOT, "../cna"));
 const effectPath = (name) =>
   path.join(cnaSource, "modules/renderers/fna3d/effects", name);
 

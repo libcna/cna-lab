@@ -25,10 +25,10 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const AUDIT = path.join(ROOT, "tools/audit-cna-abi.mjs");
 const ARTIFACT_DIR = process.env.CNA_WASM_ARTIFACT_DIR
   ? path.resolve(process.env.CNA_WASM_ARTIFACT_DIR)
-  : path.resolve(ROOT, "../../cnanext/cmake-build-tswasm/modules/c-api");
+  : path.resolve(ROOT, "../cna/cmake-build-webgl2/modules/c-api");
 const CNA_ROOT = process.env.CNA_SOURCE_PATH
   ? path.resolve(process.env.CNA_SOURCE_PATH)
-  : path.resolve(ROOT, "../../cnanext");
+  : path.resolve(ROOT, "../cna");
 
 function blocked() {
   if (!fs.statSync(path.join(CNA_ROOT, "modules/c-api/include/CNA/C/cna.h"), { throwIfNoEntry: false })?.isFile()) {

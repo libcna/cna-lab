@@ -16,7 +16,7 @@ import {
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const CONTRACT = path.join(ROOT, "tools/cna-abi/contract.json");
-const CNA_ROOT = path.resolve(process.env.CNA_SOURCE_PATH ?? path.join(ROOT, "../../cnanext"));
+const CNA_ROOT = path.resolve(process.env.CNA_SOURCE_PATH ?? path.join(ROOT, "../cna"));
 const SOURCE_DIR = path.join(ROOT, "src");
 const headersPresent = fs
   .statSync(path.join(CNA_ROOT, "modules/c-api/include/CNA/C/cna.h"), { throwIfNoEntry: false })

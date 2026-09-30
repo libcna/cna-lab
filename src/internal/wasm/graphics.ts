@@ -400,10 +400,8 @@ export class WasmGraphicsBackend extends CnaGraphicsBackendBase {
 
   // --- the device state a draw is made under ----------------------------------------------------
   //
-  // Everything below this line was outside the first vertical slice, and the reason it is inside
-  // now is that the engine layer reached it: a skybox is a `TextureCube`, a colour-grade volume is
-  // a `Texture3D`, and a page that draws its own geometry sets its own blend, sampler and viewport
-  // state. `CNA_Rectangle` and `CNA_Viewport` are taken **by value**, which wasm32 lowers as a
+  // Everything below this line was outside the first vertical slice: a page that draws its own
+  // geometry sets its own blend, sampler and viewport state. `CNA_Rectangle` and `CNA_Viewport` are taken **by value**, which wasm32 lowers as a
   // pointer to a caller-owned copy -- the same convention `CNA_StringView` follows.
 
   public override getGraphicsDeviceStatus(device: NativeHandle): number {
@@ -590,7 +588,7 @@ export class WasmGraphicsBackend extends CnaGraphicsBackendBase {
     }
   }
 
-  // --- the two textures the engine layer needed -------------------------------------------------
+  // --- volume and cube textures ------------------------------------------------------------------
 
   public override createTexture3D(
     device: NativeHandle, width: number, height: number, depth: number,

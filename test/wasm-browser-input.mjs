@@ -36,7 +36,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const WASM_DIR = process.env.CNA_WASM_ARTIFACT_DIR
   ? path.resolve(process.env.CNA_WASM_ARTIFACT_DIR)
-  : path.join(ROOT, "../../cnanext/cmake-build-tswasm/modules/c-api");
+  : path.join(ROOT, "../cna/cmake-build-webgl2/modules/c-api");
 const PAGE = path.join(ROOT, "test/wasm/browser-input-page.html");
 const DIST = path.join(ROOT, "dist");
 

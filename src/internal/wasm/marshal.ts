@@ -1,11 +1,9 @@
 // SPDX-License-Identifier: MS-PL
 //
-// The small marshalling shapes the non-engine families share.
+// The small marshalling shapes the families share.
 //
-// Each of these is three lines, and each was about to be written for the eleventh time. That is
-// the argument for the file: eleven copies of "allocate four bytes, call, read byte zero" are
-// eleven chances to read the wrong width, and the engine layer already has a `CNA_StringView`
-// helper per module because they were written before there were enough of them to notice.
+// Each of these is three lines, and each was about to be written for the eleventh time: eleven
+// copies of "allocate four bytes, call, read byte zero" are eleven chances to read the wrong width.
 
 import { allocateStruct, type WasmRouteTable } from "./module.js";
 

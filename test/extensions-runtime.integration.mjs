@@ -126,21 +126,20 @@ test("the extended graphics layer answers with CNA's own defaults", async () => 
   const graphics = await import("../dist/extensions/graphics/index.js");
   // Pure value operations: CNA documents these as answering in either build, so they are what a
   // game can rely on before it knows whether the layer is compiled in.
-  const material = graphics.CreatePbrMaterial();
-  assert.ok(material.RoughnessFactor >= 0 && material.RoughnessFactor <= 1);
-  assert.ok(material.AlphaCutoff >= 0 && material.AlphaCutoff <= 1);
-  assert.equal(typeof material.AlphaBlendEnabled, "boolean");
-  assert.equal(material.AlbedoColor.A, 255, "the default albedo must be opaque");
-
-  const settings = graphics.CreateRenderPipelineSettings();
-  assert.ok(settings.Exposure > 0);
-  assert.ok(settings.Gamma > 1);
-  assert.ok(Object.values(graphics.TonemappingMode).includes(settings.TonemappingMode));
-  assert.ok(Object.values(graphics.RenderQuality).includes(settings.RenderQuality));
-  assert.ok(Object.values(graphics.ShadowQuality).includes(settings.ShadowQuality));
+  const light = graphics.ImageBasedLighting.DefaultLight();
+  assert.equal(light.PrefilteredMipCount, 1);
+  assert.equal(light.Intensity, 1);
+  assert.equal(graphics.ImageBasedLighting.IsLightValid(light), false, "a default light has no textures");
+  const transform = graphics.CreateTextureTransform();
+  assert.deepEqual(
+    [transform.Offset.X, transform.Offset.Y, transform.Scale.X, transform.Scale.Y, transform.Rotation],
+    [0, 0, 1, 1, 0],
+    "CNA's neutral texture transform",
+  );
 
   // Two calls must not share state: these are values, not a view onto one runtime object.
-  const second = graphics.CreateRenderPipelineSettings();
-  second.Exposure = settings.Exposure + 1;
-  assert.notEqual(settings.Exposure, second.Exposure);
+  const second = graphics.ImageBasedLighting.DefaultLight();
+  assert.notEqual(light, second);
+  assert.deepEqual(light, second);
 });
+

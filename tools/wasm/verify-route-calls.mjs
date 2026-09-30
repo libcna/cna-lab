@@ -19,7 +19,7 @@
  * The declaration is read from CNA's own headers, so this is the WebAssembly counterpart of the
  * signature verification `audit:cna-abi` already does for the Node-API bridge.
  *
- *   CNA_SOURCE_PATH=/path/to/cnanext node tools/wasm/verify-route-calls.mjs
+ *   CNA_SOURCE_PATH=/path/to/cna node tools/wasm/verify-route-calls.mjs
  */
 
 import fs from "node:fs";
@@ -31,7 +31,7 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..")
 const WASM_DIR = path.join(ROOT, "src/internal/wasm");
 const CNA_ROOT = process.env.CNA_SOURCE_PATH
   ? path.resolve(process.env.CNA_SOURCE_PATH)
-  : path.resolve(ROOT, "../../cnanext");
+  : path.resolve(ROOT, "../cna");
 const HEADER_DIR = path.join(CNA_ROOT, "modules/c-api/include/CNA/C");
 
 if (!fs.statSync(HEADER_DIR, { throwIfNoEntry: false })?.isDirectory()) {

@@ -18,172 +18,104 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-  assertEngineCensus, assertNestedStructures, assertStructureFields,
-} from "./support/engine-census-oracle.mjs";
+  EXTENSION_CLASSES, asciiCell, assertAsciiEvidence, assertExtensionCensus,
+} from "./support/extension-oracle.mjs";
 
 /** A census that should pass, which each case below then breaks in one place. */
 function census() {
   return {
-    rows: Array.from({ length: 25 }, (_, index) => ({
-      name: `Class${index}`,
-      constructed: true,
-      failures: [],
-      read: 4,
-      wrote: 1,
-      roundTripped: 1,
-    })).concat([
-      { name: "AutoExposure", constructed: false, cnaResult: 6, error: "no compute" },
-      { name: "StorageBuffer", constructed: false, cnaResult: 6, error: "no compute" },
-      { name: "StorageBufferTyped", constructed: false, cnaResult: 6, error: "no compute" },
-    ]),
+    rows: EXTENSION_CLASSES.map((name) => ({
+      name, constructed: true, failures: [], read: 4, wrote: 1, roundTripped: 1,
+    })),
   };
 }
 
-/** Structure-field evidence that should pass. */
-function fields() {
+/** ASCII evidence that should pass: what `AsciiQuantizer.cpp` predicts for the page's source. */
+function ascii() {
+  const N = 8;
+  const source = [[40, 0, 0], [0, 20, 0], [0, 0, 80], [255, 255, 255]];
+  const cells = source.map(asciiCell);
+  const frame = (cellSize, grid, texel) => ({
+    cellSize, grid,
+    pixels: Array.from({ length: N * N }, (_, index) => texel(index % N, Math.trunc(index / N))),
+  });
+  const colour = frame([4, 4], [2, 2], (x, y) => {
+    const quadrant = (y < 4 ? 0 : 2) + (x < 4 ? 0 : 1);
+    if (quadrant < 3) return cells[quadrant].background;
+    return (x + y) % 2 === 0 ? cells[3].foreground : cells[3].background;
+  });
+  const average = [0, 1, 2].map((channel) =>
+    Math.trunc(source.reduce((sum, q) => sum + q[channel] * 16, 0) / 64));
+  const collapsedCell = asciiCell(average);
   return {
-    defaults: {
-      alphaCutoff: 0.5, metallic: 1, roughness: 1,
-      coordinateSets: [0, 0, 0, 0, 0, 0, 0], transforms: 7,
-    },
-    equalsItself: true,
-    equalsFreshCopy: true,
-    hashOfCopiesAgree: true,
-    fields: Array.from({ length: 19 }, (_, index) => [`Field${index}`, false, false, false]),
-  };
-}
-
-/** Nested-structure evidence that should pass. */
-function nested() {
-  return {
-    gltfBaseColor: [1, 1, 1, 1],
-    gltfCoordinateSets: [0, 0, 0, 0, 0, 0, 0],
-    gltfTransformCount: 7,
-    gltfSlotCount: 7,
-    nearVisible: true,
-    farVisible: false,
-    farNegativeVisible: false,
-    emptySlot: "0",
-    filledSlotIsZero: false,
-    filledSlotIsPoison: false,
-    clearedSlot: "0",
-    cascadeState: {
-      count: 3,
-      blendBand: 0.375,
-      splitDistance: [4.5, 18.25, 60.125, 240.0625],
-      debugTint: true,
-      atlasTranslations: [[1, 2, 3], [2, 4, 6], [3, 6, 9], [4, 8, 12]],
-      cameraTranslation: [-7, -8, -9],
-    },
-    gpuCullerSupported: false,
-    gpuCullerReason: "this renderer has no compute shaders",
+    source,
+    mode: 1,
+    colour,
+    collapsed: frame([8, 8], [1, 1], () => collapsedCell.background),
+    oblong: frame([2, 4], [4, 2], () => [0, 0, 0, 255]),
+    blackWhiteMode: 0,
+    blackWhite: frame([4, 4], [2, 2], (x, y) => ((x + y) % 2 === 0 ? [255, 255, 255, 255] : [0, 0, 0, 255])),
   };
 }
 
 test("the oracles accept the evidence a working backend produces", () => {
-  const totals = assertEngineCensus(census());
-  assert.equal(totals.refused, 3);
-  assert.equal(assertStructureFields(fields()).fields, 19);
-  assert.equal(assertNestedStructures(nested()).cascades, 4);
+  const totals = assertExtensionCensus(census());
+  assert.equal(totals.classes, EXTENSION_CLASSES.length);
+  assert.equal(totals.refused, 0);
+  assertAsciiEvidence(ascii());
+});
+
+test("a default artifact's refusals are accepted when they are CNA's own", () => {
+  const refused = census();
+  for (const row of refused.rows) Object.assign(row, { constructed: false, cnaResult: 6, error: "no layer" });
+  assert.equal(assertExtensionCensus(refused, { requireAll: false }).refused, EXTENSION_CLASSES.length);
 });
 
 /**
  * One broken thing per case, and the oracle has to find it.
  *
- * Each entry names what a real binding defect would look like in the evidence — a field that never
- * reached CNA, an array read at the wrong stride, a class refused for the wrong reason.
+ * Each entry names what a real binding defect would look like in the evidence.
  */
 const CASES = [
-  ["a class that did not construct and is not compute-dependent", () => {
+  ["a class that did not construct on an artifact that has the layer", () => {
     const broken = census();
-    broken.rows[0].constructed = false;
-    broken.rows[0].cnaResult = 6;
-    return () => assertEngineCensus(broken);
+    Object.assign(broken.rows[0], { constructed: false, cnaResult: 6, error: "refused" });
+    return () => assertExtensionCensus(broken);
   }],
   ["a class refused by the binding rather than by CNA", () => {
     const broken = census();
-    broken.rows[25].cnaResult = 0;
-    return () => assertEngineCensus(broken);
+    Object.assign(broken.rows[2], { constructed: false, cnaResult: 0, error: "binding" });
+    return () => assertExtensionCensus(broken, { requireAll: false });
   }],
   ["an accessor that does not marshal", () => {
     const broken = census();
     broken.rows[3].failures = ["Width threw"];
-    return () => assertEngineCensus(broken);
+    return () => assertExtensionCensus(broken);
   }],
   ["a census that read nothing", () => {
     const broken = census();
     for (const row of broken.rows) row.read = 0;
-    return () => assertEngineCensus(broken);
+    return () => assertExtensionCensus(broken);
   }],
-  ["a census that wrote nothing", () => {
+  ["a census that skipped a class", () => {
     const broken = census();
-    for (const row of broken.rows) { row.wrote = 0; row.roundTripped = 0; }
-    return () => assertEngineCensus(broken);
+    broken.rows.pop();
+    return () => assertExtensionCensus(broken);
   }],
-  ["a field that does not reach CNA", () => {
-    const broken = fields();
-    broken.fields[7] = ["AlphaCutoff", true, true, true];
-    return () => assertStructureFields(broken);
+  ["an ASCII grid read with its axes swapped", () => {
+    const broken = ascii();
+    broken.oblong.grid = [2, 4];
+    return () => assertAsciiEvidence(broken);
   }],
-  ["a field that changes the material but not its hash", () => {
-    const broken = fields();
-    broken.fields[7] = ["AlphaCutoff", false, true, true];
-    return () => assertStructureFields(broken);
+  ["an ASCII dark cell that is not its background", () => {
+    const broken = ascii();
+    broken.colour.pixels[0] = [40, 0, 0, 255];
+    return () => assertAsciiEvidence(broken);
   }],
-  ["a material that does not equal itself", () => {
-    const broken = fields();
-    broken.equalsItself = false;
-    return () => assertStructureFields(broken);
-  }],
-  ["a texture-coordinate array read at the wrong stride", () => {
-    const broken = fields();
-    broken.defaults.coordinateSets = [0, 0, 0];
-    return () => assertStructureFields(broken);
-  }],
-  ["a Vector4 whose fourth component was dropped", () => {
-    const broken = nested();
-    broken.gltfBaseColor = [1, 1, 1, 0];
-    return () => assertNestedStructures(broken);
-  }],
-  ["a handle array walked at a pointer's stride", () => {
-    const broken = nested();
-    broken.gltfSlotCount = 13;
-    return () => assertNestedStructures(broken);
-  }],
-  ["a bounding box whose maximum was never written", () => {
-    const broken = nested();
-    broken.farVisible = true;
-    return () => assertNestedStructures(broken);
-  }],
-  ["a frustum test that answers false for everything", () => {
-    const broken = nested();
-    broken.nearVisible = false;
-    return () => assertNestedStructures(broken);
-  }],
-  ["a texture slot read without its presence flag", () => {
-    const broken = nested();
-    broken.emptySlot = String(0xDEADBEEFDEADBEEFn);
-    return () => assertNestedStructures(broken);
-  }],
-  ["a slot that reads back empty after being filled", () => {
-    const broken = nested();
-    broken.filledSlotIsZero = true;
-    return () => assertNestedStructures(broken);
-  }],
-  ["a matrix array read at a vector's stride", () => {
-    const broken = nested();
-    broken.cascadeState.atlasTranslations = [[1, 2, 3], [0, 0, 0], [0, 0, 0], [0, 0, 0]];
-    return () => assertNestedStructures(broken);
-  }],
-  ["split distances read only as far as the count", () => {
-    const broken = nested();
-    broken.cascadeState.splitDistance = [4.5, 18.25, 60.125, 0];
-    return () => assertNestedStructures(broken);
-  }],
-  ["a refusal that is not CNA's own", () => {
-    const broken = nested();
-    broken.gpuCullerReason = "not implemented in the WebAssembly backend";
-    return () => assertNestedStructures(broken);
+  ["a BlackWhite mode that kept the hue", () => {
+    const broken = ascii();
+    broken.blackWhite.pixels[0] = [255, 0, 0, 255];
+    return () => assertAsciiEvidence(broken);
   }],
 ];
 

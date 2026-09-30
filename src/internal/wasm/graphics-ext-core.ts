@@ -22,16 +22,9 @@ import { allocateStruct, WasmScope, type WasmRouteTable } from "./module.js";
 export const CNA_RESULT_BUFFER_TOO_SMALL = 14;
 
 /**
- * The output conventions, held rather than inherited.
- *
- * CNA's engine layer is not one backend interface but nine -- extended graphics, shadows, the
- * prepass, decals, particles, light probes, atmosphere, clustered lighting and the instanced
- * renderer -- and each of their WebAssembly facades has to extend its own generated base. So the
- * shared part cannot be a base class, and before this existed `shadows.ts` and `compute.ts` each
- * carried their own private copy of `#bool`, `#int` and `#float`. Three copies of "a `CNA_Bool` is
- * one byte in a four-byte allocation" is three chances to write it down differently.
- *
- * Every engine facade holds one of these instead.
+ * The output conventions, held rather than inherited: the extended-graphics and compute facades
+ * each extend their own generated base, so the shared part cannot be a base class. One copy of "a
+ * `CNA_Bool` is one byte in a four-byte allocation" instead of one per facade.
  */
 export class WasmEngineMemory {
   public readonly routes: WasmRouteTable;
@@ -58,18 +51,6 @@ export class WasmEngineMemory {
   /** A `float*` output. */
   public float(route: string, ...args: readonly (number | bigint)[]): number {
     return this.#scalar(route, args, 4, (view, out) => view.getFloat32(out, true));
-  }
-
-  /** A `uint64_t*` output read as a JavaScript number, for counts and sizes. */
-  public u64AsNumber(route: string, ...args: readonly (number | bigint)[]): number {
-    return this.#scalar(route, args, 8, (view, out) => Number(view.getBigUint64(out, true)));
-  }
-
-  /** A `CNA_Vector2` written into caller memory. */
-  public vector2(route: string, ...args: readonly (number | bigint)[]): Vector2Snapshot {
-    return this.#scalar(route, args, WASM_STRUCT_LAYOUTS.CNA_Vector2.size, (view, out) => ({
-      X: view.getFloat32(out, true), Y: view.getFloat32(out + 4, true),
-    }));
   }
 
   /** A `CNA_Vector3` written into caller memory. */
@@ -170,30 +151,6 @@ export class WasmEngineMemory {
     }
   }
 
-  /**
-   * Passes a `CNA_Color` by pointer.
-   *
-   * A four-byte multi-field aggregate taken by value, which wasm32 lowers the same way it lowers
-   * `CNA_StringView`: as a pointer to a caller-owned copy.
-   */
-  public withColor<T>(
-    texel: { readonly R: number; readonly G: number; readonly B: number; readonly A: number },
-    body: (pointer: number) => T,
-  ): T {
-    const scope = this.routes.scope();
-    try {
-      const pointer = scope.allocate(WASM_STRUCT_LAYOUTS.CNA_Color.size);
-      const bytes = this.routes.module.HEAPU8;
-      bytes[pointer] = texel.R & 0xff;
-      bytes[pointer + 1] = texel.G & 0xff;
-      bytes[pointer + 2] = texel.B & 0xff;
-      bytes[pointer + 3] = texel.A & 0xff;
-      return body(pointer);
-    } finally {
-      scope.dispose();
-    }
-  }
-
   /** A `CNA_BoundingBox` into a caller-owned scope: two `CNA_Vector3`s at their measured offsets. */
   public writeBounds(
     scope: WasmScope,
@@ -209,30 +166,6 @@ export class WasmEngineMemory {
       view.setFloat32(at + 8, value.Z, true);
     }
     return pointer;
-  }
-
-  /** Reads one back, in the same two fields. */
-  public bounds(
-    route: string, ...args: readonly (number | bigint)[]
-  ): { Min: Vector3Snapshot; Max: Vector3Snapshot } {
-    const layout = WASM_STRUCT_LAYOUTS.CNA_BoundingBox;
-    const scope = this.routes.scope();
-    try {
-      const out = scope.allocate(layout.size);
-      this.routes.invoke(route, ...args, out);
-      const view = this.routes.view();
-      const read = (field: "min" | "max"): Vector3Snapshot => {
-        const at = out + layout.fields[field].offset;
-        return {
-          X: view.getFloat32(at, true),
-          Y: view.getFloat32(at + 4, true),
-          Z: view.getFloat32(at + 8, true),
-        };
-      };
-      return { Min: read("min"), Max: read("max") };
-    } finally {
-      scope.dispose();
-    }
   }
 
   /** The same for a `CNA_Vector2`. */
@@ -253,15 +186,13 @@ export class WasmEngineMemory {
    * A string whose length is probed through the copy route itself.
    *
    * Most of this ABI answers a string through a `..._byte_count` route and a `..._copy_` route.
-   * The engine layer's have no count route: the copy route reports the required length when called
-   * with a null destination and zero capacity. Reading one with a fixed buffer instead would
-   * truncate a longer answer silently.
+   * Some routes have no count route: the copy route reports the required length when called with
+   * a null destination and zero capacity. Reading one with a fixed buffer instead would truncate a
+   * longer answer silently.
    *
-   * The probe's own result is **not** required to be success. Measured: with a null destination
-   * `cna_post_process_pass_copy_name` answers `SUCCESS` and `cna_cube_lut_copy_title` answers
-   * `BUFFER_TOO_SMALL` (14), both having written the required length. Treating the second as a
-   * failure -- which this did at first, and the browser suite caught -- loses a title CNA was
-   * perfectly willing to give. The Node-API backend accepts both for the same two routes.
+   * The probe's own result is **not** required to be success: a route may answer either `SUCCESS`
+   * or `BUFFER_TOO_SMALL` (14) having written the required length, and treating the second as a
+   * failure loses an answer CNA was willing to give.
    *
    * `leading` is whatever the route takes before its destination: a handle, a handle and an index,
    * a flag, or nothing at all. All four shapes occur in this layer and all four are this function.

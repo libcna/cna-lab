@@ -286,7 +286,7 @@ function readWasmBackendRoutes() {
 /**
  * Measures the WebAssembly artifact this binding actually consumes.
  *
- * The artifact is built out of tree from `cnanext`, not committed anywhere, so "is there a tracked
+ * The artifact is built out of tree from the CNA checkout, not committed anywhere, so "is there a tracked
  * `.wasm` in the CNA worktree" -- which is what this audit used to answer -- says nothing about
  * whether a browser consumer has something to load.
  *

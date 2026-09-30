@@ -1,14 +1,10 @@
 #!/usr/bin/env node
 /**
- * The upstream camera crash, run where it can only kill itself.
+ * Upstream finding 11's sequence, run where a regression can only kill itself.
  *
- * Opening CNA's test-backend camera, destroying it, and then opening the platform's own camera is
- * a use-after-free in CNA 0.21.0: the C ABI installs the test provider as a process-wide platform
- * override holding a raw pointer into the camera resource, and destroying that resource frees the
- * provider without clearing the override. See docs/upstream-cna-findings.md.
- *
- * This script exists so a test can assert that behaviour without taking the test runner down with
- * it. It prints SURVIVED and exits 0 only if CNA has been repaired.
+ * Opening CNA's test-backend camera, destroying it, and then opening the platform's own camera was
+ * a use-after-free in CNA 0.21.0 (a process-wide provider left dangling by the destroy). CNA fixed
+ * it; this prints SURVIVED and exits 0 on a repaired artifact.
  */
 import path from "node:path";
 
@@ -29,7 +25,6 @@ class CrashProbe extends Game {
   LoadContent() {
     const test = CnaCamera.OpenForTests();
     test.Dispose();
-    // The next line is the one that dies.
     const platform = CnaCamera.Open();
     platform.Dispose();
     console.log("SURVIVED");

@@ -88,7 +88,7 @@ function declaredFields(headerText, name) {
 
 function main() {
   const check = process.argv.includes("--check");
-  const cnaRoot = path.resolve(process.env.CNA_SOURCE_PATH ?? path.join(ROOT, "../../cnanext"));
+  const cnaRoot = path.resolve(process.env.CNA_SOURCE_PATH ?? path.join(ROOT, "../cna"));
   const includeRoot = path.join(cnaRoot, "modules/c-api/include");
   if (!fs.statSync(path.join(includeRoot, "CNA/C/cna.h"), { throwIfNoEntry: false })?.isFile()) {
     throw new Error(`CNA public C headers not found under ${includeRoot}`);
@@ -152,8 +152,11 @@ function main() {
     // A plain .js output is a script that runs main; an .mjs output is an ES module
     // factory that exports one and runs nothing, which is a silent empty measurement.
     const module = path.join(directory, "layout_probe.js");
+    // And a script only while no enclosing package.json declares "type": "module" -- which this
+    // repository's does, whenever TMPDIR points inside it.
+    fs.writeFileSync(path.join(directory, "package.json"), '{ "type": "commonjs" }\n');
     const compile = spawnSync(emcc, [
-      "-std=c11", "-Wall", "-Wextra", "-Werror", "-sWASM_BIGINT",
+      "-std=c11", "-Wall", "-Wextra", "-Werror",
       "-sENVIRONMENT=node", `-I${includeRoot}`, source, "-o", module,
     ], { encoding: "utf8" });
     if (compile.error) throw compile.error;

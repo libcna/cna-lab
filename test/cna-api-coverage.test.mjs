@@ -14,7 +14,7 @@ import { BACKENDS, classify, findReachableButDeferred, run, summarize } from "..
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const RULES = path.join(ROOT, "tools/cna-abi/coverage-rules.json");
-const CNA_ROOT = path.resolve(process.env.CNA_SOURCE_PATH ?? path.join(ROOT, "../../cnanext"));
+const CNA_ROOT = path.resolve(process.env.CNA_SOURCE_PATH ?? path.join(ROOT, "../cna"));
 const headersPresent = fs
   .statSync(path.join(CNA_ROOT, "modules/c-api/include/CNA/C/cna.h"), { throwIfNoEntry: false })
   ?.isFile() === true;

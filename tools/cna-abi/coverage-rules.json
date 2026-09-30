@@ -36,7 +36,6 @@
     },
     {
       "headers": [
-        "engine_layer.h",
         "graphics_ext.h",
         "core_ext.h",
         "cnb.h",

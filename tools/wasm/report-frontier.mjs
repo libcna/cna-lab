@@ -20,7 +20,7 @@
  * fourteen healthy families look broken.
  *
  *   CNA_WASM_ARTIFACT_DIR=.../cmake-build-tswasm-fx/modules/c-api \
- *     CNA_SOURCE_PATH=.../cnanext node tools/wasm/report-frontier.mjs
+ *     CNA_SOURCE_PATH=.../cna node tools/wasm/report-frontier.mjs
  */
 
 import fs from "node:fs";
@@ -29,7 +29,7 @@ import process from "node:process";
 import { fileURLToPath } from "node:url";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
-const CNA = path.resolve(process.env.CNA_SOURCE_PATH ?? path.join(ROOT, "../../cnanext"));
+const CNA = path.resolve(process.env.CNA_SOURCE_PATH ?? path.join(ROOT, "../cna"));
 const HEADERS = path.join(CNA, "modules/c-api/include/CNA/C");
 
 let text = "";

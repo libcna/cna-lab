@@ -22,7 +22,7 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..")
 /** The artifact under test: `CNA_WASM_ARTIFACT_DIR`, or the default build directory. */
 export const WASM_DIR = process.env.CNA_WASM_ARTIFACT_DIR
   ? path.resolve(process.env.CNA_WASM_ARTIFACT_DIR)
-  : path.join(ROOT, "../../cnanext/cmake-build-tswasm/modules/c-api");
+  : path.join(ROOT, "../cna/cmake-build-webgl2/modules/c-api");
 const PAGE_DIRECTORY = path.join(ROOT, "test/wasm");
 const DIST = path.join(ROOT, "dist");
 
@@ -83,11 +83,11 @@ const FIXTURES = new Map([
 
 /**
  * The compiled effect the windowed Node suite draws with, served here so the browser is asked the
- * same question with the same bytes. It lives in `cnanext`, so it is optional: without it the page
+ * same question with the same bytes. It lives in the CNA checkout, so it is optional: without it the page
  * records that it had no fixture rather than inventing one.
  */
 const COMPILED_EFFECT = (() => {
-  const source = path.resolve(process.env.CNA_SOURCE_PATH ?? "../../cnanext");
+  const source = path.resolve(process.env.CNA_SOURCE_PATH ?? path.join(ROOT, "../cna"));
   const file = path.join(source, "modules/renderers/fna3d/effects/CnaConformanceEffect.fxb");
   return fs.existsSync(file) ? fs.readFileSync(file) : null;
 })();

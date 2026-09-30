@@ -11,7 +11,7 @@
  *
  * The order matters and the messages are deliberately different from each other: "the artifact has
  * no CNAEXT" and "the fixture is missing" are not the same problem, and one message covering both
- * would send somebody to rebuild CNA when what they need is a `cnanext` checkout.
+ * would send somebody to rebuild CNA when what they need is a CNA checkout.
  */
 
 /**
@@ -35,7 +35,7 @@ export function strongArtifactBlocked({ browserBlocked, result, wasmDir }) {
   const compiled = result.compiledEffect ?? null;
   if (compiled == null) return "the harness page produced no compiled-effect evidence";
   if (compiled.fixture !== "present") {
-    return "CnaConformanceEffect.fxb was not served; set CNA_SOURCE_PATH to a cnanext checkout";
+    return "CnaConformanceEffect.fxb was not served; set CNA_SOURCE_PATH to a CNA checkout";
   }
   if (compiled.outcome !== "created") {
     return `the artifact at ${wasmDir} refused a compiled effect (${compiled.error}); ` +

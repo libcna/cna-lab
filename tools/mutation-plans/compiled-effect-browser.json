@@ -1,9 +1,9 @@
 {
-  "name": "compiled effects, colour grading, the post-process chain, the instancing stream and shadow maps, in a browser",
+  "name": "compiled effects in a browser",
   "artifact": "dist",
   "build": "npm run build",
   "command": "CNA_REQUIRE_STRONG_WASM_TESTS=1 node --test test/wasm-browser-strong.mjs",
-  "environment": "CNA_WASM_ARTIFACT_DIR must point at a CNA wasm artifact built with -DCNA_EASYGL_COMPILED_EFFECTS=ON -DCNA_CNAEXT=ON, and CNA_SOURCE_PATH at a cnanext checkout for the .fxb fixture. All but the last mutant are in the WebAssembly backend, because the shared managed half is already covered by compiled-effect-render.json against the windowed build and what is unproved here is the wasm32 half: the tagged-value writes, the pointer-and-handle struct layouts, and the routes this slice newly resolves. The last one is deliberately in the shared managed Effect, to show that this browser scenario really does run through it rather than through some browser-only path -- eight wasm mutants dying would otherwise be consistent with a page that had reimplemented the API it was supposed to be testing.",
+  "environment": "CNA_WASM_ARTIFACT_DIR must point at a CNA wasm artifact built with -DCNA_EASYGL_COMPILED_EFFECTS=ON -DCNA_CNAEXT=ON, and CNA_SOURCE_PATH at a CNA checkout for the .fxb fixture. All but the last mutant are in the WebAssembly backend, because the shared managed half is already covered by compiled-effect-render.json against the windowed build and what is unproved here is the wasm32 half: the tagged-value writes, the pointer-and-handle struct layouts, and the routes this slice newly resolves. The last one is deliberately in the shared managed Effect, to show that this browser scenario really does run through it rather than through some browser-only path -- eight wasm mutants dying would otherwise be consistent with a page that had reimplemented the API it was supposed to be testing.",
   "mutants": [
     {
       "id": "skip-native-write-through",
@@ -69,27 +69,6 @@
       "replace": "  void backend; void handle; void described;"
     },
     {
-      "id": "zeroed-post-process-context",
-      "why": "the context is populated without CNA's own initializer, so struct_size and struct_version are zero and its four camera matrices are singular rather than the identity -- the shape a binding that treated a growable descriptor as a plain struct would have",
-      "file": "src/internal/wasm/graphics-ext.ts",
-      "find": "      this.routes.invoke(\"cna_post_process_context_init\", context.pointer);",
-      "replace": "      void context;"
-    },
-    {
-      "id": "colour-grade-ignores-strength",
-      "why": "Strength is stored managed and never sent, so the half-strength and zero-strength draws both come back fully graded -- a defect the full-strength assertion alone cannot see",
-      "file": "src/internal/wasm/graphics-ext.ts",
-      "find": "    this.routes.invoke(\"cna_color_grade_pass_set_strength\", pass, strength);",
-      "replace": "    void pass; void strength;"
-    },
-    {
-      "id": "colour-grade-ignores-lut",
-      "why": "the table is never bound, so every grade returns the source and the pass looks like a working blit",
-      "file": "src/internal/wasm/graphics-ext.ts",
-      "find": "    this.routes.invoke(\"cna_color_grade_pass_set_lut\", pass, lut);",
-      "replace": "    void pass; void lut;"
-    },
-    {
       "id": "vector3-components-out-of-order",
       "why": "a CNA_Vector3 read back as (Y,X,Z): the cube's entries come out permuted, which the read-back-before-any-pixel assertion catches and no pixel assertion would, because the table CNA holds is still right",
       "file": "src/internal/wasm/graphics-ext-core.ts",
@@ -97,116 +76,11 @@
       "replace": "      X: view.getFloat32(out + 4, true),\n      Y: view.getFloat32(out, true),\n      Z: view.getFloat32(out + 8, true),"
     },
     {
-      "id": "blit-draws-to-the-back-buffer",
-      "why": "the destination render target is dropped, so the blit draws to the back buffer and the target the test reads stays whatever it was -- a draw that succeeds and lands nowhere the caller asked",
-      "file": "src/internal/wasm/graphics-ext.ts",
-      "find": "      \"cna_fullscreen_pass_draw\", pass, source, destination, effect, width, height, 0,",
-      "replace": "      \"cna_fullscreen_pass_draw\", pass, source, 0n, effect, width, height, 0,"
-    },
-    {
-      "id": "chain-add-is-a-no-op",
-      "why": "the chain accepts a pass and holds none, so its pass count stays zero and applying it produces whatever an empty chain does rather than the composed grade",
-      "file": "src/internal/wasm/graphics-ext.ts",
-      "find": "    this.routes.invoke(\"cna_post_process_chain_add_pass\", chain, pass);",
-      "replace": "    void chain; void pass;"
-    },
-    {
-      "id": "chain-applied-through-the-single-pass-route",
-      "why": "a chain handle sent to cna_post_process_pass_apply: the two routes take the same context and differ only in what the first argument is, which is exactly the confusion a route table makes easy",
-      "file": "src/internal/wasm/graphics-ext.ts",
-      "find": "      this.routes.invoke(\"cna_post_process_chain_apply\", chain, pointer);",
-      "replace": "      this.routes.invoke(\"cna_post_process_pass_apply\", chain, pointer);"
-    },
-    {
-      "id": "post-process-context-drops-the-destination",
-      "why": "every pass and the chain draw to the back buffer instead of the target the caller named -- a whole family of draws that succeed and land nowhere, from one field of a shared descriptor",
-      "file": "src/internal/wasm/graphics-ext.ts",
-      "find": "        .setU64(\"destination\", frame.Destination)",
-      "replace": "        .setU64(\"destination\", 0n)"
-    },
-    {
-      "id": "vertex-elements-read-at-the-wrong-stride",
-      "why": "CNA_VertexElement strided by twelve bytes instead of its measured sixteen: the first element still reads correctly and every later one is misaligned, which is the shape of a layout copied from a header rather than measured",
-      "file": "src/internal/wasm/graphics-ext.ts",
-      "find": "          this.routes.module, \"CNA_VertexElement\", base + layout.size * index,",
-      "replace": "          this.routes.module, \"CNA_VertexElement\", base + (layout.size + 4) * index,"
-    },
-    {
-      "id": "instance-stride-read-from-the-tint-route",
-      "why": "the transform stream's stride answered by the tint stream's route: both are int32 outputs with identical signatures, so nothing but the value distinguishes them -- 64 against 4",
-      "file": "src/internal/wasm/graphics-ext.ts",
-      "find": "    return this.mem.int(\"cna_instanced_renderer_ext_get_instance_stride\");",
-      "replace": "    return this.mem.int(\"cna_instanced_renderer_ext_get_tint_stride\");"
-    },
-    {
-      "id": "light-direction-read-from-its-colour",
-      "why": "the light's direction filled from its colour: white is (1,1,1) here, so the pass looks along a diagonal instead of straight down and every predicted texel moves -- and the two pure maths routes move with it, so only the geometry catches it",
-      "file": "src/internal/wasm/shadows.ts",
-      "find": "    write(\"direction\", light.Direction);",
-      "replace": "    write(\"direction\", light.Color);"
-    },
-    {
       "id": "scene-bounds-min-and-max-swapped",
       "why": "EQUIVALENT, and kept because finding that out is the point. Swapping a scene box's min and max looks like it must move the shadow, and it cannot: ShadowMap.cpp's computeLightView takes the box's centre -- symmetric under the swap -- and a radius from the sum of squared extents, whose signs cancel; computeLightProjection enumerates all eight corners and takes their min and max in light space, and the eight corners of a swapped box are the same eight points. There is nothing here for a test to catch, so this survives and is reported as surviving rather than reclassified or deleted.",
       "file": "src/internal/wasm/graphics-ext-core.ts",
       "find": "    for (const [field, value] of [[\"min\", bounds.Min], [\"max\", bounds.Max]] as const) {",
       "replace": "    for (const [field, value] of [[\"min\", bounds.Max], [\"max\", bounds.Min]] as const) {"
-    },
-    {
-      "id": "matrix-read-transposed",
-      "why": "a CNA_Matrix read column-major: the shape survives, the translation terms move into the last column, and the pass transform stops agreeing with view * projection -- the cross-route check exists for exactly this",
-      "file": "src/internal/wasm/shadows.ts",
-      "find": "    return Array.from({ length: 16 }, (_, index) => view.getFloat32(pointer + index * 4, true));",
-      "replace": "    return Array.from({ length: 16 }, (_, index) =>\n      view.getFloat32(pointer + ((index % 4) * 4 + Math.floor(index / 4)) * 4, true));"
-    },
-    {
-      "id": "shadow-pass-never-ends",
-      "why": "End is a no-op, so the map stays bound and the draw that follows the pass reaches it -- a leak of render state that looks like nothing at all until something later writes where it should not",
-      "file": "src/internal/wasm/shadows.ts",
-      "find": "    this.#routes.invoke(\"cna_shadow_map_end\", map);",
-      "replace": "    void map;"
-    },
-    {
-      "id": "tonemap-exposure-never-sent",
-      "why": "the tonemapper's exposure is stored managed and never written, so the shader tones a differently exposed image than CNA's own scalar says it should -- and the scalar, which takes exposure as an argument, still answers correctly",
-      "file": "src/internal/wasm/graphics-ext.ts",
-      "find": "    this.routes.invoke(\"cna_tonemap_pass_set_exposure\", pass, exposure);",
-      "replace": "    void pass; void exposure;"
-    },
-    {
-      "id": "tonemap-scalar-ignores-its-mode",
-      "why": "CNA's own tone-curve scalar always asked for mode zero: the None branch still agrees with its shader and the Reinhard one no longer does, which is exactly the half-right shape a shared-oracle test has to catch",
-      "file": "src/internal/wasm/graphics-ext.ts",
-      "find": "    return this.mem.float(\"cna_tonemap_pass_tonemap_channel\", mode, value, exposure, gamma);",
-      "replace": "    void mode;\n    return this.mem.float(\"cna_tonemap_pass_tonemap_channel\", 0, value, exposure, gamma);"
-    },
-    {
-      "id": "bloom-threshold-never-sent",
-      "why": "bloom keeps its default threshold whatever the caller asks for, so a pass tuned to pick out highlights picks out something else",
-      "file": "src/internal/wasm/graphics-ext.ts",
-      "find": "    this.routes.invoke(\"cna_bloom_pass_set_threshold\", pass, threshold);",
-      "replace": "    void pass; void threshold;"
-    },
-    {
-      "id": "lod-levels-read-at-a-fixed-stride",
-      "why": "CNA_LodLevelEXT strided by eight bytes rather than its measured sixteen: the first threshold survives and the rest read out of a handle's low word, which is the shape of a layout guessed from the field list",
-      "file": "src/internal/wasm/lod.ts",
-      "find": "        new WasmStruct(this.#routes.module, \"CNA_LodLevelEXT\", buffer + layout.size * index)",
-      "replace": "        new WasmStruct(this.#routes.module, \"CNA_LodLevelEXT\", buffer + 8 * index)"
-    },
-    {
-      "id": "lod-hysteresis-never-sent",
-      "why": "the sticky margin is stored managed and never reaches CNA, so a level boundary flickers exactly where hysteresis exists to stop it -- and every threshold-only assertion still passes",
-      "file": "src/internal/wasm/lod.ts",
-      "find": "    this.#routes.invoke(\"cna_lod_group_ext_set_hysteresis\", group, margin);",
-      "replace": "    void group; void margin;"
-    },
-    {
-      "id": "lod-screen-space-parameters-transposed",
-      "why": "the field of view and the viewport height swapped: the projected radius is still finite, still falls with distance and still selects levels, and is wrong by three orders of magnitude",
-      "file": "src/internal/wasm/lod.ts",
-      "find": "      \"cna_lod_group_ext_set_screen_space_parameters\", group, radius, verticalFov, viewportHeight,",
-      "replace": "      \"cna_lod_group_ext_set_screen_space_parameters\", group, radius, viewportHeight, verticalFov,"
     }
   ]
 }

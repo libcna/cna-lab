@@ -132,26 +132,6 @@
       "reason": "GraphicsCapability projects every capability up to the maximum; a new one added upstream moves this sentinel and fails here"
     },
     {
-      "expression": "CNA_CLUSTERED_LIGHT_SET_MAX_EXT == INT32_C(256)",
-      "value": 1,
-      "reason": "cna-ts publishes this bound as ClusteredLightSetMaximum; a caller sizes a light set or a grid from it, so it is proved against the header rather than copied"
-    },
-    {
-      "expression": "CNA_CLUSTER_GRID_MAX_TILES_PER_AXIS_EXT == INT32_C(128)",
-      "value": 1,
-      "reason": "cna-ts publishes this bound as ClusterGridMaximumTilesPerAxis; a caller sizes a light set or a grid from it, so it is proved against the header rather than copied"
-    },
-    {
-      "expression": "CNA_CLUSTER_GRID_MAX_SLICE_COUNT_EXT == INT32_C(256)",
-      "value": 1,
-      "reason": "cna-ts publishes this bound as ClusterGridMaximumSliceCount; a caller sizes a light set or a grid from it, so it is proved against the header rather than copied"
-    },
-    {
-      "expression": "CNA_CLUSTERED_ASSIGNMENT_MAX_LIGHTS_EXT == INT32_C(1024)",
-      "value": 1,
-      "reason": "cna-ts publishes this bound as ClusteredAssignmentMaximumLights; a caller sizes a light set or a grid from it, so it is proved against the header rather than copied"
-    },
-    {
       "expression": "sizeof(CNA_SurfaceFormat)",
       "value": 4,
       "reason": "the Node adapter writes this field of CNA_PresentationParameters through a 32-bit word when it builds a caller-created GraphicsDevice, so its width is proved rather than assumed"
@@ -175,16 +155,6 @@
       "expression": "sizeof(CNA_RenderTargetUsage)",
       "value": 4,
       "reason": "the Node adapter writes this field of CNA_PresentationParameters through a 32-bit word when it builds a caller-created GraphicsDevice, so its width is proved rather than assumed"
-    },
-    {
-      "expression": "(uint32_t) CNA_PARTICLE_SYSTEM_DEFAULT_CAPACITY",
-      "value": 1024,
-      "reason": "ParticleSystem.AtDefaultCapacity reports this, so the number is CNA's rather than one copied into a test"
-    },
-    {
-      "expression": "(uint32_t) CNA_PARTICLE_BINDING",
-      "value": 7,
-      "reason": "ParticleShaderSource.BindingPoint states this, and CNA's own particle GLSL declares the same binding"
     }
   ],
   "resultCodes": {
@@ -316,7 +286,6 @@
       "CNA_MICROPHONE_STATE_MAXIMUM",
       "CNA_NOTIFICATION_POSITION_MAXIMUM",
       "CNA_PBR_TEXTURE_MAXIMUM",
-      "CNA_PBR_TEXTURE_SLOT_COUNT",
       "CNA_POWER_STATE_MAXIMUM",
       "CNA_PRIMITIVE_POINT_LIST_EXT",
       "CNA_RACING_CAMERA_ANGLE_MAXIMUM",
@@ -767,22 +736,6 @@
       "cnaPrefix": "CNA_SEND_DATA_OPTIONS"
     },
     {
-      "typeScriptEnum": "TonemappingMode",
-      "cnaPrefix": "CNA_TONEMAPPING_MODE",
-      "suffixOverrides": {
-        "Aces": "ACES",
-        "Uncharted2": "UNCHARTED2"
-      }
-    },
-    {
-      "typeScriptEnum": "RenderQuality",
-      "cnaPrefix": "CNA_RENDER_QUALITY"
-    },
-    {
-      "typeScriptEnum": "ShadowQuality",
-      "cnaPrefix": "CNA_SHADOW_QUALITY"
-    },
-    {
       "typeScriptEnum": "AlphaMode",
       "cnaPrefix": "CNA_ALPHA_MODE",
       "suffixOverrides": {
@@ -885,32 +838,8 @@
       }
     },
     {
-      "typeScriptEnum": "GraphicsImageAccess",
-      "cnaPrefix": "CNA_GRAPHICS_IMAGE_ACCESS"
-    },
-    {
-      "typeScriptEnum": "GraphicsMemoryBarrier",
-      "cnaPrefix": "CNA_GRAPHICS_MEMORY_BARRIER"
-    },
-    {
-      "typeScriptEnum": "ClusteredLightType",
-      "cnaPrefix": "CNA_CLUSTERED_LIGHT_TYPE"
-    },
-    {
       "typeScriptEnum": "CameraState",
       "cnaPrefix": "CNA_CAMERA_STATE"
-    },
-    {
-      "typeScriptEnum": "LodSelectionMode",
-      "cnaPrefix": "CNA_LOD_SELECTION_MODE"
-    },
-    {
-      "typeScriptEnum": "DepthEncoding",
-      "cnaPrefix": "CNA_DEPTH_ENCODING"
-    },
-    {
-      "typeScriptEnum": "LutInterpolation",
-      "cnaPrefix": "CNA_LUT_INTERPOLATION"
     },
     {
       "typeScriptEnum": "AsciiQuantizeMode",
@@ -952,24 +881,6 @@
         "MetallicRoughness": "METALLIC_ROUGHNESS",
         "Specular": "SPECULAR_EXT",
         "SpecularColor": "SPECULAR_COLOR_EXT"
-      }
-    },
-    {
-      "typeScriptEnum": "DisplayColorSpace",
-      "cnaPrefix": "CNA_DISPLAY_COLOR_SPACE",
-      "suffixOverrides": {
-        "Srgb": "SRGB",
-        "ScRgb": "SCRGB",
-        "Hdr10": "HDR10"
-      }
-    },
-    {
-      "typeScriptEnum": "AreaLightShape",
-      "cnaPrefix": "CNA_AREA_LIGHT_SHAPE",
-      "suffixOverrides": {
-        "Rectangle": "RECTANGLE_EXT",
-        "Disc": "DISC_EXT",
-        "Tube": "TUBE_EXT"
       }
     }
   ]

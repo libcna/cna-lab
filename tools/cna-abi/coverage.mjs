@@ -39,7 +39,7 @@ function parseArgs(values) {
   const result = {
     cnaRoot: process.env.CNA_SOURCE_PATH
       ? path.resolve(process.env.CNA_SOURCE_PATH)
-      : path.join(ROOT, "../../cnanext"),
+      : path.join(ROOT, "../cna"),
     rules: DEFAULT_RULES,
     format: "text",
     output: null,

@@ -68,12 +68,15 @@ test("the identity enumerations carry the canonical CNA numbers", () => {
   assert.equal(GraphicsRendererType.Vulkan, 8);
 });
 
-test("the renderer identity enumeration has the gaps ABI 0.20 left behind", () => {
-  // Eleven identities were removed in 0.20 and their numbers were deliberately not reused, so a
-  // dense enumeration here would be a lie about which integers CNA accepts.
+test("the renderer identity enumeration has the gaps CNA's retirements left behind", () => {
+  // Retired identities keep their numbers reserved and are never reused, so a dense enumeration
+  // here would be a lie about which integers CNA accepts. ABI 0.35 has eighteen identities and
+  // FNA3D (43) is the highest.
   const values = Object.values(GraphicsRendererType).filter((value) => typeof value === "number");
-  for (const retired of [10, 19, 20, 36, 37, 38, 41, 45, 47, 48]) {
+  for (const retired of [7, 10, 16, 18, 19, 20, 21, 23, 30, 32, 33, 40, 41, 44, 46, 49, 51]) {
     assert.equal(values.includes(retired), false, `${retired} is a retired renderer identity`);
   }
-  assert.equal(Math.max(...values), 49);
+  assert.equal(values.filter((value) => value !== GraphicsRendererType.Unknown).length, 18);
+  assert.equal(Math.max(...values), 43);
 });
+
