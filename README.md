@@ -73,7 +73,7 @@ native library is bundled in the wheel.
 
 ## Running
 
-Build or install `cna-python==0.1.0.dev0`, then select a CNA `0.21.x` C ABI
+Build or install `cna-python==0.1.0.dev0`, then select a CNA `0.35.x` C ABI
 library with an absolute path:
 
 ```bash
@@ -87,26 +87,25 @@ API is imported.
 
 ## Measured platform status
 
-Two artifacts are qualified, and every runtime claim names the one that produced
-it. A result measured where nothing rasterizes is a command-path result, not a
+Re-measured 2026-09-30 against CNA C ABI `0.35.0` (CNA `next` `4228ff913`). Two
+artifacts are qualified, and every runtime claim names the one that produced it.
+A result measured where nothing rasterizes is a command-path result, not a
 rendering result.
 
 | Platform/backend | Evidence |
 | --- | --- |
-| Linux x86-64, HEADLESS renderer, SDL3 mixer | Native lifecycle, Effect/Model, Audio state machine, Media catalog/player/queue/events, Video decode and frame identity, query/cube, Touch, Storage, and raw-PNG plus XNB 60/600-frame paths verified |
-| Linux x86-64, OPENGLES3 renderer, SDL3 mixer | The above, plus rendered pixels for Clear, all four draw paths, instanced draws, SpriteBatch, RenderTarget2D/Cube, Texture3D, TextureCube and Model.Draw, plus real window resize delivery |
-| Windows | Not yet verified |
-| macOS | Not yet verified |
+| Linux x86-64, HEADLESS renderer, SDL3 mixer, built without FFmpeg | 912 tests, 0 failures (123 skipped: rendering, video decode and extension-layer cases this build cannot run); native lifecycle, Effect/Model, Audio, Media, Touch, Storage, CNB/CNJ, online profile; installed-wheel template 60/600 frames |
+| Linux x86-64, OPENGLES3 with compiled effects, CNAEXT and devices, inside CNA's private Weston + Xwayland on the real GPU | 913 tests, 0 failures (12 skipped: absence-only cases and optional fixtures); rendered pixels for Clear, all four draw paths, SpriteBatch, RenderTarget2D, Texture3D, TextureCube; video decode; compiled-effect construction; installed-wheel template 60/600 frames |
+| Windows | Not verified |
+| macOS | Not verified |
 | Android / iOS | Not verified |
 | Web / Pyodide | Not supported by the current native-library architecture |
 
 What these artifacts still cannot prove: audible output and physical microphone
-capture (the audio device is deterministic and silent by design), authored XACT
-playback (no legal bank fixture), compiled-effect execution (the device reports
-it can execute shader source, but no legal compiled fixture exists), device loss
-and ContentLost delivery (no renderer here can lose a device), physical input
-hardware, populated music catalogs, and picture bytes.
-Those distinctions are recorded in
+capture, authored XACT playback (no legal bank fixture), rendered output of a
+compiled effect, device loss and ContentLost delivery, physical input hardware,
+populated music catalogs, and picture bytes from a real platform. Those
+distinctions are recorded in
 [`docs/generated/runtime-capabilities.md`](docs/generated/runtime-capabilities.md).
 
 The normative language mapping is in

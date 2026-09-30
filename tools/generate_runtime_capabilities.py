@@ -23,7 +23,7 @@ def main() -> int:
     lines = [
         "# Runtime capability inventory",
         "",
-        f"CNA C ABI {value['abi']}, cnanext `{value['cnaRevision'][:12]}`, "
+        f"CNA C ABI {value['abi']}, CNA `{value['cnaRevision'][:12]}`, "
         f"Sharp Runtime `{value['sharpRuntimeRevision'][:12]}`.",
         "",
         "A status is a claim about a measured artifact, never about CNA in general.",

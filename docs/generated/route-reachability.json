@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
   "summary": {
-    "BOUND_ROUTES": 2626,
-    "DIRECT_CALL_SITE": 2529,
+    "BOUND_ROUTES": 1770,
+    "DIRECT_CALL_SITE": 1673,
     "OBSERVED_CALLED_AT_RUNTIME": 506,
     "REACHED_BY_NAME_TEMPLATE": 18,
     "ADMITTED_WITH_REASON": 37,
@@ -581,13 +581,13 @@
   "consumers": {
     "cna_get_abi_version": [],
     "cna_error_get_last_info": [
-      "src/_cna_native/loader.py:817"
+      "src/_cna_native/loader.py:762"
     ],
     "cna_error_get_last_message_size": [
-      "src/_cna_native/loader.py:820"
+      "src/_cna_native/loader.py:765"
     ],
     "cna_error_copy_last_message": [
-      "src/_cna_native/loader.py:824"
+      "src/_cna_native/loader.py:769"
     ],
     "cna_game_create": [
       "src/Microsoft/Xna/Framework/_game.py:196"
@@ -1285,17 +1285,13 @@
       "src/Microsoft/Xna/Framework/Graphics/_resources.py:416"
     ],
     "cna_texture2d_destroy": [
-      "src/Microsoft/Xna/Framework/Graphics/_resources.py:270",
-      "src/cna/extensions/engine/clustered.py:929",
-      "src/cna/extensions/engine/passes.py:262",
-      "src/cna/extensions/engine/pbr.py:632"
+      "src/Microsoft/Xna/Framework/Graphics/_resources.py:270"
     ],
     "cna_texture3d_create": [
       "src/Microsoft/Xna/Framework/Graphics/_texture_volume.py:43"
     ],
     "cna_texture3d_destroy": [
-      "src/Microsoft/Xna/Framework/Graphics/_texture_volume.py:44",
-      "src/cna/extensions/engine/passes.py:281"
+      "src/Microsoft/Xna/Framework/Graphics/_texture_volume.py:44"
     ],
     "cna_texture3d_get_info": [
       "src/Microsoft/Xna/Framework/Graphics/_texture_volume.py:52"
@@ -1310,9 +1306,7 @@
       "src/Microsoft/Xna/Framework/Graphics/_texture_volume.py:104"
     ],
     "cna_texturecube_destroy": [
-      "src/Microsoft/Xna/Framework/Graphics/_texture_volume.py:105",
-      "src/cna/extensions/engine/atmosphere.py:506",
-      "src/cna/extensions/engine/pbr.py:630"
+      "src/Microsoft/Xna/Framework/Graphics/_texture_volume.py:105"
     ],
     "cna_texturecube_get_info": [
       "src/Microsoft/Xna/Framework/Graphics/_texture_volume.py:113"
@@ -1333,8 +1327,7 @@
       "src/Microsoft/Xna/Framework/Graphics/_effects.py:310"
     ],
     "cna_effect_destroy": [
-      "src/Microsoft/Xna/Framework/Graphics/_effects.py:316",
-      "src/cna/extensions/engine/postprocess.py:559"
+      "src/Microsoft/Xna/Framework/Graphics/_effects.py:316"
     ],
     "cna_effect_apply": [
       "src/Microsoft/Xna/Framework/Graphics/_effects.py:340"
@@ -1856,8 +1849,7 @@
       "src/Microsoft/Xna/Framework/Graphics/_render_targets.py:56"
     ],
     "cna_render_target_destroy": [
-      "src/Microsoft/Xna/Framework/Graphics/_render_targets.py:100",
-      "src/cna/extensions/engine/shadows.py:769"
+      "src/Microsoft/Xna/Framework/Graphics/_render_targets.py:100"
     ],
     "cna_graphics_device_set_render_target2d": [
       "src/Microsoft/Xna/Framework/Graphics/_device.py:776"
@@ -3357,31 +3349,31 @@
       "src/cna/extensions/content/fonts.py:280"
     ],
     "cna_cnb_audio_frame_bytes": [
-      "src/cna/extensions/content/audio.py:66"
+      "src/cna/extensions/content/audio.py:68"
     ],
     "cna_cnb_get_audio_format_name_size": [
-      "src/cna/extensions/content/audio.py:75"
+      "src/cna/extensions/content/audio.py:77"
     ],
     "cna_cnb_copy_audio_format_name": [
-      "src/cna/extensions/content/audio.py:75"
+      "src/cna/extensions/content/audio.py:77"
     ],
     "cna_cnb_sound_effect_data_create": [
-      "src/cna/extensions/content/audio.py:193"
+      "src/cna/extensions/content/audio.py:195"
     ],
     "cna_cnb_sound_effect_data_destroy": [
-      "src/cna/extensions/content/audio.py:168"
+      "src/cna/extensions/content/audio.py:170"
     ],
     "cna_cnb_sound_effect_data_get_info": [
-      "src/cna/extensions/content/audio.py:220"
+      "src/cna/extensions/content/audio.py:222"
     ],
     "cna_cnb_sound_effect_data_copy_samples": [
-      "src/cna/extensions/content/audio.py:232"
+      "src/cna/extensions/content/audio.py:234"
     ],
     "cna_cnb_encode_sound_effect": [
-      "src/cna/extensions/content/audio.py:246"
+      "src/cna/extensions/content/audio.py:248"
     ],
     "cna_cnb_decode_sound_effect": [
-      "src/cna/extensions/content/audio.py:254"
+      "src/cna/extensions/content/audio.py:256"
     ],
     "cna_cnb_encode_song": [
       "src/cna/extensions/content/media.py:84"
@@ -3574,2622 +3566,77 @@
     "cna_content_manager_destroy": [
       "src/cna/extensions/content/loaders.py:122"
     ],
-    "cna_engine_layer_get_version": [
-      "src/_cna_native/engine_support.py:73"
-    ],
-    "cna_engine_layer_copy_version_string": [
-      "src/cna/extensions/engine/__init__.py:431"
-    ],
-    "cna_graphics_memory_barrier_has": [
-      "src/cna/extensions/engine/compute.py:80"
-    ],
-    "cna_storage_buffer_create": [
-      "src/cna/extensions/engine/compute.py:148"
-    ],
-    "cna_storage_buffer_create_typed": [
-      "src/cna/extensions/engine/compute.py:163"
-    ],
-    "cna_storage_buffer_set_bytes": [
-      "src/cna/extensions/engine/compute.py:190"
-    ],
-    "cna_storage_buffer_get_bytes": [
-      "src/cna/extensions/engine/compute.py:200"
-    ],
-    "cna_storage_buffer_get_byte_size": [
-      "src/cna/extensions/engine/compute.py:173"
-    ],
-    "cna_storage_buffer_set_elements": [
-      "src/cna/extensions/engine/compute.py:219"
-    ],
-    "cna_storage_buffer_get_elements": [
-      "src/cna/extensions/engine/compute.py:229"
-    ],
-    "cna_storage_buffer_get_element_count": [
-      "src/cna/extensions/engine/compute.py:178"
-    ],
-    "cna_storage_buffer_get_element_byte_size": [
-      "src/cna/extensions/engine/compute.py:184"
-    ],
-    "cna_storage_buffer_destroy": [
-      "src/cna/extensions/engine/compute.py:150"
-    ],
-    "cna_compute_shader_create": [
-      "src/_cna_native/engine_support.py:88",
-      "src/cna/extensions/engine/compute.py:278"
-    ],
-    "cna_compute_shader_set_uniform_int": [
-      "src/cna/extensions/engine/compute.py:338"
-    ],
-    "cna_compute_shader_set_uniform_float": [
-      "src/cna/extensions/engine/compute.py:341"
-    ],
-    "cna_compute_shader_bind_storage_buffer": [
-      "src/cna/extensions/engine/compute.py:354"
-    ],
-    "cna_compute_shader_bind_texture": [
-      "src/cna/extensions/engine/compute.py:362"
-    ],
-    "cna_compute_shader_is_image_binding_supported": [
-      "src/cna/extensions/engine/compute.py:313"
-    ],
-    "cna_compute_shader_bind_image": [
-      "src/cna/extensions/engine/compute.py:380"
-    ],
-    "cna_compute_shader_dispatch": [
-      "src/cna/extensions/engine/compute.py:391"
-    ],
-    "cna_compute_shader_barrier": [
-      "src/cna/extensions/engine/compute.py:399"
-    ],
-    "cna_compute_shader_is_valid": [
-      "src/cna/extensions/engine/compute.py:298"
-    ],
-    "cna_compute_shader_copy_compile_error": [
-      "src/cna/extensions/engine/compute.py:303"
-    ],
-    "cna_compute_shader_destroy": [
-      "src/cna/extensions/engine/compute.py:280"
-    ],
-    "cna_gpu_timer_create": [
-      "src/cna/extensions/engine/compute.py:431"
-    ],
-    "cna_gpu_timer_is_supported": [
-      "src/cna/extensions/engine/compute.py:437"
-    ],
-    "cna_gpu_timer_copy_unsupported_reason": [
-      "src/cna/extensions/engine/compute.py:442"
-    ],
-    "cna_gpu_timer_begin": [
-      "src/cna/extensions/engine/compute.py:478"
-    ],
-    "cna_gpu_timer_end": [
-      "src/cna/extensions/engine/compute.py:482"
-    ],
-    "cna_gpu_timer_is_result_available": [
-      "src/cna/extensions/engine/compute.py:453"
-    ],
-    "cna_gpu_timer_poll": [
-      "src/cna/extensions/engine/compute.py:486"
-    ],
-    "cna_gpu_timer_get_last_milliseconds": [
-      "src/cna/extensions/engine/compute.py:473"
-    ],
-    "cna_gpu_timer_get_sample_count": [
-      "src/cna/extensions/engine/compute.py:459"
-    ],
-    "cna_gpu_timer_is_open": [
-      "src/cna/extensions/engine/compute.py:448"
-    ],
-    "cna_gpu_timer_destroy": [
-      "src/cna/extensions/engine/compute.py:432"
-    ],
-    "cna_render_target_pool_create": [
-      "src/cna/extensions/engine/postprocess.py:147"
-    ],
-    "cna_render_target_pool_acquire": [
-      "src/cna/extensions/engine/postprocess.py:200"
-    ],
-    "cna_render_target_pool_reset": [
-      "src/cna/extensions/engine/postprocess.py:215"
-    ],
-    "cna_render_target_pool_get_target_count": [
-      "src/cna/extensions/engine/postprocess.py:175"
-    ],
-    "cna_render_target_pool_get_estimated_bytes": [
-      "src/cna/extensions/engine/postprocess.py:181"
-    ],
-    "cna_render_target_pool_destroy": [
-      "src/cna/extensions/engine/postprocess.py:148"
-    ],
-    "cna_shader_effect_factory_create": [
-      "src/cna/extensions/engine/postprocess.py:235"
-    ],
-    "cna_shader_effect_factory_acquire": [
-      "src/cna/extensions/engine/postprocess.py:257"
-    ],
-    "cna_shader_effect_factory_contains": [
-      "src/cna/extensions/engine/postprocess.py:268"
-    ],
-    "cna_shader_effect_factory_get_compile_count": [
-      "src/cna/extensions/engine/postprocess.py:280"
-    ],
-    "cna_shader_effect_factory_clear": [
-      "src/cna/extensions/engine/postprocess.py:288"
-    ],
-    "cna_shader_effect_factory_destroy": [
-      "src/cna/extensions/engine/postprocess.py:236"
-    ],
-    "cna_scoped_render_target_begin": [
-      "src/cna/extensions/engine/postprocess.py:329"
-    ],
-    "cna_scoped_render_target_get_has_recorded_previous": [
-      "src/cna/extensions/engine/postprocess.py:307"
-    ],
-    "cna_scoped_render_target_end": [
-      "src/cna/extensions/engine/postprocess.py:331"
-    ],
-    "cna_fullscreen_pass_create": [
-      "src/cna/extensions/engine/postprocess.py:349"
-    ],
-    "cna_fullscreen_pass_draw": [
-      "src/cna/extensions/engine/postprocess.py:361"
-    ],
-    "cna_fullscreen_pass_draw_over_current_target": [
-      "src/cna/extensions/engine/postprocess.py:374"
-    ],
-    "cna_fullscreen_pass_destroy": [
-      "src/cna/extensions/engine/postprocess.py:350"
-    ],
-    "cna_post_process_context_init": [
-      "src/cna/extensions/engine/postprocess.py:436"
-    ],
-    "cna_blit_pass_create": [
-      "src/cna/extensions/engine/postprocess.py:504"
-    ],
-    "cna_post_process_effect_pass_create": [
-      "src/cna/extensions/engine/postprocess.py:531"
-    ],
-    "cna_post_process_effect_pass_get_effect": [
-      "src/cna/extensions/engine/postprocess.py:557"
-    ],
-    "cna_post_process_effect_pass_set_effect": [
-      "src/cna/extensions/engine/postprocess.py:569"
-    ],
-    "cna_post_process_pass_apply": [
-      "src/cna/extensions/engine/postprocess.py:489"
-    ],
-    "cna_post_process_pass_copy_name": [
-      "src/cna/extensions/engine/postprocess.py:471"
-    ],
-    "cna_post_process_pass_is_supported": [
-      "src/cna/extensions/engine/postprocess.py:481"
-    ],
-    "cna_post_process_pass_destroy": [
-      "src/cna/extensions/engine/atmosphere.py:114",
-      "src/cna/extensions/engine/passes.py:183",
-      "src/cna/extensions/engine/postprocess.py:505"
-    ],
-    "cna_post_process_chain_create": [
-      "src/cna/extensions/engine/postprocess.py:602"
-    ],
-    "cna_post_process_chain_destroy": [
-      "src/cna/extensions/engine/postprocess.py:603"
-    ],
-    "cna_post_process_chain_add_pass": [
-      "src/cna/extensions/engine/postprocess.py:618"
-    ],
-    "cna_post_process_chain_clear": [
-      "src/cna/extensions/engine/postprocess.py:624"
-    ],
-    "cna_post_process_chain_get_pass_count": [
-      "src/cna/extensions/engine/postprocess.py:630"
-    ],
-    "cna_post_process_chain_apply": [
-      "src/cna/extensions/engine/postprocess.py:638"
-    ],
-    "cna_post_process_chain_reset_targets": [
-      "src/cna/extensions/engine/postprocess.py:643"
-    ],
-    "cna_post_process_chain_get_target_pool": [
-      "src/cna/extensions/engine/postprocess.py:654"
-    ],
-    "cna_post_process_chain_is_gpu_timing_enabled": [
-      "src/cna/extensions/engine/postprocess.py:660"
-    ],
-    "cna_post_process_chain_set_gpu_timing_enabled": [
-      "src/cna/extensions/engine/postprocess.py:673"
-    ],
-    "cna_post_process_chain_get_pass_timing_count": [
-      "src/cna/extensions/engine/postprocess.py:689"
-    ],
-    "cna_post_process_chain_get_pass_timing": [
-      "src/cna/extensions/engine/postprocess.py:694"
-    ],
-    "cna_post_process_chain_copy_pass_timing_name": [
-      "src/cna/extensions/engine/postprocess.py:697"
-    ],
-    "cna_directional_light_ext_init": [
-      "src/cna/extensions/engine/values.py:140"
-    ],
-    "cna_point_light_ext_init": [
-      "src/cna/extensions/engine/values.py:174"
-    ],
-    "cna_spot_light_ext_init": [
-      "src/cna/extensions/engine/values.py:212"
-    ],
-    "cna_punctual_light_ext_init": [
-      "src/cna/extensions/engine/values.py:260"
-    ],
-    "cna_shadow_cascade_state_ext_init": [
-      "src/cna/extensions/engine/values.py:327"
-    ],
-    "cna_graphics_device_supports_shadow_sampling_ext": [
-      "src/cna/extensions/engine/shadows.py:94"
-    ],
-    "cna_shadow_map_create": [
-      "src/cna/extensions/engine/shadows.py:311"
-    ],
-    "cna_shadow_map_is_supported": [
-      "src/cna/extensions/engine/shadows.py:299"
-    ],
-    "cna_shadow_map_begin": [
-      "src/cna/extensions/engine/shadows.py:345"
-    ],
-    "cna_shadow_map_end": [
-      "src/cna/extensions/engine/shadows.py:305"
-    ],
-    "cna_shadow_map_get_caster_effect": [
-      "src/cna/extensions/engine/shadows.py:304"
-    ],
-    "cna_shadow_map_get_skinned_caster_effect": [
-      "src/cna/extensions/engine/shadows.py:336"
-    ],
-    "cna_shadow_map_apply_caster": [
-      "src/cna/extensions/engine/shadows.py:350"
-    ],
-    "cna_shadow_map_apply_skinned_caster": [
-      "src/cna/extensions/engine/shadows.py:358"
-    ],
-    "cna_shadow_map_get_shadow_texture": [
-      "src/cna/extensions/engine/shadows.py:303"
-    ],
-    "cna_shadow_map_get_light_view_projection": [
-      "src/cna/extensions/engine/shadows.py:328"
-    ],
-    "cna_shadow_map_get_size": [
-      "src/cna/extensions/engine/shadows.py:317"
-    ],
-    "cna_shadow_map_get_quality": [
-      "src/cna/extensions/engine/shadows.py:300"
-    ],
-    "cna_shadow_map_get_depth_bias": [
-      "src/cna/extensions/engine/shadows.py:301"
-    ],
-    "cna_shadow_map_set_depth_bias": [
-      "src/cna/extensions/engine/shadows.py:302"
-    ],
-    "cna_shadow_map_get_filter_radius": [
-      "src/cna/extensions/engine/shadows.py:322"
-    ],
-    "cna_shadow_map_compute_light_view": [
-      "src/cna/extensions/engine/shadows.py:128"
-    ],
-    "cna_shadow_map_compute_light_projection": [
-      "src/cna/extensions/engine/shadows.py:138"
-    ],
-    "cna_shadow_map_size_for_quality": [
-      "src/cna/extensions/engine/shadows.py:100"
-    ],
-    "cna_shadow_map_filter_radius_for_quality": [
-      "src/cna/extensions/engine/shadows.py:106"
-    ],
-    "cna_shadow_map_destroy": [
-      "src/cna/extensions/engine/pipeline.py:461",
-      "src/cna/extensions/engine/shadows.py:298"
-    ],
-    "cna_spot_shadow_map_create": [
-      "src/cna/extensions/engine/shadows.py:569"
-    ],
-    "cna_spot_shadow_map_is_supported": [
-      "src/cna/extensions/engine/shadows.py:557"
-    ],
-    "cna_spot_shadow_map_begin": [
-      "src/cna/extensions/engine/shadows.py:605"
-    ],
-    "cna_spot_shadow_map_end": [
-      "src/cna/extensions/engine/shadows.py:563"
-    ],
-    "cna_spot_shadow_map_get_shadow_texture": [
-      "src/cna/extensions/engine/shadows.py:561"
-    ],
-    "cna_spot_shadow_map_get_caster_effect": [
-      "src/cna/extensions/engine/shadows.py:562"
-    ],
-    "cna_spot_shadow_map_get_size": [
-      "src/cna/extensions/engine/shadows.py:575"
-    ],
-    "cna_spot_shadow_map_get_quality": [
-      "src/cna/extensions/engine/shadows.py:558"
-    ],
-    "cna_spot_shadow_map_get_light_view_projection": [
-      "src/cna/extensions/engine/shadows.py:581"
-    ],
-    "cna_spot_shadow_map_get_light_position": [
-      "src/cna/extensions/engine/shadows.py:589"
-    ],
-    "cna_spot_shadow_map_get_light_range": [
-      "src/cna/extensions/engine/shadows.py:596"
-    ],
-    "cna_spot_shadow_map_get_depth_bias": [
-      "src/cna/extensions/engine/shadows.py:559"
-    ],
-    "cna_spot_shadow_map_set_depth_bias": [
-      "src/cna/extensions/engine/shadows.py:560"
-    ],
-    "cna_spot_shadow_map_compute_light_view": [
-      "src/cna/extensions/engine/shadows.py:612"
-    ],
-    "cna_spot_shadow_map_compute_light_projection": [
-      "src/cna/extensions/engine/shadows.py:621"
-    ],
-    "cna_spot_shadow_map_destroy": [
-      "src/cna/extensions/engine/shadows.py:556"
-    ],
-    "cna_cascaded_shadow_map_create": [
-      "src/cna/extensions/engine/shadows.py:389"
-    ],
-    "cna_cascaded_shadow_map_is_supported": [
-      "src/cna/extensions/engine/shadows.py:376"
-    ],
-    "cna_cascaded_shadow_map_update": [
-      "src/cna/extensions/engine/shadows.py:443"
-    ],
-    "cna_cascaded_shadow_map_begin": [
-      "src/cna/extensions/engine/shadows.py:485"
-    ],
-    "cna_cascaded_shadow_map_end": [
-      "src/cna/extensions/engine/shadows.py:382"
-    ],
-    "cna_cascaded_shadow_map_get_cascade_count": [
-      "src/cna/extensions/engine/shadows.py:396"
-    ],
-    "cna_cascaded_shadow_map_get_cascade_size": [
-      "src/cna/extensions/engine/shadows.py:402"
-    ],
-    "cna_cascaded_shadow_map_get_shadow_texture": [
-      "src/cna/extensions/engine/shadows.py:380"
-    ],
-    "cna_cascaded_shadow_map_get_caster_effect": [
-      "src/cna/extensions/engine/shadows.py:381"
-    ],
-    "cna_cascaded_shadow_map_get_cascade_matrix": [
-      "src/cna/extensions/engine/shadows.py:449"
-    ],
-    "cna_cascaded_shadow_map_get_split_distance": [
-      "src/cna/extensions/engine/shadows.py:455"
-    ],
-    "cna_cascaded_shadow_map_get_blend_band": [
-      "src/cna/extensions/engine/shadows.py:408"
-    ],
-    "cna_cascaded_shadow_map_set_blend_band": [
-      "src/cna/extensions/engine/shadows.py:413"
-    ],
-    "cna_cascaded_shadow_map_is_debug_tint_enabled": [
-      "src/cna/extensions/engine/shadows.py:430"
-    ],
-    "cna_cascaded_shadow_map_set_debug_tint_enabled": [
-      "src/cna/extensions/engine/shadows.py:435"
-    ],
-    "cna_cascaded_shadow_map_select_cascade": [
-      "src/cna/extensions/engine/shadows.py:461"
-    ],
-    "cna_cascaded_shadow_map_get_split_lambda": [
-      "src/cna/extensions/engine/shadows.py:419"
-    ],
-    "cna_cascaded_shadow_map_set_split_lambda": [
-      "src/cna/extensions/engine/shadows.py:424"
-    ],
-    "cna_cascaded_shadow_map_compute_split_distances": [
-      "src/cna/extensions/engine/shadows.py:501"
-    ],
-    "cna_cascaded_shadow_map_compute_frustum_corners": [
-      "src/cna/extensions/engine/shadows.py:519"
-    ],
-    "cna_cascaded_shadow_map_compute_bounding_sphere": [
-      "src/cna/extensions/engine/shadows.py:530"
-    ],
-    "cna_cascaded_shadow_map_snap_to_texel_grid": [
-      "src/cna/extensions/engine/shadows.py:544"
-    ],
-    "cna_cascaded_shadow_map_destroy": [
-      "src/cna/extensions/engine/shadows.py:375"
-    ],
-    "cna_cube_shadow_map_create": [
-      "src/cna/extensions/engine/shadows.py:644"
-    ],
-    "cna_cube_shadow_map_is_supported": [
-      "src/cna/extensions/engine/shadows.py:632"
-    ],
-    "cna_cube_shadow_map_update": [
-      "src/cna/extensions/engine/shadows.py:669"
-    ],
-    "cna_cube_shadow_map_begin": [
-      "src/cna/extensions/engine/shadows.py:676"
-    ],
-    "cna_cube_shadow_map_end": [
-      "src/cna/extensions/engine/shadows.py:638"
-    ],
-    "cna_cube_shadow_map_get_shadow_texture": [
-      "src/cna/extensions/engine/shadows.py:636"
-    ],
-    "cna_cube_shadow_map_get_caster_effect": [
-      "src/cna/extensions/engine/shadows.py:637"
-    ],
-    "cna_cube_shadow_map_get_size": [
-      "src/cna/extensions/engine/shadows.py:650"
-    ],
-    "cna_cube_shadow_map_get_quality": [
-      "src/cna/extensions/engine/shadows.py:633"
-    ],
-    "cna_cube_shadow_map_get_light_position": [
-      "src/cna/extensions/engine/shadows.py:656"
-    ],
-    "cna_cube_shadow_map_get_light_range": [
-      "src/cna/extensions/engine/shadows.py:663"
-    ],
-    "cna_cube_shadow_map_get_depth_bias": [
-      "src/cna/extensions/engine/shadows.py:634"
-    ],
-    "cna_cube_shadow_map_set_depth_bias": [
-      "src/cna/extensions/engine/shadows.py:635"
-    ],
-    "cna_cube_shadow_map_compute_face_view": [
-      "src/cna/extensions/engine/shadows.py:699"
-    ],
-    "cna_cube_shadow_map_compute_face_projection": [
-      "src/cna/extensions/engine/shadows.py:707"
-    ],
-    "cna_cube_shadow_map_size_for_quality": [
-      "src/cna/extensions/engine/shadows.py:116"
-    ],
-    "cna_cube_shadow_map_destroy": [
-      "src/cna/extensions/engine/shadows.py:631"
-    ],
-    "cna_cascaded_shadow_map_apply_to_receiver": [
-      "src/cna/extensions/engine/shadows.py:477"
-    ],
-    "cna_effect_set_shadow_map_ext": [
-      "src/cna/extensions/engine/shadows.py:775"
-    ],
-    "cna_effect_get_shadow_map_ext": [
-      "src/cna/extensions/engine/shadows.py:767"
-    ],
-    "cna_effect_set_light_view_projection_ext": [
-      "src/cna/extensions/engine/shadows.py:789"
-    ],
-    "cna_effect_get_light_view_projection_ext": [
-      "src/cna/extensions/engine/shadows.py:782"
-    ],
-    "cna_effect_set_shadows_enabled_ext": [
-      "src/cna/extensions/engine/shadows.py:799"
-    ],
-    "cna_effect_is_shadows_enabled_ext": [
-      "src/cna/extensions/engine/shadows.py:795"
-    ],
-    "cna_effect_set_shadow_depth_bias_ext": [
-      "src/cna/extensions/engine/shadows.py:809"
-    ],
-    "cna_effect_get_shadow_depth_bias_ext": [
-      "src/cna/extensions/engine/shadows.py:805"
-    ],
-    "cna_effect_set_shadow_filter_radius_ext": [
-      "src/cna/extensions/engine/shadows.py:819"
-    ],
-    "cna_effect_get_shadow_filter_radius_ext": [
-      "src/cna/extensions/engine/shadows.py:815"
-    ],
-    "cna_effect_set_shadow_cascades_ext": [
-      "src/cna/extensions/engine/shadows.py:834"
-    ],
-    "cna_effect_get_shadow_cascades_ext": [
-      "src/cna/extensions/engine/shadows.py:826"
-    ],
-    "cna_effect_set_punctual_light_ext": [
-      "src/cna/extensions/engine/shadows.py:848"
-    ],
-    "cna_effect_get_punctual_light_ext": [
-      "src/cna/extensions/engine/shadows.py:840"
-    ],
-    "cna_pbr_effect_apply_material": [
-      "src/cna/extensions/engine/pbr.py:744"
-    ],
-    "cna_skinned_pbr_effect_apply_material": [
-      "src/cna/extensions/engine/pbr.py:753"
-    ],
-    "cna_pbr_effect_extract_material": [
-      "src/cna/extensions/engine/pbr.py:745"
-    ],
-    "cna_skinned_pbr_effect_extract_material": [
-      "src/cna/extensions/engine/pbr.py:754"
-    ],
-    "cna_pbr_material_apply_state": [
-      "src/cna/extensions/engine/pbr.py:328"
-    ],
-    "cna_pbr_material_extensions_create": [
-      "src/cna/extensions/engine/pbr.py:401"
-    ],
-    "cna_pbr_material_extensions_destroy": [
-      "src/cna/extensions/engine/clustered.py:956",
-      "src/cna/extensions/engine/pbr.py:402"
-    ],
-    "cna_pbr_material_extensions_copy_from": [
-      "src/cna/extensions/engine/pbr.py:441"
-    ],
-    "cna_pbr_material_extensions_get_clearcoat_factor": [
-      "src/cna/extensions/engine/pbr.py:463"
-    ],
-    "cna_pbr_material_extensions_set_clearcoat_factor": [
-      "src/cna/extensions/engine/pbr.py:464"
-    ],
-    "cna_pbr_material_extensions_get_clearcoat_roughness": [
-      "src/cna/extensions/engine/pbr.py:467"
-    ],
-    "cna_pbr_material_extensions_set_clearcoat_roughness": [
-      "src/cna/extensions/engine/pbr.py:468"
-    ],
-    "cna_pbr_material_extensions_get_clearcoat_normal_scale": [
-      "src/cna/extensions/engine/pbr.py:471"
-    ],
-    "cna_pbr_material_extensions_set_clearcoat_normal_scale": [
-      "src/cna/extensions/engine/pbr.py:472"
-    ],
-    "cna_pbr_material_extensions_get_sheen_roughness": [
-      "src/cna/extensions/engine/pbr.py:475"
-    ],
-    "cna_pbr_material_extensions_set_sheen_roughness": [
-      "src/cna/extensions/engine/pbr.py:476"
-    ],
-    "cna_pbr_material_extensions_get_transmission_factor": [
-      "src/cna/extensions/engine/pbr.py:479"
-    ],
-    "cna_pbr_material_extensions_set_transmission_factor": [
-      "src/cna/extensions/engine/pbr.py:480"
-    ],
-    "cna_pbr_material_extensions_get_thickness_factor": [
-      "src/cna/extensions/engine/pbr.py:483"
-    ],
-    "cna_pbr_material_extensions_set_thickness_factor": [
-      "src/cna/extensions/engine/pbr.py:484"
-    ],
-    "cna_pbr_material_extensions_get_attenuation_distance": [
-      "src/cna/extensions/engine/pbr.py:487"
-    ],
-    "cna_pbr_material_extensions_set_attenuation_distance": [
-      "src/cna/extensions/engine/pbr.py:488"
-    ],
-    "cna_pbr_material_extensions_get_iridescence_factor": [
-      "src/cna/extensions/engine/pbr.py:491"
-    ],
-    "cna_pbr_material_extensions_set_iridescence_factor": [
-      "src/cna/extensions/engine/pbr.py:492"
-    ],
-    "cna_pbr_material_extensions_get_iridescence_ior": [
-      "src/cna/extensions/engine/pbr.py:495"
-    ],
-    "cna_pbr_material_extensions_set_iridescence_ior": [
-      "src/cna/extensions/engine/pbr.py:496"
-    ],
-    "cna_pbr_material_extensions_get_iridescence_thickness_minimum": [
-      "src/cna/extensions/engine/pbr.py:499"
-    ],
-    "cna_pbr_material_extensions_set_iridescence_thickness_minimum": [
-      "src/cna/extensions/engine/pbr.py:500"
-    ],
-    "cna_pbr_material_extensions_get_iridescence_thickness_maximum": [
-      "src/cna/extensions/engine/pbr.py:503"
-    ],
-    "cna_pbr_material_extensions_set_iridescence_thickness_maximum": [
-      "src/cna/extensions/engine/pbr.py:504"
-    ],
-    "cna_pbr_material_extensions_get_subsurface_wrap": [
-      "src/cna/extensions/engine/pbr.py:507"
-    ],
-    "cna_pbr_material_extensions_set_subsurface_wrap": [
-      "src/cna/extensions/engine/pbr.py:508"
-    ],
-    "cna_pbr_material_extensions_get_sheen_color_factor": [
-      "src/cna/extensions/engine/pbr.py:512"
-    ],
-    "cna_pbr_material_extensions_set_sheen_color_factor": [
-      "src/cna/extensions/engine/pbr.py:513"
-    ],
-    "cna_pbr_material_extensions_get_attenuation_color": [
-      "src/cna/extensions/engine/pbr.py:516"
-    ],
-    "cna_pbr_material_extensions_set_attenuation_color": [
-      "src/cna/extensions/engine/pbr.py:517"
-    ],
-    "cna_pbr_material_extensions_get_subsurface_color": [
-      "src/cna/extensions/engine/pbr.py:520"
-    ],
-    "cna_pbr_material_extensions_set_subsurface_color": [
-      "src/cna/extensions/engine/pbr.py:521"
-    ],
-    "cna_pbr_material_extensions_get_clearcoat_texture": [
-      "src/cna/extensions/engine/pbr.py:525"
-    ],
-    "cna_pbr_material_extensions_set_clearcoat_texture": [
-      "src/cna/extensions/engine/pbr.py:526"
-    ],
-    "cna_pbr_material_extensions_get_clearcoat_roughness_texture": [
-      "src/cna/extensions/engine/pbr.py:529",
-      "resolved from a constant prefix"
-    ],
-    "cna_pbr_material_extensions_set_clearcoat_roughness_texture": [
-      "src/cna/extensions/engine/pbr.py:530",
-      "resolved from a constant prefix"
-    ],
-    "cna_pbr_material_extensions_get_clearcoat_normal_texture": [
-      "src/cna/extensions/engine/pbr.py:533"
-    ],
-    "cna_pbr_material_extensions_set_clearcoat_normal_texture": [
-      "src/cna/extensions/engine/pbr.py:534"
-    ],
-    "cna_pbr_material_extensions_get_sheen_color_texture": [
-      "src/cna/extensions/engine/pbr.py:537"
-    ],
-    "cna_pbr_material_extensions_set_sheen_color_texture": [
-      "src/cna/extensions/engine/pbr.py:538"
-    ],
-    "cna_pbr_material_extensions_get_sheen_roughness_texture": [
-      "src/cna/extensions/engine/pbr.py:541",
-      "resolved from a constant prefix"
-    ],
-    "cna_pbr_material_extensions_set_sheen_roughness_texture": [
-      "src/cna/extensions/engine/pbr.py:542",
-      "resolved from a constant prefix"
-    ],
-    "cna_pbr_material_extensions_get_transmission_texture": [
-      "src/cna/extensions/engine/pbr.py:545"
-    ],
-    "cna_pbr_material_extensions_set_transmission_texture": [
-      "src/cna/extensions/engine/pbr.py:546"
-    ],
-    "cna_pbr_material_extensions_get_thickness_texture": [
-      "src/cna/extensions/engine/pbr.py:549"
-    ],
-    "cna_pbr_material_extensions_set_thickness_texture": [
-      "src/cna/extensions/engine/pbr.py:550"
-    ],
-    "cna_pbr_material_extensions_get_iridescence_texture": [
-      "src/cna/extensions/engine/pbr.py:553"
-    ],
-    "cna_pbr_material_extensions_set_iridescence_texture": [
-      "src/cna/extensions/engine/pbr.py:554"
-    ],
-    "cna_pbr_material_extensions_get_iridescence_thickness_texture": [
-      "src/cna/extensions/engine/pbr.py:557"
-    ],
-    "cna_pbr_material_extensions_set_iridescence_thickness_texture": [
-      "src/cna/extensions/engine/pbr.py:558"
-    ],
-    "cna_pbr_material_extensions_is_subsurface_enabled": [
-      "src/cna/extensions/engine/pbr.py:563"
-    ],
-    "cna_pbr_material_extensions_is_iridescence_enabled": [
-      "src/cna/extensions/engine/pbr.py:566"
-    ],
-    "cna_pbr_material_extensions_is_transmission_enabled": [
-      "src/cna/extensions/engine/pbr.py:569"
-    ],
-    "cna_pbr_material_extensions_is_sheen_enabled": [
-      "src/cna/extensions/engine/pbr.py:572"
-    ],
-    "cna_pbr_material_extensions_is_neutral": [
-      "src/cna/extensions/engine/pbr.py:575"
-    ],
-    "cna_pbr_material_extensions_equals": [
-      "src/cna/extensions/engine/pbr.py:449"
-    ],
-    "cna_pbr_material_extensions_get_hash_code": [
-      "src/cna/extensions/engine/pbr.py:454"
-    ],
-    "cna_pbr_material_extensions_copy_to_string": [
-      "src/cna/extensions/engine/pbr.py:459"
-    ],
-    "cna_thin_film_iridescence_evaluate": [
-      "src/cna/extensions/engine/pbr.py:963"
-    ],
-    "cna_thin_film_iridescence_copy_glsl": [
-      "src/cna/extensions/engine/pbr.py:978"
-    ],
-    "cna_pbr_material_ext_equals": [
-      "src/cna/extensions/engine/pbr.py:306"
-    ],
-    "cna_pbr_material_ext_get_hash_code": [
-      "src/cna/extensions/engine/pbr.py:312"
-    ],
-    "cna_pbr_material_ext_copy_to_string": [
-      "src/cna/extensions/engine/pbr.py:317"
-    ],
-    "cna_gltf_material_source_ext_init": [
-      "src/cna/extensions/engine/pbr.py:785"
-    ],
-    "cna_gltf_material_extension_source_ext_init": [
-      "src/cna/extensions/engine/pbr.py:851"
-    ],
-    "cna_gltf_material_textures_ext_init": [
-      "src/cna/extensions/engine/pbr.py:914"
-    ],
-    "cna_gltf_material_extension_textures_ext_init": [
-      "src/cna/extensions/engine/pbr.py:945"
-    ],
-    "cna_gltf_material_bridge_build_material": [
-      "src/cna/extensions/engine/pbr.py:919"
-    ],
-    "cna_gltf_material_bridge_build_extensions": [
-      "src/cna/extensions/engine/pbr.py:948"
-    ],
-    "cna_pbr_material_ext_init": [
-      "src/cna/extensions/engine/pbr.py:233"
-    ],
-    "cna_pbr_effect_create": [
-      "src/cna/extensions/engine/pbr.py:743"
-    ],
-    "cna_skinned_pbr_effect_create": [
-      "src/cna/extensions/engine/pbr.py:752"
-    ],
-    "cna_pbr_effect_set_texture": [
-      "src/cna/extensions/engine/pbr.py:717"
-    ],
-    "cna_pbr_effect_get_texture": [
-      "src/cna/extensions/engine/pbr.py:689"
-    ],
-    "cna_depth_normal_prepass_create": [
-      "src/cna/extensions/engine/scene.py:596"
-    ],
-    "cna_depth_normal_prepass_resize": [
-      "src/cna/extensions/engine/scene.py:673"
-    ],
-    "cna_depth_normal_prepass_get_pass_count": [
-      "src/cna/extensions/engine/scene.py:614"
-    ],
-    "cna_depth_normal_prepass_begin": [
-      "src/cna/extensions/engine/scene.py:715"
-    ],
-    "cna_depth_normal_prepass_end": [
-      "src/cna/extensions/engine/scene.py:722"
-    ],
-    "cna_depth_normal_prepass_get_prepass_effect": [
-      "src/cna/extensions/engine/scene.py:699"
-    ],
-    "cna_depth_normal_prepass_get_skinned_prepass_effect": [
-      "src/cna/extensions/engine/scene.py:705"
-    ],
-    "cna_depth_normal_prepass_get_depth_texture": [
-      "src/cna/extensions/engine/scene.py:681"
-    ],
-    "cna_depth_normal_prepass_get_normal_texture": [
-      "src/cna/extensions/engine/scene.py:687"
-    ],
-    "cna_depth_normal_prepass_get_velocity_texture_ext": [
-      "src/cna/extensions/engine/scene.py:693"
-    ],
-    "cna_depth_normal_prepass_is_supported": [
-      "src/cna/extensions/engine/scene.py:603"
-    ],
-    "cna_depth_normal_prepass_is_using_multiple_render_targets": [
-      "src/cna/extensions/engine/scene.py:621"
-    ],
-    "cna_depth_normal_prepass_is_depth_packed": [
-      "src/cna/extensions/engine/scene.py:627"
-    ],
-    "cna_depth_normal_prepass_uses_packed_depth_ext": [
-      "src/cna/extensions/engine/scene.py:521"
-    ],
-    "cna_depth_normal_prepass_get_roughness": [
-      "src/cna/extensions/engine/scene.py:633"
-    ],
-    "cna_depth_normal_prepass_set_roughness": [
-      "src/cna/extensions/engine/scene.py:638"
-    ],
-    "cna_depth_normal_prepass_is_velocity_enabled_ext": [
-      "src/cna/extensions/engine/scene.py:644"
-    ],
-    "cna_depth_normal_prepass_set_velocity_enabled_ext": [
-      "src/cna/extensions/engine/scene.py:649"
-    ],
-    "cna_depth_normal_prepass_set_previous_world_ext": [
-      "src/cna/extensions/engine/scene.py:655"
-    ],
-    "cna_depth_normal_prepass_set_previous_camera_ext": [
-      "src/cna/extensions/engine/scene.py:663"
-    ],
-    "cna_depth_normal_prepass_copy_depth_decode_glsl": [
-      "src/cna/extensions/engine/scene.py:572"
-    ],
-    "cna_depth_normal_prepass_copy_velocity_decode_glsl": [
-      "src/cna/extensions/engine/scene.py:578"
-    ],
-    "cna_depth_normal_prepass_has_velocity_ext": [
-      "src/cna/extensions/engine/scene.py:556"
-    ],
-    "cna_depth_normal_prepass_decode_velocity_ext": [
-      "src/cna/extensions/engine/scene.py:565"
-    ],
-    "cna_depth_normal_prepass_pack_depth": [
-      "src/cna/extensions/engine/scene.py:534"
-    ],
-    "cna_depth_normal_prepass_unpack_depth": [
-      "src/cna/extensions/engine/scene.py:544"
-    ],
-    "cna_depth_normal_prepass_destroy": [
-      "src/cna/extensions/engine/scene.py:591"
-    ],
-    "cna_transparent_draw_list_create": [
-      "src/cna/extensions/engine/scene.py:790"
-    ],
-    "cna_transparent_draw_list_destroy": [
-      "src/cna/extensions/engine/scene.py:787"
-    ],
-    "cna_transparent_draw_list_clear": [
-      "src/cna/extensions/engine/scene.py:824"
-    ],
-    "cna_transparent_draw_list_submit": [
-      "src/cna/extensions/engine/scene.py:811"
-    ],
-    "cna_transparent_draw_list_get_count": [
-      "src/cna/extensions/engine/scene.py:819"
-    ],
-    "cna_transparent_draw_list_draw_sorted": [
-      "src/cna/extensions/engine/scene.py:849"
-    ],
-    "cna_transparent_draw_list_copy_sorted_order_ext": [
-      "src/cna/extensions/engine/scene.py:835"
-    ],
-    "cna_transparent_draw_list_sort_key": [
-      "src/cna/extensions/engine/scene.py:753"
-    ],
-    "cna_transparent_draw_list_camera_position_of": [
-      "src/cna/extensions/engine/scene.py:766"
-    ],
-    "cna_weighted_blended_transparency_create": [
-      "src/cna/extensions/engine/scene.py:895"
-    ],
-    "cna_weighted_blended_transparency_destroy": [
-      "src/cna/extensions/engine/scene.py:891"
-    ],
-    "cna_weighted_blended_transparency_is_supported": [
-      "src/cna/extensions/engine/scene.py:902"
-    ],
-    "cna_weighted_blended_transparency_copy_unsupported_reason": [
-      "src/cna/extensions/engine/scene.py:909"
-    ],
-    "cna_weighted_blended_transparency_resize": [
-      "src/cna/extensions/engine/scene.py:939"
-    ],
-    "cna_weighted_blended_transparency_begin": [
-      "src/cna/extensions/engine/scene.py:955"
-    ],
-    "cna_weighted_blended_transparency_end": [
-      "src/cna/extensions/engine/scene.py:959"
-    ],
-    "cna_weighted_blended_transparency_resolve": [
-      "src/cna/extensions/engine/scene.py:949"
-    ],
-    "cna_weighted_blended_transparency_is_accumulating": [
-      "src/cna/extensions/engine/scene.py:915"
-    ],
-    "cna_weighted_blended_transparency_get_accumulation_texture_ext": [
-      "src/cna/extensions/engine/scene.py:923"
-    ],
-    "cna_weighted_blended_transparency_get_revealage_texture_ext": [
-      "src/cna/extensions/engine/scene.py:930"
-    ],
-    "cna_weighted_blended_transparency_copy_accumulation_glsl": [
-      "src/cna/extensions/engine/scene.py:878"
-    ],
-    "cna_weighted_blended_transparency_weight": [
-      "src/cna/extensions/engine/scene.py:869"
-    ],
-    "cna_decal_pass_create": [
-      "src/cna/extensions/engine/scene.py:443"
-    ],
-    "cna_decal_pass_destroy": [
-      "src/cna/extensions/engine/scene.py:440"
-    ],
-    "cna_decal_pass_get_opacity": [
-      "src/cna/extensions/engine/scene.py:449"
-    ],
-    "cna_decal_pass_set_opacity": [
-      "src/cna/extensions/engine/scene.py:453"
-    ],
-    "cna_decal_pass_get_tint": [
-      "src/cna/extensions/engine/scene.py:460"
-    ],
-    "cna_decal_pass_set_tint": [
-      "src/cna/extensions/engine/scene.py:466"
-    ],
-    "cna_decal_pass_get_max_slope_angle": [
-      "src/cna/extensions/engine/scene.py:475"
-    ],
-    "cna_decal_pass_set_max_slope_angle": [
-      "src/cna/extensions/engine/scene.py:480"
-    ],
-    "cna_decal_pass_set_prepass_inputs": [
-      "src/cna/extensions/engine/scene.py:489"
-    ],
-    "cna_decal_pass_set_camera": [
-      "src/cna/extensions/engine/scene.py:497"
-    ],
-    "cna_decal_pass_draw": [
-      "src/cna/extensions/engine/scene.py:505"
-    ],
-    "cna_decal_pass_is_inside_decal_box": [
-      "src/cna/extensions/engine/scene.py:429"
-    ],
-    "cna_particle_emitter_settings_init": [
-      "src/cna/extensions/engine/scene.py:164"
-    ],
-    "cna_particle_init": [
-      "src/cna/extensions/engine/scene.py:214"
-    ],
-    "cna_particle_system_create": [
-      "src/cna/extensions/engine/scene.py:275"
-    ],
-    "cna_particle_system_create_with_capacity": [
-      "src/cna/extensions/engine/scene.py:279"
-    ],
-    "cna_particle_system_destroy": [
-      "src/cna/extensions/engine/scene.py:271"
-    ],
-    "cna_particle_system_get_capacity": [
-      "src/cna/extensions/engine/scene.py:286"
-    ],
-    "cna_particle_system_get_settings": [
-      "src/cna/extensions/engine/scene.py:299"
-    ],
-    "cna_particle_system_set_settings": [
-      "src/cna/extensions/engine/scene.py:308"
-    ],
-    "cna_particle_system_reset": [
-      "src/cna/extensions/engine/scene.py:364"
-    ],
-    "cna_particle_system_update": [
-      "src/cna/extensions/engine/scene.py:368"
-    ],
-    "cna_particle_system_draw": [
-      "src/cna/extensions/engine/scene.py:375"
-    ],
-    "cna_particle_system_set_depth_input_ext": [
-      "src/cna/extensions/engine/scene.py:357"
-    ],
-    "cna_particle_system_get_softness_ext": [
-      "src/cna/extensions/engine/scene.py:343"
-    ],
-    "cna_particle_system_set_softness_ext": [
-      "src/cna/extensions/engine/scene.py:348"
-    ],
-    "cna_particle_system_uses_compute": [
-      "src/cna/extensions/engine/scene.py:314"
-    ],
-    "cna_particle_system_is_simulation_on_cpu_ext": [
-      "src/cna/extensions/engine/scene.py:326"
-    ],
-    "cna_particle_system_set_simulation_on_cpu_ext": [
-      "src/cna/extensions/engine/scene.py:331"
-    ],
-    "cna_particle_system_copy_unsupported_reason": [
-      "src/cna/extensions/engine/scene.py:320"
-    ],
-    "cna_particle_system_get_active_count": [
-      "src/cna/extensions/engine/scene.py:292"
-    ],
-    "cna_particle_system_is_emission_rate_clamped": [
-      "src/cna/extensions/engine/scene.py:337"
-    ],
-    "cna_particle_system_copy_particles_ext": [
-      "src/cna/extensions/engine/scene.py:391"
-    ],
-    "cna_particle_system_step": [
-      "src/cna/extensions/engine/scene.py:412"
-    ],
-    "cna_particle_system_random": [
-      "src/cna/extensions/engine/scene.py:252"
-    ],
-    "cna_particle_system_copy_particle_lookup_glsl": [
-      "src/cna/extensions/engine/scene.py:258"
-    ],
-    "cna_render_pipeline_settings_ext_init": [
-      "src/cna/extensions/engine/pipeline.py:191"
-    ],
-    "cna_render_pipeline_settings_ext_normalize": [
-      "src/cna/extensions/engine/pipeline.py:212"
-    ],
-    "cna_render_pipeline_settings_ext_apply_render_quality_preset": [
-      "src/cna/extensions/engine/pipeline.py:216"
-    ],
-    "cna_render_pipeline_settings_ext_apply_from_string": [
-      "src/cna/extensions/engine/pipeline.py:228"
-    ],
-    "cna_render_pipeline_create": [
-      "src/cna/extensions/engine/pipeline.py:304"
-    ],
-    "cna_render_pipeline_destroy": [
-      "src/cna/extensions/engine/pipeline.py:305"
-    ],
-    "cna_render_pipeline_get_settings": [
-      "src/cna/extensions/engine/pipeline.py:355"
-    ],
-    "cna_render_pipeline_set_settings": [
-      "src/cna/extensions/engine/pipeline.py:363"
-    ],
-    "cna_render_pipeline_resize": [
-      "src/cna/extensions/engine/pipeline.py:373"
-    ],
-    "cna_render_pipeline_begin": [
-      "src/cna/extensions/engine/pipeline.py:533"
-    ],
-    "cna_render_pipeline_end": [
-      "src/cna/extensions/engine/pipeline.py:544"
-    ],
-    "cna_render_pipeline_add_user_pass": [
-      "src/cna/extensions/engine/pipeline.py:421"
-    ],
-    "cna_render_pipeline_clear_user_passes": [
-      "src/cna/extensions/engine/pipeline.py:427"
-    ],
-    "cna_render_pipeline_set_depth_normal_inputs": [
-      "src/cna/extensions/engine/pipeline.py:399"
-    ],
-    "cna_render_pipeline_set_velocity_input_ext": [
-      "src/cna/extensions/engine/pipeline.py:406"
-    ],
-    "cna_render_pipeline_set_transparent_scene": [
-      "src/cna/extensions/engine/pipeline.py:483"
-    ],
-    "cna_render_pipeline_set_shadow_scene": [
-      "src/cna/extensions/engine/pipeline.py:508"
-    ],
-    "cna_render_pipeline_set_camera": [
-      "src/cna/extensions/engine/pipeline.py:381"
-    ],
-    "cna_render_pipeline_set_skybox_camera": [
-      "src/cna/extensions/engine/pipeline.py:389"
-    ],
-    "cna_render_pipeline_copy_transparency_fallback_reason_ext": [
-      "src/cna/extensions/engine/pipeline.py:628"
-    ],
-    "cna_render_pipeline_set_gpu_timing_enabled_ext": [
-      "src/cna/extensions/engine/pipeline.py:521"
-    ],
-    "cna_render_pipeline_is_gpu_timing_enabled_ext": [
-      "src/cna/extensions/engine/pipeline.py:516"
-    ],
-    "cna_render_pipeline_did_skybox_draw": [
-      "src/cna/extensions/engine/pipeline.py:563"
-    ],
-    "cna_render_pipeline_did_shadow_pass_run": [
-      "src/cna/extensions/engine/pipeline.py:569"
-    ],
-    "cna_render_pipeline_get_shadow_map": [
-      "src/cna/extensions/engine/pipeline.py:459"
-    ],
-    "cna_render_pipeline_get_scene_target": [
-      "src/cna/extensions/engine/pipeline.py:611"
-    ],
-    "cna_render_pipeline_get_scene_target_format": [
-      "src/cna/extensions/engine/pipeline.py:598"
-    ],
-    "cna_render_pipeline_is_using_scene_target": [
-      "src/cna/extensions/engine/pipeline.py:591"
-    ],
-    "cna_render_pipeline_get_last_frame_pass_count": [
-      "src/cna/extensions/engine/pipeline.py:575"
-    ],
-    "cna_render_pipeline_get_gpu_memory_estimate_bytes": [
-      "src/cna/extensions/engine/pipeline.py:581"
-    ],
-    "cna_render_pipeline_get_statistics": [
-      "src/cna/extensions/engine/pipeline.py:556"
-    ],
-    "cna_render_pipeline_release_device_resources_ext": [
-      "src/cna/extensions/engine/pipeline.py:661"
-    ],
-    "cna_render_pipeline_get_pass_timing_count_ext": [
-      "src/cna/extensions/engine/pipeline.py:636"
-    ],
-    "cna_render_pipeline_get_pass_timing_ext": [
-      "src/cna/extensions/engine/pipeline.py:641"
-    ],
-    "cna_render_pipeline_copy_pass_timing_name_ext": [
-      "src/cna/extensions/engine/pipeline.py:644"
-    ],
-    "cna_render_pipeline_get_skybox": [
-      "src/cna/extensions/engine/pipeline.py:439"
-    ],
-    "cna_render_pipeline_set_skybox": [
-      "src/cna/extensions/engine/pipeline.py:447"
-    ],
-    "cna_bloom_pass_create": [
-      "src/cna/extensions/engine/passes.py:191"
-    ],
-    "cna_bloom_pass_get_threshold": [
-      "src/cna/extensions/engine/passes.py:193"
-    ],
-    "cna_bloom_pass_set_threshold": [
-      "src/cna/extensions/engine/passes.py:193"
-    ],
-    "cna_bloom_pass_get_intensity": [
-      "src/cna/extensions/engine/passes.py:195"
-    ],
-    "cna_bloom_pass_set_intensity": [
-      "src/cna/extensions/engine/passes.py:195"
-    ],
-    "cna_bloom_pass_get_iterations": [
-      "src/cna/extensions/engine/passes.py:197"
-    ],
-    "cna_bloom_pass_set_iterations": [
-      "src/cna/extensions/engine/passes.py:198"
-    ],
-    "cna_lens_flare_pass_create": [
-      "src/cna/extensions/engine/passes.py:333"
-    ],
-    "cna_lens_flare_pass_get_threshold": [
-      "src/cna/extensions/engine/passes.py:335"
-    ],
-    "cna_lens_flare_pass_set_threshold": [
-      "src/cna/extensions/engine/passes.py:336"
-    ],
-    "cna_lens_flare_pass_get_intensity": [
-      "src/cna/extensions/engine/passes.py:338"
-    ],
-    "cna_lens_flare_pass_set_intensity": [
-      "src/cna/extensions/engine/passes.py:339"
-    ],
-    "cna_lens_flare_pass_get_dispersal": [
-      "src/cna/extensions/engine/passes.py:341"
-    ],
-    "cna_lens_flare_pass_set_dispersal": [
-      "src/cna/extensions/engine/passes.py:342"
-    ],
-    "cna_fxaa_pass_create": [
-      "src/cna/extensions/engine/passes.py:295"
-    ],
-    "cna_fxaa_pass_get_edge_threshold": [
-      "src/cna/extensions/engine/passes.py:297"
-    ],
-    "cna_fxaa_pass_set_edge_threshold": [
-      "src/cna/extensions/engine/passes.py:298"
-    ],
-    "cna_spatial_upscale_pass_create": [
-      "src/cna/extensions/engine/passes.py:507"
-    ],
-    "cna_spatial_upscale_pass_destroy": [
-      "src/cna/extensions/engine/passes.py:509"
-    ],
-    "cna_spatial_upscale_pass_get_sharpness": [
-      "src/cna/extensions/engine/passes.py:511"
-    ],
-    "cna_spatial_upscale_pass_set_sharpness": [
-      "src/cna/extensions/engine/passes.py:512"
-    ],
-    "cna_spatial_upscale_pass_get_edge_adaptive": [
-      "src/cna/extensions/engine/passes.py:514"
-    ],
-    "cna_spatial_upscale_pass_set_edge_adaptive": [
-      "src/cna/extensions/engine/passes.py:515"
-    ],
-    "cna_chromatic_aberration_pass_create": [
-      "src/cna/extensions/engine/passes.py:306"
-    ],
-    "cna_chromatic_aberration_pass_get_strength": [
-      "src/cna/extensions/engine/passes.py:308"
-    ],
-    "cna_chromatic_aberration_pass_set_strength": [
-      "src/cna/extensions/engine/passes.py:309"
-    ],
-    "cna_film_grain_pass_create": [
-      "src/cna/extensions/engine/passes.py:322"
-    ],
-    "cna_film_grain_pass_get_intensity": [
-      "src/cna/extensions/engine/passes.py:324"
-    ],
-    "cna_film_grain_pass_set_intensity": [
-      "src/cna/extensions/engine/passes.py:325"
-    ],
-    "cna_ascii_pass_create": [
-      "src/cna/extensions/engine/passes.py:468"
-    ],
-    "cna_bloom_pass_reset_targets": [
-      "src/cna/extensions/engine/passes.py:203"
-    ],
-    "cna_bloom_pass_iterations_for_quality": [
-      "src/cna/extensions/engine/passes.py:820"
-    ],
-    "cna_bloom_pass_extract_channel": [
-      "src/cna/extensions/engine/passes.py:813"
-    ],
-    "cna_fxaa_pass_copy_fragment_glsl": [
-      "src/cna/extensions/engine/passes.py:832"
-    ],
-    "cna_fxaa_pass_edge_threshold_for_quality": [
-      "src/cna/extensions/engine/passes.py:826"
-    ],
-    "cna_spatial_upscale_pass_draw": [
-      "src/cna/extensions/engine/passes.py:538"
-    ],
-    "cna_spatial_upscale_pass_is_identity_scale": [
-      "src/cna/extensions/engine/passes.py:870"
-    ],
-    "cna_ascii_pass_get_effect": [
-      "src/cna/extensions/engine/passes.py:483"
-    ],
-    "cna_tonemap_pass_create": [
-      "src/cna/extensions/engine/passes.py:210"
-    ],
-    "cna_tonemap_pass_get_mode": [
-      "src/cna/extensions/engine/passes.py:212"
-    ],
-    "cna_tonemap_pass_set_mode": [
-      "src/cna/extensions/engine/passes.py:212"
-    ],
-    "cna_tonemap_pass_get_exposure": [
-      "src/cna/extensions/engine/passes.py:214"
-    ],
-    "cna_tonemap_pass_set_exposure": [
-      "src/cna/extensions/engine/passes.py:214"
-    ],
-    "cna_tonemap_pass_get_gamma": [
-      "src/cna/extensions/engine/passes.py:216"
-    ],
-    "cna_tonemap_pass_set_gamma": [
-      "src/cna/extensions/engine/passes.py:216"
-    ],
-    "cna_tonemap_pass_is_deband_enabled": [
-      "src/cna/extensions/engine/passes.py:218"
-    ],
-    "cna_tonemap_pass_set_deband_enabled": [
-      "src/cna/extensions/engine/passes.py:219"
-    ],
-    "cna_tonemap_pass_get_deband_strength": [
-      "src/cna/extensions/engine/passes.py:221"
-    ],
-    "cna_tonemap_pass_set_deband_strength": [
-      "src/cna/extensions/engine/passes.py:222"
-    ],
-    "cna_tonemap_pass_tonemap_channel": [
-      "src/cna/extensions/engine/passes.py:842"
-    ],
-    "cna_color_grade_pass_create": [
-      "src/cna/extensions/engine/passes.py:236"
-    ],
-    "cna_color_grade_pass_get_lut": [
-      "src/cna/extensions/engine/passes.py:260"
-    ],
-    "cna_color_grade_pass_set_lut": [
-      "src/cna/extensions/engine/passes.py:267"
-    ],
-    "cna_color_grade_pass_get_volume_lut": [
-      "src/cna/extensions/engine/passes.py:279"
-    ],
-    "cna_color_grade_pass_set_volume_lut": [
-      "src/cna/extensions/engine/passes.py:286"
-    ],
-    "cna_color_grade_pass_get_interpolation": [
-      "src/cna/extensions/engine/passes.py:243"
-    ],
-    "cna_color_grade_pass_set_interpolation": [
-      "src/cna/extensions/engine/passes.py:244"
-    ],
-    "cna_color_grade_pass_get_strength": [
-      "src/cna/extensions/engine/passes.py:247"
-    ],
-    "cna_color_grade_pass_set_strength": [
-      "src/cna/extensions/engine/passes.py:248"
-    ],
-    "cna_color_grade_pass_lut_size_for_strip": [
-      "src/cna/extensions/engine/passes.py:851"
-    ],
-    "cna_color_grade_pass_create_identity_lut": [
-      "src/cna/extensions/engine/passes.py:862"
-    ],
-    "cna_hdr_display_output_create": [
-      "src/cna/extensions/engine/passes.py:666"
-    ],
-    "cna_hdr_display_output_destroy": [
-      "src/cna/extensions/engine/passes.py:668"
-    ],
-    "cna_hdr_display_output_is_supported": [
-      "src/cna/extensions/engine/passes.py:673"
-    ],
-    "cna_hdr_display_output_get_color_space": [
-      "src/cna/extensions/engine/passes.py:676"
-    ],
-    "cna_hdr_display_output_set_color_space": [
-      "src/cna/extensions/engine/passes.py:677"
-    ],
-    "cna_hdr_display_output_get_paper_white_nits": [
-      "src/cna/extensions/engine/passes.py:680"
-    ],
-    "cna_hdr_display_output_set_paper_white_nits": [
-      "src/cna/extensions/engine/passes.py:681"
-    ],
-    "cna_hdr_display_output_get_peak_nits": [
-      "src/cna/extensions/engine/passes.py:683"
-    ],
-    "cna_hdr_display_output_set_peak_nits": [
-      "src/cna/extensions/engine/passes.py:684"
-    ],
-    "cna_hdr_display_output_draw": [
-      "src/cna/extensions/engine/passes.py:706"
-    ],
-    "cna_hdr_display_output_encode_pq": [
-      "src/cna/extensions/engine/passes.py:879"
-    ],
-    "cna_hdr_display_output_decode_pq": [
-      "src/cna/extensions/engine/passes.py:885"
-    ],
-    "cna_hdr_display_output_rec709_to_rec2020": [
-      "src/cna/extensions/engine/passes.py:893"
-    ],
-    "cna_hdr_display_output_roll_off": [
-      "src/cna/extensions/engine/passes.py:900"
-    ],
-    "cna_hdr_display_output_encode": [
-      "src/cna/extensions/engine/passes.py:914"
-    ],
-    "cna_auto_exposure_ext_create": [
-      "src/cna/extensions/engine/passes.py:726"
-    ],
-    "cna_auto_exposure_ext_destroy": [
-      "src/cna/extensions/engine/passes.py:728"
-    ],
-    "cna_auto_exposure_ext_measure_average_luminance": [
-      "src/cna/extensions/engine/passes.py:787"
-    ],
-    "cna_auto_exposure_ext_update": [
-      "src/cna/extensions/engine/passes.py:794"
-    ],
-    "cna_auto_exposure_ext_apply_to": [
-      "src/cna/extensions/engine/passes.py:804"
-    ],
-    "cna_auto_exposure_ext_get_exposure": [
-      "src/cna/extensions/engine/passes.py:730"
-    ],
-    "cna_auto_exposure_ext_set_exposure": [
-      "src/cna/extensions/engine/passes.py:731"
-    ],
-    "cna_auto_exposure_ext_get_key_value": [
-      "src/cna/extensions/engine/passes.py:733"
-    ],
-    "cna_auto_exposure_ext_set_key_value": [
-      "src/cna/extensions/engine/passes.py:734"
-    ],
-    "cna_auto_exposure_ext_get_brightening_speed": [
-      "src/cna/extensions/engine/passes.py:756"
-    ],
-    "cna_auto_exposure_ext_get_darkening_speed": [
-      "src/cna/extensions/engine/passes.py:762"
-    ],
-    "cna_auto_exposure_ext_set_adaptation_speeds": [
-      "src/cna/extensions/engine/passes.py:772"
-    ],
-    "cna_auto_exposure_ext_set_exposure_range": [
-      "src/cna/extensions/engine/passes.py:781"
-    ],
-    "cna_cube_lut_parse": [
-      "src/cna/extensions/engine/passes.py:570"
-    ],
-    "cna_cube_lut_load_from_file": [
-      "src/cna/extensions/engine/passes.py:580"
-    ],
-    "cna_cube_lut_destroy": [
-      "src/cna/extensions/engine/passes.py:563"
-    ],
-    "cna_cube_lut_get_size": [
-      "src/cna/extensions/engine/passes.py:603"
-    ],
-    "cna_cube_lut_copy_title": [
-      "src/cna/extensions/engine/passes.py:608"
-    ],
-    "cna_cube_lut_get_domain_min": [
-      "src/cna/extensions/engine/passes.py:615"
-    ],
-    "cna_cube_lut_get_domain_max": [
-      "src/cna/extensions/engine/passes.py:623"
-    ],
-    "cna_cube_lut_is_unit_domain": [
-      "src/cna/extensions/engine/passes.py:630"
-    ],
-    "cna_cube_lut_get_entry": [
-      "src/cna/extensions/engine/passes.py:635"
-    ],
-    "cna_cube_lut_create_strip_texture": [
-      "src/cna/extensions/engine/passes.py:645"
-    ],
-    "cna_cube_lut_create_volume_texture": [
-      "src/cna/extensions/engine/passes.py:651"
-    ],
-    "cna_ascii_post_process_effect_get_cell_size": [
-      "src/cna/extensions/engine/passes.py:435"
-    ],
-    "cna_ascii_post_process_effect_set_cell_size": [
-      "src/cna/extensions/engine/passes.py:442"
-    ],
-    "cna_ascii_post_process_effect_get_quantize_mode": [
-      "src/cna/extensions/engine/passes.py:426"
-    ],
-    "cna_ascii_post_process_effect_set_quantize_mode": [
-      "src/cna/extensions/engine/passes.py:427"
-    ],
-    "cna_ascii_post_process_effect_get_last_grid_dimensions": [
-      "src/cna/extensions/engine/passes.py:459"
-    ],
-    "cna_ascii_post_process_effect_destroy": [
-      "src/cna/extensions/engine/passes.py:370"
-    ],
-    "cna_contact_shadow_pass_create": [
-      "src/cna/extensions/engine/atmosphere.py:243"
-    ],
-    "cna_contact_shadow_pass_get_light_direction": [
-      "src/cna/extensions/engine/atmosphere.py:246"
-    ],
-    "cna_contact_shadow_pass_set_light_direction": [
-      "src/cna/extensions/engine/atmosphere.py:247"
-    ],
-    "cna_contact_shadow_pass_get_max_distance": [
-      "src/cna/extensions/engine/atmosphere.py:249"
-    ],
-    "cna_contact_shadow_pass_set_max_distance": [
-      "src/cna/extensions/engine/atmosphere.py:250"
-    ],
-    "cna_contact_shadow_pass_get_step_count": [
-      "src/cna/extensions/engine/atmosphere.py:252"
-    ],
-    "cna_contact_shadow_pass_set_step_count": [
-      "src/cna/extensions/engine/atmosphere.py:253"
-    ],
-    "cna_contact_shadow_pass_get_thickness": [
-      "src/cna/extensions/engine/atmosphere.py:255"
-    ],
-    "cna_contact_shadow_pass_set_thickness": [
-      "src/cna/extensions/engine/atmosphere.py:256"
-    ],
-    "cna_contact_shadow_pass_get_intensity": [
-      "src/cna/extensions/engine/atmosphere.py:258"
-    ],
-    "cna_contact_shadow_pass_set_intensity": [
-      "src/cna/extensions/engine/atmosphere.py:259"
-    ],
-    "cna_contact_shadow_pass_get_bias": [
-      "src/cna/extensions/engine/atmosphere.py:261"
-    ],
-    "cna_contact_shadow_pass_set_bias": [
-      "src/cna/extensions/engine/atmosphere.py:261"
-    ],
-    "cna_contact_shadow_pass_copy_fallback_reason": [
-      "src/cna/extensions/engine/atmosphere.py:267"
-    ],
-    "cna_contact_shadow_pass_is_occluded": [
-      "src/cna/extensions/engine/atmosphere.py:564"
-    ],
-    "cna_contact_shadow_pass_copy_occlusion_test_glsl": [
-      "src/cna/extensions/engine/atmosphere.py:586"
-    ],
-    "cna_contact_shadow_pass_combine_visibility": [
-      "src/cna/extensions/engine/atmosphere.py:579"
-    ],
-    "cna_ssr_pass_create": [
-      "src/cna/extensions/engine/atmosphere.py:162"
-    ],
-    "cna_ssr_pass_get_max_distance": [
-      "src/cna/extensions/engine/atmosphere.py:164"
-    ],
-    "cna_ssr_pass_set_max_distance": [
-      "src/cna/extensions/engine/atmosphere.py:165"
-    ],
-    "cna_ssr_pass_get_step_count": [
-      "src/cna/extensions/engine/atmosphere.py:169"
-    ],
-    "cna_ssr_pass_set_step_count": [
-      "src/cna/extensions/engine/atmosphere.py:169"
-    ],
-    "cna_ssr_pass_get_thickness": [
-      "src/cna/extensions/engine/atmosphere.py:174"
-    ],
-    "cna_ssr_pass_set_thickness": [
-      "src/cna/extensions/engine/atmosphere.py:174"
-    ],
-    "cna_ssr_pass_get_depth_bias": [
-      "src/cna/extensions/engine/atmosphere.py:176"
-    ],
-    "cna_ssr_pass_set_depth_bias": [
-      "src/cna/extensions/engine/atmosphere.py:176"
-    ],
-    "cna_ssr_pass_get_roughness_blur": [
-      "src/cna/extensions/engine/atmosphere.py:178"
-    ],
-    "cna_ssr_pass_set_roughness_blur": [
-      "src/cna/extensions/engine/atmosphere.py:179"
-    ],
-    "cna_ssr_pass_get_edge_fade": [
-      "src/cna/extensions/engine/atmosphere.py:183"
-    ],
-    "cna_ssr_pass_set_edge_fade": [
-      "src/cna/extensions/engine/atmosphere.py:183"
-    ],
-    "cna_ssr_pass_get_intensity": [
-      "src/cna/extensions/engine/atmosphere.py:186"
-    ],
-    "cna_ssr_pass_set_intensity": [
-      "src/cna/extensions/engine/atmosphere.py:186"
-    ],
-    "cna_ssao_pass_create": [
-      "src/cna/extensions/engine/atmosphere.py:125"
-    ],
-    "cna_ssao_pass_get_radius": [
-      "src/cna/extensions/engine/atmosphere.py:127"
-    ],
-    "cna_ssao_pass_set_radius": [
-      "src/cna/extensions/engine/atmosphere.py:127"
-    ],
-    "cna_ssao_pass_get_intensity": [
-      "src/cna/extensions/engine/atmosphere.py:129"
-    ],
-    "cna_ssao_pass_set_intensity": [
-      "src/cna/extensions/engine/atmosphere.py:129"
-    ],
-    "cna_ssao_pass_get_sample_count": [
-      "src/cna/extensions/engine/atmosphere.py:131"
-    ],
-    "cna_ssao_pass_set_sample_count": [
-      "src/cna/extensions/engine/atmosphere.py:132"
-    ],
-    "cna_ssao_pass_get_half_resolution": [
-      "src/cna/extensions/engine/atmosphere.py:134"
-    ],
-    "cna_ssao_pass_set_half_resolution": [
-      "src/cna/extensions/engine/atmosphere.py:135"
-    ],
-    "cna_depth_of_field_pass_create": [
-      "src/cna/extensions/engine/atmosphere.py:214"
-    ],
-    "cna_depth_of_field_pass_get_focus_distance": [
-      "src/cna/extensions/engine/atmosphere.py:216"
-    ],
-    "cna_depth_of_field_pass_set_focus_distance": [
-      "src/cna/extensions/engine/atmosphere.py:217"
-    ],
-    "cna_depth_of_field_pass_get_focal_length": [
-      "src/cna/extensions/engine/atmosphere.py:221"
-    ],
-    "cna_depth_of_field_pass_set_focal_length": [
-      "src/cna/extensions/engine/atmosphere.py:222"
-    ],
-    "cna_depth_of_field_pass_get_f_number": [
-      "src/cna/extensions/engine/atmosphere.py:224"
-    ],
-    "cna_depth_of_field_pass_set_f_number": [
-      "src/cna/extensions/engine/atmosphere.py:225"
-    ],
-    "cna_depth_of_field_pass_get_max_radius": [
-      "src/cna/extensions/engine/atmosphere.py:227"
-    ],
-    "cna_depth_of_field_pass_set_max_radius": [
-      "src/cna/extensions/engine/atmosphere.py:228"
-    ],
-    "cna_ssao_pass_reset_targets": [
-      "src/cna/extensions/engine/atmosphere.py:140"
-    ],
-    "cna_ssao_pass_copy_kernel": [
-      "src/cna/extensions/engine/atmosphere.py:154"
-    ],
-    "cna_ssao_pass_copy_occlusion_glsl": [
-      "src/cna/extensions/engine/atmosphere.py:535"
-    ],
-    "cna_ssao_pass_sample_count_for_quality": [
-      "src/cna/extensions/engine/atmosphere.py:529"
-    ],
-    "cna_depth_of_field_pass_circle_of_confusion_millimetres": [
-      "src/cna/extensions/engine/atmosphere.py:548"
-    ],
-    "cna_aerial_perspective_pass_create": [
-      "src/cna/extensions/engine/atmosphere.py:278"
-    ],
-    "cna_aerial_perspective_pass_get_sun_direction": [
-      "src/cna/extensions/engine/atmosphere.py:281"
-    ],
-    "cna_aerial_perspective_pass_set_sun_direction": [
-      "src/cna/extensions/engine/atmosphere.py:282"
-    ],
-    "cna_aerial_perspective_pass_get_turbidity": [
-      "src/cna/extensions/engine/atmosphere.py:284"
-    ],
-    "cna_aerial_perspective_pass_set_turbidity": [
-      "src/cna/extensions/engine/atmosphere.py:285"
-    ],
-    "cna_aerial_perspective_pass_get_intensity": [
-      "src/cna/extensions/engine/atmosphere.py:287"
-    ],
-    "cna_aerial_perspective_pass_set_intensity": [
-      "src/cna/extensions/engine/atmosphere.py:288"
-    ],
-    "cna_aerial_perspective_pass_get_scale_height": [
-      "src/cna/extensions/engine/atmosphere.py:290"
-    ],
-    "cna_aerial_perspective_pass_set_scale_height": [
-      "src/cna/extensions/engine/atmosphere.py:291"
-    ],
-    "cna_volumetric_fog_pass_create": [
-      "src/cna/extensions/engine/atmosphere.py:355"
-    ],
-    "cna_volumetric_fog_pass_get_density": [
-      "src/cna/extensions/engine/atmosphere.py:361"
-    ],
-    "cna_volumetric_fog_pass_set_density": [
-      "src/cna/extensions/engine/atmosphere.py:362"
-    ],
-    "cna_volumetric_fog_pass_get_anisotropy": [
-      "src/cna/extensions/engine/atmosphere.py:364"
-    ],
-    "cna_volumetric_fog_pass_set_anisotropy": [
-      "src/cna/extensions/engine/atmosphere.py:365"
-    ],
-    "cna_volumetric_fog_pass_get_range": [
-      "src/cna/extensions/engine/atmosphere.py:367"
-    ],
-    "cna_volumetric_fog_pass_set_range": [
-      "src/cna/extensions/engine/atmosphere.py:368"
-    ],
-    "cna_height_fog_pass_create": [
-      "src/cna/extensions/engine/atmosphere.py:305"
-    ],
-    "cna_height_fog_pass_get_color": [
-      "src/cna/extensions/engine/atmosphere.py:307"
-    ],
-    "cna_height_fog_pass_set_color": [
-      "src/cna/extensions/engine/atmosphere.py:308"
-    ],
-    "cna_height_fog_pass_get_density": [
-      "src/cna/extensions/engine/atmosphere.py:310"
-    ],
-    "cna_height_fog_pass_set_density": [
-      "src/cna/extensions/engine/atmosphere.py:310"
-    ],
-    "cna_height_fog_pass_get_falloff": [
-      "src/cna/extensions/engine/atmosphere.py:312"
-    ],
-    "cna_height_fog_pass_set_falloff": [
-      "src/cna/extensions/engine/atmosphere.py:312"
-    ],
-    "cna_height_fog_pass_get_base_height": [
-      "src/cna/extensions/engine/atmosphere.py:314"
-    ],
-    "cna_height_fog_pass_set_base_height": [
-      "src/cna/extensions/engine/atmosphere.py:315"
-    ],
-    "cna_light_shaft_pass_create": [
-      "src/cna/extensions/engine/atmosphere.py:323"
-    ],
-    "cna_light_shaft_pass_get_light_screen_position": [
-      "src/cna/extensions/engine/atmosphere.py:338"
-    ],
-    "cna_light_shaft_pass_set_light_screen_position": [
-      "src/cna/extensions/engine/atmosphere.py:347"
-    ],
-    "cna_light_shaft_pass_get_threshold": [
-      "src/cna/extensions/engine/atmosphere.py:325"
-    ],
-    "cna_light_shaft_pass_set_threshold": [
-      "src/cna/extensions/engine/atmosphere.py:326"
-    ],
-    "cna_light_shaft_pass_get_intensity": [
-      "src/cna/extensions/engine/atmosphere.py:328"
-    ],
-    "cna_light_shaft_pass_set_intensity": [
-      "src/cna/extensions/engine/atmosphere.py:329"
-    ],
-    "cna_light_shaft_pass_get_decay": [
-      "src/cna/extensions/engine/atmosphere.py:331"
-    ],
-    "cna_light_shaft_pass_set_decay": [
-      "src/cna/extensions/engine/atmosphere.py:331"
-    ],
-    "cna_aerial_perspective_pass_copy_fallback_reason": [
-      "src/cna/extensions/engine/atmosphere.py:297"
-    ],
-    "cna_aerial_perspective_pass_air_mass_for_distance": [
-      "src/cna/extensions/engine/atmosphere.py:598"
-    ],
-    "cna_aerial_perspective_pass_transmittance": [
-      "src/cna/extensions/engine/atmosphere.py:611"
-    ],
-    "cna_height_fog_pass_optical_depth": [
-      "src/cna/extensions/engine/atmosphere.py:625"
-    ],
-    "cna_volumetric_fog_pass_set_light": [
-      "src/cna/extensions/engine/atmosphere.py:382"
-    ],
-    "cna_motion_blur_pass_create": [
-      "src/cna/extensions/engine/atmosphere.py:194"
-    ],
-    "cna_motion_blur_pass_get_strength": [
-      "src/cna/extensions/engine/atmosphere.py:196"
-    ],
-    "cna_motion_blur_pass_set_strength": [
-      "src/cna/extensions/engine/atmosphere.py:197"
-    ],
-    "cna_motion_blur_pass_get_max_distance": [
-      "src/cna/extensions/engine/atmosphere.py:199"
-    ],
-    "cna_motion_blur_pass_set_max_distance": [
-      "src/cna/extensions/engine/atmosphere.py:200"
-    ],
-    "cna_skybox_create": [
-      "src/cna/extensions/engine/atmosphere.py:459"
-    ],
-    "cna_skybox_destroy": [
-      "src/cna/extensions/engine/atmosphere.py:461",
-      "src/cna/extensions/engine/pipeline.py:441"
-    ],
-    "cna_skybox_is_supported": [
-      "src/cna/extensions/engine/atmosphere.py:474"
-    ],
-    "cna_skybox_draw": [
-      "src/cna/extensions/engine/atmosphere.py:518"
-    ],
-    "cna_skybox_get_environment": [
-      "src/cna/extensions/engine/atmosphere.py:504"
-    ],
-    "cna_skybox_set_environment": [
-      "src/cna/extensions/engine/atmosphere.py:511"
-    ],
-    "cna_skybox_get_yaw": [
-      "src/cna/extensions/engine/atmosphere.py:464"
-    ],
-    "cna_skybox_set_yaw": [
-      "src/cna/extensions/engine/atmosphere.py:464"
-    ],
-    "cna_skybox_get_intensity": [
-      "src/cna/extensions/engine/atmosphere.py:466"
-    ],
-    "cna_skybox_set_intensity": [
-      "src/cna/extensions/engine/atmosphere.py:466"
-    ],
-    "cna_skybox_get_tint": [
-      "src/cna/extensions/engine/atmosphere.py:468"
-    ],
-    "cna_skybox_set_tint": [
-      "src/cna/extensions/engine/atmosphere.py:468"
-    ],
-    "cna_skybox_compute_view_ray": [
-      "src/cna/extensions/engine/atmosphere.py:660"
-    ],
-    "cna_atmospheric_sky_create": [
-      "src/cna/extensions/engine/atmosphere.py:399"
-    ],
-    "cna_atmospheric_sky_destroy": [
-      "src/cna/extensions/engine/atmosphere.py:400"
-    ],
-    "cna_atmospheric_sky_is_supported": [
-      "src/cna/extensions/engine/atmosphere.py:415"
-    ],
-    "cna_atmospheric_sky_draw": [
-      "src/cna/extensions/engine/atmosphere.py:437"
-    ],
-    "cna_atmospheric_sky_get_sun_direction": [
-      "src/cna/extensions/engine/atmosphere.py:402"
-    ],
-    "cna_atmospheric_sky_set_sun_direction": [
-      "src/cna/extensions/engine/atmosphere.py:403"
-    ],
-    "cna_atmospheric_sky_get_turbidity": [
-      "src/cna/extensions/engine/atmosphere.py:405"
-    ],
-    "cna_atmospheric_sky_set_turbidity": [
-      "src/cna/extensions/engine/atmosphere.py:406"
-    ],
-    "cna_atmospheric_sky_get_intensity": [
-      "src/cna/extensions/engine/atmosphere.py:408"
-    ],
-    "cna_atmospheric_sky_set_intensity": [
-      "src/cna/extensions/engine/atmosphere.py:409"
-    ],
-    "cna_atmospheric_sky_copy_model_glsl": [
-      "src/cna/extensions/engine/atmosphere.py:651"
-    ],
-    "cna_atmospheric_sky_radiance": [
-      "src/cna/extensions/engine/atmosphere.py:644"
-    ],
-    "cna_clustered_light_ext_init": [
-      "src/cna/extensions/engine/values.py:403"
-    ],
-    "cna_clustered_light_set_is_usable": [
-      "src/cna/extensions/engine/values.py:440"
-    ],
-    "cna_clustered_light_set_create": [
-      "src/cna/extensions/engine/clustered.py:180"
-    ],
-    "cna_clustered_light_set_add": [
-      "src/cna/extensions/engine/clustered.py:188"
-    ],
-    "cna_clustered_light_set_add_point": [
-      "src/cna/extensions/engine/clustered.py:198"
-    ],
-    "cna_clustered_light_set_add_spot": [
-      "src/cna/extensions/engine/clustered.py:208"
-    ],
-    "cna_clustered_light_set_replace_at": [
-      "src/cna/extensions/engine/clustered.py:216"
-    ],
-    "cna_clustered_light_set_remove_at": [
-      "src/cna/extensions/engine/clustered.py:221"
-    ],
-    "cna_clustered_light_set_clear": [
-      "src/cna/extensions/engine/clustered.py:226"
-    ],
-    "cna_clustered_light_set_get_count": [
-      "src/cna/extensions/engine/clustered.py:229"
-    ],
-    "cna_clustered_light_set_is_empty": [
-      "src/cna/extensions/engine/clustered.py:238"
-    ],
-    "cna_clustered_light_set_get_at": [
-      "src/cna/extensions/engine/clustered.py:242"
-    ],
-    "cna_clustered_light_set_copy_lights": [
-      "src/cna/extensions/engine/clustered.py:249"
-    ],
-    "cna_clustered_light_set_get_bounds_at": [
-      "src/cna/extensions/engine/clustered.py:261"
-    ],
-    "cna_clustered_light_set_copy_bounds": [
-      "src/cna/extensions/engine/clustered.py:268"
-    ],
-    "cna_clustered_light_set_destroy": [
-      "src/cna/extensions/engine/clustered.py:176"
-    ],
-    "cna_clustered_light_grid_create": [
-      "src/cna/extensions/engine/clustered.py:296"
-    ],
-    "cna_clustered_light_grid_get_tiles_x": [
-      "src/cna/extensions/engine/clustered.py:305"
-    ],
-    "cna_clustered_light_grid_get_tiles_y": [
-      "src/cna/extensions/engine/clustered.py:310"
-    ],
-    "cna_clustered_light_grid_get_slice_count": [
-      "src/cna/extensions/engine/clustered.py:315"
-    ],
-    "cna_clustered_light_grid_get_cluster_count": [
-      "src/cna/extensions/engine/clustered.py:321"
-    ],
-    "cna_clustered_light_grid_cluster_index": [
-      "src/cna/extensions/engine/clustered.py:327"
-    ],
-    "cna_clustered_light_grid_set_projection": [
-      "src/cna/extensions/engine/clustered.py:340"
-    ],
-    "cna_clustered_light_grid_has_projection": [
-      "src/cna/extensions/engine/clustered.py:348"
-    ],
-    "cna_clustered_light_grid_get_near_plane": [
-      "src/cna/extensions/engine/clustered.py:354"
-    ],
-    "cna_clustered_light_grid_get_far_plane": [
-      "src/cna/extensions/engine/clustered.py:360"
-    ],
-    "cna_clustered_light_grid_get_inverse_projection": [
-      "src/cna/extensions/engine/clustered.py:367"
-    ],
-    "cna_clustered_light_grid_slice_distance": [
-      "src/cna/extensions/engine/clustered.py:380"
-    ],
-    "cna_clustered_light_grid_slice_for_view_distance": [
-      "src/cna/extensions/engine/clustered.py:391"
-    ],
-    "cna_clustered_light_grid_cluster_bounds": [
-      "src/cna/extensions/engine/clustered.py:402"
-    ],
-    "cna_clustered_light_grid_destroy": [
-      "src/cna/extensions/engine/clustered.py:290"
-    ],
-    "cna_clustered_light_assignment_create": [
-      "src/cna/extensions/engine/clustered.py:427"
-    ],
-    "cna_clustered_light_assignment_assign": [
-      "src/cna/extensions/engine/clustered.py:442"
-    ],
-    "cna_clustered_light_assignment_clear": [
-      "src/cna/extensions/engine/clustered.py:448"
-    ],
-    "cna_clustered_light_assignment_adopt": [
-      "src/cna/extensions/engine/clustered.py:462"
-    ],
-    "cna_clustered_light_assignment_get_light_count": [
-      "src/cna/extensions/engine/clustered.py:470"
-    ],
-    "cna_clustered_light_assignment_get_cluster_count": [
-      "src/cna/extensions/engine/clustered.py:476"
-    ],
-    "cna_clustered_light_assignment_copy_lights_in_cluster": [
-      "src/cna/extensions/engine/clustered.py:496"
-    ],
-    "cna_clustered_light_assignment_copy_indices": [
-      "src/cna/extensions/engine/clustered.py:504"
-    ],
-    "cna_clustered_light_assignment_copy_offsets": [
-      "src/cna/extensions/engine/clustered.py:511"
-    ],
-    "cna_clustered_light_assignment_get_total_reference_count": [
-      "src/cna/extensions/engine/clustered.py:483"
-    ],
-    "cna_clustered_light_assignment_get_max_lights_per_cluster": [
-      "src/cna/extensions/engine/clustered.py:490"
-    ],
-    "cna_clustered_light_assignment_destroy": [
-      "src/cna/extensions/engine/clustered.py:423"
-    ],
-    "cna_clustered_light_compute_create": [
-      "src/cna/extensions/engine/clustered.py:536"
-    ],
-    "cna_clustered_light_compute_is_supported": [
-      "src/cna/extensions/engine/clustered.py:543"
-    ],
-    "cna_clustered_light_compute_copy_unsupported_reason": [
-      "src/cna/extensions/engine/clustered.py:549"
-    ],
-    "cna_clustered_light_compute_get_stride": [
-      "src/cna/extensions/engine/clustered.py:555"
-    ],
-    "cna_clustered_light_compute_assign": [
-      "src/cna/extensions/engine/clustered.py:575"
-    ],
-    "cna_clustered_light_compute_used_compute": [
-      "src/cna/extensions/engine/clustered.py:582"
-    ],
-    "cna_clustered_light_compute_has_overflowed": [
-      "src/cna/extensions/engine/clustered.py:588"
-    ],
-    "cna_clustered_light_compute_destroy": [
-      "src/cna/extensions/engine/clustered.py:530"
-    ],
-    "cna_clustered_light_buffer_create": [
-      "src/cna/extensions/engine/clustered.py:609"
-    ],
-    "cna_clustered_light_buffer_upload": [
-      "src/cna/extensions/engine/clustered.py:622"
-    ],
-    "cna_clustered_light_buffer_bind": [
-      "src/cna/extensions/engine/clustered.py:641"
-    ],
-    "cna_clustered_light_buffer_is_uploaded": [
-      "src/cna/extensions/engine/clustered.py:648"
-    ],
-    "cna_clustered_light_buffer_get_light_count": [
-      "src/cna/extensions/engine/clustered.py:654"
-    ],
-    "cna_clustered_light_buffer_get_cluster_count": [
-      "src/cna/extensions/engine/clustered.py:660"
-    ],
-    "cna_clustered_light_buffer_get_reference_count": [
-      "src/cna/extensions/engine/clustered.py:666"
-    ],
-    "cna_clustered_light_buffer_copy_light_lookup_glsl": [
-      "src/cna/extensions/engine/clustered.py:676"
-    ],
-    "cna_clustered_light_buffer_destroy": [
-      "src/cna/extensions/engine/clustered.py:605"
-    ],
-    "cna_clustered_shadow_policy_create": [
-      "src/cna/extensions/engine/clustered.py:710"
-    ],
-    "cna_clustered_shadow_policy_get_budget": [
-      "src/cna/extensions/engine/clustered.py:717"
-    ],
-    "cna_clustered_shadow_policy_set_budget": [
-      "src/cna/extensions/engine/clustered.py:722"
-    ],
-    "cna_clustered_shadow_policy_get_hysteresis": [
-      "src/cna/extensions/engine/clustered.py:728"
-    ],
-    "cna_clustered_shadow_policy_set_hysteresis": [
-      "src/cna/extensions/engine/clustered.py:733"
-    ],
-    "cna_clustered_shadow_policy_select": [
-      "src/cna/extensions/engine/clustered.py:744"
-    ],
-    "cna_clustered_shadow_policy_copy_selected": [
-      "src/cna/extensions/engine/clustered.py:751"
-    ],
-    "cna_clustered_shadow_policy_is_selected": [
-      "src/cna/extensions/engine/clustered.py:758"
-    ],
-    "cna_clustered_shadow_policy_get_score": [
-      "src/cna/extensions/engine/clustered.py:764"
-    ],
-    "cna_clustered_shadow_policy_get_request_count": [
-      "src/cna/extensions/engine/clustered.py:770"
-    ],
-    "cna_clustered_shadow_policy_get_refused_count": [
-      "src/cna/extensions/engine/clustered.py:776"
-    ],
-    "cna_clustered_shadow_policy_reset": [
-      "src/cna/extensions/engine/clustered.py:781"
-    ],
-    "cna_clustered_shadow_policy_destroy": [
-      "src/cna/extensions/engine/clustered.py:704"
-    ],
-    "cna_clustered_forward_effect_create": [
-      "src/cna/extensions/engine/clustered.py:810"
-    ],
-    "cna_clustered_forward_effect_is_supported": [
-      "src/cna/extensions/engine/clustered.py:823"
-    ],
-    "cna_clustered_forward_effect_get_effect": [
-      "src/cna/extensions/engine/clustered.py:836"
-    ],
-    "cna_clustered_forward_effect_begin": [
-      "src/cna/extensions/engine/clustered.py:851"
-    ],
-    "cna_clustered_forward_effect_get_base_color": [
-      "src/cna/extensions/engine/clustered.py:860"
-    ],
-    "cna_clustered_forward_effect_set_base_color": [
-      "src/cna/extensions/engine/clustered.py:867"
-    ],
-    "cna_clustered_forward_effect_get_metallic": [
-      "src/cna/extensions/engine/clustered.py:873"
-    ],
-    "cna_clustered_forward_effect_set_metallic": [
-      "src/cna/extensions/engine/clustered.py:878"
-    ],
-    "cna_clustered_forward_effect_get_roughness": [
-      "src/cna/extensions/engine/clustered.py:884"
-    ],
-    "cna_clustered_forward_effect_set_roughness": [
-      "src/cna/extensions/engine/clustered.py:889"
-    ],
-    "cna_clustered_forward_effect_get_ior": [
-      "src/cna/extensions/engine/clustered.py:895"
-    ],
-    "cna_clustered_forward_effect_set_ior": [
-      "src/cna/extensions/engine/clustered.py:900"
-    ],
-    "cna_clustered_forward_effect_get_ambient": [
-      "src/cna/extensions/engine/clustered.py:907"
-    ],
-    "cna_clustered_forward_effect_set_ambient": [
-      "src/cna/extensions/engine/clustered.py:914"
-    ],
-    "cna_clustered_forward_effect_get_opaque_frame": [
-      "src/cna/extensions/engine/clustered.py:927"
-    ],
-    "cna_clustered_forward_effect_set_opaque_frame": [
-      "src/cna/extensions/engine/clustered.py:940"
-    ],
-    "cna_clustered_forward_effect_get_material_extensions": [
-      "src/cna/extensions/engine/clustered.py:954"
-    ],
-    "cna_clustered_forward_effect_set_material_extensions": [
-      "src/cna/extensions/engine/clustered.py:963"
-    ],
-    "cna_clustered_forward_effect_has_area_light": [
-      "src/cna/extensions/engine/clustered.py:974"
-    ],
-    "cna_clustered_forward_effect_set_area_light": [
-      "src/cna/extensions/engine/clustered.py:989"
-    ],
-    "cna_clustered_forward_effect_clear_area_light": [
-      "src/cna/extensions/engine/clustered.py:997"
-    ],
-    "cna_clustered_forward_effect_has_light_probe": [
-      "src/cna/extensions/engine/clustered.py:1004"
-    ],
-    "cna_clustered_forward_effect_clear_light_probe": [
-      "src/cna/extensions/engine/clustered.py:1038"
-    ],
-    "cna_clustered_forward_effect_volume_attenuation": [
-      "src/cna/extensions/engine/clustered.py:1060"
-    ],
-    "cna_clustered_forward_effect_contribution": [
-      "src/cna/extensions/engine/clustered.py:1116"
-    ],
-    "cna_clustered_forward_effect_contribution_with_extensions": [
-      "src/cna/extensions/engine/clustered.py:1104"
-    ],
-    "cna_clustered_forward_effect_destroy": [
-      "src/cna/extensions/engine/clustered.py:806"
-    ],
-    "cna_area_light_ext_init": [
-      "src/cna/extensions/engine/values.py:466"
-    ],
-    "cna_area_light_ext_is_valid": [
-      "src/cna/extensions/engine/values.py:497"
-    ],
-    "cna_area_light_shading_lobe_scale_for": [
-      "src/cna/extensions/engine/clustered.py:1263"
-    ],
-    "cna_area_light_shading_quad_of": [
-      "src/cna/extensions/engine/clustered.py:1283"
-    ],
-    "cna_area_light_shading_coverage": [
-      "src/cna/extensions/engine/clustered.py:1309"
-    ],
-    "cna_area_light_shading_contribution": [
-      "src/cna/extensions/engine/clustered.py:1329"
-    ],
-    "cna_area_light_shading_copy_shading_glsl": [
-      "src/cna/extensions/engine/clustered.py:1339"
-    ],
-    "cna_area_light_brdf_table_create": [
-      "src/cna/extensions/engine/clustered.py:1186"
-    ],
-    "cna_area_light_brdf_table_create_with_size": [
-      "src/cna/extensions/engine/clustered.py:1190"
-    ],
-    "cna_area_light_brdf_table_get_texture": [
-      "src/cna/extensions/engine/clustered.py:1205"
-    ],
-    "cna_area_light_brdf_table_get_size": [
-      "src/cna/extensions/engine/clustered.py:1216"
-    ],
-    "cna_area_light_brdf_table_get_sample_count": [
-      "src/cna/extensions/engine/clustered.py:1222"
-    ],
-    "cna_area_light_brdf_table_get_generation_milliseconds": [
-      "src/cna/extensions/engine/clustered.py:1228"
-    ],
-    "cna_area_light_brdf_table_evaluate": [
-      "src/cna/extensions/engine/clustered.py:1243"
-    ],
-    "cna_area_light_brdf_table_copy_lookup_glsl": [
-      "src/cna/extensions/engine/clustered.py:1253"
-    ],
-    "cna_area_light_brdf_table_destroy": [
-      "src/cna/extensions/engine/clustered.py:1179"
-    ],
-    "cna_light_probe_ext_create": [
-      "src/cna/extensions/engine/probes.py:131"
-    ],
-    "cna_light_probe_ext_create_at": [
-      "src/cna/extensions/engine/probes.py:134"
-    ],
-    "cna_light_probe_ext_copy_from": [
-      "src/cna/extensions/engine/probes.py:141"
-    ],
-    "cna_light_probe_ext_get_position": [
-      "src/cna/extensions/engine/probes.py:148"
-    ],
-    "cna_light_probe_ext_set_position": [
-      "src/cna/extensions/engine/probes.py:155"
-    ],
-    "cna_light_probe_ext_get_coefficient": [
-      "src/cna/extensions/engine/probes.py:161"
-    ],
-    "cna_light_probe_ext_set_coefficient": [
-      "src/cna/extensions/engine/probes.py:168"
-    ],
-    "cna_light_probe_ext_copy_coefficients": [
-      "src/cna/extensions/engine/probes.py:175"
-    ],
-    "cna_light_probe_ext_irradiance": [
-      "src/cna/extensions/engine/probes.py:188"
-    ],
-    "cna_light_probe_ext_set_visibility": [
-      "src/cna/extensions/engine/probes.py:201"
-    ],
-    "cna_light_probe_ext_get_visibility_mean": [
-      "src/cna/extensions/engine/probes.py:210"
-    ],
-    "cna_light_probe_ext_get_visibility_mean_squared": [
-      "src/cna/extensions/engine/probes.py:216"
-    ],
-    "cna_light_probe_ext_has_visibility": [
-      "src/cna/extensions/engine/probes.py:222"
-    ],
-    "cna_light_probe_ext_visibility_weight": [
-      "src/cna/extensions/engine/probes.py:235"
-    ],
-    "cna_light_probe_ext_is_zero": [
-      "src/cna/extensions/engine/probes.py:241"
-    ],
-    "cna_light_probe_ext_scale": [
-      "src/cna/extensions/engine/probes.py:245"
-    ],
-    "cna_light_probe_ext_equals": [
-      "src/cna/extensions/engine/probes.py:257"
-    ],
-    "cna_light_probe_ext_copy_evaluation_glsl": [
-      "src/cna/extensions/engine/probes.py:263"
-    ],
-    "cna_light_probe_ext_destroy": [
-      "src/cna/extensions/engine/probes.py:127"
-    ],
-    "cna_light_probe_volume_ext_create": [
-      "src/cna/extensions/engine/probes.py:288"
-    ],
-    "cna_light_probe_volume_ext_get_bounds": [
-      "src/cna/extensions/engine/probes.py:297"
-    ],
-    "cna_light_probe_volume_ext_get_count_x": [
-      "src/cna/extensions/engine/probes.py:304"
-    ],
-    "cna_light_probe_volume_ext_get_count_y": [
-      "src/cna/extensions/engine/probes.py:310"
-    ],
-    "cna_light_probe_volume_ext_get_count_z": [
-      "src/cna/extensions/engine/probes.py:316"
-    ],
-    "cna_light_probe_volume_ext_get_probe_count": [
-      "src/cna/extensions/engine/probes.py:322"
-    ],
-    "cna_light_probe_volume_ext_get_probe_position": [
-      "src/cna/extensions/engine/probes.py:333"
-    ],
-    "cna_light_probe_volume_ext_get_probe": [
-      "src/cna/extensions/engine/probes.py:346"
-    ],
-    "cna_light_probe_volume_ext_set_probe": [
-      "src/cna/extensions/engine/probes.py:353"
-    ],
-    "cna_light_probe_volume_ext_contains": [
-      "src/cna/extensions/engine/probes.py:359"
-    ],
-    "cna_light_probe_volume_ext_sample_probe": [
-      "src/cna/extensions/engine/probes.py:372"
-    ],
-    "cna_light_probe_volume_ext_irradiance": [
-      "src/cna/extensions/engine/probes.py:383"
-    ],
-    "cna_light_probe_volume_ext_is_zero": [
-      "src/cna/extensions/engine/probes.py:390"
-    ],
-    "cna_light_probe_volume_ext_destroy": [
-      "src/cna/extensions/engine/probes.py:282"
-    ],
-    "cna_light_probe_baker_create": [
-      "src/cna/extensions/engine/probes.py:419"
-    ],
-    "cna_light_probe_baker_create_with_face_size": [
-      "src/cna/extensions/engine/probes.py:423"
-    ],
-    "cna_light_probe_baker_is_supported": [
-      "src/cna/extensions/engine/probes.py:430"
-    ],
-    "cna_light_probe_baker_get_face_size": [
-      "src/cna/extensions/engine/probes.py:436"
-    ],
-    "cna_light_probe_baker_face_count": [
-      "src/cna/extensions/engine/probes.py:509"
-    ],
-    "cna_light_probe_baker_get_near_plane": [
-      "src/cna/extensions/engine/probes.py:442"
-    ],
-    "cna_light_probe_baker_get_far_plane": [
-      "src/cna/extensions/engine/probes.py:448"
-    ],
-    "cna_light_probe_baker_set_planes": [
-      "src/cna/extensions/engine/probes.py:453"
-    ],
-    "cna_light_probe_baker_face_view": [
-      "src/cna/extensions/engine/probes.py:466"
-    ],
-    "cna_light_probe_baker_bake_probe": [
-      "src/cna/extensions/engine/probes.py:476"
-    ],
-    "cna_light_probe_baker_bake_light": [
-      "src/cna/extensions/engine/probes.py:486"
-    ],
-    "cna_light_probe_baker_bake_visibility": [
-      "src/cna/extensions/engine/probes.py:496"
-    ],
-    "cna_light_probe_baker_destroy": [
-      "src/cna/extensions/engine/probes.py:415"
-    ],
-    "cna_image_based_light_ext_init": [
-      "src/cna/extensions/engine/probes.py:574"
-    ],
-    "cna_image_based_light_ext_is_valid": [
-      "src/cna/extensions/engine/probes.py:582"
-    ],
-    "cna_effect_get_image_based_light_ext": [
-      "src/cna/extensions/engine/pbr.py:626"
-    ],
-    "cna_effect_set_image_based_light_ext": [
-      "src/cna/extensions/engine/pbr.py:650"
-    ],
-    "cna_clustered_forward_effect_set_light_probe": [
-      "src/cna/extensions/engine/clustered.py:1017"
-    ],
-    "cna_clustered_forward_effect_set_light_probe_volume": [
-      "src/cna/extensions/engine/clustered.py:1032"
-    ],
-    "cna_environment_processor_create": [
-      "src/cna/extensions/engine/probes.py:616"
-    ],
-    "cna_environment_processor_convert_equirectangular": [
-      "src/cna/extensions/engine/probes.py:622"
-    ],
-    "cna_environment_processor_generate_irradiance": [
-      "src/cna/extensions/engine/probes.py:629"
-    ],
-    "cna_environment_processor_generate_prefiltered_specular": [
-      "src/cna/extensions/engine/probes.py:639"
-    ],
-    "cna_environment_processor_generate_brdf_lut": [
-      "src/cna/extensions/engine/probes.py:651"
-    ],
-    "cna_environment_processor_generate_probe": [
-      "src/cna/extensions/engine/probes.py:661"
-    ],
-    "cna_environment_processor_mip_for_roughness": [
-      "src/cna/extensions/engine/probes.py:677"
-    ],
-    "cna_environment_processor_roughness_for_mip": [
-      "src/cna/extensions/engine/probes.py:685"
-    ],
-    "cna_environment_processor_hammersley": [
-      "src/cna/extensions/engine/probes.py:698"
-    ],
-    "cna_environment_processor_importance_sample_ggx": [
-      "src/cna/extensions/engine/probes.py:719"
-    ],
-    "cna_environment_processor_face_direction": [
-      "src/cna/extensions/engine/probes.py:743"
-    ],
-    "cna_environment_processor_direction_to_equirectangular": [
-      "src/cna/extensions/engine/probes.py:754"
-    ],
-    "cna_environment_processor_destroy": [
-      "src/cna/extensions/engine/probes.py:613"
-    ],
-    "cna_lod_group_ext_create": [
-      "src/cna/extensions/engine/culling.py:150"
-    ],
-    "cna_lod_group_ext_add_level": [
-      "src/cna/extensions/engine/culling.py:163"
-    ],
-    "cna_lod_group_ext_clear": [
-      "src/cna/extensions/engine/culling.py:174"
-    ],
-    "cna_lod_group_ext_copy_levels": [
-      "src/cna/extensions/engine/culling.py:183"
-    ],
-    "cna_lod_group_ext_select_index": [
-      "src/cna/extensions/engine/culling.py:197"
-    ],
-    "cna_lod_group_ext_select": [
-      "src/cna/extensions/engine/culling.py:206"
-    ],
-    "cna_lod_group_ext_get_hysteresis": [
-      "src/cna/extensions/engine/culling.py:217"
-    ],
-    "cna_lod_group_ext_set_hysteresis": [
-      "src/cna/extensions/engine/culling.py:222"
-    ],
-    "cna_lod_group_ext_reset_hysteresis": [
-      "src/cna/extensions/engine/culling.py:227"
-    ],
-    "cna_lod_group_ext_get_selection_mode": [
-      "src/cna/extensions/engine/culling.py:233"
-    ],
-    "cna_lod_group_ext_set_selection_mode": [
-      "src/cna/extensions/engine/culling.py:237"
-    ],
-    "cna_lod_group_ext_set_screen_space_parameters": [
-      "src/cna/extensions/engine/culling.py:248"
-    ],
-    "cna_lod_group_ext_projected_radius_pixels": [
-      "src/cna/extensions/engine/culling.py:262"
-    ],
-    "cna_lod_group_ext_destroy": [
-      "src/cna/extensions/engine/culling.py:147"
-    ],
-    "cna_frustum_culler_ext_create": [
-      "src/cna/extensions/engine/culling.py:291"
-    ],
-    "cna_frustum_culler_ext_set_view_projection": [
-      "src/cna/extensions/engine/culling.py:296"
-    ],
-    "cna_frustum_culler_ext_set_camera": [
-      "src/cna/extensions/engine/culling.py:303"
-    ],
-    "cna_frustum_culler_ext_get_frustum": [
-      "src/cna/extensions/engine/culling.py:317"
-    ],
-    "cna_frustum_culler_ext_is_box_visible": [
-      "src/cna/extensions/engine/culling.py:325"
-    ],
-    "cna_frustum_culler_ext_is_sphere_visible": [
-      "src/cna/extensions/engine/culling.py:329"
-    ],
-    "cna_frustum_culler_ext_cull_boxes": [
-      "src/cna/extensions/engine/culling.py:337"
-    ],
-    "cna_frustum_culler_ext_cull_spheres": [
-      "src/cna/extensions/engine/culling.py:345"
-    ],
-    "cna_frustum_culler_ext_cull_transforms": [
-      "src/cna/extensions/engine/culling.py:361"
-    ],
-    "cna_frustum_culler_ext_destroy": [
-      "src/cna/extensions/engine/culling.py:288"
-    ],
-    "cna_instanced_renderer_ext_create": [
-      "src/cna/extensions/engine/culling.py:443"
-    ],
-    "cna_instanced_renderer_ext_copy_instance_elements": [
-      "src/cna/extensions/engine/culling.py:568"
-    ],
-    "cna_instanced_renderer_ext_get_instance_stride": [
-      "src/cna/extensions/engine/culling.py:574"
-    ],
-    "cna_instanced_renderer_ext_copy_tint_elements": [
-      "src/cna/extensions/engine/culling.py:580"
-    ],
-    "cna_instanced_renderer_ext_get_tint_stride": [
-      "src/cna/extensions/engine/culling.py:586"
-    ],
-    "cna_instanced_renderer_ext_set_instances": [
-      "src/cna/extensions/engine/culling.py:460"
-    ],
-    "cna_instanced_renderer_ext_set_instance_tints": [
-      "src/cna/extensions/engine/culling.py:475"
-    ],
-    "cna_instanced_renderer_ext_is_tints_enabled": [
-      "src/cna/extensions/engine/culling.py:481"
-    ],
-    "cna_instanced_renderer_ext_set_tints_enabled": [
-      "src/cna/extensions/engine/culling.py:486"
-    ],
-    "cna_instanced_renderer_ext_draw": [
-      "src/cna/extensions/engine/culling.py:493"
-    ],
-    "cna_instanced_renderer_ext_is_instancing_supported": [
-      "src/cna/extensions/engine/culling.py:499"
-    ],
-    "cna_instanced_renderer_ext_is_fallback_enabled": [
-      "src/cna/extensions/engine/culling.py:505"
-    ],
-    "cna_instanced_renderer_ext_set_fallback_enabled": [
-      "src/cna/extensions/engine/culling.py:510"
-    ],
-    "cna_instanced_renderer_ext_get_instance_count": [
-      "src/cna/extensions/engine/culling.py:516"
-    ],
-    "cna_instanced_renderer_ext_get_instance_capacity": [
-      "src/cna/extensions/engine/culling.py:522"
-    ],
-    "cna_instanced_renderer_ext_get_last_draw_call_count": [
-      "src/cna/extensions/engine/culling.py:533"
-    ],
-    "cna_instanced_renderer_ext_did_last_draw_instance": [
-      "src/cna/extensions/engine/culling.py:539"
-    ],
-    "cna_instanced_renderer_ext_destroy": [
-      "src/cna/extensions/engine/culling.py:436"
-    ],
-    "cna_gpu_cullable_instance_init": [
-      "src/cna/extensions/engine/culling.py:615"
-    ],
-    "cna_gpu_instance_culler_create": [
-      "src/cna/extensions/engine/culling.py:643"
-    ],
-    "cna_gpu_instance_culler_is_supported": [
-      "src/cna/extensions/engine/culling.py:649"
-    ],
-    "cna_gpu_instance_culler_copy_unsupported_reason": [
-      "src/cna/extensions/engine/culling.py:655"
-    ],
-    "cna_gpu_instance_culler_set_instances": [
-      "src/cna/extensions/engine/culling.py:668"
-    ],
-    "cna_gpu_instance_culler_get_instance_count": [
-      "src/cna/extensions/engine/culling.py:674"
-    ],
-    "cna_gpu_instance_culler_cull": [
-      "src/cna/extensions/engine/culling.py:687"
-    ],
-    "cna_gpu_instance_culler_draw": [
-      "src/cna/extensions/engine/culling.py:695"
-    ],
-    "cna_gpu_instance_culler_read_visible_count_ext": [
-      "src/cna/extensions/engine/culling.py:704"
-    ],
-    "cna_gpu_instance_culler_copy_instance_lookup_glsl": [
-      "src/cna/extensions/engine/culling.py:715"
-    ],
-    "cna_gpu_instance_culler_destroy": [
-      "src/cna/extensions/engine/culling.py:640"
-    ],
-    "cna_indirect_draw_arguments_init": [
-      "src/cna/extensions/engine/culling.py:737"
-    ],
-    "cna_indirect_draw_indexed_arguments_init": [
-      "src/cna/extensions/engine/culling.py:769"
-    ],
-    "cna_graphics_device_draw_primitives_indirect_ext": [
-      "src/cna/extensions/engine/culling.py:794"
-    ],
-    "cna_graphics_device_draw_indexed_primitives_indirect_ext": [
-      "src/cna/extensions/engine/culling.py:809"
-    ],
-    "cna_model_mesh_part_create": [
-      "src/cna/extensions/engine/culling.py:121"
-    ],
-    "cna_model_mesh_part_destroy": [
-      "src/cna/extensions/engine/culling.py:160"
+    "cna_graphics_ext_is_available": [
+      "src/_cna_native/engine_support.py:72"
     ],
     "cna_debug_draw_create": [
-      "src/cna/extensions/engine/debug.py:101"
+      "src/cna/extensions/engine/debug.py:99"
     ],
     "cna_debug_draw_begin": [
-      "src/cna/extensions/engine/debug.py:112"
+      "src/cna/extensions/engine/debug.py:110"
     ],
     "cna_debug_draw_end": [
-      "src/cna/extensions/engine/debug.py:121"
+      "src/cna/extensions/engine/debug.py:119"
     ],
     "cna_debug_draw_clear": [
-      "src/cna/extensions/engine/debug.py:125"
+      "src/cna/extensions/engine/debug.py:123"
     ],
     "cna_debug_draw_add_line": [
-      "src/cna/extensions/engine/debug.py:173"
+      "src/cna/extensions/engine/debug.py:171"
     ],
     "cna_debug_draw_add_box": [
-      "src/cna/extensions/engine/debug.py:180"
+      "src/cna/extensions/engine/debug.py:178"
     ],
     "cna_debug_draw_add_sphere": [
-      "src/cna/extensions/engine/debug.py:201"
+      "src/cna/extensions/engine/debug.py:199"
     ],
     "cna_debug_draw_add_bounding_sphere": [
-      "src/cna/extensions/engine/debug.py:210"
+      "src/cna/extensions/engine/debug.py:208"
     ],
     "cna_debug_draw_add_frustum": [
-      "src/cna/extensions/engine/debug.py:189"
+      "src/cna/extensions/engine/debug.py:187"
     ],
     "cna_debug_draw_add_cross": [
-      "src/cna/extensions/engine/debug.py:217"
+      "src/cna/extensions/engine/debug.py:215"
     ],
     "cna_debug_draw_is_depth_tested": [
-      "src/cna/extensions/engine/debug.py:137"
+      "src/cna/extensions/engine/debug.py:135"
     ],
     "cna_debug_draw_set_depth_tested": [
-      "src/cna/extensions/engine/debug.py:142"
+      "src/cna/extensions/engine/debug.py:140"
     ],
     "cna_debug_draw_get_line_count": [
-      "src/cna/extensions/engine/debug.py:148"
+      "src/cna/extensions/engine/debug.py:146"
     ],
     "cna_debug_draw_copy_vertices": [
-      "src/cna/extensions/engine/debug.py:161"
-    ],
-    "cna_debug_draw_add_point_light_gizmo": [
-      "src/cna/extensions/engine/debug.py:230"
-    ],
-    "cna_debug_draw_add_spot_light_gizmo": [
-      "src/cna/extensions/engine/debug.py:245"
-    ],
-    "cna_debug_draw_add_directional_light_gizmo": [
-      "src/cna/extensions/engine/debug.py:258"
-    ],
-    "cna_debug_draw_add_probe_volume_gizmo": [
-      "src/cna/extensions/engine/debug.py:270"
-    ],
-    "cna_debug_draw_add_cluster_slice_gizmo": [
-      "src/cna/extensions/engine/debug.py:288"
-    ],
-    "cna_debug_draw_add_cascade_gizmo": [
-      "src/cna/extensions/engine/debug.py:297"
+      "src/cna/extensions/engine/debug.py:159"
     ],
     "cna_debug_draw_destroy": [
-      "src/cna/extensions/engine/debug.py:98"
+      "src/cna/extensions/engine/debug.py:96"
     ],
     "cna_ascii_post_process_effect_create": [
-      "src/cna/extensions/engine/passes.py:368"
+      "src/cna/extensions/engine/ascii.py:44"
     ],
     "cna_ascii_post_process_effect_draw": [
-      "src/cna/extensions/engine/passes.py:422"
+      "src/cna/extensions/engine/ascii.py:85"
+    ],
+    "cna_ascii_post_process_effect_get_cell_size": [
+      "src/cna/extensions/engine/ascii.py:105"
+    ],
+    "cna_ascii_post_process_effect_set_cell_size": [
+      "src/cna/extensions/engine/ascii.py:112"
+    ],
+    "cna_ascii_post_process_effect_get_quantize_mode": [
+      "src/cna/extensions/engine/ascii.py:93"
+    ],
+    "cna_ascii_post_process_effect_set_quantize_mode": [
+      "src/cna/extensions/engine/ascii.py:97"
+    ],
+    "cna_ascii_post_process_effect_get_last_grid_dimensions": [
+      "src/cna/extensions/engine/ascii.py:128"
+    ],
+    "cna_ascii_post_process_effect_destroy": [
+      "src/cna/extensions/engine/ascii.py:46"
     ],
     "cna_accelerometer_copy_last_dispatch_exception_message_for_tests_ext": [
       "resolved from a constant prefix"
@@ -7161,22 +4608,22 @@
       "src/Microsoft/Xna/Framework/Net/_packets.py:247"
     ],
     "cna_network_session_properties_add": [
-      "src/Microsoft/Xna/Framework/Net/_values.py:256"
+      "src/Microsoft/Xna/Framework/Net/_values.py:253"
     ],
     "cna_network_session_properties_clear": [
-      "src/Microsoft/Xna/Framework/Net/_values.py:280"
+      "src/Microsoft/Xna/Framework/Net/_values.py:274"
     ],
     "cna_network_session_properties_contains": [
-      "src/Microsoft/Xna/Framework/Net/_values.py:286"
+      "src/Microsoft/Xna/Framework/Net/_values.py:280"
     ],
     "cna_network_session_properties_copy_to": [
-      "src/Microsoft/Xna/Framework/Net/_values.py:304"
+      "src/Microsoft/Xna/Framework/Net/_values.py:298"
     ],
     "cna_network_session_properties_create": [
       "src/Microsoft/Xna/Framework/Net/_values.py:197"
     ],
     "cna_network_session_properties_create_enumerator": [
-      "src/Microsoft/Xna/Framework/Net/_values.py:313"
+      "src/Microsoft/Xna/Framework/Net/_values.py:307"
     ],
     "cna_network_session_properties_destroy": [
       "src/cna/extensions/online/sessions.py:244"
@@ -7191,31 +4638,31 @@
       "src/Microsoft/Xna/Framework/Net/_values.py:222"
     ],
     "cna_network_session_properties_index_of": [
-      "src/Microsoft/Xna/Framework/Net/_values.py:296"
+      "src/Microsoft/Xna/Framework/Net/_values.py:290"
     ],
     "cna_network_session_properties_insert": [
-      "src/Microsoft/Xna/Framework/Net/_values.py:265"
+      "src/Microsoft/Xna/Framework/Net/_values.py:259"
     ],
     "cna_network_session_properties_remove": [
-      "src/Microsoft/Xna/Framework/Net/_values.py:276"
+      "src/Microsoft/Xna/Framework/Net/_values.py:270"
     ],
     "cna_network_session_properties_remove_at": [
-      "src/Microsoft/Xna/Framework/Net/_values.py:269"
+      "src/Microsoft/Xna/Framework/Net/_values.py:263"
     ],
     "cna_network_session_properties_set_item": [
-      "src/Microsoft/Xna/Framework/Net/_values.py:249"
+      "src/Microsoft/Xna/Framework/Net/_values.py:246"
     ],
     "cna_network_session_property_enumerator_destroy": [
-      "src/Microsoft/Xna/Framework/Net/_values.py:359"
+      "src/Microsoft/Xna/Framework/Net/_values.py:353"
     ],
     "cna_network_session_property_enumerator_get_current": [
-      "src/Microsoft/Xna/Framework/Net/_values.py:341"
+      "src/Microsoft/Xna/Framework/Net/_values.py:335"
     ],
     "cna_network_session_property_enumerator_move_next": [
-      "src/Microsoft/Xna/Framework/Net/_values.py:337"
+      "src/Microsoft/Xna/Framework/Net/_values.py:331"
     ],
     "cna_network_session_property_enumerator_reset": [
-      "src/Microsoft/Xna/Framework/Net/_values.py:351"
+      "src/Microsoft/Xna/Framework/Net/_values.py:345"
     ],
     "cna_net_get_last_join_error": [
       "src/Microsoft/Xna/Framework/Net/_session.py:85"
@@ -7224,256 +4671,256 @@
       "src/Microsoft/Xna/Framework/Net/_values.py:157"
     ],
     "cna_available_network_session_collection_copy_session": [
-      "src/Microsoft/Xna/Framework/Net/_session.py:498"
+      "src/Microsoft/Xna/Framework/Net/_session.py:524"
     ],
     "cna_available_network_session_collection_create_ext": [
       "src/cna/extensions/online/sessions.py:234"
     ],
     "cna_available_network_session_collection_destroy": [
-      "src/Microsoft/Xna/Framework/Net/_session.py:488"
+      "src/Microsoft/Xna/Framework/Net/_session.py:514"
     ],
     "cna_available_network_session_collection_dispose": [
-      "src/Microsoft/Xna/Framework/Net/_session.py:486"
+      "src/Microsoft/Xna/Framework/Net/_session.py:512"
     ],
     "cna_available_network_session_collection_get_count": [
-      "src/Microsoft/Xna/Framework/Net/_session.py:455"
+      "src/Microsoft/Xna/Framework/Net/_session.py:481"
     ],
     "cna_available_network_session_copy_connect_address_ext": [
-      "src/Microsoft/Xna/Framework/Net/_session.py:424"
+      "src/Microsoft/Xna/Framework/Net/_session.py:450"
     ],
     "cna_available_network_session_copy_host_gamertag": [
-      "src/Microsoft/Xna/Framework/Net/_session.py:396"
+      "src/Microsoft/Xna/Framework/Net/_session.py:422"
     ],
     "cna_available_network_session_copy_session_properties": [
-      "src/Microsoft/Xna/Framework/Net/_session.py:417"
+      "src/Microsoft/Xna/Framework/Net/_session.py:443"
     ],
     "cna_available_network_session_create_ext": [
       "src/cna/extensions/online/sessions.py:219"
     ],
     "cna_available_network_session_destroy": [
-      "src/Microsoft/Xna/Framework/Net/_session.py:437"
+      "src/Microsoft/Xna/Framework/Net/_session.py:463"
     ],
     "cna_available_network_session_equals": [
-      "src/Microsoft/Xna/Framework/Net/_session.py:380"
+      "src/Microsoft/Xna/Framework/Net/_session.py:406"
     ],
     "cna_available_network_session_get_connect_address_size_ext": [
-      "src/Microsoft/Xna/Framework/Net/_session.py:423"
+      "src/Microsoft/Xna/Framework/Net/_session.py:449"
     ],
     "cna_available_network_session_get_connect_port_ext": [
-      "src/Microsoft/Xna/Framework/Net/_session.py:428"
+      "src/Microsoft/Xna/Framework/Net/_session.py:454"
     ],
     "cna_available_network_session_get_current_gamer_count": [
-      "src/Microsoft/Xna/Framework/Net/_session.py:402"
+      "src/Microsoft/Xna/Framework/Net/_session.py:428"
     ],
     "cna_available_network_session_get_host_gamertag_size": [
-      "src/Microsoft/Xna/Framework/Net/_session.py:395"
+      "src/Microsoft/Xna/Framework/Net/_session.py:421"
     ],
     "cna_available_network_session_get_open_private_gamer_slots": [
-      "src/Microsoft/Xna/Framework/Net/_session.py:412"
+      "src/Microsoft/Xna/Framework/Net/_session.py:438"
     ],
     "cna_available_network_session_get_open_public_gamer_slots": [
-      "src/Microsoft/Xna/Framework/Net/_session.py:407"
-    ],
-    "cna_available_network_session_get_quality_of_service": [
-      "src/Microsoft/Xna/Framework/Net/_session.py:445"
-    ],
-    "cna_available_network_session_get_session_type_ext": [
       "src/Microsoft/Xna/Framework/Net/_session.py:433"
     ],
+    "cna_available_network_session_get_quality_of_service": [
+      "src/Microsoft/Xna/Framework/Net/_session.py:471"
+    ],
+    "cna_available_network_session_get_session_type_ext": [
+      "src/Microsoft/Xna/Framework/Net/_session.py:459"
+    ],
     "cna_available_network_session_not_equals": [
-      "src/Microsoft/Xna/Framework/Net/_session.py:386"
+      "src/Microsoft/Xna/Framework/Net/_session.py:412"
     ],
     "cna_network_session_add_local_gamer": [
-      "src/Microsoft/Xna/Framework/Net/_session.py:933"
+      "src/Microsoft/Xna/Framework/Net/_session.py:1033"
     ],
     "cna_network_session_add_remote_gamer_ext": [
       "src/cna/extensions/online/sessions.py:89"
     ],
     "cna_network_session_copy_session_properties": [
-      "src/Microsoft/Xna/Framework/Net/_session.py:1038"
+      "src/Microsoft/Xna/Framework/Net/_session.py:1138"
     ],
     "cna_network_session_create": [
-      "src/Microsoft/Xna/Framework/Net/_session.py:680"
+      "src/Microsoft/Xna/Framework/Net/_session.py:710"
     ],
     "cna_network_session_create_async": [
-      "src/Microsoft/Xna/Framework/Net/_session.py:713"
+      "src/Microsoft/Xna/Framework/Net/_session.py:743"
     ],
     "cna_network_session_create_with_local_gamers": [
-      "src/Microsoft/Xna/Framework/Net/_session.py:699"
+      "src/Microsoft/Xna/Framework/Net/_session.py:729"
     ],
     "cna_network_session_create_with_local_gamers_async": [
-      "src/Microsoft/Xna/Framework/Net/_session.py:734"
+      "src/Microsoft/Xna/Framework/Net/_session.py:764"
     ],
     "cna_network_session_create_with_properties": [
-      "src/Microsoft/Xna/Framework/Net/_session.py:688"
+      "src/Microsoft/Xna/Framework/Net/_session.py:718"
     ],
     "cna_network_session_create_with_properties_async": [
-      "src/Microsoft/Xna/Framework/Net/_session.py:722"
+      "src/Microsoft/Xna/Framework/Net/_session.py:752"
     ],
     "cna_network_session_destroy": [
-      "src/Microsoft/Xna/Framework/Net/_session.py:898"
+      "src/Microsoft/Xna/Framework/Net/_session.py:985"
     ],
     "cna_network_session_dispose": [
-      "src/Microsoft/Xna/Framework/Net/_session.py:885"
+      "src/Microsoft/Xna/Framework/Net/_session.py:983"
     ],
     "cna_network_session_end_game": [
-      "src/Microsoft/Xna/Framework/Net/_session.py:916"
+      "src/Microsoft/Xna/Framework/Net/_session.py:1016"
     ],
     "cna_network_session_find": [
-      "src/Microsoft/Xna/Framework/Net/_session.py:762"
+      "src/Microsoft/Xna/Framework/Net/_session.py:792"
     ],
     "cna_network_session_find_async": [
-      "src/Microsoft/Xna/Framework/Net/_session.py:776"
+      "src/Microsoft/Xna/Framework/Net/_session.py:806"
     ],
     "cna_network_session_find_gamer_by_id": [
-      "src/Microsoft/Xna/Framework/Net/_session.py:937"
+      "src/Microsoft/Xna/Framework/Net/_session.py:929"
     ],
     "cna_network_session_find_with_local_gamers": [
-      "src/Microsoft/Xna/Framework/Net/_session.py:768"
+      "src/Microsoft/Xna/Framework/Net/_session.py:798"
     ],
     "cna_network_session_find_with_local_gamers_async": [
-      "src/Microsoft/Xna/Framework/Net/_session.py:783"
+      "src/Microsoft/Xna/Framework/Net/_session.py:813"
     ],
     "cna_network_session_get_active_action_count_ext": [
       "src/cna/extensions/online/sessions.py:264"
     ],
     "cna_network_session_get_allow_host_migration": [
-      "src/Microsoft/Xna/Framework/Net/_session.py:1052"
+      "src/Microsoft/Xna/Framework/Net/_session.py:1152"
     ],
     "cna_network_session_get_allow_join_in_progress": [
-      "src/Microsoft/Xna/Framework/Net/_session.py:1042"
+      "src/Microsoft/Xna/Framework/Net/_session.py:1142"
     ],
     "cna_network_session_get_bytes_per_second_received": [
-      "src/Microsoft/Xna/Framework/Net/_session.py:1032"
+      "src/Microsoft/Xna/Framework/Net/_session.py:1132"
     ],
     "cna_network_session_get_bytes_per_second_sent": [
-      "src/Microsoft/Xna/Framework/Net/_session.py:1027"
+      "src/Microsoft/Xna/Framework/Net/_session.py:1127"
     ],
     "cna_network_session_get_gamer": [
-      "src/Microsoft/Xna/Framework/Net/_session.py:532"
+      "src/Microsoft/Xna/Framework/Net/_session.py:558"
     ],
     "cna_network_session_get_gamer_count": [
-      "src/Microsoft/Xna/Framework/Net/_session.py:523"
+      "src/Microsoft/Xna/Framework/Net/_session.py:549"
     ],
     "cna_network_session_get_host": [
-      "src/Microsoft/Xna/Framework/Net/_session.py:958"
+      "src/Microsoft/Xna/Framework/Net/_session.py:1059"
     ],
     "cna_network_session_get_instance_count_ext": [
       "src/cna/extensions/online/sessions.py:250"
     ],
     "cna_network_session_get_is_everyone_ready": [
-      "src/Microsoft/Xna/Framework/Net/_session.py:983"
+      "src/Microsoft/Xna/Framework/Net/_session.py:1083"
     ],
     "cna_network_session_get_is_host": [
-      "src/Microsoft/Xna/Framework/Net/_session.py:954"
+      "src/Microsoft/Xna/Framework/Net/_session.py:1054"
     ],
     "cna_network_session_get_max_gamers": [
-      "src/Microsoft/Xna/Framework/Net/_session.py:988"
+      "src/Microsoft/Xna/Framework/Net/_session.py:1088"
     ],
     "cna_network_session_get_owned_gamer_count_ext": [
       "src/cna/extensions/online/sessions.py:255"
     ],
     "cna_network_session_get_private_gamer_slots": [
-      "src/Microsoft/Xna/Framework/Net/_session.py:997"
+      "src/Microsoft/Xna/Framework/Net/_session.py:1097"
     ],
     "cna_network_session_get_session_state": [
-      "src/Microsoft/Xna/Framework/Net/_session.py:950"
+      "src/Microsoft/Xna/Framework/Net/_session.py:1050"
     ],
     "cna_network_session_get_session_type": [
-      "src/Microsoft/Xna/Framework/Net/_session.py:945"
+      "src/Microsoft/Xna/Framework/Net/_session.py:1045"
     ],
     "cna_network_session_get_simulated_latency_ticks": [
-      "src/Microsoft/Xna/Framework/Net/_session.py:1018"
+      "src/Microsoft/Xna/Framework/Net/_session.py:1118"
     ],
     "cna_network_session_get_simulated_packet_loss": [
-      "src/Microsoft/Xna/Framework/Net/_session.py:1007"
+      "src/Microsoft/Xna/Framework/Net/_session.py:1107"
     ],
     "cna_network_session_join": [
-      "src/Microsoft/Xna/Framework/Net/_session.py:805"
+      "src/Microsoft/Xna/Framework/Net/_session.py:835"
     ],
     "cna_network_session_join_async": [
-      "src/Microsoft/Xna/Framework/Net/_session.py:818"
+      "src/Microsoft/Xna/Framework/Net/_session.py:848"
     ],
     "cna_network_session_join_invited": [
-      "src/Microsoft/Xna/Framework/Net/_session.py:830"
+      "src/Microsoft/Xna/Framework/Net/_session.py:860"
     ],
     "cna_network_session_join_invited_async": [
-      "src/Microsoft/Xna/Framework/Net/_session.py:841"
+      "src/Microsoft/Xna/Framework/Net/_session.py:871"
     ],
     "cna_network_session_join_invited_with_local_gamers": [
-      "src/Microsoft/Xna/Framework/Net/_session.py:834"
+      "src/Microsoft/Xna/Framework/Net/_session.py:864"
     ],
     "cna_network_session_join_invited_with_local_gamers_async": [
-      "src/Microsoft/Xna/Framework/Net/_session.py:846"
+      "src/Microsoft/Xna/Framework/Net/_session.py:876"
     ],
     "cna_network_session_remove_gamer_ext": [
       "src/cna/extensions/online/sessions.py:96"
     ],
     "cna_network_session_replace_session_properties": [
-      "src/Microsoft/Xna/Framework/Net/_session.py:927"
+      "src/Microsoft/Xna/Framework/Net/_session.py:1027"
     ],
     "cna_network_session_reset_ready": [
-      "src/Microsoft/Xna/Framework/Net/_session.py:919"
+      "src/Microsoft/Xna/Framework/Net/_session.py:1019"
     ],
     "cna_network_session_send_network_event_ext": [
       "src/cna/extensions/online/sessions.py:180"
     ],
     "cna_network_session_set_allow_host_migration": [
-      "src/Microsoft/Xna/Framework/Net/_session.py:1057"
+      "src/Microsoft/Xna/Framework/Net/_session.py:1157"
     ],
     "cna_network_session_set_allow_join_in_progress": [
-      "src/Microsoft/Xna/Framework/Net/_session.py:1047"
+      "src/Microsoft/Xna/Framework/Net/_session.py:1147"
     ],
     "cna_network_session_set_max_gamers": [
-      "src/Microsoft/Xna/Framework/Net/_session.py:992"
+      "src/Microsoft/Xna/Framework/Net/_session.py:1092"
     ],
     "cna_network_session_set_private_gamer_slots": [
-      "src/Microsoft/Xna/Framework/Net/_session.py:1002"
+      "src/Microsoft/Xna/Framework/Net/_session.py:1102"
     ],
     "cna_network_session_set_simulated_latency_ticks": [
-      "src/Microsoft/Xna/Framework/Net/_session.py:1022"
+      "src/Microsoft/Xna/Framework/Net/_session.py:1122"
     ],
     "cna_network_session_set_simulated_packet_loss": [
-      "src/Microsoft/Xna/Framework/Net/_session.py:1012"
+      "src/Microsoft/Xna/Framework/Net/_session.py:1112"
     ],
     "cna_network_session_start_game": [
-      "src/Microsoft/Xna/Framework/Net/_session.py:913"
+      "src/Microsoft/Xna/Framework/Net/_session.py:1013"
     ],
     "cna_network_session_subscribe_game_ended": [
-      "src/Microsoft/Xna/Framework/Net/_session.py:625"
+      "src/Microsoft/Xna/Framework/Net/_session.py:658"
     ],
     "cna_network_session_subscribe_game_started": [
-      "src/Microsoft/Xna/Framework/Net/_session.py:622"
+      "src/Microsoft/Xna/Framework/Net/_session.py:655"
     ],
     "cna_network_session_subscribe_gamer_joined": [
-      "src/Microsoft/Xna/Framework/Net/_session.py:614"
+      "src/Microsoft/Xna/Framework/Net/_session.py:649"
     ],
     "cna_network_session_subscribe_gamer_left": [
-      "src/Microsoft/Xna/Framework/Net/_session.py:618"
+      "src/Microsoft/Xna/Framework/Net/_session.py:652"
     ],
     "cna_network_session_subscribe_host_changed": [
-      "src/Microsoft/Xna/Framework/Net/_session.py:628"
+      "src/Microsoft/Xna/Framework/Net/_session.py:661"
     ],
     "cna_network_session_subscribe_invite_accepted": [
       "src/cna/extensions/online/sessions.py:285"
     ],
     "cna_network_session_subscribe_session_ended": [
-      "src/Microsoft/Xna/Framework/Net/_session.py:635"
+      "src/Microsoft/Xna/Framework/Net/_session.py:666"
     ],
     "cna_network_session_subscribe_write_arbitrated_leaderboard": [
-      "src/Microsoft/Xna/Framework/Net/_session.py:640"
+      "src/Microsoft/Xna/Framework/Net/_session.py:671"
     ],
     "cna_network_session_subscribe_write_true_skill": [
-      "src/Microsoft/Xna/Framework/Net/_session.py:642"
+      "src/Microsoft/Xna/Framework/Net/_session.py:673"
     ],
     "cna_network_session_subscribe_write_unarbitrated_leaderboard": [
-      "src/Microsoft/Xna/Framework/Net/_session.py:643"
+      "src/Microsoft/Xna/Framework/Net/_session.py:674"
     ],
     "cna_network_session_unsubscribe": [
-      "src/Microsoft/Xna/Framework/Net/_session.py:876"
+      "src/Microsoft/Xna/Framework/Net/_session.py:975"
     ],
     "cna_network_session_update": [
-      "src/Microsoft/Xna/Framework/Net/_session.py:910"
+      "src/Microsoft/Xna/Framework/Net/_session.py:1010"
     ],
     "cna_local_network_gamer_clear_packet_queue_ext": [
       "src/cna/extensions/online/sessions.py:160"
@@ -7482,49 +4929,49 @@
       "src/cna/extensions/online/sessions.py:77"
     ],
     "cna_local_network_gamer_enable_send_voice": [
-      "src/Microsoft/Xna/Framework/Net/_session.py:202"
+      "src/Microsoft/Xna/Framework/Net/_session.py:215"
     ],
     "cna_local_network_gamer_enqueue_packet_ext": [
       "src/cna/extensions/online/sessions.py:154"
     ],
     "cna_local_network_gamer_get_is_data_available": [
-      "src/Microsoft/Xna/Framework/Net/_session.py:196"
+      "src/Microsoft/Xna/Framework/Net/_session.py:209"
     ],
     "cna_local_network_gamer_get_signed_in_gamer": [
-      "src/Microsoft/Xna/Framework/Net/_session.py:112"
+      "src/Microsoft/Xna/Framework/Net/_session.py:118"
     ],
     "cna_local_network_gamer_receive_data": [
-      "src/Microsoft/Xna/Framework/Net/_session.py:303"
+      "src/Microsoft/Xna/Framework/Net/_session.py:316"
     ],
     "cna_local_network_gamer_receive_data_at": [
-      "src/Microsoft/Xna/Framework/Net/_session.py:304"
+      "src/Microsoft/Xna/Framework/Net/_session.py:317"
     ],
     "cna_local_network_gamer_receive_data_into_packet_reader": [
-      "src/Microsoft/Xna/Framework/Net/_session.py:288"
+      "src/Microsoft/Xna/Framework/Net/_session.py:301"
     ],
     "cna_local_network_gamer_send_data": [
-      "src/Microsoft/Xna/Framework/Net/_session.py:241"
+      "src/Microsoft/Xna/Framework/Net/_session.py:254"
     ],
     "cna_local_network_gamer_send_data_range": [
-      "src/Microsoft/Xna/Framework/Net/_session.py:260"
+      "src/Microsoft/Xna/Framework/Net/_session.py:273"
     ],
     "cna_local_network_gamer_send_data_range_to": [
-      "src/Microsoft/Xna/Framework/Net/_session.py:265"
+      "src/Microsoft/Xna/Framework/Net/_session.py:278"
     ],
     "cna_local_network_gamer_send_data_to": [
-      "src/Microsoft/Xna/Framework/Net/_session.py:245"
+      "src/Microsoft/Xna/Framework/Net/_session.py:258"
     ],
     "cna_local_network_gamer_send_packet_writer": [
-      "src/Microsoft/Xna/Framework/Net/_session.py:226"
+      "src/Microsoft/Xna/Framework/Net/_session.py:239"
     ],
     "cna_local_network_gamer_send_packet_writer_to": [
-      "src/Microsoft/Xna/Framework/Net/_session.py:230"
+      "src/Microsoft/Xna/Framework/Net/_session.py:243"
     ],
     "cna_local_network_gamer_send_party_invites": [
-      "src/Microsoft/Xna/Framework/Net/_session.py:206"
+      "src/Microsoft/Xna/Framework/Net/_session.py:219"
     ],
     "cna_network_gamer_copy_machine": [
-      "src/Microsoft/Xna/Framework/Net/_session.py:128"
+      "src/Microsoft/Xna/Framework/Net/_session.py:141"
     ],
     "cna_network_gamer_create": [
       "src/cna/extensions/online/sessions.py:69"
@@ -7533,40 +4980,40 @@
       "src/Microsoft/Xna/Framework/Net/_session.py:106"
     ],
     "cna_network_gamer_get_has_left_session": [
-      "src/Microsoft/Xna/Framework/Net/_session.py:180"
+      "src/Microsoft/Xna/Framework/Net/_session.py:193"
     ],
     "cna_network_gamer_get_has_voice": [
-      "src/Microsoft/Xna/Framework/Net/_session.py:154"
-    ],
-    "cna_network_gamer_get_id": [
-      "src/Microsoft/Xna/Framework/Net/_session.py:176"
-    ],
-    "cna_network_gamer_get_is_guest": [
       "src/Microsoft/Xna/Framework/Net/_session.py:167"
     ],
+    "cna_network_gamer_get_id": [
+      "src/Microsoft/Xna/Framework/Net/_session.py:189"
+    ],
+    "cna_network_gamer_get_is_guest": [
+      "src/Microsoft/Xna/Framework/Net/_session.py:180"
+    ],
     "cna_network_gamer_get_is_host": [
-      "src/Microsoft/Xna/Framework/Net/_session.py:133"
+      "src/Microsoft/Xna/Framework/Net/_session.py:146"
     ],
     "cna_network_gamer_get_is_local": [
-      "src/Microsoft/Xna/Framework/Net/_session.py:137"
+      "src/Microsoft/Xna/Framework/Net/_session.py:150"
     ],
     "cna_network_gamer_get_is_muted_by_local_user": [
-      "src/Microsoft/Xna/Framework/Net/_session.py:162"
+      "src/Microsoft/Xna/Framework/Net/_session.py:175"
     ],
     "cna_network_gamer_get_is_private_slot": [
-      "src/Microsoft/Xna/Framework/Net/_session.py:141"
+      "src/Microsoft/Xna/Framework/Net/_session.py:154"
     ],
     "cna_network_gamer_get_is_ready": [
-      "src/Microsoft/Xna/Framework/Net/_session.py:145"
-    ],
-    "cna_network_gamer_get_is_talking": [
       "src/Microsoft/Xna/Framework/Net/_session.py:158"
     ],
-    "cna_network_gamer_get_roundtrip_ticks": [
+    "cna_network_gamer_get_is_talking": [
       "src/Microsoft/Xna/Framework/Net/_session.py:171"
     ],
+    "cna_network_gamer_get_roundtrip_ticks": [
+      "src/Microsoft/Xna/Framework/Net/_session.py:184"
+    ],
     "cna_network_gamer_get_session": [
-      "src/Microsoft/Xna/Framework/Net/_session.py:122"
+      "src/Microsoft/Xna/Framework/Net/_session.py:130"
     ],
     "cna_network_gamer_set_has_left_session_ext": [
       "src/cna/extensions/online/sessions.py:115"
@@ -7578,7 +5025,7 @@
       "src/cna/extensions/online/sessions.py:109"
     ],
     "cna_network_gamer_set_is_ready": [
-      "src/Microsoft/Xna/Framework/Net/_session.py:149"
+      "src/Microsoft/Xna/Framework/Net/_session.py:162"
     ],
     "cna_network_gamer_set_machine": [
       "src/cna/extensions/online/sessions.py:124"
@@ -7590,40 +5037,40 @@
       "src/cna/extensions/online/sessions.py:83"
     ],
     "cna_network_machine_destroy": [
-      "src/Microsoft/Xna/Framework/Net/_session.py:346"
+      "src/Microsoft/Xna/Framework/Net/_session.py:366"
     ],
     "cna_network_machine_get_gamer": [
-      "src/Microsoft/Xna/Framework/Net/_session.py:353"
+      "src/Microsoft/Xna/Framework/Net/_session.py:374"
     ],
     "cna_network_machine_get_gamer_count": [
-      "src/Microsoft/Xna/Framework/Net/_session.py:351"
+      "src/Microsoft/Xna/Framework/Net/_session.py:371"
     ],
     "cna_network_machine_remove_from_session": [
-      "src/Microsoft/Xna/Framework/Net/_session.py:359"
+      "src/Microsoft/Xna/Framework/Net/_session.py:385"
     ],
     "cna_friend_collection_create_ext": [
       "src/cna/extensions/online/gamers.py:112"
     ],
     "cna_friend_gamer_copy_presence": [
-      "src/Microsoft/Xna/Framework/GamerServices/_gamer.py:875"
+      "src/Microsoft/Xna/Framework/GamerServices/_gamer.py:879"
     ],
     "cna_friend_gamer_create_ext": [
       "src/cna/extensions/online/gamers.py:96"
     ],
     "cna_friend_gamer_get_info": [
-      "src/Microsoft/Xna/Framework/GamerServices/_gamer.py:871"
-    ],
-    "cna_friend_gamer_get_presence_size": [
       "src/Microsoft/Xna/Framework/GamerServices/_gamer.py:875"
     ],
+    "cna_friend_gamer_get_presence_size": [
+      "src/Microsoft/Xna/Framework/GamerServices/_gamer.py:879"
+    ],
     "cna_gamer_begin_get_from_gamertag": [
-      "src/Microsoft/Xna/Framework/GamerServices/_gamer.py:460"
+      "src/Microsoft/Xna/Framework/GamerServices/_gamer.py:464"
     ],
     "cna_gamer_begin_get_partner_token": [
-      "src/Microsoft/Xna/Framework/GamerServices/_gamer.py:931"
+      "src/Microsoft/Xna/Framework/GamerServices/_gamer.py:935"
     ],
     "cna_gamer_begin_get_profile": [
-      "src/Microsoft/Xna/Framework/GamerServices/_gamer.py:439"
+      "src/Microsoft/Xna/Framework/GamerServices/_gamer.py:443"
     ],
     "cna_gamer_collection_add": [
       "src/cna/extensions/online/gamers.py:161"
@@ -7632,88 +5079,91 @@
       "src/cna/extensions/online/gamers.py:171"
     ],
     "cna_gamer_collection_contains": [
-      "src/Microsoft/Xna/Framework/GamerServices/_gamer.py:585"
+      "src/Microsoft/Xna/Framework/GamerServices/_gamer.py:589"
     ],
     "cna_gamer_collection_copy_to": [
-      "src/Microsoft/Xna/Framework/GamerServices/_gamer.py:600"
+      "src/Microsoft/Xna/Framework/GamerServices/_gamer.py:604"
     ],
     "cna_gamer_collection_create_enumerator": [
-      "src/Microsoft/Xna/Framework/GamerServices/_gamer.py:644"
+      "src/Microsoft/Xna/Framework/GamerServices/_gamer.py:648"
     ],
     "cna_gamer_collection_destroy": [
-      "src/Microsoft/Xna/Framework/GamerServices/_gamer.py:960"
+      "src/Microsoft/Xna/Framework/GamerServices/_gamer.py:964"
     ],
     "cna_gamer_collection_get_at": [
-      "src/Microsoft/Xna/Framework/GamerServices/_gamer.py:580"
+      "src/Microsoft/Xna/Framework/GamerServices/_gamer.py:584"
     ],
     "cna_gamer_collection_get_count": [
-      "src/Microsoft/Xna/Framework/GamerServices/_gamer.py:568"
+      "src/Microsoft/Xna/Framework/GamerServices/_gamer.py:572"
     ],
     "cna_gamer_collection_index_of": [
-      "src/Microsoft/Xna/Framework/GamerServices/_gamer.py:589"
+      "src/Microsoft/Xna/Framework/GamerServices/_gamer.py:593"
     ],
     "cna_gamer_collection_remove": [
       "src/cna/extensions/online/gamers.py:166"
     ],
     "cna_gamer_copy_display_name": [
-      "src/Microsoft/Xna/Framework/GamerServices/_gamer.py:377"
+      "src/Microsoft/Xna/Framework/GamerServices/_gamer.py:381"
     ],
     "cna_gamer_copy_gamertag": [
-      "src/Microsoft/Xna/Framework/GamerServices/_gamer.py:371"
+      "src/Microsoft/Xna/Framework/GamerServices/_gamer.py:375"
     ],
     "cna_gamer_copy_partner_token": [
-      "src/Microsoft/Xna/Framework/GamerServices/_gamer.py:472"
+      "src/Microsoft/Xna/Framework/GamerServices/_gamer.py:476"
     ],
     "cna_gamer_copy_text": [
-      "src/Microsoft/Xna/Framework/GamerServices/_gamer.py:361"
+      "src/Microsoft/Xna/Framework/GamerServices/_gamer.py:365"
     ],
     "cna_gamer_destroy": [
-      "src/Microsoft/Xna/Framework/GamerServices/_gamer.py:342"
+      "src/Microsoft/Xna/Framework/GamerServices/_gamer.py:346"
     ],
     "cna_gamer_enumerator_destroy": [
-      "src/Microsoft/Xna/Framework/GamerServices/_gamer.py:673"
+      "src/Microsoft/Xna/Framework/GamerServices/_gamer.py:677"
     ],
     "cna_gamer_enumerator_get_current": [
-      "src/Microsoft/Xna/Framework/GamerServices/_gamer.py:660"
+      "src/Microsoft/Xna/Framework/GamerServices/_gamer.py:664"
     ],
     "cna_gamer_enumerator_move_next": [
-      "src/Microsoft/Xna/Framework/GamerServices/_gamer.py:655"
+      "src/Microsoft/Xna/Framework/GamerServices/_gamer.py:659"
     ],
     "cna_gamer_enumerator_reset": [
-      "src/Microsoft/Xna/Framework/GamerServices/_gamer.py:626"
+      "src/Microsoft/Xna/Framework/GamerServices/_gamer.py:630"
     ],
     "cna_gamer_get_display_name_size": [
-      "src/Microsoft/Xna/Framework/GamerServices/_gamer.py:376"
+      "src/Microsoft/Xna/Framework/GamerServices/_gamer.py:380"
     ],
     "cna_gamer_get_from_gamertag": [
-      "src/Microsoft/Xna/Framework/GamerServices/_gamer.py:450"
+      "src/Microsoft/Xna/Framework/GamerServices/_gamer.py:454"
     ],
     "cna_gamer_get_gamertag_size": [
-      "src/Microsoft/Xna/Framework/GamerServices/_gamer.py:370"
+      "src/Microsoft/Xna/Framework/GamerServices/_gamer.py:374"
     ],
     "cna_gamer_get_partner_token_size": [
-      "src/Microsoft/Xna/Framework/GamerServices/_gamer.py:471"
+      "src/Microsoft/Xna/Framework/GamerServices/_gamer.py:475"
     ],
     "cna_gamer_get_profile": [
-      "src/Microsoft/Xna/Framework/GamerServices/_gamer.py:433"
+      "src/Microsoft/Xna/Framework/GamerServices/_gamer.py:437"
     ],
     "cna_gamer_get_signed_in_gamer_at": [
-      "src/Microsoft/Xna/Framework/GamerServices/_gamer.py:848"
+      "src/Microsoft/Xna/Framework/GamerServices/_gamer.py:852"
     ],
     "cna_gamer_get_signed_in_gamer_at_player_index": [
-      "src/Microsoft/Xna/Framework/GamerServices/_gamer.py:838"
+      "src/Microsoft/Xna/Framework/GamerServices/_gamer.py:842"
     ],
     "cna_gamer_get_signed_in_gamer_count": [
-      "src/Microsoft/Xna/Framework/GamerServices/_gamer.py:832"
+      "src/Microsoft/Xna/Framework/GamerServices/_gamer.py:836"
     ],
     "cna_gamer_get_tag": [
-      "src/Microsoft/Xna/Framework/GamerServices/_gamer.py:393"
+      "src/Microsoft/Xna/Framework/GamerServices/_gamer.py:397"
     ],
     "cna_gamer_get_text_size": [
-      "src/Microsoft/Xna/Framework/GamerServices/_gamer.py:361"
+      "src/Microsoft/Xna/Framework/GamerServices/_gamer.py:365"
     ],
     "cna_gamer_profile_copy_motto": [
       "src/Microsoft/Xna/Framework/GamerServices/_gamer.py:293"
+    ],
+    "cna_gamer_profile_copy_picture": [
+      "src/Microsoft/Xna/Framework/GamerServices/_gamer.py:337"
     ],
     "cna_gamer_profile_copy_region_name": [
       "src/Microsoft/Xna/Framework/GamerServices/_gamer.py:306"
@@ -7734,64 +5184,64 @@
       "src/Microsoft/Xna/Framework/GamerServices/_gamer.py:306"
     ],
     "cna_gamer_set_display_name": [
-      "src/Microsoft/Xna/Framework/GamerServices/_gamer.py:384"
+      "src/Microsoft/Xna/Framework/GamerServices/_gamer.py:388"
     ],
     "cna_gamer_set_signed_in_gamers_ext": [
       "src/cna/extensions/online/gamers.py:84"
     ],
     "cna_gamer_set_tag": [
-      "src/Microsoft/Xna/Framework/GamerServices/_gamer.py:409"
+      "src/Microsoft/Xna/Framework/GamerServices/_gamer.py:413"
     ],
     "cna_gamer_signed_in_contains": [
-      "src/Microsoft/Xna/Framework/GamerServices/_gamer.py:853"
+      "src/Microsoft/Xna/Framework/GamerServices/_gamer.py:857"
     ],
     "cna_gamer_signed_in_index_of": [
-      "src/Microsoft/Xna/Framework/GamerServices/_gamer.py:856"
+      "src/Microsoft/Xna/Framework/GamerServices/_gamer.py:860"
     ],
     "cna_gamer_unsubscribe_ext": [
       "src/cna/extensions/online/gamers.py:229"
     ],
     "cna_signed_in_gamer_award_achievement": [
-      "src/Microsoft/Xna/Framework/GamerServices/_gamer.py:783"
+      "src/Microsoft/Xna/Framework/GamerServices/_gamer.py:787"
     ],
     "cna_signed_in_gamer_begin_award_achievement": [
-      "src/Microsoft/Xna/Framework/GamerServices/_gamer.py:791"
+      "src/Microsoft/Xna/Framework/GamerServices/_gamer.py:795"
     ],
     "cna_signed_in_gamer_begin_get_achievements": [
-      "src/Microsoft/Xna/Framework/GamerServices/_gamer.py:808"
+      "src/Microsoft/Xna/Framework/GamerServices/_gamer.py:812"
     ],
     "cna_signed_in_gamer_copy_gamertag": [
-      "src/Microsoft/Xna/Framework/GamerServices/_gamer.py:720"
+      "src/Microsoft/Xna/Framework/GamerServices/_gamer.py:724"
     ],
     "cna_signed_in_gamer_create_ext": [
       "src/cna/extensions/online/gamers.py:64"
     ],
     "cna_signed_in_gamer_destroy": [
-      "src/Microsoft/Xna/Framework/GamerServices/_gamer.py:706"
+      "src/Microsoft/Xna/Framework/GamerServices/_gamer.py:710"
     ],
     "cna_signed_in_gamer_get_achievements": [
-      "src/Microsoft/Xna/Framework/GamerServices/_gamer.py:802"
+      "src/Microsoft/Xna/Framework/GamerServices/_gamer.py:806"
     ],
     "cna_signed_in_gamer_get_friends": [
-      "src/Microsoft/Xna/Framework/GamerServices/_gamer.py:779"
+      "src/Microsoft/Xna/Framework/GamerServices/_gamer.py:783"
     ],
     "cna_signed_in_gamer_get_game_defaults": [
       "src/Microsoft/Xna/Framework/GamerServices/_gamer.py:198"
     ],
     "cna_signed_in_gamer_get_gamertag_size": [
-      "src/Microsoft/Xna/Framework/GamerServices/_gamer.py:719"
+      "src/Microsoft/Xna/Framework/GamerServices/_gamer.py:723"
     ],
     "cna_signed_in_gamer_get_is_guest": [
-      "src/Microsoft/Xna/Framework/GamerServices/_gamer.py:735"
-    ],
-    "cna_signed_in_gamer_get_is_signed_in_to_live": [
-      "src/Microsoft/Xna/Framework/GamerServices/_gamer.py:730"
-    ],
-    "cna_signed_in_gamer_get_party_size": [
       "src/Microsoft/Xna/Framework/GamerServices/_gamer.py:739"
     ],
+    "cna_signed_in_gamer_get_is_signed_in_to_live": [
+      "src/Microsoft/Xna/Framework/GamerServices/_gamer.py:734"
+    ],
+    "cna_signed_in_gamer_get_party_size": [
+      "src/Microsoft/Xna/Framework/GamerServices/_gamer.py:743"
+    ],
     "cna_signed_in_gamer_get_player_index": [
-      "src/Microsoft/Xna/Framework/GamerServices/_gamer.py:726"
+      "src/Microsoft/Xna/Framework/GamerServices/_gamer.py:730"
     ],
     "cna_signed_in_gamer_get_presence": [
       "src/Microsoft/Xna/Framework/GamerServices/_gamer.py:112"
@@ -7800,13 +5250,13 @@
       "src/Microsoft/Xna/Framework/GamerServices/_gamer.py:151"
     ],
     "cna_signed_in_gamer_is_friend": [
-      "src/Microsoft/Xna/Framework/GamerServices/_gamer.py:761"
+      "src/Microsoft/Xna/Framework/GamerServices/_gamer.py:765"
     ],
     "cna_signed_in_gamer_is_headset": [
-      "src/Microsoft/Xna/Framework/GamerServices/_gamer.py:774"
+      "src/Microsoft/Xna/Framework/GamerServices/_gamer.py:778"
     ],
     "cna_signed_in_gamer_set_party_size": [
-      "src/Microsoft/Xna/Framework/GamerServices/_gamer.py:743"
+      "src/Microsoft/Xna/Framework/GamerServices/_gamer.py:747"
     ],
     "cna_signed_in_gamer_set_presence": [
       "src/Microsoft/Xna/Framework/GamerServices/_gamer.py:118"
@@ -7910,12 +5360,6 @@
     "cna_guide_set_is_screen_saver_enabled": [
       "src/Microsoft/Xna/Framework/GamerServices/_guide.py:72"
     ],
-    "cna_guide_set_is_trial_mode": [
-      "src/cna/extensions/online/guide.py:144"
-    ],
-    "cna_guide_set_is_visible": [
-      "src/cna/extensions/online/guide.py:135"
-    ],
     "cna_guide_set_notification_position": [
       "src/Microsoft/Xna/Framework/GamerServices/_guide.py:82"
     ],
@@ -7923,7 +5367,7 @@
       "src/Microsoft/Xna/Framework/GamerServices/_guide.py:90"
     ],
     "cna_guide_show_achievements_ext": [
-      "src/cna/extensions/online/guide.py:153"
+      "src/cna/extensions/online/guide.py:134"
     ],
     "cna_guide_show_compose_message": [
       "src/Microsoft/Xna/Framework/GamerServices/_guide.py:241"
@@ -7974,46 +5418,46 @@
       "src/Microsoft/Xna/Framework/GamerServices/_guide.py:179"
     ],
     "cna_achievement_collection_add": [
-      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:230"
+      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:234"
     ],
     "cna_achievement_collection_clear": [
-      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:247"
+      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:251"
     ],
     "cna_achievement_collection_contains": [
-      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:210"
+      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:214"
     ],
     "cna_achievement_collection_copy_to": [
-      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:254"
+      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:258"
     ],
     "cna_achievement_collection_create_ext": [
       "src/cna/extensions/online/gamers.py:152"
     ],
     "cna_achievement_collection_destroy": [
-      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:177"
+      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:181"
     ],
     "cna_achievement_collection_get_at": [
-      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:205"
+      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:209"
     ],
     "cna_achievement_collection_get_by_key": [
-      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:199"
+      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:203"
     ],
     "cna_achievement_collection_get_count": [
-      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:189"
+      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:193"
     ],
     "cna_achievement_collection_get_is_read_only": [
-      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:226"
+      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:230"
     ],
     "cna_achievement_collection_index_of": [
-      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:214"
+      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:218"
     ],
     "cna_achievement_collection_insert": [
-      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:234"
+      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:238"
     ],
     "cna_achievement_collection_remove": [
-      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:239"
+      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:243"
     ],
     "cna_achievement_collection_remove_at": [
-      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:243"
+      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:247"
     ],
     "cna_achievement_copy_description": [
       "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:102"
@@ -8026,6 +5470,9 @@
     ],
     "cna_achievement_copy_name": [
       "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:98"
+    ],
+    "cna_achievement_copy_picture": [
+      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:152"
     ],
     "cna_achievement_create_ext": [
       "src/cna/extensions/online/gamers.py:136"
@@ -8055,265 +5502,232 @@
       "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:147"
     ],
     "cna_leaderboard_entry_create_ext": [
-      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:796"
+      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:800"
     ],
     "cna_leaderboard_entry_destroy": [
-      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:568"
+      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:572"
     ],
     "cna_leaderboard_entry_equals": [
-      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:585"
+      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:589"
     ],
     "cna_leaderboard_entry_get_columns": [
-      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:580"
+      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:584"
     ],
     "cna_leaderboard_entry_get_gamer": [
-      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:548"
+      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:552"
     ],
     "cna_leaderboard_entry_get_info": [
-      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:557"
+      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:561"
     ],
     "cna_leaderboard_entry_set_rating": [
-      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:562"
+      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:566"
     ],
     "cna_leaderboard_entry_set_rating_changed_hook_ext": [
-      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:573"
+      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:577"
     ],
     "cna_leaderboard_reader_begin_page_down": [
-      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:766"
+      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:770"
     ],
     "cna_leaderboard_reader_begin_page_up": [
-      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:756"
+      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:760"
     ],
     "cna_leaderboard_reader_begin_read": [
-      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:672"
+      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:676"
     ],
     "cna_leaderboard_reader_begin_read_from_gamers": [
-      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:657"
+      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:661"
     ],
     "cna_leaderboard_reader_begin_read_from_pivot": [
-      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:666"
+      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:670"
     ],
     "cna_leaderboard_reader_destroy": [
-      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:737"
+      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:741"
     ],
     "cna_leaderboard_reader_get_entry_at": [
-      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:725"
+      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:729"
     ],
     "cna_leaderboard_reader_get_identity": [
-      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:698"
+      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:702"
     ],
     "cna_leaderboard_reader_get_info": [
-      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:609"
+      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:613"
     ],
     "cna_leaderboard_reader_page_down": [
-      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:750"
+      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:754"
     ],
     "cna_leaderboard_reader_page_up": [
-      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:747"
+      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:751"
     ],
     "cna_leaderboard_reader_read": [
-      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:644"
+      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:648"
     ],
     "cna_leaderboard_reader_read_from_gamers": [
-      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:630"
+      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:634"
     ],
     "cna_leaderboard_reader_read_from_pivot": [
-      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:638"
+      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:642"
     ],
     "cna_property_dictionary_clear": [
-      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:426"
+      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:430"
     ],
     "cna_property_dictionary_contains_key": [
-      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:301"
+      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:305"
     ],
     "cna_property_dictionary_copy_key_at": [
-      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:450"
+      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:454"
     ],
     "cna_property_dictionary_copy_string": [
-      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:334"
+      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:338"
     ],
     "cna_property_dictionary_create_ext": [
-      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:267"
+      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:271"
     ],
     "cna_property_dictionary_destroy": [
-      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:275"
+      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:279"
     ],
     "cna_property_dictionary_get_count": [
-      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:289"
+      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:293"
     ],
     "cna_property_dictionary_get_date_time_ticks": [
-      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:345"
-    ],
-    "cna_property_dictionary_get_double": [
-      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:329"
-    ],
-    "cna_property_dictionary_get_int32": [
-      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:317"
-    ],
-    "cna_property_dictionary_get_int64": [
-      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:321"
-    ],
-    "cna_property_dictionary_get_is_read_only": [
-      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:296"
-    ],
-    "cna_property_dictionary_get_key_size_at": [
-      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:449"
-    ],
-    "cna_property_dictionary_get_outcome": [
-      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:340"
-    ],
-    "cna_property_dictionary_get_single": [
-      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:325"
-    ],
-    "cna_property_dictionary_get_stream_size_ext": [
-      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:359"
-    ],
-    "cna_property_dictionary_get_string_size": [
-      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:333"
-    ],
-    "cna_property_dictionary_get_time_span_ticks": [
       "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:349"
     ],
+    "cna_property_dictionary_get_double": [
+      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:333"
+    ],
+    "cna_property_dictionary_get_int32": [
+      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:321"
+    ],
+    "cna_property_dictionary_get_int64": [
+      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:325"
+    ],
+    "cna_property_dictionary_get_is_read_only": [
+      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:300"
+    ],
+    "cna_property_dictionary_get_key_size_at": [
+      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:453"
+    ],
+    "cna_property_dictionary_get_outcome": [
+      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:344"
+    ],
+    "cna_property_dictionary_get_single": [
+      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:329"
+    ],
+    "cna_property_dictionary_get_stream_size_ext": [
+      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:363"
+    ],
+    "cna_property_dictionary_get_string_size": [
+      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:337"
+    ],
+    "cna_property_dictionary_get_time_span_ticks": [
+      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:353"
+    ],
     "cna_property_dictionary_remove": [
-      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:423"
+      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:427"
     ],
     "cna_property_dictionary_set_date_time_ticks": [
-      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:379"
+      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:383"
     ],
     "cna_property_dictionary_set_double": [
-      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:393"
-    ],
-    "cna_property_dictionary_set_int32": [
-      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:385"
-    ],
-    "cna_property_dictionary_set_int64": [
-      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:387"
-    ],
-    "cna_property_dictionary_set_outcome": [
-      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:376"
-    ],
-    "cna_property_dictionary_set_single": [
-      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:412"
-    ],
-    "cna_property_dictionary_set_string": [
       "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:397"
     ],
+    "cna_property_dictionary_set_int32": [
+      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:389"
+    ],
+    "cna_property_dictionary_set_int64": [
+      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:391"
+    ],
+    "cna_property_dictionary_set_outcome": [
+      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:380"
+    ],
+    "cna_property_dictionary_set_single": [
+      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:416"
+    ],
+    "cna_property_dictionary_set_string": [
+      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:401"
+    ],
     "cna_property_dictionary_set_time_span_ticks": [
-      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:382"
+      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:386"
     ],
     "cna_property_dictionary_try_get_value_kind_ext": [
-      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:311"
-    ],
-    "cna_avatar_animation_copy_real_clip_name_ext": [
-      "src/cna/extensions/online/avatars.py:60"
+      "src/Microsoft/Xna/Framework/GamerServices/_leaderboards.py:315"
     ],
     "cna_avatar_animation_create": [
-      "src/Microsoft/Xna/Framework/GamerServices/_avatar.py:325"
+      "src/Microsoft/Xna/Framework/GamerServices/_avatar.py:327"
     ],
     "cna_avatar_animation_destroy": [
-      "src/Microsoft/Xna/Framework/GamerServices/_avatar.py:385"
+      "src/Microsoft/Xna/Framework/GamerServices/_avatar.py:387"
     ],
     "cna_avatar_animation_get_bone_transform_at": [
-      "src/Microsoft/Xna/Framework/GamerServices/_avatar.py:365"
+      "src/Microsoft/Xna/Framework/GamerServices/_avatar.py:367"
     ],
     "cna_avatar_animation_get_expression": [
-      "src/Microsoft/Xna/Framework/GamerServices/_avatar.py:374"
+      "src/Microsoft/Xna/Framework/GamerServices/_avatar.py:376"
     ],
     "cna_avatar_animation_get_info": [
-      "src/Microsoft/Xna/Framework/GamerServices/_avatar.py:337"
-    ],
-    "cna_avatar_animation_get_real_clip_name_size_ext": [
-      "src/cna/extensions/online/avatars.py:59"
-    ],
-    "cna_avatar_animation_preset_copy_clip_name_ext": [
-      "src/cna/extensions/online/avatars.py:45"
-    ],
-    "cna_avatar_animation_preset_get_clip_name_size_ext": [
-      "src/cna/extensions/online/avatars.py:44"
+      "src/Microsoft/Xna/Framework/GamerServices/_avatar.py:339"
     ],
     "cna_avatar_animation_set_current_position": [
-      "src/Microsoft/Xna/Framework/GamerServices/_avatar.py:354"
-    ],
-    "cna_avatar_animation_set_real_clip_name_ext": [
-      "src/cna/extensions/online/avatars.py:67"
+      "src/Microsoft/Xna/Framework/GamerServices/_avatar.py:356"
     ],
     "cna_avatar_animation_update": [
-      "src/Microsoft/Xna/Framework/GamerServices/_avatar.py:340"
-    ],
-    "cna_avatar_appearance_init_ext": [
-      "src/cna/extensions/online/avatars.py:83"
-    ],
-    "cna_avatar_body_type_copy_content_name_ext": [
-      "src/cna/extensions/online/avatars.py:53"
-    ],
-    "cna_avatar_body_type_get_content_name_size_ext": [
-      "src/cna/extensions/online/avatars.py:52"
+      "src/Microsoft/Xna/Framework/GamerServices/_avatar.py:342"
     ],
     "cna_avatar_description_copy_description": [
-      "src/Microsoft/Xna/Framework/GamerServices/_avatar.py:302"
+      "src/Microsoft/Xna/Framework/GamerServices/_avatar.py:304"
     ],
     "cna_avatar_description_create": [
-      "src/Microsoft/Xna/Framework/GamerServices/_avatar.py:230"
+      "src/Microsoft/Xna/Framework/GamerServices/_avatar.py:232"
     ],
     "cna_avatar_description_create_random": [
-      "src/Microsoft/Xna/Framework/GamerServices/_avatar.py:255"
-    ],
-    "cna_avatar_description_create_random_for_body_type": [
       "src/Microsoft/Xna/Framework/GamerServices/_avatar.py:257"
     ],
+    "cna_avatar_description_create_random_for_body_type": [
+      "src/Microsoft/Xna/Framework/GamerServices/_avatar.py:259"
+    ],
     "cna_avatar_description_destroy": [
-      "src/Microsoft/Xna/Framework/GamerServices/_avatar.py:282"
+      "src/Microsoft/Xna/Framework/GamerServices/_avatar.py:284"
     ],
     "cna_avatar_description_get_from_gamer": [
-      "src/Microsoft/Xna/Framework/GamerServices/_avatar.py:268"
+      "src/Microsoft/Xna/Framework/GamerServices/_avatar.py:270"
     ],
     "cna_avatar_description_get_info": [
-      "src/Microsoft/Xna/Framework/GamerServices/_avatar.py:248"
+      "src/Microsoft/Xna/Framework/GamerServices/_avatar.py:250"
     ],
     "cna_avatar_description_subscribe_changed_ext": [
-      "src/cna/extensions/online/avatars.py:135"
+      "src/cna/extensions/online/avatars.py:45"
     ],
     "cna_avatar_renderer_create": [
-      "src/Microsoft/Xna/Framework/GamerServices/_avatar.py:417"
+      "src/Microsoft/Xna/Framework/GamerServices/_avatar.py:419"
     ],
     "cna_avatar_renderer_destroy": [
-      "src/Microsoft/Xna/Framework/GamerServices/_avatar.py:585"
+      "src/Microsoft/Xna/Framework/GamerServices/_avatar.py:587"
     ],
     "cna_avatar_renderer_draw_animation": [
-      "src/Microsoft/Xna/Framework/GamerServices/_avatar.py:555"
+      "src/Microsoft/Xna/Framework/GamerServices/_avatar.py:557"
     ],
     "cna_avatar_renderer_draw_bones": [
-      "src/Microsoft/Xna/Framework/GamerServices/_avatar.py:571"
-    ],
-    "cna_avatar_renderer_draw_real_ext": [
-      "src/cna/extensions/online/avatars.py:118"
-    ],
-    "cna_avatar_renderer_enable_real_rendering_ext": [
-      "src/cna/extensions/online/avatars.py:107"
+      "src/Microsoft/Xna/Framework/GamerServices/_avatar.py:573"
     ],
     "cna_avatar_renderer_get_bind_pose_at": [
-      "src/Microsoft/Xna/Framework/GamerServices/_avatar.py:545"
+      "src/Microsoft/Xna/Framework/GamerServices/_avatar.py:547"
     ],
     "cna_avatar_renderer_get_info": [
-      "src/Microsoft/Xna/Framework/GamerServices/_avatar.py:429"
+      "src/Microsoft/Xna/Framework/GamerServices/_avatar.py:431"
     ],
     "cna_avatar_renderer_get_lighting": [
-      "src/Microsoft/Xna/Framework/GamerServices/_avatar.py:480"
+      "src/Microsoft/Xna/Framework/GamerServices/_avatar.py:482"
     ],
     "cna_avatar_renderer_get_parent_bone_at": [
-      "src/Microsoft/Xna/Framework/GamerServices/_avatar.py:534"
+      "src/Microsoft/Xna/Framework/GamerServices/_avatar.py:536"
     ],
     "cna_avatar_renderer_get_transforms": [
-      "src/Microsoft/Xna/Framework/GamerServices/_avatar.py:435"
-    ],
-    "cna_avatar_renderer_set_appearance_ext": [
-      "src/cna/extensions/online/avatars.py:93"
+      "src/Microsoft/Xna/Framework/GamerServices/_avatar.py:437"
     ],
     "cna_avatar_renderer_set_lighting": [
-      "src/Microsoft/Xna/Framework/GamerServices/_avatar.py:489"
+      "src/Microsoft/Xna/Framework/GamerServices/_avatar.py:491"
     ],
     "cna_avatar_renderer_set_transforms": [
-      "src/Microsoft/Xna/Framework/GamerServices/_avatar.py:443"
+      "src/Microsoft/Xna/Framework/GamerServices/_avatar.py:445"
     ]
   }
 }

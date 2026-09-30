@@ -1,11 +1,11 @@
 # CNA-Python implementation plan
 
 Status: the selected XNA 4.0 Windows projection is structurally complete, the
-native boundary speaks the current CNA C ABI `0.21.0`, four CNA extension
-families are open, and XNA's online runtime is open as a second strict profile
-beside the Windows runtime one.
+native boundary speaks the current CNA C ABI `0.35.0`, CNA extension families
+are open, and XNA's online runtime is open as a second strict profile beside the
+Windows runtime one.
 
-Date: 2026-09-02.
+Date: 2026-09-30 (requalified against CNA `next` `4228ff913`).
 
 This is the normative current-state plan. Missing XNA surface stays visible in
 the strict verifier; no allowlist, fake backend state, fabricated asset, or
@@ -37,6 +37,10 @@ asset-name special case is an acceptable way to make it green.
 
 - [x] Migrate the native boundary to CNA `0.21.0` with a version policy derived
   from CNA's own contract rather than a hard-coded constant.
+- [x] Requalify against CNA `0.35.0` (2026-09-30): measured with the prototype,
+  layout and census gates first, then admitted; drop the 849 bound routes CNA
+  retired (engine layer, avatar real rendering, Guide setters) and the
+  pending-route stub; see `docs/cna-abi-audit.md`.
 - [x] Add compiler-backed prototype verification: every imported route's ctypes
   prototype is proven against the canonical C declaration by the C compiler,
   with planted defects proving the gate can fail.
@@ -75,6 +79,10 @@ asset-name special case is an acceptable way to make it green.
   the first run were real test gaps and were closed.
 
 ## Completed extension family: the engine layer
+
+CNA retired `engine_layer.h` at ABI 0.30; since 2026-09-30 this family is
+DebugDraw and the ASCII effect only (`docs/engine-extensions.md`). The items
+below are the record of what was built against 0.21.
 
 - [x] Select `engine_layer.h` as the third public `cna.extensions` family and
   replace the blanket "outside the selected extension profile" census rule
@@ -244,32 +252,25 @@ asset-name special case is an acceptable way to make it green.
   Normal and leak-only strict checks pass. The two share two Python packages
   because XNA shares the namespace, and are declared siblings so that a name
   belonging to neither is still `UNEXPECTED_TYPE`.
-- Native manifest: 2,626 imported routes, 2,626 compiler-verified prototypes,
-  2,518 C and 2,518 ctypes layout measurements, zero missing symbols, zero ABI
-  mismatches.
-- Route census: 4,055 canonical routes, zero unreviewed, zero actionable-local,
+- Native manifest: 1,770 imported routes, 1,770 compiler-verified prototypes,
+  2,105 C and 2,105 ctypes layout measurements, zero missing symbols, zero ABI
+  mismatches (CNA C ABI 0.35.0).
+- Route census: 3,202 canonical routes, zero unreviewed, zero actionable-local,
   zero rule contradictions, zero shadowed or dead rules. Inside the five
-  selected families: CNB/CNJ 285/283, engine 870/867, devices 206/177, extended
-  input 126/119, online 437/416. All zero unreviewed and zero actionable-local.
-- Route reachability: 2,626 bound routes, 2,529 with a direct call site, 18
+  selected families: CNB/CNJ 285/283, engine (graphics_ext.h) 44/24, devices
+  206/177, extended input 126/119, online 426/405.
+- Route reachability: 1,770 bound routes, 1,673 with a direct call site, 18
   reached through a name template, 37 admitted with a written reason, zero
-  unjustified and zero stale admissions. A generated manifest can no longer
-  satisfy its own reachability.
+  unjustified and zero stale admissions.
 - Behavior evidence: 181 PURE_XNA_DERIVED observations, 1,004 assertions, zero
   failures.
 - Runtime evidence: two artifacts. A non-windowed HEADLESS control
-  (`~/deps/cna-c-abi-0.21.0`) and an OPENGL33 renderer on an isolated display
-  (`~/deps/cna-c-abi-0.21.0-opengl33`), both with a real SDL3 mixer on a
-  deterministic device. Every capability row names the artifact that produced
-  it. The two build trees this session started against were removed by another
-  agent's rebuild while it was running; the pinned artifacts that replaced them
-  are missing one declared route, which is upstream finding 5 and is now
-  handled by a declared pending-route list rather than by refusing the library.
-- Native boundary: 2,626 bound routes, 0 missing symbols, 1 declared pending
-  route present in the canonical headers and in no artifact yet, 0 stale
-  pending declarations, 0 ABI mismatches.
+  (`~/deps/cna-c-abi-0.35.0`, built without FFmpeg) and OPENGLES3 with compiled
+  effects, CNAEXT and devices (`~/deps/cna-c-abi-0.35.0-opengles3-fx`), run
+  inside CNA's private Weston/Xwayland on the real GPU. Every capability row
+  names the artifact that produced it.
 - Extension profile: `cna.extensions.graphics`, `.content`, `.engine`,
-  `.devices`, `.input` and `.online`, 59 modules and 1,126 public names, zero
+  `.devices`, `.input` and `.online`, 51 modules and 751 public names, zero
   surface diagnostics, and no dependency from the XNA namespace on any of them.
 - Content Pipeline coverage: 667 projected members, 623 implemented, 39 abstract
   by design, four blockers with written reasons, zero unreviewed, zero stale,

@@ -18,13 +18,29 @@ COMPILED_EFFECT_FIXTURE=os.environ.get("CNA_PYTHON_COMPILED_EFFECT_FIXTURE")
 @unittest.skipUnless(NATIVE and Path(NATIVE).is_file(), "CNA_NATIVE_LIBRARY is not configured")
 class EffectNativeIdentityTests(unittest.TestCase):
     @unittest.skipUnless(COMPILED_EFFECT_FIXTURE and Path(COMPILED_EFFECT_FIXTURE).is_file(),"CNA_PYTHON_COMPILED_EFFECT_FIXTURE is not configured")
-    def test_legal_compiled_effect_reaches_headless_backend_refusal(self):
+    def test_legal_compiled_effect_follows_the_renderers_answer(self):
+        """A renderer with CNA_GRAPHICS_CAPABILITY_COMPILED_EFFECTS builds the effect
+        and reflects its parameters; one without refuses with NOT_SUPPORTED. The
+        answer is read from the renderer (a raw test-side call; the binding does not
+        project the capability), never inferred from its name."""
+        import ctypes
+        from _cna_native.loader import get_library
         case=self;payload=Path(COMPILED_EFFECT_FIXTURE).read_bytes()
         class Probe(Game):
             def __init__(self):super().__init__();self.manager=GraphicsDeviceManager(self);self.checked=False
             def LoadContent(self):
-                with case.assertRaises(NativeError) as caught:Effect(self.GraphicsDevice,payload)
-                case.assertEqual(caught.exception.result,6);self.checked=True;self.Exit()
+                supported=ctypes.c_uint8()
+                route=get_library()._cdll.cna_graphics_device_supports_capability
+                route.argtypes=[ctypes.c_uint64,ctypes.c_uint32,ctypes.POINTER(ctypes.c_uint8)]
+                case.assertEqual(route(self.GraphicsDevice._require_handle(),13,ctypes.byref(supported)),0)
+                if supported.value:
+                    effect=Effect(self.GraphicsDevice,payload)
+                    case.assertGreater(effect.Parameters.Count,0);case.assertGreater(effect.Techniques.Count,0)
+                    effect.Dispose()
+                else:
+                    with case.assertRaises(NativeError) as caught:Effect(self.GraphicsDevice,payload)
+                    case.assertEqual(caught.exception.result,6)
+                self.checked=True;self.Exit()
         game=Probe()
         try:game.Run()
         finally:game.Dispose()

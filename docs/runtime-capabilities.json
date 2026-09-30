@@ -1,28 +1,28 @@
 {
   "schemaVersion": 2,
-  "abi": "0.21.0",
-  "cnaRevision": "5347b52eae1311fbea1f89955ae8a48c6843a88a",
-  "sharpRuntimeRevision": "9cc96cd57cde394940cc24d58743edf9bf63d3fb",
+  "abi": "0.35.0",
+  "cnaRevision": "4228ff913987452c6fe03d125d186072b1405187",
+  "sharpRuntimeRevision": "88f6b11fbb8b9d1db1b9451e86f8835e1c9cafaa",
   "artifacts": [
     {
       "id": "control",
       "role": "deterministic non-windowed control",
       "renderer": "HEADLESS",
       "rasterizes": false,
-      "audio": "SDL3 mixer on the dummy device",
-      "video": "AUTO (FFmpeg present)",
-      "platform": "Linux x86-64",
-      "sha256": "94078be94dc1f1e6c8787c1cd17b08c9430d1e4bb5699947cd2b7aafee40281d"
+      "audio": "SDL3 mixer",
+      "video": "OFF (built without FFmpeg)",
+      "platform": "Linux x86-64, Debug, ~/deps/cna-c-abi-0.35.0",
+      "sha256": "070ed77bec5af09f64c7215e25c90de0970f0316b6d50982eece85fd1963c449"
     },
     {
       "id": "gpu",
       "role": "real windowed renderer",
-      "renderer": "OPENGLES3",
+      "renderer": "OPENGLES3 (compiled effects, CNAEXT, DEVICES)",
       "rasterizes": true,
       "audio": "SDL3 mixer on the dummy device",
       "video": "AUTO (FFmpeg present)",
-      "platform": "Linux x86-64, isolated Xvfb display, Mesa GL ES 3.2 (llvmpipe)",
-      "sha256": "65ce46a49b754586e8a99406901a9627e38f4473b594c0266400db65e4d73da9"
+      "platform": "Linux x86-64, Release, private headless Weston + rootful Xwayland on the real GPU (Mesa GL ES 3.2), ~/deps/cna-c-abi-0.35.0-opengles3-fx",
+      "sha256": "4e38a2dafd68e22c1a77c00a34b2ef6a7b1cb7b6832d904ba4a21b05f374f4d6"
     }
   ],
   "statuses": [
@@ -48,7 +48,7 @@
     {
       "operation": "FrameworkDispatcher Update without a live Game",
       "status": "BLOCKED_UPSTREAM",
-      "evidence": "runtime.h cna_framework_dispatcher_update(CNA_Handle game); re-read on CNA 0.21.0",
+      "evidence": "runtime.h cna_framework_dispatcher_update(CNA_Handle game); re-read on CNA 0.35.0",
       "notes": "Re-measured, unchanged: the route still takes a Game handle, so it has nothing to pump without one. XNA permits a process-level call; Python reports the limitation and never silently no-ops."
     },
     {
@@ -219,7 +219,7 @@
       "operation": "OcclusionQuery",
       "status": "VERIFIED_NATIVE",
       "evidence": "cna_occlusion_query_*; the query completes asynchronously and PixelCount reads after it",
-      "notes": "XNA's query is asynchronous. The control artifact answers at once and the windowed renderer takes a bounded number of polls; both satisfy the contract, so the test waits rather than encoding one backend's timing."
+      "notes": "XNA's query is asynchronous. The control artifact answers at once and the windowed renderer takes a bounded number of polls; both satisfy the contract, so the test waits rather than encoding one backend's timing. XNA's OcclusionQuery is HiDef-only and CNA enforces the profile: a Reach device refuses it with NOT_SUPPORTED, which is asserted."
     },
     {
       "operation": "RenderTargetCube create/bind/query",
@@ -356,11 +356,11 @@
     {
       "operation": "Compiled Effect execution",
       "status": "BLOCKED_FIXTURE",
-      "evidence": "cna_graphics_device_executes_shader_effect_source_ext answers true on the windowed renderer and false on the control artifact",
-      "notes": "The running device is asked rather than the renderer name inferred from. The windowed renderer does execute shader effect source, so what is missing is a legal compiled-effect fixture, not backend support. No shader is fabricated.",
+      "evidence": "CNA_GRAPHICS_CAPABILITY_COMPILED_EFFECTS read from the device; CNA's own CnaConformanceEffect.fxb",
+      "notes": "The gpu artifact reports compiled effects and builds the effect from CNA's conformance fixture with reflected parameters and techniques; the control artifact refuses with NOT_SUPPORTED. Rendered output of a compiled effect is not measured here, so execution stays unclaimed.",
       "byArtifact": {
         "control": "BLOCKED_RENDERER",
-        "gpu": "BLOCKED_FIXTURE"
+        "gpu": "construction and reflection verified; execution not measured"
       }
     },
     {
@@ -413,7 +413,7 @@
       "operation": "Texture3D",
       "status": "VERIFIED_NATIVE",
       "evidence": "cna_texture3d_create/set_data/get_data; all eight voxels round-trip exactly",
-      "notes": "Creation and the complete Color codec work on the windowed renderer. The control artifact refuses creation, which is a renderer boundary rather than a missing feature.",
+      "notes": "HiDef only, as in XNA: the capability and creation follow the device profile since CNA BINDFIX-037. On the windowed renderer under HiDef the complete Color codec round-trips; the control artifact refuses creation, which is a renderer boundary.",
       "byArtifact": {
         "control": "BLOCKED_RENDERER",
         "gpu": "VERIFIED_NATIVE"
@@ -766,14 +766,22 @@
     {
       "operation": "Video decode",
       "status": "VERIFIED_NATIVE",
-      "evidence": "a generated clip loaded through ContentManager plays and yields frame textures on both artifacts",
-      "notes": "The fixture is generated at test time and never committed; the repository ships no encoded media. CNA refuses a video whose declared metadata disagrees with the file, so the clip is produced to match the asset exactly."
+      "evidence": "a generated clip loaded through ContentManager plays and yields frame textures on the gpu artifact",
+      "notes": "The fixture is generated at test time and never committed; the repository ships no encoded media. CNA refuses a video whose declared metadata disagrees with the file, so the clip is produced to match the asset exactly.",
+      "byArtifact": {
+        "control": "BLOCKED_PLATFORM (built without FFmpeg)",
+        "gpu": "VERIFIED_NATIVE"
+      }
     },
     {
       "operation": "Video decode on a non-rendering backend",
-      "status": "VERIFIED_NATIVE",
-      "evidence": "the same generated clip decodes on the non-windowed control artifact",
-      "notes": "Decoding does not depend on the renderer; it was the title-relative path, not the backend, that prevented it before."
+      "status": "BLOCKED_PLATFORM",
+      "evidence": "cna_video_player_play answers NOT_SUPPORTED naming the missing FFmpeg backend",
+      "notes": "The qualified control artifact is built without CNA's optional FFmpeg decoder (a build option, CNA_ENABLE_VIDEO), so decode is not measured on a non-rendering backend in this pass; the test skips with CNA's own reason.",
+      "byArtifact": {
+        "control": "BLOCKED_PLATFORM (built without FFmpeg)",
+        "gpu": "not applicable"
+      }
     },
     {
       "operation": "VideoPlayer control",
@@ -920,850 +928,30 @@
       "notes": "They refuse instead of wrapping around when two file-declared 64-bit values are combined. Python integers are unbounded, so the same computation is already exact; a call would turn an exact answer into a narrower one. The bounds checks that matter happen where a value has to fit a native width, and name the value rather than truncating it."
     },
     {
-      "operation": "Engine layer availability",
+      "operation": "Graphics extension layer availability",
       "status": "VERIFIED_NATIVE",
       "byArtifact": {
-        "control": "absent (version 0)",
-        "gpu": "present (version 2)"
+        "control": "absent (built without CNA_CNAEXT)",
+        "gpu": "present"
       },
-      "evidence": "cna_engine_layer_get_version; cna_engine_layer_copy_version_string; tests/test_engine_compute.py EngineIdentityTests",
-      "notes": "The two artifacts genuinely differ and that is the point of the row. Both export all 857 engine symbols; only the GPU artifact has an engine layer behind them. cna.extensions.engine.is_available() reads the version route, never the symbol table or the renderer's name."
+      "evidence": "cna_graphics_ext_is_available; tests/test_engine_debug.py",
+      "notes": "CNA retired engine_layer.h at C ABI 0.30 and kept DebugDraw and the ASCII effect in graphics_ext.h; that is all cna.extensions.engine still projects. Both artifacts export every route; is_available() reads cna_graphics_ext_is_available, never the symbol table or the renderer name."
     },
     {
-      "operation": "Engine absence reported as a build fact",
+      "operation": "Extension-layer absence reported as a build fact",
       "status": "VERIFIED_NATIVE",
       "byArtifact": {
         "control": "EngineUnavailableError raised",
         "gpu": "not applicable"
       },
-      "evidence": "tests/test_engine_compute.py EngineAbsenceTests",
-      "notes": "Constructing an engine object on a build with no engine layer raises EngineUnavailableError, not EngineUnsupportedError. Only the control artifact can prove this side of the distinction."
-    },
-    {
-      "operation": "Compute memory-barrier mask",
-      "status": "VERIFIED_NATIVE",
-      "byArtifact": {
-        "control": "unavailable (no engine layer)",
-        "gpu": "verified"
-      },
-      "evidence": "cna_graphics_memory_barrier_has; seven containment cases cross-checked against Python's own bit arithmetic",
-      "notes": "The nine named bits are distinct powers of two and fold exactly to ALL. CNA's containment answer is compared with Python's rather than trusted."
-    },
-    {
-      "operation": "Storage buffer, byte and typed",
-      "status": "VERIFIED_NATIVE",
-      "byArtifact": {
-        "control": "unavailable (no engine layer)",
-        "gpu": "verified"
-      },
-      "evidence": "cna_storage_buffer_* (10 routes); tests/test_engine_compute.py StorageBufferTests",
-      "notes": "Upload and readback preserve bytes; a typed buffer reports both its element count and element size, a byte-sized one reports zero for both, and an element upload of the wrong shape is refused before CNA."
-    },
-    {
-      "operation": "Compute shader dispatch",
-      "status": "VERIFIED_NATIVE",
-      "byArtifact": {
-        "control": "unavailable (no engine layer)",
-        "gpu": "verified on Mesa GL ES 3.2"
-      },
-      "evidence": "cna_compute_shader_* (12 routes); tests/test_engine_compute.py ComputeShaderTests",
-      "notes": "Evidence is buffer content Python predicts from the shader's own arithmetic, not a result code: uniforms reach the program, a changed uniform changes every element, and a second bound buffer is genuinely read. Two project-authored GLSL ES 3.10 programs."
-    },
-    {
-      "operation": "Compute shader image binding",
-      "status": "BLOCKED_RENDERER",
-      "byArtifact": {
-        "control": "unavailable (no engine layer)",
-        "gpu": "unsupported"
-      },
-      "evidence": "cna_compute_shader_is_image_binding_supported answers false on the GPU artifact",
-      "notes": "A capability separate from compute itself: this renderer compiles and dispatches compute programs and still cannot bind a texture as a read/write image. bind_image refuses by name rather than failing inside CNA."
-    },
-    {
-      "operation": "Compute shader compile diagnostics",
-      "status": "BLOCKED_UPSTREAM",
-      "byArtifact": {
-        "control": "unavailable (no engine layer)",
-        "gpu": "measured"
-      },
-      "evidence": "ENGINE-001 in docs/engine-upstream-findings.md; six bad sources, all CNA_RESULT_INTERNAL with no handle",
-      "notes": "engine_layer.h documents creation as succeeding for source that does not compile, with the failure read back through is_valid. It fails instead, and reports a caller's bad shader in the internal category. The binding raises ComputeShaderCompileError, keeps result 12 verbatim, and carries the compiler log."
-    },
-    {
-      "operation": "GPU timer query",
-      "status": "VERIFIED_NATIVE",
-      "byArtifact": {
-        "control": "unavailable (no engine layer)",
-        "gpu": "verified"
-      },
-      "evidence": "cna_gpu_timer_* (11 routes); tests/test_engine_compute.py GpuTimerTests",
-      "notes": "Timing is nondeterministic, so no duration is asserted. What is asserted is the state machine: closed before, open inside the measurement, closed after, a result that arrives on polling, a sample count that advances by exactly one, and a finite non-negative duration."
-    },
-    {
-      "operation": "Engine render-target pool",
-      "status": "VERIFIED_NATIVE",
-      "byArtifact": {
-        "control": "unavailable (no engine layer)",
-        "gpu": "verified"
-      },
-      "evidence": "cna_render_target_pool_* (6 routes); tests/test_engine_postprocess.py RenderTargetPoolTests",
-      "notes": "The same shape and slot reuses one target and a new slot allocates another; disposing a view leaves the pooled storage; reset is refused while a view is out and succeeds after. A pooled view is a working RenderTarget2D: it binds, clears and reads back."
-    },
-    {
-      "operation": "Engine render-target scope",
-      "status": "VERIFIED_NATIVE",
-      "byArtifact": {
-        "control": "unavailable (no engine layer)",
-        "gpu": "verified"
-      },
-      "evidence": "cna_scoped_render_target_* (3 routes); tests/test_engine_postprocess.py RenderTargetScopeTests",
-      "notes": "Proven by pixels rather than by a flag: a clear after the scope closes lands on the outer target and not on the inner one. Nested scopes refuse an out-of-order close, and neither the stack nor the binding changes when they do."
-    },
-    {
-      "operation": "Engine shader-effect factory",
-      "status": "VERIFIED_NATIVE",
-      "byArtifact": {
-        "control": "unavailable (no engine layer)",
-        "gpu": "verified on Mesa GL ES 3.2"
-      },
-      "evidence": "cna_shader_effect_factory_* (6 routes); tests/test_engine_postprocess.py ShaderEffectFactoryTests",
-      "notes": "A second acquire of one name compiles nothing, measured by compile_count rather than assumed. The effect comes back as a strict Effect view with parameters and techniques; clear is refused while a view is out, and clearing does not reset the compile count."
-    },
-    {
-      "operation": "Engine full-screen draw",
-      "status": "VERIFIED_NATIVE",
-      "byArtifact": {
-        "control": "unavailable (no engine layer)",
-        "gpu": "verified"
-      },
-      "evidence": "cna_fullscreen_pass_* (4 routes); tests/test_engine_postprocess.py FullscreenPassTests",
-      "notes": "A copy reproduces all sixteen pixels of an asymmetric 4x4 source exactly, so a transpose, flip, swizzle or offset would fail rather than pass."
-    },
-    {
-      "operation": "Post-process pass and blit",
-      "status": "VERIFIED_NATIVE",
-      "byArtifact": {
-        "control": "unavailable (no engine layer)",
-        "gpu": "verified"
-      },
-      "evidence": "cna_post_process_pass_*, cna_blit_pass_create, cna_post_process_context_init; tests/test_engine_postprocess.py PostProcessPassTests",
-      "notes": "A blit reproduces its source exactly. An effect pass halves red and leaves green and blue untouched, which is the shader's own arithmetic computed independently in Python. A closed pass refuses before reaching CNA."
-    },
-    {
-      "operation": "Post-process chain ordering",
-      "status": "VERIFIED_NATIVE",
-      "byArtifact": {
-        "control": "unavailable (no engine layer)",
-        "gpu": "verified"
-      },
-      "evidence": "cna_post_process_chain_* (12 routes); tests/test_engine_postprocess.py PostProcessChainTests",
-      "notes": "Order is proven with two passes that do not commute: (r/2)-64 gives 36 and (r-64)/2 gives 68 from the same source. A chain with no source or a non-positive size is refused. Two blits still reproduce the source exactly through the pooled intermediates."
-    },
-    {
-      "operation": "Post-process effect handle lifetime",
-      "status": "BLOCKED_UPSTREAM",
-      "byArtifact": {
-        "control": "unavailable (no engine layer)",
-        "gpu": "measured and worked around"
-      },
-      "evidence": "ENGINE-002 in docs/engine-upstream-findings.md",
-      "notes": "cna_post_process_effect_pass_get_effect returns a new counted handle per call, which the header says must not be destroyed. Not destroying it stops the factory and then the game being destroyed. The binding releases the view immediately, so reading the property any number of times leaks nothing."
-    },
-    {
-      "operation": "GPU timer first sample",
-      "status": "BLOCKED_UPSTREAM",
-      "byArtifact": {
-        "control": "unavailable (no engine layer)",
-        "gpu": "measured"
-      },
-      "evidence": "ENGINE-003; the first collected duration is exactly 4294.967295 ms on every run",
-      "notes": "An unsigned 32-bit underflow, not a duration. Reported verbatim rather than discarded, because discarding it would hide the defect and disagree with sample_count. Both the standalone timer and the chain's timings show it, and both are pinned by tests that fail when CNA fixes it."
-    },
-    {
-      "operation": "Post-process chain GPU timing",
-      "status": "VERIFIED_NATIVE",
-      "byArtifact": {
-        "control": "unavailable (no engine layer)",
-        "gpu": "verified across frames"
-      },
-      "evidence": "cna_post_process_chain_get_pass_timing*; ENGINE-004 for the flag; eight frames, seven samples",
-      "notes": "Timing works: one sample per frame after the first, around 0.003 ms for a 4x4 blit. The flag is not observable until the chain has applied once, which is ENGINE-004 -- the header's documented read-back reports no timing on a device that is about to time. Measured across frames, because a query opened in one frame is collected in a later one."
-    },
-    {
-      "operation": "Engine light values",
-      "status": "VERIFIED_NATIVE",
-      "byArtifact": {
-        "control": "verified (no engine layer needed)",
-        "gpu": "verified"
-      },
-      "evidence": "cna_directional_light_ext_init and its four siblings; tests/test_engine_shadows.py LightValueTests",
-      "notes": "The one piece of engine surface that answers on a build with no engine layer, which engine_layer.h promises and this measures on the artifact that has none. No default is written down in Python: each value type reads CNA's through its _init route, so a changed default cannot drift silently."
-    },
-    {
-      "operation": "Shadow quality presets",
-      "status": "VERIFIED_NATIVE",
-      "byArtifact": {
-        "control": "unavailable (no engine layer)",
-        "gpu": "verified"
-      },
-      "evidence": "cna_shadow_map_size_for_quality, cna_shadow_map_filter_radius_for_quality, cna_cube_shadow_map_size_for_quality",
-      "notes": "Sizes are powers of two, rise with quality, and a cube face is never larger than a flat map -- six faces cost six times one. The numbers are read from CNA rather than written down."
-    },
-    {
-      "operation": "Shadow matrix helpers",
-      "status": "VERIFIED_NATIVE",
-      "byArtifact": {
-        "control": "unavailable (no engine layer)",
-        "gpu": "verified"
-      },
-      "evidence": "cna_shadow_map_compute_light_view/projection, the four cascade helpers, the spot and cube helpers; tests/test_engine_shadows.py ShadowMatrixTests and CascadeMathTests",
-      "notes": "Compared against tests/engine_oracles.py, which computes the same matrices from the stated algorithm without calling CNA. The oracles are themselves gated by tests/test_engine_oracles.py against values worked by hand. Fixtures are asymmetric: a slanted light, a non-cubic off-origin box and non-round split planes, so a transpose or an axis swap fails."
-    },
-    {
-      "operation": "Directional shadow map",
-      "status": "VERIFIED_NATIVE",
-      "byArtifact": {
-        "control": "unavailable (no engine layer)",
-        "gpu": "verified"
-      },
-      "evidence": "cna_shadow_map_* (20 routes); tests/test_engine_shadows.py ShadowMapTests",
-      "notes": "An empty map reads as the far plane -- 1.0 in a Single target -- which is what keeps an unwritten texel from being an occluder at zero distance. The transform the pass computes is exactly the two pure helpers composed. Casting and sampling are asked separately."
-    },
-    {
-      "operation": "Cascaded shadow map",
-      "status": "VERIFIED_NATIVE",
-      "byArtifact": {
-        "control": "unavailable (no engine layer)",
-        "gpu": "verified"
-      },
-      "evidence": "cna_cascaded_shadow_map_* (24 routes); tests/test_engine_shadows.py CascadedShadowMapTests",
-      "notes": "Three cascades occupy one atlas three cascades wide. Splits increase, end on the far plane, match the pure helper for the same camera range, and four cascades give four different transforms. Deeper points select later cascades."
-    },
-    {
-      "operation": "Spot and cube shadow maps",
-      "status": "VERIFIED_NATIVE",
-      "byArtifact": {
-        "control": "unavailable (no engine layer)",
-        "gpu": "verified"
-      },
-      "evidence": "cna_spot_shadow_map_* and cna_cube_shadow_map_* (33 routes); tests/test_engine_shadows.py SpotAndCubeShadowMapTests",
-      "notes": "A spot map records the light it cast from and its transform is the two pure helpers composed. A cube map really is a TextureCube -- measured: it answers cna_texturecube_get_info and is released with cna_texturecube_destroy, unlike the other three, which are render targets. Its six face views look six different ways, which is the test a face-order swap fails."
-    },
-    {
-      "operation": "Shadow receiver effect state",
-      "status": "VERIFIED_NATIVE",
-      "byArtifact": {
-        "control": "unavailable (no engine layer)",
-        "gpu": "verified"
-      },
-      "evidence": "cna_effect_*_ext (14 routes); tests/test_engine_shadows.py ShadowReceiverTests",
-      "notes": "IShadowReceiverEXT is an interface C cannot implement, so what crosses is its operations. They are wrapped rather than added to Effect, because CNA-only state must not appear on a strict XNA type. Cascade state and punctual lights cross whole, with four distinct transforms and four distinct splits so a state that copied one entry over all of them would show."
-    },
-    {
-      "operation": "Engine counted-view lifetime",
-      "status": "BLOCKED_UPSTREAM",
-      "byArtifact": {
-        "control": "unavailable (no engine layer)",
-        "gpu": "measured and worked around"
-      },
-      "evidence": "ENGINE-002 in docs/engine-upstream-findings.md",
-      "notes": "Every engine getter that answers with a handle returns a fresh counted view that must be released. One route documents the opposite and two document nothing. Objects that own a useful view hand it out once and dispose it on close; the rest release immediately. A test closes a map after reading its texture and its caster effect and proves both were released."
-    },
-    {
-      "operation": "PBR material value",
-      "status": "VERIFIED_NATIVE",
-      "byArtifact": {
-        "control": "unavailable (no engine layer)",
-        "gpu": "verified"
-      },
-      "evidence": "cna_pbr_material_ext_* and cna_pbr_material_ext_init; tests/test_engine_pbr.py PbrMaterialValueTests",
-      "notes": "Twenty-seven fields, every default read from CNA rather than written down. Each field is changed alone and CNA's own equality confirms it reached the native value. The seven texture slots are keyed by slot rather than by structure position, because CNA numbers emissive before occlusion and declares them the other way round."
-    },
-    {
-      "operation": "PBR material extensions",
-      "status": "VERIFIED_NATIVE",
-      "byArtifact": {
-        "control": "unavailable (no engine layer)",
-        "gpu": "verified"
-      },
-      "evidence": "cna_pbr_material_extensions_* (61 routes); tests/test_engine_pbr.py PbrMaterialExtensionsTests",
-      "notes": "Clearcoat, sheen, transmission, volume, iridescence and subsurface: twelve scalars, three colours and nine texture slots all round-trip. The is_* flags are CNA's derived answers, not stored state -- setting a transmission factor turns transmission on and zeroing it returns the object to neutral."
-    },
-    {
-      "operation": "glTF material bridge",
-      "status": "VERIFIED_NATIVE",
-      "byArtifact": {
-        "control": "unavailable (no engine layer)",
-        "gpu": "verified"
-      },
-      "evidence": "cna_gltf_material_* (6 routes); tests/test_engine_pbr.py GltfBridgeTests",
-      "notes": "Every core factor reaches the material, including each slot's own coordinate set and transform. The bridge quantises glTF's linear float base colour into the material's byte colour, which the test asserts as a quantisation rather than as an identity."
-    },
-    {
-      "operation": "Thin-film iridescence",
-      "status": "VERIFIED_NATIVE",
-      "byArtifact": {
-        "control": "unavailable (no engine layer)",
-        "gpu": "verified"
-      },
-      "evidence": "cna_thin_film_iridescence_evaluate and _copy_glsl",
-      "notes": "The term varies with film thickness and separates the channels, which is what makes it iridescence rather than a tint; a film matching the surrounding medium collapses toward its base reflectance. CNA also publishes the GLSL, so a custom shader and the CPU evaluation agree by construction."
-    },
-    {
-      "operation": "PBR effect material state",
-      "status": "BLOCKED_UPSTREAM",
-      "byArtifact": {
-        "control": "unavailable (no engine layer)",
-        "gpu": "measured and worked around"
-      },
-      "evidence": "ENGINE-005 in docs/engine-upstream-findings.md",
-      "notes": "cna_pbr_effect_apply_material is documented to carry every field and carries every scalar; not one of the seven texture slots crosses, confirmed by an independent route in another header. The public setter assigns the slots itself so a material really is applied, and a test drives the raw route so the defect stays visible."
-    },
-    {
-      "operation": "PBR effect construction",
-      "status": "VERIFIED_NATIVE",
-      "byArtifact": {
-        "control": "unavailable (no engine layer)",
-        "gpu": "verified"
-      },
-      "evidence": "cna_pbr_effect_create and cna_skinned_pbr_effect_create, the effects.h dependency slice; tests/test_engine_pbr.py PbrEffectTests",
-      "notes": "engine_layer.h has no route that creates a PbrEffect, so without this two-route slice every PBR route in it would be unreachable. The effect comes back as a strict Effect with its parameters and techniques, and applying a material's state really does change the device's blend and cull state."
-    },
-    {
-      "operation": "Particle simulation",
-      "status": "VERIFIED_NATIVE",
-      "byArtifact": {
-        "control": "unavailable (no engine layer)",
-        "gpu": "verified on the CPU path"
-      },
-      "evidence": "cna_particle_system_* (24 routes); tests/test_engine_scene.py ParticleSystemTests and ParticleValueTests",
-      "notes": "The strongest evidence available for something usually called random: CNA's draw is a hash of a seed, so a system is reproducible and the tests predict it. Every particle a forced-CPU system produced is compared with cna_particle_system_step applied by hand from the state one update earlier. The live count is emission rate times lifetime, capped by the pool, and the cap is reported separately."
-    },
-    {
-      "operation": "Particle GPU simulation",
-      "status": "BLOCKED_FIXTURE",
-      "byArtifact": {
-        "control": "unavailable (no engine layer)",
-        "gpu": "not separated from the CPU path"
-      },
-      "evidence": "cna_particle_system_uses_compute reports which path ran",
-      "notes": "The CPU path is what makes a simulation inspectable -- cna_particle_system_copy_particles_ext reads the pool back -- so that is the path the step-by-step comparison runs on. Whether the compute path produces the same particles is a separate claim this artifact has no way to read back, and it is not made."
-    },
-    {
-      "operation": "Soft particle depth fade",
-      "status": "BLOCKED_FIXTURE",
-      "byArtifact": {
-        "control": "unavailable (no engine layer)",
-        "gpu": "state verified, fade not"
-      },
-      "evidence": "cna_particle_system_set_depth_input_ext and the softness pair round-trip",
-      "notes": "Setting a depth input and a softness is verified; that particles actually fade against a depth field is not. Proving it needs a rendered comparison between a system with and without the input, against geometry at a known depth, and no such fixture exists yet. Reported rather than claimed from the fact that the setters work."
-    },
-    {
-      "operation": "Decal pass state",
-      "status": "VERIFIED_NATIVE",
-      "byArtifact": {
-        "control": "unavailable (no engine layer)",
-        "gpu": "verified"
-      },
-      "evidence": "cna_decal_pass_* (12 routes); tests/test_engine_scene.py DecalPassTests",
-      "notes": "Opacity, tint and the maximum slope round-trip, and the unit-box containment test is cross-checked against an independent implementation. Projected decal pixels are not asserted: that needs a prepass rendered from known geometry, which is the fixture the row above also wants."
-    },
-    {
-      "operation": "Depth/normal prepass",
-      "status": "VERIFIED_NATIVE",
-      "byArtifact": {
-        "control": "unavailable (no engine layer)",
-        "gpu": "verified, one pass with two targets"
-      },
-      "evidence": "cna_depth_normal_prepass_* (27 routes); tests/test_engine_scene.py DepthNormalPrepassTests",
-      "notes": "The renderer writes depth and normals in one pass, so pass_count is one and uses_multiple_render_targets is true -- the two answers are asserted to agree rather than being read separately. Depth and normals are distinct targets of the requested shape, an empty packed prepass reads back as the far plane, and a resize disposes the old views rather than leaving them outstanding."
-    },
-    {
-      "operation": "Prepass depth encoding",
-      "status": "VERIFIED_NATIVE",
-      "byArtifact": {
-        "control": "unavailable (no engine layer)",
-        "gpu": "verified"
-      },
-      "evidence": "cna_depth_normal_prepass_pack_depth/unpack_depth and the velocity pair",
-      "notes": "Packing is compared against an independent implementation computed in single precision, because that is where the answer comes from: depth times 2**24 exceeds a float's mantissa, so the top channel is genuinely zero. A thousand depths round-trip to within 1e-5, and a far-plane depth does not wrap to the nearest surface. A velocity texel's alpha marks presence, so an unwritten texel is absent rather than zero."
-    },
-    {
-      "operation": "Sorted transparency",
-      "status": "VERIFIED_NATIVE",
-      "byArtifact": {
-        "control": "unavailable (no engine layer)",
-        "gpu": "verified"
-      },
-      "evidence": "cna_transparent_draw_list_* (9 routes); tests/test_engine_scene.py TransparentDrawListTests",
-      "notes": "Entries submitted near-first are replayed far-first, and moving the camera behind them reverses the order, so submission order is not what the test would accept. The callbacks are rooted by the list: four callables nothing else refers to survive a gc.collect() and are all invoked. A Python exception inside one surfaces after the native call rather than unwinding through C, and the list stays usable."
-    },
-    {
-      "operation": "Order-independent transparency",
-      "status": "VERIFIED_NATIVE",
-      "byArtifact": {
-        "control": "unavailable (no engine layer)",
-        "gpu": "verified"
-      },
-      "evidence": "cna_weighted_blended_transparency_* (13 routes); tests/test_engine_scene.py",
-      "notes": "Two distinct targets of the requested shape, an accumulation bracket that opens and closes, and a resolve. The weight function is cross-checked against an independent implementation; its lower clamp is measured to be unreachable, because the depth is normalised first, which is worth knowing rather than assuming it binds."
-    },
-    {
-      "operation": "Render pipeline settings",
-      "status": "VERIFIED_NATIVE",
-      "byArtifact": {
-        "control": "unavailable (no engine layer)",
-        "gpu": "verified"
-      },
-      "evidence": "cna_render_pipeline_settings_ext_* (4 routes); tests/test_engine_pipeline.py RenderPipelineSettingsTests",
-      "notes": "Forty-seven settings, projected from the measured layout with CNA's own per-field documentation rather than transcribed, and a test asserts the property set is exactly the structure's fields minus its versioning header. Every field round-trips through its own type. Normalising applies the floors the engine would -- gamma, exposure, bloom intensity, SSR edge fade -- so a caller sees the correction before the picture does."
-    },
-    {
-      "operation": "Render pipeline frame",
-      "status": "VERIFIED_NATIVE",
-      "byArtifact": {
-        "control": "unavailable (no engine layer)",
-        "gpu": "verified"
-      },
-      "evidence": "cna_render_pipeline_* (33 routes); tests/test_engine_pipeline.py RenderPipelineTests",
-      "notes": "A frame is bracketed and what it did is read back from CNA rather than inferred from the settings that asked: turning on bloom, FXAA and HDR runs strictly more passes and brings the scene target into use. The scene target is one counted view disposed with the pipeline, and releasing device resources disposes it too rather than leaving it pointing at freed storage."
-    },
-    {
-      "operation": "Render pipeline callbacks",
-      "status": "VERIFIED_NATIVE",
-      "byArtifact": {
-        "control": "unavailable (no engine layer)",
-        "gpu": "verified"
-      },
-      "evidence": "cna_render_pipeline_set_shadow_scene and set_transparent_scene; tests/test_engine_pipeline.py",
-      "notes": "Both callbacks are rooted by the pipeline, replacing one drops the previous root, and a Python exception inside one surfaces after the frame rather than unwinding through C -- with the pipeline still usable afterwards, which the test proves by drawing another frame."
-    },
-    {
-      "operation": "Engine float constants",
-      "status": "VERIFIED_NATIVE",
-      "byArtifact": {
-        "control": "verified",
-        "gpu": "verified"
-      },
-      "evidence": "tools/generate_family_abi.py emits float constants at single precision; tools/audit_cna_abi.py compares them at that width",
-      "notes": "A constant declared 0.01F in a header is 0.009999999776482582, and a Python 0.01 is a different, larger number. Emitting the double would make a caller comparing a value CNA produced against the constant find it one unit in the last place too small -- which is exactly how the render pipeline's gamma floor was caught."
-    },
-    {
-      "operation": "Post-process pass state",
-      "status": "VERIFIED_NATIVE",
-      "byArtifact": {
-        "control": "unavailable (no engine layer)",
-        "gpu": "verified"
-      },
-      "evidence": "cna_bloom_pass_*, cna_tonemap_pass_*, cna_fxaa_pass_*, cna_film_grain_pass_*, cna_chromatic_aberration_pass_*, cna_lens_flare_pass_*, cna_ascii_pass_*; tests/test_engine_passes.py PassStateTests",
-      "notes": "Every pass's own state round-trips, and eight passes answer to eight different names rather than one -- which a pass constructed through the wrong route would fail. The properties are built by a factory that takes both route names as literals, so the reachability gate can still see them."
-    },
-    {
-      "operation": "Post-process CPU twins",
-      "status": "VERIFIED_NATIVE",
-      "byArtifact": {
-        "control": "unavailable (no engine layer)",
-        "gpu": "verified"
-      },
-      "evidence": "cna_bloom_pass_extract_channel, cna_tonemap_pass_tonemap_channel, the four HDR helpers, the two quality helpers",
-      "notes": "Bloom's extraction is a soft knee rather than a cutoff -- a texel exactly at the threshold contributes a quarter of itself, so bloom does not pop on and off as a highlight crosses it -- and it is compared against an independent implementation of that. Five tonemap curves give five different answers for one input and each is monotonic; PQ encode and decode are inverses across four decades; Rec.2020 keeps white and desaturates a Rec.709 primary."
-    },
-    {
-      "operation": "Tonemap rendered output",
-      "status": "VERIFIED_NATIVE",
-      "byArtifact": {
-        "control": "unavailable (no engine layer)",
-        "gpu": "verified"
-      },
-      "evidence": "tests/test_engine_passes.py TonemapPixelTests",
-      "notes": "A pass that stored its settings and ignored them would pass every round trip, so one is checked against pixels: a Reinhard tonemap over a known colour lands within two levels of what the CPU twin predicts for the same three channels, and darkens them."
-    },
-    {
-      "operation": "Colour grading and cube LUTs",
-      "status": "VERIFIED_NATIVE",
-      "byArtifact": {
-        "control": "unavailable (no engine layer)",
-        "gpu": "verified; parsing needs no device"
-      },
-      "evidence": "cna_color_grade_pass_* and cna_cube_lut_* (21 routes); tests/test_engine_passes.py",
-      "notes": "A .cube document is a file format, so parsing and inspecting one needs no device and the tests run it on any build with an engine layer. The eight corners of a 2x2x2 identity table are read back individually, which is what an index order read backwards would fail. Three malformed documents are refused."
-    },
-    {
-      "operation": "HDR display output",
-      "status": "VERIFIED_NATIVE",
-      "byArtifact": {
-        "control": "unavailable (no engine layer)",
-        "gpu": "state and encoding verified"
-      },
-      "evidence": "cna_hdr_display_output_* (15 routes)",
-      "notes": "Three colour spaces encode one scene colour three different ways, roll-off never exceeds the peak and is monotonic, and the defaults are the header's own constants at single precision. Whether a display actually presents in a wide space is the renderer's answer and is reported, not assumed."
-    },
-    {
-      "operation": "Auto exposure adaptation",
-      "status": "VERIFIED_NATIVE",
-      "byArtifact": {
-        "control": "unavailable (no engine layer)",
-        "gpu": "verified"
-      },
-      "evidence": "cna_auto_exposure_ext_* (13 routes); tests/test_engine_passes.py AutoExposureTests",
-      "notes": "Adaptation is time-based, so the direction is what is predicted rather than a value: from the same starting exposure, a white scene settles below a black one, and a range of 0.5 to 0.75 holds whatever the scene. The exposure then reaches a render pipeline's settings value."
-    },
-    {
-      "operation": "ASCII pass configuration",
-      "status": "VERIFIED_NATIVE",
-      "byArtifact": {
-        "control": "unavailable (no engine layer)",
-        "gpu": "verified"
-      },
-      "evidence": "cna_ascii_pass_get_effect plus the six-route graphics_ext.h slice",
-      "notes": "Nothing in engine_layer.h can read or write the pass's cell size or quantise mode, so without the slice the pass would have a getter returning something unusable. The effect is one counted borrow, handed out once and released when the pass closes."
-    },
-    {
-      "operation": "Spatial upscaling",
-      "status": "VERIFIED_NATIVE",
-      "byArtifact": {
-        "control": "unavailable (no engine layer)",
-        "gpu": "verified"
-      },
-      "evidence": "cna_spatial_upscale_pass_* (8 routes)",
-      "notes": "State round-trips, an upscale to the same size is reported as the identity so a caller can skip it, and a draw onto a target cleared to black leaves it not black -- which is weaker than a predicted filter kernel and is what a scaling filter admits to."
-    },
-    {
-      "operation": "Screen-space effect state",
-      "status": "VERIFIED_NATIVE",
-      "byArtifact": {
-        "control": "unavailable (no engine layer)",
-        "gpu": "verified"
-      },
-      "evidence": "cna_ssao_pass_*, cna_ssr_pass_*, cna_motion_blur_pass_*, cna_depth_of_field_pass_*, cna_contact_shadow_pass_* (60 routes); tests/test_engine_atmosphere.py",
-      "notes": "Nine passes answer to nine different names. Three measured bounds are now documented at the properties rather than assumed: SSR's roughness blur clamps to a quarter and its edge fade to a half, depth of field's maximum radius clamps to a quarter and is therefore a fraction of the screen rather than a pixel count, and several setters ignore a non-positive value instead of refusing it -- so the previous value survives."
-    },
-    {
-      "operation": "SSR step-count bounds",
-      "status": "VERIFIED_NATIVE",
-      "byArtifact": {
-        "control": "unavailable (no engine layer)",
-        "gpu": "measured"
-      },
-      "evidence": "cna_ssr_pass_set_step_count stores what it is given; the trace clamps",
-      "notes": "The header declares a minimum and a maximum the trace takes 'whatever it is told', and the setter does not clamp: setting one reads back one, and the clamp happens where the ray march runs. The property says so, and the test asserts what CNA does rather than what the constants might suggest."
-    },
-    {
-      "operation": "SSAO sample kernel",
-      "status": "VERIFIED_NATIVE",
-      "byArtifact": {
-        "control": "unavailable (no engine layer)",
-        "gpu": "verified"
-      },
-      "evidence": "cna_ssao_pass_copy_kernel; tests/test_engine_atmosphere.py",
-      "notes": "A kernel is the one part of SSAO checkable without rendering, and every offset is inside the unit hemisphere, non-zero, and distinct from the others. Its length is CNA's rather than the sample count -- asking for the sample count answers BUFFER_TOO_SMALL, which is the right refusal and the reason the size is asked for first."
-    },
-    {
-      "operation": "Atmospheric model",
-      "status": "VERIFIED_NATIVE",
-      "byArtifact": {
-        "control": "unavailable (no engine layer)",
-        "gpu": "verified"
-      },
-      "evidence": "cna_atmospheric_sky_radiance, the aerial-perspective pair, cna_height_fog_pass_optical_depth",
-      "notes": "A horizon ray crosses more air than a vertical one; more air transmits less and what survives reddens, because blue scatters most; fog accumulates with distance and density and thins with height; the sky is brighter toward the sun and changes with turbidity. Each is a physical prediction rather than a stored value, and the turbidity comparison is relative because a zenith radiance is a number near 1e-5."
-    },
-    {
-      "operation": "Sky and skybox rendering",
-      "status": "VERIFIED_NATIVE",
-      "byArtifact": {
-        "control": "unavailable (no engine layer)",
-        "gpu": "verified"
-      },
-      "evidence": "cna_atmospheric_sky_* and cna_skybox_* (26 routes)",
-      "notes": "The sky draws over a target cleared to black and leaves it not black. A skybox borrows its cube: closing the skybox leaves the cube usable, which the test asserts after the with-block. CNA's ownership-transferring setter is deliberately not used, for the same reason as the other transfers."
-    },
-    {
-      "operation": "Engine counted views, systematically",
-      "status": "VERIFIED_NATIVE",
-      "byArtifact": {
-        "control": "unavailable (no engine layer)",
-        "gpu": "verified"
-      },
-      "evidence": "_cna_native.engine_support.borrowed_view; every handle-returning getter in the package",
-      "notes": "Rather than a table of which routes hand out a fresh view -- which would go stale the day CNA changes one -- every getter compares the handle it gets against the handle this binding supplied and releases only a different one. That is what makes reading a property any number of times leak nothing while never destroying the caller's own object."
-    },
-    {
-      "operation": "Clustered light set and its bounding spheres",
-      "status": "VERIFIED_NATIVE",
-      "byArtifact": {
-        "control": "unavailable (no engine layer)",
-        "gpu": "verified"
-      },
-      "evidence": "tests/test_engine_clustered.py::ClusteredLightSetTests",
-      "notes": "A CPU collection of light values. Every bounding sphere is compared with one tests/engine_oracles.py derives from the cone geometry, including the two-case split a spot light uses: a cone narrower than 45 degrees is bounded by the sphere through its apex and rim, which is not centred on the light. The 256-light ceiling is a measured constant and the refusal past it is asserted."
-    },
-    {
-      "operation": "Clustered light grid: logarithmic depth slicing",
-      "status": "VERIFIED_NATIVE",
-      "byArtifact": {
-        "control": "unavailable (no engine layer)",
-        "gpu": "verified"
-      },
-      "evidence": "tests/test_engine_clustered.py::ClusteredLightGridTests; tests/engine_oracles.py slice_distance, cluster_bounds",
-      "notes": "Every slice boundary, every cluster index and every one of the 30 cluster boxes of a 3x2x5 grid is compared with an independent computation, including a 4x4 matrix inverse written out rather than taken from Matrix.Invert. The oracle computes the exponential at single precision, because the float and double results differ in the last bits and that decides which cluster a light is in."
-    },
-    {
-      "operation": "Cluster boxes are conservative, not a partition",
-      "status": "VERIFIED_NATIVE",
-      "byArtifact": {
-        "control": "unavailable (no engine layer)",
-        "gpu": "verified"
-      },
-      "evidence": "tests/test_engine_clustered.py::ClusteredLightGridTests::test_the_slices_meet_exactly_in_depth_and_the_tiles_overlap_across_it",
-      "notes": "Measured: neighbouring clusters meet exactly in depth and overlap across the screen, because an axis-aligned box around a frustum slab is as wide as that slab's far face. A light is therefore assigned to clusters it only nearly touches and never missed from one it reaches. Written down because the obvious expectation -- a clean tiling -- is false, and a test asserting it would have been asserting a defect."
-    },
-    {
-      "operation": "Clustered light assignment, CPU and GPU",
-      "status": "VERIFIED_NATIVE",
-      "byArtifact": {
-        "control": "unavailable (no engine layer)",
-        "gpu": "verified"
-      },
-      "evidence": "tests/test_engine_clustered.py::ClusteredLightAssignmentTests, ::ClusteredLightComputeTests",
-      "notes": "Three implementations are compared entry for entry: CNA's CPU sort, CNA's compute shader, and a whole reimplementation of the sort in tests/engine_oracles.py. The two CNA paths are designed to agree exactly rather than plausibly -- the shader is handed the grid's own inverse projection so the two never differ in their last bits -- and the test asserts equality rather than similarity. Also checked under a view matrix that is not the identity, which is what a missing world-to-view transform would hide."
-    },
-    {
-      "operation": "Clustered shadow budget",
-      "status": "VERIFIED_NATIVE",
-      "byArtifact": {
-        "control": "unavailable (no engine layer)",
-        "gpu": "verified"
-      },
-      "evidence": "tests/test_engine_clustered.py::ClusteredShadowPolicyTests; tests/engine_oracles.py shadow_policy_score",
-      "notes": "Every score is compared with Rec. 709 luminance times intensity times the windowed falloff, computed independently. Two setters ignore an out-of-range value instead of refusing it -- a negative budget and a hysteresis below one leave the old value in place -- which is asserted rather than described. The hysteresis bonus is applied to the incumbent's score rather than as a rule in the comparison, and the test shows a weaker incumbent holding its slot against a challenger inside the bonus."
-    },
-    {
-      "operation": "Clustered light buffer and its published GLSL",
-      "status": "VERIFIED_NATIVE",
-      "byArtifact": {
-        "control": "unavailable (no engine layer)",
-        "gpu": "verified"
-      },
-      "evidence": "tests/test_engine_clustered.py::ClusteredLightBufferTests, ::PublishedGlslTests",
-      "notes": "A mismatched set, grid and assignment is refused rather than uploaded, which is asserted with an assignment built for a different grid and one built for fewer lights. Binding needs an effect compiled from source; an Effect built from XNA bytecode is refused, because the buffer sets uniforms by name and bytecode has none. The uniform names the published GLSL declares are checked against the ones bind sets, which is the contract's two halves."
-    },
-    {
-      "operation": "Clustered forward effect material bounds",
-      "status": "VERIFIED_NATIVE",
-      "byArtifact": {
-        "control": "unavailable (no engine layer)",
-        "gpu": "verified"
-      },
-      "evidence": "tests/test_engine_clustered.py::ClusteredForwardEffectTests",
-      "notes": "Four different rules, measured and asserted separately: base colour and metallic clamp to 0..1, roughness clamps to 0.04..1 (a perfectly smooth microfacet distribution divides by zero), ambient floors each channel at zero without a ceiling, and index of refraction *ignores* a value below one rather than clamping it. The roughness floor is asserted at the single-precision float CNA holds, not at the decimal 0.04."
-    },
-    {
-      "operation": "Clustered forward effect material extensions view",
-      "status": "VERIFIED_NATIVE",
-      "byArtifact": {
-        "control": "unavailable (no engine layer)",
-        "gpu": "verified"
-      },
-      "evidence": "cna.extensions.engine.ClusteredForwardEffect.material_extensions",
-      "notes": "The getter hands out a counted view onto the effect's own extensions and the setter *replaces* the object behind it, so a view taken before an assignment looks at a set that no longer exists. The cached view is dropped on assignment; without that, reading the property back after setting a clearcoat factor answered zero. Found by a test that assigned and read back rather than by inspection."
-    },
-    {
-      "operation": "Area lights: quad, coverage and BRDF",
-      "status": "VERIFIED_NATIVE",
-      "byArtifact": {
-        "control": "partly (value defaults and is_valid only)",
-        "gpu": "verified"
-      },
-      "evidence": "tests/test_engine_clustered.py::AreaLightShadingTests, ::BrdfEvaluationTests",
-      "notes": "The rectangle quad is compared corner for corner with an independent construction, and the disc quad is checked against the identity its axis scale exists for: pi*a*b equals the scaled rectangle's area. A tube's quad is billboarded, so it is checked by the property that it turns with the surface while its axis does not. Coverage is measured to emit from the +z face of the default light, to be zero for a surface in the light's own plane, and to rise as the lobe narrows. The BRDF is a Monte Carlo integral, so it is checked against what the integral must be -- a fraction in 0..1, a unit average direction, monotone in roughness, convergent in sample count and deterministic -- rather than against a transcription of the same importance sampling."
-    },
-    {
-      "operation": "Which clustered value routes answer without an engine layer",
-      "status": "VERIFIED_NATIVE",
-      "byArtifact": {
-        "control": "verified",
-        "gpu": "verified"
-      },
-      "evidence": "tests/test_engine_clustered.py::ClusteredAbsenceTests",
-      "notes": "Measured and matching what engine_layer.h documents for each route: both _init routes fill a value with its canonical defaults on any build, AreaLight.is_valid answers on any build ('SUCCESS in every build'), and ClusteredLight.is_usable does not, because that rule belongs to the light set rather than to the value. Nine other routes are asserted to report the layer as unavailable rather than answering with a plausible number."
-    },
-    {
-      "operation": "The clustered constructors take a device, not a game",
-      "status": "VERIFIED_NATIVE",
-      "byArtifact": {
-        "control": "unavailable (no engine layer)",
-        "gpu": "verified"
-      },
-      "evidence": "docs/engine-upstream-findings.md ENGINE-006; tests/test_engine_clustered.py::ClusteredConstructorTests",
-      "notes": "engine_layer.h documents the first parameter of four constructors as 'the owning game'. The C layer resolves it as a graphics device and refuses a game handle with CNA_RESULT_INVALID_HANDLE. Every class in the package takes a GraphicsDevice, so the difference is invisible from Python; the raw route is driven with both handles so the pin fails the day either side changes."
-    },
-    {
-      "operation": "Census rules are checked against each other, not only against routes",
-      "status": "VERIFIED_MANAGED",
-      "byArtifact": {
-        "control": "verified",
-        "gpu": "verified"
-      },
-      "evidence": "tools/route_census.py shadowed_rules; tests/test_census_gate.py",
-      "notes": "The census classifies by first match, so a rule's position is part of its meaning and an earlier rule can silently overrule a later one. It had: engine-c-lifetime-transfer names three C ownership transfers as deliberate non-bindings and one sat behind a prefix rule that claimed it, so a decision already made was reported as an outstanding task. The gate now rejects a rule that names a route another rule took, and a rule that classifies nothing at all -- which found a second defect, a dead *_ext catch-all that would have turned every route CNA adds later into a reviewed decision nobody made. Both shapes are planted and required to fail in tests/test_census_gate.py."
-    },
-    {
-      "operation": "The CNB read-scaling check measures the copy, not the allocator",
-      "status": "VERIFIED_NATIVE",
-      "byArtifact": {
-        "control": "verified",
-        "gpu": "verified"
-      },
-      "evidence": "tests/test_cnb_boundaries.py::CopyBehaviourTests::test_reading_a_payload_scales_with_its_size_not_its_square and ::test_the_scaling_measurement_rejects_a_quadratic_reader",
-      "notes": "A level read allocates its destination, and glibc serves an allocation above its dynamic mmap threshold with fresh pages faulted in on every call. Measured, a cold 1 MB read cost 1254 microseconds against 82 after another test had freed a few megabytes, while a 4 MB read stayed slow either way -- so the ratio the check asserted on was the allocator's state rather than the copy's complexity, and adding an unrelated test file was enough to flip it. Reading an 8 MB payload first lifts the threshold past both sizes, and the best of several attempts is taken. The ratio is then 2.3 to 2.5 whatever ran before, which is the cache hierarchy rather than the algorithm; a planted quadratic reader measures 41 to 45 on the same harness, and a companion case requires it to be rejected."
-    },
-    {
-      "operation": "Light probe irradiance from nine coefficients",
-      "status": "VERIFIED_NATIVE",
-      "byArtifact": {
-        "control": "unavailable (no engine layer)",
-        "gpu": "verified"
-      },
-      "evidence": "tests/test_engine_probes.py::LightProbeTests; tests/engine_oracles.py sh_irradiance",
-      "notes": "Every irradiance is compared with a second-order spherical-harmonic evaluation written out in the oracle from the Ramamoorthi-Hanrahan constants, over normals that are on no axis and not of unit length. The coefficients differ in every band and every channel, so a term read from the wrong index changes the answer. The per-channel floor at zero is asserted with a coefficient that would otherwise make irradiance negative, which is light being removed from a surface."
-    },
-    {
-      "operation": "Light probe visibility, and why it exists",
-      "status": "VERIFIED_NATIVE",
-      "byArtifact": {
-        "control": "unavailable (no engine layer)",
-        "gpu": "verified"
-      },
-      "evidence": "tests/test_engine_probes.py::ProbeVisibilityTests; tests/engine_oracles.py probe_visibility_weight",
-      "notes": "Chebyshev's bound, computed independently and compared over five directions and six distances. CNA floors the mean at zero and the mean-square at the mean squared -- no distribution has negative variance, and one that appeared to would put the weight outside zero to one -- which is asserted by storing negative moments and reading back what was kept. The blend across the six axes is checked for continuity by refining the angular step rather than against a fixed bound, because a steep ramp and a step discontinuity look alike at one resolution and only the ramp shrinks when the step is halved."
-    },
-    {
-      "operation": "Light probe volume: grid, interpolation and clamping",
-      "status": "VERIFIED_NATIVE",
-      "byArtifact": {
-        "control": "unavailable (no engine layer)",
-        "gpu": "verified"
-      },
-      "evidence": "tests/test_engine_probes.py::LightProbeVolumeTests",
-      "notes": "Every probe position in a 3x2x4 grid over a box that is neither a cube nor centred on the origin is compared with an independent construction. The grid overriding an assigned probe's position is asserted rather than described: a grid that says one thing and the probes another makes the lighting look like it is lagging the geometry. Reading fills a probe the caller owns, so a whole grid can be walked with one object, and the handle is checked to be unchanged. A position outside the box clamps rather than being refused, because refusing would make every object that pokes out of the volume go black."
-    },
-    {
-      "operation": "Light probe baking, and its scene callback",
-      "status": "VERIFIED_NATIVE",
-      "byArtifact": {
-        "control": "unavailable (no engine layer)",
-        "gpu": "verified"
-      },
-      "evidence": "tests/test_engine_probes.py::LightProbeBakerTests",
-      "notes": "The callback is called exactly six times per probe, and each call's view matrix is compared with an independent CreateLookAt along that face's axis; the projection is asserted identical across faces. The callable is rooted by a context manager for exactly the call -- a bare CFUNCTYPE built at the call site is collected the moment the expression ends -- and an exception raised inside it is stored and re-raised after the native call returns rather than unwinding through C, which is asserted along with the baker still working afterwards."
-    },
-    {
-      "operation": "Environment processor: owned textures and pure helpers",
-      "status": "VERIFIED_NATIVE",
-      "byArtifact": {
-        "control": "unavailable (no engine layer)",
-        "gpu": "verified"
-      },
-      "evidence": "tests/test_engine_probes.py::EnvironmentProcessorTests, ::PureEnvironmentHelperTests",
-      "notes": "Every texture the processor produces is owned by the caller, which is asserted by destroying the processor first and then still reading the cube map. The Hammersley sequence is compared with an independent bit reversal (a literal string reverse, not the same five-line shift-and-mask idiom) and its first eight radical inverses are written out by hand. The cube-face convention and the panorama mapping are each compared with an independent construction and then against each other."
-    },
-    {
-      "operation": "Image-based light: three counted borrows in one structure",
-      "status": "VERIFIED_NATIVE",
-      "byArtifact": {
-        "control": "partly (value defaults only)",
-        "gpu": "verified"
-      },
-      "evidence": "cna.extensions.engine.PbrEffect.image_based_light; tests/test_engine_probes.py::EnvironmentProcessorTests::test_an_effect_takes_the_three_textures_and_hands_them_back",
-      "notes": "cna_effect_get_image_based_light_ext answers with an irradiance cube, a specular cube and a BRDF table, all three of which are counted views that must be released -- ENGINE-002 three handles at a time. They are released immediately and the caller's own texture objects are handed back instead, which the test checks by identity and then by reading the property twenty times in a row."
-    },
-    {
-      "operation": "Two measured traps in the published environment helpers",
-      "status": "VERIFIED_NATIVE",
-      "byArtifact": {
-        "control": "unavailable (no engine layer)",
-        "gpu": "verified"
-      },
-      "evidence": "docs/engine-upstream-findings.md ENGINE-007; tests/test_engine_probes.py::PureEnvironmentHelperTests",
-      "notes": "cube_face_direction does not refuse a face outside zero to five: the switch's default branch is the -Z face, so six is five and minus one is five. That matches what engine_layer.h documents -- only a null output is refused -- so it is pinned rather than reported, because a loop with an off-by-one would sample one face twice instead of failing. importance_sample_ggx uses the normal as supplied and normalises only the result, so a normal of length 0.99 tilts the sample by thirteen times the rounding error; that is ENGINE-007, and the binding states the requirement rather than silently normalising, because normalising would make the Python function disagree with the GLSL CNA publishes beside it."
-    },
-    {
-      "operation": "Level-of-detail selection and its hysteresis",
-      "status": "VERIFIED_NATIVE",
-      "byArtifact": {
-        "control": "unavailable (no engine layer)",
-        "gpu": "verified"
-      },
-      "evidence": "tests/test_engine_culling.py::LodGroupTests; tests/engine_oracles.py lod_select_by_distance, lod_apply_hysteresis, lod_projected_radius_pixels",
-      "notes": "Thresholds are added out of order, so a group that failed to sort would answer differently from the oracle at every distance. A threshold is measured to be an upper bound -- a distance exactly at one has left that level -- and past every threshold nothing is selected rather than the coarsest. Hysteresis is sticky only across the boundary with the immediate neighbour and only inside the margin, which is asserted with a value that holds and one that does not. The screen-space mode reverses the comparison and re-sorts the levels so index zero still means finest, and both modes are checked against the oracle over the same group."
-    },
-    {
-      "operation": "CPU frustum culling against independently extracted planes",
-      "status": "VERIFIED_NATIVE",
-      "byArtifact": {
-        "control": "unavailable (no engine layer)",
-        "gpu": "verified"
-      },
-      "evidence": "tests/test_engine_culling.py::FrustumCullerTests; tests/engine_oracles.py frustum_planes",
-      "notes": "The six planes are extracted a second time by combining rows of the view-projection and normalising, and every box and sphere answer is compared with the positive-vertex test over them -- under an axis-aligned camera and again under one that is neither at the origin nor looking down an axis. cull_transforms is measured to *keep* a transform that has no matching bound, so passing fewer bounds than transforms means 'these are always drawn' rather than an error."
-    },
-    {
-      "operation": "Hardware instancing, and which path a draw took",
-      "status": "VERIFIED_NATIVE",
-      "byArtifact": {
-        "control": "unavailable (no engine layer)",
-        "gpu": "verified"
-      },
-      "evidence": "tests/test_engine_culling.py::InstancedRendererTests, ::InstanceStreamLayoutTests",
-      "notes": "last_draw_call_count is the number that says which path ran -- one for the instanced draw, one per instance for the fallback, zero for nothing -- so the test asserts the count that matches is_instancing_supported rather than asserting a capability it cannot control. The published vertex layout is checked element for element: four Vector4 rows at texture-coordinate usages one to four, because a vertex attribute is at most four wide and a matrix is four of them, with the stride equal to the last offset plus sixteen."
-    },
-    {
-      "operation": "GPU instance culling agrees with the CPU frustum test",
-      "status": "VERIFIED_NATIVE",
-      "byArtifact": {
-        "control": "unavailable (no engine layer)",
-        "gpu": "verified"
-      },
-      "evidence": "tests/test_engine_culling.py::GpuInstanceCullerTests",
-      "notes": "Five boxes are laid out so that some are inside the frustum and some are not -- asserted, so a fixture that culled everything or nothing could not pass silently -- and the count the GPU compacted is compared with the count the independent plane test keeps. The culler needs four capabilities and names the first missing one rather than only reporting that something is; the test asserts a non-empty reason whenever it is unsupported."
-    },
-    {
-      "operation": "Indirect draws and their argument layout",
-      "status": "VERIFIED_NATIVE",
-      "byArtifact": {
-        "control": "partly (argument defaults only)",
-        "gpu": "verified"
-      },
-      "evidence": "tests/test_engine_culling.py::IndirectDrawArgumentTests, ::IndirectDrawTests",
-      "notes": "The two argument structures have no version or size header, because the GPU reads their bytes verbatim and the layout is the contract; the packed bytes are unpacked with struct and compared word for word, and base_vertex is asserted to be the one signed field. Both draws are exercised for real, and the state each needs -- a bound vertex buffer, an applied effect, and an index buffer for the indexed one -- is measured by asserting the text CNA refuses with."
-    },
-    {
-      "operation": "The minimal models.h slice level of detail and instancing need",
-      "status": "VERIFIED_NATIVE",
-      "byArtifact": {
-        "control": "unavailable (no engine layer)",
-        "gpu": "verified"
-      },
-      "evidence": "tools/route-census-rules.json engine-model-part-dependency; cna.extensions.engine.culling",
-      "notes": "Two routes, cna_model_mesh_part_create and its destroy. Both engine constructors take a CNA_ModelMeshPartHandle and strict XNA's ModelMeshPart is a managed object with no native handle, so without them two families are unreachable. The native part is built from the strict part's own vertex buffer, index buffer and offsets, so it describes the same geometry rather than a copy; it is private to whichever engine object needed it and released with it, and no native model, mesh or part is public anywhere."
-    },
-    {
-      "operation": "A cullable instance's canonical world is zero, not identity",
-      "status": "BLOCKED_UPSTREAM",
-      "byArtifact": {
-        "control": "unavailable (no engine layer)",
-        "gpu": "verified"
-      },
-      "evidence": "docs/engine-upstream-findings.md ENGINE-008; tests/test_engine_culling.py::GpuInstanceCullerTests::test_the_default_instance_has_a_zero_world_and_not_an_identity",
-      "notes": "engine_layer.h documents 'an identity world and an empty box'. The box is right and the matrix is all zeros, which is not a wrong position but a degenerate transform: every vertex of every instance maps to the origin, with a correct cull and an invisible draw and no error anywhere. Handed back unchanged, because default() in this package reports what CNA's defaults are; substituting an identity would make it a transcription and hide the defect. The trap is stated at the method and the test asserts both the zero and that it is not the identity."
+      "evidence": "tests/test_engine_debug.py::DebugAbsenceTests",
+      "notes": "Constructing DebugDraw or AsciiEffect on a build without the layer raises EngineUnavailableError, not EngineUnsupportedError. Only the control artifact can prove this side."
     },
     {
       "operation": "Debug drawing, counted rather than looked at",
       "status": "VERIFIED_NATIVE",
       "byArtifact": {
-        "control": "unavailable (no engine layer)",
+        "control": "unavailable (no extension layer)",
         "gpu": "verified"
       },
       "evidence": "tests/test_engine_debug.py::DebugDrawShapeTests; tests/engine_oracles.py debug_sphere_lines and its siblings",
@@ -1773,41 +961,31 @@
       "operation": "The two debug line lists, and which one a line joins",
       "status": "VERIFIED_NATIVE",
       "byArtifact": {
-        "control": "unavailable (no engine layer)",
+        "control": "unavailable (no extension layer)",
         "gpu": "verified"
       },
       "evidence": "tests/test_engine_debug.py::DebugDrawShapeTests, ::DebugDrawRenderingTests",
       "notes": "depth_tested is measured to choose the list when a line is *added* rather than how the batch is drawn, which is asserted by adding to both and reading each list back separately -- line_count adds them together, so the vertex copy is the only way to tell them apart. begin() is measured to clear both and put depth testing back on, so a batch always starts in the same state; end() draws and clears both; ending without beginning draws nothing rather than refusing."
     },
     {
-      "operation": "Debug gizmos, against the geometry they are made of",
-      "status": "VERIFIED_NATIVE",
-      "byArtifact": {
-        "control": "unavailable (no engine layer)",
-        "gpu": "verified"
-      },
-      "evidence": "tests/test_engine_debug.py::DebugGizmoTests",
-      "notes": "A spot light is measured to be *two* cones, the outer angle and the inner: the test asserts eight lines start at the apex whatever the segment count, and that their far ends lie on two radii equal to range times the tangent of each half-angle. A point light's furthest vertex is exactly its range from its position. A probe volume's crosses are checked to sit on the grid's own probe positions. A cluster grid draws one box per slice, and a grid with no projection draws nothing rather than refusing."
-    },
-    {
       "operation": "The ASCII effect on its own, and what its grid measures",
       "status": "VERIFIED_NATIVE",
       "byArtifact": {
-        "control": "unavailable (no engine layer)",
+        "control": "unavailable (no extension layer)",
         "gpu": "verified"
       },
       "evidence": "cna.extensions.engine.AsciiEffect; tests/test_engine_debug.py::StandaloneAsciiEffectTests",
       "notes": "The standalone effect is the only way to quantize an arbitrary texture into an arbitrary rectangle; an AsciiPass runs inside a post-process chain and can do neither. last_grid_dimensions is measured to describe the *source* -- its size divided by the cell size -- and not how many cells the destination covered: a 32-pixel source with an 8-pixel cell is four by four whether it fills the viewport or a 64 by 32 rectangle. The property's documentation said the second thing and now says the first, checked over three cell sizes and three destinations."
     },
     {
-      "operation": "The engine tests are measured by planting defects in them",
+      "operation": "The engine-extension tests are measured by planting defects in them",
       "status": "VERIFIED_MANAGED",
       "byArtifact": {
         "control": "not applicable",
         "gpu": "verified"
       },
-      "evidence": "tools/mutation/engine_mutations.py: PLANTED=47 KILLED=47 SURVIVED=0",
-      "notes": "Forty-seven plausible mistakes -- an axis swapped, a bound dropped, a view not released, a formula written in double where CNA writes it in float -- each planted alone and each required to make a *focused* test fail. The oracles are mutated too and on purpose: an oracle wrong in the same way as CNA would make a whole family agree on a defect. The first run killed 37 and left nine survivors, every one of them a real gap: the slice spacing was compared approximately where only an exact comparison can tell float from double, the shadow-policy lights were all white so a score weighting the channels equally agreed, the disc quad's axis scale was never compared with CNA at all, the destination rectangle of an ASCII draw was invisible to every assertion, and hysteresis was never tried across two levels. All nine are closed by new cases, one of the nine mutations was itself a no-op and was replaced, and the second run kills every one."
+      "evidence": "tools/mutation/engine_mutations.py (see NEXT.md for the current PLANTED/KILLED counts)",
+      "notes": "The planted defects cover what survived CNA's retirement of the engine layer: the debug oracles, the depth-tested list selection, the frustum argument, the ASCII destination rectangle and cell size, and the availability probe."
     },
     {
       "operation": "Every surface diagnostic is planted and required to fail",
@@ -1827,20 +1005,20 @@
         "gpu": "verified"
       },
       "evidence": "tests/test_census_gate.py::NewRouteFalsifiability",
-      "notes": "UNREVIEWED is the one status the census may not ship, and it means nothing unless a route nothing has considered actually lands there. Checked with routes CNA does not have, in engine_layer.h and in a header no rule claims. The deliberate exception is named rather than left implicit: graphics_ext.h carries a whole-header decision, so a route added to it inherits it correctly -- which is different in kind from a catch-all matching a name suffix across twenty families. The three unscoped suffix rules that remain are listed with the reason each is a decision covering everything it reaches, so adding a fourth means editing that list; and every shipped rule is asserted to carry both a reason and a bound reason, which found four that had none."
+      "notes": "UNREVIEWED is the one status the census may not ship, and it means nothing unless a route nothing has considered actually lands there. Checked with routes CNA does not have, in graphics_ext.h (the selected engine family, which has no blanket rule) and in a header no rule claims. The deliberate exception is named rather than left implicit: models.h carries a whole-header decision, so a route added to it inherits it correctly."
     },
     {
-      "operation": "The engine layer reaches an installed wheel",
+      "operation": "The engine extension reaches an installed wheel",
       "status": "VERIFIED_NATIVE",
       "byArtifact": {
         "control": "verified (reported absent)",
         "gpu": "verified (reported present)"
       },
-      "evidence": "tools/verify_consumer.py ENGINE_SMOKE=PASS; ../cna-python-template/tools/verify_engine.py",
-      "notes": "A generated consumer with no source checkout on its path imports cna.extensions.engine from the wheel and runs --verify-engine: it reports the layer revision, checks it against the one the binding was written against, reads a value type's defaults from CNA, and checks a pure shading function against Beer-Lambert rather than against itself. A CNA build with no engine layer answers 'absent' and passes, because that is a supported configuration and a smoke test conflating 'absent' with 'broken' would be worse than none. Measured: absent on the control artifact, present with revision 2 on the gpu one."
+      "evidence": "tools/verify_consumer.py; ../cna-python-template",
+      "notes": "A generated consumer with no source checkout on its path imports cna.extensions.engine from the installed wheel and reports whether the loaded build has the extension layer. Absent is a supported configuration and passes."
     },
     {
-      "operation": "Package reproducibility after the engine family",
+      "operation": "Package reproducibility",
       "status": "VERIFIED_MANAGED",
       "byArtifact": {
         "control": "verified",
@@ -1856,7 +1034,7 @@
         "control": "verified",
         "gpu": "verified"
       },
-      "evidence": "python -m unittest discover with CNA_NATIVE_LIBRARY unset: 1148 tests, OK, 852 skipped",
+      "evidence": "python -m unittest discover with CNA_NATIVE_LIBRARY unset (see NEXT.md for the current count)",
       "notes": "Found by the final qualification, not by inspection: three class bodies in the clustered tests built their light fixtures by calling ClusteredLight.default(), which reads CNA's own defaults -- so importing the module needed a library and the whole file failed to collect where none was configured. The fixtures are now built on demand. The suite collects and runs in full with no library, which is what makes 'this test skipped because the build has no engine layer' a measured statement rather than an accident of import order."
     }
   ]

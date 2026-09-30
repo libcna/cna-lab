@@ -892,15 +892,15 @@ class GuideTests(unittest.TestCase):
             GamerServicesDispatcher.Update()
             observed["simulated"] = (Guide.IsTrialMode, Guide.SimulateTrialMode)
             Guide.SimulateTrialMode = False
-            observed["not_yet_latched"] = Guide.IsTrialMode
+            observed["not_yet_latched"] = (Guide.IsTrialMode, Guide.SimulateTrialMode)
             GamerServicesDispatcher.Update()
             observed["licensed"] = (Guide.IsTrialMode, Guide.SimulateTrialMode)
 
         observed = in_game(body)
         self.assertTrue(observed["initial"])
         self.assertEqual(observed["simulated"], (True, True))
-        self.assertTrue(observed["not_yet_latched"],
-                        "the override is read at the next update, not at assignment")
+        self.assertEqual(observed["not_yet_latched"], (True, False),
+                         "the override is read at the next update, not at assignment")
         self.assertEqual(observed["licensed"], (False, False))
 
     def test_the_notification_position_round_trips(self) -> None:

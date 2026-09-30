@@ -1,7 +1,7 @@
 {
  "schemaVersion": 1,
  "summary": {
-  "COUNTERS_CHECKED": 45,
+  "COUNTERS_CHECKED": 43,
   "FAILURES": 0,
   "MEASURED_PROFILES": 4,
   "BLOCKED_PROFILES": 1
@@ -187,18 +187,6 @@
   {
    "scope": "native boundary",
    "counter": "ABI_MISMATCHES",
-   "value": 0,
-   "wanted": 0
-  },
-  {
-   "scope": "native boundary",
-   "counter": "PENDING_ROUTES_NOT_IN_HEADERS",
-   "value": 0,
-   "wanted": 0
-  },
-  {
-   "scope": "native boundary",
-   "counter": "STALE_PENDING_ROUTES",
    "value": 0,
    "wanted": 0
   },

@@ -1,6 +1,7 @@
 {
   "schemaVersion": 1,
   "summary": {
+    "PROFILE": "xna40-windows-runtime",
     "REFERENCE_TYPES": 257,
     "REFERENCE_MEMBERS": 2964,
     "EXPECTED_PYTHON_TYPES": 257,

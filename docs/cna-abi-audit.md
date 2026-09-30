@@ -1,9 +1,31 @@
 # CNA C ABI audit
 
-Audit date: 2026-09-01. Supersedes the 2026-08-23 audit of the historical
-`0.7.0` generation.
+## Current generation: 0.35.0 (requalified 2026-09-30)
 
-## The generation this binding speaks
+```text
+CNA_ABI_VERSION               = 0.35.0 (0x00002300)
+CNA revision                  = libcna/cna next 4228ff913
+sharp-runtime revision        = 88f6b11fb
+canonical public C headers    = 60 (engine_layer.h retired at 0.30)
+canonical CNA_C_API routes    = 3,202
+BOUND_FUNCTIONS               = 1,770
+PROTOTYPES_COMPILER_VERIFIED  = 1,770
+C_LAYOUT_MEASUREMENTS         = 2,105
+MISSING_SYMBOLS               = 0
+ABI_MISMATCHES                = 0
+```
+
+Measured with `tools/verify_prototypes.py`, `tools/audit_cna_abi.py` and
+`tools/route_census.py` against the 0.35 headers and library before the loader
+admitted the minor. From 0.21 to 0.35 CNA removed 855 routes and added 3; the
+binding dropped the 849 it bound among the removed ones (engine layer, avatar
+real-rendering extension, Guide setters) and binds two of the added ones
+(`cna_achievement_copy_picture`, `cna_gamer_profile_copy_picture`); the third,
+`cna_network_session_replace_session_properties`, was already declared and is
+now exported, so the pending-route stub is gone. The sections below are the
+2026-09-01 audit of 0.21, kept as the record of that migration.
+
+## The 0.21.0 generation (2026-09-01)
 
 ```text
 CNA_ABI_VERSION      = 0.21.0 (0x00001500)

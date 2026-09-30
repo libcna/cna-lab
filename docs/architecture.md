@@ -7,7 +7,7 @@ Python game
   -> Microsoft.Xna.Framework.* public projection      (the selected XNA 4.0 profile)
   -> cna.extensions.*                                 (CNA-only capabilities, optional)
   -> private _cna_native ctypes implementation
-  -> CNA canonical stable C ABI 0.21.0
+  -> CNA canonical stable C ABI 0.35.0
   -> CNA C++
 ```
 
@@ -31,10 +31,10 @@ Three extension families are open. `cna.extensions.graphics` reports renderer
 identity and selection. `cna.extensions.content` projects CNA's own `.cnb`
 compiled content format and its `.cnj` source documents; the strict XNA
 `ContentManager` is unchanged by it, still reads `.xnb` and only `.xnb`, and
-keeps its own separate cache. `cna.extensions.engine` projects `engine_layer.h`
--- compute, physically based materials, shadows, post-processing, clustered
-lighting, light probes, culling and instancing, and a debug line batch -- none of
-which XNA ever had. The dependency runs extension -> strict only: the content
+keeps its own separate cache. `cna.extensions.engine` projects what CNA kept of
+its engine layer in `graphics_ext.h` -- a debug line batch and the ASCII
+post-process effect -- neither of which XNA ever had (CNA retired the rest of
+`engine_layer.h` at C ABI 0.30). The dependency runs extension -> strict only: the content
 extension reuses `Curve`, `Rectangle`, `Vector3`, `Matrix` and `SurfaceFormat`,
 and the engine extension reuses those plus `Color`, `BoundingBox`,
 `BoundingSphere`, `BoundingFrustum`, `Effect`, `Texture2D`, `TextureCube`,

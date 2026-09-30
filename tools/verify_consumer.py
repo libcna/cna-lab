@@ -82,6 +82,11 @@ def main() -> int:
         )
         smoke = run([str(python), "main.py", "--smoke-test"], cwd=consumer, env=environment)
         stability = run([str(python), "main.py", "--stability-test"], cwd=consumer, env=environment)
+        # Pixels, not only a frame count: the starter reads the back buffer after
+        # the last frame (HiDef, as XNA requires). A backend with no pixel
+        # storage reports "unavailable", which is recorded rather than passed off.
+        frame = run([str(python), "main.py", "--smoke-test", "--verify-frame"],
+                    cwd=consumer, env=environment)
         # The CNA extension profile has to reach an installed wheel too: a
         # generated consumer with no source checkout on its path must be able to
         # import it and compile one `.cnj` asset through it.
@@ -106,6 +111,10 @@ def main() -> int:
         stability_passed = "SUCCESS drew 600 real CNA frames" in stability
         print("SMOKE_60=PASS" if smoke_passed else "SMOKE_60=FAIL")
         print("STABILITY_600=PASS" if stability_passed else "STABILITY_600=FAIL")
+        frame_result = ("drawn" if "FRAME_VERIFICATION=drawn" in frame
+                        else "unavailable" if "FRAME_VERIFICATION=unavailable" in frame
+                        else "FAIL")
+        print(f"FRAME_VERIFICATION={frame_result}")
         extensions_passed = "EXTENSION_PROBE=PASS" in extensions
         cnb_passed = "CNB_VERIFICATION=ok" in cnb_smoke
         engine_passed = ("ENGINE_VERIFICATION=ok" in engine_smoke
@@ -120,6 +129,7 @@ def main() -> int:
         print(f"PYTHONPATH_SOURCE_DEPENDENCIES={pythonpath_leaks}")
         return 1 if (absolute_leaks or sibling_leaks or pythonpath_leaks
                      or not smoke_passed or not stability_passed
+                     or frame_result == "FAIL"
                      or not extensions_passed or not cnb_passed
                      or not engine_passed) else 0
 
