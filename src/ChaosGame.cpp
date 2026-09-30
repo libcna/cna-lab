@@ -13,12 +13,14 @@
 #include "Microsoft/Xna/Framework/Color.hpp"
 #include "Microsoft/Xna/Framework/GameComponentCollection.hpp"
 #include "Microsoft/Xna/Framework/PlayerIndex.hpp"
+#include "Microsoft/Xna/Framework/Graphics/PrimitiveType.hpp"
 #include "Microsoft/Xna/Framework/Graphics/VertexPositionColor.hpp"
 #include "Microsoft/Xna/Framework/Input/GamePad.hpp"
 #include "Microsoft/Xna/Framework/Input/Keyboard.hpp"
 #include "Microsoft/Xna/Framework/Input/Mouse.hpp"
 
 #include "ChaosComponent.hpp"
+#include "ChaosSupport.hpp"
 
 using namespace Microsoft::Xna::Framework;
 using namespace Microsoft::Xna::Framework::Graphics;
@@ -223,140 +225,187 @@ namespace CnaKiller
 
     void ChaosEngine::ActionWorkerThreadResources()
     {
-        // XNA 4.0 lets a game create resources and set their data from any thread -- the
-        // loading-screen pattern. Every decision is made here, on the main thread, before the
-        // worker starts, and the worker is joined before this action returns, so the action
-        // sequence stays reproducible even though the device is touched from another thread.
+        // XNA 4.0 lets a game create resources and set their data on any thread; the idiomatic
+        // form is the loading screen, where the game keeps running frames while a worker loads.
+        // CNA gives a worker the device between frames, so the game thread must not wait for it
+        // inside Update or Draw -- that would deadlock, as it does on FNA and MonoGame. The job
+        // is decided here from the seeded stream, runs on its own, and is collected by
+        // CollectWorkerJob() once it has finished. Whatever it creates lives in workerTextures_,
+        // which the seeded stream never picks from, so when it finishes cannot change the run.
         const int kind = RandomInt(0, 5);
-        static constexpr const char* kKinds[] = {"texture", "mesh", "render-target", "destroy-textures",
-                                                 "two-workers"};
-        log_.Note(std::string("worker-thread operation: ") + kKinds[kind]);
         const int width = RandomInt(1, 257);
         const int height = RandomInt(1, 257);
-        std::vector<Color> pixels(static_cast<std::size_t>(width) * static_cast<std::size_t>(height));
-        const std::vector<std::uint8_t> noise = RandomBytes(pixels.size() * 4);
-        for (std::size_t i = 0; i < pixels.size(); ++i)
-            pixels[i] = Color(noise[i * 4], noise[i * 4 + 1], noise[i * 4 + 2], noise[i * 4 + 3]);
-
-        switch (kind)
+        const std::uint64_t jobSeed = static_cast<std::uint64_t>(static_cast<std::uint32_t>(random_.Next())) << 32 |
+                                      static_cast<std::uint32_t>(random_.Next());
+        if (workerJob_)
         {
-            case 0: // create, fill and verify a texture off the main thread; draw it on the main one
+            log_.Note("worker-thread job still running; this one is skipped");
+            return;
+        }
+
+        static constexpr const char* kKinds[] = {"texture", "mesh", "render-target", "destroy-textures",
+                                                 "two-workers"};
+        auto job = std::make_unique<WorkerJob>();
+        job->kind = kKinds[kind];
+        job->width = width;
+        job->height = height;
+        log_.Note(std::string("worker-thread job started: ") + job->kind);
+
+        std::uint64_t state = jobSeed;
+        job->expected.resize(static_cast<std::size_t>(width) * static_cast<std::size_t>(height));
+        for (Color& pixel : job->expected)
+        {
+            const std::uint64_t bits = SplitMixNext(state);
+            pixel = Color(static_cast<int>(bits & 0xFF), static_cast<int>((bits >> 8) & 0xFF),
+                          static_cast<int>((bits >> 16) & 0xFF), static_cast<int>((bits >> 24) & 0xFF));
+        }
+
+        WorkerJob* const raw = job.get();
+        GraphicsDevice* const device = &Device();
+        const int destroyCount = static_cast<int>(state % 4) + 1;
+        job->thread = std::thread([raw, device, kind, width, height, destroyCount, this] {
+            try
             {
-                std::unique_ptr<Texture2D> texture;
-                std::vector<Color> readBack(pixels.size());
-                RunOnWorkerThread([&] {
-                    texture = std::make_unique<Texture2D>(Device(), width, height);
-                    texture->SetData(pixels.data(), static_cast<int>(pixels.size()));
-                    texture->GetData(readBack.data(), static_cast<int>(readBack.size()));
-                });
-                findings_.CountCheck();
-                for (std::size_t i = 0; i < pixels.size(); ++i)
+                switch (kind)
                 {
-                    if (readBack[i].getPackedValueProperty() != pixels[i].getPackedValueProperty())
+                    case 0: // create, fill and read back a texture
                     {
-                        Report(FindingKind::Mismatch, "a texture filled on a worker thread reads back different data",
-                               std::to_string(width) + "x" + std::to_string(height) + ", first difference at texel " +
-                                   std::to_string(i));
+                        auto texture = std::make_unique<Texture2D>(*device, width, height);
+                        texture->SetData(raw->expected.data(), static_cast<int>(raw->expected.size()));
+                        raw->readBack.resize(raw->expected.size());
+                        texture->GetData(raw->readBack.data(), static_cast<int>(raw->readBack.size()));
+                        raw->textures.push_back(std::move(texture));
+                        break;
+                    }
+                    case 1: // a mesh
+                    {
+                        const int triangles = 1 + width % 100;
+                        std::vector<VertexPositionColor> vertices;
+                        for (int i = 0; i < triangles * 3; ++i)
+                        {
+                            const Color& c = raw->expected[static_cast<std::size_t>(i) % raw->expected.size()];
+                            vertices.emplace_back(Vector3(c.getRProperty() / 128.0f - 1, c.getGProperty() / 128.0f - 1, 0),
+                                                  c);
+                        }
+                        std::vector<std::uint32_t> indices(vertices.size());
+                        for (std::size_t i = 0; i < indices.size(); ++i)
+                            indices[i] = static_cast<std::uint32_t>(i);
+                        raw->mesh = std::make_unique<ManagedMesh>();
+                        raw->mesh->primitiveCount = triangles;
+                        raw->mesh->vertexBuffer = std::make_unique<VertexBuffer>(
+                            *device, VertexPositionColor::getVertexDeclarationStatic(),
+                            static_cast<int>(vertices.size()), BufferUsage::None);
+                        raw->mesh->vertexBuffer->SetData(vertices.data(), static_cast<int>(vertices.size()));
+                        raw->mesh->indexBuffer = std::make_unique<IndexBuffer>(
+                            *device, IndexElementSize::ThirtyTwoBits, static_cast<int>(indices.size()),
+                            BufferUsage::None);
+                        raw->mesh->indexBuffer->SetData(indices.data(), static_cast<int>(indices.size()));
+                        break;
+                    }
+                    case 2: // a render target, rendered to on the game thread when collected
+                        raw->target = std::make_unique<RenderTarget2D>(*device, width, height);
+                        break;
+                    case 3: // destroy textures an earlier job created
+                        for (int i = 0; i < destroyCount && !workerTextures_.Empty(); ++i)
+                            workerTextures_.DestroyOldest();
+                        break;
+                    default: // two workers creating textures at the same moment
+                    {
+                        std::unique_ptr<Texture2D> second;
+                        std::exception_ptr secondFailure;
+                        std::thread other([&] {
+                            try
+                            {
+                                second = std::make_unique<Texture2D>(*device, height, width);
+                                second->SetData(raw->expected.data(), static_cast<int>(raw->expected.size()));
+                            }
+                            catch (...)
+                            {
+                                secondFailure = std::current_exception();
+                            }
+                        });
+                        auto first = std::make_unique<Texture2D>(*device, width, height);
+                        first->SetData(raw->expected.data(), static_cast<int>(raw->expected.size()));
+                        other.join();
+                        if (secondFailure)
+                            std::rethrow_exception(secondFailure);
+                        raw->textures.push_back(std::move(first));
+                        raw->textures.push_back(std::move(second));
                         break;
                     }
                 }
-                EvictIfFull(textures_);
-                textures_.Add(std::move(texture));
-                break;
             }
-            case 1: // a mesh built on a worker thread
+            catch (...)
             {
-                const int triangles = RandomInt(1, 100);
-                std::vector<VertexPositionColor> vertices;
-                for (int i = 0; i < triangles * 3; ++i)
+                raw->failure = std::current_exception();
+            }
+            raw->done.store(true, std::memory_order_release);
+        });
+        workerJob_ = std::move(job);
+    }
+
+    void ChaosEngine::CollectWorkerJob(const bool wait)
+    {
+        if (!workerJob_ || (!wait && !workerJob_->done.load(std::memory_order_acquire)))
+            return;
+        workerJob_->thread.join();
+        std::unique_ptr<WorkerJob> job = std::move(workerJob_);
+        const std::string previous = lastActionName_;
+        lastActionName_ = "WorkerThreadResources";
+        RunGuarded(lastActionName_, [&] {
+            if (job->failure)
+                std::rethrow_exception(job->failure);
+            if (job->kind == std::string("texture"))
+            {
+                findings_.CountCheck();
+                for (std::size_t i = 0; i < job->expected.size(); ++i)
                 {
-                    const Vector3 position{RandomFloat(-1, 1), RandomFloat(-1, 1), 0.0f};
-                    vertices.emplace_back(position, RandomOpaqueColor());
+                    if (job->readBack[i].getPackedValueProperty() != job->expected[i].getPackedValueProperty())
+                    {
+                        Report(FindingKind::Mismatch, "a texture filled on a worker thread reads back different data",
+                               std::to_string(job->width) + "x" + std::to_string(job->height) +
+                                   ", first difference at texel " + std::to_string(i));
+                        break;
+                    }
                 }
-                std::vector<std::uint32_t> indices(vertices.size());
-                for (std::size_t i = 0; i < indices.size(); ++i)
-                    indices[i] = static_cast<std::uint32_t>(i);
-                auto mesh = std::make_unique<ManagedMesh>();
-                mesh->primitiveCount = triangles;
-                RunOnWorkerThread([&] {
-                    mesh->vertexBuffer = std::make_unique<VertexBuffer>(
-                        Device(), VertexPositionColor::getVertexDeclarationStatic(),
-                        static_cast<int>(vertices.size()), BufferUsage::None);
-                    mesh->vertexBuffer->SetData(vertices.data(), static_cast<int>(vertices.size()));
-                    mesh->indexBuffer = std::make_unique<IndexBuffer>(
-                        Device(), IndexElementSize::ThirtyTwoBits, static_cast<int>(indices.size()), BufferUsage::None);
-                    mesh->indexBuffer->SetData(indices.data(), static_cast<int>(indices.size()));
-                });
-                EvictIfFull(meshes_);
-                meshes_.Add(std::move(mesh));
-                ActionDrawMesh();
-                break;
             }
-            case 2: // a render target created on a worker thread, then rendered to on the main one
+            if (job->mesh)
             {
-                std::unique_ptr<RenderTarget2D> target;
-                RunOnWorkerThread([&] { target = std::make_unique<RenderTarget2D>(Device(), width, height); });
-                Device().SetRenderTarget(target.get());
-                Device().Clear(RandomOpaqueColor());
-                Device().SetRenderTarget(nullptr);
-                EvictIfFull(renderTargets_);
-                renderTargets_.Add(std::move(target));
-                break;
+                // Drawn on the game thread from buffers another thread created.
+                GraphicsDevice& device = Device();
+                BasicEffect effect(device);
+                effect.VertexColorEnabled = true;
+                device.SetVertexBuffer(job->mesh->vertexBuffer.get());
+                device.SetIndexBuffer(job->mesh->indexBuffer.get());
+                effect.getCurrentTechniqueProperty()->getPassesProperty()[0]->Apply();
+                device.DrawIndexedPrimitives(PrimitiveType::TriangleList, 0, 0, job->mesh->primitiveCount * 3, 0,
+                                             job->mesh->primitiveCount);
+                Support::UnbindAll(device);
             }
-            case 3: // destroy pooled textures from a worker thread
+            if (job->target)
             {
-                const int count = RandomInt(1, 4);
-                std::vector<int> picks;
-                for (int i = 0; i < count; ++i)
-                    picks.push_back(RandomInt(0, 1 << 16));
-                RunOnWorkerThread([&] {
-                    for (const int pick : picks)
-                    {
-                        if (textures_.Empty())
-                            break;
-                        textures_.DestroyAt(static_cast<std::size_t>(pick) % textures_.Size());
-                    }
-                });
-                break;
-            }
-            default: // two workers creating textures at the same moment
-            {
-                std::unique_ptr<Texture2D> first;
-                std::unique_ptr<Texture2D> second;
-                std::exception_ptr failure;
-                std::thread other([&] {
-                    try
-                    {
-                        second = std::make_unique<Texture2D>(Device(), height, width);
-                        second->SetData(pixels.data(), static_cast<int>(pixels.size()));
-                    }
-                    catch (...)
-                    {
-                        failure = std::current_exception();
-                    }
-                });
-                try
+                GraphicsDevice& device = Device();
+                device.SetRenderTarget(job->target.get());
+                device.Clear(Color::Magenta);
+                device.SetRenderTarget(nullptr);
+                std::vector<Color> pixels(static_cast<std::size_t>(job->width) * static_cast<std::size_t>(job->height));
+                job->target->GetData(pixels.data(), static_cast<int>(pixels.size()));
+                findings_.CountCheck();
+                if (pixels.front() != Color::Magenta || pixels.back() != Color::Magenta)
                 {
-                    RunOnWorkerThread([&] {
-                        first = std::make_unique<Texture2D>(Device(), width, height);
-                        first->SetData(pixels.data(), static_cast<int>(pixels.size()));
-                    });
+                    Report(FindingKind::Mismatch,
+                           "a render target created on a worker thread does not hold what the game thread cleared it to",
+                           std::to_string(job->width) + "x" + std::to_string(job->height));
                 }
-                catch (...)
-                {
-                    other.join();
-                    throw;
-                }
-                other.join();
-                if (failure)
-                    std::rethrow_exception(failure);
-                EvictIfFull(textures_);
-                textures_.Add(std::move(first));
-                EvictIfFull(textures_);
-                textures_.Add(std::move(second));
-                break;
             }
-        }
+            for (std::unique_ptr<Texture2D>& texture : job->textures)
+            {
+                if (workerTextures_.Size() >= maxPoolSize_)
+                    workerTextures_.DestroyOldest();
+                workerTextures_.Add(std::move(texture));
+            }
+        });
+        lastActionName_ = previous;
     }
 
     void ChaosEngine::ActionPokeInput()

@@ -1,8 +1,11 @@
 // SPDX-License-Identifier: MIT
 #pragma once
 
+#include <atomic>
 #include <cstdint>
+#include <exception>
 #include <functional>
+#include <thread>
 #include <iosfwd>
 #include <memory>
 #include <string>
@@ -10,6 +13,7 @@
 
 #include "System/Random.hpp"
 
+#include "Microsoft/Xna/Framework/Color.hpp"
 #include "Microsoft/Xna/Framework/Game.hpp"
 #include "Microsoft/Xna/Framework/GameWindow.hpp"
 #include "Microsoft/Xna/Framework/GraphicsDeviceManager.hpp"
@@ -67,6 +71,22 @@ namespace CnaKiller
     };
 
     class ChaosComponent;
+
+    /** @brief One worker-thread job: what it was asked to do and what it produced. */
+    struct WorkerJob
+    {
+        std::thread thread;
+        std::atomic<bool> done{false};
+        std::exception_ptr failure;
+        std::string kind;
+        int width = 0;
+        int height = 0;
+        std::vector<Microsoft::Xna::Framework::Color> expected;
+        std::vector<Microsoft::Xna::Framework::Color> readBack;
+        std::vector<std::unique_ptr<Microsoft::Xna::Framework::Graphics::Texture2D>> textures;
+        std::unique_ptr<ManagedMesh> mesh;
+        std::unique_ptr<Microsoft::Xna::Framework::Graphics::RenderTarget2D> target;
+    };
 
     /**
      * @brief Deliberately hostile stress engine that drives the CNA runtime (../cna) into the
@@ -166,6 +186,9 @@ namespace CnaKiller
         ResourcePool<ManagedDynamicSound> dynamicSounds_;
         ResourcePool<Microsoft::Xna::Framework::Graphics::BasicEffect> effects_;
         std::vector<std::unique_ptr<ChaosComponent>> components_;
+        /** Resources a worker job created; the seeded stream never picks from here. */
+        ResourcePool<Microsoft::Xna::Framework::Graphics::Texture2D> workerTextures_;
+        std::unique_ptr<WorkerJob> workerJob_;
         std::unique_ptr<Microsoft::Xna::Framework::Graphics::Texture2D> white_;
 
         /** Checks that must run inside Draw(), queued by the tick that decided them. */
@@ -215,7 +238,6 @@ namespace CnaKiller
         [[nodiscard]] Microsoft::Xna::Framework::Color RandomAnyColor();
         void Mutate(std::vector<std::uint8_t>& bytes);
         [[nodiscard]] Microsoft::Xna::Framework::Graphics::Texture2D& WhiteTexture();
-        void RunOnWorkerThread(const std::function<void()>& body);
         void QueueDrawCheck(const std::string& name, std::function<void()> check);
 
         // --- resource churn and window/device chaos (ChaosEngine.cpp) ------------------------
@@ -291,6 +313,8 @@ namespace CnaKiller
         void AddChaosComponent();
         void ActionChangeGameTiming();
         void ActionWorkerThreadResources();
+        /** @brief Takes in a finished worker job (or waits for it with @p wait) without using the seeded stream. */
+        void CollectWorkerJob(bool wait);
         void ActionPokeInput();
     };
 }

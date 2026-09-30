@@ -262,6 +262,8 @@ namespace CnaKiller
 
     ChaosEngine::~ChaosEngine()
     {
+        if (workerJob_ && workerJob_->thread.joinable())
+            workerJob_->thread.join();
         // The game's component collection outlives this engine; it must not keep pointers to
         // the components destroyed with it.
         if (game_ != nullptr)
@@ -346,6 +348,8 @@ namespace CnaKiller
         std::erase_if(components_, [](const std::unique_ptr<ChaosComponent>& component) {
             return component->PendingDestroy();
         });
+
+        CollectWorkerJob(false);
 
         if (tick % 500 == 0)
             SampleResidentMemory();
@@ -508,24 +512,6 @@ namespace CnaKiller
             white_->SetData(&white, 1);
         }
         return *white_;
-    }
-
-    void ChaosEngine::RunOnWorkerThread(const std::function<void()>& body)
-    {
-        std::exception_ptr failure;
-        std::thread worker([&] {
-            try
-            {
-                body();
-            }
-            catch (...)
-            {
-                failure = std::current_exception();
-            }
-        });
-        worker.join();
-        if (failure)
-            std::rethrow_exception(failure);
     }
 
     void ChaosEngine::QueueDrawCheck(const std::string& name, std::function<void()> check)
@@ -1011,6 +997,8 @@ namespace CnaKiller
 
     void ChaosEngine::Shutdown()
     {
+        // Called outside the frame, so a job still waiting for the device can finish.
+        CollectWorkerJob(true);
         SampleResidentMemory();
 
         // A pool that is bounded while memory still climbs steadily is a leak somewhere below
@@ -1043,6 +1031,7 @@ namespace CnaKiller
         }
         components_.clear();
         drawQueue_.clear();
+        workerTextures_.Clear();
         instances_.Clear();
         dynamicSounds_.Clear();
         sounds_.Clear();

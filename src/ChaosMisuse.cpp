@@ -89,8 +89,10 @@ namespace CnaKiller
                 break;
             default:
             {
-                // A texture disposed between Draw and End: End binds it to Textures[0], and
-                // XNA's TextureCollection setter refuses a disposed texture.
+                // A texture disposed between Draw and End. XNA's End binds it to Textures[0], whose
+                // setter throws ObjectDisposedException; CNA's batch holds the texture's renderer
+                // from Draw to End and draws it (KF-11, a deliberate deviation). Either is fine
+                // here -- what must not happen is a crash or a non-System exception.
                 Texture2D doomed(device, 4, 4);
                 std::array<Color, 16> pixels{};
                 pixels.fill(RandomOpaqueColor());
@@ -98,8 +100,7 @@ namespace CnaKiller
                 first.Begin();
                 first.Draw(doomed, Vector2::Zero, Color::White);
                 doomed.Dispose();
-                Expect<System::ObjectDisposedException>("SpriteBatch.End with a texture disposed after Draw",
-                                                        [&] { first.End(); });
+                Tolerate("SpriteBatch.End with a texture disposed after Draw", [&] { first.End(); });
                 break;
             }
         }
@@ -127,8 +128,10 @@ namespace CnaKiller
                                                   [&] { device.setViewportProperty(Viewport(0, 0, 0, 1)); });
                 break;
             case 2:
+                // One pixel past the right edge for any width: width / 2 + (width / 2 + 1) is only
+                // width + 1 when width is even, and an odd-width viewport that exactly fits is legal.
                 Expect<System::ArgumentException>("a Viewport reaching past the back buffer", [&] {
-                    device.setViewportProperty(Viewport(width / 2, 0, width / 2 + 1, height));
+                    device.setViewportProperty(Viewport(width / 2, 0, width - width / 2 + 1, height));
                 });
                 break;
             case 3:

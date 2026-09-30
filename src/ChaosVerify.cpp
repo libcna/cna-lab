@@ -710,9 +710,36 @@ namespace CnaKiller
             const auto wrong = std::find_if(pixels.begin(), pixels.end(), [&](const Color& p) { return !Support::Near(p, color, 0); });
             if (wrong != pixels.end())
             {
+                // Where the whole back buffer holds the cleared colour, so the report says which
+                // part of it the read missed.
+                std::vector<Color> all(static_cast<std::size_t>(width) * static_cast<std::size_t>(height),
+                                       Color(1, 2, 3, 4));
+                device.GetBackBufferData(all.data(), static_cast<int>(all.size()));
+                int minX = width, minY = height, maxX = -1, maxY = -1, untouched = 0;
+                for (int y = 0; y < height; ++y)
+                    for (int x = 0; x < width; ++x)
+                    {
+                        const Color& p = all[static_cast<std::size_t>(y) * static_cast<std::size_t>(width) +
+                                             static_cast<std::size_t>(x)];
+                        if (p == Color(1, 2, 3, 4))
+                            ++untouched;
+                        if (Support::Near(p, color, 0))
+                        {
+                            minX = std::min(minX, x);
+                            minY = std::min(minY, y);
+                            maxX = std::max(maxX, x);
+                            maxY = std::max(maxY, y);
+                        }
+                    }
+                const Rectangle client = Window().getClientBoundsProperty();
                 Report(FindingKind::Mismatch, "GetBackBufferData does not return the colour the back buffer was cleared to",
                        Size(width, height) + " back buffer, rectangle " + Rect(rect) + " reads " +
-                           Support::Describe(*wrong) + " for " + Support::Describe(color));
+                           Support::Describe(*wrong) + " for " + Support::Describe(color) + "; cleared colour spans x " +
+                           std::to_string(minX) + ".." + std::to_string(maxX) + ", y " + std::to_string(minY) + ".." +
+                           std::to_string(maxY) + ", " + std::to_string(untouched) + " pixels never written, window " +
+                           Size(client.Width, client.Height) + ", viewport " +
+                           Size(device.getViewportProperty().getWidthProperty(),
+                                device.getViewportProperty().getHeightProperty()));
             }
         });
     }
