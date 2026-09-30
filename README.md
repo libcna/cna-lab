@@ -9,10 +9,10 @@ keyboard state, and requests native Game exit at an exact Draw callback count.
 
 It also creates one `RenderTarget2D`, holds it as the `Texture2D` it derives
 from, binds it and restores the backbuffer -- a public-API demonstration that
-the inheritance is real. No pixel is claimed: the qualified renderer has no
-window.
+the inheritance is real. No pixel is claimed by the canary itself; back-buffer
+readback on a windowed renderer is asserted in the binding's own suite.
 
-It also reads the surface the binding grew after CNA 0.21.0 landed: the adapter
+It also reads the adapter
 list and the device's own adapter, the window snapshot, and the two members that
 **refuse** -- `GraphicsDevice.Dispose`, because the running game owns the device
 and a borrowed handle may not destroy it, and the three-argument
@@ -72,9 +72,10 @@ Finally it plays the song it wrote through `MediaPlayer`, reads the queue back
 and stops. **The queue is process-wide** -- CNA's own wording -- so it outlives
 the game that filled it; `queued=1` is the canary's own track and nothing else.
 
-**The canary reads; it never writes.** `MediaLibrary.SavePicture` works, and it
-is deliberately not called: it would leave a file in the user's own photo
-album, and CNA publishes no route to remove one. The song it plays is a file it
+**The canary reads; it never writes.** `MediaLibrary.SavePicture` is not
+called, and in this binding it refuses with `NotSupportedException`: the CNA
+route it would use writes into the user's own photo album, and CNA publishes no
+route to remove the file again. The song it plays is a file it
 wrote itself and deletes. And a song
 built from a file has **no library context**: CNA reports that as an ordinary
 answer, the binding turns it into a refusal because the return is proven
@@ -86,12 +87,17 @@ consumer meets this binding's **only settable properties**: `DisplayWidth` and
 `DisplayHeight` have setters that cannot refuse, so they stay properties where
 every other fallible setter became a `Set…` method.
 
-Two of the values it prints are worth reading twice. The window reports a client
-area of **0x0** while the device reports a **800x480** viewport: that is what
-headless means here, and a canary that quietly used the window's size instead of
-the viewport's would draw nothing and say nothing. And the adapter names itself
-`\\.\DISPLAY1` with one supported display mode, which is the whole of what this
-host has to offer.
+Two of the values it prints are worth reading twice. On HEADLESS the window
+reports a client area of **0x0** while the device reports a **800x480**
+viewport: that is what headless means here, and a canary that quietly used the
+window's size instead of the viewport's would draw nothing and say nothing. On
+OPENGLES3 the window is real (`client=800x480`, a non-zero handle). The adapter
+names itself `\\.\DISPLAY1`; its mode list is the host's (1 under SDL's dummy
+video driver, 40 on the private Xwayland display).
+
+The game asks its `GraphicsDeviceManager` for **HiDef** in its constructor,
+because XNA constructs an `OcclusionQuery` only under HiDef; under Reach the
+query is refused at construction.
 
 There is no XNB, BasicEffect, cube, capability guess, fake banner, synthetic
 texture, or Swift-owned frame loop.
@@ -102,16 +108,16 @@ One line, printed at exit, is the whole verdict:
 CNA_SWIFT_CANARY requested=600 updates=600 draws=600 viewport=800x480
 texture=128x128 offscreen=64x64 adapters=1 name=\\.\DISPLAY1 default=true
 modes=1 reach=true window=handle=0 client=0x0 resizing=false
-device=isDisposed=false disposeRefused=true presentRefused=true
-content=root= cached=true installed=true kindRefused=true missingRefused=true
-query=pixels=1 waited=0 rearmRefused=true earlyCountRefused=true
-audio=played=true ms=100 state=Stopped queued=64 pending=64 limitRefused=true
-loopRefused=true badBufferRefused=true master=1.0
-song=name=canary track track=0 missingRefused=true readAfterDisposeRefused=true
-noContextReported=true librarySongs=0 libraryArtists=0 libraryPlaylists=0
-libraryPictures=47 ownSourceNil=true mediaSources=1 queued=1
-playerState=Playing gameHasControl=true
-touch=connected=false maxTouches=0 touches=0 display=800x480 gestures=1
+device=isDisposed=false disposeRefused=true presentRefused=true content=root=
+cached=true installed=true kindRefused=true missingRefused=true query=pixels=1
+waited=0 rearmRefused=true earlyCountRefused=true audio=played=true ms=100
+state=Stopped queued=64 pending=64 limitRefused=true loopRefused=true
+badBufferRefused=true master=1.0 song=name=canary track track=0
+missingRefused=true readAfterDisposeRefused=true noContextReported=true
+librarySongs=0 libraryArtists=0 libraryPlaylists=0 libraryPictures=89
+ownSourceNil=true mediaSources=1 queued=1 playerState=Playing
+gameHasControl=true touch=connected=false maxTouches=0 touches=0
+display=800x480 gestures=1
 ```
 
 **`updates` is the one field that is not reproducible, and this file used to
@@ -119,8 +125,9 @@ print it as though it were.** Three runs of the same binary at `--frames 600`
 answered 600, 601 and 602. `draws` is always exactly `requested`; `updates` is
 `requested` or a little more, because CNA runs a fixed time step and catches up
 with extra `Update` calls when a frame overruns, without a matching `Draw`.
-Short runs do not overrun and answer exactly: `--frames 10` gives 10 updates
-and 10 draws. Read the line for `updates >= requested`, not for a number.
+HEADLESS rarely overruns (600/600 on 2026-09-30); OPENGLES3 on the private
+display presents with vsync and does, measured at 85 updates for 60 draws and
+910 for 600. Read the line for `updates >= requested`, not for a number.
 
 The canary also **exits 0**. Until Foundation 101 it did not: every run ended
 
@@ -136,27 +143,42 @@ when its Swift object went away, and this canary reads `Game.Content`, installs
 its own through `SetContent`, and lets the first one go. That is an ordinary
 consumer pattern, which is what made the canary worth running.
 
-`waited=0` says the query completed before the first check, and `pixels=1` is
-what this renderer counted -- not a number to read as a scene measurement, but
-proof the round trip reaches the GPU path and comes back.
+`pixels` and `waited` are host facts, not scene measurements: HEADLESS answers
+`pixels=1 waited=0` at once, while OPENGLES3 waits on the real GPU for a
+begin/end pair with nothing drawn between them and counts `pixels=0`. Either way
+the round trip reaches the renderer and comes back.
 
 ## Qualified boundary
 
-Linux x86-64 with Swift 6.0.3 and an external CNA C ABI 0.21.0 HEADLESS library
-is the qualified boundary. The binding admits CNA's own published consumer
-window — major `0` exactly, minor `21` or later — so an earlier generation is
-rejected by name. HEADLESS executes the real graphics route but provides no
-visible window, so visible output remains backend-blocked. macOS, iOS, tvOS,
-visionOS, Windows, and Web/Wasm are unqualified.
+Linux x86-64 with Swift 6.0.3 and an external CNA C ABI 0.35.0 library built
+from CNA `next` is the qualified boundary. The binding admits CNA's own
+published consumer window — major `0` exactly, minor `35` or later — so an
+earlier generation is rejected by name. macOS, iOS, tvOS, visionOS, Windows,
+and Web/Wasm are unqualified.
+
+Re-measured on 2026-09-30 against CNA `next` 4228ff913, `--frames 60` and
+`--frames 600`, every run exit 0 with `draws == requested`:
+
+| Consumed as | HEADLESS (SDL dummy drivers) | OPENGLES3 (private Weston + Xwayland) |
+|---|---|---|
+| sibling path `../cna-swift` | 60/60, 600/600 updates/draws | 85/60, 910/600 updates/draws |
+| the binding's exact source archive, extracted read-only | 60/60, 600/600 | 87/60, 932/600 |
+
+A windowed renderer must run on a private display, never the desktop. From
+the CNA checkout:
+`tools/platform/run_gpu_tests_private.sh --exec env -u WAYLAND_DISPLAY SDL_VIDEODRIVER=x11 SDL_AUDIO_DRIVER=dummy CNA_NATIVE_LIBRARY=... HelloGame --frames 600`.
 
 From this repository root, provide the external library explicitly:
 
 ```bash
+export SDL_VIDEODRIVER=dummy SDL_AUDIO_DRIVER=dummy   # HEADLESS: no display at all
 CNA_NATIVE_LIBRARY=/absolute/path/to/libcna_c_api.so swift run HelloGame --frames 60
 CNA_NATIVE_LIBRARY=/absolute/path/to/libcna_c_api.so swift run HelloGame --frames 600
 ```
 
 The command prints actual Update and Draw callback counts plus native viewport
 and decoded texture dimensions. The Swift package dependency is a sibling path
-for template development only; the binding's qualification separately builds
-an independent consumer from its exact source archive.
+for template development only; the table's second row is the same template
+built against the binding's exact `swift package archive-source` output, and
+the binding's `tools/package_qualification` builds its own independent consumer
+from that archive too.
