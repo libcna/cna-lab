@@ -49,7 +49,7 @@ private final class DrawProbeGame: F.Game {
 final class Foundation68DrawTests: XCTestCase {
     private func requireNative() throws {
         if ProcessInfo.processInfo.environment["CNA_NATIVE_LIBRARY"] == nil {
-            throw XCTSkip("set CNA_NATIVE_LIBRARY to a CNA C ABI 0.21 or later library")
+            throw XCTSkip("set CNA_NATIVE_LIBRARY to a CNA C ABI 0.35 or later library")
         }
     }
 
@@ -119,7 +119,9 @@ final class Foundation68DrawTests: XCTestCase {
 
     /// **Without an applied effect, every draw is refused** — and the refusal
     /// arrives on the runtime channel with CNA's own diagnosis, not as XNA's
-    /// `CannotDrawNoShader`.
+    /// `CannotDrawNoShader`. CNA 0.21 classified it `CNA_RESULT_INTERNAL`
+    /// (12); since 0.35 it is `CNA_RESULT_INVALID_STATE` (3), which is what a
+    /// missing precondition is.
     ///
     /// XNA's `VerifyCanDraw` reaches the same verdict from a D3D state tracker
     /// this binding cannot see, so the native answer is forwarded rather than a
@@ -148,9 +150,9 @@ final class Foundation68DrawTests: XCTestCase {
             try device.SetVertexBuffer(nil)
             try buffer.Dispose()
         }
-        // 12 is CNA_RESULT_INTERNAL.
+        // 3 is CNA_RESULT_INVALID_STATE.
         XCTAssertEqual(game.observations["no effect"],
-                       "cna_graphics_device_draw_primitives=12")
+                       "cna_graphics_device_draw_primitives=3")
         XCTAssertTrue(
             game.observations["message"]?.contains("no effect has been applied")
                 ?? false,
@@ -158,15 +160,14 @@ final class Foundation68DrawTests: XCTestCase {
                 + (game.observations["message"] ?? "<none>"))
     }
 
-    /// **A buffer with no data uploaded refuses every draw, and XNA has no such
-    /// rule.**
+    /// **A buffer with no data uploaded is drawn, as XNA draws it.**
     ///
-    /// CNA counts vertices *written*, not capacity allocated. XNA draws
-    /// undefined contents from an un-`SetData`'d buffer rather than raising, so
-    /// this is a measured divergence rather than a reproduction — and it is
-    /// forwarded rather than pre-empted, because a managed pre-check would have
-    /// to track every byte ever written to every buffer.
-    func testAnUnwrittenBufferRefusesEveryDraw() throws {
+    /// XNA draws the undefined contents of an un-`SetData`'d buffer rather
+    /// than raising. CNA 0.21 counted vertices *written* rather than capacity
+    /// allocated and refused the draw with `CNA_RESULT_INVALID_ARGUMENT`
+    /// ("exceeds the bound vertex buffer"); CNA 0.35 counts the capacity, so
+    /// the divergence this test used to pin is gone and it now pins XNA's rule.
+    func testAnUnwrittenBufferIsDrawnAsXnaDrawsIt() throws {
         try requireNative()
         let game = try run { game, device in
             let effect = try G.Effect.empty(graphicsDevice: device)
@@ -191,7 +192,11 @@ final class Foundation68DrawTests: XCTestCase {
             }
             game.observations["unwritten"] = outcome
 
+            // XNA refuses SetData on a bound buffer (ResourceInUse), so the
+            // upload happens unbound.
+            try device.SetVertexBuffer(nil)
             try buffer.SetData(self.vertices(64))
+            try device.SetVertexBuffer(buffer)
             try device.DrawPrimitives(.TriangleList, startVertex: 0,
                                       primitiveCount: 1)
             game.observations["written"] = "accepted"
@@ -200,13 +205,52 @@ final class Foundation68DrawTests: XCTestCase {
             try buffer.Dispose()
             try effect.Dispose()
         }
-        // 1 is CNA_RESULT_INVALID_ARGUMENT.
-        XCTAssertEqual(game.observations["unwritten"], "1")
-        XCTAssertTrue(
-            game.observations["message"]?.contains("exceeds the bound vertex buffer")
-                ?? false,
-            "got " + (game.observations["message"] ?? "<none>"))
+        XCTAssertEqual(game.observations["unwritten"], "accepted",
+                       "got " + (game.observations["message"] ?? "<none>"))
         XCTAssertEqual(game.observations["written"], "accepted")
+    }
+
+    /// **A bound buffer refuses `SetData`** — XNA's `CopyData` scans the bound
+    /// streams (and `Indices`) unless the lock flags carry `Discard`,
+    /// `NoOverwrite` or `READONLY`, and raises `ResourceInUse`. `GetData` is a
+    /// read-only lock and passes; the same upload is accepted once unbound.
+    func testABoundBufferRefusesSetDataButNotGetData() throws {
+        try requireNative()
+        let game = try run { game, device in
+            let vertices = try G.VertexBuffer(
+                graphicsDevice: device, vertexType: G.VertexPositionColor.self,
+                vertexCount: 64, usage: .None)
+            let indices = try G.IndexBuffer(
+                graphicsDevice: device, indexElementSize: .SixteenBits,
+                indexCount: 6, usage: .None)
+            try vertices.SetData(self.vertices(64))
+            try indices.SetData([UInt16](repeating: 0, count: 6))
+            try device.SetVertexBuffer(vertices)
+            try device.SetIndices(indices)
+            let message = "You may not call SetData on a resource while it is "
+                + "actively set on the GraphicsDevice. Unset it from the device "
+                + "before calling SetData."
+            assertProjected(
+                CNAInvalidOperationException.self, message: message,
+                hResult: CNAInvalidOperationException.corInvalidOperationHResult
+            ) { try vertices.SetData(self.vertices(64)) }
+            assertProjected(
+                CNAInvalidOperationException.self, message: message,
+                hResult: CNAInvalidOperationException.corInvalidOperationHResult
+            ) { try indices.SetData([UInt16](repeating: 1, count: 6)) }
+            var readBack = [UInt16](repeating: 9, count: 6)
+            try indices.GetData(&readBack)
+            game.observations["read while bound"] = "\(readBack)"
+            try device.SetVertexBuffer(nil)
+            try device.SetIndices(nil)
+            try vertices.SetData(self.vertices(64))
+            try indices.SetData([UInt16](repeating: 1, count: 6))
+            game.observations["unbound"] = "accepted"
+            try indices.Dispose()
+            try vertices.Dispose()
+        }
+        XCTAssertEqual(game.observations["read while bound"], "[0, 0, 0, 0, 0, 0]")
+        XCTAssertEqual(game.observations["unbound"], "accepted")
     }
 
     // ------------------------------------------------------------------
@@ -646,6 +690,12 @@ final class Foundation68DrawTests: XCTestCase {
     /// topology: four written vertices are enough for a `LineStrip` of three
     /// primitives and not for a `TriangleList` of three. So a forced topology
     /// turns an accepted draw into a refused one.
+    ///
+    /// Only on a renderer that keeps that managed range guard. XNA forwards
+    /// draw ranges to D3D unvalidated, and CNA's EasyGL renderers do the same
+    /// (SOFTWARE-322); the guard stays where CPU staging would otherwise read
+    /// invalid memory, as on HEADLESS. So the renderer is asked first, with a
+    /// draw that is out of range whatever its topology.
     func testThePrimitiveTypeReachesTheDevice() throws {
         try requireNative()
         let game = try run { game, device in
@@ -659,6 +709,13 @@ final class Foundation68DrawTests: XCTestCase {
                 throw CNAError.producerInvariant("no pass")
             }
             try pass.Apply()
+
+            // Out of range for any topology: one primitive from vertex four.
+            var guarded = "no"
+            do {
+                try device.DrawPrimitives(.LineStrip, startVertex: 4, primitiveCount: 1)
+            } catch is CNAError { guarded = "yes" }
+            game.observations["range guarded"] = guarded
 
             // A line strip of three needs four vertices, which is what is
             // written.
@@ -684,7 +741,9 @@ final class Foundation68DrawTests: XCTestCase {
         XCTAssertEqual(game.observations["line strip needs"], "4")
         XCTAssertEqual(game.observations["triangle list needs"], "9")
         XCTAssertEqual(game.observations["line strip"], "accepted")
-        XCTAssertEqual(game.observations["triangle list"], "refused")
+        XCTAssertEqual(game.observations["triangle list"],
+                       game.observations["range guarded"] == "yes" ? "refused" : "accepted",
+                       "range guarded: \(game.observations["range guarded"] ?? "?")")
     }
 
     /// A disposed device refuses every draw before any argument is looked at.

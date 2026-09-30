@@ -237,7 +237,8 @@ extension Microsoft.Xna.Framework.Graphics {
             let plan = try copyPlan(
                 T.self, offsetInBytes: offsetInBytes, arrayCount: data.count,
                 startIndex: startIndex, elementCount: elementCount,
-                vertexStride: vertexStride, isSetting: true)
+                vertexStride: vertexStride, isSetting: true,
+                checksBinding: options == .None)
             let functions = nativeStorage.runtime.functions
             try data.withUnsafeBytes { bytes in
                 guard let base = bytes.baseAddress else { return }
@@ -339,15 +340,15 @@ extension Microsoft.Xna.Framework.Graphics {
         /// uses, so a zero-length array reports `"data"` as null. That is XNA's
         /// own behaviour, reproduced rather than tidied.
         ///
-        /// The bound-buffer test has no counterpart yet: nothing can bind a
-        /// vertex buffer until `GraphicsDevice.SetVertexBuffer` is projected,
-        /// so no input reaches the branch. It is recorded in
-        /// `recorded-message-absences.json` rather than written as code that
-        /// cannot run, and it is the first thing the draw milestone must add.
+        /// **The bound-buffer test is the managed cache's.** `options` is the
+        /// D3D lock flag set: `GetData` passes `READONLY` and a dynamic buffer's
+        /// `Discard`/`NoOverwrite` pass theirs, so only a plain `SetData` scans
+        /// the bound streams. CNA refuses the same upload natively since ABI
+        /// 0.35, on the runtime channel; this raises XNA's exception first.
         internal func copyPlan<T>(
             _ element: T.Type, offsetInBytes: Int32, arrayCount: Int,
             startIndex: Int32, elementCount: Int32, vertexStride: Int32,
-            isSetting: Bool
+            isSetting: Bool, checksBinding: Bool = false
         ) throws -> CopyPlan {
             let handle = try validatedHandle(
                 isSetting ? "VertexBuffer.SetData" : "VertexBuffer.GetData")
@@ -356,6 +357,11 @@ extension Microsoft.Xna.Framework.Graphics {
                     paramName: "data",
                     message: Microsoft.Xna.Framework.Graphics.GraphicsDevice
                         .nullNotAllowedMessage)
+            }
+            if checksBinding, nativeStorage.runtime.cachedVertexBufferBindings
+                .contains(where: { $0.VertexBuffer === self }) {
+                throw CNAInvalidOperationException(
+                    message: Microsoft.Xna.Framework.Graphics.Texture.resourceInUseMessage)
             }
             if !isSetting, BufferUsage.contains(.WriteOnly) {
                 throw CNANotSupportedException(

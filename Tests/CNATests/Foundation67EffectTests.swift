@@ -47,7 +47,7 @@ private final class EffectProbeGame: F.Game {
 final class Foundation67EffectTests: XCTestCase {
     private func requireNative() throws {
         if ProcessInfo.processInfo.environment["CNA_NATIVE_LIBRARY"] == nil {
-            throw XCTSkip("set CNA_NATIVE_LIBRARY to a CNA C ABI 0.21 or later library")
+            throw XCTSkip("set CNA_NATIVE_LIBRARY to a CNA C ABI 0.35 or later library")
         }
     }
 
@@ -369,8 +369,10 @@ final class Foundation67EffectTests: XCTestCase {
     /// between the disposal check and `OnApply`.
     ///
     /// The empty effect has one technique, and it is the current one, so the
-    /// reachable half of this is the accepting branch plus what happens when
-    /// the current technique is cleared.
+    /// reachable half of this is the accepting branch. The current technique
+    /// cannot be cleared to reach the refusal: XNA's setter throws
+    /// `ArgumentNullException("value", NullNotAllowed)` for null, and so does
+    /// this one (CNA 0.21 accepted a null technique; 0.35 refuses it too).
     func testAPassMustBelongToTheCurrentTechnique() throws {
         try requireNative()
         let game = try run { game, device in
@@ -384,14 +386,15 @@ final class Foundation67EffectTests: XCTestCase {
             try pass.Apply()
             game.observations["accepted"] = "yes"
 
-            // Clearing the current technique makes the same pass refuse.
-            try effect.SetCurrentTechnique(nil)
             assertProjected(
-                CNAInvalidOperationException.self,
-                message: "Cannot Apply an EffectPass that is not from the "
-                    + "CurrentTechnique.",
-                hResult: CNAInvalidOperationException.corInvalidOperationHResult
-            ) { try pass.Apply() }
+                CNAArgumentNullException.self,
+                message: composedArgumentMessage(
+                    G.GraphicsDevice.nullNotAllowedMessage, paramName: "value"),
+                paramName: "value",
+                hResult: Int32(bitPattern: 0x8000_4003)
+            ) { try effect.SetCurrentTechnique(nil) }
+            game.observations["still current"] =
+                "\(effect.CurrentTechnique === technique)"
 
             try effect.SetCurrentTechnique(technique)
             try pass.Apply()
@@ -400,6 +403,7 @@ final class Foundation67EffectTests: XCTestCase {
         }
         XCTAssertEqual(game.observations["is current"], "true")
         XCTAssertEqual(game.observations["accepted"], "yes")
+        XCTAssertEqual(game.observations["still current"], "true")
         XCTAssertEqual(game.observations["accepted again"], "yes")
     }
 

@@ -191,9 +191,20 @@ extension Microsoft.Xna.Framework.Graphics {
         }
 
         /// `set_CurrentTechnique`.
+        ///
+        /// ```text
+        /// Helpers.CheckDisposed(this, pComPtr);
+        /// if (value == null) throw new ArgumentNullException("value", NullNotAllowed);
+        /// ```
         public func SetCurrentTechnique(_ value: EffectTechnique?) throws {
             let owner = try validatedHandle("Effect.CurrentTechnique")
-            let technique = try value?.box.validated("Effect.CurrentTechnique") ?? 0
+            guard let value else {
+                throw CNAArgumentNullException(
+                    paramName: "value",
+                    message: Microsoft.Xna.Framework.Graphics.GraphicsDevice
+                        .nullNotAllowedMessage)
+            }
+            let technique = try value.box.validated("Effect.CurrentTechnique")
             try nativeStorage.runtime.functions.check(
                 nativeStorage.runtime.functions.effectSetCurrentTechnique(
                     owner, technique),

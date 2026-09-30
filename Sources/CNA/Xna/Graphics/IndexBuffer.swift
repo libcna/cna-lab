@@ -230,7 +230,7 @@ extension Microsoft.Xna.Framework.Graphics {
             let plan = try copyPlan(
                 T.self, offsetInBytes: offsetInBytes, arrayCount: data.count,
                 startIndex: startIndex, elementCount: elementCount,
-                isSetting: true)
+                isSetting: true, checksBinding: options == .None)
             let functions = nativeStorage.runtime.functions
             let wholeBuffer = plan.offsetInBytes == 0
                 && plan.nativeElementCount == Int(IndexCount)
@@ -351,9 +351,13 @@ extension Microsoft.Xna.Framework.Graphics {
         /// `Texture2D`'s transfer already makes. A window that is not a whole
         /// number of indices, or that starts mid-index, is refused rather than
         /// rounded.
+        ///
+        /// The bound-buffer test reads the managed `Indices` cache, and only a
+        /// plain `SetData` makes it (see `VertexBuffer.copyPlan`).
         internal func copyPlan<T>(
             _ element: T.Type, offsetInBytes: Int32, arrayCount: Int,
-            startIndex: Int32, elementCount: Int32, isSetting: Bool
+            startIndex: Int32, elementCount: Int32, isSetting: Bool,
+            checksBinding: Bool = false
         ) throws -> CopyPlan {
             let handle = try validatedHandle(
                 isSetting ? "IndexBuffer.SetData" : "IndexBuffer.GetData")
@@ -362,6 +366,10 @@ extension Microsoft.Xna.Framework.Graphics {
                     paramName: "data",
                     message: Microsoft.Xna.Framework.Graphics.GraphicsDevice
                         .nullNotAllowedMessage)
+            }
+            if checksBinding, nativeStorage.runtime.cachedIndexBuffer === self {
+                throw CNAInvalidOperationException(
+                    message: Microsoft.Xna.Framework.Graphics.Texture.resourceInUseMessage)
             }
             if !isSetting, BufferUsage.contains(.WriteOnly) {
                 throw CNANotSupportedException(
