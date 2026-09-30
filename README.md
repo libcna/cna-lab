@@ -34,7 +34,7 @@ GOWORK=off GOFLAGS=-mod=mod go build ./cmd/desktop
 
 ## Measured on 2026-09-30
 
-Against CNA-Go `a11dbef` and CNA `next` `4228ff913` (C ABI 0.35.0), Go 1.24.4,
+Against CNA-Go `9e46194` and CNA `next` `5b4edd6cc` (C ABI 0.35.0), Go 1.24.4,
 Linux amd64:
 
 | consumption | renderer | 60 frames | 600 frames |
