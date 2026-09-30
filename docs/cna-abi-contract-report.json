@@ -1,12 +1,12 @@
 {
   "contract": "tools/cna-abi/contract.json",
-  "typeScriptEnums": 116,
-  "verifiedFamilies": 115,
+  "typeScriptEnums": 105,
+  "verifiedFamilies": 104,
   "managedEnums": 1,
-  "claims": 984,
-  "identicalClaims": 981,
+  "claims": 920,
+  "identicalClaims": 917,
   "translatedClaims": 3,
-  "scalarAssertions": 37,
+  "scalarAssertions": 31,
   "resultCodeAssertions": 15,
   "typeScriptResultCodes": 15,
   "structVersionAssertions": 6,
@@ -381,10 +381,6 @@
       "constant": "CNA_PBR_TEXTURE_MAXIMUM"
     },
     {
-      "family": "PbrTextureSlot",
-      "constant": "CNA_PBR_TEXTURE_SLOT_COUNT"
-    },
-    {
       "family": "PowerState",
       "constant": "CNA_POWER_STATE_MAXIMUM"
     },
@@ -437,7 +433,7 @@
       "constant": "CNA_VIDEO_SOUNDTRACK_TYPE_MAXIMUM"
     }
   ],
-  "declaredCnaOnlyConstants": 105,
+  "declaredCnaOnlyConstants": 104,
   "diagnostics": [],
   "translations": [
     {

@@ -2,7 +2,7 @@
   "name": "the windowed build's audio backend: enumeration, state machine and duration",
   "artifact": "dist",
   "build": "npm run build",
-  "command": "xvfb-run -a node --test --test-name-pattern='capture devices|finding 28|playback state machine' test/windowed-renderer.integration.mjs",
+  "command": "node --test --test-name-pattern='capture devices|finding 28|playback state machine' test/windowed-renderer.integration.mjs",
   "mutants": [
     {
       "id": "enumerate-no-microphones",

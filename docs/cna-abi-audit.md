@@ -1,99 +1,39 @@
-# CNA C ABI migration and requalification audit
+# CNA C ABI audit
 
-Audit date: 2026-08-31 (requalified against the live dependency state at CNA C ABI 0.21.0)
-
-This audit treats `cnanext` and `sharp-runtimenext` as read-only evidence. Neither repository was
-modified. The binding first targeted CNA C ABI `0.7.0` from the older `cna` checkout, then `0.20.0`;
-the live canonical headers now declare `0.21.0`. Each crossing re-measured every imported route, the
-acceptance policy and the runtime evidence rather than renumbering them, and each is recorded here
-in the order it happened.
-
-## Live dependency provenance
+Audit date: 2026-09-30, at CNA C ABI **0.35.0** (CNA `next` 5b4edd6cc, sharp-runtime 88f6b11f).
+CNA and sharp-runtime are read-only evidence here; neither was modified.
 
 ```text
-CNA_SOURCE=/rv/data/development/github.com/openeggbert/cnanext
-CNA_HEAD=599d14e54e073b566d77b3d6fb30ac52d3d810b7
-CNA_BRANCH=next
-SHARP_RUNTIME_SOURCE=/rv/data/development/github.com/openeggbert/sharp-runtimenext
-SHARP_RUNTIME_HEAD=4a49afb0cfe6a41e6e0af0bb62dc5175976731bb
-SHARP_RUNTIME_BRANCH=next
+CNA_SOURCE=/rv/data/development/github.com/libcna/cna
+HEADLESS_ARTIFACT=~/deps/cna-c-abi-0.35.0            (HEADLESS renderer, SDL3 platform and audio)
+OPENGLES3_ARTIFACT=~/deps/cna-c-abi-0.35.0-opengles3-fx  (compiled effects, CNAEXT, DEVICES, video)
+WASM_ARTIFACT=~/deps/cna-c-abi-0.35.0-wasm-webgl2    (WEBGL2 Release, compiled effects, CNAEXT, DEVICES)
 ```
 
-Both artifacts were previously built from `cnanext` 17b5a90a and have been rebuilt from the
-revisions above. **This time the C contract did move**, which is why it was measured rather than
-assumed: `git diff 17b5a90a..599d14e5 -- modules/c-api/include` touches six headers, and one of
-them is `abi.h`.
+Each artifact carries a `PROVENANCE.txt` naming the CNA revision it was built from and the ABI it
+reports at runtime.
 
-```text
-PREVIOUS_ARTIFACT_SOURCE=17b5a90a  ABI 0.20.0  4051 exported declarations
-CURRENT_ARTIFACT_SOURCE=599d14e5   ABI 0.21.0  4054 exported declarations
-```
+## The 0.21 to 0.35 crossing
 
-Under this package's own acceptance policy an experimental `0.x` minor increment is an
-incompatible change, so an ABI 0.21 library would have been **rejected** by the 0.20 window rather
-than silently mis-driven. `src/internal/abi.ts` now declares 0.21 and
-`TARGETED_ABI_MATCHES_HEADERS` proves it against the headers.
-
-What actually changed, read declaration by declaration rather than inferred from the version bump:
-
-```text
-ADDED   cna_environment_get_device_type                            devices.h
-ADDED   cna_object_dictionary_ext_get_runtime_type_name_size       content_readers.h
-ADDED   cna_object_dictionary_ext_copy_runtime_type_name           content_readers.h
-REMOVED (none)
-RENAMED (none)
-SIGNATURE CHANGES to imported routes: 0 (all 594 recompile under -Wall -Wextra -Werror)
-```
-
-Three documented *behaviour* changes accompany them, none of which alters a prototype:
-`cna_content_manager_load_texture2d` and `cna_graphics_device_create_texture2d` now accept any
-renderer-supported surface format rather than only `Color`; `cna_network_session_create*` document
-a two-through-31 `max_gamers` range; and `cna_network_session_create_async` now preserves the
-requested gamer limit instead of substituting its own. Only the last was previously asserted here,
-and it was asserted as an ABI *fact* rather than as a CNA-TS behaviour, so nothing in the binding
-depended on the old answer.
-
-A moved HEAD is not evidence of an ABI change, and an unchanged ABI version is not evidence that
-the headers held still: both directions have now been observed on this dependency.
-
-Both dependency worktrees carried another session's uncommitted work throughout. Nothing in this
-audit modified either.
-
-## Qualified artifact
-
-Built out of tree; neither dependency checkout was dirtied.
-
-```text
-BUILD_DIRECTORY=/rv/data/development/github.com/openeggbert/cnanext/cmake-build-tsnext
-GENERATOR=Ninja
-CMAKE=3.31.6
-COMPILER=gcc (Debian 14.2.0-19) 14.2.0
-CMAKE_BUILD_TYPE=Debug
-CNA_BUILD_C_API=ON
-CNA_SHARP_RUNTIME_ROOT=/rv/data/development/github.com/openeggbert/sharp-runtimenext
-CNA_PLATFORM=HEADLESS
-CNA_GRAPHICS_RENDERER=HEADLESS
-CNA_AUDIO_PLATFORM=NULL
-CNA_CNAEXT=ON
-CNA_DEVICES=ON
-CNA_ENABLE_NET=ON
-CNA_ENABLE_VIDEO=AUTO
-PATH=/rv/data/development/github.com/openeggbert/cnanext/cmake-build-tsnext/modules/c-api/libcna_c_api.so
-SHA256=17131a4d4b8bf0dc4f35fd7a1b64dd2ae7969a8f0c879aa9c0265f6a6cf0bcda
-BYTES=188973392
-REPORTED_ABI=0.21.0
-EXPORTED_CNA_SYMBOLS=4054
-```
-
-Reproduce the header, compiler-signature and artifact-export checks with:
+CNA removed `engine_layer.h` at 0.30 -- the render pipeline, post-process chain and passes,
+clustered lighting, shadow maps, probes, atmosphere, particles, prepass and decals, instancing,
+compute, GPU timers and the PBR material value -- and with it 855 of the routes 0.21 exported. The
+binding was measured before anything was admitted: every route it imported that left the ABI
+belonged to a removed family (no survivor was mixed into one), the rest compiled against the 0.35
+prototypes unchanged, and the contract probe below proved the enumerations and scalars again.
+Then `src/internal/abi.ts` moved to 0.35 and the removed families' bridge functions, backends,
+public classes, tests and capability rows went with them. Two routes were added:
+`cna_title_location_set_path_ext` (the loader's `TitleLocation`) and
+`cna_avatar_description_create_random_for_body_type` (CNA's `CreateRandom` now keeps the body
+type).
 
 ```bash
-CNA_SOURCE_PATH=/path/to/cnanext \
-CNA_NATIVE_LIBRARY=/path/to/libcna_c_api.so \
+CNA_SOURCE_PATH=/path/to/cna \
+CNA_WASM_ARTIFACT_DIR=/path/to/wasm-artifact \
 npm run audit:cna-abi
 ```
 
-## Migration result
+## Earlier crossing: 0.7 to 0.20 (record)
 
 The 0.7 to 0.20 crossing itself, kept as the record of that event. The import count below is what
 it was at the end of that migration; the *current* one is in "The contract counts this audit holds"
@@ -194,16 +134,16 @@ it for a regression this binding caused.
 ## The contract counts this audit holds
 
 ```text
-ABI_VERSION=0.21.0
+ABI_VERSION=0.35.0
 TARGETED_ABI_MATCHES_HEADERS=1
-PUBLIC_HEADERS=61
-EXPORTED_FUNCTIONS=4054
-NODE_BRIDGE_IMPORTED_SYMBOLS=594
-NODE_BRIDGE_SIGNATURES_VERIFIED=594
+PUBLIC_HEADERS=60
+EXPORTED_FUNCTIONS=3202
+NODE_BRIDGE_IMPORTED_SYMBOLS=1040
+NODE_BRIDGE_SIGNATURES_VERIFIED=1040
 NODE_BRIDGE_SIGNATURE_MISMATCHES=0
-MISSING_QUALIFIED_LIBRARY_IMPORTS=0
-WASM_ARTIFACT_EXPORTED_FUNCTIONS=4056
-WASM_BACKEND_ROUTES=169
+MISSING_NODE_BRIDGE_SYMBOLS=0
+WASM_ARTIFACT_EXPORTED_FUNCTIONS=3204
+WASM_BACKEND_ROUTES=1014
 MISSING_WASM_BACKEND_EXPORTS=0
 WASM_ARTIFACT_ASYNCIFY_RUNTIME=0
 WASM_ARTIFACT_WEBGL_MAJOR_VERSIONS=2
@@ -241,13 +181,13 @@ compile error. The TypeScript half of each claim is read out of `src/` rather th
 contract, so what the package actually publishes is what gets proved.
 
 ```text
-TYPESCRIPT_ENUMS=52
-VERIFIED_ENUM_FAMILIES=51
+TYPESCRIPT_ENUMS=105
+VERIFIED_ENUM_FAMILIES=104
 MANAGED_ONLY_ENUMS=1
-ENUM_MEMBER_CLAIMS=432
-IDENTICAL_CLAIMS=429
+ENUM_MEMBER_CLAIMS=920
+IDENTICAL_CLAIMS=917
 TRANSLATED_CLAIMS=3
-SCALAR_ASSERTIONS=6
+SCALAR_ASSERTIONS=31
 RESULT_CODE_ASSERTIONS=15
 STRUCT_VERSION_ASSERTIONS=6
 STATIC_ASSERTIONS_COMPILED=PASS

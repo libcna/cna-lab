@@ -3802,3 +3802,31 @@ finding 32 (standalone `GraphicsDevice` teardown), finding 30 (WebGL2 MRT), find
 signed-in gamer test backend), finding 35 (the mixer rate, re-audited above), Emscripten video, and
 physical hardware. **No new local CNA-TS engineering session is warranted until an external
 condition changes.**
+
+## 2026-09-30: requalified at CNA C ABI 0.35.0
+
+Measured against CNA `next` 5b4edd6cc (sharp-runtime 88f6b11f) with three staged artifacts: HEADLESS
+(SDL3 platform and audio), OPENGLES3 (compiled effects, CNAEXT, DEVICES, video) and WEBGL2
+WebAssembly (Emscripten 6.0.9, compiled effects, CNAEXT, DEVICES). Earlier entries' `cnanext`,
+`sharp-runtimenext`, `/media/...` and `xvfb-run` recipes are history: the checkouts are
+`libcna/cna` and `libcna/sharp-runtime`, and windowed runs go through CNA's
+`tools/platform/run_gpu_tests_private.sh --exec` with `SDL_VIDEODRIVER=x11`, never a desktop display.
+
+- ABI: 3,202 exports over 60 headers. CNA removed the engine layer at 0.30; the Node adapter went
+  from 1,889 imports to 1,040 (+`cna_title_location_set_path_ext`,
+  +`cna_avatar_description_create_random_for_body_type`), the WebAssembly backend to 1,014 routes.
+  Signatures verified 1,040/1,040; contract probe 0 diagnostics; coverage UNEXPLAINED=0.
+- Binding defects found and fixed: title content resolved against node's install directory (CNA's
+  title location is the executable's) -- new `TitleLocation` load option; `CreateRandom(bodyType)`
+  dropped its argument.
+- Suites: unit 483/483, differential 182/182, native HEADLESS 23/23, extensions 10/10, CNB 39/39,
+  content-survey 8/8, input-devices 3/3, media-library 6/6, avatars 9/9, sprite-font 6/6, content
+  10/10; OPENGLES3 windowed 13/13, effect reflection 10/10, input-devices, media-library and
+  extensions under the private runner; browser 15/15, strong 6/6, non-engine 17/17, input 7/7,
+  audio 8/8, audio-capture 5/5. API strict profile 0 differences, runtime 0, leaks 0, module cycles
+  PASS. Mutation: module-cycles 6/6, compiled-effect-render 8/8, windowed-audio 5/5, audio-capture
+  5/6 -- the survivor counts cameras from the drivers-present flag and is equivalent on a one-camera
+  fake device now that CNA enumerates it.
+- Package: 947 files, 1,266,055 bytes, SHA-256 87cdfbbe...08af, rebuilt and repacked byte-identical.
+- Upstream findings: 13 fixed, 15 not applicable (removed routes), 7 open (2, 6, 29, 30, 32, 33, 35);
+  the table at the top of `docs/upstream-cna-findings.md` is the record.

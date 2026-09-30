@@ -2,7 +2,7 @@
   "name": "compiled-effect reflection, write-through and render",
   "artifact": "dist",
   "build": "npm run build",
-  "command": "xvfb-run -a node --test test/effect-reflection.integration.mjs",
+  "command": "node --test test/effect-reflection.integration.mjs",
   "mutants": [
     {
       "id": "skip-scalar-write-through",

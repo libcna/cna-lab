@@ -1,37 +1,32 @@
 # CNA-TS
 
 `cna-ts` is the single canonical TypeScript and JavaScript binding for
-[CNA](https://github.com/openeggbert/cna). TypeScript source is the only implementation source;
+[CNA](https://github.com/libcna/cna). TypeScript source is the only implementation source;
 the package build emits the JavaScript used by both languages and the declarations used by
 TypeScript.
 
-> Status: the complete XNA 4.0 **runtime** surface is projected and verified. Two strict profiles
-> hold at zero differences — the seven-assembly Windows runtime (257 reference types, 2,964 members)
-> and the GamerServices/Net/Avatar set (74 types, 676 members) — which together with the Xbox 360
-> contract is 331 of 331 runtime types, with zero missing members, signature mismatches,
-> runtime-symbol differences, internal leaks or allowlist entries. What is deliberately not
-> projected is the 128-type content pipeline, which runs in the content build rather than in a game.
+> Status: the complete XNA 4.0 **runtime** surface is projected and verified. The seven-assembly
+> Windows runtime profile (257 reference types, 2,964 members) and the GamerServices/Net/Avatar set
+> (74 types) hold at zero differences, zero runtime-symbol differences and zero internal leaks,
+> with no allowlist. The content pipeline is deliberately not projected: it runs in the content
+> build rather than in a game.
 >
-> Two real backends run the same public API. An opt-in Node-API bridge executes CNA C ABI 0.20.0 on
-> Linux HEADLESS with NULL audio through 581 imported routes, and against a windowed OPENGLES3
-> library under Xvfb it draws real pixels — a render target cleared through the public API reads
-> back exactly; a WebAssembly backend runs the same
-> `Game`, `GraphicsDeviceManager`, `Texture2D` and `SpriteBatch` for 60 and 600 real frames in a
-> browser on a WebGL2 context. No native binary and no CNA library is bundled, and without an
+> Two real backends run the same public API against CNA C ABI 0.35.0 (measured 2026-09-30 at CNA
+> `next` 5b4edd6cc). An opt-in Node-API bridge imports 1,040 routes, each prototype-checked against
+> CNA's headers; it runs on Linux against a HEADLESS library (SDL3 platform and audio) and against
+> a windowed OPENGLES3 library under CNA's private display runner, where it draws and reads back
+> real pixels. A WebAssembly backend reaches 1,014 of those routes and runs the same `Game`,
+> `GraphicsDeviceManager`, `Texture2D` and `SpriteBatch` for 60 and 600 frames in headless
+> Chromium on a WebGL2 context. No native binary and no CNA library is bundled, and without an
 > explicitly loaded backend native operations fail rather than simulating execution.
 >
-> Gamer services and networking are declaration-complete and refuse at runtime with
-> `GamerServicesNotAvailableException`, the exception XNA itself raises where the platform is
-> absent. Modern CNA surface outside XNA lives under `cna-ts/extensions`: `extensions/runtime`
-> carries platform identity, renderer selection and the runtime log, verified on both backends;
-> `extensions/graphics` carries the PBR material, the render pipeline and its frame statistics, and
-> the post-process chain — bloom, tonemapping, FXAA, SSAO and screen-space reflections — verified
-> against a build with CNA's extended graphics layer compiled in and reporting the truthful
-> not-supported branch where it is not; and `extensions/content` reads `.cnb`, CNA's own compiled
-> content format, ending in an ordinary `Texture2D` or `SpriteFont`; and `extensions/devices`
-> reports the host itself — cores, memory, power, display safe area, locales, clipboard and
-> cameras — which XNA had no way to ask about at all, with `extensions/sensors` beside it for the
-> accelerometer and what the platform says about the rest.
+> CNA surface outside XNA lives under `cna-ts/extensions`: `runtime` (platform identity, the 18
+> renderer identities, the runtime log), `graphics` (the CRT, depth and ASCII screen effects, PBR
+> effects, debug drawing, shader effects, capability queries and indirect-draw arguments -- CNA
+> removed its engine layer at ABI 0.30 and this package followed), `content` (`.cnb`, CNA's own
+> compiled content), `devices` (cores, memory, power, safe area, locales, clipboard, cameras),
+> `sensors` and `input`. Gamer services run CNA's dispatcher and Guide screens; a signed-in gamer
+> needs a gamer service, and `GamerServicesNotAvailableException` is what XNA raises without one.
 
 ## One package for both languages
 
@@ -58,7 +53,7 @@ backend modules are not package exports.
 ## Opt-in Node CNA runtime
 
 The source distribution includes `native/cna_node_bridge.c` and a build helper. Build the adapter
-against a CNA ABI 0.20 header checkout and Node 20+ headers, then load an explicit compatible
+against a CNA ABI 0.35 header checkout and Node 20+ headers, then load an explicit compatible
 shared library:
 
 ```bash
@@ -71,30 +66,18 @@ import { LoadNodeNativeBackend } from "cna-ts/runtime";
 await LoadNodeNativeBackend({
   CnaLibrary: "/absolute/path/to/libcna_c_api.so",
   BridgeModule: "/absolute/path/to/cna_node_bridge.node",
+  // Optional: where TitleContainer resolves title content. Defaults to the working directory,
+  // because CNA's own default is the executable's directory -- for Node, where node is installed.
+  TitleLocation: "/absolute/path/to/app",
 });
 ```
 
-The adapter enforces the ABI 0.20 window and uses exactly 581 audited symbols. Every one of them
-has its declared function-pointer type checked against the canonical headers under
-`-Wall -Wextra -Werror`, so a route whose signature moves is a build failure rather than a runtime
-surprise. Current native evidence
-covers game lifecycle, graphics manager/device borrowing, clear/present, Texture2D Color
-upload/readback/regions/mips, PNG `FromStream` and encoding, public SpriteBatch drawing,
-SpriteFont XNB/DrawString, model XNB resource construction, static/dynamic vertex/index buffers,
-state/texture/buffer/render-target binding, RenderTarget2D/RenderTargetCube, advanced and
-Effect-bearing SpriteBatch Begin,
-OcclusionQuery lifecycle, title-storage reads, stable GameWindow state and event registrations, renderer
-capabilities, keyboard/mouse/gamepad/touch polling, PCM SoundEffect and dynamic buffers,
-MediaPlayer with a generated silent WAV, VideoPlayer control state, and isolated Storage CRUD.
-HEADLESS reports no microphones. No redistributable XACT or video fixture was available, and CNA's
-player-owned video frame texture cannot yet be projected safely, so authored-bank playback and
-video decode/`GetTexture` remain explicit boundaries. This HEADLESS artifact constructs and applies
-all five stock effects, executes effect-owned `EffectPass.Apply`, `Model.Draw`, and Effect-bearing
-SpriteBatch Begin. The compiled-Effect creation route is bound, but legal FXB input returns the
-backend's documented result 6 because this renderer reports no compiled-effects capability; no
-compiled shader or visible-output claim is made. Texture3D/Cube creation is also explicitly unsupported by this artifact even
-though its exact ABI binding and Color codecs are implemented. Linux HEADLESS evidence is not a Windows, visible-GPU,
-Electron, browser, or mobile support claim.
+The adapter enforces the ABI 0.35 window. Every imported symbol has its function-pointer type
+checked against the canonical headers under `-Wall -Wextra -Werror`, so a route whose signature
+moves is a build failure rather than a runtime surprise. What each artifact configuration supplies
+-- a mixer, FFmpeg durations, displays, cameras, compiled effects, CNA's device and graphics
+extension layers -- is measured by the suites rather than assumed, and XNA's Reach profile limits
+are CNA's and asserted as such. Linux evidence is not a Windows, Electron or mobile support claim.
 
 ## CNB, beside XNB
 
@@ -178,6 +161,17 @@ CNA_SOURCE_PATH=/path/to/cna \
 CNA_NATIVE_LIBRARY=/path/to/libcna_c_api.so \
 npm run test:native
 ```
+
+Windowed suites need a display. On a shared workstation run them through CNA's private display
+server rather than the desktop:
+
+```bash
+/path/to/cna/tools/platform/run_gpu_tests_private.sh --exec env -u WAYLAND_DISPLAY \
+  SDL_VIDEODRIVER=x11 SDL_AUDIO_DRIVER=dummy CNA_WINDOWED_LIBRARY=/path/to/libcna_c_api.so \
+  npm run test:windowed:required
+```
+
+Browser suites run headless Chromium; unset `DISPLAY` so Chromium picks its headless WebGL2 path.
 
 Generated `.js`, `.d.ts`, declaration maps, and source maps are written only to `dist/`. The
 legacy `cna-js` package is not a dependency and is being retired.

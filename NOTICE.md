@@ -3,7 +3,7 @@
 CNA-TS (`cna-ts`) is licensed under the Microsoft Public License (Ms-PL).
 
 CNA-TS is the canonical TypeScript and JavaScript binding for
-[CNA](https://github.com/openeggbert/cna). The npm package contains generated JavaScript and
+[CNA](https://github.com/libcna/cna). The npm package contains generated JavaScript and
 TypeScript declarations but does not contain Microsoft XNA Framework binaries.
 
 ## Microsoft XNA Framework naming

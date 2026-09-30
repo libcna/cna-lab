@@ -1,86 +1,52 @@
 # Upstream CNA findings
 
-Defects and gaps this binding measured in `cnanext` and did not fix, because fixing them is the CNA
-agent's work and editing that repository from here would be worse than reporting it. Each entry says
-exactly what was run, what happened, and what a fix would look like — and each has a test in this
-package that fails when the behaviour changes, so a repaired upstream is noticed rather than
+Defects and gaps this binding measured in CNA and did not fix, because fixing them is CNA's work.
+Each entry below says what was run, what happened and what a fix would look like, and each open
+one has a detector here that fails when the behaviour changes, so a repair is noticed rather than
 silently outgrowing its workaround.
 
-`docs/wasm-backend.md` carries the two Emscripten build-system gaps separately, because they are
-build configuration rather than runtime behaviour. **Both of those are now fixed upstream and
-verified here** — see items 3 and 4 below.
+## Status at CNA C ABI 0.35.0
 
-Re-checked on 2026-09-01, and the artifact is named separately from the source because they are not
-the same revision. `cnanext` HEAD is `7712534d`. The libraries every measurement below was made
-against were built earlier the same day and are therefore older, by a bound their timestamps give
-rather than by a revision either of them records:
+Re-measured on 2026-09-30 against CNA `next` 5b4edd6cc: the HEADLESS artifact (SDL3 platform and
+audio), the windowed OPENGLES3 artifact inside CNA's private Weston/Xwayland display, and the
+WEBGL2 WebAssembly artifact in headless Chromium. This table supersedes the per-entry "Status"
+lines, which record what was true when each entry was written. "Removed" means the routes the
+entry concerns left the C ABI when CNA removed its engine layer at 0.30. Plain-C and browser
+reproducers for the open items live in CNA's `build-probe/qual-probes/ts-*`.
 
-| artifact | built | carries at most | behind HEAD by |
-| --- | --- | --- | --- |
-| windowed OPENGLES3, `cmake-build-debug` (EasyGL, Mesa 25.0.7, OpenGL ES 3.2) | 15:55 | `c195fe8ce` | `7712534d` |
-| HEADLESS, `cmake-build-tsnext` | 12:51 | `e5ae0820e` | `c195fe8ce`, `7712534d` |
+| # | Finding | Status at 0.35.0 | Evidence |
+| ---: | --- | --- | --- |
+| 1 | post-process owned pass leaks a count | not applicable: removed | -- |
+| 2 | mixer prints its format to stderr on success | **open** | `AudioMixer.cpp:197` unchanged; the browser harness still filters it |
+| 3 | wasm target did not pin its WebGL version | fixed (0.21) | link contract `OK_ASYNCIFY_OFF_WEBGL2` |
+| 4 | `-sASYNCIFY=1` on every Emscripten link | fixed (0.21) | same |
+| 5 | motion `IsDataValid` disagrees after withdrawal | fixed | native sensor detector flipped |
+| 6 | gyroscope has no synthetic test backend | **open** | native detector: `Start` refused, injection unreadable |
+| 7 | OPENGLES3 render-target readback zeros | fixed (48ab0de7f) | windowed suite |
+| 8 | compute shader create vs its header | not applicable: removed | -- |
+| 9 | compute limits zero after the first draw | fixed (48ab0de7f) | windowed capability test |
+| 10 | clustered-lighting creates take the wrong handle | not applicable: removed | -- |
+| 11 | destroyed test camera leaves a dangling override | fixed (0.35) | native child process survives; browser `SURVIVED` |
+| 12-17 | particles, packed depth, prepass, skybox, shadow maps, effect borrow | not applicable: removed | -- |
+| 18 | refused `cna_game_destroy`, then SIGSEGV at exit | fixed (0.35) | `ts-game-destroy-refused.c`: refused (3), exit 0 on HEADLESS and OPENGLES3 |
+| 19 | a PBR effect's texture slots have two sources of truth | not applicable: `cna_pbr_effect_apply_material` removed, one source left | -- |
+| 20-21 | GPU culler, weighted-blended header | not applicable: removed | -- |
+| 22 | a `ShaderEffect`'s first `SpriteBatch` draw is lost | fixed (0.35) | windowed detector flipped |
+| 23-24 | `_init` zero matrices, `.cube` loader results | not applicable: removed | -- |
+| 25 | exception barrier had no `std::logic_error` arm | fixed; its two routes removed | -- |
+| 26 | `create_random` header does not say it never randomises | not applicable: it randomises now | avatar oracle |
+| 27 | `MeasureString` counts a negative trailing bearing | fixed (0.35) | sprite-font oracle, Node and browser |
+| 28 | `Microphone.BufferDuration` range | fixed (0.35) | windowed detector flipped |
+| 29 | no test-only signed-in gamer for net sessions | **open** | `tools/upstream-repro/net-signed-in-gamer.py` |
+| 30 | WEBGL2: a draw into two bound targets reaches none | **open** | `tools/upstream-repro/webgl2-multiple-render-targets.mjs` (HiDef): one target 233 px, two targets 0 |
+| 31 | XACT example calls a READONLY byte "settable" | fixed | `XactFileGen.hpp:156` writes `0x01` PUBLIC |
+| 32 | wasm: a standalone `GraphicsDevice` makes the game undestroyable | **open** | `ts-wasm-standalone-device.mjs`: game destroy throws `ErrnoError` errno 44; control disposes |
+| 33 | `FrameworkDispatcher::Update` ages touch state | **open** (by source) | `FrameworkDispatcher.cpp:67-69` still calls `TouchPanel::Update()` |
+| 34 | cameras enumerated without `SDL_INIT_CAMERA` | fixed (0.35) | browser enumerates Chromium's camera; host camera Ready |
+| 35 | mixer sample rate not on the C ABI | **open** (by header) | no route exposes it |
 
-Both of those commits are `modules/net` and `net_sessions.h` only -- no graphics, audio, effect,
-content or renderer file between them -- so no finding below depends on the gap. It is stated rather
-than papered over because the two are genuinely different revisions and a later session should not
-have to re-derive that.
-
-**Where "under `xvfb-run`" below actually ran.** Until 2026-09-01 it did not run under Xvfb at all.
-`xvfb-run` sets `DISPLAY` and leaves `WAYLAND_DISPLAY` alone, and SDL3 prefers Wayland whenever that
-is set, so every windowed measurement went to a real window on this host's desktop and therefore to
-the **AMD Radeon 780M (radeonsi)**. The suites now pin SDL to `x11`, which reaches Xvfb and Mesa's
-**llvmpipe**. Both are legitimate OpenGL ES 3.2 implementations and the findings below reproduce on
-whichever one is behind the window; two *tests* had pinned the AMD part's float-to-unorm8 rounding
-as exact and were corrected to a one-byte tolerance. Where a finding's numbers could depend on the
-rasterizer, it is the AMD part that produced them. Every detector was re-run and every one still fires: windowed 25,
-native 52, extensions 10, CNB 39, model-part 9, content-survey 8, input-devices 3, media-library 6,
-avatars 8, sprite-font-oracle 5, compiled effects 10, browser 13 -- all passing, which for a
-detector means the behaviour it pins has not changed.
-
-**Re-checked on 2026-09-02.** `cnanext` HEAD is `e3e72bcac`, two commits past the `5347b52ea`
-the items below were measured against, and the whole delta is
-`fix(SAMPLE-148): accept const SpriteBatch states` and `docs(XNB-45): refresh runtime support
-matrix` — `SpriteBatch.hpp`, `SpriteBatch.cpp`, its tests and one markdown file. No
-graphics-renderer, C-API, framework, gamer-services, camera, audio, media or build-system file lies
-between the two, so items 29, 30 and 32 and the Emscripten video rule are unchanged by inspection
-rather than by re-running their reproducers.
-The video rule was read rather than assumed: `modules/CMakeLists.txt:20` still puts `EMSCRIPTEN` in
-the set that makes `_cna_ffmpeg_platform_supported` false, and `CNA_ENABLE_VIDEO=ON` there is still
-a `FATAL_ERROR`. Finding 29 was re-checked by enumerating every `*_test_backend_ext` route CNA has —
-sensors, vibration, message box, file dialog, system tray and camera — and there is still none for a
-signed-in gamer.
-
-Items 34 and 35 are new, and both came out of the same session: the first browser run that put a
-tone of a known frequency through CNA's mixer and asked where it landed.
-
-Items 31, 32 and 33 are new. Items 2 and 11 gained WebAssembly measurements: four more of CNA's own notices
-arrive on `stderr` with no level and one of them fires on a clean sine tone, and the dangling
-camera provider of item 11 turns out to be reachable through `cna_camera_get_count_ext` as well as
-through `cna_camera_create` — which under WebAssembly traps by name rather than taking a signal.
-
-Item 30 is new, and is the first finding in this document measured on the **WEBGL2** renderer
-rather than on OPENGLES3 or HEADLESS. It was found by asking why a depth/normal prepass that
-reported itself supported, began, drew and ended without a single failure had written nothing at
-all, and the answer turned out to have nothing to do with the prepass.
-
-Item 28 is new, found by asking the two audio capability rows which backend they had been measured
-on -- both said HEADLESS, whose audio platform is `NULL`. Item 29 is new, and is a testability
-request rather than a defect. Items 5 and 6 are new,
-found while projecting the sensor families; item 7 is new, found while widening the windowed
-qualification to three renderers; items 8 and 9 are new, found while projecting the engine
-layer's compute path, item 10 while projecting its clustered lighting, item 11 -- a
-segmentation fault -- while projecting camera frame capture, and item 12 while projecting the
-particle draw. Items 13 and 14 are new, found while projecting the depth/normal prepass and the
-decal projector that reads it, item 15 while projecting the atmosphere, item 16 while
-projecting the cascaded, spot and cube shadow passes, items 17 and 18 while projecting the
-post-process passes, item 19 while projecting the physically-based materials, item 20 while
-projecting the culling families, and items 21 and 22 while projecting the transparency
-families and the custom shader effects they need, and items 23 and 24 while projecting the
-shadow-receiver contract and the last of the engine layer.
-
-**Items 7 and 9 are now fixed upstream**, in `48ab0de7f`, and verified here against the rebuilt
-library. Both were found by this package, both were *asserted* rather than worked around, and both
-detectors fired the moment the repair landed. Four of the twenty-four findings are now closed.
+Seven remain open (2, 6, 29, 30, 32, 33, 35). No new CNA defect was found in this pass; the one
+binding defect it found -- `CreateRandom` dropping its body type -- was this package's and is fixed.
 
 ## 1. `cna_post_process_chain_add_owned_pass` leaks the owned-resource count
 

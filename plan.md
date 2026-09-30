@@ -1,6 +1,6 @@
 # CNA-TS implementation plan
 
-Status date: 2026-08-31
+Status date: 2026-09-30 (requalified at CNA C ABI 0.35.0, CNA `next` 5b4edd6cc)
 
 Selected profiles: XNA 4.0 Windows runtime and XNA 4.0 Windows LIVE (GamerServices, Net, Avatar)
 
@@ -25,10 +25,10 @@ phase is complete. API completeness can only be claimed from a reproducible stri
   the content build rather than in a game.
 - [x] `Game` drives its managed pipeline from real CNA lifecycle callbacks on both backends; the
   default/backendless path remains explicitly unavailable.
-- [x] Linux x86-64 HEADLESS Node execution is verified against a CNA C ABI 0.21.0 artifact built
-  out of tree from `cnanext` against `sharp-runtimenext`.
-- [x] A windowed Linux qualification exists beside it, now across **three renderers** — OPENGLES3,
-  SDL_RENDERER and SOFTWARE, all under Xvfb. Each reports its own identity and capability flags,
+- [x] Linux x86-64 HEADLESS Node execution is verified against a CNA C ABI 0.35.0 artifact (SDL3
+  platform and audio) built from CNA `next` 5b4edd6cc against sharp-runtime 88f6b11f.
+- [x] A windowed Linux qualification exists beside it: at 0.35.0 on OPENGLES3 inside CNA's private
+  Weston/Xwayland display (earlier generations also ran SDL_RENDERER and SOFTWARE). Each reports its own identity and capability flags,
   applies a stock `BasicEffect` for real, runs 60 and 600 frames, fills a real `GraphicsAdapter`,
   and exercises `GameWindow` state HEADLESS cannot reach. All three read back all sixteen
   `RenderTarget2D` texels exactly. OPENGLES3 briefly did not: that regression was asserted as
@@ -36,8 +36,8 @@ phase is complete. API completeness can only be claimed from a reproducible stri
   `48ab0de7f`, and the assertion failing is how this package found out. Opt-in through
   `CNA_WINDOWED_LIBRARY`; skips with a reason where no windowed library or display exists.
 - [x] A WebAssembly backend runs the same public XNA API for 60 and 600 real frames in headless
-  Chromium on a WebGL2 context, and it is no longer a slice: **33 backend interfaces, 1525 members,
-  1864 CNA routes**, with `ACTIONABLE_LOCAL=0` and every remaining difference from the Node adapter
+  Chromium on a WebGL2 context, and it is no longer a slice: **23 backend interfaces (one partial), 683
+  members, 1,014 CNA routes** at 0.35.0, with `ACTIONABLE_LOCAL=0` and every remaining difference from the Node adapter
   carrying a measured blocker.
 - [x] The XNA structural difference count is zero on both profiles, with no missing members and an
   empty allowlist.
@@ -145,7 +145,7 @@ Electron, or mobile support.
 - [x] Managed lifecycle tests execute the contract through an internal backend and the native
   ownership state machine without exposing public injection.
 - [x] Implement the first real backend as a small N-API adapter over an explicitly supplied CNA
-  ABI 0.21 library.
+  ABI 0.35 library.
 - [x] Implement the second real backend over the `cna_c_api` Emscripten module, answering the same
   private boundary from a browser.
 - [x] Exact ABI version, UTF-8 errors, synchronous callbacks, bigint handles, child ownership, and
@@ -154,19 +154,18 @@ Electron, or mobile support.
 
 ## CNA C ABI status
 
-- [x] Current CNA exposes experimental C ABI 0.21.0 across 61 public headers and 4,054 unique
-  exported declarations, measured from `cnanext` 599d14e5. The 0.20.0/4,051 generation and the
-  historical 0.7.0/2,861 baseline are recorded in `NEXT.md` and `docs/cna-abi-audit.md`, not here.
-  0.21 added exactly three declarations, removed and renamed none, and changed no prototype this
-  binding imports; under the experimental-`0.x` acceptance policy a 0.21 library would have been
-  refused by the 0.20 window rather than mis-driven, so the window was moved deliberately.
+- [x] Current CNA exposes experimental C ABI 0.35.0 across 60 public headers and 3,202 exported
+  declarations. At 0.30 CNA removed its engine layer; the binding removed the routes, backends,
+  public classes and tests that depended on it, and its window moved to 0.35 only after every
+  remaining import compiled against the 0.35 prototypes. The Node adapter imports 1,040 routes, the
+  WebAssembly backend 1,014. Earlier generations are recorded in `docs/cna-abi-audit.md`.
 - [x] The ABI covers version/error handling plus runtime, graphics, textures, SpriteBatch routes,
   input, content, audio/XACT, media, storage, events, and resource handles, and beyond XNA it adds
-  CNB, the modern engine layer, devices, sensors and the extended input families.
+  CNB, the retained CNAEXT screen effects, devices, sensors and the extended input families.
 - [x] A reproducible read-only audit verifies ABI version/header/function counts and all 46 exact
   cross-subsystem sentinel symbols.
 - [x] Produce or obtain a consumable C-ABI WebAssembly ESM artifact: `cna_c_api.mjs` plus
-  `cna_c_api.wasm` are built out of tree with Emscripten 6.0.3 and executed in a browser.
+  `cna_c_api.wasm` are built out of tree with Emscripten (6.0.9 at 0.35.0) and executed in a browser.
 - [x] The audit measures that artifact directly — its hashes, its exposed route count and whether
   every route the WebAssembly backend resolves is present — rather than looking for a `.wasm`
   committed to the CNA worktree, which is not how the artifact is produced.
@@ -807,9 +806,8 @@ Electron, or mobile support.
 ## Browser/WASM
 
 - [x] CNA contains real Emscripten-aware renderer/runtime code.
-- [x] The C-ABI ESM loader and `.wasm` are built out of tree from `cnanext` with Emscripten 6.0.3;
-  `docs/wasm-backend.md` records the exact recipe, including the two link settings the upstream
-  target does not set for itself.
+- [x] The C-ABI ESM loader and `.wasm` are built from CNA with Emscripten; `docs/wasm-backend.md`
+  records the recipe, which since 0.21 needs no binding-specific link setting.
 - [x] Record the required module factory, memory/UTF-8, callback, canvas, shutdown, ABI provenance,
   and CI artifact contract in `docs/cna-abi-audit.md`.
 - [x] Browser smoke verifies initialization, graphics/resources, 60 frames, shutdown, and zero
@@ -869,8 +867,8 @@ Electron, or mobile support.
 
 - [x] Node managed values, components/services, content lifetime, and package consumers are
   verified.
-- [x] Node CNA runtime execution is verified on Linux x86-64 HEADLESS with an explicit compatible
-  ABI 0.20 artifact.
+- [x] Node CNA runtime execution is verified on Linux x86-64 HEADLESS and windowed OPENGLES3 with
+  explicit ABI 0.35 artifacts.
 - [ ] Electron is planned, not supported or build-verified.
 - [ ] Android and iOS are planned, not supported or build-verified.
 - [ ] Capacitor/Electron dependencies stay out of the template until they prove a real runtime path.
@@ -897,77 +895,7 @@ Electron, or mobile support.
 
 ## Upstream CNA blockers
 
-Ten runtime defects and two build-system gaps remain, all in `cnanext`, all measured here and none
-fixed from this session. `docs/upstream-cna-findings.md` records each with its reproduction and a
-proposed change, and each has a test in this package that fails when the behaviour changes.
-
-Three of the runtime four came out of the draw work. Soft particles never fade, although the depth
-image and the softness reach CNA and read back (item 12). The prepass's packed depth encoding is
-exact in arithmetic and loses all of it in the eight-bit target it is written into, delivering one
-part in 255 where its own source claims one part in 2^24 — measured with a sweep, and demonstrated
-rather than guessed by a 256-level control that restores the exact accuracy (item 13). And three
-depth/normal prepass routes answer `INTERNAL` where their header documents `INVALID_STATE`, because
-`std::logic_error` is not translated where CNA's own render pipeline translates it in the same
-source file (item 14). The fifth came out of the atmosphere: two getters document the same
-counted-borrow contract and only one of them keeps it, so a caller who follows the header either
-leaks a handle that makes the game undestroyable or destroys their own skybox, depending which
-route they read (item 15). The sixth is the same shape one level down: all four shadow maps
-document the counted-borrow rule in the same words and the spot map is the only one whose destroy
-never reads the borrow count its own resource keeps, so the mistake the other three catch is a
-use-after-free there (item 16).
-
-The last two came out of the post-process passes. One is the borrow rule again from a third door:
-three engine-layer routes lend an `Effect`, all three mint a registered handle, and only
-`cna_post_process_effect_pass_get_effect` tells the caller not to destroy it -- so obeying that
-header is what makes the game undestroyable (item 17). The other is the consequence every leak
-finding here shares, and it is worse than the refusal itself: a process that *ends* with a game
-whose destroy was refused takes SIGSEGV after its last statement has run, and an explicit
-`process.exit(0)` does not avoid it. A game simply left alive exits cleanly and a refusal that is
-cleaned up and retried exits cleanly, so the crash belongs to the refusal rather than to a live
-game at exit (item 18).
-
-The ninth came out of the physically-based materials, and it is the borrow rule's opposite number: a
-PBR effect's seven texture slots have **two** sources of truth. Applying a material writes the C++
-effect's pointers; the slot setter writes the C API's own retained-handle table, which is the only
-thing the slot getter reads. Measured identically on HEADLESS and OPENGLES3, a texture applied with
-a material is invisible to the getter, a texture placed through the setter is invisible to the
-extractor, and applying a material with an empty slot does not clear one the setter filled (item 19).
-
-The tenth is the quietest and the most expensive to adopt. The GPU instance culler dispatches a
-compute shader that tests every instance against the camera's six frustum planes and increments a
-visible count — and it keeps everything. Three instances ten thousand units outside a hundred-unit
-frustum all survive, on the only renderer built here that supports the culler at all. `is_supported`
-answers true and the unsupported reason is empty, so a game that adopts it pays for the dispatch,
-the upload and the readback and then draws exactly what it would have drawn (item 20).
-
-The runtime one: `cna_post_process_chain_add_owned_pass` consumes a pass handle without the
-`RemoveOwnedGraphicsResourceFor` its sibling `_destroy` performs, so the game's
-owned-graphics-resource counter never falls and every later `cna_game_destroy` in the process
-refuses. It is the capability inventory's single `UPSTREAM_CNA_BLOCKED` row.
-
-The build-system two, both worked around in this binding's build configuration rather than by
-editing it, and both written up in `docs/wasm-backend.md`:
-
-- `cna_c_api_wasm` does not pin `MIN_WEBGL_VERSION`/`MAX_WEBGL_VERSION`, so Emscripten negotiates a
-  WebGL 1 context while EasyGL asks SDL for GLES 3 and its GLSL ES 3.00 shaders fail to compile.
-  The graphics examples already set the pair; the artifact a binding consumes does not;
-- `CNA::EmscriptenAbi` adds `-sASYNCIFY=1` to every Emscripten link. SDL3's Emscripten swap calls
-  `emscripten_sleep(0)` on each present, and Asyncify's rewind re-enters the bottom export with no
-  arguments — under `WASM_BIGINT` an `i64` handle given `undefined` throws. Every route in this ABI
-  takes a `CNA_Handle`, so no route survives an unwind.
-
-Separately, and not a blocker for this binding: compiled `Effect` execution is a **renderer
-property**, and five backends have now each been handed the same `.fxb` and asked. OPENGLES3, built
-with `CNA_EASYGL_COMPILED_EFFECTS=ON`, creates it, reflects it and **draws with it** -- the texels
-match the shader's own arithmetic across three parameter states and two techniques. SDL_RENDERER,
-SOFTWARE, HEADLESS and the WEBGL2 browser artifact all refuse with CNA result 6 naming
-`GraphicsCapability::CompiledEffects is false`. So this is one capability with five measured
-answers rather than a fact about HEADLESS, and every gate that depends on it now asks the renderer
-instead of reading its name. Two entries
-that used to sit here are gone. `GraphicsAdapter.DefaultAdapter` is qualified on four renderers
-now; and XNA's standalone `GraphicsDevice` constructor works — `cna_graphics_device_create` takes
-an adapter index and presentation parameters and no game at all, so the claim that no path could
-exercise it was wrong, and a caller-created device now round-trips a texture's exact texels and
-releases its own handle.
-
-These are narrower than “CNA has no ABI”: the native C ABI exists and is broad.
+Seven findings remain open at 0.35.0 -- 2, 6, 29, 30, 32, 33 and 35 -- all in CNA, none fixed from
+here. Thirteen are fixed upstream and the other fifteen concerned routes CNA removed. The table at the top of
+`docs/upstream-cna-findings.md` is the current state; each open item has a detector or a
+reproducer that fails when the behaviour changes.

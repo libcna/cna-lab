@@ -34,7 +34,7 @@
   "license": "Ms-PL",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/openeggbert/cna-ts.git",
+    "url": "git+https://github.com/libcna/cna-ts.git",
     "directory": "content"
   },
   "sideEffects": false,

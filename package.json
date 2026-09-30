@@ -125,10 +125,10 @@
   "license": "Ms-PL",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/openeggbert/cna-ts.git"
+    "url": "git+https://github.com/libcna/cna-ts.git"
   },
   "bugs": {
-    "url": "https://github.com/openeggbert/cna-ts/issues"
+    "url": "https://github.com/libcna/cna-ts/issues"
   },
   "sideEffects": false,
   "devDependencies": {

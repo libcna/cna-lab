@@ -103,7 +103,7 @@ try {
       `import { Vector3 } from "cna-ts/xna";\n` +
       `import { GetRendererInfo } from "cna-ts/extensions";\n` +
       `import { GetPlatformInfo, GraphicsRendererType, RendererSelection } from "cna-ts/extensions/runtime";\n` +
-      `import { CreatePbrMaterial, RenderPipeline, TonemappingMode } from "cna-ts/extensions/graphics";\n` +
+      `import { CreateTextureTransform, CrtMaskType } from "cna-ts/extensions/graphics";\n` +
       `import { CnbAssetType, CnbDocument, CnbFormat } from "cna-ts/extensions/content";\n` +
       `import { CnaDevices, PowerState } from "cna-ts/extensions/devices";\n` +
       `import { Accelerometer, CnaSensors, SensorState } from "cna-ts/extensions/sensors";\n` +
@@ -119,9 +119,8 @@ try {
       `assert.equal(GraphicsRendererType.WebGL2, 6);\n` +
       `assert.throws(() => GetPlatformInfo(), NativeUnavailableError);\n` +
       `assert.throws(() => RendererSelection.GetState(), NativeUnavailableError);\n` +
-      `assert.equal(TonemappingMode.Aces, 3);\n` +
-      `assert.throws(() => CreatePbrMaterial(), NativeUnavailableError);\n` +
-      `assert.throws(() => new RenderPipeline({}), NativeUnavailableError);\n` +
+      `assert.equal(CrtMaskType.ShadowMask, 2);\n` +
+      `assert.throws(() => CreateTextureTransform(), NativeUnavailableError);\n` +
       `assert.equal(CnbAssetType.SpriteFont, 4);\n` +
       `assert.throws(() => CnbFormat.HasMagic(new Uint8Array(4)), NativeUnavailableError);\n` +
       `assert.throws(() => CnbDocument.Parse(new Uint8Array(4)), NativeUnavailableError);\n` +
@@ -173,7 +172,7 @@ try {
       `import { Matrix, Vector3 } from "cna-ts/xna";\n` +
       `import type { RendererInfo } from "cna-ts/extensions";\n` +
       `import type { CnaPlatformInfo, RendererIdentity } from "cna-ts/extensions/runtime";\n` +
-      `import type { PbrMaterial, RenderPipelineSettings } from "cna-ts/extensions/graphics";\n` +
+      `import type { ImageBasedLight, TextureTransform } from "cna-ts/extensions/graphics";\n` +
       `import type { CnbChunk, CnbMetadata } from "cna-ts/extensions/content";\n` +
       `import type { CameraInventory, HostInfo } from "cna-ts/extensions/devices";\n` +
       `import type { AccelerometerReading, SensorSupport } from "cna-ts/extensions/sensors";\n` +
@@ -186,8 +185,8 @@ try {
       `const renderer: RendererInfo | undefined = undefined;\n` +
       `const platform: CnaPlatformInfo | undefined = undefined;\n` +
       `const identity: RendererIdentity | undefined = undefined;\n` +
-      `const material: PbrMaterial | undefined = undefined;\n` +
-      `const pipeline: RenderPipelineSettings | undefined = undefined;\n` +
+      `const light: ImageBasedLight | undefined = undefined;\n` +
+      `const transform: TextureTransform | undefined = undefined;\n` +
       `const chunk: CnbChunk | undefined = undefined;\n` +
       `const metadata: CnbMetadata | undefined = undefined;\n` +
       `const host: HostInfo | undefined = undefined;\n` +
@@ -197,7 +196,7 @@ try {
       `const joystick: JoystickState | undefined = undefined;\n` +
       `const haptics: HapticCapabilities | undefined = undefined;\n` +
       `const editing: TextEditingEvent | undefined = undefined;\n` +
-      `void [vector, color, vector3, status, renderer, platform, identity, material, pipeline,\n` +
+      `void [vector, color, vector3, status, renderer, platform, identity, light, transform,\n` +
       `  chunk, metadata, host, cameras, reading, support, joystick, haptics, editing];\n`,
   );
   installTarball(typescript, tarball);

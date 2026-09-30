@@ -582,7 +582,7 @@
       "operation": "Browser/Wasm CNA runtime",
       "category": "VERIFIED_WEBASSEMBLY",
       "owner": "CNA-TS",
-      "evidence": "60 and 600 real frames of the public XNA Game/GraphicsDeviceManager/Texture2D/SpriteBatch path in headless Chromium on a WebGL2 context, ABI 0.21.0, no uncaught page error",
+      "evidence": "60 and 600 real frames of the public XNA Game/GraphicsDeviceManager/Texture2D/SpriteBatch path in headless Chromium on a WebGL2 context, ABI 0.35.0, no uncaught page error",
       "proof": [
         "wasmRoute:cna_game_create",
         "wasmRoute:cna_game_run_one_frame",
@@ -1002,7 +1002,7 @@
       "operation": "Camera frame capture",
       "category": "VERIFIED_NATIVE",
       "owner": "CNA-TS",
-      "evidence": "opening the platform camera succeeds on a host that has none -- CNA documented contract -- and the state is what reports the absence: NotSupported with a 0x0 frame format. CNA own test backend then supplies what the hardware cannot: four distinct pixels published through it arrive in a caller-owned Texture2D with their channels the right way round, a second frame of sixteen different bytes replaces the first, a texture whose size does not match the frame is refused rather than resized, and the frame stays available until it is replaced. Every injectable state round-trips, and CNA refuses Closed and NotSupported for a device it opened. The injection hooks refuse a camera that is not the test backend, so a test cannot fabricate a reading for a real device. Three planted defects -- zeroed pixels, an acquisition that always claims success, and hooks that accept a real camera -- all fail. This is injection evidence, not hardware evidence. What changed is WHY the real path has nothing to say: it is not this host. Asked in headless Chromium launched with --use-fake-device-for-media-stream, with the camera permission granted and the browser enumerating one videoinput, CNA answers IsSupported true and enumerates zero cameras, and opening the platform camera answers NotSupported with a 0x0 frame. Sdl3CameraProvider::GetCameras calls SDL_GetCameras without anything ever having called SDL_InitSubSystem(SDL_INIT_CAMERA) -- the constant does not appear in CNA sources -- and SDL returns null with Camera subsystem is not initialized until it has. IsSupported answers true because SDL_GetNumCameraDrivers reads a compiled-in table and needs no initialisation, so a caller is told the platform supports cameras and handed an empty list. The Emscripten camera driver is compiled into the artifact, so the browser half is present and unreachable. That is upstream finding 34, it is not browser-specific -- the same provider serves every SDL3 platform -- and the refusal is asserted so a repaired CNA fails rather than going unnoticed. A physical camera remains unverified, but BLOCKED_UPSTREAM rather than hardware-pending",
+      "evidence": "CNA's own test backend supplies what hardware cannot: four distinct pixels published through it arrive in a caller-owned Texture2D with their channels the right way round, a second frame replaces the first, a texture whose size does not match the frame is refused rather than resized, and the frame stays available until it is replaced. Every injectable state round-trips, and CNA refuses Closed and NotSupported for a device it opened; the injection hooks refuse a camera that is not the test backend. The platform camera is the host's: at ABI 0.35 CNA initialises SDL's camera subsystem before enumerating (upstream finding 34, fixed), so this host's camera and headless Chromium's synthetic one are both enumerated, and the tests follow what the host offers.",
       "proof": [
         "route:cna_camera_create",
         "route:cna_camera_create_with_test_backend_ext",
@@ -1248,10 +1248,10 @@
       ]
     },
     {
-      "operation": "Windowed qualification across three renderers, with GameWindow and adapter state",
+      "operation": "Windowed qualification, with GameWindow and adapter state",
       "category": "VERIFIED_NATIVE",
       "owner": "CNA-TS",
-      "evidence": "The windowed suite now runs against every renderer it is pointed at and has been run against three: OPENGLES3, SDL_RENDERER and SOFTWARE, all ABI 0.21 and all under Xvfb. Each reports its own identity, capability flags and texture limit; each applies a stock BasicEffect for real; each runs 60 and 600 frames. GameWindow is exercised where HEADLESS cannot reach it: a title written and read back and restored, a native handle that stays a bigint, a screen device name, an orientation, and AllowUserResizing flipped and restored. Client bounds are measured rather than assumed, because the renderers disagree honestly -- OPENGLES3 and SDL_RENDERER report the 320x240 the manager requested, SOFTWARE reports 0x0 because it presents through a surface -- so what is asserted is that a renderer reporting a client area reports the requested one. SDL_RENDERER and SOFTWARE produce the exact sixteen render-target texels; OPENGLES3 no longer does, and that regression is asserted as measured rather than skipped, so its repair fails the test. See docs/upstream-cna-findings.md item 7",
+      "evidence": "The windowed suite runs against whichever windowed renderer it is pointed at. At ABI 0.35.0 it was run against OPENGLES3 inside CNA's private Weston/Xwayland display (earlier generations also ran SDL_RENDERER and SOFTWARE). The renderer reports its own identity, capability flags and texture limit, applies a stock BasicEffect for real and runs 60 and 600 frames. GameWindow is exercised where HEADLESS cannot reach it: a title written, read back and restored, a native handle that stays a bigint, a screen device name, an orientation, and AllowUserResizing flipped and restored; client bounds are the 320x240 the manager requested. XNA's Reach profile is the default and CNA enforces it -- one render target, no volume texture -- so the probes that need more ask for HiDef and Reach's refusal is asserted.",
       "proof": [
         "route:cna_render_target2d_create",
         "route:cna_graphics_device_set_render_targets",
@@ -1262,13 +1262,14 @@
       ]
     },
     {
-      "operation": "The camera use-after-free CNA has today",
-      "category": "UPSTREAM_CNA_BLOCKED",
-      "owner": "CNA",
-      "evidence": "destroying a test-backend camera and then opening the platform one is a segmentation fault in CNA 0.21.0: the C ABI installs the test provider as a process-wide platform override holding a raw pointer into the camera resource, and cna_camera_destroy frees that resource without clearing the override. Reproduced in plain C with no binding involved, backtrace resolved to CNA::Devices::Camera::Camera at Camera.cpp:68. cna-ts runs the crashing sequence in a child process and asserts the child dies, so a repair fails the test rather than passing unnoticed; every probe here that opens the platform camera runs before the first test-backend one",
+      "operation": "Destroying a test-backend camera, then opening the platform one",
+      "category": "VERIFIED_NATIVE",
+      "owner": "CNA-TS + CNA",
+      "evidence": "Fixed in CNA ABI 0.35 (upstream finding 11). At 0.21 cna_camera_destroy freed a test-backend camera without clearing the process-wide platform override that pointed into it, so the next platform camera crashed. The native suite now runs the sequence in a child process and asserts it survives; the browser suite asserts the same after enumerating cameras.",
       "proof": [
         "route:cna_camera_destroy",
-        "test:test/native-cna.integration.mjs"
+        "test:test/native-cna.integration.mjs",
+        "test:test/wasm-browser-non-engine.mjs"
       ]
     },
     {
@@ -1295,12 +1296,11 @@
     },
     {
       "operation": "Exiting a process after cna_game_destroy has refused",
-      "category": "UPSTREAM_CNA_BLOCKED",
+      "category": "VERIFIED_NATIVE",
       "owner": "CNA",
-      "evidence": "a refused cna_game_destroy is not side-effect-free: a process that ends in that state takes SIGSEGV after its last statement has run, and an explicit process.exit(0) does not avoid it. Measured five ways in one shape -- a game never destroyed exits cleanly, a game destroyed exits cleanly, a refusal that is cleaned up and retried exits cleanly, and a refusal that is left standing crashes whether or not the offending handle was released afterwards -- so the crash belongs to the refusal rather than to a live game at exit. Written up as upstream finding 18. Every probe game in this package destroys its game and asserts the destroy succeeded, and the suites run one game per process, so a regression that starts refusing shows up as a failed assertion and as a non-zero exit code rather than as a passing file that crashes on the way out",
+      "evidence": "Fixed in CNA ABI 0.35 (upstream finding 18). At 0.21 a process that ended after a refused cna_game_destroy took SIGSEGV after its last statement. Re-measured at 5b4edd6cc on HEADLESS and on OPENGLES3 with a plain-C probe that leaks one Texture2D: the destroy is refused with INVALID_STATE and the process exits 0, as does the clean control. Every probe game in this package still destroys its game and asserts the destroy succeeded.",
       "proof": [
         "route:cna_game_destroy",
-        "test:test/windowed-renderer.integration.mjs",
         "test:test/native-cna.integration.mjs"
       ]
     },
@@ -1395,17 +1395,18 @@
       ]
     },
     {
-      "operation": "AvatarDescription: construction from bytes, and XNA's non-random CreateRandom",
+      "operation": "AvatarDescription: construction from bytes, and CreateRandom",
       "category": "VERIFIED_NATIVE",
       "owner": "CNA-TS + CNA",
-      "evidence": "Projected because it needs nothing this host lacks -- no gamer, no sign-in, no service -- while the renderer and the get-from-gamer routes still refuse, which the test asserts separately so that nothing here is mistaken for a fabricated service. What CreateRandom returns is the finding: 1021 zero bytes, identical every call, IsValid false, and the bodyType overload validates its argument and then ignores it. That is XNA's own behaviour, not a CNA stub -- CNA's source says \"the real XNA implementation never actually randomizes anything ... Preserved exactly, not fixed\" -- so the projection hands back the zeros rather than inventing the variety the name implies, and the test asserts both body types produce the same bytes so that a projection which quietly started honouring the argument would fail. The byte constructor also stopped lying: it used to accept any length and report Male for anything, and now CNA reads the body type, the height and the validity out of the bytes and refuses any length but 1021. Three measurements were needed to get this right; the first two were probe defects and nothing was filed from them. CNA's body-type overload is deliberately not imported: it validates its argument and then ignores it, so its output is byte-identical to the plain route's and importing it would add a route that provably cannot change any observable. A planted defect proved exactly that -- routing the body type or not made no difference -- and the route went rather than the mutation being explained away",
+      "evidence": "Projected because it needs no gamer, no sign-in and no service, while the renderer and the get-from-gamer routes still refuse. At ABI 0.21 CNA's CreateRandom returned XNA-for-Windows' 1021 zero bytes and ignored the body type; at 0.35 CNA draws a description from its avatar catalog and its body-type overload keeps the body type, so the projection now imports that overload (this binding had dropped the argument) and the shared Node/browser oracle asserts a valid 1021-byte description, a person's height, variety across draws and the requested body type. The byte constructor reads body type, height and validity out of the bytes and refuses any length but 1021.",
       "proof": [
         "route:cna_avatar_description_create",
         "route:cna_avatar_description_create_random",
         "route:cna_avatar_description_get_info",
         "route:cna_avatar_description_copy_description",
         "route:cna_avatar_description_destroy",
-        "test:test/avatar-description.integration.mjs"
+        "test:test/avatar-description.integration.mjs",
+        "route:cna_avatar_description_create_random_for_body_type"
       ]
     },
     {
@@ -1481,7 +1482,7 @@
       "operation": "SpriteFont.MeasureString, checked against CNA's own SpriteFont",
       "category": "VERIFIED_MANAGED",
       "owner": "CNA-TS",
-      "evidence": "Not checked against numbers somebody typed. CNA's SpriteFont is built over the same texture and the same glyph table and asked the same question, so twenty-four strings are measured twice by implementations that share no code. The font is built to make the corners load-bearing: a negative left bearing, a negative *right* bearing, unequal cropping heights and a non-zero Spacing, which is why the fixture's own test asserts that the strings measure to at least ten distinct widths and that 'Aj' and 'jA' differ. Eighteen agree exactly. Five differ by exactly one glyph's right side bearing, and which implementation is right is not a matter of opinion: Microsoft.Xna.Framework.Graphics.dll was disassembled, and SpriteFont::InternalMeasure carries the bearing forward and adds Math.Max(pending, 0) at each line break and once after the loop -- so this package is right and CNA is not, which is upstream finding 27. The five divergences are asserted exactly, so a repaired CNA fails them and says so",
+      "evidence": "Not checked against numbers somebody typed. CNA's SpriteFont is built over the same texture and the same glyph table and asked the same question, so twenty-four strings are measured twice by implementations that share no code. The font is built to make the corners load-bearing: a negative left bearing, a negative right bearing, unequal cropping heights and a non-zero Spacing. All twenty-four agree exactly at ABI 0.35: the five strings ending in a negative right bearing, which CNA used to count into the width, now measure as XNA's SpriteFont::InternalMeasure does (Math.Max(pending, 0) at each line break and after the loop) -- upstream finding 27, fixed -- and are kept as the cases that would show it again.",
       "proof": [
         "route:cna_sprite_font_create",
         "route:cna_sprite_font_get_info",
@@ -1603,7 +1604,7 @@
       "operation": "SpriteFont measurement checked against CNA over WebAssembly",
       "category": "VERIFIED_WEBASSEMBLY",
       "owner": "CNA-TS",
-      "evidence": "CNA SpriteFont built in a browser over the same texture and the same glyph table the managed font holds, and asked for twenty-four strings. The two implementations share no code and agree exactly on nineteen; the five whose widest line ends in a glyph with a negative right side bearing differ by exactly that bearing, which is upstream finding 27 reproducing in a browser as it does in Node. The oracle is shared with the Node suite, so a browser answering differently is a failure rather than a second green suite",
+      "evidence": "CNA SpriteFont built in a browser over the same texture and the same glyph table the managed font holds, and asked for twenty-four strings. The two implementations share no code and agree exactly on all of them at ABI 0.35, including the five that upstream finding 27 used to split. The oracle is shared with the Node suite, so a browser answering differently is a failure rather than a second green suite.",
       "proof": [
         "wasmRoute:cna_sprite_font_create",
         "wasmRoute:cna_sprite_font_measure_utf8",

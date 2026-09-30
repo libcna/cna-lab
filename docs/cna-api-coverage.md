@@ -6,10 +6,10 @@ two independent axes: what the route is *for*, which is exclusive and must never
 C source and the WebAssembly backend's route table rather than declared.
 
 ```text
-TOTAL_C_API_FUNCTIONS=4054
-PUBLIC_HEADERS=57
-XNA_BACKING=1521
-CNA_EXTENSION_BACKING=1871
+TOTAL_C_API_FUNCTIONS=3202
+PUBLIC_HEADERS=56
+XNA_BACKING=1511
+CNA_EXTENSION_BACKING=1029
 INTERNAL_RUNTIME_ONLY=1
 MANAGED_BY_DESIGN=626
 TOOLING_ONLY=35
@@ -21,11 +21,11 @@ UNEXPLAINED=0
 ## Backend reach
 
 ```text
-REACHABLE_NODE=1889
-REACHABLE_WASM=1864
-REACHABLE_BY_ANY_BACKEND=1889
-REACHABLE_BY_EVERY_BACKEND=1864
-REACHABLE_NODE_ONLY=25
+REACHABLE_NODE=1040
+REACHABLE_WASM=1014
+REACHABLE_BY_ANY_BACKEND=1040
+REACHABLE_BY_EVERY_BACKEND=1014
+REACHABLE_NODE_ONLY=26
 REACHABLE_WASM_ONLY=0
 REACHABLE_BUT_DEFERRED=0
 ```
@@ -34,8 +34,8 @@ What each backend reaches, by what the routes are for:
 
 | Purpose | Total | NODE reach | WASM reach |
 | --- | ---: | ---: | ---: |
-| `XNA_BACKING` | 1521 | 550 | 546 |
-| `CNA_EXTENSION_BACKING` | 1871 | 1319 | 1298 |
+| `XNA_BACKING` | 1511 | 541 | 537 |
+| `CNA_EXTENSION_BACKING` | 1029 | 479 | 457 |
 | `INTERNAL_RUNTIME_ONLY` | 1 | 1 | 1 |
 | `MANAGED_BY_DESIGN` | 626 | 13 | 13 |
 | `TOOLING_ONLY` | 35 | 6 | 6 |
@@ -56,14 +56,13 @@ What each backend reaches, by what the routes are for:
 | `devices.h` | 29 | 29 | 0 | 61 | 0 | 0 | 1 | 0 | 0 | 0 |
 | `display.h` | 14 | 13 | 0 | 22 | 0 | 0 | 0 | 0 | 0 | 0 |
 | `effects.h` | 186 | 186 | 185 | 35 | 0 | 70 | 0 | 0 | 0 | 0 |
-| `engine_layer.h` | 857 | 857 | 0 | 857 | 0 | 0 | 0 | 0 | 0 | 0 |
-| `gamer_services.h` | 36 | 36 | 249 | 1 | 0 | 0 | 0 | 0 | 0 | 0 |
+| `gamer_services.h` | 37 | 37 | 238 | 1 | 0 | 0 | 0 | 0 | 0 | 0 |
 | `geometry.h` | 0 | 0 | 0 | 0 | 0 | 94 | 0 | 0 | 0 | 0 |
 | `graphics_device.h` | 27 | 25 | 73 | 14 | 0 | 0 | 0 | 0 | 0 | 0 |
-| `graphics_ext.h` | 28 | 28 | 0 | 28 | 0 | 0 | 0 | 0 | 0 | 0 |
+| `graphics_ext.h` | 44 | 44 | 0 | 44 | 0 | 0 | 0 | 0 | 0 | 0 |
 | `graphics_resource.h` | 0 | 0 | 12 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 | `graphics_state.h` | 8 | 8 | 14 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
-| `graphics.h` | 12 | 11 | 21 | 7 | 0 | 0 | 0 | 0 | 0 | 0 |
+| `graphics.h` | 12 | 11 | 21 | 6 | 0 | 0 | 0 | 0 | 0 | 0 |
 | `index_resources.h` | 8 | 8 | 10 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 | `input_cursor.h` | 5 | 5 | 0 | 6 | 0 | 0 | 0 | 0 | 0 | 0 |
 | `input_devices.h` | 17 | 17 | 0 | 32 | 0 | 4 | 1 | 0 | 0 | 0 |
@@ -80,9 +79,9 @@ What each backend reaches, by what the routes are for:
 | `media_library.h` | 56 | 56 | 108 | 2 | 0 | 38 | 0 | 0 | 0 | 0 |
 | `media_player.h` | 15 | 15 | 33 | 8 | 0 | 0 | 0 | 0 | 0 | 0 |
 | `media.h` | 20 | 20 | 37 | 2 | 0 | 0 | 0 | 0 | 0 | 0 |
-| `models.h` | 10 | 10 | 82 | 134 | 0 | 0 | 0 | 0 | 0 | 0 |
+| `models.h` | 0 | 0 | 82 | 134 | 0 | 0 | 0 | 0 | 0 | 0 |
 | `net_gamers.h` | 0 | 0 | 33 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
-| `net_sessions.h` | 0 | 0 | 103 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| `net_sessions.h` | 0 | 0 | 104 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 | `net.h` | 0 | 0 | 1 | 0 | 0 | 49 | 0 | 0 | 0 | 0 |
 | `packed_vectors.h` | 0 | 0 | 0 | 0 | 0 | 7 | 0 | 0 | 0 | 0 |
 | `quaternion.h` | 0 | 0 | 0 | 0 | 0 | 28 | 0 | 0 | 0 | 0 |
@@ -90,7 +89,7 @@ What each backend reaches, by what the routes are for:
 | `runtime_components.h` | 0 | 0 | 37 | 2 | 0 | 0 | 0 | 0 | 0 | 0 |
 | `runtime_graphics_manager.h` | 17 | 17 | 35 | 3 | 0 | 0 | 0 | 0 | 0 | 0 |
 | `runtime_window.h` | 12 | 12 | 14 | 6 | 0 | 0 | 0 | 0 | 0 | 0 |
-| `runtime.h` | 10 | 9 | 33 | 9 | 0 | 0 | 0 | 0 | 0 | 0 |
+| `runtime.h` | 11 | 9 | 33 | 9 | 0 | 0 | 0 | 0 | 0 | 0 |
 | `sensors.h` | 53 | 53 | 0 | 120 | 0 | 0 | 24 | 0 | 0 | 0 |
 | `sprite_font.h` | 4 | 4 | 5 | 0 | 0 | 0 | 4 | 0 | 0 | 0 |
 | `storage.h` | 27 | 27 | 46 | 3 | 0 | 0 | 0 | 0 | 0 | 0 |

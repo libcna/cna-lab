@@ -42,7 +42,7 @@
     },
     {
       "id": "cameras-enumerated-from-the-supported-flag",
-      "why": "the count is taken from whether the platform has drivers rather than from how many devices it found -- the exact confusion upstream finding 34 is about, and here it would fabricate a camera CNA cannot open. The finding's own assertion is what refuses it",
+      "why": "the count is taken from whether the platform has drivers rather than from how many devices it found -- the confusion upstream finding 34 was about. Since CNA fixed it (ABI 0.35) the browser's one synthetic camera is enumerated, so drivers-present and one-device both read 1 and this mutant is equivalent on a one-camera fake device; it survives there by construction",
       "file": "src/internal/wasm/devices.ts",
       "find": "    const count = Number(this.#routes.outU64(\"cna_camera_get_count_ext\", this.#game()));",
       "replace": "    const count = supported ? 1 : 0;"
