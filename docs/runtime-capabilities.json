@@ -1,34 +1,26 @@
 {
   "schemaVersion": 1,
-  "updated": "2026-08-31",
+  "updated": "2026-09-30",
   "profile": "XNA 4.0 full runtime superset projected to Java 17, plus the CNA extension surface",
   "qualifiedRuntime": {
     "platform": "Linux x86-64",
-    "cnaAbi": "0.21.0",
-    "cnaHead": "0fd4d4e39e3adcd7531e04eff857defa9233518e",
-    "sharpRuntimeHead": "4a49afb0cfe6a41e6e0af0bb62dc5175976731bb",
+    "cnaAbi": "0.35.0",
+    "cnaHead": "5b4edd6cc (next; see each artifact's PROVENANCE.txt)",
+    "sharpRuntimeHead": "88f6b11fbb8b9d1db1b9451e86f8835e1c9cafaa",
     "cnaPlatformImplementation": "SDL3",
     "renderers": [
       "HEADLESS",
-      "SOFTWARE",
-      "OPENGL4",
-      "OPENGLES3",
-      "OPENGL33"
+      "OPENGLES3"
     ],
     "defaultRenderer": "HEADLESS",
-    "computeCapableRenderers": [
-      "OPENGLES3",
-      "OPENGL33"
-    ],
+    "computeCapableRenderers": [],
     "glContexts": {
-      "OPENGLES3": "OpenGL ES 3.2 (Mesa 25.0.7)",
-      "OPENGL33": "OpenGL 4.6 core on AMD Radeon 780M, 4.5 core on llvmpipe under Xvfb"
+      "OPENGLES3": "OpenGL ES 3.2 (Mesa 25.0.7) on a private headless Weston + rootful Xwayland (tools/platform/run_gpu_tests_private.sh)"
     },
-    "audio": "NULL",
-    "extendedGraphicsLayer": true,
-    "devices": true,
-    "cnaInventorySha256": "b485d17b1df9a86c6099700baedcd435c8a3f07487af8741b01d8c471956bfe7",
-    "note": "A multi-renderer CNA build: five renderers compiled in and one chosen before the first GraphicsDevice through the CNA_GRAPHICS_RENDERER environment variable, or through GraphicsRenderer.setPreferred -- which is the safe way, because the environment variable naming a renderer this build lacks aborts the process at library load (JAVA-UPSTREAM-017). The whole suite runs green on each of the five. The platform is SDL3 rather than HEADLESS because a GPU renderer needs a native window; the suite can be pointed at a virtual display, and was. cnaHead is the commit the qualified library was built from; the commit is not what pins this, cnaInventorySha256 is -- later dependency commits that leave the C API headers alone leave that hash unchanged and these measurements standing, and one that moves the headers changes it and does not."
+    "audio": "SDL3 (SDL_AUDIO_DRIVER=dummy inside the private GPU runner)",
+    "extendedGraphicsLayer": "OPENGLES3 artifact only (CNA_CNAEXT=ON); HEADLESS is built without it",
+    "devices": "OPENGLES3 artifact only (CNA_DEVICES=ON)",
+    "note": "Two single-renderer CNA builds, each staged with a PROVENANCE.txt: ~/deps/cna-c-abi-0.35.0 (HEADLESS, Debug, SDL3 platform and audio, no extended layer, no device layer) and ~/deps/cna-c-abi-0.35.0-opengles3-fx (OPENGLES3, Release, CNA_CNAEXT, CNA_DEVICES, compiled effects). The windowed one runs only inside CNA's private GPU runner, never on a desktop session. The earlier multi-renderer build with OPENGL4 is gone: CNA retired OPENGL4."
   },
   "statusVocabulary": [
     "ASSET_PENDING",
@@ -77,7 +69,7 @@
         "MANAGED_VERIFIED",
         "BACKEND_BLOCKED"
       ],
-      "detail": "Java safely exposes a PARENT_OWNED transient alias; CNA ABI 0.7 lacks XNA two-buffer identity and a frame generation token."
+      "detail": "Java safely exposes a PARENT_OWNED transient alias; the CNA C ABI carries no XNA two-buffer identity or frame generation token."
     },
     {
       "id": "video-decode",
@@ -107,9 +99,9 @@
       "statuses": [
         "STRICT_COMPLETE",
         "MANAGED_VERIFIED",
-        "UPSTREAM_CNA_BLOCKED"
+        "NATIVE_VERIFIED"
       ],
-      "detail": "Java enforces XNA canonical containment before JNI; qualified CNA ABI 0.7 itself accepts parent traversal and cannot yet be credited with the guarantee."
+      "detail": "Java enforces XNA canonical containment before JNI, and CNA refuses parent traversal and absolute paths itself (JAVA-UPSTREAM-001); a test asserts CNA's refusal past the Java guard."
     },
     {
       "id": "storage-devicechanged-os-transition",
@@ -129,10 +121,9 @@
         "STRICT_COMPLETE",
         "MANAGED_VERIFIED",
         "NATIVE_VERIFIED",
-        "BACKEND_BLOCKED",
-        "UPSTREAM_CNA_BLOCKED"
+        "BACKEND_BLOCKED"
       ],
-      "detail": "The selected component lifecycle uses three canonical ABI 0.7 routes. Real sign-in/Guide/network/title-update services are absent, and current CNA HEAD cannot build the C API in either networking configuration."
+      "detail": "The component lifecycle reaches CNA's canonical routes. Real Xbox Live sign-in, Guide, network and title-update services are absent."
     },
     {
       "id": "design-componentmodel-host",
@@ -200,7 +191,7 @@
         "EXTENSION_VERIFIED",
         "NATIVE_VERIFIED"
       ],
-      "detail": "Availability, the render pipeline settings, the physically based material and the ASCII post-process effect reach CNA. This build carries the extended layer, so availability reports true; a build without it answers false and the routes raise ExtensionNotSupportedException rather than downgrading. The CRT and depth-reduction effects are not bound yet: backlog JAVA-EXT-004."
+      "detail": "Availability, the physically based effects, ShaderEffect, the ASCII, CRT, depth and colour-matrix effects, DebugDraw and the renderer capability queries reach CNA. CNA ABI 0.30 removed the engine layer (render pipeline, post-process chain, shadows, clustered lighting, probes, particles, compute, instancing) and this package no longer projects it. On the OPENGLES3 artifact availability reports true; on the HEADLESS artifact, built without the layer, it reports false and DebugDraw is refused with ExtensionNotSupportedException, which the tests assert."
     },
     {
       "id": "extension-runtime",
@@ -276,10 +267,9 @@
       "surface": "org.openeggbert.cna.extensions.content.CnaModel",
       "statuses": [
         "EXTENSION_VERIFIED",
-        "NATIVE_VERIFIED",
-        "UPSTREAM_CNA_BLOCKED"
+        "NATIVE_VERIFIED"
       ],
-      "detail": "CnaModel.From(Model) builds CNA's own model over the buffers and effects an XNA model already owns, retained rather than copied, and CNA then draws it in one call and computes its bone transforms. Verified against an authored XNA 4.0 .xnb cube from the sibling CNA checkout: the graph round-trips bone for bone, mesh for mesh and part for part, CNA reports the same BasicEffect identity the managed reader built, its absolute bone transforms match the managed arithmetic exactly, written bone transforms read back, and the native draw is accepted on the headless renderer. Loading through CNA's own content manager is not offered: cna_content_manager_load_model produces a model that segfaults during teardown for any asset with a mesh part, recorded with a C reproduction as JAVA-UPSTREAM-004. The cameras, skins and material variants CnaModel reports are therefore always empty here, because only a CNA-imported model carries them."
+      "detail": "CnaModel.From(Model) builds CNA's own model over the buffers and effects an XNA model already owns, and CnaModel.Load opens one through CNA's own content manager; getContentTag reads back the Dictionary<string, object> a content processor wrote as the model's Tag, and the dictionary outlives the model. The loader was blocked by a teardown segfault (JAVA-UPSTREAM-004) until CNA fixed it; content_manager_model_teardown.c exits 0 on both artifacts."
     },
     {
       "id": "extension-cnb-container",
@@ -317,86 +307,37 @@
         "NATIVE_VERIFIED",
         "LANGUAGE_MAPPING_LIMITATION"
       ],
-      "detail": "The whole compiled-model graph reads and writes with no graphics device: bones, parts with their vertex and index bytes, meshes, the skinning skeleton with all three matrix sets, baked lights, and the glTF material factors with their eight texture names and seven per-slot states. Probed in C before binding, because JAVA-UPSTREAM-004 found CNA's content-manager model loader segfaulting during teardown; the .cnb path survives a build-encode-decode-destroy cycle cleanly.",
-      "limitation": "There is no CnbModelData.toModel(GraphicsDevice). XNA's Model has no public constructor and CNA offers no route that builds one from this description, so this is the tooling side of the file and a game still loads a model through the content manager. Animations are readable but not writable: cna_cnb_model_add_animation takes a nested descriptor graph the JNI generator refuses rather than guesses at, which is the same shape that blocks JAVA-EXT-007."
+      "detail": "The whole compiled-model graph reads and writes with no graphics device: bones, parts with their vertex and index bytes, meshes, the skinning skeleton with all three matrix sets, baked lights, and the glTF material factors with their eight texture names and seven per-slot states. The .cnb path survives a build-encode-decode-destroy cycle cleanly.",
+      "limitation": "There is no CnbModelData.toModel(GraphicsDevice). XNA's Model has no public constructor and CNA offers no route that builds one from this description, so this is the tooling side of the file and a game loads a model through the content manager or CnaModel.Load. Animations are readable but not writable: cna_cnb_model_add_animation takes a nested descriptor graph the JNI generator refuses rather than guesses at, which is the same shape that blocks JAVA-EXT-007."
     },
     {
-      "id": "engine-compute",
-      "surface": "org.openeggbert.cna.extensions.graphics.ComputeShader, StorageBuffer, MemoryBarrier, ImageAccess, IndirectDraw, IndirectDrawArguments",
-      "statuses": [
-        "EXTENSION_VERIFIED",
-        "NATIVE_VERIFIED",
-        "GPU_VERIFIED",
-        "UPSTREAM_CNA_BLOCKED"
-      ],
-      "detail": "A compute program runs on the GPU and its output is compared against the same arithmetic done in Java: four integers doubled and offset by a uniform, read back through a storage buffer, exact. Verified on OPENGLES3 and OPENGL33; on HEADLESS, SOFTWARE and OPENGL4 every constructor in the family refuses and that refusal is what is asserted instead. Image binding is a separate question from having compute and the two really do come apart -- ES 3.1 says no, desktop 4.6 core says yes -- so it is asked rather than assumed. The dialect is GLSL ES: every compute program inside CNA own engine layer opens with #version 310 es, which both capable renderers accept, while desktop GLSL compiles only on the one whose context really is desktop GL. UPSTREAM_CNA_BLOCKED is JAVA-UPSTREAM-012: a source that does not compile is reported as an internal failure rather than as a shader carrying a compile error, which makes two documented routes unreachable for the case they exist for."
-    },
-    {
-      "id": "engine-auto-exposure",
-      "surface": "org.openeggbert.cna.extensions.graphics.AutoExposure",
-      "statuses": [
-        "EXTENSION_VERIFIED",
-        "NATIVE_VERIFIED",
-        "GPU_VERIFIED"
-      ],
-      "detail": "The meter reduces a frame to one number on the GPU, and the numbers are checked rather than the calls. A uniform grey of 8/255 measures 0.031373 and one of 240/255 measures 0.941176, both to within a thousandth; adaptation moves the exposure down for the brighter scene and up for the darker one; doubling the key value asks for more exposure from the same scene. Both capable renderers produce the same numbers. Needs compute, so on the other three renderers the constructor refuses and that is what is asserted."
-    },
-    {
-      "id": "engine-light-probe-baking",
-      "surface": "org.openeggbert.cna.extensions.graphics.LightProbeBaker",
-      "statuses": [
-        "EXTENSION_VERIFIED",
-        "NATIVE_VERIFIED",
-        "GPU_VERIFIED"
-      ],
-      "detail": "The three bake routes take a callback CNA runs once per cube face, and on a renderer that can read a capture back it really runs: six faces for one probe and forty-eight for a two-by-two-by-two volume, each with the camera the baker chose for that face. The trampoline takes no global references -- the callback lives only inside the call -- and an exception it throws skips the remaining faces rather than being invoked with one pending, which is undefined in JNI. On HEADLESS the readback is refused, all three routes answer INVALID_STATE and the callback is entered zero times, which is asserted rather than skipped."
-    },
-    {
-      "id": "engine-pipeline-scene-callbacks",
-      "surface": "org.openeggbert.cna.extensions.graphics.RenderPipeline.setTransparentScene, setShadowScene",
-      "statuses": [
-        "EXTENSION_VERIFIED",
-        "NATIVE_VERIFIED"
-      ],
-      "detail": "Registered once and run inside every later frame, so unlike the bake callbacks these are pinned by an explicit native token the pipeline owns and releases. The shadow callback runs first, inside begin; the transparent one second, inside end; once each per frame; and a failing callback result reaches the caller of the call that ran it. They run on every renderer, including HEADLESS -- what gates them is the settings, not the renderer, which corrects an earlier reading that had them blocked on hardware."
-    },
-    {
-      "id": "engine-lent-handles",
-      "surface": "ShadowMap.getCasterEffect and its four siblings, DepthNormalPrepass, ClusteredForwardEffect, WeightedBlendedTransparency, RenderPipeline.getSceneTarget, PbrMaterialExtensions.hasClearcoatTexture and its eight siblings",
-      "statuses": [
-        "EXTENSION_VERIFIED",
-        "NATIVE_VERIFIED",
-        "UPSTREAM_CNA_BLOCKED"
-      ],
-      "detail": "Twenty-one routes lend a handle belonging to something else, on two opposite contracts that one word covered. A counted borrow blocks its lender destruction until it is given back; a retaining one keeps its lender alive and may outlive it. Each was measured in C before a facade was written, and nothing dangles: every lender that permits its own destruction really is retained by what it lent, and the one non-owning view answers INVALID_HANDLE afterwards rather than dereferencing freed memory. UPSTREAM_CNA_BLOCKED is JAVA-UPSTREAM-013, the one shadow map of four that does not count."
-    },
-    {
-      "id": "engine-pixel-readback",
-      "surface": "FullscreenPass sampler, PostProcessContext source/destination/elapsedSeconds",
+      "id": "pixel-readback",
+      "surface": "RenderTarget2D.GetData through SpriteBatch, ShaderEffect, ColorMatrixEffect",
       "statuses": [
         "EXTENSION_VERIFIED",
         "PIXEL_VERIFIED"
       ],
-      "detail": "The two values this projection could previously only pin by layout. Both cross into CNA and never come back, and a renderer that draws nothing accepts either without doing anything observable -- a planted swap of the sampler address modes passed every test. On a renderer that draws, a filter is a pixel: a two-by-two checkerboard magnified sixteen times over is hard blocks under point filtering and a gradient under linear, and the same planted swap now fails. The context is verified in three fields rather than all of them: a blit output is decided by its source and destination handles, and film grain is seeded from the elapsed time, so swapping or zeroing those fails -- while swapping the normals and velocity slots still passes, because nothing reachable here reads them. Those leaves stay pinned by the layout gate alone, and that limit is recorded rather than glossed."
+      "detail": "On OPENGLES3 a point-filtered and a linear-filtered SpriteBatch draw read back as different images, a cleared target reads back its colour, a ShaderEffect's uniform decides the pixel it writes, and ColorMatrixEffect is measured either executing or leaving the source untouched. HEADLESS refuses the readback and the tests assert the refusal."
     },
     {
       "id": "graphics-renderer-selection",
       "surface": "org.openeggbert.cna.extensions.graphics.GraphicsRenderer, GraphicsRendererType, GraphicsRendererFallback",
       "statuses": [
         "EXTENSION_VERIFIED",
-        "NATIVE_VERIFIED",
-        "UPSTREAM_CNA_BLOCKED"
-      ],
-      "detail": "Which renderers this build has, and which one to try first -- asked of the library rather than read out of CMakeCache.txt, which is what this qualification had been doing while the routes sat unbound. Eighteen of the family's twenty-two routes are projected: the inventory, per-identity availability, per-identity category and maturity for any identity CNA defines whether or not this build has it, case-insensitive name parsing that treats an unknown name as an answer rather than a failure, the preference setters, the fallback chain with its history and CNA's own messages and reason names, the renderer actually running, and the test-only reset. Every setter is refused once a renderer exists and refused for a renderer this build lacks, both measured. UPSTREAM_CNA_BLOCKED is two findings: JAVA-UPSTREAM-018, three query routes that a GraphicsDevice resets and three named \"current\" that describe the compile-time default, none of them projected; and JAVA-UPSTREAM-017, the reason this exists -- CNA_GRAPHICS_RENDERER naming a renderer this build lacks aborts the process while the library loads, before any Java frame exists, so no guard is possible and reading the inventory beforehand is the only defence."
-    },
-    {
-      "id": "engine-color-grade-volume-lut",
-      "surface": "org.openeggbert.cna.extensions.graphics.ColorGradePass.setVolumeLut, getVolumeLut",
-      "statuses": [
-        "EXTENSION_VERIFIED",
         "NATIVE_VERIFIED"
       ],
-      "detail": "A volume grading table is a cubical Texture3D with an edge between two and sixty-four, measured rather than read: CNA's declaration says \"a cube\", which reads both ways, and a TextureCube is refused with INVALID_HANDLE while a Texture3D of the same edge is accepted. The Java signature took a TextureCube and so could never have worked; nothing had caught it because no test had ever bound a volume table. Qualified on both sides of GraphicsCapability.Texture3D, because HEADLESS has no real 3D texture storage and refuses to allocate one -- where the storage exists the slot is exercised and read back, and where it does not the refusal is the one CNA documents."
+      "detail": "Which renderers this build has, which one is selected, whether the selection is latched, and which one is running -- asked of the library. The inventory, selection and latch routes answer correctly before and after a device exists; JAVA-UPSTREAM-018 said otherwise and was a probe that read outputs before the call wrote them. An environment variable naming a renderer this build lacks no longer aborts at library load (JAVA-UPSTREAM-017, fixed in CNA): a child JVM started that way has getSelected throw IllegalStateException and game creation fail as an ordinary exception. The three routes named 'current' describe the compiled-in renderer, as CNA documents; getActive is the running one. Only single-renderer builds were qualified, so the fallback chain was exercised as configuration only."
+    },
+    {
+      "id": "extension-camera",
+      "surface": "org.openeggbert.cna.extensions.devices.Camera, CameraState, CameraPosition",
+      "statuses": [
+        "EXTENSION_VERIFIED",
+        "NATIVE_VERIFIED",
+        "HARDWARE_PENDING"
+      ],
+      "detail": "All fifteen camera routes are bound. Over CNA's own test backend a camera reports the state and frame it was given, delivers the frame into a texture of its size and refuses one of another size as an ordinary false; two test cameras open and close in one process, the teardown JAVA-UPSTREAM-019 found fatal. Measured on the OPENGLES3 artifact (CNA_DEVICES=ON); the HEADLESS artifact has no device layer and every route refuses, which the test asserts.",
+      "limitation": "The host's real integrated camera is enumerated (one camera on this machine) but no real frame capture was qualified."
     }
   ]
 }

@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updated": "2026-08-31",
+  "updated": "2026-09-30",
   "idFamilies": {
     "JAVA-XNA": "A gap between CNA-Java and the original XNA 4.0 contract.",
     "JAVA-NATIVE": "A gap at the CNA C ABI boundary: a route, a shape or a verification.",
@@ -322,11 +322,11 @@
       "title": "Nine of cnanext's own C API smoke tests fail in the HEADLESS/NULL-audio configuration",
       "family": "cnanext qualification",
       "authority": "ctest -R CApi in cnanext/cmake-build-javanext",
-      "currentState": "Remeasured on 2026-08-31 against ABI 0.21.0: 99 of 104 pass, and the five that fail are CApi_CoreExtSmoke, CApi_ContentSmoke, CApi_DevicesSmoke, CApi_AudioSmoke and CApi_AudioUnavailableSmoke. Four of the original nine now pass -- CApiCoverageMatrix, CApiLimitations, CApiReleaseGate and CApi_MediaPlayerSmoke. The first run after rebuilding libcna_c_api reported nine failures again, but four of those were stale test executables compiled against 0.20 headers and linked against the 0.21 library; rebuilding the test targets was needed before the number meant anything, and that is recorded here because the same trap will catch the next reader.",
+      "currentState": "Re-measured 2026-09-30 against CNA ABI 0.35.0 (next at 0f7166cd8/79799cf09; ~/deps/cna-c-abi-0.35.0 HEADLESS and ~/deps/cna-c-abi-0.35.0-opengles3-fx). Current C API gates pass: 107 of 110 CApi tests on HEADLESS and on OPENGLES3; the three that fail do so only inside the private GPU runner, whose runtime directory has no audio server, and pass outside it or with SDL_AUDIO_DRIVER=dummy.",
       "expectedState": "Either the suite passes in HEADLESS/HEADLESS/NULL, or cnanext records which of its tests need a different platform, renderer or audio backend. CNA-Java does not depend on it: its own 220 tests qualify what this binding uses, and CApi_ContentSmoke's failure is in the same content path JAVA-UPSTREAM-004 reproduces.",
-      "blocker": "Not investigated here beyond identifying them: they are upstream tests in a read-only repository, and diagnosing them is cnanext's work, not this binding's. AudioUnavailableSmoke expects playback to be unavailable, which suggests a NULL-audio expectation that no longer matches; CoreExtSmoke asserts renderer classifications.",
+      "blocker": "",
       "priority": 10,
-      "status": "blocked"
+      "status": "done"
     },
     {
       "id": "JAVA-EXT-005",
@@ -366,11 +366,11 @@
       "title": "cna_content_manager_load_model produces a model that segfaults during teardown",
       "family": "Microsoft.Xna.Framework.Graphics.Model, org.openeggbert.cna.extensions.content",
       "authority": "cna_content_manager_load_model in models.h",
-      "currentState": "Loading any .xnb whose meshes have parts through CNA's own content manager gives a model that crashes when it is released. Reproduced in C with no Java involved: cna_game_create, cna_game_get_graphics_device, cna_content_manager_create, cna_content_manager_load_model(\"cube\") over cnanext's own tests/assets/xnb/monogame/windows/uncompressed/BlenderDefaultCube.xnb, then cna_model_destroy. SIGSEGV in Microsoft::Xna::Framework::Graphics::ModelMeshPart::setTagProperty called from (anonymous namespace)::PartResource::~PartResource. The crash does not need the model to be walked first, and it also happens when the caller never destroys the model and lets the content manager and game tear it down, so there is no calling order that avoids it. A model assembled by hand with cna_model_create_with_parents over a mesh with a part destroys cleanly, so the fault is on the content-load path rather than in the model family. Revalidated against the live CNA on 2026-08-31, on both HEADLESS and OPENGL33: the model loads and cna_model_destroy still segfaults. The reproducer is a tracked source probe now rather than a note, because still broken has to be retaken against each CNA this repository qualifies against, and a segfault is not something a Java test can report. The scope of this task is the loader and nothing else. Twelve glTF import report and diagnostic routes were blocked on it until 2026-08-31 on the reading that a report belongs to a model CNA imported; that reading was wrong about direction. Every one of them takes a CNA_ModelHandle, which CnaModel.From produces from an XNB-loaded model, so the writing half is meaningful on a model Java built and the reading half then round-trips. They are bound and measured in CnaGltfImportReportTests, and coverage.py now reports STALE_BLOCKER_RULE_DECIDES_NOTHING so a prefix or contains rule cannot outlive its blocker unnoticed again. Retaken on 2026-08-31 against a cnanext rebuilt from 96b56b0e4, which is three commits past the build every earlier measurement in this repository was taken on: the loader still returns SUCCESS and the process still dies with SIGSEGV on the destroy. A thirteenth route joined it on 2026-09-01, moving the other way: cna_model_get_content_tag_dictionary_ext was recorded as a deliberate non-binding because it was grouped with two routes that really do hand back a void*. It does not -- it lends an owned CNA_ObjectDictionary, which CnaObjectDictionary is already the Java facade for -- but the tag it reads is written only by this loader, and no cna_model_set_content_tag_* declaration exists at 0.21.0. So a model Java can hold never carries one, and the route is blocked here rather than declined.",
+      "currentState": "Re-measured 2026-09-30 against CNA ABI 0.35.0 (next at 0f7166cd8/79799cf09; ~/deps/cna-c-abi-0.35.0 HEADLESS and ~/deps/cna-c-abi-0.35.0-opengles3-fx). Fixed upstream (BINDFIX-006). content_manager_model_teardown.c exits 0 in all three modes (destroy, leave to the manager, walk) on HEADLESS and OPENGLES3. cna_content_manager_load_model and cna_model_get_content_tag_dictionary_ext are now bound as CnaModel.Load and CnaModel.getContentTag, tested in CnaObjectDictionaryTests.",
       "expectedState": "A content-loaded model releases without faulting, so a binding can offer CNA's own loader.",
-      "blocker": "cnanext content: PartResource's destructor reaches a ModelMeshPart whose owner is already gone. cnanext's own CApi_ContentSmoke fixtures are models with one bone and no meshes, which is why the path is uncovered upstream.",
+      "blocker": "",
       "priority": 5,
-      "status": "blocked",
+      "status": "done",
       "tests": [
         "tools/native-abi/probes/content_manager_model_teardown.c"
       ]
@@ -495,11 +495,11 @@
       "title": "Four clustered engine-layer routes document a game handle and take a graphics device",
       "family": "engine_layer.h",
       "authority": "engine_layer.h against modules/c-api/src/CnaCApiEngineLayer.cpp",
-      "status": "blocked",
+      "status": "done",
       "priority": 9,
-      "currentState": "cna_clustered_light_set_create, cna_clustered_light_grid_create, cna_clustered_light_assignment_create and cna_clustered_shadow_policy_create each name their first parameter `game` and document it as \"the owning game\". Measured in C by tools/native-abi/probes/engine_layer_families.c: all four answer CNA_RESULT_INVALID_HANDLE for an owned game handle and for a callback-borrowed one, and all four succeed when given the game's graphics device. The implementation resolves the parameter with GetBorrowedGraphicsDevice, so the header's parameter name and its prose are both wrong.",
+      "currentState": "Re-measured 2026-09-30 against CNA ABI 0.35.0 (next at 0f7166cd8/79799cf09; ~/deps/cna-c-abi-0.35.0 HEADLESS and ~/deps/cna-c-abi-0.35.0-opengles3-fx). No longer applicable: CNA ABI 0.30 removed engine_layer.h and every route this finding names; the Java families that bound them were deleted with it.",
       "expectedState": "Either the header says graphics device, or the routes accept a game. Until then CNA-Java passes the graphics device and its own documentation says why, because a projection that repeated the header's word would hand callers a handle CNA refuses.",
-      "blocker": "Upstream documentation defect in cnanext; CNA-Java cannot fix it and does not need it fixed to proceed.",
+      "blocker": "",
       "tests": [],
       "note": "Not a functional blocker for the lighting slice: the behaviour is usable and now measured. It is recorded so the next reader does not spend the same hour, and so that a future CNA that changes the parameter to match its documentation is noticed rather than silently breaking every clustered call."
     },
@@ -508,11 +508,11 @@
       "title": "A documented INVALID_STATE refusal arrives as INTERNAL, because the exception barrier has no logic_error arm",
       "family": "engine_layer.h",
       "authority": "engine_layer.h and modules/c-api/src/CnaCApiDetail.hpp",
-      "status": "blocked",
+      "status": "done",
       "priority": 9,
-      "currentState": "cna_instanced_renderer_ext_draw documents CNA_RESULT_INVALID_STATE for a renderer that cannot instance with the per-instance fallback off, and CnaCApiEngineLayer.cpp's own comment says the exception barrier maps the std::logic_error the engine throws to that result. CallWithExceptionBarrier has no std::logic_error arm; the throw reaches catch (const std::exception&) and returns CNA_RESULT_INTERNAL (12). Reproduced in pure C by tools/native-abi/probes/instanced_draw_refusal.c, which prints INTERNAL (12) against a documented INVALID_STATE (3).",
+      "currentState": "Re-measured 2026-09-30 against CNA ABI 0.35.0 (next at 0f7166cd8/79799cf09; ~/deps/cna-c-abi-0.35.0 HEADLESS and ~/deps/cna-c-abi-0.35.0-opengles3-fx). No longer applicable: CNA ABI 0.30 removed engine_layer.h and every route this finding names; the Java families that bound them were deleted with it. The general barrier fix (BINDFIX-003) is in CNA.",
       "expectedState": "Either the barrier grows a std::logic_error arm mapping to INVALID_STATE, or the engine throws something the barrier already maps. Until then a game cannot tell a refusal it can act on -- turn the fallback on -- from a defect inside CNA, which is exactly the distinction CNA_RESULT_INTERNAL exists to make.",
-      "blocker": "Upstream defect in cnanext's C API exception barrier; CNA-Java cannot fix it.",
+      "blocker": "",
       "tests": [
         "InstancedRendererTests"
       ],
@@ -523,11 +523,11 @@
       "title": "A cube shadow map's face passes do not open on a renderer that cannot cast, though CNA says they do",
       "family": "engine_layer.h",
       "authority": "CNA's own startup log against measured behaviour",
-      "status": "blocked",
+      "status": "done",
       "priority": 9,
-      "currentState": "Wider than one renderer, and the GPU qualification is what showed it. CNA documents that a cube shadow map face passes still open and close on a renderer that cannot cast, and all three behaviours exist: HEADLESS answers is_supported=no and refuses begin with INTERNAL; SOFTWARE answers no and refuses with NOT_SUPPORTED; OPENGL4 answers no and opens the pass exactly as documented, leaving the target bound until end. OPENGLES3 and OPENGL33 answer yes and both calls succeed, which is the consistent case.",
+      "currentState": "Re-measured 2026-09-30 against CNA ABI 0.35.0 (next at 0f7166cd8/79799cf09; ~/deps/cna-c-abi-0.35.0 HEADLESS and ~/deps/cna-c-abi-0.35.0-opengles3-fx). No longer applicable: CNA ABI 0.30 removed engine_layer.h and every route this finding names; the Java families that bound them were deleted with it.",
       "expectedState": "Either the headless renderer binds a cube face the way it binds a 2D target, or the log stops promising that face passes open. As it stands a game that follows CNA's own advice -- run the shadow pass unconditionally and let it do nothing -- crashes on point shadows and not on directional ones.",
-      "blocker": "Upstream defect in cnanext's headless renderer; CNA-Java cannot fix it.",
+      "blocker": "",
       "tests": [
         "ShadowTests"
       ],
@@ -538,11 +538,11 @@
       "title": "A decal pass's documentation points at three routes that refuse its handle",
       "family": "engine_layer.h",
       "authority": "engine_layer.h against measured behaviour",
-      "status": "blocked",
+      "status": "done",
       "priority": 9,
-      "currentState": "cna_decal_pass_create's documentation says \"Creation succeeds on a renderer that cannot run it; ask `cna_post_process_pass_is_supported`. Release it with `cna_post_process_pass_destroy`.\" A CNA_DecalPassHandle is refused by both with CNA_RESULT_INVALID_HANDLE, and by cna_post_process_pass_copy_name too; only cna_decal_pass_destroy accepts it. Measured in C by tools/native-abi/probes/engine_layer_families.c, which asks a bloom pass the same question and gets SUCCESS, so the difference is the handle kind rather than the renderer.",
+      "currentState": "Re-measured 2026-09-30 against CNA ABI 0.35.0 (next at 0f7166cd8/79799cf09; ~/deps/cna-c-abi-0.35.0 HEADLESS and ~/deps/cna-c-abi-0.35.0-opengles3-fx). No longer applicable: CNA ABI 0.30 removed engine_layer.h and every route this finding names; the Java families that bound them were deleted with it.",
       "expectedState": "Either the decal pass shares the common post-process handle kind, or its documentation names its own routes. As it stands a caller who follows the header leaks the pass and never finds out whether the renderer can run it.",
-      "blocker": "Upstream documentation or handle-registration defect in cnanext; CNA-Java cannot fix it.",
+      "blocker": "",
       "tests": [
         "PostProcessPassTests"
       ],
@@ -553,11 +553,11 @@
       "title": "A malformed .cube LUT is reported as an unsupported capability, not a bad argument",
       "family": "engine_layer.h",
       "authority": "engine_layer.h against modules/c-api/src/CnaCApiEngineLayer.cpp and modules/graphics-ext/src/CubeLut.cpp",
-      "status": "blocked",
+      "status": "done",
       "priority": 9,
-      "currentState": "cna_cube_lut_parse documents CNA_RESULT_INVALID_ARGUMENT for text the parser refuses -- a missing LUT_3D_SIZE, a malformed domain line, an entry count that disagrees with the declared size -- and ParseCubeLutText catches CNA::CNAException to return exactly that. CubeLut::parse throws CNA::Graphics::EngineException, which that catch does not name and which CallWithExceptionBarrier maps to CNA_RESULT_NOT_SUPPORTED. Reproduced in pure C by tools/native-abi/probes/cube_lut_refusal.c: three distinct malformations all answer NOT_SUPPORTED (6) against a documented INVALID_ARGUMENT (1), while well-formed text parses.",
+      "currentState": "Re-measured 2026-09-30 against CNA ABI 0.35.0 (next at 0f7166cd8/79799cf09; ~/deps/cna-c-abi-0.35.0 HEADLESS and ~/deps/cna-c-abi-0.35.0-opengles3-fx). No longer applicable: CNA ABI 0.30 removed engine_layer.h and every route this finding names; the Java families that bound them were deleted with it.",
       "expectedState": "Either the route catches what the parser actually throws, or the parser throws what the route catches. As it stands a typo in an artist's .cube file arrives at a game as \"this renderer cannot do colour grading\", so a game that catches the capability refusal to fall back will fall back for a file it could have rejected and told someone about.",
-      "blocker": "Upstream defect in cnanext; CNA-Java cannot fix it.",
+      "blocker": "",
       "tests": [
         "ColorGradeTests"
       ],
@@ -568,11 +568,11 @@
       "title": "A texture applied through a PBR material is invisible to the C API afterwards",
       "family": "engine_layer.h",
       "authority": "engine_layer.h against modules/c-api/src/CnaCApiEngineLayer.cpp and modules/graphics-ext/src/MaterialBinding.cpp",
-      "status": "blocked",
+      "status": "done",
       "priority": 9,
-      "currentState": "cna_pbr_effect_apply_material sets every one of the effect's texture maps -- MaterialBinding.cpp's ApplyTo does it map by map -- but it does so through the canonical setters, which take a raw Texture2D*, so the C API's handle registry never learns that the slot is occupied. Measured in tools/native-abi/probes/pbr_effect_material.c: a texture set through cna_pbr_effect_set_texture comes back from cna_pbr_effect_get_texture as the SAME handle, while the same texture applied through a material makes get_texture report the slot empty and makes cna_pbr_effect_extract_material return CNA_INVALID_HANDLE for it. Both routes leave the native effect correct; only the handle view disagrees. Revalidated on 2026-08-31 against OPENGLES3 and OPENGL33 as well as HEADLESS: unchanged on all three, so the workaround stays.",
+      "currentState": "Re-measured 2026-09-30 against CNA ABI 0.35.0 (next at 0f7166cd8/79799cf09; ~/deps/cna-c-abi-0.35.0 HEADLESS and ~/deps/cna-c-abi-0.35.0-opengles3-fx). No longer applicable: CNA ABI 0.30 removed engine_layer.h and every route this finding names; the Java families that bound them were deleted with it. cna_pbr_effect_set_texture/get_texture survive and PbrEffect uses them.",
       "expectedState": "apply_material records each slot's handle the way set_texture does, so that a material extracted from an effect names the textures the effect is actually using. Until then the read-modify-write a game naturally writes -- extract, change one number, apply -- silently unbinds every map, because the extracted material carries no textures to put back.",
-      "blocker": "A CNA-side change: the C API would have to resolve and retain each slot handle inside apply_material, or the canonical applyMaterial would have to go through the same path set_texture does. Not fixable in CNA-Java, and this repository must not edit cnanext.",
+      "blocker": "",
       "tests": [
         "PbrEffectTests.aWholeMaterialSurvivesBeingWrittenInAndReadOut",
         "tools/native-abi/probes/pbr_effect_material.c"
@@ -584,11 +584,11 @@
       "title": "Handing a pass to a post-process chain makes the game undestroyable",
       "family": "engine_layer.h",
       "authority": "engine_layer.h against modules/c-api/src/CnaCApiEngineLayer.cpp",
-      "status": "blocked",
+      "status": "done",
       "priority": 9,
-      "currentState": "cna_post_process_chain_add_owned_pass consumes the pass handle exactly as documented -- GetRuntimeHandles().Release makes it invalid, the chain owns the object, clear and destroy both work. It does not decrement the game's owned-child count that cna_blit_pass_create incremented, so cna_game_destroy answers INVALID_STATE afterwards: \"All owned C child resources must be destroyed before the game.\" Reproduced in pure C by tools/native-abi/probes/chain_owned_pass.c, with no Java in the picture: create a game, hand one blit pass to a chain, clear and destroy the chain, and the game can never be destroyed. Revalidated on 2026-08-31 on OPENGL33 as well as HEADLESS: the game is still undestroyable afterwards, so the route stays unbound. Retaken on 2026-08-31 against a cnanext rebuilt from 96b56b0e4, which is three commits past the build every earlier measurement in this repository was taken on: cna_game_destroy still answers INVALID_STATE after one owned pass.",
+      "currentState": "Re-measured 2026-09-30 against CNA ABI 0.35.0 (next at 0f7166cd8/79799cf09; ~/deps/cna-c-abi-0.35.0 HEADLESS and ~/deps/cna-c-abi-0.35.0-opengles3-fx). No longer applicable: CNA ABI 0.30 removed engine_layer.h and every route this finding names; the Java families that bound them were deleted with it.",
       "expectedState": "The route decrements the owned-child count as cna_post_process_pass_destroy does, so a game that hands a pass to a chain shuts down like any other. One hand-over anywhere in a game's lifetime is enough to break shutdown, which makes this the more severe of the two ownership findings.",
-      "blocker": "A CNA-side change to the C API's owned-resource accounting. Not fixable in CNA-Java, and this repository must not edit cnanext.",
+      "blocker": "",
       "tests": [
         "tools/native-abi/probes/chain_owned_pass.c"
       ],
@@ -648,11 +648,11 @@
       "title": "A compute shader that does not compile is reported as an internal failure rather than as a shader carrying a compile error",
       "family": "cnanext",
       "authority": "engine_layer.h",
-      "status": "blocked",
+      "status": "done",
       "priority": 6,
-      "currentState": "cna_compute_shader_create documents that creation succeeds even when the source does not compile, and that a caller then asks cna_compute_shader_is_valid and reads cna_compute_shader_copy_compile_error. It does not. The canonical ComputeShader constructor throws std::runtime_error for a program that does not compile or link, CallWithExceptionBarrier has no arm for it, and the caller is told CNA_RESULT_INTERNAL. Measured on both compute-capable renderers, three runs each, with five different sources.",
+      "currentState": "Re-measured 2026-09-30 against CNA ABI 0.35.0 (next at 0f7166cd8/79799cf09; ~/deps/cna-c-abi-0.35.0 HEADLESS and ~/deps/cna-c-abi-0.35.0-opengles3-fx). No longer applicable: CNA ABI 0.30 removed engine_layer.h and every route this finding names; the Java families that bound them were deleted with it.",
       "expectedState": "Creation succeeds and the failure is read off the object, as the header says -- which would make the two documented routes reachable for the case they exist for.",
-      "blocker": "Upstream defect in cnanext C API exception barrier, the same shape as JAVA-UPSTREAM-006 and JAVA-UPSTREAM-009 on a third route. CNA-Java cannot fix it.",
+      "blocker": "",
       "tests": [
         "tools/native-abi/probes/compute_compile_contract.c",
         "ComputeTests.sourceTheCompilerRefusesArrivesAsAShaderCompilationExceptionCarryingItsLog"
@@ -664,11 +664,11 @@
       "title": "One of the four shadow maps does not count the effects it lends",
       "family": "cnanext",
       "authority": "engine_layer.h",
-      "status": "blocked",
+      "status": "done",
       "priority": 6,
-      "currentState": "cna_shadow_map_destroy, cna_cascaded_shadow_map_destroy and cna_cube_shadow_map_destroy each check an activeBorrowCount and refuse with INVALID_STATE while a caster effect is outstanding. cna_spot_shadow_map_destroy has no such check and releases the handle. All four hand out the borrow through the identical BorrowEffectFrom helper.",
+      "currentState": "Re-measured 2026-09-30 against CNA ABI 0.35.0 (next at 0f7166cd8/79799cf09; ~/deps/cna-c-abi-0.35.0 HEADLESS and ~/deps/cna-c-abi-0.35.0-opengles3-fx). No longer applicable: CNA ABI 0.30 removed engine_layer.h and every route this finding names; the Java families that bound them were deleted with it.",
       "expectedState": "The four siblings agree, whichever discipline is chosen.",
-      "blocker": "Upstream inconsistency in cnanext C API. CNA-Java cannot fix it and does not need it fixed: the lent effect is retained by the handle, so a spot map destroyed while lending leaves the effect alive rather than dangling -- measured, not assumed.",
+      "blocker": "",
       "tests": [
         "tools/native-abi/probes/lent_effect_lifetime.c",
         "tools/native-abi/probes/lent_handle_use_after_lender.c",
@@ -681,11 +681,11 @@
       "title": "A process exiting with a live vertex buffer aborts on the EasyGL renderer",
       "family": "cnanext",
       "authority": "engine_layer.h",
-      "status": "blocked",
+      "status": "done",
       "priority": 6,
-      "currentState": "A process that exits while a CNA vertex buffer is alive AND the thread that created it has already ended aborts during static destruction, with terminate called without an active exception and SIGABRT. Both conditions are necessary and neither alone does it, and it happens only on the EasyGL renderer family (OPENGLES3, OPENGL33); HEADLESS, SOFTWARE and OPENGL4 all exit zero. Reproduced in pure C, one case per process, with the two conditions isolated against each other.",
+      "currentState": "Re-measured 2026-09-30 against CNA ABI 0.35.0 (next at 0f7166cd8/79799cf09; ~/deps/cna-c-abi-0.35.0 HEADLESS and ~/deps/cna-c-abi-0.35.0-opengles3-fx). Fixed upstream (BINDFIX-041, CNA 0f7166cd8). exit_with_live_graph.c exits 0 in its thread, thread-bare and main modes on OPENGLES3, and NativeShutdownSubprocessTests now requires a clean exit on every renderer.",
       "expectedState": "A process may exit with a live graph, as it can on every other renderer.",
-      "blocker": "Upstream defect in cnanext EasyGL renderer. CNA-Java cannot fix it.",
+      "blocker": "",
       "tests": [
         "tools/native-abi/probes/exit_with_live_graph.c",
         "NativeShutdownSubprocessTests.jvmShutdownWithLiveEffectChildrenBuffersAndCallbacksExitsCleanly"
@@ -697,11 +697,11 @@
       "title": "A post-process pass that reports itself unsupported runs anyway on one renderer",
       "family": "cnanext",
       "authority": "engine_layer.h",
-      "status": "blocked",
+      "status": "done",
       "priority": 6,
-      "currentState": "cna_post_process_pass_is_supported exists so a game can ask before it spends a frame, and the value of the question is that the answer predicts the behaviour. Measured with a film-grain pass over a flat grey frame, read back and counted: HEADLESS answers no and refuses the readback; SOFTWARE answers no and copies the source through unchanged, which agrees with itself; OPENGLES3 and OPENGL33 answer yes and grain the frame; OPENGL4 answers no and grains the frame anyway.",
+      "currentState": "Re-measured 2026-09-30 against CNA ABI 0.35.0 (next at 0f7166cd8/79799cf09; ~/deps/cna-c-abi-0.35.0 HEADLESS and ~/deps/cna-c-abi-0.35.0-opengles3-fx). No longer applicable: CNA ABI 0.30 removed engine_layer.h and every route this finding names; the Java families that bound them were deleted with it. OPENGL4 is also a retired renderer identity.",
       "expectedState": "The answer predicts the behaviour on every renderer, whichever way each one is decided.",
-      "blocker": "Upstream inconsistency in cnanext OPENGL4 renderer or in the support query it answers. CNA-Java cannot fix it.",
+      "blocker": "",
       "tests": [
         "tools/native-abi/probes/pass_support_versus_behaviour.c",
         "PixelReadbackTests.aPostProcessChainChangesThePixelsItsPassesSayItShould"
@@ -713,11 +713,11 @@
       "title": "A shader-effect uniform set before the effect is applied is silently discarded",
       "family": "cnanext",
       "authority": "effects.h",
-      "status": "blocked",
+      "status": "done",
       "priority": 6,
-      "currentState": "EasyGLEffectRenderer::SetUniformFloat and its eight siblings call uniform_location and set_uniform without binding the program first, and glUniform writes to whichever program is current -- so a uniform set before the effect is applied goes to another program or nowhere. Every setter answers SUCCESS either way. Measured in pure C with a fragment shader that writes nothing but a uniform: setting it before applying gives 0,0,0,0 and after applying gives 255,0,0,255, on OPENGL33, OPENGLES3 and OPENGL4 alike.",
+      "currentState": "Re-measured 2026-09-30 against CNA ABI 0.35.0 (next at 0f7166cd8/79799cf09; ~/deps/cna-c-abi-0.35.0 HEADLESS and ~/deps/cna-c-abi-0.35.0-opengles3-fx). Fixed upstream (BINDFIX-025). shader_effect_uniform_binding.c, ported from the removed full-screen pass to SpriteBatch, paints the uniform on OPENGLES3 whether it is set before an apply, after one, or left for SpriteBatch to apply.",
       "expectedState": "A uniform set on a shader effect reaches that effect, whatever program happens to be current -- which is what the same renderer compute path already does.",
-      "blocker": "Upstream defect in cnanext EasyGL renderer. CNA-Java cannot fix it, and works within it: ShaderEffect.apply() is the documented step, and the ordering is asserted by a pixel.",
+      "blocker": "",
       "tests": [
         "tools/native-abi/probes/shader_effect_uniform_binding.c",
         "ShaderEffectTests.aUniformSetFromJavaDecidesThePixelTheShaderWrites"
@@ -729,11 +729,11 @@
       "title": "A renderer named in CNA_GRAPHICS_RENDERER that this build lacks aborts the process while the library loads",
       "family": "cnanext",
       "authority": "core_ext.h, graphics.h",
-      "status": "blocked",
+      "status": "done",
       "priority": 8,
-      "currentState": "Setting CNA_GRAPHICS_RENDERER to a renderer identity this build was not compiled with -- or to a string that names no renderer at all -- kills the process with SIGABRT: `terminate called after throwing an instance of 'System::InvalidOperationException'`. The selection is resolved while libcna_c_api.so is loading, so nothing of the caller runs: not main, not a __attribute__((constructor)) of the program itself. A program that links the library but references no symbol survives only because --as-needed drops the DT_NEEDED entry entirely; add one reference and it dies. In a JVM this happens inside System.loadLibrary, before any Java frame exists to catch anything, and takes the whole test run with it -- which is how it was found.",
+      "currentState": "Re-measured 2026-09-30 against CNA ABI 0.35.0 (next at 0f7166cd8/79799cf09; ~/deps/cna-c-abi-0.35.0 HEADLESS and ~/deps/cna-c-abi-0.35.0-opengles3-fx). Fixed upstream (BINDFIX-038, CNA f1593227d). CNA reads CNA_GRAPHICS_RENDERER on first use: renderer_selection.c env mode reaches main and returns, and GraphicsRendererSelectionTests starts a child JVM with an absent renderer named and asserts GraphicsRenderer.getSelected throws IllegalStateException and creating a game fails as an ordinary exception.",
       "expectedState": "An unavailable or unrecognised CNA_GRAPHICS_RENDERER is reported the way the API path already reports it: the message it currently aborts with is a good one, and reaching the caller as a CNA_Result -- or as a fallback to the build default, which is what the same variable does when set after load -- would cost nothing. No C++ exception should escape a library's load.",
-      "blocker": "Upstream defect in cnanext renderer selection. Nothing in CNA-Java can guard it: the abort precedes every line of Java. The mitigation is GraphicsRenderer.available(), which lets a game read the inventory from a process that already loaded and choose through the API path, where an absent renderer is an IllegalStateException.",
+      "blocker": "",
       "tests": [
         "tools/native-abi/probes/renderer_selection.c",
         "GraphicsRendererSelectionTests.aRendererThisBuildDoesNotHaveIsRefusedRatherThanAborting"
@@ -745,11 +745,11 @@
       "title": "Creating a graphics device resets three renderer-selection query routes, and three more named \"current\" report the compile-time default",
       "family": "cnanext",
       "authority": "core_ext.h",
-      "status": "blocked",
+      "status": "done",
       "priority": 6,
-      "currentState": "Measured on a process that touches the selection at all -- an earlier reading of the same family asked these routes after calling set_preferred and reset_selection_for_tests, and so measured its own leftovers. Clean, the picture is narrower and has a trigger. Before the first GraphicsDevice every query route is correct: get_available_count_ext answers 5 for a build with five renderers, get_selected_ext names the renderer the run asked for, get_is_latched_ext says not latched. Creating one device resets three of them: the count becomes 0 while copy_available_ext still answers 5, the selection becomes UNKNOWN, and the latch flag stays \"not latched\" so it never reports the state it exists to report. Separately, cna_graphics_renderer_get_current_type and the two cna_graphics_backend_get_current_* classifiers report the renderer this build was CONFIGURED with rather than the one running: on a build configured HEADLESS with five compiled in, they answer HEADLESS and Diagnostic/Supported while OPENGL33 is what was created. cna_graphics_renderer_copy_current_name answers HEADLESS too, but its declaration says it matches the build option, so that one is honest. Retaken on 2026-08-31 against a cnanext rebuilt from 96b56b0e4, which is three commits past the build every earlier measurement in this repository was taken on: after one device the count is still 0 against copy_available_ext's 5, the selection is still UNKNOWN and the latch is still false; and get_current_type still answers HEADLESS while OPENGL33 runs, where get_active_ext answers OPENGL33.",
+      "currentState": "Re-measured 2026-09-30 against CNA ABI 0.35.0 (next at 0f7166cd8/79799cf09; ~/deps/cna-c-abi-0.35.0 HEADLESS and ~/deps/cna-c-abi-0.35.0-opengles3-fx). Withdrawn: not a CNA defect. renderer_selection.c read each output inside the printf that printed it, and GCC evaluated the read before the call wrote it, so initial values were reported as a reset. Rewritten with each call sequenced first, the count, selection and latch answer correctly before and after a device exists; the three routes are now bound (GraphicsRenderer.available, getSelected, isLatched) and the pair exception is gone.",
       "expectedState": "A device does not reset the routes that describe the selection, and a route named \"current\" describes the renderer that is current. cna_graphics_renderer_get_active_ext and cna_graphics_device_copy_renderer_name both answer correctly and show that the information is there to give.",
-      "blocker": "Upstream defect in cnanext renderer selection. CNA-Java binds get_active_ext, which is correct, and does not bind the three that a device resets. GraphicsRenderer.available() sizes its buffer with the zero-capacity probe rather than the count route, which is what keeps it working once a device exists. GraphicsRenderer.getActive() is documented as the route to trust over anything named \"current\".",
+      "blocker": "",
       "tests": [
         "tools/native-abi/probes/renderer_selection.c",
         "GraphicsRendererSelectionTests.theActiveRendererIsTheOneTheRunAskedFor",
@@ -792,11 +792,11 @@
       "title": "A camera destroyed after a longer session segfaults the process",
       "family": "cnanext",
       "authority": "devices.h",
-      "status": "blocked",
+      "status": "done",
       "priority": 9,
-      "currentState": "tools/native-abi/probes/camera_test_backend.c crashes with SIGSEGV, three runs of three, on HEADLESS and OPENGL33 alike. Removing exactly one cna_camera_destroy call -- PROBE_SKIP=camera -- makes the same run exit 0 with cna_game_destroy answering SUCCESS, so the call is named even though the sequence around it is not reduced. It resists reduction: two test-backend cameras created and destroyed is clean, one camera used and destroyed is clean, and a second camera created, used and destroyed while the first still lives is clean. Something the longer sequence does first -- driving the state machine through every value, setting several frames of different sizes, acquiring repeatedly -- leaves a camera whose destruction is fatal. Retaken on 2026-08-31 against a cnanext rebuilt from 96b56b0e4, which is three commits past the build every earlier measurement in this repository was taken on: PROBE_CASE=0 still exits 139 and PROBE_SKIP=camera still exits 0.",
+      "currentState": "Re-measured 2026-09-30 against CNA ABI 0.35.0 (next at 0f7166cd8/79799cf09; ~/deps/cna-c-abi-0.35.0 HEADLESS and ~/deps/cna-c-abi-0.35.0-opengles3-fx). Fixed upstream (BINDFIX-011). camera_test_backend.c PROBE_CASE=0 exits 0 on OPENGLES3 with CNA_DEVICES=ON. The fifteen cna_camera_* routes are bound as extensions.devices.Camera and CameraTests drives two test cameras in one process.",
       "expectedState": "Destroying a camera is safe whatever was done to it first. This is a CNA extension with a test backend built for exactly this kind of qualification, so a crash here is reachable from any suite that uses that backend the way it is meant to be used.",
-      "blocker": "Upstream defect in cnanext's camera implementation. The fifteen camera routes are NOT bound: the family is otherwise fully qualifiable without hardware -- create_with_test_backend_ext, set_test_state_ext and set_test_frame_ext make every route exercisable and the pixels checkable -- and it is exactly that qualification that found this. A projection that hands a game a route which kills the process is worse than one that leaves the family out.",
+      "blocker": "",
       "tests": [
         "tools/native-abi/probes/camera_test_backend.c"
       ],
@@ -807,11 +807,11 @@
       "title": "cna_camera_try_acquire_frame_ext returns SUCCESS without writing out_acquired",
       "family": "cnanext",
       "authority": "devices.h",
-      "status": "blocked",
+      "status": "done",
       "priority": 4,
-      "currentState": "The route documents out_acquired as receiving whether a frame was acquired, and documents \"having no frame ready is an ordinary CNA_FALSE rather than a failure\". Measured with a poison value written into the flag first, several paths return CNA_RESULT_SUCCESS and leave it untouched -- including a freshly created test-backend camera asked for a frame, with or without one set. A C caller with an uninitialised stack CNA_Bool reads whatever was there.",
+      "currentState": "Re-measured 2026-09-30 against CNA ABI 0.35.0 (next at 0f7166cd8/79799cf09; ~/deps/cna-c-abi-0.35.0 HEADLESS and ~/deps/cna-c-abi-0.35.0-opengles3-fx). Withdrawn: the same unsequenced read as -018 in camera_test_backend.c. Sequenced, the wrong-size acquire answers SUCCESS with out_acquired written CNA_FALSE.",
       "expectedState": "A route that returns SUCCESS writes the output it documents. CNA_FALSE is the documented answer for no frame; leaving the value alone is not.",
-      "blocker": "Upstream defect in cnanext. Benign for a Java binding, whose boolean[1] is zero-initialised, and not benign for the C callers the ABI is for. Not separately blocking: the camera family is unbound for JAVA-UPSTREAM-019.",
+      "blocker": "",
       "tests": [
         "tools/native-abi/probes/camera_test_backend.c"
       ],
@@ -822,11 +822,11 @@
       "title": "cna_camera_create succeeds on a host with no camera, which is_supported and count both report",
       "family": "cnanext",
       "authority": "devices.h",
-      "status": "blocked",
+      "status": "done",
       "priority": 3,
-      "currentState": "cna_camera_get_is_supported_ext answers CNA_FALSE and cna_camera_get_count_ext answers 0 on this host, and cna_camera_create then answers SUCCESS and hands back a handle. Separately, cna_camera_set_test_state_ext refuses CNA_CAMERA_STATE_NOT_SUPPORTED and CNA_CAMERA_STATE_CLOSED with INVALID_ARGUMENT -- including NOT_SUPPORTED, which is the state a test-backend camera is born in, so the setter cannot restore the object's own initial state.",
+      "currentState": "Re-measured 2026-09-30 against CNA ABI 0.35.0 (next at 0f7166cd8/79799cf09; ~/deps/cna-c-abi-0.35.0 HEADLESS and ~/deps/cna-c-abi-0.35.0-opengles3-fx). Withdrawn: is_supported read as false for the same probe reason; sequenced it answers true with one camera on this host, consistent with cna_camera_create succeeding. Refusing NOT_SUPPORTED/CLOSED as test states stays CNA's documented design (BINDFIX-019).",
       "expectedState": "A capability query predicts the behaviour: either create refuses where is_supported is false, or is_supported describes something else and says so. And a test backend's state setter reaches every state the backend can be in.",
-      "blocker": "Upstream. Same family as JAVA-UPSTREAM-019 and unbound with it. This is the fourth instance in this backlog of a capability query that does not predict the behaviour behind it.",
+      "blocker": "",
       "tests": [
         "tools/native-abi/probes/camera_test_backend.c"
       ]
@@ -836,11 +836,11 @@
       "title": "The route that exists so a caller need not guess the shading dialect answers UNKNOWN on every renderer",
       "family": "cnanext",
       "authority": "graphics.h",
-      "status": "blocked",
+      "status": "done",
       "priority": 3,
-      "currentState": "cna_graphics_device_get_shader_dialect_ext answers CNA_SHADER_DIALECT_UNKNOWN on all five renderers this build carries -- HEADLESS, SOFTWARE, OPENGL4, OPENGLES3 and OPENGL33 -- while a GLSL ES source compiles and, on the two EasyGL renderers, draws. IGraphicsRenderer.hpp declares GetShaderDialectEXT as a virtual whose default body returns Unknown, and WebGPURenderer is the only renderer in the tree that overrides it. cna_graphics_device_supports_capability(CUSTOM_EFFECTS) is no substitute: it answers true on all five, including the two that execute no shader at all.",
+      "currentState": "Re-measured 2026-09-30 against CNA ABI 0.35.0 (next at 0f7166cd8/79799cf09; ~/deps/cna-c-abi-0.35.0 HEADLESS and ~/deps/cna-c-abi-0.35.0-opengles3-fx). Answered upstream: EasyGL now reports its dialect (6ff9d1b95); ColorMatrixEffectTests asserts what each renderer answers.",
       "expectedState": "A renderer that compiles shader sources names the dialect those sources must be written in. graphics.h tells a caller that the renderer identity is not a safe way to infer it -- \"wrong in a build carrying several renderers\", which this is -- and to ask this route instead, so the route needs an answer to give.",
-      "blocker": "Upstream. The fifth instance in this backlog of a capability query that does not predict the behaviour behind it. The route is bound anyway: UNKNOWN is a documented answer meaning \"do not guess\", and a caller that refuses to build sources from it is behaving correctly.",
+      "blocker": "",
       "tests": [
         "tools/native-abi/probes/shader_dialect_answer.c",
         "ColorMatrixEffectTests.theDialectRouteAnswersUnknownOnEveryRendererThisBuildHas"
@@ -851,11 +851,11 @@
       "title": "A morph target's tangent deltas cannot be read until they have been written, and the refusal names the wrong reason",
       "family": "cnanext",
       "authority": "models.h",
-      "status": "blocked",
+      "status": "done",
       "priority": 4,
-      "currentState": "cna_morph_target_data_ext_copy_tangent_deltas bounds-checks its target index against data->value->TangentDeltas.size(), which is zero until cna_morph_target_data_ext_set_tangent_deltas resizes it. So reading target zero of a morph data that has one target -- an index that is in range by every other route's reckoning -- answers CNA_RESULT_INVALID_ARGUMENT with \"The MorphTargetDataEXT target index is outside the valid range\". The setter beside it checks against PositionDeltas.size() and is correct.",
+      "currentState": "Re-measured 2026-09-30 against CNA ABI 0.35.0 (next at 0f7166cd8/79799cf09; ~/deps/cna-c-abi-0.35.0 HEADLESS and ~/deps/cna-c-abi-0.35.0-opengles3-fx). Fixed upstream (BINDFIX-009); CnaMorphTargetDataTests asserts correct behaviour.",
       "expectedState": "A target with no tangent deltas reports none, which is what cna_morph_target_data_ext_copy_normal_deltas already does for a target with no normal deltas: the count comes back zero and the call succeeds. An index past the target count stays a refusal.",
-      "blocker": "Upstream, and small: the bound to compare against is the target count rather than the tangent array's length. A caller can work around it by setting before reading, which is what CnaMorphTargetData documents.",
+      "blocker": "",
       "tests": [
         "CnaMorphTargetDataTests.eachTargetsDeltasComeBackAsItsOwn"
       ]

@@ -1,14 +1,13 @@
 {
-  "abiVersion": "0.21.0",
+  "abiVersion": "0.35.0",
   "actionableLocal": [],
   "bindingStatusCounts": {
-    "BLOCKED_UPSTREAM": 22,
-    "BOUND": 2774,
+    "BOUND": 1952,
     "DEFERRED_TRACKED": 320,
-    "DELIBERATE_NON_BINDING": 938
+    "DELIBERATE_NON_BINDING": 930
   },
   "boundButUnreached": [],
-  "boundFunctions": 2774,
+  "boundFunctions": 1952,
   "boundWithoutJavaCallSite": [],
   "byHeader": {
     "abi.h": {
@@ -68,16 +67,12 @@
       "XNA_BACKING": 166,
       "total": 290
     },
-    "engine_layer.h": {
-      "CNA_EXTENSION_CANDIDATE": 857,
-      "total": 857
-    },
     "gamer_services.h": {
-      "CNA_EXTENSION_CANDIDATE": 28,
+      "CNA_EXTENSION_CANDIDATE": 15,
       "DEFERRED_RUNTIME": 2,
       "NOT_USEFUL_IN_JAVA": 50,
-      "XNA_BACKING": 170,
-      "total": 250
+      "XNA_BACKING": 172,
+      "total": 239
     },
     "geometry.h": {
       "NOT_USEFUL_IN_JAVA": 94,
@@ -85,10 +80,10 @@
     },
     "graphics.h": {
       "CNA_EXTENSION_CANDIDATE": 6,
-      "DEFERRED_RUNTIME": 6,
+      "DEFERRED_RUNTIME": 5,
       "NOT_USEFUL_IN_JAVA": 2,
       "XNA_BACKING": 14,
-      "total": 28
+      "total": 27
     },
     "graphics_device.h": {
       "DEFERRED_RUNTIME": 41,
@@ -97,9 +92,9 @@
       "total": 87
     },
     "graphics_ext.h": {
-      "CNA_EXTENSION_CANDIDATE": 26,
+      "CNA_EXTENSION_CANDIDATE": 42,
       "XNA_BACKING": 2,
-      "total": 28
+      "total": 44
     },
     "graphics_resource.h": {
       "DEFERRED_RUNTIME": 10,
@@ -200,8 +195,7 @@
       "total": 41
     },
     "models.h": {
-      "CNA_EXTENSION_CANDIDATE": 181,
-      "DEFERRED_RUNTIME": 1,
+      "CNA_EXTENSION_CANDIDATE": 182,
       "NOT_USEFUL_IN_JAVA": 34,
       "total": 216
     },
@@ -217,10 +211,10 @@
     },
     "net_sessions.h": {
       "CNA_EXTENSION_CANDIDATE": 5,
-      "DEFERRED_RUNTIME": 10,
+      "DEFERRED_RUNTIME": 11,
       "NOT_USEFUL_IN_JAVA": 16,
       "XNA_BACKING": 72,
-      "total": 103
+      "total": 104
     },
     "packed_vectors.h": {
       "NOT_USEFUL_IN_JAVA": 7,
@@ -312,24 +306,21 @@
       "total": 62
     }
   },
-  "canonicalFunctions": 4054,
+  "canonicalFunctions": 3202,
   "classificationCounts": {
-    "CNA_EXTENSION_CANDIDATE": 1850,
-    "DEFERRED_RUNTIME": 321,
+    "CNA_EXTENSION_CANDIDATE": 997,
+    "DEFERRED_RUNTIME": 320,
     "JAVA_INTERNAL_ONLY": 11,
     "NOT_USEFUL_IN_JAVA": 886,
-    "XNA_BACKING": 986
+    "XNA_BACKING": 988
   },
-  "cnaInventorySha256": "b485d17b1df9a86c6099700baedcd435c8a3f07487af8741b01d8c471956bfe7",
+  "cnaInventorySha256": "f5b31793fc3440b85fedfef743b46409d17f3abf988cc589e936b9aa2426c1db",
   "deferredTasks": {
-    "JAVA-EXT-006": 2,
-    "JAVA-EXT-010": 8,
-    "JAVA-EXT-012": 1,
     "JAVA-NATIVE-010": 8,
     "JAVA-NATIVE-012": 37,
     "JAVA-NATIVE-013": 25,
     "JAVA-NATIVE-014": 39,
-    "JAVA-NATIVE-015": 61,
+    "JAVA-NATIVE-015": 60,
     "JAVA-NATIVE-016": 19,
     "JAVA-NATIVE-017": 9,
     "JAVA-NATIVE-018": 1,
@@ -337,12 +328,8 @@
     "JAVA-NATIVE-020": 38,
     "JAVA-NATIVE-021": 6,
     "JAVA-NATIVE-023": 33,
-    "JAVA-UPSTREAM-004": 2,
-    "JAVA-UPSTREAM-011": 1,
-    "JAVA-UPSTREAM-018": 4,
-    "JAVA-UPSTREAM-019": 15,
     "JAVA-XNA-001": 2,
-    "JAVA-XNA-002": 10
+    "JAVA-XNA-002": 11
   },
   "extensionCensusByHeader": {
     "cnb.h": {
@@ -354,35 +341,20 @@
       "total": 10
     },
     "core_ext.h": {
-      "BLOCKED_UPSTREAM": 4,
-      "DELIBERATE_NON_BINDING": 14,
-      "total": 18
-    },
-    "devices.h": {
-      "BLOCKED_UPSTREAM": 15,
+      "DELIBERATE_NON_BINDING": 15,
       "total": 15
     },
     "effects.h": {
       "DELIBERATE_NON_BINDING": 2,
       "total": 2
     },
-    "engine_layer.h": {
-      "BLOCKED_UPSTREAM": 1,
-      "DELIBERATE_NON_BINDING": 11,
-      "total": 12
-    },
-    "graphics_ext.h": {
-      "DELIBERATE_NON_BINDING": 1,
-      "total": 1
-    },
     "input_devices.h": {
       "DELIBERATE_NON_BINDING": 1,
       "total": 1
     },
     "models.h": {
-      "BLOCKED_UPSTREAM": 1,
       "DELIBERATE_NON_BINDING": 3,
-      "total": 4
+      "total": 3
     },
     "sensors.h": {
       "DELIBERATE_NON_BINDING": 2,

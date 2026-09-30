@@ -3,16 +3,18 @@
 **Status:** the complete XNA 4.0 runtime superset is structurally at zero diagnostics, and
 the CNA extension census is at `ACTIONABLE_LOCAL = 0`
 
-**Updated:** 2026-09-01
+**Updated:** 2026-09-30 (requalified against CNA C ABI 0.35.0 before the repository was archived
+into `cna-lab`; `NEXT.md` has the measured state)
 
 **Profiles:** the seven-assembly XNA 4.0 Windows runtime subset gate, and the ten-assembly full
 runtime superset that adds GamerServices, Net and Avatar
 
-**Native dependency:** `../../cnanext` built against `../../sharp-runtimenext`, CNA C ABI 0.21.0
+**Native dependency:** the sibling `../cna` (`next`) built against `../sharp-runtime`, CNA C ABI
+0.35.0
 
-**Runtime-qualified platform:** Linux x86-64, CNA SDL3 platform, NULL audio, and five renderers
-compiled into one library and chosen at run time: HEADLESS, SOFTWARE, OPENGL4, OPENGLES3 and
-OPENGL33. The whole suite runs green on each of the five, on the host display and on a virtual one.
+**Runtime-qualified platform:** Linux x86-64, CNA SDL3 platform, two single-renderer builds:
+HEADLESS (SDL3 audio, no extended or device layer) and OPENGLES3 (extended graphics and device
+layers, compiled effects), the latter only inside CNA's private GPU runner.
 
 ## Authority and normative boundaries
 
@@ -20,8 +22,8 @@ Microsoft XNA 4.0 metadata, IL, and reference behavior are authoritative. CNA-C#
 behavioral engineering comparison; CNA-TS/Rust, FNA, and MonoGame remain comparisons only. CNA C
 headers are authoritative only at the native boundary.
 
-The binding qualifies against the live sibling `cnanext`, itself built against the live sibling
-`sharp-runtimenext`. It does not fall back to an unrelated CNA checkout: doing so would make every
+The binding qualifies against the live sibling `cna`, itself built against the live sibling
+`sharp-runtime`. It does not fall back to an unrelated CNA checkout: doing so would make every
 ABI, symbol and layout result in this build describe a library nobody ships.
 
 Structural API completeness and runtime capability are separate. Zero diagnostics means every
@@ -218,24 +220,13 @@ add cost and a native failure mode the original API cannot produce.
 
 ## Next
 
-`docs/backlog.json` is the machine-readable backlog, and **everything left in it is external**.
-`ACTIONABLE_LOCAL` is 0 and `nativeCensusCheck` holds it there.
-
-Twenty-two routes are `BLOCKED_UPSTREAM` across four findings, all four retaken on 2026-09-01
-against a `cnanext` rebuilt from `96b56b0e4` -- three commits past the build every earlier
-measurement here used -- and all four still reproduce: the content manager's model teardown
-segfaults (`JAVA-UPSTREAM-004`), one owned pass makes a game undestroyable (`-011`), four
-renderer-selection getters answer about something other than the running renderer (`-018`), and a
-camera destroyed after a longer session kills the process (`-019`).
+`docs/backlog.json` is the machine-readable backlog. Every `JAVA-UPSTREAM-*` finding is closed as
+of 2026-09-30: fixed in CNA, removed with CNA's engine layer at ABI 0.30, or withdrawn as a probe
+artifact (-018, -020, -021 read outputs before the route wrote them). No route is
+`BLOCKED_UPSTREAM`; `ACTIONABLE_LOCAL` is 0 and `nativeCensusCheck` holds it there.
 
 320 routes are `DEFERRED_TRACKED`: XNA-backing routes whose Java members are projected and behave,
-where what is deferred is moving the implementation onto the native route. Both profiles' zeros
-are what says those members behave.
+where what is deferred is moving the implementation onto the native route.
 
-938 are `DELIBERATE_NON_BINDING`, each with its exact reason in `coverage-rules.json`. Fifty-one
-of them are inside the census and deserve re-reading every session: two of this session's five
-stale reasons were hiding among them, and no gate can find that kind.
-
-What would genuinely unblock more is external. A GPU whose timer query answers with a duration
-rather than a sentinel; a licensed authored XACT bank; a second machine for a real network
-session; an authored `.xnb` effect. Each is an asset or a host this qualification does not have.
+What would genuinely unblock more is external: a licensed authored XACT bank, a second machine for
+a real network session, an authored `.xnb` effect, and hosts other than Linux x86-64.

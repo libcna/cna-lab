@@ -10,7 +10,7 @@ Microsoft.Xna.Framework.*       strict XNA Java projection
     ↓
 org.openeggbert.cna.internal.*  private implementation/JNI
     ↓
-CNA stable C ABI 0.20.0
+CNA stable C ABI 0.35.0
     ↓
 CNA C++ / SharpRuntime
 ```
@@ -88,16 +88,21 @@ Implemented now:
   signed-in roster, achievements, friends, profiles, privileges, game defaults,
   presence, the Guide, leaderboards, the property dictionary, sessions,
   discovery, rosters, machines and packets, all reaching real CNA routes;
-- four CNA extension families outside the strict packages --
-  `org.openeggbert.cna.extensions.graphics`, `.runtime`, `.devices` and
-  `.input` -- covering the extended graphics layer, the runtime's own identity
-  and logger, the host device capabilities, and typed text with mouse cursors,
-  each preserving `NOT_SUPPORTED` as its own answer rather than downgrading;
-- a Java 17 JNI adapter for 1,225 CNA ABI 0.20.0 routes whose dispatch-table
+- CNA extension families outside the strict packages --
+  `org.openeggbert.cna.extensions.graphics`, `.runtime`, `.devices`, `.input`,
+  `.content`, `.sensors` and others -- covering the extended graphics layer
+  (physically based and shader effects, the ASCII, CRT, depth and colour-matrix
+  effects, debug lines, renderer selection), the runtime's own identity and
+  logger, the host device capabilities including the camera, and CNA's own
+  model loader, each preserving `NOT_SUPPORTED` as its own answer. CNA ABI 0.30
+  retired its engine layer (render pipeline, post-processing, shadows, clustered
+  lighting, probes, particles, compute, instancing) and CNA-Java no longer
+  projects it;
+- a Java 17 JNI adapter for 1,955 CNA ABI 0.35.0 routes whose dispatch-table
   slots are declared from the headers themselves, so a signature that moves
   upstream stops the adapter compiling; the mechanical half of that boundary is
   generated from the headers and checked for staleness by the build;
-- a classification for every one of the 4,051 canonical CNA C API functions,
+- a classification for every one of the 3,202 canonical CNA C API functions,
   with zero unexplained, derived from the JNI call graph and the Java sources,
   and with every bound route reached from Java;
 - managed and native integration/ownership tests plus a desktop template canary
@@ -119,7 +124,7 @@ machine-readable capability inventory rather than hidden by the strict score.
 ## Build and verify
 
 Use the pinned Gradle 8.12 Wrapper with JDK 17 or newer. CNA headers come from
-`CNA_ROOT`, or from the sibling `../../cnanext` checkout. There is deliberately
+`CNA_ROOT`, or from the sibling `../cna` checkout. There is deliberately
 no fallback to another CNA checkout: qualifying against one would make every
 ABI, symbol and layout result describe a library nobody ships.
 
@@ -180,9 +185,12 @@ Read [the normative mapping](docs/xna-java-mapping.md), [the architecture](docs/
 
 ## Platform evidence
 
-Only Linux x86-64 with CNA HEADLESS platform, HEADLESS renderer and NULL audio,
-built from the sibling `cnanext` against the sibling `sharp-runtimenext`, has
-runtime evidence in this checkout. Windows and macOS desktop are planned. Android is planned but has no
+Only Linux x86-64 has runtime evidence, re-measured on 2026-09-30 against CNA ABI
+0.35.0 built from the sibling `cna` (`next`) and `sharp-runtime`: an SDL3-platform
+HEADLESS build and an SDL3-platform OPENGLES3 build with the extended graphics
+and device layers, the latter run only inside CNA's private GPU runner
+(`tools/platform/run_gpu_tests_private.sh`). See `NEXT.md` for the counts.
+Windows and macOS desktop are planned. Android is planned but has no
 backend/package. iOS and browser targets are unsupported. Java source
 portability is not native runtime evidence.
 

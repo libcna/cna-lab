@@ -2,6 +2,10 @@
 
 **Measured:** 2026-08-30
 
+> Historical record. `cnanext`/`sharp-runtimenext` below were the dependency checkouts of the
+> time; they are now the sibling `cna` and `sharp-runtime`, and the binding targets ABI 0.35.0
+> (see `NEXT.md` for the 2026-09-30 requalification).
+
 CNA-Java's development dependency is now the live sibling `cnanext` checkout, built against the
 live sibling `sharp-runtimenext` checkout. The previous baseline -- an unrelated historical CNA
 checkout and a pinned `/tmp` artifact at ABI 0.7.0 -- is gone, and `build.gradle` no longer falls
