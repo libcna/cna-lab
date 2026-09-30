@@ -7,14 +7,14 @@ cleanly.
 
 ## Qualified evidence (re-measured 2026-09-30)
 
-MRI Ruby 3.3.8 on Linux x86-64, CNA C ABI **0.35.0** built from CNA `next`, consuming the exact
-built `cna-ruby-0.1.0.dev0.gem` installed into an isolated `GEM_HOME` -- not the `path:` Gemfile
-dependency and not a source load path:
+MRI Ruby 3.3.8 on Linux x86-64, CNA C ABI **0.35.0** built from CNA `next` `5b4edd6cc`,
+consuming the exact built `cna-ruby-0.1.0.dev0.gem` (cna-ruby `25624a9`) installed into an isolated
+`GEM_HOME` -- not the `path:` Gemfile dependency and not a source load path:
 
 | Artifact | `--frames 60` | `--frames 600` |
 | --- | --- | --- |
 | HEADLESS (`~/deps/cna-c-abi-0.35.0`) | 60 draws, 60 updates, exit 0 | 600 draws, 600 updates, exit 0 |
-| OPENGLES3 (`~/deps/cna-c-abi-0.35.0-opengles3-fx`, private Xwayland on the real GPU) | 60 draws, 85 updates, exit 0 | 600 draws, 911 updates, exit 0 |
+| OPENGLES3 (`~/deps/cna-c-abi-0.35.0-opengles3-fx`, private Xwayland on the real GPU) | 60 draws, 86 updates, exit 0 | 600 draws, 932 updates, exit 0 |
 
 `--frames` counts Draw calls. XNA's fixed time step runs as many Updates as it needs before each
 Draw, so on a renderer whose Present waits for the display there are more Updates than Draws; the
