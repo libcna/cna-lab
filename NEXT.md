@@ -1,8 +1,11 @@
 # CNA-Swift continuation handoff
 
-> **Current as of Foundation 106.** Earlier frontier and milestone narratives
-> are retained below as historical measurement. `plan.md` remains the
-> authority for project rules; this top block is the current work state.
+> **Current as of Foundation 106, requalified against CNA C ABI 0.35.0 on
+> 2026-09-30** (`docs/cna-0-35-requalification.md`: HEADLESS and OPENGLES3,
+> the template and the archive consumer, before archival into `cna-lab`).
+> Earlier frontier and milestone narratives are retained below as historical
+> measurement. `plan.md` remains the authority for project rules; this top
+> block is the current work state.
 
 ## Where the work stands
 
@@ -13,10 +16,10 @@ in `plan.md` and `README.md`, against the generated reports:
 ```bash
 git rev-list --count origin/develop..HEAD
 python3 tools/api_compat/verify.py --symbol-graph \
-  .build/x86_64-pc-linux-gnu/symbolgraph/CNA.symbols.json
+  .build/x86_64-unknown-linux-gnu/symbolgraph/CNA.symbols.json
 python3 tools/status_gate/verify.py \
-  --symbol-graph .build/x86_64-pc-linux-gnu/symbolgraph/CNA.symbols.json \
-  --cna-include /path/to/cnanext/modules/c-api/include \
+  --symbol-graph .build/x86_64-unknown-linux-gnu/symbolgraph/CNA.symbols.json \
+  --cna-include /path/to/cna/modules/c-api/include \
   --library "$CNA_NATIVE_LIBRARY" \
   --assembly-dir /path/to/xna/redistributable \
   --il-cache ~/deps/xna-il-cache \

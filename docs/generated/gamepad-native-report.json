@@ -9,7 +9,7 @@
   },
   "hardwareAvailable": false,
   "library": "libcna_c_api.so",
-  "librarySHA256": "c32bfbd307d695664f906ccf2834ec3f9ebc240fa388d544ac21ee3ebaeb731b",
+  "librarySHA256": "070ed77bec5af09f64c7215e25c90de0970f0316b6d50982eece85fd1963c449",
   "positiveCapabilityPath": "HARDWARE_PENDING",
   "positiveStatePath": "HARDWARE_PENDING",
   "positiveVibrationPath": "HARDWARE_PENDING",

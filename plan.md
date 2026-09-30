@@ -1,7 +1,8 @@
 # CNA-Swift normative plan and status
 
-**Current state.** The native boundary is CNA C ABI **major 0, minor 21 or
-later**, qualified against `0.21.0`. Foundation Milestones 1 through 106 are
+**Current state.** The native boundary is CNA C ABI **major 0, minor 35 or
+later**, qualified against `0.35.0` (HEADLESS and OPENGLES3, 2026-09-30; see
+`docs/cna-0-35-requalification.md`). Foundation Milestones 1 through 106 are
 complete. Foundation 104 closes the selected XNA runtime-reader family:
 `ContentReader` is a real subclass of the admitted .NET Framework 4.0
 `BinaryReader` subset; `ContentTypeReader`, its generic subclass and the
@@ -113,8 +114,8 @@ prose, that milestone's evidence file carries it still.
    covers the mapped XNA IntPtr value and never a CNA FFI or native handle.
 7. **The native boundary.** CNA-Swift admits the ABI window CNA itself
    publishes for a consumer — reject a different major, require a minimum minor
-   — which is major `0` exactly and minor `21` or later, qualified against
-   `0.21.0`. Native selection is an absolute `CNA_NATIVE_LIBRARY` override or
+   — which is major `0` exactly and minor `35` or later, qualified against
+   `0.35.0`. Native selection is an absolute `CNA_NATIVE_LIBRARY` override or
    the installed soname, never a developer-tree fallback. Every bound symbol
    must resolve by name before the runtime starts. See `docs/native-abi.md` and
    `docs/native-abi-migration-evidence.md`.
@@ -151,7 +152,7 @@ prose, that milestone's evidence file carries it still.
 
 ## Measurement status
 
-Reproduced live on CNA 0.21.0 at the current HEAD.
+Reproduced live on CNA 0.35.0 at the current HEAD.
 
 ```text
 REFERENCE_TYPES=257            REFERENCE_MEMBERS=2964
@@ -246,11 +247,12 @@ negative lookahead fixed it. Admitting a second assembly is what exposed it.
 
 ## Platform and release policy
 
-Linux x86-64 with Swift 6.0.3 and an external CNA C ABI 0.21.0 HEADLESS library
-(SDL3 audio backend, `CNA_DEVICES=OFF`, `CNA_CNAEXT=OFF`) is the qualified
-runtime. HEADLESS has no visible window and this host has no attached
-controller, so no visible output and no positive controller behaviour is
-claimed. Apple platforms, Windows, and Web/Wasm remain unqualified.
+Linux x86-64 with Swift 6.0.3 and an external CNA C ABI 0.35.0 library is the
+qualified runtime, measured with HEADLESS and with OPENGLES3 (EasyGL) on a
+private Weston + Xwayland display, SDL3 audio through SDL's dummy driver. This
+host has no attached controller, so no positive controller behaviour is
+claimed, and no live-desktop output is. Apple platforms, Windows, and Web/Wasm
+remain unqualified.
 
 ## The frontier
 

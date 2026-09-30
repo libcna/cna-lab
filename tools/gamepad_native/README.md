@@ -3,7 +3,7 @@
 This runner keeps canonical CNA observations separate from the pure
 XNA-derived managed behavior corpus. It exercises the four state modes,
 capabilities, safe zero-vibration, current-generation reuse, and wrong-thread
-preflight against an exact ABI-0.7 library.
+preflight against a CNA C ABI 0.35 library.
 
 ```text
 python3 tools/gamepad_native/run.py \

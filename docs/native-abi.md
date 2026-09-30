@@ -2,8 +2,8 @@
 
 ## The admitted window
 
-CNA-Swift admits **CNA C ABI major 0 with minor 21 or later**, and is qualified
-against exactly `0.21.0` (`0x00001500`). The rule is CNA's own, not this
+CNA-Swift admits **CNA C ABI major 0 with minor 35 or later**, and is qualified
+against exactly `0.35.0` (`0x00002300`). The rule is CNA's own, not this
 binding's invention: `docs/c-api/ABI_VERSIONING.md` says a consumer *must reject
 a different major and may require a minimum minor*, and the installed CNA
 package enforces the same thing with `COMPATIBILITY SameMajorVersion`. Under
@@ -11,8 +11,8 @@ package enforces the same thing with `COMPATIBILITY SameMajorVersion`. Under
 the generation this binding was measured against.
 
 A later minor is admitted by that rule. The protection against a later minor
-that removed a route is not a version number: every one of the 87 bound symbols
-must resolve by name before the runtime starts, and a missing one throws
+that removed a route is not a version number: every one of the 778 bound
+symbols must resolve by name before the runtime starts, and a missing one throws
 `CNAError.missingNativeSymbol`.
 
 A rejection names the admitted window, the reported version, and the file that
@@ -20,7 +20,7 @@ was selected:
 
 ```text
 CNA native library /opt/cna/libcna_c_api.so reports C ABI 0.7.0 (0x00000700);
-CNA-Swift admits major 0 with minor 21 or later (qualified against 0.21.0)
+CNA-Swift admits major 0 with minor 35 or later (qualified against 0.35.0)
 ```
 
 The loader accepts `CNA_NATIVE_LIBRARY` only when it is an absolute file path;
@@ -52,14 +52,18 @@ a route type, and no strict XNA type exposes a handle or function pointer.
 7. audits ELF exports and calls `cna_get_abi_version` on the explicit library,
    requiring it to be inside the admitted window *and* to agree with the header.
 
-Qualified result on CNA 0.21.0:
+Qualified result on CNA 0.35.0 (both evidence libraries below):
 
 ```text
-BOUND_FUNCTIONS=87  ROUTE_PAIRINGS=87  PROTOTYPE_TYPE_POSITIONS=283
-CANONICAL_DECLARATION_CHECKS=283  C_SWIFT_MEASUREMENTS=283
-LAYOUTS=28  LAYOUT_FIELDS=243  CALLBACKS=4  CONSTANTS=215  SCALAR_FACTS=3
+BOUND_FUNCTIONS=778  ROUTE_PAIRINGS=778  PROTOTYPE_TYPE_POSITIONS=2657
+CANONICAL_DECLARATION_CHECKS=2657  C_SWIFT_MEASUREMENTS=2657
+LAYOUTS=68  LAYOUT_FIELDS=522  CALLBACKS=9  CONSTANTS=228  SCALAR_FACTS=3
 MISSING_HEADER_SYMBOLS=0  MISSING_LIBRARY_SYMBOLS=0  ABI_MISMATCHES=0
 ```
+
+None of the 855 routes CNA removed between 0.21 and 0.35 (the engine layer, the
+avatar real-rendering and Guide setter extensions, the SpriteBatch mesh route)
+was bound here, and every bound prototype and mirrored structure is unchanged.
 
 Every count is derived from the source the verifier just compiled. None is a
 hand-maintained literal.
@@ -72,26 +76,24 @@ field, transposed fields, a narrowed field, a wrong callback signature, a wrong
 constant and a wrong `Keys` literal — each of which the verifier must reject.
 All fourteen are caught, and the tree is proven byte-identical afterwards.
 
-## The evidence library
+## The evidence libraries
+
+Both are CNA `next` built from source during the 2026-09-30 retirement pass and
+staged with a `PROVENANCE.txt` (configuration, source revision, hashes):
 
 ```text
-CNA_SOURCE_REVISION=0a6158e4ff764907065cd7259e3d29e331a52088 (cnanext, branch next)
-CNA_ABI_VERSION=0.21.0
-NATIVE_LIBRARY_SHA256=c32bfbd307d695664f906ccf2834ec3f9ebc240fa388d544ac21ee3ebaeb731b
-PLATFORM=Linux x86-64
-RENDERER=HEADLESS
-AUDIO_BACKEND=SDL3
-CNA_DEVICES=OFF
-CNA_CNAEXT=OFF
-EXPORTS=4054
+CNA_SOURCE_REVISION=4228ff913987452c6fe03d125d186072b1405187 (libcna/cna, branch next)
+CNA_ABI_VERSION=0.35.0   EXPORTS=3202   PLATFORM=Linux x86-64   AUDIO_BACKEND=SDL3
+HEADLESS   ~/deps/cna-c-abi-0.35.0                 Debug, CNA_DEVICES=OFF, CNA_CNAEXT=OFF, video OFF
+           NATIVE_LIBRARY_SHA256=070ed77bec5af09f64c7215e25c90de0970f0316b6d50982eece85fd1963c449
+OPENGLES3  ~/deps/cna-c-abi-0.35.0-opengles3-fx    Release, EasyGL compiled effects, CNAEXT, DEVICES, video ON
+           NATIVE_LIBRARY_SHA256=4e38a2dafd68e22c1a77c00a34b2ef6a7b1cb7b6832d904ba4a21b05f374f4d6
 ```
 
-It is not shipped. Its headers are byte-identical to live cnanext HEAD's, its
-export set is exactly the 4,054 names in cnanext's own checked-in
-`tools/c-api/abi_baseline.json`, and the version it reports equals the version
-its headers declare. `docs/native-abi-migration-evidence.md` records the full
-migration, the route-by-route audit, the one CNA-Swift defect it found, and the
-one upstream runtime behaviour that changed.
+Neither is shipped. The previous boundary, CNA C ABI 0.21.0 (cnanext
+`0a6158e4f`, HEADLESS, SHA-256 `c32bfbd3…`, 4,054 exports), is recorded in
+`docs/native-abi-migration-evidence.md`; `docs/cna-0-35-requalification.md`
+records what changed between the two.
 
 ## Historical record: the retired CNA 0.7.0 boundary
 
@@ -119,7 +121,7 @@ Foundation Milestone 6 added only the four required existing GamePad functions,
 three exact copied-POD layouts, and 46 player/dead-zone/threshold/button/type
 constants. Every field offset and function position was compiler-measured; no
 adjacent CNA controller extension route was bound. All of it still holds on
-0.21.0, unchanged.
+0.35.0, unchanged.
 
 ## The render-target routes
 

@@ -6,7 +6,7 @@ strict-complete; runtime capabilities CNA cannot provide remain explicit
 refusals rather than silent compatibility claims.
 
 The strict public identity is `Microsoft.Xna.Framework...`. The qualified
-foundation has a compiler Symbol Graph scoreboard, exact ABI-0.21 admission, a
+foundation has a compiler Symbol Graph scoreboard, ABI-0.35 admission, a
 reviewed typed function table, owner-thread/generation/ownership enforcement,
 callback error containment, and a native Game/2D/input canary. Its managed
 surface includes exact binary32 linear algebra and intersection types, Color,
@@ -493,8 +493,10 @@ generated native qualification report.
 ## Qualified runtime
 
 The qualified host is Linux x86-64 with Swift 6.0.3
-(`x86_64-pc-linux-gnu`) and an external CNA C ABI 0.21.0 HEADLESS library with
-the SDL3 audio backend. Supply it explicitly:
+(`x86_64-unknown-linux-gnu`) and an external CNA C ABI 0.35.0 library built from
+CNA `next`, measured with two renderers: HEADLESS, and OPENGLES3 (EasyGL) on a
+private Weston + Xwayland display. Audio runs through SDL3 with SDL's dummy
+driver. Supply the library explicitly:
 
 ```bash
 export CNA_NATIVE_LIBRARY=/absolute/path/to/libcna_c_api.so
@@ -503,42 +505,47 @@ swift test
 
 `CNA_NATIVE_LIBRARY` must be absolute. Without it Linux tries only an installed
 `libcna_c_api.so`; there is no developer-tree fallback. The admitted ABI window
-is CNA's own published consumer rule — major `0` exactly, minor `21` or later —
-so every earlier generation, `0.7.0` included, is rejected by a diagnostic that
-names the window, the reported version and the selected file. No native binary
+is CNA's own published consumer rule — major `0` exactly, minor `35` or later —
+so every earlier generation, `0.7.0` and `0.21.0` included, is rejected by a
+diagnostic that names the window, the reported version and the selected file. No native binary
 ships in the source package. Managed Curve and GamePad value tests require no
 native library. See `docs/native-abi.md` and
 `docs/native-abi-migration-evidence.md`.
 
 HEADLESS executes real viewport, clear, PNG decode, SpriteBatch, keyboard, and
 GamePad disconnected routes but has no visible window or attached controller.
-Visible output and positive controller behavior are not claimed. macOS, iOS,
-tvOS, visionOS, Windows, and Web/Wasm are unqualified.
+OPENGLES3 adds a real window, cube-face storage and back-buffer readback, which
+the suite asserts where the renderer provides them. Positive controller
+behaviour is not claimed (no controller is attached). macOS, iOS, tvOS,
+visionOS, Windows, and Web/Wasm are unqualified.
 
-One host behaviour is a **measured divergence from XNA and is not corrected by
-this binding**: under a fixed time step CNA 0.21.0 issues one leading frame
-whose `Update` carries a zero `ElapsedGameTime`, where pinned XNA `Game.Tick`
-returns without calling `Update` or `DrawFrame` at all. Every later frame
+One host behaviour is **measured and not corrected by this binding**: under a
+fixed time step CNA issues a leading `Update` with a zero `ElapsedGameTime` --
+which is XNA's own pre-loop `Update` in `Game.RunGame` -- followed by a `Draw`
+that XNA's `Game.Tick` would not issue before its first step. Every later frame
 reproduces XNA's sequence exactly. The whole sequence is pinned by
 `NativeLifecycleTests.testHostGameTimeSequenceIsMeasuredNotAssumed`.
 
 ## Verification
 
-Everything below runs **headless, on a virtual screen**. Three layers, and the
-third exists because the second was found doing nothing:
+Nothing here may open a window on the physical desktop (`:0`, `wayland-0`).
+The HEADLESS runs use SDL's dummy drivers and no display at all:
 
 ```bash
-export CNA_RENDERER=HEADLESS     # the CNA renderer never opens a window
-export SDL_VIDEODRIVER=dummy     # and SDL never opens one either
-export DISPLAY=:99               # and if either is ever forgotten, X goes here
-xdpyinfo -display :99 >/dev/null 2>&1 || \
-  setsid Xvfb :99 -screen 0 1280x800x24 -nolisten tcp -noreset &
+unset DISPLAY WAYLAND_DISPLAY    # nothing to fall back to
+export SDL_VIDEODRIVER=dummy SDL_AUDIO_DRIVER=dummy
+export CNA_NATIVE_LIBRARY=/abs/cna-c-abi-0.35.0/lib/libcna_c_api.so
 ```
 
-`DISPLAY=:99` on its own is **not** a virtual screen. Until Foundation 73 no X
-server was running on it, so a fallback to x11 would have failed rather than
-been contained — and the whole protection rested on `SDL_VIDEODRIVER=dummy`.
-Start the Xvfb. The physical desktop is `:0` and nothing here may address it.
+A windowed renderer runs only inside CNA's private display runner, which starts
+a headless Weston and a rootful Xwayland on the real GPU:
+
+```bash
+cna/tools/platform/run_gpu_tests_private.sh --exec env -u WAYLAND_DISPLAY \
+  SDL_VIDEODRIVER=x11 SDL_AUDIO_DRIVER=dummy \
+  CNA_NATIVE_LIBRARY=/abs/cna-c-abi-0.35.0-opengles3-fx/lib/libcna_c_api.so \
+  .build/x86_64-unknown-linux-gnu/debug/CNAPackageTests.xctest
+```
 
 ```bash
 swift build
@@ -556,19 +563,19 @@ swift test --sanitize=thread --scratch-path build-tsan
 swift package dump-symbol-graph
 python3 tools/api_compat/verify.py --self-test
 python3 tools/api_compat/verify.py --graph-self-test \
-  --symbol-graph .build/x86_64-pc-linux-gnu/symbolgraph/CNA.symbols.json
+  --symbol-graph .build/x86_64-unknown-linux-gnu/symbolgraph/CNA.symbols.json
 python3 tools/api_compat/verify.py \
-  --symbol-graph .build/x86_64-pc-linux-gnu/symbolgraph/CNA.symbols.json \
+  --symbol-graph .build/x86_64-unknown-linux-gnu/symbolgraph/CNA.symbols.json \
   --output docs/generated/api-compat-report.json \
   --inventory-output docs/generated/missing-type-inventory.md
 python3 tools/api_compat/dependency_graph.py \
   --report docs/generated/api-compat-report.json \
   --output docs/generated/dependency-graph.json
 python3 tools/native_abi/verify.py \
-  --cna-include /path/to/cnanext/modules/c-api/include \
+  --cna-include /path/to/cna/modules/c-api/include \
   --library "$CNA_NATIVE_LIBRARY"
 python3 tools/native_abi/mutations.py \
-  --cna-include /path/to/cnanext/modules/c-api/include \
+  --cna-include /path/to/cna/modules/c-api/include \
   --library "$CNA_NATIVE_LIBRARY"
 # The two mutation harnesses take an exclusive lock on .mutation-gate.lock and
 # refuse to run at the same time: they both edit files under Sources/, and a
@@ -594,8 +601,8 @@ python3 tools/consumer_canary/verify.py \
   --output docs/generated/consumer-canary-report.json
 python3 tools/status_gate/verify.py --self-test
 python3 tools/status_gate/verify.py \
-  --symbol-graph .build/x86_64-pc-linux-gnu/symbolgraph/CNA.symbols.json \
-  --cna-include /path/to/cnanext/modules/c-api/include \
+  --symbol-graph .build/x86_64-unknown-linux-gnu/symbolgraph/CNA.symbols.json \
+  --cna-include /path/to/cna/modules/c-api/include \
   --library "$CNA_NATIVE_LIBRARY" \
   --assembly-dir /path/to/xna/redistributable \
   --il-cache ~/deps/xna-il-cache \

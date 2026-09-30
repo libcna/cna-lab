@@ -63,6 +63,7 @@ and UnloadContent; 20 callback-error cycles; and Game recreation.
 Only Linux x86-64 is runtime-qualified. The Swift sources currently use a Linux
 `dlopen` implementation and intentionally have no Apple platform declarations
 in `Package.swift`. Apple, Windows, and Web/Wasm are future/unqualified.
-HEADLESS is the qualified renderer. It executes the native device, clear,
-texture, and SpriteBatch routes but produces no visible window, so visible
-renderer output is backend-blocked rather than claimed.
+HEADLESS and OPENGLES3 are the qualified renderers. HEADLESS executes the
+native device, clear, texture, and SpriteBatch routes with no window; OPENGLES3
+adds a real window (on a private display), cube-face storage and back-buffer
+readback, which the suite asserts where the renderer provides them.

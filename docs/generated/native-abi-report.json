@@ -1,11 +1,11 @@
 {
   "schemaVersion": 2,
   "ADMITTED_ABI_MAJOR": 0,
-  "ADMITTED_ABI_MINIMUM_MINOR": 21,
-  "QUALIFIED_ABI_VERSION": "0.21.0",
-  "HEADER_ABI_VERSION": "0.21.0",
-  "HEADER_ABI_ENCODED": 5376,
-  "LOADED_ABI_ENCODED": 5376,
+  "ADMITTED_ABI_MINIMUM_MINOR": 35,
+  "QUALIFIED_ABI_VERSION": "0.35.0",
+  "HEADER_ABI_VERSION": "0.35.0",
+  "HEADER_ABI_ENCODED": 8960,
+  "LOADED_ABI_ENCODED": 8960,
   "BOUND_FUNCTIONS": 778,
   "ROUTE_PAIRINGS": 778,
   "PROTOTYPE_TYPE_POSITIONS": 2657,
@@ -23,9 +23,9 @@
   "missingLibrarySymbols": [],
   "mismatches": [],
   "probeOutput": {
-    "ABI_VERSION": "5376",
+    "ABI_VERSION": "8960",
     "ABI_MAJOR": "0",
-    "ABI_MINOR": "21",
+    "ABI_MINOR": "35",
     "ABI_PATCH": "0",
     "CNA_BOOL_SIZE": "1",
     "CNA_HANDLE_SIZE": "8",
@@ -33,6 +33,6 @@
   },
   "library": {
     "filename": "libcna_c_api.so",
-    "sha256": "c32bfbd307d695664f906ccf2834ec3f9ebc240fa388d544ac21ee3ebaeb731b"
+    "sha256": "070ed77bec5af09f64c7215e25c90de0970f0316b6d50982eece85fd1963c449"
   }
 }
