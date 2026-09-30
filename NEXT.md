@@ -5,8 +5,13 @@
 > suggested milestone order, and the gates every milestone must pass. This file
 > is a historical record kept for its detail.
 
+> **Current state (2026-09-30):** 256 of 257 types complete, requalified
+> against CNA C ABI 0.35.0 on HEADLESS and OPENGLES3; `ROADMAP.md` has the
+> numbers, `docs/native-abi.md` the artifacts and re-measured findings. The
+> repository is being archived into `cna-lab`.
+
 > **This file records the session that produced Foundation 38 through 43 and is
-> kept for its detail.** Foundation 44 through 61 followed, each with its own
+> kept for its detail.** Foundation 44 through 99 followed, each with its own
 > evidence document under `docs/`, and `plan.md` carries the index and the
 > normative rules they settled. The scoreboard below is the one that session
 > measured; the LIVE one is whatever

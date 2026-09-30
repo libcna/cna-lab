@@ -1,8 +1,10 @@
 # CNA-Go
 
-> **Status:** early, measured binding foundation — functional for the qualified
-> Foundation 1 runtime and Foundation 2/3/4/5/6/7/8/9/10/11/12/13 managed/API
-> closures, far from full XNA compatibility.
+> **Status:** 256 of the 257 types in the pinned XNA 4.0 Windows runtime profile
+> are projected completely (0 partial types, 0 missing members); the one missing
+> type, `GamerServicesComponent`, is classified. Requalified on 2026-09-30
+> against CNA C ABI 0.35.0 on Linux amd64, HEADLESS and OPENGLES3. This
+> repository is being retired into `cna-lab`; see [ROADMAP.md](ROADMAP.md).
 
 CNA-Go maps Microsoft XNA Framework 4.0 namespaces to Go import paths and
 executes native-backed APIs only through CNA's canonical C ABI:
@@ -10,11 +12,12 @@ executes native-backed APIs only through CNA's canonical C ABI:
 ```text
 Go game
    ↓
-Microsoft/Xna/Framework[/Graphics|Input|Content]
+Microsoft/Xna/Framework[/Audio|Content|Design|Graphics|Graphics/PackedVector|
+                        Input|Input/Touch|Media|Storage]
    ↓
 internal/interop (the only cgo/native boundary)
    ↓
-CNA C ABI 0.21.0
+CNA C ABI 0.35.0
 ```
 
 There is deliberately no invented public `CNA/Framework` layer. Pure XNA
@@ -30,9 +33,21 @@ are in
 [docs/generated/api-compat-report.json](docs/generated/api-compat-report.json)
 and
 [docs/generated/missing-type-inventory.md](docs/generated/missing-type-inventory.md).
-The strict verifier remains red because XNA surface is still intentionally
-absent; every mismatch, leak, allowlist, and unmeasured-category gate is green,
-and `UNEXPECTED_TYPE`, `UNEXPECTED_MEMBER` and `ABI_MISMATCHES` are zero.
+The strict verifier stays red for exactly one diagnostic -- the unprojected
+`GamerServicesComponent`, classified `ACTIONABLE_LOCAL` in
+[docs/generated/remaining-work.md](docs/generated/remaining-work.md); every
+mismatch, leak, allowlist, and unmeasured-category gate is green, and
+`UNEXPECTED_TYPE`, `UNEXPECTED_MEMBER` and `ABI_MISMATCHES` are zero.
+
+The runtime evidence is `tools/native_stress`, 21 scenarios × 20 isolated
+cycles, green on two CNA 0.35.0 artifacts: HEADLESS and OPENGLES3 on a real GPU
+inside a private compositor, where it includes back-buffer pixel checks
+(`docs/generated/native-stress-report*.json`).
+
+The paragraphs below are the milestone record of Foundations 1 to 42, written
+when each landed; where one says a surface is missing, a later foundation
+added it (see [ROADMAP.md](ROADMAP.md) for Foundations 43 to 99 and the
+0.35.0 requalification).
 
 Some missing types inherit from another type in the profile whose base
 relationship is still deferred. They are recorded with classified blockers
@@ -283,10 +298,8 @@ NaN, and the 32 new negative fixtures. `AudioListener` and `AudioEmitter` are
 pure managed descriptors: completing them claims no audio runtime capability
 and creates no XACT state.
 
-The admitted qualification artifact uses CNA ABI 0.21.0, the HEADLESS renderer,
-and SDL3 audio. Native draw execution is proven, but visible rendering is not.
-Windows, macOS, Android, iOS, and Web/Wasm are not qualified. Content/XNB,
-Effects/3D, Audio, Media, Storage, Touch, and most of XNA remain unimplemented.
+The qualified artifacts are CNA ABI 0.35.0 HEADLESS and OPENGLES3, both with
+SDL3 audio. Windows, macOS, Android, iOS, and Web/Wasm are not qualified.
 See [Foundation 18 interface evidence](docs/foundation-18-interface-evidence.md)
 for the managed-interface projection rule, the measured `IEffectFog` split in
 which only `FogColor` reaches D3DX, the two runtime-boundary contracts, the
@@ -300,8 +313,8 @@ Foundation 49: `GraphicsDeviceManager`'s constructor registers itself under the
 second and an adapter over itself under the first, exactly as the reference's
 constructor registers `this` under both, so `Game.GraphicsDevice` and
 `DrawableGameComponent.Initialize` resolve a device from a `Game` that
-registered nothing of its own. The remaining contracts are declarations only:
-CNA-Go has no effect runtime.
+registered nothing of its own. (The effect runtime followed in Foundations 72
+and 79-81.)
 
 See [Foundation 19 IntPtr and PresentationParameters evidence](docs/foundation-19-intptr-presentation-parameters-evidence.md)
 for the `System.IntPtr` to `uintptr` projection and exactly what it does not
@@ -316,16 +329,16 @@ for why `TouchCollection` was reachable after all, the first cluster that is at
 once a CLR value type and fallible, the unconditional `NotSupportedException`
 write side, `CopyTo`'s 64-bit overflow arithmetic, the operator-versus-`Equals`
 search asymmetry, and the cursor's behavior at both ends. Completing it claims
-no touch capability: CNA-Go has no `TouchPanel` and reads no device.
+no touch capability. (`TouchPanel` followed in Foundation 89, and it reads no
+device because XNA 4.0's Windows touch surface is a stub.)
 
 See [Foundation 21 service container evidence](docs/foundation-21-game-service-container-evidence.md)
 for the general rule that a BCL interface whose members the XNA type already
 declares publicly adds no projected surface, the duplicate-before-assignability
 check order, and why a missing or absent service is an absence rather than a
 failure. As of Foundation 30, `Game` exposes it and hands back one stable
-container per Game; nothing in the binding registers into it, because the
-reference's only registrar is `GraphicsDeviceManager` and CNA-Go's partial one
-satisfies neither service contract.
+container per Game. (Since Foundation 49 `GraphicsDeviceManager` registers
+itself into it, exactly as the reference's constructor does.)
 
 Foundations 30 through 33 qualify the managed Game component slice, with no
 ABI expansion and no CNA change:
@@ -432,9 +445,7 @@ from, and `GameComponent`, `GraphicsResource` and `MathTypeConverter` -- 25 of
 the 41 derived types between them -- are named in **none** of them. For those
 families private composition with explicit forwarding is not a compromise: there
 is no position in the contract for a derived value to flow through, so no public
-reference abstraction can be justified by it. No family is live yet;
-`Texture2D` is the closest and becomes live the day `RenderTarget2D` is
-projected.
+reference abstraction can be justified by it. (Eight families are live now.)
 
 See [Foundation 41 XNA inheritance evidence](docs/foundation-41-xna-inheritance-evidence.md)
 for the composition rule that measurement made safe. An XNA class inheriting
@@ -445,9 +456,9 @@ and never a public `Base`, `Parent` or `As...` accessor. `XNA_INHERITED` joins
 `XNA_DECLARED` and `BCL_INHERITED` as the third provenance class, and the three
 are asserted disjoint and exhaustive: 3243 declared projections that never move,
 12 BCL-inherited and 24 XNA-inherited. `COMPOSED` states that the inheritance is
-projected, not that any derived type is complete -- neither of `GameComponent`'s
-two is, for reasons that are about device and GamerServices runtime rather than
-about inheritance.
+projected, not that any derived type is complete. (`DrawableGameComponent`
+followed in Foundation 46; `GamerServicesComponent` is the profile's one
+unprojected type.)
 
 See [Foundation 42 Game timing evidence](docs/foundation-42-game-timing-evidence.md)
 for `TargetElapsedTime`, `InactiveSleepTime`, `IsFixedTimeStep`,
@@ -459,14 +470,11 @@ same fields every frame and here that loop is native. A `Game` configured before
 differ by one IL instruction and the difference is preserved: `InactiveSleepTime`
 accepts zero, `TargetElapsedTime` does not.
 
-The `Media` package contains enum metadata only and carries no media runtime
-capability claim. The `Input/Touch` package adds `TouchLocation`,
-`GestureSample`, and the read-only `TouchCollection` alongside its enums, and
-still carries no touch runtime capability claim: nothing there polls a panel,
-reads a device, or recognizes a gesture. The `Audio` package adds two pure
-managed positional descriptors alongside its enums and still carries no audio
-runtime capability claim: nothing there opens a device, creates XACT state, or
-plays a sound.
+The `Media`, `Audio`, `Storage` and `Input/Touch` packages are complete:
+media metadata, library, pictures and playback (Foundations 95-97), sound
+effects, microphones and XACT (87, 88, 98), storage (91) and the touch surface
+(89). Every native fixture they play is silent and every playback path is
+muted first.
 
 See the generated [runtime capability inventory](docs/generated/runtime-capabilities.md)
 for evidence and limitations by capability.
@@ -474,8 +482,8 @@ for evidence and limitations by capability.
 ## Native runtime
 
 The Go build uses cgo but does not link a developer CNA build at compile time.
-Supply an admitted CNA C ABI shared library at runtime — major 0 with minor 21
-or newer, qualified at 0.21.0:
+Supply an admitted CNA C ABI shared library at runtime — major 0 with minor 35
+or newer, qualified at 0.35.0:
 
 ```sh
 export CNA_NATIVE_LIBRARY=/absolute/path/to/libcna_c_api.so
@@ -489,25 +497,26 @@ library fallback and does not distribute CNA binaries.
 ## Development and verification
 
 The maintained sibling `cna-go-template` uses a `go.work` file for local
-development. A published module version is not claimed. Final consumer
-qualification instead extracts the audited CNA-Go source archive and uses a
-temporary `replace` to that exact source tree.
+development. A published module version is not claimed. Consumer qualification
+instead extracts this repository's committed tree (`git archive`) and builds the
+template with `GOWORK=off` and a `replace` to that exact source tree.
 
 Useful gates are:
 
 ```sh
-go test ./...
+gofmt -l .
 go vet ./...
-go test -race ./...
+go test ./...
+go test -race -p 1 ./...   # -p 1: api_compat under -race needs the memory
 go build -trimpath ./...
-go run ./tools/api_compat --mode report
-go run ./tools/api_compat --mode leak-only
+go run ./tools/api_compat
+go run ./tools/api_compat --mode leak-only -report "" -missing "" -remaining ""
 go run ./tools/behavior
 go run ./tools/packed_vector_qualify
 go run ./tools/capabilities --check
-go run ./tools/native_abi -headers ~/deps/cna-c-abi-0.21.0/include -library ~/deps/cna-c-abi-0.21.0/libcna_c_api.so
-go run ./tools/native_stress
-go run ./tools/external_consumer -source .
+go run ./tools/native_abi -headers ~/deps/cna-c-abi-0.35.0/include -library ~/deps/cna-c-abi-0.35.0/lib/libcna_c_api.so
+go run ./tools/external_consumer -source <extracted source tree>
+go build -o build/bin/native_stress ./tools/native_stress   # run it as ROADMAP.md "Environment" says
 ```
 
 Normal structural strict mode is expected to exit nonzero until all mapped XNA
@@ -516,7 +525,8 @@ compatibility claim. The current count is in
 [docs/generated/api-compat-report.json](docs/generated/api-compat-report.json)
 and is not restated here, because a number written into prose goes stale the
 next milestone and nothing checks it.
-The native ABI and stress commands require the qualified native environment.
+The native ABI and stress commands require the qualified native environment
+described in [ROADMAP.md](ROADMAP.md).
 `external_consumer` is the gate any public signature change must re-run: it
 builds and runs the canary as its own module against an extracted source tree,
 so a moved signature fails there rather than in a downstream consumer.

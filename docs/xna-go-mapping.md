@@ -576,9 +576,10 @@ decided about is `BASE_MAPPING_MISMATCH` rather than a silent omission. Three
 CLR roots are implied by the existing projections (`System.Object`,
 `System.ValueType`, `System.Enum`); `System.EventArgs` is mapped to the
 `framework.EventArgs` adapter; `Collection<T>` is **composed** (below); and
-seven remain deferred as open public-API decisions — `System.Exception`,
+seven were once deferred as open public-API decisions — `System.Exception`,
 `ExternalException`, `System.Attribute`, `System.IO.BinaryReader`,
-`ExpandableObjectConverter`, `ReadOnlyCollection<T>`, and `Dictionary<K,V>`. A
+`ExpandableObjectConverter`, `ReadOnlyCollection<T>`, and `Dictionary<K,V>` —
+and all seven were decided by Foundation 94, so none is deferred now. A
 **deferred** base means no derived type may be projected yet, and projecting
 one anyway is a diagnostic.
 

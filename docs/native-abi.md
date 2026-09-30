@@ -5,31 +5,25 @@ ABI and does not route through another language binding.
 
 ## Admission and loading
 
-CNA-Go admits **CNA C ABI major 0 with minor 21 or newer**, qualified at
-0.21.0 (encoded `0x00001500`). A different major, a lower minor, a missing
+CNA-Go admits **CNA C ABI major 0 with minor 35 or newer**, qualified at
+0.35.0 (encoded `0x00002300`). A different major, a lower minor, a missing
 required symbol, a resolved pointer that belongs to a different symbol, or a
 loader failure rejects the library before Game creation. A rejection names the
 library path, the version it reported, and the admitted range.
 
-The range is CNA's own, not CNA-Go's preference.
-`modules/c-api/cmake/CnaCApiExports.map` states that the ELF symbol-version
-node `CNA_C_API_0.1` "is NOT the ABI version and must not be bumped with it",
-that it "changes only for a *major* ABI break", and that renaming it "turns
-every additive release into a hard break". So CNA declares a major bump to be
-the break and minor bumps to be additive, and `docs/releasing.md` separately
-states that `CNA_ABI_VERSION` "moves when the ABI changes, independently of a
-product release". The floor is the qualified minor because a lower one may
-simply not declare a route CNA-Go binds; the upper end is open because CNA
-says an additive release keeps the contract. Nothing is taken on trust: after
-the version check every required symbol is still resolved by name, and every
-resolved address is still confirmed with `dladdr` to belong to the symbol the
-manifest lists.
+The floor is the qualified minor. CNA's 0.x ABI takes a minor increment for
+incompatible changes (`docs/c-api/ABI_VERSIONING.md` in CNA), so a lower minor is
+a runtime whose behaviour this binding was not qualified against: between 0.21
+and 0.35 CNA started enforcing XNA's Reach profile, which the native evidence
+now asserts. The upper end stays open because a later minor that still
+declares every bound route with the same prototype is caught by the checks
+below if it does not; nothing is taken on trust: after the version check every
+required symbol is resolved by name, and every resolved address is confirmed
+with `dladdr` to belong to the symbol the manifest lists.
 
-Foundation 1 originally admitted exactly `0x00000700` (0.7.0). That is history,
-not the current contract; the migration that replaced it is recorded in
-[Foundation 44](foundation-44-abi-migration-evidence.md), including the
-compiler-backed proof that every route CNA-Go binds is byte-identical across
-the fourteen minor bumps in between.
+Foundation 1 admitted exactly `0x00000700` (0.7.0) and Foundation 44 moved to
+"0.21 or newer"; both are history, recorded in
+[Foundation 44](foundation-44-abi-migration-evidence.md).
 
 On qualified Linux builds, `internal/interop/bridge.c` uses `dlopen` with
 `RTLD_NOW|RTLD_LOCAL` and resolves one reviewed manifest. An explicit runtime
@@ -47,93 +41,83 @@ Foundation 1 requires Linux, cgo, and a C compiler. Pure-Go/no-cgo use and cgo
 cross-compilation are not claimed. Apple `dlopen` and Windows
 `LoadLibrary/GetProcAddress` implementations remain platform work.
 
-## Qualified artifact
+## Qualified artifacts
 
-The qualification library is the CNA C API built from the live `cnanext`
-checkout, retained at `~/deps/cna-c-abi-0.21.0/libcna_c_api.so`. CNA's checkout
-was not modified and nothing was rebuilt for CNA-Go: the artifact is
-byte-identical to `cnanext/cmake-build-headless/modules/c-api/libcna_c_api.so`,
-and the header tree beside it is byte-identical to
-`cnanext/modules/c-api/include`.
+Requalified on 2026-09-30. Both artifacts were built from the CNA `next`
+checkout and staged by the retirement pass under `~/deps`, each with a
+`PROVENANCE.txt`:
 
 ```text
-cnanext HEAD              0a6158e4ff764907065cd7259e3d29e331a52088 (next)
-sharp-runtimenext HEAD    4a49afb0cfe6a41e6e0af0bb62dc5175976731bb (next)
-configuration             CNA_GRAPHICS_RENDERER=HEADLESS, CNA_PLATFORM=SDL3,
-                          CNA_AUDIO_PLATFORM=SDL3, CNA_ENABLE_NET=ON,
-                          CNA_ENABLE_VIDEO=AUTO, CMAKE_BUILD_TYPE=Debug
-artifact                  libcna_c_api.so, 166,420,656 bytes
-sha256                    c32bfbd307d695664f906ccf2834ec3f9ebc240fa388d544ac21ee3ebaeb731b
-canonical headers         ~/deps/cna-c-abi-0.21.0/include, 61 .h files
-header tree sha256        62c3f6e4bec6d8396ec576986b4ec5b158af28cfe52aa7e2ede1e4c26c90bff6
-reported ABI              0.21.0
-canonical declarations    4054
-exported cna_* routes     4054 (exact correspondence, both directions)
-symbol-version node       CNA_C_API_0.1
+CNA HEAD                  0f7166cd8f02b97b866caa3bc6c32ddcc389030b (next)
+sharp-runtime HEAD        88f6b11fbb8b9d1db1b9451e86f8835e1c9cafaa
+compiler                  GCC 14.2.0
+reported ABI              0.35.0 (8960)
+canonical declarations    3202, exported cna_* routes 3202 (exact correspondence)
+header tree sha256        8830606fa73a2e109a112002f5d2041f79778b490eade4e3567318b178315b12 (60 .h files)
+
+HEADLESS   ~/deps/cna-c-abi-0.35.0/lib/libcna_c_api.so
+           Debug, CNA_PLATFORM=SDL3, CNA_AUDIO_PLATFORM=SDL3, NET on, VIDEO off,
+           CNAEXT off, DEVICES off
+           sha256 ade831545a97b96d320067248254778009514d0ff0f4179a261bad08a9eda15b
+OPENGLES3  ~/deps/cna-c-abi-0.35.0-opengles3-fx/lib/libcna_c_api.so
+           Release, SDL3 platform and audio, EASYGL_COMPILED_EFFECTS, CNAEXT,
+           DEVICES, NET and VIDEO on
+           sha256 0bd40b6d44a7c4873a59817d864a8adc886031a32de427d38797c0550641fc0c
 ```
 
-### The header tree is pinned by content, and the live checkout has moved
-
-The header root used to be recorded as a path. Milestone 55 measured why that is
-not enough: `tools/native_abi`'s default `-headers ../../cnanext/modules/c-api/include`
-reads the LIVE `cnanext` checkout, and that checkout has advanced past the
-revision the pinned library was built from. The two trees differ:
-
-```text
-pinned  ~/deps/cna-c-abi-0.21.0/include   62c3f6e4bec6d8396ec576986b4ec5b158af28cfe52aa7e2ede1e4c26c90bff6
-live    ../../cnanext/modules/c-api/include  2d7445e7b2c0c74d3b32fab6067ef701662076b9445a73243cdf9639f36698ed
-```
-
-Both produce identical measurements at this revision -- the divergence is
-documentation comments in `CNA/C/devices.h`, from cnanext's browser
-device-type change -- so nothing was wrong. But nothing would have SAID so
-either, and a declaration change would have been read against a library that
-does not have it.
-
-The report therefore records `canonical_header_sha256` and
-`canonical_header_files` beside the existing `native_library_sha256`, on the
-principle the library already followed: reports retain content identity, not an
-ephemeral qualification path. The qualification invocation names the pinned
-tree explicitly:
+`tools/native_abi` measures both identically: 696 bound routes, 457 manifest
+layout agreements, 102 deliberately unbound routes, 0 mismatches. Every bound
+prototype and layout is unchanged from 0.21.0; the 855 routes CNA removed
+between them were never bound. The committed report is the HEADLESS one:
 
 ```sh
 go run ./tools/native_abi \
-  -headers ~/deps/cna-c-abi-0.21.0/include \
-  -library ~/deps/cna-c-abi-0.21.0/libcna_c_api.so
+  -headers ~/deps/cna-c-abi-0.35.0/include \
+  -library ~/deps/cna-c-abi-0.35.0/lib/libcna_c_api.so
 ```
 
-Header/library correspondence is measured rather than assumed: the canonical
-headers declare 4,054 `cna_*` routes and the library exports exactly those
-4,054 names, with no route declared and unexported and none exported and
-undeclared. The verifier compares both counts and reports a mismatch.
+The report records `canonical_header_sha256` and `native_library_sha256`
+because a path is not an identity (Milestone 55 measured a live header tree
+drifting from a pinned library).
 
-This artifact is qualification input, not a distributed CNA-Go file. It is not
-sanitizer-instrumented, so `NATIVE_SANITIZER_STATUS=NOT_RUN`; stress results do
-not constitute native leak-freedom evidence. Its HEADLESS renderer proves
-native graphics execution but not visible output. Its audio backend is SDL3
-rather than the NULL backend Foundation 1 used, so audio is no longer blocked
-by the artifact — only by CNA-Go's own missing audio surface.
+`tools/native_stress` runs the full scenario set against each artifact
+(`docs/generated/native-stress-report.json` and
+`native-stress-report-opengles3.json`). HEADLESS refuses render-target and
+back-buffer readback, cube data and `Texture3D`; OPENGLES3 does all four and
+carries the pixel evidence. Neither artifact is sanitizer-instrumented, so
+`NATIVE_SANITIZER_STATUS=NOT_RUN`. The SOFTWARE artifact Foundation 58 added was
+not requalified at 0.35.0 and its report was removed.
 
-### The second qualified artifact: a real renderer
+## Upstream findings re-measured at 0.35.0
 
-The HEADLESS artifact proves native graphics EXECUTION but cannot copy a colour
-attachment back to the CPU, which is the one step a render-target semantic test
-turns on. Foundation 58 retained a second artifact of the same ABI, built with
-CNA's SOFTWARE renderer:
+Re-measured with the stress run and three C probes kept in CNA's shared probe
+directory (`build-probe/qual-probes/go-f57-f69.c`, `go-open-findings.c`,
+`go-dispatcher.c`):
 
-```text
-artifact                  ~/deps/cna-c-abi-0.21.0-software/libcna_c_api.so
-sha256                    fe353c3b900ec2169a1e7f9c0639cda086ea0114d700cb4fd6140e3d9ac13f3c
-reported ABI              0.21.0
-bound symbols resolved    82 of 82, 0 ABI mismatches
-display required          none; no X server and no Xvfb
-```
+| finding | at 0.35.0 |
+|---|---|
+| F69 `cna_sprite_font_measure_utf8` adds the last right bearing unclamped | **fixed upstream** (CNA fb62662c9): "B" 6, "AB" 9, as XNA; a missing glyph is still CNA result 1 |
+| F79 BasicEffect publishes no EffectParameters | **fixed upstream**: 21 parameters; CNA-Go still drives the typed stock-effect routes, now pixel-verified |
+| F34 two subscriptions to one game event fire in reverse | **fixed upstream**: registration order; the one-subscription-per-event design is kept |
+| F57 `cna_graphics_resource_dispose` is only a flag | **changed**: a disposed texture now refuses use (result 3); SpriteBatch handles (result 2) and embedded NUL names (result 11) are still refused |
+| F85 SOFTWARE ignores vertex colour and lighting | the fixture could not tell; repaired, OPENGLES3 honours both. SOFTWARE not requalified |
+| F99 no CNA dispatcher for GamerServicesComponent | **wrong**: CNA's dispatcher works; the type is `ACTIONABLE_LOCAL` |
+| F88 sample size/duration arithmetic | **still diverges** from XNA's binary32: 1 s at 22050 Hz mono is 44100 bytes (XNA 44098); the managed body stays |
+| F72-4 a Single written to a Vector3 EffectParameter | **still accepted**: result 0 and the value reads back (0,0,0), where XNA throws InvalidCastException |
+| F47-1 `cna_game_run_one_frame` initializes the game | still present (`GAME_FRAME_STEP_INITIALIZATIONS`) |
+| F84-1 undefined SetDataOptions refused by CNA | not re-measured: the projection's bit test never hands CNA an undefined value, and the 160 option uploads per artifact all succeed |
+| F81-1 TextureCube destroy refused while an effect retains it | still refused (C ABI retention rule) |
+| F83-1 OcclusionQuery.IsComplete inside a pair | HEADLESS still answers a stale TRUE; OPENGLES3 answers pending/fresh |
+| F69-2 `cna_sprite_font_set_spacing(NaN)` | still refused (documented as "must be finite") |
+| F51-1 non-finite clear depth | still refused |
 
-It is the SAME binding under both: `tools/native_stress` runs the full scenario
-set against each, and the reports now record `native_library_sha256` because
-their counters legitimately differ. Only one step differs -- the render-target
-readback -- and the headless refusal is CNA's documented
-`CNA_RESULT_NOT_SUPPORTED` rather than a defect.
+New at 0.35.0, all XNA-faithful and asserted by `native_stress`: Reach refuses
+separate alpha blending, 32-bit indices, occlusion queries, `GetBackBufferData`
+and `Texture3D`, and clearing a depth buffer the device does not have is
+`CannotClearNullDepth`. One ordering detail is recorded rather than asserted:
+CNA's C shim checks a back-buffer window's capacity before the device's profile,
+so an undersized array under Reach is result 14 where XNA's IL throws the
+profile's NotSupportedException first.
 
 ### The retired Foundation 1 artifact
 

@@ -2,9 +2,16 @@
 
 **Selected profile:** Microsoft XNA Framework 4.0 Windows runtime
 
-**Native contract:** canonical CNA C ABI, admitted range major 0 with minor 21
-or newer, qualified at 0.21.0 (Foundation 44 migrated this from Foundation 1's
-exact 0.7.0 admission)
+**Native contract:** canonical CNA C ABI, admitted range major 0 with minor 35
+or newer, qualified at 0.35.0 (Foundation 44 migrated this from Foundation 1's
+exact 0.7.0 admission to 0.21 or newer; the 2026-09-30 requalification raised
+the floor to 0.35, whose Reach-profile enforcement the native evidence relies on)
+
+**Current status (2026-09-30):** 256 of 257 profile types complete, 0 partial,
+0 missing members; the one missing type, `GamerServicesComponent`, is
+`ACTIONABLE_LOCAL` (see `ROADMAP.md`). Native evidence: `native_stress` green on
+CNA 0.35.0 HEADLESS and OPENGLES3. The per-foundation status lines below are the
+record of Foundations 1 to 12 as they landed.
 
 **Foundation 1 status:** qualified for the explicitly documented Linux amd64
 HEADLESS closure; strict structural verification remains intentionally red for
@@ -116,9 +123,9 @@ expected incompleteness does not negate the qualified foundation result:
 FOUNDATION_MILESTONE_1_COMPLETE=true
 ```
 
-This is not a visible-rendering or broad-platform claim. The admitted artifact
-is HEADLESS/NULL-audio; visible rendering is `BACKEND_BLOCKED`, native
-sanitizers are `NOT_RUN`, and all unimplemented families remain explicit in the
+This is not a broad-platform claim. Foundation 1's artifact was HEADLESS; the
+0.35.0 requalification adds OPENGLES3 on a real GPU in a private compositor,
+native sanitizers remain `NOT_RUN`, and every limitation stays explicit in the
 capability inventory.
 
 ## Structural policy
@@ -139,7 +146,7 @@ types may remain explicitly partial where completion requires deferred systems.
 
 Linux loads `CNA_NATIVE_LIBRARY` when it names an absolute regular file, or lets
 the platform search `libcna_c_api.so`. Production contains no checkout-relative
-fallback. An ABI outside the admitted range -- major 0 with minor 21 or newer --
+fallback. An ABI outside the admitted range -- major 0 with minor 35 or newer --
 is rejected, and the rejection names the library path, the reported version and
 the range. The compiler compares every manifest prototype against the canonical
 declaration of the same name, and compares CNA-Go's private layouts against the
@@ -1545,7 +1552,7 @@ resource KEYS instead of reading from the resource VALUES.
 FOUNDATION_MILESTONE_43_COMPLETE=true
 ```
 
-## Foundation 44 through 61 — the milestone index and the rules they settled
+## Foundation 44 through 99 — the milestone index and the rules they settled
 
 Foundation 1 through 43 are recorded above, one policy section and one
 qualification section each. From Foundation 44 the same material lives in one
@@ -1610,6 +1617,9 @@ NORMATIVE rules those milestones added; the evidence for each is in its file.
 | 95 | the media metadata graph: five entities, five collections, 105 routes | `foundation-95-media-metadata-evidence.md` |
 | 96 | the media library and the picture graph, and the containment that made them safe to walk | `foundation-96-media-library-evidence.md` |
 | 97 | media playback, closing the Media namespace | `foundation-97-media-playback-evidence.md` |
+| 98 | XACT, closing the Audio namespace | `foundation-98-xact-evidence.md` |
+| 99 | GamerServicesComponent classified BLOCKED_PLATFORM (corrected to ACTIONABLE_LOCAL on 2026-09-30) | `foundation-99-gamer-services-classification-evidence.md` |
+| — | 2026-09-30: requalified against CNA C ABI 0.35.0 on HEADLESS and OPENGLES3 | `ROADMAP.md`, `docs/native-abi.md` |
 
 **A recorded blocker is a claim, and claims get re-measured** (91).
 System.IO.BinaryReader had been DEFERRED since Foundation 29 partly because "the
@@ -1983,11 +1993,13 @@ lands, sweep the family it applies to.
 This section is a STATEMENT OF CURRENT STATE, not a permanent list, and it is
 rewritten whenever a milestone makes one of its entries false.
 
-Still deferred: XACT and GamerServices, and nothing else. Foundation 95 closed
-the media metadata graph, 96 the library and picture graph and 97 playback, so
-the whole Microsoft.Xna.Framework.Media namespace is projected. Audio closed in
-Foundation 88, Input and touch in 89, the Model family in 90, Storage in 91, the
-content plumbing in 92, the content serializer attributes in 93 and the Design
+Still missing: GamerServicesComponent, and nothing else -- `ACTIONABLE_LOCAL`
+since the 2026-09-30 requalification measured CNA's own GamerServicesDispatcher
+working. XACT closed in Foundation 98; Foundation 95 closed the media metadata
+graph, 96 the library and picture graph and 97 playback, so the whole
+Microsoft.Xna.Framework.Media namespace is projected. Audio closed in Foundation
+88, Input and touch in 89, the Model family in 90, Storage in 91, the content
+plumbing in 92, the content serializer attributes in 93 and the Design
 converters in 94.
 
 **NO BASE RELATIONSHIP IS DEFERRED ANY MORE.** All twelve XNA and all twelve BCL
@@ -1996,10 +2008,9 @@ construction, and `TestBCLBaseRelationshipsAreExhaustive` asserts it. Every one 
 `tools/api_compat/frontier.go`, which partitions the live missing-type set and
 generates `docs/generated/remaining-work.md`; that generated table is the
 authority for what each family is stopped on, and this paragraph is its
-summary. The 3D family is no longer deferred as
-a whole: Foundation 71 projected TextureCube and Texture3D and Foundation 72
-the whole Effect cluster, so what remains under it is the six stock effects,
-EffectMaterial and the Model family. Windows, macOS, Android, iOS, and
+summary. The 3D family is complete: TextureCube and Texture3D (71), the Effect
+cluster (72), the six stock effects and EffectMaterial (79-81) and the Model
+family (90). Windows, macOS, Android, iOS, and
 Web/Wasm are unqualified even if the Go compiler can target them.
 
 `ROADMAP.md` carries the scoreboard -- validated against the generated reports
@@ -2035,11 +2046,11 @@ GraphicsDevice Foundation 73 closed the type: Reset, Present,
                equals the colour it was cleared to.
 ```
 
-The Load<T> set is closed by PROJECTED TYPE IDENTITY, which is the mechanism
-that keeps the two facts above from drifting apart: CNA has native loaders for
-`SoundEffect`, `TextureCube` and `Effect` today, and each is absent from the
-set because CNA-Go projects no Go type for it. Each is a missing TYPE, not a
-missing loader, and each becomes actionable the milestone its type does.
+The Load<T> set is closed by PROJECTED TYPE IDENTITY. It holds Texture2D,
+SpriteFont and Effect. CNA also publishes loaders for SoundEffect, TextureCube
+and Model; all three types are projected now (87, 71, 90) and, at ABI 0.35.0,
+none of the three loaders is blocked -- they are simply unbound, which the
+2026-09-30 requalification recorded rather than closed.
 
 **A base whose derived types override a RETURNING member widens at returns**
 (79). Foundation 76 made the first exception to "a base-typed return keeps the
@@ -2418,7 +2429,10 @@ dispatcher spawns a LIVE proxy process, and `set_WindowHandle` hooks the game's
 HWND. The re-measurement's value was not that it changed the answer; it was that
 the answer is now the right KIND -- platform, not local, and not a missing CNA
 route either, because adding one would not make the projection the reference's
-behaviour.
+behaviour. **Corrected on 2026-09-30:** CNA does declare its own dispatcher
+(`cna_gamer_services_dispatcher_*`), and a probe measured it working on the
+HEADLESS artifact, so the family is `ACTIONABLE_LOCAL` again -- the proxy process
+is how XNA implemented the dispatcher, not part of its contract.
 
 ## Next milestone selection rule
 
@@ -2442,5 +2456,5 @@ From Foundation 33 the ranking has a second gate. A missing type whose CLR base
 is another type in the profile is NOT selectable while that base is DEFERRED in
 `xnaBaseRelationships`, however dependency-complete its own signature looks:
 its inherited public surface is unprojectable, so completing it would report a
-whole surface that is not there. Forty-one of the missing types are in that
-state, and every one of them waits on the same architecture decision.
+whole surface that is not there. (Forty-one missing types were in that state at
+Foundation 33; since Foundation 94 no base is DEFERRED.)

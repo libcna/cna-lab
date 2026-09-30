@@ -9,7 +9,7 @@ consumer callbacks and XNA-shaped Go values/facades
                          |
           one cgo bridge and typed dlsym manifest
                          |
-                 canonical CNA C ABI 0.7
+                 canonical CNA C ABI 0.35
                          |
              CNA C++ XNA implementation
 ```
@@ -97,6 +97,8 @@ proof.
 
 ## Deliberate deferrals
 
-Foundation 1 has no fake ContentManager/XNB, BasicEffect, 3D capability layer,
-audio, media, storage, or mobile/Web facade. Native runtime qualification is a
-separate claim from whether `go build` can target an operating system.
+Foundation 1 had no ContentManager, BasicEffect, 3D layer, audio, media or
+storage; all of them followed as real projections (see `ROADMAP.md`), and none
+was ever faked. There is still no mobile or Web facade. Native runtime
+qualification is a separate claim from whether `go build` can target an
+operating system.

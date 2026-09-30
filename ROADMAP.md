@@ -3,15 +3,16 @@
 This file is the answer to "what is left?". It is written from **measured**
 state, not from intent: every count below comes from a tool in this repository,
 and every claim about what CNA can do comes from the canonical headers at
-`~/deps/cna-c-abi-0.21.0/include/CNA/C/`.
+`~/deps/cna-c-abi-0.35.0/include/CNA/C/`, the artifact CNA-Go was last
+requalified against (see `PROVENANCE.txt` there for the CNA commit).
 
 Regenerate the numbers before trusting them:
 
 ```sh
 go run ./tools/api_compat            # the scoreboard, docs/generated/, and the frontier
-go run ./tools/native_abi -headers ~/deps/cna-c-abi-0.21.0/include \
-                          -library ~/deps/cna-c-abi-0.21.0/libcna_c_api.so
-go run ./tools/external_consumer -source .
+go run ./tools/native_abi -headers ~/deps/cna-c-abi-0.35.0/include \
+                          -library ~/deps/cna-c-abi-0.35.0/lib/libcna_c_api.so
+go run ./tools/external_consumer -source <extracted source artifact>
 ```
 
 ## Scoreboard
@@ -25,7 +26,7 @@ COMPLETE_TYPES                 256
 PARTIAL_TYPES                    0
 UNEXPECTED_MEMBER                0
 ALLOWLIST_ENTRIES                0
-GLOBAL_ACTIONABLE_LOCAL          0
+GLOBAL_ACTIONABLE_LOCAL          1
 GLOBAL_UNREVIEWED                0
 BOUND_FUNCTIONS                696
 MANIFEST_LAYOUT_AGREEMENTS     457
@@ -41,6 +42,49 @@ disagrees with the last generated run, if a key is missing, or if a key nobody
 generates is added. Update the reports, then copy their values here.
 
 ## Where the project stands
+
+### Requalified against CNA C ABI 0.35.0 (2026-09-30)
+
+CNA-Go's 696 bound routes, 457 manifest layouts and every prototype measured
+**identical** between ABI 0.21.0 and 0.35.0 (`ABI_MISMATCHES=0` on both
+artifacts), and none of the 855 routes CNA removed between them -- the engine
+layer, the avatar real-rendering extension, the two Guide setters -- was ever
+bound. The admission floor moved from 0.21 to **0.35**, because the runtime
+evidence below depends on behaviour older artifacts do not have.
+
+The requalification ran `native_stress` on two artifacts, 21 scenarios × 20
+isolated cycles each, both green with no crash, use-after-free or double free:
+`HEADLESS` (`docs/generated/native-stress-report.json`) and a real GPU through
+`OPENGLES3` with compiled effects, CNAEXT and devices, inside a private
+compositor (`docs/generated/native-stress-report-opengles3.json`). The
+SOFTWARE artifact was not requalified and its 0.21 report was removed.
+
+What changed is CNA, and every change moved toward XNA:
+
+- **CNA now enforces XNA's Reach profile.** Separate alpha blending, 32-bit
+  indices, occlusion queries, `GetBackBufferData` and `Texture3D` are refused
+  under Reach, exactly where XNA's IL throws. The device-state scenario proves
+  all five refusals under Reach; the four scenarios that exercise those features
+  request HiDef first, the way a game does. Clearing a depth buffer a device
+  does not have is refused too (`CannotClearNullDepth`).
+- **`VERIFIED_PIXEL` on a real GPU.** Under HiDef, OPENGLES3 reads its back
+  buffer, and the pixel slice passes: winding, geometry, material, alpha
+  (rounded to (0,128,0,128) where the SOFTWARE renderer truncated to 127),
+  lighting, and vertex colour -- whose fixture was repaired, because XNA
+  multiplies the material by the vertex colour and the old green-on-yellow
+  fixture could not tell honoured from ignored.
+- Render-target readback, cube round trips, a real `Texture3D` and fresh
+  occlusion results are measured on OPENGLES3; HEADLESS still refuses them.
+- The media library and playback slices ran for the first time in committed
+  evidence, inside an isolated `HOME`.
+- Several recorded CNA findings are fixed upstream: SpriteFont measurement now
+  clamps the last bearing as XNA does, BasicEffect publishes its 21
+  EffectParameters, two subscriptions to one game event fire in registration
+  order, and `cna_graphics_resource_dispose` really disposes. The findings that
+  still reproduce are listed in `docs/native-abi.md`.
+
+### The foundation history
+
 
 The **whole 2D graphics path is closed and proved against a live renderer**:
 `GraphicsDevice`, `SpriteBatch`, `Effect` and its eight companion types,
@@ -499,65 +543,24 @@ names no blocker or claims a type that is no longer missing is a verifier
 failure. `GLOBAL_UNREVIEWED` counts the missing types nobody has classified,
 and it is zero.
 
-The suggested order is dependency order, which is the order the families appear
-in that registry:
+**One type is left, and it is local work.** `GamerServicesComponent` was
+reclassified from `BLOCKED_PLATFORM` back to **`ACTIONABLE_LOCAL`** on
+2026-09-30. Foundation 99 held its dispatcher to be XNA's Games for Windows
+LIVE proxy and said none of CNA's routes is that dispatcher; CNA declares
+`cna_gamer_services_dispatcher_{set_window_handle,subscribe_installing_title_update_ext,initialize,update}`,
+and a probe measured all four working on the HEADLESS artifact with no account
+service configured. What remains is design inside this repository: the type
+lives in its own namespace, so its private `GameComponent` base would be the
+first composed base held across a package boundary (the derived-binding hook is
+unexported), and `IUpdateable::Update` is projected infallible while the
+dispatcher's update can fail. The archival requalification did not decide
+either, so the type stays unprojected and says why.
 
-**Nothing is left that this project can do.** `GLOBAL_ACTIONABLE_LOCAL` is
-**zero** and `GLOBAL_UNREVIEWED` is **zero**: every one of the 257 types in the
-profile is either projected completely or classified with a named blocker. The
-Design converters closed in Foundation 94, the media metadata graph in 95, the
-library and picture graph in 96, playback in 97 and XACT in 98 -- so the whole
-`Microsoft.Xna.Framework.Media` and `Microsoft.Xna.Framework.Audio` namespaces
-are projected.
-
-The one remaining type, `GamerServicesComponent`, was reclassified in Foundation
-99 from `ACTIONABLE_LOCAL` to **`BLOCKED_PLATFORM`** after its IL and its
-dependency's IL were read end to end. Foundation 97 had corrected the family's
-note and left the classification alone, so the entry claimed "nothing external
-blocks it" while its own note named a blocker; the reading settles it.
-
-The component is 94 bytes of IL over four members, and three of `Initialize`'s
-four steps plus the FIRST of `Update`'s two are `GamerServicesDispatcher` calls.
-That dispatcher spawns a Games for Windows LIVE proxy PROCESS and talks to it
-through the assembly's seven P/Invokes -- every one
-`pinvokeimpl("Kernel32.dll" winapi)`: `CreateEvent`, `SetEvent`,
-`WaitForMultipleObjects` and `CloseHandle` for the named events, and
-`CreateFileMapping`, `MapViewOfFile` and `UnmapViewOfFile` for the shared
-memory -- and `set_WindowHandle` installs a `WindowMessageHooker` on the game's
-HWND. That is a Windows subsystem this host does not have, not a missing CNA
-route: CNA's 107 gamer and guide routes are its own facility, and adding one
-would not make the projection the reference's behaviour either.
-
-Projecting it anyway would put a component in `Game.Components` that a consumer
-adds, that forwards to its base and does nothing else -- silently failing at the
-one thing it exists for, which is worse than its absence.
-
-**The Model family's native draw slice is measured and BLOCKED, which corrects
-what this section said before.** The route exists and is bindable:
-`cna_content_manager_load_model(CNA_Handle, CNA_StringView, CNA_ModelHandle*)`,
-declared in `models.h` rather than in either content header, exported by the
-qualified library, and the exact parallel of the three routes
-`ContentManager.Load<T>`'s closed set already binds. Its whole model graph --
-bones, meshes, parts, effects and both buffers, thirty-three routes in all -- is
-exported too, and every one was checked against the library.
-
-What is missing is the ASSET. CNA's own documentation for the route says it
-loads "from a compiled `.xnb`", and answers `CNA_RESULT_IO` for anything else.
-There is no `.xnb` corpus in this repository and none anywhere under `~/deps`.
-The texture slice works because CNA's texture loader accepts a raw PNG the
-harness encodes itself; there is no equivalent for a model, and the `gltf_*`
-routes in `models.h` only REPORT diagnostics on an already-imported model --
-`set_gltf_import_report_ext` is a setter, and the ABI exposes no glTF import
-entry point.
-
-So binding the family now would add thirty-three routes whose only call site
-could never execute, and planted defects in the graph walk could never be
-killed. That is precisely the trap Foundation 92 hit in its inherited decode,
-at a scale where narrowing a seam does not help: the code needs a real asset.
-What would lift the blocker is a compiled `.xnb` produced by the XNA content
-pipeline, or a CNA route that imports a format the project can author. **Input**
-   closed in Foundation 89, the **Model family** in Foundation 90, **Storage**
-   in Foundation 91 and the **content plumbing** in Foundation 92.
+**The Model family's native draw slice is no longer blocked upstream.** It was
+blocked on assets: `cna_content_manager_load_model` accepted only a compiled
+`.xnb`. At ABI 0.35.0 `models.h` documents the same route opening `.cnb`,
+`.gltf` and `.glb` directly, which a harness can author. The slice was not
+built in this pass; the family's types remain complete and projected.
 
 **The dynamic-buffer note, closed.** Foundation 83 probed it, Foundation 84
 acted on it, and the outcome was smaller than the note expected: **one** new
@@ -567,32 +570,31 @@ none — `cna_index_buffer_set_data` and `_set_data_at` already carried an
 reference hardcodes `SetDataOptions.None` there. The four
 `subscribe_content_lost` / `unsubscribe_content_lost` routes stay unbound for
 the reason `cna_render_target_subscribe_content_lost` does: CNA raises them only
-on DirectX9, Direct2D and Skia, and the qualified artifacts are HEADLESS and
-SOFTWARE.
+on renderers that can lose a device (DirectX9, for example), and neither
+qualified artifact -- HEADLESS and OPENGLES3 -- does.
 
 ## Two decisions that were open, and where they now stand
 
-1. **CLR attributes.** The five `ContentSerializer*Attribute` types have no Go
-   counterpart for *application*, but the question of whether the TYPES can
-   exist is separate from whether Go can attach them to declarations, and only
-   the second is a candidate language limitation. The frontier registry records
-   the family as `ACTIONABLE_LOCAL` for that reason.
-2. **`System.ComponentModel.TypeConverter`.** All 13 `Design` converters derive
-   from it. It is not in the profile, so it needs the same treatment
-   `Dictionary<K,V>` got in Foundation 74: the minimal measured closure its IL
-   actually reaches, and nothing more.
+Both are closed. The five `ContentSerializer*Attribute` types were projected in
+Foundation 93, and `System.ComponentModel.TypeConverter` got its measured
+minimal closure with the Design converters in Foundation 94.
 
 ## The gates every milestone must pass
 
-Unchanged from Foundation 44 onward, and all of them must be green:
+All of them must be green:
 
 ```sh
+gofmt -l . && go vet ./...
 go test ./...                                    # unit + verifier tests
 go run ./tools/behavior                          # behaviour corpus
 go run ./tools/api_compat                        # strict API + inventory + frontier
+go run ./tools/api_compat --mode leak-only -report "" -missing "" -remaining ""
+go run ./tools/packed_vector_qualify
+go run ./tools/capabilities --check
 go run ./tools/native_abi -headers ... -library ...   # ABI_MISMATCHES must be 0
-go run ./tools/external_consumer -source .       # must actually COMPILE
-DISPLAY=:77 CNA_NATIVE_LIBRARY=.../libcna_c_api.so go run ./tools/native_stress
+go run ./tools/external_consumer -source <extracted source artifact>
+go build -o build/bin/native_stress ./tools/native_stress
+build/bin/native_stress                          # with the environment below
 ```
 
 Three rules that are easy to lose and expensive to relearn:
@@ -610,9 +612,17 @@ Three rules that are easy to lose and expensive to relearn:
 ## Environment
 
 - **Never build in the scratchpad or `/tmp`.** Use `build/`, `build-probe/`,
-  `build-consumer/` — the closed list in `openeggbert/CLAUDE.md`.
-- **Every native run needs a virtual display.** `DISPLAY=:77` (Xvfb). The
-  OpenGL artifacts open real windows otherwise.
-- Qualified artifacts: `~/deps/cna-c-abi-0.21.0` (HEADLESS), `-software`,
-  `-opengl33`, `-opengles3-fx`. The first two are what the gates run on.
+  `build-consumer/`, and point `TMPDIR` and `GOTMPDIR` into `build/`.
+- **`native_stress` must be isolated.** `CNA_NATIVE_LIBRARY` names the artifact;
+  `CNA_GO_STORAGE_ROOT` and `XDG_DATA_HOME` name a project-owned storage root;
+  `CNA_GO_MEDIA_HOME` and `HOME` name a project-owned media home. Build the tool
+  first, because a changed `HOME` moves Go's build cache.
+- **A windowed artifact never opens on a desktop.** OPENGLES3 runs inside CNA's
+  `tools/platform/run_gpu_tests_private.sh --exec ...` (private Weston and
+  Xwayland on the real GPU) with `SDL_VIDEODRIVER=x11` and, since that
+  environment has no audio server, `SDL_AUDIO_DRIVER=dummy`. HEADLESS needs no
+  display.
+- Qualified artifacts: `~/deps/cna-c-abi-0.35.0` (HEADLESS) and
+  `~/deps/cna-c-abi-0.35.0-opengles3-fx` (OPENGLES3); the library is
+  `lib/libcna_c_api.so` in each.
 - The Go toolchain this repository is qualified with is `~/deps/go1.24.4`.

@@ -5158,7 +5158,7 @@ var xnaBaseRelationships = map[string]xnaBaseRelationship{
 	// remaining blockers are recorded per derived type below and are entirely
 	// about device and GamerServices runtime, not about inheritance.
 	"Microsoft.Xna.Framework.GameComponent": {Status: "COMPOSED", Blockers: []xnaBaseBlocker{
-		{Class: "SUBSYSTEM", Detail: "the inheritance is projected and ONE of the two derived types is now complete. Foundation 46 projected DrawableGameComponent: its Initialize resolves Microsoft.Xna.Framework.Graphics.IGraphicsDeviceService out of Game.Services, which the framework package cannot name because the Graphics package imports it, and internal/servicebridge resolves that with two function values installed from package inits -- no public API, no retained object, and no import cycle. GamerServicesComponent remains blocked and its blockers are not inheritance either: GamerServicesDispatcher lives in Microsoft.Xna.Framework.GamerServices.dll, which is not one of the seven pinned assemblies and has no CNA runtime behind it. Game.Window.Handle stopped being one of its blockers in Foundation 45"},
+		{Class: "SUBSYSTEM", Detail: "the inheritance is projected and ONE of the two derived types is now complete. Foundation 46 projected DrawableGameComponent: its Initialize resolves Microsoft.Xna.Framework.Graphics.IGraphicsDeviceService out of Game.Services, which the framework package cannot name because the Graphics package imports it, and internal/servicebridge resolves that with two function values installed from package inits -- no public API, no retained object, and no import cycle. GamerServicesComponent is not projected, and what stands in its way is not inheritance alone: GamerServicesDispatcher lives in Microsoft.Xna.Framework.GamerServices.dll, which is not one of the seven pinned assemblies. CNA does implement that dispatcher (cna_gamer_services_dispatcher_*, measured working at ABI 0.35.0), so the remaining work is local: a composed base held across a package boundary and a fallible dispatcher Update behind an infallible IUpdateable::Update. Game.Window.Handle stopped being one of its blockers in Foundation 45"},
 	}},
 
 	// The one Foundation 25 measured from the other side: it alone blocked
@@ -5171,9 +5171,10 @@ var xnaBaseRelationships = map[string]xnaBaseRelationship{
 	// never creates a second. `interop.Resource` carries its own kind tag, so
 	// the type-specific destruction the reference's ReleaseNativeObject
 	// overrides perform is already inside `Resource.Dispose`.
-	"Microsoft.Xna.Framework.Graphics.GraphicsResource": {Status: "COMPOSED", Blockers: []xnaBaseBlocker{
-		{Class: "SUBSYSTEM", Detail: "the inheritance is projected and ten of the eleven derived types are complete: the four state objects, SpriteBatch, Texture and its three derived textures, VertexDeclaration, IndexBuffer and VertexBuffer. The one that remains is Effect, whose own derived family needs EffectParameter"},
-	}},
+	// Its last blocker -- "the one that remains is Effect" -- went stale when
+	// Foundation 72 projected Effect; every derived type is complete, so the
+	// list is empty for the reason Texture's is.
+	"Microsoft.Xna.Framework.Graphics.GraphicsResource": {Status: "COMPOSED"},
 	// Foundation 71 emptied this one's blocker list, which no other entry has:
 	// the inheritance is projected and ALL THREE derived types are complete.
 	// The blocker it used to carry -- "Texture3D and TextureCube need CNA

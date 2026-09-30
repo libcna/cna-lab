@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
-  "profile": "CNA-Go Foundations 1-13 / XNA 4.0 Windows runtime mapping",
-  "qualified_platform": "linux/amd64 (HEADLESS renderer, SDL3 audio, CNA C ABI 0.21.0)",
+  "profile": "CNA-Go / XNA 4.0 Windows runtime mapping (requalified 2026-09-30)",
+  "qualified_platform": "linux/amd64, CNA C ABI 0.35.0: HEADLESS renderer, and OPENGLES3 on a real GPU inside a private compositor; SDL3 audio",
   "capabilities": [
     {
       "id": "xna-package-mapping",
@@ -15,7 +15,7 @@
       "capability": "Managed Foundation closures",
       "status": "VERIFIED_MANAGED",
       "evidence": "API compatibility, behavior corpus, and family evidence reports",
-      "notes": "Geometry/transform, Color, Viewport, Curve, PackedVector, VertexElement, PlayerIndex, DisplayOrientation, BufferUsage, ClearOptions, SurfaceFormat, DepthFormat, GraphicsProfile, and ButtonState closures are locally strict-zero; five native/runtime types remain explicitly partial."
+      "notes": "Geometry/transform, Color, Viewport, Curve, PackedVector, VertexElement, PlayerIndex, DisplayOrientation, BufferUsage, ClearOptions, SurfaceFormat, DepthFormat, GraphicsProfile, and ButtonState closures are locally strict-zero; no type in the profile is partial."
     },
     {
       "id": "game-lifecycle",
@@ -181,9 +181,9 @@
     {
       "id": "texture-volume-cube",
       "capability": "TextureCube and Texture3D",
-      "status": "BACKEND_BLOCKED",
-      "evidence": "20 isolated texture-volume cycles against EACH of two qualified artifacts, plus one scenario-scoped run against CNA's published OPENGL33 build of the same ABI. HEADLESS: 20 cubes created, 20 cube transfers refused with CNA result 6, 20 volume creations refused with CNA result 6. SOFTWARE: 20 cubes created and 20 four-texel round trips read back exactly, 20 volume creations still refused. OPENGL33 (Mesa 4.6 core): both created, both round-tripped. Plus 8 in-package tests, 1 external-consumer test and the compiler-verified ABI layouts of all six CNA volume/cube structures",
-      "notes": "Both types are COMPLETE and both are the profile's second and third derived Texture: the composed base chain, the CLR `this` rebinding and the Texture-typed parameter position all reach them. What is blocked is the RENDERER, and CNA says so in its own words: cna_texture3d_create answers \"this renderer does not support real volume (3D) texture storage\" on HEADLESS and SOFTWARE, and cna_texturecube_set_data answers \"this graphics renderer did not store the complete requested cube face region\" on HEADLESS. Neither is an upstream gap and neither is a binding defect -- the same OPENGL33 artifact CNA publishes creates and round-trips both, which is what proves the projection rather than the renderer is being measured. The twelve typed transfers accept ONE element type, framework.Color, and that is a CNA ABI EXPRESSIVENESS limit rather than an XNA restriction: cna_texture2d_set_data takes a CNA_TextureDataType identity and eighteen representations behind it, while cna_texturecube_set_data and cna_texture3d_set_data take const CNA_Color* and have no data-type parameter at all. The refusal names CNA and never XNA, and a test asserts that it does."
+      "status": "VERIFIED_NATIVE",
+      "evidence": "20 isolated texture-volume cycles against EACH qualified artifact at ABI 0.35.0, under HiDef (XNA's Reach has no volume textures, and CNA 0.35 refuses one there, proved in the device-state scenario). OPENGLES3: 20 cubes created and 20 four-texel round trips read back exactly, 20 Texture3D created and round-tripped. HEADLESS: 20 cubes created, 20 cube transfers refused with CNA result 6, 20 volume creations refused with CNA result 6. Plus 8 in-package tests, 1 external-consumer test and the compiler-verified ABI layouts of all six CNA volume/cube structures",
+      "notes": "Both types are COMPLETE and both are the profile's second and third derived Texture: the composed base chain, the CLR `this` rebinding and the Texture-typed parameter position all reach them. HEADLESS refuses for a renderer reason and says so in CNA's own words: cna_texture3d_create answers \"this renderer does not support real volume (3D) texture storage\" and cna_texturecube_set_data \"this graphics renderer did not store the complete requested cube face region\". OPENGLES3 creates and round-trips both, which is what proves the projection rather than the renderer is being measured. The twelve typed transfers accept ONE element type, framework.Color, and that is a CNA ABI EXPRESSIVENESS limit rather than an XNA restriction: cna_texture2d_set_data takes a CNA_TextureDataType identity and eighteen representations behind it, while cna_texturecube_set_data and cna_texture3d_set_data take const CNA_Color* and have no data-type parameter at all. The refusal names CNA and never XNA, and a test asserts that it does. cna_texture3d_set_data_bytes exists in CNA and is not bound; the Color-only limit is this projection's route choice as much as CNA's."
     },
     {
       "id": "graphics-resource-chain",
@@ -196,7 +196,7 @@
       "id": "render-target2d",
       "capability": "RenderTarget2D, bound and read back",
       "status": "VERIFIED_NATIVE",
-      "evidence": "20 isolated render-target cycles against EACH of two qualified artifacts: create, bind, clear, unbind, read back and draw. The SOFTWARE renderer produced 20 pixel readbacks of 64 pixels each, every one the exact cleared colour; the HEADLESS renderer produced 20 documented readback refusals and completed every other step. Plus 5 in-package tests, 4 behavior-corpus observations and 2 planted mutations proved to fail",
+      "evidence": "20 isolated render-target cycles against EACH qualified artifact at ABI 0.35.0: create, bind, clear, unbind, read back and draw. OPENGLES3 produced 20 pixel readbacks, every one the exact cleared colour; HEADLESS produced 20 documented readback refusals and completed every other step. Plus 5 in-package tests, 4 behavior-corpus observations and 2 planted mutations proved to fail",
       "notes": "The whole semantic slice, in one draw callback, ending in a readback THROUGH THE Texture2D SURFACE -- which proves the substitution and the render-target contents with one call. CNA reports the APPLIED format, depth format, sample count and usage rather than echoing the preferences back, which is the same split the reference has: CreateRenderTarget hands its arguments to GraphicsAdapter::QueryFormat and the RenderTargetHelper stores what the query selected. A render target is a DISTINCT CNA kind with its own destroy -- cna_texture2d_destroy is documented as not destroying one -- so the composed GraphicsResource carries the render-target kind and destroys it through the matching route. The two renderers differ on exactly one step: only a renderer that can copy a colour attachment back to the CPU can answer GetData, and the HEADLESS artifact says so with CNA_RESULT_NOT_SUPPORTED. ContentLost is projected and cannot fire in either qualified environment: CNA raises it only on the DIRECTX9, DIRECT2D and SKIA renderer families, which never lose a device on the other backends."
     },
     {
@@ -225,7 +225,7 @@
       "capability": "GraphicsDevice's six events and its disposal",
       "status": "BACKEND_BLOCKED",
       "evidence": "15 members closed, 5 CNA routes bound with 6 native trampolines, 20 isolated cycles on EACH qualified artifact installing and removing all six subscriptions, 2 planted mutations proved to fail, 3 behavior-corpus observations and 7 newly pinned structure measurements",
-      "notes": "All six events have a raise_* protected virtual in the reference and every raise site is inside the device's own runtime code, so the canonical CNA signal IS the reference's raise path -- the same shape Game's three host-driven events have, and the opposite of Game::Disposed. Subscription is lazy: a device nobody listens to installs nothing, and the first Add installs all six at once so a partial failure cannot leave some behind. The status is BACKEND_BLOCKED and the reason is exact -- the same classification visible-rendering carries, for the same kind of reason: REGISTRATION is proved on both artifacts, DELIVERY is not, because CNA raises DeviceLost, DeviceReset and DeviceResetting only when a renderer really loses or resets a device -- which neither the HEADLESS nor the SOFTWARE artifact can be made to do -- and it raises Disposing from a disposal a scenario must not perform on a device the Game goes on using. Neither payload event reports the OBJECT: ResourceCreated fires from the graphics-resource base constructor, where CNA says the concrete type does not exist yet, and the destroyed resource's tag is caller-owned native state, so both carry nil while the destroyed resource's NAME is real and is copied out of callback-scoped bytes before they expire. Disposal really disposes the device the Game owns, which is what the reference does; the facade's ownership stays BORROWED and CNA-Go never disposes one on its own. MEASURED: CNA documents that every registration must be released before cna_game_destroy succeeds, and the pinned artifacts did NOT refuse a leaked one -- so the release is performed because the contract requires it and because leaking a C-owned resource is wrong, not because a native refusal proves it."
+      "notes": "All six events have a raise_* protected virtual in the reference and every raise site is inside the device's own runtime code, so the canonical CNA signal IS the reference's raise path -- the same shape Game's three host-driven events have, and the opposite of Game::Disposed. Subscription is lazy: a device nobody listens to installs nothing, and the first Add installs all six at once so a partial failure cannot leave some behind. The status is BACKEND_BLOCKED and the reason is exact -- the same classification visible-rendering carries, for the same kind of reason: REGISTRATION is proved on both artifacts, DELIVERY is not, because CNA raises DeviceLost, DeviceReset and DeviceResetting only when a renderer really loses or resets a device -- which neither qualified artifact (HEADLESS, OPENGLES3) can be made to do -- and it raises Disposing from a disposal a scenario must not perform on a device the Game goes on using. Neither payload event reports the OBJECT: ResourceCreated fires from the graphics-resource base constructor, where CNA says the concrete type does not exist yet, and the destroyed resource's tag is caller-owned native state, so both carry nil while the destroyed resource's NAME is real and is copied out of callback-scoped bytes before they expire. Disposal really disposes the device the Game owns, which is what the reference does; the facade's ownership stays BORROWED and CNA-Go never disposes one on its own. MEASURED at ABI 0.21.0 and not re-measured: CNA documents that every registration must be released before cna_game_destroy succeeds, and the pinned artifacts did NOT refuse a leaked one -- so the release is performed because the contract requires it and because leaking a C-owned resource is wrong, not because a native refusal proves it."
     },
     {
       "id": "base-substitutability",
@@ -239,14 +239,14 @@
       "capability": "SpriteBatch 2D draw closure",
       "status": "VERIFIED_NATIVE",
       "evidence": "60/600 scaled draw canary, 20 lifetime cycles, 20 isolated sprite-draw cycles submitting 100 position commands and 80 destination commands through a live draw callback, and 20 sprite-font cycles submitting all six DrawString overloads through a live begin/end pair",
-      "notes": "All SEVEN of the profile's Draw overloads are projected, and they reach TWO native routes: the four position overloads go to cna_sprite_batch_submit_scaled_many and the three destination-rectangle overloads to cna_sprite_batch_submit_many. CNA declares the two commands separately because the position family measures its origin in source-texture pixels and applies the scale after that offset, which a caller cannot reproduce by computing a rectangle; XNA agrees from the other side, with one InternalDraw whose Vector4 destination means (x,y,scaleX,scaleY) or (x,y,width,height) depending on a scaleDestination bool. Begin, End and disposal are real, and Foundation 56 composed GraphicsResource onto the type, so its ten inherited members -- GraphicsDevice, Name, Tag, IsDisposed, ToString, Disposing and the two-overload Dispose pair -- are projected too. The XNA type is still partial: its four state-carrying Begin overloads need BlendState, SamplerState, DepthStencilState, RasterizerState and Effect, its six DrawString overloads closed in Foundation 70 over cna_sprite_batch_draw_string, and its last two Begin overloads closed in Foundation 72 when Effect became real -- so the type is COMPLETE. All four Begin overloads now reach one native route, cna_sprite_batch_begin_with_effect, because the reference has one Begin body and CNA documents a null effect as the stock sprite effect and a null transform as the identity; cna_sprite_batch_begin_with_states was unbound as SUBSUMED rather than kept as a second path that could drift."
+      "notes": "All SEVEN of the profile's Draw overloads are projected, and they reach TWO native routes: the four position overloads go to cna_sprite_batch_submit_scaled_many and the three destination-rectangle overloads to cna_sprite_batch_submit_many. CNA declares the two commands separately because the position family measures its origin in source-texture pixels and applies the scale after that offset, which a caller cannot reproduce by computing a rectangle; XNA agrees from the other side, with one InternalDraw whose Vector4 destination means (x,y,scaleX,scaleY) or (x,y,width,height) depending on a scaleDestination bool. Begin, End and disposal are real, and Foundation 56 composed GraphicsResource onto the type, so its ten inherited members -- GraphicsDevice, Name, Tag, IsDisposed, ToString, Disposing and the two-overload Dispose pair -- are projected too. The type is COMPLETE: its six DrawString overloads closed in Foundation 70 over cna_sprite_batch_draw_string, and its last two Begin overloads in Foundation 72 when Effect became real. All four Begin overloads now reach one native route, cna_sprite_batch_begin_with_effect, because the reference has one Begin body and CNA documents a null effect as the stock sprite effect and a null transform as the identity; cna_sprite_batch_begin_with_states was unbound as SUBSUMED rather than kept as a second path that could drift."
     },
     {
       "id": "effect-cluster",
       "capability": "Effect, its techniques, passes, parameters and annotations",
       "status": "VERIFIED_NATIVE",
-      "evidence": "20 isolated vertex-buffer cycles against the qualified artifact, each proving the same three draws REFUSE before anything is applied and SUCCEED after a real effect's pass is applied; a stock effect loaded through ContentManager.Load<Effect> over CNA's own .cnj descriptor, its current technique's first pass applied, all six DrawUser* overloads submitted with it still applied (120 submissions), and the effect disposed with its whole view graph. Plus 19 in-package tests, 2 external-consumer tests, 65 newly bound CNA routes and 37 newly measured ABI layouts",
-      "notes": "This closes the BACKEND_BLOCKED / EFFECT_DEPENDENCY that Foundation 67 recorded: DrawPrimitives, DrawIndexedPrimitives and DrawInstancedPrimitives all answered CNA result 12, \"no effect has been applied\", and all three now succeed once EffectPass.Apply has run. The refusal is kept as a CONTROL and is required in every cycle, because a draw that works either way would prove nothing. The claim is VERIFIED_NATIVE_DRAW and not VERIFIED_PIXEL: no qualified artifact can read the back buffer back, so nothing is claimed about what was rasterised. The six DrawUser* generics belong to this row rather than a later one, because they are draw calls: until an effect could be applied, every one of them would have projected into the same refusal. They take CNA_USER_VERTEX_SOURCE_RAW_STREAM with an explicit declaration -- the caller's, or the one VertexDeclaration.FromType resolves from T -- because CNA's four TYPED vertex sources name value types CNA-Go projects no Go counterpart for, and a raw stream with a declaration expresses every layout they do and more. Effect's PUBLIC constructor takes compiled Direct3D 9 Effect Framework bytecode and reaches cna_effect_create_compiled, which is gated by CNA_GRAPHICS_CAPABILITY_COMPILED_EFFECTS -- measured FALSE on HEADLESS, SOFTWARE and OPENGL33 alike, so that door is BLOCKED_RENDERER on every artifact CNA publishes and ContentManager.Load<Effect> is the one that works. Every accessor in CNA's effect API hands out a FRESH owned view handle, measured: two cna_effect_get_parameters calls answered two different handles. The reference's accessors are one ldfld over collections its constructor built, so the whole reflected graph is materialised ONCE here and every accessor answers the same Go object -- which is both the identity XNA has and the only way not to leak a handle per call. Two divergences are recorded rather than hidden: the three texture GETTERS refuse, because CNA carries a handle where the CLR carries the object the setter was given and a fresh facade would make an identity comparison silently false; and the InvalidCastException every value member throws is reproduced managed-side, because CNA was measured ACCEPTING a mismatched write -- setting a Single on a four-column Vector parameter returned success and read back zero."
+      "evidence": "20 isolated vertex-buffer cycles against EACH qualified artifact at ABI 0.35.0, each proving the same three draws REFUSE before anything is applied and SUCCEED after a real effect's pass is applied; a stock effect loaded through ContentManager.Load<Effect> over CNA's own .cnj descriptor, its current technique's first pass applied, all six DrawUser* overloads submitted with it still applied (120 submissions), and the effect disposed with its whole view graph. Plus 19 in-package tests, 2 external-consumer tests, 65 newly bound CNA routes and 37 newly measured ABI layouts. The compiled-bytecode constructor over CNA's CnaConformanceEffect.fxb: 20 real effects built on OPENGLES3 (6 parameters, 2 techniques), 20 refusals naming CompiledEffects on HEADLESS",
+      "notes": "This closes the BACKEND_BLOCKED / EFFECT_DEPENDENCY that Foundation 67 recorded: DrawPrimitives, DrawIndexedPrimitives and DrawInstancedPrimitives all answered CNA result 12, \"no effect has been applied\", and all three now succeed once EffectPass.Apply has run. The refusal is kept as a CONTROL and is required in every cycle, because a draw that works either way would prove nothing. The draw claim here is VERIFIED_NATIVE_DRAW; the pixel evidence for what BasicEffect rasterises is the pixel-draw slice on OPENGLES3. The six DrawUser* generics belong to this row rather than a later one, because they are draw calls: until an effect could be applied, every one of them would have projected into the same refusal. They take CNA_USER_VERTEX_SOURCE_RAW_STREAM with an explicit declaration -- the caller's, or the one VertexDeclaration.FromType resolves from T -- because CNA's four TYPED vertex sources name value types CNA-Go projects no Go counterpart for, and a raw stream with a declaration expresses every layout they do and more. Effect's PUBLIC constructor takes compiled Direct3D 9 Effect Framework bytecode and reaches cna_effect_create_compiled, which is gated by CNA_GRAPHICS_CAPABILITY_COMPILED_EFFECTS: TRUE on the OPENGLES3 artifact (built with CNA_EASYGL_COMPILED_EFFECTS), FALSE on HEADLESS; ContentManager.Load<Effect> over a stock `.cnj` descriptor works on both. Every accessor in CNA's effect API hands out a FRESH owned view handle, measured: two cna_effect_get_parameters calls answered two different handles. The reference's accessors are one ldfld over collections its constructor built, so the whole reflected graph is materialised ONCE here and every accessor answers the same Go object -- which is both the identity XNA has and the only way not to leak a handle per call. Two divergences are recorded rather than hidden: the three texture GETTERS refuse, because CNA carries a handle where the CLR carries the object the setter was given and a fresh facade would make an identity comparison silently false; and the InvalidCastException every value member throws is reproduced managed-side, because CNA was measured ACCEPTING a mismatched write -- setting a Single on a Vector parameter returned success and read back zero, still true at ABI 0.35.0."
     },
     {
       "id": "spritebatch-begin-end-pair",
@@ -321,9 +321,9 @@
     {
       "id": "visible-rendering",
       "capability": "Visible window rendering",
-      "status": "BACKEND_BLOCKED",
-      "evidence": "qualified artifact reports HEADLESS renderer; its GameWindow reports a 0x0 client rectangle while the same run's graphics device reports an 800x480 viewport",
-      "notes": "Native draw calls are verified, but the retained artifact cannot provide visual evidence. The zero-sized client rectangle is recorded rather than asserted: a headless window has no client area, so GAME_WINDOW_POSITIVE_CLIENT_BOUNDS stays at zero and a positive size is counted rather than required."
+      "status": "VERIFIED_NATIVE",
+      "evidence": "OPENGLES3 at ABI 0.35.0 in a private compositor: a positive client rectangle (20 cycles), the back buffer read back and every texel checked (20 cycles), and the pixel-draw slice's winding, geometry, material, alpha, lighting and vertex-colour checks (20 cycles each). HEADLESS: 0x0 client rectangle and a refused readback",
+      "notes": "The rendering is real and read back, but it was presented to a private compositor, not shown to a person."
     },
     {
       "id": "content-xnb",
@@ -349,9 +349,9 @@
     {
       "id": "device-buffer-binding",
       "capability": "Binding vertex and index buffers, and the three non-user draw calls",
-      "status": "BACKEND_BLOCKED",
-      "evidence": "20 isolated cycles against EACH of two qualified artifacts: a vertex buffer and an index buffer bound to the live device, both read back as THE SAME Go objects, three draw calls submitted, the projection's own draw guards exercised and both buffers unbound. 20 draw REFUSALS and 0 draws on each artifact. Plus 7 in-package tests, 2 behavior-corpus observations, 1 external-consumer test, 9 planted mutations (7 caught in-package, 2 by the native scenario) and 3 ABI controls",
-      "notes": "The status is BACKEND_BLOCKED for a measured reason and not a projection gap: CNA answers every draw with CNA_RESULT 12, \"no effect has been applied\", on both qualified artifacts -- which is the same requirement XNA's own VerifyCanDraw imposes, and CNA-Go projects no Effect surface to satisfy it with. Everything up to the draw call is VERIFIED_NATIVE: the bind reaches CNA and the buffers really are bound. The BOUND-OBJECT readers are managed, and must be: CNA hands back a handle, and a handle cannot be turned into the Go object a consumer is holding without a registry that would retain every buffer for the life of the process -- which is why the reference keeps the same two fields. Of DrawPrimitives' five guards three are reproduced and two are recorded: the ProfileCapabilities maximum has no public XNA type to read, and VerifyCanDraw's effect test is what CNA refuses on. The instance-frequency refusal IS reproduced, and it is the one guard a consumer can trip without a shader."
+      "status": "VERIFIED_NATIVE",
+      "evidence": "20 isolated cycles against EACH qualified artifact at ABI 0.35.0: a vertex buffer and an index buffer bound to the live device, both read back as THE SAME Go objects, the three draw calls refused before any effect is applied and 20 draws succeeding after a stock effect's pass is applied, the projection's own draw guards exercised and both buffers unbound. Plus 7 in-package tests, 2 behavior-corpus observations, 1 external-consumer test, 9 planted mutations and 3 ABI controls",
+      "notes": "Foundation 67 recorded this BACKEND_BLOCKED because CNA answered every draw with CNA_RESULT 12, \"no effect has been applied\" -- the same requirement XNA's VerifyCanDraw imposes -- and CNA-Go had no Effect to satisfy it; Foundation 72 projected the Effect cluster and the draws succeed after EffectPass.Apply (see effect-cluster). The BOUND-OBJECT readers are managed, and must be: CNA hands back a handle, and a handle cannot be turned into the Go object a consumer is holding without a registry that would retain every buffer for the life of the process -- which is why the reference keeps the same two fields."
     },
     {
       "id": "vertex-buffer",
@@ -384,30 +384,30 @@
     {
       "id": "effects-3d",
       "capability": "The six stock effects, and models",
-      "status": "UNIMPLEMENTED_CNA_GO",
-      "evidence": "strict structural report",
-      "notes": "What this row still covers, after four milestones took pieces out of it: BasicEffect, AlphaTestEffect, DualTextureEffect, EnvironmentMapEffect, SkinnedEffect and EffectMaterial, the three IEffect* interfaces one of them needs, and the Model family. Depth state closed in Foundation 59, the cube and volume textures in Foundation 71, and the whole Effect cluster -- Effect, its two collections of techniques and passes, its parameters and annotations -- in Foundation 72. No fake capability API exists for what remains."
+      "status": "VERIFIED_NATIVE",
+      "evidence": "20 isolated cycles each of the unlit (AlphaTestEffect, DualTextureEffect) and lit (EnvironmentMapEffect, SkinnedEffect) stock-effect slices and the BasicEffect slice on EACH qualified artifact at ABI 0.35.0, plus BasicEffect's pixel slice on OPENGLES3; the Model family is covered by the model-family row",
+      "notes": "The six stock effects and EffectMaterial closed in Foundations 79-81 and the Model family in 90. CNA-Go drives the stock effects through CNA's typed stock-effect routes; at ABI 0.35.0 BasicEffect also publishes its 21 EffectParameters, which CNA-Go does not need. The Model family's native draw slice is not exercised: at 0.35.0 cna_content_manager_load_model opens .cnb and .gltf/.glb as well as .xnb, so it is no longer blocked on assets, but no slice was built."
     },
     {
       "id": "audio",
       "capability": "Audio/XACT",
       "status": "VERIFIED_NATIVE",
       "evidence": "Foundation 87 projected SoundEffect and SoundEffectInstance over 22 bound cna_sound_effect_* routes and qualified them on BOTH artifacts, 20 cycles each: creation from PCM16, CNA's own duration ticks, three constructor forms, the four process-wide scalars pushed and read back, a fire-and-forget Play, five transport transitions including the Stop-then-Resume that tells Resume from Play, the scalar round trips, the pan/Apply3D mode latch, Apply3D itself, and an effect released with a live instance attached",
-      "notes": "Foundation 1 recorded this as BACKEND_BLOCKED because its artifact was built with the NULL audio backend; that stopped being true and a direct C probe measured is_playback_available=1. Foundation 86 measured the same through CNA-Go's own loader and corrected the stale blocker it was still carrying. Foundation 87 bound the routes. What is NOT claimed is audibility: every native fixture is SILENT all-zero PCM, deliberately, because the qualified artifacts open a real playback device and a fixture with signal in it would make audible noise on the machine running the suite. Structure -- creation, lifetime, transport, state, the scalar round trips -- is exercised identically by silence. Foundation 88 closed DynamicSoundEffectInstance and Microphone, completing the Microsoft.Xna.Framework.Audio namespace. Microphone's physical capture is deliberately NEVER exercised: Start and GetData are projected because the contract declares them, the suite calls neither, and the parent accounting FAILS the run on a non-zero MICROPHONE_CAPTURE_CALLS. XACT itself (AudioEngine, SoundBank, WaveBank, Cue, AudioCategory) is still missing and needs project-authored legal bank fixtures."
+      "notes": "Foundation 1 recorded this as BACKEND_BLOCKED because its artifact was built with the NULL audio backend; that stopped being true and a direct C probe measured is_playback_available=1. Foundation 86 measured the same through CNA-Go's own loader and corrected the stale blocker it was still carrying. Foundation 87 bound the routes. What is NOT claimed is audibility: every native fixture is SILENT all-zero PCM, deliberately, because the qualified artifacts open a real playback device and a fixture with signal in it would make audible noise on the machine running the suite. Structure -- creation, lifetime, transport, state, the scalar round trips -- is exercised identically by silence. Foundation 88 closed DynamicSoundEffectInstance and Microphone, completing the Microsoft.Xna.Framework.Audio namespace. Microphone's physical capture is deliberately NEVER exercised: Start and GetData are projected because the contract declares them, the suite calls neither, and the parent accounting FAILS the run on a non-zero MICROPHONE_CAPTURE_CALLS. XACT itself (AudioEngine, SoundBank, WaveBank, Cue, AudioCategory) is still missing and needs project-authored legal bank fixtures. At ABI 0.35.0 the OPENGLES3 run executes inside a private compositor with no audio server, so it uses SDL's dummy audio driver; the HEADLESS run opens the real device, silently."
     },
     {
       "id": "media",
       "capability": "Media and video",
-      "status": "UNIMPLEMENTED_CNA_GO",
-      "evidence": "strict structural report",
-      "notes": "Deferred."
+      "status": "VERIFIED_NATIVE",
+      "evidence": "20 isolated cycles of each media slice on EACH qualified artifact at ABI 0.35.0 inside an isolated HOME: Song.FromUri over an authored silent WAV, the media library and picture graph seeded with the run's own songs and pictures (40 library cycles, 100 picture reads), and playback -- muted first, the mute proved (20 mute checks), then 160 transports, queue reads and silent visualization data -- plus 20 VideoPlayer cycles",
+      "notes": "Foundations 95-97 projected the whole Microsoft.Xna.Framework.Media namespace. A run without CNA_GO_MEDIA_HOME equal to HOME enumerates nothing and says so in MEDIA_HOME_SKIPS, because an unisolated run once read the user's photographs. Video is complete and unreachable: the contract declares no constructor and CNA has no load_video route."
     },
     {
       "id": "storage",
       "capability": "Storage",
-      "status": "UNIMPLEMENTED_CNA_GO",
-      "evidence": "strict structural report",
-      "notes": "Deferred."
+      "status": "VERIFIED_NATIVE",
+      "evidence": "20 isolated storage cycles on EACH qualified artifact at ABI 0.35.0 with a project-owned root (CNA_GO_STORAGE_ROOT and XDG_DATA_HOME): selector, device reads, container, file write and read, enumeration, directories and disposal, each 20 times, and the root proved to lie inside the permitted directory (STORAGE_ROOT_CHECKS)",
+      "notes": "Foundation 91 projected StorageDevice and StorageContainer. The container's containment guard is XNA's own ValidateArguments, reproduced."
     },
     {
       "id": "gamepad",
@@ -447,9 +447,9 @@
     {
       "id": "design",
       "capability": "Design-time APIs",
-      "status": "UNIMPLEMENTED_CNA_GO",
-      "evidence": "strict structural report",
-      "notes": "Deferred."
+      "status": "VERIFIED_MANAGED",
+      "evidence": "API compatibility report and behavior corpus; Foundation 94 evidence",
+      "notes": "The thirteen Design converters closed in Foundation 94 over a measured minimal TypeConverter closure."
     },
     {
       "id": "packed-vector",
@@ -476,8 +476,8 @@
       "id": "linux-amd64",
       "capability": "Linux amd64 runtime",
       "status": "VERIFIED_NATIVE",
-      "evidence": "admitted-range ABI native gates (major 0 with minor 21 or newer, qualified at 0.21.0), stress, and canary",
-      "notes": "Requires cgo, a C compiler at build time, and a separately supplied CNA shared library. The admitted range is CNA's own contract, not a relaxation: CNA states that its ELF symbol-version node changes only for a major ABI break and that minor releases are additive."
+      "evidence": "admitted-range ABI native gates (major 0 with minor 35 or newer, qualified at 0.35.0), native stress on HEADLESS and OPENGLES3, and the template canary",
+      "notes": "Requires cgo, a C compiler at build time, and a separately supplied CNA shared library. The floor is the qualified minor because CNA's 0.x ABI takes a minor increment for incompatible changes."
     },
     {
       "id": "windows",
@@ -517,9 +517,9 @@
     {
       "id": "hardware-renderer",
       "capability": "Hardware renderer qualification",
-      "status": "HARDWARE_PENDING",
-      "evidence": "the qualification artifact is built with CNA_GRAPHICS_RENDERER=HEADLESS",
-      "notes": "Requires a separately admitted artifact built with a real renderer and visible-run evidence. CNA publishes SDL_RENDERER, SOFTWARE, OPENGL33, OPENGLES3 and VULKAN builds of the same ABI, so this is an artifact-selection question rather than an upstream gap."
+      "status": "VERIFIED_NATIVE",
+      "evidence": "the OPENGLES3 artifact (EasyGL, Mesa on an AMD Radeon 780M) runs the full native stress inside a private Weston and Xwayland: back-buffer and render-target pixel checks, cube and volume round trips, compiled effects",
+      "notes": "No run was shown on a person's desktop; the private compositor presents to the real GPU. Other CNA renderers (VULKAN, OPENGL33, SOFTWARE, SDL_RENDERER) were not qualified at 0.35.0."
     },
     {
       "id": "native-sanitizers",
