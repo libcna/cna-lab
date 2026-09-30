@@ -156,13 +156,13 @@ published consumer window — major `0` exactly, minor `35` or later — so an
 earlier generation is rejected by name. macOS, iOS, tvOS, visionOS, Windows,
 and Web/Wasm are unqualified.
 
-Re-measured on 2026-09-30 against CNA `next` 4228ff913, `--frames 60` and
-`--frames 600`, every run exit 0 with `draws == requested`:
+Re-measured on 2026-09-30 against CNA `next` 5b4edd6cc and CNA-Swift `b24d81b`,
+`--frames 60` and `--frames 600`, every run exit 0 with `draws == requested`:
 
 | Consumed as | HEADLESS (SDL dummy drivers) | OPENGLES3 (private Weston + Xwayland) |
 |---|---|---|
-| sibling path `../cna-swift` | 60/60, 600/600 updates/draws | 85/60, 910/600 updates/draws |
-| the binding's exact source archive, extracted read-only | 60/60, 600/600 | 87/60, 932/600 |
+| sibling path `../cna-swift` | 60/60, 600/600 updates/draws | 87/60, 931/600 updates/draws |
+| the binding's exact source archive, extracted read-only | 60/60, 600/600 | 86/60, 912/600 |
 
 A windowed renderer must run on a private display, never the desktop. From
 the CNA checkout:
