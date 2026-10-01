@@ -41,10 +41,11 @@ All notable changes to this project are documented in this file.
   ticks. Seeds 11-13 (nightmare) and 14 (high) run 6000 ticks each without an error.
 - `--max-ticks` logged its stop three times: CNA kept running a slow frame's catch-up `Update`s
   after `Exit()`, where XNA stops. Fixed in CNA by `8dc7a7b99` (KILLER-1).
-- KF-1 to KF-17 (`CNA_FINDINGS.md`): twelve fixed in CNA, KF-3 gone with KF-2, KF-4 and KF-10 not
-  defects, KF-11 kept deliberately, KF-6 fixed for scaled windows and otherwise a documented
-  limitation of the back buffer being the window's surface. KF-17 (a WAVE with zero channels
-  killing the process in SDL_mixer) was found by the final matrix run.
+- KF-1 to KF-17 (`CNA_FINDINGS.md`): thirteen fixed in CNA, KF-3 gone with KF-2, KF-4 and KF-10 not
+  defects, KF-11 kept deliberately. KF-6 needed CNA's back buffer to become an offscreen framebuffer
+  rather than the window's surface. KF-17 (a WAVE with zero channels killing the process in
+  SDL_mixer) was found by the final matrix run. Seeds 1-5 nightmare and 1-3 high now finish with no
+  finding.
 
 ### Added
 
