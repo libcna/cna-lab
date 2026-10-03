@@ -1,0 +1,541 @@
+# CNA-Go
+
+> **Status:** 256 of the 257 types in the pinned XNA 4.0 Windows runtime profile
+> are projected completely (0 partial types, 0 missing members); the one missing
+> type, `GamerServicesComponent`, is classified. Requalified on 2026-09-30
+> against CNA C ABI 0.35.0 on Linux amd64, HEADLESS and OPENGLES3. This
+> repository is being retired into `cna-lab`; see [ROADMAP.md](ROADMAP.md).
+
+CNA-Go maps Microsoft XNA Framework 4.0 namespaces to Go import paths and
+executes native-backed APIs only through CNA's canonical C ABI:
+
+```text
+Go game
+   ↓
+Microsoft/Xna/Framework[/Audio|Content|Design|Graphics|Graphics/PackedVector|
+                        Input|Input/Touch|Media|Storage]
+   ↓
+internal/interop (the only cgo/native boundary)
+   ↓
+CNA C ABI 0.35.0
+```
+
+There is deliberately no invented public `CNA/Framework` layer. Pure XNA
+values are implemented as Go values; public packages expose neither C types
+nor native handles.
+
+## What is qualified
+
+The structural scoreboard maps the authoritative XNA 4.0 Windows runtime
+profile (257 types and 2,964 members) onto expected Go types and members, and
+every count in it is generated rather than restated here — the current values
+are in
+[docs/generated/api-compat-report.json](docs/generated/api-compat-report.json)
+and
+[docs/generated/missing-type-inventory.md](docs/generated/missing-type-inventory.md).
+The strict verifier stays red for exactly one diagnostic -- the unprojected
+`GamerServicesComponent`, classified `ACTIONABLE_LOCAL` in
+[docs/generated/remaining-work.md](docs/generated/remaining-work.md); every
+mismatch, leak, allowlist, and unmeasured-category gate is green, and
+`UNEXPECTED_TYPE`, `UNEXPECTED_MEMBER` and `ABI_MISMATCHES` are zero.
+
+The runtime evidence is `tools/native_stress`, 21 scenarios × 20 isolated
+cycles, green on two CNA 0.35.0 artifacts: HEADLESS and OPENGLES3 on a real GPU
+inside a private compositor, where it includes back-buffer pixel checks
+(`docs/generated/native-stress-report*.json`).
+
+The paragraphs below are the milestone record of Foundations 1 to 42, written
+when each landed; where one says a surface is missing, a later foundation
+added it (see [ROADMAP.md](ROADMAP.md) for Foundations 43 to 99 and the
+0.35.0 requalification).
+
+Some missing types inherit from another type in the profile whose base
+relationship is still deferred. They are recorded with classified blockers
+rather than left silent. Foundation 41 settled the inheritance architecture —
+private named composition with explicit measured forwarding — so a deferred
+base is now a per-family decision rather than one global blocker, and
+`DrawableGameComponent` and the whole `GraphicsResource` chain are projected
+through it.
+
+Foundation 1 qualifies on **Linux amd64 desktop with cgo**:
+
+- real CNA-driven `Game` lifecycle and tick-exact `GameTime`;
+- locked owner OS thread, generation checks, `runtime/cgo.Handle` callbacks,
+  and contained callback errors/panics;
+- real GraphicsDeviceManager/device, native viewport and clear;
+- PNG `Texture2D` creation from `io.Reader`;
+- all seven `SpriteBatch.Draw` overloads, over BOTH real CNA submission routes:
+  the four position overloads reach `cna_sprite_batch_submit_scaled_many` and
+  the three destination-rectangle overloads reach `cna_sprite_batch_submit_many`,
+  inside a begin/end pair whose three guards carry Microsoft's own messages;
+- native keyboard snapshots with exact XNA `Keys` values;
+- a complete first managed closure measured by the verifier and behavior
+  corpus.
+
+Foundation 2 additionally qualifies, as managed Go with no ABI expansion:
+
+- complete `Vector2`, `Vector3`, `Vector4`, `Quaternion`, and `Matrix` values;
+- the recursive `Plane`, `Ray`, bounding box/sphere/frustum, and containment
+  dependency closure;
+- explicit nullable `(value, hasValue)` intersection results;
+- complete `Color`, including its 141 predefined static colors;
+- managed `Viewport.Project` and `Viewport.Unproject`;
+- a 93-observation PURE_XNA_DERIVED exact-bit behavior corpus.
+
+Foundation 3 qualifies the complete managed Curve family with no ABI expansion:
+
+- reference-class identity for `Curve`, `CurveKey`, and `CurveKeyCollection`;
+- exact key constructors, equality, hash, clone, and `Single.CompareTo` order;
+- sorted reference collection semantics, shallow clone, mapped index failures,
+  and versioned fail-fast iteration;
+- XNA binary32 tangents, Hermite/Step evaluation, all five loop modes, and
+  negative-cycle behavior;
+- a 142-observation `PURE_XNA_DERIVED` corpus with zero failures.
+
+Foundation 4 qualifies the complete managed PackedVector family with no ABI
+expansion:
+
+- both managed interfaces, including general `!0 -> TPacked` substitution and
+  `IPackedVectorOfTPacked[TPacked]` generic identity;
+- exact pointer-method-set conformance for all seventeen mutable value structs;
+- 25 formally measured explicit-interface witness methods without member-count
+  inflation or allowlists;
+- XNA-exact UNorm, SNorm, raw byte/short, and non-IEEE half packing behavior;
+- 262,400 exhaustive packed-pattern round trips and a 201-observation
+  `PURE_XNA_DERIVED` corpus with zero failures.
+
+Foundation 5 qualifies the complete managed vertex-element descriptor closure
+with no ABI expansion:
+
+- `VertexElementFormat` and `VertexElementUsage` as exact non-flags `int32`
+  enums, including undefined CLR enum values;
+- `VertexElement` as a private-state Go value struct with exact mutable-property
+  projection, zero-value and copy semantics;
+- only `Equals(Object)`—no invented typed equality overload—and both exact
+  mapped operator identities;
+- XNA `SmartGetHashCode` word-XOR/fallback behavior and exact descriptor string
+  formatting;
+- a 227-observation `PURE_XNA_DERIVED` corpus with zero failures.
+
+Foundation 6 completes the root PlayerIndex enum and Keyboard surface without
+ABI expansion:
+
+- exact non-flags `int32` values `One=0`, `Two=1`, `Three=2`, and `Four=3`;
+- arbitrary raw enum values remain representable and are never validated;
+- `KeyboardGetStateByPlayerIndex(framework.PlayerIndex)` uses the same process
+  keyboard route and runtime/error requirements as `KeyboardGetStateByNone`;
+- direct XNA IL proves the player argument is never read;
+- Keyboard moves from partial to complete, with a 234-observation corpus and
+  zero failures.
+
+Foundation 7 completes DisplayOrientation and one exact managed
+GraphicsDeviceManager property slice without ABI expansion:
+
+- `[Flags]` `DisplayOrientation` uses exact explicit `int32` values 0, 1, 2,
+  and 4 while preserving combinations and unknown raw bits;
+- `SupportedOrientations()` and `SetSupportedOrientations(DisplayOrientation)`
+  store managed configuration with no synthetic error or native call;
+- direct XNA IL proves constructor defaults and that every setter stores the
+  exact value and marks private device state dirty, including same-value sets;
+- GraphicsDeviceManager remains partial with 40 missing members, and the
+  managed corpus reaches 242 observations with zero failures.
+
+Foundation 8 completes exactly the managed Graphics `BufferUsage` enum without
+ABI expansion:
+
+- exact `[Flags]` named-`int32` metadata with explicit `None=0` and
+  `WriteOnly=1` constants;
+- the synthetic CLR `value__` field is excluded, leaving exactly two mapped Go
+  identities;
+- zero value, arbitrary signed raw bits, and typed bitwise composition remain
+  available without validation or helper API;
+- no buffer type, buffer operation, GraphicsDevice member, or GPU capability is
+  added, and the corpus reaches 247 observations with zero failures.
+
+Foundation 9 completes exactly the managed Graphics `ClearOptions` enum
+without ABI expansion:
+
+- exact `[Flags]` named-`int32` metadata with explicit `Target=1`,
+  `DepthBuffer=2`, and `Stencil=4` constants;
+- the synthetic CLR `value__` field is excluded, leaving exactly three mapped
+  Go identities;
+- XNA declares no named zero member, so raw zero remains representable but
+  unnamed—there is no invented `None`, `Default`, or `All` constant;
+- combinations, unknown bits, negative values, OR, and AND remain available
+  without validation or helper API;
+- no GraphicsDevice.Clear overload or native clear behavior is added, and the
+  corpus reaches 256 observations with zero failures.
+
+Foundation 10 completes exactly the managed Graphics `SurfaceFormat` enum
+contract without ABI expansion:
+
+- exact non-flags named-`int32` metadata with all 20 explicit literals from
+  `Color=0` through `HdrBlendable=19`;
+- the synthetic CLR `value__` field is excluded, so the pinned contract's 21
+  field identities map to exactly 20 Go identities;
+- zero value equals `Color`, while arbitrary positive and negative raw values
+  remain representable without validation;
+- no `iota`, flags marker, Stringer/helper surface, or PackedVector dependency
+  is added;
+- no pixel-format support, texture/render-target consumer, GPU/native format
+  mapping, or CNA ABI route is claimed, and the corpus reaches 262 observations
+  with zero failures.
+
+Foundation 11 completes exactly the managed Graphics `DepthFormat` enum
+contract without ABI expansion:
+
+- exact non-flags named-`int32` metadata with `None=0`, `Depth16=1`,
+  `Depth24=2`, and `Depth24Stencil8=3`;
+- the synthetic CLR `value__` field is excluded, so five source identities
+  map to exactly four Go identities;
+- zero value equals `None`, while arbitrary positive and negative raw values
+  remain representable without validation;
+- no `iota`, flags marker, Stringer/helper surface, SurfaceFormat conversion,
+  consumer API, GPU/native depth format mapping, or CNA ABI route is added;
+- no actual depth/stencil surface support is claimed, and the corpus reaches
+  268 observations with zero failures.
+
+Foundation 12 completes exactly the managed Graphics `GraphicsProfile` enum
+contract without ABI expansion:
+
+- exact non-flags named-`int32` metadata with `Reach=0` and `HiDef=1`;
+- the synthetic CLR `value__` field is excluded, so three source identities map
+  to exactly two Go identities;
+- zero value equals `Reach`, while arbitrary positive and negative raw values
+  remain representable without validation;
+- no `iota`, flags marker, Stringer/helper surface, consumer API, GPU/native
+  profile mapping, or CNA ABI route is added;
+- `Reach` and `HiDef` are metadata values, not hardware capability claims: no
+  profile selection, feature-level detection, or renderer support is claimed,
+  and the corpus reaches 274 observations with zero failures.
+
+Foundation 13 completes exactly the managed Input `ButtonState` enum contract
+without ABI expansion:
+
+- exact non-flags named-`int32` metadata with `Released=0` and `Pressed=1`;
+- the synthetic CLR `value__` field is excluded, so three source identities map
+  to exactly two Go identities;
+- zero value equals `Released`, while arbitrary positive and negative raw
+  values remain representable without validation;
+- no `iota`, flags marker, Stringer/helper surface, consumer API, input backend
+  or native enum mapping, or CNA ABI route is added;
+- `Released` and `Pressed` are metadata values, not hardware capability claims:
+  no mouse, gamepad, D-pad, or button-polling behavior is claimed, and the
+  corpus reaches 280 observations with zero failures.
+
+See [geometry and transform evidence](docs/geometry-transform-evidence.md) for
+the computed closure, mapping decisions, conventions, and local strict-zero
+matrix.
+
+See [Curve evidence](docs/curve-evidence.md) for the collection-language
+projection, class/clone semantics, binary32 interpolation, and local matrix.
+
+See [PackedVector evidence](docs/packed-vector-evidence.md) for generic and
+interface projection, bit layouts, rounding/non-finite rules, half semantics,
+exhaustive sweeps, and the 19-type local strict-zero matrix.
+
+See [VertexElement evidence](docs/vertex-element-evidence.md) for the exact
+three-type closure, property expansion, undefined-enum behavior, hash/string
+fixtures, and local strict-zero matrix.
+
+See [PlayerIndex and Keyboard evidence](docs/player-index-keyboard-evidence.md)
+for the enum table, direct unused-argument IL proof, shared runtime route, and
+local strict-zero matrix.
+
+See [DisplayOrientation evidence](docs/display-orientation-evidence.md) for the
+flags contract, constructor/getter/setter IL, private dirty-state behavior,
+lifecycle evidence, and selected property-slice measurement.
+
+See [BufferUsage evidence](docs/buffer-usage-evidence.md) for the exact
+one-type closure, named-int32 flags projection, raw-bit qualification, focused
+verifier negatives, and explicit buffer/runtime scope boundary.
+
+See [ClearOptions evidence](docs/clear-options-evidence.md) for the exact
+one-type closure, unnamed-zero flags edge case, bitwise qualification, focused
+verifier negatives, and explicit GraphicsDevice/native scope boundary.
+
+See [SurfaceFormat evidence](docs/surface-format-evidence.md) for the complete
+20-literal raw table, corrected source/mapped identity arithmetic, non-flags
+projection, focused verifier negatives, and strict runtime-support boundary.
+
+See [DepthFormat evidence](docs/depth-format-evidence.md) for the exact
+four-literal raw table, non-flags projection, focused verifier negatives,
+deferred reverse dependents, and strict runtime-support boundary.
+
+See [GraphicsProfile evidence](docs/graphics-profile-evidence.md) for the
+exact two-literal raw table, non-flags projection, focused verifier negatives,
+the four deferred reverse dependents, and the strict metadata-only Reach/HiDef
+boundary.
+
+See [ButtonState evidence](docs/button-state-evidence.md) for the exact
+two-literal raw table, non-flags projection, focused verifier negatives, the
+three deferred `System.ValueType` reverse consumers, and the strict
+metadata-only input boundary.
+
+See [Foundation 14 pure-managed batch A evidence](docs/foundation-14-pure-managed-batch-evidence.md)
+for the 25 completed enums and their 121 mapped identities, the per-type pinned
+raw tables and deferred reverse consumers, the table-driven verifier closure
+category, the 304 exhaustive negative cases, the ranked skip list with exact
+reasons, and the strict no-capability-inflation boundary for the new `Audio`,
+`Media`, and `Input/Touch` namespaces.
+
+See [Foundation 15 pure-managed batch B evidence](docs/foundation-15-pure-managed-batch-evidence.md)
+for the last five leaf enums, the GamePad/Mouse/Touch value-struct clusters and
+their IL-derived clamping, hashing, and formatting rules, the deliberate
+`TouchLocation` equality asymmetry, the zero-synthetic-error measurement, and
+the re-verified native ABI provenance.
+
+See [Foundation 16 GamePadState evidence](docs/foundation-16-game-pad-state-evidence.md)
+for the managed XInput packing, the IndependentAxes dead-zone reproduction, the
+measured bit-for-bit agreement with the pinned `Buttons` literals, and why the
+safe pure-managed seam was exhausted at the old mapping rules.
+
+See [Foundation 17 managed class evidence](docs/foundation-17-managed-class-evidence.md)
+for the general pure-managed CLR class rule, per-operation fallibility and its
+accessor-level keys, the bit-exact `FlipHandedness` involution, the
+negative-zero constructor defaults, the exact `bge.un.s` validation that accepts
+NaN, and the 32 new negative fixtures. `AudioListener` and `AudioEmitter` are
+pure managed descriptors: completing them claims no audio runtime capability
+and creates no XACT state.
+
+The qualified artifacts are CNA ABI 0.35.0 HEADLESS and OPENGLES3, both with
+SDL3 audio. Windows, macOS, Android, iOS, and Web/Wasm are not qualified.
+See [Foundation 18 interface evidence](docs/foundation-18-interface-evidence.md)
+for the managed-interface projection rule, the measured `IEffectFog` split in
+which only `FogColor` reaches D3DX, the two runtime-boundary contracts, the
+separate Boolean and error channels of `BeginDraw`, and the exact event-mapping
+gap that keeps `IUpdateable`, `IDrawable`, and `IGraphicsDeviceService`
+deferred. `IUpdateable`, `IDrawable` and `IGameComponent` became live in
+Foundations 30-32: `Game` keeps ordered lists of every `IUpdateable` and
+`IDrawable` in `Components`, and `GameComponent` is a shipped implementor.
+`IGraphicsDeviceService` and `IGraphicsDeviceManager` became live in
+Foundation 49: `GraphicsDeviceManager`'s constructor registers itself under the
+second and an adapter over itself under the first, exactly as the reference's
+constructor registers `this` under both, so `Game.GraphicsDevice` and
+`DrawableGameComponent.Initialize` resolve a device from a `Game` that
+registered nothing of its own. (The effect runtime followed in Foundations 72
+and 79-81.)
+
+See [Foundation 19 IntPtr and PresentationParameters evidence](docs/foundation-19-intptr-presentation-parameters-evidence.md)
+for the `System.IntPtr` to `uintptr` projection and exactly what it does not
+authorize, the narrowed `RAW_HANDLE_LEAK` rule with its two-clean and ten-leak
+fixtures, the complete descriptor contract, the `IsFullScreen` constructor
+quirk, and why XNA 4.0 has no `Clear` here. `PresentationParameters` is a
+descriptor, not a device: it stores a platform window handle and creates,
+resets, enumerates, and presents nothing.
+
+See [Foundation 20 touch collection evidence](docs/foundation-20-touch-collection-evidence.md)
+for why `TouchCollection` was reachable after all, the first cluster that is at
+once a CLR value type and fallible, the unconditional `NotSupportedException`
+write side, `CopyTo`'s 64-bit overflow arithmetic, the operator-versus-`Equals`
+search asymmetry, and the cursor's behavior at both ends. Completing it claims
+no touch capability. (`TouchPanel` followed in Foundation 89, and it reads no
+device because XNA 4.0's Windows touch surface is a stub.)
+
+See [Foundation 21 service container evidence](docs/foundation-21-game-service-container-evidence.md)
+for the general rule that a BCL interface whose members the XNA type already
+declares publicly adds no projected surface, the duplicate-before-assignability
+check order, and why a missing or absent service is an absence rather than a
+failure. As of Foundation 30, `Game` exposes it and hands back one stable
+container per Game. (Since Foundation 49 `GraphicsDeviceManager` registers
+itself into it, exactly as the reference's constructor does.)
+
+Foundations 30 through 33 qualify the managed Game component slice, with no
+ABI expansion and no CNA change:
+
+- `Game.Components` and `Game.Services`, each one stable managed identity;
+- the component engine the reference keeps around them: two incrementally
+  ordered derived lists, a pending-initialization queue, and the collection and
+  order-changed handlers that maintain them;
+- five explicit base-call functions, so an override decides whether and when
+  base behavior runs, exactly as `base.Update(t)` does in CLR;
+- complete `GameComponent`, satisfying `IGameComponent` and `IUpdateable` under
+  a compiler-checked conformance rule;
+- 34 external-consumer tests proving the whole loop from outside the module.
+
+Nothing there renders. Component `Update` and `Draw` are called on the owner
+thread with a tick-exact `GameTime`; what a component does there is its own.
+
+See [Foundation 30 Game managed state evidence](docs/foundation-30-game-managed-state-evidence.md)
+for why `Game::get_Components` and `::get_Services` are seven bytes of `ldfld`
+each and therefore belong in Go rather than behind the C ABI, the component
+engine derived from IL rather than from memory — Game does **not** sort its
+components, both order comparers return 0 only for reference identity, and ties
+are stable through an explicit forward walk rather than a stable sort — and the
+`inRun` guard that decides whether an added component is queued or initialized
+on the spot.
+
+See [Foundation 31 base-call evidence](docs/foundation-31-game-base-call-evidence.md)
+for why base behavior is never automatic: in CLR the override decides whether
+and when the base runs, so CNA-Go supplies five package-level `GameBase...`
+functions a callback may call, or not, or call in a different place. They are
+measured language support and add nothing to any XNA identity counter. The
+native callback order is audited against XNA's there.
+
+See [Foundation 32 GameComponent evidence](docs/foundation-32-game-component-evidence.md)
+for the class the engine was built for, the four load-bearing quirks it must
+keep — including `On...` methods that ignore their sender and raise with `this`,
+which is what makes the engine work — the `TryLock` projection of a reentrant
+CLR `Monitor`, and the new general rule that a complete projected class must
+satisfy every XNA interface its metadata declares, checked by `go/types`.
+
+See [Foundation 33 XNA base frontier evidence](docs/foundation-33-xna-base-frontier-evidence.md)
+for the second base frontier, which was silent until now: `Texture2D` inherits
+nine public members from `Texture` and `GraphicsResource` that CNA-Go does not
+project. Twelve relationships over 41 derived types are recorded with classified
+blockers, and no derived type of a deferred XNA base may be reported complete.
+That decision — XNA-to-XNA class inheritance — is the next architectural one.
+
+See [Foundation 34 game event bridge evidence](docs/foundation-34-game-event-bridge-evidence.md)
+for `Game.Activated`, `Deactivated`, `Exiting` and `Disposed`, bound to CNA
+signals that were already published and had never been reached from Go. No CNA
+C++ changed and CNA was not rebuilt; the ABI counters moved because CNA-Go binds
+more of the same unchanged binary. `OnExiting` raises with a **null** sender
+where its two siblings raise with the Game, and that one IL instruction is
+preserved. Exactly one native subscription per event per Game, because CNA
+invokes multiple registrations on one event in reverse order. `Deactivated` is
+structurally complete but recorded as `NOT_RUN_ENVIRONMENT`: a HEADLESS artifact
+has no window manager and can never lose focus.
+
+See [Foundation 35 frame hook evidence](docs/foundation-35-game-frame-hook-evidence.md)
+for `Game.BeginRun`, `EndRun`, `BeginDraw` and `EndDraw`. `BeginDraw`'s Boolean
+stays a value channel separate from the error, because `DrawFrame` runs
+`if (BeginDraw()) { Draw(); EndDraw(); }` and a false answer skips both. CNA's
+four canonical frame hooks correspond position for position.
+
+See [Foundation 39 Game disposal evidence](docs/foundation-39-game-disposal-evidence.md)
+for `Game.Dispose()`, `Dispose(bool)` and `Finalize`, and for the raise-site
+correction that came with them. `Game.Disposed` has exactly one raise site in the
+reference -- the tail of `Dispose(bool)` -- so that is where CNA-Go raises it. It
+fires when a consumer disposes and at no other time: ending a `Run` does not
+raise it, and disposing twice raises it twice, because `Game` carries no disposed
+flag anywhere. CNA's own disposal signal fires from native game destruction,
+which is a different moment, so it is bound and counted for lifetime
+qualification and raises nothing public.
+
+See [Foundation 36 signal registry evidence](docs/foundation-36-signal-registry-evidence.md)
+for the two registries that turn those decisions into measured facts: four
+signals with three raise sites and one honest runtime deferral, and four frame
+hooks each recording the canonical CNA hook at its position.
+
+See [Foundation 38 frame hook override evidence](docs/foundation-38-frame-hook-override-evidence.md)
+for how a consumer overrides those four. Declare the matching exported method on
+the object you hand to `NewGame` and nothing else:
+
+```go
+func (c *Callbacks) BeginDraw(game *framework.Game) (bool, error) {
+    // derived work before base
+    return game.BeginDraw()          // the Go projection of base.BeginDraw()
+}
+```
+
+Any **subset** of the four works, exactly as a CLR subclass may override any
+subset. Each canonical CNA hook is installed **if and only if** its override
+exists, so a callback object written before this mechanism existed opts into
+nothing and its native frame positions are untouched. `GameCallbacks` still has
+exactly five members, there is no registration API, and the four capabilities
+are unexported structural interfaces you never name. The base is never run
+automatically: calling `game.BeginDraw()` runs it exactly where your source says,
+zero times or many, and cannot re-enter your override.
+
+See [Foundation 40 base substitutability evidence](docs/foundation-40-base-substitutability-evidence.md)
+for the measurement the XNA-to-XNA inheritance architecture turns on. Fifty-one
+public signature positions in the profile name a class another class derives
+from, and `GameComponent`, `GraphicsResource` and `MathTypeConverter` -- 25 of
+the 41 derived types between them -- are named in **none** of them. For those
+families private composition with explicit forwarding is not a compromise: there
+is no position in the contract for a derived value to flow through, so no public
+reference abstraction can be justified by it. (Eight families are live now.)
+
+See [Foundation 41 XNA inheritance evidence](docs/foundation-41-xna-inheritance-evidence.md)
+for the composition rule that measurement made safe. An XNA class inheriting
+another projects the base as **private named composition plus explicit measured
+forwarding** -- never Go embedding, which would promote the base's whole method
+set and let a promoted member silently win where the derived class overrides it,
+and never a public `Base`, `Parent` or `As...` accessor. `XNA_INHERITED` joins
+`XNA_DECLARED` and `BCL_INHERITED` as the third provenance class, and the three
+are asserted disjoint and exhaustive: 3243 declared projections that never move,
+12 BCL-inherited and 24 XNA-inherited. `COMPOSED` states that the inheritance is
+projected, not that any derived type is complete. (`DrawableGameComponent`
+followed in Foundation 46; `GamerServicesComponent` is the profile's one
+unprojected type.)
+
+See [Foundation 42 Game timing evidence](docs/foundation-42-game-timing-evidence.md)
+for `TargetElapsedTime`, `InactiveSleepTime`, `IsFixedTimeStep`,
+`IsMouseVisible`, `SuppressDraw` and `ResetElapsedTime`. Each getter is the field
+read it is in the reference and carries no error; each setter validates, stores,
+and then pushes to the native loop, because in XNA the managed loop reads those
+same fields every frame and here that loop is native. A `Game` configured before
+`Run` is created with what it was configured with. The two `TimeSpan` setters
+differ by one IL instruction and the difference is preserved: `InactiveSleepTime`
+accepts zero, `TargetElapsedTime` does not.
+
+The `Media`, `Audio`, `Storage` and `Input/Touch` packages are complete:
+media metadata, library, pictures and playback (Foundations 95-97), sound
+effects, microphones and XACT (87, 88, 98), storage (91) and the touch surface
+(89). Every native fixture they play is silent and every playback path is
+muted first.
+
+See the generated [runtime capability inventory](docs/generated/runtime-capabilities.md)
+for evidence and limitations by capability.
+
+## Native runtime
+
+The Go build uses cgo but does not link a developer CNA build at compile time.
+Supply an admitted CNA C ABI shared library at runtime — major 0 with minor 35
+or newer, qualified at 0.35.0:
+
+```sh
+export CNA_NATIVE_LIBRARY=/absolute/path/to/libcna_c_api.so
+```
+
+The override must be an absolute regular-file path. Without it, the Linux
+loader searches for `libcna_c_api.so`. Wrong ABI versions and missing required
+symbols fail before Game creation. CNA-Go contains no checkout-relative native
+library fallback and does not distribute CNA binaries.
+
+## Development and verification
+
+The maintained sibling `cna-go-template` uses a `go.work` file for local
+development. A published module version is not claimed. Consumer qualification
+instead extracts this repository's committed tree (`git archive`) and builds the
+template with `GOWORK=off` and a `replace` to that exact source tree.
+
+Useful gates are:
+
+```sh
+gofmt -l .
+go vet ./...
+go test ./...
+go test -race -p 1 ./...   # -p 1: api_compat under -race needs the memory
+go build -trimpath ./...
+go run ./tools/api_compat
+go run ./tools/api_compat --mode leak-only -report "" -missing "" -remaining ""
+go run ./tools/behavior
+go run ./tools/packed_vector_qualify
+go run ./tools/capabilities --check
+go run ./tools/native_abi -headers ~/deps/cna-c-abi-0.35.0/include -library ~/deps/cna-c-abi-0.35.0/lib/libcna_c_api.so
+go run ./tools/external_consumer -source <extracted source tree>
+go build -o build/bin/native_stress ./tools/native_stress   # run it as ROADMAP.md "Environment" says
+```
+
+Normal structural strict mode is expected to exit nonzero until all mapped XNA
+surface exists; its missing-surface diagnostics are the work queue, not a
+compatibility claim. The current count is in
+[docs/generated/api-compat-report.json](docs/generated/api-compat-report.json)
+and is not restated here, because a number written into prose goes stale the
+next milestone and nothing checks it.
+The native ABI and stress commands require the qualified native environment
+described in [ROADMAP.md](ROADMAP.md).
+`external_consumer` is the gate any public signature change must re-run: it
+builds and runs the canary as its own module against an extracted source tree,
+so a moved signature fails there rather than in a downstream consumer.
+
+The normative rules are in [plan.md](plan.md), the language projection in
+[docs/xna-go-mapping.md](docs/xna-go-mapping.md), the native boundary in
+[docs/native-abi.md](docs/native-abi.md), and the resumable handoff in
+[NEXT.md](NEXT.md).
+
+## License
+
+CNA-Go is licensed under the [Microsoft Public License](LICENSE), matching CNA.

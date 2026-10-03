@@ -1,0 +1,39 @@
+# Go build and test output
+/bin/
+/dist/
+*.test
+*.out
+coverage.*
+
+# `go build ./tools/<name>` drops the binary in the repository root. They are
+# build output, not source, and one of them reached a commit once.
+/api_compat
+/behavior
+/capabilities
+/external_consumer
+/generate_keys
+/native_abi
+/native_stress
+/packed_vector_qualify
+/resource_strings
+
+# Shared build directories (closed list; never suffix per ticket)
+/build/
+/build-asan/
+/build-ubsan/
+/build-tsan/
+/build-probe/
+/build-consumer/
+
+# Native CNA binaries are packaged artifacts, not source
+/runtimes/
+*.dll
+*.dylib
+*.so
+
+# Editors and operating systems
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db

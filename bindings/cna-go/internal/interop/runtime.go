@@ -1,0 +1,7330 @@
+package interop
+
+import (
+	"errors"
+	"fmt"
+	"os"
+	"path/filepath"
+	goruntime "runtime"
+	"runtime/cgo"
+	"runtime/debug"
+	"sync"
+	"sync/atomic"
+	"unsafe"
+)
+
+const (
+	callbackInitialize    = 1
+	callbackLoadContent   = 2
+	callbackUpdate        = 3
+	callbackDraw          = 4
+	callbackUnloadContent = 5
+	callbackExiting       = 6
+
+	// The four optional frame-boundary hooks. They are separate kinds rather
+	// than lifecycle members because CNA_GameCallbacks does not carry them:
+	// they belong to CNA_GameFrameHooks, and each is installed only when the
+	// framework reports a matching override.
+	callbackBeginRun  = 7
+	callbackEndRun    = 8
+	callbackBeginDraw = 9
+	callbackEndDraw   = 10
+)
+
+// FrameHookMask selects which optional CNA_GameFrameHooks members
+// cna_go_game_create installs. native_linux.go carries compile-time assertions
+// that these equal the C mirror in bridge.h.
+//
+// The `initialize` hook is not in the mask: it is the position
+// Game::Initialize occupies, it is always installed, and it is not an optional
+// override. The other four are installed if and only if their bit is set, and
+// a member left NULL is one CNA simply does not call -- so an absent override
+// leaves the native frame position behaving exactly as it did before this
+// mechanism existed.
+type FrameHookMask uint32
+
+const (
+	FrameHookBeginRun FrameHookMask = 1 << iota
+	FrameHookEndRun
+	FrameHookBeginDraw
+	FrameHookEndDraw
+)
+
+// The four canonical CNA game-event identities. They mirror CNA_GAME_EVENT_*
+// exactly; native_linux.go carries compile-time assertions that they equal the
+// C values, so no Go file outside this package ever spells a CNA constant.
+const (
+	GameEventActivated   uint32 = 0
+	GameEventDeactivated uint32 = 1
+	GameEventDisposed    uint32 = 2
+	GameEventExiting     uint32 = 3
+
+	gameEventCount = 4
+)
+
+// The three canonical GameWindow signal identities. They are a SECOND
+// numbering that also starts at zero, so a value from one family is a
+// valid-looking value in the other; they are kept in separate constant sets,
+// delivered through separate trampolines, and counted separately.
+const (
+	GameWindowEventClientSizeChanged       uint32 = 0
+	GameWindowEventOrientationChanged      uint32 = 1
+	GameWindowEventScreenDeviceNameChanged uint32 = 2
+
+	gameWindowEventCount = 3
+)
+
+// GameWindowEventCount is the canonical window-signal identity count.
+const GameWindowEventCount = gameWindowEventCount
+
+type ownership uint8
+
+const (
+	managedValue ownership = iota
+	owned
+	borrowed
+	parentOwned
+	processGlobal
+)
+
+type resourceKind uint8
+
+const (
+	resourceGraphicsDeviceManager resourceKind = iota + 1
+	resourceTexture2D
+	resourceSpriteBatch
+	resourceRenderTarget2D
+	resourceContentManager
+	resourceIndexBuffer
+	resourceVertexDeclaration
+	resourceVertexBuffer
+	resourceSpriteFont
+	resourceTexture3D
+	resourceTextureCube
+	resourceEffect
+	// The eight effect VIEW kinds. Each is its own resource kind for the reason
+	// every other kind is: destruction is per-kind, and a shared kind would
+	// need a second field on Resource to say which of the eight destroy routes
+	// to call -- which is a second source of truth about the same handle.
+	resourceEffectTechniqueCollection
+	resourceEffectTechnique
+	resourceEffectPassCollection
+	resourceEffectPass
+	resourceEffectParameterCollection
+	resourceEffectParameter
+	resourceEffectAnnotationCollection
+	resourceEffectAnnotation
+	// Foundation 79. A DirectionalLight handle. It is its own kind for the
+	// reason every other kind is: destruction is per-kind, and this one has its
+	// own destroy route.
+	resourceDirectionalLight
+	// Foundation 83. An OcclusionQuery handle, its own kind for the reason
+	// every other kind is: it has its own destroy route.
+	resourceOcclusionQuery
+	// Foundation 87. The audio family's two owned handles. CNA's header states
+	// the ordering constraint plainly -- "The returned effect must be destroyed
+	// after all instances created from it and before the game" -- which is what
+	// makes the instance a CHILD resource of the effect rather than a sibling.
+	resourceSoundEffect
+	resourceSoundEffectInstance
+	// Foundation 98. XACT's five owned handles. The ordering CNA's header
+	// states -- banks and cues released before their engine -- is what makes a
+	// bank a CHILD of the engine and a cue a child of its sound bank, the same
+	// structure Foundation 87 gave SoundEffectInstance.
+	//
+	// A CATEGORY is here too even though XNA's AudioCategory is a VALUE type
+	// with no Dispose: CNA hands back an owned handle from every lookup, and
+	// something has to release it. Registering it under the engine is what
+	// makes the engine's teardown release it, which is the only lifetime a
+	// struct with no Dispose can have.
+	resourceAudioEngine
+	resourceAudioCategory
+	resourceSoundBank
+	resourceWaveBank
+	resourceCue
+)
+
+// effectViewResourceKinds maps a view kind onto its resource kind, in the order
+// the view constants declare them.
+var effectViewResourceKinds = [8]resourceKind{
+	resourceEffectTechniqueCollection,
+	resourceEffectTechnique,
+	resourceEffectPassCollection,
+	resourceEffectPass,
+	resourceEffectParameterCollection,
+	resourceEffectParameter,
+	resourceEffectAnnotationCollection,
+	resourceEffectAnnotation,
+}
+
+// FrameTime is the private tick-exact lifecycle value passed into the public
+// GameTime adapter.
+type FrameTime struct {
+	TotalTicks      int64
+	ElapsedTicks    int64
+	IsRunningSlowly bool
+}
+
+// Callbacks is implemented by the framework package. It contains no C/native
+// types and is not visible to consumers because this package is internal.
+type Callbacks interface {
+	Initialize() error
+	LoadContent() error
+	Update(FrameTime) error
+	Draw(FrameTime) error
+	UnloadContent() error
+
+	// GameEvent delivers one canonical CNA game signal. It is deliberately
+	// separate from the five lifecycle members above: those project XNA's
+	// protected virtual overrides and are declared by the public
+	// GameCallbacks contract, while this one is the private bridge for the
+	// four CLR events Game declares. Adding it here leaves GameCallbacks
+	// untouched, which is what keeps every existing external implementation
+	// of that interface compiling.
+	GameEvent(event uint32) error
+
+	// GameWindowEvent delivers one canonical CNA window signal. It is a
+	// separate member from GameEvent rather than a wider identity space on
+	// one, because the two families both number from zero: sharing an entry
+	// point would make a mis-routed signal look like a valid one.
+	GameWindowEvent(event uint32) error
+
+	// TimingConfiguration reports the Game's configured timing and
+	// presentation state. It is read once, on the owner thread, immediately
+	// before cna_game_create, because the native loop has to START with what
+	// the managed state says rather than with a literal -- XNA's own loop
+	// reads those fields every frame, and a consumer may set them before Run.
+	TimingConfiguration() TimingConfiguration
+
+	// FrameHookOverrides reports which optional frame-boundary hooks this
+	// caller wants installed. It is read exactly once, on the owner thread,
+	// immediately before cna_game_create, because a Go callback object's
+	// method set is fixed for the object's whole lifetime and the answer
+	// therefore cannot change afterwards.
+	FrameHookOverrides() FrameHookMask
+
+	// The four optional frame-boundary overrides. Each is invoked only from
+	// the native hook its mask bit installed, so a caller that reported no
+	// bit for one of them is never asked for it.
+	BeginRun() error
+	EndRun() error
+	BeginDraw() (bool, error)
+	EndDraw() error
+}
+
+// TimingConfiguration is the Game's configured timing and presentation state as
+// the native loop needs it: ticks rather than TimeSpan, because the C ABI
+// counts in 100-nanosecond ticks and the conversion belongs on the public side.
+type TimingConfiguration struct {
+	TargetElapsedTicks int64
+	InactiveSleepTicks int64
+	IsFixedTimeStep    bool
+	IsMouseVisible     bool
+}
+
+// Runtime owns one admitted native Game generation.
+type Runtime struct {
+	mu              sync.Mutex
+	callbacks       Callbacks
+	game            uint64
+	generation      uint64
+	ownerThread     uint64
+	alive           bool
+	inCallback      bool
+	callbackFailure error
+	resources       []*Resource
+	title           string
+
+	// gameEventDeliveries counts every canonical signal actually delivered,
+	// per identity, for the life of the Runtime. It exists because the
+	// disposal signal no longer raises a public event: Game::Disposed is
+	// raised from managed Dispose(bool), so the native signal's only remaining
+	// job is native lifetime qualification, and something has to be able to
+	// see it. Nothing outside this module can: the framework package never
+	// reads it, and only tools that already import this internal package do.
+	gameEventDeliveries [gameEventCount]int
+
+	// eventRegistrations holds the four owned CNA registration handles, one
+	// per canonical game event. They are installed once, right after the
+	// native game is created, and released after it is destroyed -- never in
+	// the other order, because CNA raises the disposal signal from inside
+	// cna_game_destroy and a registration released first would miss it.
+	eventRegistrations [gameEventCount]uint64
+
+	// The window signals, kept in their own two slots for the same reasons
+	// and with the same lifetime: installed once the native game exists,
+	// released after it is destroyed. Three, not four -- the window family is
+	// its own numbering.
+	windowEventDeliveries    [gameWindowEventCount]int
+	windowEventRegistrations [gameWindowEventCount]uint64
+
+	// The native SESSION: one live cna_game_create/cna_game_destroy pair,
+	// its cgo.Handle, its process lock and its locked OS thread.
+	//
+	// Foundation 47 split the session out of Run because CNA supports one
+	// without a loop. cna_game_tick and cna_game_run_one_frame drive a created
+	// game directly, and the measured probe confirms it: a tick on a
+	// never-initialized game runs Update and Draw with no Initialize, and
+	// run_one_frame initializes first and then does the same.
+	//
+	// standalone records who started the session, because that decides who
+	// ends it: a session Run created is destroyed when Run returns, and one a
+	// frame step created outlives every call and is destroyed by Dispose.
+	callbackHandle cgo.Handle
+	// Foundation 97. The one media-player event handler and its delivery
+	// counts. Both events reach the same handler because the trampoline
+	// carries the identity.
+	mediaPlayerHandler         MediaPlayerEventHandler
+	mediaPlayerEventDeliveries [mediaPlayerEventCount]int
+	// Foundation 98. The live XACT disposal subscriptions and what they have
+	// delivered. The set is held so a shutdown can release registrations a
+	// consumer forgot, which is what keeps a cgo handle from outliving its
+	// runtime.
+	xactDisposingSubscriptions map[*xactDisposingSubscription]struct{}
+	xactDisposingDeliveries    int
+	sessionLive                bool
+	standalone                 bool
+}
+
+// Resource is an internal generation-checked owned-handle control block.
+type Resource struct {
+	mu         sync.Mutex
+	runtime    *Runtime
+	parent     *Resource
+	generation uint64
+	handle     uint64
+	disposing  bool
+	kind       resourceKind
+	ownership  ownership
+}
+
+// Device represents a callback-borrowed graphics device. It retains no native
+// handle across calls; every operation reacquires the callback-scoped handle.
+type Device struct {
+	runtime    *Runtime
+	manager    *Resource
+	generation uint64
+	ownership  ownership
+	// owned is a CALLER-CREATED device's persistent handle, from
+	// cna_graphics_device_create. It is zero for the borrowed device a Game's
+	// manager publishes, which is the only kind that existed before
+	// Foundation 73.
+	owned uint64
+	// wasOwned stays true once a caller-created device has been destroyed, and
+	// it is what keeps a destroyed one from silently becoming a facade over the
+	// GAME's device.
+	//
+	// Without it, `owned` returning to zero makes nativeHandle take the
+	// borrowed path, so a destroyed device would answer the running game's
+	// handle: the Foundation 73 stress run caught exactly that -- a destroyed
+	// owned device reported IsDisposed false because it was asking the game's
+	// device. The kind a Device was created as never changes, so it is recorded
+	// rather than inferred from the handle.
+	wasOwned bool
+}
+
+// CreateOwnedDevice is cna_graphics_device_create, which is the ONLY route in
+// this ABI that produces a graphics device a caller owns.
+//
+// It is a process-level call rather than a callback-scoped one: the Foundation
+// 73 probe created and destroyed one with no Game at all. So this takes no
+// Runtime state beyond the one it registers into, and the returned Device's
+// handle is persistent instead of reacquired per call.
+func (r *Runtime) CreateOwnedDevice(adapterIndex, profile uint32, value PresentationValue) (*Device, error) {
+	handle, err := nativeGraphicsDeviceCreate(adapterIndex, profile, value)
+	if err != nil {
+		return nil, err
+	}
+	return &Device{
+		runtime: r, generation: r.Generation(),
+		ownership: owned, owned: handle, wasOwned: true,
+	}, nil
+}
+
+// DestroyOwnedDevice is cna_graphics_device_destroy, which CNA documents as
+// accepting ONLY a caller-created handle: a Game's borrowed device is not the
+// caller's to destroy and is refused. The probe confirmed both halves.
+func (d *Device) DestroyOwnedDevice() error {
+	if d == nil || d.owned == 0 {
+		return ErrDisposed
+	}
+	handle := d.owned
+	d.owned = 0
+	return nativeGraphicsDeviceDestroy(handle)
+}
+
+// IsOwned reports whether this Device is a caller-created one.
+func (d *Device) IsOwned() bool { return d != nil && d.owned != 0 }
+
+// DisplayMode is CNA_DisplayMode.
+//
+// CNA reports an aspect ratio of its own alongside the two dimensions. The
+// projection does NOT use it: XNA's DisplayMode::get_AspectRatio is 38 bytes of
+// managed arithmetic over the two fields, and reproducing that is exact where
+// trusting a second computation would be a value that could disagree. The field
+// is carried here anyway, because a route's output is measured as it is
+// declared and dropping a member of the struct would leave the layout
+// unchecked.
+type DisplayMode struct {
+	Width, Height int32
+	AspectRatio   float32
+	Format        uint32
+}
+
+// ScissorRectangle is CNA_Rectangle as the graphics device's clip rectangle.
+//
+// It is a distinct interop type rather than a reuse of the sprite command's
+// four fields, for the reason every other interop struct here is its own: it
+// crosses the boundary on its own routes and nothing about it is tied to a
+// sprite.
+type ScissorRectangle struct {
+	X, Y          int32
+	Width, Height int32
+}
+
+type Viewport struct {
+	X, Y          int32
+	Width, Height int32
+	MinDepth      float32
+	MaxDepth      float32
+}
+
+type TextureInfo struct {
+	Width, Height uint32
+	Levels        uint32
+	Format        uint32
+}
+
+// The four state descriptors, flattened. Every field is the value CNA's POD
+// carries, in CNA's own order, and the bridge builds the versioned structure on
+// the C side so no CNA structure crosses cgo.
+type BlendStateValue struct {
+	AlphaBlendFunction, AlphaDestinationBlend, AlphaSourceBlend uint32
+	ColorBlendFunction, ColorDestinationBlend, ColorSourceBlend uint32
+	ColorWriteChannels, ColorWriteChannels1                     uint32
+	ColorWriteChannels2, ColorWriteChannels3                    uint32
+	BlendFactorR, BlendFactorG, BlendFactorB, BlendFactorA      uint8
+	MultiSampleMask                                             int32
+}
+
+type DepthStencilStateValue struct {
+	DepthBufferEnable, DepthBufferWriteEnable        bool
+	StencilEnable, TwoSidedStencilMode               bool
+	DepthBufferFunction, StencilFunction             uint32
+	StencilFail, StencilDepthBufferFail, StencilPass uint32
+	CounterClockwiseStencilFunction                  uint32
+	CounterClockwiseStencilFail                      uint32
+	CounterClockwiseStencilDepthBufferFail           uint32
+	CounterClockwiseStencilPass                      uint32
+	StencilMask, StencilWriteMask, ReferenceStencil  int32
+}
+
+type RasterizerStateValue struct {
+	CullMode, FillMode                      uint32
+	DepthBias, SlopeScaleDepthBias          float32
+	MultiSampleAntiAlias, ScissorTestEnable bool
+}
+
+type SamplerStateValue struct {
+	AddressU, AddressV, AddressW, Filter uint32
+	MaxAnisotropy, MaxMipLevel           int32
+	MipMapLevelOfDetailBias              float32
+}
+
+// SetBlendState is cna_graphics_device_set_blend_state.
+func (d *Device) SetBlendState(value BlendStateValue) error {
+	handle, err := d.nativeHandle()
+	if err != nil {
+		return err
+	}
+	return nativeGraphicsDeviceSetBlendState(handle, value)
+}
+
+// SetDepthStencilState is cna_graphics_device_set_depth_stencil_state.
+func (d *Device) SetDepthStencilState(value DepthStencilStateValue) error {
+	handle, err := d.nativeHandle()
+	if err != nil {
+		return err
+	}
+	return nativeGraphicsDeviceSetDepthStencilState(handle, value)
+}
+
+// SetRasterizerState is cna_graphics_device_set_rasterizer_state.
+func (d *Device) SetRasterizerState(value RasterizerStateValue) error {
+	handle, err := d.nativeHandle()
+	if err != nil {
+		return err
+	}
+	return nativeGraphicsDeviceSetRasterizerState(handle, value)
+}
+
+// CreateContentManager creates an owned game-child content manager.
+//
+// CNA requires a callback-scoped device handle, which the reference's
+// constructor does not: it takes an IServiceProvider and resolves the device
+// lazily. The projection therefore creates LAZILY too, at the first operation
+// that needs the native manager -- which is inside a callback by construction.
+func (d *Device) CreateContentManager(rootDirectory string) (*Resource, error) {
+	handle, err := d.nativeHandle()
+	if err != nil {
+		return nil, err
+	}
+	manager, err := nativeContentManagerCreate(handle, rootDirectory)
+	if err != nil {
+		return nil, err
+	}
+	return d.runtime.registerResource(manager, resourceContentManager, d.manager), nil
+}
+
+// Runtime reports the device's runtime, so a caller holding a live device can
+// create the standalone objects a device-owned one needs -- a vertex
+// declaration is the first. It is a plain accessor and cannot fail.
+func (d *Device) Runtime() *Runtime {
+	if d == nil {
+		return nil
+	}
+	return d.runtime
+}
+
+// HandleOf reports the live CNA handle a resource owns, for the ONE thing that
+// needs it: binding a buffer to this device. It is on Device rather than on
+// Resource so that the generation and kind are checked against a device that is
+// itself live, and it stays unexported outside this package by the raw-handle
+// rule -- the Graphics package passes what it gets straight back in.
+func (d *Device) HandleOf(resource *Resource) (uint64, error) {
+	if d == nil || resource == nil {
+		return 0, ErrDisposed
+	}
+	if _, err := d.nativeHandle(); err != nil {
+		return 0, err
+	}
+	return resource.anyLiveHandle()
+}
+
+// SetVertexBuffers is cna_graphics_device_set_vertex_buffers. The bindings
+// arrive as a flat int64 triple each -- handle, offset, frequency -- because no
+// CNA struct crosses cgo.
+func (d *Device) SetVertexBuffers(bindings []int64) error {
+	handle, err := d.nativeHandle()
+	if err != nil {
+		return err
+	}
+	return nativeDeviceSetVertexBuffers(handle, bindings)
+}
+
+// SetIndexBuffer is cna_graphics_device_set_index_buffer. A zero handle is
+// CNA_INVALID_HANDLE and unbinds.
+func (d *Device) SetIndexBuffer(buffer uint64) error {
+	handle, err := d.nativeHandle()
+	if err != nil {
+		return err
+	}
+	return nativeDeviceSetIndexBuffer(handle, buffer)
+}
+
+// DrawPrimitives is cna_graphics_device_draw_primitives.
+func (d *Device) DrawPrimitives(primitiveType uint32, vertexStart, primitiveCount int32) error {
+	handle, err := d.nativeHandle()
+	if err != nil {
+		return err
+	}
+	return nativeDeviceDrawPrimitives(handle, primitiveType, vertexStart, primitiveCount)
+}
+
+// DrawIndexedPrimitives is cna_graphics_device_draw_indexed_primitives.
+func (d *Device) DrawIndexedPrimitives(primitiveType uint32, baseVertex, minVertexIndex, numVertices, startIndex, primitiveCount int32) error {
+	handle, err := d.nativeHandle()
+	if err != nil {
+		return err
+	}
+	return nativeDeviceDrawIndexedPrimitives(handle, primitiveType, baseVertex, minVertexIndex, numVertices, startIndex, primitiveCount)
+}
+
+// DrawInstancedPrimitives is cna_graphics_device_draw_instanced_primitives.
+func (d *Device) DrawInstancedPrimitives(primitiveType uint32, baseVertex, minVertexIndex, numVertices, startIndex, primitiveCount, instanceCount int32) error {
+	handle, err := d.nativeHandle()
+	if err != nil {
+		return err
+	}
+	return nativeDeviceDrawInstancedPrimitives(handle, primitiveType, baseVertex, minVertexIndex, numVertices, startIndex, primitiveCount, instanceCount)
+}
+
+// AdapterInfo is CNA_GraphicsAdapterInfo, flattened.
+//
+// The two BYTE-LENGTH fields are carried, and the reason is measured rather
+// than assumed. CNA-Go's usual string shape is a two-call length-then-copy, but
+// `cna_graphics_adapter_copy_description` answers a zero capacity with
+// CNA_RESULT 14 -- "the graphics-adapter string output buffer is too small" --
+// rather than with SUCCESS and a required count. These fields ARE the length
+// call for this family, which is why the info structure carries them.
+type AdapterInfo struct {
+	Index              uint32
+	IsDefaultAdapter   bool
+	IsWideScreen       bool
+	UseNullDevice      bool
+	UseReferenceDevice bool
+	VendorID           int32
+	DeviceID           int32
+	Revision           int32
+	SubSystemID        int32
+	DescriptionBytes   uint64
+	DeviceNameBytes    uint64
+}
+
+// DisplayModeValue is CNA_DisplayMode without its aspect ratio. XNA computes
+// that from the two dimensions in 38 bytes of managed arithmetic, and trusting
+// CNA's would be a second computation that could disagree.
+type DisplayModeValue struct {
+	Width  int32
+	Height int32
+	Format uint32
+}
+
+// FormatSelection is CNA_GraphicsFormatSelection: what the adapter chose when
+// asked for a format, and whether it had to substitute anything.
+type FormatSelection struct {
+	ExactMatch       bool
+	Format           uint32
+	DepthFormat      uint32
+	MultiSampleCount int32
+}
+
+// The twelve adapter queries. Every one takes this device's callback-scoped
+// handle, which is CNA's own requirement.
+// AdapterIndex is cna_graphics_device_get_adapter_index: which adapter this
+// device was created with, as an index into the same enumeration the
+// cna_graphics_adapter_* routes take. CNA warns that indices are point-in-time
+// values a later adapter change may renumber, which is why the projection reads
+// the index and the adapter TOGETHER rather than caching one.
+func (d *Device) AdapterIndex() (uint32, error) {
+	handle, err := d.nativeHandle()
+	if err != nil {
+		return 0, err
+	}
+	return nativeDeviceAdapterIndex(handle)
+}
+
+func (d *Device) AdapterCount() (uint64, error) {
+	handle, err := d.nativeHandle()
+	if err != nil {
+		return 0, err
+	}
+	return nativeAdapterCount(handle)
+}
+
+func (d *Device) AdapterInfo(index uint32) (AdapterInfo, error) {
+	handle, err := d.nativeHandle()
+	if err != nil {
+		return AdapterInfo{}, err
+	}
+	return nativeAdapterInfo(handle, index)
+}
+
+func (d *Device) AdapterDescription(index uint32, byteCount uint64) (string, error) {
+	handle, err := d.nativeHandle()
+	if err != nil {
+		return "", err
+	}
+	return nativeAdapterDescription(handle, index, byteCount)
+}
+
+func (d *Device) AdapterDeviceName(index uint32, byteCount uint64) (string, error) {
+	handle, err := d.nativeHandle()
+	if err != nil {
+		return "", err
+	}
+	return nativeAdapterDeviceName(handle, index, byteCount)
+}
+
+func (d *Device) AdapterCurrentDisplayMode(index uint32) (DisplayModeValue, error) {
+	handle, err := d.nativeHandle()
+	if err != nil {
+		return DisplayModeValue{}, err
+	}
+	return nativeAdapterCurrentDisplayMode(handle, index)
+}
+
+func (d *Device) AdapterDisplayModes(index uint32) ([]DisplayModeValue, error) {
+	handle, err := d.nativeHandle()
+	if err != nil {
+		return nil, err
+	}
+	return nativeAdapterDisplayModes(handle, index)
+}
+
+func (d *Device) SetAdapterDevicePreferences(index uint32, nullDevice, referenceDevice bool) error {
+	handle, err := d.nativeHandle()
+	if err != nil {
+		return err
+	}
+	return nativeAdapterSetDevicePreferences(handle, index, nullDevice, referenceDevice)
+}
+
+func (d *Device) AdapterIsProfileSupported(index, profile uint32) (bool, error) {
+	handle, err := d.nativeHandle()
+	if err != nil {
+		return false, err
+	}
+	return nativeAdapterIsProfileSupported(handle, index, profile)
+}
+
+func (d *Device) AdapterQueryFormat(index uint32, renderTarget bool, profile, format, depthFormat uint32, multiSampleCount int32) (FormatSelection, error) {
+	handle, err := d.nativeHandle()
+	if err != nil {
+		return FormatSelection{}, err
+	}
+	return nativeAdapterQueryFormat(handle, index, renderTarget, profile, format, depthFormat, multiSampleCount)
+}
+
+func (d *Device) AdapterMonitorHandle(index uint32) (uint64, error) {
+	handle, err := d.nativeHandle()
+	if err != nil {
+		return 0, err
+	}
+	return nativeAdapterMonitorHandle(handle, index)
+}
+
+// VertexBufferInfo is CNA_VertexBufferInfo, flattened.
+type VertexBufferInfo struct {
+	VertexCount        int32
+	BufferUsage        uint32
+	Dynamic            bool
+	IsContentLost      bool
+	HasRenderer        bool
+	VertexStride       int32
+	VertexElementCount uint64
+}
+
+// CreateVertexDeclaration is cna_vertex_declaration_create or, when the caller
+// supplies one, cna_vertex_declaration_create_with_stride.
+//
+// It takes NO device: a declaration is a standalone CNA object, so this is
+// reachable outside a lifecycle callback, exactly as the reference's
+// constructor is. The elements arrive as a flat int32 array of four fields
+// each -- offset, format, usage, usage index -- because no CNA struct crosses
+// cgo.
+func (r *Runtime) CreateVertexDeclaration(stride int32, hasStride bool, elements []int32) (*Resource, error) {
+	handle, err := nativeVertexDeclarationCreate(stride, hasStride, elements)
+	if err != nil {
+		return nil, err
+	}
+	return r.registerResource(handle, resourceVertexDeclaration, nil), nil
+}
+
+// VertexDeclarationStride is cna_vertex_declaration_get_stride.
+func (resource *Resource) VertexDeclarationStride() (int32, error) {
+	handle, err := resource.liveHandle(resourceVertexDeclaration)
+	if err != nil {
+		return 0, err
+	}
+	return nativeVertexDeclarationStride(handle)
+}
+
+// CreateVertexBuffer is cna_vertex_buffer_create. The device handle is
+// callback-scoped, so this is reachable only from inside a lifecycle callback.
+func (d *Device) CreateVertexBuffer(declaration *Resource, vertexCount int32, usage uint32, dynamic bool) (*Resource, error) {
+	handle, err := d.nativeHandle()
+	if err != nil {
+		return nil, err
+	}
+	declarationHandle, err := declaration.liveHandle(resourceVertexDeclaration)
+	if err != nil {
+		return nil, err
+	}
+	buffer, err := nativeVertexBufferCreate(handle, declarationHandle, vertexCount, usage, dynamic)
+	if err != nil {
+		return nil, err
+	}
+	return d.runtime.registerResource(buffer, resourceVertexBuffer, d.manager), nil
+}
+
+// VertexBufferInfo is cna_vertex_buffer_get_info.
+func (resource *Resource) VertexBufferInfo() (VertexBufferInfo, error) {
+	handle, err := resource.liveHandle(resourceVertexBuffer)
+	if err != nil {
+		return VertexBufferInfo{}, err
+	}
+	return nativeVertexBufferInfo(handle)
+}
+
+// SetVertexDataRaw and GetVertexDataRaw are the two RAW transfers, which are
+// the ones XNA's generic SetData<T>/GetData<T> correspond to: both sides
+// describe a vertex by an explicit byte stride rather than by a type identity,
+// which is exactly what `sizeof(T)` is in the reference.
+//
+// Both offsets index THE BUFFER, not the caller's array -- which is what XNA's
+// `offsetInBytes` means and the one place in this ABI where an offset does.
+func (resource *Resource) SetVertexDataRaw(bufferOffsetInBytes uint64, data unsafe.Pointer, byteCount, vertexCount uint64, stride uint32) error {
+	handle, err := resource.liveHandle(resourceVertexBuffer)
+	if err != nil {
+		return err
+	}
+	return nativeVertexBufferSetDataRawAt(handle, bufferOffsetInBytes, data, byteCount, vertexCount, stride)
+}
+
+func (resource *Resource) GetVertexDataRaw(bufferOffsetInBytes uint64, destination unsafe.Pointer, byteCount, vertexCount uint64, stride uint32) error {
+	handle, err := resource.liveHandle(resourceVertexBuffer)
+	if err != nil {
+		return err
+	}
+	return nativeVertexBufferGetDataRaw(handle, bufferOffsetInBytes, destination, byteCount, vertexCount, stride)
+}
+
+// IndexBufferInfo is CNA_IndexBufferInfo, flattened. Everything CNA reports
+// about a created index buffer, including the two renderer-state flags the
+// projection does not publish and the dynamic flag that decides whether a
+// streaming option is legal.
+type IndexBufferInfo struct {
+	IndexCount       int32
+	IndexElementSize uint32
+	BufferUsage      uint32
+	Dynamic          bool
+	IsContentLost    bool
+	HasRenderer      bool
+}
+
+// The two CNA_INDEX_ELEMENT_SIZE_* identities, in CNA's own order. They happen
+// to match XNA's IndexElementSize literals, and the Graphics package maps them
+// explicitly anyway rather than casting: a shared numbering is a coincidence to
+// be checked, not a rule to rely on.
+const (
+	IndexElementSizeSixteenBits   uint32 = 0
+	IndexElementSizeThirtyTwoBits uint32 = 1
+)
+
+// The three CNA_SET_DATA_* identities.
+const (
+	SetDataNone        uint32 = 0
+	SetDataDiscard     uint32 = 1
+	SetDataNoOverwrite uint32 = 2
+)
+
+// CreateIndexBuffer is cna_index_buffer_create. The device handle is
+// callback-scoped, so this is reachable only from inside a lifecycle callback.
+func (d *Device) CreateIndexBuffer(indexCount int32, elementSize, usage uint32, dynamic bool) (*Resource, error) {
+	handle, err := d.nativeHandle()
+	if err != nil {
+		return nil, err
+	}
+	buffer, err := nativeIndexBufferCreate(handle, indexCount, elementSize, usage, dynamic)
+	if err != nil {
+		return nil, err
+	}
+	return d.runtime.registerResource(buffer, resourceIndexBuffer, d.manager), nil
+}
+
+// IndexBufferInfo is cna_index_buffer_get_info.
+func (resource *Resource) IndexBufferInfo() (IndexBufferInfo, error) {
+	handle, err := resource.liveHandle(resourceIndexBuffer)
+	if err != nil {
+		return IndexBufferInfo{}, err
+	}
+	return nativeIndexBufferInfo(handle)
+}
+
+// SetIndexData, SetIndexDataAt and GetIndexData are the three typed transfers.
+//
+// Each takes an unsafe.Pointer to the caller's array and its element count,
+// because the element TYPE is decided by the caller and CNA identifies it by an
+// index-element-size identity rather than by a Go type. The Graphics package is
+// where a Go type is turned into that identity, and where the element width is
+// checked against what the identity means -- interop copies bytes and validates
+// nothing about their shape.
+func (resource *Resource) SetIndexData(elementSize, options uint32, startIndex, elementCount uint64, data unsafe.Pointer, capacity uint64) error {
+	handle, err := resource.liveHandle(resourceIndexBuffer)
+	if err != nil {
+		return err
+	}
+	return nativeIndexBufferSetData(handle, elementSize, options, startIndex, elementCount, data, capacity)
+}
+
+func (resource *Resource) SetIndexDataAt(bufferOffsetInBytes uint64, elementSize, options uint32, startIndex, elementCount uint64, data unsafe.Pointer, capacity uint64) error {
+	handle, err := resource.liveHandle(resourceIndexBuffer)
+	if err != nil {
+		return err
+	}
+	return nativeIndexBufferSetDataAt(handle, bufferOffsetInBytes, elementSize, options, startIndex, elementCount, data, capacity)
+}
+
+func (resource *Resource) GetIndexData(elementSize uint32, startIndex, elementCount uint64, destination unsafe.Pointer, capacity uint64) (uint64, error) {
+	handle, err := resource.liveHandle(resourceIndexBuffer)
+	if err != nil {
+		return 0, err
+	}
+	return nativeIndexBufferGetData(handle, elementSize, startIndex, elementCount, destination, capacity)
+}
+
+// ContentRootDirectory is cna_content_manager_copy_root_directory.
+func (resource *Resource) ContentRootDirectory() (string, error) {
+	handle, err := resource.liveHandle(resourceContentManager)
+	if err != nil {
+		return "", err
+	}
+	return nativeContentManagerRootDirectory(handle)
+}
+
+// SetContentRootDirectory is cna_content_manager_set_root_directory. CNA does
+// NOT unload the existing cache, and neither does the reference's setter.
+func (resource *Resource) SetContentRootDirectory(value string) error {
+	handle, err := resource.liveHandle(resourceContentManager)
+	if err != nil {
+		return err
+	}
+	return nativeContentManagerSetRootDirectory(handle, value)
+}
+
+// UnloadContent is cna_content_manager_unload. Handles already handed out stay
+// valid and must still be destroyed, which is CNA's rule and the reference's.
+func (resource *Resource) UnloadContent() error {
+	handle, err := resource.liveHandle(resourceContentManager)
+	if err != nil {
+		return err
+	}
+	return nativeContentManagerUnload(handle)
+}
+
+// LoadContentTexture2D is cna_content_manager_load_texture2d. The texture it
+// returns is INDEPENDENTLY owned: it survives the manager's unload and its
+// destruction, and must be destroyed before the parent game.
+func (resource *Resource) LoadContentTexture2D(assetName string) (*Resource, TextureInfo, error) {
+	handle, err := resource.liveHandle(resourceContentManager)
+	if err != nil {
+		return nil, TextureInfo{}, err
+	}
+	texture, err := nativeContentManagerLoadTexture2D(handle, assetName)
+	if err != nil {
+		return nil, TextureInfo{}, err
+	}
+	owned := resource.runtime.registerResource(texture, resourceTexture2D, resource.parent)
+	info, infoErr := nativeTextureInfo(texture)
+	if infoErr != nil {
+		_ = owned.Dispose()
+		return nil, TextureInfo{}, infoErr
+	}
+	return owned, info, nil
+}
+
+// ContentAssetPath is the root directory joined with the asset name. CNA
+// reports it whether or not a file exists there, which is what makes it usable
+// for the reference's OpenStream.
+func (resource *Resource) ContentAssetPath(assetName string) (string, error) {
+	handle, err := resource.liveHandle(resourceContentManager)
+	if err != nil {
+		return "", err
+	}
+	return nativeContentManagerAssetPath(handle, assetName)
+}
+
+// CreateRenderTargetCube is cna_render_target_cube_create. It registers under
+// the RENDER TARGET kind, not the cube-texture one: cna_texturecube_destroy is
+// documented as NOT destroying a render target, exactly as cna_texture2d_destroy
+// is not.
+func (d *Device) CreateRenderTargetCube(size uint32, mipMap bool, format, depthFormat uint32, multiSampleCount int32, usage uint32) (*Resource, RenderTargetInfo, error) {
+	handle, err := d.nativeHandle()
+	if err != nil {
+		return nil, RenderTargetInfo{}, err
+	}
+	target, err := nativeRenderTargetCubeCreate(handle, size, mipMap, format, depthFormat, multiSampleCount, usage)
+	if err != nil {
+		return nil, RenderTargetInfo{}, err
+	}
+	resource := d.runtime.registerResource(target, resourceRenderTarget2D, d.manager)
+	info, infoErr := nativeRenderTargetInfo(target)
+	if infoErr != nil {
+		_ = resource.Dispose()
+		return nil, RenderTargetInfo{}, infoErr
+	}
+	return resource, info, nil
+}
+
+// SetRenderTargetCube is cna_graphics_device_set_render_target_cube. A nil
+// target is CNA_INVALID_HANDLE, which restores the back buffer.
+func (d *Device) SetRenderTargetCube(target *Resource, face uint32) error {
+	handle, err := d.nativeHandle()
+	if err != nil {
+		return err
+	}
+	var targetHandle uint64
+	if target != nil {
+		if targetHandle, err = target.liveHandle(resourceRenderTarget2D); err != nil {
+			return err
+		}
+	}
+	return nativeGraphicsDeviceSetRenderTargetCube(handle, targetHandle, face)
+}
+
+// SetRenderTargets is cna_graphics_device_set_render_targets. An empty slice
+// restores the back buffer, which is what a zero count means to CNA and what a
+// zero-length binding array means to the reference.
+func (d *Device) SetRenderTargets(targets []*Resource, faces []uint32) error {
+	handle, err := d.nativeHandle()
+	if err != nil {
+		return err
+	}
+	handles := make([]uint64, len(targets))
+	for index := range targets {
+		if handles[index], err = targets[index].liveHandle(resourceRenderTarget2D); err != nil {
+			return err
+		}
+	}
+	return nativeGraphicsDeviceSetRenderTargets(handle, handles, faces)
+}
+
+// RenderTargetCount is cna_graphics_device_get_render_target_count.
+func (d *Device) RenderTargetCount() (uint64, error) {
+	handle, err := d.nativeHandle()
+	if err != nil {
+		return 0, err
+	}
+	return nativeGraphicsDeviceRenderTargetCount(handle)
+}
+
+// ResetDevice is cna_graphics_device_reset.
+func (d *Device) ResetDevice() error {
+	handle, err := d.nativeHandle()
+	if err != nil {
+		return err
+	}
+	return nativeGraphicsDeviceReset(handle)
+}
+
+// ResetDeviceWithParameters is cna_graphics_device_reset_with_parameters. A nil
+// adapter index keeps the current adapter, which is what CNA documents a null
+// pointer to mean.
+func (d *Device) ResetDeviceWithParameters(value PresentationValue, adapterIndex *uint32) error {
+	handle, err := d.nativeHandle()
+	if err != nil {
+		return err
+	}
+	return nativeGraphicsDeviceResetWithParameters(handle, value, adapterIndex)
+}
+
+// PresentationParameters is cna_graphics_device_get_presentation_parameters.
+func (d *Device) PresentationParameters() (PresentationValue, error) {
+	handle, err := d.nativeHandle()
+	if err != nil {
+		return PresentationValue{}, err
+	}
+	return nativeGraphicsDevicePresentationParameters(handle)
+}
+
+// BackBufferData is cna_graphics_device_get_backbuffer_data_window.
+func (d *Device) BackBufferData(
+	hasRectangle bool, x, y, width, height int32,
+	startIndex, elementCount uint64, destination unsafe.Pointer, capacity uint64,
+) error {
+	handle, err := d.nativeHandle()
+	if err != nil {
+		return err
+	}
+	return nativeGraphicsDeviceBackBufferData(handle, hasRectangle, x, y, width, height,
+		startIndex, elementCount, destination, capacity)
+}
+
+// UserVertexSourceRawStream is CNA_USER_VERTEX_SOURCE_RAW_STREAM, the one
+// identity CNA-Go uses: the other four name CNA vertex value types the Graphics
+// package has no Go counterpart for, and a raw stream with an explicit
+// declaration expresses every layout they do.
+const UserVertexSourceRawStream uint32 = 0
+
+// DrawUserPrimitives is cna_graphics_device_draw_user_primitives.
+func (d *Device) DrawUserPrimitives(
+	primitiveType uint32, vertexData unsafe.Pointer, declaration *Resource,
+	vertexOffset, primitiveCount int32,
+) error {
+	handle, err := d.nativeHandle()
+	if err != nil {
+		return err
+	}
+	declarationHandle, err := declaration.liveHandle(resourceVertexDeclaration)
+	if err != nil {
+		return err
+	}
+	return nativeDrawUserPrimitives(handle, primitiveType, UserVertexSourceRawStream,
+		vertexData, declarationHandle, vertexOffset, 0, primitiveCount)
+}
+
+// DrawUserIndexedPrimitives is
+// cna_graphics_device_draw_user_indexed_primitives.
+func (d *Device) DrawUserIndexedPrimitives(
+	primitiveType uint32, vertexData unsafe.Pointer, declaration *Resource,
+	vertexOffset, numVertices, primitiveCount int32,
+	indexElementSize uint32, indexOffset int32, indexData unsafe.Pointer,
+) error {
+	handle, err := d.nativeHandle()
+	if err != nil {
+		return err
+	}
+	declarationHandle, err := declaration.liveHandle(resourceVertexDeclaration)
+	if err != nil {
+		return err
+	}
+	return nativeDrawUserIndexedPrimitives(handle, primitiveType, UserVertexSourceRawStream,
+		vertexData, declarationHandle, vertexOffset, numVertices, primitiveCount,
+		indexElementSize, indexOffset, indexData)
+}
+
+// ---------------------------------------------------------------------------
+// Foundation 72 — the Effect cluster.
+// ---------------------------------------------------------------------------
+
+// The four collection kinds, and the eight view kinds behind them. They are
+// separate numberings because a collection's COUNT and its element ACCESS are
+// four routes each while a destroy is eight, and one shared numbering would
+// make an off-by-one route a compile-time success.
+const (
+	effectCollectionTechnique uint32 = iota
+	effectCollectionPass
+	effectCollectionParameter
+	effectCollectionAnnotation
+)
+
+const (
+	effectViewTechniqueCollection uint32 = iota
+	effectViewTechnique
+	effectViewPassCollection
+	effectViewPass
+	effectViewParameterCollection
+	effectViewParameter
+	effectViewAnnotationCollection
+	effectViewAnnotation
+)
+
+// The nine CNA_EFFECT_VALUE_* identities, and the four CNA_EFFECT_TEXTURE_*
+// ones. Both are CNA's own numbering and the Graphics package maps XNA onto
+// them explicitly rather than casting.
+const (
+	EffectValueBoolean         uint32 = 0
+	EffectValueInt32           uint32 = 1
+	EffectValueSingle          uint32 = 2
+	EffectValueMatrix          uint32 = 3
+	EffectValueMatrixTranspose uint32 = 4
+	EffectValueQuaternion      uint32 = 5
+	EffectValueVector2         uint32 = 6
+	EffectValueVector3         uint32 = 7
+	EffectValueVector4         uint32 = 8
+)
+
+const (
+	EffectTextureBase uint32 = 0
+	EffectTexture2D   uint32 = 1
+	EffectTexture3D   uint32 = 2
+	EffectTextureCube uint32 = 3
+)
+
+// The four collection kinds and the eight view kinds, exported for the Graphics
+// package, which is the only caller: an unexported identity would make every
+// call there pass a bare literal.
+const (
+	EffectCollectionTechnique  = effectCollectionTechnique
+	EffectCollectionPass       = effectCollectionPass
+	EffectCollectionParameter  = effectCollectionParameter
+	EffectCollectionAnnotation = effectCollectionAnnotation
+)
+
+const (
+	EffectViewTechniqueCollection  = effectViewTechniqueCollection
+	EffectViewTechnique            = effectViewTechnique
+	EffectViewPassCollection       = effectViewPassCollection
+	EffectViewPass                 = effectViewPass
+	EffectViewParameterCollection  = effectViewParameterCollection
+	EffectViewParameter            = effectViewParameter
+	EffectViewAnnotationCollection = effectViewAnnotationCollection
+	EffectViewAnnotation           = effectViewAnnotation
+)
+
+// The eight effect string reads, by kind.
+const (
+	EffectStringTechniqueName      = effectStringTechniqueName
+	EffectStringPassName           = effectStringPassName
+	EffectStringParameterName      = effectStringParameterName
+	EffectStringParameterSemantic  = effectStringParameterSemantic
+	EffectStringParameterValue     = effectStringParameterValue
+	EffectStringAnnotationName     = effectStringAnnotationName
+	EffectStringAnnotationSemantic = effectStringAnnotationSemantic
+	EffectStringAnnotationValue    = effectStringAnnotationValue
+)
+
+// EffectMetadata is the four values CNA_EffectParameterInfo and
+// CNA_EffectAnnotationInfo both carry, which are the same four fields in the
+// same order -- so one Go type serves both, and the two ABI structures are
+// still measured separately.
+type EffectMetadata struct {
+	RowCount       int32
+	ColumnCount    int32
+	ParameterClass uint32
+	ParameterType  uint32
+}
+
+// EffectView is an owned CNA view handle inside one effect's object graph: a
+// collection, a technique, a pass, a parameter or an annotation.
+//
+// # Why views are a distinct control block
+//
+// CNA hands out a FRESH owned handle from every accessor -- the Foundation 72
+// probe measured two cna_effect_get_parameters calls answering two different
+// handles -- and the reference answers the same managed object forever. So the
+// Graphics package asks ONCE per logical object and holds the answer, and this
+// type is what it holds.
+//
+// A view OUTLIVES its effect: the probe destroyed an effect with views alive
+// and the views still answered. So there is no destruction-order rule between
+// an effect and its graph, which is why views register under the effect's own
+// parent rather than under the effect.
+type EffectView struct {
+	resource *Resource
+	kind     uint32
+}
+
+// CreateCompiledEffect is cna_effect_create_compiled. The device handle is
+// callback-scoped, so this is reachable only from inside a lifecycle callback.
+func (d *Device) CreateCompiledEffect(effectCode []byte) (*Resource, error) {
+	handle, err := d.nativeHandle()
+	if err != nil {
+		return nil, err
+	}
+	effect, err := nativeEffectCreateCompiled(handle, effectCode)
+	if err != nil {
+		return nil, err
+	}
+	return d.runtime.registerResource(effect, resourceEffect, d.manager), nil
+}
+
+// LoadContentEffect is cna_content_manager_load_effect.
+func (resource *Resource) LoadContentEffect(assetName string) (*Resource, error) {
+	handle, err := resource.liveHandle(resourceContentManager)
+	if err != nil {
+		return nil, err
+	}
+	effect, err := nativeContentManagerLoadEffect(handle, assetName)
+	if err != nil {
+		return nil, err
+	}
+	return resource.runtime.registerResource(effect, resourceEffect, resource.parent), nil
+}
+
+// ApplyEffect is cna_effect_apply.
+func (resource *Resource) ApplyEffect() error {
+	handle, err := resource.liveHandle(resourceEffect)
+	if err != nil {
+		return err
+	}
+	return nativeEffectApply(handle)
+}
+
+// CloneEffect is cna_effect_clone.
+func (resource *Resource) CloneEffect() (*Resource, error) {
+	handle, err := resource.liveHandle(resourceEffect)
+	if err != nil {
+		return nil, err
+	}
+	clone, err := nativeEffectClone(handle)
+	if err != nil {
+		return nil, err
+	}
+	return resource.runtime.registerResource(clone, resourceEffect, resource.parent), nil
+}
+
+// registerEffectView wraps one owned view handle. Views register under the
+// EFFECT's parent, not under the effect, because a view outlives its effect and
+// a parent-child relationship would claim an ordering CNA does not have.
+func (resource *Resource) registerEffectView(handle uint64, kind uint32) *EffectView {
+	return &EffectView{
+		resource: resource.runtime.registerResource(handle, effectViewResourceKinds[kind], resource.parent),
+		kind:     kind,
+	}
+}
+
+// EffectParameters is cna_effect_get_parameters. Call it ONCE per effect.
+func (resource *Resource) EffectParameters() (*EffectView, error) {
+	handle, err := resource.liveHandle(resourceEffect)
+	if err != nil {
+		return nil, err
+	}
+	view, err := nativeEffectParameters(handle)
+	if err != nil {
+		return nil, err
+	}
+	return resource.registerEffectView(view, effectViewParameterCollection), nil
+}
+
+// EffectTechniques is cna_effect_get_techniques. Call it ONCE per effect.
+func (resource *Resource) EffectTechniques() (*EffectView, error) {
+	handle, err := resource.liveHandle(resourceEffect)
+	if err != nil {
+		return nil, err
+	}
+	view, err := nativeEffectTechniques(handle)
+	if err != nil {
+		return nil, err
+	}
+	return resource.registerEffectView(view, effectViewTechniqueCollection), nil
+}
+
+// EffectCurrentTechnique is cna_effect_get_current_technique. The handle it
+// reports is a FRESH OWNED view of whichever technique is selected -- the
+// Foundation 72 probe measured two calls answering two different handles -- so
+// it is registered like every other view and the caller disposes it after
+// matching it against the techniques it already holds. Reading it without
+// registering it leaked one handle per effect, which CNA reported at teardown
+// as "All owned C child resources must be destroyed before the game".
+func (resource *Resource) EffectCurrentTechnique() (*EffectView, error) {
+	handle, err := resource.liveHandle(resourceEffect)
+	if err != nil {
+		return nil, err
+	}
+	technique, err := nativeEffectCurrentTechnique(handle)
+	if err != nil {
+		return nil, err
+	}
+	if technique == 0 {
+		return nil, nil
+	}
+	return resource.registerEffectView(technique, effectViewTechnique), nil
+}
+
+// SetEffectCurrentTechnique is cna_effect_set_current_technique. A zero handle
+// is CNA_INVALID_HANDLE, which CNA documents as clearing the selection.
+func (resource *Resource) SetEffectCurrentTechnique(technique uint64) error {
+	handle, err := resource.liveHandle(resourceEffect)
+	if err != nil {
+		return err
+	}
+	return nativeEffectSetCurrentTechnique(handle, technique)
+}
+
+// BeginSpriteBatchWithEffect is cna_sprite_batch_begin_with_effect. A nil
+// effect is CNA_INVALID_HANDLE, which CNA documents as selecting the default
+// sprite effect -- what a null Effect means to the canonical call. A nil
+// transform is the identity the effect-only overload uses.
+func (resource *Resource) BeginSpriteBatchWithEffect(
+	sortMode uint32, blend BlendStateValue, sampler SamplerStateValue,
+	depth DepthStencilStateValue, rasterizer RasterizerStateValue,
+	effect *Resource, transform *[16]float32,
+) error {
+	batch, err := resource.liveHandle(resourceSpriteBatch)
+	if err != nil {
+		return err
+	}
+	var effectHandle uint64
+	if effect != nil {
+		if effectHandle, err = effect.liveHandle(resourceEffect); err != nil {
+			return err
+		}
+		if resource.runtime != effect.runtime || resource.generation != effect.generation {
+			return ErrStaleGeneration
+		}
+	}
+	return nativeSpriteBatchBeginWithEffect(batch, sortMode, blend, sampler, depth, rasterizer, effectHandle, transform)
+}
+
+// Handle is the raw view handle, for the one comparison CurrentTechnique needs.
+func (v *EffectView) Handle() (uint64, error) { return v.liveHandle() }
+
+// Dispose destroys the view through the destroy route its kind names.
+func (v *EffectView) Dispose() error {
+	if v == nil {
+		return nil
+	}
+	return v.resource.Dispose()
+}
+
+// Count is the collection count for a collection view.
+func (v *EffectView) Count(collectionKind uint32) (uint64, error) {
+	handle, err := v.liveHandle()
+	if err != nil {
+		return 0, err
+	}
+	return nativeEffectCollectionCount(effectCollectionRoutes[collectionKind][0], collectionKind, handle)
+}
+
+// At is the element access for a collection view. It reports a FRESH owned
+// element handle, which the caller wraps once and keeps.
+func (v *EffectView) At(collectionKind uint32, index uint64, elementKind uint32) (*EffectView, error) {
+	handle, err := v.liveHandle()
+	if err != nil {
+		return nil, err
+	}
+	element, err := nativeEffectCollectionAt(effectCollectionRoutes[collectionKind][1], collectionKind, handle, index)
+	if err != nil {
+		return nil, err
+	}
+	return v.resource.registerEffectView(element, elementKind), nil
+}
+
+// effectCollectionRoutes names the canonical route behind each collection
+// operation, so a refusal reports CNA's route rather than the multiplexer's.
+var effectCollectionRoutes = [4][2]string{
+	{"cna_effect_technique_collection_get_count", "cna_effect_technique_collection_get_at"},
+	{"cna_effect_pass_collection_get_count", "cna_effect_pass_collection_get_at"},
+	{"cna_effect_parameter_collection_get_count", "cna_effect_parameter_collection_get_at"},
+	{"cna_effect_annotation_collection_get_count", "cna_effect_annotation_collection_get_at"},
+}
+
+func (v *EffectView) liveHandle() (uint64, error) {
+	if v == nil {
+		return 0, ErrDisposed
+	}
+	return v.resource.liveHandle(effectViewResourceKinds[v.kind])
+}
+
+// String reads one of the eight effect strings.
+func (v *EffectView) String(kind uint32) (string, error) {
+	handle, err := v.liveHandle()
+	if err != nil {
+		return "", err
+	}
+	return nativeEffectString(kind, handle)
+}
+
+// ParameterMetadata is cna_effect_parameter_get_info.
+func (v *EffectView) ParameterMetadata() (EffectMetadata, error) {
+	handle, err := v.liveHandle()
+	if err != nil {
+		return EffectMetadata{}, err
+	}
+	return nativeEffectParameterInfo(handle)
+}
+
+// AnnotationMetadata is cna_effect_annotation_get_info.
+func (v *EffectView) AnnotationMetadata() (EffectMetadata, error) {
+	handle, err := v.liveHandle()
+	if err != nil {
+		return EffectMetadata{}, err
+	}
+	return nativeEffectAnnotationInfo(handle)
+}
+
+// Elements, StructureMembers and Annotations are the three nested collections a
+// parameter reports; Passes and Annotations are a technique's; Annotations is a
+// pass's. Each returns a fresh owned view the caller keeps.
+func (v *EffectView) Elements() (*EffectView, error) {
+	return v.nested(nativeEffectParameterElements, effectViewParameterCollection)
+}
+
+func (v *EffectView) StructureMembers() (*EffectView, error) {
+	return v.nested(nativeEffectParameterStructureMembers, effectViewParameterCollection)
+}
+
+func (v *EffectView) ParameterAnnotations() (*EffectView, error) {
+	return v.nested(nativeEffectParameterAnnotations, effectViewAnnotationCollection)
+}
+
+func (v *EffectView) Passes() (*EffectView, error) {
+	return v.nested(nativeEffectTechniquePasses, effectViewPassCollection)
+}
+
+func (v *EffectView) TechniqueAnnotations() (*EffectView, error) {
+	return v.nested(nativeEffectTechniqueAnnotations, effectViewAnnotationCollection)
+}
+
+func (v *EffectView) PassAnnotations() (*EffectView, error) {
+	return v.nested(nativeEffectPassAnnotations, effectViewAnnotationCollection)
+}
+
+func (v *EffectView) nested(read func(uint64) (uint64, error), kind uint32) (*EffectView, error) {
+	handle, err := v.liveHandle()
+	if err != nil {
+		return nil, err
+	}
+	nested, err := read(handle)
+	if err != nil {
+		return nil, err
+	}
+	return v.resource.registerEffectView(nested, kind), nil
+}
+
+// ApplyPass is cna_effect_pass_apply.
+func (v *EffectView) ApplyPass() error {
+	handle, err := v.liveHandle()
+	if err != nil {
+		return err
+	}
+	return nativeEffectPassApply(handle)
+}
+
+// The parameter value transfers. Every one takes CNA's own tagged identity,
+// which the Graphics package chooses from the XNA overload it is projecting.
+
+func (v *EffectView) ParameterValue(valueType uint32, out unsafe.Pointer) error {
+	handle, err := v.liveHandle()
+	if err != nil {
+		return err
+	}
+	return nativeEffectParameterGetValue(handle, valueType, out)
+}
+
+func (v *EffectView) SetParameterValue(valueType uint32, value unsafe.Pointer) error {
+	handle, err := v.liveHandle()
+	if err != nil {
+		return err
+	}
+	return nativeEffectParameterSetValue(handle, valueType, value)
+}
+
+func (v *EffectView) ParameterValues(valueType uint32, requested uint64, destination unsafe.Pointer, capacity uint64) (uint64, error) {
+	handle, err := v.liveHandle()
+	if err != nil {
+		return 0, err
+	}
+	return nativeEffectParameterGetValues(handle, valueType, requested, destination, capacity)
+}
+
+func (v *EffectView) SetParameterValues(valueType uint32, values unsafe.Pointer, count uint64) error {
+	handle, err := v.liveHandle()
+	if err != nil {
+		return err
+	}
+	return nativeEffectParameterSetValues(handle, valueType, values, count)
+}
+
+func (v *EffectView) SetParameterValueString(value string) error {
+	handle, err := v.liveHandle()
+	if err != nil {
+		return err
+	}
+	return nativeEffectParameterSetValueString(handle, value)
+}
+
+func (v *EffectView) SetParameterValueTexture(textureType uint32, texture *Resource) error {
+	handle, err := v.liveHandle()
+	if err != nil {
+		return err
+	}
+	var textureHandle uint64
+	if texture != nil {
+		textureHandle, err = texture.anyLiveHandle()
+		if err != nil {
+			return err
+		}
+	}
+	return nativeEffectParameterSetValueTexture(handle, textureType, textureHandle)
+}
+
+// The four annotation value reads that are not strings.
+
+func (v *EffectView) AnnotationBoolean() (bool, error) {
+	handle, err := v.liveHandle()
+	if err != nil {
+		return false, err
+	}
+	return nativeEffectAnnotationBoolean(handle)
+}
+
+func (v *EffectView) AnnotationInt32() (int32, error) {
+	handle, err := v.liveHandle()
+	if err != nil {
+		return 0, err
+	}
+	return nativeEffectAnnotationInt32(handle)
+}
+
+func (v *EffectView) AnnotationSingle() (float32, error) {
+	handle, err := v.liveHandle()
+	if err != nil {
+		return 0, err
+	}
+	return nativeEffectAnnotationSingle(handle)
+}
+
+func (v *EffectView) AnnotationVector(width uint32) ([4]float32, error) {
+	handle, err := v.liveHandle()
+	if err != nil {
+		return [4]float32{}, err
+	}
+	return nativeEffectAnnotationVector(handle, width)
+}
+
+func (v *EffectView) AnnotationMatrix() ([16]float32, error) {
+	handle, err := v.liveHandle()
+	if err != nil {
+		return [16]float32{}, err
+	}
+	return nativeEffectAnnotationMatrix(handle)
+}
+
+// ---------------------------------------------------------------------------
+// Foundation 71 — the volume and cube texture families.
+// ---------------------------------------------------------------------------
+
+// Texture3DInfo is CNA_Texture3DInfo, flattened.
+type Texture3DInfo struct {
+	Width, Height, Depth uint32
+	Levels               uint32
+	Format               uint32
+}
+
+// TextureCubeInfo is CNA_TextureCubeInfo, flattened. A cube's faces are square,
+// so ONE dimension describes the whole texture.
+type TextureCubeInfo struct {
+	Size   uint32
+	Levels uint32
+	Format uint32
+}
+
+// Texture3DTransfer is CNA_Texture3DTransfer, flattened: a mip BOX rather than
+// a rectangle, which is what makes it a different structure from the 2D one
+// rather than a wider version of it.
+type Texture3DTransfer struct {
+	Level                                 int32
+	Left, Top, Right, Bottom, Front, Back int32
+	StartIndex, ElementCount              uint64
+}
+
+// TextureCubeTransfer is CNA_TextureCubeTransfer, flattened. The face is part
+// of the transfer rather than of the handle, which is why every cube member
+// takes one.
+type TextureCubeTransfer struct {
+	Face                     uint32
+	Level                    int32
+	HasRectangle             bool
+	X, Y, Width, Height      int32
+	StartIndex, ElementCount uint64
+}
+
+// CreateTexture3D is cna_texture3d_create. The device handle is
+// callback-scoped, so this is reachable only from inside a lifecycle callback.
+func (d *Device) CreateTexture3D(width, height, depth uint32, mipMap bool, format uint32) (*Resource, Texture3DInfo, error) {
+	handle, err := d.nativeHandle()
+	if err != nil {
+		return nil, Texture3DInfo{}, err
+	}
+	texture, err := nativeTexture3DCreate(handle, width, height, depth, mipMap, format)
+	if err != nil {
+		return nil, Texture3DInfo{}, err
+	}
+	resource := d.runtime.registerResource(texture, resourceTexture3D, d.manager)
+	info, infoErr := nativeTexture3DInfo(texture)
+	if infoErr != nil {
+		_ = resource.Dispose()
+		return nil, Texture3DInfo{}, infoErr
+	}
+	return resource, info, nil
+}
+
+// CreateTextureCube is cna_texturecube_create.
+func (d *Device) CreateTextureCube(size uint32, mipMap bool, format uint32) (*Resource, TextureCubeInfo, error) {
+	handle, err := d.nativeHandle()
+	if err != nil {
+		return nil, TextureCubeInfo{}, err
+	}
+	texture, err := nativeTextureCubeCreate(handle, size, mipMap, format)
+	if err != nil {
+		return nil, TextureCubeInfo{}, err
+	}
+	resource := d.runtime.registerResource(texture, resourceTextureCube, d.manager)
+	info, infoErr := nativeTextureCubeInfo(texture)
+	if infoErr != nil {
+		_ = resource.Dispose()
+		return nil, TextureCubeInfo{}, infoErr
+	}
+	return resource, info, nil
+}
+
+// SetTexture3DData is cna_texture3d_set_data.
+func (resource *Resource) SetTexture3DData(transfer Texture3DTransfer, data unsafe.Pointer, capacity uint64) error {
+	handle, err := resource.liveHandle(resourceTexture3D)
+	if err != nil {
+		return err
+	}
+	return nativeTexture3DSetData(handle, transfer, data, capacity)
+}
+
+// GetTexture3DData is cna_texture3d_get_data.
+func (resource *Resource) GetTexture3DData(transfer Texture3DTransfer, destination unsafe.Pointer, capacity uint64) (uint64, error) {
+	handle, err := resource.liveHandle(resourceTexture3D)
+	if err != nil {
+		return 0, err
+	}
+	return nativeTexture3DGetData(handle, transfer, destination, capacity)
+}
+
+// SetTextureCubeData is cna_texturecube_set_data.
+func (resource *Resource) SetTextureCubeData(transfer TextureCubeTransfer, data unsafe.Pointer, capacity uint64) error {
+	handle, err := resource.liveHandle(resourceTextureCube)
+	if err != nil {
+		return err
+	}
+	return nativeTextureCubeSetData(handle, transfer, data, capacity)
+}
+
+// GetTextureCubeData is cna_texturecube_get_data.
+func (resource *Resource) GetTextureCubeData(transfer TextureCubeTransfer, destination unsafe.Pointer, capacity uint64) (uint64, error) {
+	handle, err := resource.liveHandle(resourceTextureCube)
+	if err != nil {
+		return 0, err
+	}
+	return nativeTextureCubeGetData(handle, transfer, destination, capacity)
+}
+
+// ---------------------------------------------------------------------------
+// Foundation 69 — the SpriteFont family.
+// ---------------------------------------------------------------------------
+
+// SpriteFontInfo is CNA_SpriteFontInfo, flattened. It is the point-in-time
+// snapshot CNA reports for a font: the three MUTABLE layout values plus the
+// character count the glyph read is sized from.
+type SpriteFontInfo struct {
+	CharacterCount      uint64
+	LineSpacing         int32
+	Spacing             float32
+	DefaultCharacter    uint16
+	HasDefaultCharacter bool
+}
+
+// SpriteFontRectangle is CNA_Rectangle in the two positions a glyph carries it.
+// It is its own type rather than a reuse of ScissorRectangle for the reason
+// every other interop struct here is its own: a shared name would make a change
+// to one route's meaning silently change another's.
+type SpriteFontRectangle struct {
+	X, Y, Width, Height int32
+}
+
+// SpriteFontGlyph is CNA_SpriteFontGlyph, flattened. The three kerning values
+// cross as separate fields rather than as a vector because interop declares no
+// vector type: the Graphics package is where they become a Vector3.
+type SpriteFontGlyph struct {
+	Character   uint16
+	GlyphBounds SpriteFontRectangle
+	Cropping    SpriteFontRectangle
+	KerningX    float32
+	KerningY    float32
+	KerningZ    float32
+}
+
+// LoadContentSpriteFont is cna_content_manager_load_sprite_font, the one CNA
+// content route that reports TWO owned handles for one asset.
+//
+// Both are registered under the content manager's own parent, which is the
+// game: CNA documents a loaded font and its atlas as independently owned and
+// destroyed before the parent game, exactly as a loaded texture is.
+//
+// # The registration ORDER is load-bearing
+//
+// CNA retains the atlas while the font lives, so `cna_texture2d_destroy`
+// refuses with INVALID_STATE until the font is destroyed. disposeAllResources
+// releases in REVERSE registration order, so the ATLAS is registered FIRST and
+// the font second -- which makes the runtime's own teardown release the font
+// before the texture it holds, whatever else is registered afterwards. A
+// registration in the natural reading order would make every game teardown
+// that loaded a font report CNA's refusal.
+func (resource *Resource) LoadContentSpriteFont(assetName string) (*Resource, *Resource, SpriteFontInfo, error) {
+	handle, err := resource.liveHandle(resourceContentManager)
+	if err != nil {
+		return nil, nil, SpriteFontInfo{}, err
+	}
+	font, texture, err := nativeContentManagerLoadSpriteFont(handle, assetName)
+	if err != nil {
+		return nil, nil, SpriteFontInfo{}, err
+	}
+	ownedTexture := resource.runtime.registerResource(texture, resourceTexture2D, resource.parent)
+	ownedFont := resource.runtime.registerResource(font, resourceSpriteFont, resource.parent)
+	info, infoErr := nativeSpriteFontInfo(font)
+	if infoErr != nil {
+		// The documented order, even on the failure path: the font first, so
+		// the atlas becomes releasable.
+		_ = ownedFont.Dispose()
+		_ = ownedTexture.Dispose()
+		return nil, nil, SpriteFontInfo{}, infoErr
+	}
+	return ownedFont, ownedTexture, info, nil
+}
+
+// SpriteFontInfo is cna_sprite_font_get_info.
+func (resource *Resource) SpriteFontInfo() (SpriteFontInfo, error) {
+	handle, err := resource.liveHandle(resourceSpriteFont)
+	if err != nil {
+		return SpriteFontInfo{}, err
+	}
+	return nativeSpriteFontInfo(handle)
+}
+
+// SpriteFontGlyphs is cna_sprite_font_copy_glyphs, the whole table in one call.
+func (resource *Resource) SpriteFontGlyphs(capacity uint64) ([]SpriteFontGlyph, error) {
+	handle, err := resource.liveHandle(resourceSpriteFont)
+	if err != nil {
+		return nil, err
+	}
+	return nativeSpriteFontGlyphs(handle, capacity)
+}
+
+// SetSpriteFontDefaultCharacter is cna_sprite_font_set_default_character.
+func (resource *Resource) SetSpriteFontDefaultCharacter(hasValue bool, value uint16) error {
+	handle, err := resource.liveHandle(resourceSpriteFont)
+	if err != nil {
+		return err
+	}
+	return nativeSpriteFontSetDefaultCharacter(handle, hasValue, value)
+}
+
+// SetSpriteFontLineSpacing is cna_sprite_font_set_line_spacing.
+func (resource *Resource) SetSpriteFontLineSpacing(lineSpacing int32) error {
+	handle, err := resource.liveHandle(resourceSpriteFont)
+	if err != nil {
+		return err
+	}
+	return nativeSpriteFontSetLineSpacing(handle, lineSpacing)
+}
+
+// SpriteTextCommand is CNA_SpriteTextCommand without its text, which crosses
+// as a Go string beside it. Every field is one of the nine arguments
+// SpriteFont::InternalDraw takes, in the same meaning.
+type SpriteTextCommand struct {
+	PositionX, PositionY float32
+	Red, Green, Blue     uint8
+	Alpha                uint8
+	Rotation             float32
+	OriginX, OriginY     float32
+	ScaleX, ScaleY       float32
+	Effects              uint32
+	LayerDepth           float32
+}
+
+// DrawString is cna_sprite_batch_draw_string. The receiver is the SpriteBatch;
+// the font must belong to the same game and is retained by CNA until a
+// successful End, exactly as a drawn texture is.
+func (resource *Resource) DrawString(font *Resource, text string, command SpriteTextCommand) error {
+	batch, err := resource.liveHandle(resourceSpriteBatch)
+	if err != nil {
+		return err
+	}
+	fontHandle, err := font.liveHandle(resourceSpriteFont)
+	if err != nil {
+		return err
+	}
+	if resource.runtime != font.runtime || resource.generation != font.generation {
+		return ErrStaleGeneration
+	}
+	return nativeSpriteBatchDrawString(batch, fontHandle, text, command)
+}
+
+// SetSpriteFontSpacing is cna_sprite_font_set_spacing.
+func (resource *Resource) SetSpriteFontSpacing(spacing float32) error {
+	handle, err := resource.liveHandle(resourceSpriteFont)
+	if err != nil {
+		return err
+	}
+	return nativeSpriteFontSetSpacing(handle, spacing)
+}
+
+// MaxTextureSlots and MaxSamplerSlots are CNA_TEXTURE_COLLECTION_MAX_TEXTURES
+// and CNA_MAX_SAMPLERS. Both are sixteen, and both are what the projected
+// collections report as their length.
+const (
+	MaxTextureSlots = 16
+	MaxSamplerSlots = 16
+)
+
+// TextureSlot reads one slot of one of the device's two texture collections.
+func (d *Device) TextureSlot(stage, slot uint32) (TextureSlot, error) {
+	handle, err := d.nativeHandle()
+	if err != nil {
+		return TextureSlot{}, err
+	}
+	return nativeGraphicsDeviceGetTexture(handle, stage, slot)
+}
+
+// SetTextureSlot binds a texture to one slot, or empties it when texture is nil.
+func (d *Device) SetTextureSlot(stage, slot uint32, texture *Resource) error {
+	handle, err := d.nativeHandle()
+	if err != nil {
+		return err
+	}
+	var textureHandle uint64
+	if texture != nil {
+		textureHandle, err = texture.liveTextureHandle()
+		if err != nil {
+			return err
+		}
+	}
+	return nativeGraphicsDeviceSetTexture(handle, stage, slot, textureHandle)
+}
+
+// SamplerSlot reads one entry of one of the device's two sampler collections.
+func (d *Device) SamplerSlot(stage, slot uint32) (SamplerStateValue, error) {
+	handle, err := d.nativeHandle()
+	if err != nil {
+		return SamplerStateValue{}, err
+	}
+	return nativeGraphicsDeviceGetSamplerState(handle, stage, slot)
+}
+
+// SetSamplerSlot replaces one entry of one of the device's two sampler
+// collections.
+func (d *Device) SetSamplerSlot(stage, slot uint32, value SamplerStateValue) error {
+	handle, err := d.nativeHandle()
+	if err != nil {
+		return err
+	}
+	return nativeGraphicsDeviceSetSamplerState(handle, stage, slot, value)
+}
+
+// RenderTargetInfo is CNA_RenderTargetInfo, flattened.
+//
+// Every field is what CNA APPLIED, not what was asked for. That is the same
+// split the reference has: RenderTarget2D::CreateRenderTarget passes its
+// arguments to GraphicsAdapter::QueryFormat, which SELECTS a format, a depth
+// format and a sample count, and the RenderTargetHelper stores the selected
+// ones -- so DepthStencilFormat and MultiSampleCount report the selection, not
+// the preference. `preferredFormat` and `preferredDepthFormat` are the
+// reference's own parameter names.
+//
+// RendererAvailable is CNA's and has no XNA counterpart. CNA permits
+// construction on a backend with no real off-screen storage: creation succeeds,
+// this reports false, and binding reports NOT_SUPPORTED. It is carried so the
+// projection can say which of those it is looking at rather than reporting a
+// bind failure with no explanation.
+type RenderTargetInfo struct {
+	Kind              uint32
+	Width, Height     uint32
+	LevelCount        uint32
+	Format            uint32
+	DepthFormat       uint32
+	MultiSampleCount  int32
+	Usage             uint32
+	IsContentLost     bool
+	RendererAvailable bool
+}
+
+// SpriteDestinationCommand is CNA_SpriteCommand: a sprite placed by a
+// DESTINATION RECTANGLE rather than by a position and a scale.
+//
+// CNA declares the two as separate structures and says why: with a position,
+// the origin is measured in source-texture pixels and the scale applies after
+// that offset, which a caller cannot reproduce by computing a rectangle without
+// repeating the canonical arithmetic. XNA agrees from the other side -- its
+// seven Draw overloads all funnel into one InternalDraw whose Vector4
+// destination means (x, y, scaleX, scaleY) or (x, y, width, height) depending
+// on a `scaleDestination` bool -- so the two families are two routes here too.
+type SpriteDestinationCommand struct {
+	DestinationX, DestinationY          int32
+	DestinationWidth, DestinationHeight int32
+	SourceX, SourceY                    int32
+	SourceWidth, SourceHeight           int32
+	Red, Green, Blue, Alpha             uint8
+	Rotation                            float32
+	OriginX, OriginY                    float32
+	Effects                             uint32
+	LayerDepth                          float32
+}
+
+type SpriteCommand struct {
+	PositionX, PositionY      float32
+	SourceX, SourceY          int32
+	SourceWidth, SourceHeight int32
+	Red, Green, Blue, Alpha   uint8
+	Rotation                  float32
+	OriginX, OriginY          float32
+	ScaleX, ScaleY            float32
+	Effects                   uint32
+	LayerDepth                float32
+}
+
+var (
+	processRunMu   sync.Mutex
+	nextGeneration atomic.Uint64
+	currentRuntime atomic.Pointer[Runtime]
+
+	// standaloneHolder is the Runtime whose STANDALONE session currently holds
+	// processRunMu, or nil. It exists so a second Runtime fails fast instead of
+	// blocking forever: a standalone session has no bounded duration -- it
+	// lives until Dispose -- so waiting on the mutex would be a hang rather
+	// than a queue. A session Run owns is bounded by Run and is not recorded
+	// here, because waiting for it is exactly the right behaviour.
+	standaloneHolder  atomic.Pointer[Runtime]
+	ownerAssociations sync.Map
+)
+
+type ownerBinding struct {
+	runtime  *Runtime
+	resource *Resource
+}
+
+func NewRuntime(callbacks Callbacks) *Runtime {
+	return &Runtime{callbacks: callbacks, title: "CNA-Go"}
+}
+
+// startSession opens the library, creates the native game, installs both
+// signal families, and marks the Runtime live. It is the whole of what used to
+// be the first half of Run.
+//
+// standalone records who is starting it. The session's SHAPE is identical
+// either way -- same generation, same owner thread, same subscriptions, same
+// timing and frame-hook read -- and only its ENDING differs.
+func (r *Runtime) startSession(standalone bool) error {
+	if held := standaloneHolder.Load(); held != nil && held != r {
+		return errors.New("another Game holds the process's native session; dispose it first")
+	}
+	processRunMu.Lock()
+	goruntime.LockOSThread()
+	tracef("session: owner OS thread locked (standalone=%t)", standalone)
+
+	unwind := func(err error) error {
+		goruntime.UnlockOSThread()
+		processRunMu.Unlock()
+		return err
+	}
+
+	libraryPath, err := nativeLibraryPath()
+	if err != nil {
+		return unwind(err)
+	}
+	if err := nativeOpen(libraryPath); err != nil {
+		return unwind(err)
+	}
+	tracef("session: admitted native library %q", libraryPath)
+	unwindOpen := func(err error) error {
+		nativeClose()
+		return unwind(err)
+	}
+
+	generation := nextGeneration.Add(1)
+	r.mu.Lock()
+	if r.alive {
+		r.mu.Unlock()
+		return unwindOpen(errors.New("Game is already running"))
+	}
+	r.generation = generation
+	r.ownerThread = nativeOwnerThreadID()
+	r.alive = true
+	r.callbackFailure = nil
+	r.resources = nil
+	r.mu.Unlock()
+	currentRuntime.Store(r)
+
+	// The optional frame-hook mask is read exactly once, here, on the owner
+	// thread and before the native game exists. A Go callback object's method
+	// set is fixed for the object's whole lifetime, so there is nothing to
+	// re-read later and no mutable per-Game registration state anywhere.
+	frameHooks := r.callbacks.FrameHookOverrides()
+	timing := r.callbacks.TimingConfiguration()
+	callbackHandle := cgo.NewHandle(r)
+	game, createErr := nativeGameCreate(uintptr(callbackHandle), r.title, frameHooks, timing)
+	if createErr != nil {
+		callbackHandle.Delete()
+		r.deactivate()
+		return unwindOpen(createErr)
+	}
+	tracef("session: created Game handle %d", game)
+	r.mu.Lock()
+	r.game = game
+	r.mu.Unlock()
+
+	// One native subscription per canonical event, installed eagerly on the
+	// owner thread the moment the native game exists. It is not installed
+	// lazily on the first Go handler: CNA rejects cna_game_subscribe from any
+	// other thread with CNA_RESULT_THREAD, and a Go consumer is free to add an
+	// event handler from any goroutine at any time, so the only point at which
+	// the call is guaranteed legal is right here.
+	registrations, subscribeErr := nativeGameSubscribeEvents(game, uintptr(callbackHandle))
+	if subscribeErr != nil {
+		tracef("session: game-event subscription failed: %v", subscribeErr)
+		destroyErr := nativeGameDestroy(game)
+		r.deactivate()
+		callbackHandle.Delete()
+		return unwindOpen(errors.Join(subscribeErr, destroyErr))
+	}
+	r.mu.Lock()
+	r.eventRegistrations = registrations
+	r.mu.Unlock()
+	tracef("session: installed %d native game-event registrations", gameEventCount)
+
+	// The window signals, on the same rule and at the same moment. XNA's
+	// GameWindow exists from the host's construction and raises its three
+	// events for the whole life of the host, so the subscription window is
+	// the native game's lifetime and not some later point.
+	windowRegistrations, windowSubscribeErr := nativeGameWindowSubscribeEvents(game, uintptr(callbackHandle))
+	if windowSubscribeErr != nil {
+		tracef("session: window-event subscription failed: %v", windowSubscribeErr)
+		releaseErr := r.releaseGameEvents()
+		destroyErr := nativeGameDestroy(game)
+		r.deactivate()
+		callbackHandle.Delete()
+		return unwindOpen(errors.Join(windowSubscribeErr, releaseErr, destroyErr))
+	}
+	r.mu.Lock()
+	r.windowEventRegistrations = windowRegistrations
+	r.callbackHandle = callbackHandle
+	r.sessionLive = true
+	r.standalone = standalone
+	r.mu.Unlock()
+	if standalone {
+		standaloneHolder.Store(r)
+	}
+	tracef("session: installed %d native window-event registrations", gameWindowEventCount)
+	return nil
+}
+
+// endSession is the second half of the old Run, unchanged in order.
+//
+// The registrations are released only AFTER the destroy. CNA raises the
+// disposal signal from inside cna_game_destroy, and a registration handle stays
+// valid across that call, so releasing first would silently drop the event.
+func (r *Runtime) endSession() error {
+	r.mu.Lock()
+	if !r.sessionLive {
+		r.mu.Unlock()
+		return nil
+	}
+	game := r.game
+	handle := r.callbackHandle
+	standalone := r.standalone
+	r.sessionLive = false
+	r.standalone = false
+	r.callbackHandle = 0
+	r.mu.Unlock()
+
+	cleanupErr := r.disposeAllResources()
+	tracef("session: resource cleanup returned: %v", cleanupErr)
+	destroyErr := nativeGameDestroy(game)
+	tracef("session: Game destroy returned: %v", destroyErr)
+	unsubscribeErr := r.releaseGameEvents()
+	windowUnsubscribeErr := r.releaseGameWindowEvents()
+	r.deactivate()
+	handle.Delete()
+	nativeClose()
+	if standalone {
+		standaloneHolder.CompareAndSwap(r, nil)
+	}
+	goruntime.UnlockOSThread()
+	processRunMu.Unlock()
+	tracef("session: ended (standalone=%t)", standalone)
+	return errors.Join(cleanupErr, destroyErr, unsubscribeErr, windowUnsubscribeErr)
+}
+
+// Run projects Game::Run. It starts a session unless one is already live for
+// this Runtime, runs the native loop, and ends the session only if it started
+// it -- because whoever created the native game destroys it.
+//
+// Adopting an existing standalone session is the reference's own behaviour:
+// XNA's Run calls host.Run() on a host the constructor already created, and
+// CNA's Game::Run skips its own initialization when hasInitialized_ is already
+// set. A frame-stepped Game that is then Run therefore keeps one native game
+// and one initialization, exactly as the reference does.
+func (r *Runtime) Run() error {
+	if r == nil || r.callbacks == nil {
+		return errors.New("native Game callbacks must not be nil")
+	}
+	r.mu.Lock()
+	adopted := r.sessionLive
+	r.mu.Unlock()
+	if !adopted {
+		if err := r.startSession(false); err != nil {
+			return err
+		}
+	} else if err := r.requireOwnerThread(); err != nil {
+		return err
+	}
+
+	r.mu.Lock()
+	game := r.game
+	r.mu.Unlock()
+
+	tracef("Run: entering cna_game_run")
+	runErr := nativeGameRun(game)
+	tracef("Run: cna_game_run returned: %v", runErr)
+
+	var endErr error
+	if !adopted {
+		endErr = r.endSession()
+	}
+
+	r.mu.Lock()
+	callbackErr := r.callbackFailure
+	r.mu.Unlock()
+	if callbackErr != nil {
+		return callbackErr
+	}
+	return errors.Join(runErr, endErr)
+}
+
+// Tick projects Game::Tick and RunOneFrame projects Game::RunOneFrame. Both
+// start a standalone session on first use, because in the reference the host
+// exists from the Game's construction and a frame step has something to drive.
+//
+// The two are NOT the same call and the difference was measured rather than
+// assumed. Against the qualified artifact, on a game that has never run:
+//
+//	cna_game_tick            Update and Draw, and NO Initialize or LoadContent
+//	cna_game_run_one_frame   Initialize and LoadContent first, then the same
+//
+// and a second run_one_frame initializes nothing further. That mirrors the
+// reference's own split -- Tick is the clock step and does not initialize --
+// with one measured CNA difference recorded in the milestone evidence: XNA's
+// RunOneFrame does not initialize either, and CNA's does.
+func (r *Runtime) Tick() error {
+	return r.frameStep("cna_game_tick", nativeGameTick)
+}
+
+func (r *Runtime) RunOneFrame() error {
+	return r.frameStep("cna_game_run_one_frame", nativeGameRunOneFrame)
+}
+
+// frameStep is the shared body. It starts a standalone session when none is
+// live, and otherwise drives the live one -- which may be a standalone session
+// this Runtime already owns.
+//
+// A frame step from inside a lifecycle callback is refused by CNA itself with
+// CNA_RESULT_INVALID_STATE, because a frame step called from within a frame
+// would re-enter the loop it is part of. That refusal is measured, not
+// documented-and-trusted, and CNA-Go reports it rather than reproducing it.
+func (r *Runtime) frameStep(operation string, step func(uint64) error) error {
+	if r == nil || r.callbacks == nil {
+		return errors.New("native Game callbacks must not be nil")
+	}
+	r.mu.Lock()
+	live := r.sessionLive
+	r.mu.Unlock()
+	if !live {
+		if err := r.startSession(true); err != nil {
+			return err
+		}
+	} else if err := r.requireOwnerThread(); err != nil {
+		return err
+	}
+	r.mu.Lock()
+	game := r.game
+	r.mu.Unlock()
+	tracef("%s: entering", operation)
+	err := step(game)
+	tracef("%s: returned %v", operation, err)
+	if err != nil {
+		return err
+	}
+	r.mu.Lock()
+	callbackErr := r.callbackFailure
+	r.callbackFailure = nil
+	r.mu.Unlock()
+	return callbackErr
+}
+
+// EndStandaloneSession destroys a session a frame step started, and does
+// nothing at all when there is none.
+//
+// It is deliberately NOT called by Run: a session Run started is Run's to end,
+// and one it adopted belongs to whoever created it. Game::Dispose is the only
+// caller, because Dispose is the member a consumer already uses to release a
+// Game and because CNA admits exactly one C-owned game per process -- a
+// standalone session that nothing ended would make the next one impossible.
+func (r *Runtime) EndStandaloneSession() error {
+	if r == nil {
+		return nil
+	}
+	r.mu.Lock()
+	standalone := r.sessionLive && r.standalone
+	r.mu.Unlock()
+	if !standalone {
+		return nil
+	}
+	if err := r.requireOwnerThread(); err != nil {
+		return err
+	}
+	return r.endSession()
+}
+
+// HasStandaloneSession reports whether a frame step created a native game that
+// is still alive. It exists so the framework package can describe the state in
+// a diagnostic without reaching for the handle.
+func (r *Runtime) HasStandaloneSession() bool {
+	if r == nil {
+		return false
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.sessionLive && r.standalone
+}
+
+// requireOwnerThread refuses a call from any goroutine other than the one whose
+// OS thread the session locked. CNA does not thread-check cna_game_run or the
+// window routes, so this is CNA-Go's own rule rather than a reported one -- and
+// it is the same rule every other owner-thread operation already applies.
+func (r *Runtime) requireOwnerThread() error {
+	r.mu.Lock()
+	owner := r.ownerThread
+	r.mu.Unlock()
+	if owner != nativeOwnerThreadID() {
+		return ErrWrongThread
+	}
+	return nil
+}
+
+// releaseGameEvents releases every installed registration exactly once. The
+// slots are zeroed under the same lock that publishes them, so a second call
+// releases nothing rather than handing CNA a stale handle -- which it answers
+// with CNA_RESULT_INVALID_HANDLE, not success.
+func (r *Runtime) releaseGameEvents() error {
+	r.mu.Lock()
+	registrations := r.eventRegistrations
+	r.eventRegistrations = [gameEventCount]uint64{}
+	r.mu.Unlock()
+	installed := false
+	for _, handle := range registrations {
+		if handle != 0 {
+			installed = true
+			break
+		}
+	}
+	if !installed {
+		return nil
+	}
+	return nativeGameUnsubscribeEvents(&registrations)
+}
+
+// invokeGameEvent delivers one canonical CNA game signal to the framework.
+//
+// It is not invokeCallback. A CNA_GameEventCallback returns void, so this
+// boundary has no result channel at all: it cannot stop the game, and the
+// canonical header says so directly -- "The exiting callback in
+// CNA_GameCallbacks is a different thing: it can stop the game by failing,
+// while these handlers only observe."
+//
+// Two consequences are load-bearing and are reproduced rather than papered
+// over. A handler failure is recorded as the run's callback failure and
+// surfaces from Run, so nothing is discarded, but it does not end the frame
+// loop. And inCallback is deliberately NOT raised: an observation point is not
+// an operation point, and the disposal signal in particular is delivered from
+// inside cna_game_destroy, where the native game is already being torn down.
+func (r *Runtime) invokeGameEvent(event uint32) {
+	tracef("game event %s: enter", gameEventName(event))
+	r.mu.Lock()
+	alive := r.alive
+	callbacks := r.callbacks
+	r.mu.Unlock()
+	if !alive || callbacks == nil {
+		r.recordCallbackFailure(ErrStaleGeneration)
+		tracef("game event %s: dropped, runtime is not live", gameEventName(event))
+		return
+	}
+	if int(event) < gameEventCount {
+		r.mu.Lock()
+		r.gameEventDeliveries[event]++
+		r.mu.Unlock()
+	}
+	var err error
+	func() {
+		defer func() {
+			if recovered := recover(); recovered != nil {
+				err = fmt.Errorf("panic in Game event handler: %v\n%s", recovered, debug.Stack())
+			}
+		}()
+		err = callbacks.GameEvent(event)
+	}()
+	if err != nil {
+		r.recordCallbackFailure(err)
+	}
+	tracef("game event %s: return %v", gameEventName(event), err)
+}
+
+// GameEventDeliveries reports how many times each canonical signal was
+// delivered to this Runtime, indexed by the GameEvent* identities. It survives
+// deactivate() and a second Run adds to it, so a caller can compare two runs.
+//
+// It is the only way the disposal signal is observable at all now that it
+// raises no public event, and it is deliberately confined to this internal
+// package: a projected XNA member that exposed a native delivery count would be
+// surface Microsoft never declared.
+// releaseGameWindowEvents is releaseGameEvents for the window family, kept
+// separate because the two tables have different lengths and because a window
+// registration must never be released with a game slot's handle.
+func (r *Runtime) releaseGameWindowEvents() error {
+	r.mu.Lock()
+	registrations := r.windowEventRegistrations
+	r.windowEventRegistrations = [gameWindowEventCount]uint64{}
+	r.mu.Unlock()
+	installed := false
+	for _, handle := range registrations {
+		if handle != 0 {
+			installed = true
+			break
+		}
+	}
+	if !installed {
+		return nil
+	}
+	return nativeGameWindowUnsubscribeEvents(&registrations)
+}
+
+// invokeGameWindowEvent is invokeGameEvent for the window family. It is a
+// separate entry point on purpose: both numberings start at zero, so one
+// shared trampoline could route a window signal into a game event without any
+// value looking wrong.
+func (r *Runtime) invokeGameWindowEvent(event uint32) {
+	tracef("window event %s: enter", gameWindowEventName(event))
+	r.mu.Lock()
+	alive := r.alive
+	callbacks := r.callbacks
+	r.mu.Unlock()
+	if !alive || callbacks == nil {
+		r.recordCallbackFailure(ErrStaleGeneration)
+		tracef("window event %s: dropped, runtime is not live", gameWindowEventName(event))
+		return
+	}
+	if int(event) < gameWindowEventCount {
+		r.mu.Lock()
+		r.windowEventDeliveries[event]++
+		r.mu.Unlock()
+	}
+	var err error
+	func() {
+		defer func() {
+			if recovered := recover(); recovered != nil {
+				err = fmt.Errorf("panic in GameWindow event handler: %v\n%s", recovered, debug.Stack())
+			}
+		}()
+		err = callbacks.GameWindowEvent(event)
+	}()
+	if err != nil {
+		r.recordCallbackFailure(err)
+	}
+	tracef("window event %s: return %v", gameWindowEventName(event), err)
+}
+
+// GameWindowEventDeliveries reports how many times each canonical window
+// signal was delivered, for native qualification only.
+func (r *Runtime) GameWindowEventDeliveries() [gameWindowEventCount]int {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.windowEventDeliveries
+}
+
+func gameWindowEventName(event uint32) string {
+	switch event {
+	case GameWindowEventClientSizeChanged:
+		return "ClientSizeChanged"
+	case GameWindowEventOrientationChanged:
+		return "OrientationChanged"
+	case GameWindowEventScreenDeviceNameChanged:
+		return "ScreenDeviceNameChanged"
+	default:
+		return fmt.Sprintf("window-event-%d", event)
+	}
+}
+
+func (r *Runtime) GameEventDeliveries() [gameEventCount]int {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.gameEventDeliveries
+}
+
+// GameEventCount is the number of canonical signal identities, so a caller can
+// size its own tables without spelling a CNA constant.
+const GameEventCount = gameEventCount
+
+func gameEventName(event uint32) string {
+	switch event {
+	case GameEventActivated:
+		return "Activated"
+	case GameEventDeactivated:
+		return "Deactivated"
+	case GameEventDisposed:
+		return "Disposed"
+	case GameEventExiting:
+		return "Exiting"
+	default:
+		return fmt.Sprintf("unknown(%d)", event)
+	}
+}
+
+// Exit projects Game::Exit. It no longer requires an active lifecycle callback.
+//
+// The callback requirement was correct while the only way to reach a live
+// native game was from inside one: Run blocks the owner thread in
+// cna_game_run, so outside a callback there was nothing live to ask. Foundation
+// 47's standalone session makes "live, on the owner thread, outside a callback"
+// a reachable state, and it is exactly the state a frame-stepped consumer calls
+// Exit from. CNA agrees: cna_game_request_exit resolves the game with GetGame
+// rather than GetCallableGame, so it carries no callback restriction of its own.
+func (r *Runtime) Exit() error {
+	game, err := r.activeGame(false)
+	if err != nil {
+		return err
+	}
+	return nativeGameRequestExit(game)
+}
+
+// The four timing and presentation settings, and the two frame commands.
+//
+// Each reports whether a live native game received it. XNA keeps these as
+// managed fields its own loop reads, so the projected getter is a field read
+// and the SETTER is what has to reach the loop; with no native game there is
+// nothing to reach, and the value is carried in at creation instead. That is
+// not a swallowed failure: it is the difference between "the runtime refused"
+// and "there is no runtime yet", and the caller is told which.
+func (r *Runtime) SetIsMouseVisible(value bool) (bool, error) {
+	return r.applyToLiveGame(func(game uint64) error { return nativeGameSetIsMouseVisible(game, value) })
+}
+
+func (r *Runtime) SetIsFixedTimeStep(value bool) (bool, error) {
+	return r.applyToLiveGame(func(game uint64) error { return nativeGameSetIsFixedTimeStep(game, value) })
+}
+
+func (r *Runtime) SetTargetElapsedTimeTicks(ticks int64) (bool, error) {
+	return r.applyToLiveGame(func(game uint64) error { return nativeGameSetTargetElapsedTimeTicks(game, ticks) })
+}
+
+func (r *Runtime) SetInactiveSleepTimeTicks(ticks int64) (bool, error) {
+	return r.applyToLiveGame(func(game uint64) error { return nativeGameSetInactiveSleepTimeTicks(game, ticks) })
+}
+
+func (r *Runtime) ResetElapsedTime() (bool, error) {
+	return r.applyToLiveGame(nativeGameResetElapsedTime)
+}
+
+func (r *Runtime) SuppressDraw() (bool, error) {
+	return r.applyToLiveGame(nativeGameSuppressDraw)
+}
+
+// applyToLiveGame runs one owner-thread operation against the live native game,
+// or reports that there is none.
+//
+// requireCallback is false: every one of these is documented for an "active
+// owned or callback-borrowed game handle", so a consumer may set a timing value
+// from a lifecycle callback and from the owner thread between frames alike. The
+// thread check is kept, because CNA answers CNA_RESULT_THREAD from any other
+// thread and reporting that is more useful than reproducing it.
+func (r *Runtime) applyToLiveGame(operation func(game uint64) error) (bool, error) {
+	game, err := r.activeGame(false)
+	if err != nil {
+		if errors.Is(err, ErrStaleGeneration) {
+			return false, nil
+		}
+		return false, err
+	}
+	return true, operation(game)
+}
+
+func (r *Runtime) Generation() uint64 {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.generation
+}
+
+// invokeCallback runs one native callback that has no value channel of its
+// own. Every lifecycle member and three of the four optional frame hooks are
+// this shape.
+func (r *Runtime) invokeCallback(kind uint32, game uint64, frame FrameTime) error {
+	_, err := r.dispatchCallback(kind, game, frame)
+	return err
+}
+
+// invokeBeginDrawCallback runs the begin_draw frame hook, whose Boolean is a
+// value channel and stays strictly separate from its error. A refusal is
+// (false, nil) and is not an error; a failure answers through the established
+// callback-failure path and leaves the runtime's own drawing decision alone.
+func (r *Runtime) invokeBeginDrawCallback(game uint64, frame FrameTime) (bool, error) {
+	return r.dispatchCallback(callbackBeginDraw, game, frame)
+}
+
+func (r *Runtime) dispatchCallback(kind uint32, game uint64, frame FrameTime) (shouldDraw bool, err error) {
+	// The default mirrors the canonical header: out_should_draw arrives as
+	// CNA_TRUE and a null handler draws, so every path that never reaches a
+	// begin_draw override leaves the frame drawing.
+	shouldDraw = true
+	tracef("callback %s: enter (Game %d)", callbackName(kind), game)
+	r.mu.Lock()
+	if !r.alive || r.game != 0 && r.game != game {
+		r.mu.Unlock()
+		err = ErrStaleGeneration
+		r.recordCallbackFailure(err)
+		return shouldDraw, err
+	}
+	if r.game == 0 {
+		r.game = game
+	}
+	r.inCallback = true
+	r.mu.Unlock()
+	defer func() {
+		r.mu.Lock()
+		r.inCallback = false
+		r.mu.Unlock()
+		if recovered := recover(); recovered != nil {
+			err = fmt.Errorf("panic in Game callback: %v\n%s", recovered, debug.Stack())
+		}
+		if err != nil {
+			r.recordCallbackFailure(err)
+		}
+		tracef("callback %s: return %v", callbackName(kind), err)
+	}()
+
+	switch kind {
+	case callbackInitialize:
+		return shouldDraw, r.callbacks.Initialize()
+	case callbackLoadContent:
+		return shouldDraw, r.callbacks.LoadContent()
+	case callbackUpdate:
+		return shouldDraw, r.callbacks.Update(frame)
+	case callbackDraw:
+		return shouldDraw, r.callbacks.Draw(frame)
+	case callbackUnloadContent:
+		return shouldDraw, r.callbacks.UnloadContent()
+	case callbackExiting:
+		return shouldDraw, nil
+	case callbackBeginRun:
+		return shouldDraw, r.callbacks.BeginRun()
+	case callbackEndRun:
+		return shouldDraw, r.callbacks.EndRun()
+	case callbackEndDraw:
+		return shouldDraw, r.callbacks.EndDraw()
+	case callbackBeginDraw:
+		return r.callbacks.BeginDraw()
+	default:
+		return shouldDraw, fmt.Errorf("unknown CNA Game callback kind %d", kind)
+	}
+}
+
+func callbackName(kind uint32) string {
+	switch kind {
+	case callbackInitialize:
+		return "Initialize"
+	case callbackLoadContent:
+		return "LoadContent"
+	case callbackUpdate:
+		return "Update"
+	case callbackDraw:
+		return "Draw"
+	case callbackUnloadContent:
+		return "UnloadContent"
+	case callbackExiting:
+		return "Exiting"
+	case callbackBeginRun:
+		return "BeginRun"
+	case callbackEndRun:
+		return "EndRun"
+	case callbackBeginDraw:
+		return "BeginDraw"
+	case callbackEndDraw:
+		return "EndDraw"
+	default:
+		return fmt.Sprintf("unknown(%d)", kind)
+	}
+}
+
+func tracef(format string, values ...any) {
+	if os.Getenv("CNA_GO_TRACE") != "1" {
+		return
+	}
+	fmt.Fprintf(os.Stderr, "[CNA-Go trace] "+format+"\n", values...)
+}
+
+func (r *Runtime) recordCallbackFailure(err error) {
+	if err == nil {
+		return
+	}
+	r.mu.Lock()
+	if r.callbackFailure == nil {
+		r.callbackFailure = err
+	}
+	r.mu.Unlock()
+}
+
+func (r *Runtime) activeGame(requireCallback bool) (uint64, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if !r.alive || r.game == 0 {
+		return 0, ErrStaleGeneration
+	}
+	if r.ownerThread != nativeOwnerThreadID() {
+		return 0, ErrWrongThread
+	}
+	if requireCallback && !r.inCallback {
+		return 0, ErrOutsideCallback
+	}
+	return r.game, nil
+}
+
+func (r *Runtime) deactivate() {
+	currentRuntime.CompareAndSwap(r, nil)
+	r.mu.Lock()
+	r.alive = false
+	r.inCallback = false
+	r.game = 0
+	r.ownerThread = 0
+	r.mu.Unlock()
+	ownerAssociations.Range(func(key, value any) bool {
+		binding, ok := value.(ownerBinding)
+		if ok && binding.runtime == r {
+			ownerAssociations.Delete(key)
+		}
+		return true
+	})
+}
+
+func CurrentRuntime() (*Runtime, bool) {
+	current := currentRuntime.Load()
+	return current, current != nil
+}
+
+// NativeVerification is compiler/tooling evidence about an explicitly named
+// CNA library. It is internal so public XNA packages cannot become ABI probes.
+type NativeVerification struct {
+	ABIVersion             uint32
+	BoundSymbols           []string
+	MissingSymbols         []string
+	SymbolIdentityVerified bool
+	SymbolIdentityDetail   string
+}
+
+// VerifyNativeLibrary loads one explicit artifact using the same admission
+// path as Runtime, measures its exports, and unloads it without creating a Game.
+func VerifyNativeLibrary(path string) (NativeVerification, error) {
+	if !filepath.IsAbs(path) {
+		return NativeVerification{}, errors.New("native verification path must be absolute")
+	}
+	processRunMu.Lock()
+	defer processRunMu.Unlock()
+	if err := nativeOpen(path); err != nil {
+		return NativeVerification{}, err
+	}
+	defer nativeClose()
+	result := NativeVerification{ABIVersion: nativeABIVersion(), BoundSymbols: nativeBoundSymbols()}
+	for _, symbol := range result.BoundSymbols {
+		if !nativeHasLoadedSymbol(symbol) {
+			result.MissingSymbols = append(result.MissingSymbols, symbol)
+		}
+	}
+	result.SymbolIdentityVerified, result.SymbolIdentityDetail = nativeSymbolIdentity()
+	return result, nil
+}
+
+func nativeLibraryPath() (string, error) {
+	if explicit := os.Getenv("CNA_NATIVE_LIBRARY"); explicit != "" {
+		if !filepath.IsAbs(explicit) {
+			return "", fmt.Errorf("%w: CNA_NATIVE_LIBRARY must name an absolute file", ErrNativeUnavailable)
+		}
+		info, err := os.Stat(explicit)
+		if err != nil || !info.Mode().IsRegular() {
+			return "", fmt.Errorf("%w: CNA_NATIVE_LIBRARY does not name a regular file: %s", ErrNativeUnavailable, explicit)
+		}
+		return explicit, nil
+	}
+	return "libcna_c_api.so", nil
+}
+
+func (r *Runtime) CreateGraphicsDeviceManager() (*Resource, error) {
+	game, err := r.activeGame(true)
+	if err != nil {
+		return nil, err
+	}
+	handle, err := nativeGraphicsDeviceManagerCreate(game)
+	if err != nil {
+		return nil, err
+	}
+	return r.registerResource(handle, resourceGraphicsDeviceManager, nil), nil
+}
+
+func (r *Runtime) GameDevice() (*Device, error) {
+	if _, err := r.activeGame(true); err != nil {
+		return nil, err
+	}
+	return &Device{runtime: r, generation: r.Generation(), ownership: borrowed}, nil
+}
+
+// The five canonical GraphicsDeviceManager signal identities. This family is
+// the profile's THIRD independent numbering, and unlike the other two its
+// device events do not start at zero: Disposed is 0.
+const (
+	ManagerEventDisposed        uint32 = 0
+	ManagerEventDeviceCreated   uint32 = 1
+	ManagerEventDeviceDisposing uint32 = 2
+	ManagerEventDeviceReset     uint32 = 3
+	ManagerEventDeviceResetting uint32 = 4
+
+	managerEventCount = 5
+)
+
+// ManagerEventCount is the canonical manager-signal identity count.
+const ManagerEventCount = managerEventCount
+
+// ManagerSignals owns one manager's five native subscriptions and the
+// cgo.Handle they carry as context.
+//
+// The context is per MANAGER rather than per Runtime, unlike the game and
+// window families: those two belong to the game itself and there is one, while
+// a manager is an object a consumer creates and a signal has to reach the one
+// that was subscribed.
+// The six canonical graphics-device signals. Four are CNA identities and two are
+// separate CNA routes that carry a payload, so CNA-Go indexes all six in one
+// array and bridge.c static-asserts that the four mirror CNA's numbering and
+// that the two do not alias it.
+const (
+	DeviceEventDisposing uint32 = iota
+	DeviceEventDeviceLost
+	DeviceEventDeviceReset
+	DeviceEventDeviceResetting
+	DeviceEventResourceCreated
+	DeviceEventResourceDestroyed
+	deviceEventCount = 6
+)
+
+// DeviceEventCount is the exported count, for qualification tooling.
+const DeviceEventCount = deviceEventCount
+
+// DeviceSignalPayload is what the two payload-carrying device events report.
+//
+// Neither carries the OBJECT. CNA states why for each: ResourceCreated fires
+// from the graphics-resource base constructor, where the concrete type does not
+// exist yet, and the destroyed resource's tag is caller-owned native state. So
+// the C event reports PRESENCE, and the name -- which is the one value that
+// survives -- is copied out of callback-scoped bytes before they expire.
+type DeviceSignalPayload struct {
+	HasResource bool
+	HasTag      bool
+	Name        string
+}
+
+// DeviceSignals is the manager family's shape over the device's six events.
+type DeviceSignals struct {
+	mu            sync.Mutex
+	runtime       *Runtime
+	handle        cgo.Handle
+	registrations [deviceEventCount]uint64
+	sink          func(event uint32, payload DeviceSignalPayload) error
+	deliveries    [deviceEventCount]int
+	released      bool
+}
+
+// SubscribeDeviceEvents installs one native subscription per canonical device
+// event, on the owner thread, against the callback-scoped device handle.
+func SubscribeDeviceEvents(d *Device, sink func(event uint32, payload DeviceSignalPayload) error) (*DeviceSignals, error) {
+	if sink == nil {
+		return nil, errors.New("device signal sink must not be nil")
+	}
+	handle, err := d.nativeHandle()
+	if err != nil {
+		return nil, err
+	}
+	signals := &DeviceSignals{runtime: d.runtime, sink: sink}
+	signals.handle = cgo.NewHandle(signals)
+	registrations, subscribeErr := nativeDeviceSubscribeEvents(handle, uintptr(signals.handle))
+	if subscribeErr != nil {
+		signals.handle.Delete()
+		return nil, subscribeErr
+	}
+	signals.registrations = registrations
+	return signals, nil
+}
+
+// Release releases every installed registration exactly once, for the reason
+// ManagerSignals.Release is idempotent: a second release would hand CNA a stale
+// registration and CNA answers that with CNA_RESULT_INVALID_HANDLE.
+func (s *DeviceSignals) Release() error {
+	if s == nil {
+		return nil
+	}
+	s.mu.Lock()
+	if s.released {
+		s.mu.Unlock()
+		return nil
+	}
+	s.released = true
+	registrations := s.registrations
+	s.registrations = [deviceEventCount]uint64{}
+	handle := s.handle
+	s.handle = 0
+	s.mu.Unlock()
+	err := nativeDeviceUnsubscribeEvents(&registrations)
+	// A zero handle is one SubscribeDeviceEvents never created, which is the
+	// state a signals value that was built but never subscribed is in. Deleting
+	// it would panic with "misuse of an invalid Handle", so the release is
+	// guarded rather than assumed.
+	if handle != 0 {
+		handle.Delete()
+	}
+	return err
+}
+
+// Deliveries reports how many times each canonical device signal arrived, for
+// native qualification only.
+func (s *DeviceSignals) Deliveries() [deviceEventCount]int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.deliveries
+}
+
+func (s *DeviceSignals) deliver(event uint32, payload DeviceSignalPayload) {
+	s.mu.Lock()
+	sink := s.sink
+	released := s.released
+	if int(event) < deviceEventCount {
+		s.deliveries[event]++
+	}
+	s.mu.Unlock()
+	if released || sink == nil {
+		return
+	}
+	var err error
+	func() {
+		defer func() {
+			if recovered := recover(); recovered != nil {
+				err = fmt.Errorf("panic in GraphicsDevice event handler: %v\n%s", recovered, debug.Stack())
+			}
+		}()
+		err = sink(event, payload)
+	}()
+	if err != nil && s.runtime != nil {
+		s.runtime.recordCallbackFailure(err)
+	}
+}
+
+// DisposeDevice is cna_graphics_device_dispose: the reference's own
+// GraphicsDevice::Dispose, which really disposes the device the Game owns. It is
+// reached only when a consumer asks, which is what the reference does too; the
+// facade's ownership stays BORROWED and CNA-Go never calls this on its own.
+func (d *Device) DisposeDevice() error {
+	handle, err := d.nativeHandle()
+	if err != nil {
+		return err
+	}
+	return nativeGraphicsDeviceDispose(handle)
+}
+
+type ManagerSignals struct {
+	mu            sync.Mutex
+	runtime       *Runtime
+	handle        cgo.Handle
+	registrations [managerEventCount]uint64
+	sink          func(event uint32) error
+	deliveries    [managerEventCount]int
+	released      bool
+}
+
+// SubscribeManagerEvents installs one native subscription per canonical manager
+// event, on the owner thread, the moment the native manager exists.
+func SubscribeManagerEvents(manager *Resource, sink func(event uint32) error) (*ManagerSignals, error) {
+	if sink == nil {
+		return nil, errors.New("manager signal sink must not be nil")
+	}
+	handle, err := managerHandle(manager)
+	if err != nil {
+		return nil, err
+	}
+	signals := &ManagerSignals{runtime: manager.runtime, sink: sink}
+	signals.handle = cgo.NewHandle(signals)
+	registrations, subscribeErr := nativeManagerSubscribeEvents(handle, uintptr(signals.handle))
+	if subscribeErr != nil {
+		signals.handle.Delete()
+		return nil, subscribeErr
+	}
+	signals.registrations = registrations
+	return signals, nil
+}
+
+// Release releases every installed registration exactly once and deletes the
+// context handle. It is idempotent, because a second release would hand CNA a
+// stale registration and CNA answers that with CNA_RESULT_INVALID_HANDLE.
+func (s *ManagerSignals) Release() error {
+	if s == nil {
+		return nil
+	}
+	s.mu.Lock()
+	if s.released {
+		s.mu.Unlock()
+		return nil
+	}
+	s.released = true
+	registrations := s.registrations
+	s.registrations = [managerEventCount]uint64{}
+	handle := s.handle
+	s.handle = 0
+	s.mu.Unlock()
+	err := nativeManagerUnsubscribeEvents(&registrations)
+	handle.Delete()
+	return err
+}
+
+// Deliveries reports how many times each canonical manager signal arrived, for
+// native qualification only.
+func (s *ManagerSignals) Deliveries() [managerEventCount]int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.deliveries
+}
+
+// deliver routes one signal to the sink with the containment every trampoline
+// applies: a Go panic never crosses the C frame, and a handler failure is
+// recorded on the runtime rather than dropped.
+func (s *ManagerSignals) deliver(event uint32) {
+	s.mu.Lock()
+	sink := s.sink
+	released := s.released
+	if int(event) < managerEventCount {
+		s.deliveries[event]++
+	}
+	s.mu.Unlock()
+	if released || sink == nil {
+		return
+	}
+	var err error
+	func() {
+		defer func() {
+			if recovered := recover(); recovered != nil {
+				err = fmt.Errorf("panic in GraphicsDeviceManager event handler: %v\n%s", recovered, debug.Stack())
+			}
+		}()
+		err = sink(event)
+	}()
+	if err != nil && s.runtime != nil {
+		s.runtime.recordCallbackFailure(err)
+	}
+}
+
+// ManagerCreateDevice, ManagerBeginDraw and ManagerEndDraw are the three
+// IGraphicsDeviceManager operations. In the reference all three are PRIVATE
+// explicit interface implementations, so they are not part of the type's
+// declared public member set -- they are interface witnesses.
+func ManagerCreateDevice(manager *Resource) error {
+	handle, err := managerHandle(manager)
+	if err != nil {
+		return err
+	}
+	return nativeManagerCreateDevice(handle)
+}
+
+func ManagerBeginDraw(manager *Resource) (bool, error) {
+	handle, err := managerHandle(manager)
+	if err != nil {
+		return false, err
+	}
+	return nativeManagerBeginDraw(handle)
+}
+
+func ManagerEndDraw(manager *Resource) error {
+	handle, err := managerHandle(manager)
+	if err != nil {
+		return err
+	}
+	return nativeManagerEndDraw(handle)
+}
+
+// managerHandle resolves a live GraphicsDeviceManager handle on the owner
+// thread. Unlike DeviceForManager it does NOT require an active lifecycle
+// callback: the reference's setters are managed field stores a consumer makes
+// from its own constructor, so requiring a callback would refuse the position
+// every real XNA program sets them from.
+func managerHandle(manager *Resource) (uint64, error) {
+	if manager == nil {
+		return 0, ErrDisposed
+	}
+	manager.mu.Lock()
+	handle := manager.handle
+	runtime := manager.runtime
+	generation := manager.generation
+	manager.mu.Unlock()
+	if handle == 0 || runtime == nil {
+		return 0, ErrDisposed
+	}
+	if _, err := runtime.activeGame(false); err != nil {
+		return 0, err
+	}
+	if err := runtime.validateGeneration(generation, false); err != nil {
+		return 0, err
+	}
+	return handle, nil
+}
+
+// The GraphicsDeviceManager configuration setters, one per projected property.
+// Each is the push half of the settled managed-store-plus-native-push split:
+// the framework package keeps the value the reference's own field keeps, and
+// these carry it to the manager CNA applies at ChangeDevice time.
+func ManagerSetGraphicsProfile(manager *Resource, profile uint32) error {
+	handle, err := managerHandle(manager)
+	if err != nil {
+		return err
+	}
+	return nativeManagerSetGraphicsProfile(handle, profile)
+}
+
+func ManagerSetIsFullScreen(manager *Resource, value bool) error {
+	handle, err := managerHandle(manager)
+	if err != nil {
+		return err
+	}
+	return nativeManagerSetIsFullScreen(handle, value)
+}
+
+func ManagerSetPreferMultiSampling(manager *Resource, value bool) error {
+	handle, err := managerHandle(manager)
+	if err != nil {
+		return err
+	}
+	return nativeManagerSetPreferMultiSampling(handle, value)
+}
+
+func ManagerSetPreferredBackBufferFormat(manager *Resource, format uint32) error {
+	handle, err := managerHandle(manager)
+	if err != nil {
+		return err
+	}
+	return nativeManagerSetPreferredBackBufferFormat(handle, format)
+}
+
+func ManagerSetPreferredBackBufferWidth(manager *Resource, width int32) error {
+	handle, err := managerHandle(manager)
+	if err != nil {
+		return err
+	}
+	return nativeManagerSetPreferredBackBufferWidth(handle, width)
+}
+
+func ManagerSetPreferredBackBufferHeight(manager *Resource, height int32) error {
+	handle, err := managerHandle(manager)
+	if err != nil {
+		return err
+	}
+	return nativeManagerSetPreferredBackBufferHeight(handle, height)
+}
+
+func ManagerSetPreferredDepthStencilFormat(manager *Resource, format uint32) error {
+	handle, err := managerHandle(manager)
+	if err != nil {
+		return err
+	}
+	return nativeManagerSetPreferredDepthStencilFormat(handle, format)
+}
+
+func ManagerSetSynchronizeWithVerticalRetrace(manager *Resource, value bool) error {
+	handle, err := managerHandle(manager)
+	if err != nil {
+		return err
+	}
+	return nativeManagerSetSynchronizeWithVerticalRetrace(handle, value)
+}
+
+func ManagerSetSupportedOrientations(manager *Resource, orientations uint32) error {
+	handle, err := managerHandle(manager)
+	if err != nil {
+		return err
+	}
+	return nativeManagerSetSupportedOrientations(handle, orientations)
+}
+
+// ManagerApplyChanges is GraphicsDeviceManager::ApplyChanges. CNA implements
+// the reference's own guard -- a device that exists and is not dirty is left
+// alone -- so CNA-Go does not re-implement it over state it does not hold.
+func ManagerApplyChanges(manager *Resource) error {
+	handle, err := managerHandle(manager)
+	if err != nil {
+		return err
+	}
+	return nativeManagerApplyChanges(handle)
+}
+
+func DeviceForManager(manager *Resource) (*Device, error) {
+	if manager == nil {
+		return nil, ErrDisposed
+	}
+	manager.mu.Lock()
+	defer manager.mu.Unlock()
+	if manager.handle == 0 {
+		return nil, ErrDisposed
+	}
+	if err := manager.runtime.validateGeneration(manager.generation, true); err != nil {
+		return nil, err
+	}
+	return &Device{runtime: manager.runtime, manager: manager, generation: manager.generation, ownership: borrowed}, nil
+}
+
+// Live reports whether the facade still names the device generation it was made
+// for. It is the check a member that answers from MANAGED state still needs: a
+// CNA-Go GraphicsDevice facade can outlive the native device, which the
+// reference's device object cannot, so a cached state object could otherwise be
+// handed back for a device that is gone.
+func (d *Device) Live() error {
+	if d == nil || d.runtime == nil {
+		return ErrDisposed
+	}
+	if _, err := d.runtime.activeGame(true); err != nil {
+		return err
+	}
+	return d.runtime.validateGeneration(d.generation, true)
+}
+
+func (d *Device) nativeHandle() (uint64, error) {
+	if d == nil || d.runtime == nil {
+		return 0, ErrDisposed
+	}
+	// A caller-created device holds its own handle and outlives any callback,
+	// so it neither needs an active game nor a generation check: nothing about
+	// a Game's lifetime can invalidate it, and cna_graphics_device_destroy is
+	// the only thing that can.
+	if d.owned != 0 {
+		return d.owned, nil
+	}
+	// A caller-created device that has been destroyed is DISPOSED, not
+	// borrowed. Falling through here would answer the running game's handle,
+	// which is a different device that is very much alive.
+	if d.wasOwned {
+		return 0, ErrDisposed
+	}
+	game, err := d.runtime.activeGame(true)
+	if err != nil {
+		return 0, err
+	}
+	if err := d.runtime.validateGeneration(d.generation, true); err != nil {
+		return 0, err
+	}
+	if d.manager == nil {
+		return nativeGameGetGraphicsDevice(game)
+	}
+	d.manager.mu.Lock()
+	handle := d.manager.handle
+	d.manager.mu.Unlock()
+	if handle == 0 {
+		return 0, ErrDisposed
+	}
+	return nativeGraphicsDeviceManagerGetDevice(handle)
+}
+
+func (d *Device) Viewport() (Viewport, error) {
+	handle, err := d.nativeHandle()
+	if err != nil {
+		return Viewport{}, err
+	}
+	return nativeGraphicsDeviceViewport(handle)
+}
+
+// The graphics device's render-state accessors.
+//
+// Every one of them asks CNA rather than reading a managed cache, and that is a
+// measured decision rather than a shortcut. The reference caches these values
+// in fields its own constructor initialises when it creates the D3D device;
+// CNA-Go does not create the device, so a managed cache here would start at
+// Go's zero values and disagree with the live device until something wrote to
+// it. Asking CNA is one source of truth, and it is the same source the setters
+// push to.
+//
+// The consequence is recorded rather than hidden: five of the reference's
+// getters are single `ldfld`s and carry no error, and these carry one.
+
+func (d *Device) BlendFactor() (uint8, uint8, uint8, uint8, error) {
+	handle, err := d.nativeHandle()
+	if err != nil {
+		return 0, 0, 0, 0, err
+	}
+	return nativeGraphicsDeviceBlendFactor(handle)
+}
+
+func (d *Device) SetBlendFactor(r, g, b, a uint8) error {
+	handle, err := d.nativeHandle()
+	if err != nil {
+		return err
+	}
+	return nativeGraphicsDeviceSetBlendFactor(handle, r, g, b, a)
+}
+
+func (d *Device) MultiSampleMask() (int32, error) {
+	handle, err := d.nativeHandle()
+	if err != nil {
+		return 0, err
+	}
+	return nativeGraphicsDeviceMultiSampleMask(handle)
+}
+
+func (d *Device) SetMultiSampleMask(mask int32) error {
+	handle, err := d.nativeHandle()
+	if err != nil {
+		return err
+	}
+	return nativeGraphicsDeviceSetMultiSampleMask(handle, mask)
+}
+
+func (d *Device) ReferenceStencil() (int32, error) {
+	handle, err := d.nativeHandle()
+	if err != nil {
+		return 0, err
+	}
+	return nativeGraphicsDeviceReferenceStencil(handle)
+}
+
+func (d *Device) SetReferenceStencil(stencil int32) error {
+	handle, err := d.nativeHandle()
+	if err != nil {
+		return err
+	}
+	return nativeGraphicsDeviceSetReferenceStencil(handle, stencil)
+}
+
+func (d *Device) ScissorRectangle() (ScissorRectangle, error) {
+	handle, err := d.nativeHandle()
+	if err != nil {
+		return ScissorRectangle{}, err
+	}
+	return nativeGraphicsDeviceScissorRectangle(handle)
+}
+
+func (d *Device) SetScissorRectangle(rectangle ScissorRectangle) error {
+	handle, err := d.nativeHandle()
+	if err != nil {
+		return err
+	}
+	return nativeGraphicsDeviceSetScissorRectangle(handle, rectangle)
+}
+
+func (d *Device) SetViewport(viewport Viewport) error {
+	handle, err := d.nativeHandle()
+	if err != nil {
+		return err
+	}
+	return nativeGraphicsDeviceSetViewport(handle, viewport)
+}
+
+func (d *Device) GraphicsProfile() (uint32, error) {
+	handle, err := d.nativeHandle()
+	if err != nil {
+		return 0, err
+	}
+	return nativeGraphicsDeviceGraphicsProfile(handle)
+}
+
+func (d *Device) Status() (uint32, error) {
+	handle, err := d.nativeHandle()
+	if err != nil {
+		return 0, err
+	}
+	return nativeGraphicsDeviceStatus(handle)
+}
+
+func (d *Device) IsDisposed() (bool, error) {
+	handle, err := d.nativeHandle()
+	if err != nil {
+		return false, err
+	}
+	return nativeGraphicsDeviceIsDisposed(handle)
+}
+
+// ClearWithOptions is cna_graphics_device_clear_options, which is a different
+// route from Clear: it selects buffers with a mask and carries a depth and a
+// stencil, where Clear takes four floats and clears what CNA decides.
+func (d *Device) ClearWithOptions(options uint32, r, g, b, a uint8, depth float32, stencil int32) error {
+	handle, err := d.nativeHandle()
+	if err != nil {
+		return err
+	}
+	return nativeGraphicsDeviceClearOptions(handle, options, r, g, b, a, depth, stencil)
+}
+
+func (d *Device) DisplayMode() (DisplayMode, error) {
+	handle, err := d.nativeHandle()
+	if err != nil {
+		return DisplayMode{}, err
+	}
+	return nativeGraphicsDeviceDisplayMode(handle)
+}
+
+func (d *Device) Present() error {
+	handle, err := d.nativeHandle()
+	if err != nil {
+		return err
+	}
+	return nativeGraphicsDevicePresent(handle)
+}
+
+func (d *Device) Clear(red, green, blue, alpha float32) error {
+	handle, err := d.nativeHandle()
+	if err != nil {
+		return err
+	}
+	return nativeGraphicsDeviceClear(handle, red, green, blue, alpha)
+}
+
+func (d *Device) CreateTextureFromEncoded(data []byte) (*Resource, TextureInfo, error) {
+	if len(data) == 0 {
+		return nil, TextureInfo{}, errors.New("encoded texture data is empty")
+	}
+	handle, err := d.nativeHandle()
+	if err != nil {
+		return nil, TextureInfo{}, err
+	}
+	texture, err := nativeTextureCreateEncoded(handle, data)
+	if err != nil {
+		return nil, TextureInfo{}, err
+	}
+	resource := d.runtime.registerResource(texture, resourceTexture2D, d.manager)
+	info, infoErr := nativeTextureInfo(texture)
+	if infoErr != nil {
+		_ = resource.Dispose()
+		return nil, TextureInfo{}, infoErr
+	}
+	return resource, info, nil
+}
+
+// CreateTexture is cna_texture2d_create: an EMPTY texture of a stated size,
+// mip configuration and surface format, as opposed to CreateTextureFromEncoded,
+// which decodes bytes. It registers and reads back exactly as that one does,
+// including disposing the native texture if the read-back fails.
+func (d *Device) CreateTexture(width, height uint32, mipMap bool, format uint32) (*Resource, TextureInfo, error) {
+	handle, err := d.nativeHandle()
+	if err != nil {
+		return nil, TextureInfo{}, err
+	}
+	texture, err := nativeTextureCreate(handle, width, height, mipMap, format)
+	if err != nil {
+		return nil, TextureInfo{}, err
+	}
+	resource := d.runtime.registerResource(texture, resourceTexture2D, d.manager)
+	info, infoErr := nativeTextureInfo(texture)
+	if infoErr != nil {
+		_ = resource.Dispose()
+		return nil, TextureInfo{}, infoErr
+	}
+	return resource, info, nil
+}
+
+// CreateRenderTarget2D creates an owned game-child render target.
+//
+// CNA permits creation on a backend with no real off-screen storage, so the
+// returned info's RendererAvailable is part of the answer rather than an error:
+// creation succeeded and binding will not.
+func (d *Device) CreateRenderTarget2D(width, height uint32, mipMap bool, format, depthFormat uint32, multiSampleCount int32, usage uint32) (*Resource, RenderTargetInfo, error) {
+	handle, err := d.nativeHandle()
+	if err != nil {
+		return nil, RenderTargetInfo{}, err
+	}
+	target, err := nativeRenderTarget2DCreate(handle, width, height, mipMap, format, depthFormat, multiSampleCount, usage)
+	if err != nil {
+		return nil, RenderTargetInfo{}, err
+	}
+	resource := d.runtime.registerResource(target, resourceRenderTarget2D, d.manager)
+	info, infoErr := nativeRenderTargetInfo(target)
+	if infoErr != nil {
+		_ = resource.Dispose()
+		return nil, RenderTargetInfo{}, infoErr
+	}
+	return resource, info, nil
+}
+
+// RenderTargetInfo re-reads the target's applied description. IsContentLost is
+// the one field that changes over a target's life, which is why the projection
+// re-reads rather than caching the whole structure.
+func (resource *Resource) RenderTargetInfo() (RenderTargetInfo, error) {
+	handle, err := resource.liveHandle(resourceRenderTarget2D)
+	if err != nil {
+		return RenderTargetInfo{}, err
+	}
+	return nativeRenderTargetInfo(handle)
+}
+
+// SetRenderTarget2D binds one target, or restores the back buffer when the
+// target is nil. It is the device's operation, not the target's, exactly as
+// GraphicsDevice::SetRenderTarget is.
+func (d *Device) SetRenderTarget2D(target *Resource) error {
+	handle, err := d.nativeHandle()
+	if err != nil {
+		return err
+	}
+	var targetHandle uint64
+	if target != nil {
+		targetHandle, err = target.liveHandle(resourceRenderTarget2D)
+		if err != nil {
+			return err
+		}
+	}
+	return nativeGraphicsDeviceSetRenderTarget2D(handle, targetHandle)
+}
+
+// TextureImageFormat is CNA_TextureImageFormat: PNG is 0 and JPEG is 1.
+//
+// XNA numbers its own SharedConstants.XnaImageFormat differently -- SaveAsJpeg
+// passes 0 and SaveAsPng passes 2 -- so this is one of the few identities that
+// does NOT cross unchanged, and the mapping is made once, in the Graphics
+// package, where both names are visible.
+const (
+	TextureImageFormatPNG  uint32 = 0
+	TextureImageFormatJPEG uint32 = 1
+)
+
+// TextureTransfer is CNA_Texture2DTransfer: which mip level, which optional
+// rectangle, and which window of the caller's array one transfer covers.
+type TextureTransfer struct {
+	Level               int32
+	HasRectangle        bool
+	X, Y, Width, Height int32
+	StartIndex          uint64
+	ElementCount        uint64
+}
+
+// The eighteen CNA_TEXTURE_DATA_* element representations, in CNA's own order.
+// They are the closed set a texture transfer's element type may be, and the
+// Graphics package maps one Go type onto each.
+const (
+	TextureDataColor           uint32 = 0
+	TextureDataBgr565          uint32 = 1
+	TextureDataBgra5551        uint32 = 2
+	TextureDataBgra4444        uint32 = 3
+	TextureDataByte            uint32 = 4
+	TextureDataNormalizedByte2 uint32 = 5
+	TextureDataNormalizedByte4 uint32 = 6
+	TextureDataRgba1010102     uint32 = 7
+	TextureDataRg32            uint32 = 8
+	TextureDataRgba64          uint32 = 9
+	TextureDataAlpha8          uint32 = 10
+	TextureDataSingle          uint32 = 11
+	TextureDataVector2         uint32 = 12
+	TextureDataVector4         uint32 = 13
+	TextureDataHalfSingle      uint32 = 14
+	TextureDataHalfVector2     uint32 = 15
+	TextureDataHalfVector4     uint32 = 16
+	TextureDataUShort          uint32 = 17
+)
+
+// SetTextureData and GetTextureData are the two typed transfers.
+//
+// Both take an unsafe.Pointer to the caller's array and its element count,
+// because the element TYPE is decided by the caller and CNA identifies it by a
+// CNA_TEXTURE_DATA_* identity rather than by a size. The Graphics package is
+// where a Go type is turned into that identity, and it is also where the
+// element size is checked against what the identity means -- interop copies
+// bytes and validates nothing about their shape.
+func (resource *Resource) SetTextureData(dataType uint32, transfer TextureTransfer, data unsafe.Pointer, capacity uint64) error {
+	handle, err := resource.liveTextureHandle()
+	if err != nil {
+		return err
+	}
+	return nativeTextureSetData(handle, dataType, transfer, data, capacity)
+}
+
+func (resource *Resource) GetTextureData(dataType uint32, transfer TextureTransfer, destination unsafe.Pointer, capacity uint64) (uint64, error) {
+	handle, err := resource.liveTextureHandle()
+	if err != nil {
+		return 0, err
+	}
+	return nativeTextureGetData(handle, dataType, transfer, destination, capacity)
+}
+
+// CreateTextureFromEncodedSized decodes bytes into a texture of a REQUESTED
+// size, which is cna_texture2d_create_from_encoded_memory with a decode info
+// where CreateTextureFromEncoded passes null.
+//
+// `zoom` is CNA's own flag and means what XNA's means: cover-and-crop when
+// true, fit while preserving the aspect ratio when false.
+func (d *Device) CreateTextureFromEncodedSized(data []byte, width, height uint32, zoom bool) (*Resource, TextureInfo, error) {
+	if len(data) == 0 {
+		return nil, TextureInfo{}, errors.New("encoded texture data is empty")
+	}
+	handle, err := d.nativeHandle()
+	if err != nil {
+		return nil, TextureInfo{}, err
+	}
+	texture, err := nativeTextureCreateEncodedSized(handle, data, width, height, zoom)
+	if err != nil {
+		return nil, TextureInfo{}, err
+	}
+	resource := d.runtime.registerResource(texture, resourceTexture2D, d.manager)
+	info, infoErr := nativeTextureInfo(texture)
+	if infoErr != nil {
+		_ = resource.Dispose()
+		return nil, TextureInfo{}, infoErr
+	}
+	return resource, info, nil
+}
+
+// EncodeTexture asks CNA for the encoded byte count and then for the bytes, in
+// that order, because CNA reports the size of an encode it has not performed
+// yet and a caller cannot size the buffer any other way.
+//
+// The two calls are a measurement and then a copy, and the copy's own reported
+// count is what bounds the returned slice: a second encode could in principle
+// produce fewer bytes than the first measured, and trusting the first count
+// would return trailing zeros as image data.
+func (resource *Resource) EncodeTexture(imageFormat, width, height uint32) ([]byte, error) {
+	handle, err := resource.liveTextureHandle()
+	if err != nil {
+		return nil, err
+	}
+	count, err := nativeTextureEncodedByteCount(handle, imageFormat, width, height)
+	if err != nil {
+		return nil, err
+	}
+	if count == 0 {
+		return nil, nil
+	}
+	buffer := make([]byte, count)
+	written, err := nativeTextureCopyEncoded(handle, imageFormat, width, height, buffer)
+	if err != nil {
+		return nil, err
+	}
+	if written > count {
+		return nil, fmt.Errorf("cna_texture2d_copy_encoded wrote %d bytes into a %d byte buffer", written, count)
+	}
+	return buffer[:written], nil
+}
+
+func (d *Device) CreateSpriteBatch() (*Resource, error) {
+	handle, err := d.nativeHandle()
+	if err != nil {
+		return nil, err
+	}
+	batch, err := nativeSpriteBatchCreate(handle)
+	if err != nil {
+		return nil, err
+	}
+	return d.runtime.registerResource(batch, resourceSpriteBatch, d.manager), nil
+}
+
+// The GameWindow routes. Two shapes, and which one a member gets is read from
+// the reference implementor rather than chosen:
+//
+//   - windowValue reports (value, live, error). WindowsGameWindow guards
+//     get_Handle, get_AllowUserResizing, set_AllowUserResizing, SetTitle and
+//     get_ScreenDeviceName with `if (mainForm == null)`, so with no window the
+//     reference returns a documented fallback instead of failing. `live` is
+//     false there and the caller supplies the reference's own fallback.
+//   - windowRequired returns an error when there is no live native game.
+//     get_ClientBounds, BeginScreenDeviceChange and EndScreenDeviceChange have
+//     NO null guard in the reference: they dereference mainForm directly and
+//     throw NullReferenceException. Reporting a failure is that behaviour.
+func (r *Runtime) windowGame(required bool) (uint64, bool, error) {
+	game, err := r.activeGame(false)
+	if err != nil {
+		if errors.Is(err, ErrStaleGeneration) && !required {
+			return 0, false, nil
+		}
+		return 0, false, err
+	}
+	return game, true, nil
+}
+
+// WindowHandle is GameWindow::get_Handle. With no window the reference answers
+// IntPtr.Zero, so `live` false means exactly that.
+func (r *Runtime) WindowHandle() (uintptr, bool, error) {
+	game, live, err := r.windowGame(false)
+	if err != nil || !live {
+		return 0, live, err
+	}
+	value, callErr := nativeGameWindowNativeHandle(game)
+	return uintptr(value), true, callErr
+}
+
+func (r *Runtime) WindowAllowUserResizing() (bool, bool, error) {
+	game, live, err := r.windowGame(false)
+	if err != nil || !live {
+		return false, live, err
+	}
+	value, callErr := nativeGameWindowAllowUserResizing(game)
+	return value, true, callErr
+}
+
+func (r *Runtime) SetWindowAllowUserResizing(value bool) (bool, error) {
+	game, live, err := r.windowGame(false)
+	if err != nil || !live {
+		return live, err
+	}
+	return true, nativeGameWindowSetAllowUserResizing(game, value)
+}
+
+func (r *Runtime) WindowScreenDeviceName() (string, bool, error) {
+	game, live, err := r.windowGame(false)
+	if err != nil || !live {
+		return "", live, err
+	}
+	value, callErr := nativeGameWindowScreenDeviceName(game)
+	return value, true, callErr
+}
+
+// SetWindowTitle is GameWindow::SetTitle, whose Windows implementor guards on
+// the form and otherwise does nothing.
+func (r *Runtime) SetWindowTitle(title string) (bool, error) {
+	game, live, err := r.windowGame(false)
+	if err != nil || !live {
+		return live, err
+	}
+	return true, nativeGameSetWindowTitle(game, title)
+}
+
+// WindowClientBounds is GameWindow::get_ClientBounds, which the reference
+// implements WITHOUT a null guard: with no window it throws
+// NullReferenceException, and here it reports a failure.
+func (r *Runtime) WindowClientBounds() (int32, int32, int32, int32, error) {
+	game, _, err := r.windowGame(true)
+	if err != nil {
+		return 0, 0, 0, 0, err
+	}
+	return nativeGameWindowClientBounds(game)
+}
+
+func (r *Runtime) BeginScreenDeviceChange(willBeFullScreen bool) error {
+	game, _, err := r.windowGame(true)
+	if err != nil {
+		return err
+	}
+	return nativeGameWindowBeginScreenDeviceChange(game, willBeFullScreen)
+}
+
+func (r *Runtime) EndScreenDeviceChange(screenDeviceName string, clientWidth, clientHeight int32) error {
+	game, _, err := r.windowGame(true)
+	if err != nil {
+		return err
+	}
+	return nativeGameWindowEndScreenDeviceChange(game, screenDeviceName, clientWidth, clientHeight)
+}
+
+func (r *Runtime) KeyboardState() ([4]uint64, error) {
+	game, err := r.activeGame(true)
+	if err != nil {
+		return [4]uint64{}, err
+	}
+	return nativeKeyboardState(game)
+}
+
+// ---------------------------------------------------------------------------
+// Foundation 89 -- the Input family's static readers.
+//
+// Every one takes activeGame(TRUE): CNA's input routes read the window's own
+// event state, which only exists inside a lifecycle callback. That is the same
+// requirement KeyboardState already carries and a different one from the audio
+// family's, whose routes take a game handle only for thread affinity.
+// ---------------------------------------------------------------------------
+
+// GamePadState is cna_gamepad_get_state, or its dead-zone-carrying sibling when
+// the caller names one.
+func (r *Runtime) GamePadState(playerIndex, deadZone uint32, hasDeadZone bool) (GamePadStateValues, error) {
+	game, err := r.activeGame(true)
+	if err != nil {
+		return GamePadStateValues{}, err
+	}
+	return nativeGamePadState(game, playerIndex, deadZone, hasDeadZone)
+}
+
+// GamePadCapabilities is cna_gamepad_get_capabilities, reduced to the type and
+// the twenty-five flags XNA declares.
+func (r *Runtime) GamePadCapabilities(playerIndex uint32) (uint32, [GamePadCapabilitiesFlagCount]byte, error) {
+	game, err := r.activeGame(true)
+	if err != nil {
+		return 0, [GamePadCapabilitiesFlagCount]byte{}, err
+	}
+	return nativeGamePadCapabilities(game, playerIndex)
+}
+
+// GamePadSetVibration is cna_gamepad_set_vibration, which reports whether the
+// vibration was APPLIED -- the same boolean XNA's SetVibration returns.
+func (r *Runtime) GamePadSetVibration(playerIndex uint32, left, right float32) (bool, error) {
+	game, err := r.activeGame(true)
+	if err != nil {
+		return false, err
+	}
+	return nativeGamePadSetVibration(game, playerIndex, left, right)
+}
+
+// MouseState is cna_mouse_get_state.
+func (r *Runtime) MouseState() (MouseStateValues, error) {
+	game, err := r.activeGame(true)
+	if err != nil {
+		return MouseStateValues{}, err
+	}
+	return nativeMouseState(game)
+}
+
+func (r *Runtime) MouseSetPosition(x, y int32) error {
+	game, err := r.activeGame(true)
+	if err != nil {
+		return err
+	}
+	return nativeMouseSetPosition(game, x, y)
+}
+
+func (r *Runtime) MouseWindowHandle() (uint64, error) {
+	game, err := r.activeGame(true)
+	if err != nil {
+		return 0, err
+	}
+	return nativeMouseWindowHandle(game)
+}
+
+func (r *Runtime) MouseSetWindowHandle(window uint64) error {
+	game, err := r.activeGame(true)
+	if err != nil {
+		return err
+	}
+	return nativeMouseSetWindowHandle(game, window)
+}
+
+func (r *Runtime) validateGeneration(generation uint64, requireCallback bool) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if !r.alive || r.generation != generation {
+		return ErrStaleGeneration
+	}
+	if r.ownerThread != nativeOwnerThreadID() {
+		return ErrWrongThread
+	}
+	if requireCallback && !r.inCallback {
+		return ErrOutsideCallback
+	}
+	return nil
+}
+
+func (r *Runtime) registerResource(handle uint64, kind resourceKind, parent *Resource) *Resource {
+	resource := &Resource{runtime: r, parent: parent, generation: r.Generation(), handle: handle, kind: kind, ownership: owned}
+	r.mu.Lock()
+	r.resources = append(r.resources, resource)
+	r.mu.Unlock()
+	return resource
+}
+
+func (resource *Resource) Dispose() error {
+	if resource == nil {
+		return nil
+	}
+	resource.mu.Lock()
+	if resource.handle == 0 {
+		resource.mu.Unlock()
+		return nil
+	}
+	// A native destroy may synchronously drive UnloadContent. Treat disposal
+	// re-entered from that callback as the same in-progress operation instead
+	// of waiting on ourselves.
+	if resource.disposing {
+		resource.mu.Unlock()
+		return nil
+	}
+	generation := resource.generation
+	kind := resource.kind
+	handle := resource.handle
+	resource.mu.Unlock()
+	if err := resource.runtime.validateGeneration(generation, false); err != nil {
+		return err
+	}
+	if kind == resourceGraphicsDeviceManager && resource.runtime.hasLiveChildren(resource) {
+		return ErrChildrenAlive
+	}
+	resource.mu.Lock()
+	if resource.handle == 0 || resource.disposing {
+		resource.mu.Unlock()
+		return nil
+	}
+	if resource.handle != handle || resource.generation != generation {
+		resource.mu.Unlock()
+		return ErrStaleGeneration
+	}
+	resource.disposing = true
+	resource.mu.Unlock()
+
+	err := destroyResource(kind, handle)
+	resource.mu.Lock()
+	resource.disposing = false
+	if err == nil && resource.handle == handle {
+		resource.handle = 0
+	}
+	resource.mu.Unlock()
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func destroyResource(kind resourceKind, handle uint64) error {
+	switch kind {
+	case resourceGraphicsDeviceManager:
+		return nativeGraphicsDeviceManagerDestroy(handle)
+	case resourceTexture2D:
+		return nativeTextureDestroy(handle)
+	case resourceSpriteBatch:
+		return nativeSpriteBatchDestroy(handle)
+	case resourceContentManager:
+		return nativeContentManagerDestroy(handle)
+	case resourceIndexBuffer:
+		return nativeIndexBufferDestroy(handle)
+	case resourceVertexDeclaration:
+		return nativeVertexDeclarationDestroy(handle)
+	case resourceVertexBuffer:
+		return nativeVertexBufferDestroy(handle)
+	case resourceSpriteFont:
+		return nativeSpriteFontDestroy(handle)
+	case resourceTexture3D:
+		return nativeTexture3DDestroy(handle)
+	case resourceEffect:
+		return nativeEffectDestroy(handle)
+	case resourceDirectionalLight:
+		return nativeDirectionalLightDestroy(handle)
+	case resourceOcclusionQuery:
+		return nativeOcclusionQueryDestroy(handle)
+	case resourceSoundEffect:
+		return nativeSoundEffectDestroy(handle)
+	case resourceSoundEffectInstance:
+		return nativeSoundInstanceDestroy(handle)
+	case resourceAudioEngine:
+		return nativeAudioEngineDestroy(handle)
+	case resourceAudioCategory:
+		return nativeAudioCategoryDestroy(handle)
+	case resourceSoundBank:
+		return nativeSoundBankDestroy(handle)
+	case resourceWaveBank:
+		return nativeWaveBankDestroy(handle)
+	case resourceCue:
+		return nativeCueDestroy(handle)
+	case resourceEffectTechniqueCollection:
+		return nativeEffectViewDestroy(effectViewTechniqueCollection, handle)
+	case resourceEffectTechnique:
+		return nativeEffectViewDestroy(effectViewTechnique, handle)
+	case resourceEffectPassCollection:
+		return nativeEffectViewDestroy(effectViewPassCollection, handle)
+	case resourceEffectPass:
+		return nativeEffectViewDestroy(effectViewPass, handle)
+	case resourceEffectParameterCollection:
+		return nativeEffectViewDestroy(effectViewParameterCollection, handle)
+	case resourceEffectParameter:
+		return nativeEffectViewDestroy(effectViewParameter, handle)
+	case resourceEffectAnnotationCollection:
+		return nativeEffectViewDestroy(effectViewAnnotationCollection, handle)
+	case resourceEffectAnnotation:
+		return nativeEffectViewDestroy(effectViewAnnotation, handle)
+	case resourceTextureCube:
+		// cna_texturecube_destroy is documented as destroying a TextureCube but
+		// NOT a RenderTargetCube, which is the same per-kind split the render
+		// target already has.
+		return nativeTextureCubeDestroy(handle)
+	case resourceRenderTarget2D:
+		// A render target is a distinct CNA kind with its own destroy, and
+		// cna_texture2d_destroy is documented as destroying a Texture2D but NOT
+		// a render target. Routing it through the texture destroy would leak.
+		return nativeRenderTargetDestroy(handle)
+	default:
+		return errors.New("unknown owned CNA resource kind")
+	}
+}
+
+func (r *Runtime) hasLiveChildren(parent *Resource) bool {
+	r.mu.Lock()
+	resources := append([]*Resource(nil), r.resources...)
+	r.mu.Unlock()
+	for _, child := range resources {
+		if child.parent != parent {
+			continue
+		}
+		child.mu.Lock()
+		alive := child.handle != 0
+		child.mu.Unlock()
+		if alive {
+			return true
+		}
+	}
+	return false
+}
+
+func (r *Runtime) disposeAllResources() error {
+	r.mu.Lock()
+	resources := append([]*Resource(nil), r.resources...)
+	r.mu.Unlock()
+	var failures []error
+	for i := len(resources) - 1; i >= 0; i-- {
+		if err := resources[i].Dispose(); err != nil {
+			failures = append(failures, err)
+		}
+	}
+	return errors.Join(failures...)
+}
+
+func (resource *Resource) BeginSpriteBatch() error {
+	handle, err := resource.liveHandle(resourceSpriteBatch)
+	if err != nil {
+		return err
+	}
+	return nativeSpriteBatchBegin(handle)
+}
+
+func (resource *Resource) DrawSprite(texture *Resource, command SpriteCommand) error {
+	batch, err := resource.liveHandle(resourceSpriteBatch)
+	if err != nil {
+		return err
+	}
+	textureHandle, err := texture.liveTextureHandle()
+	if err != nil {
+		return err
+	}
+	if resource.runtime != texture.runtime || resource.generation != texture.generation {
+		return ErrStaleGeneration
+	}
+	return nativeSpriteBatchDrawScaled(batch, textureHandle, command)
+}
+
+// DrawSpriteToDestination is the destination-rectangle half of the same
+// submission. It applies exactly the checks DrawSprite applies, in the same
+// order, because a stale texture is stale for either family.
+func (resource *Resource) DrawSpriteToDestination(texture *Resource, command SpriteDestinationCommand) error {
+	batch, err := resource.liveHandle(resourceSpriteBatch)
+	if err != nil {
+		return err
+	}
+	textureHandle, err := texture.liveTextureHandle()
+	if err != nil {
+		return err
+	}
+	if resource.runtime != texture.runtime || resource.generation != texture.generation {
+		return ErrStaleGeneration
+	}
+	return nativeSpriteBatchDrawDestination(batch, textureHandle, command)
+}
+
+func (resource *Resource) EndSpriteBatch() error {
+	handle, err := resource.liveHandle(resourceSpriteBatch)
+	if err != nil {
+		return err
+	}
+	return nativeSpriteBatchEnd(handle)
+}
+
+// liveTextureHandle is liveHandle over the kinds CNA accepts where a TEXTURE
+// handle is required.
+//
+// CNA's texture routes are documented as taking a "Texture2D or matching
+// render-target handle", and that is the native fact the whole Go
+// substitutability question rests on: to CNA a render target IS a texture. A
+// kind check that admitted only resourceTexture2D would refuse at the binding
+// what CNA accepts at the ABI.
+func (resource *Resource) liveTextureHandle() (uint64, error) {
+	if resource == nil {
+		return 0, ErrDisposed
+	}
+	resource.mu.Lock()
+	kind := resource.kind
+	resource.mu.Unlock()
+	if kind != resourceTexture2D && kind != resourceRenderTarget2D {
+		return 0, ErrDisposed
+	}
+	return resource.liveHandle(kind)
+}
+
+func (resource *Resource) liveHandle(kind resourceKind) (uint64, error) {
+	if resource == nil {
+		return 0, ErrDisposed
+	}
+	resource.mu.Lock()
+	defer resource.mu.Unlock()
+	if resource.kind != kind || resource.handle == 0 {
+		return 0, ErrDisposed
+	}
+	if err := resource.runtime.validateGeneration(resource.generation, true); err != nil {
+		return 0, err
+	}
+	return resource.handle, nil
+}
+
+// anyLiveHandle is liveHandle without the kind test, for the one caller that
+// legitimately does not care which buffer kind it is binding: Device.HandleOf,
+// whose caller already holds a typed Go object. The GENERATION check is not
+// relaxed, so a stale handle is still refused.
+func (resource *Resource) anyLiveHandle() (uint64, error) {
+	if resource == nil {
+		return 0, ErrDisposed
+	}
+	resource.mu.Lock()
+	defer resource.mu.Unlock()
+	if resource.handle == 0 {
+		return 0, ErrDisposed
+	}
+	if err := resource.runtime.validateGeneration(resource.generation, true); err != nil {
+		return 0, err
+	}
+	return resource.handle, nil
+}
+
+func RegisterOwner(owner any, runtime *Runtime, resource *Resource) {
+	ownerAssociations.Store(ownerPointer(owner), ownerBinding{runtime: runtime, resource: resource})
+}
+
+func UnregisterOwner(owner any) {
+	ownerAssociations.Delete(ownerPointer(owner))
+}
+
+func BindingForOwner(owner any) (*Runtime, *Resource, bool) {
+	value, ok := ownerAssociations.Load(ownerPointer(owner))
+	if !ok {
+		return nil, nil, false
+	}
+	binding := value.(ownerBinding)
+	if binding.runtime == nil {
+		return nil, nil, false
+	}
+	return binding.runtime, binding.resource, true
+}
+
+func ownerPointer(owner any) uintptr {
+	return reflectPointer(owner)
+}
+
+// ---------------------------------------------------------------------------
+// Foundation 79 -- the stock-effect accessors.
+//
+// Each pair is one CNA route over the handle this resource holds, and every one
+// of them checks liveHandle first: a disposed effect or light answers the
+// projection's own refusal rather than reaching CNA with a dead handle.
+// ---------------------------------------------------------------------------
+
+// BasicEffectSetVertexColorEnabled is BasicEffect::VertexColorEnabled's setter.
+func (resource *Resource) BasicEffectSetVertexColorEnabled(value bool) error {
+	handle, err := resource.liveHandle(resourceEffect)
+	if err != nil {
+		return err
+	}
+	return nativeBasicEffectSetVertexColorEnabled(handle, value)
+}
+
+// BasicEffectSetPreferPerPixelLighting is BasicEffect::PreferPerPixelLighting's setter.
+func (resource *Resource) BasicEffectSetPreferPerPixelLighting(value bool) error {
+	handle, err := resource.liveHandle(resourceEffect)
+	if err != nil {
+		return err
+	}
+	return nativeBasicEffectSetPreferPerPixelLighting(handle, value)
+}
+
+// BasicEffectSetDiffuseColor is BasicEffect::DiffuseColor's setter.
+func (resource *Resource) BasicEffectSetDiffuseColor(value [3]float32) error {
+	handle, err := resource.liveHandle(resourceEffect)
+	if err != nil {
+		return err
+	}
+	return nativeBasicEffectSetDiffuseColor(handle, value)
+}
+
+// BasicEffectSetEmissiveColor is BasicEffect::EmissiveColor's setter.
+func (resource *Resource) BasicEffectSetEmissiveColor(value [3]float32) error {
+	handle, err := resource.liveHandle(resourceEffect)
+	if err != nil {
+		return err
+	}
+	return nativeBasicEffectSetEmissiveColor(handle, value)
+}
+
+// BasicEffectSpecularColor is BasicEffect::SpecularColor's getter.
+func (resource *Resource) BasicEffectSpecularColor() ([3]float32, error) {
+	handle, err := resource.liveHandle(resourceEffect)
+	if err != nil {
+		var zero [3]float32
+		return zero, err
+	}
+	return nativeBasicEffectSpecularColor(handle)
+}
+
+// BasicEffectSetSpecularColor is BasicEffect::SpecularColor's setter.
+func (resource *Resource) BasicEffectSetSpecularColor(value [3]float32) error {
+	handle, err := resource.liveHandle(resourceEffect)
+	if err != nil {
+		return err
+	}
+	return nativeBasicEffectSetSpecularColor(handle, value)
+}
+
+// BasicEffectSpecularPower is BasicEffect::SpecularPower's getter.
+func (resource *Resource) BasicEffectSpecularPower() (float32, error) {
+	handle, err := resource.liveHandle(resourceEffect)
+	if err != nil {
+		var zero float32
+		return zero, err
+	}
+	return nativeBasicEffectSpecularPower(handle)
+}
+
+// BasicEffectSetSpecularPower is BasicEffect::SpecularPower's setter.
+func (resource *Resource) BasicEffectSetSpecularPower(value float32) error {
+	handle, err := resource.liveHandle(resourceEffect)
+	if err != nil {
+		return err
+	}
+	return nativeBasicEffectSetSpecularPower(handle, value)
+}
+
+// BasicEffectSetAlpha is BasicEffect::Alpha's setter.
+func (resource *Resource) BasicEffectSetAlpha(value float32) error {
+	handle, err := resource.liveHandle(resourceEffect)
+	if err != nil {
+		return err
+	}
+	return nativeBasicEffectSetAlpha(handle, value)
+}
+
+// BasicEffectSetTextureEnabled is BasicEffect::TextureEnabled's setter.
+func (resource *Resource) BasicEffectSetTextureEnabled(value bool) error {
+	handle, err := resource.liveHandle(resourceEffect)
+	if err != nil {
+		return err
+	}
+	return nativeBasicEffectSetTextureEnabled(handle, value)
+}
+
+// EffectMatricesSetWorld is IEffectMatrices::World's setter.
+func (resource *Resource) EffectMatricesSetWorld(value [16]float32) error {
+	handle, err := resource.liveHandle(resourceEffect)
+	if err != nil {
+		return err
+	}
+	return nativeEffectMatricesSetWorld(handle, value)
+}
+
+// EffectMatricesSetView is IEffectMatrices::View's setter.
+func (resource *Resource) EffectMatricesSetView(value [16]float32) error {
+	handle, err := resource.liveHandle(resourceEffect)
+	if err != nil {
+		return err
+	}
+	return nativeEffectMatricesSetView(handle, value)
+}
+
+// EffectMatricesSetProjection is IEffectMatrices::Projection's setter.
+func (resource *Resource) EffectMatricesSetProjection(value [16]float32) error {
+	handle, err := resource.liveHandle(resourceEffect)
+	if err != nil {
+		return err
+	}
+	return nativeEffectMatricesSetProjection(handle, value)
+}
+
+// EffectFogColor is IEffectFog::FogColor's getter.
+func (resource *Resource) EffectFogColor() ([3]float32, error) {
+	handle, err := resource.liveHandle(resourceEffect)
+	if err != nil {
+		var zero [3]float32
+		return zero, err
+	}
+	return nativeEffectFogColor(handle)
+}
+
+// EffectFogSetColor is IEffectFog::FogColor's setter.
+func (resource *Resource) EffectFogSetColor(value [3]float32) error {
+	handle, err := resource.liveHandle(resourceEffect)
+	if err != nil {
+		return err
+	}
+	return nativeEffectFogSetColor(handle, value)
+}
+
+// EffectFogSetEnabled is IEffectFog::FogEnabled's setter.
+func (resource *Resource) EffectFogSetEnabled(value bool) error {
+	handle, err := resource.liveHandle(resourceEffect)
+	if err != nil {
+		return err
+	}
+	return nativeEffectFogSetEnabled(handle, value)
+}
+
+// EffectFogSetStart is IEffectFog::FogStart's setter.
+func (resource *Resource) EffectFogSetStart(value float32) error {
+	handle, err := resource.liveHandle(resourceEffect)
+	if err != nil {
+		return err
+	}
+	return nativeEffectFogSetStart(handle, value)
+}
+
+// EffectFogSetEnd is IEffectFog::FogEnd's setter.
+func (resource *Resource) EffectFogSetEnd(value float32) error {
+	handle, err := resource.liveHandle(resourceEffect)
+	if err != nil {
+		return err
+	}
+	return nativeEffectFogSetEnd(handle, value)
+}
+
+// EffectLightsSetAmbientColor is IEffectLights::AmbientLightColor's setter.
+func (resource *Resource) EffectLightsSetAmbientColor(value [3]float32) error {
+	handle, err := resource.liveHandle(resourceEffect)
+	if err != nil {
+		return err
+	}
+	return nativeEffectLightsSetAmbientColor(handle, value)
+}
+
+// EffectLightsSetEnabled is IEffectLights::LightingEnabled's setter.
+func (resource *Resource) EffectLightsSetEnabled(value bool) error {
+	handle, err := resource.liveHandle(resourceEffect)
+	if err != nil {
+		return err
+	}
+	return nativeEffectLightsSetEnabled(handle, value)
+}
+
+// DirectionalLightSetDiffuseColor is DirectionalLight::DiffuseColor's setter.
+func (resource *Resource) DirectionalLightSetDiffuseColor(value [3]float32) error {
+	handle, err := resource.liveHandle(resourceDirectionalLight)
+	if err != nil {
+		return err
+	}
+	return nativeDirectionalLightSetDiffuseColor(handle, value)
+}
+
+// DirectionalLightSetDirection is DirectionalLight::Direction's setter.
+func (resource *Resource) DirectionalLightSetDirection(value [3]float32) error {
+	handle, err := resource.liveHandle(resourceDirectionalLight)
+	if err != nil {
+		return err
+	}
+	return nativeDirectionalLightSetDirection(handle, value)
+}
+
+// DirectionalLightSetSpecularColor is DirectionalLight::SpecularColor's setter.
+func (resource *Resource) DirectionalLightSetSpecularColor(value [3]float32) error {
+	handle, err := resource.liveHandle(resourceDirectionalLight)
+	if err != nil {
+		return err
+	}
+	return nativeDirectionalLightSetSpecularColor(handle, value)
+}
+
+// DirectionalLightSetEnabled is DirectionalLight::Enabled's setter.
+func (resource *Resource) DirectionalLightSetEnabled(value bool) error {
+	handle, err := resource.liveHandle(resourceDirectionalLight)
+	if err != nil {
+		return err
+	}
+	return nativeDirectionalLightSetEnabled(handle, value)
+}
+
+// CreateBasicEffect is cna_basic_effect_create. The effect is registered under
+// the device's manager, exactly as a content-loaded effect is, so its lifetime
+// is the generation's rather than the caller's.
+func (d *Device) CreateBasicEffect() (*Resource, error) {
+	handle, err := d.nativeHandle()
+	if err != nil {
+		return nil, err
+	}
+	effect, err := nativeBasicEffectCreate(handle)
+	if err != nil {
+		return nil, err
+	}
+	return d.runtime.registerResource(effect, resourceEffect, d.manager), nil
+}
+
+// BasicEffectSetTexture is BasicEffect::Texture's setter. A nil texture is the
+// reference's null assignment and crosses as the invalid handle, which CNA
+// documents as selecting no texture.
+func (resource *Resource) BasicEffectSetTexture(texture *Resource) error {
+	handle, err := resource.liveHandle(resourceEffect)
+	if err != nil {
+		return err
+	}
+	var textureHandle uint64
+	if texture != nil {
+		// liveTextureHandle, not liveHandle: the property takes a Texture2D and
+		// RenderTarget2D IS one, so both kinds must reach the same route.
+		if textureHandle, err = texture.liveTextureHandle(); err != nil {
+			return err
+		}
+	}
+	return nativeBasicEffectSetTexture(handle, textureHandle)
+}
+
+// ---------------------------------------------------------------------------
+// Foundation 80 -- AlphaTestEffect, DualTextureEffect and EffectMaterial.
+//
+// Every route below is a SETTER or a creation. The getters CNA declares beside
+// them are recorded as deliberately unbound: the reference reads its own field,
+// and reading CNA back would let its answer decide a getter whose body is one
+// `ldfld`.
+// ---------------------------------------------------------------------------
+
+// CreateAlphaTestEffect is cna_alpha_test_effect_create.
+func (d *Device) CreateAlphaTestEffect() (*Resource, error) {
+	handle, err := d.nativeHandle()
+	if err != nil {
+		return nil, err
+	}
+	effect, err := nativeAlphaTestEffectCreate(handle)
+	if err != nil {
+		return nil, err
+	}
+	return d.runtime.registerResource(effect, resourceEffect, d.manager), nil
+}
+
+// AlphaTestEffectSetDiffuseColor is the push OnApply makes for DiffuseColor.
+func (resource *Resource) AlphaTestEffectSetDiffuseColor(value [3]float32) error {
+	handle, err := resource.liveHandle(resourceEffect)
+	if err != nil {
+		return err
+	}
+	return nativeAlphaTestEffectSetDiffuseColor(handle, value)
+}
+
+// AlphaTestEffectSetAlpha is the push OnApply makes for Alpha.
+func (resource *Resource) AlphaTestEffectSetAlpha(value float32) error {
+	handle, err := resource.liveHandle(resourceEffect)
+	if err != nil {
+		return err
+	}
+	return nativeAlphaTestEffectSetAlpha(handle, value)
+}
+
+// AlphaTestEffectSetTexture is AlphaTestEffect::Texture's setter. A nil texture
+// is the reference's null and crosses as the invalid handle.
+func (resource *Resource) AlphaTestEffectSetTexture(texture *Resource) error {
+	handle, err := resource.liveHandle(resourceEffect)
+	if err != nil {
+		return err
+	}
+	var textureHandle uint64
+	if texture != nil {
+		if textureHandle, err = texture.liveTextureHandle(); err != nil {
+			return err
+		}
+	}
+	return nativeAlphaTestEffectSetTexture(handle, textureHandle)
+}
+
+// AlphaTestEffectSetVertexColorEnabled is the push OnApply makes for the shader
+// permutation.
+func (resource *Resource) AlphaTestEffectSetVertexColorEnabled(value bool) error {
+	handle, err := resource.liveHandle(resourceEffect)
+	if err != nil {
+		return err
+	}
+	return nativeAlphaTestEffectSetVertexColorEnabled(handle, value)
+}
+
+// AlphaTestEffectSetAlphaFunction is the push OnApply makes for the comparison.
+func (resource *Resource) AlphaTestEffectSetAlphaFunction(value uint32) error {
+	handle, err := resource.liveHandle(resourceEffect)
+	if err != nil {
+		return err
+	}
+	return nativeAlphaTestEffectSetAlphaFunction(handle, value)
+}
+
+// AlphaTestEffectSetReferenceAlpha is the push OnApply makes for the reference
+// alpha.
+func (resource *Resource) AlphaTestEffectSetReferenceAlpha(value int32) error {
+	handle, err := resource.liveHandle(resourceEffect)
+	if err != nil {
+		return err
+	}
+	return nativeAlphaTestEffectSetReferenceAlpha(handle, value)
+}
+
+// CreateDualTextureEffect is cna_dual_texture_effect_create.
+func (d *Device) CreateDualTextureEffect() (*Resource, error) {
+	handle, err := d.nativeHandle()
+	if err != nil {
+		return nil, err
+	}
+	effect, err := nativeDualTextureEffectCreate(handle)
+	if err != nil {
+		return nil, err
+	}
+	return d.runtime.registerResource(effect, resourceEffect, d.manager), nil
+}
+
+// DualTextureEffectSetDiffuseColor is the push OnApply makes for DiffuseColor.
+func (resource *Resource) DualTextureEffectSetDiffuseColor(value [3]float32) error {
+	handle, err := resource.liveHandle(resourceEffect)
+	if err != nil {
+		return err
+	}
+	return nativeDualTextureEffectSetDiffuseColor(handle, value)
+}
+
+// DualTextureEffectSetAlpha is the push OnApply makes for Alpha.
+func (resource *Resource) DualTextureEffectSetAlpha(value float32) error {
+	handle, err := resource.liveHandle(resourceEffect)
+	if err != nil {
+		return err
+	}
+	return nativeDualTextureEffectSetAlpha(handle, value)
+}
+
+// DualTextureEffectSetTexture is BOTH of the type's texture setters. CNA takes
+// the layer as an index where the contract declares two properties, so one
+// route backs Texture at index 0 and Texture2 at index 1.
+func (resource *Resource) DualTextureEffectSetTexture(index uint32, texture *Resource) error {
+	handle, err := resource.liveHandle(resourceEffect)
+	if err != nil {
+		return err
+	}
+	var textureHandle uint64
+	if texture != nil {
+		if textureHandle, err = texture.liveTextureHandle(); err != nil {
+			return err
+		}
+	}
+	return nativeDualTextureEffectSetTexture(handle, index, textureHandle)
+}
+
+// DualTextureEffectSetVertexColorEnabled is the push OnApply makes for the
+// shader permutation.
+func (resource *Resource) DualTextureEffectSetVertexColorEnabled(value bool) error {
+	handle, err := resource.liveHandle(resourceEffect)
+	if err != nil {
+		return err
+	}
+	return nativeDualTextureEffectSetVertexColorEnabled(handle, value)
+}
+
+// CreateEffectMaterial is cna_effect_material_create, which takes a SOURCE
+// effect rather than a device -- exactly as EffectMaterial::.ctor(Effect) does,
+// whose whole body is `base(cloneSource)`.
+func (resource *Resource) CreateEffectMaterial() (*Resource, error) {
+	handle, err := resource.liveHandle(resourceEffect)
+	if err != nil {
+		return nil, err
+	}
+	material, err := nativeEffectMaterialCreate(handle)
+	if err != nil {
+		return nil, err
+	}
+	return resource.runtime.registerResource(material, resourceEffect, resource.parent), nil
+}
+
+// ---------------------------------------------------------------------------
+// Foundation 81 -- EnvironmentMapEffect and SkinnedEffect.
+//
+// The pattern is Foundation 79's and 80's: a creation, the setters OnApply
+// pushes, and a get/set pair only where the reference itself reads the value
+// back out of an EffectParameter.
+// ---------------------------------------------------------------------------
+
+// CreateEnvironmentMapEffect is cna_environment_map_effect_create.
+func (d *Device) CreateEnvironmentMapEffect() (*Resource, error) {
+	handle, err := d.nativeHandle()
+	if err != nil {
+		return nil, err
+	}
+	effect, err := nativeEnvironmentMapEffectCreate(handle)
+	if err != nil {
+		return nil, err
+	}
+	return d.runtime.registerResource(effect, resourceEffect, d.manager), nil
+}
+
+// CreateSkinnedEffect is cna_skinned_effect_create.
+func (d *Device) CreateSkinnedEffect() (*Resource, error) {
+	handle, err := d.nativeHandle()
+	if err != nil {
+		return nil, err
+	}
+	effect, err := nativeSkinnedEffectCreate(handle)
+	if err != nil {
+		return nil, err
+	}
+	return d.runtime.registerResource(effect, resourceEffect, d.manager), nil
+}
+
+// EnvironmentMapEffectSetDiffuseColor is the push OnApply makes for DiffuseColor.
+func (resource *Resource) EnvironmentMapEffectSetDiffuseColor(value [3]float32) error {
+	handle, err := resource.liveHandle(resourceEffect)
+	if err != nil {
+		return err
+	}
+	return nativeEnvironmentMapEffectSetDiffuseColor(handle, value)
+}
+
+// EnvironmentMapEffectSetEmissiveColor is the push OnApply makes for EmissiveColor.
+func (resource *Resource) EnvironmentMapEffectSetEmissiveColor(value [3]float32) error {
+	handle, err := resource.liveHandle(resourceEffect)
+	if err != nil {
+		return err
+	}
+	return nativeEnvironmentMapEffectSetEmissiveColor(handle, value)
+}
+
+// EnvironmentMapEffectSetAlpha is the push OnApply makes for Alpha.
+func (resource *Resource) EnvironmentMapEffectSetAlpha(value float32) error {
+	handle, err := resource.liveHandle(resourceEffect)
+	if err != nil {
+		return err
+	}
+	return nativeEnvironmentMapEffectSetAlpha(handle, value)
+}
+
+// EnvironmentMapEffectAmount is EnvironmentMapAmount's getter, which the reference reads back through a parameter.
+func (resource *Resource) EnvironmentMapEffectAmount() (float32, error) {
+	handle, err := resource.liveHandle(resourceEffect)
+	if err != nil {
+		return 0, err
+	}
+	return nativeEnvironmentMapEffectAmount(handle)
+}
+
+// EnvironmentMapEffectSetAmount is EnvironmentMapAmount's setter.
+func (resource *Resource) EnvironmentMapEffectSetAmount(value float32) error {
+	handle, err := resource.liveHandle(resourceEffect)
+	if err != nil {
+		return err
+	}
+	return nativeEnvironmentMapEffectSetAmount(handle, value)
+}
+
+// EnvironmentMapEffectSpecular is EnvironmentMapSpecular's getter.
+func (resource *Resource) EnvironmentMapEffectSpecular() ([3]float32, error) {
+	handle, err := resource.liveHandle(resourceEffect)
+	if err != nil {
+		return [3]float32{}, err
+	}
+	return nativeEnvironmentMapEffectSpecular(handle)
+}
+
+// EnvironmentMapEffectSetSpecular is EnvironmentMapSpecular's setter.
+func (resource *Resource) EnvironmentMapEffectSetSpecular(value [3]float32) error {
+	handle, err := resource.liveHandle(resourceEffect)
+	if err != nil {
+		return err
+	}
+	return nativeEnvironmentMapEffectSetSpecular(handle, value)
+}
+
+// EnvironmentMapEffectFresnelFactor is FresnelFactor's getter.
+func (resource *Resource) EnvironmentMapEffectFresnelFactor() (float32, error) {
+	handle, err := resource.liveHandle(resourceEffect)
+	if err != nil {
+		return 0, err
+	}
+	return nativeEnvironmentMapEffectFresnelFactor(handle)
+}
+
+// EnvironmentMapEffectSetFresnelFactor is FresnelFactor's setter.
+func (resource *Resource) EnvironmentMapEffectSetFresnelFactor(value float32) error {
+	handle, err := resource.liveHandle(resourceEffect)
+	if err != nil {
+		return err
+	}
+	return nativeEnvironmentMapEffectSetFresnelFactor(handle, value)
+}
+
+// SkinnedEffectSetDiffuseColor is the push OnApply makes for DiffuseColor.
+func (resource *Resource) SkinnedEffectSetDiffuseColor(value [3]float32) error {
+	handle, err := resource.liveHandle(resourceEffect)
+	if err != nil {
+		return err
+	}
+	return nativeSkinnedEffectSetDiffuseColor(handle, value)
+}
+
+// SkinnedEffectSetEmissiveColor is the push OnApply makes for EmissiveColor.
+func (resource *Resource) SkinnedEffectSetEmissiveColor(value [3]float32) error {
+	handle, err := resource.liveHandle(resourceEffect)
+	if err != nil {
+		return err
+	}
+	return nativeSkinnedEffectSetEmissiveColor(handle, value)
+}
+
+// SkinnedEffectSpecularColor is SpecularColor's getter, which the reference reads back through a parameter.
+func (resource *Resource) SkinnedEffectSpecularColor() ([3]float32, error) {
+	handle, err := resource.liveHandle(resourceEffect)
+	if err != nil {
+		return [3]float32{}, err
+	}
+	return nativeSkinnedEffectSpecularColor(handle)
+}
+
+// SkinnedEffectSetSpecularColor is SpecularColor's setter.
+func (resource *Resource) SkinnedEffectSetSpecularColor(value [3]float32) error {
+	handle, err := resource.liveHandle(resourceEffect)
+	if err != nil {
+		return err
+	}
+	return nativeSkinnedEffectSetSpecularColor(handle, value)
+}
+
+// SkinnedEffectSpecularPower is SpecularPower's getter.
+func (resource *Resource) SkinnedEffectSpecularPower() (float32, error) {
+	handle, err := resource.liveHandle(resourceEffect)
+	if err != nil {
+		return 0, err
+	}
+	return nativeSkinnedEffectSpecularPower(handle)
+}
+
+// SkinnedEffectSetSpecularPower is SpecularPower's setter.
+func (resource *Resource) SkinnedEffectSetSpecularPower(value float32) error {
+	handle, err := resource.liveHandle(resourceEffect)
+	if err != nil {
+		return err
+	}
+	return nativeSkinnedEffectSetSpecularPower(handle, value)
+}
+
+// SkinnedEffectSetAlpha is the push OnApply makes for Alpha.
+func (resource *Resource) SkinnedEffectSetAlpha(value float32) error {
+	handle, err := resource.liveHandle(resourceEffect)
+	if err != nil {
+		return err
+	}
+	return nativeSkinnedEffectSetAlpha(handle, value)
+}
+
+// SkinnedEffectSetPreferPerPixelLighting is the push OnApply makes for the shader permutation.
+func (resource *Resource) SkinnedEffectSetPreferPerPixelLighting(value bool) error {
+	handle, err := resource.liveHandle(resourceEffect)
+	if err != nil {
+		return err
+	}
+	return nativeSkinnedEffectSetPreferPerPixelLighting(handle, value)
+}
+
+// SkinnedEffectSetWeightsPerVertex is the push OnApply makes for WeightsPerVertex, which the projection has already validated.
+func (resource *Resource) SkinnedEffectSetWeightsPerVertex(value int32) error {
+	handle, err := resource.liveHandle(resourceEffect)
+	if err != nil {
+		return err
+	}
+	return nativeSkinnedEffectSetWeightsPerVertex(handle, value)
+}
+
+// SkinnedEffectSetBoneTransforms is SetBoneTransforms(Matrix[]), which crosses as a flat float array in CNA_Matrix's own order.
+func (resource *Resource) SkinnedEffectSetBoneTransforms(transforms []float32) error {
+	handle, err := resource.liveHandle(resourceEffect)
+	if err != nil {
+		return err
+	}
+	return nativeSkinnedEffectSetBoneTransforms(handle, transforms)
+}
+
+// SkinnedEffectCopyBoneTransforms is GetBoneTransforms(Int32), which copies the leading transforms atomically.
+func (resource *Resource) SkinnedEffectCopyBoneTransforms(count int) ([]float32, error) {
+	handle, err := resource.liveHandle(resourceEffect)
+	if err != nil {
+		return nil, err
+	}
+	return nativeSkinnedEffectCopyBoneTransforms(handle, count)
+}
+
+// EnvironmentMapEffectSetTexture is EnvironmentMapEffect::Texture's setter.
+func (resource *Resource) EnvironmentMapEffectSetTexture(texture *Resource) error {
+	handle, err := resource.liveHandle(resourceEffect)
+	if err != nil {
+		return err
+	}
+	var textureHandle uint64
+	if texture != nil {
+		if textureHandle, err = texture.liveTextureHandle(); err != nil {
+			return err
+		}
+	}
+	return nativeEnvironmentMapEffectSetTexture(handle, textureHandle)
+}
+
+// EnvironmentMapEffectSetEnvironmentMap is EnvironmentMapEffect::EnvironmentMap's
+// setter. Its value is a TextureCube rather than a Texture2D, which is the one
+// texture position in the stock effects that is not a 2D surface.
+func (resource *Resource) EnvironmentMapEffectSetEnvironmentMap(cube *Resource) error {
+	handle, err := resource.liveHandle(resourceEffect)
+	if err != nil {
+		return err
+	}
+	var cubeHandle uint64
+	if cube != nil {
+		if cubeHandle, err = cube.liveHandle(resourceTextureCube); err != nil {
+			return err
+		}
+	}
+	return nativeEnvironmentMapEffectSetEnvironmentMap(handle, cubeHandle)
+}
+
+// SkinnedEffectSetTexture is SkinnedEffect::Texture's setter.
+func (resource *Resource) SkinnedEffectSetTexture(texture *Resource) error {
+	handle, err := resource.liveHandle(resourceEffect)
+	if err != nil {
+		return err
+	}
+	var textureHandle uint64
+	if texture != nil {
+		if textureHandle, err = texture.liveTextureHandle(); err != nil {
+			return err
+		}
+	}
+	return nativeSkinnedEffectSetTexture(handle, textureHandle)
+}
+
+// ---------------------------------------------------------------------------
+// Foundation 82 -- the two root types.
+//
+// Both canonical members are STATIC and both CNA routes take a game handle
+// anyway. The header says why: "The canonical dispatcher is static and exists
+// for applications that do not run the game loop; a game handle is taken here
+// only for thread affinity." So neither requires a callback -- an owned game on
+// its own thread is enough -- and activeGame(false) is what expresses that.
+// ---------------------------------------------------------------------------
+
+// FrameworkDispatcherUpdate is cna_framework_dispatcher_update.
+func (r *Runtime) FrameworkDispatcherUpdate() error {
+	game, err := r.activeGame(false)
+	if err != nil {
+		return err
+	}
+	return nativeFrameworkDispatcherUpdate(game)
+}
+
+// ---------------------------------------------------------------------------
+// Foundation 87 -- SoundEffect and SoundEffectInstance.
+//
+// Every creation route takes a GAME handle, and CNA accepts an "active owned or
+// callback-borrowed" one -- so activeGame(false) is enough and none of these
+// requires a lifecycle callback. That is the same shape the two root types have
+// and a different one from the graphics family, whose device is callback-scoped.
+// ---------------------------------------------------------------------------
+
+// CreateSoundEffectFromPCM16 is cna_sound_effect_create_pcm16_range_ext, which
+// CNA calls "the canonical seven-argument constructor".
+//
+// The offset, count and loop region are the reference's own arguments, and the
+// three-argument constructor supplies 0, len, 0, 0 -- so ONE route serves both
+// and the short CNA route is recorded as SUBSUMED.
+func (r *Runtime) CreateSoundEffectFromPCM16(sampleRate, channels uint32, data []byte,
+	offset, count, loopStart, loopLength int32) (*Resource, error) {
+	game, err := r.activeGame(false)
+	if err != nil {
+		return nil, err
+	}
+	if len(data) == 0 {
+		return nil, errors.New("a sound effect needs PCM bytes")
+	}
+	handle, err := nativeSoundEffectCreatePCM16Range(game, sampleRate, channels,
+		unsafe.Pointer(&data[0]), uint64(len(data)), offset, count, loopStart, loopLength)
+	if err != nil {
+		return nil, err
+	}
+	return r.registerResource(handle, resourceSoundEffect, nil), nil
+}
+
+// CreateSoundEffectFromEncoded is cna_sound_effect_create_from_encoded_ext,
+// which backs SoundEffect::FromStream.
+func (r *Runtime) CreateSoundEffectFromEncoded(data []byte) (*Resource, error) {
+	game, err := r.activeGame(false)
+	if err != nil {
+		return nil, err
+	}
+	if len(data) == 0 {
+		return nil, errors.New("a sound effect needs encoded bytes")
+	}
+	handle, err := nativeSoundEffectCreateFromEncoded(game, unsafe.Pointer(&data[0]), uint64(len(data)))
+	if err != nil {
+		return nil, err
+	}
+	return r.registerResource(handle, resourceSoundEffect, nil), nil
+}
+
+// SetMasterVolume, SetDistanceScale, SetDopplerScale and SetSpeedOfSound are the
+// four process-wide scalars. Only the setters cross: the reference's getters are
+// one `ldsfld` over a static field these maintain.
+func (r *Runtime) SetMasterVolume(value float32) error {
+	game, err := r.activeGame(false)
+	if err != nil {
+		return err
+	}
+	return nativeSoundEffectSetMasterVolume(game, value)
+}
+
+func (r *Runtime) SetDistanceScale(value float32) error {
+	game, err := r.activeGame(false)
+	if err != nil {
+		return err
+	}
+	return nativeSoundEffectSetDistanceScale(game, value)
+}
+
+func (r *Runtime) SetDopplerScale(value float32) error {
+	game, err := r.activeGame(false)
+	if err != nil {
+		return err
+	}
+	return nativeSoundEffectSetDopplerScale(game, value)
+}
+
+func (r *Runtime) SetSpeedOfSound(value float32) error {
+	game, err := r.activeGame(false)
+	if err != nil {
+		return err
+	}
+	return nativeSoundEffectSetSpeedOfSound(game, value)
+}
+
+// SoundEffectDurationTicks is cna_sound_effect_get_duration_ticks, in the CLR's
+// own 100-nanosecond unit.
+func (resource *Resource) SoundEffectDurationTicks() (int64, error) {
+	handle, err := resource.liveHandle(resourceSoundEffect)
+	if err != nil {
+		return 0, err
+	}
+	return nativeSoundEffectDurationTicks(handle)
+}
+
+// CreateSoundEffectInstance is cna_sound_effect_create_instance. The instance is
+// registered as a CHILD of the effect, which is what makes CNA's documented
+// ordering -- effects destroyed after their instances -- a structural property
+// rather than a rule a caller has to remember.
+func (resource *Resource) CreateSoundEffectInstance() (*Resource, error) {
+	handle, err := resource.liveHandle(resourceSoundEffect)
+	if err != nil {
+		return nil, err
+	}
+	instance, err := nativeSoundEffectCreateInstance(handle)
+	if err != nil {
+		return nil, err
+	}
+	return resource.runtime.registerResource(instance, resourceSoundEffectInstance, resource), nil
+}
+
+// SoundEffectPlay and SoundEffectPlayWithSettings are the two fire-and-forget
+// plays. Both report whether playback STARTED.
+func (resource *Resource) SoundEffectPlay() (bool, error) {
+	handle, err := resource.liveHandle(resourceSoundEffect)
+	if err != nil {
+		return false, err
+	}
+	return nativeSoundEffectPlay(handle)
+}
+
+func (resource *Resource) SoundEffectPlayWithSettings(volume, pitch, pan float32) (bool, error) {
+	handle, err := resource.liveHandle(resourceSoundEffect)
+	if err != nil {
+		return false, err
+	}
+	return nativeSoundEffectPlayWithSettings(handle, volume, pitch, pan)
+}
+
+// The instance transport and its four setters.
+
+func (resource *Resource) SoundInstancePlay() error {
+	handle, err := resource.liveHandle(resourceSoundEffectInstance)
+	if err != nil {
+		return err
+	}
+	return nativeSoundInstancePlay(handle)
+}
+
+func (resource *Resource) SoundInstancePause() error {
+	handle, err := resource.liveHandle(resourceSoundEffectInstance)
+	if err != nil {
+		return err
+	}
+	return nativeSoundInstancePause(handle)
+}
+
+func (resource *Resource) SoundInstanceResume() error {
+	handle, err := resource.liveHandle(resourceSoundEffectInstance)
+	if err != nil {
+		return err
+	}
+	return nativeSoundInstanceResume(handle)
+}
+
+func (resource *Resource) SoundInstanceStop(immediate bool) error {
+	handle, err := resource.liveHandle(resourceSoundEffectInstance)
+	if err != nil {
+		return err
+	}
+	return nativeSoundInstanceStop(handle, immediate)
+}
+
+// SoundInstanceInfo is cna_sound_effect_instance_get_info, the ONE read the
+// instance has: state, loop flag and the three scalars in a single call.
+func (resource *Resource) SoundInstanceInfo() (SoundEffectInstanceInfo, error) {
+	handle, err := resource.liveHandle(resourceSoundEffectInstance)
+	if err != nil {
+		return SoundEffectInstanceInfo{}, err
+	}
+	return nativeSoundInstanceInfo(handle)
+}
+
+func (resource *Resource) SoundInstanceSetVolume(value float32) error {
+	handle, err := resource.liveHandle(resourceSoundEffectInstance)
+	if err != nil {
+		return err
+	}
+	return nativeSoundInstanceSetVolume(handle, value)
+}
+
+func (resource *Resource) SoundInstanceSetPitch(value float32) error {
+	handle, err := resource.liveHandle(resourceSoundEffectInstance)
+	if err != nil {
+		return err
+	}
+	return nativeSoundInstanceSetPitch(handle, value)
+}
+
+func (resource *Resource) SoundInstanceSetPan(value float32) error {
+	handle, err := resource.liveHandle(resourceSoundEffectInstance)
+	if err != nil {
+		return err
+	}
+	return nativeSoundInstanceSetPan(handle, value)
+}
+
+// CreateDynamicSoundEffectInstance is
+// cna_dynamic_sound_effect_instance_create, which needs no SoundEffect -- a
+// streaming instance has no source effect and is registered with NO parent.
+//
+// That is the one structural difference from an ordinary instance, and it is
+// the reference's too: DynamicSoundEffectInstance's constructor calls the base
+// parameterless constructor and allocates its own voice, where every other
+// instance is built from an effect.
+func (r *Runtime) CreateDynamicSoundEffectInstance(sampleRate int32, channels uint32) (*Resource, error) {
+	game, err := r.activeGame(false)
+	if err != nil {
+		return nil, err
+	}
+	handle, err := nativeDynamicSoundInstanceCreate(game, sampleRate, channels)
+	if err != nil {
+		return nil, err
+	}
+	return r.registerResource(handle, resourceSoundEffectInstance, nil), nil
+}
+
+// DynamicSoundInstancePendingBufferCount is
+// cna_dynamic_sound_effect_instance_get_pending_buffer_count, a live read.
+func (resource *Resource) DynamicSoundInstancePendingBufferCount() (int32, error) {
+	handle, err := resource.liveHandle(resourceSoundEffectInstance)
+	if err != nil {
+		return 0, err
+	}
+	return nativeDynamicSoundInstancePendingBufferCount(handle)
+}
+
+// DynamicSoundInstanceSubmitBuffer is
+// cna_dynamic_sound_effect_instance_submit_buffer. CNA copies the bytes during
+// the call, which is what lets the caller reuse the slice immediately.
+func (resource *Resource) DynamicSoundInstanceSubmitBuffer(data []byte, offset, count int32) error {
+	handle, err := resource.liveHandle(resourceSoundEffectInstance)
+	if err != nil {
+		return err
+	}
+	if len(data) == 0 {
+		return errors.New("a submitted buffer needs bytes")
+	}
+	return nativeDynamicSoundInstanceSubmitBuffer(handle, unsafe.Pointer(&data[0]),
+		uint64(len(data)), offset, count)
+}
+
+// ---------------------------------------------------------------------------
+// Foundation 88 -- Microphone, which is INDEX-addressed and owns nothing.
+//
+// Every one of these takes the game handle and a position. There is no Resource
+// and no destruction: a microphone is a place in the machine's list, which is
+// the reference's shape too -- XNA's Microphone carries an assembly `Id` and
+// declares no disposal at all.
+// ---------------------------------------------------------------------------
+
+// MicrophoneCount is cna_microphone_get_count.
+func (r *Runtime) MicrophoneCount() (uint64, error) {
+	game, err := r.activeGame(false)
+	if err != nil {
+		return 0, err
+	}
+	return nativeMicrophoneCount(game)
+}
+
+// MicrophoneDefaultIndex is cna_microphone_get_default_index_ext, which reports
+// the position AND whether there is one at all. A machine with microphones need
+// not have a DEFAULT, and CNA says so: the index is "left unchanged when there
+// is no default", so the availability flag is what a caller must read first.
+func (r *Runtime) MicrophoneDefaultIndex() (uint64, bool, error) {
+	game, err := r.activeGame(false)
+	if err != nil {
+		return 0, false, err
+	}
+	return nativeMicrophoneDefaultIndex(game)
+}
+
+// MicrophoneName is the count/copy pair, which is how every string crosses this
+// ABI.
+func (r *Runtime) MicrophoneName(index uint64) (string, error) {
+	game, err := r.activeGame(false)
+	if err != nil {
+		return "", err
+	}
+	return nativeMicrophoneName(game, index)
+}
+
+// MicrophoneBufferDurationTicks and MicrophoneSetBufferDurationTicks are the
+// capture buffer's length, in the CLR's own 100-nanosecond unit.
+func (r *Runtime) MicrophoneBufferDurationTicks(index uint64) (int64, error) {
+	game, err := r.activeGame(false)
+	if err != nil {
+		return 0, err
+	}
+	return nativeMicrophoneBufferDurationTicks(game, index)
+}
+
+func (r *Runtime) MicrophoneSetBufferDurationTicks(index uint64, ticks int64) error {
+	game, err := r.activeGame(false)
+	if err != nil {
+		return err
+	}
+	return nativeMicrophoneSetBufferDurationTicks(game, index, ticks)
+}
+
+// MicrophoneIsHeadset, MicrophoneSampleRate and MicrophoneState are the three
+// description reads.
+func (r *Runtime) MicrophoneIsHeadset(index uint64) (bool, error) {
+	game, err := r.activeGame(false)
+	if err != nil {
+		return false, err
+	}
+	return nativeMicrophoneIsHeadset(game, index)
+}
+
+func (r *Runtime) MicrophoneSampleRate(index uint64) (int32, error) {
+	game, err := r.activeGame(false)
+	if err != nil {
+		return 0, err
+	}
+	return nativeMicrophoneSampleRate(game, index)
+}
+
+func (r *Runtime) MicrophoneState(index uint64) (uint32, error) {
+	game, err := r.activeGame(false)
+	if err != nil {
+		return 0, err
+	}
+	return nativeMicrophoneState(game, index)
+}
+
+// MicrophoneStart, MicrophoneStop and MicrophoneGetData are the CAPTURE
+// members. They are bound because the pinned contract declares Start, Stop and
+// GetData, and the native scenario never calls Start or GetData: recording from
+// a physical microphone is not something a test suite does on someone's
+// machine. That is a standing constraint on the SUITE and not a limitation of
+// the projection, and it is written here so a later scenario does not add the
+// call without noticing.
+func (r *Runtime) MicrophoneStart(index uint64) error {
+	game, err := r.activeGame(false)
+	if err != nil {
+		return err
+	}
+	return nativeMicrophoneStart(game, index)
+}
+
+func (r *Runtime) MicrophoneStop(index uint64) error {
+	game, err := r.activeGame(false)
+	if err != nil {
+		return err
+	}
+	return nativeMicrophoneStop(game, index)
+}
+
+func (r *Runtime) MicrophoneGetData(index uint64, destination []byte) (uint64, error) {
+	game, err := r.activeGame(false)
+	if err != nil {
+		return 0, err
+	}
+	return nativeMicrophoneGetData(game, index, destination)
+}
+
+// SoundInstanceApply3D is cna_sound_effect_instance_apply_3d_multi_ext.
+//
+// The listeners cross as a flat array of twelve floats each -- forward,
+// position, up, velocity -- and the emitter as thirteen, its Doppler scale
+// first. CNA's structures are versioned and Go cannot build one, so the bridge
+// assembles them.
+func (resource *Resource) SoundInstanceApply3D(listeners []float32, count uint64, emitter []float32) error {
+	handle, err := resource.liveHandle(resourceSoundEffectInstance)
+	if err != nil {
+		return err
+	}
+	return nativeSoundInstanceApply3D(handle, listeners, count, emitter)
+}
+
+func (resource *Resource) SoundInstanceSetIsLooped(value bool) error {
+	handle, err := resource.liveHandle(resourceSoundEffectInstance)
+	if err != nil {
+		return err
+	}
+	return nativeSoundInstanceSetIsLooped(handle, value)
+}
+
+// TitleContainerRead is cna_title_container_read_ext, which hands back the
+// WHOLE file rather than a stream. The narrowing is CNA's own and documented:
+// "This ABI has no stream handle for title content, and a title asset is read
+// to use it, so the count/copy pair delivers the whole file instead."
+func (r *Runtime) TitleContainerRead(name string) ([]byte, error) {
+	game, err := r.activeGame(false)
+	if err != nil {
+		return nil, err
+	}
+	return nativeTitleContainerRead(game, name)
+}
+
+// ---------------------------------------------------------------------------
+// Foundation 83 -- OcclusionQuery.
+// ---------------------------------------------------------------------------
+
+// CreateOcclusionQuery is cna_occlusion_query_create, which answers
+// CNA_RESULT_NOT_SUPPORTED where the backend has no occlusion query. That is a
+// RENDERER capability rather than a defect, exactly as the volume-texture
+// creation is.
+func (d *Device) CreateOcclusionQuery() (*Resource, error) {
+	handle, err := d.nativeHandle()
+	if err != nil {
+		return nil, err
+	}
+	query, err := nativeOcclusionQueryCreate(handle)
+	if err != nil {
+		return nil, err
+	}
+	return d.runtime.registerResource(query, resourceOcclusionQuery, d.manager), nil
+}
+
+// OcclusionQueryBegin is cna_occlusion_query_begin.
+func (resource *Resource) OcclusionQueryBegin() error {
+	handle, err := resource.liveHandle(resourceOcclusionQuery)
+	if err != nil {
+		return err
+	}
+	return nativeOcclusionQueryBegin(handle)
+}
+
+// OcclusionQueryEnd is cna_occlusion_query_end.
+func (resource *Resource) OcclusionQueryEnd() error {
+	handle, err := resource.liveHandle(resourceOcclusionQuery)
+	if err != nil {
+		return err
+	}
+	return nativeOcclusionQueryEnd(handle)
+}
+
+// OcclusionQueryIsComplete is cna_occlusion_query_get_is_complete.
+func (resource *Resource) OcclusionQueryIsComplete() (bool, error) {
+	handle, err := resource.liveHandle(resourceOcclusionQuery)
+	if err != nil {
+		return false, err
+	}
+	return nativeOcclusionQueryIsComplete(handle)
+}
+
+// OcclusionQueryPixelCount is cna_occlusion_query_get_pixel_count.
+func (resource *Resource) OcclusionQueryPixelCount() (int32, error) {
+	handle, err := resource.liveHandle(resourceOcclusionQuery)
+	if err != nil {
+		return 0, err
+	}
+	return nativeOcclusionQueryPixelCount(handle)
+}
+
+// SetVertexDataRawWithOptions is cna_vertex_buffer_set_data_raw_at_with_options,
+// which DynamicVertexBuffer's two SetData overloads reach and the static
+// buffer's three do not: the options-carrying route is documented as the wider
+// one, with CNA_SET_DATA_NONE matching the plain route exactly.
+func (resource *Resource) SetVertexDataRawWithOptions(bufferOffsetInBytes uint64, data unsafe.Pointer, byteCount, vertexCount uint64, stride, options uint32) error {
+	handle, err := resource.liveHandle(resourceVertexBuffer)
+	if err != nil {
+		return err
+	}
+	return nativeVertexBufferSetDataRawAtWithOptions(handle, bufferOffsetInBytes, data, byteCount, vertexCount, stride, options)
+}
+
+// EffectLightsDirectionalLight is IEffectLights::DirectionalLight0..2.
+//
+// The canonical header calls the result "an owned stable member-view handle",
+// and cna_directional_light_destroy "destroys a standalone or NESTED
+// DirectionalLight view handle" -- so the caller owns the VIEW while the effect
+// owns the light behind it, which is the ownership split the effect's parameter
+// and technique views already have one level up. The resource is registered
+// OWNED for that reason and its destroy route runs at disposal.
+func (resource *Resource) EffectLightsDirectionalLight(index uint32) (*Resource, error) {
+	handle, err := resource.liveHandle(resourceEffect)
+	if err != nil {
+		return nil, err
+	}
+	light, err := nativeEffectLightsDirectionalLight(handle, index)
+	if err != nil {
+		return nil, err
+	}
+	return resource.runtime.registerResource(light, resourceDirectionalLight, resource.parent), nil
+}
+
+// ---------------------------------------------------------------------------
+// Foundation 91. The Storage family.
+//
+// None of these takes a game handle. Storage is not a graphics resource and CNA
+// does not tie it to the window's event state, so unlike the Input family they
+// are callable outside a lifecycle callback -- which is what lets a game save
+// from wherever it decides to save rather than only inside Update.
+
+// StorageShowSelector is cna_storage_device_show_selector and its three
+// siblings, chosen by which of the two optional halves the caller supplied.
+//
+// XNA's four BeginShowSelector overloads differ in exactly that: a player, a
+// space requirement, both, or neither. CNA has one route per combination, so
+// the selection here is the reference's overload set rather than a switch this
+// projection invented.
+func (r *Runtime) StorageShowSelector(player uint32, hasPlayer bool, sizeInBytes, directoryCount int32, hasSpace bool) (uint64, error) {
+	switch {
+	case hasPlayer && hasSpace:
+		return nativeStorageShowSelectorForPlayerWithSpace(player, sizeInBytes, directoryCount)
+	case hasPlayer:
+		return nativeStorageShowSelectorForPlayer(player)
+	case hasSpace:
+		return nativeStorageShowSelectorWithSpace(sizeInBytes, directoryCount)
+	default:
+		return nativeStorageShowSelector()
+	}
+}
+
+func (r *Runtime) StorageDeviceFreeSpace(device uint64) (int64, error) {
+	return nativeStorageDeviceFreeSpace(device)
+}
+
+func (r *Runtime) StorageDeviceTotalSpace(device uint64) (int64, error) {
+	return nativeStorageDeviceTotalSpace(device)
+}
+
+func (r *Runtime) StorageDeviceIsConnected(device uint64) (bool, error) {
+	return nativeStorageDeviceIsConnected(device)
+}
+
+func (r *Runtime) StorageDeviceDeleteContainer(device uint64, titleName string) error {
+	return nativeStorageDeviceDeleteContainer(device, titleName)
+}
+
+func (r *Runtime) StorageDeviceDestroy(device uint64) error {
+	return nativeStorageDeviceDestroy(device)
+}
+
+func (r *Runtime) StorageContainerOpen(device uint64, displayName string) (uint64, error) {
+	return nativeStorageContainerOpen(device, displayName)
+}
+
+func (r *Runtime) StorageContainerDisplayName(container uint64) (string, error) {
+	return nativeStorageContainerDisplayName(container)
+}
+
+func (r *Runtime) StorageContainerIsDisposed(container uint64) (bool, error) {
+	return nativeStorageContainerIsDisposed(container)
+}
+
+func (r *Runtime) StorageContainerDevice(container uint64) (uint64, error) {
+	return nativeStorageContainerDevice(container)
+}
+
+func (r *Runtime) StorageContainerDispose(container uint64) error {
+	return nativeStorageContainerDispose(container)
+}
+
+func (r *Runtime) StorageContainerDestroy(container uint64) error {
+	return nativeStorageContainerDestroy(container)
+}
+
+func (r *Runtime) StorageContainerCreateDirectory(container uint64, directory string) error {
+	return nativeStorageContainerCreateDirectory(container, directory)
+}
+
+func (r *Runtime) StorageContainerDeleteDirectory(container uint64, directory string) error {
+	return nativeStorageContainerDeleteDirectory(container, directory)
+}
+
+func (r *Runtime) StorageContainerDirectoryExists(container uint64, directory string) (bool, error) {
+	return nativeStorageContainerDirectoryExists(container, directory)
+}
+
+func (r *Runtime) StorageContainerFileExists(container uint64, file string) (bool, error) {
+	return nativeStorageContainerFileExists(container, file)
+}
+
+func (r *Runtime) StorageContainerDeleteFile(container uint64, file string) error {
+	return nativeStorageContainerDeleteFile(container, file)
+}
+
+func (r *Runtime) StorageContainerDirectoryNames(container uint64, pattern string) ([]string, error) {
+	return nativeStorageContainerNames(container, pattern, true)
+}
+
+func (r *Runtime) StorageContainerFileNames(container uint64, pattern string) ([]string, error) {
+	return nativeStorageContainerNames(container, pattern, false)
+}
+
+func (r *Runtime) StorageContainerCreateFile(container uint64, file string) (uint64, error) {
+	return nativeStorageContainerCreateFile(container, file)
+}
+
+// StorageContainerOpenFile carries the ARITY the caller reached it through, so
+// the three CNA routes stay distinguishable. XNA's shorter overloads forward to
+// the longest with defaults, and reproducing that here would collapse three
+// bound routes into one and leave two with no call site.
+func (r *Runtime) StorageContainerOpenFile(container uint64, file string, mode, access, share uint32, arity int) (uint64, error) {
+	return nativeStorageContainerOpenFile(container, file, mode, access, share, arity)
+}
+
+func (r *Runtime) StorageStreamRead(stream uint64, destination []byte) (int, error) {
+	return nativeStorageStreamRead(stream, destination)
+}
+
+func (r *Runtime) StorageStreamWrite(stream uint64, data []byte) error {
+	return nativeStorageStreamWrite(stream, data)
+}
+
+func (r *Runtime) StorageStreamSeek(stream uint64, offset int64, origin uint32) (int64, error) {
+	return nativeStorageStreamSeek(stream, offset, origin)
+}
+
+func (r *Runtime) StorageStreamPosition(stream uint64) (int64, error) {
+	return nativeStorageStreamPosition(stream)
+}
+
+func (r *Runtime) StorageStreamLength(stream uint64) (int64, error) {
+	return nativeStorageStreamLength(stream)
+}
+
+func (r *Runtime) StorageStreamSetLength(stream uint64, length int64) error {
+	return nativeStorageStreamSetLength(stream, length)
+}
+
+func (r *Runtime) StorageStreamCanRead(stream uint64) (bool, error) {
+	return nativeStorageStreamCanRead(stream)
+}
+
+func (r *Runtime) StorageStreamCanWrite(stream uint64) (bool, error) {
+	return nativeStorageStreamCanWrite(stream)
+}
+
+func (r *Runtime) StorageStreamCanSeek(stream uint64) (bool, error) {
+	return nativeStorageStreamCanSeek(stream)
+}
+
+func (r *Runtime) StorageStreamFlush(stream uint64) error {
+	return nativeStorageStreamFlush(stream)
+}
+
+func (r *Runtime) StorageStreamClose(stream uint64) error {
+	return nativeStorageStreamClose(stream)
+}
+
+// StorageSetApplicationName and StorageRoot are the two `_ext` routes the test
+// harness uses to isolate itself and then prove it. They are NOT XNA surface
+// and no projected member reaches them.
+func (r *Runtime) StorageSetApplicationName(name string) error {
+	return nativeStorageSetAppName(name)
+}
+
+func (r *Runtime) StorageRoot() (string, error) {
+	return nativeStorageRoot()
+}
+
+// ---------------------------------------------------------------------------
+// Foundation 92. The content reader.
+
+func (r *Runtime) ContentReaderCreate(values ContentReaderCreateValues) (uint64, error) {
+	return nativeContentReaderCreate(values)
+}
+
+func (r *Runtime) ContentReaderAssetName(reader uint64) (string, error) {
+	return nativeContentReaderAssetName(reader)
+}
+
+// ContentReaderReadFloats serves the five float-valued reads. The KIND selects
+// the route, and each route decides how many floats it answers -- so a caller
+// cannot ask for a Vector2 and receive four.
+func (r *Runtime) ContentReaderReadFloats(reader uint64, kind int) ([]float32, error) {
+	return nativeContentReaderReadFloats(reader, kind)
+}
+
+func (r *Runtime) ContentReaderReadColor(reader uint64) ([4]byte, error) {
+	return nativeContentReaderReadColor(reader)
+}
+
+func (r *Runtime) ContentReaderReadObjectTag(reader uint64) (bool, error) {
+	return nativeContentReaderReadObjectTag(reader)
+}
+
+func (r *Runtime) ContentReaderInitializeTypeReaders(reader uint64) error {
+	return nativeContentReaderInitializeTypeReaders(reader)
+}
+
+func (r *Runtime) ContentReaderReadSharedResources(reader uint64) error {
+	return nativeContentReaderReadSharedResources(reader)
+}
+
+func (r *Runtime) ContentReaderReadBytesExact(reader uint64, count int32, readerName string, destination []byte) (int, error) {
+	return nativeContentReaderReadBytesExact(reader, count, readerName, destination)
+}
+
+func (r *Runtime) ContentReaderDestroy(reader uint64) error {
+	return nativeContentReaderDestroy(reader)
+}
+
+// ---------------------------------------------------------------------------
+// Foundation 95. The media metadata graph.
+//
+// One method per route, each forwarding to its cgo wrapper, and a Media prefix
+// so that ten types' worth of Name, Dispose and Count do not collide with every
+// other family that has them.
+// ---------------------------------------------------------------------------
+// MediaSongDispose is cna_song_dispose.
+func (r *Runtime) MediaSongDispose(handle uint64) error {
+	return nativeSongDispose(handle)
+}
+
+// MediaSongDestroy is cna_song_destroy.
+func (r *Runtime) MediaSongDestroy(handle uint64) error {
+	return nativeSongDestroy(handle)
+}
+
+// MediaSongIsDisposed is cna_song_get_is_disposed.
+func (r *Runtime) MediaSongIsDisposed(handle uint64) (bool, error) {
+	return nativeSongIsDisposed(handle)
+}
+
+// MediaSongHashCode is cna_song_get_hash_code.
+func (r *Runtime) MediaSongHashCode(handle uint64) (int32, error) {
+	return nativeSongHashCode(handle)
+}
+
+// MediaSongName pairs cna_song_get_name_size with cna_song_copy_name: the size
+// first, then the copy into a buffer of exactly that size.
+func (r *Runtime) MediaSongName(handle uint64) (string, error) {
+	return nativeSongName(handle)
+}
+
+// MediaSongTypeName pairs cna_song_get_type_name_size with cna_song_copy_type_name: the size
+// first, then the copy into a buffer of exactly that size.
+func (r *Runtime) MediaSongTypeName(handle uint64) (string, error) {
+	return nativeSongTypeName(handle)
+}
+
+// MediaSongEquals is cna_song_equals.
+func (r *Runtime) MediaSongEquals(left, right uint64) (bool, error) {
+	return nativeSongEquals(left, right)
+}
+
+// MediaAlbumDispose is cna_album_dispose.
+func (r *Runtime) MediaAlbumDispose(handle uint64) error {
+	return nativeAlbumDispose(handle)
+}
+
+// MediaAlbumDestroy is cna_album_destroy.
+func (r *Runtime) MediaAlbumDestroy(handle uint64) error {
+	return nativeAlbumDestroy(handle)
+}
+
+// MediaAlbumIsDisposed is cna_album_get_is_disposed.
+func (r *Runtime) MediaAlbumIsDisposed(handle uint64) (bool, error) {
+	return nativeAlbumIsDisposed(handle)
+}
+
+// MediaAlbumHashCode is cna_album_get_hash_code.
+func (r *Runtime) MediaAlbumHashCode(handle uint64) (int32, error) {
+	return nativeAlbumHashCode(handle)
+}
+
+// MediaAlbumName pairs cna_album_get_name_size with cna_album_copy_name: the size
+// first, then the copy into a buffer of exactly that size.
+func (r *Runtime) MediaAlbumName(handle uint64) (string, error) {
+	return nativeAlbumName(handle)
+}
+
+// MediaAlbumTypeName pairs cna_album_get_type_name_size with cna_album_copy_type_name: the size
+// first, then the copy into a buffer of exactly that size.
+func (r *Runtime) MediaAlbumTypeName(handle uint64) (string, error) {
+	return nativeAlbumTypeName(handle)
+}
+
+// MediaAlbumEquals is cna_album_equals.
+func (r *Runtime) MediaAlbumEquals(left, right uint64) (bool, error) {
+	return nativeAlbumEquals(left, right)
+}
+
+// MediaArtistDispose is cna_artist_dispose.
+func (r *Runtime) MediaArtistDispose(handle uint64) error {
+	return nativeArtistDispose(handle)
+}
+
+// MediaArtistDestroy is cna_artist_destroy.
+func (r *Runtime) MediaArtistDestroy(handle uint64) error {
+	return nativeArtistDestroy(handle)
+}
+
+// MediaArtistIsDisposed is cna_artist_get_is_disposed.
+func (r *Runtime) MediaArtistIsDisposed(handle uint64) (bool, error) {
+	return nativeArtistIsDisposed(handle)
+}
+
+// MediaArtistHashCode is cna_artist_get_hash_code.
+func (r *Runtime) MediaArtistHashCode(handle uint64) (int32, error) {
+	return nativeArtistHashCode(handle)
+}
+
+// MediaArtistName pairs cna_artist_get_name_size with cna_artist_copy_name: the size
+// first, then the copy into a buffer of exactly that size.
+func (r *Runtime) MediaArtistName(handle uint64) (string, error) {
+	return nativeArtistName(handle)
+}
+
+// MediaArtistTypeName pairs cna_artist_get_type_name_size with cna_artist_copy_type_name: the size
+// first, then the copy into a buffer of exactly that size.
+func (r *Runtime) MediaArtistTypeName(handle uint64) (string, error) {
+	return nativeArtistTypeName(handle)
+}
+
+// MediaArtistEquals is cna_artist_equals.
+func (r *Runtime) MediaArtistEquals(left, right uint64) (bool, error) {
+	return nativeArtistEquals(left, right)
+}
+
+// MediaGenreDispose is cna_genre_dispose.
+func (r *Runtime) MediaGenreDispose(handle uint64) error {
+	return nativeGenreDispose(handle)
+}
+
+// MediaGenreDestroy is cna_genre_destroy.
+func (r *Runtime) MediaGenreDestroy(handle uint64) error {
+	return nativeGenreDestroy(handle)
+}
+
+// MediaGenreIsDisposed is cna_genre_get_is_disposed.
+func (r *Runtime) MediaGenreIsDisposed(handle uint64) (bool, error) {
+	return nativeGenreIsDisposed(handle)
+}
+
+// MediaGenreHashCode is cna_genre_get_hash_code.
+func (r *Runtime) MediaGenreHashCode(handle uint64) (int32, error) {
+	return nativeGenreHashCode(handle)
+}
+
+// MediaGenreName pairs cna_genre_get_name_size with cna_genre_copy_name: the size
+// first, then the copy into a buffer of exactly that size.
+func (r *Runtime) MediaGenreName(handle uint64) (string, error) {
+	return nativeGenreName(handle)
+}
+
+// MediaGenreTypeName pairs cna_genre_get_type_name_size with cna_genre_copy_type_name: the size
+// first, then the copy into a buffer of exactly that size.
+func (r *Runtime) MediaGenreTypeName(handle uint64) (string, error) {
+	return nativeGenreTypeName(handle)
+}
+
+// MediaGenreEquals is cna_genre_equals.
+func (r *Runtime) MediaGenreEquals(left, right uint64) (bool, error) {
+	return nativeGenreEquals(left, right)
+}
+
+// MediaPlaylistDispose is cna_playlist_dispose.
+func (r *Runtime) MediaPlaylistDispose(handle uint64) error {
+	return nativePlaylistDispose(handle)
+}
+
+// MediaPlaylistDestroy is cna_playlist_destroy.
+func (r *Runtime) MediaPlaylistDestroy(handle uint64) error {
+	return nativePlaylistDestroy(handle)
+}
+
+// MediaPlaylistIsDisposed is cna_playlist_get_is_disposed.
+func (r *Runtime) MediaPlaylistIsDisposed(handle uint64) (bool, error) {
+	return nativePlaylistIsDisposed(handle)
+}
+
+// MediaPlaylistHashCode is cna_playlist_get_hash_code.
+func (r *Runtime) MediaPlaylistHashCode(handle uint64) (int32, error) {
+	return nativePlaylistHashCode(handle)
+}
+
+// MediaPlaylistName pairs cna_playlist_get_name_size with cna_playlist_copy_name: the size
+// first, then the copy into a buffer of exactly that size.
+func (r *Runtime) MediaPlaylistName(handle uint64) (string, error) {
+	return nativePlaylistName(handle)
+}
+
+// MediaPlaylistTypeName pairs cna_playlist_get_type_name_size with cna_playlist_copy_type_name: the size
+// first, then the copy into a buffer of exactly that size.
+func (r *Runtime) MediaPlaylistTypeName(handle uint64) (string, error) {
+	return nativePlaylistTypeName(handle)
+}
+
+// MediaPlaylistEquals is cna_playlist_equals.
+func (r *Runtime) MediaPlaylistEquals(left, right uint64) (bool, error) {
+	return nativePlaylistEquals(left, right)
+}
+
+// MediaSongArtist is cna_song_get_artist.
+func (r *Runtime) MediaSongArtist(handle uint64) (uint64, bool, error) {
+	return nativeSongArtist(handle)
+}
+
+// MediaSongAlbum is cna_song_get_album.
+func (r *Runtime) MediaSongAlbum(handle uint64) (uint64, bool, error) {
+	return nativeSongAlbum(handle)
+}
+
+// MediaSongGenre is cna_song_get_genre.
+func (r *Runtime) MediaSongGenre(handle uint64) (uint64, bool, error) {
+	return nativeSongGenre(handle)
+}
+
+// MediaSongDurationTicks is cna_song_get_duration.
+func (r *Runtime) MediaSongDurationTicks(handle uint64) (int64, error) {
+	return nativeSongDurationTicks(handle)
+}
+
+// MediaSongIsRated is cna_song_get_is_rated.
+func (r *Runtime) MediaSongIsRated(handle uint64) (bool, error) {
+	return nativeSongIsRated(handle)
+}
+
+// MediaSongRating is cna_song_get_rating.
+func (r *Runtime) MediaSongRating(handle uint64) (int32, error) {
+	return nativeSongRating(handle)
+}
+
+// MediaSongPlayCount is cna_song_get_play_count.
+func (r *Runtime) MediaSongPlayCount(handle uint64) (int32, error) {
+	return nativeSongPlayCount(handle)
+}
+
+// MediaSongTrackNumber is cna_song_get_track_number.
+func (r *Runtime) MediaSongTrackNumber(handle uint64) (int32, error) {
+	return nativeSongTrackNumber(handle)
+}
+
+// MediaSongIsProtected is cna_song_get_is_protected.
+func (r *Runtime) MediaSongIsProtected(handle uint64) (bool, error) {
+	return nativeSongIsProtected(handle)
+}
+
+// MediaSongFromURI is cna_song_create_from_uri.
+//
+// It takes the game from activeGame rather than from the caller, for the reason
+// every other create route does: the handle is the runtime's to hand out, and a
+// caller that could pass its own could pass a stale one.
+func (r *Runtime) MediaSongFromURI(name, uri string) (uint64, error) {
+	game, err := r.activeGame(false)
+	if err != nil {
+		return 0, err
+	}
+	return nativeSongFromURI(game, name, uri)
+}
+
+// MediaAlbumArtist is cna_album_get_artist.
+func (r *Runtime) MediaAlbumArtist(handle uint64) (uint64, bool, error) {
+	return nativeAlbumArtist(handle)
+}
+
+// MediaAlbumGenre is cna_album_get_genre.
+func (r *Runtime) MediaAlbumGenre(handle uint64) (uint64, bool, error) {
+	return nativeAlbumGenre(handle)
+}
+
+// MediaAlbumSongs is cna_album_get_songs.
+func (r *Runtime) MediaAlbumSongs(handle uint64) (uint64, error) {
+	return nativeAlbumSongs(handle)
+}
+
+// MediaAlbumDurationTicks is cna_album_get_duration.
+func (r *Runtime) MediaAlbumDurationTicks(handle uint64) (int64, error) {
+	return nativeAlbumDurationTicks(handle)
+}
+
+// MediaAlbumHasArt is cna_album_get_has_art.
+func (r *Runtime) MediaAlbumHasArt(handle uint64) (bool, error) {
+	return nativeAlbumHasArt(handle)
+}
+
+// MediaAlbumArt pairs cna_album_get_art_size with cna_album_copy_art: the size
+// first, then the copy into a buffer of exactly that size.
+func (r *Runtime) MediaAlbumArt(handle uint64) ([]byte, error) {
+	return nativeAlbumArt(handle)
+}
+
+// MediaAlbumThumbnail pairs cna_album_get_thumbnail_size with cna_album_copy_thumbnail: the size
+// first, then the copy into a buffer of exactly that size.
+func (r *Runtime) MediaAlbumThumbnail(handle uint64) ([]byte, error) {
+	return nativeAlbumThumbnail(handle)
+}
+
+// MediaArtistSongs is cna_artist_get_songs.
+func (r *Runtime) MediaArtistSongs(handle uint64) (uint64, error) {
+	return nativeArtistSongs(handle)
+}
+
+// MediaArtistAlbums is cna_artist_get_albums.
+func (r *Runtime) MediaArtistAlbums(handle uint64) (uint64, error) {
+	return nativeArtistAlbums(handle)
+}
+
+// MediaGenreSongs is cna_genre_get_songs.
+func (r *Runtime) MediaGenreSongs(handle uint64) (uint64, error) {
+	return nativeGenreSongs(handle)
+}
+
+// MediaGenreAlbums is cna_genre_get_albums.
+func (r *Runtime) MediaGenreAlbums(handle uint64) (uint64, error) {
+	return nativeGenreAlbums(handle)
+}
+
+// MediaPlaylistSongs is cna_playlist_get_songs.
+func (r *Runtime) MediaPlaylistSongs(handle uint64) (uint64, error) {
+	return nativePlaylistSongs(handle)
+}
+
+// MediaPlaylistDurationTicks is cna_playlist_get_duration.
+func (r *Runtime) MediaPlaylistDurationTicks(handle uint64) (int64, error) {
+	return nativePlaylistDurationTicks(handle)
+}
+
+// MediaSongCollectionDispose is cna_song_collection_dispose.
+func (r *Runtime) MediaSongCollectionDispose(handle uint64) error {
+	return nativeSongCollectionDispose(handle)
+}
+
+// MediaSongCollectionDestroy is cna_song_collection_destroy.
+func (r *Runtime) MediaSongCollectionDestroy(handle uint64) error {
+	return nativeSongCollectionDestroy(handle)
+}
+
+// MediaSongCollectionIsDisposed is cna_song_collection_get_is_disposed.
+func (r *Runtime) MediaSongCollectionIsDisposed(handle uint64) (bool, error) {
+	return nativeSongCollectionIsDisposed(handle)
+}
+
+// MediaSongCollectionCount is cna_song_collection_get_count.
+func (r *Runtime) MediaSongCollectionCount(handle uint64) (int32, error) {
+	return nativeSongCollectionCount(handle)
+}
+
+// MediaSongCollectionTypeName pairs cna_song_collection_get_type_name_size with cna_song_collection_copy_type_name: the size
+// first, then the copy into a buffer of exactly that size.
+func (r *Runtime) MediaSongCollectionTypeName(handle uint64) (string, error) {
+	return nativeSongCollectionTypeName(handle)
+}
+
+// MediaSongCollectionAt is cna_song_collection_get_at.
+func (r *Runtime) MediaSongCollectionAt(handle uint64, index int32) (uint64, error) {
+	return nativeSongCollectionAt(handle, index)
+}
+
+// MediaAlbumCollectionDispose is cna_album_collection_dispose.
+func (r *Runtime) MediaAlbumCollectionDispose(handle uint64) error {
+	return nativeAlbumCollectionDispose(handle)
+}
+
+// MediaAlbumCollectionDestroy is cna_album_collection_destroy.
+func (r *Runtime) MediaAlbumCollectionDestroy(handle uint64) error {
+	return nativeAlbumCollectionDestroy(handle)
+}
+
+// MediaAlbumCollectionIsDisposed is cna_album_collection_get_is_disposed.
+func (r *Runtime) MediaAlbumCollectionIsDisposed(handle uint64) (bool, error) {
+	return nativeAlbumCollectionIsDisposed(handle)
+}
+
+// MediaAlbumCollectionCount is cna_album_collection_get_count.
+func (r *Runtime) MediaAlbumCollectionCount(handle uint64) (int32, error) {
+	return nativeAlbumCollectionCount(handle)
+}
+
+// MediaAlbumCollectionTypeName pairs cna_album_collection_get_type_name_size with cna_album_collection_copy_type_name: the size
+// first, then the copy into a buffer of exactly that size.
+func (r *Runtime) MediaAlbumCollectionTypeName(handle uint64) (string, error) {
+	return nativeAlbumCollectionTypeName(handle)
+}
+
+// MediaAlbumCollectionAt is cna_album_collection_get_at.
+func (r *Runtime) MediaAlbumCollectionAt(handle uint64, index int32) (uint64, error) {
+	return nativeAlbumCollectionAt(handle, index)
+}
+
+// MediaArtistCollectionDispose is cna_artist_collection_dispose.
+func (r *Runtime) MediaArtistCollectionDispose(handle uint64) error {
+	return nativeArtistCollectionDispose(handle)
+}
+
+// MediaArtistCollectionDestroy is cna_artist_collection_destroy.
+func (r *Runtime) MediaArtistCollectionDestroy(handle uint64) error {
+	return nativeArtistCollectionDestroy(handle)
+}
+
+// MediaArtistCollectionIsDisposed is cna_artist_collection_get_is_disposed.
+func (r *Runtime) MediaArtistCollectionIsDisposed(handle uint64) (bool, error) {
+	return nativeArtistCollectionIsDisposed(handle)
+}
+
+// MediaArtistCollectionCount is cna_artist_collection_get_count.
+func (r *Runtime) MediaArtistCollectionCount(handle uint64) (int32, error) {
+	return nativeArtistCollectionCount(handle)
+}
+
+// MediaArtistCollectionTypeName pairs cna_artist_collection_get_type_name_size with cna_artist_collection_copy_type_name: the size
+// first, then the copy into a buffer of exactly that size.
+func (r *Runtime) MediaArtistCollectionTypeName(handle uint64) (string, error) {
+	return nativeArtistCollectionTypeName(handle)
+}
+
+// MediaArtistCollectionAt is cna_artist_collection_get_at.
+func (r *Runtime) MediaArtistCollectionAt(handle uint64, index int32) (uint64, error) {
+	return nativeArtistCollectionAt(handle, index)
+}
+
+// MediaGenreCollectionDispose is cna_genre_collection_dispose.
+func (r *Runtime) MediaGenreCollectionDispose(handle uint64) error {
+	return nativeGenreCollectionDispose(handle)
+}
+
+// MediaGenreCollectionDestroy is cna_genre_collection_destroy.
+func (r *Runtime) MediaGenreCollectionDestroy(handle uint64) error {
+	return nativeGenreCollectionDestroy(handle)
+}
+
+// MediaGenreCollectionIsDisposed is cna_genre_collection_get_is_disposed.
+func (r *Runtime) MediaGenreCollectionIsDisposed(handle uint64) (bool, error) {
+	return nativeGenreCollectionIsDisposed(handle)
+}
+
+// MediaGenreCollectionCount is cna_genre_collection_get_count.
+func (r *Runtime) MediaGenreCollectionCount(handle uint64) (int32, error) {
+	return nativeGenreCollectionCount(handle)
+}
+
+// MediaGenreCollectionTypeName pairs cna_genre_collection_get_type_name_size with cna_genre_collection_copy_type_name: the size
+// first, then the copy into a buffer of exactly that size.
+func (r *Runtime) MediaGenreCollectionTypeName(handle uint64) (string, error) {
+	return nativeGenreCollectionTypeName(handle)
+}
+
+// MediaGenreCollectionAt is cna_genre_collection_get_at.
+func (r *Runtime) MediaGenreCollectionAt(handle uint64, index int32) (uint64, error) {
+	return nativeGenreCollectionAt(handle, index)
+}
+
+// MediaPlaylistCollectionDispose is cna_playlist_collection_dispose.
+func (r *Runtime) MediaPlaylistCollectionDispose(handle uint64) error {
+	return nativePlaylistCollectionDispose(handle)
+}
+
+// MediaPlaylistCollectionDestroy is cna_playlist_collection_destroy.
+func (r *Runtime) MediaPlaylistCollectionDestroy(handle uint64) error {
+	return nativePlaylistCollectionDestroy(handle)
+}
+
+// MediaPlaylistCollectionIsDisposed is cna_playlist_collection_get_is_disposed.
+func (r *Runtime) MediaPlaylistCollectionIsDisposed(handle uint64) (bool, error) {
+	return nativePlaylistCollectionIsDisposed(handle)
+}
+
+// MediaPlaylistCollectionCount is cna_playlist_collection_get_count.
+func (r *Runtime) MediaPlaylistCollectionCount(handle uint64) (int32, error) {
+	return nativePlaylistCollectionCount(handle)
+}
+
+// MediaPlaylistCollectionTypeName pairs cna_playlist_collection_get_type_name_size with cna_playlist_collection_copy_type_name: the size
+// first, then the copy into a buffer of exactly that size.
+func (r *Runtime) MediaPlaylistCollectionTypeName(handle uint64) (string, error) {
+	return nativePlaylistCollectionTypeName(handle)
+}
+
+// MediaPlaylistCollectionAt is cna_playlist_collection_get_at.
+func (r *Runtime) MediaPlaylistCollectionAt(handle uint64, index int32) (uint64, error) {
+	return nativePlaylistCollectionAt(handle, index)
+}
+
+// ---------------------------------------------------------------------------
+// Foundation 96. The media library and the picture graph.
+// ---------------------------------------------------------------------------
+// MediaPictureDispose is cna_picture_dispose.
+func (r *Runtime) MediaPictureDispose(handle uint64) error {
+	return nativePictureDispose(handle)
+}
+
+// MediaPictureDestroy is cna_picture_destroy.
+func (r *Runtime) MediaPictureDestroy(handle uint64) error {
+	return nativePictureDestroy(handle)
+}
+
+// MediaPictureIsDisposed is cna_picture_get_is_disposed.
+func (r *Runtime) MediaPictureIsDisposed(handle uint64) (bool, error) {
+	return nativePictureIsDisposed(handle)
+}
+
+// MediaPictureHashCode is cna_picture_get_hash_code.
+func (r *Runtime) MediaPictureHashCode(handle uint64) (int32, error) {
+	return nativePictureHashCode(handle)
+}
+
+// MediaPictureName pairs cna_picture_get_name_size with cna_picture_copy_name: the size
+// first, then the copy into a buffer of exactly that size.
+func (r *Runtime) MediaPictureName(handle uint64) (string, error) {
+	return nativePictureName(handle)
+}
+
+// MediaPictureTypeName pairs cna_picture_get_type_name_size with cna_picture_copy_type_name: the size
+// first, then the copy into a buffer of exactly that size.
+func (r *Runtime) MediaPictureTypeName(handle uint64) (string, error) {
+	return nativePictureTypeName(handle)
+}
+
+// MediaPictureEquals is cna_picture_equals.
+func (r *Runtime) MediaPictureEquals(left, right uint64) (bool, error) {
+	return nativePictureEquals(left, right)
+}
+
+// MediaPictureAlbumDispose is cna_picture_album_dispose.
+func (r *Runtime) MediaPictureAlbumDispose(handle uint64) error {
+	return nativePictureAlbumDispose(handle)
+}
+
+// MediaPictureAlbumDestroy is cna_picture_album_destroy.
+func (r *Runtime) MediaPictureAlbumDestroy(handle uint64) error {
+	return nativePictureAlbumDestroy(handle)
+}
+
+// MediaPictureAlbumIsDisposed is cna_picture_album_get_is_disposed.
+func (r *Runtime) MediaPictureAlbumIsDisposed(handle uint64) (bool, error) {
+	return nativePictureAlbumIsDisposed(handle)
+}
+
+// MediaPictureAlbumHashCode is cna_picture_album_get_hash_code.
+func (r *Runtime) MediaPictureAlbumHashCode(handle uint64) (int32, error) {
+	return nativePictureAlbumHashCode(handle)
+}
+
+// MediaPictureAlbumName pairs cna_picture_album_get_name_size with cna_picture_album_copy_name: the size
+// first, then the copy into a buffer of exactly that size.
+func (r *Runtime) MediaPictureAlbumName(handle uint64) (string, error) {
+	return nativePictureAlbumName(handle)
+}
+
+// MediaPictureAlbumTypeName pairs cna_picture_album_get_type_name_size with cna_picture_album_copy_type_name: the size
+// first, then the copy into a buffer of exactly that size.
+func (r *Runtime) MediaPictureAlbumTypeName(handle uint64) (string, error) {
+	return nativePictureAlbumTypeName(handle)
+}
+
+// MediaPictureAlbumEquals is cna_picture_album_equals.
+func (r *Runtime) MediaPictureAlbumEquals(left, right uint64) (bool, error) {
+	return nativePictureAlbumEquals(left, right)
+}
+
+// MediaPictureAlbumOf is cna_picture_get_album.
+func (r *Runtime) MediaPictureAlbumOf(handle uint64) (uint64, bool, error) {
+	return nativePictureAlbumOf(handle)
+}
+
+// MediaPictureWidth is cna_picture_get_width.
+func (r *Runtime) MediaPictureWidth(handle uint64) (int32, error) {
+	return nativePictureWidth(handle)
+}
+
+// MediaPictureHeight is cna_picture_get_height.
+func (r *Runtime) MediaPictureHeight(handle uint64) (int32, error) {
+	return nativePictureHeight(handle)
+}
+
+// MediaPictureDateUnixTicks is cna_picture_get_date_unix_ticks.
+func (r *Runtime) MediaPictureDateUnixTicks(handle uint64) (int64, error) {
+	return nativePictureDateUnixTicks(handle)
+}
+
+// MediaPictureImage pairs cna_picture_get_image_size with cna_picture_copy_image: the size
+// first, then the copy into a buffer of exactly that size.
+func (r *Runtime) MediaPictureImage(handle uint64) ([]byte, error) {
+	return nativePictureImage(handle)
+}
+
+// MediaPictureThumbnail pairs cna_picture_get_thumbnail_size with cna_picture_copy_thumbnail: the size
+// first, then the copy into a buffer of exactly that size.
+func (r *Runtime) MediaPictureThumbnail(handle uint64) ([]byte, error) {
+	return nativePictureThumbnail(handle)
+}
+
+// MediaPictureAlbumAlbums is cna_picture_album_get_albums.
+func (r *Runtime) MediaPictureAlbumAlbums(handle uint64) (uint64, error) {
+	return nativePictureAlbumAlbums(handle)
+}
+
+// MediaPictureAlbumPictures is cna_picture_album_get_pictures.
+func (r *Runtime) MediaPictureAlbumPictures(handle uint64) (uint64, error) {
+	return nativePictureAlbumPictures(handle)
+}
+
+// MediaPictureAlbumParent is cna_picture_album_get_parent.
+func (r *Runtime) MediaPictureAlbumParent(handle uint64) (uint64, bool, error) {
+	return nativePictureAlbumParent(handle)
+}
+
+// MediaPictureCollectionDispose is cna_picture_collection_dispose.
+func (r *Runtime) MediaPictureCollectionDispose(handle uint64) error {
+	return nativePictureCollectionDispose(handle)
+}
+
+// MediaPictureCollectionDestroy is cna_picture_collection_destroy.
+func (r *Runtime) MediaPictureCollectionDestroy(handle uint64) error {
+	return nativePictureCollectionDestroy(handle)
+}
+
+// MediaPictureCollectionIsDisposed is cna_picture_collection_get_is_disposed.
+func (r *Runtime) MediaPictureCollectionIsDisposed(handle uint64) (bool, error) {
+	return nativePictureCollectionIsDisposed(handle)
+}
+
+// MediaPictureCollectionCount is cna_picture_collection_get_count.
+func (r *Runtime) MediaPictureCollectionCount(handle uint64) (int32, error) {
+	return nativePictureCollectionCount(handle)
+}
+
+// MediaPictureCollectionTypeName pairs cna_picture_collection_get_type_name_size with cna_picture_collection_copy_type_name: the size
+// first, then the copy into a buffer of exactly that size.
+func (r *Runtime) MediaPictureCollectionTypeName(handle uint64) (string, error) {
+	return nativePictureCollectionTypeName(handle)
+}
+
+// MediaPictureCollectionAt is cna_picture_collection_get_at.
+func (r *Runtime) MediaPictureCollectionAt(handle uint64, index int32) (uint64, error) {
+	return nativePictureCollectionAt(handle, index)
+}
+
+// MediaPictureAlbumCollectionDispose is cna_picture_album_collection_dispose.
+func (r *Runtime) MediaPictureAlbumCollectionDispose(handle uint64) error {
+	return nativePictureAlbumCollectionDispose(handle)
+}
+
+// MediaPictureAlbumCollectionDestroy is cna_picture_album_collection_destroy.
+func (r *Runtime) MediaPictureAlbumCollectionDestroy(handle uint64) error {
+	return nativePictureAlbumCollectionDestroy(handle)
+}
+
+// MediaPictureAlbumCollectionIsDisposed is cna_picture_album_collection_get_is_disposed.
+func (r *Runtime) MediaPictureAlbumCollectionIsDisposed(handle uint64) (bool, error) {
+	return nativePictureAlbumCollectionIsDisposed(handle)
+}
+
+// MediaPictureAlbumCollectionCount is cna_picture_album_collection_get_count.
+func (r *Runtime) MediaPictureAlbumCollectionCount(handle uint64) (int32, error) {
+	return nativePictureAlbumCollectionCount(handle)
+}
+
+// MediaPictureAlbumCollectionTypeName pairs cna_picture_album_collection_get_type_name_size with cna_picture_album_collection_copy_type_name: the size
+// first, then the copy into a buffer of exactly that size.
+func (r *Runtime) MediaPictureAlbumCollectionTypeName(handle uint64) (string, error) {
+	return nativePictureAlbumCollectionTypeName(handle)
+}
+
+// MediaPictureAlbumCollectionAt is cna_picture_album_collection_get_at.
+func (r *Runtime) MediaPictureAlbumCollectionAt(handle uint64, index int32) (uint64, error) {
+	return nativePictureAlbumCollectionAt(handle, index)
+}
+
+// MediaLibraryDispose is cna_media_library_dispose.
+func (r *Runtime) MediaLibraryDispose(handle uint64) error {
+	return nativeMediaLibraryDispose(handle)
+}
+
+// MediaLibraryDestroy is cna_media_library_destroy.
+func (r *Runtime) MediaLibraryDestroy(handle uint64) error {
+	return nativeMediaLibraryDestroy(handle)
+}
+
+// MediaLibraryIsDisposed is cna_media_library_get_is_disposed.
+func (r *Runtime) MediaLibraryIsDisposed(handle uint64) (bool, error) {
+	return nativeMediaLibraryIsDisposed(handle)
+}
+
+// MediaLibraryTypeName pairs cna_media_library_get_type_name_size with cna_media_library_copy_type_name: the size
+// first, then the copy into a buffer of exactly that size.
+func (r *Runtime) MediaLibraryTypeName(handle uint64) (string, error) {
+	return nativeMediaLibraryTypeName(handle)
+}
+
+// MediaLibraryMediaSourceName pairs cna_media_library_get_media_source_name_size with cna_media_library_copy_media_source_name: the size
+// first, then the copy into a buffer of exactly that size.
+func (r *Runtime) MediaLibraryMediaSourceName(handle uint64) (string, error) {
+	return nativeMediaLibraryMediaSourceName(handle)
+}
+
+// MediaLibraryMediaSourceType is cna_media_library_get_media_source_type.
+func (r *Runtime) MediaLibraryMediaSourceType(handle uint64) (uint32, error) {
+	return nativeMediaLibraryMediaSourceType(handle)
+}
+
+// MediaLibrarySongs is cna_media_library_get_songs.
+func (r *Runtime) MediaLibrarySongs(handle uint64) (uint64, error) {
+	return nativeMediaLibrarySongs(handle)
+}
+
+// MediaLibraryArtists is cna_media_library_get_artists.
+func (r *Runtime) MediaLibraryArtists(handle uint64) (uint64, error) {
+	return nativeMediaLibraryArtists(handle)
+}
+
+// MediaLibraryAlbums is cna_media_library_get_albums.
+func (r *Runtime) MediaLibraryAlbums(handle uint64) (uint64, error) {
+	return nativeMediaLibraryAlbums(handle)
+}
+
+// MediaLibraryGenres is cna_media_library_get_genres.
+func (r *Runtime) MediaLibraryGenres(handle uint64) (uint64, error) {
+	return nativeMediaLibraryGenres(handle)
+}
+
+// MediaLibraryPlaylists is cna_media_library_get_playlists.
+func (r *Runtime) MediaLibraryPlaylists(handle uint64) (uint64, error) {
+	return nativeMediaLibraryPlaylists(handle)
+}
+
+// MediaLibraryPictures is cna_media_library_get_pictures.
+func (r *Runtime) MediaLibraryPictures(handle uint64) (uint64, error) {
+	return nativeMediaLibraryPictures(handle)
+}
+
+// MediaLibrarySavedPictures is cna_media_library_get_saved_pictures.
+func (r *Runtime) MediaLibrarySavedPictures(handle uint64) (uint64, error) {
+	return nativeMediaLibrarySavedPictures(handle)
+}
+
+// MediaLibraryRootPictureAlbum is cna_media_library_get_root_picture_album.
+func (r *Runtime) MediaLibraryRootPictureAlbum(handle uint64) (uint64, bool, error) {
+	return nativeMediaLibraryRootPictureAlbum(handle)
+}
+
+// MediaLibraryPictureFromToken is cna_media_library_get_picture_from_token.
+func (r *Runtime) MediaLibraryPictureFromToken(library uint64, token string) (uint64, bool, error) {
+	return nativeMediaLibraryPictureFromToken(library, token)
+}
+
+// MediaLibrarySavePicture is cna_media_library_save_picture.
+func (r *Runtime) MediaLibrarySavePicture(library uint64, name string, image []byte) (uint64, error) {
+	return nativeMediaLibrarySavePicture(library, name, image)
+}
+
+// MediaMediaSourceAvailableCount is cna_media_source_get_available_count.
+func (r *Runtime) MediaMediaSourceAvailableCount(game uint64) (uint32, error) {
+	return nativeMediaSourceAvailableCount(game)
+}
+
+// MediaMediaSourceTypeAt is cna_media_source_get_type_at.
+func (r *Runtime) MediaMediaSourceTypeAt(game uint64, index uint32) (uint32, error) {
+	return nativeMediaSourceTypeAt(game, index)
+}
+
+// The media-source enumeration and the two library creates take the GAME from
+// activeGame rather than from the caller, for the reason every other create
+// route does: the handle is the runtime's to hand out.
+
+// MediaSourceAvailableCount is cna_media_source_get_available_count.
+func (r *Runtime) MediaSourceAvailableCount() (uint32, error) {
+	game, err := r.activeGame(false)
+	if err != nil {
+		return 0, err
+	}
+	return nativeMediaSourceAvailableCount(game)
+}
+
+// MediaSourceTypeAt is cna_media_source_get_type_at.
+func (r *Runtime) MediaSourceTypeAt(index uint32) (uint32, error) {
+	game, err := r.activeGame(false)
+	if err != nil {
+		return 0, err
+	}
+	return nativeMediaSourceTypeAt(game, index)
+}
+
+// MediaSourceNameAt pairs cna_media_source_get_name_size_at with the copy.
+func (r *Runtime) MediaSourceNameAt(index uint32) (string, error) {
+	game, err := r.activeGame(false)
+	if err != nil {
+		return "", err
+	}
+	return nativeMediaSourceNameAt(game, index)
+}
+
+// MediaSourceTypeNameAt pairs the type-name size with the copy.
+func (r *Runtime) MediaSourceTypeNameAt(index uint32) (string, error) {
+	game, err := r.activeGame(false)
+	if err != nil {
+		return "", err
+	}
+	return nativeMediaSourceTypeNameAt(game, index)
+}
+
+// MediaLibraryCreate is cna_media_library_create.
+func (r *Runtime) MediaLibraryCreate() (uint64, error) {
+	game, err := r.activeGame(false)
+	if err != nil {
+		return 0, err
+	}
+	return nativeMediaLibraryCreate(game)
+}
+
+// MediaLibraryCreateFromSource is cna_media_library_create_from_source.
+func (r *Runtime) MediaLibraryCreateFromSource(sourceIndex uint32) (uint64, error) {
+	game, err := r.activeGame(false)
+	if err != nil {
+		return 0, err
+	}
+	return nativeMediaLibraryCreateFromSource(game, sourceIndex)
+}
+
+// ---------------------------------------------------------------------------
+// Foundation 97. Media playback.
+//
+// Every MediaPlayer route takes the GAME and every MediaPlayer member is static
+// in the contract, so each wrapper resolves the handle from activeGame rather
+// than taking one -- the same rule the media-source enumeration follows.
+// ---------------------------------------------------------------------------
+
+// mediaPlayerEventCount is the two canonical events: ActiveSongChanged and
+// MediaStateChanged, in the order the bridge's trampolines number them.
+const mediaPlayerEventCount = 2
+
+// MediaPlayerEventHandler is what a subscriber installs. It takes no argument
+// because neither canonical event carries data -- CNA's callback receives only
+// its context, and XNA's two events are EventHandler<EventArgs> over
+// EventArgs.Empty.
+type MediaPlayerEventHandler func(event uint32)
+
+// invokeMediaPlayerEvent is the Go side of the media-event trampoline.
+//
+// It records a delivery and calls the installed handler under a recover, for
+// the reason invokeGameEvent does: the C frame it returns through cannot carry
+// a panic.
+func (r *Runtime) invokeMediaPlayerEvent(event uint32) {
+	r.mu.Lock()
+	alive := r.alive
+	handler := r.mediaPlayerHandler
+	if int(event) < mediaPlayerEventCount {
+		r.mediaPlayerEventDeliveries[event]++
+	}
+	r.mu.Unlock()
+	if !alive {
+		r.recordCallbackFailure(ErrStaleGeneration)
+		return
+	}
+	if handler == nil {
+		return
+	}
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			r.recordCallbackFailure(
+				fmt.Errorf("panic in MediaPlayer event handler: %v\n%s", recovered, debug.Stack()))
+		}
+	}()
+	handler(event)
+}
+
+// SetMediaPlayerEventHandler installs the one handler both events reach. It is
+// ONE handler and not two because the trampoline already carries the identity,
+// and two would need two cgo handles for a pair of events that never differ in
+// anything else.
+func (r *Runtime) SetMediaPlayerEventHandler(handler MediaPlayerEventHandler) {
+	r.mu.Lock()
+	r.mediaPlayerHandler = handler
+	r.mu.Unlock()
+}
+
+// MediaPlayerEventDeliveries reports what each event has delivered, which is
+// what a stress slice counts.
+func (r *Runtime) MediaPlayerEventDeliveries() [mediaPlayerEventCount]int {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.mediaPlayerEventDeliveries
+}
+
+// MediaPlayerSubscribeActiveSongChanged is
+// cna_media_player_subscribe_active_song_changed_ext.
+func (r *Runtime) MediaPlayerSubscribeActiveSongChanged() (uint64, error) {
+	r.mu.Lock()
+	handle := r.callbackHandle
+	r.mu.Unlock()
+	return nativeMediaPlayerSubscribeActiveSongChanged(uintptr(handle))
+}
+
+// MediaPlayerSubscribeMediaStateChanged is
+// cna_media_player_subscribe_media_state_changed_ext.
+func (r *Runtime) MediaPlayerSubscribeMediaStateChanged() (uint64, error) {
+	r.mu.Lock()
+	handle := r.callbackHandle
+	r.mu.Unlock()
+	return nativeMediaPlayerSubscribeMediaStateChanged(uintptr(handle))
+}
+
+// MediaPlayerUnsubscribe is cna_media_player_unsubscribe_ext.
+func (r *Runtime) MediaPlayerUnsubscribe(registration uint64) error {
+	return nativeMediaPlayerUnsubscribe(registration)
+}
+
+// MediaPlayerPause is cna_media_player_pause.
+//
+// The game comes from activeGame: every MediaPlayer member is static in the
+// contract and every route takes the handle, so the caller never supplies one.
+func (r *Runtime) MediaPlayerPause() error {
+	game, err := r.activeGame(false)
+	if err != nil {
+		return err
+	}
+	return nativeMediaPlayerPause(game)
+}
+
+// MediaPlayerResume is cna_media_player_resume.
+//
+// The game comes from activeGame: every MediaPlayer member is static in the
+// contract and every route takes the handle, so the caller never supplies one.
+func (r *Runtime) MediaPlayerResume() error {
+	game, err := r.activeGame(false)
+	if err != nil {
+		return err
+	}
+	return nativeMediaPlayerResume(game)
+}
+
+// MediaPlayerStop is cna_media_player_stop.
+//
+// The game comes from activeGame: every MediaPlayer member is static in the
+// contract and every route takes the handle, so the caller never supplies one.
+func (r *Runtime) MediaPlayerStop() error {
+	game, err := r.activeGame(false)
+	if err != nil {
+		return err
+	}
+	return nativeMediaPlayerStop(game)
+}
+
+// MediaPlayerMoveNext is cna_media_player_move_next.
+//
+// The game comes from activeGame: every MediaPlayer member is static in the
+// contract and every route takes the handle, so the caller never supplies one.
+func (r *Runtime) MediaPlayerMoveNext() error {
+	game, err := r.activeGame(false)
+	if err != nil {
+		return err
+	}
+	return nativeMediaPlayerMoveNext(game)
+}
+
+// MediaPlayerMovePrevious is cna_media_player_move_previous.
+//
+// The game comes from activeGame: every MediaPlayer member is static in the
+// contract and every route takes the handle, so the caller never supplies one.
+func (r *Runtime) MediaPlayerMovePrevious() error {
+	game, err := r.activeGame(false)
+	if err != nil {
+		return err
+	}
+	return nativeMediaPlayerMovePrevious(game)
+}
+
+// MediaPlayerIsShuffled is cna_media_player_get_is_shuffled.
+//
+// The game comes from activeGame: every MediaPlayer member is static in the
+// contract and every route takes the handle, so the caller never supplies one.
+func (r *Runtime) MediaPlayerIsShuffled() (bool, error) {
+	game, err := r.activeGame(false)
+	if err != nil {
+		return false, err
+	}
+	return nativeMediaPlayerIsShuffled(game)
+}
+
+// MediaPlayerIsRepeating is cna_media_player_get_is_repeating.
+//
+// The game comes from activeGame: every MediaPlayer member is static in the
+// contract and every route takes the handle, so the caller never supplies one.
+func (r *Runtime) MediaPlayerIsRepeating() (bool, error) {
+	game, err := r.activeGame(false)
+	if err != nil {
+		return false, err
+	}
+	return nativeMediaPlayerIsRepeating(game)
+}
+
+// MediaPlayerIsMuted is cna_media_player_get_is_muted.
+//
+// The game comes from activeGame: every MediaPlayer member is static in the
+// contract and every route takes the handle, so the caller never supplies one.
+func (r *Runtime) MediaPlayerIsMuted() (bool, error) {
+	game, err := r.activeGame(false)
+	if err != nil {
+		return false, err
+	}
+	return nativeMediaPlayerIsMuted(game)
+}
+
+// MediaPlayerIsVisualizationEnabled is cna_media_player_get_is_visualization_enabled.
+//
+// The game comes from activeGame: every MediaPlayer member is static in the
+// contract and every route takes the handle, so the caller never supplies one.
+func (r *Runtime) MediaPlayerIsVisualizationEnabled() (bool, error) {
+	game, err := r.activeGame(false)
+	if err != nil {
+		return false, err
+	}
+	return nativeMediaPlayerIsVisualizationEnabled(game)
+}
+
+// MediaPlayerGameHasControl is cna_media_player_get_game_has_control.
+//
+// The game comes from activeGame: every MediaPlayer member is static in the
+// contract and every route takes the handle, so the caller never supplies one.
+func (r *Runtime) MediaPlayerGameHasControl() (bool, error) {
+	game, err := r.activeGame(false)
+	if err != nil {
+		return false, err
+	}
+	return nativeMediaPlayerGameHasControl(game)
+}
+
+// MediaPlayerSetIsShuffled is cna_media_player_set_is_shuffled.
+//
+// The game comes from activeGame: every MediaPlayer member is static in the
+// contract and every route takes the handle, so the caller never supplies one.
+func (r *Runtime) MediaPlayerSetIsShuffled(value bool) error {
+	game, err := r.activeGame(false)
+	if err != nil {
+		return err
+	}
+	return nativeMediaPlayerSetIsShuffled(game, value)
+}
+
+// MediaPlayerSetIsRepeating is cna_media_player_set_is_repeating.
+//
+// The game comes from activeGame: every MediaPlayer member is static in the
+// contract and every route takes the handle, so the caller never supplies one.
+func (r *Runtime) MediaPlayerSetIsRepeating(value bool) error {
+	game, err := r.activeGame(false)
+	if err != nil {
+		return err
+	}
+	return nativeMediaPlayerSetIsRepeating(game, value)
+}
+
+// MediaPlayerSetIsMuted is cna_media_player_set_is_muted.
+//
+// The game comes from activeGame: every MediaPlayer member is static in the
+// contract and every route takes the handle, so the caller never supplies one.
+func (r *Runtime) MediaPlayerSetIsMuted(value bool) error {
+	game, err := r.activeGame(false)
+	if err != nil {
+		return err
+	}
+	return nativeMediaPlayerSetIsMuted(game, value)
+}
+
+// MediaPlayerSetIsVisualizationEnabled is cna_media_player_set_is_visualization_enabled.
+//
+// The game comes from activeGame: every MediaPlayer member is static in the
+// contract and every route takes the handle, so the caller never supplies one.
+func (r *Runtime) MediaPlayerSetIsVisualizationEnabled(value bool) error {
+	game, err := r.activeGame(false)
+	if err != nil {
+		return err
+	}
+	return nativeMediaPlayerSetIsVisualizationEnabled(game, value)
+}
+
+// MediaPlayerVolume is cna_media_player_get_volume.
+//
+// The game comes from activeGame: every MediaPlayer member is static in the
+// contract and every route takes the handle, so the caller never supplies one.
+func (r *Runtime) MediaPlayerVolume() (float32, error) {
+	game, err := r.activeGame(false)
+	if err != nil {
+		return 0, err
+	}
+	return nativeMediaPlayerVolume(game)
+}
+
+// MediaPlayerSetVolume is cna_media_player_set_volume.
+//
+// The game comes from activeGame: every MediaPlayer member is static in the
+// contract and every route takes the handle, so the caller never supplies one.
+func (r *Runtime) MediaPlayerSetVolume(value float32) error {
+	game, err := r.activeGame(false)
+	if err != nil {
+		return err
+	}
+	return nativeMediaPlayerSetVolume(game, value)
+}
+
+// MediaPlayerState is cna_media_player_get_state.
+//
+// The game comes from activeGame: every MediaPlayer member is static in the
+// contract and every route takes the handle, so the caller never supplies one.
+func (r *Runtime) MediaPlayerState() (uint32, error) {
+	game, err := r.activeGame(false)
+	if err != nil {
+		return 0, err
+	}
+	return nativeMediaPlayerState(game)
+}
+
+// MediaPlayerPlayPositionTicks is cna_media_player_get_play_position_ticks.
+//
+// The game comes from activeGame: every MediaPlayer member is static in the
+// contract and every route takes the handle, so the caller never supplies one.
+func (r *Runtime) MediaPlayerPlayPositionTicks() (int64, error) {
+	game, err := r.activeGame(false)
+	if err != nil {
+		return 0, err
+	}
+	return nativeMediaPlayerPlayPositionTicks(game)
+}
+
+// MediaPlayerQueue is cna_media_player_get_queue.
+//
+// The game comes from activeGame: every MediaPlayer member is static in the
+// contract and every route takes the handle, so the caller never supplies one.
+func (r *Runtime) MediaPlayerQueue() (uint64, error) {
+	game, err := r.activeGame(false)
+	if err != nil {
+		return 0, err
+	}
+	return nativeMediaPlayerQueue(game)
+}
+
+// MediaPlayerPlaySong is cna_media_player_play_song.
+func (r *Runtime) MediaPlayerPlaySong(song uint64) error {
+	game, err := r.activeGame(false)
+	if err != nil {
+		return err
+	}
+	return nativeMediaPlayerPlaySong(game, song)
+}
+
+// MediaPlayerPlaySongs is cna_media_player_play_songs.
+func (r *Runtime) MediaPlayerPlaySongs(songs uint64) error {
+	game, err := r.activeGame(false)
+	if err != nil {
+		return err
+	}
+	return nativeMediaPlayerPlaySongs(game, songs)
+}
+
+// MediaPlayerPlaySongsFrom is cna_media_player_play_songs_from.
+func (r *Runtime) MediaPlayerPlaySongsFrom(songs uint64, index int32) error {
+	game, err := r.activeGame(false)
+	if err != nil {
+		return err
+	}
+	return nativeMediaPlayerPlaySongsFrom(game, songs, index)
+}
+
+// MediaPlayerVisualizationData is cna_media_player_get_visualization_data.
+//
+// The game comes from activeGame: every MediaPlayer member is static in the
+// contract and every route takes the handle, so the caller never supplies one.
+func (r *Runtime) MediaPlayerVisualizationData() ([]float32, []float32, error) {
+	game, err := r.activeGame(false)
+	if err != nil {
+		return nil, nil, err
+	}
+	return nativeMediaPlayerVisualizationData(game)
+}
+
+// MediaQueueCount is cna_media_queue_get_count.
+func (r *Runtime) MediaQueueCount(queue uint64) (int32, error) {
+	return nativeMediaQueueCount(queue)
+}
+
+// MediaQueueActiveSongIndex is cna_media_queue_get_active_song_index.
+func (r *Runtime) MediaQueueActiveSongIndex(queue uint64) (int32, error) {
+	return nativeMediaQueueActiveSongIndex(queue)
+}
+
+// MediaQueueActiveSong is cna_media_queue_get_active_song.
+func (r *Runtime) MediaQueueActiveSong(queue uint64) (uint64, bool, error) {
+	return nativeMediaQueueActiveSong(queue)
+}
+
+// MediaQueueAt is cna_media_queue_get_at.
+func (r *Runtime) MediaQueueAt(queue uint64, index int32) (uint64, error) {
+	return nativeMediaQueueAt(queue, index)
+}
+
+// MediaQueueDestroy is cna_media_queue_destroy.
+func (r *Runtime) MediaQueueDestroy(queue uint64) error {
+	return nativeMediaQueueDestroy(queue)
+}
+
+// VideoDurationTicks is cna_video_get_duration.
+func (r *Runtime) VideoDurationTicks(handle uint64) (int64, error) {
+	return nativeVideoDurationTicks(handle)
+}
+
+// VideoWidth is cna_video_get_width.
+func (r *Runtime) VideoWidth(handle uint64) (int32, error) {
+	return nativeVideoWidth(handle)
+}
+
+// VideoHeight is cna_video_get_height.
+func (r *Runtime) VideoHeight(handle uint64) (int32, error) {
+	return nativeVideoHeight(handle)
+}
+
+// VideoFramesPerSecond is cna_video_get_frames_per_second.
+func (r *Runtime) VideoFramesPerSecond(handle uint64) (float32, error) {
+	return nativeVideoFramesPerSecond(handle)
+}
+
+// VideoSoundtrackType is cna_video_get_soundtrack_type.
+func (r *Runtime) VideoSoundtrackType(handle uint64) (uint32, error) {
+	return nativeVideoSoundtrackType(handle)
+}
+
+// VideoDestroy is cna_video_destroy.
+func (r *Runtime) VideoDestroy(handle uint64) error {
+	return nativeVideoDestroy(handle)
+}
+
+// VideoPlayerDispose is cna_video_player_dispose.
+func (r *Runtime) VideoPlayerDispose(handle uint64) error {
+	return nativeVideoPlayerDispose(handle)
+}
+
+// VideoPlayerDestroy is cna_video_player_destroy.
+func (r *Runtime) VideoPlayerDestroy(handle uint64) error {
+	return nativeVideoPlayerDestroy(handle)
+}
+
+// VideoPlayerPause is cna_video_player_pause.
+func (r *Runtime) VideoPlayerPause(handle uint64) error {
+	return nativeVideoPlayerPause(handle)
+}
+
+// VideoPlayerResume is cna_video_player_resume.
+func (r *Runtime) VideoPlayerResume(handle uint64) error {
+	return nativeVideoPlayerResume(handle)
+}
+
+// VideoPlayerStop is cna_video_player_stop.
+func (r *Runtime) VideoPlayerStop(handle uint64) error {
+	return nativeVideoPlayerStop(handle)
+}
+
+// VideoPlayerIsDisposed is cna_video_player_get_is_disposed.
+func (r *Runtime) VideoPlayerIsDisposed(handle uint64) (bool, error) {
+	return nativeVideoPlayerIsDisposed(handle)
+}
+
+// VideoPlayerIsLooped is cna_video_player_get_is_looped.
+func (r *Runtime) VideoPlayerIsLooped(handle uint64) (bool, error) {
+	return nativeVideoPlayerIsLooped(handle)
+}
+
+// VideoPlayerIsMuted is cna_video_player_get_is_muted.
+func (r *Runtime) VideoPlayerIsMuted(handle uint64) (bool, error) {
+	return nativeVideoPlayerIsMuted(handle)
+}
+
+// VideoPlayerVolume is cna_video_player_get_volume.
+func (r *Runtime) VideoPlayerVolume(handle uint64) (float32, error) {
+	return nativeVideoPlayerVolume(handle)
+}
+
+// VideoPlayerState is cna_video_player_get_state.
+func (r *Runtime) VideoPlayerState(handle uint64) (uint32, error) {
+	return nativeVideoPlayerState(handle)
+}
+
+// VideoPlayerPlayPositionTicks is cna_video_player_get_play_position_ticks.
+func (r *Runtime) VideoPlayerPlayPositionTicks(handle uint64) (int64, error) {
+	return nativeVideoPlayerPlayPositionTicks(handle)
+}
+
+// VideoPlayerCreate is cna_video_player_create.
+//
+// The game comes from activeGame: every MediaPlayer member is static in the
+// contract and every route takes the handle, so the caller never supplies one.
+func (r *Runtime) VideoPlayerCreate() (uint64, error) {
+	game, err := r.activeGame(false)
+	if err != nil {
+		return 0, err
+	}
+	return nativeVideoPlayerCreate(game)
+}
+
+// VideoPlayerPlay is cna_video_player_play.
+func (r *Runtime) VideoPlayerPlay(player, video uint64) error {
+	return nativeVideoPlayerPlay(player, video)
+}
+
+// VideoPlayerSetIsLooped is cna_video_player_set_is_looped.
+func (r *Runtime) VideoPlayerSetIsLooped(player uint64, value bool) error {
+	return nativeVideoPlayerSetIsLooped(player, value)
+}
+
+// VideoPlayerSetIsMuted is cna_video_player_set_is_muted.
+func (r *Runtime) VideoPlayerSetIsMuted(player uint64, value bool) error {
+	return nativeVideoPlayerSetIsMuted(player, value)
+}
+
+// VideoPlayerSetVolume is cna_video_player_set_volume.
+func (r *Runtime) VideoPlayerSetVolume(player uint64, value float32) error {
+	return nativeVideoPlayerSetVolume(player, value)
+}
+
+// VideoPlayerVideo is cna_video_player_get_video.
+func (r *Runtime) VideoPlayerVideo(player uint64) (uint64, bool, error) {
+	return nativeVideoPlayerVideo(player)
+}
+
+// VideoPlayerTexture is cna_video_player_get_texture.
+func (r *Runtime) VideoPlayerTexture(player uint64) (uint64, bool, error) {
+	return nativeVideoPlayerTexture(player)
+}
+
+// VideoPlayerFrame is cna_video_player_get_texture, adopted as a Texture2D
+// resource.
+//
+// The frame handle CNA answers is a texture the PLAYER owns and refreshes, so
+// the resource is registered with the video player's own kind rather than as an
+// independently created texture -- disposing the player is what releases it.
+func (r *Runtime) VideoPlayerFrame(player uint64) (*Resource, TextureInfo, bool, error) {
+	handle, available, err := nativeVideoPlayerTexture(player)
+	if err != nil || !available {
+		return nil, TextureInfo{}, false, err
+	}
+	resource := r.registerResource(handle, resourceTexture2D, nil)
+	info, infoErr := nativeTextureInfo(handle)
+	if infoErr != nil {
+		_ = resource.Dispose()
+		return nil, TextureInfo{}, false, infoErr
+	}
+	return resource, info, true, nil
+}
+
+// MediaQueueSetActiveSongIndex is cna_media_queue_set_active_song_index.
+func (r *Runtime) MediaQueueSetActiveSongIndex(queue uint64, index int32) error {
+	return nativeMediaQueueSetActiveSongIndex(queue, index)
+}
+
+// ---------------------------------------------------------------------------
+// Foundation 98. XACT.
+//
+// Only the two AudioEngine constructors take the GAME. Everything below an
+// engine -- a category, a bank, a cue -- is addressed by its own owned handle,
+// so those wrappers take the handle rather than resolving one: an engine can
+// outlive the frame that made it, and a cue does not know which game it came
+// from.
+// ---------------------------------------------------------------------------
+
+// AudioEngineCreate is cna_audio_engine_create. The settings file is a path
+// CNA opens itself, which is why the projection never reads it: XACT's own
+// parser is the authority on whether an .xgs is well formed, and it reports a
+// bad one through its LOG rather than through the result code -- which is what
+// Foundation 98's fixture probe measured before any of this was bound.
+func (r *Runtime) AudioEngineCreate(settingsFile string) (*Resource, error) {
+	game, err := r.activeGame(false)
+	if err != nil {
+		return nil, err
+	}
+	handle, err := nativeAudioEngineCreate(game, settingsFile)
+	if err != nil {
+		return nil, err
+	}
+	return r.registerResource(handle, resourceAudioEngine, nil), nil
+}
+
+// AudioEngineCreateWithRenderer is cna_audio_engine_create_with_renderer, the
+// three-argument constructor. The look-ahead arrives as TICKS because the
+// reference's parameter is a TimeSpan and ticks are its exact storage.
+func (r *Runtime) AudioEngineCreateWithRenderer(settingsFile string, lookAheadTicks int64, rendererID string) (*Resource, error) {
+	game, err := r.activeGame(false)
+	if err != nil {
+		return nil, err
+	}
+	handle, err := nativeAudioEngineCreateWithRenderer(game, settingsFile, lookAheadTicks, rendererID)
+	if err != nil {
+		return nil, err
+	}
+	return r.registerResource(handle, resourceAudioEngine, nil), nil
+}
+
+func (resource *Resource) AudioEngineUpdate() error {
+	handle, err := resource.liveHandle(resourceAudioEngine)
+	if err != nil {
+		return err
+	}
+	return nativeAudioEngineUpdate(handle)
+}
+
+func (resource *Resource) AudioEngineIsDisposed() (bool, error) {
+	handle, err := resource.liveHandle(resourceAudioEngine)
+	if err != nil {
+		return false, err
+	}
+	return nativeAudioEngineIsDisposed(handle)
+}
+
+func (resource *Resource) AudioEngineTypeName() (string, error) {
+	handle, err := resource.liveHandle(resourceAudioEngine)
+	if err != nil {
+		return "", err
+	}
+	return nativeAudioEngineTypeName(handle)
+}
+
+// AudioEngineGetCategory is cna_audio_engine_get_category. A name XACT does not
+// know is the ROUTE's failure, not a nil answer: CNA reports it as an invalid
+// argument, which is the condition the reference's own InvalidOperationException
+// marks.
+//
+// Every call produces a NEW owned handle, registered under the engine. Two
+// lookups of one name are therefore two handles, and telling them apart is what
+// cna_audio_category_equals is for.
+func (resource *Resource) AudioEngineGetCategory(name string) (*Resource, error) {
+	handle, err := resource.liveHandle(resourceAudioEngine)
+	if err != nil {
+		return nil, err
+	}
+	category, err := nativeAudioEngineGetCategory(handle, name)
+	if err != nil {
+		return nil, err
+	}
+	return resource.runtime.registerResource(category, resourceAudioCategory, resource), nil
+}
+
+func (resource *Resource) AudioEngineGlobalVariable(name string) (float32, error) {
+	handle, err := resource.liveHandle(resourceAudioEngine)
+	if err != nil {
+		return 0, err
+	}
+	return nativeAudioEngineGlobalVariable(handle, name)
+}
+
+func (resource *Resource) AudioEngineSetGlobalVariable(name string, value float32) error {
+	handle, err := resource.liveHandle(resourceAudioEngine)
+	if err != nil {
+		return err
+	}
+	return nativeAudioEngineSetGlobalVariable(handle, name, value)
+}
+
+// AudioEngineRendererCount is cna_audio_engine_get_renderer_count, the length
+// of the RendererDetails collection.
+func (resource *Resource) AudioEngineRendererCount() (int32, error) {
+	handle, err := resource.liveHandle(resourceAudioEngine)
+	if err != nil {
+		return 0, err
+	}
+	return nativeAudioEngineRendererCount(handle)
+}
+
+// AudioEngineRendererDetail answers BOTH of one renderer's strings in one call,
+// because a RendererDetail has no handle: it is addressed by index, and an
+// index that moved between two reads would silently pair one renderer's name
+// with another's id.
+//
+// It answers only the two STRINGS. CNA's renderer text, hash code and equality
+// are deliberately unbound -- XNA's RendererDetail derives all three from those
+// two fields, and its hash is the pinned mscorlib string hash that CNA has no
+// way to reproduce.
+func (resource *Resource) AudioEngineRendererDetail(index int32) (RendererDetail, error) {
+	handle, err := resource.liveHandle(resourceAudioEngine)
+	if err != nil {
+		return RendererDetail{}, err
+	}
+	if index < 0 {
+		return RendererDetail{}, resultError("cna_audio_engine_get_renderer_id_size", resultInvalidArgument)
+	}
+	position := uint64(index)
+	friendlyName, err := nativeAudioEngineRendererFriendlyName(handle, position)
+	if err != nil {
+		return RendererDetail{}, err
+	}
+	rendererID, err := nativeAudioEngineRendererID(handle, position)
+	if err != nil {
+		return RendererDetail{}, err
+	}
+	return RendererDetail{FriendlyName: friendlyName, RendererID: rendererID}, nil
+}
+
+// RendererDetail is one audio renderer's two strings as CNA reports them. It is
+// a VALUE with no handle, exactly like MediaSource.
+type RendererDetail struct {
+	FriendlyName string
+	RendererID   string
+}
+
+func (resource *Resource) AudioCategoryName() (string, error) {
+	handle, err := resource.liveHandle(resourceAudioCategory)
+	if err != nil {
+		return "", err
+	}
+	return nativeAudioCategoryName(handle)
+}
+
+func (resource *Resource) AudioCategoryHashCode() (int32, error) {
+	handle, err := resource.liveHandle(resourceAudioCategory)
+	if err != nil {
+		return 0, err
+	}
+	return nativeAudioCategoryHashCode(handle)
+}
+
+// AudioCategoryEquals is cna_audio_category_equals: whether two handles denote
+// the same authored category. It is what makes AudioCategory's value semantics
+// work across two separate lookups of one name.
+func (resource *Resource) AudioCategoryEquals(other *Resource) (bool, error) {
+	handle, err := resource.liveHandle(resourceAudioCategory)
+	if err != nil {
+		return false, err
+	}
+	if other == nil {
+		return false, nil
+	}
+	otherHandle, err := other.liveHandle(resourceAudioCategory)
+	if err != nil {
+		return false, err
+	}
+	return nativeAudioCategoryEquals(handle, otherHandle)
+}
+
+func (resource *Resource) AudioCategoryPause() error {
+	handle, err := resource.liveHandle(resourceAudioCategory)
+	if err != nil {
+		return err
+	}
+	return nativeAudioCategoryPause(handle)
+}
+
+func (resource *Resource) AudioCategoryResume() error {
+	handle, err := resource.liveHandle(resourceAudioCategory)
+	if err != nil {
+		return err
+	}
+	return nativeAudioCategoryResume(handle)
+}
+
+func (resource *Resource) AudioCategorySetVolume(volume float32) error {
+	handle, err := resource.liveHandle(resourceAudioCategory)
+	if err != nil {
+		return err
+	}
+	return nativeAudioCategorySetVolume(handle, volume)
+}
+
+// AudioCategoryStop is cna_audio_category_stop, whose options word is XNA's
+// AudioStopOptions. The projection passes it through rather than validating it:
+// XACT is what decides which combinations mean anything.
+func (resource *Resource) AudioCategoryStop(options uint32) error {
+	handle, err := resource.liveHandle(resourceAudioCategory)
+	if err != nil {
+		return err
+	}
+	return nativeAudioCategoryStop(handle, options)
+}
+
+// SoundBankCreate is cna_sound_bank_create. The bank is a CHILD of the engine,
+// which is what makes CNA's release ordering structural.
+func (resource *Resource) SoundBankCreate(filename string) (*Resource, error) {
+	handle, err := resource.liveHandle(resourceAudioEngine)
+	if err != nil {
+		return nil, err
+	}
+	bank, err := nativeSoundBankCreate(handle, filename)
+	if err != nil {
+		return nil, err
+	}
+	return resource.runtime.registerResource(bank, resourceSoundBank, resource), nil
+}
+
+func (resource *Resource) SoundBankIsDisposed() (bool, error) {
+	handle, err := resource.liveHandle(resourceSoundBank)
+	if err != nil {
+		return false, err
+	}
+	return nativeSoundBankIsDisposed(handle)
+}
+
+func (resource *Resource) SoundBankIsInUse() (bool, error) {
+	handle, err := resource.liveHandle(resourceSoundBank)
+	if err != nil {
+		return false, err
+	}
+	return nativeSoundBankIsInUse(handle)
+}
+
+func (resource *Resource) SoundBankTypeName() (string, error) {
+	handle, err := resource.liveHandle(resourceSoundBank)
+	if err != nil {
+		return "", err
+	}
+	return nativeSoundBankTypeName(handle)
+}
+
+// SoundBankGetCue is cna_sound_bank_get_cue. The cue is a child of the BANK,
+// not of the engine: it is the bank that authored it.
+func (resource *Resource) SoundBankGetCue(name string) (*Resource, error) {
+	handle, err := resource.liveHandle(resourceSoundBank)
+	if err != nil {
+		return nil, err
+	}
+	cue, err := nativeSoundBankGetCue(handle, name)
+	if err != nil {
+		return nil, err
+	}
+	return resource.runtime.registerResource(cue, resourceCue, resource), nil
+}
+
+func (resource *Resource) SoundBankPlayCue(name string) error {
+	handle, err := resource.liveHandle(resourceSoundBank)
+	if err != nil {
+		return err
+	}
+	return nativeSoundBankPlayCue(handle, name)
+}
+
+// SoundBankPlayCue3D is the positional PlayCue. The listener and emitter arrive
+// FLAT because the bridge fills CNA's structs from floats: a Go struct laid out
+// to match a C one would be a second copy of a layout the ABI census already
+// checks.
+func (resource *Resource) SoundBankPlayCue3D(name string, listener, emitter []float32) error {
+	handle, err := resource.liveHandle(resourceSoundBank)
+	if err != nil {
+		return err
+	}
+	return nativeSoundBankPlayCue3D(handle, name, listener, emitter)
+}
+
+func (resource *Resource) WaveBankCreate(filename string) (*Resource, error) {
+	handle, err := resource.liveHandle(resourceAudioEngine)
+	if err != nil {
+		return nil, err
+	}
+	bank, err := nativeWaveBankCreate(handle, filename)
+	if err != nil {
+		return nil, err
+	}
+	return resource.runtime.registerResource(bank, resourceWaveBank, resource), nil
+}
+
+// WaveBankCreateStreaming is cna_wave_bank_create_streaming, the four-argument
+// constructor. The reference's own parameter is `packetsize`, a short.
+func (resource *Resource) WaveBankCreateStreaming(filename string, offset int32, packetSize int16) (*Resource, error) {
+	handle, err := resource.liveHandle(resourceAudioEngine)
+	if err != nil {
+		return nil, err
+	}
+	bank, err := nativeWaveBankCreateStreaming(handle, filename, offset, packetSize)
+	if err != nil {
+		return nil, err
+	}
+	return resource.runtime.registerResource(bank, resourceWaveBank, resource), nil
+}
+
+func (resource *Resource) WaveBankIsDisposed() (bool, error) {
+	handle, err := resource.liveHandle(resourceWaveBank)
+	if err != nil {
+		return false, err
+	}
+	return nativeWaveBankIsDisposed(handle)
+}
+
+func (resource *Resource) WaveBankIsInUse() (bool, error) {
+	handle, err := resource.liveHandle(resourceWaveBank)
+	if err != nil {
+		return false, err
+	}
+	return nativeWaveBankIsInUse(handle)
+}
+
+func (resource *Resource) WaveBankIsPrepared() (bool, error) {
+	handle, err := resource.liveHandle(resourceWaveBank)
+	if err != nil {
+		return false, err
+	}
+	return nativeWaveBankIsPrepared(handle)
+}
+
+func (resource *Resource) WaveBankTypeName() (string, error) {
+	handle, err := resource.liveHandle(resourceWaveBank)
+	if err != nil {
+		return "", err
+	}
+	return nativeWaveBankTypeName(handle)
+}
+
+func (resource *Resource) CueName() (string, error) {
+	handle, err := resource.liveHandle(resourceCue)
+	if err != nil {
+		return "", err
+	}
+	return nativeCueName(handle)
+}
+
+func (resource *Resource) CueTypeName() (string, error) {
+	handle, err := resource.liveHandle(resourceCue)
+	if err != nil {
+		return "", err
+	}
+	return nativeCueTypeName(handle)
+}
+
+// CueInfo is cna_cue_get_info: all eight predicates from ONE observation.
+//
+// XNA declares them as eight separate properties, and reading them through
+// eight routes would let a caller see a combination that never existed -- a cue
+// that reported IsPlaying and IsStopped together because it stopped between two
+// reads. One route is what makes the eight consistent.
+func (resource *Resource) CueInfo() (CueStates, error) {
+	handle, err := resource.liveHandle(resourceCue)
+	if err != nil {
+		return CueStates{}, err
+	}
+	return nativeCueInfo(handle)
+}
+
+func (resource *Resource) CuePlay() error {
+	handle, err := resource.liveHandle(resourceCue)
+	if err != nil {
+		return err
+	}
+	return nativeCuePlay(handle)
+}
+
+func (resource *Resource) CuePause() error {
+	handle, err := resource.liveHandle(resourceCue)
+	if err != nil {
+		return err
+	}
+	return nativeCuePause(handle)
+}
+
+func (resource *Resource) CueResume() error {
+	handle, err := resource.liveHandle(resourceCue)
+	if err != nil {
+		return err
+	}
+	return nativeCueResume(handle)
+}
+
+func (resource *Resource) CueStop(options uint32) error {
+	handle, err := resource.liveHandle(resourceCue)
+	if err != nil {
+		return err
+	}
+	return nativeCueStop(handle, options)
+}
+
+func (resource *Resource) CueVariable(name string) (float32, error) {
+	handle, err := resource.liveHandle(resourceCue)
+	if err != nil {
+		return 0, err
+	}
+	return nativeCueVariable(handle, name)
+}
+
+func (resource *Resource) CueSetVariable(name string, value float32) error {
+	handle, err := resource.liveHandle(resourceCue)
+	if err != nil {
+		return err
+	}
+	return nativeCueSetVariable(handle, name, value)
+}
+
+// CueApply3D is cna_cue_apply_3d, the flat-float positional update.
+func (resource *Resource) CueApply3D(listener, emitter []float32) error {
+	handle, err := resource.liveHandle(resourceCue)
+	if err != nil {
+		return err
+	}
+	return nativeCueApply3D(handle, listener, emitter)
+}
+
+// XactKind names which of the four disposable XACT types a subscription is for.
+// It exists because CNA has four distinct subscribe routes over one callback
+// shape, and the Go side has to remember which one it called.
+type XactKind uint32
+
+const (
+	XactAudioEngine XactKind = iota
+	XactSoundBank
+	XactWaveBank
+	XactCue
+)
+
+// xactResourceKinds maps a subscription's XactKind onto the resource kind whose
+// handle the route takes, in the order the constants declare them.
+var xactResourceKinds = [4]resourceKind{
+	resourceAudioEngine,
+	resourceSoundBank,
+	resourceWaveBank,
+	resourceCue,
+}
+
+// xactDisposingSubscription is what the trampoline's context resolves to. It
+// holds a cgo.Handle to ITSELF so that release can free the handle without a
+// second map: the registration and the handle die together or not at all.
+type xactDisposingSubscription struct {
+	runtime      *Runtime
+	handler      func()
+	self         cgo.Handle
+	registration uint64
+	kind         XactKind
+	released     bool
+}
+
+// invokeXactDisposing runs one disposal handler under a recover.
+//
+// It reads the handler under the lock and calls it OUTSIDE, because CNA raises
+// this while it is disposing the object and a handler that touched the runtime
+// would otherwise deadlock against the very call that is disposing it.
+func (r *Runtime) invokeXactDisposing(subscription *xactDisposingSubscription) {
+	r.mu.Lock()
+	alive := r.alive
+	handler := subscription.handler
+	r.xactDisposingDeliveries++
+	r.mu.Unlock()
+	if !alive {
+		r.recordCallbackFailure(ErrStaleGeneration)
+		return
+	}
+	if handler == nil {
+		return
+	}
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			r.recordCallbackFailure(
+				fmt.Errorf("panic in XACT Disposing handler: %v\n%s", recovered, debug.Stack()))
+		}
+	}()
+	handler()
+}
+
+// XactSubscribeDisposing registers a handler for one object's Disposing event.
+//
+// Binding this rather than raising Disposing from the projection's own Dispose
+// is not a preference: destroying an AudioEngine disposes the banks and cues
+// under it, and a projection that only raised its own Dispose would MISS every
+// one of those. CNA is the only thing that knows.
+func (resource *Resource) XactSubscribeDisposing(kind XactKind, handler func()) (*XactDisposingRegistration, error) {
+	if handler == nil {
+		return nil, fmt.Errorf("a Disposing handler must not be nil")
+	}
+	owner, err := resource.liveHandle(xactResourceKinds[kind])
+	if err != nil {
+		return nil, err
+	}
+	r := resource.runtime
+	subscription := &xactDisposingSubscription{runtime: r, handler: handler, kind: kind}
+	subscription.self = cgo.NewHandle(subscription)
+	registration, err := nativeXactSubscribeDisposing(kind, owner, uintptr(subscription.self))
+	if err != nil {
+		subscription.self.Delete()
+		return nil, err
+	}
+	subscription.registration = registration
+	r.mu.Lock()
+	if r.xactDisposingSubscriptions == nil {
+		r.xactDisposingSubscriptions = make(map[*xactDisposingSubscription]struct{})
+	}
+	r.xactDisposingSubscriptions[subscription] = struct{}{}
+	r.mu.Unlock()
+	return &XactDisposingRegistration{subscription: subscription}, nil
+}
+
+// XactDisposingRegistration is what a subscriber holds so it can unsubscribe.
+type XactDisposingRegistration struct {
+	subscription *xactDisposingSubscription
+}
+
+// Release is `-=`: it drops the native registration and frees the cgo handle.
+// It is idempotent, because a projection's Dispose and a consumer's explicit
+// unsubscribe can both reach it.
+func (g *XactDisposingRegistration) Release() error {
+	if g == nil || g.subscription == nil {
+		return nil
+	}
+	subscription := g.subscription
+	r := subscription.runtime
+	r.mu.Lock()
+	if subscription.released {
+		r.mu.Unlock()
+		return nil
+	}
+	subscription.released = true
+	delete(r.xactDisposingSubscriptions, subscription)
+	r.mu.Unlock()
+	err := nativeAudioUnsubscribe(subscription.registration)
+	subscription.self.Delete()
+	return err
+}
+
+// XactDisposingDeliveries reports how many disposal notifications have arrived,
+// which is what a stress slice counts to prove the callback actually ran.
+func (r *Runtime) XactDisposingDeliveries() int {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.xactDisposingDeliveries
+}

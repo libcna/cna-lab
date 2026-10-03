@@ -1,0 +1,483 @@
+package framework
+
+import (
+	"errors"
+	"sync"
+
+	"github.com/openeggbert/cna-go/internal/interop"
+	"github.com/openeggbert/cna-go/internal/servicebridge"
+)
+
+// Game is the concrete Go facade for the XNA Game class. Protected virtual
+// overrides are supplied separately through GameCallbacks because Go has no
+// inheritance or virtual methods.
+//
+// # Game is a hybrid host
+//
+// The division of responsibility is deliberate and is read from the reference
+// per member, not assumed per type:
+//
+//   - The native CNA runtime owns the real host, the frame loop, the window,
+//     the device and the platform. That is GameHost's and WindowsGameHost's
+//     role in Microsoft.Xna.Framework.Game.dll, and CNA-Go does not reimplement
+//     it in Go.
+//   - Go owns the managed CLR state. Game::get_Components and
+//     Game::get_Services are one `ldfld` each over fields the Game constructor
+//     assigns, and the component engine that maintains them is ordinary managed
+//     list work. Routing that through a C ABI would invent native ownership and
+//     a native failure mode the reference does not have, so it stays in Go.
+//   - GameCallbacks stays the language adapter for the protected virtual
+//     overrides, and base behavior is reached explicitly through the
+//     GameBase... functions rather than being run automatically.
+//
+// # The managed state below
+//
+// The five unexported lists are Game's own private fields in the reference and
+// are not exposed by any projected member. See game_component_engine.go for the
+// exact derivation of how they are maintained.
+type Game struct {
+	callbacks GameCallbacks
+	runtime   *interop.Runtime
+
+	// gameComponents and gameServices are the two managed CLR objects
+	// Game::get_Components and Game::get_Services hand out. Each is created
+	// exactly once, at the reference's construction point, and the getter is
+	// one field read, so the identity a caller observes never changes.
+	gameComponents *GameComponentCollection
+	gameServices   *GameServiceContainer
+
+	// launchParameters is Game::launchParameters, the LaunchParameters the
+	// constructor allocates immediately after EnsureHost() and before the
+	// component collection. Game::get_LaunchParameters is one ldfld of it, so
+	// the identity a caller observes is fixed at construction and the
+	// dictionary a consumer mutates is the one the Game keeps.
+	launchParameters *LaunchParameters
+
+	// The five private derived lists. updateableComponents and
+	// drawableComponents are kept in order incrementally; the two `currently`
+	// lists are the per-frame snapshots base Update and base Draw copy into;
+	// notYetInitialized is the pending-initialization queue.
+	updateableComponents        []updateableEntry
+	currentlyUpdatingComponents []IUpdateable
+	drawableComponents          []drawableEntry
+	currentlyDrawingComponents  []IDrawable
+	notYetInitialized           []IGameComponent
+
+	// doneFirstUpdate is Game::doneFirstUpdate, which base Update assigns.
+	// Its readers in the reference -- Paint, Tick and DrawFrame -- are not
+	// projected yet, so nothing observes it; it is kept because base Update
+	// genuinely assigns it and omitting the assignment would make the
+	// projected base body incomplete.
+	doneFirstUpdate bool
+
+	// inRun is Game::inRun. The reference sets it true in RunGame after
+	// Initialize() returns and back to false in RunGame's finally; CNA-Go sets
+	// it at the equivalent boundary of the native run sequence, because the
+	// native host plays GameHost's part. It decides whether a newly added
+	// component is initialized immediately or queued.
+	inRun bool
+
+	// The four CLR events Game declares, each a private registration list
+	// exactly as the reference keeps a private multicast delegate field. See
+	// game_events.go for the raise paths and the native bridge.
+	activated   EventSource[*EventArgs]
+	deactivated EventSource[*EventArgs]
+	exiting     EventSource[*EventArgs]
+	disposed    EventSource[*EventArgs]
+
+	// Game's timing and presentation state. Every one of these is a private
+	// field in the reference whose getter is one `ldfld`, and whose readers are
+	// the managed loop -- which in CNA-Go is the native one, so the setters
+	// push as well as store. See game_timing.go for the exact bodies and for
+	// the constructor defaults.
+	inactiveSleepTime          int64
+	targetElapsedTime          int64
+	maximumElapsedTime         int64
+	isFixedTimeStep            bool
+	isMouseVisible             bool
+	suppressDraw               bool
+	forceElapsedTimeToZero     bool
+	drawRunningSlowly          bool
+	updatesSinceRunningSlowly1 int32
+	updatesSinceRunningSlowly2 int32
+
+	// The four optional frame-boundary overrides, captured once from the
+	// callback object in NewGame. Each is nil unless that object declares the
+	// corresponding exported method; a nil one means the matching native hook
+	// is never installed, so the native frame position keeps its own
+	// behaviour. See game_frame_hook_overrides.go.
+	beginRunOverride  gameBeginRunOverride
+	endRunOverride    gameEndRunOverride
+	beginDrawOverride gameBeginDrawOverride
+	endDrawOverride   gameEndDrawOverride
+
+	// disposeLock projects the `lock (this)` that wraps the whole body of
+	// Dispose(bool). See DisposeByBoolean in game_disposal.go for the exact
+	// concurrency projection and its one deliberate divergence.
+	disposeLock sync.Mutex
+
+	// window is Game::host.Window. The reference's constructor calls
+	// EnsureHost() before its fifth statement and then reads host.Window, so
+	// the window exists from construction and Game::get_Window -- which is
+	// `host == null ? null : host.Window` over a field WindowsGameHost's
+	// constructor assigns -- returns the same object for the Game's whole
+	// life. CNA-Go allocates it here for exactly that reason: the identity a
+	// caller observes must never change.
+	window *GameWindow
+
+	// content is Game::content, the ContentManager the constructor creates.
+	//
+	// It is `any` because the framework package cannot name
+	// Microsoft.Xna.Framework.Content.ContentManager: the Content package
+	// imports this one. The field is still HERE, on the object that owns it in
+	// the reference, so the value's lifetime is the Game's and no registry
+	// outside retains either. See game_content.go for the two accessors the
+	// Content package reaches it through.
+	content any
+
+	// isActive is Game::isActive, the private bool HostActivated and
+	// HostDeactivated maintain. It is NOT Game::IsActive: that getter also
+	// consults GamerServices' Guide and stays a missing member. This field
+	// exists only because it is what makes the two activation events
+	// edge-triggered, and the reference leaves it false at construction.
+	isActive bool
+}
+
+// GameCallbacks is the measured Go language adapter for XNA Game lifecycle
+// overrides. The native CNA loop invokes these methods on the Game owner OS
+// thread.
+type GameCallbacks interface {
+	Initialize(*Game) error
+	LoadContent(*Game) error
+	Update(*Game, GameTime) error
+	Draw(*Game, GameTime) error
+	UnloadContent(*Game) error
+}
+
+// NewGame associates lifecycle overrides with one not-yet-running Game host.
+//
+// The managed construction below reproduces the reference constructor's order
+// for the part CNA-Go owns. Microsoft.Xna.Framework.Game::.ctor assigns
+// gameServices from a field initializer -- so it exists before anything else
+// runs -- and then, after the base constructor, allocates gameComponents and
+// immediately subscribes Game's own two handlers to it:
+//
+//	gameServices   = new GameServiceContainer();          // field initializer
+//	...
+//	gameComponents = new GameComponentCollection();
+//	gameComponents.ComponentAdded   += GameComponentAdded;
+//	gameComponents.ComponentRemoved += GameComponentRemoved;
+//
+// The subscription order is observable and is preserved: Game's handlers are
+// registered first, so a consumer's later handler always runs after the engine
+// has already tracked or untracked the component. A consumer therefore observes
+// a consistent Game during their own ComponentAdded, exactly as in CLR, where
+// the multicast invocation list runs in subscription order.
+func NewGame(callbacks GameCallbacks) (*Game, error) {
+	if callbacks == nil {
+		return nil, errors.New("Game callbacks must not be nil")
+	}
+	// The constructor's own timing defaults, read from Game::.ctor's IL. They
+	// are assigned before anything else here because the reference assigns
+	// them from field initializers and at the head of the constructor body,
+	// ahead of every allocation below.
+	game := &Game{
+		callbacks:                  callbacks,
+		maximumElapsedTime:         gameMaximumElapsedTicks,
+		isFixedTimeStep:            true,
+		updatesSinceRunningSlowly1: gameRunningSlowlyReset,
+		updatesSinceRunningSlowly2: gameRunningSlowlyReset,
+		targetElapsedTime:          gameDefaultTargetElapsedTicks,
+		inactiveSleepTime:          gameDefaultInactiveSleepTicks,
+	}
+	// The optional frame-hook capabilities are discovered here, at the same
+	// boundary where the callback object becomes associated with the Game, and
+	// never again. A Go object's method set is fixed for its lifetime, so a
+	// later re-check could not produce a different answer, and there is no
+	// registration operation to change it.
+	game.captureFrameHookOverrides(callbacks)
+	game.gameServices = NewGameServiceContainer()
+	// `this.launchParameters = new LaunchParameters();` -- the reference's
+	// statement between EnsureHost() and the component collection. Its
+	// position matters only in that the object exists before any consumer can
+	// reach it; the parse it performs reads the process command line and
+	// touches nothing else the constructor has built.
+	game.launchParameters = NewLaunchParameters()
+	game.gameComponents = NewGameComponentCollection()
+	// Neither accessor can fail: EventSource.Add reports no failure of its own
+	// and both handlers are non-nil. The results are discarded because Game
+	// never unsubscribes from its own collection -- the reference holds no
+	// token either, and the collection cannot outlive the Game that owns it.
+	if _, err := game.gameComponents.AddComponentAddedHandler(game.gameComponentAdded); err != nil {
+		return nil, err
+	}
+	if _, err := game.gameComponents.AddComponentRemovedHandler(game.gameComponentRemoved); err != nil {
+		return nil, err
+	}
+	// `this.content = new ContentManager(this.Services);` -- the reference's
+	// statement between the collection's handlers and the window's Paint
+	// subscription, in that position here for the same reason every other
+	// allocation is: the identity a caller observes is fixed at construction
+	// and never changes afterwards. The creator is the Content package's, and
+	// is absent only in a program that never linked that package; see
+	// servicebridge.CreateGameContent.
+	created, err := servicebridge.CreateGameContent(game.gameServices)
+	if err != nil {
+		return nil, err
+	}
+	game.content = created
+
+	// EnsureHost()'s position in the reference constructor: after the service
+	// container and before LaunchParameters, the component collection and the
+	// ContentManager. Allocating the window here rather than lazily in the
+	// getter is what makes Game.Window's identity stable, which is the
+	// observable part of the reference's behaviour.
+	game.window = newGameWindow(game)
+	game.runtime = interop.NewRuntime(gameRuntimeCallbacks{game: game})
+	interop.RegisterOwner(game, game.runtime, nil)
+	return game, nil
+}
+
+// LaunchParameters is Game::get_LaunchParameters:
+//
+//	ldarg.0; ldfld class LaunchParameters Game::launchParameters; ret
+//
+// one field read of an object the constructor allocated, so it reaches nothing
+// and cannot fail, and the same *LaunchParameters is returned for the Game's
+// whole life. The dictionary is not a copy: a consumer that adds, removes or
+// overwrites an entry is changing the Game's own launch parameters, which is
+// what the reference does too -- LaunchParameters is an ordinary mutable
+// Dictionary<string,string> and XNA hands the caller the instance, not a view.
+func (g *Game) LaunchParameters() *LaunchParameters { return g.launchParameters }
+
+// Window is Game::get_Window:
+//
+//	host == null ? null : host.Window
+//
+// In the reference `host` is never null after construction -- EnsureHost() runs
+// inside the constructor and the field is assigned there and nowhere else -- so
+// the null branch is unreachable for a constructed Game and the getter is
+// effectively one field read of a stable identity. That is what CNA-Go
+// projects: the same *GameWindow every call, never a fresh wrapper.
+//
+// It reaches no window and cannot fail. Whether the WINDOW's own members can
+// answer depends on whether a native game is live, and each of them says so on
+// its own terms; see game_window.go for the measured guarded/unguarded split.
+func (g *Game) Window() *GameWindow {
+	if g == nil {
+		return nil
+	}
+	return g.window
+}
+
+// Components is Game::get_Components, whose whole body is
+//
+//	ldarg.0; ldfld GameComponentCollection Game::gameComponents; ret
+//
+// It is a field read of an object the constructor allocated once, so it cannot
+// fail, never allocates, and returns the same collection every time. The
+// collection keeps CLR reference semantics: a caller who mutates what this
+// returns mutates the Game's components, and every other caller sees it.
+func (g *Game) Components() *GameComponentCollection {
+	return g.gameComponents
+}
+
+// Services is Game::get_Services, the same one-`ldfld` shape over the container
+// the constructor allocated. It cannot fail and returns one stable identity.
+//
+// The container is the reference's own service registry and is genuinely
+// public: anything may register into it, and Game itself reads it during the
+// run sequence to find its IGraphicsDeviceManager.
+func (g *Game) Services() *GameServiceContainer {
+	return g.gameServices
+}
+
+// Run creates and runs the Game on a locked OS thread, against a CNA library
+// the loader has admitted.
+//
+// The `inRun` reset reproduces RunGame's finally block, which clears the flag
+// once a blocking run has returned:
+//
+//	finally { if (!endRunRequired) inRun = false; }
+//
+// endRunRequired is set only on the non-blocking StartGameLoop path, which is
+// GameHost's, so for a blocking Run the reset always happens.
+func (g *Game) Run() error {
+	if g == nil || g.runtime == nil {
+		return errors.New("Game is nil or uninitialized")
+	}
+	err := g.runtime.Run()
+	g.inRun = false
+	return err
+}
+
+// Exit asks the native CNA loop to stop at its next safe point.
+func (g *Game) Exit() error {
+	if g == nil || g.runtime == nil {
+		return errors.New("Game is nil or uninitialized")
+	}
+	return g.runtime.Exit()
+}
+
+type gameRuntimeCallbacks struct {
+	game *Game
+}
+
+// Initialize runs the consumer's Initialize override and then raises `inRun`.
+//
+// The reference sequences exactly this in RunGame:
+//
+//	this.Initialize();      // the virtual, so the derived override runs
+//	this.inRun = true;
+//
+// so a component added from inside the override is still queued, and one added
+// after it is initialized on the spot. CNA-Go raises the flag at the same point
+// in the sequence, on the native `initialize` frame hook, because the native
+// CNA host plays GameHost's part. A failing override leaves the flag down, as
+// the reference's exception leaves the assignment unreached.
+func (c gameRuntimeCallbacks) Initialize() error {
+	if err := c.game.callbacks.Initialize(c.game); err != nil {
+		return err
+	}
+	c.game.inRun = true
+	return nil
+}
+
+func (c gameRuntimeCallbacks) LoadContent() error {
+	return c.game.callbacks.LoadContent(c.game)
+}
+
+func (c gameRuntimeCallbacks) Update(value interop.FrameTime) error {
+	return c.game.callbacks.Update(c.game, gameTimeFromInterop(value))
+}
+
+func (c gameRuntimeCallbacks) Draw(value interop.FrameTime) error {
+	return c.game.callbacks.Draw(c.game, gameTimeFromInterop(value))
+}
+
+func (c gameRuntimeCallbacks) UnloadContent() error {
+	return c.game.callbacks.UnloadContent(c.game)
+}
+
+// GameEvent is the private end of the native game-event bridge. It is NOT a
+// GameCallbacks member: the five-member override contract is unchanged, and a
+// consumer implements nothing new to receive these signals.
+func (c gameRuntimeCallbacks) GameEvent(event uint32) error {
+	return c.game.raiseNativeGameEvent(event)
+}
+
+// GameWindowEvent is the private end of the native WINDOW bridge, and is
+// deliberately a second member rather than a wider identity space on the one
+// above: the two canonical families both number from zero, so one shared entry
+// point would make a mis-routed signal indistinguishable from a valid one.
+func (c gameRuntimeCallbacks) GameWindowEvent(event uint32) error {
+	return c.game.window.raiseNativeWindowEvent(event)
+}
+
+// FrameHookOverrides reports exactly the hooks the callback object supplied an
+// override for. A bit that is clear leaves that CNA_GameFrameHooks member NULL,
+// which the canonical header defines as simply not called.
+//
+// It is derived from the fields NewGame captured, so the mask and the four
+// dispatch methods below cannot disagree: the same nil-ness decides both.
+func (c gameRuntimeCallbacks) FrameHookOverrides() interop.FrameHookMask {
+	var mask interop.FrameHookMask
+	if c.game.beginRunOverride != nil {
+		mask |= interop.FrameHookBeginRun
+	}
+	if c.game.endRunOverride != nil {
+		mask |= interop.FrameHookEndRun
+	}
+	if c.game.beginDrawOverride != nil {
+		mask |= interop.FrameHookBeginDraw
+	}
+	if c.game.endDrawOverride != nil {
+		mask |= interop.FrameHookEndDraw
+	}
+	return mask
+}
+
+// The four optional frame-hook dispatchers. Each is reached only from the
+// native hook its own mask bit installed, so the nil branch is unreachable by
+// construction; it is reported rather than quietly running the base, because
+// running a base the consumer did not ask for is exactly what this whole
+// mechanism exists to avoid.
+func (c gameRuntimeCallbacks) BeginRun() error {
+	if c.game.beginRunOverride == nil {
+		return errFrameHookWithoutOverride
+	}
+	return c.game.beginRunOverride.BeginRun(c.game)
+}
+
+func (c gameRuntimeCallbacks) EndRun() error {
+	if c.game.endRunOverride == nil {
+		return errFrameHookWithoutOverride
+	}
+	return c.game.endRunOverride.EndRun(c.game)
+}
+
+// BeginDraw forwards the override's two channels unchanged. A refusal is
+// (false, nil) and is never promoted to an error, and an error never decides
+// the frame.
+func (c gameRuntimeCallbacks) BeginDraw() (bool, error) {
+	if c.game.beginDrawOverride == nil {
+		return false, errFrameHookWithoutOverride
+	}
+	return c.game.beginDrawOverride.BeginDraw(c.game)
+}
+
+func (c gameRuntimeCallbacks) EndDraw() error {
+	if c.game.endDrawOverride == nil {
+		return errFrameHookWithoutOverride
+	}
+	return c.game.endDrawOverride.EndDraw(c.game)
+}
+
+// errFrameHookWithoutOverride reports a native frame hook that arrived with no
+// override behind it. It has no CLR counterpart and is unreachable while the
+// mask and the captured fields are derived from each other; it exists so that
+// a future divergence between them fails loudly instead of silently running a
+// base body at a position CNA-Go picked.
+var errFrameHookWithoutOverride = errors.New("a native frame hook was delivered for a Game with no override for it")
+
+func gameTimeFromInterop(value interop.FrameTime) GameTime {
+	return NewGameTimeByTimeSpanAndTimeSpanAndBoolean(
+		TimeSpanFromTicks(value.TotalTicks),
+		TimeSpanFromTicks(value.ElapsedTicks),
+		value.IsRunningSlowly,
+	)
+}
+
+// ShowMissingRequirementMessage is Game::ShowMissingRequirementMessage,
+// `family virtual`:
+//
+//	return host == null ? false : host.ShowMissingRequirementMessage(exception);
+//
+// so the member itself decides nothing. What it answers is entirely the HOST's,
+// and the reference has two:
+//
+//	GameHost::ShowMissingRequirementMessage          `ldc.i4.0; ret`
+//	WindowsGameHost::ShowMissingRequirementMessage
+//	    exception is NoSuitableGraphicsDeviceException
+//	        -> MessageBox with Resources.NoSuitableGraphicsDevice + "\n\n" + Message
+//	    exception is NoAudioHardwareException
+//	        -> MessageBox with Resources.NoAudioHardware
+//	    otherwise
+//	        -> base.ShowMissingRequirementMessage(exception), which is false
+//
+// Both of WindowsGameHost's dialog branches are selected by an `isinst` against
+// a specific exception TYPE, and neither of those two types is projected yet --
+// so no consumer can construct one, and no argument this member can be given
+// reaches a dialog. The reachable body is therefore the base host's `false`,
+// and that is what this projects: a measured constant rather than a chosen one.
+//
+// The member is infallible because the projected body reaches nothing. It is
+// also the reason CNA's two message-box routes are recorded as deliberately
+// unbound: CNA does offer `cna_message_box_show_simple_ext`, but binding it
+// today would be a route with no production call site, which the settled rule
+// refuses. Both branches become reachable the milestone
+// NoSuitableGraphicsDeviceException and NoAudioHardwareException are projected.
+func (g *Game) ShowMissingRequirementMessage(exception ExceptionReference) bool {
+	_ = exception
+	return false
+}

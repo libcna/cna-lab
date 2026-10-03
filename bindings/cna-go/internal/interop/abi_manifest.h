@@ -1,0 +1,2449 @@
+// SPDX-License-Identifier: MS-PL
+
+#ifndef CNA_GO_ABI_MANIFEST_H
+#define CNA_GO_ABI_MANIFEST_H
+
+#include <stdint.h>
+
+#ifndef CNA_C_ABI_H
+typedef uint8_t CNA_Bool;
+typedef uint32_t CNA_Result;
+typedef uint64_t CNA_Handle;
+#endif
+
+#ifndef CNA_C_CORE_H
+typedef struct CNA_StringView { const char* data; uint64_t byte_length; } CNA_StringView;
+typedef struct CNA_Vector2 { float x; float y; } CNA_Vector2;
+typedef struct CNA_Rectangle { int32_t x; int32_t y; int32_t width; int32_t height; } CNA_Rectangle;
+typedef struct CNA_Vector3 { float x; float y; float z; } CNA_Vector3;
+typedef struct CNA_Vector4 { float x; float y; float z; float w; } CNA_Vector4;
+typedef struct CNA_Quaternion { float x; float y; float z; float w; } CNA_Quaternion;
+typedef struct CNA_Color { uint8_t r; uint8_t g; uint8_t b; uint8_t a; } CNA_Color;
+#endif
+
+/* CNA-Go's own copy of the four canonical game-event identities. These are
+   deliberately declared under private names and OUTSIDE the guard below, so a
+   translation unit that also has the canonical CNA header can compare the two
+   sets rather than silently preferring one. tools/native_abi does exactly that.
+   The guarded block further down defines the canonical spellings from these
+   when, and only when, the canonical header is absent. */
+#define CNA_GO_MANIFEST_GAME_EVENT_ACTIVATED UINT32_C(0)
+#define CNA_GO_MANIFEST_GAME_EVENT_DEACTIVATED UINT32_C(1)
+#define CNA_GO_MANIFEST_GAME_EVENT_DISPOSED UINT32_C(2)
+#define CNA_GO_MANIFEST_GAME_EVENT_EXITING UINT32_C(3)
+
+/* The three canonical GAME WINDOW event identities, kept the same way and for
+   the same reason: they are a second, independent numbering that indexes a
+   second trampoline table, and a signal routed to the wrong projected event
+   would be invisible. */
+#define CNA_GO_MANIFEST_GAME_WINDOW_EVENT_CLIENT_SIZE_CHANGED UINT32_C(0)
+#define CNA_GO_MANIFEST_GAME_WINDOW_EVENT_ORIENTATION_CHANGED UINT32_C(1)
+#define CNA_GO_MANIFEST_GAME_WINDOW_EVENT_SCREEN_DEVICE_NAME_CHANGED UINT32_C(2)
+
+/* The five canonical GRAPHICS DEVICE MANAGER event identities. A third
+   numbering, and this one does NOT start its device events at zero: DISPOSED
+   is 0 and DEVICE_CREATED is 1, so a table indexed as if it matched either of
+   the other two families would be off by one. */
+#define CNA_GO_MANIFEST_GRAPHICS_DEVICE_EVENT_DISPOSING UINT32_C(0)
+#define CNA_GO_MANIFEST_GRAPHICS_DEVICE_EVENT_DEVICE_LOST UINT32_C(1)
+#define CNA_GO_MANIFEST_GRAPHICS_DEVICE_EVENT_DEVICE_RESET UINT32_C(2)
+#define CNA_GO_MANIFEST_GRAPHICS_DEVICE_EVENT_DEVICE_RESETTING UINT32_C(3)
+#define CNA_GO_MANIFEST_GDM_EVENT_DISPOSED UINT32_C(0)
+#define CNA_GO_MANIFEST_GDM_EVENT_DEVICE_CREATED UINT32_C(1)
+#define CNA_GO_MANIFEST_GDM_EVENT_DEVICE_DISPOSING UINT32_C(2)
+#define CNA_GO_MANIFEST_GDM_EVENT_DEVICE_RESET UINT32_C(3)
+#define CNA_GO_MANIFEST_GDM_EVENT_DEVICE_RESETTING UINT32_C(4)
+
+#ifndef CNA_C_RUNTIME_H
+typedef struct CNA_GameTime {
+    int64_t total_game_time_ticks;
+    int64_t elapsed_game_time_ticks;
+    CNA_Bool is_running_slowly;
+    uint8_t reserved[7];
+} CNA_GameTime;
+typedef struct CNA_CallbackError {
+    uint32_t struct_size;
+    uint32_t struct_version;
+    CNA_StringView message;
+} CNA_CallbackError;
+typedef CNA_Result (*CNA_GameLifecycleCallback)(CNA_Handle, const CNA_GameTime*, void*, CNA_CallbackError*);
+typedef CNA_Result (*CNA_GameBeginDrawCallback)(CNA_Handle, const CNA_GameTime*, void*, CNA_Bool*, CNA_CallbackError*);
+typedef struct CNA_GameCallbacks {
+    uint32_t struct_size;
+    uint32_t struct_version;
+    CNA_GameLifecycleCallback load_content;
+    CNA_GameLifecycleCallback update;
+    CNA_GameLifecycleCallback draw;
+    CNA_GameLifecycleCallback unload_content;
+    CNA_GameLifecycleCallback exiting;
+    void* context;
+} CNA_GameCallbacks;
+typedef struct CNA_GameFrameHooks {
+    uint32_t struct_size;
+    uint32_t struct_version;
+    CNA_GameLifecycleCallback initialize;
+    CNA_GameLifecycleCallback begin_run;
+    CNA_GameLifecycleCallback end_run;
+    CNA_GameBeginDrawCallback begin_draw;
+    CNA_GameLifecycleCallback end_draw;
+    void* context;
+} CNA_GameFrameHooks;
+typedef struct CNA_GameCreateInfo {
+    uint32_t struct_size;
+    uint32_t struct_version;
+    CNA_Bool is_fixed_time_step;
+    uint8_t reserved[7];
+    int64_t target_elapsed_time_ticks;
+    CNA_StringView window_title;
+    const CNA_GameCallbacks* callbacks;
+} CNA_GameCreateInfo;
+typedef CNA_Handle CNA_GameEventRegistrationHandle;
+typedef uint32_t CNA_GameEvent;
+#define CNA_GAME_EVENT_ACTIVATED CNA_GO_MANIFEST_GAME_EVENT_ACTIVATED
+#define CNA_GAME_EVENT_DEACTIVATED CNA_GO_MANIFEST_GAME_EVENT_DEACTIVATED
+#define CNA_GAME_EVENT_DISPOSED CNA_GO_MANIFEST_GAME_EVENT_DISPOSED
+#define CNA_GAME_EVENT_EXITING CNA_GO_MANIFEST_GAME_EVENT_EXITING
+#define CNA_GAME_EVENT_MAXIMUM CNA_GAME_EVENT_EXITING
+typedef void (*CNA_GameEventCallback)(void*);
+#endif
+
+#ifndef CNA_C_RUNTIME_WINDOW_H
+typedef uint32_t CNA_GameWindowEvent;
+#define CNA_GAME_WINDOW_EVENT_CLIENT_SIZE_CHANGED CNA_GO_MANIFEST_GAME_WINDOW_EVENT_CLIENT_SIZE_CHANGED
+#define CNA_GAME_WINDOW_EVENT_ORIENTATION_CHANGED CNA_GO_MANIFEST_GAME_WINDOW_EVENT_ORIENTATION_CHANGED
+#define CNA_GAME_WINDOW_EVENT_SCREEN_DEVICE_NAME_CHANGED CNA_GO_MANIFEST_GAME_WINDOW_EVENT_SCREEN_DEVICE_NAME_CHANGED
+#define CNA_GAME_WINDOW_EVENT_MAXIMUM CNA_GAME_WINDOW_EVENT_SCREEN_DEVICE_NAME_CHANGED
+#endif
+
+#ifndef CNA_C_RUNTIME_GRAPHICS_MANAGER_H
+typedef CNA_Handle CNA_GraphicsDeviceManagerHandle;
+typedef uint32_t CNA_GraphicsDeviceManagerEvent;
+#define CNA_GRAPHICS_DEVICE_MANAGER_EVENT_DISPOSED CNA_GO_MANIFEST_GDM_EVENT_DISPOSED
+#define CNA_GRAPHICS_DEVICE_MANAGER_EVENT_DEVICE_CREATED CNA_GO_MANIFEST_GDM_EVENT_DEVICE_CREATED
+#define CNA_GRAPHICS_DEVICE_MANAGER_EVENT_DEVICE_DISPOSING CNA_GO_MANIFEST_GDM_EVENT_DEVICE_DISPOSING
+#define CNA_GRAPHICS_DEVICE_MANAGER_EVENT_DEVICE_RESET CNA_GO_MANIFEST_GDM_EVENT_DEVICE_RESET
+#define CNA_GRAPHICS_DEVICE_MANAGER_EVENT_DEVICE_RESETTING CNA_GO_MANIFEST_GDM_EVENT_DEVICE_RESETTING
+#define CNA_GRAPHICS_DEVICE_MANAGER_EVENT_MAXIMUM CNA_GRAPHICS_DEVICE_MANAGER_EVENT_DEVICE_RESETTING
+#endif
+
+#ifndef CNA_C_GRAPHICS_DEVICE_H
+/* Three fixed-width identity aliases, each a uint32_t in the canonical header.
+   They are declared here rather than spelled uint32_t at every use so a
+   prototype names the same identity CNA names, and so the probe compares an
+   alias with an alias. */
+typedef uint32_t CNA_ClearOptions;
+typedef uint32_t CNA_GraphicsDeviceStatus;
+#endif
+
+#ifndef CNA_C_GRAPHICS_H
+typedef uint32_t CNA_SurfaceFormat;
+#endif
+
+#ifndef CNA_C_DISPLAY_H
+typedef uint32_t CNA_GraphicsProfile;
+typedef struct CNA_DisplayMode {
+    uint32_t struct_size;
+    uint32_t struct_version;
+    int32_t width;
+    int32_t height;
+    float aspect_ratio;
+    CNA_SurfaceFormat format;
+} CNA_DisplayMode;
+#endif
+
+#ifndef CNA_C_GRAPHICS_DEVICE_H
+typedef struct CNA_Viewport {
+    int32_t x;
+    int32_t y;
+    int32_t width;
+    int32_t height;
+    float min_depth;
+    float max_depth;
+} CNA_Viewport;
+#endif
+
+#ifndef CNA_C_GRAPHICS_H
+typedef struct CNA_Texture2DCreateInfo {
+    uint32_t struct_size;
+    uint32_t struct_version;
+    uint32_t width;
+    uint32_t height;
+    CNA_Bool mip_map;
+    uint8_t reserved[3];
+    CNA_SurfaceFormat format;
+} CNA_Texture2DCreateInfo;
+typedef struct CNA_Texture2DInfo {
+    uint32_t struct_size;
+    uint32_t struct_version;
+    uint32_t width;
+    uint32_t height;
+    uint32_t level_count;
+    uint32_t format;
+} CNA_Texture2DInfo;
+typedef struct CNA_SpriteBatchBeginInfo {
+    uint32_t struct_size;
+    uint32_t struct_version;
+    uint32_t sort_mode;
+    uint32_t reserved;
+} CNA_SpriteBatchBeginInfo;
+typedef struct CNA_SpriteCommand {
+    uint32_t struct_size;
+    uint32_t struct_version;
+    CNA_Handle texture;
+    CNA_Rectangle destination;
+    CNA_Rectangle source;
+    CNA_Color color;
+    float rotation;
+    CNA_Vector2 origin;
+    uint32_t effects;
+    float layer_depth;
+} CNA_SpriteCommand;
+typedef struct CNA_SpriteTextCommand {
+    uint32_t struct_size;
+    uint32_t struct_version;
+    CNA_Handle sprite_font;
+    CNA_StringView text;
+    CNA_Vector2 position;
+    CNA_Color color;
+    float rotation;
+    CNA_Vector2 origin;
+    CNA_Vector2 scale;
+    uint32_t effects;
+    float layer_depth;
+} CNA_SpriteTextCommand;
+typedef struct CNA_SpriteScaledCommand {
+    uint32_t struct_size;
+    uint32_t struct_version;
+    CNA_Handle texture;
+    CNA_Vector2 position;
+    CNA_Rectangle source;
+    CNA_Color color;
+    float rotation;
+    CNA_Vector2 origin;
+    CNA_Vector2 scale;
+    uint32_t effects;
+    float layer_depth;
+} CNA_SpriteScaledCommand;
+#endif
+
+#ifndef CNA_C_TEXTURE_H
+typedef uint32_t CNA_TextureImageFormat;
+typedef uint32_t CNA_TextureDataType;
+#endif
+
+/* The packed-storage aliases the Graphics package's element mapping depends on.
+   Each is a plain unsigned integer in the canonical header, and CNA-Go passes
+   Go structs of the same width straight through, so their sizes are measured
+   here rather than assumed. They live under the MATH guard because that is the
+   header the canonical ones are declared in. */
+#ifndef CNA_C_MATH_VALUES_H
+typedef uint8_t CNA_PackedAlpha8;
+typedef uint16_t CNA_PackedBgr565;
+typedef uint64_t CNA_PackedRgba64;
+typedef uint64_t CNA_PackedHalfVector4;
+#endif
+
+#ifndef CNA_C_TEXTURE_H
+typedef struct CNA_Texture2DTransfer {
+    uint32_t struct_size;
+    uint32_t struct_version;
+    int32_t level;
+    CNA_Bool has_rectangle;
+    uint8_t reserved[3];
+    CNA_Rectangle rectangle;
+    uint64_t start_index;
+    uint64_t element_count;
+} CNA_Texture2DTransfer;
+typedef struct CNA_Texture2DDecodeInfo {
+    uint32_t struct_size;
+    uint32_t struct_version;
+    uint32_t width;
+    uint32_t height;
+    CNA_Bool zoom;
+    uint8_t reserved[7];
+} CNA_Texture2DDecodeInfo;
+#endif
+
+#ifndef CNA_C_GRAPHICS_STATE_H
+typedef uint32_t CNA_SpriteSortMode;
+typedef uint32_t CNA_ShaderStage;
+typedef CNA_Handle CNA_GraphicsDeviceEventRegistrationHandle;
+typedef uint32_t CNA_GraphicsDeviceEvent;
+#define CNA_GRAPHICS_DEVICE_EVENT_DISPOSING CNA_GO_MANIFEST_GRAPHICS_DEVICE_EVENT_DISPOSING
+#define CNA_GRAPHICS_DEVICE_EVENT_DEVICE_LOST CNA_GO_MANIFEST_GRAPHICS_DEVICE_EVENT_DEVICE_LOST
+#define CNA_GRAPHICS_DEVICE_EVENT_DEVICE_RESET CNA_GO_MANIFEST_GRAPHICS_DEVICE_EVENT_DEVICE_RESET
+#define CNA_GRAPHICS_DEVICE_EVENT_DEVICE_RESETTING CNA_GO_MANIFEST_GRAPHICS_DEVICE_EVENT_DEVICE_RESETTING
+typedef struct CNA_ResourceCreatedEventInfo {
+    uint32_t struct_size;
+    uint32_t struct_version;
+    CNA_Bool has_resource;
+    uint8_t reserved[7];
+} CNA_ResourceCreatedEventInfo;
+typedef struct CNA_ResourceDestroyedEventInfo {
+    uint32_t struct_size;
+    uint32_t struct_version;
+    CNA_Bool has_tag;
+    uint8_t reserved[7];
+    CNA_StringView name;
+} CNA_ResourceDestroyedEventInfo;
+typedef void (*CNA_GraphicsDeviceEventCallback)(CNA_Handle, void*);
+typedef void (*CNA_GraphicsDeviceResourceCreatedCallback)(CNA_Handle, const CNA_ResourceCreatedEventInfo*, void*);
+typedef void (*CNA_GraphicsDeviceResourceDestroyedCallback)(CNA_Handle, const CNA_ResourceDestroyedEventInfo*, void*);
+typedef struct CNA_TextureSlotInfo {
+    uint32_t struct_size;
+    uint32_t struct_version;
+    CNA_Bool bound;
+    uint8_t reserved[7];
+    CNA_Handle texture;
+} CNA_TextureSlotInfo;
+typedef uint32_t CNA_Blend;
+typedef uint32_t CNA_BlendFunction;
+typedef uint32_t CNA_ColorWriteChannels;
+typedef uint32_t CNA_CompareFunction;
+typedef uint32_t CNA_StencilOperation;
+typedef uint32_t CNA_CullMode;
+typedef uint32_t CNA_FillMode;
+typedef uint32_t CNA_TextureAddressMode;
+typedef uint32_t CNA_TextureFilter;
+typedef struct CNA_BlendState {
+    uint32_t struct_size;
+    uint32_t struct_version;
+    CNA_BlendFunction alpha_blend_function;
+    CNA_Blend alpha_destination_blend;
+    CNA_Blend alpha_source_blend;
+    CNA_BlendFunction color_blend_function;
+    CNA_Blend color_destination_blend;
+    CNA_Blend color_source_blend;
+    CNA_ColorWriteChannels color_write_channels;
+    CNA_ColorWriteChannels color_write_channels1;
+    CNA_ColorWriteChannels color_write_channels2;
+    CNA_ColorWriteChannels color_write_channels3;
+    CNA_Color blend_factor;
+    int32_t multi_sample_mask;
+} CNA_BlendState;
+typedef struct CNA_DepthStencilState {
+    uint32_t struct_size;
+    uint32_t struct_version;
+    CNA_Bool depth_buffer_enable;
+    CNA_Bool depth_buffer_write_enable;
+    CNA_Bool stencil_enable;
+    CNA_Bool two_sided_stencil_mode;
+    CNA_CompareFunction depth_buffer_function;
+    CNA_CompareFunction stencil_function;
+    int32_t stencil_mask;
+    int32_t stencil_write_mask;
+    int32_t reference_stencil;
+    CNA_StencilOperation stencil_fail;
+    CNA_StencilOperation stencil_depth_buffer_fail;
+    CNA_StencilOperation stencil_pass;
+    CNA_CompareFunction counter_clockwise_stencil_function;
+    CNA_StencilOperation counter_clockwise_stencil_fail;
+    CNA_StencilOperation counter_clockwise_stencil_depth_buffer_fail;
+    CNA_StencilOperation counter_clockwise_stencil_pass;
+    uint32_t reserved;
+} CNA_DepthStencilState;
+typedef struct CNA_RasterizerState {
+    uint32_t struct_size;
+    uint32_t struct_version;
+    CNA_CullMode cull_mode;
+    CNA_FillMode fill_mode;
+    float depth_bias;
+    float slope_scale_depth_bias;
+    CNA_Bool multi_sample_anti_alias;
+    CNA_Bool scissor_test_enable;
+    uint8_t reserved[2];
+} CNA_RasterizerState;
+typedef struct CNA_SamplerState {
+    uint32_t struct_size;
+    uint32_t struct_version;
+    CNA_TextureAddressMode address_u;
+    CNA_TextureAddressMode address_v;
+    CNA_TextureAddressMode address_w;
+    CNA_TextureFilter filter;
+    int32_t max_anisotropy;
+    int32_t max_mip_level;
+    float mip_map_level_of_detail_bias;
+    uint32_t reserved;
+} CNA_SamplerState;
+#endif
+
+#ifndef CNA_C_CONTENT_H
+typedef struct CNA_ContentManagerCreateInfo {
+    uint32_t struct_size;
+    uint32_t struct_version;
+    CNA_StringView root_directory;
+    uint64_t reserved;
+} CNA_ContentManagerCreateInfo;
+#endif
+
+#ifndef CNA_C_RENDER_TARGET_H
+typedef uint32_t CNA_DepthFormat;
+typedef uint32_t CNA_RenderTargetUsage;
+typedef uint32_t CNA_CubeMapFace;
+typedef uint32_t CNA_PresentInterval;
+typedef uint32_t CNA_DisplayOrientation;
+typedef uint32_t CNA_RenderTargetKind;
+typedef struct CNA_RenderTarget2DCreateInfo {
+    uint32_t struct_size;
+    uint32_t struct_version;
+    uint32_t width;
+    uint32_t height;
+    CNA_Bool mip_map;
+    uint8_t reserved0[3];
+    CNA_SurfaceFormat format;
+    CNA_DepthFormat depth_format;
+    int32_t multi_sample_count;
+    CNA_RenderTargetUsage usage;
+    uint32_t reserved1;
+} CNA_RenderTarget2DCreateInfo;
+typedef struct CNA_RenderTargetInfo {
+    uint32_t struct_size;
+    uint32_t struct_version;
+    CNA_RenderTargetKind kind;
+    uint32_t width;
+    uint32_t height;
+    uint32_t level_count;
+    CNA_SurfaceFormat format;
+    CNA_DepthFormat depth_format;
+    int32_t multi_sample_count;
+    CNA_RenderTargetUsage usage;
+    CNA_Bool is_content_lost;
+    CNA_Bool renderer_available;
+    uint8_t reserved[2];
+} CNA_RenderTargetInfo;
+typedef struct CNA_RenderTargetCubeCreateInfo {
+    uint32_t struct_size;
+    uint32_t struct_version;
+    uint32_t size;
+    CNA_Bool mip_map;
+    uint8_t reserved[3];
+    CNA_SurfaceFormat format;
+    CNA_DepthFormat depth_format;
+    int32_t multi_sample_count;
+    CNA_RenderTargetUsage usage;
+} CNA_RenderTargetCubeCreateInfo;
+typedef struct CNA_RenderTargetBinding {
+    uint32_t struct_size;
+    uint32_t struct_version;
+    CNA_Handle render_target;
+    int32_t array_slice;
+    CNA_CubeMapFace cube_map_face;
+} CNA_RenderTargetBinding;
+#endif
+
+/* The display block's second half. It sits AFTER the render-target block
+   because CNA_GraphicsFormatSelection names CNA_DepthFormat, which that block
+   is where this manifest declares. The canonical header has the same dependency
+   and satisfies it by including CNA/C/graphics.h. */
+#ifndef CNA_C_DISPLAY_H
+typedef uint64_t CNA_NativeHandleValue;
+typedef struct CNA_GraphicsAdapterInfo {
+    uint32_t struct_size;
+    uint32_t struct_version;
+    uint32_t adapter_index;
+    CNA_Bool is_default_adapter;
+    CNA_Bool is_wide_screen;
+    CNA_Bool use_null_device;
+    CNA_Bool use_reference_device;
+    int32_t vendor_id;
+    int32_t device_id;
+    int32_t revision;
+    int32_t subsystem_id;
+    uint64_t description_byte_length;
+    uint64_t device_name_byte_length;
+} CNA_GraphicsAdapterInfo;
+typedef struct CNA_GraphicsFormatSelection {
+    uint32_t struct_size;
+    uint32_t struct_version;
+    CNA_Bool exact_match;
+    uint8_t reserved[3];
+    CNA_SurfaceFormat format;
+    CNA_DepthFormat depth_format;
+    int32_t multi_sample_count;
+} CNA_GraphicsFormatSelection;
+typedef struct CNA_PresentationParameters {
+    uint32_t struct_size;
+    uint32_t struct_version;
+    CNA_SurfaceFormat back_buffer_format;
+    int32_t back_buffer_width;
+    int32_t back_buffer_height;
+    CNA_DepthFormat depth_stencil_format;
+    int32_t multi_sample_count;
+    CNA_PresentInterval presentation_interval;
+    CNA_DisplayOrientation display_orientation;
+    CNA_RenderTargetUsage render_target_usage;
+    CNA_Bool is_full_screen;
+    CNA_Bool headless_ext;
+    uint8_t reserved[2];
+} CNA_PresentationParameters;
+#endif
+
+#ifndef CNA_C_GRAPHICS3D_H
+typedef uint32_t CNA_BufferUsage;
+typedef uint32_t CNA_IndexElementSize;
+typedef uint32_t CNA_SetDataOptions;
+typedef uint32_t CNA_VertexElementFormat;
+typedef uint32_t CNA_VertexElementUsage;
+typedef uint32_t CNA_PrimitiveType;
+typedef struct CNA_VertexElement {
+    int32_t offset;
+    CNA_VertexElementFormat format;
+    CNA_VertexElementUsage usage;
+    int32_t usage_index;
+} CNA_VertexElement;
+#endif
+
+#ifndef CNA_C_GRAPHICS_DEVICE_H
+typedef struct CNA_BackBufferReadback {
+    uint32_t struct_size;
+    uint32_t struct_version;
+    CNA_Bool has_source_rectangle;
+    uint8_t reserved[3];
+    CNA_Rectangle source_rectangle;
+    uint64_t start_index;
+    uint64_t element_count;
+} CNA_BackBufferReadback;
+#endif
+
+#ifndef CNA_C_GRAPHICS_DEVICE_H
+typedef uint32_t CNA_UserVertexSource;
+typedef struct CNA_UserPrimitives {
+    uint32_t struct_size;
+    uint32_t struct_version;
+    CNA_PrimitiveType primitive_type;
+    CNA_UserVertexSource vertex_source;
+    const void* vertex_data;
+    CNA_Handle vertex_declaration;
+    int32_t vertex_offset;
+    int32_t num_vertices;
+    int32_t primitive_count;
+    uint32_t reserved;
+} CNA_UserPrimitives;
+typedef struct CNA_UserIndices {
+    uint32_t struct_size;
+    uint32_t struct_version;
+    CNA_IndexElementSize index_element_size;
+    int32_t index_offset;
+    const void* index_data;
+} CNA_UserIndices;
+#endif
+
+#ifndef CNA_C_VERTEX_RESOURCES_H
+typedef CNA_Handle CNA_VertexDeclarationHandle;
+typedef CNA_Handle CNA_VertexBufferHandle;
+typedef struct CNA_VertexBufferCreateInfo {
+    uint32_t struct_size;
+    uint32_t struct_version;
+    CNA_VertexDeclarationHandle vertex_declaration;
+    int32_t vertex_count;
+    CNA_BufferUsage buffer_usage;
+    CNA_Bool dynamic;
+    uint8_t reserved[7];
+} CNA_VertexBufferCreateInfo;
+typedef struct CNA_VertexBufferInfo {
+    uint32_t struct_size;
+    uint32_t struct_version;
+    int32_t vertex_count;
+    CNA_BufferUsage buffer_usage;
+    CNA_Bool dynamic;
+    CNA_Bool is_content_lost;
+    CNA_Bool has_renderer;
+    uint8_t reserved0;
+    int32_t vertex_stride;
+    uint64_t vertex_element_count;
+} CNA_VertexBufferInfo;
+typedef struct CNA_VertexBufferBinding {
+    CNA_VertexBufferHandle vertex_buffer;
+    int32_t vertex_offset;
+    int32_t instance_frequency;
+} CNA_VertexBufferBinding;
+#endif
+
+#ifndef CNA_C_INDEX_RESOURCES_H
+typedef CNA_Handle CNA_IndexBufferHandle;
+typedef struct CNA_IndexBufferCreateInfo {
+    uint32_t struct_size;
+    uint32_t struct_version;
+    int32_t index_count;
+    CNA_IndexElementSize index_element_size;
+    CNA_BufferUsage buffer_usage;
+    CNA_Bool dynamic;
+    uint8_t reserved[3];
+} CNA_IndexBufferCreateInfo;
+typedef struct CNA_IndexBufferInfo {
+    uint32_t struct_size;
+    uint32_t struct_version;
+    int32_t index_count;
+    CNA_IndexElementSize index_element_size;
+    CNA_BufferUsage buffer_usage;
+    CNA_Bool dynamic;
+    CNA_Bool is_content_lost;
+    CNA_Bool has_renderer;
+    uint8_t reserved;
+} CNA_IndexBufferInfo;
+typedef struct CNA_IndexBufferTransfer {
+    uint32_t struct_size;
+    uint32_t struct_version;
+    CNA_IndexElementSize index_element_size;
+    CNA_SetDataOptions options;
+    uint64_t start_index;
+    uint64_t element_count;
+} CNA_IndexBufferTransfer;
+#endif
+
+/* CNA_Matrix lives in CNA/C/math_values.h and is the widest value this manifest
+   carries: sixteen floats in ROW-MAJOR order, which is the order an effect
+   parameter's matrix value crosses in. */
+#ifndef CNA_C_MATH_VALUES_H_MATRIX
+#ifndef CNA_C_MATH_VALUES_H
+typedef struct CNA_Matrix {
+    float m11; float m12; float m13; float m14;
+    float m21; float m22; float m23; float m24;
+    float m31; float m32; float m33; float m34;
+    float m41; float m42; float m43; float m44;
+} CNA_Matrix;
+#endif
+#endif
+
+#ifndef CNA_C_EFFECTS_H
+typedef uint32_t CNA_EffectParameterClass;
+typedef uint32_t CNA_EffectParameterType;
+typedef uint32_t CNA_EffectValueType;
+typedef uint32_t CNA_EffectTextureType;
+typedef CNA_Handle CNA_EffectHandle;
+typedef CNA_Handle CNA_EffectParameterHandle;
+/* Foundation 79. The stock-effect family's own handle alias. */
+typedef CNA_Handle CNA_DirectionalLightHandle;
+typedef CNA_Handle CNA_EffectParameterCollectionHandle;
+typedef CNA_Handle CNA_EffectAnnotationHandle;
+typedef CNA_Handle CNA_EffectAnnotationCollectionHandle;
+typedef CNA_Handle CNA_EffectPassHandle;
+typedef CNA_Handle CNA_EffectPassCollectionHandle;
+typedef CNA_Handle CNA_EffectTechniqueHandle;
+typedef CNA_Handle CNA_EffectTechniqueCollectionHandle;
+typedef struct CNA_EffectParameterInfo {
+    uint32_t struct_size;
+    uint32_t struct_version;
+    int32_t row_count;
+    int32_t column_count;
+    CNA_EffectParameterClass parameter_class;
+    CNA_EffectParameterType parameter_type;
+} CNA_EffectParameterInfo;
+typedef struct CNA_EffectAnnotationInfo {
+    uint32_t struct_size;
+    uint32_t struct_version;
+    int32_t row_count;
+    int32_t column_count;
+    CNA_EffectParameterClass parameter_class;
+    CNA_EffectParameterType parameter_type;
+} CNA_EffectAnnotationInfo;
+#endif
+
+#ifndef CNA_C_TEXTURE_VOLUME_H
+typedef struct CNA_Texture3DCreateInfo {
+    uint32_t struct_size;
+    uint32_t struct_version;
+    uint32_t width;
+    uint32_t height;
+    uint32_t depth;
+    CNA_Bool mip_map;
+    uint8_t reserved0[3];
+    CNA_SurfaceFormat format;
+    uint32_t reserved1;
+} CNA_Texture3DCreateInfo;
+typedef struct CNA_Texture3DInfo {
+    uint32_t struct_size;
+    uint32_t struct_version;
+    uint32_t width;
+    uint32_t height;
+    uint32_t depth;
+    uint32_t level_count;
+    CNA_SurfaceFormat format;
+    uint32_t reserved;
+} CNA_Texture3DInfo;
+typedef struct CNA_Texture3DTransfer {
+    uint32_t struct_size;
+    uint32_t struct_version;
+    int32_t level;
+    int32_t left;
+    int32_t top;
+    int32_t right;
+    int32_t bottom;
+    int32_t front;
+    int32_t back;
+    uint32_t reserved;
+    uint64_t start_index;
+    uint64_t element_count;
+} CNA_Texture3DTransfer;
+typedef struct CNA_TextureCubeCreateInfo {
+    uint32_t struct_size;
+    uint32_t struct_version;
+    uint32_t size;
+    CNA_Bool mip_map;
+    uint8_t reserved0[3];
+    CNA_SurfaceFormat format;
+    uint32_t reserved1;
+} CNA_TextureCubeCreateInfo;
+typedef struct CNA_TextureCubeInfo {
+    uint32_t struct_size;
+    uint32_t struct_version;
+    uint32_t size;
+    uint32_t level_count;
+    CNA_SurfaceFormat format;
+    uint32_t reserved;
+} CNA_TextureCubeInfo;
+typedef struct CNA_TextureCubeTransfer {
+    uint32_t struct_size;
+    uint32_t struct_version;
+    uint32_t face;
+    int32_t level;
+    CNA_Bool has_rectangle;
+    uint8_t reserved0[3];
+    CNA_Rectangle rectangle;
+    uint32_t reserved1;
+    uint64_t start_index;
+    uint64_t element_count;
+} CNA_TextureCubeTransfer;
+#endif
+
+#ifndef CNA_C_SPRITE_FONT_H
+typedef uint16_t CNA_Char16;
+typedef struct CNA_SpriteFontGlyph {
+    uint32_t struct_size;
+    uint32_t struct_version;
+    CNA_Rectangle glyph_bounds;
+    CNA_Rectangle cropping;
+    CNA_Char16 character;
+    uint16_t reserved;
+    CNA_Vector3 kerning;
+} CNA_SpriteFontGlyph;
+typedef struct CNA_SpriteFontInfo {
+    uint32_t struct_size;
+    uint32_t struct_version;
+    uint64_t character_count;
+    int32_t line_spacing;
+    float spacing;
+    CNA_Char16 default_character;
+    CNA_Bool has_default_character;
+    uint8_t reserved[5];
+} CNA_SpriteFontInfo;
+#endif
+
+#ifndef CNA_C_INPUT_H
+typedef struct CNA_KeyboardState {
+    uint32_t struct_size;
+    uint32_t struct_version;
+    uint64_t pressed_key_words[4];
+} CNA_KeyboardState;
+/* Foundation 89 -- the Input family's GamePad and Mouse structures: two state
+   ones and one capability one. Every field is mirrored in CNA's own
+   declaration order, which is what MANIFEST_LAYOUT_AGREEMENTS proves against
+   the canonical headers.
+
+   The TOUCH structures CNA also declares -- CNA_TouchState, CNA_TouchLocation,
+   CNA_TouchCapabilities and CNA_GestureSample -- were mirrored here and then
+   REMOVED with the routes that used them: the pinned
+   Microsoft.Xna.Framework.Input.Touch.dll contains no p/invoke at all, so the
+   XNA Windows runtime never reaches a digitizer. */
+typedef uint32_t CNA_PlayerIndex;
+typedef uint32_t CNA_MouseButtonFlags;
+typedef struct CNA_MouseState {
+    uint32_t struct_size;
+    uint32_t struct_version;
+    int32_t x;
+    int32_t y;
+    int32_t scroll_wheel;
+    int32_t horizontal_scroll_wheel;
+    CNA_MouseButtonFlags pressed_buttons;
+    uint32_t reserved;
+} CNA_MouseState;
+typedef uint32_t CNA_GamePadButtonFlags;
+typedef uint32_t CNA_GamePadDeadZone;
+typedef struct CNA_GamePadAnalogState {
+    CNA_Vector2 left_thumb_stick;
+    CNA_Vector2 right_thumb_stick;
+    float left_trigger;
+    float right_trigger;
+} CNA_GamePadAnalogState;
+typedef struct CNA_GamePadState {
+    uint32_t struct_size;
+    uint32_t struct_version;
+    CNA_Bool is_connected;
+    uint8_t reserved0[3];
+    int32_t packet_number;
+    CNA_GamePadButtonFlags pressed_buttons;
+    uint32_t reserved1;
+    CNA_GamePadAnalogState analog;
+} CNA_GamePadState;
+#endif
+#ifndef CNA_C_INPUT_GAMEPAD_H
+typedef uint32_t CNA_GamePadType;
+typedef struct CNA_GamePadCapabilities {
+    uint32_t struct_size;
+    uint32_t struct_version;
+    CNA_GamePadType gamepad_type;
+    CNA_Bool is_connected;
+    CNA_Bool has_a_button;
+    CNA_Bool has_b_button;
+    CNA_Bool has_x_button;
+    CNA_Bool has_y_button;
+    CNA_Bool has_back_button;
+    CNA_Bool has_start_button;
+    CNA_Bool has_big_button;
+    CNA_Bool has_dpad_up_button;
+    CNA_Bool has_dpad_down_button;
+    CNA_Bool has_dpad_left_button;
+    CNA_Bool has_dpad_right_button;
+    CNA_Bool has_left_shoulder_button;
+    CNA_Bool has_right_shoulder_button;
+    CNA_Bool has_left_stick_button;
+    CNA_Bool has_right_stick_button;
+    CNA_Bool has_left_x_thumb_stick;
+    CNA_Bool has_left_y_thumb_stick;
+    CNA_Bool has_right_x_thumb_stick;
+    CNA_Bool has_right_y_thumb_stick;
+    CNA_Bool has_left_trigger;
+    CNA_Bool has_right_trigger;
+    CNA_Bool has_left_vibration_motor;
+    CNA_Bool has_right_vibration_motor;
+    CNA_Bool has_voice_support;
+    CNA_Bool has_light_bar_ext;
+    CNA_Bool has_trigger_vibration_motors_ext;
+    CNA_Bool has_misc1_ext;
+    CNA_Bool has_paddle1_ext;
+    CNA_Bool has_paddle2_ext;
+    CNA_Bool has_paddle3_ext;
+    CNA_Bool has_paddle4_ext;
+    CNA_Bool has_touchpad_ext;
+    CNA_Bool has_gyro_ext;
+    CNA_Bool has_accelerometer_ext;
+    uint8_t reserved[1];
+} CNA_GamePadCapabilities;
+#endif
+typedef CNA_Result (*cna_gamepad_get_state_fn)(CNA_Handle, CNA_PlayerIndex, CNA_GamePadState*);
+typedef CNA_Result (*cna_gamepad_get_state_with_dead_zone_fn)(CNA_Handle, CNA_PlayerIndex, CNA_GamePadDeadZone, CNA_GamePadState*);
+typedef CNA_Result (*cna_gamepad_get_capabilities_fn)(CNA_Handle, CNA_PlayerIndex, CNA_GamePadCapabilities*);
+typedef CNA_Result (*cna_gamepad_set_vibration_fn)(CNA_Handle, CNA_PlayerIndex, float, float, CNA_Bool*);
+typedef CNA_Result (*cna_mouse_get_state_fn)(CNA_Handle, CNA_MouseState*);
+typedef CNA_Result (*cna_mouse_set_position_fn)(CNA_Handle, int32_t, int32_t);
+typedef CNA_Result (*cna_mouse_get_window_handle_fn)(CNA_Handle, uint64_t*);
+typedef CNA_Result (*cna_mouse_set_window_handle_fn)(CNA_Handle, uint64_t);
+
+
+/* Foundation 91 -- the Storage family. Every type here is an opaque handle or a
+   string view, so unlike the Input family there is no struct layout to mirror
+   and no MANIFEST_LAYOUT_AGREEMENT to prove: what has to agree is the parameter
+   lists, which ROUTE_TYPE_PAIRINGS checks against the canonical headers.
+
+   The three `_ext` routes are bound deliberately and are NOT XNA surface. They
+   are how the test harness proves it is operating inside a project-controlled
+   root: set_app_name_ext isolates it, and copy_root_ext is what the assertion
+   reads back. Binding them is the same judgement that made
+   MICROPHONE_CAPTURE_CALLS a counter -- a safety claim is worth more when
+   something measures it. */
+#ifndef CNA_C_STORAGE_H
+typedef CNA_Handle CNA_StorageDeviceHandle;
+typedef CNA_Handle CNA_StorageContainerHandle;
+typedef CNA_Handle CNA_StorageStreamHandle;
+typedef uint32_t CNA_FileMode;
+typedef uint32_t CNA_FileAccess;
+typedef uint32_t CNA_FileShare;
+typedef uint32_t CNA_SeekOrigin;
+typedef void (*CNA_StorageCompletionCallback)(void*);
+#endif
+typedef CNA_Result (*cna_storage_device_show_selector_fn)(CNA_StorageCompletionCallback, void *, CNA_StorageDeviceHandle *);
+typedef CNA_Result (*cna_storage_device_show_selector_for_player_fn)(CNA_PlayerIndex, CNA_StorageCompletionCallback, void *, CNA_StorageDeviceHandle *);
+typedef CNA_Result (*cna_storage_device_show_selector_with_space_fn)(int32_t, int32_t, CNA_StorageCompletionCallback, void *, CNA_StorageDeviceHandle *);
+typedef CNA_Result (*cna_storage_device_show_selector_for_player_with_space_fn)(CNA_PlayerIndex, int32_t, int32_t, CNA_StorageCompletionCallback, void *, CNA_StorageDeviceHandle *);
+typedef CNA_Result (*cna_storage_device_get_free_space_fn)(CNA_StorageDeviceHandle, int64_t *);
+typedef CNA_Result (*cna_storage_device_get_is_connected_fn)(CNA_StorageDeviceHandle, CNA_Bool *);
+typedef CNA_Result (*cna_storage_device_get_total_space_fn)(CNA_StorageDeviceHandle, int64_t *);
+typedef CNA_Result (*cna_storage_device_delete_container_fn)(CNA_StorageDeviceHandle, CNA_StringView);
+typedef CNA_Result (*cna_storage_device_destroy_fn)(CNA_StorageDeviceHandle);
+typedef CNA_Result (*cna_storage_container_open_fn)(CNA_StorageDeviceHandle, CNA_StringView, CNA_StorageCompletionCallback, void *, CNA_StorageContainerHandle *);
+typedef CNA_Result (*cna_storage_container_get_display_name_size_fn)(CNA_StorageContainerHandle, uint64_t *);
+typedef CNA_Result (*cna_storage_container_copy_display_name_fn)(CNA_StorageContainerHandle, char *, uint64_t, uint64_t *);
+typedef CNA_Result (*cna_storage_container_get_is_disposed_fn)(CNA_StorageContainerHandle, CNA_Bool *);
+typedef CNA_Result (*cna_storage_container_get_storage_device_fn)(CNA_StorageContainerHandle, CNA_StorageDeviceHandle *);
+typedef CNA_Result (*cna_storage_container_dispose_fn)(CNA_StorageContainerHandle);
+typedef CNA_Result (*cna_storage_container_create_directory_fn)(CNA_StorageContainerHandle, CNA_StringView);
+typedef CNA_Result (*cna_storage_container_directory_exists_fn)(CNA_StorageContainerHandle, CNA_StringView, CNA_Bool *);
+typedef CNA_Result (*cna_storage_container_delete_directory_fn)(CNA_StorageContainerHandle, CNA_StringView);
+typedef CNA_Result (*cna_storage_container_file_exists_fn)(CNA_StorageContainerHandle, CNA_StringView, CNA_Bool *);
+typedef CNA_Result (*cna_storage_container_delete_file_fn)(CNA_StorageContainerHandle, CNA_StringView);
+typedef CNA_Result (*cna_storage_container_get_directory_name_count_fn)(CNA_StorageContainerHandle, CNA_StringView, uint64_t *);
+typedef CNA_Result (*cna_storage_container_copy_directory_name_fn)(CNA_StorageContainerHandle, CNA_StringView, uint64_t, char *, uint64_t, uint64_t *);
+typedef CNA_Result (*cna_storage_container_get_file_name_count_fn)(CNA_StorageContainerHandle, CNA_StringView, uint64_t *);
+typedef CNA_Result (*cna_storage_container_copy_file_name_fn)(CNA_StorageContainerHandle, CNA_StringView, uint64_t, char *, uint64_t, uint64_t *);
+typedef CNA_Result (*cna_storage_container_create_file_fn)(CNA_StorageContainerHandle, CNA_StringView, CNA_StorageStreamHandle *);
+typedef CNA_Result (*cna_storage_container_open_file_fn)(CNA_StorageContainerHandle, CNA_StringView, CNA_FileMode, CNA_StorageStreamHandle *);
+typedef CNA_Result (*cna_storage_container_open_file_access_fn)(CNA_StorageContainerHandle, CNA_StringView, CNA_FileMode, CNA_FileAccess, CNA_StorageStreamHandle *);
+typedef CNA_Result (*cna_storage_container_open_file_share_fn)(CNA_StorageContainerHandle, CNA_StringView, CNA_FileMode, CNA_FileAccess, CNA_FileShare, CNA_StorageStreamHandle *);
+typedef CNA_Result (*cna_storage_container_destroy_fn)(CNA_StorageContainerHandle);
+typedef CNA_Result (*cna_storage_stream_read_fn)(CNA_StorageStreamHandle, uint8_t *, uint64_t, uint64_t *);
+typedef CNA_Result (*cna_storage_stream_write_fn)(CNA_StorageStreamHandle, const  uint8_t *, uint64_t);
+typedef CNA_Result (*cna_storage_stream_seek_fn)(CNA_StorageStreamHandle, int64_t, CNA_SeekOrigin, int64_t *);
+typedef CNA_Result (*cna_storage_stream_get_position_fn)(CNA_StorageStreamHandle, int64_t *);
+typedef CNA_Result (*cna_storage_stream_get_length_fn)(CNA_StorageStreamHandle, int64_t *);
+typedef CNA_Result (*cna_storage_stream_set_length_fn)(CNA_StorageStreamHandle, int64_t);
+typedef CNA_Result (*cna_storage_stream_get_can_read_fn)(CNA_StorageStreamHandle, CNA_Bool *);
+typedef CNA_Result (*cna_storage_stream_get_can_write_fn)(CNA_StorageStreamHandle, CNA_Bool *);
+typedef CNA_Result (*cna_storage_stream_get_can_seek_fn)(CNA_StorageStreamHandle, CNA_Bool *);
+typedef CNA_Result (*cna_storage_stream_flush_fn)(CNA_StorageStreamHandle);
+typedef CNA_Result (*cna_storage_stream_close_fn)(CNA_StorageStreamHandle);
+typedef CNA_Result (*cna_storage_set_app_name_ext_fn)(CNA_StringView);
+typedef CNA_Result (*cna_storage_get_root_size_ext_fn)(uint64_t *);
+typedef CNA_Result (*cna_storage_copy_root_ext_fn)(char *, uint64_t, uint64_t *);
+
+
+/* Foundation 92 -- the content reader. Fifteen of CNA's twenty routes have an
+   XNA counterpart; the other five -- read_bounding_sphere, get_version,
+   get_platform and the two check_* helpers -- have none and stay unbound.
+
+   CNA_ContentReaderCreateInfo is the one struct here, and it is mirrored field
+   for field so MANIFEST_LAYOUT_AGREEMENTS proves it against the canonical
+   header. Its `stream` field is what makes this family depend on Storage: only
+   storage.h produces a CNA_StorageStreamHandle. */
+#ifndef CNA_C_CONTENT_READERS_H
+typedef CNA_Handle CNA_ContentReaderHandle;
+typedef struct CNA_ContentReaderCreateInfo {
+    uint32_t struct_size;
+    uint32_t struct_version;
+    CNA_Handle content_manager;
+    CNA_StorageStreamHandle stream;
+    CNA_StringView asset_name;
+    int32_t version;
+    uint8_t platform;
+    uint8_t reserved[3];
+} CNA_ContentReaderCreateInfo;
+#endif
+typedef CNA_Result (*cna_content_reader_create_fn)(const CNA_ContentReaderCreateInfo*, CNA_ContentReaderHandle*);
+typedef CNA_Result (*cna_content_reader_get_asset_name_size_fn)(CNA_ContentReaderHandle, uint64_t*);
+typedef CNA_Result (*cna_content_reader_copy_asset_name_fn)(CNA_ContentReaderHandle, char*, uint64_t, uint64_t*);
+typedef CNA_Result (*cna_content_reader_read_matrix_fn)(CNA_ContentReaderHandle, CNA_Matrix*);
+typedef CNA_Result (*cna_content_reader_read_quaternion_fn)(CNA_ContentReaderHandle, CNA_Quaternion*);
+typedef CNA_Result (*cna_content_reader_read_vector2_fn)(CNA_ContentReaderHandle, CNA_Vector2*);
+typedef CNA_Result (*cna_content_reader_read_vector3_fn)(CNA_ContentReaderHandle, CNA_Vector3*);
+typedef CNA_Result (*cna_content_reader_read_vector4_fn)(CNA_ContentReaderHandle, CNA_Vector4*);
+typedef CNA_Result (*cna_content_reader_read_color_fn)(CNA_ContentReaderHandle, CNA_Color*);
+typedef CNA_Result (*cna_content_reader_read_object_tag_fn)(CNA_ContentReaderHandle, CNA_Bool*);
+typedef CNA_Result (*cna_content_reader_initialize_type_readers_fn)(CNA_ContentReaderHandle);
+typedef CNA_Result (*cna_content_reader_read_shared_resources_fn)(CNA_ContentReaderHandle);
+typedef CNA_Result (*cna_content_reader_read_bytes_exact_fn)(CNA_ContentReaderHandle, int32_t, CNA_StringView, uint8_t*, uint64_t, uint64_t*);
+typedef CNA_Result (*cna_content_reader_destroy_fn)(CNA_ContentReaderHandle);
+
+
+
+/* Foundation 95 -- the media metadata graph. Ten types over 105 routes: the
+   five entities a music library describes and the five collections that carry
+   them.
+
+   Every handle here is an OWNED object: CNA hands one back and the projection
+   destroys it. The `_dispose` and `_destroy` pair is not a duplication -- the
+   first is XNA's IDisposable, which a consumer calls and which leaves the
+   object queryable for IsDisposed, and the second releases the native memory. */
+#ifndef CNA_C_MEDIA_H
+typedef CNA_Handle CNA_SongHandle;
+typedef CNA_Handle CNA_SongCollectionHandle;
+typedef CNA_Handle CNA_AlbumHandle;
+typedef CNA_Handle CNA_AlbumCollectionHandle;
+typedef CNA_Handle CNA_ArtistHandle;
+typedef CNA_Handle CNA_ArtistCollectionHandle;
+typedef CNA_Handle CNA_GenreHandle;
+typedef CNA_Handle CNA_GenreCollectionHandle;
+typedef CNA_Handle CNA_PlaylistHandle;
+typedef CNA_Handle CNA_PlaylistCollectionHandle;
+#endif
+typedef CNA_Result (*cna_song_dispose_fn)(CNA_SongHandle);
+typedef CNA_Result (*cna_song_destroy_fn)(CNA_SongHandle);
+typedef CNA_Result (*cna_song_equals_fn)(CNA_SongHandle, CNA_SongHandle, CNA_Bool*);
+typedef CNA_Result (*cna_song_get_hash_code_fn)(CNA_SongHandle, int32_t*);
+typedef CNA_Result (*cna_song_get_is_disposed_fn)(CNA_SongHandle, CNA_Bool*);
+typedef CNA_Result (*cna_song_get_name_size_fn)(CNA_SongHandle, uint64_t*);
+typedef CNA_Result (*cna_song_copy_name_fn)(CNA_SongHandle, char*, uint64_t, uint64_t*);
+typedef CNA_Result (*cna_song_get_type_name_size_fn)(CNA_SongHandle, uint64_t*);
+typedef CNA_Result (*cna_song_copy_type_name_fn)(CNA_SongHandle, char*, uint64_t, uint64_t*);
+typedef CNA_Result (*cna_song_get_artist_fn)(CNA_SongHandle, CNA_ArtistHandle*, CNA_Bool*);
+typedef CNA_Result (*cna_song_get_album_fn)(CNA_SongHandle, CNA_AlbumHandle*, CNA_Bool*);
+typedef CNA_Result (*cna_song_get_genre_fn)(CNA_SongHandle, CNA_GenreHandle*, CNA_Bool*);
+typedef CNA_Result (*cna_song_get_duration_fn)(CNA_SongHandle, int64_t*);
+typedef CNA_Result (*cna_song_get_is_rated_fn)(CNA_SongHandle, CNA_Bool*);
+typedef CNA_Result (*cna_song_get_rating_fn)(CNA_SongHandle, int32_t*);
+typedef CNA_Result (*cna_song_get_play_count_fn)(CNA_SongHandle, int32_t*);
+typedef CNA_Result (*cna_song_get_track_number_fn)(CNA_SongHandle, int32_t*);
+typedef CNA_Result (*cna_song_get_is_protected_fn)(CNA_SongHandle, CNA_Bool*);
+typedef CNA_Result (*cna_song_create_from_uri_fn)(CNA_Handle, CNA_StringView, CNA_StringView, CNA_SongHandle*);
+typedef CNA_Result (*cna_album_dispose_fn)(CNA_AlbumHandle);
+typedef CNA_Result (*cna_album_destroy_fn)(CNA_AlbumHandle);
+typedef CNA_Result (*cna_album_equals_fn)(CNA_AlbumHandle, CNA_AlbumHandle, CNA_Bool*);
+typedef CNA_Result (*cna_album_get_hash_code_fn)(CNA_AlbumHandle, int32_t*);
+typedef CNA_Result (*cna_album_get_is_disposed_fn)(CNA_AlbumHandle, CNA_Bool*);
+typedef CNA_Result (*cna_album_get_name_size_fn)(CNA_AlbumHandle, uint64_t*);
+typedef CNA_Result (*cna_album_copy_name_fn)(CNA_AlbumHandle, char*, uint64_t, uint64_t*);
+typedef CNA_Result (*cna_album_get_type_name_size_fn)(CNA_AlbumHandle, uint64_t*);
+typedef CNA_Result (*cna_album_copy_type_name_fn)(CNA_AlbumHandle, char*, uint64_t, uint64_t*);
+typedef CNA_Result (*cna_album_get_artist_fn)(CNA_AlbumHandle, CNA_ArtistHandle*, CNA_Bool*);
+typedef CNA_Result (*cna_album_get_songs_fn)(CNA_AlbumHandle, CNA_SongCollectionHandle*);
+typedef CNA_Result (*cna_album_get_genre_fn)(CNA_AlbumHandle, CNA_GenreHandle*, CNA_Bool*);
+typedef CNA_Result (*cna_album_get_duration_fn)(CNA_AlbumHandle, int64_t*);
+typedef CNA_Result (*cna_album_get_has_art_fn)(CNA_AlbumHandle, CNA_Bool*);
+typedef CNA_Result (*cna_album_get_art_size_fn)(CNA_AlbumHandle, uint64_t*);
+typedef CNA_Result (*cna_album_copy_art_fn)(CNA_AlbumHandle, uint8_t*, uint64_t, uint64_t*);
+typedef CNA_Result (*cna_album_get_thumbnail_size_fn)(CNA_AlbumHandle, uint64_t*);
+typedef CNA_Result (*cna_album_copy_thumbnail_fn)(CNA_AlbumHandle, uint8_t*, uint64_t, uint64_t*);
+typedef CNA_Result (*cna_artist_dispose_fn)(CNA_ArtistHandle);
+typedef CNA_Result (*cna_artist_destroy_fn)(CNA_ArtistHandle);
+typedef CNA_Result (*cna_artist_equals_fn)(CNA_ArtistHandle, CNA_ArtistHandle, CNA_Bool*);
+typedef CNA_Result (*cna_artist_get_hash_code_fn)(CNA_ArtistHandle, int32_t*);
+typedef CNA_Result (*cna_artist_get_is_disposed_fn)(CNA_ArtistHandle, CNA_Bool*);
+typedef CNA_Result (*cna_artist_get_name_size_fn)(CNA_ArtistHandle, uint64_t*);
+typedef CNA_Result (*cna_artist_copy_name_fn)(CNA_ArtistHandle, char*, uint64_t, uint64_t*);
+typedef CNA_Result (*cna_artist_get_type_name_size_fn)(CNA_ArtistHandle, uint64_t*);
+typedef CNA_Result (*cna_artist_copy_type_name_fn)(CNA_ArtistHandle, char*, uint64_t, uint64_t*);
+typedef CNA_Result (*cna_artist_get_songs_fn)(CNA_ArtistHandle, CNA_SongCollectionHandle*);
+typedef CNA_Result (*cna_artist_get_albums_fn)(CNA_ArtistHandle, CNA_AlbumCollectionHandle*);
+typedef CNA_Result (*cna_genre_dispose_fn)(CNA_GenreHandle);
+typedef CNA_Result (*cna_genre_destroy_fn)(CNA_GenreHandle);
+typedef CNA_Result (*cna_genre_equals_fn)(CNA_GenreHandle, CNA_GenreHandle, CNA_Bool*);
+typedef CNA_Result (*cna_genre_get_hash_code_fn)(CNA_GenreHandle, int32_t*);
+typedef CNA_Result (*cna_genre_get_is_disposed_fn)(CNA_GenreHandle, CNA_Bool*);
+typedef CNA_Result (*cna_genre_get_name_size_fn)(CNA_GenreHandle, uint64_t*);
+typedef CNA_Result (*cna_genre_copy_name_fn)(CNA_GenreHandle, char*, uint64_t, uint64_t*);
+typedef CNA_Result (*cna_genre_get_type_name_size_fn)(CNA_GenreHandle, uint64_t*);
+typedef CNA_Result (*cna_genre_copy_type_name_fn)(CNA_GenreHandle, char*, uint64_t, uint64_t*);
+typedef CNA_Result (*cna_genre_get_songs_fn)(CNA_GenreHandle, CNA_SongCollectionHandle*);
+typedef CNA_Result (*cna_genre_get_albums_fn)(CNA_GenreHandle, CNA_AlbumCollectionHandle*);
+typedef CNA_Result (*cna_playlist_dispose_fn)(CNA_PlaylistHandle);
+typedef CNA_Result (*cna_playlist_destroy_fn)(CNA_PlaylistHandle);
+typedef CNA_Result (*cna_playlist_equals_fn)(CNA_PlaylistHandle, CNA_PlaylistHandle, CNA_Bool*);
+typedef CNA_Result (*cna_playlist_get_hash_code_fn)(CNA_PlaylistHandle, int32_t*);
+typedef CNA_Result (*cna_playlist_get_is_disposed_fn)(CNA_PlaylistHandle, CNA_Bool*);
+typedef CNA_Result (*cna_playlist_get_name_size_fn)(CNA_PlaylistHandle, uint64_t*);
+typedef CNA_Result (*cna_playlist_copy_name_fn)(CNA_PlaylistHandle, char*, uint64_t, uint64_t*);
+typedef CNA_Result (*cna_playlist_get_type_name_size_fn)(CNA_PlaylistHandle, uint64_t*);
+typedef CNA_Result (*cna_playlist_copy_type_name_fn)(CNA_PlaylistHandle, char*, uint64_t, uint64_t*);
+typedef CNA_Result (*cna_playlist_get_songs_fn)(CNA_PlaylistHandle, CNA_SongCollectionHandle*);
+typedef CNA_Result (*cna_playlist_get_duration_fn)(CNA_PlaylistHandle, int64_t*);
+typedef CNA_Result (*cna_song_collection_dispose_fn)(CNA_SongCollectionHandle);
+typedef CNA_Result (*cna_song_collection_destroy_fn)(CNA_SongCollectionHandle);
+typedef CNA_Result (*cna_song_collection_get_at_fn)(CNA_SongCollectionHandle, int32_t, CNA_SongHandle*);
+typedef CNA_Result (*cna_song_collection_get_count_fn)(CNA_SongCollectionHandle, int32_t*);
+typedef CNA_Result (*cna_song_collection_get_is_disposed_fn)(CNA_SongCollectionHandle, CNA_Bool*);
+typedef CNA_Result (*cna_song_collection_get_type_name_size_fn)(CNA_SongCollectionHandle, uint64_t*);
+typedef CNA_Result (*cna_song_collection_copy_type_name_fn)(CNA_SongCollectionHandle, char*, uint64_t, uint64_t*);
+typedef CNA_Result (*cna_album_collection_dispose_fn)(CNA_AlbumCollectionHandle);
+typedef CNA_Result (*cna_album_collection_destroy_fn)(CNA_AlbumCollectionHandle);
+typedef CNA_Result (*cna_album_collection_get_at_fn)(CNA_AlbumCollectionHandle, int32_t, CNA_AlbumHandle*);
+typedef CNA_Result (*cna_album_collection_get_count_fn)(CNA_AlbumCollectionHandle, int32_t*);
+typedef CNA_Result (*cna_album_collection_get_is_disposed_fn)(CNA_AlbumCollectionHandle, CNA_Bool*);
+typedef CNA_Result (*cna_album_collection_get_type_name_size_fn)(CNA_AlbumCollectionHandle, uint64_t*);
+typedef CNA_Result (*cna_album_collection_copy_type_name_fn)(CNA_AlbumCollectionHandle, char*, uint64_t, uint64_t*);
+typedef CNA_Result (*cna_artist_collection_dispose_fn)(CNA_ArtistCollectionHandle);
+typedef CNA_Result (*cna_artist_collection_destroy_fn)(CNA_ArtistCollectionHandle);
+typedef CNA_Result (*cna_artist_collection_get_at_fn)(CNA_ArtistCollectionHandle, int32_t, CNA_ArtistHandle*);
+typedef CNA_Result (*cna_artist_collection_get_count_fn)(CNA_ArtistCollectionHandle, int32_t*);
+typedef CNA_Result (*cna_artist_collection_get_is_disposed_fn)(CNA_ArtistCollectionHandle, CNA_Bool*);
+typedef CNA_Result (*cna_artist_collection_get_type_name_size_fn)(CNA_ArtistCollectionHandle, uint64_t*);
+typedef CNA_Result (*cna_artist_collection_copy_type_name_fn)(CNA_ArtistCollectionHandle, char*, uint64_t, uint64_t*);
+typedef CNA_Result (*cna_genre_collection_dispose_fn)(CNA_GenreCollectionHandle);
+typedef CNA_Result (*cna_genre_collection_destroy_fn)(CNA_GenreCollectionHandle);
+typedef CNA_Result (*cna_genre_collection_get_at_fn)(CNA_GenreCollectionHandle, int32_t, CNA_GenreHandle*);
+typedef CNA_Result (*cna_genre_collection_get_count_fn)(CNA_GenreCollectionHandle, int32_t*);
+typedef CNA_Result (*cna_genre_collection_get_is_disposed_fn)(CNA_GenreCollectionHandle, CNA_Bool*);
+typedef CNA_Result (*cna_genre_collection_get_type_name_size_fn)(CNA_GenreCollectionHandle, uint64_t*);
+typedef CNA_Result (*cna_genre_collection_copy_type_name_fn)(CNA_GenreCollectionHandle, char*, uint64_t, uint64_t*);
+typedef CNA_Result (*cna_playlist_collection_dispose_fn)(CNA_PlaylistCollectionHandle);
+typedef CNA_Result (*cna_playlist_collection_destroy_fn)(CNA_PlaylistCollectionHandle);
+typedef CNA_Result (*cna_playlist_collection_get_at_fn)(CNA_PlaylistCollectionHandle, int32_t, CNA_PlaylistHandle*);
+typedef CNA_Result (*cna_playlist_collection_get_count_fn)(CNA_PlaylistCollectionHandle, int32_t*);
+typedef CNA_Result (*cna_playlist_collection_get_is_disposed_fn)(CNA_PlaylistCollectionHandle, CNA_Bool*);
+typedef CNA_Result (*cna_playlist_collection_get_type_name_size_fn)(CNA_PlaylistCollectionHandle, uint64_t*);
+typedef CNA_Result (*cna_playlist_collection_copy_type_name_fn)(CNA_PlaylistCollectionHandle, char*, uint64_t, uint64_t*);
+
+
+
+/* Foundation 96 -- the media library and the picture graph. Six types over 64
+   routes: the library that enumerates everything, the media source that names
+   where it came from, and the four picture types it hands out.
+
+   CNA_MediaSourceType is an ENUM and not a handle, and MediaSource has no
+   handle at all: the available sources are addressed by INDEX. */
+#ifndef CNA_C_MEDIA_LIBRARY_H
+typedef CNA_Handle CNA_MediaLibraryHandle;
+typedef CNA_Handle CNA_PictureHandle;
+typedef CNA_Handle CNA_PictureCollectionHandle;
+typedef CNA_Handle CNA_PictureAlbumHandle;
+typedef CNA_Handle CNA_PictureAlbumCollectionHandle;
+typedef uint32_t CNA_MediaSourceType;
+#endif
+typedef CNA_Result (*cna_media_library_copy_media_source_name_fn)(CNA_MediaLibraryHandle, char*, uint64_t, uint64_t*);
+typedef CNA_Result (*cna_media_library_copy_type_name_fn)(CNA_MediaLibraryHandle, char*, uint64_t, uint64_t*);
+typedef CNA_Result (*cna_media_library_create_fn)(CNA_Handle, CNA_MediaLibraryHandle*);
+typedef CNA_Result (*cna_media_library_create_from_source_fn)(CNA_Handle, uint32_t, CNA_MediaLibraryHandle*);
+typedef CNA_Result (*cna_media_library_destroy_fn)(CNA_MediaLibraryHandle);
+typedef CNA_Result (*cna_media_library_dispose_fn)(CNA_MediaLibraryHandle);
+typedef CNA_Result (*cna_media_library_get_albums_fn)(CNA_MediaLibraryHandle, CNA_AlbumCollectionHandle*);
+typedef CNA_Result (*cna_media_library_get_artists_fn)(CNA_MediaLibraryHandle, CNA_ArtistCollectionHandle*);
+typedef CNA_Result (*cna_media_library_get_genres_fn)(CNA_MediaLibraryHandle, CNA_GenreCollectionHandle*);
+typedef CNA_Result (*cna_media_library_get_is_disposed_fn)(CNA_MediaLibraryHandle, CNA_Bool*);
+typedef CNA_Result (*cna_media_library_get_media_source_name_size_fn)(CNA_MediaLibraryHandle, uint64_t*);
+typedef CNA_Result (*cna_media_library_get_media_source_type_fn)(CNA_MediaLibraryHandle, CNA_MediaSourceType*);
+typedef CNA_Result (*cna_media_library_get_picture_from_token_fn)(CNA_MediaLibraryHandle, CNA_StringView, CNA_PictureHandle*, CNA_Bool*);
+typedef CNA_Result (*cna_media_library_get_pictures_fn)(CNA_MediaLibraryHandle, CNA_PictureCollectionHandle*);
+typedef CNA_Result (*cna_media_library_get_playlists_fn)(CNA_MediaLibraryHandle, CNA_PlaylistCollectionHandle*);
+typedef CNA_Result (*cna_media_library_get_root_picture_album_fn)(CNA_MediaLibraryHandle, CNA_PictureAlbumHandle*, CNA_Bool*);
+typedef CNA_Result (*cna_media_library_get_saved_pictures_fn)(CNA_MediaLibraryHandle, CNA_PictureCollectionHandle*);
+typedef CNA_Result (*cna_media_library_get_songs_fn)(CNA_MediaLibraryHandle, CNA_SongCollectionHandle*);
+typedef CNA_Result (*cna_media_library_get_type_name_size_fn)(CNA_MediaLibraryHandle, uint64_t*);
+typedef CNA_Result (*cna_media_library_save_picture_fn)(CNA_MediaLibraryHandle, CNA_StringView, const uint8_t*, uint64_t, CNA_PictureHandle*);
+typedef CNA_Result (*cna_picture_album_collection_copy_type_name_fn)(CNA_PictureAlbumCollectionHandle, char*, uint64_t, uint64_t*);
+typedef CNA_Result (*cna_picture_album_collection_destroy_fn)(CNA_PictureAlbumCollectionHandle);
+typedef CNA_Result (*cna_picture_album_collection_dispose_fn)(CNA_PictureAlbumCollectionHandle);
+typedef CNA_Result (*cna_picture_album_collection_get_at_fn)(CNA_PictureAlbumCollectionHandle, int32_t, CNA_PictureAlbumHandle*);
+typedef CNA_Result (*cna_picture_album_collection_get_count_fn)(CNA_PictureAlbumCollectionHandle, int32_t*);
+typedef CNA_Result (*cna_picture_album_collection_get_is_disposed_fn)(CNA_PictureAlbumCollectionHandle, CNA_Bool*);
+typedef CNA_Result (*cna_picture_album_collection_get_type_name_size_fn)(CNA_PictureAlbumCollectionHandle, uint64_t*);
+typedef CNA_Result (*cna_picture_album_copy_name_fn)(CNA_PictureAlbumHandle, char*, uint64_t, uint64_t*);
+typedef CNA_Result (*cna_picture_album_copy_type_name_fn)(CNA_PictureAlbumHandle, char*, uint64_t, uint64_t*);
+typedef CNA_Result (*cna_picture_album_destroy_fn)(CNA_PictureAlbumHandle);
+typedef CNA_Result (*cna_picture_album_dispose_fn)(CNA_PictureAlbumHandle);
+typedef CNA_Result (*cna_picture_album_equals_fn)(CNA_PictureAlbumHandle, CNA_PictureAlbumHandle, CNA_Bool*);
+typedef CNA_Result (*cna_picture_album_get_albums_fn)(CNA_PictureAlbumHandle, CNA_PictureAlbumCollectionHandle*);
+typedef CNA_Result (*cna_picture_album_get_hash_code_fn)(CNA_PictureAlbumHandle, int32_t*);
+typedef CNA_Result (*cna_picture_album_get_is_disposed_fn)(CNA_PictureAlbumHandle, CNA_Bool*);
+typedef CNA_Result (*cna_picture_album_get_name_size_fn)(CNA_PictureAlbumHandle, uint64_t*);
+typedef CNA_Result (*cna_picture_album_get_parent_fn)(CNA_PictureAlbumHandle, CNA_PictureAlbumHandle*, CNA_Bool*);
+typedef CNA_Result (*cna_picture_album_get_pictures_fn)(CNA_PictureAlbumHandle, CNA_PictureCollectionHandle*);
+typedef CNA_Result (*cna_picture_album_get_type_name_size_fn)(CNA_PictureAlbumHandle, uint64_t*);
+typedef CNA_Result (*cna_picture_collection_copy_type_name_fn)(CNA_PictureCollectionHandle, char*, uint64_t, uint64_t*);
+typedef CNA_Result (*cna_picture_collection_destroy_fn)(CNA_PictureCollectionHandle);
+typedef CNA_Result (*cna_picture_collection_dispose_fn)(CNA_PictureCollectionHandle);
+typedef CNA_Result (*cna_picture_collection_get_at_fn)(CNA_PictureCollectionHandle, int32_t, CNA_PictureHandle*);
+typedef CNA_Result (*cna_picture_collection_get_count_fn)(CNA_PictureCollectionHandle, int32_t*);
+typedef CNA_Result (*cna_picture_collection_get_is_disposed_fn)(CNA_PictureCollectionHandle, CNA_Bool*);
+typedef CNA_Result (*cna_picture_collection_get_type_name_size_fn)(CNA_PictureCollectionHandle, uint64_t*);
+typedef CNA_Result (*cna_picture_copy_image_fn)(CNA_PictureHandle, uint8_t*, uint64_t, uint64_t*);
+typedef CNA_Result (*cna_picture_copy_name_fn)(CNA_PictureHandle, char*, uint64_t, uint64_t*);
+typedef CNA_Result (*cna_picture_copy_thumbnail_fn)(CNA_PictureHandle, uint8_t*, uint64_t, uint64_t*);
+typedef CNA_Result (*cna_picture_copy_type_name_fn)(CNA_PictureHandle, char*, uint64_t, uint64_t*);
+typedef CNA_Result (*cna_picture_destroy_fn)(CNA_PictureHandle);
+typedef CNA_Result (*cna_picture_dispose_fn)(CNA_PictureHandle);
+typedef CNA_Result (*cna_picture_equals_fn)(CNA_PictureHandle, CNA_PictureHandle, CNA_Bool*);
+typedef CNA_Result (*cna_picture_get_album_fn)(CNA_PictureHandle, CNA_PictureAlbumHandle*, CNA_Bool*);
+typedef CNA_Result (*cna_picture_get_date_unix_ticks_fn)(CNA_PictureHandle, int64_t*);
+typedef CNA_Result (*cna_picture_get_hash_code_fn)(CNA_PictureHandle, int32_t*);
+typedef CNA_Result (*cna_picture_get_height_fn)(CNA_PictureHandle, int32_t*);
+typedef CNA_Result (*cna_picture_get_image_size_fn)(CNA_PictureHandle, uint64_t*);
+typedef CNA_Result (*cna_picture_get_is_disposed_fn)(CNA_PictureHandle, CNA_Bool*);
+typedef CNA_Result (*cna_picture_get_name_size_fn)(CNA_PictureHandle, uint64_t*);
+typedef CNA_Result (*cna_picture_get_thumbnail_size_fn)(CNA_PictureHandle, uint64_t*);
+typedef CNA_Result (*cna_picture_get_type_name_size_fn)(CNA_PictureHandle, uint64_t*);
+typedef CNA_Result (*cna_picture_get_width_fn)(CNA_PictureHandle, int32_t*);
+
+typedef CNA_Result (*cna_media_source_get_available_count_fn)(CNA_Handle, uint32_t*);
+typedef CNA_Result (*cna_media_source_get_type_at_fn)(CNA_Handle, uint32_t, CNA_MediaSourceType*);
+typedef CNA_Result (*cna_media_source_get_name_size_at_fn)(CNA_Handle, uint32_t, uint64_t*);
+typedef CNA_Result (*cna_media_source_copy_name_at_fn)(CNA_Handle, uint32_t, char*, uint64_t, uint64_t*);
+typedef CNA_Result (*cna_media_source_get_type_name_size_at_fn)(CNA_Handle, uint32_t, uint64_t*);
+typedef CNA_Result (*cna_media_source_copy_type_name_at_fn)(CNA_Handle, uint32_t, char*, uint64_t, uint64_t*);
+
+
+/* Foundation 97 -- media playback. Four types over 55 routes: the static media
+   player and its queue, and the video pair.
+
+   CNA_MediaState and CNA_VideoSoundtrackType are ENUMS the projection already
+   declares; CNA_VisualizationData is a struct the caller owns. */
+#ifndef CNA_C_MEDIA_PLAYER_H
+typedef CNA_Handle CNA_MediaQueueHandle;
+typedef CNA_Handle CNA_MediaPlayerEventRegistrationHandle;
+typedef CNA_Handle CNA_VideoHandle;
+typedef CNA_Handle CNA_VideoPlayerHandle;
+typedef uint32_t CNA_MediaState;
+typedef uint32_t CNA_VideoSoundtrackType;
+typedef void (*CNA_MediaPlayerEventCallback)(void*);
+#define CNA_VISUALIZATION_DATA_SIZE 256
+typedef struct CNA_VisualizationData {
+    uint32_t struct_size;
+    uint32_t struct_version;
+    float frequencies[CNA_VISUALIZATION_DATA_SIZE];
+    float samples[CNA_VISUALIZATION_DATA_SIZE];
+} CNA_VisualizationData;
+#endif
+typedef CNA_Result (*cna_media_player_play_song_fn)(CNA_Handle, CNA_SongHandle);
+typedef CNA_Result (*cna_media_player_play_songs_fn)(CNA_Handle, CNA_SongCollectionHandle);
+typedef CNA_Result (*cna_media_player_play_songs_from_fn)(CNA_Handle, CNA_SongCollectionHandle, int32_t);
+typedef CNA_Result (*cna_media_player_pause_fn)(CNA_Handle);
+typedef CNA_Result (*cna_media_player_resume_fn)(CNA_Handle);
+typedef CNA_Result (*cna_media_player_stop_fn)(CNA_Handle);
+typedef CNA_Result (*cna_media_player_move_next_fn)(CNA_Handle);
+typedef CNA_Result (*cna_media_player_move_previous_fn)(CNA_Handle);
+typedef CNA_Result (*cna_media_player_get_visualization_data_fn)(CNA_Handle, CNA_VisualizationData*);
+typedef CNA_Result (*cna_media_player_get_is_shuffled_fn)(CNA_Handle, CNA_Bool*);
+typedef CNA_Result (*cna_media_player_set_is_shuffled_fn)(CNA_Handle, CNA_Bool);
+typedef CNA_Result (*cna_media_player_get_is_repeating_fn)(CNA_Handle, CNA_Bool*);
+typedef CNA_Result (*cna_media_player_set_is_repeating_fn)(CNA_Handle, CNA_Bool);
+typedef CNA_Result (*cna_media_player_get_is_muted_fn)(CNA_Handle, CNA_Bool*);
+typedef CNA_Result (*cna_media_player_set_is_muted_fn)(CNA_Handle, CNA_Bool);
+typedef CNA_Result (*cna_media_player_get_is_visualization_enabled_fn)(CNA_Handle, CNA_Bool*);
+typedef CNA_Result (*cna_media_player_set_is_visualization_enabled_fn)(CNA_Handle, CNA_Bool);
+typedef CNA_Result (*cna_media_player_get_volume_fn)(CNA_Handle, float*);
+typedef CNA_Result (*cna_media_player_set_volume_fn)(CNA_Handle, float);
+typedef CNA_Result (*cna_media_player_get_queue_fn)(CNA_Handle, CNA_MediaQueueHandle*);
+typedef CNA_Result (*cna_media_player_get_state_fn)(CNA_Handle, CNA_MediaState*);
+typedef CNA_Result (*cna_media_player_get_play_position_ticks_fn)(CNA_Handle, int64_t*);
+typedef CNA_Result (*cna_media_player_get_game_has_control_fn)(CNA_Handle, CNA_Bool*);
+typedef CNA_Result (*cna_media_player_subscribe_active_song_changed_ext_fn)(CNA_MediaPlayerEventCallback, void*, CNA_MediaPlayerEventRegistrationHandle*);
+typedef CNA_Result (*cna_media_player_subscribe_media_state_changed_ext_fn)(CNA_MediaPlayerEventCallback, void*, CNA_MediaPlayerEventRegistrationHandle*);
+typedef CNA_Result (*cna_media_player_unsubscribe_ext_fn)(CNA_MediaPlayerEventRegistrationHandle);
+typedef CNA_Result (*cna_media_queue_get_count_fn)(CNA_MediaQueueHandle, int32_t*);
+typedef CNA_Result (*cna_media_queue_get_active_song_index_fn)(CNA_MediaQueueHandle, int32_t*);
+typedef CNA_Result (*cna_media_queue_get_active_song_fn)(CNA_MediaQueueHandle, CNA_SongHandle*, CNA_Bool*);
+typedef CNA_Result (*cna_media_queue_get_at_fn)(CNA_MediaQueueHandle, int32_t, CNA_SongHandle*);
+typedef CNA_Result (*cna_media_queue_destroy_fn)(CNA_MediaQueueHandle);
+typedef CNA_Result (*cna_video_get_duration_fn)(CNA_VideoHandle, int64_t*);
+typedef CNA_Result (*cna_video_get_width_fn)(CNA_VideoHandle, int32_t*);
+typedef CNA_Result (*cna_video_get_height_fn)(CNA_VideoHandle, int32_t*);
+typedef CNA_Result (*cna_video_get_frames_per_second_fn)(CNA_VideoHandle, float*);
+typedef CNA_Result (*cna_video_get_soundtrack_type_fn)(CNA_VideoHandle, CNA_VideoSoundtrackType*);
+typedef CNA_Result (*cna_video_destroy_fn)(CNA_VideoHandle);
+typedef CNA_Result (*cna_video_player_create_fn)(CNA_Handle, CNA_VideoPlayerHandle*);
+typedef CNA_Result (*cna_video_player_dispose_fn)(CNA_VideoPlayerHandle);
+typedef CNA_Result (*cna_video_player_destroy_fn)(CNA_VideoPlayerHandle);
+typedef CNA_Result (*cna_video_player_play_fn)(CNA_VideoPlayerHandle, CNA_VideoHandle);
+typedef CNA_Result (*cna_video_player_pause_fn)(CNA_VideoPlayerHandle);
+typedef CNA_Result (*cna_video_player_resume_fn)(CNA_VideoPlayerHandle);
+typedef CNA_Result (*cna_video_player_stop_fn)(CNA_VideoPlayerHandle);
+typedef CNA_Result (*cna_video_player_get_texture_fn)(CNA_VideoPlayerHandle, CNA_Handle*, CNA_Bool*);
+typedef CNA_Result (*cna_video_player_get_is_disposed_fn)(CNA_VideoPlayerHandle, CNA_Bool*);
+typedef CNA_Result (*cna_video_player_get_video_fn)(CNA_VideoPlayerHandle, CNA_VideoHandle*, CNA_Bool*);
+typedef CNA_Result (*cna_video_player_get_state_fn)(CNA_VideoPlayerHandle, CNA_MediaState*);
+typedef CNA_Result (*cna_video_player_get_is_looped_fn)(CNA_VideoPlayerHandle, CNA_Bool*);
+typedef CNA_Result (*cna_video_player_set_is_looped_fn)(CNA_VideoPlayerHandle, CNA_Bool);
+typedef CNA_Result (*cna_video_player_get_is_muted_fn)(CNA_VideoPlayerHandle, CNA_Bool*);
+typedef CNA_Result (*cna_video_player_set_is_muted_fn)(CNA_VideoPlayerHandle, CNA_Bool);
+typedef CNA_Result (*cna_video_player_get_volume_fn)(CNA_VideoPlayerHandle, float*);
+typedef CNA_Result (*cna_video_player_set_volume_fn)(CNA_VideoPlayerHandle, float);
+typedef CNA_Result (*cna_video_player_get_play_position_ticks_fn)(CNA_VideoPlayerHandle, int64_t*);
+typedef CNA_Result (*cna_media_queue_set_active_song_index_fn)(CNA_MediaQueueHandle, int32_t);
+/* Foundation 98 -- the XACT probe. Two routes, bound first so the settings-file
+   format can be MEASURED against the real parser rather than guessed at: the
+   whole family turns on whether a legal .xgs can be authored. */
+
+typedef uint32_t (*cna_get_abi_version_fn)(void);
+typedef CNA_Result (*cna_error_get_last_message_size_fn)(uint64_t*);
+typedef CNA_Result (*cna_error_copy_last_message_fn)(char*, uint64_t, uint64_t*);
+typedef CNA_Result (*cna_game_create_fn)(const CNA_GameCreateInfo*, CNA_Handle*);
+typedef CNA_Result (*cna_game_set_frame_hooks_ext_fn)(CNA_Handle, const CNA_GameFrameHooks*);
+typedef CNA_Result (*cna_game_run_fn)(CNA_Handle);
+typedef CNA_Result (*cna_game_request_exit_fn)(CNA_Handle);
+typedef CNA_Result (*cna_game_destroy_fn)(CNA_Handle);
+typedef CNA_Result (*cna_game_set_is_mouse_visible_fn)(CNA_Handle, CNA_Bool);
+typedef CNA_Result (*cna_game_set_is_fixed_time_step_fn)(CNA_Handle, CNA_Bool);
+typedef CNA_Result (*cna_game_set_target_elapsed_time_ticks_fn)(CNA_Handle, int64_t);
+typedef CNA_Result (*cna_game_set_inactive_sleep_time_ticks_fn)(CNA_Handle, int64_t);
+typedef CNA_Result (*cna_game_reset_elapsed_time_fn)(CNA_Handle);
+typedef CNA_Result (*cna_game_suppress_draw_fn)(CNA_Handle);
+typedef CNA_Result (*cna_game_tick_fn)(CNA_Handle);
+typedef CNA_Result (*cna_game_run_one_frame_fn)(CNA_Handle);
+typedef CNA_Result (*cna_game_subscribe_fn)(CNA_Handle, CNA_GameEvent, CNA_GameEventCallback, void*, CNA_GameEventRegistrationHandle*);
+typedef CNA_Result (*cna_game_unsubscribe_fn)(CNA_GameEventRegistrationHandle);
+typedef CNA_Result (*cna_graphics_device_manager_create_fn)(CNA_Handle, CNA_Handle*);
+typedef CNA_Result (*cna_graphics_device_manager_get_graphics_device_fn)(CNA_Handle, CNA_Handle*);
+typedef CNA_Result (*cna_graphics_device_manager_destroy_fn)(CNA_Handle);
+
+/* GraphicsDeviceManager's configuration surface.
+   Only the SETTERS are bound. Every one of the reference's getters is a single
+   `ldfld` over a managed field, so CNA-Go reads its own copy for the same
+   reason the Game timing getters do: a native getter would be a second source
+   of truth that could disagree with the field the setter wrote. The setters
+   ARE bound, because the value has to reach the loop that applies it --
+   cna_graphics_device_manager_apply_changes reads CNA's copy, not Go's. */
+typedef CNA_Result (*cna_graphics_device_manager_set_graphics_profile_fn)(CNA_Handle, uint32_t);
+typedef CNA_Result (*cna_graphics_device_manager_set_is_full_screen_fn)(CNA_Handle, CNA_Bool);
+typedef CNA_Result (*cna_graphics_device_manager_set_prefer_multi_sampling_fn)(CNA_Handle, CNA_Bool);
+typedef CNA_Result (*cna_graphics_device_manager_set_preferred_back_buffer_format_fn)(CNA_Handle, uint32_t);
+typedef CNA_Result (*cna_graphics_device_manager_set_preferred_back_buffer_width_fn)(CNA_Handle, int32_t);
+typedef CNA_Result (*cna_graphics_device_manager_set_preferred_back_buffer_height_fn)(CNA_Handle, int32_t);
+typedef CNA_Result (*cna_graphics_device_manager_set_preferred_depth_stencil_format_fn)(CNA_Handle, uint32_t);
+typedef CNA_Result (*cna_graphics_device_manager_set_synchronize_with_vertical_retrace_fn)(CNA_Handle, CNA_Bool);
+typedef CNA_Result (*cna_graphics_device_manager_set_supported_orientations_fn)(CNA_Handle, uint32_t);
+typedef CNA_Result (*cna_graphics_device_manager_apply_changes_fn)(CNA_Handle);
+typedef CNA_Result (*cna_graphics_device_manager_subscribe_fn)(CNA_Handle, CNA_GraphicsDeviceManagerEvent, CNA_GameEventCallback, void*, CNA_GameEventRegistrationHandle*);
+typedef CNA_Result (*cna_graphics_device_manager_create_device_fn)(CNA_Handle);
+typedef CNA_Result (*cna_graphics_device_manager_begin_draw_fn)(CNA_Handle, CNA_Bool*);
+typedef CNA_Result (*cna_graphics_device_manager_end_draw_fn)(CNA_Handle);
+typedef CNA_Result (*cna_game_get_graphics_device_fn)(CNA_Handle, CNA_Handle*);
+typedef CNA_Result (*cna_graphics_device_get_viewport_fn)(CNA_Handle, CNA_Viewport*);
+typedef CNA_Result (*cna_graphics_device_clear_rgba_fn)(CNA_Handle, float, float, float, float);
+typedef CNA_Result (*cna_vertex_declaration_create_fn)(const CNA_VertexElement*, uint64_t, CNA_VertexDeclarationHandle*);
+typedef CNA_Result (*cna_vertex_declaration_create_with_stride_fn)(int32_t, const CNA_VertexElement*, uint64_t, CNA_VertexDeclarationHandle*);
+typedef CNA_Result (*cna_vertex_declaration_destroy_fn)(CNA_VertexDeclarationHandle);
+typedef CNA_Result (*cna_vertex_declaration_get_stride_fn)(CNA_VertexDeclarationHandle, int32_t*);
+typedef CNA_Result (*cna_vertex_buffer_create_fn)(CNA_Handle, const CNA_VertexBufferCreateInfo*, CNA_VertexBufferHandle*);
+typedef CNA_Result (*cna_vertex_buffer_destroy_fn)(CNA_VertexBufferHandle);
+typedef CNA_Result (*cna_vertex_buffer_get_info_fn)(CNA_VertexBufferHandle, CNA_VertexBufferInfo*);
+typedef CNA_Result (*cna_vertex_buffer_set_data_raw_at_fn)(CNA_VertexBufferHandle, uint64_t, const void*, uint64_t, uint64_t, uint32_t);
+typedef CNA_Result (*cna_vertex_buffer_get_data_raw_fn)(CNA_VertexBufferHandle, uint64_t, void*, uint64_t, uint64_t, uint32_t);
+typedef CNA_Result (*cna_graphics_device_get_adapter_index_fn)(CNA_Handle, uint32_t*);
+typedef CNA_Result (*cna_graphics_adapter_get_count_fn)(CNA_Handle, uint64_t*);
+typedef CNA_Result (*cna_graphics_adapter_get_info_fn)(CNA_Handle, uint32_t, CNA_GraphicsAdapterInfo*);
+typedef CNA_Result (*cna_graphics_adapter_copy_description_fn)(CNA_Handle, uint32_t, char*, uint64_t, uint64_t*);
+typedef CNA_Result (*cna_graphics_adapter_copy_device_name_fn)(CNA_Handle, uint32_t, char*, uint64_t, uint64_t*);
+typedef CNA_Result (*cna_graphics_adapter_get_current_display_mode_fn)(CNA_Handle, uint32_t, CNA_DisplayMode*);
+typedef CNA_Result (*cna_graphics_adapter_get_display_mode_count_fn)(CNA_Handle, uint32_t, CNA_Bool, CNA_SurfaceFormat, uint64_t*);
+typedef CNA_Result (*cna_graphics_adapter_copy_display_modes_fn)(CNA_Handle, uint32_t, CNA_Bool, CNA_SurfaceFormat, CNA_DisplayMode*, uint64_t, uint64_t*);
+typedef CNA_Result (*cna_graphics_adapter_set_device_preferences_fn)(CNA_Handle, uint32_t, CNA_Bool, CNA_Bool);
+typedef CNA_Result (*cna_graphics_adapter_is_profile_supported_fn)(CNA_Handle, uint32_t, CNA_GraphicsProfile, CNA_Bool*);
+typedef CNA_Result (*cna_graphics_adapter_query_render_target_format_fn)(CNA_Handle, uint32_t, CNA_GraphicsProfile, CNA_SurfaceFormat, CNA_DepthFormat, int32_t, CNA_GraphicsFormatSelection*);
+typedef CNA_Result (*cna_graphics_adapter_query_backbuffer_format_fn)(CNA_Handle, uint32_t, CNA_GraphicsProfile, CNA_SurfaceFormat, CNA_DepthFormat, int32_t, CNA_GraphicsFormatSelection*);
+typedef CNA_Result (*cna_graphics_adapter_get_native_monitor_handle_fn)(CNA_Handle, uint32_t, CNA_NativeHandleValue*);
+typedef CNA_Result (*cna_graphics_device_set_vertex_buffers_fn)(CNA_Handle, const CNA_VertexBufferBinding*, uint64_t);
+typedef CNA_Result (*cna_graphics_device_set_index_buffer_fn)(CNA_Handle, CNA_IndexBufferHandle);
+typedef CNA_Result (*cna_graphics_device_draw_primitives_fn)(CNA_Handle, CNA_PrimitiveType, int32_t, int32_t);
+typedef CNA_Result (*cna_graphics_device_draw_indexed_primitives_fn)(CNA_Handle, CNA_PrimitiveType, int32_t, int32_t, int32_t, int32_t, int32_t);
+typedef CNA_Result (*cna_graphics_device_draw_instanced_primitives_fn)(CNA_Handle, CNA_PrimitiveType, int32_t, int32_t, int32_t, int32_t, int32_t, int32_t);
+typedef CNA_Result (*cna_render_target_cube_create_fn)(CNA_Handle, const CNA_RenderTargetCubeCreateInfo*, CNA_Handle*);
+typedef CNA_Result (*cna_graphics_device_set_render_target_cube_fn)(CNA_Handle, CNA_Handle, CNA_CubeMapFace);
+typedef CNA_Result (*cna_graphics_device_set_render_targets_fn)(CNA_Handle, const CNA_RenderTargetBinding*, uint64_t);
+typedef CNA_Result (*cna_graphics_device_get_render_target_count_fn)(CNA_Handle, uint64_t*);
+typedef CNA_Result (*cna_graphics_device_create_fn)(uint32_t, uint32_t, const CNA_PresentationParameters*, CNA_Handle*);
+typedef CNA_Result (*cna_graphics_device_destroy_fn)(CNA_Handle);
+typedef CNA_Result (*cna_graphics_device_reset_fn)(CNA_Handle);
+typedef CNA_Result (*cna_graphics_device_reset_with_parameters_fn)(CNA_Handle, const CNA_PresentationParameters*, const uint32_t*);
+typedef CNA_Result (*cna_graphics_device_get_presentation_parameters_fn)(CNA_Handle, CNA_PresentationParameters*);
+typedef CNA_Result (*cna_graphics_device_get_backbuffer_data_window_fn)(CNA_Handle, const CNA_BackBufferReadback*, CNA_Color*, uint64_t);
+typedef CNA_Result (*cna_graphics_device_draw_user_primitives_fn)(CNA_Handle, const CNA_UserPrimitives*);
+typedef CNA_Result (*cna_graphics_device_draw_user_indexed_primitives_fn)(CNA_Handle, const CNA_UserPrimitives*, const CNA_UserIndices*);
+typedef CNA_Result (*cna_index_buffer_create_fn)(CNA_Handle, const CNA_IndexBufferCreateInfo*, CNA_IndexBufferHandle*);
+typedef CNA_Result (*cna_index_buffer_destroy_fn)(CNA_IndexBufferHandle);
+typedef CNA_Result (*cna_index_buffer_get_info_fn)(CNA_IndexBufferHandle, CNA_IndexBufferInfo*);
+typedef CNA_Result (*cna_index_buffer_set_data_fn)(CNA_IndexBufferHandle, const CNA_IndexBufferTransfer*, const void*, uint64_t);
+typedef CNA_Result (*cna_index_buffer_set_data_at_fn)(CNA_IndexBufferHandle, uint64_t, const CNA_IndexBufferTransfer*, const void*, uint64_t);
+typedef CNA_Result (*cna_index_buffer_get_data_fn)(CNA_IndexBufferHandle, const CNA_IndexBufferTransfer*, void*, uint64_t, uint64_t*);
+typedef CNA_Result (*cna_content_manager_create_fn)(CNA_Handle, const CNA_ContentManagerCreateInfo*, CNA_Handle*);
+typedef CNA_Result (*cna_content_manager_destroy_fn)(CNA_Handle);
+typedef CNA_Result (*cna_content_manager_get_root_directory_size_fn)(CNA_Handle, uint64_t*);
+typedef CNA_Result (*cna_content_manager_copy_root_directory_fn)(CNA_Handle, char*, uint64_t, uint64_t*);
+typedef CNA_Result (*cna_content_manager_set_root_directory_fn)(CNA_Handle, CNA_StringView);
+typedef CNA_Result (*cna_content_manager_unload_fn)(CNA_Handle);
+typedef CNA_Result (*cna_content_manager_load_texture2d_fn)(CNA_Handle, CNA_StringView, CNA_Handle*);
+typedef CNA_Result (*cna_content_manager_get_asset_path_size_fn)(CNA_Handle, CNA_StringView, uint64_t*);
+typedef CNA_Result (*cna_content_manager_copy_asset_path_fn)(CNA_Handle, CNA_StringView, char*, uint64_t, uint64_t*);
+typedef CNA_Result (*cna_content_manager_load_sprite_font_fn)(CNA_Handle, CNA_StringView, CNA_Handle*, CNA_Handle*);
+typedef CNA_Result (*cna_texture3d_create_fn)(CNA_Handle, const CNA_Texture3DCreateInfo*, CNA_Handle*);
+typedef CNA_Result (*cna_texture3d_destroy_fn)(CNA_Handle);
+typedef CNA_Result (*cna_texture3d_get_info_fn)(CNA_Handle, CNA_Texture3DInfo*);
+typedef CNA_Result (*cna_texture3d_set_data_fn)(CNA_Handle, const CNA_Texture3DTransfer*, const CNA_Color*, uint64_t);
+typedef CNA_Result (*cna_texture3d_get_data_fn)(CNA_Handle, const CNA_Texture3DTransfer*, CNA_Color*, uint64_t, uint64_t*);
+typedef CNA_Result (*cna_texturecube_create_fn)(CNA_Handle, const CNA_TextureCubeCreateInfo*, CNA_Handle*);
+typedef CNA_Result (*cna_texturecube_destroy_fn)(CNA_Handle);
+typedef CNA_Result (*cna_texturecube_get_info_fn)(CNA_Handle, CNA_TextureCubeInfo*);
+typedef CNA_Result (*cna_texturecube_set_data_fn)(CNA_Handle, const CNA_TextureCubeTransfer*, const CNA_Color*, uint64_t);
+typedef CNA_Result (*cna_texturecube_get_data_fn)(CNA_Handle, const CNA_TextureCubeTransfer*, CNA_Color*, uint64_t, uint64_t*);
+typedef CNA_Result (*cna_sprite_font_get_info_fn)(CNA_Handle, CNA_SpriteFontInfo*);
+typedef CNA_Result (*cna_sprite_batch_draw_string_fn)(CNA_Handle, const CNA_SpriteTextCommand*);
+typedef CNA_Result (*cna_sprite_batch_begin_with_effect_fn)(CNA_Handle, CNA_SpriteSortMode, const CNA_BlendState*, const CNA_SamplerState*, const CNA_DepthStencilState*, const CNA_RasterizerState*, CNA_Handle, const CNA_Matrix*);
+/* Foundation 79 -- the stock-effect routes. */
+typedef CNA_Result (*cna_basic_effect_create_fn)(CNA_Handle, CNA_EffectHandle*);
+typedef CNA_Result (*cna_basic_effect_set_vertex_color_enabled_fn)(CNA_EffectHandle, CNA_Bool);
+typedef CNA_Result (*cna_basic_effect_set_prefer_per_pixel_lighting_fn)(CNA_EffectHandle, CNA_Bool);
+typedef CNA_Result (*cna_basic_effect_set_diffuse_color_fn)(CNA_EffectHandle, CNA_Vector3);
+typedef CNA_Result (*cna_basic_effect_set_emissive_color_fn)(CNA_EffectHandle, CNA_Vector3);
+typedef CNA_Result (*cna_basic_effect_get_specular_color_fn)(CNA_EffectHandle, CNA_Vector3*);
+typedef CNA_Result (*cna_basic_effect_set_specular_color_fn)(CNA_EffectHandle, CNA_Vector3);
+typedef CNA_Result (*cna_basic_effect_get_specular_power_fn)(CNA_EffectHandle, float*);
+typedef CNA_Result (*cna_basic_effect_set_specular_power_fn)(CNA_EffectHandle, float);
+typedef CNA_Result (*cna_basic_effect_set_alpha_fn)(CNA_EffectHandle, float);
+typedef CNA_Result (*cna_basic_effect_set_texture_enabled_fn)(CNA_EffectHandle, CNA_Bool);
+typedef CNA_Result (*cna_basic_effect_set_texture_fn)(CNA_EffectHandle, CNA_Handle);
+typedef CNA_Result (*cna_effect_matrices_set_world_fn)(CNA_EffectHandle, CNA_Matrix);
+typedef CNA_Result (*cna_effect_matrices_set_view_fn)(CNA_EffectHandle, CNA_Matrix);
+typedef CNA_Result (*cna_effect_matrices_set_projection_fn)(CNA_EffectHandle, CNA_Matrix);
+typedef CNA_Result (*cna_effect_fog_get_color_fn)(CNA_EffectHandle, CNA_Vector3*);
+typedef CNA_Result (*cna_effect_fog_set_color_fn)(CNA_EffectHandle, CNA_Vector3);
+typedef CNA_Result (*cna_effect_fog_set_enabled_fn)(CNA_EffectHandle, CNA_Bool);
+typedef CNA_Result (*cna_effect_fog_set_start_fn)(CNA_EffectHandle, float);
+typedef CNA_Result (*cna_effect_fog_set_end_fn)(CNA_EffectHandle, float);
+typedef CNA_Result (*cna_effect_lights_set_ambient_color_fn)(CNA_EffectHandle, CNA_Vector3);
+typedef CNA_Result (*cna_effect_lights_get_directional_light_fn)(CNA_EffectHandle, uint32_t, CNA_DirectionalLightHandle*);
+typedef CNA_Result (*cna_effect_lights_set_enabled_fn)(CNA_EffectHandle, CNA_Bool);
+typedef CNA_Result (*cna_directional_light_destroy_fn)(CNA_DirectionalLightHandle);
+typedef CNA_Result (*cna_directional_light_set_diffuse_color_fn)(CNA_DirectionalLightHandle, CNA_Vector3);
+typedef CNA_Result (*cna_directional_light_set_direction_fn)(CNA_DirectionalLightHandle, CNA_Vector3);
+typedef CNA_Result (*cna_directional_light_set_specular_color_fn)(CNA_DirectionalLightHandle, CNA_Vector3);
+typedef CNA_Result (*cna_directional_light_set_enabled_fn)(CNA_DirectionalLightHandle, CNA_Bool);
+/* Foundation 80 -- AlphaTestEffect, DualTextureEffect and EffectMaterial. */
+typedef CNA_Result (*cna_alpha_test_effect_create_fn)(CNA_Handle, CNA_EffectHandle*);
+typedef CNA_Result (*cna_alpha_test_effect_set_diffuse_color_fn)(CNA_EffectHandle, CNA_Vector3);
+typedef CNA_Result (*cna_alpha_test_effect_set_alpha_fn)(CNA_EffectHandle, float);
+typedef CNA_Result (*cna_alpha_test_effect_set_texture_fn)(CNA_EffectHandle, CNA_Handle);
+typedef CNA_Result (*cna_alpha_test_effect_set_vertex_color_enabled_fn)(CNA_EffectHandle, CNA_Bool);
+typedef CNA_Result (*cna_alpha_test_effect_set_alpha_function_fn)(CNA_EffectHandle, CNA_CompareFunction);
+typedef CNA_Result (*cna_alpha_test_effect_set_reference_alpha_fn)(CNA_EffectHandle, int32_t);
+typedef CNA_Result (*cna_dual_texture_effect_create_fn)(CNA_Handle, CNA_EffectHandle*);
+typedef CNA_Result (*cna_dual_texture_effect_set_diffuse_color_fn)(CNA_EffectHandle, CNA_Vector3);
+typedef CNA_Result (*cna_dual_texture_effect_set_alpha_fn)(CNA_EffectHandle, float);
+typedef CNA_Result (*cna_dual_texture_effect_set_texture_fn)(CNA_EffectHandle, uint32_t, CNA_Handle);
+typedef CNA_Result (*cna_dual_texture_effect_set_vertex_color_enabled_fn)(CNA_EffectHandle, CNA_Bool);
+typedef CNA_Result (*cna_effect_material_create_fn)(CNA_EffectHandle, CNA_EffectHandle*);
+/* Foundation 82 -- the two root types. */
+typedef CNA_Result (*cna_framework_dispatcher_update_fn)(CNA_Handle);
+typedef CNA_Result (*cna_title_container_read_ext_fn)(CNA_Handle, CNA_StringView, uint8_t*, uint64_t, uint64_t*);
+/* Foundation 83 -- OcclusionQuery. */
+typedef CNA_Handle CNA_OcclusionQueryHandle;
+typedef CNA_Result (*cna_occlusion_query_create_fn)(CNA_Handle, CNA_OcclusionQueryHandle*);
+typedef CNA_Result (*cna_occlusion_query_destroy_fn)(CNA_OcclusionQueryHandle);
+typedef CNA_Result (*cna_occlusion_query_begin_fn)(CNA_OcclusionQueryHandle);
+typedef CNA_Result (*cna_occlusion_query_end_fn)(CNA_OcclusionQueryHandle);
+typedef CNA_Result (*cna_occlusion_query_get_is_complete_fn)(CNA_OcclusionQueryHandle, CNA_Bool*);
+typedef CNA_Result (*cna_occlusion_query_get_pixel_count_fn)(CNA_OcclusionQueryHandle, int32_t*);
+/* Foundation 87 -- SoundEffect and SoundEffectInstance.
+   CNA_AUDIO_CHANNELS_MONO is 1 and _STEREO is 2, which happen to match XNA's
+   AudioChannels literals; the Go side maps them explicitly anyway. */
+#ifndef CNA_C_AUDIO_H
+typedef uint32_t CNA_AudioChannels;
+typedef uint32_t CNA_SoundState;
+typedef struct CNA_SoundEffectCreateInfo {
+    uint32_t struct_size;
+    uint32_t struct_version;
+    uint32_t sample_rate;
+    CNA_AudioChannels channels;
+    uint64_t reserved;
+} CNA_SoundEffectCreateInfo;
+typedef struct CNA_SoundEffectInstanceInfo {
+    uint32_t struct_size;
+    uint32_t struct_version;
+    CNA_SoundState state;
+    CNA_Bool is_looped;
+    uint8_t reserved0[3];
+    float volume;
+    float pitch;
+    float pan;
+    uint32_t reserved1;
+} CNA_SoundEffectInstanceInfo;
+#endif
+typedef CNA_Result (*cna_sound_effect_create_pcm16_range_ext_fn)(CNA_Handle, const CNA_SoundEffectCreateInfo*, const uint8_t*, uint64_t, int32_t, int32_t, int32_t, int32_t, CNA_Handle*);
+typedef CNA_Result (*cna_sound_effect_create_from_encoded_ext_fn)(CNA_Handle, const uint8_t*, uint64_t, CNA_Handle*);
+typedef CNA_Result (*cna_sound_effect_get_duration_ticks_fn)(CNA_Handle, int64_t*);
+typedef CNA_Result (*cna_sound_effect_create_instance_fn)(CNA_Handle, CNA_Handle*);
+typedef CNA_Result (*cna_sound_effect_destroy_fn)(CNA_Handle);
+typedef CNA_Result (*cna_sound_effect_play_fn)(CNA_Handle, CNA_Bool*);
+typedef CNA_Result (*cna_sound_effect_play_with_settings_fn)(CNA_Handle, float, float, float, CNA_Bool*);
+typedef CNA_Result (*cna_sound_effect_set_master_volume_fn)(CNA_Handle, float);
+typedef CNA_Result (*cna_sound_effect_set_distance_scale_fn)(CNA_Handle, float);
+typedef CNA_Result (*cna_sound_effect_set_doppler_scale_fn)(CNA_Handle, float);
+typedef CNA_Result (*cna_sound_effect_set_speed_of_sound_fn)(CNA_Handle, float);
+typedef CNA_Result (*cna_sound_effect_instance_play_fn)(CNA_Handle);
+typedef CNA_Result (*cna_sound_effect_instance_pause_fn)(CNA_Handle);
+typedef CNA_Result (*cna_sound_effect_instance_resume_fn)(CNA_Handle);
+typedef CNA_Result (*cna_sound_effect_instance_stop_fn)(CNA_Handle, CNA_Bool);
+typedef CNA_Result (*cna_sound_effect_instance_get_info_fn)(CNA_Handle, CNA_SoundEffectInstanceInfo*);
+typedef CNA_Result (*cna_sound_effect_instance_set_volume_fn)(CNA_Handle, float);
+typedef CNA_Result (*cna_sound_effect_instance_set_pitch_fn)(CNA_Handle, float);
+typedef CNA_Result (*cna_sound_effect_instance_set_pan_fn)(CNA_Handle, float);
+typedef CNA_Result (*cna_sound_effect_instance_set_is_looped_fn)(CNA_Handle, CNA_Bool);
+typedef CNA_Result (*cna_sound_effect_instance_destroy_fn)(CNA_Handle);
+#ifndef CNA_C_AUDIO_H
+typedef struct CNA_AudioEmitter {
+    uint32_t struct_size;
+    uint32_t struct_version;
+    float doppler_scale;
+    CNA_Vector3 forward;
+    CNA_Vector3 position;
+    CNA_Vector3 up;
+    CNA_Vector3 velocity;
+} CNA_AudioEmitter;
+
+
+typedef struct CNA_AudioListener {
+    uint32_t struct_size;
+    uint32_t struct_version;
+    CNA_Vector3 forward;
+    CNA_Vector3 position;
+    CNA_Vector3 up;
+    CNA_Vector3 velocity;
+} CNA_AudioListener;
+
+/* Foundation 98 -- the three XACT routes reach for that audio.h owns. The
+   REGISTRATION handle and the callback are shared with the dynamic-buffer and
+   microphone subscriptions; the stop-options word is what both
+   cna_audio_category_stop and cna_cue_stop take. */
+typedef CNA_Handle CNA_AudioEventRegistrationHandle;
+typedef void (*CNA_AudioEventCallback)(void* context);
+typedef uint32_t CNA_AudioStopOptions;
+#endif
+
+/* Foundation 98 -- XACT. Five types over 62 routes.
+
+   The fixture question the frontier left open was MEASURED before any of this
+   was bound: CNA's parsers report through its log rather than through the
+   result code, and an 80-byte XGSF opens an engine, a 16-byte SDBK a sound bank
+   and a 16-byte WBND a wave bank. */
+#ifndef CNA_C_XACT_H
+/* The eight predicates in the canonical header's own ALPHABETICAL order, which
+   is not the order XNA's members are declared in. Mirrored field for field so
+   MANIFEST_LAYOUT_AGREEMENTS proves it against the canonical header. */
+typedef struct CNA_CueInfo {
+    uint32_t struct_size;
+    uint32_t struct_version;
+    CNA_Bool is_created;
+    CNA_Bool is_disposed;
+    CNA_Bool is_paused;
+    CNA_Bool is_playing;
+    CNA_Bool is_prepared;
+    CNA_Bool is_preparing;
+    CNA_Bool is_stopped;
+    CNA_Bool is_stopping;
+} CNA_CueInfo;
+#endif
+
+typedef CNA_Result (*cna_audio_unsubscribe_ext_fn)(CNA_AudioEventRegistrationHandle);
+typedef CNA_Result (*cna_audio_category_copy_name_fn)(CNA_Handle, char*, uint64_t, uint64_t*);
+typedef CNA_Result (*cna_audio_category_destroy_fn)(CNA_Handle);
+typedef CNA_Result (*cna_audio_category_equals_fn)(CNA_Handle, CNA_Handle, CNA_Bool*);
+typedef CNA_Result (*cna_audio_category_get_hash_code_fn)(CNA_Handle, int32_t*);
+typedef CNA_Result (*cna_audio_category_get_name_size_fn)(CNA_Handle, uint64_t*);
+typedef CNA_Result (*cna_audio_category_pause_fn)(CNA_Handle);
+typedef CNA_Result (*cna_audio_category_resume_fn)(CNA_Handle);
+typedef CNA_Result (*cna_audio_category_set_volume_fn)(CNA_Handle, float);
+typedef CNA_Result (*cna_audio_category_stop_fn)(CNA_Handle, CNA_AudioStopOptions);
+typedef CNA_Result (*cna_audio_engine_copy_renderer_friendly_name_fn)(CNA_Handle, uint64_t, char*, uint64_t, uint64_t*);
+typedef CNA_Result (*cna_audio_engine_copy_renderer_id_fn)(CNA_Handle, uint64_t, char*, uint64_t, uint64_t*);
+typedef CNA_Result (*cna_audio_engine_copy_type_name_fn)(CNA_Handle, char*, uint64_t, uint64_t*);
+typedef CNA_Result (*cna_audio_engine_create_fn)(CNA_Handle, CNA_StringView, CNA_Handle*);
+typedef CNA_Result (*cna_audio_engine_create_with_renderer_fn)(CNA_Handle, CNA_StringView, int64_t, CNA_StringView, CNA_Handle*);
+typedef CNA_Result (*cna_audio_engine_destroy_fn)(CNA_Handle);
+typedef CNA_Result (*cna_audio_engine_get_category_fn)(CNA_Handle, CNA_StringView, CNA_Handle*);
+typedef CNA_Result (*cna_audio_engine_get_global_variable_fn)(CNA_Handle, CNA_StringView, float*);
+typedef CNA_Result (*cna_audio_engine_get_is_disposed_fn)(CNA_Handle, CNA_Bool*);
+typedef CNA_Result (*cna_audio_engine_get_renderer_count_fn)(CNA_Handle, uint64_t*);
+typedef CNA_Result (*cna_audio_engine_get_renderer_friendly_name_size_fn)(CNA_Handle, uint64_t, uint64_t*);
+typedef CNA_Result (*cna_audio_engine_get_renderer_id_size_fn)(CNA_Handle, uint64_t, uint64_t*);
+typedef CNA_Result (*cna_audio_engine_get_type_name_size_fn)(CNA_Handle, uint64_t*);
+typedef CNA_Result (*cna_audio_engine_set_global_variable_fn)(CNA_Handle, CNA_StringView, float);
+typedef CNA_Result (*cna_audio_engine_subscribe_disposing_ext_fn)(CNA_Handle, CNA_AudioEventCallback, void*, CNA_AudioEventRegistrationHandle*);
+typedef CNA_Result (*cna_audio_engine_update_fn)(CNA_Handle);
+typedef CNA_Result (*cna_cue_apply_3d_fn)(CNA_Handle, const CNA_AudioListener*, const CNA_AudioEmitter*);
+typedef CNA_Result (*cna_cue_copy_name_fn)(CNA_Handle, char*, uint64_t, uint64_t*);
+typedef CNA_Result (*cna_cue_copy_type_name_fn)(CNA_Handle, char*, uint64_t, uint64_t*);
+typedef CNA_Result (*cna_cue_destroy_fn)(CNA_Handle);
+typedef CNA_Result (*cna_cue_get_info_fn)(CNA_Handle, CNA_CueInfo*);
+typedef CNA_Result (*cna_cue_get_name_size_fn)(CNA_Handle, uint64_t*);
+typedef CNA_Result (*cna_cue_get_type_name_size_fn)(CNA_Handle, uint64_t*);
+typedef CNA_Result (*cna_cue_get_variable_fn)(CNA_Handle, CNA_StringView, float*);
+typedef CNA_Result (*cna_cue_pause_fn)(CNA_Handle);
+typedef CNA_Result (*cna_cue_play_fn)(CNA_Handle);
+typedef CNA_Result (*cna_cue_resume_fn)(CNA_Handle);
+typedef CNA_Result (*cna_cue_set_variable_fn)(CNA_Handle, CNA_StringView, float);
+typedef CNA_Result (*cna_cue_stop_fn)(CNA_Handle, CNA_AudioStopOptions);
+typedef CNA_Result (*cna_cue_subscribe_disposing_ext_fn)(CNA_Handle, CNA_AudioEventCallback, void*, CNA_AudioEventRegistrationHandle*);
+typedef CNA_Result (*cna_sound_bank_copy_type_name_fn)(CNA_Handle, char*, uint64_t, uint64_t*);
+typedef CNA_Result (*cna_sound_bank_create_fn)(CNA_Handle, CNA_StringView, CNA_Handle*);
+typedef CNA_Result (*cna_sound_bank_destroy_fn)(CNA_Handle);
+typedef CNA_Result (*cna_sound_bank_get_cue_fn)(CNA_Handle, CNA_StringView, CNA_Handle*);
+typedef CNA_Result (*cna_sound_bank_get_is_disposed_fn)(CNA_Handle, CNA_Bool*);
+typedef CNA_Result (*cna_sound_bank_get_is_in_use_fn)(CNA_Handle, CNA_Bool*);
+typedef CNA_Result (*cna_sound_bank_get_type_name_size_fn)(CNA_Handle, uint64_t*);
+typedef CNA_Result (*cna_sound_bank_play_cue_fn)(CNA_Handle, CNA_StringView);
+typedef CNA_Result (*cna_sound_bank_play_cue_3d_fn)(CNA_Handle, CNA_StringView, const CNA_AudioListener*, const CNA_AudioEmitter*);
+typedef CNA_Result (*cna_sound_bank_subscribe_disposing_ext_fn)(CNA_Handle, CNA_AudioEventCallback, void*, CNA_AudioEventRegistrationHandle*);
+typedef CNA_Result (*cna_wave_bank_copy_type_name_fn)(CNA_Handle, char*, uint64_t, uint64_t*);
+typedef CNA_Result (*cna_wave_bank_create_fn)(CNA_Handle, CNA_StringView, CNA_Handle*);
+typedef CNA_Result (*cna_wave_bank_create_streaming_fn)(CNA_Handle, CNA_StringView, int32_t, int16_t, CNA_Handle*);
+typedef CNA_Result (*cna_wave_bank_destroy_fn)(CNA_Handle);
+typedef CNA_Result (*cna_wave_bank_get_is_disposed_fn)(CNA_Handle, CNA_Bool*);
+typedef CNA_Result (*cna_wave_bank_get_is_in_use_fn)(CNA_Handle, CNA_Bool*);
+typedef CNA_Result (*cna_wave_bank_get_is_prepared_fn)(CNA_Handle, CNA_Bool*);
+typedef CNA_Result (*cna_wave_bank_get_type_name_size_fn)(CNA_Handle, uint64_t*);
+typedef CNA_Result (*cna_wave_bank_subscribe_disposing_ext_fn)(CNA_Handle, CNA_AudioEventCallback, void*, CNA_AudioEventRegistrationHandle*);
+
+typedef CNA_Result (*cna_sound_effect_instance_apply_3d_multi_ext_fn)(CNA_Handle, const CNA_AudioListener*, uint64_t, const CNA_AudioEmitter*);
+/* Foundation 88 -- DynamicSoundEffectInstance. */
+typedef CNA_Result (*cna_dynamic_sound_effect_instance_create_fn)(CNA_Handle, int32_t, CNA_AudioChannels, CNA_Handle*);
+typedef CNA_Result (*cna_dynamic_sound_effect_instance_get_pending_buffer_count_fn)(CNA_Handle, int32_t*);
+typedef CNA_Result (*cna_dynamic_sound_effect_instance_submit_buffer_fn)(CNA_Handle, const uint8_t*, uint64_t, int32_t, int32_t);
+/* Foundation 88 -- Microphone. The whole family is INDEX-addressed: a
+   microphone is a position in the machine's list, not an owned handle. */
+typedef CNA_Result (*cna_microphone_get_count_fn)(CNA_Handle, uint64_t*);
+typedef CNA_Result (*cna_microphone_get_default_index_ext_fn)(CNA_Handle, uint64_t*, CNA_Bool*);
+typedef CNA_Result (*cna_microphone_get_name_size_at_fn)(CNA_Handle, uint64_t, uint64_t*);
+typedef CNA_Result (*cna_microphone_copy_name_at_fn)(CNA_Handle, uint64_t, char*, uint64_t, uint64_t*);
+typedef CNA_Result (*cna_microphone_get_buffer_duration_ticks_at_fn)(CNA_Handle, uint64_t, int64_t*);
+typedef CNA_Result (*cna_microphone_set_buffer_duration_ticks_at_fn)(CNA_Handle, uint64_t, int64_t);
+typedef CNA_Result (*cna_microphone_get_is_headset_at_fn)(CNA_Handle, uint64_t, CNA_Bool*);
+typedef CNA_Result (*cna_microphone_get_sample_rate_at_fn)(CNA_Handle, uint64_t, int32_t*);
+#ifndef CNA_C_AUDIO_H
+typedef uint32_t CNA_MicrophoneState;
+#endif
+typedef CNA_Result (*cna_microphone_get_state_at_fn)(CNA_Handle, uint64_t, CNA_MicrophoneState*);
+typedef CNA_Result (*cna_microphone_start_at_fn)(CNA_Handle, uint64_t);
+typedef CNA_Result (*cna_microphone_stop_at_fn)(CNA_Handle, uint64_t);
+typedef CNA_Result (*cna_microphone_get_data_at_fn)(CNA_Handle, uint64_t, uint8_t*, uint64_t, uint64_t*);
+/* Foundation 84 -- the dynamic buffers' options-carrying upload. */
+typedef CNA_Result (*cna_vertex_buffer_set_data_raw_at_with_options_fn)(CNA_VertexBufferHandle, uint64_t, const void*, uint64_t, uint64_t, uint32_t, CNA_SetDataOptions);
+/* Foundation 81 -- EnvironmentMapEffect and SkinnedEffect. */
+typedef CNA_Result (*cna_environment_map_effect_create_fn)(CNA_Handle, CNA_EffectHandle*);
+typedef CNA_Result (*cna_environment_map_effect_set_diffuse_color_fn)(CNA_EffectHandle, CNA_Vector3);
+typedef CNA_Result (*cna_environment_map_effect_set_emissive_color_fn)(CNA_EffectHandle, CNA_Vector3);
+typedef CNA_Result (*cna_environment_map_effect_set_alpha_fn)(CNA_EffectHandle, float);
+typedef CNA_Result (*cna_environment_map_effect_set_texture_fn)(CNA_EffectHandle, CNA_Handle);
+typedef CNA_Result (*cna_environment_map_effect_set_environment_map_fn)(CNA_EffectHandle, CNA_Handle);
+typedef CNA_Result (*cna_environment_map_effect_get_amount_fn)(CNA_EffectHandle, float*);
+typedef CNA_Result (*cna_environment_map_effect_set_amount_fn)(CNA_EffectHandle, float);
+typedef CNA_Result (*cna_environment_map_effect_get_specular_fn)(CNA_EffectHandle, CNA_Vector3*);
+typedef CNA_Result (*cna_environment_map_effect_set_specular_fn)(CNA_EffectHandle, CNA_Vector3);
+typedef CNA_Result (*cna_environment_map_effect_get_fresnel_factor_fn)(CNA_EffectHandle, float*);
+typedef CNA_Result (*cna_environment_map_effect_set_fresnel_factor_fn)(CNA_EffectHandle, float);
+typedef CNA_Result (*cna_skinned_effect_create_fn)(CNA_Handle, CNA_EffectHandle*);
+typedef CNA_Result (*cna_skinned_effect_set_diffuse_color_fn)(CNA_EffectHandle, CNA_Vector3);
+typedef CNA_Result (*cna_skinned_effect_set_emissive_color_fn)(CNA_EffectHandle, CNA_Vector3);
+typedef CNA_Result (*cna_skinned_effect_get_specular_color_fn)(CNA_EffectHandle, CNA_Vector3*);
+typedef CNA_Result (*cna_skinned_effect_set_specular_color_fn)(CNA_EffectHandle, CNA_Vector3);
+typedef CNA_Result (*cna_skinned_effect_get_specular_power_fn)(CNA_EffectHandle, float*);
+typedef CNA_Result (*cna_skinned_effect_set_specular_power_fn)(CNA_EffectHandle, float);
+typedef CNA_Result (*cna_skinned_effect_set_alpha_fn)(CNA_EffectHandle, float);
+typedef CNA_Result (*cna_skinned_effect_set_prefer_per_pixel_lighting_fn)(CNA_EffectHandle, CNA_Bool);
+typedef CNA_Result (*cna_skinned_effect_set_texture_fn)(CNA_EffectHandle, CNA_Handle);
+typedef CNA_Result (*cna_skinned_effect_set_weights_per_vertex_fn)(CNA_EffectHandle, int32_t);
+typedef CNA_Result (*cna_skinned_effect_set_bone_transforms_fn)(CNA_EffectHandle, const CNA_Matrix*, uint64_t);
+typedef CNA_Result (*cna_skinned_effect_copy_bone_transforms_fn)(CNA_EffectHandle, uint64_t, CNA_Matrix*, uint64_t, uint64_t*);
+typedef CNA_Result (*cna_effect_create_compiled_fn)(CNA_Handle, const uint8_t*, uint64_t, CNA_EffectHandle*);
+typedef CNA_Result (*cna_content_manager_load_effect_fn)(CNA_Handle, CNA_StringView, CNA_EffectHandle*);
+typedef CNA_Result (*cna_effect_clone_fn)(CNA_EffectHandle, CNA_EffectHandle*);
+typedef CNA_Result (*cna_effect_destroy_fn)(CNA_EffectHandle);
+typedef CNA_Result (*cna_effect_apply_fn)(CNA_EffectHandle);
+typedef CNA_Result (*cna_effect_get_parameters_fn)(CNA_EffectHandle, CNA_EffectParameterCollectionHandle*);
+typedef CNA_Result (*cna_effect_get_techniques_fn)(CNA_EffectHandle, CNA_EffectTechniqueCollectionHandle*);
+typedef CNA_Result (*cna_effect_get_current_technique_fn)(CNA_EffectHandle, CNA_EffectTechniqueHandle*);
+typedef CNA_Result (*cna_effect_set_current_technique_fn)(CNA_EffectHandle, CNA_EffectTechniqueHandle);
+typedef CNA_Result (*cna_effect_technique_collection_get_count_fn)(CNA_EffectTechniqueCollectionHandle, uint64_t*);
+typedef CNA_Result (*cna_effect_technique_collection_get_at_fn)(CNA_EffectTechniqueCollectionHandle, uint64_t, CNA_EffectTechniqueHandle*);
+typedef CNA_Result (*cna_effect_technique_destroy_fn)(CNA_EffectTechniqueHandle);
+typedef CNA_Result (*cna_effect_technique_get_name_byte_count_fn)(CNA_EffectTechniqueHandle, uint64_t*);
+typedef CNA_Result (*cna_effect_technique_copy_name_fn)(CNA_EffectTechniqueHandle, char*, uint64_t, uint64_t*);
+typedef CNA_Result (*cna_effect_technique_get_passes_fn)(CNA_EffectTechniqueHandle, CNA_EffectPassCollectionHandle*);
+typedef CNA_Result (*cna_effect_technique_get_annotations_fn)(CNA_EffectTechniqueHandle, CNA_EffectAnnotationCollectionHandle*);
+typedef CNA_Result (*cna_effect_technique_collection_destroy_fn)(CNA_EffectTechniqueCollectionHandle);
+typedef CNA_Result (*cna_effect_pass_collection_get_count_fn)(CNA_EffectPassCollectionHandle, uint64_t*);
+typedef CNA_Result (*cna_effect_pass_collection_get_at_fn)(CNA_EffectPassCollectionHandle, uint64_t, CNA_EffectPassHandle*);
+typedef CNA_Result (*cna_effect_pass_collection_destroy_fn)(CNA_EffectPassCollectionHandle);
+typedef CNA_Result (*cna_effect_pass_destroy_fn)(CNA_EffectPassHandle);
+typedef CNA_Result (*cna_effect_pass_get_name_byte_count_fn)(CNA_EffectPassHandle, uint64_t*);
+typedef CNA_Result (*cna_effect_pass_copy_name_fn)(CNA_EffectPassHandle, char*, uint64_t, uint64_t*);
+typedef CNA_Result (*cna_effect_pass_get_annotations_fn)(CNA_EffectPassHandle, CNA_EffectAnnotationCollectionHandle*);
+typedef CNA_Result (*cna_effect_pass_apply_fn)(CNA_EffectPassHandle);
+typedef CNA_Result (*cna_effect_parameter_collection_get_count_fn)(CNA_EffectParameterCollectionHandle, uint64_t*);
+typedef CNA_Result (*cna_effect_parameter_collection_get_at_fn)(CNA_EffectParameterCollectionHandle, uint64_t, CNA_EffectParameterHandle*);
+typedef CNA_Result (*cna_effect_parameter_collection_destroy_fn)(CNA_EffectParameterCollectionHandle);
+typedef CNA_Result (*cna_effect_parameter_destroy_fn)(CNA_EffectParameterHandle);
+typedef CNA_Result (*cna_effect_parameter_get_info_fn)(CNA_EffectParameterHandle, CNA_EffectParameterInfo*);
+typedef CNA_Result (*cna_effect_parameter_get_name_byte_count_fn)(CNA_EffectParameterHandle, uint64_t*);
+typedef CNA_Result (*cna_effect_parameter_copy_name_fn)(CNA_EffectParameterHandle, char*, uint64_t, uint64_t*);
+typedef CNA_Result (*cna_effect_parameter_get_semantic_byte_count_fn)(CNA_EffectParameterHandle, uint64_t*);
+typedef CNA_Result (*cna_effect_parameter_copy_semantic_fn)(CNA_EffectParameterHandle, char*, uint64_t, uint64_t*);
+typedef CNA_Result (*cna_effect_parameter_get_elements_fn)(CNA_EffectParameterHandle, CNA_EffectParameterCollectionHandle*);
+typedef CNA_Result (*cna_effect_parameter_get_structure_members_fn)(CNA_EffectParameterHandle, CNA_EffectParameterCollectionHandle*);
+typedef CNA_Result (*cna_effect_parameter_get_annotations_fn)(CNA_EffectParameterHandle, CNA_EffectAnnotationCollectionHandle*);
+typedef CNA_Result (*cna_effect_parameter_get_value_fn)(CNA_EffectParameterHandle, CNA_EffectValueType, void*);
+typedef CNA_Result (*cna_effect_parameter_get_values_fn)(CNA_EffectParameterHandle, CNA_EffectValueType, uint64_t, void*, uint64_t, uint64_t*);
+typedef CNA_Result (*cna_effect_parameter_set_value_fn)(CNA_EffectParameterHandle, CNA_EffectValueType, const void*);
+typedef CNA_Result (*cna_effect_parameter_set_values_fn)(CNA_EffectParameterHandle, CNA_EffectValueType, const void*, uint64_t);
+typedef CNA_Result (*cna_effect_parameter_get_value_string_byte_count_fn)(CNA_EffectParameterHandle, uint64_t*);
+typedef CNA_Result (*cna_effect_parameter_copy_value_string_fn)(CNA_EffectParameterHandle, char*, uint64_t, uint64_t*);
+typedef CNA_Result (*cna_effect_parameter_set_value_string_fn)(CNA_EffectParameterHandle, CNA_StringView);
+typedef CNA_Result (*cna_effect_parameter_set_value_texture_fn)(CNA_EffectParameterHandle, CNA_EffectTextureType, CNA_Handle);
+typedef CNA_Result (*cna_effect_annotation_collection_get_count_fn)(CNA_EffectAnnotationCollectionHandle, uint64_t*);
+typedef CNA_Result (*cna_effect_annotation_collection_get_at_fn)(CNA_EffectAnnotationCollectionHandle, uint64_t, CNA_EffectAnnotationHandle*);
+typedef CNA_Result (*cna_effect_annotation_collection_destroy_fn)(CNA_EffectAnnotationCollectionHandle);
+typedef CNA_Result (*cna_effect_annotation_destroy_fn)(CNA_EffectAnnotationHandle);
+typedef CNA_Result (*cna_effect_annotation_get_info_fn)(CNA_EffectAnnotationHandle, CNA_EffectAnnotationInfo*);
+typedef CNA_Result (*cna_effect_annotation_get_name_byte_count_fn)(CNA_EffectAnnotationHandle, uint64_t*);
+typedef CNA_Result (*cna_effect_annotation_copy_name_fn)(CNA_EffectAnnotationHandle, char*, uint64_t, uint64_t*);
+typedef CNA_Result (*cna_effect_annotation_get_semantic_byte_count_fn)(CNA_EffectAnnotationHandle, uint64_t*);
+typedef CNA_Result (*cna_effect_annotation_copy_semantic_fn)(CNA_EffectAnnotationHandle, char*, uint64_t, uint64_t*);
+typedef CNA_Result (*cna_effect_annotation_get_value_boolean_fn)(CNA_EffectAnnotationHandle, CNA_Bool*);
+typedef CNA_Result (*cna_effect_annotation_get_value_int32_fn)(CNA_EffectAnnotationHandle, int32_t*);
+typedef CNA_Result (*cna_effect_annotation_get_value_single_fn)(CNA_EffectAnnotationHandle, float*);
+typedef CNA_Result (*cna_effect_annotation_get_value_string_byte_count_fn)(CNA_EffectAnnotationHandle, uint64_t*);
+typedef CNA_Result (*cna_effect_annotation_copy_value_string_fn)(CNA_EffectAnnotationHandle, char*, uint64_t, uint64_t*);
+typedef CNA_Result (*cna_effect_annotation_get_value_vector2_fn)(CNA_EffectAnnotationHandle, CNA_Vector2*);
+typedef CNA_Result (*cna_effect_annotation_get_value_vector3_fn)(CNA_EffectAnnotationHandle, CNA_Vector3*);
+typedef CNA_Result (*cna_effect_annotation_get_value_vector4_fn)(CNA_EffectAnnotationHandle, CNA_Vector4*);
+typedef CNA_Result (*cna_effect_annotation_get_value_matrix_fn)(CNA_EffectAnnotationHandle, CNA_Matrix*);
+typedef CNA_Result (*cna_sprite_font_copy_glyphs_fn)(CNA_Handle, CNA_SpriteFontGlyph*, uint64_t, uint64_t*);
+typedef CNA_Result (*cna_sprite_font_set_default_character_fn)(CNA_Handle, CNA_Bool, CNA_Char16);
+typedef CNA_Result (*cna_sprite_font_set_line_spacing_fn)(CNA_Handle, int32_t);
+typedef CNA_Result (*cna_sprite_font_set_spacing_fn)(CNA_Handle, float);
+typedef CNA_Result (*cna_sprite_font_destroy_fn)(CNA_Handle);
+typedef CNA_Result (*cna_graphics_device_subscribe_event_fn)(CNA_Handle, CNA_GraphicsDeviceEvent, CNA_GraphicsDeviceEventCallback, void*, CNA_GraphicsDeviceEventRegistrationHandle*);
+typedef CNA_Result (*cna_graphics_device_subscribe_resource_created_fn)(CNA_Handle, CNA_GraphicsDeviceResourceCreatedCallback, void*, CNA_GraphicsDeviceEventRegistrationHandle*);
+typedef CNA_Result (*cna_graphics_device_subscribe_resource_destroyed_fn)(CNA_Handle, CNA_GraphicsDeviceResourceDestroyedCallback, void*, CNA_GraphicsDeviceEventRegistrationHandle*);
+typedef CNA_Result (*cna_graphics_device_unsubscribe_fn)(CNA_GraphicsDeviceEventRegistrationHandle);
+typedef CNA_Result (*cna_graphics_device_dispose_fn)(CNA_Handle);
+typedef CNA_Result (*cna_graphics_device_get_texture_fn)(CNA_Handle, CNA_ShaderStage, uint32_t, CNA_TextureSlotInfo*);
+typedef CNA_Result (*cna_graphics_device_set_texture_fn)(CNA_Handle, CNA_ShaderStage, uint32_t, CNA_Handle);
+typedef CNA_Result (*cna_graphics_device_get_sampler_state_fn)(CNA_Handle, CNA_ShaderStage, uint32_t, CNA_SamplerState*);
+typedef CNA_Result (*cna_graphics_device_set_sampler_state_fn)(CNA_Handle, CNA_ShaderStage, uint32_t, const CNA_SamplerState*);
+typedef CNA_Result (*cna_graphics_device_set_blend_state_fn)(CNA_Handle, const CNA_BlendState*);
+typedef CNA_Result (*cna_graphics_device_set_depth_stencil_state_fn)(CNA_Handle, const CNA_DepthStencilState*);
+typedef CNA_Result (*cna_graphics_device_set_rasterizer_state_fn)(CNA_Handle, const CNA_RasterizerState*);
+typedef CNA_Result (*cna_render_target2d_create_fn)(CNA_Handle, const CNA_RenderTarget2DCreateInfo*, CNA_Handle*);
+typedef CNA_Result (*cna_render_target_get_info_fn)(CNA_Handle, CNA_RenderTargetInfo*);
+typedef CNA_Result (*cna_render_target_destroy_fn)(CNA_Handle);
+typedef CNA_Result (*cna_graphics_device_set_render_target2d_fn)(CNA_Handle, CNA_Handle);
+typedef CNA_Result (*cna_texture2d_create_from_encoded_memory_fn)(CNA_Handle, const uint8_t*, uint64_t, const CNA_Texture2DDecodeInfo*, CNA_Handle*);
+typedef CNA_Result (*cna_texture2d_get_info_fn)(CNA_Handle, CNA_Texture2DInfo*);
+typedef CNA_Result (*cna_texture2d_destroy_fn)(CNA_Handle);
+typedef CNA_Result (*cna_sprite_batch_create_fn)(CNA_Handle, CNA_Handle*);
+typedef CNA_Result (*cna_sprite_batch_begin_fn)(CNA_Handle, const CNA_SpriteBatchBeginInfo*);
+typedef CNA_Result (*cna_sprite_batch_submit_scaled_many_fn)(CNA_Handle, const CNA_SpriteScaledCommand*, uint64_t);
+typedef CNA_Result (*cna_sprite_batch_submit_many_fn)(CNA_Handle, const CNA_SpriteCommand*, uint64_t);
+typedef CNA_Result (*cna_graphics_device_get_blend_factor_fn)(CNA_Handle, CNA_Color*);
+typedef CNA_Result (*cna_graphics_device_set_blend_factor_fn)(CNA_Handle, CNA_Color);
+typedef CNA_Result (*cna_graphics_device_get_multi_sample_mask_fn)(CNA_Handle, int32_t*);
+typedef CNA_Result (*cna_graphics_device_set_multi_sample_mask_fn)(CNA_Handle, int32_t);
+typedef CNA_Result (*cna_graphics_device_get_reference_stencil_fn)(CNA_Handle, int32_t*);
+typedef CNA_Result (*cna_graphics_device_set_reference_stencil_fn)(CNA_Handle, int32_t);
+typedef CNA_Result (*cna_graphics_device_get_scissor_rectangle_fn)(CNA_Handle, CNA_Rectangle*);
+typedef CNA_Result (*cna_graphics_device_set_scissor_rectangle_fn)(CNA_Handle, CNA_Rectangle);
+typedef CNA_Result (*cna_graphics_device_set_viewport_fn)(CNA_Handle, CNA_Viewport);
+typedef CNA_Result (*cna_graphics_device_get_graphics_profile_fn)(CNA_Handle, CNA_GraphicsProfile*);
+typedef CNA_Result (*cna_graphics_device_get_status_fn)(CNA_Handle, CNA_GraphicsDeviceStatus*);
+typedef CNA_Result (*cna_graphics_device_get_is_disposed_fn)(CNA_Handle, CNA_Bool*);
+typedef CNA_Result (*cna_graphics_device_clear_options_fn)(CNA_Handle, CNA_ClearOptions, CNA_Color, float, int32_t);
+typedef CNA_Result (*cna_graphics_device_present_fn)(CNA_Handle);
+typedef CNA_Result (*cna_graphics_device_get_display_mode_fn)(CNA_Handle, CNA_DisplayMode*);
+typedef CNA_Result (*cna_texture2d_create_fn)(CNA_Handle, const CNA_Texture2DCreateInfo*, CNA_Handle*);
+typedef CNA_Result (*cna_texture2d_get_encoded_byte_count_fn)(CNA_Handle, CNA_TextureImageFormat, uint32_t, uint32_t, uint64_t*);
+typedef CNA_Result (*cna_texture2d_copy_encoded_fn)(CNA_Handle, CNA_TextureImageFormat, uint32_t, uint32_t, uint8_t*, uint64_t, uint64_t*);
+typedef CNA_Result (*cna_texture2d_set_data_fn)(CNA_Handle, CNA_TextureDataType, const CNA_Texture2DTransfer*, const void*, uint64_t);
+typedef CNA_Result (*cna_texture2d_get_data_fn)(CNA_Handle, CNA_TextureDataType, const CNA_Texture2DTransfer*, void*, uint64_t, uint64_t*);
+typedef CNA_Result (*cna_sprite_batch_end_fn)(CNA_Handle);
+typedef CNA_Result (*cna_sprite_batch_destroy_fn)(CNA_Handle);
+typedef CNA_Result (*cna_keyboard_get_state_fn)(CNA_Handle, CNA_KeyboardState*);
+
+/* GameWindow. Every route takes the GAME handle: CNA models the window as a
+   property of the game rather than as a separate object, so there is no window
+   handle to own and nothing here is a new lifetime.
+
+   Three canonical window routes are deliberately NOT bound, and each omission
+   is a measurement rather than an oversight:
+
+     cna_game_window_get_title_size / cna_game_window_copy_title
+         GameWindow::get_Title is one ldfld over the abstract base's own
+         managed field. Binding the native getter would create a second source
+         of truth that could disagree with the field the setter wrote.
+     cna_game_window_get_current_orientation
+         WindowsGameWindow::get_CurrentOrientation is `ldc.i4.0; ret`. The
+         reference never asks the platform in this profile, so neither does
+         CNA-Go. */
+typedef CNA_Result (*cna_game_window_get_allow_user_resizing_fn)(CNA_Handle, CNA_Bool*);
+typedef CNA_Result (*cna_game_window_set_allow_user_resizing_fn)(CNA_Handle, CNA_Bool);
+typedef CNA_Result (*cna_game_window_get_client_bounds_fn)(CNA_Handle, CNA_Rectangle*);
+typedef CNA_Result (*cna_game_window_get_native_handle_ext_fn)(CNA_Handle, uint64_t*);
+typedef CNA_Result (*cna_game_window_get_screen_device_name_size_fn)(CNA_Handle, uint64_t*);
+typedef CNA_Result (*cna_game_window_copy_screen_device_name_fn)(CNA_Handle, char*, uint64_t, uint64_t*);
+typedef CNA_Result (*cna_game_window_begin_screen_device_change_fn)(CNA_Handle, CNA_Bool);
+typedef CNA_Result (*cna_game_window_end_screen_device_change_fn)(CNA_Handle, CNA_StringView, int32_t, int32_t);
+typedef CNA_Result (*cna_game_set_window_title_fn)(CNA_Handle, CNA_StringView);
+typedef CNA_Result (*cna_game_window_subscribe_fn)(CNA_Handle, CNA_GameWindowEvent, CNA_GameEventCallback, void*, CNA_GameEventRegistrationHandle*);
+
+#define CNA_GO_REQUIRED_SYMBOLS(X) \
+    X(cna_get_abi_version) \
+    X(cna_error_get_last_message_size) \
+    X(cna_error_copy_last_message) \
+    X(cna_game_create) \
+    X(cna_game_set_frame_hooks_ext) \
+    X(cna_game_run) \
+    X(cna_game_request_exit) \
+    X(cna_game_destroy) \
+    X(cna_game_set_is_mouse_visible) \
+    X(cna_game_set_is_fixed_time_step) \
+    X(cna_game_set_target_elapsed_time_ticks) \
+    X(cna_game_set_inactive_sleep_time_ticks) \
+    X(cna_game_reset_elapsed_time) \
+    X(cna_game_suppress_draw) \
+    X(cna_game_tick) \
+    X(cna_game_run_one_frame) \
+    X(cna_game_subscribe) \
+    X(cna_game_unsubscribe) \
+    X(cna_graphics_device_manager_create) \
+    X(cna_graphics_device_manager_get_graphics_device) \
+    X(cna_graphics_device_manager_destroy) \
+    X(cna_graphics_device_manager_set_graphics_profile) \
+    X(cna_graphics_device_manager_set_is_full_screen) \
+    X(cna_graphics_device_manager_set_prefer_multi_sampling) \
+    X(cna_graphics_device_manager_set_preferred_back_buffer_format) \
+    X(cna_graphics_device_manager_set_preferred_back_buffer_width) \
+    X(cna_graphics_device_manager_set_preferred_back_buffer_height) \
+    X(cna_graphics_device_manager_set_preferred_depth_stencil_format) \
+    X(cna_graphics_device_manager_set_synchronize_with_vertical_retrace) \
+    X(cna_graphics_device_manager_set_supported_orientations) \
+    X(cna_graphics_device_manager_apply_changes) \
+    X(cna_graphics_device_manager_subscribe) \
+    X(cna_graphics_device_manager_create_device) \
+    X(cna_graphics_device_manager_begin_draw) \
+    X(cna_graphics_device_manager_end_draw) \
+    X(cna_game_get_graphics_device) \
+    X(cna_graphics_device_get_viewport) \
+    X(cna_graphics_device_clear_rgba) \
+    X(cna_graphics_device_get_adapter_index) \
+    X(cna_graphics_adapter_get_count) \
+    X(cna_graphics_adapter_get_info) \
+    X(cna_graphics_adapter_copy_description) \
+    X(cna_graphics_adapter_copy_device_name) \
+    X(cna_graphics_adapter_get_current_display_mode) \
+    X(cna_graphics_adapter_get_display_mode_count) \
+    X(cna_graphics_adapter_copy_display_modes) \
+    X(cna_graphics_adapter_set_device_preferences) \
+    X(cna_graphics_adapter_is_profile_supported) \
+    X(cna_graphics_adapter_query_render_target_format) \
+    X(cna_graphics_adapter_query_backbuffer_format) \
+    X(cna_graphics_adapter_get_native_monitor_handle) \
+    X(cna_graphics_device_set_vertex_buffers) \
+    X(cna_graphics_device_set_index_buffer) \
+    X(cna_graphics_device_draw_primitives) \
+    X(cna_graphics_device_draw_indexed_primitives) \
+    X(cna_graphics_device_draw_instanced_primitives) \
+    X(cna_render_target_cube_create) \
+    X(cna_graphics_device_set_render_target_cube) \
+    X(cna_graphics_device_set_render_targets) \
+    X(cna_graphics_device_get_render_target_count) \
+    X(cna_graphics_device_create) \
+    X(cna_graphics_device_destroy) \
+    X(cna_graphics_device_reset) \
+    X(cna_graphics_device_reset_with_parameters) \
+    X(cna_graphics_device_get_presentation_parameters) \
+    X(cna_graphics_device_get_backbuffer_data_window) \
+    X(cna_graphics_device_draw_user_primitives) \
+    X(cna_graphics_device_draw_user_indexed_primitives) \
+    X(cna_vertex_declaration_create) \
+    X(cna_vertex_declaration_create_with_stride) \
+    X(cna_vertex_declaration_destroy) \
+    X(cna_vertex_declaration_get_stride) \
+    X(cna_vertex_buffer_create) \
+    X(cna_vertex_buffer_destroy) \
+    X(cna_vertex_buffer_get_info) \
+    X(cna_vertex_buffer_set_data_raw_at) \
+    X(cna_vertex_buffer_get_data_raw) \
+    X(cna_index_buffer_create) \
+    X(cna_index_buffer_destroy) \
+    X(cna_index_buffer_get_info) \
+    X(cna_index_buffer_set_data) \
+    X(cna_index_buffer_set_data_at) \
+    X(cna_index_buffer_get_data) \
+    X(cna_content_manager_create) \
+    X(cna_content_manager_destroy) \
+    X(cna_content_manager_get_root_directory_size) \
+    X(cna_content_manager_copy_root_directory) \
+    X(cna_content_manager_set_root_directory) \
+    X(cna_content_manager_unload) \
+    X(cna_content_manager_load_texture2d) \
+    X(cna_content_manager_get_asset_path_size) \
+    X(cna_content_manager_copy_asset_path) \
+    X(cna_content_manager_load_sprite_font) \
+    X(cna_texture3d_create) \
+    X(cna_texture3d_destroy) \
+    X(cna_texture3d_get_info) \
+    X(cna_texture3d_set_data) \
+    X(cna_texture3d_get_data) \
+    X(cna_texturecube_create) \
+    X(cna_texturecube_destroy) \
+    X(cna_texturecube_get_info) \
+    X(cna_texturecube_set_data) \
+    X(cna_texturecube_get_data) \
+    X(cna_sprite_font_get_info) \
+    X(cna_sprite_batch_draw_string) \
+    X(cna_sprite_batch_begin_with_effect) \
+    X(cna_basic_effect_create) \
+    X(cna_basic_effect_set_vertex_color_enabled) \
+    X(cna_basic_effect_set_prefer_per_pixel_lighting) \
+    X(cna_basic_effect_set_diffuse_color) \
+    X(cna_basic_effect_set_emissive_color) \
+    X(cna_basic_effect_get_specular_color) \
+    X(cna_basic_effect_set_specular_color) \
+    X(cna_basic_effect_get_specular_power) \
+    X(cna_basic_effect_set_specular_power) \
+    X(cna_basic_effect_set_alpha) \
+    X(cna_basic_effect_set_texture_enabled) \
+    X(cna_basic_effect_set_texture) \
+    X(cna_effect_matrices_set_world) \
+    X(cna_effect_matrices_set_view) \
+    X(cna_effect_matrices_set_projection) \
+    X(cna_effect_fog_get_color) \
+    X(cna_effect_fog_set_color) \
+    X(cna_effect_fog_set_enabled) \
+    X(cna_effect_fog_set_start) \
+    X(cna_effect_fog_set_end) \
+    X(cna_effect_lights_set_ambient_color) \
+    X(cna_effect_lights_get_directional_light) \
+    X(cna_effect_lights_set_enabled) \
+    X(cna_directional_light_destroy) \
+    X(cna_directional_light_set_diffuse_color) \
+    X(cna_directional_light_set_direction) \
+    X(cna_directional_light_set_specular_color) \
+    X(cna_directional_light_set_enabled) \
+    X(cna_alpha_test_effect_create) \
+    X(cna_alpha_test_effect_set_diffuse_color) \
+    X(cna_alpha_test_effect_set_alpha) \
+    X(cna_alpha_test_effect_set_texture) \
+    X(cna_alpha_test_effect_set_vertex_color_enabled) \
+    X(cna_alpha_test_effect_set_alpha_function) \
+    X(cna_alpha_test_effect_set_reference_alpha) \
+    X(cna_dual_texture_effect_create) \
+    X(cna_dual_texture_effect_set_diffuse_color) \
+    X(cna_dual_texture_effect_set_alpha) \
+    X(cna_dual_texture_effect_set_texture) \
+    X(cna_dual_texture_effect_set_vertex_color_enabled) \
+    X(cna_effect_material_create) \
+    X(cna_framework_dispatcher_update) \
+    X(cna_title_container_read_ext) \
+    X(cna_occlusion_query_create) \
+    X(cna_occlusion_query_destroy) \
+    X(cna_occlusion_query_begin) \
+    X(cna_occlusion_query_end) \
+    X(cna_occlusion_query_get_is_complete) \
+    X(cna_occlusion_query_get_pixel_count) \
+    X(cna_vertex_buffer_set_data_raw_at_with_options) \
+    X(cna_sound_effect_create_pcm16_range_ext) \
+    X(cna_sound_effect_create_from_encoded_ext) \
+    X(cna_sound_effect_get_duration_ticks) \
+    X(cna_sound_effect_create_instance) \
+    X(cna_sound_effect_destroy) \
+    X(cna_sound_effect_play) \
+    X(cna_sound_effect_play_with_settings) \
+    X(cna_sound_effect_set_master_volume) \
+    X(cna_sound_effect_set_distance_scale) \
+    X(cna_sound_effect_set_doppler_scale) \
+    X(cna_sound_effect_set_speed_of_sound) \
+    X(cna_sound_effect_instance_play) \
+    X(cna_sound_effect_instance_pause) \
+    X(cna_sound_effect_instance_resume) \
+    X(cna_sound_effect_instance_stop) \
+    X(cna_sound_effect_instance_get_info) \
+    X(cna_sound_effect_instance_set_volume) \
+    X(cna_sound_effect_instance_set_pitch) \
+    X(cna_sound_effect_instance_set_pan) \
+    X(cna_sound_effect_instance_set_is_looped) \
+    X(cna_sound_effect_instance_destroy) \
+    X(cna_sound_effect_instance_apply_3d_multi_ext) \
+    X(cna_dynamic_sound_effect_instance_create) \
+    X(cna_dynamic_sound_effect_instance_get_pending_buffer_count) \
+    X(cna_dynamic_sound_effect_instance_submit_buffer) \
+    X(cna_microphone_get_count) \
+    X(cna_microphone_get_default_index_ext) \
+    X(cna_microphone_get_name_size_at) \
+    X(cna_microphone_copy_name_at) \
+    X(cna_microphone_get_buffer_duration_ticks_at) \
+    X(cna_microphone_set_buffer_duration_ticks_at) \
+    X(cna_microphone_get_is_headset_at) \
+    X(cna_microphone_get_sample_rate_at) \
+    X(cna_microphone_get_state_at) \
+    X(cna_microphone_start_at) \
+    X(cna_microphone_stop_at) \
+    X(cna_microphone_get_data_at) \
+    X(cna_environment_map_effect_create) \
+    X(cna_environment_map_effect_set_diffuse_color) \
+    X(cna_environment_map_effect_set_emissive_color) \
+    X(cna_environment_map_effect_set_alpha) \
+    X(cna_environment_map_effect_set_texture) \
+    X(cna_environment_map_effect_set_environment_map) \
+    X(cna_environment_map_effect_get_amount) \
+    X(cna_environment_map_effect_set_amount) \
+    X(cna_environment_map_effect_get_specular) \
+    X(cna_environment_map_effect_set_specular) \
+    X(cna_environment_map_effect_get_fresnel_factor) \
+    X(cna_environment_map_effect_set_fresnel_factor) \
+    X(cna_skinned_effect_create) \
+    X(cna_skinned_effect_set_diffuse_color) \
+    X(cna_skinned_effect_set_emissive_color) \
+    X(cna_skinned_effect_get_specular_color) \
+    X(cna_skinned_effect_set_specular_color) \
+    X(cna_skinned_effect_get_specular_power) \
+    X(cna_skinned_effect_set_specular_power) \
+    X(cna_skinned_effect_set_alpha) \
+    X(cna_skinned_effect_set_prefer_per_pixel_lighting) \
+    X(cna_skinned_effect_set_texture) \
+    X(cna_skinned_effect_set_weights_per_vertex) \
+    X(cna_skinned_effect_set_bone_transforms) \
+    X(cna_skinned_effect_copy_bone_transforms) \
+    X(cna_effect_create_compiled) \
+    X(cna_content_manager_load_effect) \
+    X(cna_effect_clone) \
+    X(cna_effect_destroy) \
+    X(cna_effect_apply) \
+    X(cna_effect_get_parameters) \
+    X(cna_effect_get_techniques) \
+    X(cna_effect_get_current_technique) \
+    X(cna_effect_set_current_technique) \
+    X(cna_effect_technique_collection_get_count) \
+    X(cna_effect_technique_collection_get_at) \
+    X(cna_effect_technique_destroy) \
+    X(cna_effect_technique_get_name_byte_count) \
+    X(cna_effect_technique_copy_name) \
+    X(cna_effect_technique_get_passes) \
+    X(cna_effect_technique_get_annotations) \
+    X(cna_effect_technique_collection_destroy) \
+    X(cna_effect_pass_collection_get_count) \
+    X(cna_effect_pass_collection_get_at) \
+    X(cna_effect_pass_collection_destroy) \
+    X(cna_effect_pass_destroy) \
+    X(cna_effect_pass_get_name_byte_count) \
+    X(cna_effect_pass_copy_name) \
+    X(cna_effect_pass_get_annotations) \
+    X(cna_effect_pass_apply) \
+    X(cna_effect_parameter_collection_get_count) \
+    X(cna_effect_parameter_collection_get_at) \
+    X(cna_effect_parameter_collection_destroy) \
+    X(cna_effect_parameter_destroy) \
+    X(cna_effect_parameter_get_info) \
+    X(cna_effect_parameter_get_name_byte_count) \
+    X(cna_effect_parameter_copy_name) \
+    X(cna_effect_parameter_get_semantic_byte_count) \
+    X(cna_effect_parameter_copy_semantic) \
+    X(cna_effect_parameter_get_elements) \
+    X(cna_effect_parameter_get_structure_members) \
+    X(cna_effect_parameter_get_annotations) \
+    X(cna_effect_parameter_get_value) \
+    X(cna_effect_parameter_get_values) \
+    X(cna_effect_parameter_set_value) \
+    X(cna_effect_parameter_set_values) \
+    X(cna_effect_parameter_get_value_string_byte_count) \
+    X(cna_effect_parameter_copy_value_string) \
+    X(cna_effect_parameter_set_value_string) \
+    X(cna_effect_parameter_set_value_texture) \
+    X(cna_effect_annotation_collection_get_count) \
+    X(cna_effect_annotation_collection_get_at) \
+    X(cna_effect_annotation_collection_destroy) \
+    X(cna_effect_annotation_destroy) \
+    X(cna_effect_annotation_get_info) \
+    X(cna_effect_annotation_get_name_byte_count) \
+    X(cna_effect_annotation_copy_name) \
+    X(cna_effect_annotation_get_semantic_byte_count) \
+    X(cna_effect_annotation_copy_semantic) \
+    X(cna_effect_annotation_get_value_boolean) \
+    X(cna_effect_annotation_get_value_int32) \
+    X(cna_effect_annotation_get_value_single) \
+    X(cna_effect_annotation_get_value_string_byte_count) \
+    X(cna_effect_annotation_copy_value_string) \
+    X(cna_effect_annotation_get_value_vector2) \
+    X(cna_effect_annotation_get_value_vector3) \
+    X(cna_effect_annotation_get_value_vector4) \
+    X(cna_effect_annotation_get_value_matrix) \
+    X(cna_sprite_font_copy_glyphs) \
+    X(cna_sprite_font_set_default_character) \
+    X(cna_sprite_font_set_line_spacing) \
+    X(cna_sprite_font_set_spacing) \
+    X(cna_sprite_font_destroy) \
+    X(cna_graphics_device_subscribe_event) \
+    X(cna_graphics_device_subscribe_resource_created) \
+    X(cna_graphics_device_subscribe_resource_destroyed) \
+    X(cna_graphics_device_unsubscribe) \
+    X(cna_graphics_device_dispose) \
+    X(cna_graphics_device_get_texture) \
+    X(cna_graphics_device_set_texture) \
+    X(cna_graphics_device_get_sampler_state) \
+    X(cna_graphics_device_set_sampler_state) \
+    X(cna_graphics_device_set_blend_state) \
+    X(cna_graphics_device_set_depth_stencil_state) \
+    X(cna_graphics_device_set_rasterizer_state) \
+    X(cna_render_target2d_create) \
+    X(cna_render_target_get_info) \
+    X(cna_render_target_destroy) \
+    X(cna_graphics_device_set_render_target2d) \
+    X(cna_texture2d_create_from_encoded_memory) \
+    X(cna_texture2d_get_info) \
+    X(cna_texture2d_destroy) \
+    X(cna_sprite_batch_create) \
+    X(cna_sprite_batch_begin) \
+    X(cna_sprite_batch_submit_scaled_many) \
+    X(cna_sprite_batch_submit_many) \
+    X(cna_graphics_device_get_blend_factor) \
+    X(cna_graphics_device_set_blend_factor) \
+    X(cna_graphics_device_get_multi_sample_mask) \
+    X(cna_graphics_device_set_multi_sample_mask) \
+    X(cna_graphics_device_get_reference_stencil) \
+    X(cna_graphics_device_set_reference_stencil) \
+    X(cna_graphics_device_get_scissor_rectangle) \
+    X(cna_graphics_device_set_scissor_rectangle) \
+    X(cna_graphics_device_set_viewport) \
+    X(cna_graphics_device_get_graphics_profile) \
+    X(cna_graphics_device_get_status) \
+    X(cna_graphics_device_get_is_disposed) \
+    X(cna_graphics_device_clear_options) \
+    X(cna_graphics_device_present) \
+    X(cna_graphics_device_get_display_mode) \
+    X(cna_texture2d_create) \
+    X(cna_texture2d_get_encoded_byte_count) \
+    X(cna_texture2d_copy_encoded) \
+    X(cna_texture2d_set_data) \
+    X(cna_texture2d_get_data) \
+    X(cna_sprite_batch_end) \
+    X(cna_sprite_batch_destroy) \
+    X(cna_keyboard_get_state) \
+    X(cna_storage_device_show_selector) \
+    X(cna_storage_device_show_selector_for_player) \
+    X(cna_storage_device_show_selector_with_space) \
+    X(cna_storage_device_show_selector_for_player_with_space) \
+    X(cna_storage_device_get_free_space) \
+    X(cna_storage_device_get_is_connected) \
+    X(cna_storage_device_get_total_space) \
+    X(cna_storage_device_delete_container) \
+    X(cna_storage_device_destroy) \
+    X(cna_storage_container_open) \
+    X(cna_storage_container_get_display_name_size) \
+    X(cna_storage_container_copy_display_name) \
+    X(cna_storage_container_get_is_disposed) \
+    X(cna_storage_container_get_storage_device) \
+    X(cna_storage_container_dispose) \
+    X(cna_storage_container_create_directory) \
+    X(cna_storage_container_directory_exists) \
+    X(cna_storage_container_delete_directory) \
+    X(cna_storage_container_file_exists) \
+    X(cna_storage_container_delete_file) \
+    X(cna_storage_container_get_directory_name_count) \
+    X(cna_storage_container_copy_directory_name) \
+    X(cna_storage_container_get_file_name_count) \
+    X(cna_storage_container_copy_file_name) \
+    X(cna_storage_container_create_file) \
+    X(cna_storage_container_open_file) \
+    X(cna_storage_container_open_file_access) \
+    X(cna_storage_container_open_file_share) \
+    X(cna_storage_container_destroy) \
+    X(cna_storage_stream_read) \
+    X(cna_storage_stream_write) \
+    X(cna_storage_stream_seek) \
+    X(cna_storage_stream_get_position) \
+    X(cna_storage_stream_get_length) \
+    X(cna_storage_stream_set_length) \
+    X(cna_storage_stream_get_can_read) \
+    X(cna_storage_stream_get_can_write) \
+    X(cna_storage_stream_get_can_seek) \
+    X(cna_storage_stream_flush) \
+    X(cna_storage_stream_close) \
+    X(cna_media_source_get_available_count) \
+    X(cna_media_source_get_type_at) \
+    X(cna_media_source_get_name_size_at) \
+    X(cna_media_source_copy_name_at) \
+    X(cna_media_source_get_type_name_size_at) \
+    X(cna_media_source_copy_type_name_at) \
+    X(cna_media_library_copy_media_source_name) \
+    X(cna_media_library_copy_type_name) \
+    X(cna_media_player_play_song) \
+    X(cna_media_player_play_songs) \
+    X(cna_media_player_play_songs_from) \
+    X(cna_audio_unsubscribe_ext) \
+    X(cna_audio_category_copy_name) \
+    X(cna_audio_category_destroy) \
+    X(cna_audio_category_equals) \
+    X(cna_audio_category_get_hash_code) \
+    X(cna_audio_category_get_name_size) \
+    X(cna_audio_category_pause) \
+    X(cna_audio_category_resume) \
+    X(cna_audio_category_set_volume) \
+    X(cna_audio_category_stop) \
+    X(cna_audio_engine_copy_renderer_friendly_name) \
+    X(cna_audio_engine_copy_renderer_id) \
+    X(cna_audio_engine_copy_type_name) \
+    X(cna_audio_engine_create) \
+    X(cna_audio_engine_create_with_renderer) \
+    X(cna_audio_engine_destroy) \
+    X(cna_audio_engine_get_category) \
+    X(cna_audio_engine_get_global_variable) \
+    X(cna_audio_engine_get_is_disposed) \
+    X(cna_audio_engine_get_renderer_count) \
+    X(cna_audio_engine_get_renderer_friendly_name_size) \
+    X(cna_audio_engine_get_renderer_id_size) \
+    X(cna_audio_engine_get_type_name_size) \
+    X(cna_audio_engine_set_global_variable) \
+    X(cna_audio_engine_subscribe_disposing_ext) \
+    X(cna_audio_engine_update) \
+    X(cna_cue_apply_3d) \
+    X(cna_cue_copy_name) \
+    X(cna_cue_copy_type_name) \
+    X(cna_cue_destroy) \
+    X(cna_cue_get_info) \
+    X(cna_cue_get_name_size) \
+    X(cna_cue_get_type_name_size) \
+    X(cna_cue_get_variable) \
+    X(cna_cue_pause) \
+    X(cna_cue_play) \
+    X(cna_cue_resume) \
+    X(cna_cue_set_variable) \
+    X(cna_cue_stop) \
+    X(cna_cue_subscribe_disposing_ext) \
+    X(cna_sound_bank_copy_type_name) \
+    X(cna_sound_bank_create) \
+    X(cna_sound_bank_destroy) \
+    X(cna_sound_bank_get_cue) \
+    X(cna_sound_bank_get_is_disposed) \
+    X(cna_sound_bank_get_is_in_use) \
+    X(cna_sound_bank_get_type_name_size) \
+    X(cna_sound_bank_play_cue) \
+    X(cna_sound_bank_play_cue_3d) \
+    X(cna_sound_bank_subscribe_disposing_ext) \
+    X(cna_wave_bank_copy_type_name) \
+    X(cna_wave_bank_create) \
+    X(cna_wave_bank_create_streaming) \
+    X(cna_wave_bank_destroy) \
+    X(cna_wave_bank_get_is_disposed) \
+    X(cna_wave_bank_get_is_in_use) \
+    X(cna_wave_bank_get_is_prepared) \
+    X(cna_wave_bank_get_type_name_size) \
+    X(cna_wave_bank_subscribe_disposing_ext) \
+    X(cna_media_player_pause) \
+    X(cna_media_player_resume) \
+    X(cna_media_player_stop) \
+    X(cna_media_player_move_next) \
+    X(cna_media_player_move_previous) \
+    X(cna_media_player_get_visualization_data) \
+    X(cna_media_player_get_is_shuffled) \
+    X(cna_media_player_set_is_shuffled) \
+    X(cna_media_player_get_is_repeating) \
+    X(cna_media_player_set_is_repeating) \
+    X(cna_media_player_get_is_muted) \
+    X(cna_media_player_set_is_muted) \
+    X(cna_media_player_get_is_visualization_enabled) \
+    X(cna_media_player_set_is_visualization_enabled) \
+    X(cna_media_player_get_volume) \
+    X(cna_media_player_set_volume) \
+    X(cna_media_player_get_queue) \
+    X(cna_media_player_get_state) \
+    X(cna_media_player_get_play_position_ticks) \
+    X(cna_media_player_get_game_has_control) \
+    X(cna_media_player_subscribe_active_song_changed_ext) \
+    X(cna_media_player_subscribe_media_state_changed_ext) \
+    X(cna_media_player_unsubscribe_ext) \
+    X(cna_media_queue_set_active_song_index) \
+    X(cna_media_queue_get_count) \
+    X(cna_media_queue_get_active_song_index) \
+    X(cna_media_queue_get_active_song) \
+    X(cna_media_queue_get_at) \
+    X(cna_media_queue_destroy) \
+    X(cna_video_get_duration) \
+    X(cna_video_get_width) \
+    X(cna_video_get_height) \
+    X(cna_video_get_frames_per_second) \
+    X(cna_video_get_soundtrack_type) \
+    X(cna_video_destroy) \
+    X(cna_video_player_create) \
+    X(cna_video_player_dispose) \
+    X(cna_video_player_destroy) \
+    X(cna_video_player_play) \
+    X(cna_video_player_pause) \
+    X(cna_video_player_resume) \
+    X(cna_video_player_stop) \
+    X(cna_video_player_get_texture) \
+    X(cna_video_player_get_is_disposed) \
+    X(cna_video_player_get_video) \
+    X(cna_video_player_get_state) \
+    X(cna_video_player_get_is_looped) \
+    X(cna_video_player_set_is_looped) \
+    X(cna_video_player_get_is_muted) \
+    X(cna_video_player_set_is_muted) \
+    X(cna_video_player_get_volume) \
+    X(cna_video_player_set_volume) \
+    X(cna_video_player_get_play_position_ticks) \
+    X(cna_media_library_create) \
+    X(cna_media_library_create_from_source) \
+    X(cna_media_library_destroy) \
+    X(cna_media_library_dispose) \
+    X(cna_media_library_get_albums) \
+    X(cna_media_library_get_artists) \
+    X(cna_media_library_get_genres) \
+    X(cna_media_library_get_is_disposed) \
+    X(cna_media_library_get_media_source_name_size) \
+    X(cna_media_library_get_media_source_type) \
+    X(cna_media_library_get_picture_from_token) \
+    X(cna_media_library_get_pictures) \
+    X(cna_media_library_get_playlists) \
+    X(cna_media_library_get_root_picture_album) \
+    X(cna_media_library_get_saved_pictures) \
+    X(cna_media_library_get_songs) \
+    X(cna_media_library_get_type_name_size) \
+    X(cna_media_library_save_picture) \
+    X(cna_picture_album_collection_copy_type_name) \
+    X(cna_picture_album_collection_destroy) \
+    X(cna_picture_album_collection_dispose) \
+    X(cna_picture_album_collection_get_at) \
+    X(cna_picture_album_collection_get_count) \
+    X(cna_picture_album_collection_get_is_disposed) \
+    X(cna_picture_album_collection_get_type_name_size) \
+    X(cna_picture_album_copy_name) \
+    X(cna_picture_album_copy_type_name) \
+    X(cna_picture_album_destroy) \
+    X(cna_picture_album_dispose) \
+    X(cna_picture_album_equals) \
+    X(cna_picture_album_get_albums) \
+    X(cna_picture_album_get_hash_code) \
+    X(cna_picture_album_get_is_disposed) \
+    X(cna_picture_album_get_name_size) \
+    X(cna_picture_album_get_parent) \
+    X(cna_picture_album_get_pictures) \
+    X(cna_picture_album_get_type_name_size) \
+    X(cna_picture_collection_copy_type_name) \
+    X(cna_picture_collection_destroy) \
+    X(cna_picture_collection_dispose) \
+    X(cna_picture_collection_get_at) \
+    X(cna_picture_collection_get_count) \
+    X(cna_picture_collection_get_is_disposed) \
+    X(cna_picture_collection_get_type_name_size) \
+    X(cna_picture_copy_image) \
+    X(cna_picture_copy_name) \
+    X(cna_picture_copy_thumbnail) \
+    X(cna_picture_copy_type_name) \
+    X(cna_picture_destroy) \
+    X(cna_picture_dispose) \
+    X(cna_picture_equals) \
+    X(cna_picture_get_album) \
+    X(cna_picture_get_date_unix_ticks) \
+    X(cna_picture_get_hash_code) \
+    X(cna_picture_get_height) \
+    X(cna_picture_get_image_size) \
+    X(cna_picture_get_is_disposed) \
+    X(cna_picture_get_name_size) \
+    X(cna_picture_get_thumbnail_size) \
+    X(cna_picture_get_type_name_size) \
+    X(cna_picture_get_width) \
+    X(cna_song_dispose) \
+    X(cna_song_destroy) \
+    X(cna_song_equals) \
+    X(cna_song_get_hash_code) \
+    X(cna_song_get_is_disposed) \
+    X(cna_song_get_name_size) \
+    X(cna_song_copy_name) \
+    X(cna_song_get_type_name_size) \
+    X(cna_song_copy_type_name) \
+    X(cna_song_get_artist) \
+    X(cna_song_get_album) \
+    X(cna_song_get_genre) \
+    X(cna_song_get_duration) \
+    X(cna_song_get_is_rated) \
+    X(cna_song_get_rating) \
+    X(cna_song_get_play_count) \
+    X(cna_song_get_track_number) \
+    X(cna_song_get_is_protected) \
+    X(cna_song_create_from_uri) \
+    X(cna_album_dispose) \
+    X(cna_album_destroy) \
+    X(cna_album_equals) \
+    X(cna_album_get_hash_code) \
+    X(cna_album_get_is_disposed) \
+    X(cna_album_get_name_size) \
+    X(cna_album_copy_name) \
+    X(cna_album_get_type_name_size) \
+    X(cna_album_copy_type_name) \
+    X(cna_album_get_artist) \
+    X(cna_album_get_songs) \
+    X(cna_album_get_genre) \
+    X(cna_album_get_duration) \
+    X(cna_album_get_has_art) \
+    X(cna_album_get_art_size) \
+    X(cna_album_copy_art) \
+    X(cna_album_get_thumbnail_size) \
+    X(cna_album_copy_thumbnail) \
+    X(cna_artist_dispose) \
+    X(cna_artist_destroy) \
+    X(cna_artist_equals) \
+    X(cna_artist_get_hash_code) \
+    X(cna_artist_get_is_disposed) \
+    X(cna_artist_get_name_size) \
+    X(cna_artist_copy_name) \
+    X(cna_artist_get_type_name_size) \
+    X(cna_artist_copy_type_name) \
+    X(cna_artist_get_songs) \
+    X(cna_artist_get_albums) \
+    X(cna_genre_dispose) \
+    X(cna_genre_destroy) \
+    X(cna_genre_equals) \
+    X(cna_genre_get_hash_code) \
+    X(cna_genre_get_is_disposed) \
+    X(cna_genre_get_name_size) \
+    X(cna_genre_copy_name) \
+    X(cna_genre_get_type_name_size) \
+    X(cna_genre_copy_type_name) \
+    X(cna_genre_get_songs) \
+    X(cna_genre_get_albums) \
+    X(cna_playlist_dispose) \
+    X(cna_playlist_destroy) \
+    X(cna_playlist_equals) \
+    X(cna_playlist_get_hash_code) \
+    X(cna_playlist_get_is_disposed) \
+    X(cna_playlist_get_name_size) \
+    X(cna_playlist_copy_name) \
+    X(cna_playlist_get_type_name_size) \
+    X(cna_playlist_copy_type_name) \
+    X(cna_playlist_get_songs) \
+    X(cna_playlist_get_duration) \
+    X(cna_song_collection_dispose) \
+    X(cna_song_collection_destroy) \
+    X(cna_song_collection_get_at) \
+    X(cna_song_collection_get_count) \
+    X(cna_song_collection_get_is_disposed) \
+    X(cna_song_collection_get_type_name_size) \
+    X(cna_song_collection_copy_type_name) \
+    X(cna_album_collection_dispose) \
+    X(cna_album_collection_destroy) \
+    X(cna_album_collection_get_at) \
+    X(cna_album_collection_get_count) \
+    X(cna_album_collection_get_is_disposed) \
+    X(cna_album_collection_get_type_name_size) \
+    X(cna_album_collection_copy_type_name) \
+    X(cna_artist_collection_dispose) \
+    X(cna_artist_collection_destroy) \
+    X(cna_artist_collection_get_at) \
+    X(cna_artist_collection_get_count) \
+    X(cna_artist_collection_get_is_disposed) \
+    X(cna_artist_collection_get_type_name_size) \
+    X(cna_artist_collection_copy_type_name) \
+    X(cna_genre_collection_dispose) \
+    X(cna_genre_collection_destroy) \
+    X(cna_genre_collection_get_at) \
+    X(cna_genre_collection_get_count) \
+    X(cna_genre_collection_get_is_disposed) \
+    X(cna_genre_collection_get_type_name_size) \
+    X(cna_genre_collection_copy_type_name) \
+    X(cna_playlist_collection_dispose) \
+    X(cna_playlist_collection_destroy) \
+    X(cna_playlist_collection_get_at) \
+    X(cna_playlist_collection_get_count) \
+    X(cna_playlist_collection_get_is_disposed) \
+    X(cna_playlist_collection_get_type_name_size) \
+    X(cna_playlist_collection_copy_type_name) \
+    X(cna_content_reader_create) \
+    X(cna_content_reader_get_asset_name_size) \
+    X(cna_content_reader_copy_asset_name) \
+    X(cna_content_reader_read_matrix) \
+    X(cna_content_reader_read_quaternion) \
+    X(cna_content_reader_read_vector2) \
+    X(cna_content_reader_read_vector3) \
+    X(cna_content_reader_read_vector4) \
+    X(cna_content_reader_read_color) \
+    X(cna_content_reader_read_object_tag) \
+    X(cna_content_reader_initialize_type_readers) \
+    X(cna_content_reader_read_shared_resources) \
+    X(cna_content_reader_read_bytes_exact) \
+    X(cna_content_reader_destroy) \
+    X(cna_storage_set_app_name_ext) \
+    X(cna_storage_get_root_size_ext) \
+    X(cna_storage_copy_root_ext) \
+    X(cna_gamepad_get_capabilities) \
+    X(cna_gamepad_get_state) \
+    X(cna_gamepad_get_state_with_dead_zone) \
+    X(cna_gamepad_set_vibration) \
+    X(cna_mouse_get_state) \
+    X(cna_mouse_set_position) \
+    X(cna_mouse_get_window_handle) \
+    X(cna_mouse_set_window_handle) \
+    X(cna_game_window_get_allow_user_resizing) \
+    X(cna_game_window_set_allow_user_resizing) \
+    X(cna_game_window_get_client_bounds) \
+    X(cna_game_window_get_native_handle_ext) \
+    X(cna_game_window_get_screen_device_name_size) \
+    X(cna_game_window_copy_screen_device_name) \
+    X(cna_game_window_begin_screen_device_change) \
+    X(cna_game_window_end_screen_device_change) \
+    X(cna_game_set_window_title) \
+    X(cna_game_window_subscribe)
+
+#endif
