@@ -1,0 +1,61 @@
+package com.openeggbert.cna.template;
+
+import org.junit.jupiter.api.Test;
+
+import java.io.InputStream;
+import java.util.Base64;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+final class MainTests {
+
+    @Test
+    void ParsesDeterministicFrameModes() {
+        assertEquals(0, Main.parseFrameLimit(new String[] {}));
+        assertEquals(60, Main.parseFrameLimit(new String[] {"--smoke-test"}));
+        assertEquals(600, Main.parseFrameLimit(new String[] {"--stability-test"}));
+        assertEquals(17, Main.parseFrameLimit(new String[] {"--frames", "17"}));
+        assertEquals(23, Main.parseFrameLimit(new String[] {"--frames=23"}));
+    }
+
+    @Test
+    void RecognizesTheOptInExtensionsSmoke() {
+        // The extension smoke is a separate mode, so the starter itself stays an XNA program.
+        assertTrue(Main.isExtensionsSmoke(new String[] {"--extensions-smoke"}));
+        assertFalse(Main.isExtensionsSmoke(new String[] {"--smoke-test"}));
+        assertFalse(Main.isExtensionsSmoke(new String[] {}));
+    }
+
+    @Test
+    void RejectsInvalidArguments() {
+        assertThrows(IllegalArgumentException.class,
+                () -> Main.parseFrameLimit(new String[] {"--frames", "0"}));
+        assertThrows(IllegalArgumentException.class,
+                () -> Main.parseFrameLimit(new String[] {"--frames"}));
+        assertThrows(IllegalArgumentException.class,
+                () -> Main.parseFrameLimit(new String[] {"--pretend-web-works"}));
+    }
+
+    @Test
+    void ConfiguresMappedGameWindowBeforeNativeStartup() {
+        try (HelloGame game = new HelloGame(1)) {
+            assertEquals("CNA-Java: HelloGame", game.getWindow().getTitle());
+        }
+    }
+
+    @Test
+    void ShipsARealRawPngFixtureRatherThanAnXnbPlaceholder() throws Exception {
+        try (InputStream resource = MainTests.class.getResourceAsStream("/cna-logo.png.base64")) {
+            assertNotNull(resource);
+            byte[] png = Base64.getMimeDecoder().decode(resource.readAllBytes());
+            assertEquals((byte)0x89, png[0]);
+            assertEquals('P', png[1]);
+            assertEquals('N', png[2]);
+            assertEquals('G', png[3]);
+        }
+    }
+}

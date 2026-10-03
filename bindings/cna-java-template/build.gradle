@@ -1,0 +1,9 @@
+allprojects {
+    repositories {
+        maven {
+            url = uri(rootProject.findProperty('cnaRepository') ?:
+                    new File(rootProject.projectDir, '.cna-repository'))
+        }
+        mavenCentral()
+    }
+}

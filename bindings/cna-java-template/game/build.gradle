@@ -1,0 +1,64 @@
+plugins {
+    id 'java'
+    id 'application'
+}
+
+group = 'org.openeggbert.examples'
+version = '0.1.0-SNAPSHOT'
+
+base {
+    archivesName = findProperty('artifactId') ?: 'cna-java-template-game'
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
+}
+
+dependencies {
+    implementation "org.openeggbert:cna-java:${findProperty('cnaVersion') ?: '0.1.0-SNAPSHOT'}"
+    testImplementation platform('org.junit:junit-bom:5.11.4')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.release = 17
+    options.encoding = 'UTF-8'
+    options.compilerArgs.addAll(['-parameters', '-Xlint:all', '-Werror'])
+}
+
+test {
+    useJUnitPlatform()
+}
+
+application {
+    mainClass = 'com.openeggbert.cna.template.Main'
+}
+
+// Gradle's `run` starts a fresh JVM, so a -D on the Gradle command line does not reach the game.
+// The two properties that say where the native libraries are have to be forwarded explicitly,
+// or the starter fails with UnsatisfiedLinkError on a machine where they are not installed
+// system-wide -- which is every machine that has just built CNA from source.
+run {
+    ['cna.java.jniLibrary', 'cna.native.library'].each { name ->
+        String value = System.getProperty(name)
+        if (value != null) {
+            systemProperty name, value
+        }
+    }
+    // The same problem one layer out: a fresh JVM inherits the Gradle daemon's environment, not
+    // the shell's. CNA_GRAPHICS_RENDERER is how a multi-renderer build is told which renderer to
+    // use, and the display variables are how a GPU renderer is pointed at a virtual display
+    // instead of someone's desktop. WAYLAND_DISPLAY is blanked alongside an X11 display, because
+    // SDL prefers Wayland whenever that variable is set.
+    ['CNA_GRAPHICS_RENDERER', 'DISPLAY', 'SDL_VIDEODRIVER', 'WAYLAND_DISPLAY'].each { name ->
+        String value = System.getenv(name)
+        if (value != null) {
+            environment name, value
+        }
+    }
+    if (System.getenv('DISPLAY') && !System.getenv('WAYLAND_DISPLAY')) {
+        environment 'WAYLAND_DISPLAY', ''
+    }
+}
