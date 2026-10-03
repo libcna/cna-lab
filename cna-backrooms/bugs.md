@@ -1,0 +1,50 @@
+# CNA findings and game-side workarounds
+
+## Existing EasyGL vertex-buffer uploads during Update have no current context
+
+Observed with CNA `next` at `1ca684199f9bbf56c522a4f0d4e13446d4bae7e1`, sharp-runtime `next` at `9e58c955d0449c50f5f4124c3e1fdd7b821125cf`, Linux desktop `OPENGLES3`, Mesa 25.0.7.
+
+**Symptom:** after several chunk crossings, some recycled buffers still render their previous chunk data. Floors and ceilings disappear into the clear color and wallpaper appears on incorrect geometry. World generation and collision remain deterministic, so a fresh launch at the same position looks correct.
+
+**Reproduction:** seed 12345, Level 0; fully load the neighborhoods centered at chunks `(0,0)`, `(-1,0)`, `(-2,0)`, then `(-2,1)` with the normal buffer pool. At position `(-77.5,75.5)`, looking toward positive Z, the western part of the room is corrupted. A normal 320 m controller route found it. Disabling buffer reuse removes it. Switching to `DynamicVertexBuffer` with `SetDataOptions::Discard` does not remove it.
+
+**Cause:** `GraphicsDeviceManager::EndDraw` releases its frame context lease. `EasyGLRenderer::CreateVertexBuffer` calls `EnsureCallingThreadContext`, but `EasyGLVertexBufferRenderer::SetData` and `SetDataWithOptions` directly issue GL calls. `VertexBuffer` does not wrap those existing-resource writes in a context lease. A reused buffer written in `Update` therefore receives no GPU update when no context is current. New allocations happen to bind the context and can hide the problem. GPU read mapping in the failing upload sequence also returns null; a scoped renderer context makes the readback match the generated vertices and restores the exact screenshot.
+
+**Game workaround:** `BackroomsGame::Stream` holds CNA's existing `GetRenderer().AcquireThreadContextLeaseEXT()` token through buffer retirement and uploads. Level transitions and final GPU resource cleanup use the same RAII scope. The bounded 48-buffer pool remains enabled. The game continues to use ordinary CNA vertex buffers and BasicEffect; no direct GL calls are used by the workaround.
+
+**Engine follow-up:** have existing vertex/index-buffer operations acquire a device context lease, including their resource deletion paths, as framework texture operations already do. Add an EasyGL regression which writes an existing buffer between frame leases and then compares its GPU rendering. This repository does not modify CNA or sharp-runtime.
+
+
+## Shared next-branch edits interrupted an incremental Debug build
+
+During the format 38 pass, an incremental Debug build failed in CNA
+`modules/runtime/src/Game.cpp`: its lifecycle visitor called
+`setIsActiveProperty`, while the declaration was unavailable to that compile.
+The log is `build/build38-debug.log` (local ignored evidence). Sibling checkouts
+were being changed externally; the subsequent read showed CNA HEAD
+`c90f0e39f45e7823623058a1063b364735a9214e`, Sharp Runtime HEAD
+`6c4a857de129cf29b5d43430bedf24157d594f12`, additional uncommitted CNA input/runtime
+edits, and the setter declaration present again in Game.hpp.
+
+This is a transient shared-checkout consistency observation, not a diagnosed
+persistent CNA bug. No sibling files, refs or working changes were altered by
+this game agent. Retrying the normal incremental build against the consistent
+headers succeeds (`build/build38-debug-retry.log`), and all three Debug CTest
+suites pass. The refreshed Release build also succeeds with all three suites
+passing. The actual controller walk uses this refreshed binary, rather than
+inferring that the external runtime/input changes work from the old binary.
+
+## Dependency-wide SDL inventory audit blocks standalone configuration
+
+During final delivery, the externally changing CNA next checkout at
+`200d08fb67f538317fca8363acb04e0363a19857` rejects Debug regeneration in
+`cmake/PlatformRatchet.cmake:102`. Its non-production SDL audit reports new
+Windows/GDI and other renderer test sources, even though this game's CNA tests
+and examples are disabled and only EasyGL OPENGLES3 is selected. Reproduction
+log: `build/beam49-debug-build.log`. This is a dependency configure gate,
+not a failure in the game's world tests or graphics output.
+
+The standalone project's CMake disables `CNA_PLATFORM_RATCHET` before adding
+CNA. That option controls engine developer source-inventory audits. The game's
+CTest suites remain enabled; no CNA or Sharp Runtime source is modified.
+The owning CNA developers can classify their new test files in their inventory.

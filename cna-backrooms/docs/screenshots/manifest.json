@@ -1,0 +1,200 @@
+{
+  "format": 1,
+  "views": [
+    {
+      "file": "level0-01.jpg",
+      "world_format": 48,
+      "source_directory": "build/controller-default48",
+      "name": "view-00_right",
+      "seed": 3133931525,
+      "level": 0,
+      "x": 16.5,
+      "z": 2.5,
+      "heading": -3.673205103638111e-06,
+      "title": "cna-backrooms | Level 0 (The Yellow Rooms) | seed 3133931525 | pos 16.5,2.5 | view -0.0,0.0 | chunk 0,0 | loaded 25/25 | tris 134402 | draw 13/25 69376 tris | VBO 171/0 pool 0 gpu 10.6 MiB | rooms 40 | entities 1 voices 0 | nearest 35.99/1.00 | build 2.07 ms | peak 4.77 ms | walk | audio on | 40 FPS | draw p95/max 25.57/33.12 ms | submit 0.65 ms | 59 UPS"
+    },
+    {
+      "file": "level0-02.jpg",
+      "world_format": 48,
+      "source_directory": "build/controller-default48",
+      "name": "view-12_right",
+      "seed": 3133931525,
+      "level": 0,
+      "x": 63.5,
+      "z": 41.5,
+      "heading": -3.673205103638111e-06,
+      "title": "cna-backrooms | Level 0 (The Yellow Rooms) | seed 3133931525 | pos 63.5,41.5 | view -0.0,0.0 | chunk 1,1 | loaded 25/25 | tris 132578 | draw 13/25 67390 tris | VBO 176/127 pool 13 gpu 11.6 MiB | rooms 62 | entities 1 voices 0 | nearest 84.75/1.00 | build 2.24 ms | peak 4.77 ms | walk | audio on | 40 FPS | draw p95/max 25.44/25.59 ms | submit 0.40 ms | 59 UPS"
+    },
+    {
+      "file": "level0-03.jpg",
+      "world_format": 48,
+      "source_directory": "build/controller-default48",
+      "name": "view-24_right",
+      "seed": 3133931525,
+      "level": 0,
+      "x": 73.6,
+      "z": 61.5,
+      "heading": -3.673205103638111e-06,
+      "title": "cna-backrooms | Level 0 (The Yellow Rooms) | seed 3133931525 | pos 73.6,61.5 | view -0.0,0.0 | chunk 1,1 | loaded 25/25 | tris 132578 | draw 11/25 56796 tris | VBO 176/127 pool 13 gpu 11.6 MiB | rooms 62 | entities 1 voices 0 | nearest 106.30/1.00 | build 2.24 ms | peak 4.77 ms | walk | audio on | 39 FPS | draw p95/max 26.17/26.96 ms | submit 0.35 ms | 59 UPS"
+    },
+    {
+      "file": "level0-04.jpg",
+      "world_format": 48,
+      "source_directory": "build/controller-default48",
+      "name": "view-36_back",
+      "seed": 3133931525,
+      "level": 0,
+      "x": 187.5,
+      "z": 122.5,
+      "heading": -1.5598036732051037,
+      "title": "cna-backrooms | Level 0 (The Yellow Rooms) | seed 3133931525 | pos 187.5,122.5 | view -89.4,0.0 | chunk 4,3 | loaded 25/25 | tris 127870 | draw 11/25 57700 tris | VBO 176/286 pool 16 gpu 11.5 MiB | rooms 98 | entities 1 voices 0 | nearest 88.85/1.00 | build 2.01 ms | peak 4.77 ms | walk | audio on | 39 FPS | draw p95/max 26.29/36.08 ms | submit 0.39 ms | 59 UPS"
+    },
+    {
+      "file": "level0-05.jpg",
+      "world_format": 48,
+      "source_directory": "build/controller-default48",
+      "name": "view-48_back",
+      "seed": 3133931525,
+      "level": 0,
+      "x": 253.5,
+      "z": 167.5,
+      "heading": -1.5642036732051035,
+      "title": "cna-backrooms | Level 0 (The Yellow Rooms) | seed 3133931525 | pos 253.5,167.5 | view -89.6,0.0 | chunk 6,4 | loaded 25/25 | tris 131530 | draw 11/25 56560 tris | VBO 176/389 pool 7 gpu 11.5 MiB | rooms 117 | entities 0 voices 0 | nearest 0.00/0.00 | build 2.57 ms | peak 4.77 ms | walk | audio on | 39 FPS | draw p95/max 25.91/26.15 ms | submit 0.60 ms | 59 UPS"
+    },
+    {
+      "file": "level0-06.jpg",
+      "world_format": 48,
+      "source_directory": "build/controller-default48",
+      "name": "view-60_back",
+      "seed": 3133931525,
+      "level": 0,
+      "x": 298.5,
+      "z": 181.5,
+      "heading": -1.5598036732051035,
+      "title": "cna-backrooms | Level 0 (The Yellow Rooms) | seed 3133931525 | pos 298.5,181.5 | view -89.4,0.0 | chunk 7,4 | loaded 25/25 | tris 131690 | draw 11/25 57884 tris | VBO 177/420 pool 8 gpu 11.7 MiB | rooms 121 | entities 1 voices 0 | nearest 74.57/1.00 | build 3.27 ms | peak 4.77 ms | walk | audio on | 39 FPS | draw p95/max 26.00/27.19 ms | submit 0.55 ms | 59 UPS"
+    },
+    {
+      "file": "creature-wanderer.jpg",
+      "world_format": 47,
+      "source_directory": "build/creatures47-approach",
+      "name": "l0-k0-00-d6.0",
+      "level": 0,
+      "kind": 0,
+      "seed": "12345",
+      "center": [
+        -297.5,
+        272.5
+      ],
+      "phase": 3.07,
+      "target_distance": 6,
+      "title": "cna-backrooms | Level 0 (The Yellow Rooms) | seed 12345 | pos -291.5,272.5 | view -90.0,0.0 | chunk -8,6 | loaded 25/25 | tris 123454 | draw 11/25 52512 tris | VBO 163/0 pool 0 gpu 9.8 MiB | rooms 37 | entities 4 voices 0 | nearest 6.28/1.00 | build 2.79 ms | peak 4.99 ms | walk | audio on | 40 FPS | draw p95/max 27.86/42.79 ms | submit 0.61 ms | 59 UPS"
+    },
+    {
+      "file": "creature-watcher.jpg",
+      "world_format": 47,
+      "source_directory": "build/creatures47-approach",
+      "name": "l0-k1-00-d6.0",
+      "level": 0,
+      "kind": 1,
+      "seed": "12345",
+      "center": [
+        -267.5,
+        -262.5
+      ],
+      "phase": 0.62,
+      "target_distance": 6,
+      "title": "cna-backrooms | Level 0 (The Yellow Rooms) | seed 12345 | pos -261.5,-262.5 | view -90.0,0.0 | chunk -7,-7 | loaded 25/25 | tris 134948 | draw 11/25 59000 tris | VBO 169/0 pool 0 gpu 10.6 MiB | rooms 45 | entities 1 voices 0 | nearest 5.55/1.00 | build 5.44 ms | peak 14.13 ms | walk | audio on | 38 FPS | draw p95/max 27.76/147.68 ms | submit 0.55 ms | 59 UPS"
+    },
+    {
+      "file": "creature-crawler.jpg",
+      "world_format": 47,
+      "source_directory": "build/creatures47-approach",
+      "name": "l0-k2-00-d6.0",
+      "level": 0,
+      "kind": 2,
+      "seed": "12345",
+      "center": [
+        -262.5,
+        27.5
+      ],
+      "phase": 5.3,
+      "target_distance": 6,
+      "title": "cna-backrooms | Level 0 (The Yellow Rooms) | seed 12345 | pos -256.5,27.5 | view -90.0,0.0 | chunk -7,0 | loaded 25/25 | tris 126258 | draw 11/25 53540 tris | VBO 172/0 pool 0 gpu 10.1 MiB | rooms 38 | entities 4 voices 0 | nearest 6.22/1.00 | build 2.77 ms | peak 3.45 ms | walk | audio on | 40 FPS | draw p95/max 26.01/30.39 ms | submit 0.47 ms | 59 UPS"
+    },
+    {
+      "file": "level1-01.jpg",
+      "world_format": 49,
+      "source_directory": "build/beam49-final",
+      "name": "l1_open",
+      "seed": 12345,
+      "level": 1,
+      "x": 32.5,
+      "z": -2.5,
+      "relative_mouse_x": 0,
+      "relative_mouse_y": 0,
+      "title": "cna-backrooms | Level 1 (Service Storage) | seed 12345 | pos 32.5,-2.5 | view 90.0,0.0 | chunk 0,-1 | loaded 25/25 | tris 73768 | draw 11/25 32448 tris | VBO 194/0 pool 0 gpu 6.3 MiB | rooms 23 | entities 2 voices 0 | nearest 29.68/1.00 | build 2.39 ms | peak 3.36 ms | walk | audio on | 41 FPS | draw p95/max 28.53/43.89 ms | submit 1.11 ms | 60 UPS"
+    },
+    {
+      "file": "level1-02.jpg",
+      "world_format": 49,
+      "source_directory": "build/beam49-final",
+      "name": "l1_rooms",
+      "seed": 12345,
+      "level": 1,
+      "x": 2.5,
+      "z": -22.5,
+      "relative_mouse_x": 0,
+      "relative_mouse_y": 0,
+      "title": "cna-backrooms | Level 1 (Service Storage) | seed 12345 | pos 2.5,-22.5 | view 90.0,0.0 | chunk 0,-1 | loaded 25/25 | tris 73768 | draw 13/25 37908 tris | VBO 194/0 pool 0 gpu 6.3 MiB | rooms 23 | entities 2 voices 0 | nearest 53.16/1.00 | build 1.24 ms | peak 1.89 ms | walk | audio on | 41 FPS | draw p95/max 26.32/27.18 ms | submit 0.86 ms | 59 UPS"
+    },
+    {
+      "file": "level1-03.jpg",
+      "world_format": 49,
+      "source_directory": "build/beam49-final",
+      "name": "l1_storage",
+      "seed": 12345,
+      "level": 1,
+      "x": 2.5,
+      "z": 27.5,
+      "relative_mouse_x": 0,
+      "relative_mouse_y": 0,
+      "title": "cna-backrooms | Level 1 (Service Storage) | seed 12345 | pos 2.5,27.5 | view 90.0,0.0 | chunk 0,0 | loaded 25/25 | tris 73094 | draw 13/25 38284 tris | VBO 196/0 pool 0 gpu 6.3 MiB | rooms 23 | entities 2 voices 0 | nearest 42.21/1.00 | build 1.75 ms | peak 1.80 ms | walk | audio on | 40 FPS | draw p95/max 26.64/27.44 ms | submit 0.62 ms | 59 UPS"
+    },
+    {
+      "file": "level2-01.jpg",
+      "world_format": 48,
+      "source_directory": "build/controller-tunnels48",
+      "name": "view-00_right",
+      "seed": 12345,
+      "level": 2,
+      "x": 17.5,
+      "z": 2.5,
+      "heading": 0.0,
+      "title": "cna-backrooms | Level 2 (Maintenance Tunnels) | seed 12345 | pos 17.5,2.5 | view 0.0,0.0 | chunk 0,0 | loaded 25/25 | tris 553374 | draw 13/25 286666 tris | VBO 198/0 pool 0 gpu 39.3 MiB | rooms 0 | entities 1 voices 0 | nearest 55.81/1.00 | build 6.39 ms | peak 7.95 ms | walk | audio on | 39 FPS | draw p95/max 26.28/29.17 ms | submit 0.41 ms | 59 UPS"
+    },
+    {
+      "file": "level2-02.jpg",
+      "world_format": 48,
+      "source_directory": "build/controller-tunnels48",
+      "name": "view-10_back",
+      "seed": 12345,
+      "level": 2,
+      "x": 1.5,
+      "z": -11.5,
+      "heading": 1.5708000000000002,
+      "title": "cna-backrooms | Level 2 (Maintenance Tunnels) | seed 12345 | pos 1.5,-11.5 | view 90.0,0.0 | chunk 0,-1 | loaded 25/25 | tris 554372 | draw 13/25 281188 tris | VBO 199/39 pool 1 gpu 40.8 MiB | rooms 0 | entities 1 voices 0 | nearest 48.67/1.00 | build 3.76 ms | peak 7.95 ms | walk | audio on | 39 FPS | draw p95/max 26.55/27.90 ms | submit 0.83 ms | 59 UPS"
+    },
+    {
+      "file": "level2-03.jpg",
+      "world_format": 48,
+      "source_directory": "build/controller-tunnels48",
+      "name": "view-40_back",
+      "seed": 12345,
+      "level": 2,
+      "x": -28.5,
+      "z": -40.5,
+      "heading": 3.091,
+      "title": "cna-backrooms | Level 2 (Maintenance Tunnels) | seed 12345 | pos -28.5,-40.5 | view 177.1,0.0 | chunk -1,-2 | loaded 25/25 | tris 579812 | draw 14/25 328914 tris | VBO 208/196 pool 3 gpu 50.1 MiB | rooms 0 | entities 2 voices 0 | nearest 56.77/1.00 | build 4.34 ms | peak 8.49 ms | walk | audio on | 39 FPS | draw p95/max 26.54/34.35 ms | submit 0.59 ms | 59 UPS"
+    }
+  ]
+}

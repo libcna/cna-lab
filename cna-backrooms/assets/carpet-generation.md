@@ -1,0 +1,9 @@
+# Original carpet texture
+
+`carpet-v1.png` was generated specifically for cna-backrooms with the built-in OpenAI image generation tool on 2026-09-28. No reference image was supplied. The source PNG is retained without offline edits; SHA-256 is `dc69594938390cd9da8c3e4db287731d11b61836e4cd3efa9789d304a2e1bf4a`.
+
+CNA decodes/resizes it to 1024 by 1024, and the game builds the existing mip chain. A procedural fallback remains if the PNG is absent or cannot be decoded. Seven matched close, broad-room and chunk-border views compare four-metre and two-metre footprints. The selected two-metre footprint uses smaller, more believable loops; the same UV density applies to floor and contact-shadow geometry. Missing and corrupt-file launches verify the procedural fallback.
+
+## Generation prompt
+
+> Use case: photorealistic-natural. Asset type: seamless square diffuse/albedo texture for the flat floor of a low-budget Backrooms exploration game. Primary request: an original old commercial office carpet material, dirty warm beige/taupe with muted brown fibers, densely packed short loop pile. Orthographic directly overhead material scan of approximately 4 metres by 4 metres of continuous installed carpet, absolutely flat and edge-to-edge. Fine real textile fibers at 4-8 mm scale, subtle uneven wear and modest irregular ingrained dirt at 5-20 cm scale; low contrast overall. It should read unmistakably as rough office carpet, not sand, plaster, marble, clouds, fur or a woven rug. Neutral even diffuse lighting baked into no directional shading, no perspective, no shadows, no highlights, no center spotlight, no vignette, no borders, no objects, no furniture, no carpet tiles or seams, no decorative pattern, no text or watermark. Seamless wrap on all four sides and no large distinctive stains that reveal tiling. Color average approximately muted beige-brown RGB 170,157,126; occasional lighter beige and darker grey-brown threads. One square texture only.

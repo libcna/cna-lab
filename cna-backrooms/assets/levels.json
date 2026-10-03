@@ -1,0 +1,105 @@
+{
+  "format": 1,
+  "levels": [
+    {
+      "id": 0,
+      "name": "The Yellow Rooms",
+      "ceiling_height": 2.75,
+      "doorway_height": 2.4,
+      "fog": {
+        "start": 18,
+        "end": 85,
+        "color": [108, 101, 78]
+      },
+      "lighting": {
+        "ambient": 0.42,
+        "fluorescent_strength": 0.55,
+        "wall_bounce": 0.16,
+        "ceiling_bounce": 0.42
+      },
+      "entity_rarity": 850,
+      "tints": {
+        "wall": [255, 250, 214],
+        "pillar": [231, 224, 184],
+        "trim": [255, 251, 215],
+        "floor": [246, 240, 207],
+        "ceiling": [255, 252, 218],
+        "structure": [143, 139, 115],
+        "fluorescent": [255, 251, 228]
+      },
+      "regions": [
+        {"kind": "open_office", "weight": 18},
+        {"kind": "columns", "weight": 16},
+        {"kind": "rooms", "weight": 31},
+        {"kind": "halls", "weight": 21},
+        {"kind": "irregular", "weight": 14}
+      ]
+    },
+    {
+      "id": 1,
+      "name": "Service Storage",
+      "ceiling_height": 4.1,
+      "doorway_height": 2.8,
+      "fog": {
+        "start": 20,
+        "end": 95,
+        "color": [56, 67, 67]
+      },
+      "lighting": {
+        "ambient": 0.6,
+        "fluorescent_strength": 0.38,
+        "wall_bounce": 0.32,
+        "ceiling_bounce": 0.6
+      },
+      "entity_rarity": 650,
+      "tints": {
+        "wall": [175, 197, 206],
+        "pillar": [188, 202, 200],
+        "trim": [110, 130, 128],
+        "floor": [122, 137, 142],
+        "ceiling": [205, 220, 219],
+        "structure": [94, 114, 112],
+        "fluorescent": [204, 230, 230]
+      },
+      "regions": [
+        {"kind": "storage", "weight": 35},
+        {"kind": "open_office", "weight": 18},
+        {"kind": "columns", "weight": 15},
+        {"kind": "halls", "weight": 18},
+        {"kind": "rooms", "weight": 14}
+      ]
+    },
+    {
+      "id": 2,
+      "name": "Maintenance Tunnels",
+      "ceiling_height": 2.55,
+      "doorway_height": 2.08,
+      "fog": {
+        "start": 12,
+        "end": 65,
+        "color": [39, 41, 35]
+      },
+      "lighting": {
+        "ambient": 0.47,
+        "fluorescent_strength": 0.54,
+        "wall_bounce": 0.32,
+        "ceiling_bounce": 0.6
+      },
+      "entity_rarity": 750,
+      "tints": {
+        "wall": [239, 231, 211],
+        "pillar": [218, 210, 188],
+        "trim": [105, 113, 101],
+        "floor": [215, 204, 178],
+        "ceiling": [140, 143, 131],
+        "structure": [104, 114, 99],
+        "fluorescent": [255, 231, 181]
+      },
+      "regions": [
+        {"kind": "tunnels", "weight": 65},
+        {"kind": "irregular", "weight": 23},
+        {"kind": "halls", "weight": 12}
+      ]
+    }
+  ]
+}
