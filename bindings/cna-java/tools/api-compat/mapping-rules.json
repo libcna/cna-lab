@@ -1,0 +1,626 @@
+{
+  "schemaVersion": 1,
+  "methodCasing": "preserve",
+  "propertyGetterPrefix": "get",
+  "propertySetterPrefix": "set",
+  "indexerGetter": "get",
+  "indexerSetter": "set",
+  "eventAddPrefix": "add",
+  "eventRemovePrefix": "remove",
+  "eventSuffix": "Listener",
+  "timeSpan": "java.time.Duration",
+  "disposable": {
+    "clrPublicDispose": "Dispose()",
+    "javaBridge": "close()",
+    "javaInterface": "java.lang.AutoCloseable",
+    "note": "A public parameterless CLR Dispose keeps its XNA name; close() is added as the AutoCloseable bridge and delegates to it. A CLR type that implements IDisposable explicitly projects close() alone."
+  },
+  "flagsEnumProjection": "immutable-value-class",
+  "frameworkTypeMappings": {
+    "System.EventArgs": "Microsoft.Xna.Framework.EventArgs",
+    "System.EventHandler`1": "Microsoft.Xna.Framework.EventHandler",
+    "System.IServiceProvider": "Microsoft.Xna.Framework.ServiceProvider",
+    "System.IntPtr": "Microsoft.Xna.Framework.WindowHandle",
+    "System.Uri": "java.net.URI",
+    "System.DateTime": "java.time.Instant",
+    "System.Runtime.InteropServices.ExternalException": "java.lang.RuntimeException",
+    "System.Globalization.CultureInfo": "java.util.Locale",
+    "System.ComponentModel.ExpandableObjectConverter": "java.lang.Object",
+    "System.ComponentModel.PropertyDescriptorCollection": "java.util.LinkedHashMap<java.lang.String,java.lang.Class<?>>",
+    "System.ComponentModel.Design.Serialization.InstanceDescriptor": "java.beans.Expression",
+    "System.Collections.IDictionary": "java.util.Map<java.lang.String,java.lang.Object>",
+    "System.Collections.ObjectModel.Collection`1": "java.util.AbstractList",
+    "System.Collections.ObjectModel.ReadOnlyCollection`1": "java.util.List",
+    "System.Collections.Generic.Dictionary`2": "java.util.LinkedHashMap",
+    "System.Text.StringBuilder": "java.lang.StringBuilder",
+    "System.Globalization.RegionInfo": "java.util.Locale",
+    "System.Collections.Generic.IDictionary`2": "java.util.Map",
+    "System.Collections.Generic.KeyValuePair`2": "java.util.Map.Entry"
+  },
+  "typeBaseTypeMappings": {
+    "Microsoft.Xna.Framework.Graphics.ModelBoneCollection": "java.util.AbstractList<Microsoft.Xna.Framework.Graphics.ModelBone>",
+    "Microsoft.Xna.Framework.Graphics.ModelEffectCollection": "java.util.AbstractList<Microsoft.Xna.Framework.Graphics.Effect>",
+    "Microsoft.Xna.Framework.Graphics.ModelMeshCollection": "java.util.AbstractList<Microsoft.Xna.Framework.Graphics.ModelMesh>",
+    "Microsoft.Xna.Framework.Graphics.ModelMeshPartCollection": "java.util.AbstractList<Microsoft.Xna.Framework.Graphics.ModelMeshPart>",
+    "Microsoft.Xna.Framework.GamerServices.GamerCollection": "java.util.AbstractList<T>",
+    "Microsoft.Xna.Framework.Net.AvailableNetworkSessionCollection": "java.util.AbstractList<Microsoft.Xna.Framework.Net.AvailableNetworkSession>"
+  },
+  "memberParameterTypeMappings": {
+    "Microsoft.Xna.Framework.Graphics.Texture2D.FromStream(Microsoft.Xna.Framework.Graphics.GraphicsDevice,System.IO.Stream)": {
+      "stream": "java.io.InputStream"
+    },
+    "Microsoft.Xna.Framework.Graphics.Texture2D.FromStream(Microsoft.Xna.Framework.Graphics.GraphicsDevice,System.IO.Stream,System.Int32,System.Int32,System.Boolean)": {
+      "stream": "java.io.InputStream"
+    },
+    "Microsoft.Xna.Framework.Graphics.Texture2D.SaveAsJpeg(System.IO.Stream,System.Int32,System.Int32)": {
+      "stream": "java.io.OutputStream"
+    },
+    "Microsoft.Xna.Framework.Graphics.Texture2D.SaveAsPng(System.IO.Stream,System.Int32,System.Int32)": {
+      "stream": "java.io.OutputStream"
+    },
+    "Microsoft.Xna.Framework.Media.MediaLibrary.SavePicture(System.String,System.IO.Stream)": {
+      "source": "java.io.InputStream"
+    }
+  },
+  "memberReturnTypeMappings": {
+    "Microsoft.Xna.Framework.Content.ContentManager.OpenStream(System.String)": "java.io.InputStream",
+    "Microsoft.Xna.Framework.TitleContainer.OpenStream(System.String)": "java.io.InputStream",
+    "Microsoft.Xna.Framework.Media.Album.GetAlbumArt()": "java.io.InputStream",
+    "Microsoft.Xna.Framework.Media.Album.GetThumbnail()": "java.io.InputStream",
+    "Microsoft.Xna.Framework.Media.Picture.GetImage()": "java.io.InputStream",
+    "Microsoft.Xna.Framework.Media.Picture.GetThumbnail()": "java.io.InputStream",
+    "Microsoft.Xna.Framework.Design.MathTypeConverter.GetProperties(System.ComponentModel.ITypeDescriptorContext,System.Object,System.Attribute[])": "java.util.LinkedHashMap<java.lang.String,java.lang.Object>"
+  },
+  "omittedFrameworkParameterTypes": [
+    "System.ComponentModel.ITypeDescriptorContext",
+    "System.Attribute[]"
+  ],
+  "designTypeConverterProjection": {
+    "baseContract": "Microsoft.Xna.Framework.Design.MathTypeConverter",
+    "systemType": "java.lang.Class<?>",
+    "cultureInfo": "java.util.Locale",
+    "typeDescriptorContext": "omitted",
+    "propertyDescriptions": "java.util.LinkedHashMap<java.lang.String,java.lang.Class<?>>",
+    "propertyDecomposition": "java.util.LinkedHashMap<java.lang.String,java.lang.Object>",
+    "instanceDescriptor": "java.beans.Expression",
+    "createInstanceDictionary": "java.util.Map<java.lang.String,java.lang.Object>",
+    "attributeFilter": "omitted"
+  },
+  "memberNameMappings": {
+    "Microsoft.Xna.Framework.Content.ContentTypeReader`1.Read(Microsoft.Xna.Framework.Content.ContentReader,!0)": "ReadTyped"
+  },
+  "refOutMemberMappings": {
+    "Microsoft.Xna.Framework.Graphics.GraphicsAdapter.QueryBackBufferFormat(Microsoft.Xna.Framework.Graphics.GraphicsProfile,Microsoft.Xna.Framework.Graphics.SurfaceFormat,Microsoft.Xna.Framework.Graphics.DepthFormat,System.Int32,Microsoft.Xna.Framework.Graphics.SurfaceFormat&,Microsoft.Xna.Framework.Graphics.DepthFormat&,System.Int32&)": {
+      "name": "QueryBackBufferFormat",
+      "returnType": "Microsoft.Xna.Framework.Graphics.GraphicsAdapter.FormatSelectionResult"
+    },
+    "Microsoft.Xna.Framework.Graphics.GraphicsAdapter.QueryRenderTargetFormat(Microsoft.Xna.Framework.Graphics.GraphicsProfile,Microsoft.Xna.Framework.Graphics.SurfaceFormat,Microsoft.Xna.Framework.Graphics.DepthFormat,System.Int32,Microsoft.Xna.Framework.Graphics.SurfaceFormat&,Microsoft.Xna.Framework.Graphics.DepthFormat&,System.Int32&)": {
+      "name": "QueryRenderTargetFormat",
+      "returnType": "Microsoft.Xna.Framework.Graphics.GraphicsAdapter.FormatSelectionResult"
+    },
+    "Microsoft.Xna.Framework.Input.Touch.TouchLocation.TryGetPreviousLocation(Microsoft.Xna.Framework.Input.Touch.TouchLocation&)": {
+      "name": "TryGetPreviousLocation",
+      "returnType": "Microsoft.Xna.Framework.Input.Touch.TouchLocation.PreviousLocationResult"
+    },
+    "Microsoft.Xna.Framework.Input.Touch.TouchCollection.FindById(System.Int32,Microsoft.Xna.Framework.Input.Touch.TouchLocation&)": {
+      "name": "FindById",
+      "returnType": "Microsoft.Xna.Framework.Input.Touch.TouchCollection.FindResult"
+    },
+    "Microsoft.Xna.Framework.Graphics.ModelBoneCollection.TryGetValue(System.String,Microsoft.Xna.Framework.Graphics.ModelBone&)": {
+      "name": "TryGetValue",
+      "returnType": "Microsoft.Xna.Framework.Graphics.ModelBone"
+    },
+    "Microsoft.Xna.Framework.Graphics.ModelMeshCollection.TryGetValue(System.String,Microsoft.Xna.Framework.Graphics.ModelMesh&)": {
+      "name": "TryGetValue",
+      "returnType": "Microsoft.Xna.Framework.Graphics.ModelMesh"
+    },
+    "Microsoft.Xna.Framework.GamerServices.PropertyDictionary.TryGetValue(System.String,System.Object&)": {
+      "name": "TryGetValue",
+      "returnType": "java.lang.Object"
+    },
+    "Microsoft.Xna.Framework.Net.LocalNetworkGamer.ReceiveData(Microsoft.Xna.Framework.Net.PacketReader,Microsoft.Xna.Framework.Net.NetworkGamer&)": {
+      "name": "ReceiveData",
+      "returnType": "Microsoft.Xna.Framework.Net.LocalNetworkGamer.ReceiveResult"
+    },
+    "Microsoft.Xna.Framework.Net.LocalNetworkGamer.ReceiveData(System.Byte[],Microsoft.Xna.Framework.Net.NetworkGamer&)": {
+      "name": "ReceiveData",
+      "returnType": "Microsoft.Xna.Framework.Net.LocalNetworkGamer.ReceiveResult"
+    },
+    "Microsoft.Xna.Framework.Net.LocalNetworkGamer.ReceiveData(System.Byte[],System.Int32,Microsoft.Xna.Framework.Net.NetworkGamer&)": {
+      "name": "ReceiveData",
+      "returnType": "Microsoft.Xna.Framework.Net.LocalNetworkGamer.ReceiveResult"
+    }
+  },
+  "conversionMemberMappings": {
+    "Microsoft.Xna.Framework.Graphics.RenderTargetBinding.op_Implicit(Microsoft.Xna.Framework.Graphics.RenderTarget2D)": {
+      "name": "fromRenderTarget2D"
+    },
+    "Microsoft.Xna.Framework.Graphics.VertexBufferBinding.op_Implicit(Microsoft.Xna.Framework.Graphics.VertexBuffer)": {
+      "name": "fromVertexBuffer"
+    }
+  },
+  "mutableStaticValueProperties": "fresh-getter",
+  "excludedClrMethods": [
+    "System.Object.Finalize"
+  ],
+  "excludedClrMembers": [],
+  "genericTypeRenames": {
+    "Microsoft.Xna.Framework.Content.ContentTypeReader`1": "Microsoft.Xna.Framework.Content.ContentTypeReaderOfT",
+    "Microsoft.Xna.Framework.Graphics.PackedVector.IPackedVector`1": "Microsoft.Xna.Framework.Graphics.PackedVector.IPackedVectorOfT"
+  },
+  "boxedGenericInterfaceProperties": [
+    {
+      "interface": "Microsoft.Xna.Framework.Graphics.PackedVector.IPackedVector`1",
+      "property": "PackedValue"
+    }
+  ],
+  "javaCollectionBridgeTypes": [
+    "Microsoft.Xna.Framework.CurveKeyCollection",
+    "Microsoft.Xna.Framework.GamerServices.AchievementCollection",
+    "Microsoft.Xna.Framework.Input.Touch.TouchCollection",
+    "Microsoft.Xna.Framework.Net.NetworkSessionProperties"
+  ],
+  "javaListBridgeTypes": [
+    "Microsoft.Xna.Framework.GamerServices.AchievementCollection",
+    "Microsoft.Xna.Framework.Input.Touch.TouchCollection",
+    "Microsoft.Xna.Framework.Net.NetworkSessionProperties"
+  ],
+  "javaIteratorBridgeTypes": [
+    "Microsoft.Xna.Framework.GamerServices.GamerCollection`1+GamerCollectionEnumerator",
+    "Microsoft.Xna.Framework.Graphics.ModelBoneCollection+Enumerator",
+    "Microsoft.Xna.Framework.Graphics.ModelEffectCollection+Enumerator",
+    "Microsoft.Xna.Framework.Graphics.ModelMeshCollection+Enumerator",
+    "Microsoft.Xna.Framework.Graphics.ModelMeshPartCollection+Enumerator",
+    "Microsoft.Xna.Framework.Input.Touch.TouchCollection+Enumerator"
+  ],
+  "javaIterableBridgeTypes": [
+    "Microsoft.Xna.Framework.Graphics.DisplayModeCollection",
+    "Microsoft.Xna.Framework.Graphics.EffectAnnotationCollection",
+    "Microsoft.Xna.Framework.Graphics.EffectParameterCollection",
+    "Microsoft.Xna.Framework.Graphics.EffectPassCollection",
+    "Microsoft.Xna.Framework.Graphics.EffectTechniqueCollection",
+    "Microsoft.Xna.Framework.Media.AlbumCollection",
+    "Microsoft.Xna.Framework.Media.ArtistCollection",
+    "Microsoft.Xna.Framework.Media.GenreCollection",
+    "Microsoft.Xna.Framework.Media.PictureAlbumCollection",
+    "Microsoft.Xna.Framework.Media.PictureCollection",
+    "Microsoft.Xna.Framework.Media.PlaylistCollection",
+    "Microsoft.Xna.Framework.Media.SongCollection"
+  ],
+  "namedImmutableValuePropertyTypes": [
+    "Microsoft.Xna.Framework.Color"
+  ],
+  "syntheticTypes": [
+    {
+      "name": "Microsoft.Xna.Framework.EventArgs",
+      "kind": "class",
+      "access": "public",
+      "abstract": false,
+      "sealed": false,
+      "genericArity": 0,
+      "baseType": "java.lang.Object",
+      "interfaces": [],
+      "members": [
+        {
+          "kind": "constructor",
+          "name": ".ctor",
+          "access": "public",
+          "static": false,
+          "abstract": false,
+          "final": false,
+          "genericArity": 0,
+          "returnType": null,
+          "parameters": []
+        },
+        {
+          "kind": "field",
+          "name": "Empty",
+          "access": "public",
+          "type": "Microsoft.Xna.Framework.EventArgs",
+          "static": true,
+          "final": true,
+          "constant": null
+        }
+      ]
+    },
+    {
+      "name": "Microsoft.Xna.Framework.EventHandler",
+      "kind": "interface",
+      "access": "public",
+      "abstract": true,
+      "sealed": false,
+      "genericArity": 1,
+      "baseType": null,
+      "interfaces": [],
+      "members": [
+        {
+          "kind": "method",
+          "name": "invoke",
+          "access": "public",
+          "static": false,
+          "abstract": true,
+          "final": false,
+          "genericArity": 0,
+          "returnType": "void",
+          "parameters": [
+            {
+              "name": "sender",
+              "type": "java.lang.Object",
+              "out": false,
+              "optional": false
+            },
+            {
+              "name": "args",
+              "type": "T",
+              "out": false,
+              "optional": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Microsoft.Xna.Framework.ServiceProvider",
+      "kind": "interface",
+      "access": "public",
+      "abstract": true,
+      "sealed": false,
+      "genericArity": 0,
+      "baseType": null,
+      "interfaces": [],
+      "members": [
+        {
+          "kind": "method",
+          "name": "GetService",
+          "access": "public",
+          "static": false,
+          "abstract": true,
+          "final": false,
+          "genericArity": 0,
+          "returnType": "java.lang.Object",
+          "parameters": [
+            {
+              "name": "type",
+              "type": "java.lang.Class<?>",
+              "out": false,
+              "optional": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Microsoft.Xna.Framework.WindowHandle",
+      "kind": "class",
+      "access": "public",
+      "abstract": false,
+      "sealed": true,
+      "genericArity": 0,
+      "baseType": "java.lang.Object",
+      "interfaces": [],
+      "members": [
+        {
+          "kind": "field",
+          "name": "Zero",
+          "access": "public",
+          "type": "Microsoft.Xna.Framework.WindowHandle",
+          "static": true,
+          "final": true,
+          "constant": null
+        },
+        {
+          "kind": "method",
+          "name": "getIsZero",
+          "access": "public",
+          "static": false,
+          "abstract": false,
+          "final": false,
+          "genericArity": 0,
+          "returnType": "boolean",
+          "parameters": []
+        },
+        {
+          "kind": "method",
+          "name": "equals",
+          "access": "public",
+          "static": false,
+          "abstract": false,
+          "final": false,
+          "genericArity": 0,
+          "returnType": "boolean",
+          "parameters": [
+            {
+              "name": "obj",
+              "type": "java.lang.Object",
+              "out": false,
+              "optional": false
+            }
+          ]
+        },
+        {
+          "kind": "method",
+          "name": "hashCode",
+          "access": "public",
+          "static": false,
+          "abstract": false,
+          "final": false,
+          "genericArity": 0,
+          "returnType": "int",
+          "parameters": []
+        }
+      ]
+    },
+    {
+      "name": "Microsoft.Xna.Framework.Matrix$Decomposition",
+      "kind": "class",
+      "access": "public",
+      "abstract": false,
+      "sealed": true,
+      "genericArity": 0,
+      "baseType": "java.lang.Object",
+      "interfaces": [],
+      "members": [
+        {
+          "kind": "method",
+          "name": "getSucceeded",
+          "access": "public",
+          "static": false,
+          "abstract": false,
+          "final": false,
+          "genericArity": 0,
+          "returnType": "boolean",
+          "parameters": []
+        },
+        {
+          "kind": "method",
+          "name": "getScale",
+          "access": "public",
+          "static": false,
+          "abstract": false,
+          "final": false,
+          "genericArity": 0,
+          "returnType": "Microsoft.Xna.Framework.Vector3",
+          "parameters": []
+        },
+        {
+          "kind": "method",
+          "name": "getRotation",
+          "access": "public",
+          "static": false,
+          "abstract": false,
+          "final": false,
+          "genericArity": 0,
+          "returnType": "Microsoft.Xna.Framework.Quaternion",
+          "parameters": []
+        },
+        {
+          "kind": "method",
+          "name": "getTranslation",
+          "access": "public",
+          "static": false,
+          "abstract": false,
+          "final": false,
+          "genericArity": 0,
+          "returnType": "Microsoft.Xna.Framework.Vector3",
+          "parameters": []
+        }
+      ]
+    },
+    {
+      "name": "Microsoft.Xna.Framework.Input.Touch.TouchLocation$PreviousLocationResult",
+      "kind": "class",
+      "access": "public",
+      "abstract": false,
+      "sealed": true,
+      "genericArity": 0,
+      "baseType": "java.lang.Object",
+      "interfaces": [],
+      "members": [
+        {
+          "kind": "method",
+          "name": "getSucceeded",
+          "access": "public",
+          "static": false,
+          "abstract": false,
+          "final": false,
+          "genericArity": 0,
+          "returnType": "boolean",
+          "parameters": []
+        },
+        {
+          "kind": "method",
+          "name": "getPreviousLocation",
+          "access": "public",
+          "static": false,
+          "abstract": false,
+          "final": false,
+          "genericArity": 0,
+          "returnType": "Microsoft.Xna.Framework.Input.Touch.TouchLocation",
+          "parameters": []
+        }
+      ]
+    },
+    {
+      "name": "Microsoft.Xna.Framework.Input.Touch.TouchCollection$FindResult",
+      "kind": "class",
+      "access": "public",
+      "abstract": false,
+      "sealed": true,
+      "genericArity": 0,
+      "baseType": "java.lang.Object",
+      "interfaces": [],
+      "members": [
+        {
+          "kind": "method",
+          "name": "getSucceeded",
+          "access": "public",
+          "static": false,
+          "abstract": false,
+          "final": false,
+          "genericArity": 0,
+          "returnType": "boolean",
+          "parameters": []
+        },
+        {
+          "kind": "method",
+          "name": "getTouchLocation",
+          "access": "public",
+          "static": false,
+          "abstract": false,
+          "final": false,
+          "genericArity": 0,
+          "returnType": "Microsoft.Xna.Framework.Input.Touch.TouchLocation",
+          "parameters": []
+        }
+      ]
+    },
+    {
+      "name": "Microsoft.Xna.Framework.Graphics.GraphicsAdapter$FormatSelectionResult",
+      "kind": "class",
+      "access": "public",
+      "abstract": false,
+      "sealed": true,
+      "genericArity": 0,
+      "baseType": "java.lang.Object",
+      "interfaces": [],
+      "members": [
+        {
+          "kind": "method",
+          "name": "getExactMatch",
+          "access": "public",
+          "static": false,
+          "abstract": false,
+          "final": false,
+          "genericArity": 0,
+          "returnType": "boolean",
+          "parameters": []
+        },
+        {
+          "kind": "method",
+          "name": "getSelectedFormat",
+          "access": "public",
+          "static": false,
+          "abstract": false,
+          "final": false,
+          "genericArity": 0,
+          "returnType": "Microsoft.Xna.Framework.Graphics.SurfaceFormat",
+          "parameters": []
+        },
+        {
+          "kind": "method",
+          "name": "getSelectedDepthFormat",
+          "access": "public",
+          "static": false,
+          "abstract": false,
+          "final": false,
+          "genericArity": 0,
+          "returnType": "Microsoft.Xna.Framework.Graphics.DepthFormat",
+          "parameters": []
+        },
+        {
+          "kind": "method",
+          "name": "getSelectedMultiSampleCount",
+          "access": "public",
+          "static": false,
+          "abstract": false,
+          "final": false,
+          "genericArity": 0,
+          "returnType": "int",
+          "parameters": []
+        }
+      ]
+    },
+    {
+      "name": "Microsoft.Xna.Framework.Net.LocalNetworkGamer$ReceiveResult",
+      "kind": "class",
+      "access": "public",
+      "abstract": false,
+      "sealed": true,
+      "genericArity": 0,
+      "baseType": "java.lang.Object",
+      "interfaces": [],
+      "members": [
+        {
+          "kind": "method",
+          "name": "getSucceeded",
+          "access": "public",
+          "static": false,
+          "abstract": false,
+          "final": false,
+          "genericArity": 0,
+          "returnType": "boolean",
+          "parameters": []
+        },
+        {
+          "kind": "method",
+          "name": "getBytesRead",
+          "access": "public",
+          "static": false,
+          "abstract": false,
+          "final": false,
+          "genericArity": 0,
+          "returnType": "int",
+          "parameters": []
+        },
+        {
+          "kind": "method",
+          "name": "getSender",
+          "access": "public",
+          "static": false,
+          "abstract": false,
+          "final": false,
+          "genericArity": 0,
+          "returnType": "Microsoft.Xna.Framework.Net.NetworkGamer",
+          "parameters": []
+        }
+      ]
+    }
+  ],
+  "allowlist": [],
+  "objectContractMembers": {
+    "Equals": "equals",
+    "GetHashCode": "hashCode",
+    "ToString": "toString",
+    "note": "The only members lowered away from XNA spelling. java.lang.Object already declares them, so an XNA-cased twin would not override them and collections, hashing and printing would use the inherited implementation."
+  },
+  "clrSerializationParameterTypes": [
+    "System.Runtime.Serialization.SerializationInfo",
+    "System.Runtime.Serialization.StreamingContext"
+  ],
+  "javaMapBridgeTypes": [
+    "Microsoft.Xna.Framework.GamerServices.PropertyDictionary"
+  ],
+  "omittedCovariantInterfaces": {
+    "Microsoft.Xna.Framework.GamerServices.GamerCollection": [
+      "java.lang.Iterable<Microsoft.Xna.Framework.GamerServices.Gamer>"
+    ]
+  },
+  "omittedCovariantInterfacesReason": "CLR lets GamerCollection<T> declare IEnumerable<Gamer> beside the IEnumerable<T> ReadOnlyCollection<T> already gives it, so a caller can enumerate any gamer collection as Gamer. Java forbids two parameterizations of one interface on one class, so the projection keeps Iterable<T> and bounds T by Gamer, which lets the same call sites accept Iterable<? extends Gamer>.",
+  "clrInternalMembers": {
+    "Microsoft.Xna.Framework.GamerServices.Gamer": [
+      {
+        "kind": "constructor",
+        "access": "protected",
+        "parameters": [],
+        "reason": "CLR derives Microsoft.Xna.Framework.Net's gamer types from Gamer through assembly-internal access, which Java has no equivalent for across packages. The Java replacement is a parameterless protected constructor; the native handle is recorded through the internal handle table instead of crossing a protected signature, so no raw handle appears in the public or protected surface."
+      }
+    ],
+    "Microsoft.Xna.Framework.GamerServices.GamerCollection`1": [
+      {
+        "kind": "constructor",
+        "access": "protected",
+        "parameters": [
+          {
+            "name": "elementAt",
+            "type": "java.util.function.IntFunction<T>"
+          },
+          {
+            "name": "elementCount",
+            "type": "java.util.function.IntSupplier"
+          }
+        ],
+        "reason": "CLR builds gamer collections from Microsoft.Xna.Framework.Net through assembly-internal access, which Java has no equivalent for across packages. The Java replacement is a protected constructor over two ordinary functional interfaces: it keeps the collection a live view rather than a snapshot, and no native handle appears in a protected signature."
+      }
+    ]
+  }
+}

@@ -1,0 +1,37 @@
+# Java and Maven output
+/target/
+/build/
+/.gradle/
+/out/
+*.class
+*.jar
+!gradle/wrapper/gradle-wrapper.jar
+*.war
+*.log
+__pycache__/
+*.pyc
+
+# Native CNA binaries are packaged artifacts, not source
+/runtimes/
+*.dll
+*.dylib
+*.so
+
+# Editors and operating systems
+.classpath
+.project
+.settings/
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db
+
+# Build directories. The list is closed -- see ../CLAUDE.md -- and none of them is source.
+# build-probe is the shared throwaway probe directory; the probe sources themselves live in
+# tools/native-abi/probes and are version controlled.
+/build-probe/
+/build-asan/
+/build-ubsan/
+/build-tsan/
+/build-consumer/

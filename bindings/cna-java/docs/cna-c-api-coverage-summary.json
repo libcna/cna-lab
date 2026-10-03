@@ -1,0 +1,382 @@
+{
+  "abiVersion": "0.35.0",
+  "actionableLocal": [],
+  "bindingStatusCounts": {
+    "BOUND": 1952,
+    "DEFERRED_TRACKED": 320,
+    "DELIBERATE_NON_BINDING": 930
+  },
+  "boundButUnreached": [],
+  "boundFunctions": 1952,
+  "boundWithoutJavaCallSite": [],
+  "byHeader": {
+    "abi.h": {
+      "XNA_BACKING": 1,
+      "total": 1
+    },
+    "audio.h": {
+      "DEFERRED_RUNTIME": 18,
+      "NOT_USEFUL_IN_JAVA": 8,
+      "XNA_BACKING": 48,
+      "total": 74
+    },
+    "cnb.h": {
+      "CNA_EXTENSION_CANDIDATE": 272,
+      "total": 272
+    },
+    "color.h": {
+      "NOT_USEFUL_IN_JAVA": 24,
+      "total": 24
+    },
+    "content.h": {
+      "DEFERRED_RUNTIME": 25,
+      "XNA_BACKING": 7,
+      "total": 32
+    },
+    "content_readers.h": {
+      "CNA_EXTENSION_CANDIDATE": 25,
+      "DEFERRED_RUNTIME": 37,
+      "total": 62
+    },
+    "core.h": {
+      "DEFERRED_RUNTIME": 1,
+      "XNA_BACKING": 2,
+      "total": 3
+    },
+    "core_ext.h": {
+      "CNA_EXTENSION_CANDIDATE": 57,
+      "total": 57
+    },
+    "curve.h": {
+      "CNA_EXTENSION_CANDIDATE": 12,
+      "NOT_USEFUL_IN_JAVA": 33,
+      "total": 45
+    },
+    "devices.h": {
+      "CNA_EXTENSION_CANDIDATE": 62,
+      "total": 62
+    },
+    "display.h": {
+      "DEFERRED_RUNTIME": 8,
+      "XNA_BACKING": 14,
+      "total": 22
+    },
+    "effects.h": {
+      "CNA_EXTENSION_CANDIDATE": 85,
+      "DEFERRED_RUNTIME": 39,
+      "XNA_BACKING": 166,
+      "total": 290
+    },
+    "gamer_services.h": {
+      "CNA_EXTENSION_CANDIDATE": 15,
+      "DEFERRED_RUNTIME": 2,
+      "NOT_USEFUL_IN_JAVA": 50,
+      "XNA_BACKING": 172,
+      "total": 239
+    },
+    "geometry.h": {
+      "NOT_USEFUL_IN_JAVA": 94,
+      "total": 94
+    },
+    "graphics.h": {
+      "CNA_EXTENSION_CANDIDATE": 6,
+      "DEFERRED_RUNTIME": 5,
+      "NOT_USEFUL_IN_JAVA": 2,
+      "XNA_BACKING": 14,
+      "total": 27
+    },
+    "graphics_device.h": {
+      "DEFERRED_RUNTIME": 41,
+      "NOT_USEFUL_IN_JAVA": 2,
+      "XNA_BACKING": 44,
+      "total": 87
+    },
+    "graphics_ext.h": {
+      "CNA_EXTENSION_CANDIDATE": 42,
+      "XNA_BACKING": 2,
+      "total": 44
+    },
+    "graphics_resource.h": {
+      "DEFERRED_RUNTIME": 10,
+      "NOT_USEFUL_IN_JAVA": 2,
+      "total": 12
+    },
+    "graphics_state.h": {
+      "DEFERRED_RUNTIME": 4,
+      "XNA_BACKING": 10,
+      "total": 14
+    },
+    "index_resources.h": {
+      "NOT_USEFUL_IN_JAVA": 2,
+      "XNA_BACKING": 8,
+      "total": 10
+    },
+    "input.h": {
+      "NOT_USEFUL_IN_JAVA": 9,
+      "XNA_BACKING": 6,
+      "total": 15
+    },
+    "input_cursor.h": {
+      "CNA_EXTENSION_CANDIDATE": 6,
+      "total": 6
+    },
+    "input_devices.h": {
+      "CNA_EXTENSION_CANDIDATE": 32,
+      "NOT_USEFUL_IN_JAVA": 5,
+      "total": 37
+    },
+    "input_gamepad.h": {
+      "CNA_EXTENSION_CANDIDATE": 22,
+      "NOT_USEFUL_IN_JAVA": 39,
+      "XNA_BACKING": 2,
+      "total": 63
+    },
+    "input_haptics.h": {
+      "CNA_EXTENSION_CANDIDATE": 30,
+      "NOT_USEFUL_IN_JAVA": 6,
+      "total": 36
+    },
+    "input_joystick.h": {
+      "CNA_EXTENSION_CANDIDATE": 24,
+      "JAVA_INTERNAL_ONLY": 1,
+      "NOT_USEFUL_IN_JAVA": 5,
+      "total": 30
+    },
+    "input_keyboard.h": {
+      "CNA_EXTENSION_CANDIDATE": 8,
+      "NOT_USEFUL_IN_JAVA": 8,
+      "XNA_BACKING": 1,
+      "total": 17
+    },
+    "input_mouse.h": {
+      "CNA_EXTENSION_CANDIDATE": 7,
+      "JAVA_INTERNAL_ONLY": 1,
+      "NOT_USEFUL_IN_JAVA": 9,
+      "XNA_BACKING": 3,
+      "total": 20
+    },
+    "input_text.h": {
+      "CNA_EXTENSION_CANDIDATE": 16,
+      "JAVA_INTERNAL_ONLY": 1,
+      "total": 17
+    },
+    "input_touch.h": {
+      "CNA_EXTENSION_CANDIDATE": 3,
+      "JAVA_INTERNAL_ONLY": 6,
+      "NOT_USEFUL_IN_JAVA": 26,
+      "XNA_BACKING": 12,
+      "total": 47
+    },
+    "math.h": {
+      "NOT_USEFUL_IN_JAVA": 52,
+      "total": 52
+    },
+    "matrix.h": {
+      "NOT_USEFUL_IN_JAVA": 57,
+      "total": 57
+    },
+    "media.h": {
+      "DEFERRED_RUNTIME": 8,
+      "NOT_USEFUL_IN_JAVA": 8,
+      "XNA_BACKING": 23,
+      "total": 39
+    },
+    "media_library.h": {
+      "DEFERRED_RUNTIME": 3,
+      "NOT_USEFUL_IN_JAVA": 26,
+      "XNA_BACKING": 119,
+      "total": 148
+    },
+    "media_player.h": {
+      "DEFERRED_RUNTIME": 5,
+      "JAVA_INTERNAL_ONLY": 2,
+      "NOT_USEFUL_IN_JAVA": 2,
+      "XNA_BACKING": 32,
+      "total": 41
+    },
+    "models.h": {
+      "CNA_EXTENSION_CANDIDATE": 182,
+      "NOT_USEFUL_IN_JAVA": 34,
+      "total": 216
+    },
+    "net.h": {
+      "NOT_USEFUL_IN_JAVA": 38,
+      "XNA_BACKING": 12,
+      "total": 50
+    },
+    "net_gamers.h": {
+      "NOT_USEFUL_IN_JAVA": 15,
+      "XNA_BACKING": 18,
+      "total": 33
+    },
+    "net_sessions.h": {
+      "CNA_EXTENSION_CANDIDATE": 5,
+      "DEFERRED_RUNTIME": 11,
+      "NOT_USEFUL_IN_JAVA": 16,
+      "XNA_BACKING": 72,
+      "total": 104
+    },
+    "packed_vectors.h": {
+      "NOT_USEFUL_IN_JAVA": 7,
+      "total": 7
+    },
+    "quaternion.h": {
+      "NOT_USEFUL_IN_JAVA": 28,
+      "total": 28
+    },
+    "render_target.h": {
+      "DEFERRED_RUNTIME": 3,
+      "XNA_BACKING": 9,
+      "total": 12
+    },
+    "runtime.h": {
+      "DEFERRED_RUNTIME": 18,
+      "NOT_USEFUL_IN_JAVA": 2,
+      "XNA_BACKING": 22,
+      "total": 42
+    },
+    "runtime_components.h": {
+      "NOT_USEFUL_IN_JAVA": 39,
+      "total": 39
+    },
+    "runtime_graphics_manager.h": {
+      "DEFERRED_RUNTIME": 6,
+      "NOT_USEFUL_IN_JAVA": 4,
+      "XNA_BACKING": 28,
+      "total": 38
+    },
+    "runtime_window.h": {
+      "DEFERRED_RUNTIME": 8,
+      "NOT_USEFUL_IN_JAVA": 2,
+      "XNA_BACKING": 10,
+      "total": 20
+    },
+    "sensors.h": {
+      "CNA_EXTENSION_CANDIDATE": 86,
+      "NOT_USEFUL_IN_JAVA": 58,
+      "total": 144
+    },
+    "sprite_font.h": {
+      "DEFERRED_RUNTIME": 1,
+      "XNA_BACKING": 8,
+      "total": 9
+    },
+    "storage.h": {
+      "DEFERRED_RUNTIME": 6,
+      "NOT_USEFUL_IN_JAVA": 2,
+      "XNA_BACKING": 41,
+      "total": 49
+    },
+    "texture.h": {
+      "DEFERRED_RUNTIME": 14,
+      "NOT_USEFUL_IN_JAVA": 2,
+      "XNA_BACKING": 5,
+      "total": 21
+    },
+    "texture_volume.h": {
+      "DEFERRED_RUNTIME": 2,
+      "NOT_USEFUL_IN_JAVA": 4,
+      "XNA_BACKING": 10,
+      "total": 16
+    },
+    "vectors.h": {
+      "NOT_USEFUL_IN_JAVA": 137,
+      "total": 137
+    },
+    "vertex_resources.h": {
+      "DEFERRED_RUNTIME": 9,
+      "NOT_USEFUL_IN_JAVA": 4,
+      "XNA_BACKING": 11,
+      "total": 24
+    },
+    "vertex_values.h": {
+      "NOT_USEFUL_IN_JAVA": 13,
+      "total": 13
+    },
+    "video.h": {
+      "DEFERRED_RUNTIME": 22,
+      "NOT_USEFUL_IN_JAVA": 4,
+      "XNA_BACKING": 16,
+      "total": 42
+    },
+    "xact.h": {
+      "DEFERRED_RUNTIME": 14,
+      "NOT_USEFUL_IN_JAVA": 8,
+      "XNA_BACKING": 40,
+      "total": 62
+    }
+  },
+  "canonicalFunctions": 3202,
+  "classificationCounts": {
+    "CNA_EXTENSION_CANDIDATE": 997,
+    "DEFERRED_RUNTIME": 320,
+    "JAVA_INTERNAL_ONLY": 11,
+    "NOT_USEFUL_IN_JAVA": 886,
+    "XNA_BACKING": 988
+  },
+  "cnaInventorySha256": "f5b31793fc3440b85fedfef743b46409d17f3abf988cc589e936b9aa2426c1db",
+  "deferredTasks": {
+    "JAVA-NATIVE-010": 8,
+    "JAVA-NATIVE-012": 37,
+    "JAVA-NATIVE-013": 25,
+    "JAVA-NATIVE-014": 39,
+    "JAVA-NATIVE-015": 60,
+    "JAVA-NATIVE-016": 19,
+    "JAVA-NATIVE-017": 9,
+    "JAVA-NATIVE-018": 1,
+    "JAVA-NATIVE-019": 32,
+    "JAVA-NATIVE-020": 38,
+    "JAVA-NATIVE-021": 6,
+    "JAVA-NATIVE-023": 33,
+    "JAVA-XNA-001": 2,
+    "JAVA-XNA-002": 11
+  },
+  "extensionCensusByHeader": {
+    "cnb.h": {
+      "DELIBERATE_NON_BINDING": 8,
+      "total": 8
+    },
+    "content_readers.h": {
+      "DELIBERATE_NON_BINDING": 10,
+      "total": 10
+    },
+    "core_ext.h": {
+      "DELIBERATE_NON_BINDING": 15,
+      "total": 15
+    },
+    "effects.h": {
+      "DELIBERATE_NON_BINDING": 2,
+      "total": 2
+    },
+    "input_devices.h": {
+      "DELIBERATE_NON_BINDING": 1,
+      "total": 1
+    },
+    "models.h": {
+      "DELIBERATE_NON_BINDING": 3,
+      "total": 3
+    },
+    "sensors.h": {
+      "DELIBERATE_NON_BINDING": 2,
+      "total": 2
+    }
+  },
+  "fullMatrixCommand": "python3 tools/native-abi/coverage.py --cna-root <cna> --output build/cna-c-api-coverage.json",
+  "internalOnly": [
+    "cna_joysticks_reset_for_tests_ext",
+    "cna_media_player_raise_active_song_changed_ext",
+    "cna_media_player_raise_media_state_changed_ext",
+    "cna_mouse_unsubscribe_clicked_ext",
+    "cna_text_input_reset_for_tests_ext",
+    "cna_touch_panel_enqueue_gesture_ext",
+    "cna_touch_panel_raise_touch_event_ext",
+    "cna_touch_panel_reset_for_tests_ext",
+    "cna_touch_panel_set_finger_ext",
+    "cna_touch_panel_set_touch_device_exists_ext",
+    "cna_touch_panel_update_ext"
+  ],
+  "ruleProblems": [],
+  "schemaVersion": 2,
+  "unexplainedFunctions": 0,
+  "unreviewedBinding": []
+}

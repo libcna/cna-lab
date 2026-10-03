@@ -1,0 +1,334 @@
+plugins {
+    id 'java-library'
+    id 'maven-publish'
+}
+
+group = 'org.openeggbert'
+version = '0.1.0-SNAPSHOT'
+
+repositories {
+    mavenCentral()
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
+    withSourcesJar()
+    withJavadocJar()
+}
+
+dependencies {
+    testImplementation platform('org.junit:junit-bom:5.11.4')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.release = 17
+    options.encoding = 'UTF-8'
+    options.compilerArgs.addAll(['-parameters', '-Xlint:all', '-Werror'])
+}
+
+tasks.withType(Javadoc).configureEach {
+    options.encoding = 'UTF-8'
+    options.addBooleanOption('Xdoclint:all,-missing', true)
+}
+
+test {
+    useJUnitPlatform()
+}
+
+def hostOs = org.gradle.internal.os.OperatingSystem.current()
+def nativeLibraryName = hostOs.isWindows() ? 'cna_java_jni.dll' :
+        (hostOs.isMacOsX() ? 'libcna_java_jni.dylib' : 'libcna_java_jni.so')
+def nativeOutput = layout.buildDirectory.file("native/${nativeLibraryName}")
+// The authoritative native development dependency is the sibling `cna` checkout.
+// CNA_ROOT overrides it explicitly; there is deliberately no fallback to an unrelated
+// historical CNA checkout, because qualifying against one would make every ABI, symbol
+// and layout result in this build describe a library nobody ships.
+def siblingCnaDirectory = rootProject.file('../cna')
+def configuredCnaRoot = providers.environmentVariable('CNA_ROOT').orElse(
+        providers.provider {
+            if (!new File(siblingCnaDirectory, 'modules/c-api/include/CNA/C/cna.h').isFile()) {
+                throw new GradleException(
+                        'CNA C API headers not found at ' + siblingCnaDirectory.absolutePath +
+                        '. Set CNA_ROOT to a CNA checkout that provides ' +
+                        'modules/c-api/include/CNA/C/cna.h.')
+            }
+            siblingCnaDirectory.absolutePath
+        })
+
+tasks.register('compileJni', Exec) {
+    group = 'build'
+    description = 'Builds the Java 17 JNI adapter against CNA stable C headers.'
+    // Every source under src/main/c, not just the translation unit: the adapter includes
+    // hand-written and generated .inc files, and a stale library is worse than a slow rebuild.
+    inputs.dir('src/main/c')
+    inputs.dir(configuredCnaRoot.map { file("${it}/modules/c-api/include") })
+    outputs.file(nativeOutput)
+    doFirst {
+        def javaHome = file(System.getProperty('java.home'))
+        def osInclude = hostOs.isWindows() ? 'win32' : (hostOs.isMacOsX() ? 'darwin' : 'linux')
+        def compiler = System.getenv('CC') ?: 'cc'
+        def arguments = [
+                compiler, '-std=c11', '-Wall', '-Wextra', '-Werror', '-fPIC', '-shared',
+                "-I${new File(javaHome, 'include')}",
+                "-I${new File(javaHome, "include/${osInclude}")}",
+                "-I${file("${configuredCnaRoot.get()}/modules/c-api/include")}",
+                '-o', nativeOutput.get().asFile,
+                file('src/main/c/cna_java_jni.c')
+        ]
+        if (!hostOs.isWindows()) {
+            arguments.add('-ldl')
+        }
+        commandLine arguments
+    }
+}
+
+test {
+    dependsOn tasks.named('compileJni')
+    systemProperty 'cna.java.jniLibrary', nativeOutput.get().asFile.absolutePath
+    // Both native libraries are inputs, not just paths handed over as properties. A rebuilt
+    // libcna_c_api changes no Java class and no property value, so without this Gradle calls
+    // the suite up to date and reports the previous run's results against a different library
+    // -- which is how an ABI migration once looked green while every native test would have
+    // failed.
+    inputs.file(nativeOutput).withPropertyName('jniLibrary')
+    if (System.getenv('CNA_NATIVE_LIBRARY')) {
+        systemProperty 'cna.native.library', System.getenv('CNA_NATIVE_LIBRARY')
+        inputs.file(file(System.getenv('CNA_NATIVE_LIBRARY')))
+                .withPropertyName('cnaLibrary')
+    }
+    // CNA can be built with several renderers compiled in and one chosen before the first
+    // GraphicsDevice exists, through this environment variable. It has to reach the test JVM as
+    // an environment variable rather than a system property, because CNA reads getenv inside the
+    // native library; and it is an input, because the same classes and the same library answer
+    // differently under it -- a suite that ran green on HEADLESS says nothing about OPENGLES3.
+    if (System.getenv('CNA_GRAPHICS_RENDERER')) {
+        environment 'CNA_GRAPHICS_RENDERER', System.getenv('CNA_GRAPHICS_RENDERER')
+        inputs.property('cnaGraphicsRenderer', System.getenv('CNA_GRAPHICS_RENDERER'))
+    }
+    // Which display a GPU renderer opens its window on. A test worker inherits the Gradle
+    // daemon's environment, not the shell's, so a run redirected to a virtual display -- Xvfb,
+    // or a headless CI machine -- would otherwise still be sent at whatever display the daemon
+    // was started with, and would open real windows on someone's desktop. Forwarded explicitly,
+    // and WAYLAND_DISPLAY is blanked rather than left alone: SDL prefers Wayland whenever that
+    // variable is set, so an X11 display alone would not redirect anything.
+    ['DISPLAY', 'SDL_VIDEODRIVER', 'WAYLAND_DISPLAY'].each { name ->
+        String value = System.getenv(name)
+        if (value != null) {
+            environment name, value
+        }
+    }
+    if (System.getenv('DISPLAY') && !System.getenv('WAYLAND_DISPLAY')) {
+        environment 'WAYLAND_DISPLAY', ''
+    }
+    // -PcheckJni turns on the JVM's own JNI checking for the whole suite. It is opt-in rather
+    // than always on because it slows every native call down measurably, and it is a property
+    // rather than a note in a document because the hand-written trampolines -- the transparent
+    // draw list's, the light-probe baker's and the render pipeline's -- are the kind of code
+    // that fails this and nothing else. A run that only ever happens when someone remembers is
+    // a run that stops happening.
+    if (project.hasProperty('checkJni')) {
+        jvmArgs '-Xcheck:jni'
+    }
+    // The CNA checkout the build already qualifies against. A test that needs an authored
+    // asset -- an XNA 4.0 .xnb no fixture generator can honestly stand in for -- reads it from
+    // there and skips itself when it is absent, rather than copying someone else's asset in.
+    systemProperty 'cna.root', configuredCnaRoot.get()
+    // CNA's gamer services no longer invent a signed-in gamer (ABI 0.32), and a network session
+    // needs one. CNA's documented unattended path signs a local profile in at startup; its
+    // store is kept in the build directory rather than in the developer's own profile store.
+    environment 'CNA_GAMER_SERVICES_AUTO_SIGN_IN', 'CnaJavaTest'
+    environment 'CNA_GAMER_SERVICES_PROFILES_DIR',
+            layout.buildDirectory.dir('tmp/gamer-profiles').get().asFile.absolutePath
+    // Temporary files a test makes live in this project's build directory, not in /tmp, which is
+    // the same disk and is never reused.
+    def testTemporary = layout.buildDirectory.dir('tmp/test-java-io').get().asFile
+    systemProperty 'java.io.tmpdir', testTemporary.absolutePath
+    doFirst {
+        testTemporary.mkdirs()
+    }
+}
+
+sourceSets {
+    compileProbe {
+        java.srcDir 'src/compileProbe/java'
+        compileClasspath += sourceSets.main.output
+    }
+}
+
+tasks.named('compileCompileProbeJava') {
+    dependsOn tasks.named('classes')
+}
+
+tasks.register('leakGuard', Exec) {
+    group = 'verification'
+    dependsOn tasks.named('classes')
+    commandLine 'python3', 'tools/api-compat/verify.py', '--leak-only',
+            '--target', sourceSets.main.output.classesDirs.asPath
+}
+
+tasks.register('apiCompatToolTests', Exec) {
+    group = 'verification'
+    description = 'Runs mapping/verifier regression tests without XNA assemblies.'
+    commandLine 'python3', 'tools/api-compat/test_verify.py'
+}
+
+def xnaReferenceDirectory = providers.environmentVariable('XNA_REFERENCE_DIR')
+
+// One task pair per XNA profile. `apiCompat*` keeps naming the selected seven-assembly
+// Windows runtime profile so its zero-diagnostic result stays a regression gate, and
+// `apiCompatFull*` measures the complete original XNA 4.0 runtime superset, including the
+// GamerServices, Net and Avatar assemblies the selected profile omits.
+def registerApiCompatTasks = { String suffix, String profile, String describes ->
+    tasks.register("apiCompat${suffix}Report", Exec) {
+        group = 'verification'
+        description = "Reports ${describes} Java projection differences."
+        dependsOn tasks.named('classes')
+        doFirst {
+            if (!xnaReferenceDirectory.isPresent()) {
+                throw new GradleException('Set XNA_REFERENCE_DIR to the pinned XNA 4.0 reference assemblies.')
+            }
+            commandLine 'python3', 'tools/api-compat/verify.py',
+                    '--profile', profile,
+                    '--reference-dir', xnaReferenceDirectory.get(),
+                    '--target', sourceSets.main.output.classesDirs.asPath,
+                    '--report-only', '--summary-only'
+        }
+    }
+    tasks.register("apiCompat${suffix}Check", Exec) {
+        group = 'verification'
+        description = "Strict completeness gate for ${describes}."
+        dependsOn tasks.named('classes')
+        doFirst {
+            if (!xnaReferenceDirectory.isPresent()) {
+                throw new GradleException('Set XNA_REFERENCE_DIR to the pinned XNA 4.0 reference assemblies.')
+            }
+            commandLine 'python3', 'tools/api-compat/verify.py',
+                    '--profile', profile,
+                    '--reference-dir', xnaReferenceDirectory.get(),
+                    '--target', sourceSets.main.output.classesDirs.asPath,
+                    '--summary-only'
+        }
+    }
+}
+
+registerApiCompatTasks('', 'tools/api-compat/profiles/xna40-windows-runtime.json',
+        'the selected XNA 4.0 Windows runtime profile')
+registerApiCompatTasks('Full', 'tools/api-compat/profiles/xna40-full-runtime.json',
+        'the complete XNA 4.0 runtime superset')
+
+tasks.register('nativeAbiCheck', Exec) {
+    group = 'verification'
+    description = 'Verifies the bound native surface against the live CNA C headers.'
+    doFirst {
+        def arguments = ['python3', 'tools/native-abi/verify.py',
+                         '--cna-root', configuredCnaRoot.get()]
+        if (System.getenv('CNA_NATIVE_LIBRARY')) {
+            arguments.addAll(['--library', System.getenv('CNA_NATIVE_LIBRARY')])
+        }
+        commandLine arguments
+    }
+}
+
+tasks.register('nativeCoverageCheck', Exec) {
+    group = 'verification'
+    description = 'Requires every canonical CNA C API function to carry an explicit classification.'
+    doFirst {
+        commandLine 'python3', 'tools/native-abi/coverage.py',
+                '--cna-root', configuredCnaRoot.get(),
+                '--check'
+    }
+}
+
+// The census gate, kept apart from nativeCoverageCheck so a failure here is legible: it
+// means a route nothing outside this repository blocks is still unbound, not that a rule
+// is malformed. Zero is the only passing value.
+tasks.register('nativeCensusCheck', Exec) {
+    group = 'verification'
+    description = 'Requires every unbound CNA-extension route to name what blocks it.'
+    doFirst {
+        commandLine 'python3', 'tools/native-abi/coverage.py',
+                '--cna-root', configuredCnaRoot.get(),
+                '--census-check'
+    }
+}
+
+tasks.register('nativeCoverageReport', Exec) {
+    group = 'verification'
+    description = 'Writes the machine-readable CNA C API coverage report.'
+    doFirst {
+        commandLine 'python3', 'tools/native-abi/coverage.py',
+                '--cna-root', configuredCnaRoot.get(),
+                '--output', layout.buildDirectory.file('cna-c-api-coverage.json').get().asFile.absolutePath,
+                '--summary-output', 'docs/cna-c-api-coverage-summary.json'
+    }
+}
+
+tasks.register('generateJni', Exec) {
+    group = 'build'
+    description = 'Regenerates the JNI adapter and Java declarations from the live CNA C headers.'
+    doFirst {
+        commandLine 'python3', 'tools/native-abi/generate_jni.py',
+                '--cna-root', configuredCnaRoot.get()
+    }
+}
+
+tasks.register('generateJniCheck', Exec) {
+    group = 'verification'
+    description = 'Fails when the committed generated native boundary is stale.'
+    doFirst {
+        commandLine 'python3', 'tools/native-abi/generate_jni.py',
+                '--cna-root', configuredCnaRoot.get(),
+                '--check'
+    }
+}
+
+tasks.register('nativeAbiToolTests', Exec) {
+    group = 'verification'
+    description = 'Runs native-boundary tool regression and negative-mutation tests.'
+    doFirst {
+        commandLine 'python3', 'tools/native-abi/test_verify.py',
+                '--cna-root', configuredCnaRoot.get()
+    }
+}
+
+// A broken {@link} is a compile-time fact that only javadoc checks, and javadoc only ran when
+// something asked for the documentation jar -- which is the template's verification, at the end
+// of a long build. A reference to a method that does not exist survived a whole session that way.
+// Twelve seconds here turns that into an ordinary check failure.
+tasks.named('javadoc') {
+    options.addBooleanOption('Xdoclint:reference', true)
+}
+
+check {
+    dependsOn tasks.named('javadoc')
+    dependsOn tasks.named('apiCompatToolTests')
+    dependsOn tasks.named('compileCompileProbeJava')
+    dependsOn tasks.named('leakGuard')
+    dependsOn tasks.named('nativeAbiCheck')
+    dependsOn tasks.named('nativeAbiToolTests')
+    dependsOn tasks.named('nativeCoverageCheck')
+    dependsOn tasks.named('nativeCensusCheck')
+    dependsOn tasks.named('generateJniCheck')
+}
+
+publishing {
+    publications {
+        mavenJava(MavenPublication) {
+            from components.java
+            pom {
+                name = 'CNA Java'
+                description = 'Java projection of XNA 4.0 backed by the CNA stable C ABI'
+                url = 'https://github.com/openeggbert/cna-java'
+                licenses {
+                    license {
+                        name = 'Microsoft Public License'
+                        url = 'https://opensource.org/license/ms-pl-html'
+                    }
+                }
+            }
+        }
+    }
+}

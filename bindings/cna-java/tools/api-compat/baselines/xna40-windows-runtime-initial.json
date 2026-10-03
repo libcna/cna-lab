@@ -1,0 +1,3967 @@
+{
+  "allowlistEntries": 0,
+  "diagnosticCounts": {
+    "INTERFACE_MISMATCH": 2,
+    "MISSING_MEMBER": 405,
+    "MISSING_TYPE": 236,
+    "PARAMETER_MISMATCH": 21,
+    "PARAMETER_NAME_MISMATCH": 59,
+    "RETURN_TYPE_MISMATCH": 4,
+    "UNEXPECTED_MEMBER": 3
+  },
+  "diagnostics": [
+    {
+      "actual": [],
+      "code": "INTERFACE_MISMATCH",
+      "expected": [
+        "Microsoft.Xna.Framework.Graphics.PackedVector.IPackedVectorOfT<java.lang.Long>"
+      ],
+      "subject": "Microsoft.Xna.Framework.Color"
+    },
+    {
+      "actual": [
+        "java.lang.AutoCloseable"
+      ],
+      "code": "INTERFACE_MISMATCH",
+      "expected": [
+        "Microsoft.Xna.Framework.Graphics.IGraphicsDeviceService",
+        "Microsoft.Xna.Framework.IGraphicsDeviceManager",
+        "java.lang.AutoCloseable"
+      ],
+      "subject": "Microsoft.Xna.Framework.GraphicsDeviceManager"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "constructor:.ctor()->None",
+      "subject": "Microsoft.Xna.Framework.BoundingBox.constructor:.ctor()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "constructor:.ctor(Microsoft.Xna.Framework.BoundingBox)->None",
+      "subject": "Microsoft.Xna.Framework.BoundingBox.constructor:.ctor(Microsoft.Xna.Framework.BoundingBox)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:Contains(Microsoft.Xna.Framework.BoundingFrustum)->Microsoft.Xna.Framework.ContainmentType",
+      "subject": "Microsoft.Xna.Framework.BoundingBox.method:Contains(Microsoft.Xna.Framework.BoundingFrustum)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:CreateFromPoints(java.lang.Iterable<Microsoft.Xna.Framework.Vector3>)->Microsoft.Xna.Framework.BoundingBox",
+      "subject": "Microsoft.Xna.Framework.BoundingBox.method:CreateFromPoints(java.lang.Iterable<Microsoft.Xna.Framework.Vector3>)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:CreateFromSphere(Microsoft.Xna.Framework.BoundingSphere)->Microsoft.Xna.Framework.BoundingBox",
+      "subject": "Microsoft.Xna.Framework.BoundingBox.method:CreateFromSphere(Microsoft.Xna.Framework.BoundingSphere)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:GetCorners(Microsoft.Xna.Framework.Vector3[])->void",
+      "subject": "Microsoft.Xna.Framework.BoundingBox.method:GetCorners(Microsoft.Xna.Framework.Vector3[])"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:Intersects(Microsoft.Xna.Framework.BoundingFrustum)->boolean",
+      "subject": "Microsoft.Xna.Framework.BoundingBox.method:Intersects(Microsoft.Xna.Framework.BoundingFrustum)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "constructor:.ctor()->None",
+      "subject": "Microsoft.Xna.Framework.BoundingSphere.constructor:.ctor()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "constructor:.ctor(Microsoft.Xna.Framework.BoundingSphere)->None",
+      "subject": "Microsoft.Xna.Framework.BoundingSphere.constructor:.ctor(Microsoft.Xna.Framework.BoundingSphere)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:Contains(Microsoft.Xna.Framework.BoundingFrustum)->Microsoft.Xna.Framework.ContainmentType",
+      "subject": "Microsoft.Xna.Framework.BoundingSphere.method:Contains(Microsoft.Xna.Framework.BoundingFrustum)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:CreateFromBoundingBox(Microsoft.Xna.Framework.BoundingBox)->Microsoft.Xna.Framework.BoundingSphere",
+      "subject": "Microsoft.Xna.Framework.BoundingSphere.method:CreateFromBoundingBox(Microsoft.Xna.Framework.BoundingBox)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:CreateFromFrustum(Microsoft.Xna.Framework.BoundingFrustum)->Microsoft.Xna.Framework.BoundingSphere",
+      "subject": "Microsoft.Xna.Framework.BoundingSphere.method:CreateFromFrustum(Microsoft.Xna.Framework.BoundingFrustum)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:CreateFromPoints(java.lang.Iterable<Microsoft.Xna.Framework.Vector3>)->Microsoft.Xna.Framework.BoundingSphere",
+      "subject": "Microsoft.Xna.Framework.BoundingSphere.method:CreateFromPoints(java.lang.Iterable<Microsoft.Xna.Framework.Vector3>)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:Intersects(Microsoft.Xna.Framework.BoundingFrustum)->boolean",
+      "subject": "Microsoft.Xna.Framework.BoundingSphere.method:Intersects(Microsoft.Xna.Framework.BoundingFrustum)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:Transform(Microsoft.Xna.Framework.Matrix)->Microsoft.Xna.Framework.BoundingSphere",
+      "subject": "Microsoft.Xna.Framework.BoundingSphere.method:Transform(Microsoft.Xna.Framework.Matrix)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "constructor:.ctor()->None",
+      "subject": "Microsoft.Xna.Framework.Color.constructor:.ctor()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "constructor:.ctor(Microsoft.Xna.Framework.Vector4)->None",
+      "subject": "Microsoft.Xna.Framework.Color.constructor:.ctor(Microsoft.Xna.Framework.Vector4)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getAliceBlue()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getAliceBlue()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getAntiqueWhite()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getAntiqueWhite()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getAqua()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getAqua()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getAquamarine()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getAquamarine()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getAzure()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getAzure()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getBeige()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getBeige()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getBisque()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getBisque()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getBlack()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getBlack()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getBlanchedAlmond()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getBlanchedAlmond()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getBlue()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getBlue()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getBlueViolet()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getBlueViolet()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getBrown()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getBrown()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getBurlyWood()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getBurlyWood()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getCadetBlue()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getCadetBlue()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getChartreuse()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getChartreuse()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getChocolate()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getChocolate()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getCoral()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getCoral()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getCornsilk()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getCornsilk()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getCrimson()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getCrimson()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getCyan()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getCyan()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getDarkBlue()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getDarkBlue()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getDarkCyan()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getDarkCyan()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getDarkGoldenrod()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getDarkGoldenrod()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getDarkGray()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getDarkGray()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getDarkGreen()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getDarkGreen()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getDarkKhaki()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getDarkKhaki()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getDarkMagenta()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getDarkMagenta()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getDarkOliveGreen()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getDarkOliveGreen()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getDarkOrange()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getDarkOrange()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getDarkOrchid()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getDarkOrchid()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getDarkRed()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getDarkRed()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getDarkSalmon()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getDarkSalmon()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getDarkSeaGreen()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getDarkSeaGreen()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getDarkSlateBlue()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getDarkSlateBlue()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getDarkSlateGray()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getDarkSlateGray()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getDarkTurquoise()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getDarkTurquoise()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getDarkViolet()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getDarkViolet()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getDeepPink()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getDeepPink()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getDeepSkyBlue()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getDeepSkyBlue()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getDimGray()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getDimGray()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getDodgerBlue()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getDodgerBlue()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getFirebrick()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getFirebrick()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getFloralWhite()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getFloralWhite()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getForestGreen()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getForestGreen()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getFuchsia()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getFuchsia()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getGainsboro()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getGainsboro()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getGhostWhite()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getGhostWhite()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getGold()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getGold()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getGoldenrod()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getGoldenrod()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getGray()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getGray()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getGreen()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getGreen()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getGreenYellow()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getGreenYellow()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getHoneydew()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getHoneydew()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getHotPink()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getHotPink()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getIndianRed()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getIndianRed()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getIndigo()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getIndigo()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getIvory()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getIvory()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getKhaki()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getKhaki()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getLavender()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getLavender()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getLavenderBlush()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getLavenderBlush()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getLawnGreen()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getLawnGreen()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getLemonChiffon()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getLemonChiffon()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getLightBlue()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getLightBlue()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getLightCoral()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getLightCoral()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getLightCyan()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getLightCyan()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getLightGoldenrodYellow()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getLightGoldenrodYellow()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getLightGray()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getLightGray()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getLightGreen()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getLightGreen()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getLightPink()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getLightPink()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getLightSalmon()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getLightSalmon()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getLightSeaGreen()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getLightSeaGreen()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getLightSkyBlue()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getLightSkyBlue()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getLightSlateGray()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getLightSlateGray()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getLightSteelBlue()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getLightSteelBlue()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getLightYellow()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getLightYellow()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getLime()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getLime()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getLimeGreen()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getLimeGreen()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getLinen()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getLinen()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getMagenta()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getMagenta()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getMaroon()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getMaroon()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getMediumAquamarine()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getMediumAquamarine()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getMediumBlue()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getMediumBlue()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getMediumOrchid()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getMediumOrchid()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getMediumPurple()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getMediumPurple()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getMediumSeaGreen()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getMediumSeaGreen()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getMediumSlateBlue()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getMediumSlateBlue()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getMediumSpringGreen()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getMediumSpringGreen()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getMediumTurquoise()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getMediumTurquoise()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getMediumVioletRed()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getMediumVioletRed()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getMidnightBlue()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getMidnightBlue()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getMintCream()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getMintCream()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getMistyRose()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getMistyRose()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getMoccasin()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getMoccasin()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getNavajoWhite()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getNavajoWhite()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getNavy()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getNavy()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getOldLace()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getOldLace()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getOlive()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getOlive()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getOliveDrab()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getOliveDrab()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getOrange()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getOrange()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getOrangeRed()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getOrangeRed()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getOrchid()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getOrchid()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getPaleGoldenrod()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getPaleGoldenrod()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getPaleGreen()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getPaleGreen()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getPaleTurquoise()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getPaleTurquoise()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getPaleVioletRed()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getPaleVioletRed()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getPapayaWhip()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getPapayaWhip()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getPeachPuff()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getPeachPuff()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getPeru()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getPeru()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getPink()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getPink()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getPlum()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getPlum()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getPowderBlue()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getPowderBlue()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getPurple()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getPurple()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getRed()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getRed()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getRosyBrown()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getRosyBrown()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getRoyalBlue()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getRoyalBlue()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getSaddleBrown()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getSaddleBrown()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getSalmon()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getSalmon()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getSandyBrown()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getSandyBrown()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getSeaGreen()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getSeaGreen()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getSeaShell()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getSeaShell()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getSienna()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getSienna()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getSilver()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getSilver()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getSkyBlue()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getSkyBlue()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getSlateBlue()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getSlateBlue()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getSlateGray()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getSlateGray()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getSnow()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getSnow()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getSpringGreen()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getSpringGreen()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getSteelBlue()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getSteelBlue()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getTan()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getTan()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getTeal()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getTeal()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getThistle()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getThistle()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getTomato()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getTomato()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getTurquoise()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getTurquoise()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getViolet()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getViolet()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getWheat()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getWheat()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getWhiteSmoke()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getWhiteSmoke()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getYellow()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getYellow()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getYellowGreen()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Color.method:getYellowGreen()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "field:value__()->int",
+      "subject": "Microsoft.Xna.Framework.ContainmentType.field:value__()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "constructor:.ctor()->None",
+      "subject": "Microsoft.Xna.Framework.Content.ContentLoadException.constructor:.ctor()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "constructor:.ctor(java.lang.String,java.lang.RuntimeException)->None",
+      "subject": "Microsoft.Xna.Framework.Content.ContentLoadException.constructor:.ctor(java.lang.String,java.lang.RuntimeException)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "constructor:.ctor(System.IServiceProvider)->None",
+      "subject": "Microsoft.Xna.Framework.Content.ContentManager.constructor:.ctor(System.IServiceProvider)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "constructor:.ctor(System.IServiceProvider,java.lang.String)->None",
+      "subject": "Microsoft.Xna.Framework.Content.ContentManager.constructor:.ctor(System.IServiceProvider,java.lang.String)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:OpenStream(java.lang.String)->System.IO.Stream",
+      "subject": "Microsoft.Xna.Framework.Content.ContentManager.method:OpenStream(java.lang.String)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:ReadAsset(java.lang.String,System.Action<java.lang.AutoCloseable>)->T",
+      "subject": "Microsoft.Xna.Framework.Content.ContentManager.method:ReadAsset(java.lang.String,System.Action<java.lang.AutoCloseable>)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:close(boolean)->void",
+      "subject": "Microsoft.Xna.Framework.Content.ContentManager.method:close(boolean)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getServiceProvider()->System.IServiceProvider",
+      "subject": "Microsoft.Xna.Framework.Content.ContentManager.method:getServiceProvider()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:Finalize()->void",
+      "subject": "Microsoft.Xna.Framework.Game.method:Finalize()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:OnActivated(java.lang.Object,System.EventArgs)->void",
+      "subject": "Microsoft.Xna.Framework.Game.method:OnActivated(java.lang.Object,System.EventArgs)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:OnDeactivated(java.lang.Object,System.EventArgs)->void",
+      "subject": "Microsoft.Xna.Framework.Game.method:OnDeactivated(java.lang.Object,System.EventArgs)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:OnExiting(java.lang.Object,System.EventArgs)->void",
+      "subject": "Microsoft.Xna.Framework.Game.method:OnExiting(java.lang.Object,System.EventArgs)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:ResetElapsedTime()->void",
+      "subject": "Microsoft.Xna.Framework.Game.method:ResetElapsedTime()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:RunOneFrame()->void",
+      "subject": "Microsoft.Xna.Framework.Game.method:RunOneFrame()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:ShowMissingRequirementMessage(java.lang.RuntimeException)->boolean",
+      "subject": "Microsoft.Xna.Framework.Game.method:ShowMissingRequirementMessage(java.lang.RuntimeException)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:SuppressDraw()->void",
+      "subject": "Microsoft.Xna.Framework.Game.method:SuppressDraw()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:Tick()->void",
+      "subject": "Microsoft.Xna.Framework.Game.method:Tick()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:addActivatedListener(System.EventHandler<System.EventArgs>)->void",
+      "subject": "Microsoft.Xna.Framework.Game.method:addActivatedListener(System.EventHandler<System.EventArgs>)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:addDeactivatedListener(System.EventHandler<System.EventArgs>)->void",
+      "subject": "Microsoft.Xna.Framework.Game.method:addDeactivatedListener(System.EventHandler<System.EventArgs>)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:addDisposedListener(System.EventHandler<System.EventArgs>)->void",
+      "subject": "Microsoft.Xna.Framework.Game.method:addDisposedListener(System.EventHandler<System.EventArgs>)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:addExitingListener(System.EventHandler<System.EventArgs>)->void",
+      "subject": "Microsoft.Xna.Framework.Game.method:addExitingListener(System.EventHandler<System.EventArgs>)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:close(boolean)->void",
+      "subject": "Microsoft.Xna.Framework.Game.method:close(boolean)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getComponents()->Microsoft.Xna.Framework.GameComponentCollection",
+      "subject": "Microsoft.Xna.Framework.Game.method:getComponents()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getInactiveSleepTime()->java.time.Duration",
+      "subject": "Microsoft.Xna.Framework.Game.method:getInactiveSleepTime()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getIsActive()->boolean",
+      "subject": "Microsoft.Xna.Framework.Game.method:getIsActive()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getIsFixedTimeStep()->boolean",
+      "subject": "Microsoft.Xna.Framework.Game.method:getIsFixedTimeStep()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getLaunchParameters()->Microsoft.Xna.Framework.LaunchParameters",
+      "subject": "Microsoft.Xna.Framework.Game.method:getLaunchParameters()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getServices()->Microsoft.Xna.Framework.GameServiceContainer",
+      "subject": "Microsoft.Xna.Framework.Game.method:getServices()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getTargetElapsedTime()->java.time.Duration",
+      "subject": "Microsoft.Xna.Framework.Game.method:getTargetElapsedTime()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getWindow()->Microsoft.Xna.Framework.GameWindow",
+      "subject": "Microsoft.Xna.Framework.Game.method:getWindow()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:removeActivatedListener(System.EventHandler<System.EventArgs>)->void",
+      "subject": "Microsoft.Xna.Framework.Game.method:removeActivatedListener(System.EventHandler<System.EventArgs>)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:removeDeactivatedListener(System.EventHandler<System.EventArgs>)->void",
+      "subject": "Microsoft.Xna.Framework.Game.method:removeDeactivatedListener(System.EventHandler<System.EventArgs>)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:removeDisposedListener(System.EventHandler<System.EventArgs>)->void",
+      "subject": "Microsoft.Xna.Framework.Game.method:removeDisposedListener(System.EventHandler<System.EventArgs>)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:removeExitingListener(System.EventHandler<System.EventArgs>)->void",
+      "subject": "Microsoft.Xna.Framework.Game.method:removeExitingListener(System.EventHandler<System.EventArgs>)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:setContent(Microsoft.Xna.Framework.Content.ContentManager)->void",
+      "subject": "Microsoft.Xna.Framework.Game.method:setContent(Microsoft.Xna.Framework.Content.ContentManager)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:setInactiveSleepTime(java.time.Duration)->void",
+      "subject": "Microsoft.Xna.Framework.Game.method:setInactiveSleepTime(java.time.Duration)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:setIsFixedTimeStep(boolean)->void",
+      "subject": "Microsoft.Xna.Framework.Game.method:setIsFixedTimeStep(boolean)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:setTargetElapsedTime(java.time.Duration)->void",
+      "subject": "Microsoft.Xna.Framework.Game.method:setTargetElapsedTime(java.time.Duration)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:setElapsedGameTime(java.time.Duration)->void",
+      "subject": "Microsoft.Xna.Framework.GameTime.method:setElapsedGameTime(java.time.Duration)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:setIsRunningSlowly(boolean)->void",
+      "subject": "Microsoft.Xna.Framework.GameTime.method:setIsRunningSlowly(boolean)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:setTotalGameTime(java.time.Duration)->void",
+      "subject": "Microsoft.Xna.Framework.GameTime.method:setTotalGameTime(java.time.Duration)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "constructor:.ctor(Microsoft.Xna.Framework.Graphics.GraphicsAdapter,Microsoft.Xna.Framework.Graphics.GraphicsProfile,Microsoft.Xna.Framework.Graphics.PresentationParameters)->None",
+      "subject": "Microsoft.Xna.Framework.Graphics.GraphicsDevice.constructor:.ctor(Microsoft.Xna.Framework.Graphics.GraphicsAdapter,Microsoft.Xna.Framework.Graphics.GraphicsProfile,Microsoft.Xna.Framework.Graphics.PresentationParameters)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:Clear(Microsoft.Xna.Framework.Graphics.ClearOptions,Microsoft.Xna.Framework.Color,float,int)->void",
+      "subject": "Microsoft.Xna.Framework.Graphics.GraphicsDevice.method:Clear(Microsoft.Xna.Framework.Graphics.ClearOptions,Microsoft.Xna.Framework.Color,float,int)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:Clear(Microsoft.Xna.Framework.Graphics.ClearOptions,Microsoft.Xna.Framework.Vector4,float,int)->void",
+      "subject": "Microsoft.Xna.Framework.Graphics.GraphicsDevice.method:Clear(Microsoft.Xna.Framework.Graphics.ClearOptions,Microsoft.Xna.Framework.Vector4,float,int)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:DrawIndexedPrimitives(Microsoft.Xna.Framework.Graphics.PrimitiveType,int,int,int,int,int)->void",
+      "subject": "Microsoft.Xna.Framework.Graphics.GraphicsDevice.method:DrawIndexedPrimitives(Microsoft.Xna.Framework.Graphics.PrimitiveType,int,int,int,int,int)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:DrawInstancedPrimitives(Microsoft.Xna.Framework.Graphics.PrimitiveType,int,int,int,int,int,int)->void",
+      "subject": "Microsoft.Xna.Framework.Graphics.GraphicsDevice.method:DrawInstancedPrimitives(Microsoft.Xna.Framework.Graphics.PrimitiveType,int,int,int,int,int,int)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:DrawPrimitives(Microsoft.Xna.Framework.Graphics.PrimitiveType,int,int)->void",
+      "subject": "Microsoft.Xna.Framework.Graphics.GraphicsDevice.method:DrawPrimitives(Microsoft.Xna.Framework.Graphics.PrimitiveType,int,int)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:DrawUserIndexedPrimitives(Microsoft.Xna.Framework.Graphics.PrimitiveType,T[],int,int,int[],int,int)->void",
+      "subject": "Microsoft.Xna.Framework.Graphics.GraphicsDevice.method:DrawUserIndexedPrimitives(Microsoft.Xna.Framework.Graphics.PrimitiveType,T[],int,int,int[],int,int)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:DrawUserIndexedPrimitives(Microsoft.Xna.Framework.Graphics.PrimitiveType,T[],int,int,int[],int,int,Microsoft.Xna.Framework.Graphics.VertexDeclaration)->void",
+      "subject": "Microsoft.Xna.Framework.Graphics.GraphicsDevice.method:DrawUserIndexedPrimitives(Microsoft.Xna.Framework.Graphics.PrimitiveType,T[],int,int,int[],int,int,Microsoft.Xna.Framework.Graphics.VertexDeclaration)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:DrawUserIndexedPrimitives(Microsoft.Xna.Framework.Graphics.PrimitiveType,T[],int,int,short[],int,int)->void",
+      "subject": "Microsoft.Xna.Framework.Graphics.GraphicsDevice.method:DrawUserIndexedPrimitives(Microsoft.Xna.Framework.Graphics.PrimitiveType,T[],int,int,short[],int,int)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:DrawUserIndexedPrimitives(Microsoft.Xna.Framework.Graphics.PrimitiveType,T[],int,int,short[],int,int,Microsoft.Xna.Framework.Graphics.VertexDeclaration)->void",
+      "subject": "Microsoft.Xna.Framework.Graphics.GraphicsDevice.method:DrawUserIndexedPrimitives(Microsoft.Xna.Framework.Graphics.PrimitiveType,T[],int,int,short[],int,int,Microsoft.Xna.Framework.Graphics.VertexDeclaration)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:DrawUserPrimitives(Microsoft.Xna.Framework.Graphics.PrimitiveType,T[],int,int)->void",
+      "subject": "Microsoft.Xna.Framework.Graphics.GraphicsDevice.method:DrawUserPrimitives(Microsoft.Xna.Framework.Graphics.PrimitiveType,T[],int,int)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:DrawUserPrimitives(Microsoft.Xna.Framework.Graphics.PrimitiveType,T[],int,int,Microsoft.Xna.Framework.Graphics.VertexDeclaration)->void",
+      "subject": "Microsoft.Xna.Framework.Graphics.GraphicsDevice.method:DrawUserPrimitives(Microsoft.Xna.Framework.Graphics.PrimitiveType,T[],int,int,Microsoft.Xna.Framework.Graphics.VertexDeclaration)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:Finalize()->void",
+      "subject": "Microsoft.Xna.Framework.Graphics.GraphicsDevice.method:Finalize()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:GetBackBufferData(Microsoft.Xna.Framework.Rectangle,T[],int,int)->void",
+      "subject": "Microsoft.Xna.Framework.Graphics.GraphicsDevice.method:GetBackBufferData(Microsoft.Xna.Framework.Rectangle,T[],int,int)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:GetBackBufferData(T[])->void",
+      "subject": "Microsoft.Xna.Framework.Graphics.GraphicsDevice.method:GetBackBufferData(T[])"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:GetBackBufferData(T[],int,int)->void",
+      "subject": "Microsoft.Xna.Framework.Graphics.GraphicsDevice.method:GetBackBufferData(T[],int,int)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:GetRenderTargets()->Microsoft.Xna.Framework.Graphics.RenderTargetBinding[]",
+      "subject": "Microsoft.Xna.Framework.Graphics.GraphicsDevice.method:GetRenderTargets()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:GetVertexBuffers()->Microsoft.Xna.Framework.Graphics.VertexBufferBinding[]",
+      "subject": "Microsoft.Xna.Framework.Graphics.GraphicsDevice.method:GetVertexBuffers()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:Present()->void",
+      "subject": "Microsoft.Xna.Framework.Graphics.GraphicsDevice.method:Present()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:Present(Microsoft.Xna.Framework.Rectangle,Microsoft.Xna.Framework.Rectangle,System.IntPtr)->void",
+      "subject": "Microsoft.Xna.Framework.Graphics.GraphicsDevice.method:Present(Microsoft.Xna.Framework.Rectangle,Microsoft.Xna.Framework.Rectangle,System.IntPtr)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:Reset()->void",
+      "subject": "Microsoft.Xna.Framework.Graphics.GraphicsDevice.method:Reset()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:Reset(Microsoft.Xna.Framework.Graphics.PresentationParameters)->void",
+      "subject": "Microsoft.Xna.Framework.Graphics.GraphicsDevice.method:Reset(Microsoft.Xna.Framework.Graphics.PresentationParameters)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:Reset(Microsoft.Xna.Framework.Graphics.PresentationParameters,Microsoft.Xna.Framework.Graphics.GraphicsAdapter)->void",
+      "subject": "Microsoft.Xna.Framework.Graphics.GraphicsDevice.method:Reset(Microsoft.Xna.Framework.Graphics.PresentationParameters,Microsoft.Xna.Framework.Graphics.GraphicsAdapter)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:SetRenderTarget(Microsoft.Xna.Framework.Graphics.RenderTarget2D)->void",
+      "subject": "Microsoft.Xna.Framework.Graphics.GraphicsDevice.method:SetRenderTarget(Microsoft.Xna.Framework.Graphics.RenderTarget2D)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:SetRenderTarget(Microsoft.Xna.Framework.Graphics.RenderTargetCube,Microsoft.Xna.Framework.Graphics.CubeMapFace)->void",
+      "subject": "Microsoft.Xna.Framework.Graphics.GraphicsDevice.method:SetRenderTarget(Microsoft.Xna.Framework.Graphics.RenderTargetCube,Microsoft.Xna.Framework.Graphics.CubeMapFace)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:SetRenderTargets(Microsoft.Xna.Framework.Graphics.RenderTargetBinding[])->void",
+      "subject": "Microsoft.Xna.Framework.Graphics.GraphicsDevice.method:SetRenderTargets(Microsoft.Xna.Framework.Graphics.RenderTargetBinding[])"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:SetVertexBuffer(Microsoft.Xna.Framework.Graphics.VertexBuffer)->void",
+      "subject": "Microsoft.Xna.Framework.Graphics.GraphicsDevice.method:SetVertexBuffer(Microsoft.Xna.Framework.Graphics.VertexBuffer)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:SetVertexBuffer(Microsoft.Xna.Framework.Graphics.VertexBuffer,int)->void",
+      "subject": "Microsoft.Xna.Framework.Graphics.GraphicsDevice.method:SetVertexBuffer(Microsoft.Xna.Framework.Graphics.VertexBuffer,int)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:SetVertexBuffers(Microsoft.Xna.Framework.Graphics.VertexBufferBinding[])->void",
+      "subject": "Microsoft.Xna.Framework.Graphics.GraphicsDevice.method:SetVertexBuffers(Microsoft.Xna.Framework.Graphics.VertexBufferBinding[])"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:addDeviceLostListener(System.EventHandler<System.EventArgs>)->void",
+      "subject": "Microsoft.Xna.Framework.Graphics.GraphicsDevice.method:addDeviceLostListener(System.EventHandler<System.EventArgs>)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:addDeviceResetListener(System.EventHandler<System.EventArgs>)->void",
+      "subject": "Microsoft.Xna.Framework.Graphics.GraphicsDevice.method:addDeviceResetListener(System.EventHandler<System.EventArgs>)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:addDeviceResettingListener(System.EventHandler<System.EventArgs>)->void",
+      "subject": "Microsoft.Xna.Framework.Graphics.GraphicsDevice.method:addDeviceResettingListener(System.EventHandler<System.EventArgs>)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:addDisposingListener(System.EventHandler<System.EventArgs>)->void",
+      "subject": "Microsoft.Xna.Framework.Graphics.GraphicsDevice.method:addDisposingListener(System.EventHandler<System.EventArgs>)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:addResourceCreatedListener(System.EventHandler<Microsoft.Xna.Framework.Graphics.ResourceCreatedEventArgs>)->void",
+      "subject": "Microsoft.Xna.Framework.Graphics.GraphicsDevice.method:addResourceCreatedListener(System.EventHandler<Microsoft.Xna.Framework.Graphics.ResourceCreatedEventArgs>)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:addResourceDestroyedListener(System.EventHandler<Microsoft.Xna.Framework.Graphics.ResourceDestroyedEventArgs>)->void",
+      "subject": "Microsoft.Xna.Framework.Graphics.GraphicsDevice.method:addResourceDestroyedListener(System.EventHandler<Microsoft.Xna.Framework.Graphics.ResourceDestroyedEventArgs>)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:close(boolean)->void",
+      "subject": "Microsoft.Xna.Framework.Graphics.GraphicsDevice.method:close(boolean)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getAdapter()->Microsoft.Xna.Framework.Graphics.GraphicsAdapter",
+      "subject": "Microsoft.Xna.Framework.Graphics.GraphicsDevice.method:getAdapter()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getBlendFactor()->Microsoft.Xna.Framework.Color",
+      "subject": "Microsoft.Xna.Framework.Graphics.GraphicsDevice.method:getBlendFactor()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getBlendState()->Microsoft.Xna.Framework.Graphics.BlendState",
+      "subject": "Microsoft.Xna.Framework.Graphics.GraphicsDevice.method:getBlendState()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getDepthStencilState()->Microsoft.Xna.Framework.Graphics.DepthStencilState",
+      "subject": "Microsoft.Xna.Framework.Graphics.GraphicsDevice.method:getDepthStencilState()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getDisplayMode()->Microsoft.Xna.Framework.Graphics.DisplayMode",
+      "subject": "Microsoft.Xna.Framework.Graphics.GraphicsDevice.method:getDisplayMode()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getGraphicsDeviceStatus()->Microsoft.Xna.Framework.Graphics.GraphicsDeviceStatus",
+      "subject": "Microsoft.Xna.Framework.Graphics.GraphicsDevice.method:getGraphicsDeviceStatus()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getGraphicsProfile()->Microsoft.Xna.Framework.Graphics.GraphicsProfile",
+      "subject": "Microsoft.Xna.Framework.Graphics.GraphicsDevice.method:getGraphicsProfile()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getIndices()->Microsoft.Xna.Framework.Graphics.IndexBuffer",
+      "subject": "Microsoft.Xna.Framework.Graphics.GraphicsDevice.method:getIndices()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getIsDisposed()->boolean",
+      "subject": "Microsoft.Xna.Framework.Graphics.GraphicsDevice.method:getIsDisposed()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getMultiSampleMask()->int",
+      "subject": "Microsoft.Xna.Framework.Graphics.GraphicsDevice.method:getMultiSampleMask()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getPresentationParameters()->Microsoft.Xna.Framework.Graphics.PresentationParameters",
+      "subject": "Microsoft.Xna.Framework.Graphics.GraphicsDevice.method:getPresentationParameters()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getRasterizerState()->Microsoft.Xna.Framework.Graphics.RasterizerState",
+      "subject": "Microsoft.Xna.Framework.Graphics.GraphicsDevice.method:getRasterizerState()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getReferenceStencil()->int",
+      "subject": "Microsoft.Xna.Framework.Graphics.GraphicsDevice.method:getReferenceStencil()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getSamplerStates()->Microsoft.Xna.Framework.Graphics.SamplerStateCollection",
+      "subject": "Microsoft.Xna.Framework.Graphics.GraphicsDevice.method:getSamplerStates()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getScissorRectangle()->Microsoft.Xna.Framework.Rectangle",
+      "subject": "Microsoft.Xna.Framework.Graphics.GraphicsDevice.method:getScissorRectangle()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getTextures()->Microsoft.Xna.Framework.Graphics.TextureCollection",
+      "subject": "Microsoft.Xna.Framework.Graphics.GraphicsDevice.method:getTextures()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getVertexSamplerStates()->Microsoft.Xna.Framework.Graphics.SamplerStateCollection",
+      "subject": "Microsoft.Xna.Framework.Graphics.GraphicsDevice.method:getVertexSamplerStates()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getVertexTextures()->Microsoft.Xna.Framework.Graphics.TextureCollection",
+      "subject": "Microsoft.Xna.Framework.Graphics.GraphicsDevice.method:getVertexTextures()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getViewport()->Microsoft.Xna.Framework.Graphics.Viewport",
+      "subject": "Microsoft.Xna.Framework.Graphics.GraphicsDevice.method:getViewport()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:removeDeviceLostListener(System.EventHandler<System.EventArgs>)->void",
+      "subject": "Microsoft.Xna.Framework.Graphics.GraphicsDevice.method:removeDeviceLostListener(System.EventHandler<System.EventArgs>)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:removeDeviceResetListener(System.EventHandler<System.EventArgs>)->void",
+      "subject": "Microsoft.Xna.Framework.Graphics.GraphicsDevice.method:removeDeviceResetListener(System.EventHandler<System.EventArgs>)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:removeDeviceResettingListener(System.EventHandler<System.EventArgs>)->void",
+      "subject": "Microsoft.Xna.Framework.Graphics.GraphicsDevice.method:removeDeviceResettingListener(System.EventHandler<System.EventArgs>)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:removeDisposingListener(System.EventHandler<System.EventArgs>)->void",
+      "subject": "Microsoft.Xna.Framework.Graphics.GraphicsDevice.method:removeDisposingListener(System.EventHandler<System.EventArgs>)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:removeResourceCreatedListener(System.EventHandler<Microsoft.Xna.Framework.Graphics.ResourceCreatedEventArgs>)->void",
+      "subject": "Microsoft.Xna.Framework.Graphics.GraphicsDevice.method:removeResourceCreatedListener(System.EventHandler<Microsoft.Xna.Framework.Graphics.ResourceCreatedEventArgs>)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:removeResourceDestroyedListener(System.EventHandler<Microsoft.Xna.Framework.Graphics.ResourceDestroyedEventArgs>)->void",
+      "subject": "Microsoft.Xna.Framework.Graphics.GraphicsDevice.method:removeResourceDestroyedListener(System.EventHandler<Microsoft.Xna.Framework.Graphics.ResourceDestroyedEventArgs>)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:setBlendFactor(Microsoft.Xna.Framework.Color)->void",
+      "subject": "Microsoft.Xna.Framework.Graphics.GraphicsDevice.method:setBlendFactor(Microsoft.Xna.Framework.Color)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:setBlendState(Microsoft.Xna.Framework.Graphics.BlendState)->void",
+      "subject": "Microsoft.Xna.Framework.Graphics.GraphicsDevice.method:setBlendState(Microsoft.Xna.Framework.Graphics.BlendState)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:setDepthStencilState(Microsoft.Xna.Framework.Graphics.DepthStencilState)->void",
+      "subject": "Microsoft.Xna.Framework.Graphics.GraphicsDevice.method:setDepthStencilState(Microsoft.Xna.Framework.Graphics.DepthStencilState)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:setIndices(Microsoft.Xna.Framework.Graphics.IndexBuffer)->void",
+      "subject": "Microsoft.Xna.Framework.Graphics.GraphicsDevice.method:setIndices(Microsoft.Xna.Framework.Graphics.IndexBuffer)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:setMultiSampleMask(int)->void",
+      "subject": "Microsoft.Xna.Framework.Graphics.GraphicsDevice.method:setMultiSampleMask(int)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:setRasterizerState(Microsoft.Xna.Framework.Graphics.RasterizerState)->void",
+      "subject": "Microsoft.Xna.Framework.Graphics.GraphicsDevice.method:setRasterizerState(Microsoft.Xna.Framework.Graphics.RasterizerState)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:setReferenceStencil(int)->void",
+      "subject": "Microsoft.Xna.Framework.Graphics.GraphicsDevice.method:setReferenceStencil(int)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:setScissorRectangle(Microsoft.Xna.Framework.Rectangle)->void",
+      "subject": "Microsoft.Xna.Framework.Graphics.GraphicsDevice.method:setScissorRectangle(Microsoft.Xna.Framework.Rectangle)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:setViewport(Microsoft.Xna.Framework.Graphics.Viewport)->void",
+      "subject": "Microsoft.Xna.Framework.Graphics.GraphicsDevice.method:setViewport(Microsoft.Xna.Framework.Graphics.Viewport)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "field:DefaultBackBufferHeight()->int",
+      "subject": "Microsoft.Xna.Framework.GraphicsDeviceManager.field:DefaultBackBufferHeight()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "field:DefaultBackBufferWidth()->int",
+      "subject": "Microsoft.Xna.Framework.GraphicsDeviceManager.field:DefaultBackBufferWidth()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:ApplyChanges()->void",
+      "subject": "Microsoft.Xna.Framework.GraphicsDeviceManager.method:ApplyChanges()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:CanResetDevice(Microsoft.Xna.Framework.GraphicsDeviceInformation)->boolean",
+      "subject": "Microsoft.Xna.Framework.GraphicsDeviceManager.method:CanResetDevice(Microsoft.Xna.Framework.GraphicsDeviceInformation)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:FindBestDevice(boolean)->Microsoft.Xna.Framework.GraphicsDeviceInformation",
+      "subject": "Microsoft.Xna.Framework.GraphicsDeviceManager.method:FindBestDevice(boolean)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:OnDeviceCreated(java.lang.Object,System.EventArgs)->void",
+      "subject": "Microsoft.Xna.Framework.GraphicsDeviceManager.method:OnDeviceCreated(java.lang.Object,System.EventArgs)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:OnDeviceDisposing(java.lang.Object,System.EventArgs)->void",
+      "subject": "Microsoft.Xna.Framework.GraphicsDeviceManager.method:OnDeviceDisposing(java.lang.Object,System.EventArgs)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:OnDeviceReset(java.lang.Object,System.EventArgs)->void",
+      "subject": "Microsoft.Xna.Framework.GraphicsDeviceManager.method:OnDeviceReset(java.lang.Object,System.EventArgs)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:OnDeviceResetting(java.lang.Object,System.EventArgs)->void",
+      "subject": "Microsoft.Xna.Framework.GraphicsDeviceManager.method:OnDeviceResetting(java.lang.Object,System.EventArgs)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:OnPreparingDeviceSettings(java.lang.Object,Microsoft.Xna.Framework.PreparingDeviceSettingsEventArgs)->void",
+      "subject": "Microsoft.Xna.Framework.GraphicsDeviceManager.method:OnPreparingDeviceSettings(java.lang.Object,Microsoft.Xna.Framework.PreparingDeviceSettingsEventArgs)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:RankDevices(java.util.List<Microsoft.Xna.Framework.GraphicsDeviceInformation>)->void",
+      "subject": "Microsoft.Xna.Framework.GraphicsDeviceManager.method:RankDevices(java.util.List<Microsoft.Xna.Framework.GraphicsDeviceInformation>)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:ToggleFullScreen()->void",
+      "subject": "Microsoft.Xna.Framework.GraphicsDeviceManager.method:ToggleFullScreen()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:addDeviceCreatedListener(System.EventHandler<System.EventArgs>)->void",
+      "subject": "Microsoft.Xna.Framework.GraphicsDeviceManager.method:addDeviceCreatedListener(System.EventHandler<System.EventArgs>)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:addDeviceDisposingListener(System.EventHandler<System.EventArgs>)->void",
+      "subject": "Microsoft.Xna.Framework.GraphicsDeviceManager.method:addDeviceDisposingListener(System.EventHandler<System.EventArgs>)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:addDeviceResetListener(System.EventHandler<System.EventArgs>)->void",
+      "subject": "Microsoft.Xna.Framework.GraphicsDeviceManager.method:addDeviceResetListener(System.EventHandler<System.EventArgs>)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:addDeviceResettingListener(System.EventHandler<System.EventArgs>)->void",
+      "subject": "Microsoft.Xna.Framework.GraphicsDeviceManager.method:addDeviceResettingListener(System.EventHandler<System.EventArgs>)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:addDisposedListener(System.EventHandler<System.EventArgs>)->void",
+      "subject": "Microsoft.Xna.Framework.GraphicsDeviceManager.method:addDisposedListener(System.EventHandler<System.EventArgs>)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:addPreparingDeviceSettingsListener(System.EventHandler<Microsoft.Xna.Framework.PreparingDeviceSettingsEventArgs>)->void",
+      "subject": "Microsoft.Xna.Framework.GraphicsDeviceManager.method:addPreparingDeviceSettingsListener(System.EventHandler<Microsoft.Xna.Framework.PreparingDeviceSettingsEventArgs>)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:close(boolean)->void",
+      "subject": "Microsoft.Xna.Framework.GraphicsDeviceManager.method:close(boolean)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getGraphicsProfile()->Microsoft.Xna.Framework.Graphics.GraphicsProfile",
+      "subject": "Microsoft.Xna.Framework.GraphicsDeviceManager.method:getGraphicsProfile()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getIsFullScreen()->boolean",
+      "subject": "Microsoft.Xna.Framework.GraphicsDeviceManager.method:getIsFullScreen()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getPreferMultiSampling()->boolean",
+      "subject": "Microsoft.Xna.Framework.GraphicsDeviceManager.method:getPreferMultiSampling()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getPreferredBackBufferFormat()->Microsoft.Xna.Framework.Graphics.SurfaceFormat",
+      "subject": "Microsoft.Xna.Framework.GraphicsDeviceManager.method:getPreferredBackBufferFormat()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getPreferredBackBufferHeight()->int",
+      "subject": "Microsoft.Xna.Framework.GraphicsDeviceManager.method:getPreferredBackBufferHeight()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getPreferredBackBufferWidth()->int",
+      "subject": "Microsoft.Xna.Framework.GraphicsDeviceManager.method:getPreferredBackBufferWidth()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getPreferredDepthStencilFormat()->Microsoft.Xna.Framework.Graphics.DepthFormat",
+      "subject": "Microsoft.Xna.Framework.GraphicsDeviceManager.method:getPreferredDepthStencilFormat()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getSupportedOrientations()->Microsoft.Xna.Framework.DisplayOrientation",
+      "subject": "Microsoft.Xna.Framework.GraphicsDeviceManager.method:getSupportedOrientations()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getSynchronizeWithVerticalRetrace()->boolean",
+      "subject": "Microsoft.Xna.Framework.GraphicsDeviceManager.method:getSynchronizeWithVerticalRetrace()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:removeDeviceCreatedListener(System.EventHandler<System.EventArgs>)->void",
+      "subject": "Microsoft.Xna.Framework.GraphicsDeviceManager.method:removeDeviceCreatedListener(System.EventHandler<System.EventArgs>)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:removeDeviceDisposingListener(System.EventHandler<System.EventArgs>)->void",
+      "subject": "Microsoft.Xna.Framework.GraphicsDeviceManager.method:removeDeviceDisposingListener(System.EventHandler<System.EventArgs>)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:removeDeviceResetListener(System.EventHandler<System.EventArgs>)->void",
+      "subject": "Microsoft.Xna.Framework.GraphicsDeviceManager.method:removeDeviceResetListener(System.EventHandler<System.EventArgs>)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:removeDeviceResettingListener(System.EventHandler<System.EventArgs>)->void",
+      "subject": "Microsoft.Xna.Framework.GraphicsDeviceManager.method:removeDeviceResettingListener(System.EventHandler<System.EventArgs>)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:removeDisposedListener(System.EventHandler<System.EventArgs>)->void",
+      "subject": "Microsoft.Xna.Framework.GraphicsDeviceManager.method:removeDisposedListener(System.EventHandler<System.EventArgs>)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:removePreparingDeviceSettingsListener(System.EventHandler<Microsoft.Xna.Framework.PreparingDeviceSettingsEventArgs>)->void",
+      "subject": "Microsoft.Xna.Framework.GraphicsDeviceManager.method:removePreparingDeviceSettingsListener(System.EventHandler<Microsoft.Xna.Framework.PreparingDeviceSettingsEventArgs>)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:setGraphicsProfile(Microsoft.Xna.Framework.Graphics.GraphicsProfile)->void",
+      "subject": "Microsoft.Xna.Framework.GraphicsDeviceManager.method:setGraphicsProfile(Microsoft.Xna.Framework.Graphics.GraphicsProfile)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:setIsFullScreen(boolean)->void",
+      "subject": "Microsoft.Xna.Framework.GraphicsDeviceManager.method:setIsFullScreen(boolean)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:setPreferMultiSampling(boolean)->void",
+      "subject": "Microsoft.Xna.Framework.GraphicsDeviceManager.method:setPreferMultiSampling(boolean)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:setPreferredBackBufferFormat(Microsoft.Xna.Framework.Graphics.SurfaceFormat)->void",
+      "subject": "Microsoft.Xna.Framework.GraphicsDeviceManager.method:setPreferredBackBufferFormat(Microsoft.Xna.Framework.Graphics.SurfaceFormat)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:setPreferredBackBufferHeight(int)->void",
+      "subject": "Microsoft.Xna.Framework.GraphicsDeviceManager.method:setPreferredBackBufferHeight(int)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:setPreferredBackBufferWidth(int)->void",
+      "subject": "Microsoft.Xna.Framework.GraphicsDeviceManager.method:setPreferredBackBufferWidth(int)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:setPreferredDepthStencilFormat(Microsoft.Xna.Framework.Graphics.DepthFormat)->void",
+      "subject": "Microsoft.Xna.Framework.GraphicsDeviceManager.method:setPreferredDepthStencilFormat(Microsoft.Xna.Framework.Graphics.DepthFormat)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:setSupportedOrientations(Microsoft.Xna.Framework.DisplayOrientation)->void",
+      "subject": "Microsoft.Xna.Framework.GraphicsDeviceManager.method:setSupportedOrientations(Microsoft.Xna.Framework.DisplayOrientation)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:setSynchronizeWithVerticalRetrace(boolean)->void",
+      "subject": "Microsoft.Xna.Framework.GraphicsDeviceManager.method:setSynchronizeWithVerticalRetrace(boolean)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:CreateBillboard(Microsoft.Xna.Framework.Vector3,Microsoft.Xna.Framework.Vector3,Microsoft.Xna.Framework.Vector3,Microsoft.Xna.Framework.Vector3)->Microsoft.Xna.Framework.Matrix",
+      "subject": "Microsoft.Xna.Framework.Matrix.method:CreateBillboard(Microsoft.Xna.Framework.Vector3,Microsoft.Xna.Framework.Vector3,Microsoft.Xna.Framework.Vector3,Microsoft.Xna.Framework.Vector3)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:CreateConstrainedBillboard(Microsoft.Xna.Framework.Vector3,Microsoft.Xna.Framework.Vector3,Microsoft.Xna.Framework.Vector3,Microsoft.Xna.Framework.Vector3,Microsoft.Xna.Framework.Vector3)->Microsoft.Xna.Framework.Matrix",
+      "subject": "Microsoft.Xna.Framework.Matrix.method:CreateConstrainedBillboard(Microsoft.Xna.Framework.Vector3,Microsoft.Xna.Framework.Vector3,Microsoft.Xna.Framework.Vector3,Microsoft.Xna.Framework.Vector3,Microsoft.Xna.Framework.Vector3)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:CreateFromAxisAngle(Microsoft.Xna.Framework.Vector3,float)->Microsoft.Xna.Framework.Matrix",
+      "subject": "Microsoft.Xna.Framework.Matrix.method:CreateFromAxisAngle(Microsoft.Xna.Framework.Vector3,float)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:CreateLookAt(Microsoft.Xna.Framework.Vector3,Microsoft.Xna.Framework.Vector3,Microsoft.Xna.Framework.Vector3)->Microsoft.Xna.Framework.Matrix",
+      "subject": "Microsoft.Xna.Framework.Matrix.method:CreateLookAt(Microsoft.Xna.Framework.Vector3,Microsoft.Xna.Framework.Vector3,Microsoft.Xna.Framework.Vector3)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:CreateOrthographic(float,float,float,float)->Microsoft.Xna.Framework.Matrix",
+      "subject": "Microsoft.Xna.Framework.Matrix.method:CreateOrthographic(float,float,float,float)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:CreateOrthographicOffCenter(float,float,float,float,float,float)->Microsoft.Xna.Framework.Matrix",
+      "subject": "Microsoft.Xna.Framework.Matrix.method:CreateOrthographicOffCenter(float,float,float,float,float,float)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:CreatePerspective(float,float,float,float)->Microsoft.Xna.Framework.Matrix",
+      "subject": "Microsoft.Xna.Framework.Matrix.method:CreatePerspective(float,float,float,float)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:CreatePerspectiveFieldOfView(float,float,float,float)->Microsoft.Xna.Framework.Matrix",
+      "subject": "Microsoft.Xna.Framework.Matrix.method:CreatePerspectiveFieldOfView(float,float,float,float)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:CreatePerspectiveOffCenter(float,float,float,float,float,float)->Microsoft.Xna.Framework.Matrix",
+      "subject": "Microsoft.Xna.Framework.Matrix.method:CreatePerspectiveOffCenter(float,float,float,float,float,float)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:CreateReflection(Microsoft.Xna.Framework.Plane)->Microsoft.Xna.Framework.Matrix",
+      "subject": "Microsoft.Xna.Framework.Matrix.method:CreateReflection(Microsoft.Xna.Framework.Plane)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:CreateShadow(Microsoft.Xna.Framework.Vector3,Microsoft.Xna.Framework.Plane)->Microsoft.Xna.Framework.Matrix",
+      "subject": "Microsoft.Xna.Framework.Matrix.method:CreateShadow(Microsoft.Xna.Framework.Vector3,Microsoft.Xna.Framework.Plane)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:CreateWorld(Microsoft.Xna.Framework.Vector3,Microsoft.Xna.Framework.Vector3,Microsoft.Xna.Framework.Vector3)->Microsoft.Xna.Framework.Matrix",
+      "subject": "Microsoft.Xna.Framework.Matrix.method:CreateWorld(Microsoft.Xna.Framework.Vector3,Microsoft.Xna.Framework.Vector3,Microsoft.Xna.Framework.Vector3)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:Decompose()->Microsoft.Xna.Framework.Matrix.Decomposition",
+      "subject": "Microsoft.Xna.Framework.Matrix.method:Decompose()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:Divide(Microsoft.Xna.Framework.Matrix,Microsoft.Xna.Framework.Matrix)->Microsoft.Xna.Framework.Matrix",
+      "subject": "Microsoft.Xna.Framework.Matrix.method:Divide(Microsoft.Xna.Framework.Matrix,Microsoft.Xna.Framework.Matrix)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:Divide(Microsoft.Xna.Framework.Matrix,float)->Microsoft.Xna.Framework.Matrix",
+      "subject": "Microsoft.Xna.Framework.Matrix.method:Divide(Microsoft.Xna.Framework.Matrix,float)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:Invert(Microsoft.Xna.Framework.Matrix)->Microsoft.Xna.Framework.Matrix",
+      "subject": "Microsoft.Xna.Framework.Matrix.method:Invert(Microsoft.Xna.Framework.Matrix)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:Lerp(Microsoft.Xna.Framework.Matrix,Microsoft.Xna.Framework.Matrix,float)->Microsoft.Xna.Framework.Matrix",
+      "subject": "Microsoft.Xna.Framework.Matrix.method:Lerp(Microsoft.Xna.Framework.Matrix,Microsoft.Xna.Framework.Matrix,float)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:Multiply(float,Microsoft.Xna.Framework.Matrix)->Microsoft.Xna.Framework.Matrix",
+      "subject": "Microsoft.Xna.Framework.Matrix.method:Multiply(float,Microsoft.Xna.Framework.Matrix)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:Negate(Microsoft.Xna.Framework.Matrix)->Microsoft.Xna.Framework.Matrix",
+      "subject": "Microsoft.Xna.Framework.Matrix.method:Negate(Microsoft.Xna.Framework.Matrix)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:Transform(Microsoft.Xna.Framework.Matrix,Microsoft.Xna.Framework.Quaternion)->Microsoft.Xna.Framework.Matrix",
+      "subject": "Microsoft.Xna.Framework.Matrix.method:Transform(Microsoft.Xna.Framework.Matrix,Microsoft.Xna.Framework.Quaternion)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getBackward()->Microsoft.Xna.Framework.Vector3",
+      "subject": "Microsoft.Xna.Framework.Matrix.method:getBackward()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getDown()->Microsoft.Xna.Framework.Vector3",
+      "subject": "Microsoft.Xna.Framework.Matrix.method:getDown()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getForward()->Microsoft.Xna.Framework.Vector3",
+      "subject": "Microsoft.Xna.Framework.Matrix.method:getForward()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getLeft()->Microsoft.Xna.Framework.Vector3",
+      "subject": "Microsoft.Xna.Framework.Matrix.method:getLeft()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getRight()->Microsoft.Xna.Framework.Vector3",
+      "subject": "Microsoft.Xna.Framework.Matrix.method:getRight()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getUp()->Microsoft.Xna.Framework.Vector3",
+      "subject": "Microsoft.Xna.Framework.Matrix.method:getUp()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:setBackward(Microsoft.Xna.Framework.Vector3)->void",
+      "subject": "Microsoft.Xna.Framework.Matrix.method:setBackward(Microsoft.Xna.Framework.Vector3)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:setDown(Microsoft.Xna.Framework.Vector3)->void",
+      "subject": "Microsoft.Xna.Framework.Matrix.method:setDown(Microsoft.Xna.Framework.Vector3)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:setForward(Microsoft.Xna.Framework.Vector3)->void",
+      "subject": "Microsoft.Xna.Framework.Matrix.method:setForward(Microsoft.Xna.Framework.Vector3)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:setLeft(Microsoft.Xna.Framework.Vector3)->void",
+      "subject": "Microsoft.Xna.Framework.Matrix.method:setLeft(Microsoft.Xna.Framework.Vector3)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:setRight(Microsoft.Xna.Framework.Vector3)->void",
+      "subject": "Microsoft.Xna.Framework.Matrix.method:setRight(Microsoft.Xna.Framework.Vector3)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:setUp(Microsoft.Xna.Framework.Vector3)->void",
+      "subject": "Microsoft.Xna.Framework.Matrix.method:setUp(Microsoft.Xna.Framework.Vector3)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:toString()->java.lang.String",
+      "subject": "Microsoft.Xna.Framework.Matrix.method:toString()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "constructor:.ctor()->None",
+      "subject": "Microsoft.Xna.Framework.Plane.constructor:.ctor()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:Intersects(Microsoft.Xna.Framework.BoundingFrustum)->Microsoft.Xna.Framework.PlaneIntersectionType",
+      "subject": "Microsoft.Xna.Framework.Plane.method:Intersects(Microsoft.Xna.Framework.BoundingFrustum)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:Transform(Microsoft.Xna.Framework.Plane,Microsoft.Xna.Framework.Matrix)->Microsoft.Xna.Framework.Plane",
+      "subject": "Microsoft.Xna.Framework.Plane.method:Transform(Microsoft.Xna.Framework.Plane,Microsoft.Xna.Framework.Matrix)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:Transform(Microsoft.Xna.Framework.Plane,Microsoft.Xna.Framework.Quaternion)->Microsoft.Xna.Framework.Plane",
+      "subject": "Microsoft.Xna.Framework.Plane.method:Transform(Microsoft.Xna.Framework.Plane,Microsoft.Xna.Framework.Quaternion)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "field:value__()->int",
+      "subject": "Microsoft.Xna.Framework.PlaneIntersectionType.field:value__()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:Concatenate(Microsoft.Xna.Framework.Quaternion,Microsoft.Xna.Framework.Quaternion)->Microsoft.Xna.Framework.Quaternion",
+      "subject": "Microsoft.Xna.Framework.Quaternion.method:Concatenate(Microsoft.Xna.Framework.Quaternion,Microsoft.Xna.Framework.Quaternion)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:CreateFromRotationMatrix(Microsoft.Xna.Framework.Matrix)->Microsoft.Xna.Framework.Quaternion",
+      "subject": "Microsoft.Xna.Framework.Quaternion.method:CreateFromRotationMatrix(Microsoft.Xna.Framework.Matrix)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "constructor:.ctor()->None",
+      "subject": "Microsoft.Xna.Framework.Ray.constructor:.ctor()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "constructor:.ctor(Microsoft.Xna.Framework.Ray)->None",
+      "subject": "Microsoft.Xna.Framework.Ray.constructor:.ctor(Microsoft.Xna.Framework.Ray)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:Intersects(Microsoft.Xna.Framework.BoundingFrustum)->java.lang.Float",
+      "subject": "Microsoft.Xna.Framework.Ray.method:Intersects(Microsoft.Xna.Framework.BoundingFrustum)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:getLocation()->Microsoft.Xna.Framework.Point",
+      "subject": "Microsoft.Xna.Framework.Rectangle.method:getLocation()"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:setLocation(Microsoft.Xna.Framework.Point)->void",
+      "subject": "Microsoft.Xna.Framework.Rectangle.method:setLocation(Microsoft.Xna.Framework.Point)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:Barycentric(Microsoft.Xna.Framework.Vector2,Microsoft.Xna.Framework.Vector2,Microsoft.Xna.Framework.Vector2,float,float)->Microsoft.Xna.Framework.Vector2",
+      "subject": "Microsoft.Xna.Framework.Vector2.method:Barycentric(Microsoft.Xna.Framework.Vector2,Microsoft.Xna.Framework.Vector2,Microsoft.Xna.Framework.Vector2,float,float)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:CatmullRom(Microsoft.Xna.Framework.Vector2,Microsoft.Xna.Framework.Vector2,Microsoft.Xna.Framework.Vector2,Microsoft.Xna.Framework.Vector2,float)->Microsoft.Xna.Framework.Vector2",
+      "subject": "Microsoft.Xna.Framework.Vector2.method:CatmullRom(Microsoft.Xna.Framework.Vector2,Microsoft.Xna.Framework.Vector2,Microsoft.Xna.Framework.Vector2,Microsoft.Xna.Framework.Vector2,float)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:Hermite(Microsoft.Xna.Framework.Vector2,Microsoft.Xna.Framework.Vector2,Microsoft.Xna.Framework.Vector2,Microsoft.Xna.Framework.Vector2,float)->Microsoft.Xna.Framework.Vector2",
+      "subject": "Microsoft.Xna.Framework.Vector2.method:Hermite(Microsoft.Xna.Framework.Vector2,Microsoft.Xna.Framework.Vector2,Microsoft.Xna.Framework.Vector2,Microsoft.Xna.Framework.Vector2,float)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:Multiply(float,Microsoft.Xna.Framework.Vector2)->Microsoft.Xna.Framework.Vector2",
+      "subject": "Microsoft.Xna.Framework.Vector2.method:Multiply(float,Microsoft.Xna.Framework.Vector2)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:SmoothStep(Microsoft.Xna.Framework.Vector2,Microsoft.Xna.Framework.Vector2,float)->Microsoft.Xna.Framework.Vector2",
+      "subject": "Microsoft.Xna.Framework.Vector2.method:SmoothStep(Microsoft.Xna.Framework.Vector2,Microsoft.Xna.Framework.Vector2,float)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:Transform(Microsoft.Xna.Framework.Vector2,Microsoft.Xna.Framework.Matrix)->Microsoft.Xna.Framework.Vector2",
+      "subject": "Microsoft.Xna.Framework.Vector2.method:Transform(Microsoft.Xna.Framework.Vector2,Microsoft.Xna.Framework.Matrix)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:Transform(Microsoft.Xna.Framework.Vector2,Microsoft.Xna.Framework.Quaternion)->Microsoft.Xna.Framework.Vector2",
+      "subject": "Microsoft.Xna.Framework.Vector2.method:Transform(Microsoft.Xna.Framework.Vector2,Microsoft.Xna.Framework.Quaternion)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:Transform(Microsoft.Xna.Framework.Vector2[],Microsoft.Xna.Framework.Matrix,Microsoft.Xna.Framework.Vector2[])->void",
+      "subject": "Microsoft.Xna.Framework.Vector2.method:Transform(Microsoft.Xna.Framework.Vector2[],Microsoft.Xna.Framework.Matrix,Microsoft.Xna.Framework.Vector2[])"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:Transform(Microsoft.Xna.Framework.Vector2[],Microsoft.Xna.Framework.Quaternion,Microsoft.Xna.Framework.Vector2[])->void",
+      "subject": "Microsoft.Xna.Framework.Vector2.method:Transform(Microsoft.Xna.Framework.Vector2[],Microsoft.Xna.Framework.Quaternion,Microsoft.Xna.Framework.Vector2[])"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:Transform(Microsoft.Xna.Framework.Vector2[],int,Microsoft.Xna.Framework.Matrix,Microsoft.Xna.Framework.Vector2[],int,int)->void",
+      "subject": "Microsoft.Xna.Framework.Vector2.method:Transform(Microsoft.Xna.Framework.Vector2[],int,Microsoft.Xna.Framework.Matrix,Microsoft.Xna.Framework.Vector2[],int,int)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:Transform(Microsoft.Xna.Framework.Vector2[],int,Microsoft.Xna.Framework.Quaternion,Microsoft.Xna.Framework.Vector2[],int,int)->void",
+      "subject": "Microsoft.Xna.Framework.Vector2.method:Transform(Microsoft.Xna.Framework.Vector2[],int,Microsoft.Xna.Framework.Quaternion,Microsoft.Xna.Framework.Vector2[],int,int)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:TransformNormal(Microsoft.Xna.Framework.Vector2,Microsoft.Xna.Framework.Matrix)->Microsoft.Xna.Framework.Vector2",
+      "subject": "Microsoft.Xna.Framework.Vector2.method:TransformNormal(Microsoft.Xna.Framework.Vector2,Microsoft.Xna.Framework.Matrix)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:TransformNormal(Microsoft.Xna.Framework.Vector2[],Microsoft.Xna.Framework.Matrix,Microsoft.Xna.Framework.Vector2[])->void",
+      "subject": "Microsoft.Xna.Framework.Vector2.method:TransformNormal(Microsoft.Xna.Framework.Vector2[],Microsoft.Xna.Framework.Matrix,Microsoft.Xna.Framework.Vector2[])"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:TransformNormal(Microsoft.Xna.Framework.Vector2[],int,Microsoft.Xna.Framework.Matrix,Microsoft.Xna.Framework.Vector2[],int,int)->void",
+      "subject": "Microsoft.Xna.Framework.Vector2.method:TransformNormal(Microsoft.Xna.Framework.Vector2[],int,Microsoft.Xna.Framework.Matrix,Microsoft.Xna.Framework.Vector2[],int,int)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:Barycentric(Microsoft.Xna.Framework.Vector3,Microsoft.Xna.Framework.Vector3,Microsoft.Xna.Framework.Vector3,float,float)->Microsoft.Xna.Framework.Vector3",
+      "subject": "Microsoft.Xna.Framework.Vector3.method:Barycentric(Microsoft.Xna.Framework.Vector3,Microsoft.Xna.Framework.Vector3,Microsoft.Xna.Framework.Vector3,float,float)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:CatmullRom(Microsoft.Xna.Framework.Vector3,Microsoft.Xna.Framework.Vector3,Microsoft.Xna.Framework.Vector3,Microsoft.Xna.Framework.Vector3,float)->Microsoft.Xna.Framework.Vector3",
+      "subject": "Microsoft.Xna.Framework.Vector3.method:CatmullRom(Microsoft.Xna.Framework.Vector3,Microsoft.Xna.Framework.Vector3,Microsoft.Xna.Framework.Vector3,Microsoft.Xna.Framework.Vector3,float)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:Hermite(Microsoft.Xna.Framework.Vector3,Microsoft.Xna.Framework.Vector3,Microsoft.Xna.Framework.Vector3,Microsoft.Xna.Framework.Vector3,float)->Microsoft.Xna.Framework.Vector3",
+      "subject": "Microsoft.Xna.Framework.Vector3.method:Hermite(Microsoft.Xna.Framework.Vector3,Microsoft.Xna.Framework.Vector3,Microsoft.Xna.Framework.Vector3,Microsoft.Xna.Framework.Vector3,float)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:Multiply(float,Microsoft.Xna.Framework.Vector3)->Microsoft.Xna.Framework.Vector3",
+      "subject": "Microsoft.Xna.Framework.Vector3.method:Multiply(float,Microsoft.Xna.Framework.Vector3)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:Reflect(Microsoft.Xna.Framework.Vector3,Microsoft.Xna.Framework.Vector3)->Microsoft.Xna.Framework.Vector3",
+      "subject": "Microsoft.Xna.Framework.Vector3.method:Reflect(Microsoft.Xna.Framework.Vector3,Microsoft.Xna.Framework.Vector3)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:SmoothStep(Microsoft.Xna.Framework.Vector3,Microsoft.Xna.Framework.Vector3,float)->Microsoft.Xna.Framework.Vector3",
+      "subject": "Microsoft.Xna.Framework.Vector3.method:SmoothStep(Microsoft.Xna.Framework.Vector3,Microsoft.Xna.Framework.Vector3,float)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:Transform(Microsoft.Xna.Framework.Vector3,Microsoft.Xna.Framework.Matrix)->Microsoft.Xna.Framework.Vector3",
+      "subject": "Microsoft.Xna.Framework.Vector3.method:Transform(Microsoft.Xna.Framework.Vector3,Microsoft.Xna.Framework.Matrix)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:Transform(Microsoft.Xna.Framework.Vector3,Microsoft.Xna.Framework.Quaternion)->Microsoft.Xna.Framework.Vector3",
+      "subject": "Microsoft.Xna.Framework.Vector3.method:Transform(Microsoft.Xna.Framework.Vector3,Microsoft.Xna.Framework.Quaternion)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:Transform(Microsoft.Xna.Framework.Vector3[],Microsoft.Xna.Framework.Matrix,Microsoft.Xna.Framework.Vector3[])->void",
+      "subject": "Microsoft.Xna.Framework.Vector3.method:Transform(Microsoft.Xna.Framework.Vector3[],Microsoft.Xna.Framework.Matrix,Microsoft.Xna.Framework.Vector3[])"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:Transform(Microsoft.Xna.Framework.Vector3[],Microsoft.Xna.Framework.Quaternion,Microsoft.Xna.Framework.Vector3[])->void",
+      "subject": "Microsoft.Xna.Framework.Vector3.method:Transform(Microsoft.Xna.Framework.Vector3[],Microsoft.Xna.Framework.Quaternion,Microsoft.Xna.Framework.Vector3[])"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:Transform(Microsoft.Xna.Framework.Vector3[],int,Microsoft.Xna.Framework.Matrix,Microsoft.Xna.Framework.Vector3[],int,int)->void",
+      "subject": "Microsoft.Xna.Framework.Vector3.method:Transform(Microsoft.Xna.Framework.Vector3[],int,Microsoft.Xna.Framework.Matrix,Microsoft.Xna.Framework.Vector3[],int,int)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:Transform(Microsoft.Xna.Framework.Vector3[],int,Microsoft.Xna.Framework.Quaternion,Microsoft.Xna.Framework.Vector3[],int,int)->void",
+      "subject": "Microsoft.Xna.Framework.Vector3.method:Transform(Microsoft.Xna.Framework.Vector3[],int,Microsoft.Xna.Framework.Quaternion,Microsoft.Xna.Framework.Vector3[],int,int)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:TransformNormal(Microsoft.Xna.Framework.Vector3,Microsoft.Xna.Framework.Matrix)->Microsoft.Xna.Framework.Vector3",
+      "subject": "Microsoft.Xna.Framework.Vector3.method:TransformNormal(Microsoft.Xna.Framework.Vector3,Microsoft.Xna.Framework.Matrix)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:TransformNormal(Microsoft.Xna.Framework.Vector3[],Microsoft.Xna.Framework.Matrix,Microsoft.Xna.Framework.Vector3[])->void",
+      "subject": "Microsoft.Xna.Framework.Vector3.method:TransformNormal(Microsoft.Xna.Framework.Vector3[],Microsoft.Xna.Framework.Matrix,Microsoft.Xna.Framework.Vector3[])"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:TransformNormal(Microsoft.Xna.Framework.Vector3[],int,Microsoft.Xna.Framework.Matrix,Microsoft.Xna.Framework.Vector3[],int,int)->void",
+      "subject": "Microsoft.Xna.Framework.Vector3.method:TransformNormal(Microsoft.Xna.Framework.Vector3[],int,Microsoft.Xna.Framework.Matrix,Microsoft.Xna.Framework.Vector3[],int,int)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:Barycentric(Microsoft.Xna.Framework.Vector4,Microsoft.Xna.Framework.Vector4,Microsoft.Xna.Framework.Vector4,float,float)->Microsoft.Xna.Framework.Vector4",
+      "subject": "Microsoft.Xna.Framework.Vector4.method:Barycentric(Microsoft.Xna.Framework.Vector4,Microsoft.Xna.Framework.Vector4,Microsoft.Xna.Framework.Vector4,float,float)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:CatmullRom(Microsoft.Xna.Framework.Vector4,Microsoft.Xna.Framework.Vector4,Microsoft.Xna.Framework.Vector4,Microsoft.Xna.Framework.Vector4,float)->Microsoft.Xna.Framework.Vector4",
+      "subject": "Microsoft.Xna.Framework.Vector4.method:CatmullRom(Microsoft.Xna.Framework.Vector4,Microsoft.Xna.Framework.Vector4,Microsoft.Xna.Framework.Vector4,Microsoft.Xna.Framework.Vector4,float)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:Clamp(Microsoft.Xna.Framework.Vector4,Microsoft.Xna.Framework.Vector4,Microsoft.Xna.Framework.Vector4)->Microsoft.Xna.Framework.Vector4",
+      "subject": "Microsoft.Xna.Framework.Vector4.method:Clamp(Microsoft.Xna.Framework.Vector4,Microsoft.Xna.Framework.Vector4,Microsoft.Xna.Framework.Vector4)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:Distance(Microsoft.Xna.Framework.Vector4,Microsoft.Xna.Framework.Vector4)->float",
+      "subject": "Microsoft.Xna.Framework.Vector4.method:Distance(Microsoft.Xna.Framework.Vector4,Microsoft.Xna.Framework.Vector4)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:DistanceSquared(Microsoft.Xna.Framework.Vector4,Microsoft.Xna.Framework.Vector4)->float",
+      "subject": "Microsoft.Xna.Framework.Vector4.method:DistanceSquared(Microsoft.Xna.Framework.Vector4,Microsoft.Xna.Framework.Vector4)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:Hermite(Microsoft.Xna.Framework.Vector4,Microsoft.Xna.Framework.Vector4,Microsoft.Xna.Framework.Vector4,Microsoft.Xna.Framework.Vector4,float)->Microsoft.Xna.Framework.Vector4",
+      "subject": "Microsoft.Xna.Framework.Vector4.method:Hermite(Microsoft.Xna.Framework.Vector4,Microsoft.Xna.Framework.Vector4,Microsoft.Xna.Framework.Vector4,Microsoft.Xna.Framework.Vector4,float)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:Max(Microsoft.Xna.Framework.Vector4,Microsoft.Xna.Framework.Vector4)->Microsoft.Xna.Framework.Vector4",
+      "subject": "Microsoft.Xna.Framework.Vector4.method:Max(Microsoft.Xna.Framework.Vector4,Microsoft.Xna.Framework.Vector4)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:Min(Microsoft.Xna.Framework.Vector4,Microsoft.Xna.Framework.Vector4)->Microsoft.Xna.Framework.Vector4",
+      "subject": "Microsoft.Xna.Framework.Vector4.method:Min(Microsoft.Xna.Framework.Vector4,Microsoft.Xna.Framework.Vector4)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:Multiply(float,Microsoft.Xna.Framework.Vector4)->Microsoft.Xna.Framework.Vector4",
+      "subject": "Microsoft.Xna.Framework.Vector4.method:Multiply(float,Microsoft.Xna.Framework.Vector4)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:Negate(Microsoft.Xna.Framework.Vector4)->Microsoft.Xna.Framework.Vector4",
+      "subject": "Microsoft.Xna.Framework.Vector4.method:Negate(Microsoft.Xna.Framework.Vector4)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:SmoothStep(Microsoft.Xna.Framework.Vector4,Microsoft.Xna.Framework.Vector4,float)->Microsoft.Xna.Framework.Vector4",
+      "subject": "Microsoft.Xna.Framework.Vector4.method:SmoothStep(Microsoft.Xna.Framework.Vector4,Microsoft.Xna.Framework.Vector4,float)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:Transform(Microsoft.Xna.Framework.Vector2,Microsoft.Xna.Framework.Matrix)->Microsoft.Xna.Framework.Vector4",
+      "subject": "Microsoft.Xna.Framework.Vector4.method:Transform(Microsoft.Xna.Framework.Vector2,Microsoft.Xna.Framework.Matrix)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:Transform(Microsoft.Xna.Framework.Vector2,Microsoft.Xna.Framework.Quaternion)->Microsoft.Xna.Framework.Vector4",
+      "subject": "Microsoft.Xna.Framework.Vector4.method:Transform(Microsoft.Xna.Framework.Vector2,Microsoft.Xna.Framework.Quaternion)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:Transform(Microsoft.Xna.Framework.Vector3,Microsoft.Xna.Framework.Matrix)->Microsoft.Xna.Framework.Vector4",
+      "subject": "Microsoft.Xna.Framework.Vector4.method:Transform(Microsoft.Xna.Framework.Vector3,Microsoft.Xna.Framework.Matrix)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:Transform(Microsoft.Xna.Framework.Vector3,Microsoft.Xna.Framework.Quaternion)->Microsoft.Xna.Framework.Vector4",
+      "subject": "Microsoft.Xna.Framework.Vector4.method:Transform(Microsoft.Xna.Framework.Vector3,Microsoft.Xna.Framework.Quaternion)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:Transform(Microsoft.Xna.Framework.Vector4,Microsoft.Xna.Framework.Matrix)->Microsoft.Xna.Framework.Vector4",
+      "subject": "Microsoft.Xna.Framework.Vector4.method:Transform(Microsoft.Xna.Framework.Vector4,Microsoft.Xna.Framework.Matrix)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:Transform(Microsoft.Xna.Framework.Vector4,Microsoft.Xna.Framework.Quaternion)->Microsoft.Xna.Framework.Vector4",
+      "subject": "Microsoft.Xna.Framework.Vector4.method:Transform(Microsoft.Xna.Framework.Vector4,Microsoft.Xna.Framework.Quaternion)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:Transform(Microsoft.Xna.Framework.Vector4[],Microsoft.Xna.Framework.Matrix,Microsoft.Xna.Framework.Vector4[])->void",
+      "subject": "Microsoft.Xna.Framework.Vector4.method:Transform(Microsoft.Xna.Framework.Vector4[],Microsoft.Xna.Framework.Matrix,Microsoft.Xna.Framework.Vector4[])"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:Transform(Microsoft.Xna.Framework.Vector4[],Microsoft.Xna.Framework.Quaternion,Microsoft.Xna.Framework.Vector4[])->void",
+      "subject": "Microsoft.Xna.Framework.Vector4.method:Transform(Microsoft.Xna.Framework.Vector4[],Microsoft.Xna.Framework.Quaternion,Microsoft.Xna.Framework.Vector4[])"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:Transform(Microsoft.Xna.Framework.Vector4[],int,Microsoft.Xna.Framework.Matrix,Microsoft.Xna.Framework.Vector4[],int,int)->void",
+      "subject": "Microsoft.Xna.Framework.Vector4.method:Transform(Microsoft.Xna.Framework.Vector4[],int,Microsoft.Xna.Framework.Matrix,Microsoft.Xna.Framework.Vector4[],int,int)"
+    },
+    {
+      "code": "MISSING_MEMBER",
+      "expected": "method:Transform(Microsoft.Xna.Framework.Vector4[],int,Microsoft.Xna.Framework.Quaternion,Microsoft.Xna.Framework.Vector4[],int,int)->void",
+      "subject": "Microsoft.Xna.Framework.Vector4.method:Transform(Microsoft.Xna.Framework.Vector4[],int,Microsoft.Xna.Framework.Quaternion,Microsoft.Xna.Framework.Vector4[],int,int)"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Audio.AudioCategory"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Audio.AudioChannels"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Audio.AudioEmitter"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Audio.AudioEngine"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Audio.AudioListener"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Audio.AudioStopOptions"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Audio.Cue"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Audio.DynamicSoundEffectInstance"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Audio.InstancePlayLimitException"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Audio.Microphone"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Audio.MicrophoneState"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Audio.NoAudioHardwareException"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Audio.NoMicrophoneConnectedException"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Audio.RendererDetail"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Audio.SoundBank"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Audio.SoundEffect"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Audio.SoundEffectInstance"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Audio.SoundState"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Audio.WaveBank"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.BoundingFrustum"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Content.ContentReader"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Content.ContentSerializerAttribute"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Content.ContentSerializerCollectionItemNameAttribute"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Content.ContentSerializerIgnoreAttribute"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Content.ContentSerializerRuntimeTypeAttribute"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Content.ContentSerializerTypeVersionAttribute"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Content.ContentTypeReader"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Content.ContentTypeReaderManager"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Content.ContentTypeReaderOfT"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Content.ResourceContentManager"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Curve"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.CurveContinuity"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.CurveKey"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.CurveKeyCollection"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.CurveLoopType"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.CurveTangent"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Design.BoundingBoxConverter"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Design.BoundingSphereConverter"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Design.ColorConverter"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Design.MathTypeConverter"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Design.MatrixConverter"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Design.PlaneConverter"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Design.PointConverter"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Design.QuaternionConverter"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Design.RayConverter"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Design.RectangleConverter"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Design.Vector2Converter"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Design.Vector3Converter"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Design.Vector4Converter"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.DisplayOrientation"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.DrawableGameComponent"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.FrameworkDispatcher"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.GameComponent"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.GameComponentCollection"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.GameComponentCollectionEventArgs"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.GameServiceContainer"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.GameWindow"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.GamerServices.GamerServicesComponent"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Graphics.AlphaTestEffect"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Graphics.BasicEffect"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Graphics.Blend"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Graphics.BlendFunction"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Graphics.BlendState"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Graphics.BufferUsage"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Graphics.ClearOptions"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Graphics.ColorWriteChannels"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Graphics.CompareFunction"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Graphics.CubeMapFace"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Graphics.CullMode"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Graphics.DepthFormat"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Graphics.DepthStencilState"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Graphics.DeviceLostException"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Graphics.DeviceNotResetException"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Graphics.DirectionalLight"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Graphics.DisplayMode"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Graphics.DisplayModeCollection"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Graphics.DualTextureEffect"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Graphics.DynamicIndexBuffer"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Graphics.DynamicVertexBuffer"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Graphics.Effect"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Graphics.EffectAnnotation"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Graphics.EffectAnnotationCollection"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Graphics.EffectMaterial"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Graphics.EffectParameter"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Graphics.EffectParameterClass"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Graphics.EffectParameterCollection"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Graphics.EffectParameterType"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Graphics.EffectPass"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Graphics.EffectPassCollection"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Graphics.EffectTechnique"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Graphics.EffectTechniqueCollection"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Graphics.EnvironmentMapEffect"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Graphics.FillMode"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Graphics.GraphicsAdapter"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Graphics.GraphicsDeviceStatus"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Graphics.GraphicsProfile"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Graphics.GraphicsResource"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Graphics.IEffectFog"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Graphics.IEffectLights"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Graphics.IEffectMatrices"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Graphics.IGraphicsDeviceService"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Graphics.IVertexType"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Graphics.IndexBuffer"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Graphics.IndexElementSize"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Graphics.Model"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Graphics.ModelBone"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Graphics.ModelBoneCollection"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Graphics.ModelBoneCollection$Enumerator"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Graphics.ModelEffectCollection"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Graphics.ModelEffectCollection$Enumerator"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Graphics.ModelMesh"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Graphics.ModelMeshCollection"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Graphics.ModelMeshCollection$Enumerator"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Graphics.ModelMeshPart"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Graphics.ModelMeshPartCollection"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Graphics.ModelMeshPartCollection$Enumerator"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Graphics.NoSuitableGraphicsDeviceException"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Graphics.OcclusionQuery"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Graphics.PackedVector.Alpha8"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Graphics.PackedVector.Bgr565"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Graphics.PackedVector.Bgra4444"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Graphics.PackedVector.Bgra5551"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Graphics.PackedVector.Byte4"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Graphics.PackedVector.HalfSingle"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Graphics.PackedVector.HalfVector2"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Graphics.PackedVector.HalfVector4"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Graphics.PackedVector.IPackedVector"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Graphics.PackedVector.IPackedVectorOfT"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Graphics.PackedVector.NormalizedByte2"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Graphics.PackedVector.NormalizedByte4"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Graphics.PackedVector.NormalizedShort2"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Graphics.PackedVector.NormalizedShort4"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Graphics.PackedVector.Rg32"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Graphics.PackedVector.Rgba1010102"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Graphics.PackedVector.Rgba64"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Graphics.PackedVector.Short2"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Graphics.PackedVector.Short4"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Graphics.PresentInterval"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Graphics.PresentationParameters"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Graphics.PrimitiveType"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Graphics.RasterizerState"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Graphics.RenderTarget2D"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Graphics.RenderTargetBinding"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Graphics.RenderTargetCube"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Graphics.RenderTargetUsage"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Graphics.ResourceCreatedEventArgs"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Graphics.ResourceDestroyedEventArgs"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Graphics.SamplerState"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Graphics.SamplerStateCollection"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Graphics.SetDataOptions"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Graphics.SkinnedEffect"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Graphics.SpriteBatch"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Graphics.SpriteEffects"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Graphics.SpriteFont"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Graphics.SpriteSortMode"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Graphics.StencilOperation"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Graphics.SurfaceFormat"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Graphics.Texture"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Graphics.Texture2D"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Graphics.Texture3D"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Graphics.TextureAddressMode"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Graphics.TextureCollection"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Graphics.TextureCube"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Graphics.TextureFilter"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Graphics.VertexBuffer"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Graphics.VertexBufferBinding"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Graphics.VertexDeclaration"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Graphics.VertexElement"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Graphics.VertexElementFormat"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Graphics.VertexElementUsage"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Graphics.VertexPositionColor"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Graphics.VertexPositionColorTexture"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Graphics.VertexPositionNormalTexture"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Graphics.VertexPositionTexture"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Graphics.Viewport"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.GraphicsDeviceInformation"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.IDrawable"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.IGameComponent"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.IGraphicsDeviceManager"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.IUpdateable"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Input.ButtonState"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Input.Buttons"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Input.GamePad"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Input.GamePadButtons"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Input.GamePadCapabilities"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Input.GamePadDPad"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Input.GamePadDeadZone"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Input.GamePadState"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Input.GamePadThumbSticks"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Input.GamePadTriggers"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Input.GamePadType"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Input.KeyState"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Input.Keyboard"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Input.KeyboardState"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Input.Keys"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Input.Mouse"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Input.MouseState"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Input.Touch.GestureSample"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Input.Touch.GestureType"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Input.Touch.TouchCollection"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Input.Touch.TouchCollection$Enumerator"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Input.Touch.TouchLocation"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Input.Touch.TouchLocationState"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Input.Touch.TouchPanel"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Input.Touch.TouchPanelCapabilities"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.LaunchParameters"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Media.Album"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Media.AlbumCollection"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Media.Artist"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Media.ArtistCollection"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Media.Genre"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Media.GenreCollection"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Media.MediaLibrary"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Media.MediaPlayer"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Media.MediaQueue"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Media.MediaSource"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Media.MediaSourceType"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Media.MediaState"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Media.Picture"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Media.PictureAlbum"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Media.PictureAlbumCollection"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Media.PictureCollection"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Media.Playlist"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Media.PlaylistCollection"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Media.Song"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Media.SongCollection"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Media.Video"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Media.VideoPlayer"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Media.VideoSoundtrackType"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Media.VisualizationData"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.PlayerIndex"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.PreparingDeviceSettingsEventArgs"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Storage.StorageContainer"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Storage.StorageDevice"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.Storage.StorageDeviceNotConnectedException"
+    },
+    {
+      "code": "MISSING_TYPE",
+      "subject": "Microsoft.Xna.Framework.TitleContainer"
+    },
+    {
+      "actual": [
+        "java.lang.Object"
+      ],
+      "code": "PARAMETER_MISMATCH",
+      "expected": [
+        "Microsoft.Xna.Framework.BoundingBox"
+      ],
+      "subject": "Microsoft.Xna.Framework.BoundingBox.equals"
+    },
+    {
+      "actual": [
+        "java.lang.Object"
+      ],
+      "code": "PARAMETER_MISMATCH",
+      "expected": [
+        "Microsoft.Xna.Framework.BoundingSphere"
+      ],
+      "subject": "Microsoft.Xna.Framework.BoundingSphere.equals"
+    },
+    {
+      "actual": [
+        "Microsoft.Xna.Framework.Color"
+      ],
+      "code": "PARAMETER_MISMATCH",
+      "expected": [
+        "Microsoft.Xna.Framework.Vector3"
+      ],
+      "subject": "Microsoft.Xna.Framework.Color..ctor"
+    },
+    {
+      "actual": [
+        "java.lang.Object"
+      ],
+      "code": "PARAMETER_MISMATCH",
+      "expected": [
+        "Microsoft.Xna.Framework.Color"
+      ],
+      "subject": "Microsoft.Xna.Framework.Color.equals"
+    },
+    {
+      "actual": [
+        "int"
+      ],
+      "code": "PARAMETER_MISMATCH",
+      "expected": [
+        "byte"
+      ],
+      "subject": "Microsoft.Xna.Framework.Color.setA"
+    },
+    {
+      "actual": [
+        "int"
+      ],
+      "code": "PARAMETER_MISMATCH",
+      "expected": [
+        "byte"
+      ],
+      "subject": "Microsoft.Xna.Framework.Color.setB"
+    },
+    {
+      "actual": [
+        "int"
+      ],
+      "code": "PARAMETER_MISMATCH",
+      "expected": [
+        "byte"
+      ],
+      "subject": "Microsoft.Xna.Framework.Color.setG"
+    },
+    {
+      "actual": [
+        "int"
+      ],
+      "code": "PARAMETER_MISMATCH",
+      "expected": [
+        "byte"
+      ],
+      "subject": "Microsoft.Xna.Framework.Color.setR"
+    },
+    {
+      "actual": [
+        "java.lang.String",
+        "java.lang.Throwable"
+      ],
+      "code": "PARAMETER_MISMATCH",
+      "expected": [
+        "System.Runtime.Serialization.SerializationInfo",
+        "System.Runtime.Serialization.StreamingContext"
+      ],
+      "subject": "Microsoft.Xna.Framework.Content.ContentLoadException..ctor"
+    },
+    {
+      "actual": [
+        "java.lang.Object"
+      ],
+      "code": "PARAMETER_MISMATCH",
+      "expected": [
+        "Microsoft.Xna.Framework.Matrix"
+      ],
+      "subject": "Microsoft.Xna.Framework.Matrix.equals"
+    },
+    {
+      "actual": [
+        "Microsoft.Xna.Framework.Vector4"
+      ],
+      "code": "PARAMETER_MISMATCH",
+      "expected": [
+        "Microsoft.Xna.Framework.Plane"
+      ],
+      "subject": "Microsoft.Xna.Framework.Plane..ctor"
+    },
+    {
+      "actual": [
+        "java.lang.Object"
+      ],
+      "code": "PARAMETER_MISMATCH",
+      "expected": [
+        "Microsoft.Xna.Framework.Plane"
+      ],
+      "subject": "Microsoft.Xna.Framework.Plane.equals"
+    },
+    {
+      "actual": [
+        "java.lang.Object"
+      ],
+      "code": "PARAMETER_MISMATCH",
+      "expected": [
+        "Microsoft.Xna.Framework.Point"
+      ],
+      "subject": "Microsoft.Xna.Framework.Point.equals"
+    },
+    {
+      "actual": [
+        "java.lang.Object"
+      ],
+      "code": "PARAMETER_MISMATCH",
+      "expected": [
+        "Microsoft.Xna.Framework.Quaternion"
+      ],
+      "subject": "Microsoft.Xna.Framework.Quaternion.equals"
+    },
+    {
+      "actual": [
+        "java.lang.Object"
+      ],
+      "code": "PARAMETER_MISMATCH",
+      "expected": [
+        "Microsoft.Xna.Framework.Ray"
+      ],
+      "subject": "Microsoft.Xna.Framework.Ray.equals"
+    },
+    {
+      "actual": [
+        "java.lang.Object"
+      ],
+      "code": "PARAMETER_MISMATCH",
+      "expected": [
+        "Microsoft.Xna.Framework.Rectangle"
+      ],
+      "subject": "Microsoft.Xna.Framework.Rectangle.equals"
+    },
+    {
+      "actual": [
+        "java.lang.Object"
+      ],
+      "code": "PARAMETER_MISMATCH",
+      "expected": [
+        "Microsoft.Xna.Framework.Vector2"
+      ],
+      "subject": "Microsoft.Xna.Framework.Vector2.equals"
+    },
+    {
+      "actual": [
+        "Microsoft.Xna.Framework.Vector3",
+        "float"
+      ],
+      "code": "PARAMETER_MISMATCH",
+      "expected": [
+        "Microsoft.Xna.Framework.Vector3",
+        "Microsoft.Xna.Framework.Vector3"
+      ],
+      "subject": "Microsoft.Xna.Framework.Vector3.Divide"
+    },
+    {
+      "actual": [
+        "java.lang.Object"
+      ],
+      "code": "PARAMETER_MISMATCH",
+      "expected": [
+        "Microsoft.Xna.Framework.Vector3"
+      ],
+      "subject": "Microsoft.Xna.Framework.Vector3.equals"
+    },
+    {
+      "actual": [
+        "Microsoft.Xna.Framework.Vector4",
+        "float"
+      ],
+      "code": "PARAMETER_MISMATCH",
+      "expected": [
+        "Microsoft.Xna.Framework.Vector4",
+        "Microsoft.Xna.Framework.Vector4"
+      ],
+      "subject": "Microsoft.Xna.Framework.Vector4.Divide"
+    },
+    {
+      "actual": [
+        "java.lang.Object"
+      ],
+      "code": "PARAMETER_MISMATCH",
+      "expected": [
+        "Microsoft.Xna.Framework.Vector4"
+      ],
+      "subject": "Microsoft.Xna.Framework.Vector4.equals"
+    },
+    {
+      "actual": [
+        "other"
+      ],
+      "code": "PARAMETER_NAME_MISMATCH",
+      "expected": [
+        "obj"
+      ],
+      "subject": "Microsoft.Xna.Framework.BoundingBox.method:equals(java.lang.Object)"
+    },
+    {
+      "actual": [
+        "other"
+      ],
+      "code": "PARAMETER_NAME_MISMATCH",
+      "expected": [
+        "obj"
+      ],
+      "subject": "Microsoft.Xna.Framework.BoundingSphere.method:equals(java.lang.Object)"
+    },
+    {
+      "actual": [
+        "red",
+        "green",
+        "blue"
+      ],
+      "code": "PARAMETER_NAME_MISMATCH",
+      "expected": [
+        "r",
+        "g",
+        "b"
+      ],
+      "subject": "Microsoft.Xna.Framework.Color.constructor:.ctor(float,float,float)"
+    },
+    {
+      "actual": [
+        "red",
+        "green",
+        "blue",
+        "alpha"
+      ],
+      "code": "PARAMETER_NAME_MISMATCH",
+      "expected": [
+        "r",
+        "g",
+        "b",
+        "a"
+      ],
+      "subject": "Microsoft.Xna.Framework.Color.constructor:.ctor(float,float,float,float)"
+    },
+    {
+      "actual": [
+        "red",
+        "green",
+        "blue"
+      ],
+      "code": "PARAMETER_NAME_MISMATCH",
+      "expected": [
+        "r",
+        "g",
+        "b"
+      ],
+      "subject": "Microsoft.Xna.Framework.Color.constructor:.ctor(int,int,int)"
+    },
+    {
+      "actual": [
+        "red",
+        "green",
+        "blue",
+        "alpha"
+      ],
+      "code": "PARAMETER_NAME_MISMATCH",
+      "expected": [
+        "r",
+        "g",
+        "b",
+        "a"
+      ],
+      "subject": "Microsoft.Xna.Framework.Color.constructor:.ctor(int,int,int,int)"
+    },
+    {
+      "actual": [
+        "red",
+        "green",
+        "blue",
+        "alpha"
+      ],
+      "code": "PARAMETER_NAME_MISMATCH",
+      "expected": [
+        "r",
+        "g",
+        "b",
+        "a"
+      ],
+      "subject": "Microsoft.Xna.Framework.Color.method:FromNonPremultiplied(int,int,int,int)"
+    },
+    {
+      "actual": [
+        "other"
+      ],
+      "code": "PARAMETER_NAME_MISMATCH",
+      "expected": [
+        "obj"
+      ],
+      "subject": "Microsoft.Xna.Framework.Color.method:equals(java.lang.Object)"
+    },
+    {
+      "actual": [
+        "visible"
+      ],
+      "code": "PARAMETER_NAME_MISMATCH",
+      "expected": [
+        "value"
+      ],
+      "subject": "Microsoft.Xna.Framework.Game.method:setIsMouseVisible(boolean)"
+    },
+    {
+      "actual": [
+        "left",
+        "right"
+      ],
+      "code": "PARAMETER_NAME_MISMATCH",
+      "expected": [
+        "matrix1",
+        "matrix2"
+      ],
+      "subject": "Microsoft.Xna.Framework.Matrix.method:Add(Microsoft.Xna.Framework.Matrix,Microsoft.Xna.Framework.Matrix)"
+    },
+    {
+      "actual": [
+        "value"
+      ],
+      "code": "PARAMETER_NAME_MISMATCH",
+      "expected": [
+        "quaternion"
+      ],
+      "subject": "Microsoft.Xna.Framework.Matrix.method:CreateFromQuaternion(Microsoft.Xna.Framework.Quaternion)"
+    },
+    {
+      "actual": [
+        "x",
+        "y",
+        "z"
+      ],
+      "code": "PARAMETER_NAME_MISMATCH",
+      "expected": [
+        "xScale",
+        "yScale",
+        "zScale"
+      ],
+      "subject": "Microsoft.Xna.Framework.Matrix.method:CreateScale(float,float,float)"
+    },
+    {
+      "actual": [
+        "x",
+        "y",
+        "z"
+      ],
+      "code": "PARAMETER_NAME_MISMATCH",
+      "expected": [
+        "xPosition",
+        "yPosition",
+        "zPosition"
+      ],
+      "subject": "Microsoft.Xna.Framework.Matrix.method:CreateTranslation(float,float,float)"
+    },
+    {
+      "actual": [
+        "a",
+        "b"
+      ],
+      "code": "PARAMETER_NAME_MISMATCH",
+      "expected": [
+        "matrix1",
+        "matrix2"
+      ],
+      "subject": "Microsoft.Xna.Framework.Matrix.method:Multiply(Microsoft.Xna.Framework.Matrix,Microsoft.Xna.Framework.Matrix)"
+    },
+    {
+      "actual": [
+        "value",
+        "scale"
+      ],
+      "code": "PARAMETER_NAME_MISMATCH",
+      "expected": [
+        "matrix",
+        "scaleFactor"
+      ],
+      "subject": "Microsoft.Xna.Framework.Matrix.method:Multiply(Microsoft.Xna.Framework.Matrix,float)"
+    },
+    {
+      "actual": [
+        "left",
+        "right"
+      ],
+      "code": "PARAMETER_NAME_MISMATCH",
+      "expected": [
+        "matrix1",
+        "matrix2"
+      ],
+      "subject": "Microsoft.Xna.Framework.Matrix.method:Subtract(Microsoft.Xna.Framework.Matrix,Microsoft.Xna.Framework.Matrix)"
+    },
+    {
+      "actual": [
+        "value"
+      ],
+      "code": "PARAMETER_NAME_MISMATCH",
+      "expected": [
+        "matrix"
+      ],
+      "subject": "Microsoft.Xna.Framework.Matrix.method:Transpose(Microsoft.Xna.Framework.Matrix)"
+    },
+    {
+      "actual": [
+        "other"
+      ],
+      "code": "PARAMETER_NAME_MISMATCH",
+      "expected": [
+        "obj"
+      ],
+      "subject": "Microsoft.Xna.Framework.Matrix.method:equals(java.lang.Object)"
+    },
+    {
+      "actual": [
+        "other"
+      ],
+      "code": "PARAMETER_NAME_MISMATCH",
+      "expected": [
+        "obj"
+      ],
+      "subject": "Microsoft.Xna.Framework.Plane.method:equals(java.lang.Object)"
+    },
+    {
+      "actual": [
+        "other"
+      ],
+      "code": "PARAMETER_NAME_MISMATCH",
+      "expected": [
+        "obj"
+      ],
+      "subject": "Microsoft.Xna.Framework.Point.method:equals(java.lang.Object)"
+    },
+    {
+      "actual": [
+        "left",
+        "right"
+      ],
+      "code": "PARAMETER_NAME_MISMATCH",
+      "expected": [
+        "quaternion1",
+        "quaternion2"
+      ],
+      "subject": "Microsoft.Xna.Framework.Quaternion.method:Add(Microsoft.Xna.Framework.Quaternion,Microsoft.Xna.Framework.Quaternion)"
+    },
+    {
+      "actual": [
+        "left",
+        "right"
+      ],
+      "code": "PARAMETER_NAME_MISMATCH",
+      "expected": [
+        "quaternion1",
+        "quaternion2"
+      ],
+      "subject": "Microsoft.Xna.Framework.Quaternion.method:Divide(Microsoft.Xna.Framework.Quaternion,Microsoft.Xna.Framework.Quaternion)"
+    },
+    {
+      "actual": [
+        "left",
+        "right"
+      ],
+      "code": "PARAMETER_NAME_MISMATCH",
+      "expected": [
+        "quaternion1",
+        "quaternion2"
+      ],
+      "subject": "Microsoft.Xna.Framework.Quaternion.method:Dot(Microsoft.Xna.Framework.Quaternion,Microsoft.Xna.Framework.Quaternion)"
+    },
+    {
+      "actual": [
+        "value"
+      ],
+      "code": "PARAMETER_NAME_MISMATCH",
+      "expected": [
+        "quaternion"
+      ],
+      "subject": "Microsoft.Xna.Framework.Quaternion.method:Inverse(Microsoft.Xna.Framework.Quaternion)"
+    },
+    {
+      "actual": [
+        "left",
+        "right",
+        "amount"
+      ],
+      "code": "PARAMETER_NAME_MISMATCH",
+      "expected": [
+        "quaternion1",
+        "quaternion2",
+        "amount"
+      ],
+      "subject": "Microsoft.Xna.Framework.Quaternion.method:Lerp(Microsoft.Xna.Framework.Quaternion,Microsoft.Xna.Framework.Quaternion,float)"
+    },
+    {
+      "actual": [
+        "left",
+        "right"
+      ],
+      "code": "PARAMETER_NAME_MISMATCH",
+      "expected": [
+        "quaternion1",
+        "quaternion2"
+      ],
+      "subject": "Microsoft.Xna.Framework.Quaternion.method:Multiply(Microsoft.Xna.Framework.Quaternion,Microsoft.Xna.Framework.Quaternion)"
+    },
+    {
+      "actual": [
+        "value",
+        "scale"
+      ],
+      "code": "PARAMETER_NAME_MISMATCH",
+      "expected": [
+        "quaternion1",
+        "scaleFactor"
+      ],
+      "subject": "Microsoft.Xna.Framework.Quaternion.method:Multiply(Microsoft.Xna.Framework.Quaternion,float)"
+    },
+    {
+      "actual": [
+        "value"
+      ],
+      "code": "PARAMETER_NAME_MISMATCH",
+      "expected": [
+        "quaternion"
+      ],
+      "subject": "Microsoft.Xna.Framework.Quaternion.method:Negate(Microsoft.Xna.Framework.Quaternion)"
+    },
+    {
+      "actual": [
+        "value"
+      ],
+      "code": "PARAMETER_NAME_MISMATCH",
+      "expected": [
+        "quaternion"
+      ],
+      "subject": "Microsoft.Xna.Framework.Quaternion.method:Normalize(Microsoft.Xna.Framework.Quaternion)"
+    },
+    {
+      "actual": [
+        "left",
+        "right",
+        "amount"
+      ],
+      "code": "PARAMETER_NAME_MISMATCH",
+      "expected": [
+        "quaternion1",
+        "quaternion2",
+        "amount"
+      ],
+      "subject": "Microsoft.Xna.Framework.Quaternion.method:Slerp(Microsoft.Xna.Framework.Quaternion,Microsoft.Xna.Framework.Quaternion,float)"
+    },
+    {
+      "actual": [
+        "left",
+        "right"
+      ],
+      "code": "PARAMETER_NAME_MISMATCH",
+      "expected": [
+        "quaternion1",
+        "quaternion2"
+      ],
+      "subject": "Microsoft.Xna.Framework.Quaternion.method:Subtract(Microsoft.Xna.Framework.Quaternion,Microsoft.Xna.Framework.Quaternion)"
+    },
+    {
+      "actual": [
+        "other"
+      ],
+      "code": "PARAMETER_NAME_MISMATCH",
+      "expected": [
+        "obj"
+      ],
+      "subject": "Microsoft.Xna.Framework.Quaternion.method:equals(java.lang.Object)"
+    },
+    {
+      "actual": [
+        "other"
+      ],
+      "code": "PARAMETER_NAME_MISMATCH",
+      "expected": [
+        "obj"
+      ],
+      "subject": "Microsoft.Xna.Framework.Ray.method:equals(java.lang.Object)"
+    },
+    {
+      "actual": [
+        "other"
+      ],
+      "code": "PARAMETER_NAME_MISMATCH",
+      "expected": [
+        "obj"
+      ],
+      "subject": "Microsoft.Xna.Framework.Rectangle.method:equals(java.lang.Object)"
+    },
+    {
+      "actual": [
+        "value",
+        "min",
+        "max"
+      ],
+      "code": "PARAMETER_NAME_MISMATCH",
+      "expected": [
+        "value1",
+        "min",
+        "max"
+      ],
+      "subject": "Microsoft.Xna.Framework.Vector2.method:Clamp(Microsoft.Xna.Framework.Vector2,Microsoft.Xna.Framework.Vector2,Microsoft.Xna.Framework.Vector2)"
+    },
+    {
+      "actual": [
+        "value",
+        "divider"
+      ],
+      "code": "PARAMETER_NAME_MISMATCH",
+      "expected": [
+        "value1",
+        "divider"
+      ],
+      "subject": "Microsoft.Xna.Framework.Vector2.method:Divide(Microsoft.Xna.Framework.Vector2,float)"
+    },
+    {
+      "actual": [
+        "other"
+      ],
+      "code": "PARAMETER_NAME_MISMATCH",
+      "expected": [
+        "obj"
+      ],
+      "subject": "Microsoft.Xna.Framework.Vector2.method:equals(java.lang.Object)"
+    },
+    {
+      "actual": [
+        "left",
+        "right"
+      ],
+      "code": "PARAMETER_NAME_MISMATCH",
+      "expected": [
+        "value1",
+        "value2"
+      ],
+      "subject": "Microsoft.Xna.Framework.Vector3.method:Add(Microsoft.Xna.Framework.Vector3,Microsoft.Xna.Framework.Vector3)"
+    },
+    {
+      "actual": [
+        "value",
+        "min",
+        "max"
+      ],
+      "code": "PARAMETER_NAME_MISMATCH",
+      "expected": [
+        "value1",
+        "min",
+        "max"
+      ],
+      "subject": "Microsoft.Xna.Framework.Vector3.method:Clamp(Microsoft.Xna.Framework.Vector3,Microsoft.Xna.Framework.Vector3,Microsoft.Xna.Framework.Vector3)"
+    },
+    {
+      "actual": [
+        "left",
+        "right"
+      ],
+      "code": "PARAMETER_NAME_MISMATCH",
+      "expected": [
+        "vector1",
+        "vector2"
+      ],
+      "subject": "Microsoft.Xna.Framework.Vector3.method:Cross(Microsoft.Xna.Framework.Vector3,Microsoft.Xna.Framework.Vector3)"
+    },
+    {
+      "actual": [
+        "left",
+        "right"
+      ],
+      "code": "PARAMETER_NAME_MISMATCH",
+      "expected": [
+        "value1",
+        "value2"
+      ],
+      "subject": "Microsoft.Xna.Framework.Vector3.method:Distance(Microsoft.Xna.Framework.Vector3,Microsoft.Xna.Framework.Vector3)"
+    },
+    {
+      "actual": [
+        "left",
+        "right"
+      ],
+      "code": "PARAMETER_NAME_MISMATCH",
+      "expected": [
+        "value1",
+        "value2"
+      ],
+      "subject": "Microsoft.Xna.Framework.Vector3.method:DistanceSquared(Microsoft.Xna.Framework.Vector3,Microsoft.Xna.Framework.Vector3)"
+    },
+    {
+      "actual": [
+        "left",
+        "right"
+      ],
+      "code": "PARAMETER_NAME_MISMATCH",
+      "expected": [
+        "vector1",
+        "vector2"
+      ],
+      "subject": "Microsoft.Xna.Framework.Vector3.method:Dot(Microsoft.Xna.Framework.Vector3,Microsoft.Xna.Framework.Vector3)"
+    },
+    {
+      "actual": [
+        "left",
+        "right",
+        "amount"
+      ],
+      "code": "PARAMETER_NAME_MISMATCH",
+      "expected": [
+        "value1",
+        "value2",
+        "amount"
+      ],
+      "subject": "Microsoft.Xna.Framework.Vector3.method:Lerp(Microsoft.Xna.Framework.Vector3,Microsoft.Xna.Framework.Vector3,float)"
+    },
+    {
+      "actual": [
+        "left",
+        "right"
+      ],
+      "code": "PARAMETER_NAME_MISMATCH",
+      "expected": [
+        "value1",
+        "value2"
+      ],
+      "subject": "Microsoft.Xna.Framework.Vector3.method:Max(Microsoft.Xna.Framework.Vector3,Microsoft.Xna.Framework.Vector3)"
+    },
+    {
+      "actual": [
+        "left",
+        "right"
+      ],
+      "code": "PARAMETER_NAME_MISMATCH",
+      "expected": [
+        "value1",
+        "value2"
+      ],
+      "subject": "Microsoft.Xna.Framework.Vector3.method:Min(Microsoft.Xna.Framework.Vector3,Microsoft.Xna.Framework.Vector3)"
+    },
+    {
+      "actual": [
+        "left",
+        "right"
+      ],
+      "code": "PARAMETER_NAME_MISMATCH",
+      "expected": [
+        "value1",
+        "value2"
+      ],
+      "subject": "Microsoft.Xna.Framework.Vector3.method:Multiply(Microsoft.Xna.Framework.Vector3,Microsoft.Xna.Framework.Vector3)"
+    },
+    {
+      "actual": [
+        "value",
+        "scale"
+      ],
+      "code": "PARAMETER_NAME_MISMATCH",
+      "expected": [
+        "value",
+        "scaleFactor"
+      ],
+      "subject": "Microsoft.Xna.Framework.Vector3.method:Multiply(Microsoft.Xna.Framework.Vector3,float)"
+    },
+    {
+      "actual": [
+        "left",
+        "right"
+      ],
+      "code": "PARAMETER_NAME_MISMATCH",
+      "expected": [
+        "value1",
+        "value2"
+      ],
+      "subject": "Microsoft.Xna.Framework.Vector3.method:Subtract(Microsoft.Xna.Framework.Vector3,Microsoft.Xna.Framework.Vector3)"
+    },
+    {
+      "actual": [
+        "other"
+      ],
+      "code": "PARAMETER_NAME_MISMATCH",
+      "expected": [
+        "obj"
+      ],
+      "subject": "Microsoft.Xna.Framework.Vector3.method:equals(java.lang.Object)"
+    },
+    {
+      "actual": [
+        "left",
+        "right"
+      ],
+      "code": "PARAMETER_NAME_MISMATCH",
+      "expected": [
+        "value1",
+        "value2"
+      ],
+      "subject": "Microsoft.Xna.Framework.Vector4.method:Add(Microsoft.Xna.Framework.Vector4,Microsoft.Xna.Framework.Vector4)"
+    },
+    {
+      "actual": [
+        "value",
+        "divider"
+      ],
+      "code": "PARAMETER_NAME_MISMATCH",
+      "expected": [
+        "value1",
+        "divider"
+      ],
+      "subject": "Microsoft.Xna.Framework.Vector4.method:Divide(Microsoft.Xna.Framework.Vector4,float)"
+    },
+    {
+      "actual": [
+        "left",
+        "right"
+      ],
+      "code": "PARAMETER_NAME_MISMATCH",
+      "expected": [
+        "vector1",
+        "vector2"
+      ],
+      "subject": "Microsoft.Xna.Framework.Vector4.method:Dot(Microsoft.Xna.Framework.Vector4,Microsoft.Xna.Framework.Vector4)"
+    },
+    {
+      "actual": [
+        "left",
+        "right",
+        "amount"
+      ],
+      "code": "PARAMETER_NAME_MISMATCH",
+      "expected": [
+        "value1",
+        "value2",
+        "amount"
+      ],
+      "subject": "Microsoft.Xna.Framework.Vector4.method:Lerp(Microsoft.Xna.Framework.Vector4,Microsoft.Xna.Framework.Vector4,float)"
+    },
+    {
+      "actual": [
+        "left",
+        "right"
+      ],
+      "code": "PARAMETER_NAME_MISMATCH",
+      "expected": [
+        "value1",
+        "value2"
+      ],
+      "subject": "Microsoft.Xna.Framework.Vector4.method:Multiply(Microsoft.Xna.Framework.Vector4,Microsoft.Xna.Framework.Vector4)"
+    },
+    {
+      "actual": [
+        "value",
+        "scale"
+      ],
+      "code": "PARAMETER_NAME_MISMATCH",
+      "expected": [
+        "value1",
+        "scaleFactor"
+      ],
+      "subject": "Microsoft.Xna.Framework.Vector4.method:Multiply(Microsoft.Xna.Framework.Vector4,float)"
+    },
+    {
+      "actual": [
+        "value"
+      ],
+      "code": "PARAMETER_NAME_MISMATCH",
+      "expected": [
+        "vector"
+      ],
+      "subject": "Microsoft.Xna.Framework.Vector4.method:Normalize(Microsoft.Xna.Framework.Vector4)"
+    },
+    {
+      "actual": [
+        "left",
+        "right"
+      ],
+      "code": "PARAMETER_NAME_MISMATCH",
+      "expected": [
+        "value1",
+        "value2"
+      ],
+      "subject": "Microsoft.Xna.Framework.Vector4.method:Subtract(Microsoft.Xna.Framework.Vector4,Microsoft.Xna.Framework.Vector4)"
+    },
+    {
+      "actual": [
+        "other"
+      ],
+      "code": "PARAMETER_NAME_MISMATCH",
+      "expected": [
+        "obj"
+      ],
+      "subject": "Microsoft.Xna.Framework.Vector4.method:equals(java.lang.Object)"
+    },
+    {
+      "actual": "int",
+      "code": "RETURN_TYPE_MISMATCH",
+      "expected": "byte",
+      "subject": "Microsoft.Xna.Framework.Color.method:getA()"
+    },
+    {
+      "actual": "int",
+      "code": "RETURN_TYPE_MISMATCH",
+      "expected": "byte",
+      "subject": "Microsoft.Xna.Framework.Color.method:getB()"
+    },
+    {
+      "actual": "int",
+      "code": "RETURN_TYPE_MISMATCH",
+      "expected": "byte",
+      "subject": "Microsoft.Xna.Framework.Color.method:getG()"
+    },
+    {
+      "actual": "int",
+      "code": "RETURN_TYPE_MISMATCH",
+      "expected": "byte",
+      "subject": "Microsoft.Xna.Framework.Color.method:getR()"
+    },
+    {
+      "actual": "constructor:.ctor()->None",
+      "code": "UNEXPECTED_MEMBER",
+      "subject": "Microsoft.Xna.Framework.Content.ContentManager.constructor:.ctor()"
+    },
+    {
+      "actual": "constructor:.ctor(Microsoft.Xna.Framework.Game)->None",
+      "code": "UNEXPECTED_MEMBER",
+      "subject": "Microsoft.Xna.Framework.Graphics.GraphicsDevice.constructor:.ctor(Microsoft.Xna.Framework.Game)"
+    },
+    {
+      "actual": "method:close()->void",
+      "code": "UNEXPECTED_MEMBER",
+      "subject": "Microsoft.Xna.Framework.GraphicsDeviceManager.method:close()"
+    }
+  ],
+  "profile": "XNA 4.0 Windows runtime",
+  "referenceMembers": 2964,
+  "referenceTypes": 257,
+  "schemaVersion": 1,
+  "targetMembers": 351,
+  "targetTypes": 21,
+  "totalDiagnostics": 730
+}

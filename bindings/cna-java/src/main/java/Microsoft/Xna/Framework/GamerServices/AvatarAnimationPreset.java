@@ -1,0 +1,36 @@
+package Microsoft.Xna.Framework.GamerServices;
+
+/** Identifies one of XNA's built-in avatar animation clips. */
+public enum AvatarAnimationPreset {
+    Stand0,
+    Stand1,
+    Stand2,
+    Stand3,
+    Stand4,
+    Stand5,
+    Stand6,
+    Stand7,
+    Clap,
+    Wave,
+    Celebrate,
+    FemaleIdleCheckNails,
+    FemaleIdleLookAround,
+    FemaleIdleShiftWeight,
+    FemaleIdleFixShoe,
+    FemaleAngry,
+    FemaleConfused,
+    FemaleLaugh,
+    FemaleCry,
+    FemaleShocked,
+    FemaleYawn,
+    MaleIdleLookAround,
+    MaleIdleStretch,
+    MaleIdleShiftWeight,
+    MaleIdleCheckHand,
+    MaleAngry,
+    MaleConfused,
+    MaleLaugh,
+    MaleCry,
+    MaleSurprised,
+    MaleYawn;
+}

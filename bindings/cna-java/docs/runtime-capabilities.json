@@ -1,0 +1,343 @@
+{
+  "schemaVersion": 1,
+  "updated": "2026-09-30",
+  "profile": "XNA 4.0 full runtime superset projected to Java 17, plus the CNA extension surface",
+  "qualifiedRuntime": {
+    "platform": "Linux x86-64",
+    "cnaAbi": "0.35.0",
+    "cnaHead": "5b4edd6cc (next; see each artifact's PROVENANCE.txt)",
+    "sharpRuntimeHead": "88f6b11fbb8b9d1db1b9451e86f8835e1c9cafaa",
+    "cnaPlatformImplementation": "SDL3",
+    "renderers": [
+      "HEADLESS",
+      "OPENGLES3"
+    ],
+    "defaultRenderer": "HEADLESS",
+    "computeCapableRenderers": [],
+    "glContexts": {
+      "OPENGLES3": "OpenGL ES 3.2 (Mesa 25.0.7) on a private headless Weston + rootful Xwayland (tools/platform/run_gpu_tests_private.sh)"
+    },
+    "audio": "SDL3 (SDL_AUDIO_DRIVER=dummy inside the private GPU runner)",
+    "extendedGraphicsLayer": "OPENGLES3 artifact only (CNA_CNAEXT=ON); HEADLESS is built without it",
+    "devices": "OPENGLES3 artifact only (CNA_DEVICES=ON)",
+    "note": "Two single-renderer CNA builds, each staged with a PROVENANCE.txt: ~/deps/cna-c-abi-0.35.0 (HEADLESS, Debug, SDL3 platform and audio, no extended layer, no device layer) and ~/deps/cna-c-abi-0.35.0-opengles3-fx (OPENGLES3, Release, CNA_CNAEXT, CNA_DEVICES, compiled effects). The windowed one runs only inside CNA's private GPU runner, never on a desktop session. The earlier multi-renderer build with OPENGL4 is gone: CNA retired OPENGL4."
+  },
+  "statusVocabulary": [
+    "ASSET_PENDING",
+    "BACKEND_BLOCKED",
+    "EXTENSION_NOT_IN_BUILD",
+    "EXTENSION_VERIFIED",
+    "GPU_VERIFIED",
+    "HARDWARE_PENDING",
+    "LANGUAGE_MAPPING_LIMITATION",
+    "MANAGED_VERIFIED",
+    "NATIVE_VERIFIED",
+    "NO_NATIVE_PRODUCER",
+    "PIXEL_VERIFIED",
+    "PLATFORM_PENDING",
+    "RENDERER_PENDING",
+    "STRICT_COMPLETE",
+    "UPSTREAM_CNA_BLOCKED"
+  ],
+  "capabilities": [
+    {
+      "id": "xact-authored-banks",
+      "surface": "AudioEngine, WaveBank, SoundBank, Cue",
+      "statuses": [
+        "STRICT_COMPLETE",
+        "MANAGED_VERIFIED",
+        "NATIVE_VERIFIED",
+        "ASSET_PENDING"
+      ],
+      "detail": "The ownership graph and canonical XACT routes are verified; no licensed authored bank corpus qualified successful authored playback."
+    },
+    {
+      "id": "microphone-hardware",
+      "surface": "Microphone",
+      "statuses": [
+        "STRICT_COMPLETE",
+        "NATIVE_VERIFIED",
+        "HARDWARE_PENDING"
+      ],
+      "detail": "NULL-audio no-device behavior and native routes are verified; real capture hardware and BufferReady timing are not qualified."
+    },
+    {
+      "id": "video-frame-identity",
+      "surface": "VideoPlayer.GetTexture",
+      "statuses": [
+        "STRICT_COMPLETE",
+        "MANAGED_VERIFIED",
+        "BACKEND_BLOCKED"
+      ],
+      "detail": "Java safely exposes a PARENT_OWNED transient alias; the CNA C ABI carries no XNA two-buffer identity or frame generation token."
+    },
+    {
+      "id": "video-decode",
+      "surface": "Video, VideoPlayer",
+      "statuses": [
+        "STRICT_COMPLETE",
+        "NATIVE_VERIFIED",
+        "BACKEND_BLOCKED",
+        "ASSET_PENDING"
+      ],
+      "detail": "Metadata and player control routes execute, but HEADLESS produced no decoded frame and no qualified video asset established successful decode."
+    },
+    {
+      "id": "media-catalog-and-pictures",
+      "surface": "MediaLibrary, MediaSource, Picture, PictureAlbum",
+      "statuses": [
+        "STRICT_COMPLETE",
+        "MANAGED_VERIFIED",
+        "NATIVE_VERIFIED",
+        "PLATFORM_PENDING"
+      ],
+      "detail": "Canonical empty/default platform collections execute; populated catalog, token, thumbnail, and picture-store behavior require a real supported platform."
+    },
+    {
+      "id": "storage-path-containment",
+      "surface": "StorageContainer path operations",
+      "statuses": [
+        "STRICT_COMPLETE",
+        "MANAGED_VERIFIED",
+        "NATIVE_VERIFIED"
+      ],
+      "detail": "Java enforces XNA canonical containment before JNI, and CNA refuses parent traversal and absolute paths itself (JAVA-UPSTREAM-001); a test asserts CNA's refusal past the Java guard."
+    },
+    {
+      "id": "storage-devicechanged-os-transition",
+      "surface": "StorageDevice.DeviceChanged",
+      "statuses": [
+        "STRICT_COMPLETE",
+        "MANAGED_VERIFIED",
+        "NATIVE_VERIFIED",
+        "PLATFORM_PENDING"
+      ],
+      "detail": "Registration, queueing, owner-thread dispatch, containment, shutdown discard, and injected delivery are verified; no real OS device transition was observed."
+    },
+    {
+      "id": "gamerservices-component",
+      "surface": "GamerServicesComponent",
+      "statuses": [
+        "STRICT_COMPLETE",
+        "MANAGED_VERIFIED",
+        "NATIVE_VERIFIED",
+        "BACKEND_BLOCKED"
+      ],
+      "detail": "The component lifecycle reaches CNA's canonical routes. Real Xbox Live sign-in, Guide, network and title-update services are absent."
+    },
+    {
+      "id": "design-componentmodel-host",
+      "surface": "Microsoft.Xna.Framework.Design converters",
+      "statuses": [
+        "STRICT_COMPLETE",
+        "MANAGED_VERIFIED",
+        "LANGUAGE_MAPPING_LIMITATION"
+      ],
+      "detail": "Value conversion, ordered decomposition, reconstruction, and culture are implemented; Java has no CLR ComponentModel designer host, context, descriptor services, or attribute filtering."
+    },
+    {
+      "id": "gamerservices-roster-and-guide",
+      "surface": "Gamer, SignedInGamer, SignedInGamerCollection, Guide, GamerProfile, GamerPrivileges, GameDefaults, GamerPresence",
+      "statuses": [
+        "STRICT_COMPLETE",
+        "NATIVE_VERIFIED",
+        "BACKEND_BLOCKED"
+      ],
+      "detail": "Every member reaches a real CNA route and CNA answers: it publishes a local signed-in roster on this runtime and implements the Guide in process. No Xbox Live service is present, so what a real sign-in, a real friends list or a real achievement award would report is not qualified. Guide.IsScreenSaverEnabled does not round-trip, because CNA accepts the request and the headless platform does not honour it."
+    },
+    {
+      "id": "gamerservices-and-net-events",
+      "surface": "SignedInGamer.SignedIn/SignedOut, GamerServicesDispatcher.InstallingTitleUpdate, the nine NetworkSession events",
+      "statuses": [
+        "STRICT_COMPLETE",
+        "NATIVE_VERIFIED",
+        "PLATFORM_PENDING"
+      ],
+      "detail": "Every event now has a native producer. The JNI callbacks record each event and Java drains the record right after pumping the dispatcher or the session, so an event arrives on the game thread during Update, as XNA raises it. GameStarted and GameEnded are verified end to end on a local session. The rest share that producer and that drain, but a real GamerJoined, HostChanged or SignedIn needs a second machine or a live sign-in, neither of which took part in this qualification."
+    },
+    {
+      "id": "avatar-family",
+      "surface": "AvatarDescription, AvatarAnimation, AvatarRenderer, AvatarExpression, IAvatarAnimation",
+      "statuses": [
+        "STRICT_COMPLETE",
+        "NATIVE_VERIFIED",
+        "PLATFORM_PENDING"
+      ],
+      "detail": "The whole family reaches CNA's avatar routes. XNA's avatars are an Xbox 360 facility; what a real avatar description, a real animation clip or a rendered avatar looks like is not qualified on this platform."
+    },
+    {
+      "id": "network-sessions",
+      "surface": "NetworkSession, AvailableNetworkSession, NetworkGamer, LocalNetworkGamer, NetworkMachine, NetworkSessionProperties",
+      "statuses": [
+        "STRICT_COMPLETE",
+        "NATIVE_VERIFIED",
+        "PLATFORM_PENDING"
+      ],
+      "detail": "Creation, discovery, rosters, state and properties reach CNA. Only a SystemLink search reaches real discovery in CNA, and no second machine took part in this qualification, so a real joined session is not qualified."
+    },
+    {
+      "id": "network-packets",
+      "surface": "PacketReader, PacketWriter",
+      "statuses": [
+        "STRICT_COMPLETE",
+        "MANAGED_VERIFIED"
+      ],
+      "detail": "Managed by design: XNA's are a BinaryReader and BinaryWriter over a memory stream, so Position and Length keep exactly that meaning over one cursor. Every value type round-trips in XNA's own layout, verified in the managed tests."
+    },
+    {
+      "id": "extension-graphics",
+      "surface": "org.openeggbert.cna.extensions.graphics",
+      "statuses": [
+        "EXTENSION_VERIFIED",
+        "NATIVE_VERIFIED"
+      ],
+      "detail": "Availability, the physically based effects, ShaderEffect, the ASCII, CRT, depth and colour-matrix effects, DebugDraw and the renderer capability queries reach CNA. CNA ABI 0.30 removed the engine layer (render pipeline, post-process chain, shadows, clustered lighting, probes, particles, compute, instancing) and this package no longer projects it. On the OPENGLES3 artifact availability reports true; on the HEADLESS artifact, built without the layer, it reports false and DebugDraw is refused with ExtensionNotSupportedException, which the tests assert."
+    },
+    {
+      "id": "extension-runtime",
+      "surface": "org.openeggbert.cna.extensions.runtime",
+      "statuses": [
+        "EXTENSION_VERIFIED",
+        "NATIVE_VERIFIED"
+      ],
+      "detail": "The platform, desktop operating system, renderer name, backend category and maturity, application title and CNA's logger all reach CNA and are asserted against what this build reports: Desktop, Linux, HEADLESS, Diagnostic, Supported."
+    },
+    {
+      "id": "extension-sensors",
+      "surface": "org.openeggbert.cna.extensions.sensors",
+      "statuses": [
+        "EXTENSION_VERIFIED",
+        "NATIVE_VERIFIED",
+        "HARDWARE_PENDING"
+      ],
+      "detail": "Accelerometer, Gyroscope, Compass and Motion create, report state, round-trip their sampling interval and release their owned handle against the live runtime. This host has none of the four: every one reports NotSupported, getIsDataValid is false, and a reading is refused with IllegalStateException rather than answered with zeros, which is CNA's own contract and what the tests assert. A reading from real hardware is not qualified here."
+    },
+    {
+      "id": "extension-input-devices",
+      "surface": "org.openeggbert.cna.extensions.devices.InputDevices, org.openeggbert.cna.extensions.sensors.SensorDevices",
+      "statuses": [
+        "EXTENSION_VERIFIED",
+        "NATIVE_VERIFIED",
+        "HARDWARE_PENDING"
+      ],
+      "detail": "Mice, keyboards, touch devices and host motion sensors enumerate as immutable snapshots with the host's own identifier and name; zero devices is an ordinary answer on this headless host. Hot plug is verified end to end without hardware, because CNA exposes the same event its platform layer raises: a raised connection reaches a Java listener on the game thread during FrameworkDispatcher.Update, in raise order, and stops when the listener or the native subscription is released. The registrations are process-wide and were proved to survive one game being destroyed and another created. Real hardware being plugged in was not exercised."
+    },
+    {
+      "id": "extension-raw-joysticks",
+      "surface": "org.openeggbert.cna.extensions.input.Joysticks",
+      "statuses": [
+        "EXTENSION_VERIFIED",
+        "NATIVE_VERIFIED",
+        "NOT_EXERCISED_NO_HARDWARE"
+      ],
+      "detail": "Enumeration, capabilities and snapshot capture reach CNA and hot plug is verified end to end through CNA's own raise routes. This host has no joystick, so the branch that was exercised is the documented one: an identifier nothing is connected to captures successfully with every list empty rather than failing or reporting a device of zeros. A snapshot copies all four arrays and releases the native handle before returning, so it carries no lifetime; capturing consumes trackball motion, which is CNA's contract. No real axis, button, hat or trackball value was read here."
+    },
+    {
+      "id": "extension-haptics",
+      "surface": "org.openeggbert.cna.extensions.input.HapticDevice",
+      "statuses": [
+        "EXTENSION_VERIFIED",
+        "NATIVE_VERIFIED",
+        "NOT_EXERCISED_NO_HARDWARE"
+      ],
+      "detail": "Enumeration, opening from a device id, a joystick or the mouse, capabilities, rumble, gain, autocentre, pause and resume, and the six typed effect families all reach CNA. This host has no force feedback, so what was exercised is CNA's documented closed-device contract: opening succeeds, the device reports itself closed, its maxima are absent rather than zero, and every operation is a safe no-op reporting that nothing was applied. The effect encoding is verified independently of hardware, field by field, because a value landing in the wrong slot would be silent. No motor was actually driven."
+    },
+    {
+      "id": "extension-modern-input",
+      "surface": "org.openeggbert.cna.extensions.input.GamePadExtensions, KeyboardExtensions, MouseExtensions, TouchPanelExtensions",
+      "statuses": [
+        "EXTENSION_VERIFIED",
+        "NATIVE_VERIFIED",
+        "NOT_EXERCISED_NO_HARDWARE"
+      ],
+      "detail": "The game-pad identity, battery, light bar, trigger motors, touchpad fingers, button labels and on-pad sensors; the keyboard's layout-dependent and layout-independent key naming, scancode translation and modifier state; the mouse's capture, relative mode, desktop position, warp and click event; and mouse-driven touch emulation. The mouse-touch emulation flag and the mouse click event round-trip against the live runtime. No game pad is connected here, so the pad readings report absent rather than zero and were not read from hardware; the keyboard name round trip is asserted only when the headless host names the key at all."
+    },
+    {
+      "id": "extension-text-composition",
+      "surface": "org.openeggbert.cna.extensions.input.TextInput composition and candidate events",
+      "statuses": [
+        "EXTENSION_VERIFIED",
+        "NATIVE_VERIFIED",
+        "NOT_EXERCISED_NO_HARDWARE"
+      ],
+      "detail": "Composition drafts and candidate lists reach a Java listener through a second event transport that copies each borrowed UTF-8 view inside CNA's callback and frees the copy before Java sees it. Verified end to end against the live runtime with accented Latin, CJK and a supplementary code point; with byte offsets mapped to Java string indices, including offsets that land inside a character and are reported as naming nothing; with an empty composition and an empty candidate list delivered as real events; and with 400 raised events over a 64-deep queue, where every one is either delivered intact or counted as dropped. Ordering across the numeric and string transports is proved by a sequence merge, and the assertion fails if the merge is removed. No input method is installed on this host, so the events were raised through CNA's own dispatch rather than by a person typing."
+    },
+    {
+      "id": "extension-cna-model",
+      "surface": "org.openeggbert.cna.extensions.content.CnaModel",
+      "statuses": [
+        "EXTENSION_VERIFIED",
+        "NATIVE_VERIFIED"
+      ],
+      "detail": "CnaModel.From(Model) builds CNA's own model over the buffers and effects an XNA model already owns, and CnaModel.Load opens one through CNA's own content manager; getContentTag reads back the Dictionary<string, object> a content processor wrote as the model's Tag, and the dictionary outlives the model. The loader was blocked by a teardown segfault (JAVA-UPSTREAM-004) until CNA fixed it; content_manager_model_teardown.c exits 0 on both artifacts."
+    },
+    {
+      "id": "extension-cnb-container",
+      "surface": "org.openeggbert.cna.extensions.content.CnbDocument, CnbReader, CnbTextureData, CnbWriter, Cnb",
+      "statuses": [
+        "EXTENSION_VERIFIED",
+        "NATIVE_VERIFIED"
+      ],
+      "detail": "CNA's own compiled content format, beside XNB rather than instead of it. Verified end to end against the live runtime: a texture built from four distinct pixels is encoded by CNA's own encoder, parsed back from memory and from a file, its metadata content name and asset type read back as written, every uncompressed chunk's CRC-32C recomputed and matched against the table of contents, and the decoded pixels compared byte for byte with the ones that went in and again after upload as an XNA Texture2D. A file written by CnbWriter with a game's own custom asset type and a mandatory chunk reads back with the same type, the same schema version, the same metadata and the same chunk bytes. The checked reader refuses a read past the end without moving its cursor and refuses an element count the remaining bytes cannot hold. CRC-32C is CNA's, not java.util.zip's CRC-32, and the hardware and portable paths are asserted to agree."
+    },
+    {
+      "id": "extension-guide-pending-requests",
+      "surface": "org.openeggbert.cna.extensions.gamerservices.GuideExtensions",
+      "statuses": [
+        "EXTENSION_VERIFIED",
+        "NATIVE_VERIFIED"
+      ],
+      "detail": "XNA's Guide draws its own on-screen keyboard and message box because an Xbox has a system overlay; CNA has none, so the request becomes the game's to show and that question has no XNA member. Verified end to end against the live runtime: Guide.BeginShowKeyboardInput makes a request the game finds pending with exactly the title, description and current text it asked for; discarding drops it unanswered; cancelling answers it and it stops being pending. Guide.BeginShowMessageBox reports the focused button the game does not otherwise know, and a click answers it. CNA's own plain renderer is reachable through Draw over a SpriteBatch, SpriteFont and white pixel the game supplies; drawing was not exercised on the headless renderer."
+    },
+    {
+      "id": "cnb-source-import",
+      "surface": "org.openeggbert.cna.extensions.content.CnbImport",
+      "statuses": [
+        "EXTENSION_VERIFIED",
+        "NATIVE_VERIFIED"
+      ],
+      "detail": "CNA reads ordinary source assets into compiled descriptions with no graphics or audio device: a PNG or JPEG becomes single-level RGBA8 texture data, optionally with one painted colour keyed to transparent, and a WAV becomes a PCM16 sound whose data chunk comes back byte for byte. Both are qualified against fixtures this repository authors -- a PNG written by the JDK and a WAV written from its published layout -- because the source formats are what is under test and a CNA-authored input would prove nothing.",
+      "limitation": "DDS cube import takes DXT1, DXT3 and DXT5 only. An uncompressed cube map is a real file this build declines, answering NOT_SUPPORTED with its own identity rather than failing as though the bytes were malformed; the first fixture written here was B8G8R8A8 and is what found that out."
+    },
+    {
+      "id": "cnb-model-tooling",
+      "surface": "org.openeggbert.cna.extensions.content.CnbModelData",
+      "statuses": [
+        "EXTENSION_VERIFIED",
+        "NATIVE_VERIFIED",
+        "LANGUAGE_MAPPING_LIMITATION"
+      ],
+      "detail": "The whole compiled-model graph reads and writes with no graphics device: bones, parts with their vertex and index bytes, meshes, the skinning skeleton with all three matrix sets, baked lights, and the glTF material factors with their eight texture names and seven per-slot states. The .cnb path survives a build-encode-decode-destroy cycle cleanly.",
+      "limitation": "There is no CnbModelData.toModel(GraphicsDevice). XNA's Model has no public constructor and CNA offers no route that builds one from this description, so this is the tooling side of the file and a game loads a model through the content manager or CnaModel.Load. Animations are readable but not writable: cna_cnb_model_add_animation takes a nested descriptor graph the JNI generator refuses rather than guesses at, which is the same shape that blocks JAVA-EXT-007."
+    },
+    {
+      "id": "pixel-readback",
+      "surface": "RenderTarget2D.GetData through SpriteBatch, ShaderEffect, ColorMatrixEffect",
+      "statuses": [
+        "EXTENSION_VERIFIED",
+        "PIXEL_VERIFIED"
+      ],
+      "detail": "On OPENGLES3 a point-filtered and a linear-filtered SpriteBatch draw read back as different images, a cleared target reads back its colour, a ShaderEffect's uniform decides the pixel it writes, and ColorMatrixEffect is measured either executing or leaving the source untouched. HEADLESS refuses the readback and the tests assert the refusal."
+    },
+    {
+      "id": "graphics-renderer-selection",
+      "surface": "org.openeggbert.cna.extensions.graphics.GraphicsRenderer, GraphicsRendererType, GraphicsRendererFallback",
+      "statuses": [
+        "EXTENSION_VERIFIED",
+        "NATIVE_VERIFIED"
+      ],
+      "detail": "Which renderers this build has, which one is selected, whether the selection is latched, and which one is running -- asked of the library. The inventory, selection and latch routes answer correctly before and after a device exists; JAVA-UPSTREAM-018 said otherwise and was a probe that read outputs before the call wrote them. An environment variable naming a renderer this build lacks no longer aborts at library load (JAVA-UPSTREAM-017, fixed in CNA): a child JVM started that way has getSelected throw IllegalStateException and game creation fail as an ordinary exception. The three routes named 'current' describe the compiled-in renderer, as CNA documents; getActive is the running one. Only single-renderer builds were qualified, so the fallback chain was exercised as configuration only."
+    },
+    {
+      "id": "extension-camera",
+      "surface": "org.openeggbert.cna.extensions.devices.Camera, CameraState, CameraPosition",
+      "statuses": [
+        "EXTENSION_VERIFIED",
+        "NATIVE_VERIFIED",
+        "HARDWARE_PENDING"
+      ],
+      "detail": "All fifteen camera routes are bound. Over CNA's own test backend a camera reports the state and frame it was given, delivers the frame into a texture of its size and refuses one of another size as an ordinary false; two test cameras open and close in one process, the teardown JAVA-UPSTREAM-019 found fatal. Measured on the OPENGLES3 artifact (CNA_DEVICES=ON); the HEADLESS artifact has no device layer and every route refuses, which the test asserts.",
+      "limitation": "The host's real integrated camera is enumerated (one camera on this machine) but no real frame capture was qualified."
+    }
+  ]
+}

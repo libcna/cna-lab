@@ -1,0 +1,4798 @@
+{
+  "schemaVersion": 1,
+  "description": "Routes whose JNI adapter and Java declarations are generated from the live CNA C headers. Only the symbol and the Java method name are declared here; every type, every marshalling step and the Java native declaration come from the header.",
+  "classes": {
+    "NativeGamerServicesRoutes": [
+      {
+        "java": "achievementCollectionContains",
+        "symbol": "cna_achievement_collection_contains"
+      },
+      {
+        "java": "achievementCollectionDestroy",
+        "symbol": "cna_achievement_collection_destroy"
+      },
+      {
+        "java": "achievementCollectionGetAt",
+        "symbol": "cna_achievement_collection_get_at"
+      },
+      {
+        "java": "achievementCollectionGetByKey",
+        "symbol": "cna_achievement_collection_get_by_key"
+      },
+      {
+        "java": "achievementCollectionGetCount",
+        "symbol": "cna_achievement_collection_get_count"
+      },
+      {
+        "java": "achievementCollectionGetIsDisposed",
+        "symbol": "cna_achievement_collection_get_is_disposed"
+      },
+      {
+        "java": "achievementCollectionIndexOf",
+        "symbol": "cna_achievement_collection_index_of"
+      },
+      {
+        "java": "achievementCopyDescription",
+        "symbol": "cna_achievement_copy_description"
+      },
+      {
+        "java": "achievementCopyHowToEarn",
+        "symbol": "cna_achievement_copy_how_to_earn"
+      },
+      {
+        "java": "achievementCopyKey",
+        "symbol": "cna_achievement_copy_key"
+      },
+      {
+        "java": "achievementCopyName",
+        "symbol": "cna_achievement_copy_name"
+      },
+      {
+        "java": "achievementCopyPicture",
+        "symbol": "cna_achievement_copy_picture"
+      },
+      {
+        "java": "achievementGetDescriptionSize",
+        "symbol": "cna_achievement_get_description_size"
+      },
+      {
+        "java": "achievementGetHowToEarnSize",
+        "symbol": "cna_achievement_get_how_to_earn_size"
+      },
+      {
+        "java": "achievementGetInfo",
+        "symbol": "cna_achievement_get_info"
+      },
+      {
+        "java": "achievementGetKeySize",
+        "symbol": "cna_achievement_get_key_size"
+      },
+      {
+        "java": "achievementGetNameSize",
+        "symbol": "cna_achievement_get_name_size"
+      },
+      {
+        "java": "achievementGetPictureSize",
+        "symbol": "cna_achievement_get_picture_size"
+      },
+      {
+        "java": "avatarAnimationCreate",
+        "symbol": "cna_avatar_animation_create"
+      },
+      {
+        "java": "avatarAnimationDestroy",
+        "symbol": "cna_avatar_animation_destroy"
+      },
+      {
+        "java": "avatarAnimationGetBoneTransformAt",
+        "symbol": "cna_avatar_animation_get_bone_transform_at"
+      },
+      {
+        "java": "avatarAnimationGetExpression",
+        "symbol": "cna_avatar_animation_get_expression"
+      },
+      {
+        "java": "avatarAnimationGetInfo",
+        "symbol": "cna_avatar_animation_get_info"
+      },
+      {
+        "java": "avatarAnimationSetCurrentPosition",
+        "symbol": "cna_avatar_animation_set_current_position"
+      },
+      {
+        "java": "avatarAnimationUpdate",
+        "symbol": "cna_avatar_animation_update"
+      },
+      {
+        "java": "avatarDescriptionCopyDescription",
+        "symbol": "cna_avatar_description_copy_description"
+      },
+      {
+        "java": "avatarDescriptionCreate",
+        "symbol": "cna_avatar_description_create"
+      },
+      {
+        "java": "avatarDescriptionCreateRandom",
+        "symbol": "cna_avatar_description_create_random"
+      },
+      {
+        "java": "avatarDescriptionCreateRandomForBodyType",
+        "symbol": "cna_avatar_description_create_random_for_body_type"
+      },
+      {
+        "java": "avatarDescriptionDestroy",
+        "symbol": "cna_avatar_description_destroy"
+      },
+      {
+        "java": "avatarDescriptionGetFromGamer",
+        "symbol": "cna_avatar_description_get_from_gamer",
+        "nullCallback": true
+      },
+      {
+        "java": "avatarDescriptionGetInfo",
+        "symbol": "cna_avatar_description_get_info"
+      },
+      {
+        "java": "avatarRendererCreate",
+        "symbol": "cna_avatar_renderer_create"
+      },
+      {
+        "java": "avatarRendererDestroy",
+        "symbol": "cna_avatar_renderer_destroy"
+      },
+      {
+        "java": "avatarRendererDrawAnimation",
+        "symbol": "cna_avatar_renderer_draw_animation"
+      },
+      {
+        "java": "avatarRendererDrawBones",
+        "symbol": "cna_avatar_renderer_draw_bones"
+      },
+      {
+        "java": "avatarRendererGetBindPoseAt",
+        "symbol": "cna_avatar_renderer_get_bind_pose_at"
+      },
+      {
+        "java": "avatarRendererGetInfo",
+        "symbol": "cna_avatar_renderer_get_info"
+      },
+      {
+        "java": "avatarRendererGetLighting",
+        "symbol": "cna_avatar_renderer_get_lighting"
+      },
+      {
+        "java": "avatarRendererGetParentBoneAt",
+        "symbol": "cna_avatar_renderer_get_parent_bone_at"
+      },
+      {
+        "java": "avatarRendererGetTransforms",
+        "symbol": "cna_avatar_renderer_get_transforms"
+      },
+      {
+        "java": "avatarRendererSetLighting",
+        "symbol": "cna_avatar_renderer_set_lighting"
+      },
+      {
+        "java": "avatarRendererSetTransforms",
+        "symbol": "cna_avatar_renderer_set_transforms"
+      },
+      {
+        "java": "friendCollectionGetIsDisposed",
+        "symbol": "cna_friend_collection_get_is_disposed"
+      },
+      {
+        "java": "friendGamerCopyPresence",
+        "symbol": "cna_friend_gamer_copy_presence"
+      },
+      {
+        "java": "friendGamerGetInfo",
+        "symbol": "cna_friend_gamer_get_info"
+      },
+      {
+        "java": "friendGamerGetPresenceSize",
+        "symbol": "cna_friend_gamer_get_presence_size"
+      },
+      {
+        "java": "gamerCollectionCreateEnumerator",
+        "symbol": "cna_gamer_collection_create_enumerator"
+      },
+      {
+        "java": "gamerCollectionDestroy",
+        "symbol": "cna_gamer_collection_destroy"
+      },
+      {
+        "java": "gamerCollectionGetAt",
+        "symbol": "cna_gamer_collection_get_at"
+      },
+      {
+        "java": "gamerCollectionGetCount",
+        "symbol": "cna_gamer_collection_get_count"
+      },
+      {
+        "java": "gamerCopyDisplayName",
+        "symbol": "cna_gamer_copy_display_name"
+      },
+      {
+        "java": "gamerCopyGamertag",
+        "symbol": "cna_gamer_copy_gamertag"
+      },
+      {
+        "java": "gamerCopyPartnerToken",
+        "symbol": "cna_gamer_copy_partner_token"
+      },
+      {
+        "java": "gamerCopyText",
+        "symbol": "cna_gamer_copy_text"
+      },
+      {
+        "java": "gamerEnumeratorDestroy",
+        "symbol": "cna_gamer_enumerator_destroy"
+      },
+      {
+        "java": "gamerEnumeratorGetCurrent",
+        "symbol": "cna_gamer_enumerator_get_current"
+      },
+      {
+        "java": "gamerEnumeratorMoveNext",
+        "symbol": "cna_gamer_enumerator_move_next"
+      },
+      {
+        "java": "gamerGetDisplayNameSize",
+        "symbol": "cna_gamer_get_display_name_size"
+      },
+      {
+        "java": "gamerGetFromGamertag",
+        "symbol": "cna_gamer_get_from_gamertag"
+      },
+      {
+        "java": "gamerGetGamertagSize",
+        "symbol": "cna_gamer_get_gamertag_size"
+      },
+      {
+        "java": "gamerGetIsDisposed",
+        "symbol": "cna_gamer_get_is_disposed"
+      },
+      {
+        "java": "gamerGetPartnerTokenSize",
+        "symbol": "cna_gamer_get_partner_token_size"
+      },
+      {
+        "java": "gamerGetProfile",
+        "symbol": "cna_gamer_get_profile"
+      },
+      {
+        "java": "gamerGetSignedInGamerAt",
+        "symbol": "cna_gamer_get_signed_in_gamer_at"
+      },
+      {
+        "java": "gamerGetSignedInGamerAtPlayerIndex",
+        "symbol": "cna_gamer_get_signed_in_gamer_at_player_index"
+      },
+      {
+        "java": "gamerGetSignedInGamerCount",
+        "symbol": "cna_gamer_get_signed_in_gamer_count"
+      },
+      {
+        "java": "gamerGetTag",
+        "symbol": "cna_gamer_get_tag"
+      },
+      {
+        "java": "gamerGetTextSize",
+        "symbol": "cna_gamer_get_text_size"
+      },
+      {
+        "java": "gamerProfileCopyMotto",
+        "symbol": "cna_gamer_profile_copy_motto"
+      },
+      {
+        "java": "gamerProfileCopyPicture",
+        "symbol": "cna_gamer_profile_copy_picture"
+      },
+      {
+        "java": "gamerProfileCopyRegionName",
+        "symbol": "cna_gamer_profile_copy_region_name"
+      },
+      {
+        "java": "gamerProfileDestroy",
+        "symbol": "cna_gamer_profile_destroy"
+      },
+      {
+        "java": "gamerProfileGetInfo",
+        "symbol": "cna_gamer_profile_get_info"
+      },
+      {
+        "java": "gamerProfileGetMottoSize",
+        "symbol": "cna_gamer_profile_get_motto_size"
+      },
+      {
+        "java": "gamerProfileGetPictureSize",
+        "symbol": "cna_gamer_profile_get_picture_size"
+      },
+      {
+        "java": "gamerProfileGetRegionNameSize",
+        "symbol": "cna_gamer_profile_get_region_name_size"
+      },
+      {
+        "java": "gamerServicesDispatcherGetIsInitialized",
+        "symbol": "cna_gamer_services_dispatcher_get_is_initialized"
+      },
+      {
+        "java": "gamerServicesDispatcherGetWindowHandle",
+        "symbol": "cna_gamer_services_dispatcher_get_window_handle"
+      },
+      {
+        "java": "gamerSetDisplayName",
+        "symbol": "cna_gamer_set_display_name"
+      },
+      {
+        "java": "gamerSetTag",
+        "symbol": "cna_gamer_set_tag"
+      },
+      {
+        "java": "gamerUnsubscribeExt",
+        "symbol": "cna_gamer_unsubscribe_ext"
+      },
+      {
+        "java": "guideBeginShowKeyboardInput",
+        "symbol": "cna_guide_begin_show_keyboard_input",
+        "nullCallback": true
+      },
+      {
+        "java": "guideCopyPendingKeyboardInputDescriptionExt",
+        "symbol": "cna_guide_copy_pending_keyboard_input_description_ext"
+      },
+      {
+        "java": "guideCopyPendingKeyboardInputDisplayTextExt",
+        "symbol": "cna_guide_copy_pending_keyboard_input_display_text_ext"
+      },
+      {
+        "java": "guideCopyPendingKeyboardInputTitleExt",
+        "symbol": "cna_guide_copy_pending_keyboard_input_title_ext"
+      },
+      {
+        "java": "guideDelayNotifications",
+        "symbol": "cna_guide_delay_notifications"
+      },
+      {
+        "java": "guideEndShowKeyboardInput",
+        "symbol": "cna_guide_end_show_keyboard_input"
+      },
+      {
+        "java": "guideEndShowKeyboardInputSize",
+        "symbol": "cna_guide_end_show_keyboard_input_size"
+      },
+      {
+        "java": "guideEndShowMessageBox",
+        "symbol": "cna_guide_end_show_message_box"
+      },
+      {
+        "java": "guideGetHasPendingKeyboardInputExt",
+        "symbol": "cna_guide_get_has_pending_keyboard_input_ext"
+      },
+      {
+        "java": "guideGetHasPendingMessageBoxExt",
+        "symbol": "cna_guide_get_has_pending_message_box_ext"
+      },
+      {
+        "java": "guideGetIsScreenSaverEnabled",
+        "symbol": "cna_guide_get_is_screen_saver_enabled"
+      },
+      {
+        "java": "guideGetIsTrialMode",
+        "symbol": "cna_guide_get_is_trial_mode"
+      },
+      {
+        "java": "guideGetIsVisible",
+        "symbol": "cna_guide_get_is_visible"
+      },
+      {
+        "java": "guideGetNotificationPosition",
+        "symbol": "cna_guide_get_notification_position"
+      },
+      {
+        "java": "guideGetPendingKeyboardInputDescriptionSizeExt",
+        "symbol": "cna_guide_get_pending_keyboard_input_description_size_ext"
+      },
+      {
+        "java": "guideGetPendingKeyboardInputDisplayTextSizeExt",
+        "symbol": "cna_guide_get_pending_keyboard_input_display_text_size_ext"
+      },
+      {
+        "java": "guideGetPendingKeyboardInputTitleSizeExt",
+        "symbol": "cna_guide_get_pending_keyboard_input_title_size_ext"
+      },
+      {
+        "java": "guideGetPendingMessageBoxFocusButtonExt",
+        "symbol": "cna_guide_get_pending_message_box_focus_button_ext"
+      },
+      {
+        "java": "guideGetSimulateTrialMode",
+        "symbol": "cna_guide_get_simulate_trial_mode"
+      },
+      {
+        "java": "guideRenderPendingKeyboardInputExt",
+        "symbol": "cna_guide_render_pending_keyboard_input_ext"
+      },
+      {
+        "java": "guideRenderPendingMessageBoxExt",
+        "symbol": "cna_guide_render_pending_message_box_ext"
+      },
+      {
+        "java": "guideResetPendingKeyboardInputExt",
+        "symbol": "cna_guide_reset_pending_keyboard_input_ext"
+      },
+      {
+        "java": "guideResetPendingMessageBoxExt",
+        "symbol": "cna_guide_reset_pending_message_box_ext"
+      },
+      {
+        "java": "guideSetIsScreenSaverEnabled",
+        "symbol": "cna_guide_set_is_screen_saver_enabled"
+      },
+      {
+        "java": "guideSetNotificationPosition",
+        "symbol": "cna_guide_set_notification_position"
+      },
+      {
+        "java": "guideSetSimulateTrialMode",
+        "symbol": "cna_guide_set_simulate_trial_mode"
+      },
+      {
+        "java": "guideShowAchievementsExt",
+        "symbol": "cna_guide_show_achievements_ext"
+      },
+      {
+        "java": "guideShowComposeMessage",
+        "symbol": "cna_guide_show_compose_message"
+      },
+      {
+        "java": "guideShowFriendRequest",
+        "symbol": "cna_guide_show_friend_request"
+      },
+      {
+        "java": "guideShowFriends",
+        "symbol": "cna_guide_show_friends"
+      },
+      {
+        "java": "guideShowGameInvite",
+        "symbol": "cna_guide_show_game_invite"
+      },
+      {
+        "java": "guideShowGameInviteForSession",
+        "symbol": "cna_guide_show_game_invite_for_session"
+      },
+      {
+        "java": "guideShowGamerCard",
+        "symbol": "cna_guide_show_gamer_card"
+      },
+      {
+        "java": "guideShowMarketplace",
+        "symbol": "cna_guide_show_marketplace"
+      },
+      {
+        "java": "guideShowMessages",
+        "symbol": "cna_guide_show_messages"
+      },
+      {
+        "java": "guideShowParty",
+        "symbol": "cna_guide_show_party"
+      },
+      {
+        "java": "guideShowPartySessions",
+        "symbol": "cna_guide_show_party_sessions"
+      },
+      {
+        "java": "guideShowPlayerReview",
+        "symbol": "cna_guide_show_player_review"
+      },
+      {
+        "java": "guideShowPlayers",
+        "symbol": "cna_guide_show_players"
+      },
+      {
+        "java": "guideShowSignIn",
+        "symbol": "cna_guide_show_sign_in"
+      },
+      {
+        "java": "guideSimulateKeyboardInputCancelExt",
+        "symbol": "cna_guide_simulate_keyboard_input_cancel_ext"
+      },
+      {
+        "java": "guideSimulateMessageBoxClickExt",
+        "symbol": "cna_guide_simulate_message_box_click_ext"
+      },
+      {
+        "java": "guideWasKeyboardInputCanceledExt",
+        "symbol": "cna_guide_was_keyboard_input_canceled_ext"
+      },
+      {
+        "java": "leaderboardEntryCreateExt",
+        "symbol": "cna_leaderboard_entry_create_ext"
+      },
+      {
+        "java": "leaderboardEntryDestroy",
+        "symbol": "cna_leaderboard_entry_destroy"
+      },
+      {
+        "java": "leaderboardEntryGetColumns",
+        "symbol": "cna_leaderboard_entry_get_columns"
+      },
+      {
+        "java": "leaderboardEntryGetGamer",
+        "symbol": "cna_leaderboard_entry_get_gamer"
+      },
+      {
+        "java": "leaderboardEntryGetInfo",
+        "symbol": "cna_leaderboard_entry_get_info"
+      },
+      {
+        "java": "leaderboardEntrySetRating",
+        "symbol": "cna_leaderboard_entry_set_rating"
+      },
+      {
+        "java": "leaderboardReaderDestroy",
+        "symbol": "cna_leaderboard_reader_destroy"
+      },
+      {
+        "java": "leaderboardReaderGetEntryAt",
+        "symbol": "cna_leaderboard_reader_get_entry_at"
+      },
+      {
+        "java": "leaderboardReaderGetIdentity",
+        "symbol": "cna_leaderboard_reader_get_identity"
+      },
+      {
+        "java": "leaderboardReaderGetInfo",
+        "symbol": "cna_leaderboard_reader_get_info"
+      },
+      {
+        "java": "leaderboardReaderPageDown",
+        "symbol": "cna_leaderboard_reader_page_down"
+      },
+      {
+        "java": "leaderboardReaderPageUp",
+        "symbol": "cna_leaderboard_reader_page_up"
+      },
+      {
+        "java": "leaderboardReaderRead",
+        "symbol": "cna_leaderboard_reader_read"
+      },
+      {
+        "java": "leaderboardReaderReadFromGamers",
+        "symbol": "cna_leaderboard_reader_read_from_gamers"
+      },
+      {
+        "java": "leaderboardReaderReadFromPivot",
+        "symbol": "cna_leaderboard_reader_read_from_pivot"
+      },
+      {
+        "java": "propertyDictionaryClear",
+        "symbol": "cna_property_dictionary_clear"
+      },
+      {
+        "java": "propertyDictionaryContainsKey",
+        "symbol": "cna_property_dictionary_contains_key"
+      },
+      {
+        "java": "propertyDictionaryCopyKeyAt",
+        "symbol": "cna_property_dictionary_copy_key_at"
+      },
+      {
+        "java": "propertyDictionaryCopyString",
+        "symbol": "cna_property_dictionary_copy_string"
+      },
+      {
+        "java": "propertyDictionaryGetCount",
+        "symbol": "cna_property_dictionary_get_count"
+      },
+      {
+        "java": "propertyDictionaryGetDateTimeTicks",
+        "symbol": "cna_property_dictionary_get_date_time_ticks"
+      },
+      {
+        "java": "propertyDictionaryGetDouble",
+        "symbol": "cna_property_dictionary_get_double"
+      },
+      {
+        "java": "propertyDictionaryGetInt32",
+        "symbol": "cna_property_dictionary_get_int32"
+      },
+      {
+        "java": "propertyDictionaryGetInt64",
+        "symbol": "cna_property_dictionary_get_int64"
+      },
+      {
+        "java": "propertyDictionaryGetKeySizeAt",
+        "symbol": "cna_property_dictionary_get_key_size_at"
+      },
+      {
+        "java": "propertyDictionaryGetOutcome",
+        "symbol": "cna_property_dictionary_get_outcome"
+      },
+      {
+        "java": "propertyDictionaryGetSingle",
+        "symbol": "cna_property_dictionary_get_single"
+      },
+      {
+        "java": "propertyDictionaryGetStreamSizeExt",
+        "symbol": "cna_property_dictionary_get_stream_size_ext"
+      },
+      {
+        "java": "propertyDictionaryGetStringSize",
+        "symbol": "cna_property_dictionary_get_string_size"
+      },
+      {
+        "java": "propertyDictionaryGetTimeSpanTicks",
+        "symbol": "cna_property_dictionary_get_time_span_ticks"
+      },
+      {
+        "java": "propertyDictionaryRemove",
+        "symbol": "cna_property_dictionary_remove"
+      },
+      {
+        "java": "propertyDictionarySetDateTimeTicks",
+        "symbol": "cna_property_dictionary_set_date_time_ticks"
+      },
+      {
+        "java": "propertyDictionarySetDouble",
+        "symbol": "cna_property_dictionary_set_double"
+      },
+      {
+        "java": "propertyDictionarySetInt32",
+        "symbol": "cna_property_dictionary_set_int32"
+      },
+      {
+        "java": "propertyDictionarySetInt64",
+        "symbol": "cna_property_dictionary_set_int64"
+      },
+      {
+        "java": "propertyDictionarySetOutcome",
+        "symbol": "cna_property_dictionary_set_outcome"
+      },
+      {
+        "java": "propertyDictionarySetSingle",
+        "symbol": "cna_property_dictionary_set_single"
+      },
+      {
+        "java": "propertyDictionarySetString",
+        "symbol": "cna_property_dictionary_set_string"
+      },
+      {
+        "java": "propertyDictionarySetTimeSpanTicks",
+        "symbol": "cna_property_dictionary_set_time_span_ticks"
+      },
+      {
+        "java": "propertyDictionaryTryGetValueKindExt",
+        "symbol": "cna_property_dictionary_try_get_value_kind_ext"
+      },
+      {
+        "java": "signedInGamerAwardAchievement",
+        "symbol": "cna_signed_in_gamer_award_achievement"
+      },
+      {
+        "java": "signedInGamerGetAchievements",
+        "symbol": "cna_signed_in_gamer_get_achievements"
+      },
+      {
+        "java": "signedInGamerGetFriends",
+        "symbol": "cna_signed_in_gamer_get_friends"
+      },
+      {
+        "java": "signedInGamerGetGameDefaults",
+        "symbol": "cna_signed_in_gamer_get_game_defaults"
+      },
+      {
+        "java": "signedInGamerGetIsGuest",
+        "symbol": "cna_signed_in_gamer_get_is_guest"
+      },
+      {
+        "java": "signedInGamerGetIsSignedInToLive",
+        "symbol": "cna_signed_in_gamer_get_is_signed_in_to_live"
+      },
+      {
+        "java": "signedInGamerGetPartySize",
+        "symbol": "cna_signed_in_gamer_get_party_size"
+      },
+      {
+        "java": "signedInGamerGetPlayerIndex",
+        "symbol": "cna_signed_in_gamer_get_player_index"
+      },
+      {
+        "java": "signedInGamerGetPresence",
+        "symbol": "cna_signed_in_gamer_get_presence"
+      },
+      {
+        "java": "signedInGamerGetPrivileges",
+        "symbol": "cna_signed_in_gamer_get_privileges"
+      },
+      {
+        "java": "signedInGamerIsFriend",
+        "symbol": "cna_signed_in_gamer_is_friend"
+      },
+      {
+        "java": "signedInGamerIsHeadset",
+        "symbol": "cna_signed_in_gamer_is_headset"
+      },
+      {
+        "java": "signedInGamerSetPartySize",
+        "symbol": "cna_signed_in_gamer_set_party_size"
+      },
+      {
+        "java": "signedInGamerSetPresence",
+        "symbol": "cna_signed_in_gamer_set_presence"
+      },
+      {
+        "java": "signedInGamerSetPresenceModeStringExt",
+        "symbol": "cna_signed_in_gamer_set_presence_mode_string_ext"
+      }
+    ],
+    "NativeNetworkRoutes": [
+      {
+        "java": "availableNetworkSessionCollectionCopySession",
+        "symbol": "cna_available_network_session_collection_copy_session"
+      },
+      {
+        "java": "availableNetworkSessionCollectionDispose",
+        "symbol": "cna_available_network_session_collection_dispose"
+      },
+      {
+        "java": "availableNetworkSessionCollectionGetCount",
+        "symbol": "cna_available_network_session_collection_get_count"
+      },
+      {
+        "java": "availableNetworkSessionCollectionGetIsDisposed",
+        "symbol": "cna_available_network_session_collection_get_is_disposed"
+      },
+      {
+        "java": "availableNetworkSessionCopyConnectAddressExt",
+        "symbol": "cna_available_network_session_copy_connect_address_ext"
+      },
+      {
+        "java": "availableNetworkSessionCopyHostGamertag",
+        "symbol": "cna_available_network_session_copy_host_gamertag"
+      },
+      {
+        "java": "availableNetworkSessionCopySessionProperties",
+        "symbol": "cna_available_network_session_copy_session_properties"
+      },
+      {
+        "java": "availableNetworkSessionCreateExt",
+        "symbol": "cna_available_network_session_create_ext"
+      },
+      {
+        "java": "availableNetworkSessionDestroy",
+        "symbol": "cna_available_network_session_destroy"
+      },
+      {
+        "java": "availableNetworkSessionGetConnectAddressSizeExt",
+        "symbol": "cna_available_network_session_get_connect_address_size_ext"
+      },
+      {
+        "java": "availableNetworkSessionGetConnectPortExt",
+        "symbol": "cna_available_network_session_get_connect_port_ext"
+      },
+      {
+        "java": "availableNetworkSessionGetCurrentGamerCount",
+        "symbol": "cna_available_network_session_get_current_gamer_count"
+      },
+      {
+        "java": "availableNetworkSessionGetHostGamertagSize",
+        "symbol": "cna_available_network_session_get_host_gamertag_size"
+      },
+      {
+        "java": "availableNetworkSessionGetOpenPrivateGamerSlots",
+        "symbol": "cna_available_network_session_get_open_private_gamer_slots"
+      },
+      {
+        "java": "availableNetworkSessionGetOpenPublicGamerSlots",
+        "symbol": "cna_available_network_session_get_open_public_gamer_slots"
+      },
+      {
+        "java": "availableNetworkSessionGetQualityOfService",
+        "symbol": "cna_available_network_session_get_quality_of_service"
+      },
+      {
+        "java": "availableNetworkSessionGetSessionTypeExt",
+        "symbol": "cna_available_network_session_get_session_type_ext"
+      },
+      {
+        "java": "localNetworkGamerEnableSendVoice",
+        "symbol": "cna_local_network_gamer_enable_send_voice"
+      },
+      {
+        "java": "localNetworkGamerGetIsDataAvailable",
+        "symbol": "cna_local_network_gamer_get_is_data_available"
+      },
+      {
+        "java": "localNetworkGamerGetSignedInGamer",
+        "symbol": "cna_local_network_gamer_get_signed_in_gamer"
+      },
+      {
+        "java": "localNetworkGamerReceiveData",
+        "symbol": "cna_local_network_gamer_receive_data"
+      },
+      {
+        "java": "localNetworkGamerReceiveDataAt",
+        "symbol": "cna_local_network_gamer_receive_data_at"
+      },
+      {
+        "java": "localNetworkGamerSendData",
+        "symbol": "cna_local_network_gamer_send_data"
+      },
+      {
+        "java": "localNetworkGamerSendDataRange",
+        "symbol": "cna_local_network_gamer_send_data_range"
+      },
+      {
+        "java": "localNetworkGamerSendDataRangeTo",
+        "symbol": "cna_local_network_gamer_send_data_range_to"
+      },
+      {
+        "java": "localNetworkGamerSendDataTo",
+        "symbol": "cna_local_network_gamer_send_data_to"
+      },
+      {
+        "java": "localNetworkGamerSendPartyInvites",
+        "symbol": "cna_local_network_gamer_send_party_invites"
+      },
+      {
+        "java": "netGetLastJoinError",
+        "symbol": "cna_net_get_last_join_error"
+      },
+      {
+        "java": "networkGamerCopyMachine",
+        "symbol": "cna_network_gamer_copy_machine"
+      },
+      {
+        "java": "networkGamerGetHasLeftSession",
+        "symbol": "cna_network_gamer_get_has_left_session"
+      },
+      {
+        "java": "networkGamerGetHasVoice",
+        "symbol": "cna_network_gamer_get_has_voice"
+      },
+      {
+        "java": "networkGamerGetId",
+        "symbol": "cna_network_gamer_get_id"
+      },
+      {
+        "java": "networkGamerGetIsGuest",
+        "symbol": "cna_network_gamer_get_is_guest"
+      },
+      {
+        "java": "networkGamerGetIsHost",
+        "symbol": "cna_network_gamer_get_is_host"
+      },
+      {
+        "java": "networkGamerGetIsLocal",
+        "symbol": "cna_network_gamer_get_is_local"
+      },
+      {
+        "java": "networkGamerGetIsMutedByLocalUser",
+        "symbol": "cna_network_gamer_get_is_muted_by_local_user"
+      },
+      {
+        "java": "networkGamerGetIsPrivateSlot",
+        "symbol": "cna_network_gamer_get_is_private_slot"
+      },
+      {
+        "java": "networkGamerGetIsReady",
+        "symbol": "cna_network_gamer_get_is_ready"
+      },
+      {
+        "java": "networkGamerGetIsTalking",
+        "symbol": "cna_network_gamer_get_is_talking"
+      },
+      {
+        "java": "networkGamerGetRoundtripTicks",
+        "symbol": "cna_network_gamer_get_roundtrip_ticks"
+      },
+      {
+        "java": "networkGamerGetSession",
+        "symbol": "cna_network_gamer_get_session"
+      },
+      {
+        "java": "networkGamerSetIsReady",
+        "symbol": "cna_network_gamer_set_is_ready"
+      },
+      {
+        "java": "networkGamerSetMachine",
+        "symbol": "cna_network_gamer_set_machine"
+      },
+      {
+        "java": "networkMachineGetGamer",
+        "symbol": "cna_network_machine_get_gamer"
+      },
+      {
+        "java": "networkMachineGetGamerCount",
+        "symbol": "cna_network_machine_get_gamer_count"
+      },
+      {
+        "java": "networkMachineRemoveFromSession",
+        "symbol": "cna_network_machine_remove_from_session"
+      },
+      {
+        "java": "networkSessionAddLocalGamer",
+        "symbol": "cna_network_session_add_local_gamer"
+      },
+      {
+        "java": "networkSessionCopySessionProperties",
+        "symbol": "cna_network_session_copy_session_properties"
+      },
+      {
+        "java": "networkSessionCreate",
+        "symbol": "cna_network_session_create"
+      },
+      {
+        "java": "networkSessionCreateWithLocalGamers",
+        "symbol": "cna_network_session_create_with_local_gamers"
+      },
+      {
+        "java": "networkSessionCreateWithProperties",
+        "symbol": "cna_network_session_create_with_properties"
+      },
+      {
+        "java": "networkSessionDestroy",
+        "symbol": "cna_network_session_destroy"
+      },
+      {
+        "java": "networkSessionDispose",
+        "symbol": "cna_network_session_dispose"
+      },
+      {
+        "java": "networkSessionEndGame",
+        "symbol": "cna_network_session_end_game"
+      },
+      {
+        "java": "networkSessionFind",
+        "symbol": "cna_network_session_find"
+      },
+      {
+        "java": "networkSessionFindGamerById",
+        "symbol": "cna_network_session_find_gamer_by_id"
+      },
+      {
+        "java": "networkSessionFindWithLocalGamers",
+        "symbol": "cna_network_session_find_with_local_gamers"
+      },
+      {
+        "java": "networkSessionGetAllowHostMigration",
+        "symbol": "cna_network_session_get_allow_host_migration"
+      },
+      {
+        "java": "networkSessionGetAllowJoinInProgress",
+        "symbol": "cna_network_session_get_allow_join_in_progress"
+      },
+      {
+        "java": "networkSessionGetBytesPerSecondReceived",
+        "symbol": "cna_network_session_get_bytes_per_second_received"
+      },
+      {
+        "java": "networkSessionGetBytesPerSecondSent",
+        "symbol": "cna_network_session_get_bytes_per_second_sent"
+      },
+      {
+        "java": "networkSessionGetGamer",
+        "symbol": "cna_network_session_get_gamer"
+      },
+      {
+        "java": "networkSessionGetGamerCount",
+        "symbol": "cna_network_session_get_gamer_count"
+      },
+      {
+        "java": "networkSessionGetHost",
+        "symbol": "cna_network_session_get_host"
+      },
+      {
+        "java": "networkSessionGetIsDisposed",
+        "symbol": "cna_network_session_get_is_disposed"
+      },
+      {
+        "java": "networkSessionGetIsEveryoneReady",
+        "symbol": "cna_network_session_get_is_everyone_ready"
+      },
+      {
+        "java": "networkSessionGetIsHost",
+        "symbol": "cna_network_session_get_is_host"
+      },
+      {
+        "java": "networkSessionGetMaxGamers",
+        "symbol": "cna_network_session_get_max_gamers"
+      },
+      {
+        "java": "networkSessionGetPrivateGamerSlots",
+        "symbol": "cna_network_session_get_private_gamer_slots"
+      },
+      {
+        "java": "networkSessionGetSessionState",
+        "symbol": "cna_network_session_get_session_state"
+      },
+      {
+        "java": "networkSessionGetSessionType",
+        "symbol": "cna_network_session_get_session_type"
+      },
+      {
+        "java": "networkSessionGetSimulatedLatencyTicks",
+        "symbol": "cna_network_session_get_simulated_latency_ticks"
+      },
+      {
+        "java": "networkSessionGetSimulatedPacketLoss",
+        "symbol": "cna_network_session_get_simulated_packet_loss"
+      },
+      {
+        "java": "networkSessionJoin",
+        "symbol": "cna_network_session_join"
+      },
+      {
+        "java": "networkSessionJoinInvited",
+        "symbol": "cna_network_session_join_invited"
+      },
+      {
+        "java": "networkSessionJoinInvitedWithLocalGamers",
+        "symbol": "cna_network_session_join_invited_with_local_gamers"
+      },
+      {
+        "java": "networkSessionPropertiesContains",
+        "symbol": "cna_network_session_properties_contains"
+      },
+      {
+        "java": "networkSessionPropertiesCopyTo",
+        "symbol": "cna_network_session_properties_copy_to"
+      },
+      {
+        "java": "networkSessionPropertiesCreate",
+        "symbol": "cna_network_session_properties_create"
+      },
+      {
+        "java": "networkSessionPropertiesDestroy",
+        "symbol": "cna_network_session_properties_destroy"
+      },
+      {
+        "java": "networkSessionPropertiesGetCount",
+        "symbol": "cna_network_session_properties_get_count"
+      },
+      {
+        "java": "networkSessionPropertiesGetItem",
+        "symbol": "cna_network_session_properties_get_item"
+      },
+      {
+        "java": "networkSessionPropertiesIndexOf",
+        "symbol": "cna_network_session_properties_index_of"
+      },
+      {
+        "java": "networkSessionPropertiesSetItem",
+        "symbol": "cna_network_session_properties_set_item"
+      },
+      {
+        "java": "networkSessionResetReady",
+        "symbol": "cna_network_session_reset_ready"
+      },
+      {
+        "java": "networkSessionSetAllowHostMigration",
+        "symbol": "cna_network_session_set_allow_host_migration"
+      },
+      {
+        "java": "networkSessionSetAllowJoinInProgress",
+        "symbol": "cna_network_session_set_allow_join_in_progress"
+      },
+      {
+        "java": "networkSessionSetMaxGamers",
+        "symbol": "cna_network_session_set_max_gamers"
+      },
+      {
+        "java": "networkSessionSetPrivateGamerSlots",
+        "symbol": "cna_network_session_set_private_gamer_slots"
+      },
+      {
+        "java": "networkSessionSetSimulatedLatencyTicks",
+        "symbol": "cna_network_session_set_simulated_latency_ticks"
+      },
+      {
+        "java": "networkSessionSetSimulatedPacketLoss",
+        "symbol": "cna_network_session_set_simulated_packet_loss"
+      },
+      {
+        "java": "networkSessionStartGame",
+        "symbol": "cna_network_session_start_game"
+      },
+      {
+        "java": "networkSessionUnsubscribe",
+        "symbol": "cna_network_session_unsubscribe"
+      },
+      {
+        "java": "networkSessionUpdate",
+        "symbol": "cna_network_session_update"
+      }
+    ],
+    "NativeGraphicsExtensionRoutes": [
+      {
+        "java": "asciiPostProcessEffectCreate",
+        "symbol": "cna_ascii_post_process_effect_create"
+      },
+      {
+        "java": "asciiPostProcessEffectDestroy",
+        "symbol": "cna_ascii_post_process_effect_destroy"
+      },
+      {
+        "java": "asciiPostProcessEffectDraw",
+        "symbol": "cna_ascii_post_process_effect_draw"
+      },
+      {
+        "java": "asciiPostProcessEffectGetCellSize",
+        "symbol": "cna_ascii_post_process_effect_get_cell_size"
+      },
+      {
+        "java": "asciiPostProcessEffectGetLastGridDimensions",
+        "symbol": "cna_ascii_post_process_effect_get_last_grid_dimensions"
+      },
+      {
+        "java": "asciiPostProcessEffectGetQuantizeMode",
+        "symbol": "cna_ascii_post_process_effect_get_quantize_mode"
+      },
+      {
+        "java": "asciiPostProcessEffectSetCellSize",
+        "symbol": "cna_ascii_post_process_effect_set_cell_size"
+      },
+      {
+        "java": "asciiPostProcessEffectSetQuantizeMode",
+        "symbol": "cna_ascii_post_process_effect_set_quantize_mode"
+      },
+      {
+        "java": "crtEffectCreate",
+        "symbol": "cna_crt_effect_create"
+      },
+      {
+        "java": "crtEffectGetCurvature",
+        "symbol": "cna_crt_effect_get_curvature"
+      },
+      {
+        "java": "crtEffectGetMaskIntensity",
+        "symbol": "cna_crt_effect_get_mask_intensity"
+      },
+      {
+        "java": "crtEffectGetMaskType",
+        "symbol": "cna_crt_effect_get_mask_type"
+      },
+      {
+        "java": "crtEffectGetScanlineIntensity",
+        "symbol": "cna_crt_effect_get_scanline_intensity"
+      },
+      {
+        "java": "crtEffectGetVignetteIntensity",
+        "symbol": "cna_crt_effect_get_vignette_intensity"
+      },
+      {
+        "java": "crtEffectSetCurvature",
+        "symbol": "cna_crt_effect_set_curvature"
+      },
+      {
+        "java": "crtEffectSetMaskIntensity",
+        "symbol": "cna_crt_effect_set_mask_intensity"
+      },
+      {
+        "java": "crtEffectSetMaskType",
+        "symbol": "cna_crt_effect_set_mask_type"
+      },
+      {
+        "java": "crtEffectSetScanlineIntensity",
+        "symbol": "cna_crt_effect_set_scanline_intensity"
+      },
+      {
+        "java": "crtEffectSetVignetteIntensity",
+        "symbol": "cna_crt_effect_set_vignette_intensity"
+      },
+      {
+        "java": "debugDrawAddBoundingSphere",
+        "symbol": "cna_debug_draw_add_bounding_sphere"
+      },
+      {
+        "java": "debugDrawAddBox",
+        "symbol": "cna_debug_draw_add_box"
+      },
+      {
+        "java": "debugDrawAddCross",
+        "symbol": "cna_debug_draw_add_cross"
+      },
+      {
+        "java": "debugDrawAddFrustum",
+        "symbol": "cna_debug_draw_add_frustum"
+      },
+      {
+        "java": "debugDrawAddLine",
+        "symbol": "cna_debug_draw_add_line"
+      },
+      {
+        "java": "debugDrawAddSphere",
+        "symbol": "cna_debug_draw_add_sphere"
+      },
+      {
+        "java": "debugDrawBegin",
+        "symbol": "cna_debug_draw_begin"
+      },
+      {
+        "java": "debugDrawClear",
+        "symbol": "cna_debug_draw_clear"
+      },
+      {
+        "java": "debugDrawCopyVertices",
+        "symbol": "cna_debug_draw_copy_vertices"
+      },
+      {
+        "java": "debugDrawCreate",
+        "symbol": "cna_debug_draw_create"
+      },
+      {
+        "java": "debugDrawDestroy",
+        "symbol": "cna_debug_draw_destroy"
+      },
+      {
+        "java": "debugDrawEnd",
+        "symbol": "cna_debug_draw_end"
+      },
+      {
+        "java": "debugDrawGetLineCount",
+        "symbol": "cna_debug_draw_get_line_count"
+      },
+      {
+        "java": "debugDrawIsDepthTested",
+        "symbol": "cna_debug_draw_is_depth_tested"
+      },
+      {
+        "java": "debugDrawSetDepthTested",
+        "symbol": "cna_debug_draw_set_depth_tested"
+      },
+      {
+        "java": "depthEffectCreate",
+        "symbol": "cna_depth_effect_create"
+      },
+      {
+        "java": "depthEffectGetDitherMode",
+        "symbol": "cna_depth_effect_get_dither_mode"
+      },
+      {
+        "java": "depthEffectGetMode",
+        "symbol": "cna_depth_effect_get_mode"
+      },
+      {
+        "java": "depthEffectSetDitherMode",
+        "symbol": "cna_depth_effect_set_dither_mode"
+      },
+      {
+        "java": "depthEffectSetMode",
+        "symbol": "cna_depth_effect_set_mode"
+      },
+      {
+        "java": "graphicsDeviceCopyCapabilityReportExt",
+        "symbol": "cna_graphics_device_copy_capability_report_ext"
+      },
+      {
+        "java": "graphicsDeviceCopyRendererName",
+        "symbol": "cna_graphics_device_copy_renderer_name"
+      },
+      {
+        "java": "graphicsDeviceGetCapabilityReportSizeExt",
+        "symbol": "cna_graphics_device_get_capability_report_size_ext"
+      },
+      {
+        "java": "graphicsDeviceGetRendererNameSize",
+        "symbol": "cna_graphics_device_get_renderer_name_size"
+      },
+      {
+        "java": "graphicsDeviceGetShaderDialectExt",
+        "symbol": "cna_graphics_device_get_shader_dialect_ext"
+      },
+      {
+        "java": "graphicsDeviceSupportsCapability",
+        "symbol": "cna_graphics_device_supports_capability"
+      },
+      {
+        "java": "graphicsExtIsAvailable",
+        "symbol": "cna_graphics_ext_is_available"
+      },
+      {
+        "java": "imageBasedLightExtInit",
+        "symbol": "cna_image_based_light_ext_init"
+      },
+      {
+        "java": "imageBasedLightExtIsValid",
+        "symbol": "cna_image_based_light_ext_is_valid"
+      },
+      {
+        "java": "indirectDrawArgumentsInit",
+        "symbol": "cna_indirect_draw_arguments_init"
+      },
+      {
+        "java": "indirectDrawIndexedArgumentsInit",
+        "symbol": "cna_indirect_draw_indexed_arguments_init"
+      }
+    ],
+    "NativeRuntimeExtensionRoutes": [
+      {
+        "java": "platformGetCurrent",
+        "symbol": "cna_platform_get_current"
+      },
+      {
+        "java": "platformGetIsMobileExt",
+        "symbol": "cna_platform_get_is_mobile_ext"
+      },
+      {
+        "java": "platformGetIsAppleExt",
+        "symbol": "cna_platform_get_is_apple_ext"
+      },
+      {
+        "java": "platformGetCurrentNameSizeExt",
+        "symbol": "cna_platform_get_current_name_size_ext"
+      },
+      {
+        "java": "platformCopyCurrentNameExt",
+        "symbol": "cna_platform_copy_current_name_ext"
+      },
+      {
+        "java": "desktopOsGetCurrent",
+        "symbol": "cna_desktop_os_get_current"
+      },
+      {
+        "java": "graphicsRendererGetCurrentNameSize",
+        "symbol": "cna_graphics_renderer_get_current_name_size"
+      },
+      {
+        "java": "graphicsRendererCopyCurrentName",
+        "symbol": "cna_graphics_renderer_copy_current_name"
+      },
+      {
+        "java": "graphicsRendererGetActiveExt",
+        "symbol": "cna_graphics_renderer_get_active_ext"
+      },
+      {
+        "java": "graphicsRendererGetSelectedExt",
+        "symbol": "cna_graphics_renderer_get_selected_ext"
+      },
+      {
+        "java": "graphicsRendererGetIsLatchedExt",
+        "symbol": "cna_graphics_renderer_get_is_latched_ext"
+      },
+      {
+        "java": "graphicsRendererGetAvailableCountExt",
+        "symbol": "cna_graphics_renderer_get_available_count_ext"
+      },
+      {
+        "java": "graphicsRendererCopyAvailableExt",
+        "symbol": "cna_graphics_renderer_copy_available_ext"
+      },
+      {
+        "java": "graphicsRendererGetIsAvailableExt",
+        "symbol": "cna_graphics_renderer_get_is_available_ext"
+      },
+      {
+        "java": "graphicsRendererTryParseNameExt",
+        "symbol": "cna_graphics_renderer_try_parse_name_ext"
+      },
+      {
+        "java": "graphicsRendererSetPreferredExt",
+        "symbol": "cna_graphics_renderer_set_preferred_ext"
+      },
+      {
+        "java": "graphicsRendererSetPreferredByNameExt",
+        "symbol": "cna_graphics_renderer_set_preferred_by_name_ext"
+      },
+      {
+        "java": "graphicsRendererSetFallbackChainExt",
+        "symbol": "cna_graphics_renderer_set_fallback_chain_ext"
+      },
+      {
+        "java": "graphicsRendererSetAutomaticFallbackExt",
+        "symbol": "cna_graphics_renderer_set_automatic_fallback_ext"
+      },
+      {
+        "java": "graphicsRendererGetAutomaticFallbackExt",
+        "symbol": "cna_graphics_renderer_get_automatic_fallback_ext"
+      },
+      {
+        "java": "graphicsRendererGetFallbackCountExt",
+        "symbol": "cna_graphics_renderer_get_fallback_count_ext"
+      },
+      {
+        "java": "graphicsRendererGetFallbackAtExt",
+        "symbol": "cna_graphics_renderer_get_fallback_at_ext"
+      },
+      {
+        "java": "graphicsRendererFallbackGetMessageSizeExt",
+        "symbol": "cna_graphics_renderer_fallback_get_message_size_ext"
+      },
+      {
+        "java": "graphicsRendererFallbackCopyMessageExt",
+        "symbol": "cna_graphics_renderer_fallback_copy_message_ext"
+      },
+      {
+        "java": "graphicsRendererFallbackReasonGetNameSizeExt",
+        "symbol": "cna_graphics_renderer_fallback_reason_get_name_size_ext"
+      },
+      {
+        "java": "graphicsRendererFallbackReasonCopyNameExt",
+        "symbol": "cna_graphics_renderer_fallback_reason_copy_name_ext"
+      },
+      {
+        "java": "graphicsRendererResetSelectionForTestsExt",
+        "symbol": "cna_graphics_renderer_reset_selection_for_tests_ext"
+      },
+      {
+        "java": "graphicsBackendGetCategory",
+        "symbol": "cna_graphics_backend_get_category"
+      },
+      {
+        "java": "graphicsBackendGetMaturity",
+        "symbol": "cna_graphics_backend_get_maturity"
+      },
+      {
+        "java": "graphicsBackendGetCurrentCategory",
+        "symbol": "cna_graphics_backend_get_current_category"
+      },
+      {
+        "java": "graphicsBackendGetCurrentMaturity",
+        "symbol": "cna_graphics_backend_get_current_maturity"
+      },
+      {
+        "java": "graphicsBackendCategoryGetNameSize",
+        "symbol": "cna_graphics_backend_category_get_name_size"
+      },
+      {
+        "java": "graphicsBackendCategoryCopyName",
+        "symbol": "cna_graphics_backend_category_copy_name"
+      },
+      {
+        "java": "graphicsBackendMaturityGetNameSize",
+        "symbol": "cna_graphics_backend_maturity_get_name_size"
+      },
+      {
+        "java": "graphicsBackendMaturityCopyName",
+        "symbol": "cna_graphics_backend_maturity_copy_name"
+      },
+      {
+        "java": "assemblyCopyTitleExt",
+        "symbol": "cna_assembly_copy_title_ext"
+      },
+      {
+        "java": "assemblySetTitleExt",
+        "symbol": "cna_assembly_set_title_ext"
+      },
+      {
+        "java": "loggerGetMinimumLevel",
+        "symbol": "cna_logger_get_minimum_level"
+      },
+      {
+        "java": "loggerSetMinimumLevel",
+        "symbol": "cna_logger_set_minimum_level"
+      },
+      {
+        "java": "loggerLog",
+        "symbol": "cna_logger_log"
+      }
+    ],
+    "NativeDeviceExtensionRoutes": [
+      {
+        "java": "cameraCopyNameAtExt",
+        "symbol": "cna_camera_copy_name_at_ext"
+      },
+      {
+        "java": "cameraCreate",
+        "symbol": "cna_camera_create"
+      },
+      {
+        "java": "cameraCreateWithTestBackendExt",
+        "symbol": "cna_camera_create_with_test_backend_ext"
+      },
+      {
+        "java": "cameraDestroy",
+        "symbol": "cna_camera_destroy"
+      },
+      {
+        "java": "cameraDeviceInfoInit",
+        "symbol": "cna_camera_device_info_init"
+      },
+      {
+        "java": "cameraGetCountExt",
+        "symbol": "cna_camera_get_count_ext"
+      },
+      {
+        "java": "cameraGetFrameHeightExt",
+        "symbol": "cna_camera_get_frame_height_ext"
+      },
+      {
+        "java": "cameraGetFrameWidthExt",
+        "symbol": "cna_camera_get_frame_width_ext"
+      },
+      {
+        "java": "cameraGetInfoAtExt",
+        "symbol": "cna_camera_get_info_at_ext"
+      },
+      {
+        "java": "cameraGetIsSupportedExt",
+        "symbol": "cna_camera_get_is_supported_ext"
+      },
+      {
+        "java": "cameraGetNameSizeAtExt",
+        "symbol": "cna_camera_get_name_size_at_ext"
+      },
+      {
+        "java": "cameraGetStateExt",
+        "symbol": "cna_camera_get_state_ext"
+      },
+      {
+        "java": "cameraSetTestFrameExt",
+        "symbol": "cna_camera_set_test_frame_ext"
+      },
+      {
+        "java": "cameraSetTestStateExt",
+        "symbol": "cna_camera_set_test_state_ext"
+      },
+      {
+        "java": "cameraTryAcquireFrameExt",
+        "symbol": "cna_camera_try_acquire_frame_ext"
+      },
+      {
+        "java": "clipboardCopyText",
+        "symbol": "cna_clipboard_copy_text"
+      },
+      {
+        "java": "clipboardGetHasText",
+        "symbol": "cna_clipboard_get_has_text"
+      },
+      {
+        "java": "clipboardGetTextSize",
+        "symbol": "cna_clipboard_get_text_size"
+      },
+      {
+        "java": "devicesClipboardSetTextExt",
+        "symbol": "cna_devices_clipboard_set_text_ext"
+      },
+      {
+        "java": "devicesExtIsAvailable",
+        "symbol": "cna_devices_ext_is_available"
+      },
+      {
+        "java": "displayInfoGetContentScaleExt",
+        "symbol": "cna_display_info_get_content_scale_ext"
+      },
+      {
+        "java": "displayInfoGetSafeAreaExt",
+        "symbol": "cna_display_info_get_safe_area_ext"
+      },
+      {
+        "java": "environmentGetDeviceType",
+        "symbol": "cna_environment_get_device_type"
+      },
+      {
+        "java": "fileDialogGetIsSupportedExt",
+        "symbol": "cna_file_dialog_get_is_supported_ext"
+      },
+      {
+        "java": "fileDialogSetTestBackendExt",
+        "symbol": "cna_file_dialog_set_test_backend_ext"
+      },
+      {
+        "java": "inputDevicesCopyKeyboardNameAt",
+        "symbol": "cna_input_devices_copy_keyboard_name_at"
+      },
+      {
+        "java": "inputDevicesCopyMouseNameAt",
+        "symbol": "cna_input_devices_copy_mouse_name_at"
+      },
+      {
+        "java": "inputDevicesCopyTouchDeviceNameAt",
+        "symbol": "cna_input_devices_copy_touch_device_name_at"
+      },
+      {
+        "java": "inputDevicesGetKeyboardCount",
+        "symbol": "cna_input_devices_get_keyboard_count"
+      },
+      {
+        "java": "inputDevicesGetKeyboardInfoAt",
+        "symbol": "cna_input_devices_get_keyboard_info_at"
+      },
+      {
+        "java": "inputDevicesGetKeyboardNameSizeAt",
+        "symbol": "cna_input_devices_get_keyboard_name_size_at"
+      },
+      {
+        "java": "inputDevicesGetMouseCount",
+        "symbol": "cna_input_devices_get_mouse_count"
+      },
+      {
+        "java": "inputDevicesGetMouseInfoAt",
+        "symbol": "cna_input_devices_get_mouse_info_at"
+      },
+      {
+        "java": "inputDevicesGetMouseNameSizeAt",
+        "symbol": "cna_input_devices_get_mouse_name_size_at"
+      },
+      {
+        "java": "inputDevicesGetTouchDeviceCount",
+        "symbol": "cna_input_devices_get_touch_device_count"
+      },
+      {
+        "java": "inputDevicesGetTouchDeviceInfoAt",
+        "symbol": "cna_input_devices_get_touch_device_info_at"
+      },
+      {
+        "java": "inputDevicesGetTouchDeviceNameSizeAt",
+        "symbol": "cna_input_devices_get_touch_device_name_size_at"
+      },
+      {
+        "java": "inputDevicesRaiseKeyboardConnectedExt",
+        "symbol": "cna_input_devices_raise_keyboard_connected_ext"
+      },
+      {
+        "java": "inputDevicesRaiseKeyboardDisconnectedExt",
+        "symbol": "cna_input_devices_raise_keyboard_disconnected_ext"
+      },
+      {
+        "java": "inputDevicesRaiseMouseConnectedExt",
+        "symbol": "cna_input_devices_raise_mouse_connected_ext"
+      },
+      {
+        "java": "inputDevicesRaiseMouseDisconnectedExt",
+        "symbol": "cna_input_devices_raise_mouse_disconnected_ext"
+      },
+      {
+        "java": "localeCopyCountryAtExt",
+        "symbol": "cna_locale_copy_country_at_ext"
+      },
+      {
+        "java": "localeCopyLanguageAtExt",
+        "symbol": "cna_locale_copy_language_at_ext"
+      },
+      {
+        "java": "localeGetCountrySizeAtExt",
+        "symbol": "cna_locale_get_country_size_at_ext"
+      },
+      {
+        "java": "localeGetLanguageSizeAtExt",
+        "symbol": "cna_locale_get_language_size_at_ext"
+      },
+      {
+        "java": "localeGetPreferredCountExt",
+        "symbol": "cna_locale_get_preferred_count_ext"
+      },
+      {
+        "java": "messageBoxGetIsSupportedExt",
+        "symbol": "cna_message_box_get_is_supported_ext"
+      },
+      {
+        "java": "messageBoxGetTestLogExt",
+        "symbol": "cna_message_box_get_test_log_ext"
+      },
+      {
+        "java": "messageBoxSetTestBackendExt",
+        "symbol": "cna_message_box_set_test_backend_ext"
+      },
+      {
+        "java": "messageBoxShowExt",
+        "symbol": "cna_message_box_show_ext"
+      },
+      {
+        "java": "messageBoxShowSimpleExt",
+        "symbol": "cna_message_box_show_simple_ext"
+      },
+      {
+        "java": "powerGetBatteryPercentExt",
+        "symbol": "cna_power_get_battery_percent_ext"
+      },
+      {
+        "java": "powerGetInfo",
+        "symbol": "cna_power_get_info"
+      },
+      {
+        "java": "powerGetSecondsRemainingExt",
+        "symbol": "cna_power_get_seconds_remaining_ext"
+      },
+      {
+        "java": "powerGetStateExt",
+        "symbol": "cna_power_get_state_ext"
+      },
+      {
+        "java": "systemInfoGetLogicalCpuCoreCountExt",
+        "symbol": "cna_system_info_get_logical_cpu_core_count_ext"
+      },
+      {
+        "java": "systemInfoGetSystemRamMegabytesExt",
+        "symbol": "cna_system_info_get_system_ram_megabytes_ext"
+      },
+      {
+        "java": "systemTrayClickEntryForTestsExt",
+        "symbol": "cna_system_tray_click_entry_for_tests_ext"
+      },
+      {
+        "java": "systemTrayCreate",
+        "symbol": "cna_system_tray_create"
+      },
+      {
+        "java": "systemTrayCreateWithTestBackendExt",
+        "symbol": "cna_system_tray_create_with_test_backend_ext"
+      },
+      {
+        "java": "systemTrayDestroy",
+        "symbol": "cna_system_tray_destroy"
+      },
+      {
+        "java": "systemTrayGetEntryChecked",
+        "symbol": "cna_system_tray_get_entry_checked"
+      },
+      {
+        "java": "systemTrayGetEntryEnabled",
+        "symbol": "cna_system_tray_get_entry_enabled"
+      },
+      {
+        "java": "systemTrayGetIsSupportedExt",
+        "symbol": "cna_system_tray_get_is_supported_ext"
+      },
+      {
+        "java": "systemTraySetEntryChecked",
+        "symbol": "cna_system_tray_set_entry_checked"
+      },
+      {
+        "java": "systemTraySetEntryEnabled",
+        "symbol": "cna_system_tray_set_entry_enabled"
+      },
+      {
+        "java": "systemTraySetEntryLabel",
+        "symbol": "cna_system_tray_set_entry_label"
+      },
+      {
+        "java": "systemTraySetTooltip",
+        "symbol": "cna_system_tray_set_tooltip"
+      },
+      {
+        "java": "urlLauncherOpenExt",
+        "symbol": "cna_url_launcher_open_ext"
+      },
+      {
+        "java": "vibrateControllerCopyDeviceNameExt",
+        "symbol": "cna_vibrate_controller_copy_device_name_ext"
+      },
+      {
+        "java": "vibrateControllerGetDeviceNameSizeExt",
+        "symbol": "cna_vibrate_controller_get_device_name_size_ext"
+      },
+      {
+        "java": "vibrateControllerGetIsSupportedExt",
+        "symbol": "cna_vibrate_controller_get_is_supported_ext"
+      },
+      {
+        "java": "vibrateControllerGetTestLogExt",
+        "symbol": "cna_vibrate_controller_get_test_log_ext"
+      },
+      {
+        "java": "vibrateControllerSetTestBackendExt",
+        "symbol": "cna_vibrate_controller_set_test_backend_ext"
+      },
+      {
+        "java": "vibrateControllerStart",
+        "symbol": "cna_vibrate_controller_start"
+      },
+      {
+        "java": "vibrateControllerStartLeftRightExt",
+        "symbol": "cna_vibrate_controller_start_left_right_ext"
+      },
+      {
+        "java": "vibrateControllerStartWithIntensityExt",
+        "symbol": "cna_vibrate_controller_start_with_intensity_ext"
+      },
+      {
+        "java": "vibrateControllerStop",
+        "symbol": "cna_vibrate_controller_stop"
+      }
+    ],
+    "NativeInputExtensionRoutes": [
+      {
+        "java": "gamepadCopyGuidExt",
+        "symbol": "cna_gamepad_copy_guid_ext"
+      },
+      {
+        "java": "gamepadCopyNameExt",
+        "symbol": "cna_gamepad_copy_name_ext"
+      },
+      {
+        "java": "gamepadCopyPathExt",
+        "symbol": "cna_gamepad_copy_path_ext"
+      },
+      {
+        "java": "gamepadCopySerialExt",
+        "symbol": "cna_gamepad_copy_serial_ext"
+      },
+      {
+        "java": "gamepadGetAccelerometerExt",
+        "symbol": "cna_gamepad_get_accelerometer_ext"
+      },
+      {
+        "java": "gamepadGetButtonLabelExt",
+        "symbol": "cna_gamepad_get_button_label_ext"
+      },
+      {
+        "java": "gamepadGetConnectionStateExt",
+        "symbol": "cna_gamepad_get_connection_state_ext"
+      },
+      {
+        "java": "gamepadGetFirmwareVersionExt",
+        "symbol": "cna_gamepad_get_firmware_version_ext"
+      },
+      {
+        "java": "gamepadGetGuidSizeExt",
+        "symbol": "cna_gamepad_get_guid_size_ext"
+      },
+      {
+        "java": "gamepadGetGyroExt",
+        "symbol": "cna_gamepad_get_gyro_ext"
+      },
+      {
+        "java": "gamepadGetNameSizeExt",
+        "symbol": "cna_gamepad_get_name_size_ext"
+      },
+      {
+        "java": "gamepadGetPathSizeExt",
+        "symbol": "cna_gamepad_get_path_size_ext"
+      },
+      {
+        "java": "gamepadGetPlayerIndexExt",
+        "symbol": "cna_gamepad_get_player_index_ext"
+      },
+      {
+        "java": "gamepadGetPowerInfoExt",
+        "symbol": "cna_gamepad_get_power_info_ext"
+      },
+      {
+        "java": "gamepadGetSerialSizeExt",
+        "symbol": "cna_gamepad_get_serial_size_ext"
+      },
+      {
+        "java": "gamepadGetSteamHandleExt",
+        "symbol": "cna_gamepad_get_steam_handle_ext"
+      },
+      {
+        "java": "gamepadGetTouchpadCountExt",
+        "symbol": "cna_gamepad_get_touchpad_count_ext"
+      },
+      {
+        "java": "gamepadGetTouchpadFingerCountExt",
+        "symbol": "cna_gamepad_get_touchpad_finger_count_ext"
+      },
+      {
+        "java": "gamepadGetTouchpadFingerExt",
+        "symbol": "cna_gamepad_get_touchpad_finger_ext"
+      },
+      {
+        "java": "gamepadSetLightBarExt",
+        "symbol": "cna_gamepad_set_light_bar_ext"
+      },
+      {
+        "java": "gamepadSetPlayerIndexExt",
+        "symbol": "cna_gamepad_set_player_index_ext"
+      },
+      {
+        "java": "gamepadSetTriggerVibrationExt",
+        "symbol": "cna_gamepad_set_trigger_vibration_ext"
+      },
+      {
+        "java": "hapticDeviceCopyName",
+        "symbol": "cna_haptic_device_copy_name"
+      },
+      {
+        "java": "hapticDeviceCreateEffect",
+        "symbol": "cna_haptic_device_create_effect"
+      },
+      {
+        "java": "hapticDeviceDestroy",
+        "symbol": "cna_haptic_device_destroy"
+      },
+      {
+        "java": "hapticDeviceDestroyEffect",
+        "symbol": "cna_haptic_device_destroy_effect"
+      },
+      {
+        "java": "hapticDeviceDispose",
+        "symbol": "cna_haptic_device_dispose"
+      },
+      {
+        "java": "hapticDeviceGetCapabilities",
+        "symbol": "cna_haptic_device_get_capabilities"
+      },
+      {
+        "java": "hapticDeviceGetEffectStatus",
+        "symbol": "cna_haptic_device_get_effect_status"
+      },
+      {
+        "java": "hapticDeviceGetIsEffectSupported",
+        "symbol": "cna_haptic_device_get_is_effect_supported"
+      },
+      {
+        "java": "hapticDeviceGetIsOpen",
+        "symbol": "cna_haptic_device_get_is_open"
+      },
+      {
+        "java": "hapticDeviceGetNameSize",
+        "symbol": "cna_haptic_device_get_name_size"
+      },
+      {
+        "java": "hapticDeviceInitRumble",
+        "symbol": "cna_haptic_device_init_rumble"
+      },
+      {
+        "java": "hapticDevicePause",
+        "symbol": "cna_haptic_device_pause"
+      },
+      {
+        "java": "hapticDevicePlayRumble",
+        "symbol": "cna_haptic_device_play_rumble"
+      },
+      {
+        "java": "hapticDeviceResume",
+        "symbol": "cna_haptic_device_resume"
+      },
+      {
+        "java": "hapticDeviceRunEffect",
+        "symbol": "cna_haptic_device_run_effect"
+      },
+      {
+        "java": "hapticDeviceSetAutocenter",
+        "symbol": "cna_haptic_device_set_autocenter"
+      },
+      {
+        "java": "hapticDeviceSetGain",
+        "symbol": "cna_haptic_device_set_gain"
+      },
+      {
+        "java": "hapticDeviceStopAllEffects",
+        "symbol": "cna_haptic_device_stop_all_effects"
+      },
+      {
+        "java": "hapticDeviceStopEffect",
+        "symbol": "cna_haptic_device_stop_effect"
+      },
+      {
+        "java": "hapticDeviceStopRumble",
+        "symbol": "cna_haptic_device_stop_rumble"
+      },
+      {
+        "java": "hapticDeviceUpdateEffect",
+        "symbol": "cna_haptic_device_update_effect"
+      },
+      {
+        "java": "hapticsCopyNameAt",
+        "symbol": "cna_haptics_copy_name_at"
+      },
+      {
+        "java": "hapticsGetCount",
+        "symbol": "cna_haptics_get_count"
+      },
+      {
+        "java": "hapticsGetIdAt",
+        "symbol": "cna_haptics_get_id_at"
+      },
+      {
+        "java": "hapticsGetIsJoystickHaptic",
+        "symbol": "cna_haptics_get_is_joystick_haptic"
+      },
+      {
+        "java": "hapticsGetIsMouseHaptic",
+        "symbol": "cna_haptics_get_is_mouse_haptic"
+      },
+      {
+        "java": "hapticsGetNameSizeAt",
+        "symbol": "cna_haptics_get_name_size_at"
+      },
+      {
+        "java": "hapticsOpen",
+        "symbol": "cna_haptics_open"
+      },
+      {
+        "java": "hapticsOpenFromJoystick",
+        "symbol": "cna_haptics_open_from_joystick"
+      },
+      {
+        "java": "hapticsOpenFromMouse",
+        "symbol": "cna_haptics_open_from_mouse"
+      },
+      {
+        "java": "joystickStateCopyAxes",
+        "symbol": "cna_joystick_state_copy_axes"
+      },
+      {
+        "java": "joystickStateCopyBalls",
+        "symbol": "cna_joystick_state_copy_balls"
+      },
+      {
+        "java": "joystickStateCopyButtons",
+        "symbol": "cna_joystick_state_copy_buttons"
+      },
+      {
+        "java": "joystickStateCopyHats",
+        "symbol": "cna_joystick_state_copy_hats"
+      },
+      {
+        "java": "joystickStateDestroy",
+        "symbol": "cna_joystick_state_destroy"
+      },
+      {
+        "java": "joystickStateGetAxisCount",
+        "symbol": "cna_joystick_state_get_axis_count"
+      },
+      {
+        "java": "joystickStateGetBallCount",
+        "symbol": "cna_joystick_state_get_ball_count"
+      },
+      {
+        "java": "joystickStateGetButtonCount",
+        "symbol": "cna_joystick_state_get_button_count"
+      },
+      {
+        "java": "joystickStateGetHatCount",
+        "symbol": "cna_joystick_state_get_hat_count"
+      },
+      {
+        "java": "joysticksCaptureState",
+        "symbol": "cna_joysticks_capture_state"
+      },
+      {
+        "java": "joysticksCopyCapabilitiesGuid",
+        "symbol": "cna_joysticks_copy_capabilities_guid"
+      },
+      {
+        "java": "joysticksCopyCapabilitiesName",
+        "symbol": "cna_joysticks_copy_capabilities_name"
+      },
+      {
+        "java": "joysticksCopyNameAt",
+        "symbol": "cna_joysticks_copy_name_at"
+      },
+      {
+        "java": "joysticksGetCapabilities",
+        "symbol": "cna_joysticks_get_capabilities"
+      },
+      {
+        "java": "joysticksGetCapabilitiesGuidSize",
+        "symbol": "cna_joysticks_get_capabilities_guid_size"
+      },
+      {
+        "java": "joysticksGetCapabilitiesNameSize",
+        "symbol": "cna_joysticks_get_capabilities_name_size"
+      },
+      {
+        "java": "joysticksGetCount",
+        "symbol": "cna_joysticks_get_count"
+      },
+      {
+        "java": "joysticksGetInfoAt",
+        "symbol": "cna_joysticks_get_info_at"
+      },
+      {
+        "java": "joysticksGetNameSizeAt",
+        "symbol": "cna_joysticks_get_name_size_at"
+      },
+      {
+        "java": "joysticksRaiseConnectedExt",
+        "symbol": "cna_joysticks_raise_connected_ext"
+      },
+      {
+        "java": "joysticksRaiseDisconnectedExt",
+        "symbol": "cna_joysticks_raise_disconnected_ext"
+      },
+      {
+        "java": "joysticksResetForTestsExt",
+        "symbol": "cna_joysticks_reset_for_tests_ext"
+      },
+      {
+        "java": "keyboardCopyKeyNameExt",
+        "symbol": "cna_keyboard_copy_key_name_ext"
+      },
+      {
+        "java": "keyboardCopyScancodeNameExt",
+        "symbol": "cna_keyboard_copy_scancode_name_ext"
+      },
+      {
+        "java": "keyboardGetKeyFromNameExt",
+        "symbol": "cna_keyboard_get_key_from_name_ext"
+      },
+      {
+        "java": "keyboardGetKeyFromScancodeExt",
+        "symbol": "cna_keyboard_get_key_from_scancode_ext"
+      },
+      {
+        "java": "keyboardGetKeyNameSizeExt",
+        "symbol": "cna_keyboard_get_key_name_size_ext"
+      },
+      {
+        "java": "keyboardGetModStateExt",
+        "symbol": "cna_keyboard_get_mod_state_ext"
+      },
+      {
+        "java": "keyboardGetScancodeFromNameExt",
+        "symbol": "cna_keyboard_get_scancode_from_name_ext"
+      },
+      {
+        "java": "keyboardGetScancodeNameSizeExt",
+        "symbol": "cna_keyboard_get_scancode_name_size_ext"
+      },
+      {
+        "java": "mouseCursorCreateExt",
+        "symbol": "cna_mouse_cursor_create_ext"
+      },
+      {
+        "java": "mouseCursorCreateFromTexture2d",
+        "symbol": "cna_mouse_cursor_create_from_texture2d"
+      },
+      {
+        "java": "mouseCursorDestroy",
+        "symbol": "cna_mouse_cursor_destroy"
+      },
+      {
+        "java": "mouseCursorDispose",
+        "symbol": "cna_mouse_cursor_dispose"
+      },
+      {
+        "java": "mouseCursorGetStockExt",
+        "symbol": "cna_mouse_cursor_get_stock_ext"
+      },
+      {
+        "java": "mouseGetGlobalPositionExt",
+        "symbol": "cna_mouse_get_global_position_ext"
+      },
+      {
+        "java": "mouseGetIsRelativeMouseModeExt",
+        "symbol": "cna_mouse_get_is_relative_mouse_mode_ext"
+      },
+      {
+        "java": "mouseRaiseClickedExt",
+        "symbol": "cna_mouse_raise_clicked_ext"
+      },
+      {
+        "java": "mouseSetCaptureExt",
+        "symbol": "cna_mouse_set_capture_ext"
+      },
+      {
+        "java": "mouseSetCursorExt",
+        "symbol": "cna_mouse_set_cursor_ext"
+      },
+      {
+        "java": "mouseSetIsRelativeMouseModeExt",
+        "symbol": "cna_mouse_set_is_relative_mouse_mode_ext"
+      },
+      {
+        "java": "mouseWarpGlobalExt",
+        "symbol": "cna_mouse_warp_global_ext"
+      },
+      {
+        "java": "textInputGetWindowHandleExt",
+        "symbol": "cna_text_input_get_window_handle_ext"
+      },
+      {
+        "java": "textInputIsActiveExt",
+        "symbol": "cna_text_input_is_active_ext"
+      },
+      {
+        "java": "textInputIsScreenKeyboardShownExt",
+        "symbol": "cna_text_input_is_screen_keyboard_shown_ext"
+      },
+      {
+        "java": "textInputIsScreenKeyboardShownForWindowExt",
+        "symbol": "cna_text_input_is_screen_keyboard_shown_for_window_ext"
+      },
+      {
+        "java": "textInputRaiseTextEditingExt",
+        "symbol": "cna_text_input_raise_text_editing_ext"
+      },
+      {
+        "java": "textInputRaiseTextInputExt",
+        "symbol": "cna_text_input_raise_text_input_ext"
+      },
+      {
+        "java": "textInputResetForTestsExt",
+        "symbol": "cna_text_input_reset_for_tests_ext"
+      },
+      {
+        "java": "textInputSetInputRectangleExt",
+        "symbol": "cna_text_input_set_input_rectangle_ext"
+      },
+      {
+        "java": "textInputSetWindowHandleExt",
+        "symbol": "cna_text_input_set_window_handle_ext"
+      },
+      {
+        "java": "textInputStartExt",
+        "symbol": "cna_text_input_start_ext"
+      },
+      {
+        "java": "textInputStartWithTypeExt",
+        "symbol": "cna_text_input_start_with_type_ext"
+      },
+      {
+        "java": "textInputStopExt",
+        "symbol": "cna_text_input_stop_ext"
+      },
+      {
+        "java": "touchPanelGetMouseTouchEmulationEnabledExt",
+        "symbol": "cna_touch_panel_get_mouse_touch_emulation_enabled_ext"
+      },
+      {
+        "java": "touchPanelGetTouchDeviceExistsExt",
+        "symbol": "cna_touch_panel_get_touch_device_exists_ext"
+      },
+      {
+        "java": "touchPanelSetMouseTouchEmulationEnabledExt",
+        "symbol": "cna_touch_panel_set_mouse_touch_emulation_enabled_ext"
+      }
+    ],
+    "NativeSensorExtensionRoutes": [
+      {
+        "java": "accelerometerCopyLastDispatchExceptionMessageForTestsExt",
+        "symbol": "cna_accelerometer_copy_last_dispatch_exception_message_for_tests_ext"
+      },
+      {
+        "java": "accelerometerCreate",
+        "symbol": "cna_accelerometer_create"
+      },
+      {
+        "java": "accelerometerDestroy",
+        "symbol": "cna_accelerometer_destroy"
+      },
+      {
+        "java": "accelerometerDispatchToInstancesForTestsExt",
+        "symbol": "cna_accelerometer_dispatch_to_instances_for_tests_ext"
+      },
+      {
+        "java": "accelerometerDispose",
+        "symbol": "cna_accelerometer_dispose"
+      },
+      {
+        "java": "accelerometerGetCurrentValue",
+        "symbol": "cna_accelerometer_get_current_value"
+      },
+      {
+        "java": "accelerometerGetDispatchExceptionCountForTestsExt",
+        "symbol": "cna_accelerometer_get_dispatch_exception_count_for_tests_ext"
+      },
+      {
+        "java": "accelerometerGetIsDataValid",
+        "symbol": "cna_accelerometer_get_is_data_valid"
+      },
+      {
+        "java": "accelerometerGetIsSupported",
+        "symbol": "cna_accelerometer_get_is_supported"
+      },
+      {
+        "java": "accelerometerGetLastDispatchExceptionMessageSizeForTestsExt",
+        "symbol": "cna_accelerometer_get_last_dispatch_exception_message_size_for_tests_ext"
+      },
+      {
+        "java": "accelerometerGetState",
+        "symbol": "cna_accelerometer_get_state"
+      },
+      {
+        "java": "accelerometerGetSubsystemHeldForTestsExt",
+        "symbol": "cna_accelerometer_get_subsystem_held_for_tests_ext"
+      },
+      {
+        "java": "accelerometerGetTimeBetweenUpdatesTicks",
+        "symbol": "cna_accelerometer_get_time_between_updates_ticks"
+      },
+      {
+        "java": "accelerometerInjectSyntheticUpdateExt",
+        "symbol": "cna_accelerometer_inject_synthetic_update_ext"
+      },
+      {
+        "java": "accelerometerIsSensorConnectedForTestsExt",
+        "symbol": "cna_accelerometer_is_sensor_connected_for_tests_ext"
+      },
+      {
+        "java": "accelerometerRegisterStartedInstanceForTestsExt",
+        "symbol": "cna_accelerometer_register_started_instance_for_tests_ext"
+      },
+      {
+        "java": "accelerometerSetEventWatchRegistrationFailureForTestsExt",
+        "symbol": "cna_accelerometer_set_event_watch_registration_failure_for_tests_ext"
+      },
+      {
+        "java": "accelerometerSetStartedForTestsExt",
+        "symbol": "cna_accelerometer_set_started_for_tests_ext"
+      },
+      {
+        "java": "accelerometerSetSupportedForTestsExt",
+        "symbol": "cna_accelerometer_set_supported_for_tests_ext"
+      },
+      {
+        "java": "accelerometerSetTimeBetweenUpdatesTicks",
+        "symbol": "cna_accelerometer_set_time_between_updates_ticks"
+      },
+      {
+        "java": "accelerometerStart",
+        "symbol": "cna_accelerometer_start"
+      },
+      {
+        "java": "accelerometerStop",
+        "symbol": "cna_accelerometer_stop"
+      },
+      {
+        "java": "accelerometerUnregisterStartedInstanceForTestsExt",
+        "symbol": "cna_accelerometer_unregister_started_instance_for_tests_ext"
+      },
+      {
+        "java": "compassCreate",
+        "symbol": "cna_compass_create"
+      },
+      {
+        "java": "compassDestroy",
+        "symbol": "cna_compass_destroy"
+      },
+      {
+        "java": "compassDispose",
+        "symbol": "cna_compass_dispose"
+      },
+      {
+        "java": "compassGetCurrentValue",
+        "symbol": "cna_compass_get_current_value"
+      },
+      {
+        "java": "compassGetIsDataValid",
+        "symbol": "cna_compass_get_is_data_valid"
+      },
+      {
+        "java": "compassGetIsSupported",
+        "symbol": "cna_compass_get_is_supported"
+      },
+      {
+        "java": "compassGetState",
+        "symbol": "cna_compass_get_state"
+      },
+      {
+        "java": "compassGetTimeBetweenUpdatesTicks",
+        "symbol": "cna_compass_get_time_between_updates_ticks"
+      },
+      {
+        "java": "compassInjectCalibrationRequestExt",
+        "symbol": "cna_compass_inject_calibration_request_ext"
+      },
+      {
+        "java": "compassInjectSyntheticUpdateExt",
+        "symbol": "cna_compass_inject_synthetic_update_ext"
+      },
+      {
+        "java": "compassSetTestBackendExt",
+        "symbol": "cna_compass_set_test_backend_ext"
+      },
+      {
+        "java": "compassSetTimeBetweenUpdatesTicks",
+        "symbol": "cna_compass_set_time_between_updates_ticks"
+      },
+      {
+        "java": "compassStart",
+        "symbol": "cna_compass_start"
+      },
+      {
+        "java": "compassStop",
+        "symbol": "cna_compass_stop"
+      },
+      {
+        "java": "gyroscopeCopyLastDispatchExceptionMessageForTestsExt",
+        "symbol": "cna_gyroscope_copy_last_dispatch_exception_message_for_tests_ext"
+      },
+      {
+        "java": "gyroscopeCreate",
+        "symbol": "cna_gyroscope_create"
+      },
+      {
+        "java": "gyroscopeDestroy",
+        "symbol": "cna_gyroscope_destroy"
+      },
+      {
+        "java": "gyroscopeDispatchToInstancesForTestsExt",
+        "symbol": "cna_gyroscope_dispatch_to_instances_for_tests_ext"
+      },
+      {
+        "java": "gyroscopeDispose",
+        "symbol": "cna_gyroscope_dispose"
+      },
+      {
+        "java": "gyroscopeGetCurrentValue",
+        "symbol": "cna_gyroscope_get_current_value"
+      },
+      {
+        "java": "gyroscopeGetDispatchExceptionCountForTestsExt",
+        "symbol": "cna_gyroscope_get_dispatch_exception_count_for_tests_ext"
+      },
+      {
+        "java": "gyroscopeGetIsDataValid",
+        "symbol": "cna_gyroscope_get_is_data_valid"
+      },
+      {
+        "java": "gyroscopeGetIsSupported",
+        "symbol": "cna_gyroscope_get_is_supported"
+      },
+      {
+        "java": "gyroscopeGetLastDispatchExceptionMessageSizeForTestsExt",
+        "symbol": "cna_gyroscope_get_last_dispatch_exception_message_size_for_tests_ext"
+      },
+      {
+        "java": "gyroscopeGetState",
+        "symbol": "cna_gyroscope_get_state"
+      },
+      {
+        "java": "gyroscopeGetSubsystemHeldForTestsExt",
+        "symbol": "cna_gyroscope_get_subsystem_held_for_tests_ext"
+      },
+      {
+        "java": "gyroscopeGetTimeBetweenUpdatesTicks",
+        "symbol": "cna_gyroscope_get_time_between_updates_ticks"
+      },
+      {
+        "java": "gyroscopeInjectSyntheticUpdateExt",
+        "symbol": "cna_gyroscope_inject_synthetic_update_ext"
+      },
+      {
+        "java": "gyroscopeIsSensorConnectedForTestsExt",
+        "symbol": "cna_gyroscope_is_sensor_connected_for_tests_ext"
+      },
+      {
+        "java": "gyroscopeRegisterStartedInstanceForTestsExt",
+        "symbol": "cna_gyroscope_register_started_instance_for_tests_ext"
+      },
+      {
+        "java": "gyroscopeSetEventWatchRegistrationFailureForTestsExt",
+        "symbol": "cna_gyroscope_set_event_watch_registration_failure_for_tests_ext"
+      },
+      {
+        "java": "gyroscopeSetStartedForTestsExt",
+        "symbol": "cna_gyroscope_set_started_for_tests_ext"
+      },
+      {
+        "java": "gyroscopeSetSupportedForTestsExt",
+        "symbol": "cna_gyroscope_set_supported_for_tests_ext"
+      },
+      {
+        "java": "gyroscopeSetTimeBetweenUpdatesTicks",
+        "symbol": "cna_gyroscope_set_time_between_updates_ticks"
+      },
+      {
+        "java": "gyroscopeStart",
+        "symbol": "cna_gyroscope_start"
+      },
+      {
+        "java": "gyroscopeStop",
+        "symbol": "cna_gyroscope_stop"
+      },
+      {
+        "java": "gyroscopeUnregisterStartedInstanceForTestsExt",
+        "symbol": "cna_gyroscope_unregister_started_instance_for_tests_ext"
+      },
+      {
+        "java": "motionCreate",
+        "symbol": "cna_motion_create"
+      },
+      {
+        "java": "motionDestroy",
+        "symbol": "cna_motion_destroy"
+      },
+      {
+        "java": "motionDispose",
+        "symbol": "cna_motion_dispose"
+      },
+      {
+        "java": "motionGetCurrentValue",
+        "symbol": "cna_motion_get_current_value"
+      },
+      {
+        "java": "motionGetIsAttitudeNorthReferencedExt",
+        "symbol": "cna_motion_get_is_attitude_north_referenced_ext"
+      },
+      {
+        "java": "motionGetIsDataValid",
+        "symbol": "cna_motion_get_is_data_valid"
+      },
+      {
+        "java": "motionGetIsSupported",
+        "symbol": "cna_motion_get_is_supported"
+      },
+      {
+        "java": "motionGetState",
+        "symbol": "cna_motion_get_state"
+      },
+      {
+        "java": "motionGetTimeBetweenUpdatesTicks",
+        "symbol": "cna_motion_get_time_between_updates_ticks"
+      },
+      {
+        "java": "motionInjectCalibrationRequestExt",
+        "symbol": "cna_motion_inject_calibration_request_ext"
+      },
+      {
+        "java": "motionInjectSyntheticUpdateExt",
+        "symbol": "cna_motion_inject_synthetic_update_ext"
+      },
+      {
+        "java": "motionSetTestBackendExt",
+        "symbol": "cna_motion_set_test_backend_ext"
+      },
+      {
+        "java": "motionSetTimeBetweenUpdatesTicks",
+        "symbol": "cna_motion_set_time_between_updates_ticks"
+      },
+      {
+        "java": "motionStart",
+        "symbol": "cna_motion_start"
+      },
+      {
+        "java": "motionStop",
+        "symbol": "cna_motion_stop"
+      },
+      {
+        "java": "sensorUnsubscribeExt",
+        "symbol": "cna_sensor_unsubscribe_ext"
+      },
+      {
+        "java": "sensorsCopyNameAt",
+        "symbol": "cna_sensors_copy_name_at"
+      },
+      {
+        "java": "sensorsGetAccelerometer",
+        "symbol": "cna_sensors_get_accelerometer"
+      },
+      {
+        "java": "sensorsGetCount",
+        "symbol": "cna_sensors_get_count"
+      },
+      {
+        "java": "sensorsGetGyroscope",
+        "symbol": "cna_sensors_get_gyroscope"
+      },
+      {
+        "java": "sensorsGetInfoAt",
+        "symbol": "cna_sensors_get_info_at"
+      },
+      {
+        "java": "sensorsGetLastErrorIdExt",
+        "symbol": "cna_sensors_get_last_error_id_ext"
+      },
+      {
+        "java": "sensorsGetNameSizeAt",
+        "symbol": "cna_sensors_get_name_size_at"
+      }
+    ],
+    "NativeModelExtensionRoutes": [
+      {
+        "java": "animationPlayerCopyBoneTransforms",
+        "symbol": "cna_animation_player_copy_bone_transforms"
+      },
+      {
+        "java": "animationPlayerCopyCurrentClipName",
+        "symbol": "cna_animation_player_copy_current_clip_name"
+      },
+      {
+        "java": "animationPlayerCopySkinTransforms",
+        "symbol": "cna_animation_player_copy_skin_transforms"
+      },
+      {
+        "java": "animationPlayerCopyWorldTransforms",
+        "symbol": "cna_animation_player_copy_world_transforms"
+      },
+      {
+        "java": "animationPlayerCreate",
+        "symbol": "cna_animation_player_create"
+      },
+      {
+        "java": "animationPlayerDestroy",
+        "symbol": "cna_animation_player_destroy"
+      },
+      {
+        "java": "animationPlayerGetCurrentClipInfo",
+        "symbol": "cna_animation_player_get_current_clip_info"
+      },
+      {
+        "java": "animationPlayerGetCurrentClipNameByteCount",
+        "symbol": "cna_animation_player_get_current_clip_name_byte_count"
+      },
+      {
+        "java": "animationPlayerGetCurrentPosition",
+        "symbol": "cna_animation_player_get_current_position"
+      },
+      {
+        "java": "animationPlayerStartClip",
+        "symbol": "cna_animation_player_start_clip"
+      },
+      {
+        "java": "animationPlayerUpdate",
+        "symbol": "cna_animation_player_update"
+      },
+      {
+        "java": "contentManagerLoadModel",
+        "symbol": "cna_content_manager_load_model"
+      },
+      {
+        "java": "effectCopyTypeName",
+        "symbol": "cna_effect_copy_type_name"
+      },
+      {
+        "java": "effectGetTypeNameByteCount",
+        "symbol": "cna_effect_get_type_name_byte_count"
+      },
+      {
+        "java": "matrixCreateInfinitePerspectiveFieldOfViewExt",
+        "symbol": "cna_matrix_create_infinite_perspective_field_of_view_ext"
+      },
+      {
+        "java": "modelAddCameraExt",
+        "symbol": "cna_model_add_camera_ext"
+      },
+      {
+        "java": "modelAddSkinExt",
+        "symbol": "cna_model_add_skin_ext"
+      },
+      {
+        "java": "modelAnimationsCopyClipNameAt",
+        "symbol": "cna_model_animations_ext_copy_clip_name_at"
+      },
+      {
+        "java": "modelAnimationsCopyTypeName",
+        "symbol": "cna_model_animations_ext_copy_type_name"
+      },
+      {
+        "java": "modelAnimationsDestroy",
+        "symbol": "cna_model_animations_ext_destroy"
+      },
+      {
+        "java": "modelAnimationsGetClipCount",
+        "symbol": "cna_model_animations_ext_get_clip_count"
+      },
+      {
+        "java": "modelAnimationsGetClipInfoAt",
+        "symbol": "cna_model_animations_ext_get_clip_info_at"
+      },
+      {
+        "java": "modelAnimationsGetClipNameByteCountAt",
+        "symbol": "cna_model_animations_ext_get_clip_name_byte_count_at"
+      },
+      {
+        "java": "modelAnimationsGetTypeNameByteCount",
+        "symbol": "cna_model_animations_ext_get_type_name_byte_count"
+      },
+      {
+        "java": "modelAnimationsSetClipTargetSpaceAt",
+        "symbol": "cna_model_animations_ext_set_clip_target_space_at"
+      },
+      {
+        "java": "modelApplyBindPoseBoneTransformsExt",
+        "symbol": "cna_model_apply_bind_pose_bone_transforms_ext"
+      },
+      {
+        "java": "modelApplyClipToBonesExt",
+        "symbol": "cna_model_apply_clip_to_bones_ext"
+      },
+      {
+        "java": "modelBoneAddChild",
+        "symbol": "cna_model_bone_add_child"
+      },
+      {
+        "java": "modelBoneCollectionDestroy",
+        "symbol": "cna_model_bone_collection_destroy"
+      },
+      {
+        "java": "modelBoneCollectionGetAt",
+        "symbol": "cna_model_bone_collection_get_at"
+      },
+      {
+        "java": "modelBoneCollectionGetCount",
+        "symbol": "cna_model_bone_collection_get_count"
+      },
+      {
+        "java": "modelBoneCopyName",
+        "symbol": "cna_model_bone_copy_name"
+      },
+      {
+        "java": "modelBoneCreate",
+        "symbol": "cna_model_bone_create"
+      },
+      {
+        "java": "modelBoneDestroy",
+        "symbol": "cna_model_bone_destroy"
+      },
+      {
+        "java": "modelBoneGetChildren",
+        "symbol": "cna_model_bone_get_children"
+      },
+      {
+        "java": "modelBoneGetIndex",
+        "symbol": "cna_model_bone_get_index"
+      },
+      {
+        "java": "modelBoneGetNameByteCount",
+        "symbol": "cna_model_bone_get_name_byte_count"
+      },
+      {
+        "java": "modelBoneGetParent",
+        "symbol": "cna_model_bone_get_parent"
+      },
+      {
+        "java": "modelBoneGetTransform",
+        "symbol": "cna_model_bone_get_transform"
+      },
+      {
+        "java": "modelBoneSetTransform",
+        "symbol": "cna_model_bone_set_transform"
+      },
+      {
+        "java": "modelClearCamerasExt",
+        "symbol": "cna_model_clear_cameras_ext"
+      },
+      {
+        "java": "modelClearSkinsExt",
+        "symbol": "cna_model_clear_skins_ext"
+      },
+      {
+        "java": "modelCopyAbsoluteBoneTransforms",
+        "symbol": "cna_model_copy_absolute_bone_transforms"
+      },
+      {
+        "java": "modelCopyBoneTransforms",
+        "symbol": "cna_model_copy_bone_transforms"
+      },
+      {
+        "java": "modelCopyCameraNameExt",
+        "symbol": "cna_model_copy_camera_name_ext"
+      },
+      {
+        "java": "modelCopyGltfImportDiagnosticCodeExt",
+        "symbol": "cna_model_copy_gltf_import_diagnostic_code_ext"
+      },
+      {
+        "java": "modelCopyGltfImportDiagnosticDetailExt",
+        "symbol": "cna_model_copy_gltf_import_diagnostic_detail_ext"
+      },
+      {
+        "java": "modelCopyGltfImportDiagnosticMessageExt",
+        "symbol": "cna_model_copy_gltf_import_diagnostic_message_ext"
+      },
+      {
+        "java": "modelCopyGltfImportDiagnosticSubjectExt",
+        "symbol": "cna_model_copy_gltf_import_diagnostic_subject_ext"
+      },
+      {
+        "java": "modelCopyMaterialVariantNameExt",
+        "symbol": "cna_model_copy_material_variant_name_ext"
+      },
+      {
+        "java": "modelCopySkinNameExt",
+        "symbol": "cna_model_copy_skin_name_ext"
+      },
+      {
+        "java": "modelCreateSkinSkeletonHandleExt",
+        "symbol": "cna_model_create_skin_skeleton_handle_ext"
+      },
+      {
+        "java": "modelCreateWithParents",
+        "symbol": "cna_model_create_with_parents"
+      },
+      {
+        "java": "modelDestroy",
+        "symbol": "cna_model_destroy"
+      },
+      {
+        "java": "modelDraw",
+        "symbol": "cna_model_draw"
+      },
+      {
+        "java": "modelEffectCollectionDestroy",
+        "symbol": "cna_model_effect_collection_destroy"
+      },
+      {
+        "java": "modelEffectCollectionGetAt",
+        "symbol": "cna_model_effect_collection_get_at"
+      },
+      {
+        "java": "modelEffectCollectionGetCount",
+        "symbol": "cna_model_effect_collection_get_count"
+      },
+      {
+        "java": "modelGetBoneTransformCount",
+        "symbol": "cna_model_get_bone_transform_count"
+      },
+      {
+        "java": "modelGetBones",
+        "symbol": "cna_model_get_bones"
+      },
+      {
+        "java": "modelGetBoundingSphereExt",
+        "symbol": "cna_model_get_bounding_sphere_ext"
+      },
+      {
+        "java": "modelGetCameraCountExt",
+        "symbol": "cna_model_get_camera_count_ext"
+      },
+      {
+        "java": "modelGetCameraExt",
+        "symbol": "cna_model_get_camera_ext"
+      },
+      {
+        "java": "modelGetCameraNameByteCountExt",
+        "symbol": "cna_model_get_camera_name_byte_count_ext"
+      },
+      {
+        "java": "modelGetContentTagDictionaryExt",
+        "symbol": "cna_model_get_content_tag_dictionary_ext"
+      },
+      {
+        "java": "modelGetGltfImportDiagnosticCodeByteCountExt",
+        "symbol": "cna_model_get_gltf_import_diagnostic_code_byte_count_ext"
+      },
+      {
+        "java": "modelGetGltfImportDiagnosticDetailByteCountExt",
+        "symbol": "cna_model_get_gltf_import_diagnostic_detail_byte_count_ext"
+      },
+      {
+        "java": "modelGetGltfImportDiagnosticExt",
+        "symbol": "cna_model_get_gltf_import_diagnostic_ext"
+      },
+      {
+        "java": "modelGetGltfImportDiagnosticMessageByteCountExt",
+        "symbol": "cna_model_get_gltf_import_diagnostic_message_byte_count_ext"
+      },
+      {
+        "java": "modelGetGltfImportDiagnosticSubjectByteCountExt",
+        "symbol": "cna_model_get_gltf_import_diagnostic_subject_byte_count_ext"
+      },
+      {
+        "java": "modelGetGltfImportReportExt",
+        "symbol": "cna_model_get_gltf_import_report_ext"
+      },
+      {
+        "java": "modelGetMaterialVariantCountExt",
+        "symbol": "cna_model_get_material_variant_count_ext"
+      },
+      {
+        "java": "modelGetMaterialVariantExt",
+        "symbol": "cna_model_get_material_variant_ext"
+      },
+      {
+        "java": "modelGetMaterialVariantNameByteCountExt",
+        "symbol": "cna_model_get_material_variant_name_byte_count_ext"
+      },
+      {
+        "java": "modelGetMeshes",
+        "symbol": "cna_model_get_meshes"
+      },
+      {
+        "java": "modelGetRoot",
+        "symbol": "cna_model_get_root"
+      },
+      {
+        "java": "modelGetSkinCountExt",
+        "symbol": "cna_model_get_skin_count_ext"
+      },
+      {
+        "java": "modelGetSkinExt",
+        "symbol": "cna_model_get_skin_ext"
+      },
+      {
+        "java": "modelGetSkinMeshIndexExt",
+        "symbol": "cna_model_get_skin_mesh_index_ext"
+      },
+      {
+        "java": "modelGetSkinNameByteCountExt",
+        "symbol": "cna_model_get_skin_name_byte_count_ext"
+      },
+      {
+        "java": "modelMeshCollectionDestroy",
+        "symbol": "cna_model_mesh_collection_destroy"
+      },
+      {
+        "java": "modelMeshCollectionGetAt",
+        "symbol": "cna_model_mesh_collection_get_at"
+      },
+      {
+        "java": "modelMeshCollectionGetCount",
+        "symbol": "cna_model_mesh_collection_get_count"
+      },
+      {
+        "java": "modelMeshCopyName",
+        "symbol": "cna_model_mesh_copy_name"
+      },
+      {
+        "java": "modelMeshCreateNamed",
+        "symbol": "cna_model_mesh_create_named"
+      },
+      {
+        "java": "modelMeshDestroy",
+        "symbol": "cna_model_mesh_destroy"
+      },
+      {
+        "java": "modelMeshGetBoundingSphere",
+        "symbol": "cna_model_mesh_get_bounding_sphere"
+      },
+      {
+        "java": "modelMeshGetEffects",
+        "symbol": "cna_model_mesh_get_effects"
+      },
+      {
+        "java": "modelMeshGetMeshParts",
+        "symbol": "cna_model_mesh_get_mesh_parts"
+      },
+      {
+        "java": "modelMeshGetNameByteCount",
+        "symbol": "cna_model_mesh_get_name_byte_count"
+      },
+      {
+        "java": "modelMeshGetParentBone",
+        "symbol": "cna_model_mesh_get_parent_bone"
+      },
+      {
+        "java": "modelMeshPartCollectionDestroy",
+        "symbol": "cna_model_mesh_part_collection_destroy"
+      },
+      {
+        "java": "modelMeshPartCollectionGetAt",
+        "symbol": "cna_model_mesh_part_collection_get_at"
+      },
+      {
+        "java": "modelMeshPartCollectionGetCount",
+        "symbol": "cna_model_mesh_part_collection_get_count"
+      },
+      {
+        "java": "modelMeshPartCreate",
+        "symbol": "cna_model_mesh_part_create"
+      },
+      {
+        "java": "modelMeshPartDestroy",
+        "symbol": "cna_model_mesh_part_destroy"
+      },
+      {
+        "java": "modelMeshPartGetEffect",
+        "symbol": "cna_model_mesh_part_get_effect"
+      },
+      {
+        "java": "modelMeshPartGetIndexBuffer",
+        "symbol": "cna_model_mesh_part_get_index_buffer"
+      },
+      {
+        "java": "modelMeshPartGetMorphTargetDataExt",
+        "symbol": "cna_model_mesh_part_get_morph_target_data_ext"
+      },
+      {
+        "java": "modelMeshPartGetNumVertices",
+        "symbol": "cna_model_mesh_part_get_num_vertices"
+      },
+      {
+        "java": "modelMeshPartGetPrimitiveCount",
+        "symbol": "cna_model_mesh_part_get_primitive_count"
+      },
+      {
+        "java": "modelMeshPartGetPrimitiveTypeExt",
+        "symbol": "cna_model_mesh_part_get_primitive_type_ext"
+      },
+      {
+        "java": "modelMeshPartGetSamplerStateExt",
+        "symbol": "cna_model_mesh_part_get_sampler_state_ext"
+      },
+      {
+        "java": "modelMeshPartGetStartIndex",
+        "symbol": "cna_model_mesh_part_get_start_index"
+      },
+      {
+        "java": "modelMeshPartGetVertexBuffer",
+        "symbol": "cna_model_mesh_part_get_vertex_buffer"
+      },
+      {
+        "java": "modelMeshPartGetVertexOffset",
+        "symbol": "cna_model_mesh_part_get_vertex_offset"
+      },
+      {
+        "java": "modelMeshPartSetEffect",
+        "symbol": "cna_model_mesh_part_set_effect"
+      },
+      {
+        "java": "modelMeshPartSetMorphTargetDataExt",
+        "symbol": "cna_model_mesh_part_set_morph_target_data_ext"
+      },
+      {
+        "java": "modelMeshPartSetMorphWeightsExt",
+        "symbol": "cna_model_mesh_part_set_morph_weights_ext"
+      },
+      {
+        "java": "modelMeshPartSetPrimitiveTypeExt",
+        "symbol": "cna_model_mesh_part_set_primitive_type_ext"
+      },
+      {
+        "java": "modelMeshPartSetSamplerStateExt",
+        "symbol": "cna_model_mesh_part_set_sampler_state_ext"
+      },
+      {
+        "java": "modelMeshSetBoundingSphere",
+        "symbol": "cna_model_mesh_set_bounding_sphere"
+      },
+      {
+        "java": "modelMeshSetParentBone",
+        "symbol": "cna_model_mesh_set_parent_bone"
+      },
+      {
+        "java": "modelSetBoneTransforms",
+        "symbol": "cna_model_set_bone_transforms"
+      },
+      {
+        "java": "modelSetGltfImportReportExt",
+        "symbol": "cna_model_set_gltf_import_report_ext"
+      },
+      {
+        "java": "modelSetMaterialVariantExt",
+        "symbol": "cna_model_set_material_variant_ext"
+      },
+      {
+        "java": "morphTargetDataBlend",
+        "symbol": "cna_morph_target_data_ext_blend",
+        "byteBuffers": {
+          "destination": {
+            "extent": [
+              "capacity"
+            ]
+          }
+        }
+      },
+      {
+        "java": "morphTargetDataCopyBaseVertexBytes",
+        "symbol": "cna_morph_target_data_ext_copy_base_vertex_bytes"
+      },
+      {
+        "java": "morphTargetDataCopyNormalDeltas",
+        "symbol": "cna_morph_target_data_ext_copy_normal_deltas"
+      },
+      {
+        "java": "morphTargetDataCopyPositionDeltas",
+        "symbol": "cna_morph_target_data_ext_copy_position_deltas"
+      },
+      {
+        "java": "morphTargetDataCopyTangentDeltas",
+        "symbol": "cna_morph_target_data_ext_copy_tangent_deltas"
+      },
+      {
+        "java": "morphTargetDataCopyTriangleIndicesExt",
+        "symbol": "cna_morph_target_data_ext_copy_triangle_indices_ext"
+      },
+      {
+        "java": "morphTargetDataCopyWeightKeyframe",
+        "symbol": "cna_morph_target_data_ext_copy_weight_keyframe"
+      },
+      {
+        "java": "morphTargetDataCopyWeights",
+        "symbol": "cna_morph_target_data_ext_copy_weights"
+      },
+      {
+        "java": "morphTargetDataDestroy",
+        "symbol": "cna_morph_target_data_ext_destroy"
+      },
+      {
+        "java": "morphTargetDataGetBaseVertexByteCount",
+        "symbol": "cna_morph_target_data_ext_get_base_vertex_byte_count"
+      },
+      {
+        "java": "morphTargetDataGetRecomputeFlatNormalsExt",
+        "symbol": "cna_morph_target_data_ext_get_recompute_flat_normals_ext"
+      },
+      {
+        "java": "morphTargetDataGetStride",
+        "symbol": "cna_morph_target_data_ext_get_stride"
+      },
+      {
+        "java": "morphTargetDataGetTargetCount",
+        "symbol": "cna_morph_target_data_ext_get_target_count"
+      },
+      {
+        "java": "morphTargetDataGetWeightTrackInfo",
+        "symbol": "cna_morph_target_data_ext_get_weight_track_info"
+      },
+      {
+        "java": "morphTargetDataSetRecomputeFlatNormalsExt",
+        "symbol": "cna_morph_target_data_ext_set_recompute_flat_normals_ext"
+      },
+      {
+        "java": "morphTargetDataSetTangentDeltas",
+        "symbol": "cna_morph_target_data_ext_set_tangent_deltas"
+      },
+      {
+        "java": "morphTargetDataSetTriangleIndicesExt",
+        "symbol": "cna_morph_target_data_ext_set_triangle_indices_ext"
+      },
+      {
+        "java": "morphTargetDataSetWeights",
+        "symbol": "cna_morph_target_data_ext_set_weights"
+      },
+      {
+        "java": "skinnedModelAddPart",
+        "symbol": "cna_skinned_model_ext_add_part"
+      },
+      {
+        "java": "skinnedModelAttachParts",
+        "symbol": "cna_skinned_model_ext_attach_parts"
+      },
+      {
+        "java": "skinnedModelComputeBoneTransforms",
+        "symbol": "cna_skinned_model_ext_compute_bone_transforms"
+      },
+      {
+        "java": "skinnedModelCopyBindPoseLocal",
+        "symbol": "cna_skinned_model_ext_copy_bind_pose_local"
+      },
+      {
+        "java": "skinnedModelCopyClipNameAt",
+        "symbol": "cna_skinned_model_ext_copy_clip_name_at"
+      },
+      {
+        "java": "skinnedModelCopyClipTrack",
+        "symbol": "cna_skinned_model_ext_copy_clip_track"
+      },
+      {
+        "java": "skinnedModelCopyInverseBindPoseGlobal",
+        "symbol": "cna_skinned_model_ext_copy_inverse_bind_pose_global"
+      },
+      {
+        "java": "skinnedModelCopyParentBoneIndices",
+        "symbol": "cna_skinned_model_ext_copy_parent_bone_indices"
+      },
+      {
+        "java": "skinnedModelCopyPartNameAt",
+        "symbol": "cna_skinned_model_ext_copy_part_name_at"
+      },
+      {
+        "java": "skinnedModelCreateDefault",
+        "symbol": "cna_skinned_model_ext_create_default"
+      },
+      {
+        "java": "skinnedModelDestroy",
+        "symbol": "cna_skinned_model_ext_destroy"
+      },
+      {
+        "java": "skinnedModelGetBoneCount",
+        "symbol": "cna_skinned_model_ext_get_bone_count"
+      },
+      {
+        "java": "skinnedModelGetClipCount",
+        "symbol": "cna_skinned_model_ext_get_clip_count"
+      },
+      {
+        "java": "skinnedModelGetClipInfo",
+        "symbol": "cna_skinned_model_ext_get_clip_info"
+      },
+      {
+        "java": "skinnedModelGetClipNameByteCountAt",
+        "symbol": "cna_skinned_model_ext_get_clip_name_byte_count_at"
+      },
+      {
+        "java": "skinnedModelGetOwnedResourceCounts",
+        "symbol": "cna_skinned_model_ext_get_owned_resource_counts"
+      },
+      {
+        "java": "skinnedModelGetPartAt",
+        "symbol": "cna_skinned_model_ext_get_part_at"
+      },
+      {
+        "java": "skinnedModelGetPartCount",
+        "symbol": "cna_skinned_model_ext_get_part_count"
+      },
+      {
+        "java": "skinnedModelGetPartNameByteCountAt",
+        "symbol": "cna_skinned_model_ext_get_part_name_byte_count_at"
+      },
+      {
+        "java": "skinnedModelRemoveClip",
+        "symbol": "cna_skinned_model_ext_remove_clip"
+      },
+      {
+        "java": "skinnedModelRemovePart",
+        "symbol": "cna_skinned_model_ext_remove_part"
+      },
+      {
+        "java": "skinningDataCopyBindPose",
+        "symbol": "cna_skinning_data_copy_bind_pose"
+      },
+      {
+        "java": "skinningDataCopyClipNameAt",
+        "symbol": "cna_skinning_data_copy_clip_name_at"
+      },
+      {
+        "java": "skinningDataCopyClipTrack",
+        "symbol": "cna_skinning_data_copy_clip_track"
+      },
+      {
+        "java": "skinningDataCopyInverseBindPose",
+        "symbol": "cna_skinning_data_copy_inverse_bind_pose"
+      },
+      {
+        "java": "skinningDataCopySkeletonHierarchy",
+        "symbol": "cna_skinning_data_copy_skeleton_hierarchy"
+      },
+      {
+        "java": "skinningDataCopySkeletonRootNameExt",
+        "symbol": "cna_skinning_data_copy_skeleton_root_name_ext"
+      },
+      {
+        "java": "skinningDataCopySkeletonRootPrefix",
+        "symbol": "cna_skinning_data_copy_skeleton_root_prefix"
+      },
+      {
+        "java": "skinningDataDestroy",
+        "symbol": "cna_skinning_data_destroy"
+      },
+      {
+        "java": "skinningDataGetBoneCount",
+        "symbol": "cna_skinning_data_get_bone_count"
+      },
+      {
+        "java": "skinningDataGetClipCount",
+        "symbol": "cna_skinning_data_get_clip_count"
+      },
+      {
+        "java": "skinningDataGetClipInfo",
+        "symbol": "cna_skinning_data_get_clip_info"
+      },
+      {
+        "java": "skinningDataGetClipNameByteCountAt",
+        "symbol": "cna_skinning_data_get_clip_name_byte_count_at"
+      },
+      {
+        "java": "skinningDataGetClipTargetSpaceExt",
+        "symbol": "cna_skinning_data_get_clip_target_space_ext"
+      },
+      {
+        "java": "skinningDataGetSkeletonRootNameByteCountExt",
+        "symbol": "cna_skinning_data_get_skeleton_root_name_byte_count_ext"
+      },
+      {
+        "java": "skinningDataGetSkeletonRootNodeIndexExt",
+        "symbol": "cna_skinning_data_get_skeleton_root_node_index_ext"
+      },
+      {
+        "java": "skinningDataSetClipTargetSpaceExt",
+        "symbol": "cna_skinning_data_set_clip_target_space_ext"
+      },
+      {
+        "java": "skinningDataSetSkeletonRootNameExt",
+        "symbol": "cna_skinning_data_set_skeleton_root_name_ext"
+      },
+      {
+        "java": "skinningDataSetSkeletonRootNodeIndexExt",
+        "symbol": "cna_skinning_data_set_skeleton_root_node_index_ext"
+      }
+    ],
+    "NativeCnbRoutes": [
+      {
+        "java": "cnbAnimationClipCopyKeyframes",
+        "symbol": "cna_cnb_animation_clip_copy_keyframes"
+      },
+      {
+        "java": "cnbAnimationClipDestroy",
+        "symbol": "cna_cnb_animation_clip_destroy"
+      },
+      {
+        "java": "cnbAnimationClipGet",
+        "symbol": "cna_cnb_animation_clip_get"
+      },
+      {
+        "java": "cnbAnimationClipGetTrack",
+        "symbol": "cna_cnb_animation_clip_get_track"
+      },
+      {
+        "java": "cnbAssetTypeIdFromName",
+        "symbol": "cna_cnb_asset_type_id_from_name"
+      },
+      {
+        "java": "cnbAudioFrameBytes",
+        "symbol": "cna_cnb_audio_frame_bytes"
+      },
+      {
+        "java": "cnbBuildModelFromCnj",
+        "symbol": "cna_cnb_build_model_from_cnj"
+      },
+      {
+        "java": "cnbByteWriterCopyBytes",
+        "symbol": "cna_cnb_byte_writer_copy_bytes"
+      },
+      {
+        "java": "cnbByteWriterCreate",
+        "symbol": "cna_cnb_byte_writer_create"
+      },
+      {
+        "java": "cnbByteWriterCreateFromBytes",
+        "symbol": "cna_cnb_byte_writer_create_from_bytes"
+      },
+      {
+        "java": "cnbByteWriterDestroy",
+        "symbol": "cna_cnb_byte_writer_destroy"
+      },
+      {
+        "java": "cnbByteWriterGetSize",
+        "symbol": "cna_cnb_byte_writer_get_size"
+      },
+      {
+        "java": "cnbByteWriterTake",
+        "symbol": "cna_cnb_byte_writer_take"
+      },
+      {
+        "java": "cnbByteWriterWriteBytes",
+        "symbol": "cna_cnb_byte_writer_write_bytes"
+      },
+      {
+        "java": "cnbByteWriterWriteF32",
+        "symbol": "cna_cnb_byte_writer_write_f32"
+      },
+      {
+        "java": "cnbByteWriterWriteF64",
+        "symbol": "cna_cnb_byte_writer_write_f64"
+      },
+      {
+        "java": "cnbByteWriterWriteI32",
+        "symbol": "cna_cnb_byte_writer_write_i32"
+      },
+      {
+        "java": "cnbByteWriterWriteKeyframe",
+        "symbol": "cna_cnb_byte_writer_write_keyframe"
+      },
+      {
+        "java": "cnbByteWriterWriteString",
+        "symbol": "cna_cnb_byte_writer_write_string"
+      },
+      {
+        "java": "cnbByteWriterWriteU16",
+        "symbol": "cna_cnb_byte_writer_write_u16"
+      },
+      {
+        "java": "cnbByteWriterWriteU32",
+        "symbol": "cna_cnb_byte_writer_write_u32"
+      },
+      {
+        "java": "cnbByteWriterWriteU64",
+        "symbol": "cna_cnb_byte_writer_write_u64"
+      },
+      {
+        "java": "cnbByteWriterWriteU8",
+        "symbol": "cna_cnb_byte_writer_write_u8"
+      },
+      {
+        "java": "cnbByteWriterWriteZeros",
+        "symbol": "cna_cnb_byte_writer_write_zeros"
+      },
+      {
+        "java": "cnbCheckedAdd",
+        "symbol": "cna_cnb_checked_add"
+      },
+      {
+        "java": "cnbCheckedMultiply",
+        "symbol": "cna_cnb_checked_multiply"
+      },
+      {
+        "java": "cnbChunkEntryIsMandatory",
+        "symbol": "cna_cnb_chunk_entry_is_mandatory"
+      },
+      {
+        "java": "cnbCnjResultCopyAbsorbedFile",
+        "symbol": "cna_cnb_cnj_result_copy_absorbed_file"
+      },
+      {
+        "java": "cnbCnjResultCopyAssetTypeName",
+        "symbol": "cna_cnb_cnj_result_copy_asset_type_name"
+      },
+      {
+        "java": "cnbCnjResultCopyBytes",
+        "symbol": "cna_cnb_cnj_result_copy_bytes"
+      },
+      {
+        "java": "cnbCnjResultCopyExternalReference",
+        "symbol": "cna_cnb_cnj_result_copy_external_reference"
+      },
+      {
+        "java": "cnbCnjResultDestroy",
+        "symbol": "cna_cnb_cnj_result_destroy"
+      },
+      {
+        "java": "cnbCnjResultGetAbsorbedFileCount",
+        "symbol": "cna_cnb_cnj_result_get_absorbed_file_count"
+      },
+      {
+        "java": "cnbCnjResultGetAbsorbedFileSize",
+        "symbol": "cna_cnb_cnj_result_get_absorbed_file_size"
+      },
+      {
+        "java": "cnbCnjResultGetAssetTypeId",
+        "symbol": "cna_cnb_cnj_result_get_asset_type_id"
+      },
+      {
+        "java": "cnbCnjResultGetAssetTypeNameSize",
+        "symbol": "cna_cnb_cnj_result_get_asset_type_name_size"
+      },
+      {
+        "java": "cnbCnjResultGetExternalReferenceCount",
+        "symbol": "cna_cnb_cnj_result_get_external_reference_count"
+      },
+      {
+        "java": "cnbCnjResultGetExternalReferenceSize",
+        "symbol": "cna_cnb_cnj_result_get_external_reference_size"
+      },
+      {
+        "java": "cnbCompileCnj",
+        "symbol": "cna_cnb_compile_cnj"
+      },
+      {
+        "java": "cnbCopyAssetTypeName",
+        "symbol": "cna_cnb_copy_asset_type_name"
+      },
+      {
+        "java": "cnbCopyAudioFormatName",
+        "symbol": "cna_cnb_copy_audio_format_name"
+      },
+      {
+        "java": "cnbCopyChunkIdString",
+        "symbol": "cna_cnb_copy_chunk_id_string"
+      },
+      {
+        "java": "cnbCopyCompressed",
+        "symbol": "cna_cnb_copy_compressed"
+      },
+      {
+        "java": "cnbCopyCompressionName",
+        "symbol": "cna_cnb_copy_compression_name"
+      },
+      {
+        "java": "cnbCopyDecompressed",
+        "symbol": "cna_cnb_copy_decompressed"
+      },
+      {
+        "java": "cnbCopyFormatMagic",
+        "symbol": "cna_cnb_copy_format_magic"
+      },
+      {
+        "java": "cnbCopyLogicalNameProblem",
+        "symbol": "cna_cnb_copy_logical_name_problem"
+      },
+      {
+        "java": "cnbCopyTextureFormatName",
+        "symbol": "cna_cnb_copy_texture_format_name"
+      },
+      {
+        "java": "cnbCrc32c",
+        "symbol": "cna_cnb_crc32c"
+      },
+      {
+        "java": "cnbCrc32cContinue",
+        "symbol": "cna_cnb_crc32c_continue"
+      },
+      {
+        "java": "cnbCrc32cPortable",
+        "symbol": "cna_cnb_crc32c_portable"
+      },
+      {
+        "java": "cnbCrc32cUsesHardware",
+        "symbol": "cna_cnb_crc32c_uses_hardware"
+      },
+      {
+        "java": "cnbDecodeAnimationClip",
+        "symbol": "cna_cnb_decode_animation_clip"
+      },
+      {
+        "java": "cnbDecodeCurve",
+        "symbol": "cna_cnb_decode_curve"
+      },
+      {
+        "java": "cnbDecodeDdsAsTextureCube",
+        "symbol": "cna_cnb_decode_dds_as_texture_cube"
+      },
+      {
+        "java": "cnbDecodeModel",
+        "symbol": "cna_cnb_decode_model"
+      },
+      {
+        "java": "cnbDecodeSongDurationMilliseconds",
+        "symbol": "cna_cnb_decode_song_duration_milliseconds"
+      },
+      {
+        "java": "cnbDecodeSongName",
+        "symbol": "cna_cnb_decode_song_name"
+      },
+      {
+        "java": "cnbDecodeSongNameSize",
+        "symbol": "cna_cnb_decode_song_name_size"
+      },
+      {
+        "java": "cnbDecodeSongStreamReference",
+        "symbol": "cna_cnb_decode_song_stream_reference"
+      },
+      {
+        "java": "cnbDecodeSongStreamReferenceSize",
+        "symbol": "cna_cnb_decode_song_stream_reference_size"
+      },
+      {
+        "java": "cnbDecodeSoundEffect",
+        "symbol": "cna_cnb_decode_sound_effect"
+      },
+      {
+        "java": "cnbDecodeSpriteFont",
+        "symbol": "cna_cnb_decode_sprite_font"
+      },
+      {
+        "java": "cnbDecodeTexture2d",
+        "symbol": "cna_cnb_decode_texture2d"
+      },
+      {
+        "java": "cnbDecodeTexture3d",
+        "symbol": "cna_cnb_decode_texture3d"
+      },
+      {
+        "java": "cnbDecodeTextureCube",
+        "symbol": "cna_cnb_decode_texture_cube"
+      },
+      {
+        "java": "cnbDecodeVideo",
+        "symbol": "cna_cnb_decode_video"
+      },
+      {
+        "java": "cnbDecodeVideoStreamReference",
+        "symbol": "cna_cnb_decode_video_stream_reference"
+      },
+      {
+        "java": "cnbDecodeVideoStreamReferenceSize",
+        "symbol": "cna_cnb_decode_video_stream_reference_size"
+      },
+      {
+        "java": "cnbDecodeWavAsSoundEffect",
+        "symbol": "cna_cnb_decode_wav_as_sound_effect"
+      },
+      {
+        "java": "cnbDocumentCopyChunkData",
+        "symbol": "cna_cnb_document_copy_chunk_data"
+      },
+      {
+        "java": "cnbDocumentCopyExternalReferenceName",
+        "symbol": "cna_cnb_document_copy_external_reference_name"
+      },
+      {
+        "java": "cnbDocumentCopyMetadataAssetTypeName",
+        "symbol": "cna_cnb_document_copy_metadata_asset_type_name"
+      },
+      {
+        "java": "cnbDocumentCopyMetadataContentName",
+        "symbol": "cna_cnb_document_copy_metadata_content_name"
+      },
+      {
+        "java": "cnbDocumentCopyOrigin",
+        "symbol": "cna_cnb_document_copy_origin"
+      },
+      {
+        "java": "cnbDocumentDestroy",
+        "symbol": "cna_cnb_document_destroy"
+      },
+      {
+        "java": "cnbDocumentFindAll",
+        "symbol": "cna_cnb_document_find_all"
+      },
+      {
+        "java": "cnbDocumentFindSingle",
+        "symbol": "cna_cnb_document_find_single"
+      },
+      {
+        "java": "cnbDocumentGetAssetSchemaVersion",
+        "symbol": "cna_cnb_document_get_asset_schema_version"
+      },
+      {
+        "java": "cnbDocumentGetAssetTypeId",
+        "symbol": "cna_cnb_document_get_asset_type_id"
+      },
+      {
+        "java": "cnbDocumentGetChunk",
+        "symbol": "cna_cnb_document_get_chunk"
+      },
+      {
+        "java": "cnbDocumentGetChunkCount",
+        "symbol": "cna_cnb_document_get_chunk_count"
+      },
+      {
+        "java": "cnbDocumentGetContainerMajor",
+        "symbol": "cna_cnb_document_get_container_major"
+      },
+      {
+        "java": "cnbDocumentGetContainerMinor",
+        "symbol": "cna_cnb_document_get_container_minor"
+      },
+      {
+        "java": "cnbDocumentGetExternalReference",
+        "symbol": "cna_cnb_document_get_external_reference"
+      },
+      {
+        "java": "cnbDocumentGetExternalReferenceCount",
+        "symbol": "cna_cnb_document_get_external_reference_count"
+      },
+      {
+        "java": "cnbDocumentGetExternalReferenceNameSize",
+        "symbol": "cna_cnb_document_get_external_reference_name_size"
+      },
+      {
+        "java": "cnbDocumentGetLimits",
+        "symbol": "cna_cnb_document_get_limits"
+      },
+      {
+        "java": "cnbDocumentGetMetadata",
+        "symbol": "cna_cnb_document_get_metadata"
+      },
+      {
+        "java": "cnbDocumentGetMetadataAssetTypeNameSize",
+        "symbol": "cna_cnb_document_get_metadata_asset_type_name_size"
+      },
+      {
+        "java": "cnbDocumentGetMetadataContentNameSize",
+        "symbol": "cna_cnb_document_get_metadata_content_name_size"
+      },
+      {
+        "java": "cnbDocumentGetOriginSize",
+        "symbol": "cna_cnb_document_get_origin_size"
+      },
+      {
+        "java": "cnbDocumentOpenChunk",
+        "symbol": "cna_cnb_document_open_chunk"
+      },
+      {
+        "java": "cnbDocumentParse",
+        "symbol": "cna_cnb_document_parse"
+      },
+      {
+        "java": "cnbDocumentParseFile",
+        "symbol": "cna_cnb_document_parse_file"
+      },
+      {
+        "java": "cnbDocumentReadEmbeddedTexture2d",
+        "symbol": "cna_cnb_document_read_embedded_texture2d"
+      },
+      {
+        "java": "cnbDocumentRequireAsset",
+        "symbol": "cna_cnb_document_require_asset"
+      },
+      {
+        "java": "cnbDocumentRequireMandatoryChunksUnderstood",
+        "symbol": "cna_cnb_document_require_mandatory_chunks_understood"
+      },
+      {
+        "java": "cnbDocumentRequireSingle",
+        "symbol": "cna_cnb_document_require_single"
+      },
+      {
+        "java": "cnbEncodeCurve",
+        "symbol": "cna_cnb_encode_curve"
+      },
+      {
+        "java": "cnbEncodeModel",
+        "symbol": "cna_cnb_encode_model"
+      },
+      {
+        "java": "cnbEncodeSong",
+        "symbol": "cna_cnb_encode_song"
+      },
+      {
+        "java": "cnbEncodeSoundEffect",
+        "symbol": "cna_cnb_encode_sound_effect"
+      },
+      {
+        "java": "cnbEncodeSpriteFont",
+        "symbol": "cna_cnb_encode_sprite_font"
+      },
+      {
+        "java": "cnbEncodeTexture2d",
+        "symbol": "cna_cnb_encode_texture2d"
+      },
+      {
+        "java": "cnbEncodeTexture3d",
+        "symbol": "cna_cnb_encode_texture3d"
+      },
+      {
+        "java": "cnbEncodeTextureCube",
+        "symbol": "cna_cnb_encode_texture_cube"
+      },
+      {
+        "java": "cnbEncodeVideo",
+        "symbol": "cna_cnb_encode_video"
+      },
+      {
+        "java": "cnbGetAssetTypeNameSize",
+        "symbol": "cna_cnb_get_asset_type_name_size"
+      },
+      {
+        "java": "cnbGetAudioFormatNameSize",
+        "symbol": "cna_cnb_get_audio_format_name_size"
+      },
+      {
+        "java": "cnbGetChunkIdStringSize",
+        "symbol": "cna_cnb_get_chunk_id_string_size"
+      },
+      {
+        "java": "cnbGetCompressedByteCount",
+        "symbol": "cna_cnb_get_compressed_byte_count"
+      },
+      {
+        "java": "cnbGetCompressionNameSize",
+        "symbol": "cna_cnb_get_compression_name_size"
+      },
+      {
+        "java": "cnbGetLogicalNameProblemSize",
+        "symbol": "cna_cnb_get_logical_name_problem_size"
+      },
+      {
+        "java": "cnbGetTextureFormatNameSize",
+        "symbol": "cna_cnb_get_texture_format_name_size"
+      },
+      {
+        "java": "cnbGetTextureFormatUnitBytes",
+        "symbol": "cna_cnb_get_texture_format_unit_bytes"
+      },
+      {
+        "java": "cnbGetTextureLevelByteSize",
+        "symbol": "cna_cnb_get_texture_level_byte_size"
+      },
+      {
+        "java": "cnbHasMagic",
+        "symbol": "cna_cnb_has_magic"
+      },
+      {
+        "java": "cnbImportDdsAsTextureCube",
+        "symbol": "cna_cnb_import_dds_as_texture_cube"
+      },
+      {
+        "java": "cnbImportImageAsTexture2d",
+        "symbol": "cna_cnb_import_image_as_texture2d"
+      },
+      {
+        "java": "cnbImportWavAsSoundEffect",
+        "symbol": "cna_cnb_import_wav_as_sound_effect"
+      },
+      {
+        "java": "cnbIsBlockCompressedTextureFormat",
+        "symbol": "cna_cnb_is_block_compressed_texture_format"
+      },
+      {
+        "java": "cnbIsCompressionSupported",
+        "symbol": "cna_cnb_is_compression_supported"
+      },
+      {
+        "java": "cnbIsCustomAssetTypeId",
+        "symbol": "cna_cnb_is_custom_asset_type_id"
+      },
+      {
+        "java": "cnbIsKnownTextureFormat",
+        "symbol": "cna_cnb_is_known_texture_format"
+      },
+      {
+        "java": "cnbIsWellFormedChunkId",
+        "symbol": "cna_cnb_is_well_formed_chunk_id"
+      },
+      {
+        "java": "cnbIsWellFormedUtf8",
+        "symbol": "cna_cnb_is_well_formed_utf8"
+      },
+      {
+        "java": "cnbLoaderRegistryCopyRegisteredTypeName",
+        "symbol": "cna_cnb_loader_registry_copy_registered_type_name"
+      },
+      {
+        "java": "cnbLoaderRegistryGetRegisteredTypeNameSize",
+        "symbol": "cna_cnb_loader_registry_get_registered_type_name_size"
+      },
+      {
+        "java": "cnbLoaderRegistryIsRegistered",
+        "symbol": "cna_cnb_loader_registry_is_registered"
+      },
+      {
+        "java": "cnbLoaderRegistryRegisterBuiltins",
+        "symbol": "cna_cnb_loader_registry_register_builtins"
+      },
+      {
+        "java": "cnbMakeChunkId",
+        "symbol": "cna_cnb_make_chunk_id"
+      },
+      {
+        "java": "cnbModelAddBone",
+        "symbol": "cna_cnb_model_add_bone",
+        "arrayLengths": {
+          "transform": {
+            "length": 16
+          }
+        }
+      },
+      {
+        "java": "cnbModelAddLight",
+        "symbol": "cna_cnb_model_add_light"
+      },
+      {
+        "java": "cnbModelAddMesh",
+        "symbol": "cna_cnb_model_add_mesh"
+      },
+      {
+        "java": "cnbModelAddMorphTarget",
+        "symbol": "cna_cnb_model_add_morph_target"
+      },
+      {
+        "java": "cnbModelAddMorphWeightKey",
+        "symbol": "cna_cnb_model_add_morph_weight_key"
+      },
+      {
+        "java": "cnbModelAddPart",
+        "symbol": "cna_cnb_model_add_part"
+      },
+      {
+        "java": "cnbModelClearMorph",
+        "symbol": "cna_cnb_model_clear_morph"
+      },
+      {
+        "java": "cnbModelClearSkeleton",
+        "symbol": "cna_cnb_model_clear_skeleton"
+      },
+      {
+        "java": "cnbModelCopyAnimationKeyframes",
+        "symbol": "cna_cnb_model_copy_animation_keyframes"
+      },
+      {
+        "java": "cnbModelCopyAnimationName",
+        "symbol": "cna_cnb_model_copy_animation_name"
+      },
+      {
+        "java": "cnbModelCopyBoneName",
+        "symbol": "cna_cnb_model_copy_bone_name"
+      },
+      {
+        "java": "cnbModelCopyMaterialTexture",
+        "symbol": "cna_cnb_model_copy_material_texture"
+      },
+      {
+        "java": "cnbModelCopyMeshName",
+        "symbol": "cna_cnb_model_copy_mesh_name"
+      },
+      {
+        "java": "cnbModelCopyMeshPartIndices",
+        "symbol": "cna_cnb_model_copy_mesh_part_indices"
+      },
+      {
+        "java": "cnbModelCopyMorphTargetDeltas",
+        "symbol": "cna_cnb_model_copy_morph_target_deltas"
+      },
+      {
+        "java": "cnbModelCopyMorphWeightKeyValues",
+        "symbol": "cna_cnb_model_copy_morph_weight_key_values"
+      },
+      {
+        "java": "cnbModelCopyMorphWeights",
+        "symbol": "cna_cnb_model_copy_morph_weights"
+      },
+      {
+        "java": "cnbModelCopyPartExternalEffect",
+        "symbol": "cna_cnb_model_copy_part_external_effect"
+      },
+      {
+        "java": "cnbModelCopyPartIndexBytes",
+        "symbol": "cna_cnb_model_copy_part_index_bytes"
+      },
+      {
+        "java": "cnbModelCopyPartName",
+        "symbol": "cna_cnb_model_copy_part_name"
+      },
+      {
+        "java": "cnbModelCopyPartVertexBytes",
+        "symbol": "cna_cnb_model_copy_part_vertex_bytes"
+      },
+      {
+        "java": "cnbModelCopySkeletonHierarchy",
+        "symbol": "cna_cnb_model_copy_skeleton_hierarchy"
+      },
+      {
+        "java": "cnbModelCopySkeletonMatrices",
+        "symbol": "cna_cnb_model_copy_skeleton_matrices"
+      },
+      {
+        "java": "cnbModelCreate",
+        "symbol": "cna_cnb_model_create"
+      },
+      {
+        "java": "cnbModelDestroy",
+        "symbol": "cna_cnb_model_destroy"
+      },
+      {
+        "java": "cnbModelFromCnjCopyAbsorbedFile",
+        "symbol": "cna_cnb_model_from_cnj_copy_absorbed_file"
+      },
+      {
+        "java": "cnbModelFromCnjCopyExternalReference",
+        "symbol": "cna_cnb_model_from_cnj_copy_external_reference"
+      },
+      {
+        "java": "cnbModelFromCnjDestroy",
+        "symbol": "cna_cnb_model_from_cnj_destroy"
+      },
+      {
+        "java": "cnbModelFromCnjGetAbsorbedFileCount",
+        "symbol": "cna_cnb_model_from_cnj_get_absorbed_file_count"
+      },
+      {
+        "java": "cnbModelFromCnjGetAbsorbedFileSize",
+        "symbol": "cna_cnb_model_from_cnj_get_absorbed_file_size"
+      },
+      {
+        "java": "cnbModelFromCnjGetExternalReferenceCount",
+        "symbol": "cna_cnb_model_from_cnj_get_external_reference_count"
+      },
+      {
+        "java": "cnbModelFromCnjGetExternalReferenceSize",
+        "symbol": "cna_cnb_model_from_cnj_get_external_reference_size"
+      },
+      {
+        "java": "cnbModelFromCnjTakeModel",
+        "symbol": "cna_cnb_model_from_cnj_take_model"
+      },
+      {
+        "java": "cnbModelGetAnimation",
+        "symbol": "cna_cnb_model_get_animation"
+      },
+      {
+        "java": "cnbModelGetAnimationNameSize",
+        "symbol": "cna_cnb_model_get_animation_name_size"
+      },
+      {
+        "java": "cnbModelGetAnimationTrack",
+        "symbol": "cna_cnb_model_get_animation_track"
+      },
+      {
+        "java": "cnbModelGetBone",
+        "symbol": "cna_cnb_model_get_bone"
+      },
+      {
+        "java": "cnbModelGetBoneNameSize",
+        "symbol": "cna_cnb_model_get_bone_name_size"
+      },
+      {
+        "java": "cnbModelGetInfo",
+        "symbol": "cna_cnb_model_get_info"
+      },
+      {
+        "java": "cnbModelGetLight",
+        "symbol": "cna_cnb_model_get_light"
+      },
+      {
+        "java": "cnbModelGetMaterial",
+        "symbol": "cna_cnb_model_get_material"
+      },
+      {
+        "java": "cnbModelGetMaterialSampler",
+        "symbol": "cna_cnb_model_get_material_sampler"
+      },
+      {
+        "java": "cnbModelGetMaterialTextureCoordinateSet",
+        "symbol": "cna_cnb_model_get_material_texture_coordinate_set"
+      },
+      {
+        "java": "cnbModelGetMaterialTextureSize",
+        "symbol": "cna_cnb_model_get_material_texture_size"
+      },
+      {
+        "java": "cnbModelGetMaterialTextureTransform",
+        "symbol": "cna_cnb_model_get_material_texture_transform"
+      },
+      {
+        "java": "cnbModelGetMesh",
+        "symbol": "cna_cnb_model_get_mesh"
+      },
+      {
+        "java": "cnbModelGetMeshNameSize",
+        "symbol": "cna_cnb_model_get_mesh_name_size"
+      },
+      {
+        "java": "cnbModelGetMorph",
+        "symbol": "cna_cnb_model_get_morph"
+      },
+      {
+        "java": "cnbModelGetMorphWeightKey",
+        "symbol": "cna_cnb_model_get_morph_weight_key"
+      },
+      {
+        "java": "cnbModelGetPart",
+        "symbol": "cna_cnb_model_get_part"
+      },
+      {
+        "java": "cnbModelGetPartExternalEffectSize",
+        "symbol": "cna_cnb_model_get_part_external_effect_size"
+      },
+      {
+        "java": "cnbModelGetPartNameSize",
+        "symbol": "cna_cnb_model_get_part_name_size"
+      },
+      {
+        "java": "cnbModelGetSkeleton",
+        "symbol": "cna_cnb_model_get_skeleton"
+      },
+      {
+        "java": "cnbModelHasMorph",
+        "symbol": "cna_cnb_model_has_morph"
+      },
+      {
+        "java": "cnbModelSetFlags",
+        "symbol": "cna_cnb_model_set_flags"
+      },
+      {
+        "java": "cnbModelSetMaterial",
+        "symbol": "cna_cnb_model_set_material"
+      },
+      {
+        "java": "cnbModelSetMaterialSampler",
+        "symbol": "cna_cnb_model_set_material_sampler"
+      },
+      {
+        "java": "cnbModelSetMaterialTexture",
+        "symbol": "cna_cnb_model_set_material_texture"
+      },
+      {
+        "java": "cnbModelSetMaterialTextureCoordinateSet",
+        "symbol": "cna_cnb_model_set_material_texture_coordinate_set"
+      },
+      {
+        "java": "cnbModelSetMaterialTextureTransform",
+        "symbol": "cna_cnb_model_set_material_texture_transform"
+      },
+      {
+        "java": "cnbModelSetMorph",
+        "symbol": "cna_cnb_model_set_morph"
+      },
+      {
+        "java": "cnbModelSetMorphTargetDeltas",
+        "symbol": "cna_cnb_model_set_morph_target_deltas"
+      },
+      {
+        "java": "cnbModelSetMorphWeights",
+        "symbol": "cna_cnb_model_set_morph_weights"
+      },
+      {
+        "java": "cnbModelSetPart",
+        "symbol": "cna_cnb_model_set_part"
+      },
+      {
+        "java": "cnbModelSetPartIndexBytes",
+        "symbol": "cna_cnb_model_set_part_index_bytes"
+      },
+      {
+        "java": "cnbModelSetPartVertexBytes",
+        "symbol": "cna_cnb_model_set_part_vertex_bytes"
+      },
+      {
+        "java": "cnbModelSetSkeleton",
+        "symbol": "cna_cnb_model_set_skeleton",
+        "arrayLengths": {
+          "bind_pose": {
+            "per": 16,
+            "count": "joint_count"
+          },
+          "inverse_bind_pose": {
+            "per": 16,
+            "count": "joint_count"
+          },
+          "root_prefix": {
+            "per": 16,
+            "count": "joint_count",
+            "nullable": true
+          }
+        }
+      },
+      {
+        "java": "cnbReadLimitsInit",
+        "symbol": "cna_cnb_read_limits_init"
+      },
+      {
+        "java": "cnbReaderCopyContext",
+        "symbol": "cna_cnb_reader_copy_context"
+      },
+      {
+        "java": "cnbReaderCopyString",
+        "symbol": "cna_cnb_reader_copy_string"
+      },
+      {
+        "java": "cnbReaderCreate",
+        "symbol": "cna_cnb_reader_create"
+      },
+      {
+        "java": "cnbReaderDestroy",
+        "symbol": "cna_cnb_reader_destroy"
+      },
+      {
+        "java": "cnbReaderFail",
+        "symbol": "cna_cnb_reader_fail"
+      },
+      {
+        "java": "cnbReaderGetContextSize",
+        "symbol": "cna_cnb_reader_get_context_size"
+      },
+      {
+        "java": "cnbReaderGetPosition",
+        "symbol": "cna_cnb_reader_get_position"
+      },
+      {
+        "java": "cnbReaderGetRemaining",
+        "symbol": "cna_cnb_reader_get_remaining"
+      },
+      {
+        "java": "cnbReaderGetSize",
+        "symbol": "cna_cnb_reader_get_size"
+      },
+      {
+        "java": "cnbReaderReadBytes",
+        "symbol": "cna_cnb_reader_read_bytes"
+      },
+      {
+        "java": "cnbReaderReadCount",
+        "symbol": "cna_cnb_reader_read_count"
+      },
+      {
+        "java": "cnbReaderReadF32",
+        "symbol": "cna_cnb_reader_read_f32"
+      },
+      {
+        "java": "cnbReaderReadF64",
+        "symbol": "cna_cnb_reader_read_f64"
+      },
+      {
+        "java": "cnbReaderReadI32",
+        "symbol": "cna_cnb_reader_read_i32"
+      },
+      {
+        "java": "cnbReaderReadKeyframe",
+        "symbol": "cna_cnb_reader_read_keyframe"
+      },
+      {
+        "java": "cnbReaderReadSeconds",
+        "symbol": "cna_cnb_reader_read_seconds"
+      },
+      {
+        "java": "cnbReaderReadString",
+        "symbol": "cna_cnb_reader_read_string"
+      },
+      {
+        "java": "cnbReaderReadU16",
+        "symbol": "cna_cnb_reader_read_u16"
+      },
+      {
+        "java": "cnbReaderReadU32",
+        "symbol": "cna_cnb_reader_read_u32"
+      },
+      {
+        "java": "cnbReaderReadU64",
+        "symbol": "cna_cnb_reader_read_u64"
+      },
+      {
+        "java": "cnbReaderReadU8",
+        "symbol": "cna_cnb_reader_read_u8"
+      },
+      {
+        "java": "cnbReaderRequireExhausted",
+        "symbol": "cna_cnb_reader_require_exhausted"
+      },
+      {
+        "java": "cnbReaderSkip",
+        "symbol": "cna_cnb_reader_skip"
+      },
+      {
+        "java": "cnbSoundEffectDataCopySamples",
+        "symbol": "cna_cnb_sound_effect_data_copy_samples"
+      },
+      {
+        "java": "cnbSoundEffectDataCreate",
+        "symbol": "cna_cnb_sound_effect_data_create"
+      },
+      {
+        "java": "cnbSoundEffectDataDestroy",
+        "symbol": "cna_cnb_sound_effect_data_destroy"
+      },
+      {
+        "java": "cnbSoundEffectDataGetInfo",
+        "symbol": "cna_cnb_sound_effect_data_get_info"
+      },
+      {
+        "java": "cnbSpriteFontDataAddGlyph",
+        "symbol": "cna_cnb_sprite_font_data_add_glyph"
+      },
+      {
+        "java": "cnbSpriteFontDataCopyAtlas",
+        "symbol": "cna_cnb_sprite_font_data_copy_atlas"
+      },
+      {
+        "java": "cnbSpriteFontDataCreate",
+        "symbol": "cna_cnb_sprite_font_data_create"
+      },
+      {
+        "java": "cnbSpriteFontDataDestroy",
+        "symbol": "cna_cnb_sprite_font_data_destroy"
+      },
+      {
+        "java": "cnbSpriteFontDataGetGlyph",
+        "symbol": "cna_cnb_sprite_font_data_get_glyph"
+      },
+      {
+        "java": "cnbSpriteFontDataGetInfo",
+        "symbol": "cna_cnb_sprite_font_data_get_info"
+      },
+      {
+        "java": "cnbSpriteFontDataSetAtlas",
+        "symbol": "cna_cnb_sprite_font_data_set_atlas"
+      },
+      {
+        "java": "cnbSpriteFontDataSetGlyph",
+        "symbol": "cna_cnb_sprite_font_data_set_glyph"
+      },
+      {
+        "java": "cnbSpriteFontDataSetInfo",
+        "symbol": "cna_cnb_sprite_font_data_set_info"
+      },
+      {
+        "java": "cnbTextureDataAddRepresentation",
+        "symbol": "cna_cnb_texture_data_add_representation"
+      },
+      {
+        "java": "cnbTextureDataCopyLevel",
+        "symbol": "cna_cnb_texture_data_copy_level"
+      },
+      {
+        "java": "cnbTextureDataCreate",
+        "symbol": "cna_cnb_texture_data_create"
+      },
+      {
+        "java": "cnbTextureDataCreateRgba8",
+        "symbol": "cna_cnb_texture_data_create_rgba8"
+      },
+      {
+        "java": "cnbTextureDataDestroy",
+        "symbol": "cna_cnb_texture_data_destroy"
+      },
+      {
+        "java": "cnbTextureDataGetInfo",
+        "symbol": "cna_cnb_texture_data_get_info"
+      },
+      {
+        "java": "cnbTextureDataGetLevelCount",
+        "symbol": "cna_cnb_texture_data_get_level_count"
+      },
+      {
+        "java": "cnbTextureDataGetLevelDimensions",
+        "symbol": "cna_cnb_texture_data_get_level_dimensions"
+      },
+      {
+        "java": "cnbTextureDataGetRepresentationCount",
+        "symbol": "cna_cnb_texture_data_get_representation_count"
+      },
+      {
+        "java": "cnbTextureDataGetRepresentationFormat",
+        "symbol": "cna_cnb_texture_data_get_representation_format"
+      },
+      {
+        "java": "cnbTextureDataSetLevel",
+        "symbol": "cna_cnb_texture_data_set_level"
+      },
+      {
+        "java": "cnbTextureFormatFromSurfaceFormat",
+        "symbol": "cna_cnb_texture_format_from_surface_format"
+      },
+      {
+        "java": "cnbTextureFormatToSurfaceFormat",
+        "symbol": "cna_cnb_texture_format_to_surface_format"
+      },
+      {
+        "java": "cnbWriterAddChunk",
+        "symbol": "cna_cnb_writer_add_chunk"
+      },
+      {
+        "java": "cnbWriterAddExternalReference",
+        "symbol": "cna_cnb_writer_add_external_reference"
+      },
+      {
+        "java": "cnbWriterAppendEmbeddedTexture2d",
+        "symbol": "cna_cnb_writer_append_embedded_texture2d"
+      },
+      {
+        "java": "cnbWriterBuild",
+        "symbol": "cna_cnb_writer_build"
+      },
+      {
+        "java": "cnbWriterClearExternalReferences",
+        "symbol": "cna_cnb_writer_clear_external_references"
+      },
+      {
+        "java": "cnbWriterCreate",
+        "symbol": "cna_cnb_writer_create"
+      },
+      {
+        "java": "cnbWriterDestroy",
+        "symbol": "cna_cnb_writer_destroy"
+      },
+      {
+        "java": "cnbWriterGetLimits",
+        "symbol": "cna_cnb_writer_get_limits"
+      },
+      {
+        "java": "cnbWriterGetSchemaChunkCount",
+        "symbol": "cna_cnb_writer_get_schema_chunk_count"
+      },
+      {
+        "java": "cnbWriterSetCompression",
+        "symbol": "cna_cnb_writer_set_compression"
+      },
+      {
+        "java": "cnbWriterSetLimits",
+        "symbol": "cna_cnb_writer_set_limits"
+      },
+      {
+        "java": "cnbWriterSetMetadata",
+        "symbol": "cna_cnb_writer_set_metadata"
+      },
+      {
+        "java": "cnbWriterWriteToFile",
+        "symbol": "cna_cnb_writer_write_to_file"
+      },
+      {
+        "java": "curveCreate",
+        "symbol": "cna_curve_create"
+      },
+      {
+        "java": "curveDestroy",
+        "symbol": "cna_curve_destroy"
+      },
+      {
+        "java": "curveGetKeys",
+        "symbol": "cna_curve_get_keys"
+      },
+      {
+        "java": "curveGetPostLoop",
+        "symbol": "cna_curve_get_post_loop"
+      },
+      {
+        "java": "curveGetPreLoop",
+        "symbol": "cna_curve_get_pre_loop"
+      },
+      {
+        "java": "curveKeyCollectionAdd",
+        "symbol": "cna_curve_key_collection_add"
+      },
+      {
+        "java": "curveKeyCollectionDestroy",
+        "symbol": "cna_curve_key_collection_destroy"
+      },
+      {
+        "java": "curveKeyCollectionGet",
+        "symbol": "cna_curve_key_collection_get"
+      },
+      {
+        "java": "curveKeyCollectionGetCount",
+        "symbol": "cna_curve_key_collection_get_count"
+      },
+      {
+        "java": "curveKeyInitFull",
+        "symbol": "cna_curve_key_init_full"
+      },
+      {
+        "java": "curveSetPostLoop",
+        "symbol": "cna_curve_set_post_loop"
+      },
+      {
+        "java": "curveSetPreLoop",
+        "symbol": "cna_curve_set_pre_loop"
+      }
+    ],
+    "NativePbrEffectRoutes": [
+      {
+        "java": "pbrEffectCreate",
+        "symbol": "cna_pbr_effect_create"
+      },
+      {
+        "java": "pbrEffectGetAlpha",
+        "symbol": "cna_pbr_effect_get_alpha"
+      },
+      {
+        "java": "pbrEffectGetAlphaCutoffExt",
+        "symbol": "cna_pbr_effect_get_alpha_cutoff_ext"
+      },
+      {
+        "java": "pbrEffectGetAlphaModeExt",
+        "symbol": "cna_pbr_effect_get_alpha_mode_ext"
+      },
+      {
+        "java": "pbrEffectGetDiffuseColor",
+        "symbol": "cna_pbr_effect_get_diffuse_color"
+      },
+      {
+        "java": "pbrEffectGetDoubleSidedExt",
+        "symbol": "cna_pbr_effect_get_double_sided_ext"
+      },
+      {
+        "java": "pbrEffectGetEmissiveFactor",
+        "symbol": "cna_pbr_effect_get_emissive_factor"
+      },
+      {
+        "java": "pbrEffectGetEncodeOutputToSrgbExt",
+        "symbol": "cna_pbr_effect_get_encode_output_to_srgb_ext"
+      },
+      {
+        "java": "pbrEffectGetIorExt",
+        "symbol": "cna_pbr_effect_get_ior_ext"
+      },
+      {
+        "java": "pbrEffectGetMetallicFactor",
+        "symbol": "cna_pbr_effect_get_metallic_factor"
+      },
+      {
+        "java": "pbrEffectGetNormalScaleExt",
+        "symbol": "cna_pbr_effect_get_normal_scale_ext"
+      },
+      {
+        "java": "pbrEffectGetOcclusionStrengthExt",
+        "symbol": "cna_pbr_effect_get_occlusion_strength_ext"
+      },
+      {
+        "java": "pbrEffectGetRoughnessFactor",
+        "symbol": "cna_pbr_effect_get_roughness_factor"
+      },
+      {
+        "java": "pbrEffectGetSpecularColorFactorExt",
+        "symbol": "cna_pbr_effect_get_specular_color_factor_ext"
+      },
+      {
+        "java": "pbrEffectGetSpecularFactorExt",
+        "symbol": "cna_pbr_effect_get_specular_factor_ext"
+      },
+      {
+        "java": "pbrEffectGetTexture",
+        "symbol": "cna_pbr_effect_get_texture"
+      },
+      {
+        "java": "pbrEffectGetTextureCoordinateSetExt",
+        "symbol": "cna_pbr_effect_get_texture_coordinate_set_ext"
+      },
+      {
+        "java": "pbrEffectGetTextureIsSrgbExt",
+        "symbol": "cna_pbr_effect_get_texture_is_srgb_ext"
+      },
+      {
+        "java": "pbrEffectGetTextureTransformExt",
+        "symbol": "cna_pbr_effect_get_texture_transform_ext"
+      },
+      {
+        "java": "pbrEffectGetVertexColorEnabledExt",
+        "symbol": "cna_pbr_effect_get_vertex_color_enabled_ext"
+      },
+      {
+        "java": "pbrEffectSetAlpha",
+        "symbol": "cna_pbr_effect_set_alpha"
+      },
+      {
+        "java": "pbrEffectSetAlphaCutoffExt",
+        "symbol": "cna_pbr_effect_set_alpha_cutoff_ext"
+      },
+      {
+        "java": "pbrEffectSetAlphaModeExt",
+        "symbol": "cna_pbr_effect_set_alpha_mode_ext"
+      },
+      {
+        "java": "pbrEffectSetDiffuseColor",
+        "symbol": "cna_pbr_effect_set_diffuse_color"
+      },
+      {
+        "java": "pbrEffectSetDoubleSidedExt",
+        "symbol": "cna_pbr_effect_set_double_sided_ext"
+      },
+      {
+        "java": "pbrEffectSetEmissiveFactor",
+        "symbol": "cna_pbr_effect_set_emissive_factor"
+      },
+      {
+        "java": "pbrEffectSetEncodeOutputToSrgbExt",
+        "symbol": "cna_pbr_effect_set_encode_output_to_srgb_ext"
+      },
+      {
+        "java": "pbrEffectSetIorExt",
+        "symbol": "cna_pbr_effect_set_ior_ext"
+      },
+      {
+        "java": "pbrEffectSetMetallicFactor",
+        "symbol": "cna_pbr_effect_set_metallic_factor"
+      },
+      {
+        "java": "pbrEffectSetNormalScaleExt",
+        "symbol": "cna_pbr_effect_set_normal_scale_ext"
+      },
+      {
+        "java": "pbrEffectSetOcclusionStrengthExt",
+        "symbol": "cna_pbr_effect_set_occlusion_strength_ext"
+      },
+      {
+        "java": "pbrEffectSetRoughnessFactor",
+        "symbol": "cna_pbr_effect_set_roughness_factor"
+      },
+      {
+        "java": "pbrEffectSetSpecularColorFactorExt",
+        "symbol": "cna_pbr_effect_set_specular_color_factor_ext"
+      },
+      {
+        "java": "pbrEffectSetSpecularFactorExt",
+        "symbol": "cna_pbr_effect_set_specular_factor_ext"
+      },
+      {
+        "java": "pbrEffectSetTexture",
+        "symbol": "cna_pbr_effect_set_texture"
+      },
+      {
+        "java": "pbrEffectSetTextureCoordinateSetExt",
+        "symbol": "cna_pbr_effect_set_texture_coordinate_set_ext"
+      },
+      {
+        "java": "pbrEffectSetTextureIsSrgbExt",
+        "symbol": "cna_pbr_effect_set_texture_is_srgb_ext"
+      },
+      {
+        "java": "pbrEffectSetTextureTransformExt",
+        "symbol": "cna_pbr_effect_set_texture_transform_ext"
+      },
+      {
+        "java": "pbrEffectSetVertexColorEnabledExt",
+        "symbol": "cna_pbr_effect_set_vertex_color_enabled_ext"
+      },
+      {
+        "java": "skinnedPbrEffectCopyBoneTransforms",
+        "symbol": "cna_skinned_pbr_effect_copy_bone_transforms"
+      },
+      {
+        "java": "skinnedPbrEffectCreate",
+        "symbol": "cna_skinned_pbr_effect_create"
+      },
+      {
+        "java": "skinnedPbrEffectGetWeightsPerVertex",
+        "symbol": "cna_skinned_pbr_effect_get_weights_per_vertex"
+      },
+      {
+        "java": "skinnedPbrEffectSetBoneTransforms",
+        "symbol": "cna_skinned_pbr_effect_set_bone_transforms"
+      },
+      {
+        "java": "skinnedPbrEffectSetWeightsPerVertex",
+        "symbol": "cna_skinned_pbr_effect_set_weights_per_vertex"
+      }
+    ],
+    "NativeShaderEffectRoutes": [
+      {
+        "java": "effectCopyFragmentSource",
+        "symbol": "cna_effect_copy_fragment_source"
+      },
+      {
+        "java": "effectCopyVertexSource",
+        "symbol": "cna_effect_copy_vertex_source"
+      },
+      {
+        "java": "effectGetFragmentSourceByteCount",
+        "symbol": "cna_effect_get_fragment_source_byte_count"
+      },
+      {
+        "java": "effectGetIsCompiledExt",
+        "symbol": "cna_effect_get_is_compiled_ext"
+      },
+      {
+        "java": "effectGetVertexSourceByteCount",
+        "symbol": "cna_effect_get_vertex_source_byte_count"
+      },
+      {
+        "java": "effectHasRenderer",
+        "symbol": "cna_effect_has_renderer"
+      },
+      {
+        "java": "shaderEffectCopyCompileErrorExt",
+        "symbol": "cna_shader_effect_copy_compile_error_ext"
+      },
+      {
+        "java": "shaderEffectCreate",
+        "symbol": "cna_shader_effect_create"
+      },
+      {
+        "java": "shaderEffectDeclareUniformBlockExt",
+        "symbol": "cna_shader_effect_declare_uniform_block_ext",
+        "parallelArrays": {
+          "count": [
+            "names",
+            "offsets"
+          ]
+        }
+      },
+      {
+        "java": "shaderEffectGetProjection",
+        "symbol": "cna_shader_effect_get_projection"
+      },
+      {
+        "java": "shaderEffectGetView",
+        "symbol": "cna_shader_effect_get_view"
+      },
+      {
+        "java": "shaderEffectGetWorld",
+        "symbol": "cna_shader_effect_get_world"
+      },
+      {
+        "java": "shaderEffectHasRenderer",
+        "symbol": "cna_shader_effect_has_renderer"
+      },
+      {
+        "java": "shaderEffectIsValid",
+        "symbol": "cna_shader_effect_is_valid"
+      },
+      {
+        "java": "shaderEffectSetProjection",
+        "symbol": "cna_shader_effect_set_projection"
+      },
+      {
+        "java": "shaderEffectSetTexture2d",
+        "symbol": "cna_shader_effect_set_texture2d"
+      },
+      {
+        "java": "shaderEffectSetTexture3d",
+        "symbol": "cna_shader_effect_set_texture3d"
+      },
+      {
+        "java": "shaderEffectSetTextureCube",
+        "symbol": "cna_shader_effect_set_texture_cube"
+      },
+      {
+        "java": "shaderEffectSetUniformFloat",
+        "symbol": "cna_shader_effect_set_uniform_float"
+      },
+      {
+        "java": "shaderEffectSetUniformFloatArray",
+        "symbol": "cna_shader_effect_set_uniform_float_array"
+      },
+      {
+        "java": "shaderEffectSetUniformInt32",
+        "symbol": "cna_shader_effect_set_uniform_int32"
+      },
+      {
+        "java": "shaderEffectSetUniformMat4Array",
+        "symbol": "cna_shader_effect_set_uniform_mat4_array",
+        "elementFloats": {
+          "matrices": 16
+        }
+      },
+      {
+        "java": "shaderEffectSetUniformMatrix",
+        "symbol": "cna_shader_effect_set_uniform_matrix"
+      },
+      {
+        "java": "shaderEffectSetUniformVec3Array",
+        "symbol": "cna_shader_effect_set_uniform_vec3_array",
+        "elementFloats": {
+          "values": 3
+        }
+      },
+      {
+        "java": "shaderEffectSetUniformVector2",
+        "symbol": "cna_shader_effect_set_uniform_vector2"
+      },
+      {
+        "java": "shaderEffectSetUniformVector2Array",
+        "symbol": "cna_shader_effect_set_uniform_vector2_array",
+        "elementFloats": {
+          "values": 2
+        }
+      },
+      {
+        "java": "shaderEffectSetUniformVector3",
+        "symbol": "cna_shader_effect_set_uniform_vector3"
+      },
+      {
+        "java": "shaderEffectSetUniformVector4",
+        "symbol": "cna_shader_effect_set_uniform_vector4"
+      },
+      {
+        "java": "shaderEffectSetView",
+        "symbol": "cna_shader_effect_set_view"
+      },
+      {
+        "java": "shaderEffectSetWorld",
+        "symbol": "cna_shader_effect_set_world"
+      }
+    ],
+    "NativeEffectExtensionRoutes": [
+      {
+        "java": "colorMatrixEffectCreate",
+        "symbol": "cna_color_matrix_effect_create"
+      },
+      {
+        "java": "colorMatrixEffectGetMatrix",
+        "symbol": "cna_color_matrix_effect_get_matrix"
+      },
+      {
+        "java": "colorMatrixEffectGetOffset",
+        "symbol": "cna_color_matrix_effect_get_offset"
+      },
+      {
+        "java": "colorMatrixEffectReset",
+        "symbol": "cna_color_matrix_effect_reset"
+      },
+      {
+        "java": "colorMatrixEffectSetGrayscale",
+        "symbol": "cna_color_matrix_effect_set_grayscale"
+      },
+      {
+        "java": "colorMatrixEffectSetMatrix",
+        "symbol": "cna_color_matrix_effect_set_matrix"
+      },
+      {
+        "java": "colorMatrixEffectSetOffset",
+        "symbol": "cna_color_matrix_effect_set_offset"
+      }
+    ],
+    "NativeContentExtensionRoutes": [
+      {
+        "java": "contentManagerLoadObjectDictionaryExt",
+        "symbol": "cna_content_manager_load_object_dictionary_ext"
+      },
+      {
+        "java": "objectDictionaryContainsKey",
+        "symbol": "cna_object_dictionary_ext_contains_key"
+      },
+      {
+        "java": "objectDictionaryCopyArray",
+        "symbol": "cna_object_dictionary_ext_copy_array",
+        "byteBuffers": {
+          "destination": {
+            "extent": [
+              "capacity"
+            ]
+          }
+        }
+      },
+      {
+        "java": "objectDictionaryCopyKeyAt",
+        "symbol": "cna_object_dictionary_ext_copy_key_at"
+      },
+      {
+        "java": "objectDictionaryCopyRuntimeTypeName",
+        "symbol": "cna_object_dictionary_ext_copy_runtime_type_name"
+      },
+      {
+        "java": "objectDictionaryCopyString",
+        "symbol": "cna_object_dictionary_ext_copy_string"
+      },
+      {
+        "java": "objectDictionaryCopyTypeName",
+        "symbol": "cna_object_dictionary_ext_copy_type_name"
+      },
+      {
+        "java": "objectDictionaryCopyValue",
+        "symbol": "cna_object_dictionary_ext_copy_value",
+        "byteBuffers": {
+          "destination": {
+            "extent": [
+              "capacity"
+            ]
+          }
+        }
+      },
+      {
+        "java": "objectDictionaryDestroy",
+        "symbol": "cna_object_dictionary_ext_destroy"
+      },
+      {
+        "java": "objectDictionaryGetCount",
+        "symbol": "cna_object_dictionary_ext_get_count"
+      },
+      {
+        "java": "objectDictionaryGetEntry",
+        "symbol": "cna_object_dictionary_ext_get_entry"
+      },
+      {
+        "java": "objectDictionaryGetKeySizeAt",
+        "symbol": "cna_object_dictionary_ext_get_key_size_at"
+      },
+      {
+        "java": "objectDictionaryGetRuntimeTypeNameSize",
+        "symbol": "cna_object_dictionary_ext_get_runtime_type_name_size"
+      },
+      {
+        "java": "objectDictionaryGetStringSize",
+        "symbol": "cna_object_dictionary_ext_get_string_size"
+      },
+      {
+        "java": "objectDictionaryGetTypeNameSize",
+        "symbol": "cna_object_dictionary_ext_get_type_name_size"
+      }
+    ]
+  }
+}

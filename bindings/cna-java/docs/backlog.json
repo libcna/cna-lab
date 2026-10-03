@@ -1,0 +1,864 @@
+{
+  "schemaVersion": 1,
+  "updated": "2026-09-30",
+  "idFamilies": {
+    "JAVA-XNA": "A gap between CNA-Java and the original XNA 4.0 contract.",
+    "JAVA-NATIVE": "A gap at the CNA C ABI boundary: a route, a shape or a verification.",
+    "JAVA-EXT": "A CNA capability outside XNA 4.0, belonging under org.openeggbert.cna.extensions.",
+    "JAVA-TEMPLATE": "Work in the sibling cna-java-template consumer canary.",
+    "JAVA-UPSTREAM": "Blocked on cnanext or sharp-runtimenext. Never worked around in Java."
+  },
+  "statuses": [
+    "done",
+    "ready",
+    "blocked"
+  ],
+  "tasks": [
+    {
+      "id": "JAVA-NATIVE-001",
+      "title": "Qualify against the live cnanext built on sharp-runtimenext",
+      "family": "GamerServices/all",
+      "authority": "cnanext HEAD 72262a33, sharp-runtimenext HEAD df1b42ab",
+      "currentState": "Qualified against an unrelated historical CNA checkout and a pinned /tmp artifact at ABI 0.7.0.",
+      "expectedState": "libcna_c_api built out of tree from cnanext against sharp-runtimenext, HEADLESS/HEADLESS/NULL, and every native check run against it.",
+      "tests": [
+        "nativeAbiCheck",
+        "native integration suites"
+      ],
+      "priority": 1,
+      "status": "done"
+    },
+    {
+      "id": "JAVA-NATIVE-002",
+      "title": "Migrate the ABI gate from 0.7.0 to the live 0.20.0 policy",
+      "family": "native boundary",
+      "authority": "docs/c-api/ABI_VERSIONING.md",
+      "currentState": "A hardcoded exact-minor check against 0.7 with no stated policy.",
+      "expectedState": "The required version comes from the manifest; major and minor are exact, patch is free, and each rule has a negative-mutation test.",
+      "tests": [
+        "tools/native-abi/test_verify.py"
+      ],
+      "priority": 1,
+      "status": "done"
+    },
+    {
+      "id": "JAVA-NATIVE-003",
+      "title": "Make a stale JNI declaration a compile error",
+      "family": "native boundary",
+      "authority": "CNA/C/*.h",
+      "currentState": "426 hand-written function-pointer typedefs that dlsym could never check.",
+      "expectedState": "Every dispatch-table slot declared CNA_JNI_ROUTE(symbol), whose type is the header's own declaration.",
+      "tests": [
+        "compileJni",
+        "tools/native-abi/test_verify.py"
+      ],
+      "priority": 1,
+      "status": "done"
+    },
+    {
+      "id": "JAVA-NATIVE-004",
+      "title": "Generate the mechanical half of the native boundary",
+      "family": "native boundary",
+      "authority": "CNA/C/*.h",
+      "currentState": "Every route hand-written, which is where drift came from.",
+      "expectedState": "tools/native-abi/generate_jni.py derives JNI, dispatch slots, LOAD lines and Java declarations from the headers; generateJniCheck fails on stale output.",
+      "tests": [
+        "generateJniCheck",
+        "tools/native-abi/test_verify.py"
+      ],
+      "priority": 1,
+      "status": "done"
+    },
+    {
+      "id": "JAVA-NATIVE-005",
+      "title": "Explain every canonical CNA C API function",
+      "family": "native boundary",
+      "authority": "the live header inventory",
+      "currentState": "723 bound routes and 3,328 unexplained ones.",
+      "expectedState": "Every one of the 4,051 canonical functions classified, with zero UNMAPPED_REQUIRES_REVIEW, and the public surface that reaches each bound route derived from the JNI call graph and the Java sources.",
+      "tests": [
+        "nativeCoverageCheck"
+      ],
+      "priority": 2,
+      "status": "done"
+    },
+    {
+      "id": "JAVA-XNA-003",
+      "title": "Inventory the complete XNA 4.0 reference corpus",
+      "family": "reference infrastructure",
+      "authority": "the original Microsoft assemblies at xna4-decomp/dlls, SHA-256 pinned",
+      "currentState": "One seven-assembly Windows runtime profile.",
+      "expectedState": "A ten-assembly full runtime superset profile and a separate seven-assembly Content Pipeline build-time profile, both hash-pinned, with the selected profile kept as a subset regression gate.",
+      "tests": [
+        "apiCompatCheck",
+        "apiCompatFullCheck"
+      ],
+      "priority": 2,
+      "status": "done"
+    },
+    {
+      "id": "JAVA-XNA-004",
+      "title": "Keep XNA's Dispose() name and add close() as the Java bridge",
+      "family": "mapping",
+      "authority": "36 CLR types declaring a public parameterless Dispose",
+      "currentState": "Dispose() renamed to close(), the one place a legal XNA name was dropped for Java convention.",
+      "expectedState": "Dispose() keeps its name with the CLR member's modifiers; close() delegates to it so every disposable type is still an AutoCloseable.",
+      "compatibility": "Additive. 33 types gained Dispose(); no member was removed and every close() call site still compiles.",
+      "tests": [
+        "tools/api-compat/test_verify.py"
+      ],
+      "priority": 3,
+      "status": "done"
+    },
+    {
+      "id": "JAVA-XNA-001",
+      "title": "Project the GamerServices and Avatar families",
+      "family": "Microsoft.Xna.Framework.GamerServices",
+      "authority": "Microsoft.Xna.Framework.GamerServices.dll, Microsoft.Xna.Framework.Avatar.dll",
+      "currentState": "Only GamerServicesComponent existed; 51 types were missing from the full profile.",
+      "expectedState": "The whole namespace projected and backed by CNA's gamer-services routes.",
+      "tests": [
+        "GamerServicesMappingTests",
+        "GamerServicesNativeIntegrationTests"
+      ],
+      "priority": 4,
+      "status": "done"
+    },
+    {
+      "id": "JAVA-XNA-002",
+      "title": "Project Microsoft.Xna.Framework.Net",
+      "family": "Microsoft.Xna.Framework.Net",
+      "authority": "Microsoft.Xna.Framework.Net.dll",
+      "currentState": "The whole namespace was missing; 23 types.",
+      "expectedState": "Sessions, discovery, rosters, machines, packets and the nine session events projected, session and gamer state backed by CNA.",
+      "tests": [
+        "NetworkMappingTests"
+      ],
+      "priority": 4,
+      "status": "done"
+    },
+    {
+      "id": "JAVA-XNA-005",
+      "title": "Raise the nine NetworkSession events and the two SignedInGamer events from CNA",
+      "family": "Microsoft.Xna.Framework.Net, Microsoft.Xna.Framework.GamerServices",
+      "authority": "cna_network_session_subscribe_* and cna_signed_in_gamer_subscribe_*",
+      "currentState": "The event members existed and accepted listeners; no native producer raised them.",
+      "expectedState": "Hand-written JNI records each event and Java drains the record right after pumping the dispatcher or the session, so every event arrives on the game thread during Update, as XNA raises it.",
+      "blocker": "None. It needs the callback lifetime work that the media and storage families already have, applied to eleven more callbacks.",
+      "dependsOn": [
+        "JAVA-XNA-001",
+        "JAVA-XNA-002"
+      ],
+      "tests": [
+        "NetworkSessionNativeIntegrationTests"
+      ],
+      "priority": 5,
+      "status": "done",
+      "note": "Verified end to end for the events a local session raises: GameStarted and GameEnded reach a Java listener. The rest share the same producer and the same drain, but no second machine took part in this qualification, so a real GamerJoined or HostChanged is not observed here."
+    },
+    {
+      "id": "JAVA-XNA-006",
+      "title": "Inventory the Content Pipeline build-time profile",
+      "family": "Microsoft.Xna.Framework.Content.Pipeline",
+      "authority": "the seven Content Pipeline assemblies, SHA-256 pinned in xna40-content-pipeline.json",
+      "currentState": "Measured. 128 reference types and 743 members; 125 of the types are absent and 3 are already present from the runtime projection. By namespace: Graphics 47, the framework 32, Processors 28, Intermediate 7, Compiler 5, Audio 5, MSBuild Tasks 4.",
+      "expectedState": "A decision, recorded with its evidence in docs/content-pipeline-decision.md: partial/interop. CNA-Java consumes compiled content and does not reimplement Microsoft's build-time pipeline. Four measured reasons, none of them size: two namespaces need MSBuild and System.Xml types the pinned corpus does not contain; the ten importers wrap Windows-only native technology whose bytes cannot be reproduced; every ContentTypeWriter's one abstract member returns a CLR assembly-qualified reader name, so emitting .xnb from Java would produce files no XNA runtime reads; and CNA already ships its own compiler and format, which the binding now consumes through org.openeggbert.cna.extensions.content.",
+      "priority": 9,
+      "status": "done",
+      "note": "The profile stays pinned and is deliberately not measured against the runtime target: a build-time contract is not a runtime regression gate."
+    },
+    {
+      "id": "JAVA-EXT-001",
+      "title": "Expose CNA's extended graphics layer",
+      "family": "org.openeggbert.cna.extensions.graphics",
+      "authority": "graphics_ext.h, engine_layer.h",
+      "currentState": "1,733 routes classified CNA_EXTENSION_CANDIDATE; none reachable from Java.",
+      "expectedState": "org.openeggbert.cna.extensions.graphics projects the seven identities, the render pipeline settings, the physically based material and the ASCII, CRT and depth post-process effects. Availability is truthful and NOT_SUPPORTED keeps its own identity.",
+      "priority": 6,
+      "status": "done",
+      "tests": [
+        "GraphicsExtensionTests",
+        "PostProcessEffectNativeTests"
+      ]
+    },
+    {
+      "id": "JAVA-EXT-002",
+      "title": "Expose CNA's runtime and device extensions",
+      "family": "org.openeggbert.cna.extensions",
+      "authority": "core_ext.h, devices.h, sensors.h, input_haptics.h, input_joystick.h, input_text.h, input_cursor.h, input_devices.h",
+      "currentState": "Six families are projected: the runtime's own identity and logger, the host devices, typed text plus the mouse cursor, the four host motion sensors, device and sensor enumeration with hot plug, and raw joysticks, haptics and the modern game-pad, keyboard, mouse and touch capabilities.",
+      "expectedState": "Typed Java facades under the extension namespace, never inside Microsoft.Xna.Framework. Availability is CNA's answer everywhere: an absent sensor reports NotSupported and refuses a reading rather than answering zeros, a closed haptic device is a safe no-op, and an unconnected joystick captures empty.",
+      "priority": 7,
+      "status": "done",
+      "tests": [
+        "CnaRuntimeTests",
+        "DeviceExtensionTests",
+        "InputExtensionTests",
+        "SensorExtensionTests",
+        "InputDeviceEnumerationTests",
+        "JoystickExtensionTests",
+        "HapticExtensionTests",
+        "DeviceInputExtensionTests"
+      ]
+    },
+    {
+      "id": "JAVA-EXT-003",
+      "title": "Expose the .cnb content format",
+      "family": "org.openeggbert.cna.extensions.content",
+      "authority": "cnb.h",
+      "currentState": "Done. 248 of the 272 routes are bound and reached, and the loader registry -- the one part that needed a decision rather than more binding -- is answered in docs/cnb-loader-registry-decision.md. Eight asset families read and write, five of them crossing to the XNA type a game uses. The model family is complete. CnbImport reads PNG, JPEG, WAV and DDS; Cnj compiles the .cnj documents that say what to do with them, reporting absorbed sources and external references for a build system. CnbLoaders dispatches a document to the loader that may read it, implementing CNA's identity rule rather than projecting its C-callback table.",
+      "expectedState": "Achieved. What stays unbound is stated with its reason rather than left open: the loader registration and invoke routes need a C callback and return a void* no Java call could receive; cna_cnb_model_add_animation takes a nested descriptor graph the generator refuses rather than guesses at, so animations are read rather than written; and cna_cnb_texture_data_select_representation takes a predicate callback.",
+      "priority": 8,
+      "status": "done",
+      "tests": [
+        "CnbTests"
+      ],
+      "note": "Every .cnb fixture is produced by CNA's own encoder and read back by CNA's own parser, so a successful read means the file is real. The importer and .cnj fixtures are deliberately the opposite -- a PNG written by the JDK, a WAV and a DDS and a BMP written from their published layouts, JSON written by the test -- because there the source format is what is under test and a CNA-authored input would prove nothing. The model family was probed in C first: tools/native-abi/probes/cnb_model_roundtrip.c."
+    },
+    {
+      "id": "JAVA-NATIVE-006",
+      "title": "Use the whole-buffer vertex upload route",
+      "family": "Microsoft.Xna.Framework.Graphics.VertexBuffer",
+      "authority": "cna_vertex_buffer_set_data_raw",
+      "currentState": "The route is loaded, so the library must export it, but no JNI entry point reaches it: SetData always takes the windowed form.",
+      "expectedState": "An upload that starts at the beginning takes CNA's whole-buffer route; a windowed one takes the windowed route. Both are now reached, and boundButUnreached is empty.",
+      "priority": 6,
+      "status": "done"
+    },
+    {
+      "id": "JAVA-NATIVE-011",
+      "title": "Bind the native Model routes behind the managed XNB model graph",
+      "family": "Microsoft.Xna.Framework.Graphics.Model",
+      "authority": "models.h",
+      "currentState": "Done. The model extension routes are bound: cameras and skins are authored through CnaModel.addCamera and addSkin, a skin's skeleton comes back as its own CnaSkinningData, a bind pose is applied with applyBindPoseBoneTransforms, and a mesh part carries its own primitive type, per-slot sampler state and morph data. The reason recorded here -- that they are \"read-useful only on a model CNA imported, which the blocked content loader is the way to get\" -- was wrong about the direction: they are WRITE-useful on a model Java built, which CnaModel.From already produced.",
+      "expectedState": "The XNA Model graph reaches CNA. CnaModel.From(Model) builds CNA's own model over the buffers and effects the XNA model already owns -- retained, not copied, so nothing is uploaded twice -- and CNA then draws it in one call and computes its bone transforms. models.h is fully classified: 184 extension candidates, 31 not useful in Java, and one deferred route, the loader JAVA-UPSTREAM-004 blocks.",
+      "priority": 6,
+      "status": "done",
+      "note": "Load<Model> deliberately stays on the managed XNB reader. XNB records the effect's type and the reader builds the BasicEffect an XNA game casts to; CNA publishes a loaded effect as a handle whose type is only a name, so routing the strict load through CNA would break (BasicEffect) part.getEffect(). The measurement is in CnaModelTests, which reads one authored .xnb through both runtimes and compares their graphs bone for bone.",
+      "tests": [
+        "CnaModelTests",
+        "nativeCoverageCheck"
+      ],
+      "blocker": ""
+    },
+    {
+      "id": "JAVA-NATIVE-022",
+      "title": "Bind the remaining input routes",
+      "family": "Microsoft.Xna.Framework.Input",
+      "authority": "input*.h",
+      "currentState": "132 routes were deferred. The audit found that none of them was an XNA-shaped route lacking backing: the whole XNA input surface -- game-pad state, capabilities and vibration, keyboard state, mouse state and position, touch state, capabilities, panel and gestures -- was already bound.",
+      "expectedState": "Every input route classified with a stated reason and no deferred remainder. 39 became bound CNA extensions (modern game-pad identity, battery, light bar, trigger motors, touchpad, button labels and sensors; keyboard scancode and layout naming; mouse capture, relative mode, desktop position and the click event; mouse-driven touch emulation). The remaining 92 are NOT_USEFUL_IN_JAVA: construction, equality, hashing, string form and indexing of XNA's input value types, which are managed structs in XNA and managed values here, plus two CNA test seams.",
+      "priority": 6,
+      "status": "done",
+      "tests": [
+        "nativeCoverageCheck",
+        "DeviceInputExtensionTests",
+        "JoystickExtensionTests",
+        "HapticExtensionTests"
+      ]
+    },
+    {
+      "id": "JAVA-TEMPLATE-001",
+      "title": "Add a truthful modern-CNA canary to the template",
+      "family": "cna-java-template",
+      "currentState": "The template exercised the XNA surface only.",
+      "expectedState": "--extensions-smoke is an opt-in mode beside HelloGame, run by verify-template.sh between the 60-frame smoke and the 600-frame run. It found a real defect on its first run: the extension entry points did not load the native bridge.",
+      "dependsOn": [
+        "JAVA-EXT-001"
+      ],
+      "priority": 7,
+      "status": "done",
+      "tests": [
+        "scripts/verify-template.sh",
+        "MainTests"
+      ]
+    },
+    {
+      "id": "JAVA-UPSTREAM-001",
+      "title": "Native StorageContainer path containment",
+      "family": "Microsoft.Xna.Framework.Storage",
+      "currentState": "Fixed upstream and revalidated against the live 0.21.0 library, not against a commit message. Asked directly in C, past the Java guard: cna_storage_container_file_exists refuses '../escaped.sav', 'a/../../escaped.sav' and '/absolute.sav' with CNA_RESULT_INVALID_ARGUMENT, and accepts an ordinary name, so the refusal is containment rather than a route that stopped working.",
+      "expectedState": "The guarantee is the runtime's. Java keeps its own guard as well -- it produces XNA's exception and message deterministically whatever backend is loaded -- but it is no longer the only thing standing there, and a test now asserts CNA's refusal past the guard so that stays true.",
+      "blocker": "cnanext storage: cna_storage_container_* accept a path containing parent traversal.",
+      "priority": 12,
+      "status": "done",
+      "tests": [
+        "StorageNativeIntegrationTests"
+      ]
+    },
+    {
+      "id": "JAVA-EXT-004",
+      "title": "Project CNA's CRT and depth-reduction post-process effects",
+      "family": "org.openeggbert.cna.extensions.graphics",
+      "authority": "cna_crt_effect_* and cna_depth_effect_* in graphics_ext.h",
+      "currentState": "Not bound; the Java Effect's adopting constructors are package-private.",
+      "expectedState": "CrtEffect and DepthEffect expose their typed knobs and hand out the real XNA Effect, which SpriteBatch.Begin takes like any other. The adopting factory goes through FacadeFactory, the same route Texture2D and GraphicsDevice already take, so no native handle enters the strict contract.",
+      "blocker": "None upstream. It needs the facade accessor, not a CNA change.",
+      "dependsOn": [
+        "JAVA-EXT-001"
+      ],
+      "tests": [
+        "PostProcessEffectNativeTests"
+      ],
+      "priority": 7,
+      "status": "done"
+    },
+    {
+      "id": "JAVA-UPSTREAM-002",
+      "title": "NetworkSession.MaxGamers does not report the maximum the creation asked for",
+      "family": "Microsoft.Xna.Framework.Net",
+      "authority": "cna_network_session_create(session_type, max_local_gamers, max_gamers, out_session) and cna_network_session_get_max_gamers",
+      "currentState": "Fixed upstream and revalidated against the live 0.21.0 library by re-running the exact creation and readback case: a Local session created with max_gamers = 4 now reports MaxGamers = 4, where it once reported 69. The setter still takes effect.",
+      "expectedState": "MaxGamers reports the maximum the session was created with, as XNA's does. The test asserts the creation value now instead of only that the property is stable, which is what keeps it fixed.",
+      "blocker": "cnanext net_sessions: the synchronous creation does not carry max_gamers into the session's own maximum. Java asserts the property is stable and that the setter works, and does not invent the creation value.",
+      "priority": 11,
+      "status": "done",
+      "tests": [
+        "NetworkSessionNativeIntegrationTests"
+      ]
+    },
+    {
+      "id": "JAVA-UPSTREAM-003",
+      "title": "Nine of cnanext's own C API smoke tests fail in the HEADLESS/NULL-audio configuration",
+      "family": "cnanext qualification",
+      "authority": "ctest -R CApi in cnanext/cmake-build-javanext",
+      "currentState": "Re-measured 2026-09-30 against CNA ABI 0.35.0 (next at 0f7166cd8/79799cf09; ~/deps/cna-c-abi-0.35.0 HEADLESS and ~/deps/cna-c-abi-0.35.0-opengles3-fx). Current C API gates pass: 107 of 110 CApi tests on HEADLESS and on OPENGLES3; the three that fail do so only inside the private GPU runner, whose runtime directory has no audio server, and pass outside it or with SDL_AUDIO_DRIVER=dummy.",
+      "expectedState": "Either the suite passes in HEADLESS/HEADLESS/NULL, or cnanext records which of its tests need a different platform, renderer or audio backend. CNA-Java does not depend on it: its own 220 tests qualify what this binding uses, and CApi_ContentSmoke's failure is in the same content path JAVA-UPSTREAM-004 reproduces.",
+      "blocker": "",
+      "priority": 10,
+      "status": "done"
+    },
+    {
+      "id": "JAVA-EXT-005",
+      "title": "Project CNA's text composition and candidate events",
+      "family": "org.openeggbert.cna.extensions.input",
+      "authority": "cna_text_input_subscribe_text_editing_ext and cna_text_input_subscribe_text_editing_candidates_ext",
+      "currentState": "Typed characters were projected; composition text and candidate lists were not, because each carries a string the fixed five-long event record cannot hold.",
+      "expectedState": "A second transport that owns heap copies made inside CNA's callback, hands them to Java as byte arrays in one call that frees the record before it returns, and is merged with the numeric queue by a sequence stamped when CNA raised the event, so one order comes out of two queues. TextComposition and TextCandidates sit on top of it in the input extension package.",
+      "blocker": "None upstream. It needs a second event transport, not a CNA change.",
+      "dependsOn": [
+        "JAVA-EXT-002"
+      ],
+      "priority": 8,
+      "status": "done",
+      "tests": [
+        "TextCompositionTests"
+      ]
+    },
+    {
+      "id": "JAVA-NATIVE-023",
+      "title": "Reach or unbind the 162 routes no Java call site touches",
+      "family": "native boundary",
+      "authority": "tools/native-abi/coverage.py boundWithoutJavaCallSite",
+      "currentState": "162 bound routes had a generated JNI entry point that no Java source called. All of them are resolved: seven were reached and 155 unbound with a rule saying why. boundWithoutJavaCallSite is 0 and nativeCoverageCheck now fails on it, so it cannot regrow. Bound routes went 1,570 to 1,418 and XNA_BACKING 976 to 985.",
+      "expectedState": "Every bound route reaches a Java call site, or is unbound with a stated reason. The reasons are families rather than one-offs: PacketReader and PacketWriter stay managed BinaryReader and BinaryWriter so Position and Length keep XNA's meaning over one cursor; a Begin/End pair is projected over CNA's synchronous route because its asynchronous form completes before its own begin returns; value construction and equality are Java's as they are for the vector families; a read-only collection's mutators can have no call site because the Java member throws as XNA's does; a factory for an object the projection receives has nothing to make; and CNA's application-rendered Guide, its avatar rendering and a discovered session's address are extensions XNA has no member for.",
+      "blocker": "None. It is measurement plus per-family judgement, not an upstream change.",
+      "tests": [
+        "nativeCoverageCheck",
+        "NetworkSessionNativeIntegrationTests"
+      ],
+      "priority": 6,
+      "status": "done",
+      "note": "Three reaches were real gaps rather than tidying: a failed join now raises XNA's NetworkSessionJoinException carrying the error CNA recorded instead of a generic failure with a Java default, and a whole-array send or receive takes CNA's whole-buffer route as VertexBuffer.SetData already did. A fourth was refused by the full-profile gate: asking CNA for a gamer collection's membership would have declared contains and indexOf on GamerCollection, which CLR's does not declare."
+    },
+    {
+      "id": "JAVA-UPSTREAM-004",
+      "title": "cna_content_manager_load_model produces a model that segfaults during teardown",
+      "family": "Microsoft.Xna.Framework.Graphics.Model, org.openeggbert.cna.extensions.content",
+      "authority": "cna_content_manager_load_model in models.h",
+      "currentState": "Re-measured 2026-09-30 against CNA ABI 0.35.0 (next at 0f7166cd8/79799cf09; ~/deps/cna-c-abi-0.35.0 HEADLESS and ~/deps/cna-c-abi-0.35.0-opengles3-fx). Fixed upstream (BINDFIX-006). content_manager_model_teardown.c exits 0 in all three modes (destroy, leave to the manager, walk) on HEADLESS and OPENGLES3. cna_content_manager_load_model and cna_model_get_content_tag_dictionary_ext are now bound as CnaModel.Load and CnaModel.getContentTag, tested in CnaObjectDictionaryTests.",
+      "expectedState": "A content-loaded model releases without faulting, so a binding can offer CNA's own loader.",
+      "blocker": "",
+      "priority": 5,
+      "status": "done",
+      "tests": [
+        "tools/native-abi/probes/content_manager_model_teardown.c"
+      ]
+    },
+    {
+      "id": "JAVA-NATIVE-024",
+      "title": "Three value types leaked the CNA handles they owned",
+      "family": "Microsoft.Xna.Framework.Net",
+      "authority": "cna_network_session_properties_create and _destroy",
+      "currentState": "Fixed, and it was three types rather than one. NetworkSessionProperties' public constructor, all four AvatarDescription paths, and every LeaderboardEntry created an owned CNA handle that nothing released; none of the three is IDisposable in XNA, so a game had nothing to close and no way to know. LeaderboardReader.getEntries was the worst: every entry CNA hands out is an owned copy, so the leak grew with each call of an ordinary getter. Measured: cna_network_session_properties_destroy answers CNA_RESULT_THREAD from any thread but the creating one, so a Cleaner could not release any of them either.",
+      "expectedState": "org.openeggbert.cna.internal.NativeDeferredRelease records the handle when the Java object becomes unreachable and the owning thread releases it at the next FrameworkDispatcher.Update, which is where this binding already does deferred native work. A session-owned list registers nothing, because the session frees it.",
+      "tests": [
+        "NetworkSessionNativeIntegrationTests",
+        "GamerServicesNativeIntegrationTests"
+      ],
+      "priority": 4,
+      "status": "done"
+    },
+    {
+      "id": "JAVA-NATIVE-025",
+      "title": "Two gates could not see an ABI migration go wrong",
+      "family": "native boundary",
+      "authority": "tools/native-abi/verify.py, build.gradle",
+      "currentState": "Done. The generator keeps an unwind list of unconditional releases in acquisition order, and every early return replays it in reverse. It could not reuse the existing cleanup list, which is why this was recorded rather than fixed in passing: some of those statements are guarded on the call's result, which is not declared yet at the point an acquisition can fail.",
+      "expectedState": "Every early return releases what it holds, and the success path still releases each acquisition exactly once. Three tool tests check both, on the four-array route that made the defect ordinary rather than rare.",
+      "tests": [
+        "tools/native-abi/test_verify.py",
+        "nativeAbiCheck"
+      ],
+      "priority": 3,
+      "status": "done"
+    },
+    {
+      "id": "JAVA-EXT-006",
+      "title": "Project the gamer-services capabilities XNA has no member for",
+      "family": "org.openeggbert.cna.extensions",
+      "authority": "gamer_services.h, net_sessions.h",
+      "currentState": "Done, within the boundary stated below. The Guide slice projects the pending on-screen keyboard and message box, CNA's renderer for them, the outcomes a game reports back and the achievements pane (16 routes). The net slice answers where a session is and adds the direction XNA cannot reach at all -- describing a session at a known address so NetworkSession.Join can take it. The avatar slice projects the appearance colours a real-rendered avatar is drawn in, the clip an animation plays, and the clip and content names behind XNA's canonical presets and body types (9 routes).",
+      "expectedState": "Three coherent slices under org.openeggbert.cna.extensions. CNA's Guide hands the application the pending on-screen keyboard or message box and asks it to draw, where XNA's Guide draws itself: 14 routes, and the useful shape is a typed pending-request record plus a render call, not a projection of the raw routes. CNA's avatar layer exposes real rendering and the clip and content names behind the canonical presets: 10 routes. And a discovered session carries the host and port it was found at, which AvailableNetworkSession does not name: 4 routes.",
+      "blocker": "None. It needs an API design per slice, not a CNA change.",
+      "priority": 8,
+      "status": "done",
+      "tests": [
+        "GuideExtensionTests"
+      ],
+      "note": "Two avatar routes are deliberately still unbound: cna_avatar_renderer_enable_real_rendering_ext and cna_avatar_renderer_draw_real_ext want a CNA_SkinnedModelEXT, which this projection has no Java type for. Exposing them with a raw long handle would be an API a game cannot safely use, and half of a two-step contract is worse than none. JAVA-EXT-007 finishes them."
+    },
+    {
+      "id": "JAVA-EXT-007",
+      "title": "Project CNA's skinned model, and finish real avatar rendering on top of it",
+      "family": "org.openeggbert.cna.extensions",
+      "authority": "models.h, gamer_services.h",
+      "status": "done",
+      "priority": 8,
+      "currentState": "Done. The blocker recorded here -- \"cna_skinning_data_create takes a CNA_SkinningDataDescriptor, a pointer graph the generator refuses rather than guesses at, and no route takes a clip handle, so there is no other door in\" -- was true in every clause and did not follow. A shape a generator cannot derive is not a lifetime nobody knows: CNA states every array as borrowed for the call and every descriptor as deeply copied, so three hand-written marshallers build the graphs for one call each, checking every count against every array first. CnaSkinningData, CnaAnimationPlayer, CnaSkinnedModel, CnaMorphTargetData, CnaModelAnimations, CnbClip.encode and CnbModelData.addAnimation are all built on them, and AvatarExtensions can now switch a renderer to a real model and draw a clip on it.",
+      "expectedState": "Done. The blocker recorded here -- \"cna_skinning_data_create takes a CNA_SkinningDataDescriptor, a pointer graph the generator refuses rather than guesses at, and no route takes a clip handle, so there is no other door in\" -- was true in every clause and did not follow. A shape a generator cannot derive is not a lifetime nobody knows: CNA states every array as borrowed for the call and every descriptor as deeply copied, so three hand-written marshallers build the graphs for one call each, checking every count against every array first. CnaSkinningData, CnaAnimationPlayer, CnaSkinnedModel, CnaMorphTargetData, CnaModelAnimations, CnbClip.encode and CnbModelData.addAnimation are all built on them, and AvatarExtensions can now switch a renderer to a real model and draw a clip on it.",
+      "blocker": "",
+      "tests": [
+        "AvatarExtensionTests"
+      ],
+      "note": "cnanext's own AvatarsSmoke can only check that real rendering refuses an invalid model, because the C container has no skinned model to hand it either."
+    },
+    {
+      "id": "JAVA-EXT-008",
+      "title": "Project CNA's engine layer, one family at a time",
+      "family": "org.openeggbert.cna.extensions.graphics",
+      "authority": "engine_layer.h",
+      "status": "done",
+      "priority": 7,
+      "currentState": "844 of the engine layer 857 routes are bound and reached, up from 778. The sixty-six that moved were not waiting on Java: compute and storage buffers, automatic exposure, the light-probe baker three bake routes, the render pipeline two scene callbacks, and twenty-two lent handles, each of which needed a renderer or a measurement rather than more code. Every one of the thirteen still unbound has a written reason that is not a renderer.",
+      "expectedState": "Done as far as this runtime can qualify it. 778 of the 857 routes are bound and reached, and each of the remaining 79 has a written reason rather than a plan: 27 are the compute family (JAVA-EXT-012), 13 automatic exposure (JAVA-EXT-011) and 20 lend a handle whose lifetime the declaration does not state or that comes back invalid here (JAVA-EXT-010), all three measured with a real graphics device. The other 19 are named individually -- nine texture getters that mint a fresh handle per call and are answered from a retained Java reference instead, three bake routes and two pipeline scene callbacks this renderer never enters, two initialisers that write zeroes a fresh Java array already has, one route that would make the game undestroyable (JAVA-UPSTREAM-011), cna_lod_group_ext_select which has no mesh part to return because this projection stores none, and cna_effect_get_image_based_light_ext, which ImageBasedLight answers from the textures it retained.",
+      "blocker": "None, but most families need a real graphics device. The probe found that debug draw and the particle system both refuse an invalid one, so those tests have to run inside a Game, and anything whose result is a rendered image cannot be checked in a HEADLESS renderer at all -- which has to be stated rather than asserted around.",
+      "tests": [
+        "LodGroupTests",
+        "DebugDrawTests",
+        "RenderPipelineSettingsExtTests",
+        "FrustumCullerTests",
+        "InstancedRendererTests",
+        "GpuTimerTests",
+        "LightTests",
+        "ClusteredLightTests",
+        "ShadowTests",
+        "CascadedShadowTests",
+        "LightProbeTests",
+        "PostProcessPassTests",
+        "RenderPipelineTests",
+        "ParticleTests",
+        "PbrMaterialExtensionsTests",
+        "DepthNormalPrepassTests",
+        "DisplayAndTransparencyTests",
+        "AreaLightTests",
+        "ClusteredShadowPolicyTests",
+        "EnvironmentTests",
+        "GpuCullingTests",
+        "ColorGradeTests",
+        "EffectLightingTests",
+        "TransparentDrawListTests",
+        "LightProbeBakerTests",
+        "ShaderEffectFactoryTests",
+        "EffectPassTests",
+        "PbrEffectTests",
+        "GltfMaterialBridgeTests",
+        "PostProcessChainTests",
+        "FullscreenPassTests"
+      ],
+      "note": "LodGroup deliberately holds thresholds rather than mesh parts: the Java projection's ModelMeshPart is a managed object with no native handle, so there is nothing to hand CNA and nothing meaningful to receive. selectIndex returns the level and the game draws what it keeps at that index. Five of DebugDraw's six gizmo routes are bound: the three light gizmos with the lighting slice, and the cluster-slice and cascade gizmos with the families whose handles they take. All six are bound now. cna_shadow_cascade_state_ext_init is deliberately unbound: no route in the whole C API consumes a CNA_ShadowCascadeStateEXT, so binding it would produce a value nothing can be handed to. Nothing in DebugDrawTests claims a line was drawn -- this qualification has a HEADLESS renderer -- only that the queue holds what was put in it, which is the part a game's own logic depends on. FrustumCuller is VERIFIED_PURE: it needs no device, and its evidence is agreement with XNA's own BoundingFrustum across a 125-box grid. Which XNA test matters -- CNA's culler is Contains(box) != Disjoint, the six-plane test, and XNA's Intersects is GJK. They disagree on boxes near a frustum corner, always with the plane test being the one that drops, and the projection measures that divergence rather than hiding it. The first version of the test used a camera at the origin looking down -Z, whose view matrix is the identity -- against which a planted view/projection swap passed. The camera is off-axis now. The two caster-effect accessors on each shadow map are deliberately unbound: applyCaster is the operation a game needs, and a borrowed engine effect has no Java facade with a coherent lifetime yet. The light-probe baker's thirteen routes are unbound: its three bake routes each take a scene-draw callback the generator refuses, and a baker that cannot bake reports only its own configuration. PostProcessChain and cna_post_process_pass_apply are unbound: their CNA_PostProcessContext carries a borrowed pointer to a CNA_RenderPipelineSettingsEXT, a struct field the generator refuses rather than guesses at, and the render pipeline runs the passes anyway. cna_render_pipeline_set_transparent_scene and _set_shadow_scene each take a draw callback the generator refuses; cna_render_pipeline_get_scene_target and _get_shadow_map return borrows with no release route and no documented lifetime, so a Java facade over either would be a dangling reference waiting to happen. PbrMaterialExtensions' nine texture getters are unbound with a reason: CNA mints a fresh borrowed handle on every call, which the caller must then release, so asking it for a texture the Java object already retains would allocate and free a native handle on every read and hand back a facade nobody owns. The transparent draw list is unbound: its submit route takes a draw callback the generator refuses, and a list nothing can be submitted to is not a feature. WeightedBlendedTransparency's two texture getters are unbound too -- CNA documents the borrow and not how it is given back, and a facade over a borrow with no stated release is a leak or a dangling reference depending on which guess is right. The environment processor's generate routes are NOT_SUPPORTED_BY_RENDERER except generateBrdfLut, which integrates rather than sampling a cube map and works here. cna_skybox_get_environment is unbound: CNA lends the cube map without saying how the borrow is given back, and the Java object retains what it was given instead."
+    },
+    {
+      "id": "JAVA-EXT-009",
+      "title": "Decide what RenderPipelineSettings projects, now that there are two of them",
+      "family": "org.openeggbert.cna.extensions.graphics",
+      "authority": "graphics_ext.h, engine_layer.h",
+      "status": "done",
+      "priority": 6,
+      "currentState": "Decided and done. CNA's own header settles it: the frozen ten-field CNA_RenderPipelineSettings cannot grow inside an ABI major, so the complete shape arrived under a new name, and every engine-layer route that takes settings -- including the pipeline's own get and set -- takes the larger one. RenderPipelineSettingsExt projects it, with all fifty fields and CNA's own prose on each. RenderPipelineSettings keeps its name and its narrower job, because it is a faithful projection of a CNA type that still exists.",
+      "expectedState": "Achieved. normalize() is the method that earns the type: CNA warns that writing a field is not the same as the engine storing it -- thirty-one of them correct their input -- and normalize asks what would actually be stored. applyFrom() applies serialized text and reports how many fields it recognised, which is what a console command or a config file wants.",
+      "blocker": "None technically -- all three value routes plan cleanly. It needs the design call first, because growing a published type from 10 properties to 50 is not something to do by accident, and it decides whether the existing one keeps its name.",
+      "note": "Found while looking for an engine-layer family that could be qualified with no renderer. The three settings value routes are exactly that -- pure functions on a structure -- and they were bound, then unbound again when the two structures turned out to be different. Binding them against the smaller Java type would have silently truncated forty fields."
+    },
+    {
+      "id": "JAVA-UPSTREAM-005",
+      "title": "Four clustered engine-layer routes document a game handle and take a graphics device",
+      "family": "engine_layer.h",
+      "authority": "engine_layer.h against modules/c-api/src/CnaCApiEngineLayer.cpp",
+      "status": "done",
+      "priority": 9,
+      "currentState": "Re-measured 2026-09-30 against CNA ABI 0.35.0 (next at 0f7166cd8/79799cf09; ~/deps/cna-c-abi-0.35.0 HEADLESS and ~/deps/cna-c-abi-0.35.0-opengles3-fx). No longer applicable: CNA ABI 0.30 removed engine_layer.h and every route this finding names; the Java families that bound them were deleted with it.",
+      "expectedState": "Either the header says graphics device, or the routes accept a game. Until then CNA-Java passes the graphics device and its own documentation says why, because a projection that repeated the header's word would hand callers a handle CNA refuses.",
+      "blocker": "",
+      "tests": [],
+      "note": "Not a functional blocker for the lighting slice: the behaviour is usable and now measured. It is recorded so the next reader does not spend the same hour, and so that a future CNA that changes the parameter to match its documentation is noticed rather than silently breaking every clustered call."
+    },
+    {
+      "id": "JAVA-UPSTREAM-006",
+      "title": "A documented INVALID_STATE refusal arrives as INTERNAL, because the exception barrier has no logic_error arm",
+      "family": "engine_layer.h",
+      "authority": "engine_layer.h and modules/c-api/src/CnaCApiDetail.hpp",
+      "status": "done",
+      "priority": 9,
+      "currentState": "Re-measured 2026-09-30 against CNA ABI 0.35.0 (next at 0f7166cd8/79799cf09; ~/deps/cna-c-abi-0.35.0 HEADLESS and ~/deps/cna-c-abi-0.35.0-opengles3-fx). No longer applicable: CNA ABI 0.30 removed engine_layer.h and every route this finding names; the Java families that bound them were deleted with it. The general barrier fix (BINDFIX-003) is in CNA.",
+      "expectedState": "Either the barrier grows a std::logic_error arm mapping to INVALID_STATE, or the engine throws something the barrier already maps. Until then a game cannot tell a refusal it can act on -- turn the fallback on -- from a defect inside CNA, which is exactly the distinction CNA_RESULT_INTERNAL exists to make.",
+      "blocker": "",
+      "tests": [
+        "InstancedRendererTests"
+      ],
+      "note": "CNA-Java works around it soundly rather than by matching on the message: InstancedRenderer.draw asks the renderer its own two questions on the failure path only -- can it instance, is the fallback on -- and raises IllegalStateException when they explain the refusal, keeping CNA's failure and its real result code as the cause. The workaround costs nothing on the success path and stops working correctly the moment CNA fixes the result, at which point it simply becomes redundant rather than wrong. Likely wider than this one route: std::logic_error is thrown in more than one place in the engine layer."
+    },
+    {
+      "id": "JAVA-UPSTREAM-007",
+      "title": "A cube shadow map's face passes do not open on a renderer that cannot cast, though CNA says they do",
+      "family": "engine_layer.h",
+      "authority": "CNA's own startup log against measured behaviour",
+      "status": "done",
+      "priority": 9,
+      "currentState": "Re-measured 2026-09-30 against CNA ABI 0.35.0 (next at 0f7166cd8/79799cf09; ~/deps/cna-c-abi-0.35.0 HEADLESS and ~/deps/cna-c-abi-0.35.0-opengles3-fx). No longer applicable: CNA ABI 0.30 removed engine_layer.h and every route this finding names; the Java families that bound them were deleted with it.",
+      "expectedState": "Either the headless renderer binds a cube face the way it binds a 2D target, or the log stops promising that face passes open. As it stands a game that follows CNA's own advice -- run the shadow pass unconditionally and let it do nothing -- crashes on point shadows and not on directional ones.",
+      "blocker": "",
+      "tests": [
+        "ShadowTests"
+      ],
+      "note": "Found again by a test that never called end() on the OPENGL4 path and was then refused a present with a render target still bound. ShadowTests now covers all three behaviours, so a change in any direction shows up."
+    },
+    {
+      "id": "JAVA-UPSTREAM-008",
+      "title": "A decal pass's documentation points at three routes that refuse its handle",
+      "family": "engine_layer.h",
+      "authority": "engine_layer.h against measured behaviour",
+      "status": "done",
+      "priority": 9,
+      "currentState": "Re-measured 2026-09-30 against CNA ABI 0.35.0 (next at 0f7166cd8/79799cf09; ~/deps/cna-c-abi-0.35.0 HEADLESS and ~/deps/cna-c-abi-0.35.0-opengles3-fx). No longer applicable: CNA ABI 0.30 removed engine_layer.h and every route this finding names; the Java families that bound them were deleted with it.",
+      "expectedState": "Either the decal pass shares the common post-process handle kind, or its documentation names its own routes. As it stands a caller who follows the header leaks the pass and never finds out whether the renderer can run it.",
+      "blocker": "",
+      "tests": [
+        "PostProcessPassTests"
+      ],
+      "note": "CNA-Java projects DecalPass as its own type rather than a PostProcessPass, and says why in its documentation. The base class's release is overridable for exactly this reason. If CNA registers the handle under the common kind later, the override becomes redundant rather than wrong."
+    },
+    {
+      "id": "JAVA-UPSTREAM-009",
+      "title": "A malformed .cube LUT is reported as an unsupported capability, not a bad argument",
+      "family": "engine_layer.h",
+      "authority": "engine_layer.h against modules/c-api/src/CnaCApiEngineLayer.cpp and modules/graphics-ext/src/CubeLut.cpp",
+      "status": "done",
+      "priority": 9,
+      "currentState": "Re-measured 2026-09-30 against CNA ABI 0.35.0 (next at 0f7166cd8/79799cf09; ~/deps/cna-c-abi-0.35.0 HEADLESS and ~/deps/cna-c-abi-0.35.0-opengles3-fx). No longer applicable: CNA ABI 0.30 removed engine_layer.h and every route this finding names; the Java families that bound them were deleted with it.",
+      "expectedState": "Either the route catches what the parser actually throws, or the parser throws what the route catches. As it stands a typo in an artist's .cube file arrives at a game as \"this renderer cannot do colour grading\", so a game that catches the capability refusal to fall back will fall back for a file it could have rejected and told someone about.",
+      "blocker": "",
+      "tests": [
+        "ColorGradeTests"
+      ],
+      "note": "CubeLut's documentation states the behaviour and ColorGradeTests asserts it as it is rather than as it should be, so an upstream fix shows up as a failing test. Related to JAVA-UPSTREAM-006: both are an exception escaping into the wrong arm of the same barrier."
+    },
+    {
+      "id": "JAVA-UPSTREAM-010",
+      "title": "A texture applied through a PBR material is invisible to the C API afterwards",
+      "family": "engine_layer.h",
+      "authority": "engine_layer.h against modules/c-api/src/CnaCApiEngineLayer.cpp and modules/graphics-ext/src/MaterialBinding.cpp",
+      "status": "done",
+      "priority": 9,
+      "currentState": "Re-measured 2026-09-30 against CNA ABI 0.35.0 (next at 0f7166cd8/79799cf09; ~/deps/cna-c-abi-0.35.0 HEADLESS and ~/deps/cna-c-abi-0.35.0-opengles3-fx). No longer applicable: CNA ABI 0.30 removed engine_layer.h and every route this finding names; the Java families that bound them were deleted with it. cna_pbr_effect_set_texture/get_texture survive and PbrEffect uses them.",
+      "expectedState": "apply_material records each slot's handle the way set_texture does, so that a material extracted from an effect names the textures the effect is actually using. Until then the read-modify-write a game naturally writes -- extract, change one number, apply -- silently unbinds every map, because the extracted material carries no textures to put back.",
+      "blocker": "",
+      "tests": [
+        "PbrEffectTests.aWholeMaterialSurvivesBeingWrittenInAndReadOut",
+        "tools/native-abi/probes/pbr_effect_material.c"
+      ],
+      "note": "PbrEffect.applyMaterial works around it by setting each slot a second time through cna_pbr_effect_set_texture, so the registry agrees with the effect and a read-modify-write keeps its maps. That is additive rather than compensating: when CNA closes the gap the second pass becomes redundant rather than wrong, and the test -- which asserts the round trip keeps the texture -- keeps passing either way. The probe is what pins CNA's own behaviour, and it is where a fix would show up first."
+    },
+    {
+      "id": "JAVA-UPSTREAM-011",
+      "title": "Handing a pass to a post-process chain makes the game undestroyable",
+      "family": "engine_layer.h",
+      "authority": "engine_layer.h against modules/c-api/src/CnaCApiEngineLayer.cpp",
+      "status": "done",
+      "priority": 9,
+      "currentState": "Re-measured 2026-09-30 against CNA ABI 0.35.0 (next at 0f7166cd8/79799cf09; ~/deps/cna-c-abi-0.35.0 HEADLESS and ~/deps/cna-c-abi-0.35.0-opengles3-fx). No longer applicable: CNA ABI 0.30 removed engine_layer.h and every route this finding names; the Java families that bound them were deleted with it.",
+      "expectedState": "The route decrements the owned-child count as cna_post_process_pass_destroy does, so a game that hands a pass to a chain shuts down like any other. One hand-over anywhere in a game's lifetime is enough to break shutdown, which makes this the more severe of the two ownership findings.",
+      "blocker": "",
+      "tests": [
+        "tools/native-abi/probes/chain_owned_pass.c"
+      ],
+      "note": "The route is deliberately not bound. PostProcessChain is fully usable through add_pass, which borrows and leaves the caller closing its own passes -- an ordinary thing to ask -- so shipping a method that quietly makes shutdown impossible would be worse than the absence. Bind it when the accounting is fixed."
+    },
+    {
+      "id": "JAVA-EXT-010",
+      "title": "Project the handles the engine layer lends once their lifetimes are stated or measured",
+      "family": "org.openeggbert.cna.extensions.graphics",
+      "authority": "engine_layer.h",
+      "status": "done",
+      "priority": 6,
+      "currentState": "Done for twenty-two of the thirty-five routes, and every one of the fourteen that remain is unbound for a reason that is not a renderer. lent_effect_lifetime.c and lent_handle_use_after_lender.c measured each lender on four questions and found two opposite contracts hiding under one word. COUNTED borrows, whose lender refuses to be destroyed while one is out: three of the four shadow maps caster effects, the depth/normal prepass two, and the clustered forward effect shader. RETAINING borrows, which may outlive their lender: the spot map caster, the clustered effect own material extensions and the transparency resolve two targets. Nothing dangles -- every lender that permits its own destruction really is retained by what it lent. The render pipeline scene target is a third shape, valid only inside an open frame.",
+      "expectedState": "Each lent handle projected as the facade its measured lifetime allows, rather than one guess applied to twenty.",
+      "tests": [
+        "BorrowedHandleTests",
+        "tools/native-abi/probes/lent_effect_lifetime.c",
+        "tools/native-abi/probes/lent_handle_use_after_lender.c",
+        "tools/native-abi/probes/lent_handles.c"
+      ],
+      "note": "The nine PbrMaterialExtensions texture getters are bound as hasClearcoatTexture and its eight siblings, and cna_effect_get_image_based_light_ext as EffectLighting.hasImageBasedLight -- a boolean with the fresh names given straight back, which is the treatment cna_effect_get_shadow_map_ext already had. That is what lets a material borrowed from an effect say what is bound, having been given nothing through Java, and it is the only way to ask an effect about its environment at all, because setImageBasedLight is a static call over textures the caller owns and nothing here retains them. The thirteen still unbound are redundant getters whose answer Java already holds (the pipeline shadow map and skybox, the skybox environment, the two colour-grade LUTs, the clustered effect opaque frame, the two glTF initialisers, the LOD group mesh-part select), a getter that leaks (the post-process effect pass effect), a pure value test (the memory-barrier containment), the ASCII pass effect -- a non-owning view cna_effect_destroy refuses, which no Java facade can own -- and the one route that makes a game undestroyable, JAVA-UPSTREAM-011."
+    },
+    {
+      "id": "JAVA-EXT-011",
+      "title": "Project automatic exposure when a renderer that can measure luminance can qualify it",
+      "family": "org.openeggbert.cna.extensions.graphics",
+      "authority": "engine_layer.h",
+      "status": "done",
+      "priority": 6,
+      "currentState": "Done. All thirteen routes are bound and reached as AutoExposure. The meter needs compute, which OPENGLES3 and OPENGL33 have, and the tests measure rather than assert existence: a grey of 8/255 and one of 240/255 come back as their own luminances, adaptation moves the exposure down for the brighter scene and up for the darker one, the key value doubles the exposure it asks for, and both clamping setters are asserted correcting what they were given. Three planted mutations registered.",
+      "expectedState": "A measured average luminance, a key value, adaptation speeds and a clamp, all reachable at once on a renderer that can read a frame back -- and it is.",
+      "tests": [
+        "AutoExposureTests",
+        "tools/native-abi/probes/gpu_renderer_qualification.c"
+      ],
+      "note": "cna_auto_exposure_ext_apply_to needed the generator declared in/out shape -- a non-const CNA_RenderPipelineSettingsEXT the declaration does not mark as an output -- which routes.json now states. The test asserts the other side of that: applying the exposure leaves every other setting alone, which an output-only marshalling would have zeroed."
+    },
+    {
+      "id": "JAVA-EXT-012",
+      "title": "Project the compute family when a renderer that has compute can qualify it",
+      "family": "org.openeggbert.cna.extensions.graphics",
+      "authority": "engine_layer.h",
+      "status": "done",
+      "priority": 6,
+      "currentState": "Done. All twenty-six routes of the compute family are bound and reached: ComputeShader, StorageBuffer, ImageAccess, MemoryBarrier, IndirectDraw and the two indirect-argument value types. A renderer with compute exists on this host after all -- not the desktop GL 4.3 the previous handoff predicted, but CNA EasyGL family reached through OPENGLES3 (an OpenGL ES 3.2 context) and OPENGL33 (which asks Mesa for 3.3 core and is handed 4.6 or 4.5). The acceptance test is semantic rather than structural: four known integers into a storage buffer, a dispatch that doubles them and adds a uniform, a readback compared against the same arithmetic in Java. Five of six planted mutations registered.",
+      "expectedState": "One coherent family a game can dispatch work with, and it is that.",
+      "tests": [
+        "ComputeTests",
+        "tools/native-abi/probes/gpu_renderer_qualification.c",
+        "tools/native-abi/probes/compute_and_storage.c",
+        "tools/native-abi/probes/compute_compile_contract.c"
+      ],
+      "note": "cna_graphics_memory_barrier_has is the one route deliberately left unbound: it is a pure bitmask containment test over integers the caller supplies, which java.util.EnumSet answers for nothing, and it reveals nothing about CNA own bit values. Those are pinned in probe.c instead, where a compile-time assertion against the live header is stronger than any runtime route could be."
+    },
+    {
+      "id": "JAVA-UPSTREAM-012",
+      "title": "A compute shader that does not compile is reported as an internal failure rather than as a shader carrying a compile error",
+      "family": "cnanext",
+      "authority": "engine_layer.h",
+      "status": "done",
+      "priority": 6,
+      "currentState": "Re-measured 2026-09-30 against CNA ABI 0.35.0 (next at 0f7166cd8/79799cf09; ~/deps/cna-c-abi-0.35.0 HEADLESS and ~/deps/cna-c-abi-0.35.0-opengles3-fx). No longer applicable: CNA ABI 0.30 removed engine_layer.h and every route this finding names; the Java families that bound them were deleted with it.",
+      "expectedState": "Creation succeeds and the failure is read off the object, as the header says -- which would make the two documented routes reachable for the case they exist for.",
+      "blocker": "",
+      "tests": [
+        "tools/native-abi/probes/compute_compile_contract.c",
+        "ComputeTests.sourceTheCompilerRefusesArrivesAsAShaderCompilationExceptionCarryingItsLog"
+      ],
+      "note": "Two consequences. cna_compute_shader_is_valid and cna_compute_shader_copy_compile_error cannot answer the question they exist for, because a failed compile leaves no handle to ask. And the one refusal a game can act on -- a typo in a shader -- arrives as the result code that also means a defect inside CNA. The compiler own diagnostics do survive, in the barrier last message, which is what makes ComputeShader.compile able to throw a ShaderCompilationException carrying the GLSL log. That Java layer still asks isValid() on the success path, so the day CNA matches its header nothing here changes."
+    },
+    {
+      "id": "JAVA-UPSTREAM-013",
+      "title": "One of the four shadow maps does not count the effects it lends",
+      "family": "cnanext",
+      "authority": "engine_layer.h",
+      "status": "done",
+      "priority": 6,
+      "currentState": "Re-measured 2026-09-30 against CNA ABI 0.35.0 (next at 0f7166cd8/79799cf09; ~/deps/cna-c-abi-0.35.0 HEADLESS and ~/deps/cna-c-abi-0.35.0-opengles3-fx). No longer applicable: CNA ABI 0.30 removed engine_layer.h and every route this finding names; the Java families that bound them were deleted with it.",
+      "expectedState": "The four siblings agree, whichever discipline is chosen.",
+      "blocker": "",
+      "tests": [
+        "tools/native-abi/probes/lent_effect_lifetime.c",
+        "tools/native-abi/probes/lent_handle_use_after_lender.c",
+        "BorrowedHandleTests.aSpotShadowMapDoesNotBlockAndItsViewOutlivesIt"
+      ],
+      "note": "A consistency finding rather than a memory-safety one, and it is worth reporting for that reason: a caller that relies on the refusal to catch an unreleased borrow is caught by three of the four maps and not by the fourth. SpotShadowMap.getCasterEffect documents the difference rather than papering over it."
+    },
+    {
+      "id": "JAVA-UPSTREAM-014",
+      "title": "A process exiting with a live vertex buffer aborts on the EasyGL renderer",
+      "family": "cnanext",
+      "authority": "engine_layer.h",
+      "status": "done",
+      "priority": 6,
+      "currentState": "Re-measured 2026-09-30 against CNA ABI 0.35.0 (next at 0f7166cd8/79799cf09; ~/deps/cna-c-abi-0.35.0 HEADLESS and ~/deps/cna-c-abi-0.35.0-opengles3-fx). Fixed upstream (BINDFIX-041, CNA 0f7166cd8). exit_with_live_graph.c exits 0 in its thread, thread-bare and main modes on OPENGLES3, and NativeShutdownSubprocessTests now requires a clean exit on every renderer.",
+      "expectedState": "A process may exit with a live graph, as it can on every other renderer.",
+      "blocker": "",
+      "tests": [
+        "tools/native-abi/probes/exit_with_live_graph.c",
+        "NativeShutdownSubprocessTests.jvmShutdownWithLiveEffectChildrenBuffersAndCallbacksExitsCleanly"
+      ],
+      "note": "It reaches every Java program rather than an unusual one: the java launcher runs main on a thread it creates rather than on the process initial thread, so a JVM satisfies the second condition without anyone choosing it. A game that closes its buffers is unaffected; one that calls System.exit, or dies on an unhandled exception, is not. The subprocess test asserts the abort exact signature on the renderers where it is known, so an upstream fix shows up as a failing test."
+    },
+    {
+      "id": "JAVA-UPSTREAM-015",
+      "title": "A post-process pass that reports itself unsupported runs anyway on one renderer",
+      "family": "cnanext",
+      "authority": "engine_layer.h",
+      "status": "done",
+      "priority": 6,
+      "currentState": "Re-measured 2026-09-30 against CNA ABI 0.35.0 (next at 0f7166cd8/79799cf09; ~/deps/cna-c-abi-0.35.0 HEADLESS and ~/deps/cna-c-abi-0.35.0-opengles3-fx). No longer applicable: CNA ABI 0.30 removed engine_layer.h and every route this finding names; the Java families that bound them were deleted with it. OPENGL4 is also a retired renderer identity.",
+      "expectedState": "The answer predicts the behaviour on every renderer, whichever way each one is decided.",
+      "blocker": "",
+      "tests": [
+        "tools/native-abi/probes/pass_support_versus_behaviour.c",
+        "PixelReadbackTests.aPostProcessChainChangesThePixelsItsPassesSayItShould"
+      ],
+      "note": "The third instance of one shape, after JAVA-UPSTREAM-007 (a cube shadow map that answers no and opens its face passes anyway) and JAVA-UPSTREAM-005 (a documented parameter that is not what the routes take): a capability query disagreeing with what the renderer then does. The Java test asserts the supported case in full and, for the unsupported one, only the disjunction -- either the frame was left as an empty chain left it or the pass really ran -- which is not vacuous and does not decide a question this repository cannot decide."
+    },
+    {
+      "id": "JAVA-UPSTREAM-016",
+      "title": "A shader-effect uniform set before the effect is applied is silently discarded",
+      "family": "cnanext",
+      "authority": "effects.h",
+      "status": "done",
+      "priority": 6,
+      "currentState": "Re-measured 2026-09-30 against CNA ABI 0.35.0 (next at 0f7166cd8/79799cf09; ~/deps/cna-c-abi-0.35.0 HEADLESS and ~/deps/cna-c-abi-0.35.0-opengles3-fx). Fixed upstream (BINDFIX-025). shader_effect_uniform_binding.c, ported from the removed full-screen pass to SpriteBatch, paints the uniform on OPENGLES3 whether it is set before an apply, after one, or left for SpriteBatch to apply.",
+      "expectedState": "A uniform set on a shader effect reaches that effect, whatever program happens to be current -- which is what the same renderer compute path already does.",
+      "blocker": "",
+      "tests": [
+        "tools/native-abi/probes/shader_effect_uniform_binding.c",
+        "ShaderEffectTests.aUniformSetFromJavaDecidesThePixelTheShaderWrites"
+      ],
+      "note": "The same renderer does it correctly one file over: EasyGLComputeShaderRenderer::SetUniformInt opens with program_.use(). Two uniform setters in one renderer, one of which works from a cold start and one of which does not, which is why this is a defect rather than a contract. CNA own passes are unaffected because they apply their effect as part of drawing; a game reaching the routes directly is not."
+    },
+    {
+      "id": "JAVA-UPSTREAM-017",
+      "title": "A renderer named in CNA_GRAPHICS_RENDERER that this build lacks aborts the process while the library loads",
+      "family": "cnanext",
+      "authority": "core_ext.h, graphics.h",
+      "status": "done",
+      "priority": 8,
+      "currentState": "Re-measured 2026-09-30 against CNA ABI 0.35.0 (next at 0f7166cd8/79799cf09; ~/deps/cna-c-abi-0.35.0 HEADLESS and ~/deps/cna-c-abi-0.35.0-opengles3-fx). Fixed upstream (BINDFIX-038, CNA f1593227d). CNA reads CNA_GRAPHICS_RENDERER on first use: renderer_selection.c env mode reaches main and returns, and GraphicsRendererSelectionTests starts a child JVM with an absent renderer named and asserts GraphicsRenderer.getSelected throws IllegalStateException and creating a game fails as an ordinary exception.",
+      "expectedState": "An unavailable or unrecognised CNA_GRAPHICS_RENDERER is reported the way the API path already reports it: the message it currently aborts with is a good one, and reaching the caller as a CNA_Result -- or as a fallback to the build default, which is what the same variable does when set after load -- would cost nothing. No C++ exception should escape a library's load.",
+      "blocker": "",
+      "tests": [
+        "tools/native-abi/probes/renderer_selection.c",
+        "GraphicsRendererSelectionTests.aRendererThisBuildDoesNotHaveIsRefusedRatherThanAborting"
+      ],
+      "note": "The API path is correct and was measured alongside: set_preferred_ext and _by_name_ext answer INVALID_STATE for an identity not in the build and INVALID_ARGUMENT for one outside the table. Only the environment path aborts, and only because it runs where no barrier is installed yet."
+    },
+    {
+      "id": "JAVA-UPSTREAM-018",
+      "title": "Creating a graphics device resets three renderer-selection query routes, and three more named \"current\" report the compile-time default",
+      "family": "cnanext",
+      "authority": "core_ext.h",
+      "status": "done",
+      "priority": 6,
+      "currentState": "Re-measured 2026-09-30 against CNA ABI 0.35.0 (next at 0f7166cd8/79799cf09; ~/deps/cna-c-abi-0.35.0 HEADLESS and ~/deps/cna-c-abi-0.35.0-opengles3-fx). Withdrawn: not a CNA defect. renderer_selection.c read each output inside the printf that printed it, and GCC evaluated the read before the call wrote it, so initial values were reported as a reset. Rewritten with each call sequenced first, the count, selection and latch answer correctly before and after a device exists; the three routes are now bound (GraphicsRenderer.available, getSelected, isLatched) and the pair exception is gone.",
+      "expectedState": "A device does not reset the routes that describe the selection, and a route named \"current\" describes the renderer that is current. cna_graphics_renderer_get_active_ext and cna_graphics_device_copy_renderer_name both answer correctly and show that the information is there to give.",
+      "blocker": "",
+      "tests": [
+        "tools/native-abi/probes/renderer_selection.c",
+        "GraphicsRendererSelectionTests.theActiveRendererIsTheOneTheRunAskedFor",
+        "GraphicsRendererSelectionTests.everyIdentityHasACategoryAndAMaturityWhetherOrNotThisBuildHasIt"
+      ],
+      "note": "Found while binding the family for JAVA-EXT-013, and corrected while testing it: a test that compared CnaRuntime.getBackendCategory() against the per-identity classifier for the running renderer failed, and the per-identity route was the one telling the truth. The first version of this finding claimed five write-only routes and was wrong about four of them."
+    },
+    {
+      "id": "JAVA-EXT-013",
+      "title": "Project CNA's renderer selection so a game can ask what this build has before it asks for one",
+      "family": "cna-java",
+      "authority": "core_ext.h",
+      "status": "done",
+      "priority": 7,
+      "currentState": "GraphicsRenderer, GraphicsRendererType and GraphicsRendererFallback project eighteen of the family's twenty-two routes: the inventory, per-identity availability, per-identity category and maturity, case-insensitive name parsing, the preference setters, the fallback chain with its history and CNA's own messages and reason names, the active renderer, and the test-only reset. The three routes a device resets are not bound (JAVA-UPSTREAM-018), and the two current-name routes were already bound.",
+      "expectedState": "A game reads GraphicsRenderer.available(), decides, and calls setPreferred -- rather than exporting CNA_GRAPHICS_RENDERER and finding out at load time that the renderer is not there (JAVA-UPSTREAM-017).",
+      "tests": [
+        "GraphicsRendererSelectionTests",
+        "tools/native-abi/probes/renderer_selection.c"
+      ],
+      "note": "Falsified with three planted defects, all of which failed the suite: a wrong CNA number on one identity (6 of 9 tests), parse() ignoring whether CNA recognised the name (1), and a refused selection treated as an accepted one (2). This projection had been reading the renderer inventory out of CMakeCache.txt; the routes to ask the library were there the whole time. Binding the per-identity classifiers is what exposed the current-route half of JAVA-UPSTREAM-018 -- a test written to check two routes agreed found that they did not."
+    },
+    {
+      "id": "JAVA-EXT-014",
+      "title": "ColorGradePass bound its volume table to the wrong texture type, and nothing had ever tested it",
+      "family": "cna-java",
+      "authority": "engine_layer.h, texture_volume.h",
+      "status": "done",
+      "priority": 7,
+      "currentState": "setVolumeLut and getVolumeLut take and return a Texture3D. CNA documents the argument as \"a cube with an edge between two and CNA_COLOR_GRADE_MAX_LUT_SIZE_EXT\", which reads two ways; measured, a TextureCube is refused with INVALID_HANDLE and a cubical Texture3D is accepted. Java validates the same shape CNA does -- cubical, edge 2 to 64 -- and names the shape it was given rather than forwarding a result code.",
+      "expectedState": "A game can bind a volume grading table, which it could not before: the previous signature took a TextureCube and could never have succeeded.",
+      "tests": [
+        "ColorGradeTests.theVolumeSlotTakesACubicalVolumeAndRefusesEverythingElse",
+        "tools/native-abi/probes/lent_effect_lifetime.c"
+      ],
+      "note": "The signature was wrong and untested at the same time, which is the only way a signature this wrong survives: no test had ever bound a volume table, so there was nothing for the error to fail against. Found by a probe that bound one to ask a lifetime question about the getter. The first falsification attempt did not register -- asserting only the exception type passed with the Java validation deleted, because CNA raises the same type -- so the assertions read the message, which is what the Java check actually adds."
+    },
+    {
+      "id": "JAVA-UPSTREAM-019",
+      "title": "A camera destroyed after a longer session segfaults the process",
+      "family": "cnanext",
+      "authority": "devices.h",
+      "status": "done",
+      "priority": 9,
+      "currentState": "Re-measured 2026-09-30 against CNA ABI 0.35.0 (next at 0f7166cd8/79799cf09; ~/deps/cna-c-abi-0.35.0 HEADLESS and ~/deps/cna-c-abi-0.35.0-opengles3-fx). Fixed upstream (BINDFIX-011). camera_test_backend.c PROBE_CASE=0 exits 0 on OPENGLES3 with CNA_DEVICES=ON. The fifteen cna_camera_* routes are bound as extensions.devices.Camera and CameraTests drives two test cameras in one process.",
+      "expectedState": "Destroying a camera is safe whatever was done to it first. This is a CNA extension with a test backend built for exactly this kind of qualification, so a crash here is reachable from any suite that uses that backend the way it is meant to be used.",
+      "blocker": "",
+      "tests": [
+        "tools/native-abi/probes/camera_test_backend.c"
+      ],
+      "note": "No gdb on this host, so there is no stack. The reproduction is the probe plus the one-line difference that removes it. The reduced modes are kept in the probe even though none crashes, because ruling out the obvious guesses is most of what a reader needs next."
+    },
+    {
+      "id": "JAVA-UPSTREAM-020",
+      "title": "cna_camera_try_acquire_frame_ext returns SUCCESS without writing out_acquired",
+      "family": "cnanext",
+      "authority": "devices.h",
+      "status": "done",
+      "priority": 4,
+      "currentState": "Re-measured 2026-09-30 against CNA ABI 0.35.0 (next at 0f7166cd8/79799cf09; ~/deps/cna-c-abi-0.35.0 HEADLESS and ~/deps/cna-c-abi-0.35.0-opengles3-fx). Withdrawn: the same unsequenced read as -018 in camera_test_backend.c. Sequenced, the wrong-size acquire answers SUCCESS with out_acquired written CNA_FALSE.",
+      "expectedState": "A route that returns SUCCESS writes the output it documents. CNA_FALSE is the documented answer for no frame; leaving the value alone is not.",
+      "blocker": "",
+      "tests": [
+        "tools/native-abi/probes/camera_test_backend.c"
+      ],
+      "note": "Found because the probe writes 0xAB into every out-parameter before the call. It was written that way after two earlier findings in this session turned out to be the probe reading back its own initialiser -- once for a lent handle and once for this very route, which appeared to acquire in every camera state including DENIED and does not."
+    },
+    {
+      "id": "JAVA-UPSTREAM-021",
+      "title": "cna_camera_create succeeds on a host with no camera, which is_supported and count both report",
+      "family": "cnanext",
+      "authority": "devices.h",
+      "status": "done",
+      "priority": 3,
+      "currentState": "Re-measured 2026-09-30 against CNA ABI 0.35.0 (next at 0f7166cd8/79799cf09; ~/deps/cna-c-abi-0.35.0 HEADLESS and ~/deps/cna-c-abi-0.35.0-opengles3-fx). Withdrawn: is_supported read as false for the same probe reason; sequenced it answers true with one camera on this host, consistent with cna_camera_create succeeding. Refusing NOT_SUPPORTED/CLOSED as test states stays CNA's documented design (BINDFIX-019).",
+      "expectedState": "A capability query predicts the behaviour: either create refuses where is_supported is false, or is_supported describes something else and says so. And a test backend's state setter reaches every state the backend can be in.",
+      "blocker": "",
+      "tests": [
+        "tools/native-abi/probes/camera_test_backend.c"
+      ]
+    },
+    {
+      "id": "JAVA-UPSTREAM-022",
+      "title": "The route that exists so a caller need not guess the shading dialect answers UNKNOWN on every renderer",
+      "family": "cnanext",
+      "authority": "graphics.h",
+      "status": "done",
+      "priority": 3,
+      "currentState": "Re-measured 2026-09-30 against CNA ABI 0.35.0 (next at 0f7166cd8/79799cf09; ~/deps/cna-c-abi-0.35.0 HEADLESS and ~/deps/cna-c-abi-0.35.0-opengles3-fx). Answered upstream: EasyGL now reports its dialect (6ff9d1b95); ColorMatrixEffectTests asserts what each renderer answers.",
+      "expectedState": "A renderer that compiles shader sources names the dialect those sources must be written in. graphics.h tells a caller that the renderer identity is not a safe way to infer it -- \"wrong in a build carrying several renderers\", which this is -- and to ask this route instead, so the route needs an answer to give.",
+      "blocker": "",
+      "tests": [
+        "tools/native-abi/probes/shader_dialect_answer.c",
+        "ColorMatrixEffectTests.theDialectRouteAnswersUnknownOnEveryRendererThisBuildHas"
+      ]
+    },
+    {
+      "id": "JAVA-UPSTREAM-023",
+      "title": "A morph target's tangent deltas cannot be read until they have been written, and the refusal names the wrong reason",
+      "family": "cnanext",
+      "authority": "models.h",
+      "status": "done",
+      "priority": 4,
+      "currentState": "Re-measured 2026-09-30 against CNA ABI 0.35.0 (next at 0f7166cd8/79799cf09; ~/deps/cna-c-abi-0.35.0 HEADLESS and ~/deps/cna-c-abi-0.35.0-opengles3-fx). Fixed upstream (BINDFIX-009); CnaMorphTargetDataTests asserts correct behaviour.",
+      "expectedState": "A target with no tangent deltas reports none, which is what cna_morph_target_data_ext_copy_normal_deltas already does for a target with no normal deltas: the count comes back zero and the call succeeds. An index past the target count stays a refusal.",
+      "blocker": "",
+      "tests": [
+        "CnaMorphTargetDataTests.eachTargetsDeltasComeBackAsItsOwn"
+      ]
+    }
+  ]
+}
