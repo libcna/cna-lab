@@ -1,0 +1,12 @@
+[package]
+name = "cna-rust-template"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.74"
+license = "MIT"
+description = "Native CNA-backed 2D starter game using the CNA-Rust XNA projection"
+repository = "https://github.com/openeggbert/cna-rust-template"
+readme = "README.md"
+
+[dependencies]
+cna = { package = "cna-rust", path = "../cna-rust/crates/cna", version = "0.0.0" }

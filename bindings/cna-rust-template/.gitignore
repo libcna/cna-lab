@@ -1,0 +1,22 @@
+/target
+/Cargo.lock
+**/*.rs.bk
+
+# Web
+pkg/
+dist/
+node_modules/
+.wasm-pack/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Generated consumer projects (tools/generate.py); the shared name from the build rules
+/build-consumer/
