@@ -1,0 +1,434 @@
+{
+  "schemaVersion": 1,
+  "scope": "Microsoft XNA 4.0 Windows Audio/XACT and Media/Video projection, plus every cna::extensions family",
+  "qualifiedArtifactSha256": "3a6f0edc718a2368d76cd6acd597ac468e33b5f2d23bcd3404fa93f1c1809030",
+  "abiVersion": "0.35",
+  "rows": [
+    {
+      "capability": "SoundEffect",
+      "strictComplete": true,
+      "statuses": [
+        "VERIFIED_MANAGED",
+        "VERIFIED_NATIVE"
+      ],
+      "evidence": "PCM16 construction, deterministic PCM WAV FromStream, duration/name caching, Play/CreateInstance, explicit Dispose/Drop, and 25+ ownership cycles."
+    },
+    {
+      "capability": "SoundEffect process-global state",
+      "strictComplete": true,
+      "statuses": [
+        "VERIFIED_MANAGED",
+        "VERIFIED_NATIVE"
+      ],
+      "evidence": "Set/get routes and XNA process-static persistence across Game recreation are native-verified while the process-global Media registrations retain the qualified library generation."
+    },
+    {
+      "capability": "SoundEffectInstance",
+      "strictComplete": true,
+      "statuses": [
+        "VERIFIED_MANAGED",
+        "VERIFIED_NATIVE"
+      ],
+      "evidence": "Cached properties, playback state routes, loop/pan/3D ordering, disposal, parent-child lifetime, and 25+ cycles are verified."
+    },
+    {
+      "capability": "Apply3D single listener",
+      "strictComplete": true,
+      "statuses": [
+        "VERIFIED_MANAGED",
+        "VERIFIED_NATIVE"
+      ],
+      "evidence": "Exact listener/emitter value copy and canonical cna_sound_effect_instance_apply_3d route verified."
+    },
+    {
+      "capability": "Apply3D multiple listeners",
+      "strictComplete": true,
+      "statuses": [
+        "VERIFIED_MANAGED",
+        "VERIFIED_NATIVE",
+        "BACKEND_BLOCKED"
+      ],
+      "evidence": "ABI 0.9.0 lifted the single-listener restriction the previous milestone recorded, and the canonical cna_sound_effect_instance_apply_3d_multi_ext route is now called for every positive count; a zero count stays refused. CNA's mixer has one stereo gain pair and no per-listener output matrices, so the nearest listener decides the applied attenuation, pan and Doppler rather than XACT's per-listener mix."
+    },
+    {
+      "capability": "DynamicSoundEffectInstance",
+      "strictComplete": true,
+      "statuses": [
+        "VERIFIED_MANAGED",
+        "VERIFIED_NATIVE"
+      ],
+      "evidence": "PCM16 queue copying, ranges, pending count, transport, disposal, and 25+ dynamic cycles verified."
+    },
+    {
+      "capability": "Dynamic BufferNeeded delivery",
+      "strictComplete": true,
+      "statuses": [
+        "VERIFIED_MANAGED",
+        "VERIFIED_NATIVE"
+      ],
+      "evidence": "Native trampoline only enqueues work; Game/FrameworkDispatcher owner-thread delivery, 50+ handlers, duplicate order, self-removal, reentrant submit, panic containment, unsubscribe, shutdown, and recreation verified."
+    },
+    {
+      "capability": "Microphone enumeration",
+      "strictComplete": true,
+      "statuses": [
+        "VERIFIED_MANAGED",
+        "VERIFIED_NATIVE"
+      ],
+      "evidence": "Read-only All shape, stable facade identity, Default reconciliation, no-device shape, callback registration lifetime, and 20+ cycles verified against the qualified backend."
+    },
+    {
+      "capability": "Microphone capture and BufferReady delivery",
+      "strictComplete": true,
+      "statuses": [
+        "VERIFIED_MANAGED",
+        "HARDWARE_PENDING"
+      ],
+      "evidence": "Exact validation and native routes are implemented; real physical-device sample capture and event timing were not qualified. No synthetic device or samples are used. Re-measured for RUST-BEHAVIOR-008: this host now has capture hardware and Microphone::All reaches three real devices, so the limit is no longer the absence of a device. A deterministic capture signal is what is missing. SDL3's PulseAudio recording enumeration exposes no monitor source, so a loopback of CNA's own playback cannot be selected through the XNA API, and PULSE_SOURCE does not redirect it because PipeWire's module-stream-restore resolves a remembered device per application name and wins. The alternatives all change host audio configuration rather than this process's."
+    },
+    {
+      "capability": "AudioEngine",
+      "strictComplete": true,
+      "statuses": [
+        "VERIFIED_MANAGED",
+        "VERIFIED_NATIVE"
+      ],
+      "evidence": "XGS signature validation, native construction/update/renderers, category graph, disposal, wrong-thread retry, and 20+ cycles verified with a deterministic parser fixture."
+    },
+    {
+      "capability": "AudioEngine renderer and look-ahead semantics",
+      "strictComplete": true,
+      "statuses": [
+        "VERIFIED_MANAGED",
+        "VERIFIED_NATIVE",
+        "BACKEND_BLOCKED"
+      ],
+      "evidence": "Re-measured on ABI 0.20: the constructor shape and XNA validation are preserved and the canonical renderer-carrying route is called, but CNA still accepts and ignores both rendererId and lookAheadTime. Upstream now states this as a backend fact rather than an omission -- CNA has exactly one audio backend, so there is nothing for a renderer id to select between and no scheduling look-ahead to configure."
+    },
+    {
+      "capability": "AudioCategory",
+      "strictComplete": true,
+      "statuses": [
+        "VERIFIED_MANAGED",
+        "VERIFIED_NATIVE"
+      ],
+      "evidence": "Stable same-engine identity, equality/hash, volume, pause/resume/stop, parent invalidation, and native category ownership verified."
+    },
+    {
+      "capability": "RendererDetail",
+      "strictComplete": true,
+      "statuses": [
+        "VERIFIED_MANAGED",
+        "VERIFIED_NATIVE"
+      ],
+      "evidence": "XNA value equality/hash/string behavior and real renderer collection enumeration are verified; an empty backend collection is valid."
+    },
+    {
+      "capability": "WaveBank",
+      "strictComplete": true,
+      "statuses": [
+        "VERIFIED_MANAGED",
+        "VERIFIED_NATIVE",
+        "UPSTREAM_CNA_BLOCKED",
+        "ASSET_PENDING"
+      ],
+      "evidence": "Signature checks, native handles, disposal, parent lifetime, and malformed parser paths are exercised. CNA logs malformed XWB parse failure but still publishes a handle; no legal XNA-authored bank is shipped. Re-measured at ABI 0.35: WaveBank::Init still logs the parse error to stderr and publishes the handle (FNA's behaviour; XNA throws)."
+    },
+    {
+      "capability": "SoundBank",
+      "strictComplete": true,
+      "statuses": [
+        "VERIFIED_MANAGED",
+        "VERIFIED_NATIVE",
+        "UPSTREAM_CNA_BLOCKED",
+        "ASSET_PENDING"
+      ],
+      "evidence": "Signature checks, native handles, failed cue lookup, disposal, and parent lifetime are exercised. CNA logs malformed XSB parse failure but still publishes a handle; no legal XNA-authored bank is shipped. Re-measured at ABI 0.35: unchanged."
+    },
+    {
+      "capability": "Cue",
+      "strictComplete": true,
+      "statuses": [
+        "VERIFIED_MANAGED",
+        "ASSET_PENDING"
+      ],
+      "evidence": "Complete state/transport/variable/Apply3D/disposal projection and failed native lookup are verified; successful Cue handle behavior requires an authored bank."
+    },
+    {
+      "capability": "Authored XACT playback",
+      "strictComplete": true,
+      "statuses": [
+        "ASSET_PENDING"
+      ],
+      "evidence": "No Microsoft-authored or otherwise legally redistributable XGS/XSB/XWB success fixture is committed. Parser/error/ownership paths do not constitute authored playback qualification."
+    },
+    {
+      "capability": "Host audio backend",
+      "strictComplete": true,
+      "statuses": [
+        "VERIFIED_NATIVE"
+      ],
+      "evidence": "Re-measured for RUST-BEHAVIOR-008. SDL now selects pulseaudio on this host, enumerates its four playback devices, opens the default one in under 15 ms and drains a queued buffer at the real-time rate; five consecutive probe runs agree. The earlier reading, that the default PulseAudio route could not wake its mainloop, no longer holds, so playback evidence no longer rests on SDL's dummy driver. crates/cna/tests/audio_backend_real.rs runs the same qualification under both drivers and requires them to agree."
+    },
+    {
+      "capability": "Album/Artist/Genre relationship graph",
+      "strictComplete": true,
+      "statuses": [
+        "VERIFIED_MANAGED",
+        "VERIFIED_NATIVE",
+        "PLATFORM_PENDING"
+      ],
+      "evidence": "All CNA relationship routes and stable repeated-property caches are implemented. The qualified provider returned empty music catalogs, so populated cross-object platform metadata remains pending."
+    },
+    {
+      "capability": "Media collections",
+      "strictComplete": true,
+      "statuses": [
+        "VERIFIED_MANAGED",
+        "VERIFIED_NATIVE"
+      ],
+      "evidence": "Seven read-only collection facades preserve native order, stable per-index Arc identity, snapshot iteration, bounds behavior, disposal invalidation, and legitimate empty collections."
+    },
+    {
+      "capability": "MediaLibrary",
+      "strictComplete": true,
+      "statuses": [
+        "VERIFIED_MANAGED",
+        "VERIFIED_NATIVE",
+        "PLATFORM_PENDING"
+      ],
+      "evidence": "Real CNA construction, source identity, child collection caching/invalidation, explicit/double Dispose, Drop, wrong-thread refusal and owner-thread retry pass 20 cycles. Music-catalog population is provider-dependent."
+    },
+    {
+      "capability": "MediaLibrary pictures",
+      "strictComplete": true,
+      "statuses": [
+        "VERIFIED_MANAGED",
+        "VERIFIED_NATIVE",
+        "PLATFORM_PENDING"
+      ],
+      "evidence": "Re-measured on cnanext 599d14e5 (RUST-BEHAVIOR-007). The host provider returns 26 real Picture entries and a real root picture album, so neither is pending any more. GetPictureFromToken answers \"no picture\" for an empty and for an unknown token rather than refusing, which is XNA's own null. SavePicture preserves the requested name exactly, reports zero dimensions for bytes that are not a decodable image, and joins the live library's saved-pictures album. What remains provider-dependent is persistence: a freshly constructed MediaLibrary does not see it.",
+      "status": [
+        "VERIFIED_MANAGED",
+        "VERIFIED_NATIVE",
+        "PLATFORM_PENDING"
+      ]
+    },
+    {
+      "capability": "MediaSource",
+      "strictComplete": true,
+      "statuses": [
+        "VERIFIED_MANAGED",
+        "VERIFIED_NATIVE",
+        "PLATFORM_PENDING"
+      ],
+      "evidence": "Actual CNA source enumeration, snapshot name/type values, generation validation and MediaLibrary source construction are implemented; removable/network-provider coverage remains pending."
+    },
+    {
+      "capability": "Song",
+      "strictComplete": true,
+      "statuses": [
+        "VERIFIED_MANAGED",
+        "VERIFIED_NATIVE",
+        "PLATFORM_PENDING"
+      ],
+      "evidence": "A project-authored PCM WAV verifies cna_song_create_from_uri, name/metadata, MediaPlayer playback, Dispose/double Dispose, 20 creation cycles and stale-generation rejection. Populated platform Artist/Album/Genre metadata is pending."
+    },
+    {
+      "capability": "MediaPlayer",
+      "strictComplete": true,
+      "statuses": [
+        "VERIFIED_MANAGED",
+        "VERIFIED_NATIVE"
+      ],
+      "evidence": "The static facade is process-global, owner-thread constrained and generation-bound. Native transport, clamp/NaN/signed-zero scalar behavior, Stop persistence and scalar persistence across 20+ Game recreations are verified."
+    },
+    {
+      "capability": "MediaQueue",
+      "strictComplete": true,
+      "statuses": [
+        "VERIFIED_MANAGED",
+        "VERIFIED_NATIVE"
+      ],
+      "evidence": "One stable facade per live Game preserves repeated queue/song identity, native Count/active index/order and independently owned Song copies; old queues and songs fail deterministically after generation replacement."
+    },
+    {
+      "capability": "MediaPlayer events",
+      "strictComplete": true,
+      "statuses": [
+        "VERIFIED_MANAGED",
+        "VERIFIED_NATIVE"
+      ],
+      "evidence": "Process-static CNA subscriptions use panic-safe trampolines and the single FrameworkDispatcher owner-thread queue. Registration cutoffs, self-removal, reentrant native Stop/Play, later handlers after panic, 50 explicit deliveries, skipped-Update discard and Game recreation are verified; scoped reentrant controls fail outside Media dispatch."
+    },
+    {
+      "capability": "VisualizationData",
+      "strictComplete": true,
+      "statuses": [
+        "VERIFIED_MANAGED",
+        "VERIFIED_NATIVE"
+      ],
+      "evidence": "Both fixed 256-float read-only views and the exact 2,056-byte ABI layout are verified, and the spectrum itself is now measured against a real device rather than only for shape. A project-authored 1 kHz tone peaks in bin 12 and a 4 kHz tone in bin 46 -- exactly round(hz * 512 / 44100) for CNA's fixed mixer rate -- with four bins within a tenth of the peak, and the captured sample peak is 0.119994 against the 0.8 authored amplitude at volume 0.15, so the tap is measurably post-mix. The identical answer arrives on the dummy driver: SDL's dummy device still consumes its buffer on a callback thread, so OnPostMix and the 512-point FFT always ran. What the earlier all-zero readings measured was the ownership stress's 160-sample silent fixture, and a silent authored fixture is still required to read as an all-zero spectrum."
+    },
+    {
+      "capability": "Video",
+      "strictComplete": true,
+      "statuses": [
+        "VERIFIED_MANAGED",
+        "VERIFIED_NATIVE",
+        "ASSET_PENDING"
+      ],
+      "evidence": "A deterministic project-authored XNB metadata fixture verifies Content VideoReader routing, native metadata creation, duration, dimensions, frame rate, soundtrack type, 20 load/unload cycles, retained-object invalidation, post-create fault rollback/cache recovery and generation-safe destruction."
+    },
+    {
+      "capability": "VideoPlayer control path",
+      "strictComplete": true,
+      "statuses": [
+        "VERIFIED_MANAGED",
+        "VERIFIED_NATIVE"
+      ],
+      "evidence": "Native create/play/pause/resume/stop, retained Video identity, NaN and finite Volume validation, cached loop/mute/volume after double Dispose, wrong-thread retry and 20 cycles are verified."
+    },
+    {
+      "capability": "Video decode",
+      "strictComplete": true,
+      "statuses": [
+        "BACKEND_BLOCKED",
+        "ASSET_PENDING"
+      ],
+      "evidence": "HEADLESS accepts the metadata/control object but produces no decoded frame for the deliberately missing project-authored media path. No proprietary asset or synthetic pixels are used."
+    },
+    {
+      "capability": "VideoPlayer.GetTexture",
+      "strictComplete": true,
+      "statuses": [
+        "VERIFIED_MANAGED",
+        "VERIFIED_NATIVE",
+        "BACKEND_BLOCKED"
+      ],
+      "evidence": "GetTexture now calls cna_video_player_get_frame_ext and wraps a decoded frame in a borrowed Texture2D that never destroys the handle. HEADLESS decodes nothing, so the measured answer is the canonical no-frame Ok(None) rather than a fabricated texture; a real decoder backend is what remains to exercise the wrapped path."
+    },
+    {
+      "capability": "Video frame texture lifetime",
+      "strictComplete": true,
+      "statuses": [
+        "VERIFIED_MANAGED",
+        "VERIFIED_NATIVE"
+      ],
+      "evidence": "CNA's frame texture is valid only until the next call on its player, which the Rust view models by counting player calls: a stale frame Texture2D refuses in Rust one call before CNA would answer INVALID_HANDLE, and Dispose and Drop both invalidate outstanding borrows. The monotonic frame generation and presentation time are published as cna::extensions::media, never inside the strict XNA hierarchy."
+    },
+    {
+      "capability": "Native ABI platform coverage",
+      "strictComplete": true,
+      "statuses": [
+        "VERIFIED_NATIVE",
+        "PLATFORM_PENDING"
+      ],
+      "evidence": "ABI 0.35 compiler/export probes pass on Linux x86-64; other operating-system/architecture binaries were not measured in this run."
+    },
+    {
+      "capability": "CLR Audio exception delivery",
+      "strictComplete": true,
+      "statuses": [
+        "VERIFIED_MANAGED",
+        "LANGUAGE_MAPPING_LIMITATION"
+      ],
+      "evidence": "The three public exception identities are projected as marker/error values; ordinary Rust operations use Result<T, CnaError> per the established mapping instead of CLR throw semantics."
+    }
+  ],
+  "extensions": [
+    {
+      "family": "extensions::runtime",
+      "routes": 35,
+      "statuses": [
+        "VERIFIED_HEADLESS"
+      ],
+      "evidence": "Platform and desktop-OS identity, renderer identity, availability, backend category and maturity, the preferred selection and its latch, the fallback chain and CNA's fallback history are all exercised against the live library. The latch is proven by creating a real renderer: set_preferred_renderer is accepted before it and refused after."
+    },
+    {
+      "family": "extensions::logging",
+      "routes": 19,
+      "statuses": [
+        "VERIFIED_HEADLESS"
+      ],
+      "evidence": "Seven levels and their conditional forms, the level filter, and a Rust sink. The sink's panic is caught at the FFI boundary, the sink is uninstalled, and the caller still sees Ok; the test asserts the panicking sink is called exactly once."
+    },
+    {
+      "family": "extensions::graphics renderer capabilities",
+      "routes": 6,
+      "statuses": [
+        "VERIFIED_HEADLESS"
+      ],
+      "evidence": "Every named feature, limit and format answers on HEADLESS. The invariant that a renderer cannot support a usage it has no answer for is asserted, as is agreement between the per-feature answer and the renderer summary."
+    },
+    {
+      "family": "extensions::graphics extended effects",
+      "routes": 24,
+      "statuses": [
+        "VERIFIED_HEADLESS"
+      ],
+      "evidence": "CRT, depth and ASCII post-processing effects are all created on this host's HEADLESS build with CNA_CNAEXT=ON, and every knob round-trips through CNA rather than a cached Rust value. A build with the layer compiled out, or a renderer that refuses, is a documented answer the test admits from NOT_SUPPORTED or INVALID_STATE only."
+    },
+    {
+      "family": "extensions::devices",
+      "routes": 16,
+      "statuses": [
+        "VERIFIED_HEADLESS",
+        "HARDWARE_PENDING"
+      ],
+      "evidence": "Power, system facts, locale, display and clipboard answer against the live library with CNA_DEVICES=ON. A battery percentage, a remaining time and the display content scale are Option because CNA's canonical unknown would otherwise read as a real value; this headless host has no window, so the content scale is measured as None. No physical battery or clipboard peer was available, so the values themselves are not qualified."
+    },
+    {
+      "family": "extensions::content (.cnb)",
+      "routes": 33,
+      "statuses": [
+        "VERIFIED_HEADLESS"
+      ],
+      "evidence": "Build texture data, encode a Texture2D document, parse it back, read container version, asset identity and metadata, decode the texture, and compare the pixels byte for byte. Bounded parsing is proven by a file-size limit below a real document's size refusing it. Model, sprite font, sound effect and the loader registry are not bound yet."
+    },
+    {
+      "family": "extensions::net packet buffers",
+      "routes": 0,
+      "statuses": [
+        "VERIFIED_MANAGED"
+      ],
+      "evidence": "PacketWriter and PacketReader are exact managed Rust with no native backing; the corpus asserts XNA's bit-reinterpreting float write by round-tripping a specific NaN payload. The two routes here reach buffers XNA keeps internal to its network session."
+    },
+    {
+      "family": "extensions::media video frame identity",
+      "routes": 1,
+      "statuses": [
+        "VERIFIED_NATIVE",
+        "BACKEND_BLOCKED"
+      ],
+      "evidence": "The monotonic frame generation and presentation time are read from cna_video_player_get_frame_ext. HEADLESS decodes nothing, so the measured answer is the canonical no-frame one; a real decoder backend is what remains to exercise a decoded frame."
+    },
+    {
+      "family": "extensions::input raw joystick",
+      "routes": 20,
+      "statuses": [
+        "VERIFIED_HEADLESS",
+        "HARDWARE_PENDING"
+      ],
+      "evidence": "Enumeration, per-device capabilities and snapshot capture answer against the live library, and the projection preserves the canonical rule that capturing an identifier no device carries succeeds with every array empty rather than failing. No joystick is attached to this host, so the measured enumeration is empty and the populated path is hardware pending."
+    },
+    {
+      "family": "extensions::gamer_services",
+      "routes": 250,
+      "statuses": [
+        "VERIFIED_HEADLESS",
+        "UPSTREAM_BLOCKED"
+      ],
+      "evidence": "The whole GamerServices and Avatar C surface is bound and the strict XNA object model is projected over it. A roster published through SignedInGamerPublisher is read back through Gamer.SignedInGamers, one position keeps one logical identity across reads, an awarded achievement is found again by its key, a leaderboard entry's columns are the entry's own, and a Guide message box is answered through CNA's pending-request routes and reports that exact choice. Guide.IsScreenSaverEnabled is platform state a headless host has no display layer for, so CNA answers true and its setter changes nothing; that is asserted rather than cached. Re-measured at ABI 0.35 (GS/GSP/GSX): avatars are real CNA avatars (valid random descriptions, 2.5-10 s preset clips, renderers Loading then Ready with a bind pose), Achievement.GetPicture and GamerProfile.GetGamerPicture return the picture bytes through the 0.32 copy routes, GetFriends refuses a profile not signed in online as XNA does, and Guide.IsVisible refuses before gamer services are initialized."
+    },
+    {
+      "family": "extensions::net",
+      "routes": 186,
+      "statuses": [
+        "VERIFIED_HEADLESS",
+        "NO_LIVE_PEER"
+      ],
+      "evidence": "A local session is created, its rosters read, its properties round-tripped, its state machine driven through Update, and its events proven to fire exactly once and to stop after removal. A single process cannot produce a peer, so RemoteGamerInjection and NetworkEventInjection supply one deliberately and the strict surface reports an empty remote roster without them. A genuine second machine is NO_LIVE_PEER. Re-measured at ABI 0.35 (CNA 5b4edd6cc): cna_local_network_gamer_get_signed_in_gamer answers the signed-in gamer, and the gamer base routes accept a network gamer (BINDFIX-047), so NetworkGamer's inherited Gamertag and DisplayName answer."
+    }
+  ]
+}

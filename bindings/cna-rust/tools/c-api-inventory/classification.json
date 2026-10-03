@@ -1,0 +1,1457 @@
+{
+  "schemaVersion": 1,
+  "documentation": "docs/c-api-classification.md",
+  "rules": [
+    {
+      "id": "tooling-hooks",
+      "category": "TOOLING_ONLY",
+      "names": [
+        "*_for_tests_ext",
+        "*_test_backend_ext",
+        "*_get_test_log_ext",
+        "*_set_test_state_ext",
+        "*_set_test_frame_ext"
+      ],
+      "rationale": "CNA's own test seams; a binding that called them would fake runtime state"
+    },
+    {
+      "id": "native-os-handles",
+      "category": "PLATFORM_ONLY",
+      "names": [
+        "*_native_window_handle",
+        "cna_native_window_handle_init",
+        "cna_game_window_get_native_window_ext",
+        "*_native_monitor_handle"
+      ],
+      "rationale": "raw operating-system handles; exposing one would be a public raw-handle leak"
+    },
+    {
+      "id": "clr-type-names",
+      "category": "UPSTREAM_NOT_USEFUL_TO_RUST",
+      "names": [
+        "*type_name*"
+      ],
+      "rationale": "CLR Type.FullName reflection; Rust has no System.Type projection. The pattern is deliberately broad and also catches routes that merely end in type_name while answering real asset data, so each of those carries an explicit override"
+    },
+    {
+      "id": "cnb-container",
+      "category": "CNA_EXTENSION_BACKING",
+      "header": "cnb.h",
+      "rationale": "modern CNA .cnb content container and its asset schemas"
+    },
+    {
+      "id": "graphics-ext",
+      "category": "CNA_EXTENSION_BACKING",
+      "header": "graphics_ext.h",
+      "rationale": "CNAEXT post-processing and PBR material layer beyond XNA 4.0"
+    },
+    {
+      "id": "core-ext",
+      "category": "CNA_EXTENSION_BACKING",
+      "header": "core_ext.h",
+      "rationale": "CNA logging, platform identity and renderer-selection runtime"
+    },
+    {
+      "id": "sensors",
+      "category": "CNA_EXTENSION_BACKING",
+      "header": "sensors.h",
+      "rationale": "Microsoft.Devices.Sensors is not part of the XNA 4.0 Windows corpus; CNA exposes it as a device extension"
+    },
+    {
+      "id": "devices",
+      "category": "CNA_EXTENSION_BACKING",
+      "header": "devices.h",
+      "rationale": "CNA device layer: power, locale, clipboard, dialogs, tray, camera, vibration"
+    },
+    {
+      "id": "input-joystick",
+      "category": "CNA_EXTENSION_BACKING",
+      "header": "input_joystick.h",
+      "rationale": "raw joystick enumeration has no XNA 4.0 counterpart"
+    },
+    {
+      "id": "input-devices",
+      "category": "CNA_EXTENSION_BACKING",
+      "header": "input_devices.h",
+      "rationale": "device hot-plug, clipboard and sensor enumeration beyond XNA 4.0"
+    },
+    {
+      "id": "reflective-content",
+      "category": "CNA_EXTENSION_BACKING",
+      "names": [
+        "cna_object_dictionary_*",
+        "cna_reflective_type_*"
+      ],
+      "rationale": "CNA's reflective reader and processor-written object dictionary are CNA concepts"
+    },
+    {
+      "id": "modern-effects",
+      "category": "CNA_EXTENSION_BACKING",
+      "names": [
+        "cna_pbr_effect_*",
+        "cna_skinned_pbr_*",
+        "cna_shader_effect_*",
+        "cna_color_matrix_*",
+        "cna_environment_map_*",
+        "cna_texture_transform_*",
+        "cna_effect_material_*"
+      ],
+      "rationale": "PBR, custom shader sources and material extras are CNAEXT effect concepts"
+    },
+    {
+      "id": "value-semantics",
+      "category": "MANAGED_BY_DESIGN",
+      "names": [
+        "*_init",
+        "*_init_*",
+        "*_clone",
+        "*_equals",
+        "*_not_equals",
+        "*_get_hash_code",
+        "*_get_string_size",
+        "*_get_string_byte_count",
+        "*_copy_string"
+      ],
+      "rationale": "construction, equality, hashing and ToString of XNA value types are exact managed Rust behaviour"
+    },
+    {
+      "id": "managed-value-families",
+      "category": "MANAGED_BY_DESIGN",
+      "names": [
+        "cna_viewport_*",
+        "cna_display_mode_*",
+        "cna_presentation_parameters_*",
+        "cna_keyboard_state_*",
+        "cna_mouse_state_*",
+        "cna_gamepad_state_get_*",
+        "cna_gamepad_buttons_*",
+        "cna_gamepad_dpad_*",
+        "cna_gamepad_thumb_sticks_*",
+        "cna_gamepad_triggers_*",
+        "cna_gamepad_apply_dead_zone",
+        "cna_gamepad_exclude_axis_dead_zone",
+        "cna_touch_state_*",
+        "cna_touch_location_*",
+        "cna_gesture_sample_*",
+        "cna_touch_capabilities_*",
+        "cna_vertex_element_*",
+        "cna_vertex_value_*",
+        "cna_vertex_type_*",
+        "cna_render_target_usage_preserves_contents",
+        "cna_primitive_type_get_vertex_count",
+        "cna_texture_get_block_size_squared",
+        "cna_texture_get_format_size",
+        "cna_texture_get_pixel_store_alignment"
+      ],
+      "rationale": "these XNA value types and helpers are projected as exact managed Rust values"
+    },
+    {
+      "id": "managed-math",
+      "category": "MANAGED_BY_DESIGN",
+      "headers": [
+        "vectors.h",
+        "matrix.h",
+        "quaternion.h",
+        "math.h",
+        "geometry.h",
+        "curve.h",
+        "color.h",
+        "packed_vectors.h",
+        "vertex_values.h"
+      ],
+      "rationale": "XNA math is deterministic managed IL; the Rust value types reimplement it exactly and are measured by the behaviour corpus"
+    },
+    {
+      "id": "cna-only-extension-routes",
+      "category": "CNA_EXTENSION_BACKING",
+      "names": [
+        "*_ext"
+      ],
+      "rationale": "an _ext route on an XNA family names behaviour XNA 4.0 does not have"
+    },
+    {
+      "id": "cna-only-on-xna-families",
+      "category": "CNA_EXTENSION_BACKING",
+      "names": [
+        "cna_graphics_device_get_unsupported_3d_call_behavior",
+        "cna_graphics_device_set_unsupported_3d_call_behavior",
+        "cna_graphics_device_set_depth_test_enabled",
+        "cna_graphics_device_set_blend_enabled",
+        "cna_graphics_device_set_depth_write_enabled",
+        "cna_graphics_device_set_context_recovery_enabled",
+        "cna_graphics_device_set_current_effect",
+        "cna_graphics_device_get_tracked_resource_count",
+        "cna_graphics_device_unbind_texture",
+        "cna_occlusion_query_has_renderer",
+        "cna_texture_get_info",
+        "cna_texture_validate_format",
+        "cna_texture_validate_get_data_format",
+        "cna_texture2d_create_standalone",
+        "cna_texture2d_create_cpu_only_rgba8",
+        "cna_texture2d_get_storage_info",
+        "cna_content_manager_register_builtin_loaders",
+        "cna_content_manager_refresh_content_manifest",
+        "cna_content_manager_get_manifest_entry*",
+        "cna_content_manager_copy_manifest_*",
+        "cna_content_manager_get_xnb_reader_usage*",
+        "cna_content_manager_copy_xnb_reader_usage_name",
+        "cna_song_create",
+        "cna_song_create_with_duration",
+        "cna_song_set_duration",
+        "cna_song_set_play_count",
+        "cna_song_collection_create",
+        "cna_video_create",
+        "cna_video_set_duration",
+        "cna_video_get_has_graphics_device",
+        "cna_media_queue_add",
+        "cna_media_queue_clear",
+        "cna_audio_get_capabilities",
+        "cna_graphics_adapters_refresh",
+        "cna_game_clear",
+        "cna_game_launch_parameters_add"
+      ],
+      "rationale": "a CNA-only knob, diagnostic or authoring route on an otherwise XNA family; XNA 4.0 has no counterpart"
+    },
+    {
+      "id": "strict-xna-remainder",
+      "category": "STRICT_XNA_BACKING",
+      "headers": [
+        "audio.h",
+        "content.h",
+        "content_readers.h",
+        "display.h",
+        "effects.h",
+        "graphics.h",
+        "graphics_device.h",
+        "graphics_resource.h",
+        "graphics_state.h",
+        "index_resources.h",
+        "input.h",
+        "input_gamepad.h",
+        "input_keyboard.h",
+        "input_mouse.h",
+        "input_touch.h",
+        "media.h",
+        "media_library.h",
+        "media_player.h",
+        "models.h",
+        "render_target.h",
+        "runtime.h",
+        "runtime_components.h",
+        "runtime_graphics_manager.h",
+        "runtime_window.h",
+        "storage.h",
+        "texture.h",
+        "texture_volume.h",
+        "vertex_resources.h",
+        "video.h",
+        "xact.h"
+      ],
+      "rationale": "backs a Microsoft XNA 4.0 member the Rust projection declares; binding it is a runtime-fidelity improvement"
+    },
+    {
+      "id": "gamer-services",
+      "category": "STRICT_XNA_BACKING",
+      "header": "gamer_services.h",
+      "rationale": "backs Microsoft.Xna.Framework.GamerServices"
+    },
+    {
+      "id": "net-sessions",
+      "category": "STRICT_XNA_BACKING",
+      "header": "net_sessions.h",
+      "rationale": "backs Microsoft.Xna.Framework.Net NetworkSession"
+    },
+    {
+      "id": "net-core",
+      "category": "STRICT_XNA_BACKING",
+      "header": "net.h",
+      "rationale": "backs Microsoft.Xna.Framework.Net packet readers and writers"
+    },
+    {
+      "id": "net-gamers",
+      "category": "STRICT_XNA_BACKING",
+      "header": "net_gamers.h",
+      "rationale": "backs Microsoft.Xna.Framework.Net gamer collections"
+    },
+    {
+      "id": "input-haptics",
+      "category": "CNA_EXTENSION_BACKING",
+      "header": "input_haptics.h",
+      "rationale": "CNA's own haptics layer; XNA has only GamePad.SetVibration"
+    },
+    {
+      "id": "sprite-font",
+      "category": "STRICT_XNA_BACKING",
+      "header": "sprite_font.h",
+      "rationale": "backs Microsoft.Xna.Framework.Graphics.SpriteFont"
+    },
+    {
+      "id": "input-cursor",
+      "category": "CNA_EXTENSION_BACKING",
+      "header": "input_cursor.h",
+      "rationale": "CNA's own mouse-cursor layer; XNA has only MouseState"
+    },
+    {
+      "id": "abi-identity",
+      "category": "TOOLING_ONLY",
+      "header": "abi.h",
+      "rationale": "ABI version and result-code identity, consumed by the loader and the gates"
+    },
+    {
+      "id": "core-runtime",
+      "category": "STRICT_XNA_BACKING",
+      "header": "core.h",
+      "rationale": "backs Microsoft.Xna.Framework core value and exception identity"
+    }
+  ],
+  "overrides": {
+    "cna_game_services_contains_ext": {
+      "category": "STRICT_XNA_BACKING",
+      "rationale": "backs XNA GameServiceContainer lookup"
+    },
+    "cna_game_services_remove_ext": {
+      "category": "STRICT_XNA_BACKING",
+      "rationale": "backs XNA GameServiceContainer.RemoveService"
+    }
+  },
+  "bindingDocumentation": "Two questions, two axes. `category` answers why a canonical route exists and which part of the projection it belongs to. `binding` answers whether Rust binds it and, when it does not, why not -- with evidence, and with a durable task when the reason is temporary. A purpose is never an answer to the binding question: 'this backs XNA' says nothing about whether the Rust projection reaches it. BOUND is measured from the reviewed cna-sys slice and is never declared here; every other status must be stated, and every statement must carry a reason and evidence a reader can check.",
+  "knownDefects": [
+  ],
+  "binding": {
+    "rules": [
+      {
+        "id": "declared-but-never-callable",
+        "names": [
+          "cna_keyboard_state_is_key_down",
+          "cna_graphics_device_supports_capability",
+          "cna_vertex_declaration_create"
+        ],
+        "status": "DELIBERATE_NON_BINDING",
+        "reason": "Unbound in RUST-CENSUS-002, having been declared in cna-sys and acquired by nothing. A declaration nothing resolves is not a binding: it cannot be called, it is not part of any table whose load would fail without it, and counting it as BOUND inflated the scoreboard with three routes no consumer could reach. Each is also answered better on this side. `cna_keyboard_state_is_key_down` tests one bit of an immutable snapshot the projection already holds, and KeyboardState::IsKeyDown reads it without a call. `cna_graphics_device_supports_capability` asks one capability at a time where `cna_graphics_device_get_renderer_info` -- bound and called -- answers the whole bitfield in one crossing, which is what capability_flags is tested against. `cna_vertex_declaration_create` infers a stride the projection always knows, and `cna_vertex_declaration_create_with_stride` is bound so XNA's explicit stride survives rather than being recomputed.",
+        "evidence": "crates/cna/src/input/mod.rs's IsKeyDown; crates/cna/src/graphics/device.rs's capability_flags read; crates/cna/src/native/api.rs's vertex_declaration_create_with_stride acquisition",
+        "rustEvidence": [
+          "pub fn IsKeyDown",
+          "capability_flags",
+          "vertex_declaration_create_with_stride"
+        ]
+      },
+      {
+        "id": "xna-model-is-a-rust-type",
+        "status": "DELIBERATE_NON_BINDING",
+        "names": [
+          "cna_model_create",
+          "cna_model_create_default",
+          "cna_model_create_with_parents",
+          "cna_model_bone_create",
+          "cna_model_bone_create_default",
+          "cna_model_bone_add_child",
+          "cna_model_bone_collection_create",
+          "cna_model_mesh_create",
+          "cna_model_mesh_create_named",
+          "cna_model_mesh_collection_create",
+          "cna_model_mesh_set_bounding_sphere",
+          "cna_model_mesh_set_parent_bone",
+          "cna_model_mesh_part_create_default",
+          "cna_model_mesh_part_collection_create",
+          "cna_model_mesh_part_set_effect",
+          "cna_model_mesh_part_set_index_buffer",
+          "cna_model_mesh_part_set_vertex_buffer",
+          "cna_model_mesh_part_set_num_vertices",
+          "cna_model_mesh_part_set_primitive_count",
+          "cna_model_mesh_part_set_start_index",
+          "cna_model_mesh_part_set_vertex_offset",
+          "cna_model_effect_collection_add",
+          "cna_model_effect_collection_remove",
+          "cna_model_set_owned_resources"
+        ],
+        "reason": "these build a native Model by hand, and crates/cna/src/graphics/model.rs already is the XNA Model in Rust: Model, ModelBone, ModelMesh, ModelMeshPart, their collections and enumerators, CopyAbsoluteBoneTransformsTo and Draw, built by this crate's own .xnb ModelReader and disposed through ContentDisposable. Binding these would put a second, weaker Model in the crate -- one whose parts are opaque handles rather than typed Rust values -- for callers who already have the real one. The read side of the same header is bound, because a model CNA loaded carries glTF facts the Rust reader cannot produce.",
+        "evidence": "crates/cna/src/graphics/model.rs, crates/cna/src/content/reader.rs (model_reader), crates/cna/tests/content_xnb.rs"
+      },
+      {
+        "id": "model-c-owned-tag",
+        "status": "DELIBERATE_NON_BINDING",
+        "names": [
+          "cna_model_get_tag",
+          "cna_model_set_tag",
+          "cna_model_mesh_get_tag",
+          "cna_model_mesh_set_tag",
+          "cna_model_mesh_part_get_tag",
+          "cna_model_mesh_part_set_tag"
+        ],
+        "reason": "this tag is an opaque 64-bit slot for a C caller's own pointer -- upstream calls it 'the C-owned opaque model tag' and never reads it. A Rust caller attaches data by keeping it in their own type, which is typed, borrow-checked and cannot outlive what it describes. The tag an asset actually carries is a different route, cna_model_get_content_tag_dictionary_ext, and that one is tracked rather than refused.",
+        "evidence": "models.h's own contrast between cna_model_get_tag and cna_model_get_content_tag_dictionary_ext: 'That one is a C-owned opaque value a caller sets and reads back; this one is what a custom ContentProcessor wrote into the .xnb'"
+      },
+      {
+        "id": "xna-tostring-in-rust",
+        "status": "DELIBERATE_NON_BINDING",
+        "names": [
+          "cna_viewport_copy_string",
+          "cna_viewport_get_string_size",
+          "cna_gamepad_state_copy_string",
+          "cna_gamepad_state_get_string_size",
+          "cna_mouse_state_copy_string",
+          "cna_mouse_state_get_string_size",
+          "cna_touch_location_copy_string",
+          "cna_touch_location_get_string_size",
+          "cna_accelerometer_reading_copy_string",
+          "cna_accelerometer_reading_get_string_size",
+          "cna_accelerometer_reading_event_info_copy_string",
+          "cna_accelerometer_reading_event_info_get_string_size",
+          "cna_compass_reading_copy_string",
+          "cna_compass_reading_get_string_size",
+          "cna_gyroscope_reading_copy_string",
+          "cna_gyroscope_reading_get_string_size",
+          "cna_attitude_reading_copy_string",
+          "cna_attitude_reading_get_string_size",
+          "cna_motion_reading_copy_string",
+          "cna_motion_reading_get_string_size"
+        ],
+        "reason": "XNA's ToString() formats, which Rust implements for each of these types with the same layout: Viewport::ToString, GamePadState::ToString, MouseState::ToString, TouchLocation::ToString, and the five sensor readings plus the legacy AccelerometerReadingEvent. Named one by one rather than by suffix on purpose -- the same routes exist for types Rust has no ToString for yet, and a wildcard here would quietly claim a fidelity this crate does not have.",
+        "rustEvidence": [
+          "pub fn ToString"
+        ],
+        "evidence": "crates/cna/src/graphics/viewport.rs, crates/cna/src/input/gamepad.rs, crates/cna/src/input/mouse.rs, crates/cna/src/input/touch.rs, crates/cna/src/extensions/sensors.rs; each format was read off the matching cnanext ToString() rather than guessed"
+      },
+      {
+        "id": "touch-values-in-rust",
+        "status": "DELIBERATE_NON_BINDING",
+        "names": [
+          "cna_touch_state_add",
+          "cna_touch_state_clear",
+          "cna_touch_state_contains",
+          "cna_touch_state_copy_to",
+          "cna_touch_state_index_of",
+          "cna_touch_state_insert",
+          "cna_touch_state_remove",
+          "cna_touch_state_remove_at",
+          "cna_touch_state_get_is_read_only",
+          "cna_touch_state_get_is_empty_ext",
+          "cna_touch_state_init_from_locations",
+          "cna_touch_location_init_from_values",
+          "cna_touch_location_init_with_previous",
+          "cna_touch_location_init_with_previous_ext",
+          "cna_gesture_sample_init_from_values_ext",
+          "cna_touch_capabilities_init_from_values_ext",
+          "cna_touch_location_init_from_values_ext"
+        ],
+        "reason": "a TouchCollection is a list of small values, and crates/cna/src/input/touch.rs is that list: Add, Clear, Contains, CopyTo, IndexOf, Insert, RemoveAt, Count and IsReadOnly are all Rust, over a Rust Vec. The locations, the gesture samples and the capabilities are constructed the same way. What is *not* in this rule is cna_touch_panel_*, which reads and drives a device rather than a value, and is bound.",
+        "rustEvidence": [
+          "pub struct TouchCollection",
+          "pub struct TouchLocation",
+          "pub fn CopyTo",
+          "pub fn IndexOf"
+        ],
+        "evidence": "crates/cna/src/input/touch.rs, whose collection semantics the behaviour corpus measures against XNA's documented IList rules"
+      },
+      {
+        "id": "game-components-are-a-rust-object-model",
+        "status": "DELIBERATE_NON_BINDING",
+        "headers": [
+          "runtime_components.h"
+        ],
+        "reason": "crates/cna/src/game/components.rs is the whole XNA component model in Rust -- GameComponent, DrawableGameComponent, IUpdateable, IDrawable, GameComponentCollection with its added/removed events -- and it makes no native call at all: zero `sys::` references in the file. The Rust Game loop is what drives it, through GameState's initialize_all, update_all and draw_all, so a component registered through the C collection would sit in a second list nothing iterates. Binding these would not add a capability; it would add a parallel component system that never runs. GameServiceContainer is the same, in crates/cna/src/game/services.rs.",
+        "rustEvidence": [
+          "pub struct GameComponentCollection",
+          "pub trait IGameComponent",
+          "pub struct DrawableGameComponent",
+          "pub struct GameServiceContainer",
+          "fn update_all",
+          "fn draw_all"
+        ],
+        "evidence": "crates/cna/src/game/components.rs and crates/cna/src/game/state.rs, whose Update and Draw call the collection directly; the behaviour corpus measures component ordering against XNA's documented rules"
+      },
+      {
+        "id": "value-maths-in-rust",
+        "status": "DELIBERATE_NON_BINDING",
+        "headers": [
+          "vectors.h",
+          "matrix.h",
+          "quaternion.h",
+          "math.h",
+          "curve.h",
+          "geometry.h",
+          "color.h",
+          "packed_vectors.h",
+          "vertex_values.h"
+        ],
+        "reason": "these are pure value arithmetic, and cna::value implements each operation in Rust: Matrix::Invert, CreateLookAt and Decompose, Vector3::Normalize, Quaternion::Slerp, BoundingBox::Intersects, BoundingFrustum::Contains and Color::FromNonPremultiplied are Rust functions over Rust values. Binding the C route would put a second implementation of the same arithmetic behind a native call that can fail, and the two could disagree. Eleven curve routes are the exception and are bound: cnb_decode_curve answers a CNA_CurveHandle and cnb_encode_curve wants one, and a Curve is one of CNB's eight asset types, so without a way to build and read a native curve a Rust game could not load a curve asset at all. They are used for marshalling only -- create, destroy, the two loop modes, and the key collection -- and nothing that evaluates or computes tangents is bound, so the arithmetic is still Rust's.",
+        "evidence": "crates/cna/src/value/, and crates/cna/src/value/tests.rs which measures the Rust arithmetic against XNA's documented results"
+      },
+      {
+        "id": "effect-reflection-built-in-place",
+        "status": "DELIBERATE_NON_BINDING",
+        "names": [
+          "cna_effect_annotation_collection_create",
+          "cna_effect_parameter_collection_create",
+          "cna_effect_parameter_create",
+          "cna_effect_pass_collection_create",
+          "cna_effect_pass_create",
+          "cna_effect_pass_create_indexed_ext",
+          "cna_effect_technique_collection_create",
+          "cna_effect_technique_collection_add_default",
+          "cna_effect_technique_create_default",
+          "cna_effect_technique_create_named",
+          "cna_effect_technique_create_reflected_ext"
+        ],
+        "reason": "each of these makes a detached technique, pass, parameter or collection that a second call then adds somewhere. CNA also offers the combined form -- cna_effect_pass_collection_add_create, cna_effect_parameter_collection_add_create, cna_effect_technique_collection_add_named, cna_effect_annotation_collection_add -- and that is what this crate's Effect uses, because it cannot leave a half-built object stranded between the two calls. A detached technique that is never added has no use and no owner; binding the split form would add a way to leak one.",
+        "rustEvidence": [
+          "effect_pass_collection_add_create",
+          "effect_parameter_collection_add_create",
+          "effect_technique_collection_add_named"
+        ],
+        "evidence": "crates/cna/src/graphics/effect.rs, whose apply_reflection_blueprint builds the whole graph through the add-create routes"
+      },
+      {
+        "id": "viewport-maths-in-rust",
+        "status": "DELIBERATE_NON_BINDING",
+        "names": [
+          "cna_viewport_get_aspect_ratio",
+          "cna_viewport_get_bounds",
+          "cna_viewport_set_bounds",
+          "cna_viewport_get_title_safe_area",
+          "cna_viewport_project",
+          "cna_viewport_unproject",
+          "cna_viewport_init_bounds",
+          "cna_viewport_init_from_rectangle"
+        ],
+        "reason": "a Viewport is six numbers and the operations over them are arithmetic: crates/cna/src/graphics/viewport.rs computes AspectRatio, Bounds, TitleSafeArea, Project and Unproject in Rust, including the perspective divide and its epsilon. The value never leaves Rust, so binding these would put a second implementation of the same arithmetic behind a native call that can fail -- the same reason the vectors and matrices are not bound.",
+        "rustEvidence": [
+          "pub fn Project",
+          "pub fn Unproject",
+          "pub fn AspectRatio",
+          "pub const fn TitleSafeArea"
+        ],
+        "evidence": "crates/cna/src/graphics/viewport.rs; the projection maths is measured against XNA's documented results in the behaviour corpus"
+      },
+      {
+        "id": "gamepad-values-in-rust",
+        "status": "DELIBERATE_NON_BINDING",
+        "names": [
+          "cna_gamepad_buttons_init_from_button_array",
+          "cna_gamepad_buttons_init_from_mask",
+          "cna_gamepad_buttons_is_pressed",
+          "cna_gamepad_dpad_init_from_button_array",
+          "cna_gamepad_dpad_init_from_states",
+          "cna_gamepad_dpad_is_pressed",
+          "cna_gamepad_state_init_from_components",
+          "cna_gamepad_state_get_buttons",
+          "cna_gamepad_state_get_dpad",
+          "cna_gamepad_state_get_thumb_sticks",
+          "cna_gamepad_state_get_triggers",
+          "cna_gamepad_thumb_sticks_init_from_positions",
+          "cna_gamepad_triggers_init_from_positions",
+          "cna_gamepad_state_set_packet_number_ext"
+        ],
+        "reason": "a GamePadState is four small values and these construct or read them. crates/cna/src/input/gamepad.rs builds each with a Rust constructor -- GamePadDPad::new, GamePadTriggers::new with its own NaN-aware clamp, GamePadThumbSticks::new, GamePadState's from_... -- and reads them back through Buttons, DPad, ThumbSticks and Triggers. `is_pressed` is GamePadState::IsButtonDown. Binding these would put a fallible native call in front of a field read the compiler already checks. The routes that read a *device* rather than a value -- the touchpad, the motion sensors, the light bar -- are bound, because those are not values Rust holds. The packet-number setter is in the same rule: it writes a field into a caller's CNA_GamePadState, and Rust's GamePadState carries its own PacketNumber, read straight off the state CNA filled.",
+        "rustEvidence": [
+          "pub const fn IsButtonDown",
+          "pub const fn ThumbSticks",
+          "pub const fn DPad",
+          "pub struct GamePadButtons",
+          "pub const fn PacketNumber"
+        ],
+        "evidence": "crates/cna/src/input/gamepad.rs, and the behaviour corpus which measures the trigger clamp and the button mask against XNA's documented results"
+      },
+      {
+        "id": "reflective-reader-writes-at-caller-offsets",
+        "status": "DELIBERATE_NON_BINDING",
+        "names": [
+          "cna_reflective_type_reader_builder_*",
+          "cna_reflective_type_reader_*",
+          "cna_enum_type_reader_*"
+        ],
+        "reason": "the reflective builder declares a field as a value kind and a byte offset -- 'where to store it in the object' -- and CNA then writes that many bytes into a pointer the caller's create callback returned. Nothing checks that the offset is inside the object or that the kind matches the field's type, so a caller who pairs offset_of!(T, an_i32) with the Matrix kind gets sixty-four bytes written over a four-byte field, from safe Rust. A wrapper cannot check either half. The capability is not lost: cna_content_type_reader_manager_register is the other extension point for a caller's own type, and it reads fields through a borrowed ContentReader rather than writing at offsets, which is the shape this crate already binds safely for .cnb loaders.",
+        "rustEvidence": [
+          "pub trait CnbLoader"
+        ],
+        "evidence": "content_readers.h's own wording for cna_reflective_type_reader_builder_add_field; crates/cna/src/extensions/content.rs, whose CnbLoader is the same extension point in the safe shape"
+      },
+      {
+        "id": "dotnet-value-identity",
+        "status": "DELIBERATE_NON_BINDING",
+        "names": [
+          "*_equals",
+          "*_get_hash_code"
+        ],
+        "reason": "XNA's Equals and GetHashCode exist because a .NET value type inherits object. Every Rust counterpart of these types derives PartialEq -- GamePadState, MouseState, KeyboardState, DisplayMode, SensorInfo, JoystickInfo, the sensor readings -- so `a == b` is the operation, the compiler checks it, and a HashMap key works without asking C anything. Where XNA's named methods matter for source fidelity the Rust types carry them too. Binding these would add a fallible native call that answers a question `==` has already answered, and the two could disagree.",
+        "rustEvidence": [
+          "pub fn Equals",
+          "pub fn GetHashCode",
+          "pub struct GamePadState",
+          "pub struct KeyboardState",
+          "pub struct MouseState",
+          "pub struct TouchLocation"
+        ],
+        "evidence": "crates/cna/src/input/gamepad.rs, crates/cna/src/input/mod.rs, crates/cna/src/input/mouse.rs, crates/cna/src/input/touch.rs, crates/cna/src/extensions/sensors.rs -- every type these routes name derives PartialEq, and TouchLocation, KeyboardState and the GamePad* types also spell XNA's own Equals and GetHashCode"
+      },
+      {
+        "id": "dotnet-value-construction",
+        "status": "DELIBERATE_NON_BINDING",
+        "names": [
+          "*_init",
+          "*_init_from_values"
+        ],
+        "reason": "these are XNA's constructors reached through C: cna_viewport_init is ToC(Viewport()) and cna_gamepad_state_init_from_values is the parameterised constructor. Rust builds these values with Default, a `new`, or a struct literal, none of which can fail. The descriptor structs that carry struct_size and struct_version are filled at the call site with size_of and the version the header states, and tools/native-abi/verify.py probes every layout against the headers -- so the field-setting these routes exist to get right is already checked by a stronger mechanism than a runtime call.",
+        "rustEvidence": [
+          "pub struct Viewport",
+          "pub struct GamePadState",
+          "pub struct PresentationParameters",
+          "struct_version"
+        ],
+        "evidence": "crates/cna/src/graphics/viewport.rs, crates/cna/src/input/gamepad.rs, crates/cna/src/graphics/presentation.rs; tools/native-abi/verify.py's layoutTypesProbed, which checks every descriptor's field order and offsets against the canonical headers"
+      },
+      {
+        "id": "dotnet-type-name",
+        "status": "DELIBERATE_NON_BINDING",
+        "names": [
+          "*_copy_type_name",
+          "*_get_type_name_size",
+          "*_get_type_name_byte_count"
+        ],
+        "reason": "these answer .NET's GetType().Name, and upstream's implementations are all compile-time constants -- every GetTypeName() in cnanext returns a fixed string such as 'Microsoft.Xna.Framework.Input.KeyboardState'. A Rust caller knows the type statically at every call site, so there is no reflection question to ask, and the .NET name of a Rust value is not a fact about that value. The one place these strings genuinely matter is the content format, where the reader name is part of the .xnb, and the crate already carries them as data in AssetTypeId rather than fetching them one object at a time. Both spellings of the size half are covered: some families call it `_get_type_name_size` and some `_get_type_name_byte_count`, and binding one because the wildcard happened to miss the other is how an accessor with no caller gets into the crate.",
+        "rustEvidence": [
+          "pub struct AssetTypeId",
+          "Microsoft.Xna.Framework.Content."
+        ],
+        "evidence": "cnanext modules/*/src/Xna/*.cpp -- every GetTypeName() is a constant; crates/cna/src/content/reader.rs, which names the canonical readers directly"
+      },
+      {
+        "id": "keyboard-snapshot-is-a-rust-value",
+        "status": "DELIBERATE_NON_BINDING",
+        "names": [
+          "cna_keyboard_state_init_from_keys",
+          "cna_keyboard_state_get_key_state"
+        ],
+        "reason": "a KeyboardState is a 256-bit set, and crates/cna/src/input/mod.rs is that set: KeyboardState::new builds one from a slice of Keys and Item answers a slot, both over the same bit words CNA uses, with a to_native that hands the identical struct back for the routes that do need CNA. Binding these two would round-trip a value through C to compute what the bits already say. What is *not* in this rule is every _ext route in the same header: those ask the platform's live layout which key a scancode produces and what each is called, which no Rust code can answer, and they are bound. Nor is cna_keyboard_state_copy_string, which is CNA's ToString and is bound because the string is CNA's choice rather than the bit set's.",
+        "rustEvidence": [
+          "pub struct KeyboardState",
+          "pub fn IsKeyDown",
+          "pub fn Item",
+          "pub(crate) fn to_native"
+        ],
+        "evidence": "crates/cna/tests/extensions_keyboard_layout.rs measures the bound half against the live library, including that a snapshot Rust built is one CNA's own value routes accept"
+      },
+      {
+        "id": "input-snapshot-queries-in-rust",
+        "status": "DELIBERATE_NON_BINDING",
+        "names": [
+          "cna_keyboard_state_is_key_up",
+          "cna_keyboard_state_get_pressed_key_count",
+          "cna_keyboard_state_copy_pressed_keys",
+          "cna_gamepad_state_is_button_down",
+          "cna_gamepad_state_is_button_up",
+          "cna_touch_state_find_by_id",
+          "cna_touch_location_try_get_previous"
+        ],
+        "reason": "each of these asks a snapshot a question the snapshot already answers in Rust: KeyboardState::IsKeyUp and GetPressedKeys over the same 256 bits CNA sets, GamePadState::IsButtonDown/IsButtonUp over the same button mask, TouchCollection::FindById and TouchLocation::TryGetPreviousLocation over the collection this side owns. The snapshots are read from CNA -- cna_keyboard_get_state, cna_gamepad_get_state, cna_touch_panel_get_state are all bound -- so the values are CNA's; only the querying is Rust's, and routing a query back through C would cost a call to learn what the bits in hand already say. What is *not* in this rule is cna_gamepad_apply_dead_zone, which is CNA's canonical clamping algorithm over raw values rather than a question about a snapshot, and is bound.",
+        "rustEvidence": [
+          "pub fn IsKeyUp",
+          "pub fn GetPressedKeys",
+          "pub const fn IsButtonDown",
+          "pub const fn IsButtonUp",
+          "pub fn FindById",
+          "pub fn TryGetPreviousLocation"
+        ],
+        "evidence": "crates/cna/src/input/mod.rs, gamepad.rs and touch.rs; the behaviour corpus measures each against XNA's documented answers"
+      },
+      {
+        "id": "mouse-snapshot-is-a-rust-value",
+        "status": "DELIBERATE_NON_BINDING",
+        "names": [
+          "cna_mouse_state_init_from_values_ext"
+        ],
+        "reason": "a MouseState is five integers and five button flags, and crates/cna/src/input/mouse.rs already constructs one from exactly those values. The snapshots a game reads come from CNA through the bound cna_mouse_get_state; this route only builds a value, and building it in Rust costs nothing and loses nothing. Every _ext route in the same header that reads or drives the actual device -- relative mode, capture, the desktop position, the warp, the clicked event and its test hooks -- is bound.",
+        "rustEvidence": [
+          "pub struct MouseState",
+          "pub fn ToString"
+        ],
+        "evidence": "crates/cna/src/input/mouse.rs; crates/cna/tests/extensions_mouse_desktop.rs qualifies the bound half against the live library"
+      },
+      {
+        "id": "sample-arithmetic-is-xna-faithful-in-rust",
+        "status": "DELIBERATE_NON_BINDING",
+        "names": [
+          "cna_sound_effect_get_sample_duration_ticks",
+          "cna_sound_effect_get_sample_size_in_bytes"
+        ],
+        "reason": "RUST-UPSTREAM-027. crates/cna/src/audio.rs already implements XNA's two static helpers and does it faithfully, down to the mixed binary32/double precision that makes one mono second at 44.1 kHz 88,198 bytes rather than 88,200. CNA's routes for the same two questions do not agree with XNA: the duration truncates where XNA's TimeSpan.FromMilliseconds rounds -- up to a millisecond short, and zero for a 100-byte stereo buffer at 44.1 kHz that XNA says lasts one -- and the size drops XNA's `num + num % Channels` frame alignment and does the rate division in double rather than binary32. Nineteen of ninety duration cases and fifteen of fifty size cases disagree. Binding these would replace a correct answer with a wrong one, which is the one thing a coverage number is not worth.",
+        "rustEvidence": [
+          "pub(crate) fn sample_duration",
+          "pub(crate) fn sample_size"
+        ],
+        "evidence": "docs/upstream-findings.md RUST-UPSTREAM-027; the decompiled XNA AudioFormat.DurationFromSize and SizeFromDuration are the arbiter; tools/reproducers/ext015q_sample_math.c prints CNA's answers and crates/cna/tests/extensions_audio_ext.rs pins the Rust ones to the reference values"
+      },
+      {
+        "id": "a-vertex-declaration-is-a-rust-value",
+        "status": "DELIBERATE_NON_BINDING",
+        "names": [
+          "cna_vertex_declaration_create_empty",
+          "cna_vertex_declaration_get_stride",
+          "cna_vertex_declaration_copy_elements"
+        ],
+        "reason": "these three take a CNA_VertexDeclarationHandle, and the Rust VertexDeclaration has no native handle at all: crates/cna/src/graphics/vertex.rs keeps its elements and stride in Rust and hands them to CNA by value through native_elements() whenever a buffer is created. There is nothing on this side to call them with. Creating a native declaration purely so they could be called would add a second declaration beside the one that already works, with a lifetime to manage and no capability gained. What is NOT in this rule is cna_vertex_buffer_copy_declaration_elements, which reads the declaration a *buffer* was created with -- a buffer does have a handle, and a tool describing a buffer it did not create has no other route to its layout -- and that one is bound.",
+        "rustEvidence": [
+          "pub struct VertexDeclaration",
+          "pub(crate) fn native_elements",
+          "fn native_elements"
+        ],
+        "evidence": "crates/cna/src/graphics/vertex.rs, whose DeclarationState holds only disposed/name/tag/disposing and no handle; crates/cna/tests/extensions_device_surface.rs reads a buffer's layout back through the route that is bound"
+      }
+    ],
+    "overrides": {}
+  },
+  "bindingUnreachable": {
+    "cna_achievement_collection_add": {
+      "outcome": "OUTSIDE_XNA_SURFACE",
+      "reason": "XNA implements this member as a **private explicit interface implementation that throws NotSupportedException**. The IL is unambiguous: the collection is fixed, and the mutator exists only because IList<T> demands it. A safe method over this route would be a public API XNA does not have, doing something XNA refuses.",
+      "evidence": "xna4-decomp Microsoft.Xna.Framework.GamerServices.dll: AchievementCollection's Add, Clear, Insert, Remove and RemoveAt are private and each throws"
+    },
+    "cna_achievement_collection_clear": {
+      "outcome": "OUTSIDE_XNA_SURFACE",
+      "reason": "XNA implements this member as a **private explicit interface implementation that throws NotSupportedException**. The IL is unambiguous: the collection is fixed, and the mutator exists only because IList<T> demands it. A safe method over this route would be a public API XNA does not have, doing something XNA refuses.",
+      "evidence": "xna4-decomp Microsoft.Xna.Framework.GamerServices.dll: AchievementCollection's Add, Clear, Insert, Remove and RemoveAt are private and each throws"
+    },
+    "cna_achievement_collection_contains": {
+      "outcome": "OUTSIDE_XNA_SURFACE",
+      "reason": "XNA implements this as a **private explicit interface implementation**. It is not part of the type's public surface, so the projection does not publish it; the public members that do the same work -- Count, the indexer, GetEnumerator -- are all bound.",
+      "evidence": "xna4-decomp: AchievementCollection's Contains, CopyTo, IndexOf and get_IsReadOnly are private explicit implementations; the public surface is Count, both indexers, GetEnumerator, IsDisposed and Dispose"
+    },
+    "cna_achievement_collection_copy_to": {
+      "outcome": "OUTSIDE_XNA_SURFACE",
+      "reason": "XNA implements this as a **private explicit interface implementation**. It is not part of the type's public surface, so the projection does not publish it; the public members that do the same work -- Count, the indexer, GetEnumerator -- are all bound.",
+      "evidence": "xna4-decomp: AchievementCollection's Contains, CopyTo, IndexOf and get_IsReadOnly are private explicit implementations; the public surface is Count, both indexers, GetEnumerator, IsDisposed and Dispose"
+    },
+    "cna_achievement_collection_get_is_read_only": {
+      "outcome": "OUTSIDE_XNA_SURFACE",
+      "reason": "XNA implements this as a **private explicit interface implementation**. It is not part of the type's public surface, so the projection does not publish it; the public members that do the same work -- Count, the indexer, GetEnumerator -- are all bound.",
+      "evidence": "xna4-decomp: AchievementCollection's Contains, CopyTo, IndexOf and get_IsReadOnly are private explicit implementations; the public surface is Count, both indexers, GetEnumerator, IsDisposed and Dispose"
+    },
+    "cna_achievement_collection_index_of": {
+      "outcome": "OUTSIDE_XNA_SURFACE",
+      "reason": "XNA implements this as a **private explicit interface implementation**. It is not part of the type's public surface, so the projection does not publish it; the public members that do the same work -- Count, the indexer, GetEnumerator -- are all bound.",
+      "evidence": "xna4-decomp: AchievementCollection's Contains, CopyTo, IndexOf and get_IsReadOnly are private explicit implementations; the public surface is Count, both indexers, GetEnumerator, IsDisposed and Dispose"
+    },
+    "cna_achievement_collection_insert": {
+      "outcome": "OUTSIDE_XNA_SURFACE",
+      "reason": "XNA implements this member as a **private explicit interface implementation that throws NotSupportedException**. The IL is unambiguous: the collection is fixed, and the mutator exists only because IList<T> demands it. A safe method over this route would be a public API XNA does not have, doing something XNA refuses.",
+      "evidence": "xna4-decomp Microsoft.Xna.Framework.GamerServices.dll: AchievementCollection's Add, Clear, Insert, Remove and RemoveAt are private and each throws"
+    },
+    "cna_achievement_collection_remove": {
+      "outcome": "OUTSIDE_XNA_SURFACE",
+      "reason": "XNA implements this member as a **private explicit interface implementation that throws NotSupportedException**. The IL is unambiguous: the collection is fixed, and the mutator exists only because IList<T> demands it. A safe method over this route would be a public API XNA does not have, doing something XNA refuses.",
+      "evidence": "xna4-decomp Microsoft.Xna.Framework.GamerServices.dll: AchievementCollection's Add, Clear, Insert, Remove and RemoveAt are private and each throws"
+    },
+    "cna_achievement_collection_remove_at": {
+      "outcome": "OUTSIDE_XNA_SURFACE",
+      "reason": "XNA implements this member as a **private explicit interface implementation that throws NotSupportedException**. The IL is unambiguous: the collection is fixed, and the mutator exists only because IList<T> demands it. A safe method over this route would be a public API XNA does not have, doing something XNA refuses.",
+      "evidence": "xna4-decomp Microsoft.Xna.Framework.GamerServices.dll: AchievementCollection's Add, Clear, Insert, Remove and RemoveAt are private and each throws"
+    },
+    "cna_avatar_expression_init": {
+      "outcome": "IMPLEMENTED_IN_SAFE_RUST",
+      "reason": "A C convenience that fills `struct_size` and `struct_version` and zeroes the rest. Rust builds these descriptors as literals and has to set both fields anyway, so a call would be a round trip whose result the next line overwrites -- and the layout the literal assumes is the one the ABI verifier pins field by field, which is a stronger check than the initialiser agreeing with itself.",
+      "evidence": "tools/native-abi/verify.py's layout field-set verifier, 187 types",
+      "rustEvidence": [
+        "struct_version: 1"
+      ]
+    },
+    "cna_game_defaults_init": {
+      "outcome": "IMPLEMENTED_IN_SAFE_RUST",
+      "reason": "A C convenience that fills `struct_size` and `struct_version` and zeroes the rest. Rust builds these descriptors as literals and has to set both fields anyway, so a call would be a round trip whose result the next line overwrites -- and the layout the literal assumes is the one the ABI verifier pins field by field, which is a stronger check than the initialiser agreeing with itself.",
+      "evidence": "tools/native-abi/verify.py's layout field-set verifier, 187 types",
+      "rustEvidence": [
+        "struct_version: 1"
+      ]
+    },
+    "cna_game_ended_event_info_init": {
+      "outcome": "IMPLEMENTED_IN_SAFE_RUST",
+      "reason": "A C convenience that fills `struct_size` and `struct_version` and zeroes the rest. Rust builds these descriptors as literals and has to set both fields anyway, so a call would be a round trip whose result the next line overwrites -- and the layout the literal assumes is the one the ABI verifier pins field by field, which is a stronger check than the initialiser agreeing with itself.",
+      "evidence": "tools/native-abi/verify.py's layout field-set verifier, 187 types",
+      "rustEvidence": [
+        "struct_version: 1"
+      ]
+    },
+    "cna_game_started_event_info_init": {
+      "outcome": "IMPLEMENTED_IN_SAFE_RUST",
+      "reason": "A C convenience that fills `struct_size` and `struct_version` and zeroes the rest. Rust builds these descriptors as literals and has to set both fields anyway, so a call would be a round trip whose result the next line overwrites -- and the layout the literal assumes is the one the ABI verifier pins field by field, which is a stronger check than the initialiser agreeing with itself.",
+      "evidence": "tools/native-abi/verify.py's layout field-set verifier, 187 types",
+      "rustEvidence": [
+        "struct_version: 1"
+      ]
+    },
+    "cna_gamer_collection_add": {
+      "outcome": "OUTSIDE_XNA_SURFACE",
+      "reason": "XNA implements this member as a **private explicit interface implementation that throws NotSupportedException**. The IL is unambiguous: the collection is fixed, and the mutator exists only because IList<T> demands it. A safe method over this route would be a public API XNA does not have, doing something XNA refuses.",
+      "evidence": "xna4-decomp: GamerCollection<T>'s only public member is GetEnumerator; the roster is the platform's to change, not a game's"
+    },
+    "cna_gamer_collection_clear": {
+      "outcome": "OUTSIDE_XNA_SURFACE",
+      "reason": "XNA implements this member as a **private explicit interface implementation that throws NotSupportedException**. The IL is unambiguous: the collection is fixed, and the mutator exists only because IList<T> demands it. A safe method over this route would be a public API XNA does not have, doing something XNA refuses.",
+      "evidence": "xna4-decomp: GamerCollection<T>'s only public member is GetEnumerator; the roster is the platform's to change, not a game's"
+    },
+    "cna_gamer_collection_contains": {
+      "outcome": "OUTSIDE_XNA_SURFACE",
+      "reason": "XNA implements this as a **private explicit interface implementation**. It is not part of the type's public surface, so the projection does not publish it; the public members that do the same work -- Count, the indexer, GetEnumerator -- are all bound.",
+      "evidence": "xna4-decomp: GamerCollection<T> publishes GetEnumerator and nothing else"
+    },
+    "cna_gamer_collection_copy_to": {
+      "outcome": "OUTSIDE_XNA_SURFACE",
+      "reason": "XNA implements this as a **private explicit interface implementation**. It is not part of the type's public surface, so the projection does not publish it; the public members that do the same work -- Count, the indexer, GetEnumerator -- are all bound.",
+      "evidence": "xna4-decomp: GamerCollection<T> publishes GetEnumerator and nothing else"
+    },
+    "cna_gamer_collection_create_enumerator": {
+      "outcome": "IMPLEMENTED_IN_SAFE_RUST",
+      "reason": "The projection's GamerCollectionEnumerator walks the collection through Count and the indexer, which are bound, and yields the same gamer identities. A native cursor would be a second handle with its own release order for a walk that has no state beyond an index.",
+      "rustEvidence": [
+        "GamerCollectionEnumerator",
+        "fn GetEnumerator"
+      ]
+    },
+    "cna_gamer_collection_index_of": {
+      "outcome": "OUTSIDE_XNA_SURFACE",
+      "reason": "XNA implements this as a **private explicit interface implementation**. It is not part of the type's public surface, so the projection does not publish it; the public members that do the same work -- Count, the indexer, GetEnumerator -- are all bound.",
+      "evidence": "xna4-decomp: GamerCollection<T> publishes GetEnumerator and nothing else"
+    },
+    "cna_gamer_collection_remove": {
+      "outcome": "OUTSIDE_XNA_SURFACE",
+      "reason": "XNA implements this member as a **private explicit interface implementation that throws NotSupportedException**. The IL is unambiguous: the collection is fixed, and the mutator exists only because IList<T> demands it. A safe method over this route would be a public API XNA does not have, doing something XNA refuses.",
+      "evidence": "xna4-decomp: GamerCollection<T>'s only public member is GetEnumerator; the roster is the platform's to change, not a game's"
+    },
+    "cna_gamer_enumerator_destroy": {
+      "outcome": "IMPLEMENTED_IN_SAFE_RUST",
+      "reason": "The projection's GamerCollectionEnumerator walks the collection through Count and the indexer, which are bound, and yields the same gamer identities. A native cursor would be a second handle with its own release order for a walk that has no state beyond an index.",
+      "rustEvidence": [
+        "GamerCollectionEnumerator",
+        "fn GetEnumerator"
+      ]
+    },
+    "cna_gamer_enumerator_get_current": {
+      "outcome": "IMPLEMENTED_IN_SAFE_RUST",
+      "reason": "The projection's GamerCollectionEnumerator walks the collection through Count and the indexer, which are bound, and yields the same gamer identities. A native cursor would be a second handle with its own release order for a walk that has no state beyond an index.",
+      "rustEvidence": [
+        "GamerCollectionEnumerator",
+        "fn GetEnumerator"
+      ]
+    },
+    "cna_gamer_enumerator_move_next": {
+      "outcome": "IMPLEMENTED_IN_SAFE_RUST",
+      "reason": "The projection's GamerCollectionEnumerator walks the collection through Count and the indexer, which are bound, and yields the same gamer identities. A native cursor would be a second handle with its own release order for a walk that has no state beyond an index.",
+      "rustEvidence": [
+        "GamerCollectionEnumerator",
+        "fn GetEnumerator"
+      ]
+    },
+    "cna_gamer_enumerator_reset": {
+      "outcome": "IMPLEMENTED_IN_SAFE_RUST",
+      "reason": "The projection's GamerCollectionEnumerator walks the collection through Count and the indexer, which are bound, and yields the same gamer identities. A native cursor would be a second handle with its own release order for a walk that has no state beyond an index.",
+      "rustEvidence": [
+        "GamerCollectionEnumerator",
+        "fn GetEnumerator"
+      ]
+    },
+    "cna_gamer_joined_event_info_init": {
+      "outcome": "IMPLEMENTED_IN_SAFE_RUST",
+      "reason": "A C convenience that fills `struct_size` and `struct_version` and zeroes the rest. Rust builds these descriptors as literals and has to set both fields anyway, so a call would be a round trip whose result the next line overwrites -- and the layout the literal assumes is the one the ABI verifier pins field by field, which is a stronger check than the initialiser agreeing with itself.",
+      "evidence": "tools/native-abi/verify.py's layout field-set verifier, 187 types",
+      "rustEvidence": [
+        "struct_version: 1"
+      ]
+    },
+    "cna_gamer_left_event_info_init": {
+      "outcome": "IMPLEMENTED_IN_SAFE_RUST",
+      "reason": "A C convenience that fills `struct_size` and `struct_version` and zeroes the rest. Rust builds these descriptors as literals and has to set both fields anyway, so a call would be a round trip whose result the next line overwrites -- and the layout the literal assumes is the one the ABI verifier pins field by field, which is a stronger check than the initialiser agreeing with itself.",
+      "evidence": "tools/native-abi/verify.py's layout field-set verifier, 187 types",
+      "rustEvidence": [
+        "struct_version: 1"
+      ]
+    },
+    "cna_gamer_presence_init": {
+      "outcome": "IMPLEMENTED_IN_SAFE_RUST",
+      "reason": "A C convenience that fills `struct_size` and `struct_version` and zeroes the rest. Rust builds these descriptors as literals and has to set both fields anyway, so a call would be a round trip whose result the next line overwrites -- and the layout the literal assumes is the one the ABI verifier pins field by field, which is a stronger check than the initialiser agreeing with itself.",
+      "evidence": "tools/native-abi/verify.py's layout field-set verifier, 187 types",
+      "rustEvidence": [
+        "struct_version: 1"
+      ]
+    },
+    "cna_gamer_services_component_create": {
+      "outcome": "IMPLEMENTED_IN_SAFE_RUST",
+      "reason": "The Rust GamerServicesComponent performs XNA's own five calls -- the window handle, the InstallingTitleUpdate subscription, the dispatcher initialise, then the base component, and the dispatcher pump before the base update -- over routes that are all bound. Adopting CNA's canonical component would have imported RUST-UPSTREAM-029 with it: CNA's deliberately skips base.Initialize() and base.Update() to match FNA, where XNA's IL calls both. It would also put the component in CNA's component collection rather than the projection's, which is the graph a Rust game's Components() actually holds.",
+      "evidence": "docs/upstream-findings.md#rust-upstream-029; crates/cna/tests/small_families_native.rs::the_gamer_services_component_hands_the_dispatcher_the_game_window",
+      "rustEvidence": [
+        "pub struct GamerServicesComponent",
+        "GamerServicesDispatcher::initialize_with_game"
+      ]
+    },
+    "cna_gamer_set_display_name": {
+      "outcome": "OUTSIDE_XNA_SURFACE",
+      "reason": "XNA's Gamer declares get_DisplayName and no public setter -- set_Tag is public, which is how the IL shows this is a deliberate distinction rather than an oversight. A gamer's display name comes from the service.",
+      "evidence": "xna4-decomp: Gamer's public members are get_Gamertag, get_DisplayName, get_Tag, set_Tag, get_IsDisposed and the async profile routes"
+    },
+    "cna_gamer_signed_in_contains": {
+      "outcome": "OUTSIDE_XNA_SURFACE",
+      "reason": "SignedInGamerCollection's only public member in XNA is its PlayerIndex indexer. Membership and position are IList<T>'s questions, not the roster's.",
+      "evidence": "xna4-decomp: SignedInGamerCollection publishes get_Item and nothing else"
+    },
+    "cna_gamer_signed_in_index_of": {
+      "outcome": "OUTSIDE_XNA_SURFACE",
+      "reason": "SignedInGamerCollection's only public member in XNA is its PlayerIndex indexer. Membership and position are IList<T>'s questions, not the roster's.",
+      "evidence": "xna4-decomp: SignedInGamerCollection publishes get_Item and nothing else"
+    },
+    "cna_guide_show_achievements_ext": {
+      "outcome": "OUTSIDE_XNA_SURFACE",
+      "reason": "A CNA extension for a screen XNA's Guide never had -- ShowGamerCard, ShowSignIn and ShowMarketplace are the real ones, and all three are bound -- and CNA's own header says of it: \"A no-op on this runtime.\" A safe method over it would publish something that provably does nothing.",
+      "evidence": "gamer_services.h: \"@brief Opens the achievements screen. A no-op on this runtime.\""
+    },
+    "cna_host_changed_event_info_init": {
+      "outcome": "IMPLEMENTED_IN_SAFE_RUST",
+      "reason": "A C convenience that fills `struct_size` and `struct_version` and zeroes the rest. Rust builds these descriptors as literals and has to set both fields anyway, so a call would be a round trip whose result the next line overwrites -- and the layout the literal assumes is the one the ABI verifier pins field by field, which is a stronger check than the initialiser agreeing with itself.",
+      "evidence": "tools/native-abi/verify.py's layout field-set verifier, 187 types",
+      "rustEvidence": [
+        "struct_version: 1"
+      ]
+    },
+    "cna_invite_accepted_event_info_init": {
+      "outcome": "IMPLEMENTED_IN_SAFE_RUST",
+      "reason": "A C convenience that fills `struct_size` and `struct_version` and zeroes the rest. Rust builds these descriptors as literals and has to set both fields anyway, so a call would be a round trip whose result the next line overwrites -- and the layout the literal assumes is the one the ABI verifier pins field by field, which is a stronger check than the initialiser agreeing with itself.",
+      "evidence": "tools/native-abi/verify.py's layout field-set verifier, 187 types",
+      "rustEvidence": [
+        "struct_version: 1"
+      ]
+    },
+    "cna_leaderboard_entry_equals": {
+      "outcome": "OUTSIDE_XNA_SURFACE",
+      "reason": "XNA's LeaderboardEntry overrides no equality: its public surface is Gamer, Rating, set_Rating and Columns. Two entries compare by reference, which is what the projection's handle identity already gives.",
+      "evidence": "xna4-decomp: LeaderboardEntry publishes get_Gamer, get_Rating, set_Rating and get_Columns"
+    },
+    "cna_leaderboard_entry_set_rating_changed_hook_ext": {
+      "outcome": "OUTSIDE_XNA_SURFACE",
+      "reason": "A CNA test seam: a callback that fires when an entry's rating changes, on a runtime where the only thing that changes a rating is the caller's own SetRating. XNA has no such event, and a game that wants to know when it wrote a value already knows.",
+      "rustEvidence": [
+        "pub fn SetRating"
+      ]
+    },
+    "cna_leaderboard_identity_init": {
+      "outcome": "IMPLEMENTED_IN_SAFE_RUST",
+      "reason": "A C convenience that fills `struct_size` and `struct_version` and zeroes the rest. Rust builds these descriptors as literals and has to set both fields anyway, so a call would be a round trip whose result the next line overwrites -- and the layout the literal assumes is the one the ABI verifier pins field by field, which is a stronger check than the initialiser agreeing with itself.",
+      "evidence": "tools/native-abi/verify.py's layout field-set verifier, 187 types",
+      "rustEvidence": [
+        "struct_version: 1"
+      ]
+    },
+    "cna_local_network_gamer_receive_data_into_packet_reader": {
+      "outcome": "IMPLEMENTED_IN_SAFE_RUST",
+      "reason": "Same reason as the send side -- it takes a CNA reader this projection does not have -- and one more: it reports **zero bytes for every packet**, which CNA's header documents and its source explains as FNA's `uint len = 0` preserved. Microsoft XNA returns the packet's size from this overload, which is what the projection returns. Binding it would have replaced a correct answer with a wrong one. The buffer ceiling that replaces it is RUST-UPSTREAM-028.",
+      "evidence": "docs/upstream-findings.md#rust-upstream-028; crates/cna/tests/net_native.rs::a_packet_reader_receives_a_whole_large_packet_or_says_it_could_not",
+      "rustEvidence": [
+        "pub fn ReceiveDataWithDataAndSender",
+        "LARGEST_PACKET_INTO_A_READER"
+      ]
+    },
+    "cna_local_network_gamer_send_packet_writer": {
+      "outcome": "IMPLEMENTED_IN_SAFE_RUST",
+      "reason": "These take a CNA packet-writer handle, and this projection's PacketWriter is a Rust value with no handle at all. XNA's SendData(PacketWriter, ...) is documented as sending the writer's bytes, so the projection hands those bytes to the byte-array route -- the same packet, one fewer object, and no second buffer to keep in step.",
+      "evidence": "crates/cna/src/net/session.rs's SendDataWithDataAndOptions",
+      "rustEvidence": [
+        "pub fn SendDataWithDataAndOptions",
+        "fn bytes"
+      ]
+    },
+    "cna_local_network_gamer_send_packet_writer_to": {
+      "outcome": "IMPLEMENTED_IN_SAFE_RUST",
+      "reason": "These take a CNA packet-writer handle, and this projection's PacketWriter is a Rust value with no handle at all. XNA's SendData(PacketWriter, ...) is documented as sending the writer's bytes, so the projection hands those bytes to the byte-array route -- the same packet, one fewer object, and no second buffer to keep in step.",
+      "evidence": "crates/cna/src/net/session.rs's SendDataWithDataAndOptions",
+      "rustEvidence": [
+        "pub fn SendDataWithDataAndOptions",
+        "fn bytes"
+      ]
+    },
+    "cna_network_session_copy_type_name": {
+      "outcome": "OUTSIDE_XNA_SURFACE",
+      "reason": "CLR reflection: the assembly-qualified name of the .NET type a session would have had. Rust has no Type.FullName and inventing one would be fiction; this is the same reason the census classifies the whole *type_name* family UPSTREAM_NOT_USEFUL_TO_RUST.",
+      "evidence": "docs/c-api-classification.md, UPSTREAM_NOT_USEFUL_TO_RUST"
+    },
+    "cna_network_session_ended_event_info_init": {
+      "outcome": "IMPLEMENTED_IN_SAFE_RUST",
+      "reason": "A C convenience that fills `struct_size` and `struct_version` and zeroes the rest. Rust builds these descriptors as literals and has to set both fields anyway, so a call would be a round trip whose result the next line overwrites -- and the layout the literal assumes is the one the ABI verifier pins field by field, which is a stronger check than the initialiser agreeing with itself.",
+      "evidence": "tools/native-abi/verify.py's layout field-set verifier, 187 types",
+      "rustEvidence": [
+        "struct_version: 1"
+      ]
+    },
+    "cna_network_session_get_type_name_size": {
+      "outcome": "OUTSIDE_XNA_SURFACE",
+      "reason": "CLR reflection: the assembly-qualified name of the .NET type a session would have had. Rust has no Type.FullName and inventing one would be fiction; this is the same reason the census classifies the whole *type_name* family UPSTREAM_NOT_USEFUL_TO_RUST.",
+      "evidence": "docs/c-api-classification.md, UPSTREAM_NOT_USEFUL_TO_RUST"
+    },
+    "cna_network_session_properties_add": {
+      "outcome": "OUTSIDE_XNA_SURFACE",
+      "reason": "XNA implements this member as a **private explicit interface implementation that throws NotSupportedException**. The IL is unambiguous: the collection is fixed, and the mutator exists only because IList<T> demands it. A safe method over this route would be a public API XNA does not have, doing something XNA refuses.",
+      "evidence": "xna4-decomp Microsoft.Xna.Framework.Net.dll: NetworkSessionProperties' Add, Insert, Remove, RemoveAt and Clear are `private hidebysig newslot virtual final` and each throws; only get_Item, set_Item, get_Count and GetEnumerator are public"
+    },
+    "cna_network_session_properties_clear": {
+      "outcome": "OUTSIDE_XNA_SURFACE",
+      "reason": "XNA implements this member as a **private explicit interface implementation that throws NotSupportedException**. The IL is unambiguous: the collection is fixed, and the mutator exists only because IList<T> demands it. A safe method over this route would be a public API XNA does not have, doing something XNA refuses.",
+      "evidence": "xna4-decomp Microsoft.Xna.Framework.Net.dll: NetworkSessionProperties' Add, Insert, Remove, RemoveAt and Clear are `private hidebysig newslot virtual final` and each throws; only get_Item, set_Item, get_Count and GetEnumerator are public"
+    },
+    "cna_network_session_properties_contains": {
+      "outcome": "OUTSIDE_XNA_SURFACE",
+      "reason": "XNA implements this as a **private explicit interface implementation**. It is not part of the type's public surface, so the projection does not publish it; the public members that do the same work -- Count, the indexer, GetEnumerator -- are all bound.",
+      "evidence": "xna4-decomp: NetworkSessionProperties' IndexOf, Contains, CopyTo and get_IsReadOnly are private explicit implementations"
+    },
+    "cna_network_session_properties_copy_to": {
+      "outcome": "OUTSIDE_XNA_SURFACE",
+      "reason": "XNA implements this as a **private explicit interface implementation**. It is not part of the type's public surface, so the projection does not publish it; the public members that do the same work -- Count, the indexer, GetEnumerator -- are all bound.",
+      "evidence": "xna4-decomp: NetworkSessionProperties' IndexOf, Contains, CopyTo and get_IsReadOnly are private explicit implementations"
+    },
+    "cna_network_session_properties_create_enumerator": {
+      "outcome": "IMPLEMENTED_IN_SAFE_RUST",
+      "reason": "XNA's GetEnumerator walks eight `int?` slots the projection holds in Rust, so the enumerator is a Rust iterator over them. A native cursor would add a handle to release, a reset nobody calls, and four more ways to get the same eight values wrong.",
+      "rustEvidence": [
+        "pub fn GetEnumerator",
+        "PROPERTY_COUNT"
+      ]
+    },
+    "cna_network_session_properties_get_is_read_only": {
+      "outcome": "OUTSIDE_XNA_SURFACE",
+      "reason": "XNA implements this as a **private explicit interface implementation**. It is not part of the type's public surface, so the projection does not publish it; the public members that do the same work -- Count, the indexer, GetEnumerator -- are all bound.",
+      "evidence": "xna4-decomp: NetworkSessionProperties' IndexOf, Contains, CopyTo and get_IsReadOnly are private explicit implementations"
+    },
+    "cna_network_session_properties_index_of": {
+      "outcome": "OUTSIDE_XNA_SURFACE",
+      "reason": "XNA implements this as a **private explicit interface implementation**. It is not part of the type's public surface, so the projection does not publish it; the public members that do the same work -- Count, the indexer, GetEnumerator -- are all bound.",
+      "evidence": "xna4-decomp: NetworkSessionProperties' IndexOf, Contains, CopyTo and get_IsReadOnly are private explicit implementations"
+    },
+    "cna_network_session_properties_insert": {
+      "outcome": "OUTSIDE_XNA_SURFACE",
+      "reason": "XNA implements this member as a **private explicit interface implementation that throws NotSupportedException**. The IL is unambiguous: the collection is fixed, and the mutator exists only because IList<T> demands it. A safe method over this route would be a public API XNA does not have, doing something XNA refuses.",
+      "evidence": "xna4-decomp Microsoft.Xna.Framework.Net.dll: NetworkSessionProperties' Add, Insert, Remove, RemoveAt and Clear are `private hidebysig newslot virtual final` and each throws; only get_Item, set_Item, get_Count and GetEnumerator are public"
+    },
+    "cna_network_session_properties_remove": {
+      "outcome": "OUTSIDE_XNA_SURFACE",
+      "reason": "XNA implements this member as a **private explicit interface implementation that throws NotSupportedException**. The IL is unambiguous: the collection is fixed, and the mutator exists only because IList<T> demands it. A safe method over this route would be a public API XNA does not have, doing something XNA refuses.",
+      "evidence": "xna4-decomp Microsoft.Xna.Framework.Net.dll: NetworkSessionProperties' Add, Insert, Remove, RemoveAt and Clear are `private hidebysig newslot virtual final` and each throws; only get_Item, set_Item, get_Count and GetEnumerator are public"
+    },
+    "cna_network_session_properties_remove_at": {
+      "outcome": "OUTSIDE_XNA_SURFACE",
+      "reason": "XNA implements this member as a **private explicit interface implementation that throws NotSupportedException**. The IL is unambiguous: the collection is fixed, and the mutator exists only because IList<T> demands it. A safe method over this route would be a public API XNA does not have, doing something XNA refuses.",
+      "evidence": "xna4-decomp Microsoft.Xna.Framework.Net.dll: NetworkSessionProperties' Add, Insert, Remove, RemoveAt and Clear are `private hidebysig newslot virtual final` and each throws; only get_Item, set_Item, get_Count and GetEnumerator are public"
+    },
+    "cna_network_session_property_enumerator_destroy": {
+      "outcome": "IMPLEMENTED_IN_SAFE_RUST",
+      "reason": "XNA's GetEnumerator walks eight `int?` slots the projection holds in Rust, so the enumerator is a Rust iterator over them. A native cursor would add a handle to release, a reset nobody calls, and four more ways to get the same eight values wrong.",
+      "rustEvidence": [
+        "pub fn GetEnumerator",
+        "PROPERTY_COUNT"
+      ]
+    },
+    "cna_network_session_property_enumerator_get_current": {
+      "outcome": "IMPLEMENTED_IN_SAFE_RUST",
+      "reason": "XNA's GetEnumerator walks eight `int?` slots the projection holds in Rust, so the enumerator is a Rust iterator over them. A native cursor would add a handle to release, a reset nobody calls, and four more ways to get the same eight values wrong.",
+      "rustEvidence": [
+        "pub fn GetEnumerator",
+        "PROPERTY_COUNT"
+      ]
+    },
+    "cna_network_session_property_enumerator_move_next": {
+      "outcome": "IMPLEMENTED_IN_SAFE_RUST",
+      "reason": "XNA's GetEnumerator walks eight `int?` slots the projection holds in Rust, so the enumerator is a Rust iterator over them. A native cursor would add a handle to release, a reset nobody calls, and four more ways to get the same eight values wrong.",
+      "rustEvidence": [
+        "pub fn GetEnumerator",
+        "PROPERTY_COUNT"
+      ]
+    },
+    "cna_network_session_property_enumerator_reset": {
+      "outcome": "IMPLEMENTED_IN_SAFE_RUST",
+      "reason": "XNA's GetEnumerator walks eight `int?` slots the projection holds in Rust, so the enumerator is a Rust iterator over them. A native cursor would add a handle to release, a reset nobody calls, and four more ways to get the same eight values wrong.",
+      "rustEvidence": [
+        "pub fn GetEnumerator",
+        "PROPERTY_COUNT"
+      ]
+    },
+    "cna_packet_reader_create": {
+      "outcome": "IMPLEMENTED_IN_SAFE_RUST",
+      "reason": "XNA's PacketWriter and PacketReader derive from BinaryWriter and BinaryReader over a MemoryStream: pure managed types whose whole contract is byte order, position arithmetic and the exceptions they raise past the end. The projection owns the buffer directly and writes every value in the order XNA writes it, including the bit reinterpretation XNA's Write(float) and Write(double) overrides perform. Handing the bytes to CNA and back would add a handle, a second copy and a second implementation of arithmetic that is already exact here -- and the behaviour corpus measures it against the decompiled XNA.",
+      "evidence": "crates/cna/src/net/values.rs; crates/cna/tests/xna_behavior_corpus.rs's PacketWriter/PacketReader round trip",
+      "rustEvidence": [
+        "pub struct PacketWriter",
+        "pub struct PacketReader",
+        "fn put",
+        "fn take"
+      ]
+    },
+    "cna_packet_reader_destroy": {
+      "outcome": "IMPLEMENTED_IN_SAFE_RUST",
+      "reason": "XNA's PacketWriter and PacketReader derive from BinaryWriter and BinaryReader over a MemoryStream: pure managed types whose whole contract is byte order, position arithmetic and the exceptions they raise past the end. The projection owns the buffer directly and writes every value in the order XNA writes it, including the bit reinterpretation XNA's Write(float) and Write(double) overrides perform. Handing the bytes to CNA and back would add a handle, a second copy and a second implementation of arithmetic that is already exact here -- and the behaviour corpus measures it against the decompiled XNA.",
+      "evidence": "crates/cna/src/net/values.rs; crates/cna/tests/xna_behavior_corpus.rs's PacketWriter/PacketReader round trip",
+      "rustEvidence": [
+        "pub struct PacketWriter",
+        "pub struct PacketReader",
+        "fn put",
+        "fn take"
+      ]
+    },
+    "cna_packet_reader_get_length": {
+      "outcome": "IMPLEMENTED_IN_SAFE_RUST",
+      "reason": "XNA's PacketWriter and PacketReader derive from BinaryWriter and BinaryReader over a MemoryStream: pure managed types whose whole contract is byte order, position arithmetic and the exceptions they raise past the end. The projection owns the buffer directly and writes every value in the order XNA writes it, including the bit reinterpretation XNA's Write(float) and Write(double) overrides perform. Handing the bytes to CNA and back would add a handle, a second copy and a second implementation of arithmetic that is already exact here -- and the behaviour corpus measures it against the decompiled XNA.",
+      "evidence": "crates/cna/src/net/values.rs; crates/cna/tests/xna_behavior_corpus.rs's PacketWriter/PacketReader round trip",
+      "rustEvidence": [
+        "pub struct PacketWriter",
+        "pub struct PacketReader",
+        "fn put",
+        "fn take"
+      ]
+    },
+    "cna_packet_reader_get_position": {
+      "outcome": "IMPLEMENTED_IN_SAFE_RUST",
+      "reason": "XNA's PacketWriter and PacketReader derive from BinaryWriter and BinaryReader over a MemoryStream: pure managed types whose whole contract is byte order, position arithmetic and the exceptions they raise past the end. The projection owns the buffer directly and writes every value in the order XNA writes it, including the bit reinterpretation XNA's Write(float) and Write(double) overrides perform. Handing the bytes to CNA and back would add a handle, a second copy and a second implementation of arithmetic that is already exact here -- and the behaviour corpus measures it against the decompiled XNA.",
+      "evidence": "crates/cna/src/net/values.rs; crates/cna/tests/xna_behavior_corpus.rs's PacketWriter/PacketReader round trip",
+      "rustEvidence": [
+        "pub struct PacketWriter",
+        "pub struct PacketReader",
+        "fn put",
+        "fn take"
+      ]
+    },
+    "cna_packet_reader_read_color": {
+      "outcome": "IMPLEMENTED_IN_SAFE_RUST",
+      "reason": "XNA's PacketWriter and PacketReader derive from BinaryWriter and BinaryReader over a MemoryStream: pure managed types whose whole contract is byte order, position arithmetic and the exceptions they raise past the end. The projection owns the buffer directly and writes every value in the order XNA writes it, including the bit reinterpretation XNA's Write(float) and Write(double) overrides perform. Handing the bytes to CNA and back would add a handle, a second copy and a second implementation of arithmetic that is already exact here -- and the behaviour corpus measures it against the decompiled XNA.",
+      "evidence": "crates/cna/src/net/values.rs; crates/cna/tests/xna_behavior_corpus.rs's PacketWriter/PacketReader round trip",
+      "rustEvidence": [
+        "pub struct PacketWriter",
+        "pub struct PacketReader",
+        "fn put",
+        "fn take"
+      ]
+    },
+    "cna_packet_reader_read_double": {
+      "outcome": "IMPLEMENTED_IN_SAFE_RUST",
+      "reason": "XNA's PacketWriter and PacketReader derive from BinaryWriter and BinaryReader over a MemoryStream: pure managed types whose whole contract is byte order, position arithmetic and the exceptions they raise past the end. The projection owns the buffer directly and writes every value in the order XNA writes it, including the bit reinterpretation XNA's Write(float) and Write(double) overrides perform. Handing the bytes to CNA and back would add a handle, a second copy and a second implementation of arithmetic that is already exact here -- and the behaviour corpus measures it against the decompiled XNA.",
+      "evidence": "crates/cna/src/net/values.rs; crates/cna/tests/xna_behavior_corpus.rs's PacketWriter/PacketReader round trip",
+      "rustEvidence": [
+        "pub struct PacketWriter",
+        "pub struct PacketReader",
+        "fn put",
+        "fn take"
+      ]
+    },
+    "cna_packet_reader_read_matrix": {
+      "outcome": "IMPLEMENTED_IN_SAFE_RUST",
+      "reason": "XNA's PacketWriter and PacketReader derive from BinaryWriter and BinaryReader over a MemoryStream: pure managed types whose whole contract is byte order, position arithmetic and the exceptions they raise past the end. The projection owns the buffer directly and writes every value in the order XNA writes it, including the bit reinterpretation XNA's Write(float) and Write(double) overrides perform. Handing the bytes to CNA and back would add a handle, a second copy and a second implementation of arithmetic that is already exact here -- and the behaviour corpus measures it against the decompiled XNA.",
+      "evidence": "crates/cna/src/net/values.rs; crates/cna/tests/xna_behavior_corpus.rs's PacketWriter/PacketReader round trip",
+      "rustEvidence": [
+        "pub struct PacketWriter",
+        "pub struct PacketReader",
+        "fn put",
+        "fn take"
+      ]
+    },
+    "cna_packet_reader_read_quaternion": {
+      "outcome": "IMPLEMENTED_IN_SAFE_RUST",
+      "reason": "XNA's PacketWriter and PacketReader derive from BinaryWriter and BinaryReader over a MemoryStream: pure managed types whose whole contract is byte order, position arithmetic and the exceptions they raise past the end. The projection owns the buffer directly and writes every value in the order XNA writes it, including the bit reinterpretation XNA's Write(float) and Write(double) overrides perform. Handing the bytes to CNA and back would add a handle, a second copy and a second implementation of arithmetic that is already exact here -- and the behaviour corpus measures it against the decompiled XNA.",
+      "evidence": "crates/cna/src/net/values.rs; crates/cna/tests/xna_behavior_corpus.rs's PacketWriter/PacketReader round trip",
+      "rustEvidence": [
+        "pub struct PacketWriter",
+        "pub struct PacketReader",
+        "fn put",
+        "fn take"
+      ]
+    },
+    "cna_packet_reader_read_single": {
+      "outcome": "IMPLEMENTED_IN_SAFE_RUST",
+      "reason": "XNA's PacketWriter and PacketReader derive from BinaryWriter and BinaryReader over a MemoryStream: pure managed types whose whole contract is byte order, position arithmetic and the exceptions they raise past the end. The projection owns the buffer directly and writes every value in the order XNA writes it, including the bit reinterpretation XNA's Write(float) and Write(double) overrides perform. Handing the bytes to CNA and back would add a handle, a second copy and a second implementation of arithmetic that is already exact here -- and the behaviour corpus measures it against the decompiled XNA.",
+      "evidence": "crates/cna/src/net/values.rs; crates/cna/tests/xna_behavior_corpus.rs's PacketWriter/PacketReader round trip",
+      "rustEvidence": [
+        "pub struct PacketWriter",
+        "pub struct PacketReader",
+        "fn put",
+        "fn take"
+      ]
+    },
+    "cna_packet_reader_read_vector2": {
+      "outcome": "IMPLEMENTED_IN_SAFE_RUST",
+      "reason": "XNA's PacketWriter and PacketReader derive from BinaryWriter and BinaryReader over a MemoryStream: pure managed types whose whole contract is byte order, position arithmetic and the exceptions they raise past the end. The projection owns the buffer directly and writes every value in the order XNA writes it, including the bit reinterpretation XNA's Write(float) and Write(double) overrides perform. Handing the bytes to CNA and back would add a handle, a second copy and a second implementation of arithmetic that is already exact here -- and the behaviour corpus measures it against the decompiled XNA.",
+      "evidence": "crates/cna/src/net/values.rs; crates/cna/tests/xna_behavior_corpus.rs's PacketWriter/PacketReader round trip",
+      "rustEvidence": [
+        "pub struct PacketWriter",
+        "pub struct PacketReader",
+        "fn put",
+        "fn take"
+      ]
+    },
+    "cna_packet_reader_read_vector3": {
+      "outcome": "IMPLEMENTED_IN_SAFE_RUST",
+      "reason": "XNA's PacketWriter and PacketReader derive from BinaryWriter and BinaryReader over a MemoryStream: pure managed types whose whole contract is byte order, position arithmetic and the exceptions they raise past the end. The projection owns the buffer directly and writes every value in the order XNA writes it, including the bit reinterpretation XNA's Write(float) and Write(double) overrides perform. Handing the bytes to CNA and back would add a handle, a second copy and a second implementation of arithmetic that is already exact here -- and the behaviour corpus measures it against the decompiled XNA.",
+      "evidence": "crates/cna/src/net/values.rs; crates/cna/tests/xna_behavior_corpus.rs's PacketWriter/PacketReader round trip",
+      "rustEvidence": [
+        "pub struct PacketWriter",
+        "pub struct PacketReader",
+        "fn put",
+        "fn take"
+      ]
+    },
+    "cna_packet_reader_read_vector4": {
+      "outcome": "IMPLEMENTED_IN_SAFE_RUST",
+      "reason": "XNA's PacketWriter and PacketReader derive from BinaryWriter and BinaryReader over a MemoryStream: pure managed types whose whole contract is byte order, position arithmetic and the exceptions they raise past the end. The projection owns the buffer directly and writes every value in the order XNA writes it, including the bit reinterpretation XNA's Write(float) and Write(double) overrides perform. Handing the bytes to CNA and back would add a handle, a second copy and a second implementation of arithmetic that is already exact here -- and the behaviour corpus measures it against the decompiled XNA.",
+      "evidence": "crates/cna/src/net/values.rs; crates/cna/tests/xna_behavior_corpus.rs's PacketWriter/PacketReader round trip",
+      "rustEvidence": [
+        "pub struct PacketWriter",
+        "pub struct PacketReader",
+        "fn put",
+        "fn take"
+      ]
+    },
+    "cna_packet_reader_set_data_ext": {
+      "outcome": "IMPLEMENTED_IN_SAFE_RUST",
+      "reason": "XNA's PacketWriter and PacketReader derive from BinaryWriter and BinaryReader over a MemoryStream: pure managed types whose whole contract is byte order, position arithmetic and the exceptions they raise past the end. The projection owns the buffer directly and writes every value in the order XNA writes it, including the bit reinterpretation XNA's Write(float) and Write(double) overrides perform. Handing the bytes to CNA and back would add a handle, a second copy and a second implementation of arithmetic that is already exact here -- and the behaviour corpus measures it against the decompiled XNA.",
+      "evidence": "crates/cna/src/net/values.rs; crates/cna/tests/xna_behavior_corpus.rs's PacketWriter/PacketReader round trip",
+      "rustEvidence": [
+        "pub struct PacketWriter",
+        "pub struct PacketReader",
+        "fn put",
+        "fn take"
+      ]
+    },
+    "cna_packet_reader_set_position": {
+      "outcome": "IMPLEMENTED_IN_SAFE_RUST",
+      "reason": "XNA's PacketWriter and PacketReader derive from BinaryWriter and BinaryReader over a MemoryStream: pure managed types whose whole contract is byte order, position arithmetic and the exceptions they raise past the end. The projection owns the buffer directly and writes every value in the order XNA writes it, including the bit reinterpretation XNA's Write(float) and Write(double) overrides perform. Handing the bytes to CNA and back would add a handle, a second copy and a second implementation of arithmetic that is already exact here -- and the behaviour corpus measures it against the decompiled XNA.",
+      "evidence": "crates/cna/src/net/values.rs; crates/cna/tests/xna_behavior_corpus.rs's PacketWriter/PacketReader round trip",
+      "rustEvidence": [
+        "pub struct PacketWriter",
+        "pub struct PacketReader",
+        "fn put",
+        "fn take"
+      ]
+    },
+    "cna_packet_writer_copy_data_ext": {
+      "outcome": "IMPLEMENTED_IN_SAFE_RUST",
+      "reason": "XNA's PacketWriter and PacketReader derive from BinaryWriter and BinaryReader over a MemoryStream: pure managed types whose whole contract is byte order, position arithmetic and the exceptions they raise past the end. The projection owns the buffer directly and writes every value in the order XNA writes it, including the bit reinterpretation XNA's Write(float) and Write(double) overrides perform. Handing the bytes to CNA and back would add a handle, a second copy and a second implementation of arithmetic that is already exact here -- and the behaviour corpus measures it against the decompiled XNA.",
+      "evidence": "crates/cna/src/net/values.rs; crates/cna/tests/xna_behavior_corpus.rs's PacketWriter/PacketReader round trip",
+      "rustEvidence": [
+        "pub struct PacketWriter",
+        "pub struct PacketReader",
+        "fn put",
+        "fn take"
+      ]
+    },
+    "cna_packet_writer_create": {
+      "outcome": "IMPLEMENTED_IN_SAFE_RUST",
+      "reason": "XNA's PacketWriter and PacketReader derive from BinaryWriter and BinaryReader over a MemoryStream: pure managed types whose whole contract is byte order, position arithmetic and the exceptions they raise past the end. The projection owns the buffer directly and writes every value in the order XNA writes it, including the bit reinterpretation XNA's Write(float) and Write(double) overrides perform. Handing the bytes to CNA and back would add a handle, a second copy and a second implementation of arithmetic that is already exact here -- and the behaviour corpus measures it against the decompiled XNA.",
+      "evidence": "crates/cna/src/net/values.rs; crates/cna/tests/xna_behavior_corpus.rs's PacketWriter/PacketReader round trip",
+      "rustEvidence": [
+        "pub struct PacketWriter",
+        "pub struct PacketReader",
+        "fn put",
+        "fn take"
+      ]
+    },
+    "cna_packet_writer_destroy": {
+      "outcome": "IMPLEMENTED_IN_SAFE_RUST",
+      "reason": "XNA's PacketWriter and PacketReader derive from BinaryWriter and BinaryReader over a MemoryStream: pure managed types whose whole contract is byte order, position arithmetic and the exceptions they raise past the end. The projection owns the buffer directly and writes every value in the order XNA writes it, including the bit reinterpretation XNA's Write(float) and Write(double) overrides perform. Handing the bytes to CNA and back would add a handle, a second copy and a second implementation of arithmetic that is already exact here -- and the behaviour corpus measures it against the decompiled XNA.",
+      "evidence": "crates/cna/src/net/values.rs; crates/cna/tests/xna_behavior_corpus.rs's PacketWriter/PacketReader round trip",
+      "rustEvidence": [
+        "pub struct PacketWriter",
+        "pub struct PacketReader",
+        "fn put",
+        "fn take"
+      ]
+    },
+    "cna_packet_writer_get_length": {
+      "outcome": "IMPLEMENTED_IN_SAFE_RUST",
+      "reason": "XNA's PacketWriter and PacketReader derive from BinaryWriter and BinaryReader over a MemoryStream: pure managed types whose whole contract is byte order, position arithmetic and the exceptions they raise past the end. The projection owns the buffer directly and writes every value in the order XNA writes it, including the bit reinterpretation XNA's Write(float) and Write(double) overrides perform. Handing the bytes to CNA and back would add a handle, a second copy and a second implementation of arithmetic that is already exact here -- and the behaviour corpus measures it against the decompiled XNA.",
+      "evidence": "crates/cna/src/net/values.rs; crates/cna/tests/xna_behavior_corpus.rs's PacketWriter/PacketReader round trip",
+      "rustEvidence": [
+        "pub struct PacketWriter",
+        "pub struct PacketReader",
+        "fn put",
+        "fn take"
+      ]
+    },
+    "cna_packet_writer_get_position": {
+      "outcome": "IMPLEMENTED_IN_SAFE_RUST",
+      "reason": "XNA's PacketWriter and PacketReader derive from BinaryWriter and BinaryReader over a MemoryStream: pure managed types whose whole contract is byte order, position arithmetic and the exceptions they raise past the end. The projection owns the buffer directly and writes every value in the order XNA writes it, including the bit reinterpretation XNA's Write(float) and Write(double) overrides perform. Handing the bytes to CNA and back would add a handle, a second copy and a second implementation of arithmetic that is already exact here -- and the behaviour corpus measures it against the decompiled XNA.",
+      "evidence": "crates/cna/src/net/values.rs; crates/cna/tests/xna_behavior_corpus.rs's PacketWriter/PacketReader round trip",
+      "rustEvidence": [
+        "pub struct PacketWriter",
+        "pub struct PacketReader",
+        "fn put",
+        "fn take"
+      ]
+    },
+    "cna_packet_writer_set_position": {
+      "outcome": "IMPLEMENTED_IN_SAFE_RUST",
+      "reason": "XNA's PacketWriter and PacketReader derive from BinaryWriter and BinaryReader over a MemoryStream: pure managed types whose whole contract is byte order, position arithmetic and the exceptions they raise past the end. The projection owns the buffer directly and writes every value in the order XNA writes it, including the bit reinterpretation XNA's Write(float) and Write(double) overrides perform. Handing the bytes to CNA and back would add a handle, a second copy and a second implementation of arithmetic that is already exact here -- and the behaviour corpus measures it against the decompiled XNA.",
+      "evidence": "crates/cna/src/net/values.rs; crates/cna/tests/xna_behavior_corpus.rs's PacketWriter/PacketReader round trip",
+      "rustEvidence": [
+        "pub struct PacketWriter",
+        "pub struct PacketReader",
+        "fn put",
+        "fn take"
+      ]
+    },
+    "cna_packet_writer_write_color": {
+      "outcome": "IMPLEMENTED_IN_SAFE_RUST",
+      "reason": "XNA's PacketWriter and PacketReader derive from BinaryWriter and BinaryReader over a MemoryStream: pure managed types whose whole contract is byte order, position arithmetic and the exceptions they raise past the end. The projection owns the buffer directly and writes every value in the order XNA writes it, including the bit reinterpretation XNA's Write(float) and Write(double) overrides perform. Handing the bytes to CNA and back would add a handle, a second copy and a second implementation of arithmetic that is already exact here -- and the behaviour corpus measures it against the decompiled XNA.",
+      "evidence": "crates/cna/src/net/values.rs; crates/cna/tests/xna_behavior_corpus.rs's PacketWriter/PacketReader round trip",
+      "rustEvidence": [
+        "pub struct PacketWriter",
+        "pub struct PacketReader",
+        "fn put",
+        "fn take"
+      ]
+    },
+    "cna_packet_writer_write_double": {
+      "outcome": "IMPLEMENTED_IN_SAFE_RUST",
+      "reason": "XNA's PacketWriter and PacketReader derive from BinaryWriter and BinaryReader over a MemoryStream: pure managed types whose whole contract is byte order, position arithmetic and the exceptions they raise past the end. The projection owns the buffer directly and writes every value in the order XNA writes it, including the bit reinterpretation XNA's Write(float) and Write(double) overrides perform. Handing the bytes to CNA and back would add a handle, a second copy and a second implementation of arithmetic that is already exact here -- and the behaviour corpus measures it against the decompiled XNA.",
+      "evidence": "crates/cna/src/net/values.rs; crates/cna/tests/xna_behavior_corpus.rs's PacketWriter/PacketReader round trip",
+      "rustEvidence": [
+        "pub struct PacketWriter",
+        "pub struct PacketReader",
+        "fn put",
+        "fn take"
+      ]
+    },
+    "cna_packet_writer_write_matrix": {
+      "outcome": "IMPLEMENTED_IN_SAFE_RUST",
+      "reason": "XNA's PacketWriter and PacketReader derive from BinaryWriter and BinaryReader over a MemoryStream: pure managed types whose whole contract is byte order, position arithmetic and the exceptions they raise past the end. The projection owns the buffer directly and writes every value in the order XNA writes it, including the bit reinterpretation XNA's Write(float) and Write(double) overrides perform. Handing the bytes to CNA and back would add a handle, a second copy and a second implementation of arithmetic that is already exact here -- and the behaviour corpus measures it against the decompiled XNA.",
+      "evidence": "crates/cna/src/net/values.rs; crates/cna/tests/xna_behavior_corpus.rs's PacketWriter/PacketReader round trip",
+      "rustEvidence": [
+        "pub struct PacketWriter",
+        "pub struct PacketReader",
+        "fn put",
+        "fn take"
+      ]
+    },
+    "cna_packet_writer_write_quaternion": {
+      "outcome": "IMPLEMENTED_IN_SAFE_RUST",
+      "reason": "XNA's PacketWriter and PacketReader derive from BinaryWriter and BinaryReader over a MemoryStream: pure managed types whose whole contract is byte order, position arithmetic and the exceptions they raise past the end. The projection owns the buffer directly and writes every value in the order XNA writes it, including the bit reinterpretation XNA's Write(float) and Write(double) overrides perform. Handing the bytes to CNA and back would add a handle, a second copy and a second implementation of arithmetic that is already exact here -- and the behaviour corpus measures it against the decompiled XNA.",
+      "evidence": "crates/cna/src/net/values.rs; crates/cna/tests/xna_behavior_corpus.rs's PacketWriter/PacketReader round trip",
+      "rustEvidence": [
+        "pub struct PacketWriter",
+        "pub struct PacketReader",
+        "fn put",
+        "fn take"
+      ]
+    },
+    "cna_packet_writer_write_single": {
+      "outcome": "IMPLEMENTED_IN_SAFE_RUST",
+      "reason": "XNA's PacketWriter and PacketReader derive from BinaryWriter and BinaryReader over a MemoryStream: pure managed types whose whole contract is byte order, position arithmetic and the exceptions they raise past the end. The projection owns the buffer directly and writes every value in the order XNA writes it, including the bit reinterpretation XNA's Write(float) and Write(double) overrides perform. Handing the bytes to CNA and back would add a handle, a second copy and a second implementation of arithmetic that is already exact here -- and the behaviour corpus measures it against the decompiled XNA.",
+      "evidence": "crates/cna/src/net/values.rs; crates/cna/tests/xna_behavior_corpus.rs's PacketWriter/PacketReader round trip",
+      "rustEvidence": [
+        "pub struct PacketWriter",
+        "pub struct PacketReader",
+        "fn put",
+        "fn take"
+      ]
+    },
+    "cna_packet_writer_write_vector2": {
+      "outcome": "IMPLEMENTED_IN_SAFE_RUST",
+      "reason": "XNA's PacketWriter and PacketReader derive from BinaryWriter and BinaryReader over a MemoryStream: pure managed types whose whole contract is byte order, position arithmetic and the exceptions they raise past the end. The projection owns the buffer directly and writes every value in the order XNA writes it, including the bit reinterpretation XNA's Write(float) and Write(double) overrides perform. Handing the bytes to CNA and back would add a handle, a second copy and a second implementation of arithmetic that is already exact here -- and the behaviour corpus measures it against the decompiled XNA.",
+      "evidence": "crates/cna/src/net/values.rs; crates/cna/tests/xna_behavior_corpus.rs's PacketWriter/PacketReader round trip",
+      "rustEvidence": [
+        "pub struct PacketWriter",
+        "pub struct PacketReader",
+        "fn put",
+        "fn take"
+      ]
+    },
+    "cna_packet_writer_write_vector3": {
+      "outcome": "IMPLEMENTED_IN_SAFE_RUST",
+      "reason": "XNA's PacketWriter and PacketReader derive from BinaryWriter and BinaryReader over a MemoryStream: pure managed types whose whole contract is byte order, position arithmetic and the exceptions they raise past the end. The projection owns the buffer directly and writes every value in the order XNA writes it, including the bit reinterpretation XNA's Write(float) and Write(double) overrides perform. Handing the bytes to CNA and back would add a handle, a second copy and a second implementation of arithmetic that is already exact here -- and the behaviour corpus measures it against the decompiled XNA.",
+      "evidence": "crates/cna/src/net/values.rs; crates/cna/tests/xna_behavior_corpus.rs's PacketWriter/PacketReader round trip",
+      "rustEvidence": [
+        "pub struct PacketWriter",
+        "pub struct PacketReader",
+        "fn put",
+        "fn take"
+      ]
+    },
+    "cna_packet_writer_write_vector4": {
+      "outcome": "IMPLEMENTED_IN_SAFE_RUST",
+      "reason": "XNA's PacketWriter and PacketReader derive from BinaryWriter and BinaryReader over a MemoryStream: pure managed types whose whole contract is byte order, position arithmetic and the exceptions they raise past the end. The projection owns the buffer directly and writes every value in the order XNA writes it, including the bit reinterpretation XNA's Write(float) and Write(double) overrides perform. Handing the bytes to CNA and back would add a handle, a second copy and a second implementation of arithmetic that is already exact here -- and the behaviour corpus measures it against the decompiled XNA.",
+      "evidence": "crates/cna/src/net/values.rs; crates/cna/tests/xna_behavior_corpus.rs's PacketWriter/PacketReader round trip",
+      "rustEvidence": [
+        "pub struct PacketWriter",
+        "pub struct PacketReader",
+        "fn put",
+        "fn take"
+      ]
+    },
+    "cna_property_dictionary_clear": {
+      "outcome": "OUTSIDE_XNA_SURFACE",
+      "reason": "XNA implements this as a **private explicit interface implementation**. It is not part of the type's public surface, so the projection does not publish it; the public members that do the same work -- Count, the indexer, GetEnumerator -- are all bound.",
+      "evidence": "xna4-decomp: PropertyDictionary's Add, Clear, Remove, Contains, CopyTo and get_IsReadOnly are private explicit implementations; the public surface is the eight SetValue overloads, the nine GetValue* overloads, Count, ContainsKey, the indexer, TryGetValue and GetEnumerator"
+    },
+    "cna_property_dictionary_create_ext": {
+      "outcome": "OUTSIDE_XNA_SURFACE",
+      "reason": "XNA's PropertyDictionary constructor is private: a dictionary is always something a leaderboard entry hands you, never something a game makes. The projection reaches one exactly that way, through LeaderboardEntry.Columns.",
+      "evidence": "xna4-decomp: PropertyDictionary's .ctor is private",
+      "rustEvidence": [
+        "pub fn Columns"
+      ]
+    },
+    "cna_property_dictionary_get_is_read_only": {
+      "outcome": "OUTSIDE_XNA_SURFACE",
+      "reason": "XNA implements this as a **private explicit interface implementation**. It is not part of the type's public surface, so the projection does not publish it; the public members that do the same work -- Count, the indexer, GetEnumerator -- are all bound.",
+      "evidence": "xna4-decomp: PropertyDictionary's Add, Clear, Remove, Contains, CopyTo and get_IsReadOnly are private explicit implementations; the public surface is the eight SetValue overloads, the nine GetValue* overloads, Count, ContainsKey, the indexer, TryGetValue and GetEnumerator"
+    },
+    "cna_property_dictionary_remove": {
+      "outcome": "OUTSIDE_XNA_SURFACE",
+      "reason": "XNA implements this as a **private explicit interface implementation**. It is not part of the type's public surface, so the projection does not publish it; the public members that do the same work -- Count, the indexer, GetEnumerator -- are all bound.",
+      "evidence": "xna4-decomp: PropertyDictionary's Add, Clear, Remove, Contains, CopyTo and get_IsReadOnly are private explicit implementations; the public surface is the eight SetValue overloads, the nine GetValue* overloads, Count, ContainsKey, the indexer, TryGetValue and GetEnumerator"
+    },
+    "cna_quality_of_service_init": {
+      "outcome": "IMPLEMENTED_IN_SAFE_RUST",
+      "reason": "A C convenience that fills `struct_size` and `struct_version` and zeroes the rest. Rust builds these descriptors as literals and has to set both fields anyway, so a call would be a round trip whose result the next line overwrites -- and the layout the literal assumes is the one the ABI verifier pins field by field, which is a stronger check than the initialiser agreeing with itself.",
+      "evidence": "tools/native-abi/verify.py's layout field-set verifier, 187 types",
+      "rustEvidence": [
+        "struct_version: 1"
+      ]
+    },
+    "cna_quality_of_service_init_measured": {
+      "outcome": "IMPLEMENTED_IN_SAFE_RUST",
+      "reason": "A C convenience that fills `struct_size` and `struct_version` and zeroes the rest. Rust builds these descriptors as literals and has to set both fields anyway, so a call would be a round trip whose result the next line overwrites -- and the layout the literal assumes is the one the ABI verifier pins field by field, which is a stronger check than the initialiser agreeing with itself.",
+      "evidence": "tools/native-abi/verify.py's layout field-set verifier, 187 types",
+      "rustEvidence": [
+        "struct_version: 1"
+      ]
+    },
+    "cna_signed_in_gamer_copy_gamertag": {
+      "outcome": "IMPLEMENTED_IN_SAFE_RUST",
+      "reason": "Gamertag is `Gamer`'s property, and SignedInGamer inherits it rather than redeclaring it. The projection reads it through the base routes -- cna_gamer_get_gamertag_size and cna_gamer_copy_gamertag, both bound and called -- so a signed-in gamer's tag comes from the same place as every other gamer's, which is what makes the two agree.",
+      "rustEvidence": [
+        "fn Gamertag",
+        "gamer_get_gamertag_size",
+        "gamer_copy_gamertag"
+      ]
+    },
+    "cna_signed_in_gamer_get_gamertag_size": {
+      "outcome": "IMPLEMENTED_IN_SAFE_RUST",
+      "reason": "Gamertag is `Gamer`'s property, and SignedInGamer inherits it rather than redeclaring it. The projection reads it through the base routes -- cna_gamer_get_gamertag_size and cna_gamer_copy_gamertag, both bound and called -- so a signed-in gamer's tag comes from the same place as every other gamer's, which is what makes the two agree.",
+      "rustEvidence": [
+        "fn Gamertag",
+        "gamer_get_gamertag_size",
+        "gamer_copy_gamertag"
+      ]
+    },
+    "cna_signed_in_gamer_set_party_size": {
+      "outcome": "OUTSIDE_XNA_SURFACE",
+      "reason": "XNA's SignedInGamer declares get_PartySize and no setter: a party's size is the platform's to report, not a game's to assign.",
+      "evidence": "xna4-decomp: SignedInGamer's public members include get_PartySize and no set_"
+    },
+    "cna_video_player_get_texture": {
+      "outcome": "ATOMIC_TABLE_MEMBER",
+      "reason": "Superseded by cna_video_player_get_frame_ext, which answers the same borrowed texture *and* the generation counter that lets a caller tell one frame from the next -- the whole reason RUST-BEHAVIOR-003 stopped being blocked. The slot is kept so the reviewed Media table resolves as a unit and a library missing any of it fails at load rather than at the first call that needs the missing route.",
+      "evidence": "crates/cna/src/native/media.rs's MediaApi doc names this exact case",
+      "rustEvidence": [
+        "video_player_get_frame_ext"
+      ]
+    },
+    "cna_write_leaderboards_event_info_init": {
+      "outcome": "IMPLEMENTED_IN_SAFE_RUST",
+      "reason": "A C convenience that fills `struct_size` and `struct_version` and zeroes the rest. Rust builds these descriptors as literals and has to set both fields anyway, so a call would be a round trip whose result the next line overwrites -- and the layout the literal assumes is the one the ABI verifier pins field by field, which is a stronger check than the initialiser agreeing with itself.",
+      "evidence": "tools/native-abi/verify.py's layout field-set verifier, 187 types",
+      "rustEvidence": [
+        "struct_version: 1"
+      ]
+    }
+  }
+}

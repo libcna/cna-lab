@@ -1,0 +1,1020 @@
+# CNA upstream findings measured from CNA-Rust
+
+Defects in CNA itself, found while binding or qualifying it from Rust. Each one
+is written so a later CNA session can reproduce it without this repository's
+history, this chat, or any handoff note: exact symbols, exact commit, the
+smallest sequence that shows it, what should happen, and what does.
+
+None of these are worked around in Rust. A Rust wrapper that turned a crashing
+native lifecycle into a tidy `Result` would hide the defect from the only people
+who can fix it, and would leave every other CNA binding to rediscover it.
+
+Re-measure a finding by running its reproducer against the current dependency
+and updating the "last measured" line. If one stops reproducing, verify the fix
+is semantic rather than incidental, then retire the finding and reclassify the
+routes it blocks -- `tools/c-api-inventory/classification.json` names the
+finding id, so the census will not let the change pass unnoticed.
+
+## Status against CNA C ABI 0.35.0 (re-measured 2026-09-30)
+
+Every finding below was re-run against `libcna/cna` `next` (4228ff913, then 5b4edd6cc, ABI 0.35.0) on the HEADLESS
+artifact and on an OPENGLES3 artifact with the device layer, CNAEXT and compiled effects, both
+staged under `~/deps/cna-c-abi-0.35.0*` with a `PROVENANCE.txt`. The sections keep the original
+write-ups; this table is the current answer.
+
+| Finding | Status at 0.35 | Evidence |
+|---|---|---|
+| 020 camera override dangles | **fixed upstream** (CNA `BINDFIX-011`); camera family now projected, 0 `BLOCKED_UPSTREAM` routes | `upstream_camera_destroy.rs`, `extensions_devices.rs` |
+| 021 content-loaded Model teardown faults | **fixed upstream** (`BINDFIX-006`); destroy and leak both exit cleanly | `upstream_model_destroy.rs`, `extensions_native_model.rs` |
+| 022 imported skin's skeleton unreachable | **fixed upstream** (`BINDFIX-030`); aliasing borrow of the model | `extensions_native_model.rs` |
+| 023 concurrent GL device create corrupts the heap | reproduced on OPENGLES3 at 4228ff913 (aborts, and a create/destroy deadlock in `X11_ShowWindow` against `ReleaseSubsystem`); **fixed upstream** in 5b4edd6cc (`BINDFIX-050`): 40/40 unserialised runs clean, so the crate's `CREATING_A_DEVICE` lock is removed (30/30 Rust runs clean without it) | `tools/reproducers/ext015h_concurrent_device_create.c`, `upstream_concurrent_device_create.rs` |
+| 024 stale morph stride list | **fixed upstream** (`BINDFIX-007`); all eleven canonical strides accepted, 36 refused | `upstream_morph_stride.rs` |
+| 025 area-light BRDF table owned handle | **no longer applicable**: the route left with `engine_layer.h` (ABI 0.30) | -- |
+| 026 launch parameters `add` keeps the first value | header corrected (`BINDFIX-008`); behaviour unchanged, an owner decision in CNA | `extensions_game_runtime.rs` |
+| 027 sample duration/size helpers are not XNA's | **still reproduces** (e.g. 500 ms at 44.1 kHz stereo: CNA 88200, XNA 88198); Rust keeps XNA's arithmetic | `tools/reproducers/ext015q_sample_math.c` |
+| 028 packet truncation | **fixed upstream** (GS-007m): a packet too large for the buffer is refused and stays queued, the reader overload reports its size | `tools/reproducers/census002_packet_truncation.c`, `net_native.rs` |
+| 029 `GamerServicesComponent` skips the base calls | still true in source (CNA follows FNA there); unobservable, because `GameComponent`'s `Initialize`/`Update` are empty | source only |
+| 030 a technique added through the C API cannot be selected | **new**, found in this pass: `cna_effect_set_current_technique` refuses a technique `cna_effect_technique_collection_add_named`/`_add_default` just added to the same effect; **fixed upstream** in 9c78d281c (`BINDFIX-045`); the stress test now selects the technique | `tools/reproducers/census030_effect_technique_owner.c`, `native_stress.rs` |
+| 031 exiting with an avatar load running crashes or hangs | **new**, found in this pass: static destruction frees the tables the avatar loader thread still reads; **fixed upstream** in e6d562454 (`BINDFIX-046`); `gamer_services_native` 0/30 exit failures with a load left running (8/30 before) | `tools/reproducers/census031_avatar_loader_exit.c` |
+
+---
+
+## RUST-UPSTREAM-020 — a destroyed camera leaves CNA's platform override dangling
+
+| | |
+|---|---|
+| Symbols | `cna_camera_create_with_test_backend_ext`, `cna_camera_destroy`, and every route that reads the platform camera list |
+| Dependency | cnanext `35268971c826d48ec3d40939e9b34a2b0595f94b`, ABI 0.21.0 |
+| Artifact | `cmake-build-opengles3`, `CNA_CNAEXT=ON -DCNA_DEVICES=ON` |
+| Severity | Process fault. `SIGSEGV`, wait status 139 |
+| Blocks | 15 routes, the whole `cna_camera_*` family |
+| Last measured | 2026-09-01, reproduces |
+| Related | CNA-Java reports the same family as `JAVA-UPSTREAM-019`. This finding was located and measured independently from Rust; the mechanism below comes from reading the current source, not from the Java report. |
+
+### Mechanism
+
+`cna_camera_create_with_test_backend_ext` (`modules/c-api/src/CnaCApiDevices.cpp`,
+around line 2099) points CNA's **global** platform override at memory the camera
+handle owns:
+
+```cpp
+auto resource = std::make_shared<CameraResource>();
+resource->testState   = std::make_shared<CameraTestState>();
+resource->testService = std::make_unique<TestCameraProvider>(resource->testState);
+CNA::C::Detail::GetPlatformOverride().SetCamera(resource->testService.get());
+```
+
+`SetCamera` stores a bare `IPlatformCameraProvider*`
+(`CnaCApiPlatformOverride.hpp:226`). `cna_camera_destroy` releases the handle,
+which destroys `CameraResource` and with it the `unique_ptr` that owned that
+provider -- and never clears the override:
+
+```cpp
+CNA_Result cna_camera_destroy(const CNA_CameraHandle camera)
+{
+    ...
+    const CNA_Result result = CNA::C::Detail::GetRuntimeHandles().Release(camera);
+    ...   // no SetCamera(nullptr) anywhere
+}
+```
+
+Every later route that consults the platform camera list -- `cna_camera_get_count_ext`
+reaches it through `Camera::getAvailableCamerasProperty()` -- dereferences the
+freed provider.
+
+The comment on `CameraResource::testService` says "the provider lives as long as
+the camera handle does", which is exactly right and exactly the problem: the
+override outlives the handle.
+
+### Reproducer
+
+`crates/cna/tests/upstream_camera_destroy.rs`. It runs the sequence in a child
+process, because the failure is a fault rather than a result code and an
+in-process test would take the suite down without proving anything repeatable.
+
+```
+CNA_NATIVE_LIBRARY=<cmake-build-opengles3>/modules/c-api/libcna_c_api.so \
+  cargo test -p cna-rust --test upstream_camera_destroy -- --nocapture
+```
+
+Two stages, differing by one call:
+
+| Stage | Sequence | Expected | Measured |
+|---|---|---|---|
+| `baseline` | create test camera, set state, read state, destroy | exits 0 | exits 0 |
+| `after-destroy` | the same, then one `cna_camera_get_count_ext` | exits 0 | **`SIGSEGV`, wait status 139** |
+
+The only difference is the call after destroy, so the fault is the override and
+not the teardown.
+
+### Why this is CNA rather than Rust
+
+The Rust side holds no pointer into the camera resource and does nothing after
+`cna_camera_destroy` but call another public route with a valid game handle.
+The freed memory belongs to a CNA global that CNA set and CNA never cleared. No
+ordering a caller could choose avoids it: the override is process-wide, so any
+camera destroy poisons every later camera query in the process.
+
+### What a fix would look like
+
+`cna_camera_destroy` clearing the override it set -- guarding against clearing a
+provider some *other* live camera installed -- or the override holding a
+`weak_ptr`/`shared_ptr` so the pointer cannot outlive the resource.
+
+### Status in this binding
+
+The 15 `cna_camera_*` routes are `BLOCKED_UPSTREAM` in
+`tools/c-api-inventory/classification.json`, owned by this finding.
+`cna::extensions::devices::Camera` exists only so the reproducer can drive the
+sequence and keep measuring it; it is deliberately not a projection to build on,
+and its doc comment says so.
+
+---
+
+## RUST-UPSTREAM-021 — destroying a content-loaded Model dereferences a null part
+
+| | |
+|---|---|
+| Symbols | `cna_model_destroy` on a handle from `cna_content_manager_load_model` |
+| Dependency | cnanext `35268971c826d48ec3d40939e9b34a2b0595f94b`, ABI 0.21.0 |
+| Artifact | `cmake-build-headless`, `CNA_GRAPHICS_RENDERER=HEADLESS` |
+| Severity | Process fault. `SIGSEGV`, wait status 139, faulting address `0x490` |
+| Blocks | The teardown of every loaded model that has at least one mesh part |
+| Last measured | 2026-09-01, reproduces |
+
+### Mechanism
+
+`MeshResource::~MeshResource` (`modules/c-api/src/CnaCApiModels.cpp`, around
+line 320) hands each part back its standalone copy as the mesh goes away:
+
+```cpp
+for (const std::shared_ptr<PartResource>& part : parts) {
+    if (part->parentMesh != this) { continue; }
+    part->parentMesh = nullptr;
+    part->value = std::move(part->detachedValue);
+}
+```
+
+That is right for a **hand-built** part, which has a `detachedValue` holding a
+`ModelMeshPart` of its own, so the part keeps working after its mesh is gone.
+
+A **content-loaded** part has no `detachedValue`. `MirrorLoadedModel` fills only
+`value`, with an aliasing pointer into the loaded model:
+
+```cpp
+part->value = BorrowFromModel(model->value, nativePart);   // detachedValue stays empty
+```
+
+So for a loaded part the move above assigns an **empty** `shared_ptr` over a
+perfectly good one. `~PartResource` then runs, two lines later in the same
+teardown, and dereferences it:
+
+```cpp
+~PartResource()
+{
+    value->setTagProperty(nullptr);                      // no null check
+    if (detachedValue != nullptr) {                      // ... but this one has it
+        detachedValue->setTagProperty(nullptr);
+    }
+}
+```
+
+`ModelMeshPart::setTagProperty` is `tag_ = value`, and `tag_` sits past two
+`std::array<SamplerState, N>` members, which is why the fault address is
+`0x490` rather than `0x0`: it is a null `this` plus the offset of `tag_`.
+
+### Reproducer
+
+`tools/reproducers/ext015g_load_model_destroy.c` loads a model and destroys it;
+`tools/reproducers/ext015g_handbuilt_mesh.c` is the control that builds the same
+shape by hand. `tools/reproducers/README.md` has the build line; both take the
+headless artifact:
+
+```sh
+gcc -O0 -g -rdynamic -D_GNU_SOURCE tools/reproducers/ext015g_load_model_destroy.c \
+  -I<cnanext>/modules/c-api/include \
+  -L<cnanext>/cmake-build-headless/modules/c-api -lcna_c_api \
+  -o build-probe/ext015g_load_model_destroy
+LD_LIBRARY_PATH=<cnanext>/cmake-build-headless/modules/c-api \
+  ./build-probe/ext015g_load_model_destroy <content-root> <asset-name>
+```
+
+From Rust, `crates/cna/tests/upstream_model_destroy.rs` runs the load in a child
+process, because the failure is a fault rather than a result code.
+
+| Case | Result |
+|---|---|
+| load a glTF with one mesh part, destroy | loads, then `SIGSEGV`, 139 |
+| load the same asset and never destroy it | reaches the end of its work, then `SIGSEGV`, 139 at exit |
+| build a model with one mesh part by hand, destroy | exits 0 |
+
+The first and third isolate it: *content-loaded* rather than *hand-built* is
+what makes the difference, which is exactly what a missing `detachedValue`
+predicts. The second is why nothing in the binding guards the teardown.
+
+A loaded model with **no** mesh part would be the other useful control, and it
+does not exist: CNA's importer refuses such a source outright -- "contains no
+mesh instances to import" -- so every model the glTF path can produce has a
+part.
+
+### Why this is CNA rather than the binding
+
+The middle case is pure C with no Rust in the process, and it uses only the
+teardown the header documents: "the handles this route creates for them are
+released when the model is destroyed -- do not release them by hand". A caller
+following that sentence exactly is the caller that faults.
+
+### What a fix looks like
+
+Either half closes it, and both are one line:
+
+* guard `value` in `~PartResource` the way the next line already guards
+  `detachedValue`; or
+* in `~MeshResource`, only take `detachedValue` when there is one --
+  `if (part->detachedValue != nullptr) { part->value = std::move(part->detachedValue); }`.
+
+The second is the closer fix: a loaded part's `value` is an aliasing pointer that
+keeps the model alive on its own, so it does not need replacing at all.
+
+### Leaking the handle does not avoid it
+
+Measured, because it was the obvious first response and it is wrong. With
+`cna_model_destroy` never called at all -- the model handle simply abandoned,
+the content manager and the device both destroyed cleanly --
+`tools/reproducers/ext015g_manager_teardown.c` still exits 139, with the same stack
+and the same `0x490`. The C API's handle registry owns the `ModelResource`, and
+its teardown at process exit runs the same `~MeshResource` / `~PartResource`
+pair.
+
+So a guard on the Rust side would not remove the fault; it would move it from a
+place the caller can see to one they cannot, and would leave a test suite that
+reports success and then dies. Nothing in the binding guards it.
+
+### Status in the binding
+
+`cna::extensions::native_model::NativeModel` is bound and every route answers
+correctly -- loading, navigation, the import report, cameras, skins and material
+variants. Only teardown is affected, and it is unavoidable, so the type's own
+documentation says up front that loading a model with a mesh part will fault the
+process before it ends.
+
+The crate's tests for the type therefore run in a **child process** and read the
+results back through its output, exactly as the camera reproducer does. When
+this finding stops reproducing, those children will start exiting 0 and say so.
+
+---
+
+## RUST-UPSTREAM-022 — a content-loaded skin's skeleton is unreachable
+
+| | |
+|---|---|
+| Symbols | `cna_model_create_skin_skeleton_handle_ext` |
+| Dependency | cnanext `35268971c826d48ec3d40939e9b34a2b0595f94b`, ABI 0.21.0 |
+| Artifact | `cmake-build-headless`, `CNA_GRAPHICS_RENDERER=HEADLESS` |
+| Severity | Capability gap. A documented route refuses a documented input; no fault, no corruption |
+| Blocks | Reading the skeleton of any skin CNA's own content pipeline imported |
+| Last measured | 2026-09-01, reproduces |
+
+### What happens
+
+Load a glTF that declares a skin, ask `cna_model_get_skin_ext` about it -- it
+answers `out_has_data = true`, so the skin names a skeleton -- then ask for that
+skeleton:
+
+```text
+cna_model_create_skin_skeleton_handle_ext(model, 0, &data)
+  -> CNA_RESULT_INVALID_STATE
+     "The Model skin's skeleton was not created through the C API."
+```
+
+The header documents one refusal for this route, and it is a different one:
+"`CNA_RESULT_INVALID_STATE` when the skin names no skeleton". This skin does
+name one.
+
+### Why it matters
+
+`cna_model_add_skin_ext` and `cna_model_create_skin_skeleton_handle_ext` are a
+matched pair, and they work for a skin a C caller added. The skins that carry
+real data are the ones the importer produced, and those are the ones the route
+will not answer for -- so a binding can see that a glTF scene has skins, how
+many meshes each poses and what each is called, but never the joints.
+
+### Reproducer
+
+`crates/cna/tests/extensions_native_model.rs`,
+`the_imported_skin_names_the_meshes_it_poses`. It asserts the refusal as
+measured and fails if the skeleton ever becomes reachable, which is what will
+say the finding can be retired.
+
+### What a fix looks like
+
+Either publish a `SkinningData` handle over the loaded skeleton the way
+`cna_model_get_content_tag_dictionary_ext` publishes an aliasing handle over the
+model's tag, or -- if that is deliberate -- say so in the header, because the
+documented refusal does not currently cover this case.
+
+### Status in the binding
+
+`NativeModel::skin_skeleton` passes the refusal through rather than folding it
+into `None`: "there is no skeleton" and "the skeleton exists and cannot be
+reached" are different facts, and `ModelSkin::has_skeleton` already reports the
+first.
+
+---
+
+## RUST-UPSTREAM-023 — concurrent `cna_graphics_device_create` corrupts the heap
+
+| | |
+|---|---|
+| Symbols | `cna_graphics_device_create` |
+| Dependency | cnanext `35268971c826d48ec3d40939e9b34a2b0595f94b`, ABI 0.21.0 |
+| Artifact | `cmake-build-opengles3`, `CNA_GRAPHICS_RENDERER=OPENGLES3`; not reproducible on `cmake-build-headless` |
+| Severity | Memory corruption. `SIGSEGV` or a glibc `double free or corruption` `SIGABRT`, in a call documented to fail cleanly |
+| Blocks | Nothing permanently — the binding serialises construction — but it makes any multi-threaded C caller of this route unsafe |
+| Last measured | 2026-09-01, reproduces |
+
+### What happens
+
+Six threads call `cna_graphics_device_create` at the same time, each with its
+own `CNA_PresentationParameters` and its own output handle. Nothing is shared
+between them at the ABI surface. About one run in five dies:
+
+```text
+double free or corruption (fasttop)
+tcache_thread_shutdown(): unaligned tcache chunk detected
+```
+
+or a plain `SIGSEGV`. The rest of the runs report `CNA_RESULT_SUCCESS` on
+every thread and exit cleanly, so the corruption is a race and not a refusal.
+
+### Mechanism
+
+From the `SIGSEGV` core, the whole path is upstream C++ and SDL:
+
+```text
+cna_graphics_device_create
+  Microsoft::Xna::Framework::Graphics::GraphicsDevice::GraphicsDevice(...)
+  GraphicsDevice::resolveRenderer()
+  GraphicsDevice::createRenderer()
+  CNA::Internal::Renderers::EasyGL::CreateGraphicsRendererForProfile(...)
+  EasyGL::EasyGLRenderer::EasyGLRenderer(...)
+  EasyGL::EasyGLPlatformContext::EasyGLPlatformContext(...)
+  CNA::Platform::Sdl3::Sdl3GlContext::CreateContext(uint32_t, const GlContextDescription&)
+  SDL_GL_CreateContext_REAL -> Wayland_GLES_CreateContext
+  SDL_EGL_CreateContext -> SDL_EGL_MakeCurrent -> driBindContext -> dri_create_image
+```
+
+`Sdl3GlContext::CreateContext` does take a `std::mutex` — the `SIGABRT` core
+catches a second thread blocked in `std::lock_guard` inside it — but the lock
+does not cover the whole construction, so two threads still reach SDL's video
+and EGL layer concurrently. SDL's video subsystem is not safe to call from
+several threads at once, and Mesa's context binding underneath it is what
+scribbles on the heap.
+
+### Reproducer
+
+`tools/reproducers/ext015h_concurrent_device_create.c`. Build it against an
+artifact and run it repeatedly; `REPRO_THREADS`, `REPRO_NO_DESTROY`,
+`REPRO_SERIALIZE_CREATE` and `REPRO_SERIALIZE_DESTROY` select the variants.
+
+| Variant | Artifact | Aborts |
+|---|---|---|
+| 6 threads, create + destroy | OPENGLES3 | 13 / 70 |
+| 6 threads, create only (handles leaked) | OPENGLES3 | 8 / 30 |
+| 1 thread, create + destroy | OPENGLES3 | 0 / 30 |
+| 6 threads, create + destroy | HEADLESS | 0 / 30 |
+| 6 threads, create only | HEADLESS | 0 / 30 |
+| 6 threads, **create serialised**, destroy free | OPENGLES3 | 0 / 120 |
+| 6 threads, create and destroy both serialised | OPENGLES3 | 0 / 40 |
+
+Two things follow from that table. Destroying is not implicated: leaking every
+handle crashes just as often, and serialising destroy on top of create buys
+nothing. And the renderer is: HEADLESS builds no GL context and never faults.
+
+### Why this is CNA rather than the binding
+
+It reproduces in twenty lines of C with no Rust in the process, and the entire
+faulting stack is inside `libcna_c_api.so` and its own dependencies.
+
+It is also a contract question, not only an implementation one. This ABI
+already has a way to say "you called me from a thread you may not":
+`CNA_RESULT_THREAD` / `CNA_ERROR_CATEGORY_THREAD`, defined in `abi.h` and
+`core.h` as "invoked from a disallowed thread". `cna_graphics_device_create`
+neither documents a thread affinity in its header block — which is otherwise
+careful, covering several devices being live at once and one being destroyed
+while another lives — nor returns that result. It corrupts the heap instead.
+
+### What a fix looks like
+
+Either of two, and the choice is upstream's:
+
+- Serialise renderer construction internally, so the guarantee the header
+  already implies ("several may exist at once") holds however they were made.
+- Or declare the affinity: document that this route is main-thread-only, and
+  answer `CNA_RESULT_THREAD` when it is not, which is what the result code is
+  for.
+
+Serialising is the smaller change and matches what the binding measured to be
+sufficient.
+
+### Status in the binding
+
+`GraphicsDevice::new` holds a process-wide `CREATING_A_DEVICE` mutex across the
+`cna_graphics_device_create` call and releases it immediately after, so devices
+are still used and dropped concurrently. Safe Rust may not hand out a data race
+that corrupts the heap, and the reproducer shows serialising construction alone
+removes it.
+
+The lock reaches only calls made through this crate. A process that also calls
+`cna_graphics_device_create` directly — another binding in the same address
+space, say — is not protected, which is why this stays an upstream finding
+rather than a closed one.
+
+This is what made `crates/cna/tests/extensions_effects.rs` fail intermittently
+under a parallel run: five of its six tests build an independent device, and
+the test harness runs them on separate threads. Before the fix that binary
+aborted on 12 of 40 runs; after it, 0 of 40. The regression test is
+`crates/cna/tests/upstream_concurrent_device_create.rs`.
+
+---
+
+## RUST-UPSTREAM-024 — the morph-target stride list is stale, and excludes every tangent-carrying layout
+
+| | |
+|---|---|
+| Symbols | `cna_morph_target_data_ext_create`, `cna_morph_target_data_ext_blend`, `cna_model_mesh_part_set_morph_weights_ext` |
+| Dependency | cnanext `35268971c826d48ec3d40939e9b34a2b0595f94b`, ABI 0.21.0 |
+| Artifact | Renderer-independent; measured on `cmake-build-headless` |
+| Severity | Capability gap with a documented cause. A clean `CNA_RESULT_INVALID_ARGUMENT`, no fault |
+| Blocks | Morph targets on any physically based glTF mesh, through the C API |
+| Last measured | 2026-09-01, reproduces |
+
+### What happens
+
+`ValidateMorphShape` in `CnaCApiModels.cpp:1168` opens with
+
+```cpp
+if (data.Stride != 32 && data.Stride != 52 && data.Stride != 56) {
+    return InvalidArgument("Morph target stride must be 32, 52, or 56 bytes.");
+}
+```
+
+CNA's renderer has one canonical table of what a stride means,
+`InferredLayoutForStride` in `VertexDeclarationFidelity.hpp`, and it lists
+eleven strides: 16, 20, 24, 32, 48, 52, 56, 60, 68, 76, 80. The C API takes
+three of them. Measured from Rust:
+
+```text
+accepted [32, 52, 56]
+refused 16, 20, 24, 48, 60, 68, 76, 80
+  -- all: "Morph target stride must be 32, 52, or 56 bytes."
+```
+
+### Why those three
+
+They are exactly the canonical layouts with **no tangent**. Every stride the
+route accepts carries Position at 0 and Normal at 12 and stops there; every
+stride it refuses that has a normal — 48 and 68 — carries a `Vector4` Tangent
+at offset 24 as well.
+
+| Stride | Position | Normal | Tangent | C API |
+|---|---|---|---|---|
+| 32 | 0 | 12 | — | accepted |
+| 52 | 0 | 12 | — | accepted |
+| 56 | 0 | 12 | — | accepted |
+| 48 | 0 | 12 | 24 (`Vector4`) | refused |
+| 68 | 0 | 12 | 24 (`Vector4`) | refused |
+
+48 is the unskinned tangent layout and 68 the skinned one. Since GLTF-215
+changed which effect a metallic-roughness material selects, those two are what
+an ordinary PBR glTF mesh gets — so PBR morph targets cannot be handed to this
+route at all.
+
+### This list was already retired once, in the other half of the codebase
+
+`BlendMorphTargetsEXT` in `modules/graphics/src/Xna/MorphTargetEXT.cpp` used to
+hold the same literal and no longer does. Its own comment says why:
+
+> This used to be the literal list {32, 52, 56}, written when those were the
+> only strides a mesh with normals could have. GLTF-215 changed which effect a
+> metallic-roughness material selects, and with it the strides an ordinary glTF
+> mesh gets (48 unskinned, 68 skinned) — both of which carry Normal at offset
+> 12 and neither of which was in the list, so every PBR morph target silently
+> kept its base normals while its positions moved. Restating an ABI is what let
+> that happen, so the predicate is now a query against the canonical stride
+> table itself and cannot go stale again.
+
+The fix (GLTF-278) landed in the blender and not in the C API's validator, so
+the same restated ABI survives one layer up — and it now fails closed rather
+than silently, which is better but still wrong.
+
+### Why this is CNA rather than the binding
+
+The literal is in CNA's own C source, it contradicts CNA's own canonical table,
+and CNA's own comment argues against restating it. Nothing about the Rust
+projection is involved: `MorphTargetData::new` passes the caller's stride
+through unchanged and reports the refusal.
+
+The header is silent on this too. `models.h` documents `stride` only as "byte
+stride of one base-pose vertex" and names no permitted set, so a caller has no
+way to learn the restriction except by being refused.
+
+### What a fix looks like
+
+Replace the literal in `ValidateMorphShape` with the query the blender already
+uses — `InferredLayoutForStride(stride, UnlistedStrideLayout::RendererRefusesIt)`
+and a check that the layout is `known` — so the validator and the blender agree
+by construction. If a narrower set really is intended, `models.h` should say
+which and why.
+
+### Status in the binding
+
+Reported as measured. `MorphTargetData::new` documents the restriction and the
+reason in full, and `crates/cna/tests/upstream_morph_stride.rs` pins the
+accepted set to `[32, 52, 56]` and fails when it changes — which is what will
+say this can be retired. No Rust-side workaround: re-packing a caller's stride-48
+vertices into stride 32 would drop their tangents, which is the very data the
+refusal is about.
+
+---
+
+## RUST-UPSTREAM-025 — the only engine-layer getter that publishes an owned handle
+
+| | |
+|---|---|
+| Symbols | `cna_area_light_brdf_table_get_texture` |
+| Dependency | cnanext `35268971c826d48ec3d40939e9b34a2b0595f94b`, ABI 0.21.0 |
+| Artifact | `cmake-build-opengles3`, `CNA_CNAEXT=ON` (the engine layer is required) |
+| Severity | Contract inconsistency with a real consequence: the handle gates `cna_game_destroy` |
+| Blocks | Nothing. The route works and the binding models it as it is |
+| Last measured | 2026-09-01, reproduces |
+
+### The anomaly
+
+The header says the handle borrows:
+
+> The handle **borrows**: it keeps the table alive while it exists, and
+> releasing it releases only the handle, never the texture.
+
+The implementation publishes it through `CreateOwnedTexture2D`
+(`CnaCApiEngineLayer.cpp:20394`), over an aliasing `shared_ptr` that shares the
+*table's* refcount while pointing at the texture.
+
+Counted across the engine layer, that makes it the odd one out:
+
+| Publisher | Routes |
+|---|---|
+| `CreateBorrowedRenderTarget2D` | 10, every one of them a getter: `cna_color_grade_pass_get_lut`, `cna_effect_get_shadow_map_ext`, `cna_effect_get_image_based_light_ext`, `cna_render_pipeline_get_scene_target`, `cna_clustered_forward_effect_get_opaque_frame`, `cna_weighted_blended_transparency_get_{accumulation,revealage}_texture_ext`, `cna_render_target_pool_acquire`, `cna_pbr_material_apply_state`, `cna_clustered_shadow_policy_select` |
+| `CreateOwnedTexture2D` | 4: `cna_color_grade_pass_create_identity_lut`, `cna_cube_lut_create_strip_texture`, `cna_environment_processor_generate_brdf_lut` — and `cna_area_light_brdf_table_get_texture` |
+
+Three of the four owned publishers *make* a texture the caller asked for. The
+fourth is a plain `_get_`. It is the only getter in the module that hands back
+an owned handle.
+
+### Implementation, contract, or both — it is the contract
+
+The implementation does what the prose promises. Measured from Rust, in
+`crates/cna/tests/extensions_engine.rs`:
+
+```text
+NOTE: RUST-UPSTREAM-025 brdf texture: both answered true, sizes agree true,
+      table readable after one handle dropped true,
+      width after the table was released Some(32)
+```
+
+Two successive calls both answer and describe the same texture; dropping one
+handle leaves the table fully readable, so releasing the handle really does
+release nothing but the handle; and a handle held past
+`cna_area_light_brdf_table_destroy` still reads its width, so the alias really
+does keep the table alive. Every clause of the header's sentence holds.
+
+What differs is the *kind* of handle, and that is not a naming detail:
+
+```cpp
+// CreateOwnedTexture2DWithKind, CnaCApiGraphics.cpp:503
+if (parentGame != CNA_INVALID_HANDLE) {
+    AddOwnedGraphicsResourceFor(parentGame);
+}
+```
+
+`CreateBorrowedRenderTarget2D` does not make that call, and takes an explicit
+`adapterLifetime` instead. And the counter it bumps is the one that gates
+shutdown — `AddOwnedGraphicsResourceFor`'s own comment says "Only a game's
+resources gate `cna_game_destroy`".
+
+So a caller who reads the table's texture inside a game and does not destroy
+the handle has, without being told, made the game undestroyable. Doing exactly
+the same thing with `cna_effect_get_shadow_map_ext` — the same shape of call,
+one page away in the same header — costs nothing. The handle also answers
+`cna_texture2d_destroy` rather than `cna_render_target_destroy`, unlike all ten
+of its analogues, so a caller who disposes of it the way the neighbours are
+disposed of strands it.
+
+### Why this is CNA rather than the binding
+
+The choice of publisher is in CNA's C source, the counter it bumps is CNA's,
+and the header sentence that does not mention any of it is CNA's. A binding can
+only model the behaviour or misreport it.
+
+### What a fix looks like
+
+Either of two, and the choice is upstream's — they are not equivalent:
+
+- **Publish it borrowed**, like the other ten getters, so a `_get_` route costs
+  nothing to call and the handle is disposed of the way its neighbours are.
+  This changes the handle kind, so it is an ABI-visible change.
+- **Or keep it owned and say so**: state in the header that this handle is an
+  owned `Texture2D`, that it counts against the game's graphics resources, and
+  that it must be released with `cna_texture2d_destroy`. The word "borrows" is
+  true of the *storage* and misleading about the *handle*, which is precisely
+  the confusion worth removing.
+
+### Status in the binding
+
+`AreaLightBrdfTable::texture` wraps it with `Texture2D::from_owned_handle`, so
+Rust's drop destroys the handle and the game's resource count returns to zero
+on its own. The doc comment states the anomaly rather than smoothing it over,
+because a caller who reaches past the binding needs to know. The measurement
+above is asserted, so a change of behaviour upstream fails the test rather than
+passing silently.
+
+---
+
+## RUST-UPSTREAM-026 — `cna_game_launch_parameters_add` neither adds-or-replaces nor refuses
+
+| | |
+|---|---|
+| Symbols | `cna_game_launch_parameters_add` |
+| Dependency | cnanext `35268971c826d48ec3d40939e9b34a2b0595f94b`, ABI 0.21.0 |
+| Artifact | Renderer-independent; measured on `cmake-build-headless` |
+| Severity | Contract mismatch that loses a caller's write silently and reports success |
+| Blocks | Nothing. The binding reports the behaviour as measured |
+| Last measured | 2026-09-01, reproduces |
+
+### Three answers to one question
+
+The header says:
+
+> `@brief` Adds **or replaces** one launch parameter.
+
+The implementation does not replace. `cna_game_launch_parameters_add` calls
+`LaunchParameters::Add`, which is:
+
+```cpp
+void LaunchParameters::Add(const std::string& key, const std::string& value)
+{
+    // FNA's Dictionary<string,string>.Add throws on duplicate key; emplace silently ignores it.
+    // Parse always guards with ContainsKey first, so this deviation is safe in practice.
+    emplace(key, value);
+}
+```
+
+`emplace` keeps the value already there. And XNA, which both are modelled on,
+does a third thing: `Dictionary<string, string>.Add` throws
+`ArgumentException` on a duplicate key.
+
+So the same operation has three different contracts:
+
+| | duplicate key |
+|---|---|
+| XNA / FNA | throws |
+| CNA's C++ `LaunchParameters::Add` | keeps the first, silently |
+| CNA's C header | says it replaces |
+
+Measured from Rust — add `difficulty=hard`, then add `difficulty=easy`:
+
+```text
+CNA_RESULT_SUCCESS both times; the value afterwards is "hard"
+```
+
+The second call reports success and does nothing. A C caller has no way to
+overwrite a parameter, and no way to learn that their write was dropped.
+
+### The comment's own reasoning does not cover this route
+
+The deviation is deliberate and annotated, and the annotation's argument is
+that `Parse` guards with `ContainsKey` first, so `emplace` and a throwing `Add`
+behave identically *there*. That is true of `Parse`. It is not true of
+`cna_game_launch_parameters_add`, which is a public C entry point reaching the
+same method with no guard in front of it — and the header in front of *it*
+promises the opposite behaviour again.
+
+### Why this is CNA rather than the binding
+
+The header text, the C entry point and the C++ method are all CNA's, and they
+disagree with each other. A binding can only report one of them.
+
+### What a fix looks like
+
+Pick one and make the other two agree:
+
+- **Replace**, as the header says: use `insert_or_assign` in the C entry point
+  or in `Add`. This is the most useful for a C caller, and the header already
+  documents it.
+- **Or refuse**, as XNA does: answer `CNA_RESULT_INVALID_STATE` for a key
+  already present, and say so in the header. This keeps FNA parity and still
+  lets a caller find out.
+
+Either way the current combination — succeed, do nothing, say nothing — is the
+one answer that gives the caller no signal at all.
+
+### Status in the binding
+
+`NativeLaunchParameters::add` documents the measured behaviour, not the
+header's. `crates/cna/tests/extensions_game_runtime.rs` asserts that a second
+add keeps the first value, so a fix upstream fails the test and says so.
+
+The XNA-shaped Rust dictionary in `crates/cna/src/game/services.rs` is
+unaffected and keeps XNA's refusal: `LaunchParametersExt::Add` returns an error
+for a duplicate key, which is the third behaviour and the correct one for that
+type. The two dictionaries are separate objects and this finding is about
+CNA's.
+
+---
+
+## RUST-UPSTREAM-027 — the sample-duration and sample-size helpers are not XNA's
+
+| | |
+|---|---|
+| Symbols | `cna_sound_effect_get_sample_duration_ticks`, `cna_sound_effect_get_sample_size_in_bytes` |
+| Dependency | cnanext `35268971c826d48ec3d40939e9b34a2b0595f94b`, ABI 0.21.0 |
+| Artifact | Renderer-independent; measured on `cmake-build-headless` |
+| Severity | Wrong values, silently. No refusal, no fault |
+| Blocks | Nothing. The binding does not use these routes and keeps its own XNA-faithful arithmetic |
+| Last measured | 2026-09-01, reproduces |
+
+### How this was found
+
+Not by reading either implementation. `crates/cna/src/audio.rs` already
+reproduces XNA's two static helpers, carefully, with a comment about XNA's
+mixed binary32/double precision being observable at 44.1 kHz. CNA has routes
+for the same two questions. Comparing the two across a grid of rates, sizes and
+channel counts is what turned up the disagreement, and the decompiled XNA
+assemblies settled which side was right.
+
+### `GetSampleDuration` truncates where XNA rounds
+
+XNA, decompiled (`AudioFormat.DurationFromSize`):
+
+```csharp
+int num = sizeInBytes / BlockAlign;
+return TimeSpan.FromMilliseconds((float)num * 1000f / (float)SampleRate);
+```
+
+`TimeSpan.FromMilliseconds` is `Interval(value, TicksPerMillisecond)`, which
+adds ±0.5 before truncating — it **rounds to the nearest millisecond**.
+
+CNA, `modules/audio/src/Xna/SoundEffect.cpp:637`:
+
+```cpp
+// Matches FNA: truncate to whole milliseconds. 16-bit PCM => 2 bytes per sample.
+const int samples = sizeInBytes / 2;
+const int ms = static_cast<int>((samples / ch) / (sampleRate / 1000.0f));
+return System::TimeSpan::FromMilliseconds(ms);
+```
+
+The rounding is thrown away *before* `FromMilliseconds` is reached, so the
+runtime's own correct `Interval` never sees a fractional value. The comment
+says the truncation is deliberate and matches FNA; XNA is what this ABI
+reproduces, and XNA rounds.
+
+Measured — CNA's answer against XNA's, in 100-nanosecond ticks:
+
+| bytes | rate | channels | XNA | CNA |
+|---|---|---|---|---|
+| 100 | 44100 | 2 | 10000 (1 ms) | **0** |
+| 100 | 48000 | 2 | 10000 (1 ms) | **0** |
+| 100 | 11025 | 1 | 50000 | 40000 |
+| 4096 | 22050 | 1 | 930000 | 920000 |
+| 88198 | 44100 | 1 | 10000000 | 9990000 |
+
+Nineteen of the ninety cases probed disagree, every one of them by exactly one
+millisecond short — and two of them report **zero duration for a buffer that
+has one**, which is the case most likely to turn into a division by zero or a
+skipped playback in a caller.
+
+### `GetSampleSizeInBytes` drops XNA's frame alignment
+
+XNA (`AudioFormat.SizeFromDuration`):
+
+```csharp
+int num = (int)(duration.TotalMilliseconds * (double)((float)SampleRate / 1000f));
+return (num + unchecked(num % Channels)) * BlockAlign;
+```
+
+Two things happen there and neither happens in CNA: the rate division is done
+in **binary32** and only then promoted, and the frame count is aligned with
+`num + num % Channels`.
+
+CNA (`SoundEffect.cpp:645`):
+
+```cpp
+return static_cast<intcs>(duration.getTotalSecondsProperty() * sampleRate *
+                          static_cast<int>(channels) * 2);
+```
+
+Pure double throughout, and no alignment. Measured:
+
+| duration | rate | channels | XNA | CNA |
+|---|---|---|---|---|
+| 1 s | 44100 | 1 | **88198** | 88200 |
+| 1 s | 22050 | 1 | 44098 | 44100 |
+| 1 ms | 11025 | 2 | 48 | 44 |
+| 0.5 s | 11025 | 2 | 22048 | 22050 |
+
+Fifteen of the fifty cases probed disagree. 88,198 rather than 88,200 for one
+mono second at 44.1 kHz is the exact number `crates/cna/src/audio.rs` already
+calls out as the observable consequence of XNA's mixed precision, which is what
+makes the reference decompilation the arbiter here rather than either
+implementation's intent.
+
+### Reproducer
+
+`tools/reproducers/ext015q_sample_math.c` prints CNA's answers over the grid.
+A model of CNA's own arithmetic reproduces every measured value exactly, which
+is what says the source above was read correctly rather than guessed at.
+
+### Why this is CNA rather than the binding
+
+The decompiled XNA assemblies are the specification this ABI reproduces, and
+they are unambiguous on both counts. CNA's own `sharp-runtimenext`
+`TimeSpan::FromMilliseconds` even has the correct rounding; the audio layer
+truncates before calling it.
+
+### What a fix looks like
+
+For the duration: pass the fractional millisecond value to
+`TimeSpan::FromMilliseconds` instead of truncating first, which is a one-line
+change and uses the rounding the runtime already implements. For the size:
+compute frames from `TotalMilliseconds` with the binary32 rate division, and
+apply the `num + num % Channels` alignment before multiplying by the block
+align.
+
+If FNA parity is genuinely wanted over XNA parity, that is a decision worth
+stating in the header, because a caller reading "SoundEffect.GetSampleDuration"
+has no way to know which of the two it is getting.
+
+### Status in the binding
+
+**Deliberate non-binding.** `SoundEffect::GetSampleDuration` and
+`GetSampleSizeInBytes` already exist in Rust and are XNA-faithful; calling
+these routes would replace a correct answer with a divergent one, which is the
+one thing a binding must not do to make a coverage number go up. The
+classification rule `sample-arithmetic-is-xna-faithful-in-rust` records that
+with this finding as its evidence, and
+`crates/cna/tests/extensions_audio_ext.rs` pins the Rust answers to the values
+the decompiled reference gives, including 88,198.
+
+## RUST-UPSTREAM-028 — a queued packet's size is unreachable, and the receive truncates
+
+| | |
+|---|---|
+| Symbols | `cna_local_network_gamer_receive_data`, `cna_local_network_gamer_receive_data_at`, `cna_local_network_gamer_receive_data_into_packet_reader` |
+| Dependency | cnanext `7712534d3d22c7e284714e0e87afebba3f3cb472`, ABI 0.21.0 |
+| Artifact | Renderer-independent; measured on `cmake-build-headless` |
+| Severity | Capability gap plus a silent short read: a packet larger than the caller's buffer loses its tail and the call reports success |
+| Blocks | Exact XNA `ReceiveData(PacketReader, out sender)` sizing. The binding states a ceiling instead |
+| Last measured | 2026-09-01, reproduces |
+
+### What XNA does
+
+`LocalNetworkGamer.ReceiveData(PacketReader data, out NetworkGamer sender)`
+does not guess at a size. It peeks the incoming queue, resizes the reader to
+that packet's exact length, and hands the reader's own array to the byte-array
+overload:
+
+```text
+IL_0034: Queue`1<IncomingPacket>::Peek()
+IL_0039: ldfld  int32 IncomingPacket::Size
+IL_003e: callvirt instance void PacketReader::Resize(int32)
+IL_0055: call   instance int32 LocalNetworkGamer::ReceiveData(uint8[], int32, NetworkGamer&)
+```
+
+And the byte-array overload does not truncate. When `offset + Size >
+data.Length` it throws:
+
+```text
+IL_0069: FrameworkResources::get_PacketArrayTooSmall()
+IL_0092: newobj instance void System.ArgumentException::.ctor(string, string)
+IL_0097: throw
+```
+
+So in XNA a short packet is impossible: either the array is big enough and you
+get all of it, or you get an exception.
+
+### What CNA does
+
+`LocalNetworkGamer::ReceiveData` in `modules/net/src/Xna/LocalNetworkGamer.cpp`
+computes
+
+```cpp
+int len = std::min(static_cast<int>(packet.Packet.size()), static_cast<int>(data.size()));
+```
+
+and copies `len` bytes. A packet larger than the destination is silently cut
+down to it, and `cna_local_network_gamer_receive_data` reports `len` as
+`out_received` with `CNA_RESULT_SUCCESS`. The C header states this plainly --
+"fills the destination up to its own length" -- so it is deliberate, and it is
+still a different contract from XNA's.
+
+`net_sessions.h` publishes no route that reports the size of the packet at the
+head of the queue. `cna_local_network_gamer_get_is_data_available` answers
+whether there is one, not how large it is. A caller therefore cannot size its
+buffer the way XNA sizes the reader, and cannot tell a packet that fitted
+exactly from one that was cut.
+
+The third overload does not help. `cna_local_network_gamer_receive_data_into_packet_reader`
+takes a **CNA** packet reader, and the reader in this projection is a managed
+Rust object with no CNA handle -- and the route reports zero bytes for every
+packet, which the header documents and CNA's own comment explains:
+
+```cpp
+// FNA declares `uint len = 0` here and never updates it before returning it —
+// the written data is real, but the reported length is always 0. Preserved as-is.
+```
+
+XNA returns the packet's size from this overload; FNA's bug is preserved.
+
+### Measured, in C, with no Rust in the process
+
+`tools/reproducers/census002_packet_truncation.c`, against
+`cmake-build-headless`:
+
+```text
+array overload: packet=5000 buffer=1024 result=0 out_received=1024
+reader overload: result=0 out_received=0 reader_length=5000
+```
+
+Both halves in two lines. A 5,000-byte packet into a 1,024-byte buffer is
+`CNA_RESULT_SUCCESS` with `out_received` equal to the buffer, where XNA throws;
+and the `PacketReader` overload puts **all 5,000 bytes** into the reader --
+`cna_packet_reader_get_length` says so -- while reporting that it received
+none.
+
+### Why this is CNA rather than the binding
+
+The size is not derivable on this side. The packet is consumed by the same call
+that would have reported its length, so there is no retry, and no arithmetic
+over what CNA does publish recovers it.
+
+CNA's own reader is not an oracle for it either. It receives the whole packet
+and knows its length, but `net.h` publishes no route that copies a reader's
+bytes out -- `cna_packet_writer_copy_data_ext` exists and has no reader
+counterpart -- so the only way out is the typed `read_*` routes, and there is
+no `read_byte`.
+
+### What a fix looks like
+
+One route: `cna_local_network_gamer_get_pending_packet_size` (or an
+`out_pending_size` on the existing receive, filled before the copy). With it a
+projection can do exactly what XNA does. A second, smaller fix would be for the
+array receive to report the packet's true length in `out_received` even when it
+copied less, which would at least make truncation detectable.
+
+### Status in the binding
+
+`ReceiveData(PacketReader, out sender)` states a ceiling --
+`LARGEST_PACKET_INTO_A_READER`, 64 KiB -- receives into `capacity + 1`, and
+reports an error rather than a short packet when the extra byte is used. It was
+an unexplained `vec![0_u8; 4096]` with the short read returned as a success.
+`crates/cna/tests/net_native.rs::a_packet_reader_receives_a_whole_large_packet_or_says_it_could_not`
+delivers 20,000 bytes whole and refuses 65,537.
+
+## RUST-UPSTREAM-029 — CNA's `GamerServicesComponent` skips the base component
+
+| | |
+|---|---|
+| Symbols | `cna_gamer_services_component_create` |
+| Dependency | cnanext `7712534d3d22c7e284714e0e87afebba3f3cb472`, ABI 0.21.0 |
+| Artifact | Renderer-independent |
+| Severity | Behavioural divergence from XNA in a canonical component |
+| Blocks | Nothing. The Rust component implements XNA's order itself |
+| Last measured | 2026-09-01, reproduces (source-level) |
+
+XNA's `GamerServicesComponent` calls the base component at the end of both
+overrides:
+
+```text
+Initialize()          IL_0036: call instance void GameComponent::Initialize()
+Update(gameTime)      IL_0007: call instance void GameComponent::Update(GameTime)
+```
+
+CNA's does not, and says so:
+
+```cpp
+// FNA's override does not call base.Initialize() — matched here intentionally.
+// FNA's override does not call base.Update() — matched here intentionally.
+```
+
+That is a deliberate match to FNA, whose base methods happen to be empty. It is
+still not what Microsoft XNA does, and a `GameComponent` subclass whose base
+does something -- as this projection's does, since `GameComponent::Initialize`
+and `Update` are real -- would behave differently.
+
+### Status in the binding
+
+`cna_gamer_services_component_create` is not called. The Rust
+`GamerServicesComponent` performs XNA's three `Initialize` calls and XNA's two
+`Update` calls in XNA's order, base included, over the dispatcher routes
+directly. Measured in
+`crates/cna/tests/small_families_native.rs::the_gamer_services_component_hands_the_dispatcher_the_game_window`.

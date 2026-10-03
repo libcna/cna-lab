@@ -1,0 +1,29 @@
+# Rust build output
+/target/
+**/*.rs.bk
+*.profraw
+
+# Keep Cargo.lock ignored for this library workspace
+/Cargo.lock
+
+# Native CNA binaries are packaged artifacts, not source
+/runtimes/
+*.dll
+*.dylib
+*.so
+
+# Editors and operating systems
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Out-of-tree CNA native build (see plan.md)
+/build/
+/build-probe/
+/build-consumer/
+
+# Python bytecode from the verification tools
+__pycache__/
+*.pyc

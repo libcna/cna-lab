@@ -1,0 +1,24 @@
+[package]
+name = "cna-rust-sys"
+description = "Raw declarations for CNA's stable C ABI"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+readme = "../../README.md"
+build = "build.rs"
+
+[features]
+default = []
+# Typed `extern "C"` declarations for every reviewed route, for a consumer that
+# links CNA at build time instead of resolving symbols at run time. Enabling it
+# makes CNA a link-time dependency of anything that depends on this crate.
+direct-link = []
+
+[lib]
+name = "cna_sys"
+path = "src/lib.rs"
+
+[lints]
+workspace = true
