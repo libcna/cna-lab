@@ -1,0 +1,995 @@
+module Microsoft
+  module Xna
+    module Framework
+      module Graphics
+        class DisplayMode
+          attr_reader Width: Integer
+          attr_reader Height: Integer
+          attr_reader Format: SurfaceFormat
+          def AspectRatio: () -> Float
+          def TitleSafeArea: () -> Microsoft::Xna::Framework::Rectangle
+          def ToString: () -> String
+          def to_s: () -> String
+        end
+
+        class DisplayModeCollection
+          def GetEnumerator: () -> Enumerator[DisplayMode, untyped]
+          def []: (SurfaceFormat | Integer format) -> Enumerator[DisplayMode, untyped]
+        end
+
+        class ResourceCreatedEventArgs < CNA::Runtime::EventArgs
+          attr_reader Resource: untyped
+        end
+
+        class ResourceDestroyedEventArgs < CNA::Runtime::EventArgs
+          attr_reader Name: String?
+          attr_reader Tag: untyped
+        end
+
+        class PresentationParameters
+          def initialize: () -> void
+          attr_reader BackBufferWidth: Integer
+          attr_reader BackBufferHeight: Integer
+          attr_reader BackBufferFormat: SurfaceFormat
+          attr_reader DepthStencilFormat: DepthFormat
+          attr_reader MultiSampleCount: Integer
+          attr_reader DisplayOrientation: Microsoft::Xna::Framework::DisplayOrientation
+          attr_reader PresentationInterval: PresentInterval
+          attr_reader RenderTargetUsage: RenderTargetUsage
+          attr_reader DeviceWindowHandle: Integer
+          attr_reader IsFullScreen: bool
+          def BackBufferWidth=: (Integer value) -> Integer
+          def BackBufferHeight=: (Integer value) -> Integer
+          def BackBufferFormat=: (SurfaceFormat | Integer value) -> SurfaceFormat
+          def DepthStencilFormat=: (DepthFormat | Integer value) -> DepthFormat
+          def MultiSampleCount=: (Integer value) -> Integer
+          def DisplayOrientation=: (Microsoft::Xna::Framework::DisplayOrientation | Integer value) -> Microsoft::Xna::Framework::DisplayOrientation
+          def PresentationInterval=: (PresentInterval | Integer value) -> PresentInterval
+          def RenderTargetUsage=: (RenderTargetUsage | Integer value) -> RenderTargetUsage
+          def DeviceWindowHandle=: (Integer value) -> Integer
+          def IsFullScreen=: (bool value) -> bool
+          def Bounds: () -> Microsoft::Xna::Framework::Rectangle
+          def Clone: () -> PresentationParameters
+        end
+
+        # Three exception types whose whole declared surface is the standard constructor trio,
+        # every one of which forwards straight to System.Exception in the pinned XNA IL.
+        class DeviceLostException < ::StandardError
+          def initialize: (?String? message, ?::Exception? inner) -> void
+        end
+
+        class DeviceNotResetException < ::StandardError
+          def initialize: (?String? message, ?::Exception? inner) -> void
+        end
+
+        class NoSuitableGraphicsDeviceException < ::StandardError
+          def initialize: (?String? message, ?::Exception? inner) -> void
+        end
+
+        class SurfaceFormat
+        end
+
+        class GraphicsDeviceStatus
+          Normal: GraphicsDeviceStatus
+          Lost: GraphicsDeviceStatus
+          NotReset: GraphicsDeviceStatus
+        end
+
+        class GraphicsProfile
+          Reach: GraphicsProfile
+          HiDef: GraphicsProfile
+        end
+
+        class ClearOptions
+          Target: ClearOptions
+          DepthBuffer: ClearOptions
+          Stencil: ClearOptions
+          def |: (ClearOptions other) -> ClearOptions
+          def &: (ClearOptions other) -> ClearOptions
+        end
+
+        class DepthFormat
+          None: DepthFormat
+          Depth16: DepthFormat
+          Depth24: DepthFormat
+          Depth24Stencil8: DepthFormat
+        end
+
+        class PrimitiveType
+          TriangleList: PrimitiveType
+          TriangleStrip: PrimitiveType
+          LineList: PrimitiveType
+          LineStrip: PrimitiveType
+        end
+
+        class CubeMapFace
+          PositiveX: CubeMapFace
+          NegativeX: CubeMapFace
+          PositiveY: CubeMapFace
+          NegativeY: CubeMapFace
+          PositiveZ: CubeMapFace
+          NegativeZ: CubeMapFace
+        end
+
+        class BufferUsage
+          None: BufferUsage
+          WriteOnly: BufferUsage
+          def |: (BufferUsage other) -> BufferUsage
+          def &: (BufferUsage other) -> BufferUsage
+        end
+
+        class FillMode
+          Solid: FillMode
+          WireFrame: FillMode
+        end
+
+        class IndexElementSize
+          SixteenBits: IndexElementSize
+          ThirtyTwoBits: IndexElementSize
+        end
+
+        class CullMode
+          None: CullMode
+          CullClockwiseFace: CullMode
+          CullCounterClockwiseFace: CullMode
+        end
+
+        class RenderTargetUsage
+          DiscardContents: RenderTargetUsage
+          PreserveContents: RenderTargetUsage
+          PlatformContents: RenderTargetUsage
+        end
+
+        class SetDataOptions
+          None: SetDataOptions
+          Discard: SetDataOptions
+          NoOverwrite: SetDataOptions
+          def |: (SetDataOptions other) -> SetDataOptions
+          def &: (SetDataOptions other) -> SetDataOptions
+        end
+
+        class TextureAddressMode
+          Wrap: TextureAddressMode
+          Clamp: TextureAddressMode
+          Mirror: TextureAddressMode
+        end
+
+        class Blend
+          One: Blend
+          Zero: Blend
+          SourceColor: Blend
+          InverseSourceColor: Blend
+          SourceAlpha: Blend
+          InverseSourceAlpha: Blend
+          DestinationColor: Blend
+          InverseDestinationColor: Blend
+          DestinationAlpha: Blend
+          InverseDestinationAlpha: Blend
+          BlendFactor: Blend
+          InverseBlendFactor: Blend
+          SourceAlphaSaturation: Blend
+        end
+
+        class BlendFunction
+          Add: BlendFunction
+          Subtract: BlendFunction
+          ReverseSubtract: BlendFunction
+          Min: BlendFunction
+          Max: BlendFunction
+        end
+
+        class ColorWriteChannels
+          None: ColorWriteChannels
+          Red: ColorWriteChannels
+          Green: ColorWriteChannels
+          Blue: ColorWriteChannels
+          Alpha: ColorWriteChannels
+          All: ColorWriteChannels
+          def |: (ColorWriteChannels other) -> ColorWriteChannels
+          def &: (ColorWriteChannels other) -> ColorWriteChannels
+        end
+
+        class CompareFunction
+          Always: CompareFunction
+          Never: CompareFunction
+          Less: CompareFunction
+          LessEqual: CompareFunction
+          Equal: CompareFunction
+          GreaterEqual: CompareFunction
+          Greater: CompareFunction
+          NotEqual: CompareFunction
+        end
+
+        class EffectParameterClass
+          Scalar: EffectParameterClass
+          Vector: EffectParameterClass
+          Matrix: EffectParameterClass
+          Object: EffectParameterClass
+          Struct: EffectParameterClass
+        end
+
+        class EffectParameterType
+          Void: EffectParameterType
+          Bool: EffectParameterType
+          Int32: EffectParameterType
+          Single: EffectParameterType
+          String: EffectParameterType
+          Texture: EffectParameterType
+          Texture1D: EffectParameterType
+          Texture2D: EffectParameterType
+          Texture3D: EffectParameterType
+          TextureCube: EffectParameterType
+        end
+
+        class PresentInterval
+          Default: PresentInterval
+          One: PresentInterval
+          Two: PresentInterval
+          Immediate: PresentInterval
+        end
+
+        class StencilOperation
+          Keep: StencilOperation
+          Zero: StencilOperation
+          Replace: StencilOperation
+          Increment: StencilOperation
+          Decrement: StencilOperation
+          IncrementSaturation: StencilOperation
+          DecrementSaturation: StencilOperation
+          Invert: StencilOperation
+        end
+
+        class TextureFilter
+          Linear: TextureFilter
+          Point: TextureFilter
+          Anisotropic: TextureFilter
+          LinearMipPoint: TextureFilter
+          PointMipLinear: TextureFilter
+          MinLinearMagPointMipLinear: TextureFilter
+          MinLinearMagPointMipPoint: TextureFilter
+          MinPointMagLinearMipLinear: TextureFilter
+          MinPointMagLinearMipPoint: TextureFilter
+        end
+
+        class Viewport
+          attr_accessor X: Integer
+          attr_accessor Y: Integer
+          attr_accessor Width: Integer
+          attr_accessor Height: Integer
+          attr_accessor MinDepth: Float
+          attr_accessor MaxDepth: Float
+          attr_accessor Bounds: Rectangle
+          attr_reader AspectRatio: Float
+          attr_reader TitleSafeArea: Rectangle
+          def initialize: (Rectangle bounds) -> void
+                        | (Integer x, Integer y, Integer width, Integer height) -> void
+          def Project: (Vector3 source, Matrix projection, Matrix view, Matrix world) -> Vector3
+          def Unproject: (Vector3 source, Matrix projection, Matrix view, Matrix world) -> Vector3
+        end
+
+        class GraphicsAdapter
+          def self.Adapters: () -> CNA::Runtime::ReadOnlyCollection
+          def self.DefaultAdapter: () -> GraphicsAdapter
+          def self.UseNullDevice: () -> bool
+          def self.UseNullDevice=: (bool value) -> bool
+          def self.UseReferenceDevice: () -> bool
+          def self.UseReferenceDevice=: (bool value) -> bool
+          def Description: () -> String
+          def DeviceName: () -> String
+          def VendorId: () -> Integer
+          def DeviceId: () -> Integer
+          def SubSystemId: () -> Integer
+          def Revision: () -> Integer
+          def IsDefaultAdapter: () -> bool
+          def IsWideScreen: () -> bool
+          def MonitorHandle: () -> Integer
+          def CurrentDisplayMode: () -> DisplayMode
+          def SupportedDisplayModes: () -> DisplayModeCollection
+          def IsProfileSupported: (GraphicsProfile | Integer graphicsProfile) -> bool
+          def QueryBackBufferFormat: (GraphicsProfile | Integer graphicsProfile, SurfaceFormat | Integer format, DepthFormat | Integer depthFormat, Integer multiSampleCount) -> [bool, SurfaceFormat, DepthFormat, Integer]
+          def QueryRenderTargetFormat: (GraphicsProfile | Integer graphicsProfile, SurfaceFormat | Integer format, DepthFormat | Integer depthFormat, Integer multiSampleCount) -> [bool, SurfaceFormat, DepthFormat, Integer]
+        end
+
+        class GraphicsDevice
+          def initialize: (GraphicsAdapter adapter, GraphicsProfile | Integer graphicsProfile, PresentationParameters presentationParameters) -> void
+          def Adapter: () -> GraphicsAdapter
+          def DisplayMode: () -> DisplayMode
+          attr_reader IsDisposed: bool
+          def Viewport: () -> Viewport
+          def Viewport=: (Viewport value) -> Viewport
+          def Disposing: () -> CNA::Runtime::Event
+          def DeviceLost: () -> CNA::Runtime::Event
+          def DeviceReset: () -> CNA::Runtime::Event
+          def DeviceResetting: () -> CNA::Runtime::Event
+          def ResourceCreated: () -> CNA::Runtime::Event
+          def ResourceDestroyed: () -> CNA::Runtime::Event
+          def DrawUserPrimitives: (PrimitiveType | Integer primitiveType, Array[untyped] vertexData, Integer vertexOffset, Integer primitiveCount, ?VertexDeclaration? vertexDeclaration) -> nil
+          def DrawUserIndexedPrimitives: (untyped indexType, PrimitiveType | Integer primitiveType, Array[untyped] vertexData, Integer vertexOffset, Integer numVertices, Array[Integer]? indexData, Integer indexOffset, Integer primitiveCount, ?VertexDeclaration? vertexDeclaration) -> nil
+          def GetBackBufferData: (Array[Color]? data) -> nil
+                               | (Array[Color]? data, Integer startIndex, Integer elementCount) -> nil
+                               | (Rectangle? rect, Array[Color]? data, Integer startIndex, Integer elementCount) -> nil
+          def Dispose: (?bool disposing) -> nil
+          def Present: () -> nil
+                     | (Rectangle? sourceRectangle, Rectangle? destinationRectangle, Integer? overrideWindowHandle) -> nil
+          def Reset: () -> nil
+                   | (PresentationParameters presentationParameters) -> nil
+                   | (PresentationParameters presentationParameters, untyped graphicsAdapter) -> nil
+          def GraphicsProfile: () -> GraphicsProfile
+          def GraphicsDeviceStatus: () -> GraphicsDeviceStatus
+          def PresentationParameters: () -> PresentationParameters
+          def Clear: (Color color) -> nil
+                   | (ClearOptions | Integer options, Color | Vector4 color, Float depth, Integer stencil) -> nil
+          def SamplerStates: () -> SamplerStateCollection
+          def VertexSamplerStates: () -> SamplerStateCollection
+          def BlendState: () -> BlendState
+          def BlendState=: (BlendState value) -> BlendState
+          def DepthStencilState: () -> DepthStencilState
+          def DepthStencilState=: (DepthStencilState value) -> DepthStencilState
+          def RasterizerState: () -> RasterizerState
+          def RasterizerState=: (RasterizerState value) -> RasterizerState
+          def BlendFactor: () -> Color
+          def BlendFactor=: (Color value) -> Color
+          def MultiSampleMask: () -> Integer
+          def MultiSampleMask=: (Integer value) -> Integer
+          def ReferenceStencil: () -> Integer
+          def ReferenceStencil=: (Integer value) -> Integer
+          def ScissorRectangle: () -> Rectangle
+          def ScissorRectangle=: (Rectangle value) -> Rectangle
+          def Indices: () -> IndexBuffer?
+          def Indices=: (IndexBuffer? value) -> IndexBuffer?
+          def SetVertexBuffer: (VertexBuffer? vertexBuffer, ?Integer? vertexOffset) -> nil
+          def SetVertexBuffers: (?Array[VertexBufferBinding]? vertexBuffers) -> nil
+          def GetVertexBuffers: () -> Array[VertexBufferBinding]
+          def SetRenderTarget: (RenderTarget2D | RenderTargetCube | nil renderTarget, ?CubeMapFace? cubeMapFace) -> nil
+          def SetRenderTargets: (*untyped renderTargets) -> nil
+          def GetRenderTargets: () -> Array[RenderTargetBinding]
+          def DrawPrimitives: (PrimitiveType | Integer primitiveType, Integer startVertex, Integer primitiveCount) -> nil
+          def DrawIndexedPrimitives: (PrimitiveType | Integer primitiveType, Integer baseVertex, Integer minVertexIndex, Integer numVertices, Integer startIndex, Integer primitiveCount) -> nil
+          def DrawInstancedPrimitives: (PrimitiveType | Integer primitiveType, Integer baseVertex, Integer minVertexIndex, Integer numVertices, Integer startIndex, Integer primitiveCount, Integer instanceCount) -> nil
+        end
+
+        class SamplerStateCollection
+          def []: (Integer index) -> SamplerState
+          def []=: (Integer index, SamplerState value) -> SamplerState
+        end
+
+        module IVertexType
+          def VertexDeclaration: () -> VertexDeclaration
+        end
+
+        class VertexDeclaration < GraphicsResource
+          def initialize: (*untyped arguments) -> void
+          attr_reader VertexStride: Integer
+          def GetVertexElements: () -> Array[VertexElement]
+        end
+
+        class VertexPositionColor
+          include IVertexType
+          def initialize: (?Vector3 position, ?Color color) -> void
+          attr_accessor Position: Vector3
+          attr_accessor Color: Color
+          def GetHashCode: () -> Integer
+          def ToString: () -> String
+          def to_s: () -> String
+        end
+
+        class VertexPositionTexture
+          include IVertexType
+          def initialize: (?Vector3 position, ?Vector2 texture_coordinate) -> void
+          attr_accessor Position: Vector3
+          attr_accessor TextureCoordinate: Vector2
+          def GetHashCode: () -> Integer
+          def ToString: () -> String
+          def to_s: () -> String
+        end
+
+        class VertexPositionColorTexture
+          include IVertexType
+          def initialize: (?Vector3 position, ?Color color, ?Vector2 texture_coordinate) -> void
+          attr_accessor Position: Vector3
+          attr_accessor Color: Color
+          attr_accessor TextureCoordinate: Vector2
+          def GetHashCode: () -> Integer
+          def ToString: () -> String
+          def to_s: () -> String
+        end
+
+        class VertexPositionNormalTexture
+          include IVertexType
+          def initialize: (?Vector3 position, ?Vector3 normal, ?Vector2 texture_coordinate) -> void
+          attr_accessor Position: Vector3
+          attr_accessor Normal: Vector3
+          attr_accessor TextureCoordinate: Vector2
+          def GetHashCode: () -> Integer
+          def ToString: () -> String
+          def to_s: () -> String
+        end
+
+        class GraphicsResource
+          attr_reader IsDisposed: bool
+          attr_accessor Tag: untyped
+          attr_accessor Name: String?
+          attr_reader GraphicsDevice: GraphicsDevice
+          def Dispose: () -> nil
+        end
+
+        class Texture < GraphicsResource
+          attr_reader LevelCount: Integer
+          attr_reader Format: SurfaceFormat
+        end
+
+        class Texture2D < Texture
+          attr_reader Width: Integer
+          attr_reader Height: Integer
+          attr_reader Bounds: Rectangle
+          def self.FromStream: (GraphicsDevice graphics_device, untyped stream, *untyped arguments) -> Texture2D
+        end
+
+        class Texture3D < Texture
+          def initialize: (GraphicsDevice graphicsDevice, Integer width, Integer height, Integer depth, bool mipMap, SurfaceFormat format) -> void
+          attr_reader Width: Integer
+          attr_reader Height: Integer
+          attr_reader Depth: Integer
+          def SetData: (Module type, *untyped arguments) -> nil
+          def GetData: (Module type, *untyped arguments) -> nil
+        end
+
+        class TextureCube < Texture
+          def initialize: (GraphicsDevice graphicsDevice, Integer size, bool mipMap, SurfaceFormat format) -> void
+          attr_reader Size: Integer
+          def SetData: (Module type, *untyped arguments) -> nil
+          def GetData: (Module type, *untyped arguments) -> nil
+        end
+
+        class EffectParameter
+          attr_reader Name: String
+          attr_reader Semantic: String
+          attr_reader RowCount: Integer
+          attr_reader ColumnCount: Integer
+          attr_reader ParameterClass: EffectParameterClass
+          attr_reader ParameterType: EffectParameterType
+          attr_reader Elements: EffectParameterCollection
+          attr_reader StructureMembers: EffectParameterCollection
+          attr_reader Annotations: EffectAnnotationCollection
+          def GetValueBoolean: () -> bool
+          def GetValueInt32: () -> Integer
+          def GetValueSingle: () -> Float
+          def GetValueVector2: () -> Vector2
+          def GetValueVector3: () -> Vector3
+          def GetValueVector4: () -> Vector4
+          def GetValueQuaternion: () -> Quaternion
+          def GetValueMatrix: () -> Matrix
+          def GetValueMatrixTranspose: () -> Matrix
+          def GetValueString: () -> String
+          def GetValueTexture2D: () -> Texture2D?
+          def GetValueTexture3D: () -> Texture3D?
+          def GetValueTextureCube: () -> TextureCube?
+          def GetValueBooleanArray: (Integer count) -> Array[bool]
+          def GetValueInt32Array: (Integer count) -> Array[Integer]
+          def GetValueSingleArray: (Integer count) -> Array[Float]
+          def GetValueVector2Array: (Integer count) -> Array[Vector2]
+          def GetValueVector3Array: (Integer count) -> Array[Vector3]
+          def GetValueVector4Array: (Integer count) -> Array[Vector4]
+          def GetValueQuaternionArray: (Integer count) -> Array[Quaternion]
+          def GetValueMatrixArray: (Integer count) -> Array[Matrix]
+          def GetValueMatrixTransposeArray: (Integer count) -> Array[Matrix]
+          def SetValue: (untyped value) -> nil
+          def SetValueTranspose: (untyped value) -> nil
+        end
+
+        class EffectParameterCollection
+          include Enumerable[EffectParameter]
+          def Count: () -> Integer
+          def []: (Integer | String key) -> EffectParameter?
+          def GetParameterBySemantic: (String? semantic) -> EffectParameter?
+          def GetEnumerator: () -> Enumerator[EffectParameter, untyped]
+        end
+
+        class EffectAnnotation
+          attr_reader Name: String
+          attr_reader Semantic: String
+          attr_reader RowCount: Integer
+          attr_reader ColumnCount: Integer
+          attr_reader ParameterClass: EffectParameterClass
+          attr_reader ParameterType: EffectParameterType
+          def GetValueBoolean: () -> bool
+          def GetValueInt32: () -> Integer
+          def GetValueSingle: () -> Float
+          def GetValueVector2: () -> Vector2
+          def GetValueVector3: () -> Vector3
+          def GetValueVector4: () -> Vector4
+          def GetValueMatrix: () -> Matrix
+          def GetValueString: () -> String
+        end
+
+        class EffectAnnotationCollection
+          include Enumerable[EffectAnnotation]
+          def Count: () -> Integer
+          def []: (Integer | String key) -> EffectAnnotation?
+          def GetEnumerator: () -> Enumerator[EffectAnnotation, untyped]
+        end
+
+        class EffectPass
+          attr_reader Name: String
+          attr_reader Annotations: EffectAnnotationCollection
+          def Apply: () -> nil
+        end
+
+        class EffectPassCollection
+          include Enumerable[EffectPass]
+          def Count: () -> Integer
+          def []: (Integer | String key) -> EffectPass?
+          def GetEnumerator: () -> Enumerator[EffectPass, untyped]
+        end
+
+        class EffectTechnique
+          attr_reader Name: String
+          attr_reader Passes: EffectPassCollection
+          attr_reader Annotations: EffectAnnotationCollection
+        end
+
+        class EffectTechniqueCollection
+          include Enumerable[EffectTechnique]
+          def Count: () -> Integer
+          def []: (Integer | String key) -> EffectTechnique?
+          def GetEnumerator: () -> Enumerator[EffectTechnique, untyped]
+        end
+
+        class Effect < GraphicsResource
+          def initialize: (*untyped arguments) -> void
+          attr_reader Parameters: EffectParameterCollection
+          attr_reader Techniques: EffectTechniqueCollection
+          def Clone: () -> Effect
+          def CurrentTechnique: () -> EffectTechnique?
+          def CurrentTechnique=: (EffectTechnique value) -> EffectTechnique
+          def OnApply: () -> nil
+        end
+
+        class BlendState < GraphicsResource
+          def initialize: () -> void
+          attr_accessor ColorSourceBlend: Blend
+          attr_accessor ColorDestinationBlend: Blend
+          attr_accessor ColorBlendFunction: BlendFunction
+          attr_accessor AlphaSourceBlend: Blend
+          attr_accessor AlphaDestinationBlend: Blend
+          attr_accessor AlphaBlendFunction: BlendFunction
+          attr_accessor ColorWriteChannels: ColorWriteChannels
+          attr_accessor ColorWriteChannels1: ColorWriteChannels
+          attr_accessor ColorWriteChannels2: ColorWriteChannels
+          attr_accessor ColorWriteChannels3: ColorWriteChannels
+          attr_accessor BlendFactor: Color
+          attr_accessor MultiSampleMask: Integer
+        end
+
+        class DepthStencilState < GraphicsResource
+          def initialize: () -> void
+          attr_accessor DepthBufferEnable: bool
+          attr_accessor DepthBufferWriteEnable: bool
+          attr_accessor DepthBufferFunction: CompareFunction
+          attr_accessor StencilEnable: bool
+          attr_accessor StencilFunction: CompareFunction
+          attr_accessor StencilPass: StencilOperation
+          attr_accessor StencilFail: StencilOperation
+          attr_accessor StencilDepthBufferFail: StencilOperation
+          attr_accessor TwoSidedStencilMode: bool
+          attr_accessor CounterClockwiseStencilFunction: CompareFunction
+          attr_accessor CounterClockwiseStencilPass: StencilOperation
+          attr_accessor CounterClockwiseStencilFail: StencilOperation
+          attr_accessor CounterClockwiseStencilDepthBufferFail: StencilOperation
+          attr_accessor StencilMask: Integer
+          attr_accessor StencilWriteMask: Integer
+          attr_accessor ReferenceStencil: Integer
+        end
+
+        class RasterizerState < GraphicsResource
+          def initialize: () -> void
+          attr_accessor CullMode: CullMode
+          attr_accessor FillMode: FillMode
+          attr_accessor ScissorTestEnable: bool
+          attr_accessor MultiSampleAntiAlias: bool
+          attr_accessor DepthBias: Float
+          attr_accessor SlopeScaleDepthBias: Float
+        end
+
+        class SamplerState < GraphicsResource
+          def initialize: () -> void
+          attr_accessor Filter: TextureFilter
+          attr_accessor AddressU: TextureAddressMode
+          attr_accessor AddressV: TextureAddressMode
+          attr_accessor AddressW: TextureAddressMode
+          attr_accessor MaxAnisotropy: Integer
+          attr_accessor MaxMipLevel: Integer
+          attr_accessor MipMapLevelOfDetailBias: Float
+        end
+
+        class DirectionalLight
+          def initialize: (EffectParameter? directionParameter, EffectParameter? diffuseColorParameter, EffectParameter? specularColorParameter, DirectionalLight? cloneSource) -> void
+          attr_reader Enabled: bool
+          attr_reader Direction: Vector3
+          attr_reader DiffuseColor: Vector3
+          attr_reader SpecularColor: Vector3
+          def Enabled=: (bool value) -> void
+          def Direction=: (Vector3 value) -> Vector3
+          def DiffuseColor=: (Vector3 value) -> Vector3
+          def SpecularColor=: (Vector3 value) -> Vector3
+        end
+
+        class EffectMaterial < Effect
+          def initialize: (Effect cloneSource) -> void
+        end
+
+        class OcclusionQuery < GraphicsResource
+          def initialize: (GraphicsDevice graphicsDevice) -> void
+          def Begin: () -> nil
+          def End: () -> nil
+          def IsComplete: () -> bool
+          def PixelCount: () -> Integer
+        end
+
+        class RenderTarget2D < Texture2D
+          def initialize: (GraphicsDevice graphicsDevice, Integer width, Integer height, ?bool mipMap, ?SurfaceFormat preferredFormat, ?DepthFormat preferredDepthFormat, ?Integer preferredMultiSampleCount, ?RenderTargetUsage usage) -> void
+          attr_reader RenderTargetUsage: RenderTargetUsage
+          attr_reader MultiSampleCount: Integer
+          attr_reader DepthStencilFormat: DepthFormat
+          def IsContentLost: () -> bool
+          def ContentLost: () -> CNA::Runtime::Event
+        end
+
+        class RenderTargetCube < TextureCube
+          def initialize: (GraphicsDevice graphicsDevice, Integer size, bool mipMap, SurfaceFormat preferredFormat, DepthFormat preferredDepthFormat, ?Integer preferredMultiSampleCount, ?RenderTargetUsage usage) -> void
+          attr_reader RenderTargetUsage: RenderTargetUsage
+          attr_reader MultiSampleCount: Integer
+          attr_reader DepthStencilFormat: DepthFormat
+          def IsContentLost: () -> bool
+          def ContentLost: () -> CNA::Runtime::Event
+        end
+
+        class RenderTargetBinding
+          def initialize: (RenderTarget2D | RenderTargetCube renderTarget, ?CubeMapFace? cubeMapFace) -> void
+          attr_reader RenderTarget: Texture
+          attr_reader CubeMapFace: CubeMapFace
+          def self.op_Implicit: (RenderTarget2D renderTarget) -> RenderTargetBinding
+        end
+
+        class VertexBuffer < GraphicsResource
+          def initialize: (GraphicsDevice graphicsDevice, VertexDeclaration | Module vertexDeclarationOrType, Integer vertexCount, BufferUsage bufferUsage) -> void
+          attr_reader VertexDeclaration: VertexDeclaration
+          attr_reader VertexCount: Integer
+          attr_reader BufferUsage: BufferUsage
+          def SetData: (Module type, *untyped arguments) -> nil
+          def GetData: (Module type, *untyped arguments) -> nil
+          def Dispose: (?bool disposing) -> nil
+        end
+
+        class DynamicVertexBuffer < VertexBuffer
+          def IsContentLost: () -> bool
+          def ContentLost: () -> CNA::Runtime::Event
+        end
+
+        class IndexBuffer < GraphicsResource
+          def initialize: (GraphicsDevice graphicsDevice, IndexElementSize | Module indexElementSizeOrType, Integer indexCount, BufferUsage bufferUsage) -> void
+          attr_reader IndexCount: Integer
+          attr_reader IndexElementSize: IndexElementSize
+          attr_reader BufferUsage: BufferUsage
+          def SetData: (Module type, *untyped arguments) -> nil
+          def GetData: (Module type, *untyped arguments) -> nil
+        end
+
+        class DynamicIndexBuffer < IndexBuffer
+          def IsContentLost: () -> bool
+          def ContentLost: () -> CNA::Runtime::Event
+        end
+
+        class VertexBufferBinding
+          def initialize: (VertexBuffer vertexBuffer, ?Integer vertexOffset, ?Integer instanceFrequency) -> void
+          attr_reader VertexBuffer: VertexBuffer
+          attr_reader VertexOffset: Integer
+          attr_reader InstanceFrequency: Integer
+          def self.op_Implicit: (VertexBuffer vertexBuffer) -> VertexBufferBinding
+        end
+
+        class BasicEffect < Effect
+          include IEffectFog
+          include IEffectLights
+          include IEffectMatrices
+          def initialize: (GraphicsDevice | BasicEffect deviceOrCloneSource) -> void
+          def Clone: () -> Effect
+          def World: () -> Matrix
+          def World=: (Matrix value) -> Matrix
+          def View: () -> Matrix
+          def View=: (Matrix value) -> Matrix
+          def Projection: () -> Matrix
+          def Projection=: (Matrix value) -> Matrix
+          def FogEnabled: () -> bool
+          def FogEnabled=: (bool value) -> bool
+          def FogStart: () -> Float
+          def FogStart=: (Numeric value) -> Numeric
+          def FogEnd: () -> Float
+          def FogEnd=: (Numeric value) -> Numeric
+          def FogColor: () -> Vector3
+          def FogColor=: (Vector3 value) -> Vector3
+          def LightingEnabled: () -> bool
+          def LightingEnabled=: (bool value) -> bool
+          def AmbientLightColor: () -> Vector3
+          def AmbientLightColor=: (Vector3 value) -> Vector3
+          def DirectionalLight0: () -> DirectionalLight
+          def DirectionalLight1: () -> DirectionalLight
+          def DirectionalLight2: () -> DirectionalLight
+          def EnableDefaultLighting: () -> nil
+          def DiffuseColor: () -> Vector3
+          def DiffuseColor=: (Vector3 value) -> Vector3
+          def EmissiveColor: () -> Vector3
+          def EmissiveColor=: (Vector3 value) -> Vector3
+          def SpecularColor: () -> Vector3
+          def SpecularColor=: (Vector3 value) -> Vector3
+          def SpecularPower: () -> Float
+          def SpecularPower=: (Numeric value) -> Numeric
+          def Alpha: () -> Float
+          def Alpha=: (Numeric value) -> Numeric
+          def PreferPerPixelLighting: () -> bool
+          def PreferPerPixelLighting=: (bool value) -> bool
+          def TextureEnabled: () -> bool
+          def TextureEnabled=: (bool value) -> bool
+          def VertexColorEnabled: () -> bool
+          def VertexColorEnabled=: (bool value) -> bool
+          def Texture: () -> Texture2D?
+          def Texture=: (Texture2D? value) -> Texture2D?
+          def OnApply: () -> nil
+        end
+
+        # The four remaining stock effects. `SkinnedEffect` and `EnvironmentMapEffect` implement
+        # `IEffectLights.LightingEnabled` explicitly, so neither declares it here.
+        class SkinnedEffect < Effect
+          include IEffectFog
+          include IEffectLights
+          include IEffectMatrices
+          MaxBones: Integer
+          def initialize: (GraphicsDevice | SkinnedEffect deviceOrCloneSource) -> void
+          def Clone: () -> Effect
+          def SetBoneTransforms: (::Array[Matrix] boneTransforms) -> nil
+          def GetBoneTransforms: (Integer count) -> ::Array[Matrix]
+          def World: () -> Matrix
+          def World=: (Matrix value) -> Matrix
+          def View: () -> Matrix
+          def View=: (Matrix value) -> Matrix
+          def Projection: () -> Matrix
+          def Projection=: (Matrix value) -> Matrix
+          def FogEnabled: () -> bool
+          def FogEnabled=: (bool value) -> bool
+          def FogStart: () -> Float
+          def FogStart=: (Numeric value) -> Numeric
+          def FogEnd: () -> Float
+          def FogEnd=: (Numeric value) -> Numeric
+          def FogColor: () -> Vector3
+          def FogColor=: (Vector3 value) -> Vector3
+          def AmbientLightColor: () -> Vector3
+          def AmbientLightColor=: (Vector3 value) -> Vector3
+          def DirectionalLight0: () -> DirectionalLight
+          def DirectionalLight1: () -> DirectionalLight
+          def DirectionalLight2: () -> DirectionalLight
+          def EnableDefaultLighting: () -> nil
+          def DiffuseColor: () -> Vector3
+          def DiffuseColor=: (Vector3 value) -> Vector3
+          def EmissiveColor: () -> Vector3
+          def EmissiveColor=: (Vector3 value) -> Vector3
+          def SpecularColor: () -> Vector3
+          def SpecularColor=: (Vector3 value) -> Vector3
+          def SpecularPower: () -> Float
+          def SpecularPower=: (Numeric value) -> Numeric
+          def Alpha: () -> Float
+          def Alpha=: (Numeric value) -> Numeric
+          def PreferPerPixelLighting: () -> bool
+          def PreferPerPixelLighting=: (bool value) -> bool
+          def WeightsPerVertex: () -> Integer
+          def WeightsPerVertex=: (Integer value) -> Integer
+          def Texture: () -> Texture2D?
+          def Texture=: (Texture2D? value) -> Texture2D?
+          def OnApply: () -> nil
+        end
+
+        class AlphaTestEffect < Effect
+          include IEffectFog
+          include IEffectMatrices
+          def initialize: (GraphicsDevice | AlphaTestEffect deviceOrCloneSource) -> void
+          def Clone: () -> Effect
+          def World: () -> Matrix
+          def World=: (Matrix value) -> Matrix
+          def View: () -> Matrix
+          def View=: (Matrix value) -> Matrix
+          def Projection: () -> Matrix
+          def Projection=: (Matrix value) -> Matrix
+          def FogEnabled: () -> bool
+          def FogEnabled=: (bool value) -> bool
+          def FogStart: () -> Float
+          def FogStart=: (Numeric value) -> Numeric
+          def FogEnd: () -> Float
+          def FogEnd=: (Numeric value) -> Numeric
+          def FogColor: () -> Vector3
+          def FogColor=: (Vector3 value) -> Vector3
+          def DiffuseColor: () -> Vector3
+          def DiffuseColor=: (Vector3 value) -> Vector3
+          def Alpha: () -> Float
+          def Alpha=: (Numeric value) -> Numeric
+          def VertexColorEnabled: () -> bool
+          def VertexColorEnabled=: (bool value) -> bool
+          def AlphaFunction: () -> CompareFunction
+          def AlphaFunction=: (CompareFunction | Integer value) -> untyped
+          def ReferenceAlpha: () -> Integer
+          def ReferenceAlpha=: (Integer value) -> Integer
+          def Texture: () -> Texture2D?
+          def Texture=: (Texture2D? value) -> Texture2D?
+          def OnApply: () -> nil
+        end
+
+        class DualTextureEffect < Effect
+          include IEffectFog
+          include IEffectMatrices
+          def initialize: (GraphicsDevice | DualTextureEffect deviceOrCloneSource) -> void
+          def Clone: () -> Effect
+          def World: () -> Matrix
+          def World=: (Matrix value) -> Matrix
+          def View: () -> Matrix
+          def View=: (Matrix value) -> Matrix
+          def Projection: () -> Matrix
+          def Projection=: (Matrix value) -> Matrix
+          def FogEnabled: () -> bool
+          def FogEnabled=: (bool value) -> bool
+          def FogStart: () -> Float
+          def FogStart=: (Numeric value) -> Numeric
+          def FogEnd: () -> Float
+          def FogEnd=: (Numeric value) -> Numeric
+          def FogColor: () -> Vector3
+          def FogColor=: (Vector3 value) -> Vector3
+          def DiffuseColor: () -> Vector3
+          def DiffuseColor=: (Vector3 value) -> Vector3
+          def Alpha: () -> Float
+          def Alpha=: (Numeric value) -> Numeric
+          def VertexColorEnabled: () -> bool
+          def VertexColorEnabled=: (bool value) -> bool
+          def Texture: () -> Texture2D?
+          def Texture=: (Texture2D? value) -> Texture2D?
+          def Texture2: () -> Texture2D?
+          def Texture2=: (Texture2D? value) -> Texture2D?
+          def OnApply: () -> nil
+        end
+
+        class EnvironmentMapEffect < Effect
+          include IEffectFog
+          include IEffectLights
+          include IEffectMatrices
+          def initialize: (GraphicsDevice | EnvironmentMapEffect deviceOrCloneSource) -> void
+          def Clone: () -> Effect
+          def World: () -> Matrix
+          def World=: (Matrix value) -> Matrix
+          def View: () -> Matrix
+          def View=: (Matrix value) -> Matrix
+          def Projection: () -> Matrix
+          def Projection=: (Matrix value) -> Matrix
+          def FogEnabled: () -> bool
+          def FogEnabled=: (bool value) -> bool
+          def FogStart: () -> Float
+          def FogStart=: (Numeric value) -> Numeric
+          def FogEnd: () -> Float
+          def FogEnd=: (Numeric value) -> Numeric
+          def FogColor: () -> Vector3
+          def FogColor=: (Vector3 value) -> Vector3
+          def AmbientLightColor: () -> Vector3
+          def AmbientLightColor=: (Vector3 value) -> Vector3
+          def DirectionalLight0: () -> DirectionalLight
+          def DirectionalLight1: () -> DirectionalLight
+          def DirectionalLight2: () -> DirectionalLight
+          def EnableDefaultLighting: () -> nil
+          def DiffuseColor: () -> Vector3
+          def DiffuseColor=: (Vector3 value) -> Vector3
+          def EmissiveColor: () -> Vector3
+          def EmissiveColor=: (Vector3 value) -> Vector3
+          def Alpha: () -> Float
+          def Alpha=: (Numeric value) -> Numeric
+          def EnvironmentMapAmount: () -> Float
+          def EnvironmentMapAmount=: (Numeric value) -> Numeric
+          def EnvironmentMapSpecular: () -> Vector3
+          def EnvironmentMapSpecular=: (Vector3 value) -> Vector3
+          def FresnelFactor: () -> Float
+          def FresnelFactor=: (Numeric value) -> Numeric
+          def Texture: () -> Texture2D?
+          def Texture=: (Texture2D? value) -> Texture2D?
+          def EnvironmentMap: () -> TextureCube?
+          def EnvironmentMap=: (TextureCube? value) -> TextureCube?
+          def OnApply: () -> nil
+        end
+
+        # The Model family. `ContentManager.Load(Model, name)` is the only producer, so none of the
+        # eight declares a constructor here.
+        class ModelBone
+          attr_reader Name: String
+          attr_reader Index: Integer
+          attr_reader Parent: ModelBone?
+          attr_reader Children: ModelBoneCollection
+          def Transform: () -> Matrix
+          def Transform=: (Matrix value) -> Matrix
+        end
+
+        class ModelBoneCollection < CNA::Runtime::ReadOnlyCollection
+          def []: (Integer | String key) -> ModelBone
+          def TryGetValue: (String boneName) ?{ (ModelBone) -> void } -> bool
+          def GetEnumerator: () -> ModelBoneCollection::Enumerator
+          def each: () ?{ (ModelBone) -> void } -> untyped
+
+          class Enumerator
+            include CNA::Runtime::ArrayEnumerator
+          end
+        end
+
+        class ModelMeshPart
+          attr_reader StartIndex: Integer
+          attr_reader PrimitiveCount: Integer
+          attr_reader VertexOffset: Integer
+          attr_reader NumVertices: Integer
+          attr_reader IndexBuffer: IndexBuffer?
+          attr_reader VertexBuffer: VertexBuffer?
+          attr_reader Effect: Effect?
+          attr_accessor Tag: untyped
+          def Effect=: (Effect? value) -> Effect?
+        end
+
+        class ModelMeshPartCollection < CNA::Runtime::ReadOnlyCollection
+          def GetEnumerator: () -> ModelMeshPartCollection::Enumerator
+          def each: () ?{ (ModelMeshPart) -> void } -> untyped
+
+          class Enumerator
+            include CNA::Runtime::ArrayEnumerator
+          end
+        end
+
+        class ModelEffectCollection < CNA::Runtime::ReadOnlyCollection
+          def GetEnumerator: () -> ModelEffectCollection::Enumerator
+          def each: () ?{ (Effect) -> void } -> untyped
+
+          class Enumerator
+            include CNA::Runtime::ArrayEnumerator
+          end
+        end
+
+        class ModelMesh
+          attr_reader Name: String
+          attr_reader ParentBone: ModelBone?
+          attr_reader BoundingSphere: Microsoft::Xna::Framework::BoundingSphere
+          attr_reader MeshParts: ModelMeshPartCollection
+          attr_reader Effects: ModelEffectCollection
+          attr_accessor Tag: untyped
+          def Draw: () -> nil
+        end
+
+        class ModelMeshCollection < CNA::Runtime::ReadOnlyCollection
+          def []: (Integer | String key) -> ModelMesh
+          def TryGetValue: (String meshName) ?{ (ModelMesh) -> void } -> bool
+          def GetEnumerator: () -> ModelMeshCollection::Enumerator
+          def each: () ?{ (ModelMesh) -> void } -> untyped
+
+          class Enumerator
+            include CNA::Runtime::ArrayEnumerator
+          end
+        end
+
+        class Model
+          attr_reader Root: ModelBone?
+          attr_reader Bones: ModelBoneCollection
+          attr_reader Meshes: ModelMeshCollection
+          attr_accessor Tag: untyped
+          def CopyBoneTransformsTo: (::Array[Matrix?] destinationBoneTransforms) -> nil
+          def CopyAbsoluteBoneTransformsTo: (::Array[Matrix?] destinationBoneTransforms) -> nil
+          def CopyBoneTransformsFrom: (::Array[Matrix] sourceBoneTransforms) -> nil
+          def Draw: (Matrix world, Matrix view, Matrix projection) -> nil
+        end
+
+        class SpriteBatch < GraphicsResource
+          def initialize: (GraphicsDevice graphics_device) -> void
+          def Begin: () -> nil
+          def Draw: (*untyped arguments) -> nil
+          def DrawString: (*untyped arguments) -> nil
+          def End: () -> nil
+        end
+      end
+    end
+  end
+end

@@ -1,0 +1,177 @@
+{
+  "schemaVersion": 2,
+  "provenance": "CNA_NATIVE_EVIDENCE; measured output of the reviewed CNA C ABI library, never an XNA fact and never part of the behaviour corpus",
+  "library": "/home/robertvokac/deps/cna-c-abi-0.35.0/lib/libcna_c_api.so",
+  "abiVersion": "0x00002300",
+  "audioPlatform": "build-time CNA_AUDIO_PLATFORM; not selectable at runtime",
+  "renderer": "build-time CNA_GRAPHICS_RENDERER, overridable at runtime only among renderers compiled in",
+  "capabilities": {
+    "cnaResult": 0,
+    "isPlaybackAvailable": true
+  },
+  "creation": {
+    "createPcm16Result": 0,
+    "sampleRate": 44100,
+    "channels": "MONO",
+    "frames": 44100,
+    "expectedDurationTicks": 10000000,
+    "durationTicksResult": 0,
+    "durationTicks": 10000000,
+    "sampleDurationTicksResult": 0,
+    "sampleDurationTicks": 10000000,
+    "createInstanceResult": 0
+  },
+  "transitions": [
+    {
+      "step": "initial",
+      "cnaResult": 0,
+      "snapshot": {
+        "state": "Stopped",
+        "isLooped": false,
+        "volume": 1.0,
+        "pitch": 0.0,
+        "pan": 0.0
+      }
+    },
+    {
+      "step": "set_is_looped(true) before play",
+      "cnaResult": 0,
+      "snapshot": {
+        "state": "Stopped",
+        "isLooped": true,
+        "volume": 1.0,
+        "pitch": 0.0,
+        "pan": 0.0
+      }
+    },
+    {
+      "step": "play",
+      "cnaResult": 0,
+      "snapshot": {
+        "state": "Playing",
+        "isLooped": true,
+        "volume": 1.0,
+        "pitch": 0.0,
+        "pan": 0.0
+      }
+    },
+    {
+      "step": "three frame steps",
+      "cnaResult": 0,
+      "snapshot": {
+        "state": "Playing",
+        "isLooped": true,
+        "volume": 1.0,
+        "pitch": 0.0,
+        "pan": 0.0
+      }
+    },
+    {
+      "step": "framework dispatcher pump",
+      "cnaResult": 0,
+      "snapshot": {
+        "state": "Playing",
+        "isLooped": true,
+        "volume": 1.0,
+        "pitch": 0.0,
+        "pan": 0.0
+      }
+    },
+    {
+      "step": "pause",
+      "cnaResult": 0,
+      "snapshot": {
+        "state": "Paused",
+        "isLooped": true,
+        "volume": 1.0,
+        "pitch": 0.0,
+        "pan": 0.0
+      }
+    },
+    {
+      "step": "resume",
+      "cnaResult": 0,
+      "snapshot": {
+        "state": "Playing",
+        "isLooped": true,
+        "volume": 1.0,
+        "pitch": 0.0,
+        "pan": 0.0
+      }
+    },
+    {
+      "step": "stop(immediate)",
+      "cnaResult": 0,
+      "snapshot": {
+        "state": "Stopped",
+        "isLooped": true,
+        "volume": 1.0,
+        "pitch": 0.0,
+        "pan": 0.0
+      }
+    },
+    {
+      "step": "set_volume(0.5)",
+      "cnaResult": 0,
+      "snapshot": {
+        "state": "Stopped",
+        "isLooped": true,
+        "volume": 0.5,
+        "pitch": 0.0,
+        "pan": 0.0
+      }
+    },
+    {
+      "step": "set_pitch(-0.25)",
+      "cnaResult": 0,
+      "snapshot": {
+        "state": "Stopped",
+        "isLooped": true,
+        "volume": 0.5,
+        "pitch": -0.25,
+        "pan": 0.0
+      }
+    },
+    {
+      "step": "set_pan(1.0)",
+      "cnaResult": 0,
+      "snapshot": {
+        "state": "Stopped",
+        "isLooped": true,
+        "volume": 0.5,
+        "pitch": -0.25,
+        "pan": 1.0
+      }
+    },
+    {
+      "step": "set_is_looped(true) after play",
+      "cnaResult": 3,
+      "snapshot": {
+        "state": "Stopped",
+        "isLooped": true,
+        "volume": 0.5,
+        "pitch": -0.25,
+        "pan": 1.0
+      }
+    }
+  ],
+  "observedStates": [
+    "Stopped",
+    "Playing",
+    "Paused"
+  ],
+  "proves": [
+    "the whole canonical path executes: create_pcm16, create_instance, play, pause, resume, stop, the four setters, and both destroys",
+    "cna_audio_get_capabilities reports playback available",
+    "one full second of mono PCM16 answers exactly 10000000 ticks from cna_sound_effect_get_duration_ticks",
+    "the static four-argument cna_sound_effect_get_sample_duration_ticks answers the same 10000000 ticks",
+    "SoundState moves Stopped -> Playing -> Paused -> Playing -> Stopped through the canonical routes",
+    "IsLooped is settable before playback and round-trips, and is refused with CNA_RESULT_INVALID_STATE after playback has begun, which is the documented rule",
+    "volume, pitch and pan round-trip through the real routes"
+  ],
+  "doesNotProve": [
+    "any audible output: no listener and no capture device took part in this measurement",
+    "3D positional audio, XACT, Microphone capture or DynamicSoundEffectInstance behaviour"
+  ],
+  "conclusion": "The canonical audio path is behaviourally real on the current artifact. Native frontier 4 measured the opposite against the retired 0.7.0 artifact, and three of its four negative findings do not survive re-measurement: the sample-duration route was called with the wrong arity (it is static and takes no handle, in the 0.7.0 headers too), IsLooped was set only after playback where the header documents a refusal, and the 'not the null backend' control was inert because CNA_AUDIO is not read by CNA at all -- the audio platform is a build-time CMake selection and the retired artifact was built CNA_AUDIO_PLATFORM=NULL. Re-measured against that same 0.7.0 artifact with the corrected prototypes, cna_audio_get_capabilities answers is_playback_available=0 and the duration routes report success without writing their output. SoundEffect and SoundEffectInstance are reopened."
+}

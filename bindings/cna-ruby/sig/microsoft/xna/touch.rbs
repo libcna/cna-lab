@@ -1,0 +1,116 @@
+module Microsoft
+  module Xna
+    module Framework
+      module Input
+        module Touch
+          class TouchLocationState
+            Invalid: TouchLocationState
+            Released: TouchLocationState
+            Pressed: TouchLocationState
+            Moved: TouchLocationState
+          end
+
+          class GestureType
+            None: GestureType
+            Tap: GestureType
+            DoubleTap: GestureType
+            Hold: GestureType
+            HorizontalDrag: GestureType
+            VerticalDrag: GestureType
+            FreeDrag: GestureType
+            Pinch: GestureType
+            Flick: GestureType
+            DragComplete: GestureType
+            PinchComplete: GestureType
+            def |: (GestureType other) -> GestureType
+            def &: (GestureType other) -> GestureType
+          end
+
+          class TouchLocation
+            attr_reader Id: Integer
+            attr_reader State: TouchLocationState
+            def Position: () -> Microsoft::Xna::Framework::Vector2
+            def TryGetPreviousLocation: () -> [ bool, TouchLocation ]
+            def Equals: (untyped other) -> bool
+            def GetHashCode: () -> Integer
+            def ToString: () -> String
+            def to_s: () -> String
+            def ==: (untyped other) -> bool
+            def dup: () -> TouchLocation
+            def clone: (?freeze: bool) -> TouchLocation
+          end
+
+          class GestureSample
+            def initialize: (GestureType gestureType, Float timestamp,
+                             Microsoft::Xna::Framework::Vector2 position,
+                             Microsoft::Xna::Framework::Vector2 position2,
+                             Microsoft::Xna::Framework::Vector2 delta,
+                             Microsoft::Xna::Framework::Vector2 delta2) -> void
+            attr_reader GestureType: GestureType
+            attr_reader Timestamp: Float
+            def Position: () -> Microsoft::Xna::Framework::Vector2
+            def Position2: () -> Microsoft::Xna::Framework::Vector2
+            def Delta: () -> Microsoft::Xna::Framework::Vector2
+            def Delta2: () -> Microsoft::Xna::Framework::Vector2
+            def dup: () -> GestureSample
+            def clone: (?freeze: bool) -> GestureSample
+          end
+
+          class TouchCollection
+            include ::Enumerable[TouchLocation]
+
+            def initialize: (Array[TouchLocation] touches) -> void
+            def Count: () -> Integer
+            def IsConnected: () -> bool
+            def IsReadOnly: () -> bool
+            def []: (Integer index) -> TouchLocation
+            def []=: (Integer index, TouchLocation value) -> untyped
+            def Insert: (Integer index, TouchLocation item) -> untyped
+            def RemoveAt: (Integer index) -> untyped
+            def Add: (TouchLocation item) -> untyped
+            def Clear: () -> untyped
+            def Remove: (TouchLocation item) -> untyped
+            def IndexOf: (TouchLocation item) -> Integer
+            def Contains: (TouchLocation item) -> bool
+            def CopyTo: (Array[TouchLocation] array, Integer arrayIndex) -> nil
+            def FindById: (Integer id) -> [ bool, TouchLocation ]
+            def GetEnumerator: () -> TouchCollection::Enumerator
+            def each: () { (TouchLocation) -> void } -> TouchCollection
+                    | () -> ::Enumerator[TouchLocation, TouchCollection]
+            def dup: () -> TouchCollection
+            def clone: (?freeze: bool) -> TouchCollection
+
+            class Enumerator
+              def Current: () -> TouchLocation
+              def MoveNext: () -> bool
+              def Dispose: () -> nil
+            end
+          end
+
+          class TouchPanelCapabilities
+            attr_reader IsConnected: bool
+            attr_reader MaximumTouchCount: Integer
+          end
+
+          # A CLR abstract sealed class: every member is static and `new` is private.
+          class TouchPanel
+            def self.GetCapabilities: () -> TouchPanelCapabilities
+            def self.GetState: () -> TouchCollection
+            def self.ReadGesture: () -> GestureSample
+            def self.IsGestureAvailable: () -> bool
+            def self.EnabledGestures: () -> GestureType
+            def self.EnabledGestures=: (untyped value) -> untyped
+            def self.WindowHandle: () -> Integer
+            def self.WindowHandle=: (Integer value) -> Integer
+            def self.DisplayOrientation: () -> Microsoft::Xna::Framework::DisplayOrientation
+            def self.DisplayOrientation=: (untyped value) -> untyped
+            def self.DisplayWidth: () -> Integer
+            def self.DisplayWidth=: (Integer value) -> Integer
+            def self.DisplayHeight: () -> Integer
+            def self.DisplayHeight=: (Integer value) -> Integer
+          end
+        end
+      end
+    end
+  end
+end

@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 1,
+  "category": "MIXED_WITH_OBSERVATION_PROVENANCE",
+  "provenance": "Each observation is explicitly classified as PURE_XNA_DERIVED metadata or RUBY_MAPPING_QUALIFICATION; never CNA output",
+  "sourceAssemblySha256": "560080fc39021c611ca9d076dcebed312faf6d7d1413c2dc523683ea635e9f55",
+  "derivation": "Foundation 40 Graphics.IGraphicsDeviceService. Contract rows are read from the pinned XNA 4.0 Windows metadata of Microsoft.Xna.Framework.Graphics.dll, whose IL declares the interface as public abstract with no base and no other interface, and every one of its nine methods as public hidebysig newslot specialname abstract virtual. Mapping rows apply the documented abstract-module projection policy to that metadata. The producer rows record that completing a contract is not the same as providing one: the pinned metadata names exactly one implementer, GraphicsDeviceManager, which is a deferred partial runtime type here, so nothing in this projection conforms to the service and nothing is registered under it.",
+  "observations": [
+    {
+      "id": "graphics_device_service.contract",
+      "operation": "InterfaceContract.Contract",
+      "args": ["Microsoft.Xna.Framework.Graphics.IGraphicsDeviceService"],
+      "provenance": "PURE_XNA_DERIVED",
+      "expected": ["interface", null, [], 5, [["GraphicsDevice", "property", true, false, 0], ["DeviceDisposing", "event", null, null, 0], ["DeviceReset", "event", null, null, 0], ["DeviceResetting", "event", null, null, 0], ["DeviceCreated", "event", null, null, 0]], 4]
+    },
+    {
+      "id": "graphics_device_service.event_delegates",
+      "operation": "GraphicsDeviceService.EventDelegates",
+      "args": [],
+      "provenance": "PURE_XNA_DERIVED",
+      "expected": [["DeviceDisposing", "DeviceReset", "DeviceResetting", "DeviceCreated"], ["System.EventHandler`1[System.EventArgs]"], true, false, "GraphicsDevice", "Microsoft.Xna.Framework.Graphics.GraphicsDevice", true, false, "public"]
+    },
+    {
+      "id": "graphics_device_service.ruby_mapping",
+      "operation": "InterfaceContract.RubyMapping",
+      "args": ["Microsoft.Xna.Framework.Graphics.IGraphicsDeviceService"],
+      "provenance": "RUBY_MAPPING_QUALIFICATION",
+      "expected": [true, false, ["DeviceCreated", "DeviceDisposing", "DeviceReset", "DeviceResetting", "GraphicsDevice"], ["NotImplementedError", "NotImplementedError", "NotImplementedError", "NotImplementedError", "NotImplementedError"], ["IGraphicsDeviceService#DeviceCreated", "IGraphicsDeviceService#DeviceDisposing", "IGraphicsDeviceService#DeviceReset", "IGraphicsDeviceService#DeviceResetting", "IGraphicsDeviceService#GraphicsDevice"], [], [], true]
+    },
+    {
+      "id": "graphics_device_service.producer_declaration",
+      "operation": "GraphicsDeviceService.ProducerDeclaration",
+      "args": [
+    
+      ],
+      "provenance": "PURE_XNA_DERIVED",
+      "expected": [
+        [
+          "Microsoft.Xna.Framework.GraphicsDeviceManager"
+        ],
+        [
+          "Microsoft.Xna.Framework.Graphics.IGraphicsDeviceService",
+          "Microsoft.Xna.Framework.IGraphicsDeviceManager",
+          "System.IDisposable"
+        ],
+        false,
+        true
+      ],
+      "note": "Corrected at the ABI 0.35.0 requalification: GraphicsDeviceManager is complete (its last five members were projected once the upstream adapter defect was found fixed), so the third element -- is it still a partial type -- is false. The declaration facts are unchanged."
+    },
+    {
+      "id": "graphics_device_service.producer_absent",
+      "operation": "GraphicsDeviceService.ProducerAbsent",
+      "args": [],
+      "provenance": "RUBY_MAPPING_QUALIFICATION",
+      "note": "This is a RUBY_MAPPING_QUALIFICATION row -- a measurement of this projection's own state, which a milestone acting on it is expected to move -- not an XNA fact. It measured that nothing provides IGraphicsDeviceService for eleven milestones, and it measures the producer now, in the same six elements. Foundation 101 corrected the finding it recorded: docs/graphics-device-service-producer-audit.md concluded that registering a producer would need a material Game/graphics lifecycle redesign, and re-reading GraphicsDeviceManager's own constructor IL is what settled it -- the registration is two AddService calls into GameServiceContainer, a projected managed dictionary nothing in CNA reads, and this manager has answered every member of the service contract since Foundation 96 measured its four events to be relays of the device's own. What the audit got right is untouched and is still measured by the third element: a bare Game registers nothing, and CNA's own container still has no registration route. The fourth element is the new one -- a Game with a manager answers that manager -- the fifth records that DrawableGameComponent is built rather than blocked, and the sixth that no interface on the frontier is producerless any more. Pre-correction SHA-256 of the aggregate 6b7d764473b0a2c610dc2eda69107dee047dd9031c02280d37285d8775e58b2c, of the per-milestone file b89d89d61919e97529d12e0941d7c3fa1d88683a72e31cab8b8e212a05535bc8.",
+      "expected": [true, true, null, true, "built", []]
+    }
+  ]
+}

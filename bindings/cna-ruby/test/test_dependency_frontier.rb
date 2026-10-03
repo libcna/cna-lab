@@ -1,0 +1,852 @@
+# frozen_string_literal: true
+
+require "minitest/autorun"
+require "json"
+require "pathname"
+require_relative "reviewed_measurements"
+require_relative "../lib/cna"
+require_relative "../tools/api_compat/verifier"
+
+# Foundations 19 and 20 — the dependency frontier blocker register.
+#
+# tools/api_compat/analyze_dependencies.rb classifies every dependency-complete missing type by why
+# it cannot yet be consumed. This test pins that classification two ways: the rule must agree with
+# the generated report, and it must retroactively classify every type completed in Foundations 16
+# to 20 as consumable. If the rule ever drifts so that already-shipped work would have been called
+# blocked — or blocked work would have been called consumable — this fails.
+#
+# Foundation 20 retired the EVENT_PROJECTION blocker: declaring a CLR event is no longer a reason
+# to defer a type, because one CLR event now projects to one Ruby event reader over
+# CNA::Runtime::Event and the API verifier measures it.
+class DependencyFrontierTest < Minitest::Test
+  ROOT = Pathname(__dir__).join("..").expand_path
+
+  REFERENCE = JSON.parse(ROOT.join("tools", "api_compat", "reference", "xna40-windows-runtime-contract.json").read)
+  SIGNATURES = JSON.parse(ROOT.join("tools", "api_compat", "signatures.json").read)
+  STRICT = JSON.parse(ROOT.join("docs", "generated", "api-compat-report.json").read)
+  REPORT = JSON.parse(ROOT.join("docs", "generated", "public-signature-dependency-report.json").read)
+  IL = JSON.parse(ROOT.join("docs", "generated", "xna-il-inventory.json").read)
+
+  BY_NAME = REFERENCE.fetch("types").to_h { |type| [type.fetch("name"), type] }.freeze
+
+  # Everything closed by the three preceding milestones.
+  CONSUMED = (
+    JSON.parse(ROOT.join("behavior", "xna40-pure-managed-enum-batch-values.json").read)
+        .fetch("observations").map { |item| item.fetch("args").first } +
+    %w[
+      Microsoft.Xna.Framework.Input.Touch.TouchLocationState
+      Microsoft.Xna.Framework.Input.Touch.GestureType
+      Microsoft.Xna.Framework.Input.Touch.TouchPanelCapabilities
+      Microsoft.Xna.Framework.IGameComponent
+      Microsoft.Xna.Framework.IGraphicsDeviceManager
+      Microsoft.Xna.Framework.Graphics.IEffectMatrices
+      Microsoft.Xna.Framework.Graphics.IEffectFog
+      Microsoft.Xna.Framework.IUpdateable
+      Microsoft.Xna.Framework.IDrawable
+      Microsoft.Xna.Framework.Audio.InstancePlayLimitException
+      Microsoft.Xna.Framework.Audio.NoAudioHardwareException
+      Microsoft.Xna.Framework.Audio.NoMicrophoneConnectedException
+      Microsoft.Xna.Framework.Graphics.DeviceLostException
+      Microsoft.Xna.Framework.Graphics.DeviceNotResetException
+      Microsoft.Xna.Framework.Graphics.NoSuitableGraphicsDeviceException
+      Microsoft.Xna.Framework.Input.Touch.TouchLocation
+      Microsoft.Xna.Framework.Input.Touch.GestureSample
+      Microsoft.Xna.Framework.Audio.AudioListener
+      Microsoft.Xna.Framework.Audio.AudioEmitter
+      Microsoft.Xna.Framework.Graphics.PresentationParameters
+      Microsoft.Xna.Framework.GameComponentCollectionEventArgs
+      Microsoft.Xna.Framework.Graphics.DisplayMode
+      Microsoft.Xna.Framework.Graphics.ResourceCreatedEventArgs
+      Microsoft.Xna.Framework.Graphics.ResourceDestroyedEventArgs
+      Microsoft.Xna.Framework.Graphics.DisplayModeCollection
+      Microsoft.Xna.Framework.Content.ContentSerializerAttribute
+      Microsoft.Xna.Framework.Content.ContentSerializerCollectionItemNameAttribute
+      Microsoft.Xna.Framework.Content.ContentSerializerIgnoreAttribute
+      Microsoft.Xna.Framework.Content.ContentSerializerRuntimeTypeAttribute
+      Microsoft.Xna.Framework.Content.ContentSerializerTypeVersionAttribute
+    ]
+  ).compact.uniq.freeze
+
+  def signatures_of(type)
+    values = [type["baseType"], *type.fetch("directInterfaces", [])]
+    type.fetch("members").each do |member|
+      values.concat([member["type"], member["returnType"]])
+      values.concat(member.fetch("parameters", []).map { |parameter| parameter["type"] })
+    end
+    values.compact
+  end
+
+  # The same reduction the tool applies: a constructed generic hides its definition behind its type
+  # arguments, so each signature yields the whole string when it names no XNA type, plus the outer
+  # definition whenever there is one.
+  def bcl_identities(signature)
+    stripped = signature.sub(/&\z/, "")
+    outer = stripped.split("[", 2).first
+    # Foundation 29: once the register projects a generic definition, a constructed form of it is
+    # no longer opaque -- it requires the definition's projection plus its type arguments'. A
+    # generic the register does not project stays opaque, because then the whole constructed form
+    # really is what is missing.
+    if outer != stripped && (CNA::Runtime::BclProjection::TYPES.key?(outer) ||
+                             CNA::Runtime::BclProjection.structural_collapse?(outer))
+      return ([outer] + CNA::Runtime::BclProjection.element_types(stripped)
+                                                   .flat_map { |argument| bcl_identities(argument) }).uniq
+    end
+
+    # A CLR generic parameter placeholder is a language construct, not a type identity. `!!0` names
+    # a generic *method*'s parameter and `!0` a generic type's; what resolves the first is the
+    # generic-method projection rule and the second `projects_elements`, and neither is a BCL type
+    # anything could ever map. Restated here rather than delegated, so the tool and the test have to
+    # agree on the spelling as well as on the idea.
+    return [] if stripped.match?(/\A!!?\d+(\[\])*\z/)
+
+    identities = []
+    identities << stripped unless BY_NAME.keys.any? { |name| stripped.include?(name) }
+    identities << outer if outer != stripped && !BY_NAME.key?(outer)
+    identities.uniq
+  end
+
+  def unmapped_bcl(type, mapped)
+    signatures_of(type).flat_map { |signature| bcl_identities(signature) }
+                       .reject { |identity| mapped.include?(identity) }.uniq.sort
+  end
+
+  # The same rule the tool applies, restated independently here. Declaring a CLR event is not a
+  # blocker (retired in Foundation 20) and neither is declaring a constructor or method (retired in
+  # Foundation 22, once the hash-pinned original assemblies were located): what blocks a candidate
+  # is an unmapped BCL type, absent IL, IL that reaches a native entry point, or values only a
+  # device or media stack can supply.
+  def blockers_for(type, mapped)
+    name = type.fetch("name")
+    blockers = []
+    blockers << "BCL_PROJECTION" unless unmapped_bcl(type, mapped).empty?
+
+    behaviour = type.fetch("members").select { |member| %w[constructor method].include?(member.fetch("kind")) }
+    il = IL.fetch("types")[name]
+    blockers << "IL_UNAVAILABLE" if il.nil? && !behaviour.empty?
+    blockers << "NATIVE_RUNTIME" if il && il.fetch("nativeReachable")
+    blockers << "RUNTIME_DATA" if REPORT.fetch("runtimeDataRegister").key?(name)
+    blockers << "INTERFACE_PRODUCER_MISSING" unless producerless_interfaces(name).empty?
+    blockers
+  end
+
+  # Foundation 40's producer blocker, restated here too. It went unrestated while no
+  # dependency-complete candidate carried it; VertexDeclaration became one the moment
+  # GraphicsResource completed, and the omission then showed up as a disagreement rather than as a
+  # silence, which is the whole point of keeping this rule written twice.
+  #
+  # An interface has a producer when some type declares it in the pinned contract, is complete in
+  # this projection, and whose live Ruby class really includes the projected module -- metadata,
+  # scoreboard and `is_a?`, all three.
+  def interface_producers
+    @interface_producers ||= begin
+      interfaces = REFERENCE.fetch("types").select { |type| type.fetch("kind") == "interface" }
+                            .map { |type| type.fetch("name") }
+      interfaces.to_h do |interface|
+        projected = resolve_constant(interface)
+        conformers = REFERENCE.fetch("types").select do |type|
+          type.fetch("interfaces", []).include?(interface) &&
+            STRICT.fetch("completeTypeNames").include?(type.fetch("name")) &&
+            !projected.nil? &&
+            (concrete = resolve_constant(type.fetch("name"))) &&
+            concrete.ancestors.include?(projected)
+        end
+        [interface, conformers.map { |type| type.fetch("name") }]
+      end
+    end
+  end
+
+  # Naming an interface in a signature needs no instance; calling a member of one does. So the test
+  # is the candidate's own IL member edges, not its signature graph.
+  def producerless_interfaces(name)
+    entry = IL.fetch("types")[name]
+    return [] if entry.nil?
+
+    entry.fetch("externalMemberReferences", [])
+         .map { |edge| edge.split("::", 2).first }.uniq.sort
+         .select { |owner| interface_producers.key?(owner) }
+         .reject { |interface| interface_producers.fetch(interface).any? }
+  end
+
+  def resolve_constant(clr_name)
+    CNAApiCompat::NameMapper.runtime_constant_path(clr_name)
+                            .split("::").reduce(Object) { |scope, segment| scope.const_get(segment, false) }
+  rescue NameError
+    nil
+  end
+
+  # The same two halves the tool uses, restated independently: types that are already complete, plus
+  # the runtime's measured BCL projection register. The register is all three of its parts -- a
+  # projected type, an exception base and a *structural collapse* each settle an identity, and a
+  # collapse settles it precisely by deciding no constant is needed. Until Foundation 36 the one
+  # collapsed identity was also reachable from a complete type's signatures, so leaving it out here
+  # happened to agree; System.IDisposable is declared only by types that are missing or partial, so
+  # it no longer does.
+  def mapped_bcl_from_complete_types
+    register = CNA::Runtime::BclProjection::TYPES.keys +
+               CNA::Runtime::BclProjection::EXCEPTION_BASES.keys +
+               CNA::Runtime::BclProjection::STRUCTURAL_COLLAPSE.keys
+    SIGNATURES.fetch("types").each_with_object(register.uniq.sort) do |type, found|
+      next unless STRICT.fetch("completeTypeNames").include?(type.fetch("name"))
+
+      signatures_of(type).each { |signature| found.concat(bcl_identities(signature)) }
+    end.uniq.sort
+  end
+
+  def test_report_is_the_current_schema_and_agrees_with_the_independent_rule
+    assert_equal 3, REPORT.fetch("schemaVersion")
+    mapped = mapped_bcl_from_complete_types
+    assert_equal mapped, REPORT.fetch("mappedBclTypes")
+
+    REPORT.fetch("dependencyCompleteCandidates").each do |candidate|
+      type = BY_NAME.fetch(candidate.fetch("name"))
+      assert_equal blockers_for(type, mapped), candidate.fetch("blockers"), candidate.fetch("name")
+      assert_equal unmapped_bcl(type, mapped), candidate.fetch("unmappedBclTypes"), candidate.fetch("name")
+      assert_empty candidate.fetch("unmetDependencies"), candidate.fetch("name")
+    end
+  end
+
+  # Native frontier 2 — the extractor reads nested and generic type declarations, which it had
+  # silently folded into their parents since Foundation 22.
+  def test_the_extractor_addresses_nested_and_generic_type_declarations
+    %w[
+      Microsoft.Xna.Framework.Graphics.ModelBoneCollection+Enumerator
+      Microsoft.Xna.Framework.Graphics.ModelEffectCollection+Enumerator
+      Microsoft.Xna.Framework.Graphics.ModelMeshCollection+Enumerator
+      Microsoft.Xna.Framework.Graphics.ModelMeshPartCollection+Enumerator
+      Microsoft.Xna.Framework.Input.Touch.TouchCollection+Enumerator
+      Microsoft.Xna.Framework.Content.ContentTypeReader`1
+      Microsoft.Xna.Framework.Graphics.PackedVector.IPackedVector`1
+    ].each do |name|
+      entry = IL.fetch("types").fetch(name)
+      assert_operator entry.fetch("ilLines"), :>, 0, name
+      refute_nil entry.fetch("declaredMethods"), name
+    end
+
+    # A declaring type counts only what it declares itself. Both of these previously absorbed a
+    # nested type's fields: TouchCollection reported 16 for its own 11, and FrameworkDispatcher 5
+    # for its own 3, because the two ManagedCallAndArg fields were counted as its own.
+    assert_equal 11, IL.fetch("types")
+                       .fetch("Microsoft.Xna.Framework.Input.Touch.TouchCollection")
+                       .fetch("declaredFields")
+    assert_equal 3, IL.fetch("types")
+                      .fetch("Microsoft.Xna.Framework.FrameworkDispatcher")
+                      .fetch("declaredFields")
+
+    # A nested type owns its own methods and constructor rather than lending them to its parent.
+    enumerator = IL.fetch("types")
+                   .fetch("Microsoft.Xna.Framework.Input.Touch.TouchCollection+Enumerator")
+    assert_equal 5, enumerator.fetch("declaredMethods")
+    assert_equal 2, enumerator.fetch("declaredFields")
+    assert_equal ["assembly"], enumerator.fetch("constructors").map { |ctor| ctor.fetch("access") }
+  end
+
+  # Native frontier 3 — the extractor reads a method name past a `modopt(...)`/`modreq(...)` return
+  # modifier, which is how every mixed-mode C++/CLI thunk in these assemblies is declared.
+  #
+  # The defect was silent and expensive: `.method public hidebysig static int32
+  # modopt([mscorlib]...IsLong) Play(uint32)` was recorded under the name `modopt`, while every call
+  # site resolved to `...::Play`, so every edge into XNA's native-methods classes dangled and the
+  # types that call them looked pure managed. This pins both halves — the name rule itself, and the
+  # reachability it restores.
+  def test_the_extractor_reads_a_method_name_past_a_return_type_modifier
+    name_of = lambda do |header|
+      searchable = header.gsub(/(?:pinvokeimpl|marshal|modopt|modreq)\s*\([^)]*\)/, " ")
+      searchable[/([A-Za-z_.<>][A-Za-z0-9_.<>`]*)\s*\(/, 1]
+    end
+    assert_equal "Play",
+                 name_of.call("public hidebysig static int32 " \
+                              "modopt([mscorlib]System.Runtime.CompilerServices.IsLong) Play(uint32 h)")
+    assert_equal "Apply3D",
+                 name_of.call("public hidebysig static int32 modreq([mscorlib]System.Object) " \
+                              "Apply3D(uint32 h, float32 x)")
+    # The two forms the extractor always handled still work.
+    assert_equal "GetKeyboardState",
+                 name_of.call('public hidebysig static pinvokeimpl("user32.dll" winapi) ' \
+                              "int32 GetKeyboardState(uint8[] state)")
+    assert_equal "Ordinary", name_of.call("public hidebysig instance void Ordinary(int32 value)")
+
+    # And the reachability it restores, on the type that exposed it. SoundEffectInstance's own IL
+    # calls SoundEffectUnsafeNativeMethods::Play/Stop/Pause/SetVolume, whose bodies are
+    # `calli unmanaged thiscall`.
+    entry = IL.fetch("types").fetch("Microsoft.Xna.Framework.Audio.SoundEffectInstance")
+    assert entry.fetch("nativeReachable")
+    refute_empty entry.fetch("nativeReachableMethods")
+    assert_equal 254, IL.fetch("NATIVE_ENTRY_POINT_METHODS") if IL.key?("NATIVE_ENTRY_POINT_METHODS")
+    assert_equal 77, IL.fetch("TYPES_NATIVE_REACHABLE")
+    # The correction added reachability and took none away.
+    %w[
+      Microsoft.Xna.Framework.Graphics.Texture
+      Microsoft.Xna.Framework.Input.GamePad
+      Microsoft.Xna.Framework.Input.Mouse
+      Microsoft.Xna.Framework.Graphics.GraphicsDevice
+    ].each { |name| assert IL.fetch("types").fetch(name).fetch("nativeReachable"), name }
+    # Nothing in the pure-managed families gained it.
+    %w[
+      Microsoft.Xna.Framework.Vector2
+      Microsoft.Xna.Framework.Matrix
+      Microsoft.Xna.Framework.Input.Touch.TouchPanel
+      Microsoft.Xna.Framework.GameServiceContainer
+    ].each { |name| refute IL.fetch("types").fetch(name).fetch("nativeReachable"), name }
+  end
+
+  # Foundation 22 — the pinned original assemblies were located by hash, so the IL inventory is
+  # real evidence rather than an assumption.
+  def test_the_il_inventory_is_hash_pinned_and_covers_the_reference_surface
+    assert_equal 1, IL.fetch("schemaVersion")
+    assert_equal REFERENCE.fetch("types").length, IL.fetch("REFERENCE_TYPES")
+    # Native frontier 2 made the extractor nested- and generic-aware. Every reference type is now
+    # covered, where seven were previously reported as carrying no IL at all: the five nested
+    # `+Enumerator` types, whose declarations `ikdasm` indents inside their parent and closes with
+    # the short name, and the two generic definitions, which it declares as `Name`1<T>` and closes
+    # as `Name`1`.
+    assert_equal REFERENCE.fetch("types").length, IL.fetch("TYPES_WITH_IL")
+    assert_equal 0, IL.fetch("TYPES_WITHOUT_IL")
+    assert_empty IL.fetch("typesWithoutIl")
+
+    provenance = ROOT.join("tools", "api_compat", "reference", "XNA_IL_PROVENANCE.md").read
+    IL.fetch("assemblies").each do |assembly|
+      assert_equal 64, assembly.fetch("sha256").length, assembly.fetch("name")
+      assert_equal "4.0.0.0", assembly.fetch("version")
+      # Every hash the inventory reports is pinned in the committed provenance register.
+      assert_includes provenance, assembly.fetch("sha256"), assembly.fetch("name")
+      assert_includes provenance, assembly.fetch("name")
+    end
+    # The two hashes every earlier milestone cited as sourceAssemblySha256 are in the register.
+    assert_includes provenance, "38e7093f52d7474bbc6256906519781a1210d7da50a1c667b52716fcf49ca130"
+    assert_includes provenance, "560080fc39021c611ca9d076dcebed312faf6d7d1413c2dc523683ea635e9f55"
+    # No Microsoft-owned bytes and no machine-local path may be committed.
+    refute_match(%r{/home/|/rv/|/tmp/}, provenance)
+    refute_match(%r{/home/|/rv/|/tmp/}, ROOT.join("docs", "generated", "xna-il-inventory.json").read)
+
+    assert_equal REPORT.fetch("ilProvenance").fetch("assemblies"), IL.fetch("assemblies").length
+    assert_equal REPORT.fetch("ilProvenance").fetch("typesNativeReachable"), IL.fetch("TYPES_NATIVE_REACHABLE")
+  end
+
+  # The classifier must agree with what this binding already knows is native.
+  def test_native_reachability_agrees_with_the_shipped_native_boundary
+    native = IL.fetch("types").select { |_name, entry| entry.fetch("nativeReachable") }.keys
+    # Every partial runtime type is native, and so are the two that left that list by completing.
+    %w[
+      Microsoft.Xna.Framework.Game
+      Microsoft.Xna.Framework.GraphicsDeviceManager
+      Microsoft.Xna.Framework.Graphics.GraphicsDevice
+      Microsoft.Xna.Framework.Graphics.Texture2D
+      Microsoft.Xna.Framework.Graphics.SpriteBatch
+    ].each { |name| assert_includes native, name, name }
+
+    # The four graphics state objects are the first complete types that are native-reachable in the
+    # IL while this binding implements **none** of their native boundary -- and that is not a gap.
+    # What makes each of them reachable is `Apply`, which is `assembly`-visible, is not in the
+    # pinned contract, and is therefore not a projected identity; the public surface is a property
+    # bag with static presets and no device in it. So they are separated from the list below rather
+    # than quietly added to it, because that list means something specific.
+    internally_native = {
+      "Microsoft.Xna.Framework.Graphics.BlendState" => %w[Apply],
+      "Microsoft.Xna.Framework.Graphics.DepthStencilState" => %w[Apply],
+      "Microsoft.Xna.Framework.Graphics.RasterizerState" => %w[Apply],
+      "Microsoft.Xna.Framework.Graphics.SamplerState" => %w[Apply],
+      "Microsoft.Xna.Framework.Graphics.VertexDeclaration" => %w[Bind Unbind]
+    }
+    internally_native.each do |name, methods|
+      assert_includes native, name, name
+      assert_includes STRICT.fetch("completeTypeNames"), name, name
+      assert_equal methods, IL.fetch("types").fetch(name).fetch("nativeReachableMethods"), name
+      declared = BY_NAME.fetch(name).fetch("members").map { |member| member.fetch("name") }
+      methods.each { |method| refute_includes declared, method, "#{name}::#{method}" }
+    end
+
+    # The only complete types that are native-reachable are the four whose native routes this
+    # binding really implements; every other complete type is pure managed. FrameworkDispatcher
+    # joined them in Native frontier 3, which is the honest reading: its drain reaches XACT through
+    # SoundEffect.RecycleStoppedFireAndForgetInstances, and this binding's projection forwards to
+    # the canonical CNA pump.
+    # Game and ContentManager joined them when each was completed, and both belong: Game's IL
+    # reaches the host and this projection is a façade over CNA's native Game, and ContentManager's
+    # reaches the content pipeline, which is exactly the native route `Load<Texture2D>` calls. Every
+    # entry on this list is a type whose native boundary the binding really implements, which is the
+    # property the list exists to check -- not a count that must stay still. The nine Effect types
+    # joined it together, and `SpriteBatch` joined with them: it was native-reachable all along and
+    # only appears here now because a **partial** type is not on this list, and the two Effect-taking
+    # Begin overloads completed it. The five stock effects joined as each was built -- `BasicEffect`
+    # alone in Foundation 97, the other four together in Foundation 98 -- and all five belong:
+    # every property of every one of them is a `cna_*_effect_*` route of its own.
+    # Three of the Model family joined together -- `Model`, `ModelMesh` and `ModelMeshPart` -- and
+    # each belongs: a part reads its own `cna_model_mesh_part_*` routes and the two `Draw`s reach
+    # `cna_model_draw` and `cna_model_mesh_draw`. `ModelBone` and the four `Model*Collection`s are
+    # **not** here, and that is the list being right rather than incomplete: native reachability is
+    # measured from each type's own **XNA IL**, and a bone's five members are `ldfld`s while a
+    # collection's three are a linear scan over a list something else made.
+    # Sixteen of the Media namespace's seventeen joined together: every one of them reaches
+    # `UnsafeNativeMethods` or `WmpInterface` in XNA's own IL, which is the Windows Media Player
+    # COM surface. `Song` joined the list at Foundation 104, when the three navigation routes
+    # Foundation 103 recorded as absent turned out to exist and completed the type: its members are
+    # `ldfld`s over fields the library filled, and `FromUri` is `MediaSong_FromUri`, a real native
+    # entry point in XNA's own IL.
+    # `Content.ContentReader` joined at Foundation 104, and it is the clearest case on this list of
+    # native reachability that is **not** a native dependency: the two methods are `Create` and
+    # `PrepareStream`, and what they reach is `System.IO.Stream`'s own decompression path for an
+    # LZX-compressed container. Every other member of the type is `BinaryReader` arithmetic. The
+    # projection binds no route and refuses a compressed container, so the reachability is real and
+    # the dependency is not, which is exactly the distinction this list exists to keep visible.
+    # `Storage.StorageDevice` joined with the Storage family: its three properties reach
+    # `UnsafeNativeMethods.GetDiskFreeSpaceEx` through `StorageContainer.GetDeviceFolder`, which is
+    # a real native entry point in XNA's own IL. `StorageContainer` is **not** here, which is the
+    # list being right rather than incomplete: its file operations go through `DirectoryInfo` and
+    # `FileStream`, managed BCL types, and never through a P/Invoke of its own.
+    assert_equal %w[
+      Microsoft.Xna.Framework.Audio.AudioCategory
+      Microsoft.Xna.Framework.Audio.AudioEngine
+      Microsoft.Xna.Framework.Audio.Cue
+      Microsoft.Xna.Framework.Audio.DynamicSoundEffectInstance
+      Microsoft.Xna.Framework.Audio.Microphone
+      Microsoft.Xna.Framework.Audio.SoundBank
+      Microsoft.Xna.Framework.Audio.SoundEffect
+      Microsoft.Xna.Framework.Audio.SoundEffectInstance
+      Microsoft.Xna.Framework.Audio.WaveBank
+      Microsoft.Xna.Framework.Content.ContentManager
+      Microsoft.Xna.Framework.Content.ContentReader
+      Microsoft.Xna.Framework.FrameworkDispatcher
+      Microsoft.Xna.Framework.Game
+      Microsoft.Xna.Framework.GamerServices.GamerServicesComponent
+      Microsoft.Xna.Framework.Graphics.AlphaTestEffect
+      Microsoft.Xna.Framework.Graphics.BasicEffect
+      Microsoft.Xna.Framework.Graphics.DirectionalLight
+      Microsoft.Xna.Framework.Graphics.DualTextureEffect
+      Microsoft.Xna.Framework.Graphics.DynamicIndexBuffer
+      Microsoft.Xna.Framework.Graphics.DynamicVertexBuffer
+      Microsoft.Xna.Framework.Graphics.Effect
+      Microsoft.Xna.Framework.Graphics.EffectAnnotation
+      Microsoft.Xna.Framework.Graphics.EffectAnnotationCollection
+      Microsoft.Xna.Framework.Graphics.EffectMaterial
+      Microsoft.Xna.Framework.Graphics.EffectParameter
+      Microsoft.Xna.Framework.Graphics.EffectParameterCollection
+      Microsoft.Xna.Framework.Graphics.EffectPass
+      Microsoft.Xna.Framework.Graphics.EffectPassCollection
+      Microsoft.Xna.Framework.Graphics.EffectTechnique
+      Microsoft.Xna.Framework.Graphics.EffectTechniqueCollection
+      Microsoft.Xna.Framework.Graphics.EnvironmentMapEffect
+      Microsoft.Xna.Framework.Graphics.GraphicsAdapter
+      Microsoft.Xna.Framework.Graphics.GraphicsDevice
+      Microsoft.Xna.Framework.Graphics.IndexBuffer
+      Microsoft.Xna.Framework.Graphics.Model
+      Microsoft.Xna.Framework.Graphics.ModelMesh
+      Microsoft.Xna.Framework.Graphics.ModelMeshPart
+      Microsoft.Xna.Framework.Graphics.OcclusionQuery
+      Microsoft.Xna.Framework.Graphics.RenderTarget2D
+      Microsoft.Xna.Framework.Graphics.RenderTargetCube
+      Microsoft.Xna.Framework.Graphics.SamplerStateCollection
+      Microsoft.Xna.Framework.Graphics.SkinnedEffect
+      Microsoft.Xna.Framework.Graphics.SpriteBatch
+      Microsoft.Xna.Framework.Graphics.SpriteFont
+      Microsoft.Xna.Framework.Graphics.Texture
+      Microsoft.Xna.Framework.Graphics.Texture2D
+      Microsoft.Xna.Framework.Graphics.Texture3D
+      Microsoft.Xna.Framework.Graphics.TextureCollection
+      Microsoft.Xna.Framework.Graphics.TextureCube
+      Microsoft.Xna.Framework.Graphics.VertexBuffer
+      Microsoft.Xna.Framework.GraphicsDeviceManager
+      Microsoft.Xna.Framework.Input.GamePad
+      Microsoft.Xna.Framework.Input.Mouse
+      Microsoft.Xna.Framework.Media.Album
+      Microsoft.Xna.Framework.Media.AlbumCollection
+      Microsoft.Xna.Framework.Media.Artist
+      Microsoft.Xna.Framework.Media.ArtistCollection
+      Microsoft.Xna.Framework.Media.Genre
+      Microsoft.Xna.Framework.Media.GenreCollection
+      Microsoft.Xna.Framework.Media.MediaLibrary
+      Microsoft.Xna.Framework.Media.MediaPlayer
+      Microsoft.Xna.Framework.Media.MediaQueue
+      Microsoft.Xna.Framework.Media.Picture
+      Microsoft.Xna.Framework.Media.PictureAlbum
+      Microsoft.Xna.Framework.Media.PictureAlbumCollection
+      Microsoft.Xna.Framework.Media.PictureCollection
+      Microsoft.Xna.Framework.Media.Playlist
+      Microsoft.Xna.Framework.Media.PlaylistCollection
+      Microsoft.Xna.Framework.Media.Song
+      Microsoft.Xna.Framework.Media.SongCollection
+      Microsoft.Xna.Framework.Media.VideoPlayer
+      Microsoft.Xna.Framework.Storage.StorageDevice
+    ], ((STRICT.fetch("completeTypeNames") & native) - internally_native.keys).sort
+    %w[
+      Microsoft.Xna.Framework.FrameworkDispatcher
+      Microsoft.Xna.Framework.Graphics.Texture
+      Microsoft.Xna.Framework.Input.GamePad
+      Microsoft.Xna.Framework.Input.Mouse
+    ].each do |name|
+      assert(CNA::Native::Manifest::FUNCTIONS.any? { |signature| signature.symbol.start_with?("cna_") },
+             name)
+    end
+
+    assert_operator IL.fetch("TYPES_NATIVE_REACHABLE"), :>, 0
+    assert_operator IL.fetch("TYPES_NATIVE_REACHABLE"), :<, IL.fetch("TYPES_WITH_IL")
+  end
+
+  # Every runtime-data deferral must name a real type and say exactly what input is missing.
+  #
+  # The register is **empty** now, and that is the assertion: every entry it ever held turned out to
+  # describe a producer rather than the type, the last of them Media.MediaSource, whose
+  # `GetAvailableMediaSources` queries nothing in XNA either. The per-entry rules below still run,
+  # so re-adding an unjustified entry would still fail.
+  def test_every_runtime_data_deferral_is_justified
+    register = REPORT.fetch("runtimeDataRegister")
+    assert_empty register
+    register.each do |name, justification|
+      assert BY_NAME.key?(name), name
+      refute_empty justification.to_s, name
+      refute_includes STRICT.fetch("completeTypeNames"), name, name
+      # A runtime-data deferral is about missing values, never about missing IL.
+      assert IL.fetch("types").key?(name), name
+    end
+  end
+
+  def test_every_type_completed_in_foundations_16_to_27_classifies_as_consumable
+    mapped = mapped_bcl_from_complete_types
+    assert_equal 54, CONSUMED.length
+
+    CONSUMED.each do |name|
+      type = BY_NAME.fetch(name)
+      assert_empty blockers_for(type, mapped), "#{name} was shipped, so it must classify consumable"
+      assert_includes STRICT.fetch("completeTypeNames"), name
+      assert_equal 0, STRICT.fetch("localDiagnostics").fetch(name), name
+    end
+  end
+
+  # ------------------------------------------------------------------------ the staleness guard
+  #
+  # Measured defect, found the hard way. `analyze_dependencies.rb` is not run by the suite, so the
+  # generated frontier report can lag the scoreboard it is derived from -- and it did: it was still
+  # describing SamplerState as waiting on GraphicsResource one whole milestone after
+  # GraphicsResource completed. Nothing failed, because every assertion here was pinned to the
+  # stale file, and a file agreeing with itself is not a measurement.
+  #
+  # The report's own type-level header is exactly the input that went stale, so pinning it against
+  # the strict scoreboard is the cheapest possible test that cannot itself go stale: the two files
+  # are produced by different tools from different passes.
+  def test_the_report_is_not_stale_with_respect_to_the_scoreboard
+    assert_equal STRICT.fetch("COMPLETE_TYPES"), REPORT.fetch("completeTypes")
+    assert_equal STRICT.fetch("PARTIAL_TYPES"), REPORT.fetch("partialTypes").length
+    assert_equal STRICT.fetch("partialTypes").keys.sort, REPORT.fetch("partialTypes").sort
+    assert_equal STRICT.fetch("MISSING_TYPES"), REPORT.fetch("missingTypes")
+    assert_equal STRICT.fetch("TARGET_TYPES"), REPORT.fetch("targetTypes")
+
+    # And no candidate may name a complete type as an unmet dependency, which is the shape the
+    # staleness actually took.
+    (REPORT.fetch("dependencyCompleteCandidates") + REPORT.fetch("ilOnlyBlockedCandidates") +
+     REPORT.fetch("partialDependencySatisfiedCandidates")).each do |candidate|
+      (candidate.fetch("unmetDependencies") + candidate.fetch("ilOnlyUnmetDependencies", []))
+        .each do |dependency|
+        refute_includes STRICT.fetch("completeTypeNames"), dependency,
+                        "#{candidate.fetch("name")} waits on #{dependency}, which is complete"
+      end
+      refute_includes STRICT.fetch("completeTypeNames"), candidate.fetch("name"),
+                      "#{candidate.fetch("name")} is complete and cannot still be a candidate"
+    end
+  end
+
+  def test_the_frontier_has_a_measured_work_queue_and_every_blocker_is_attributed
+    # 3 until the GraphicsResource and Texture2D milestones landed together: completing
+    # GraphicsResource made the four graphics state objects and VertexDeclaration
+    # dependency-complete, and completing Texture2D did the same for Media.VideoPlayer. Then 6,
+    # when the four state objects were audited and built and SamplerStateCollection appeared behind
+    # SamplerState; 5 when that collection was built too; 8 when VertexDeclaration and the
+    # IVertexType it uncovered were both built, putting the four vertex structs on the queue; 4 when
+    # those four were consumed and nothing arrived behind them; 3 when Media.VideoPlayer's
+    # blocker was audited and found not to be one either; and 4 when the nine-type Effect cluster
+    # was built -- EffectAnnotation left it and EffectMaterial and DirectionalLight arrived behind
+    # the Effect base. A frontier that rises when a base completes is advancing, not regressing.
+    # ...5 when the buffers uncovered ModelMeshPart behind them; 3 when DirectionalLight and
+    # EffectMaterial were audited and built, which put the three stock effects that name them onto
+    # the partial list instead; and **2** when the Model family took ModelMeshPart off it. Two is
+    # the fewest this frontier has ever carried, and both entries left are genuinely blocked.
+    # ...and **1** at Foundation 105, when the thirteen Design converters were built and the
+    # `BCL_PROJECTION` blocker left the frontier entirely. One is the fewest it has ever carried,
+    # and the entry left is the measured CNA adapter defect -- and **0** at the ABI 0.35.0
+    # requalification, when that defect was found fixed upstream and the adapter family built.
+    assert_equal 0, REPORT.fetch("dependencyCompleteCandidates").length
+    assert_equal REPORT.fetch("dependencyCompleteCandidates").length,
+                 REPORT.fetch("blockerSummary").values.sum
+    # Foundation 31 completed the TouchCollection pair, which made TouchPanel consumable, and
+    # Foundation 32 consumed it. The queue was empty from then until the vertex structs arrived --
+    # so the frontier is *selecting* again rather than only listing, for the third time ever.
+    assert_equal 0, REPORT.fetch("consumableCandidates").length
+    refute REPORT.fetch("blockerSummary").key?("NONE")
+    assert_equal "none-consumable", REPORT.fetch("selectionRoute")
+    assert_nil REPORT["selectedNext"]
+
+    REPORT.fetch("dependencyCompleteCandidates").each do |candidate|
+      %w[EVENT_PROJECTION BEHAVIOR_EVIDENCE].each do |retired|
+        refute_includes candidate.fetch("blockers"), retired, candidate.fetch("name")
+      end
+      # Declaring a constructor or method is now a work marker, never a blocker.
+      if candidate.fetch("ilDerivationRequired")
+        refute_empty candidate.fetch("behaviourBearingMembers"), candidate.fetch("name")
+      end
+      assert candidate.fetch("ilAvailable") || candidate.fetch("blockers").include?("IL_UNAVAILABLE"),
+             candidate.fetch("name")
+      if candidate.fetch("blockers").include?("NATIVE_RUNTIME")
+        refute_empty candidate.fetch("nativeReachableMethods"), candidate.fetch("name")
+      end
+      if candidate.fetch("blockers").include?("RUNTIME_DATA")
+        refute_nil candidate.fetch("runtimeDataDetail"), candidate.fetch("name")
+      end
+    end
+    assert_equal %w[BEHAVIOR_EVIDENCE EVENT_PROJECTION], REPORT.fetch("retiredBlockers").keys.sort
+  end
+
+  # Every consumable candidate really is pure managed, hash-pinned and dependency-complete.
+  # Every consumable candidate really is pure managed, hash-pinned and dependency-complete. The
+  # list was empty from Foundation 32 until IVertexType was projected and uncovered the four vertex
+  # structs, so this check finally has subjects again -- which is the point of writing it as a rule
+  # over whatever is there rather than as a count.
+  def test_every_consumable_candidate_is_pure_managed_with_available_il
+    # Empty again: the four vertex structs it briefly held were built in the very next milestone.
+    # The rule below is still written over whatever is there, which is why it survives both states.
+    assert_empty REPORT.fetch("consumableCandidates")
+
+    REPORT.fetch("consumableCandidates").each do |candidate|
+      name = candidate.fetch("name")
+      assert_empty candidate.fetch("blockers"), name
+      assert_empty candidate.fetch("unmetDependencies"), name
+      assert_empty candidate.fetch("unmappedBclTypes"), name
+      assert candidate.fetch("ilAvailable"), name
+      entry = IL.fetch("types").fetch(name)
+      refute entry.fetch("nativeReachable"), name
+      assert_includes IL.fetch("assemblies").map { |assembly| assembly.fetch("name") }, entry.fetch("assembly"), name
+      refute_includes STRICT.fetch("completeTypeNames"), name, name
+    end
+  end
+
+  # Foundation 22 — the pinned IL settled every XNA exception constructor, so six are complete and
+  # only the two carrying a protected serialization constructor remain.
+  def test_six_exception_types_are_complete_and_two_remain_on_the_serialization_cluster
+    exceptions = BY_NAME.keys.grep(/Exception\z/).sort
+    assert_equal 8, exceptions.length
+
+    completed = %w[
+      Microsoft.Xna.Framework.Audio.InstancePlayLimitException
+      Microsoft.Xna.Framework.Audio.NoAudioHardwareException
+      Microsoft.Xna.Framework.Audio.NoMicrophoneConnectedException
+      Microsoft.Xna.Framework.Graphics.DeviceLostException
+      Microsoft.Xna.Framework.Graphics.DeviceNotResetException
+      Microsoft.Xna.Framework.Graphics.NoSuitableGraphicsDeviceException
+    ]
+    completed.each do |name|
+      assert_includes STRICT.fetch("completeTypeNames"), name, name
+      assert_equal 0, STRICT.fetch("localDiagnostics").fetch(name), name
+      refute IL.fetch("types").fetch(name).fetch("nativeReachable"), name
+    end
+
+    # The other two were held on the serialization cluster until Foundation 49 projected it, which
+    # is the transition this measurement exists to make visible: they left the frontier by their
+    # blocker being *resolved*, not by the rule being relaxed.
+    (exceptions - completed).each do |name|
+      refute(REPORT.fetch("dependencyCompleteCandidates").any? { |item| item.fetch("name") == name }, name)
+      assert_includes STRICT.fetch("completeTypeNames"), name
+      assert_includes REPORT.fetch("mappedBclTypes"), "System.Runtime.Serialization.SerializationInfo"
+    end
+  end
+
+  def test_the_event_args_projection_is_visible_to_the_frontier
+    assert_includes REPORT.fetch("mappedBclTypes"), "System.EventArgs"
+    # Foundation 24 consumed the one EventArgs subclass with a public constructor.
+    assert_includes STRICT.fetch("completeTypeNames"), "Microsoft.Xna.Framework.GameComponentCollectionEventArgs"
+    assert_equal CNA::Runtime::EventArgs,
+                 Microsoft::Xna::Framework::GameComponentCollectionEventArgs.superclass
+
+    # Foundation 25 consumed the remaining EventArgs subclasses, whose only constructor is internal.
+    %w[
+      Microsoft.Xna.Framework.Graphics.ResourceCreatedEventArgs
+      Microsoft.Xna.Framework.Graphics.ResourceDestroyedEventArgs
+    ].each do |name|
+      assert_includes STRICT.fetch("completeTypeNames"), name, name
+      assert_equal "System.EventArgs", BY_NAME.fetch(name).fetch("baseType"), name
+      runtime = name.split(".").reduce(Object) { |scope, part| scope.const_get(part, false) }
+      assert_equal CNA::Runtime::EventArgs, runtime.superclass, name
+      # A CLR class with no public constructor projects with `new` made private.
+      refute runtime.respond_to?(:new), name
+    end
+  end
+
+  # An event-declaring type is now blocked only for reasons that have nothing to do with events.
+  def test_event_declaring_candidates_are_no_longer_blocked_by_their_events
+    events = REPORT.fetch("dependencyCompleteCandidates").reject { |item| item.fetch("eventMembers").empty? }
+    # Audio.Cue joined the list when AudioEmitter and AudioListener completed its dependencies.
+    # GameWindow was the third until Foundation 48 built it, which is what an event-declaring
+    # candidate reaching the frontier is for; DynamicSoundEffectInstance was the fourth, arriving
+    # the same way when the audio cluster completed its base and leaving again when it was built,
+    # and Microphone the fifth, whose BufferReady is now a projected event identity. WaveBank was
+    # the sixth, arriving the way DynamicSoundEffectInstance did -- the XACT engine cluster
+    # completed the AudioEngine its constructor names -- and then the banks and the cue were built
+    # together, which emptied this list. Every event-declaring candidate the frontier ever raised
+    # has now been consumed, so what is asserted is that emptiness rather than a name.
+    assert_empty events.map { |item| item.fetch("name") }
+
+    # Completing IUpdateable/IDrawable is what projected the EventHandler`1 support type.
+    assert_includes REPORT.fetch("mappedBclTypes"), "System.EventHandler`1[System.EventArgs]"
+  end
+
+  # The GameComponent family is the cluster event projection was expected to unlock. Two of its
+  # three members have since left it: GameComponentCollection in Foundation 35, because it never
+  # depended on either component class -- see the extractor correction below -- and GameComponent
+  # itself in Foundation 38, once Game.Components gave it a producer. DrawableGameComponent stays
+  # out for a reason the graph measures rather than for anything about events.
+  # `DrawableGameComponent` was the entry: not dependency-complete by the type-level rule, because
+  # its `GraphicsDevice` property names the partial `GraphicsDevice`. The member-level refinement
+  # then showed it reaches **no member** of that type at all -- it republishes the service's device
+  # -- and Foundation 101 built it once `GraphicsDeviceManager` was made the producer its own
+  # constructor IL says it is. So it is complete and off every list, and what stays measured is the
+  # two facts that were always true of it.
+  def test_the_game_component_family_left_the_frontier_by_being_built
+    name = "Microsoft.Xna.Framework.DrawableGameComponent"
+    assert_nil REPORT.fetch("dependencyCompleteCandidates").find { |item| item.fetch("name") == name }
+    assert_includes STRICT.fetch("completeTypeNames"), name
+    type = BY_NAME.fetch(name)
+    assert_includes type.fetch("members").map { |member| member.fetch("kind") }, "event", name
+    # `GraphicsDevice`, the partial type the type-level rule once named, is complete since the ABI
+    # 0.35.0 requalification.
+    assert_includes STRICT.fetch("completeTypeNames"), "Microsoft.Xna.Framework.Graphics.GraphicsDevice"
+
+    # Game *was* one of the deferred partial runtime types when this was written, and the point
+    # was that a partial Game declaring Components and Services was already enough: what a missing
+    # type needs is its *dependencies* complete. `Game.Content` has since completed Game outright,
+    # which only strengthens that, so the assertion states the stronger fact.
+    assert ReviewedScoreboard.complete?(STRICT, "Microsoft.Xna.Framework.Game")
+    %w[Microsoft.Xna.Framework.GameComponentCollection
+       Microsoft.Xna.Framework.GameComponent].each do |name|
+      assert_includes STRICT.fetch("completeTypeNames"), name
+      assert_nil REPORT.fetch("dependencyCompleteCandidates").find { |item| item.fetch("name") == name }
+    end
+  end
+
+  # Foundation 35 corrected the signature-graph extractor. A type name occurring inside a signature
+  # was matched by an *unbounded prefix* test -- `signature.include?("[#{name}")` -- so any longer
+  # name starting with a shorter one matched it too, and the Game family is full of those. The
+  # signature `System.EventHandler`1[Microsoft.Xna.Framework.GameComponentCollectionEventArgs]` was
+  # therefore read as naming `Game` and `GameComponent`, and GameComponentCollection was recorded as
+  # blocked on two types its public surface never mentions.
+  #
+  # This is the same class of blind spot Native frontiers 2 and 3 closed in the IL extractor -- a
+  # scanner anchored on one side of a token -- seen in the signature graph. It ran in both
+  # directions: 18 spurious edges across 15 types, and 21 edges missed entirely, because a name
+  # followed by `[` (an array, or a generic definition used as an interface) matched nothing.
+  def test_the_signature_extractor_bounds_a_name_on_both_sides
+    collection = BY_NAME.fetch("Microsoft.Xna.Framework.GameComponentCollection")
+    signature = collection.fetch("members").find { |member| member.fetch("kind") == "event" }.fetch("type")
+    assert_equal "System.EventHandler`1[Microsoft.Xna.Framework.GameComponentCollectionEventArgs]", signature
+
+    # The unbounded prefix test the correction replaced, shown failing on this exact signature.
+    %w[Microsoft.Xna.Framework.Game Microsoft.Xna.Framework.GameComponent].each do |shorter|
+      assert signature.include?("[#{shorter}"), "the old test matched #{shorter}"
+      refute signature.include?("[#{shorter}]"), "#{shorter} is not what the signature names"
+    end
+
+    # And the edges the old test missed: a name followed by `[` was never matched.
+    declaration = BY_NAME.fetch("Microsoft.Xna.Framework.Graphics.PackedVector.Alpha8")
+                         .fetch("directInterfaces")
+                         .find { |entry| entry.include?("IPackedVector`1") }
+    assert declaration.start_with?("Microsoft.Xna.Framework.Graphics.PackedVector.IPackedVector`1[")
+    refute declaration.include?("IPackedVector`1]")
+  end
+
+  def test_named_frontier_examples_keep_their_expected_blocker
+    {
+      # Microphone was here under NATIVE_RUNTIME until that deferral was checked too, and it was
+      # wrong for a third reason: not the ABI, not the host, but nothing at all. This machine has
+      # three capture devices, CNA enumerates every one, and the retired 0.7.0 headers declare the
+      # same sixteen routes. Graphics.GraphicsAdapter replaces it as the NATIVE_RUNTIME example,
+      # and since Foundation 105 it is the frontier's only entry -- the row below records what
+      # left, and there is no second example to name.
+      # TextureCollection was here until its deferral was checked and turned out to be simply
+      # mistaken -- the two routes it needs were exported by the retired artifact too.
+      # EffectAnnotation replaced it and has itself been replaced: the Effect cluster built the
+      # EffectParameter its eight getters forward to, and then built the annotation with it.
+      # TitleContainer used to be here under BCL_PROJECTION and is deliberately not replaced by
+      # another example: the Stream projection consumed it, which is what a retired blocker looks
+      # like. `test_the_stream_projection_consumed_title_container` asserts that directly.
+      # ContentManager left too, consumed by the Stream and Action`1 projections. What was left
+      # under BCL_PROJECTION was the converter family alone, and Foundation 105 built that: it
+      # admitted System.dll as a second BCL authority, projected the demand-driven
+      # System.ComponentModel closure the thirteen converters reach, and took the **whole
+      # BCL_PROJECTION category** off this frontier. There is no example to name under it any more,
+      # and this register says so rather than leaving a stale one.
+      # Arrived when GraphicsResource completed. It is the only dependency-complete candidate that
+      # carries the producer blocker: its own IL calls IVertexType members and nothing in this
+      # projection conforms to that interface. The four state objects that arrived with it carry
+      # NATIVE_RUNTIME alone and are audited, not assumed -- the frontier's standing rule.
+      # VertexDeclaration was the example here until it was built too. It carried **both** blockers
+      # and both named members the contract never selects -- `Bind`/`Unbind` and the `assembly`
+      # static `FromType` -- so it was the tenth deferral this register has retired, and with it
+      # the last INTERFACE_PRODUCER_MISSING any dependency-complete candidate carried.
+      # BlendState was the example here for exactly one milestone. Its NATIVE_RUNTIME was the
+      # `assembly`-visible `Apply`, so it was built along with its three siblings, and the type
+      # that arrived behind it takes its place -- the ninth deferral this register has retired.
+      # SamplerStateCollection was the example here for one milestone. Its NATIVE_RUNTIME was
+      # right -- the setter really does reach the device -- and being right made the type buildable
+      # rather than blocked, because CNA exports precisely the route it needs. VideoPlayer took its
+      # place for one milestone and then went the same way: fifteen native-reachable members, every
+      # one with a working route, the eleventh deferral this register has retired. What is left is
+      # the three that were audited and stayed deferred, which is the whole table above -- so this
+      # register has no replacement example to name, and says so. EffectAnnotation then went the
+      # same way -- built with the cluster whose EffectParameter its getters forward to -- and
+      # EffectMaterial and DirectionalLight took its place. Both were then audited, and both were
+      # the twelfth and thirteenth deferral this register has retired: the light's four native
+      # identities reach EffectParameter::SetValue and the material's one reaches Effect's clone
+      # constructor, and both of those are projected. `ModelMeshPart` was next, with a
+      # NATIVE_RUNTIME naming three `GraphicsDevice` members genuinely absent at the time --
+      # `SetVertexBuffer`, `Indices` and `DrawIndexedPrimitives`, all three since projected -- and
+      # the Model family built it. Two entries are left and both are real.
+      # `MathTypeConverter` was the BCL_PROJECTION entry until Foundation 105 built it, and with
+      # it the whole blocker category left the frontier. `GraphicsAdapter`, the last, was built at
+      # the ABI 0.35.0 requalification, so no example is left to name.
+    }.each do |name, expected|
+      candidate = REPORT.fetch("dependencyCompleteCandidates").find { |item| item.fetch("name") == name }
+      refute_nil candidate, name
+      assert_includes candidate.fetch("blockers"), expected, name
+    end
+  end
+
+  def test_touch_location_and_gesture_sample_were_consumed_from_pinned_il
+    # It was deferred only because the retained assemblies were believed absent. They are not: the
+    # Input.Touch assembly is hash-pinned, its IL carries every member, and none of it is native.
+    %w[Microsoft.Xna.Framework.Input.Touch.TouchLocation
+       Microsoft.Xna.Framework.Input.Touch.GestureSample].each do |name|
+      assert_includes STRICT.fetch("completeTypeNames"), name, name
+      assert_equal 0, STRICT.fetch("localDiagnostics").fetch(name), name
+      refute REPORT.fetch("dependencyCompleteCandidates").any? { |item| item.fetch("name") == name }, name
+      entry = IL.fetch("types").fetch(name)
+      assert_equal "Microsoft.Xna.Framework.Input.Touch.dll", entry.fetch("assembly"), name
+      assert_equal "b0585224c18022c3661057ae79544644c10f33f1dc529678364f3d6b25151c25",
+                   entry.fetch("assemblySha256"), name
+      refute entry.fetch("nativeReachable"), name
+    end
+    # TouchCollection and its nested Enumerator were mutually blocked until Foundation 31 closed
+    # the pair together; neither could ever have been selected alone, because a nested type cannot
+    # be named or read without its declaring type and the declaring type's GetEnumerator returns
+    # the nested one. Both are complete now.
+    %w[Microsoft.Xna.Framework.Input.Touch.TouchCollection
+       Microsoft.Xna.Framework.Input.Touch.TouchCollection+Enumerator].each do |name|
+      assert_includes STRICT.fetch("completeTypeNames"), name
+      assert_equal 0, STRICT.fetch("localDiagnostics").fetch(name), name
+      refute REPORT.fetch("dependencyCompleteCandidates").any? { |item| item.fetch("name") == name }, name
+    end
+    # Completing the pair made TouchPanel the first consumable candidate the frontier had had since
+    # Foundation 27, and Foundation 32 consumed it. The whole Input.Touch namespace is complete.
+    assert_includes STRICT.fetch("completeTypeNames"), "Microsoft.Xna.Framework.Input.Touch.TouchPanel"
+    assert_equal 0, STRICT.fetch("localDiagnostics").fetch("Microsoft.Xna.Framework.Input.Touch.TouchPanel")
+    assert_empty STRICT.fetch("missingTypeNames").grep(/\AMicrosoft\.Xna\.Framework\.Input\.Touch\./)
+    # The enumerator was the single IL_UNAVAILABLE entry until Native frontier 2, on the ground
+    # that "ikdasm does not emit the nested enumerator under a name the inventory can address". It
+    # emits it; the extractor could not read it. With that fixed the classification is honest on
+    # both counts: the IL is there, and the type is not dependency-complete, because a nested type
+    # cannot be named or read without its declaring type and TouchCollection is still missing.
+    entry = IL.fetch("types").fetch("Microsoft.Xna.Framework.Input.Touch.TouchCollection+Enumerator")
+    assert_operator entry.fetch("ilLines"), :>, 0
+    assert_operator entry.fetch("declaredMethods"), :>, 0
+    refute(REPORT.fetch("dependencyCompleteCandidates").any? { |item|
+      item.fetch("name") == "Microsoft.Xna.Framework.Input.Touch.TouchCollection+Enumerator"
+    })
+    # Nothing is blocked on missing IL any more.
+    assert_empty REPORT.fetch("dependencyCompleteCandidates")
+                       .select { |item| item.fetch("blockers").include?("IL_UNAVAILABLE") }
+  end
+end

@@ -1,0 +1,471 @@
+{
+  "schemaVersion": 1,
+  "CNA_NATIVE_EVIDENCE": true,
+  "runs": {
+    "HEADLESS": {
+      "artifact": {
+        "path": "/home/robertvokac/deps/cna-c-abi-0.35.0/lib/libcna_c_api.so",
+        "bytes": 287945720,
+        "sha256": "3a6f0edc718a2368d76cd6acd597ac468e33b5f2d23bcd3404fa93f1c1809030"
+      },
+      "environment": {
+        "DISPLAY": ":99",
+        "WAYLAND_DISPLAY": "",
+        "SDL_VIDEODRIVER": "x11"
+      },
+      "renderer": {
+        "rendererInfoResult": 0,
+        "rendererName": "HEADLESS",
+        "capabilityFlags": 3327,
+        "rendererType": 11,
+        "maxTextureDimension": 16384,
+        "nativeWindowResult": 0,
+        "nativeWindowSystem": 0,
+        "nativeWindowHasDisplayPointer": false,
+        "nativeWindowXid": 0,
+        "clientBoundsResult": 0,
+        "clientBounds": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "screenDeviceName": "\\\\.\\DISPLAY1",
+        "capabilities": {
+          "0": true,
+          "1": true,
+          "2": true,
+          "3": true,
+          "4": true,
+          "5": true,
+          "6": true,
+          "7": true,
+          "8": false,
+          "9": false,
+          "10": true,
+          "11": true,
+          "12": false,
+          "13": false,
+          "14": false,
+          "15": false,
+          "16": false,
+          "17": false,
+          "18": false
+        }
+      },
+      "adapter": {
+        "countResult": 0,
+        "count": 1,
+        "description": "Default Display",
+        "deviceName": "\\\\.\\DISPLAY1",
+        "isDefaultAdapter": true,
+        "isWideScreen": true,
+        "vendorId": 4098,
+        "deviceId": 5567,
+        "revision": 0,
+        "subSystemId": 0,
+        "currentDisplayModeResult": 0,
+        "currentDisplayMode": {
+          "width": 800,
+          "height": 480,
+          "aspectRatio": 1.6666666269302368,
+          "format": 0
+        },
+        "supportedDisplayModes": [
+          {
+            "width": 800,
+            "height": 480,
+            "format": 0
+          }
+        ],
+        "monitorHandleResult": 6,
+        "refreshResult": 6
+      },
+      "displayEvidenceConflict": {
+        "windowReportsADisplayNamed": "\\\\.\\DISPLAY1",
+        "adapterReportsDescription": "Default Display",
+        "adapterReportsCurrentMode": [
+          800,
+          480
+        ],
+        "adapterIsTheNoDisplayFallback": true,
+        "windowHasANativeSurface": false,
+        "refreshRefused": true,
+        "adapterContradictsTheWindow": false
+      },
+      "renderTarget": {
+        "createResult": 0,
+        "created": true,
+        "infoResult": 0,
+        "width": 8,
+        "height": 4,
+        "isContentLost": false,
+        "rendererAvailable": true,
+        "format": 0,
+        "levelCount": 1,
+        "bindResult": 0,
+        "clearResult": 0,
+        "unbindResult": 0,
+        "readResult": 6,
+        "elementsWritten": 32,
+        "clearedTo": [
+          64,
+          128,
+          191,
+          255
+        ],
+        "firstPixel": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "allPixelsEqual": true
+      },
+      "frames": {
+        "short": {
+          "requested": 60,
+          "completed": 60,
+          "error": null,
+          "seconds": 1.006
+        },
+        "long": {
+          "requested": 600,
+          "completed": 600,
+          "error": null,
+          "seconds": 10.063
+        }
+      }
+    },
+    "OPENGLES3": {
+      "artifact": {
+        "path": "/home/robertvokac/deps/cna-c-abi-0.35.0-opengles3-fx/lib/libcna_c_api.so",
+        "bytes": 58461888,
+        "sha256": "7b35fd1312660ae2d2bcb8a47670602ead94f885f8b5316254d219f585fe2556"
+      },
+      "environment": {
+        "DISPLAY": ":2",
+        "WAYLAND_DISPLAY": "cna-weston-3484223",
+        "SDL_VIDEODRIVER": "x11"
+      },
+      "renderer": {
+        "rendererInfoResult": 0,
+        "rendererName": "OPENGLES3",
+        "capabilityFlags": 524255,
+        "rendererType": 3,
+        "maxTextureDimension": 16384,
+        "nativeWindowResult": 0,
+        "nativeWindowSystem": 2,
+        "nativeWindowHasDisplayPointer": true,
+        "nativeWindowXid": 2097205,
+        "clientBoundsResult": 0,
+        "clientBounds": [
+          0,
+          0,
+          800,
+          480
+        ],
+        "screenDeviceName": "XWAYLAND0 23\"",
+        "capabilities": {
+          "0": true,
+          "1": true,
+          "2": true,
+          "3": true,
+          "4": true,
+          "5": false,
+          "6": true,
+          "7": true,
+          "8": true,
+          "9": true,
+          "10": true,
+          "11": true,
+          "12": true,
+          "13": true,
+          "14": true,
+          "15": true,
+          "16": true,
+          "17": true,
+          "18": true
+        }
+      },
+      "adapter": {
+        "countResult": 0,
+        "count": 1,
+        "description": "XWAYLAND0 23\"",
+        "deviceName": "\\\\.\\DISPLAY1",
+        "isDefaultAdapter": true,
+        "isWideScreen": true,
+        "vendorId": 4098,
+        "deviceId": 5567,
+        "revision": 0,
+        "subSystemId": 0,
+        "currentDisplayModeResult": 0,
+        "currentDisplayMode": {
+          "width": 1920,
+          "height": 1080,
+          "aspectRatio": 1.7777777910232544,
+          "format": 0
+        },
+        "supportedDisplayModes": [
+          {
+            "width": 320,
+            "height": 200,
+            "format": 0
+          },
+          {
+            "width": 320,
+            "height": 240,
+            "format": 0
+          },
+          {
+            "width": 640,
+            "height": 350,
+            "format": 0
+          },
+          {
+            "width": 640,
+            "height": 400,
+            "format": 0
+          },
+          {
+            "width": 640,
+            "height": 480,
+            "format": 0
+          },
+          {
+            "width": 720,
+            "height": 400,
+            "format": 0
+          },
+          {
+            "width": 720,
+            "height": 480,
+            "format": 0
+          },
+          {
+            "width": 768,
+            "height": 480,
+            "format": 0
+          },
+          {
+            "width": 800,
+            "height": 500,
+            "format": 0
+          },
+          {
+            "width": 800,
+            "height": 600,
+            "format": 0
+          },
+          {
+            "width": 864,
+            "height": 486,
+            "format": 0
+          },
+          {
+            "width": 928,
+            "height": 580,
+            "format": 0
+          },
+          {
+            "width": 960,
+            "height": 600,
+            "format": 0
+          },
+          {
+            "width": 1024,
+            "height": 576,
+            "format": 0
+          },
+          {
+            "width": 1024,
+            "height": 768,
+            "format": 0
+          },
+          {
+            "width": 1152,
+            "height": 720,
+            "format": 0
+          },
+          {
+            "width": 1152,
+            "height": 864,
+            "format": 0
+          },
+          {
+            "width": 1280,
+            "height": 720,
+            "format": 0
+          },
+          {
+            "width": 1280,
+            "height": 800,
+            "format": 0
+          },
+          {
+            "width": 1280,
+            "height": 960,
+            "format": 0
+          },
+          {
+            "width": 1280,
+            "height": 1024,
+            "format": 0
+          },
+          {
+            "width": 1368,
+            "height": 768,
+            "format": 0
+          },
+          {
+            "width": 1400,
+            "height": 1050,
+            "format": 0
+          },
+          {
+            "width": 1440,
+            "height": 900,
+            "format": 0
+          },
+          {
+            "width": 1440,
+            "height": 1080,
+            "format": 0
+          },
+          {
+            "width": 1600,
+            "height": 900,
+            "format": 0
+          },
+          {
+            "width": 1600,
+            "height": 1200,
+            "format": 0
+          },
+          {
+            "width": 1680,
+            "height": 1050,
+            "format": 0
+          },
+          {
+            "width": 1920,
+            "height": 1080,
+            "format": 0
+          },
+          {
+            "width": 1920,
+            "height": 1200,
+            "format": 0
+          },
+          {
+            "width": 1920,
+            "height": 1440,
+            "format": 0
+          },
+          {
+            "width": 2048,
+            "height": 1152,
+            "format": 0
+          },
+          {
+            "width": 2048,
+            "height": 1536,
+            "format": 0
+          },
+          {
+            "width": 2560,
+            "height": 1440,
+            "format": 0
+          },
+          {
+            "width": 2560,
+            "height": 1600,
+            "format": 0
+          },
+          {
+            "width": 2880,
+            "height": 1620,
+            "format": 0
+          },
+          {
+            "width": 3200,
+            "height": 1800,
+            "format": 0
+          },
+          {
+            "width": 3840,
+            "height": 2160,
+            "format": 0
+          },
+          {
+            "width": 4096,
+            "height": 2304,
+            "format": 0
+          },
+          {
+            "width": 5120,
+            "height": 2880,
+            "format": 0
+          }
+        ],
+        "monitorHandleResult": 6,
+        "refreshResult": 6
+      },
+      "displayEvidenceConflict": {
+        "windowReportsADisplayNamed": "XWAYLAND0 23\"",
+        "adapterReportsDescription": "XWAYLAND0 23\"",
+        "adapterReportsCurrentMode": [
+          1920,
+          1080
+        ],
+        "adapterIsTheNoDisplayFallback": false,
+        "windowHasANativeSurface": true,
+        "refreshRefused": true,
+        "adapterContradictsTheWindow": false
+      },
+      "renderTarget": {
+        "createResult": 0,
+        "created": true,
+        "infoResult": 0,
+        "width": 8,
+        "height": 4,
+        "isContentLost": false,
+        "rendererAvailable": true,
+        "format": 0,
+        "levelCount": 1,
+        "bindResult": 0,
+        "clearResult": 0,
+        "unbindResult": 0,
+        "readResult": 0,
+        "elementsWritten": 32,
+        "clearedTo": [
+          64,
+          128,
+          191,
+          255
+        ],
+        "firstPixel": [
+          64,
+          128,
+          191,
+          255
+        ],
+        "allPixelsEqual": true
+      },
+      "frames": {
+        "short": {
+          "requested": 60,
+          "completed": 60,
+          "error": null,
+          "seconds": 1.621
+        },
+        "long": {
+          "requested": 600,
+          "completed": 600,
+          "error": null,
+          "seconds": 15.738
+        }
+      }
+    }
+  }
+}

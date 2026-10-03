@@ -1,0 +1,67 @@
+module Microsoft
+  module Xna
+    module Framework
+      module IGameComponent
+        def Initialize: () -> void
+      end
+
+      module IGraphicsDeviceManager
+        def CreateDevice: () -> void
+        def BeginDraw: () -> bool
+        def EndDraw: () -> void
+      end
+
+      module IUpdateable
+        def Update: (GameTime gameTime) -> void
+        attr_reader Enabled: bool
+        attr_reader UpdateOrder: Integer
+        def EnabledChanged: () -> CNA::Runtime::Event
+        def UpdateOrderChanged: () -> CNA::Runtime::Event
+      end
+
+      module IDrawable
+        def Draw: (GameTime gameTime) -> void
+        attr_reader Visible: bool
+        attr_reader DrawOrder: Integer
+        def VisibleChanged: () -> CNA::Runtime::Event
+        def DrawOrderChanged: () -> CNA::Runtime::Event
+      end
+
+      module Graphics
+        module IEffectMatrices
+          attr_accessor World: Matrix
+          attr_accessor View: Matrix
+          attr_accessor Projection: Matrix
+        end
+
+        module IEffectFog
+          attr_accessor FogEnabled: bool
+          attr_accessor FogStart: Float
+          attr_accessor FogEnd: Float
+          attr_accessor FogColor: Vector3
+        end
+
+        # Six members: EnableDefaultLighting and five properties, three of them read-only because
+        # a light is handed out rather than assigned. Abstract throughout, like the two above.
+        module IEffectLights
+          def EnableDefaultLighting: () -> void
+          def DirectionalLight0: () -> DirectionalLight
+          def DirectionalLight1: () -> DirectionalLight
+          def DirectionalLight2: () -> DirectionalLight
+          attr_accessor AmbientLightColor: Vector3
+          attr_accessor LightingEnabled: bool
+        end
+
+        # One read-only property and four EventHandler`1<EventArgs> events. Abstract throughout:
+        # the property and every event reader raise NotImplementedError.
+        module IGraphicsDeviceService
+          def GraphicsDevice: () -> GraphicsDevice
+          def DeviceDisposing: () -> CNA::Runtime::Event
+          def DeviceReset: () -> CNA::Runtime::Event
+          def DeviceResetting: () -> CNA::Runtime::Event
+          def DeviceCreated: () -> CNA::Runtime::Event
+        end
+      end
+    end
+  end
+end
