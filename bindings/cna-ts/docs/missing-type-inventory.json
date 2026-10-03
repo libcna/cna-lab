@@ -1,0 +1,75 @@
+{
+  "profile": "XNA 4.0 Windows runtime",
+  "referenceTypes": 257,
+  "referenceMembers": 2964,
+  "expectedMappedTypes": 274,
+  "targetTypes": 274,
+  "missingTypeCount": 0,
+  "families": [
+    {
+      "name": "Framework/core",
+      "count": 0,
+      "types": []
+    },
+    {
+      "name": "Graphics foundation",
+      "count": 0,
+      "types": []
+    },
+    {
+      "name": "Graphics resources",
+      "count": 0,
+      "types": []
+    },
+    {
+      "name": "Graphics states",
+      "count": 0,
+      "types": []
+    },
+    {
+      "name": "Vertex/buffer",
+      "count": 0,
+      "types": []
+    },
+    {
+      "name": "SpriteBatch/font",
+      "count": 0,
+      "types": []
+    },
+    {
+      "name": "Effects",
+      "count": 0,
+      "types": []
+    },
+    {
+      "name": "Models",
+      "count": 0,
+      "types": []
+    },
+    {
+      "name": "Content readers",
+      "count": 0,
+      "types": []
+    },
+    {
+      "name": "Audio/XACT",
+      "count": 0,
+      "types": []
+    },
+    {
+      "name": "Media",
+      "count": 0,
+      "types": []
+    },
+    {
+      "name": "Storage",
+      "count": 0,
+      "types": []
+    },
+    {
+      "name": "GamerServices/other selected-profile runtime types",
+      "count": 0,
+      "types": []
+    }
+  ]
+}

@@ -1,0 +1,1850 @@
+{
+  "schemaVersion": 1,
+  "generatedFrom": "tools/runtime-capabilities/source.json",
+  "profile": "XNA 4.0 Windows runtime",
+  "environment": "Linux x86-64 Node with CNA ABI 0.35.0 (CNA next): the HEADLESS artifact (SDL3 platform and audio) and the windowed OPENGLES3 artifact (CNA_EASYGL_COMPILED_EFFECTS, CNA_CNAEXT, CNA_DEVICES) inside a private Weston/Xwayland display, plus headless Chromium with the CNA ABI 0.35.0 WEBGL2 WebAssembly artifact built with CNA_EASYGL_COMPILED_EFFECTS, CNA_CNAEXT and CNA_DEVICES",
+  "granularity": "Each row is a reviewed operation family; overloads with the same implementation and evidence share a row.",
+  "sourceAudit": {
+    "roots": [
+      "src/Microsoft/Xna/Framework",
+      "src/internal/graphics-device-registry.ts"
+    ],
+    "nativeUnavailableErrorSites": 62,
+    "notSupportedExceptionSites": 10,
+    "filesWithExplicitFailureSites": 25,
+    "scope": "All selected-profile framework files containing explicit NativeUnavailableError or NotSupportedException construction were reviewed into the operation families below. Internal construction guards share their public operation family. The count fell from 64 to 62 when CNA C ABI 0.30 removed the engine layer: the refusals guarding an Effect transferred into an engine pass and an Effect teardown hook for the model-mesh-part side-car went with the only callers they had."
+  },
+  "counts": {
+    "VERIFIED_MANAGED": 22,
+    "VERIFIED_NATIVE": 78,
+    "VERIFIED_WEBASSEMBLY": 35,
+    "EXPLICITLY_UNAVAILABLE_WITH_CURRENT_BACKEND": 1,
+    "UPSTREAM_CNA_BLOCKED": 0,
+    "FIXTURE_PENDING": 2,
+    "HARDWARE_PENDING": 4,
+    "PLATFORM_PENDING": 4,
+    "UNIMPLEMENTED_CNA_TS": 2,
+    "LANGUAGE_MAPPING_LIMITATION": 3,
+    "NOT_APPLICABLE_TO_SELECTED_ENVIRONMENT": 1
+  },
+  "entries": [
+    {
+      "operation": "ContentLost event delivery",
+      "category": "EXPLICITLY_UNAVAILABLE_WITH_CURRENT_BACKEND",
+      "owner": "current qualified backend",
+      "evidence": "ABI 0.9 raises the event for real on the renderers whose API can lose a device (DirectX9, Direct2D, Skia); HEADLESS has no device to lose, so the producer never runs and the native suite asserts zero raises rather than pretending otherwise"
+    },
+    {
+      "operation": "AudioEngine, AudioCategory, WaveBank, SoundBank and Cue authored success",
+      "category": "FIXTURE_PENDING",
+      "owner": "qualification fixtures",
+      "evidence": "native routes and invalid/missing-bank behavior verified; no legal redistributable XGS/XSB/XWB corpus"
+    },
+    {
+      "operation": "VideoPlayer.Play decode, duration and frame progression",
+      "category": "FIXTURE_PENDING",
+      "owner": "qualification fixtures",
+      "evidence": "native controls verified; no legal decode fixture qualified"
+    },
+    {
+      "operation": "Physical joystick and force-feedback hardware",
+      "category": "HARDWARE_PENDING",
+      "owner": "cna-ts/extensions/input",
+      "evidence": "no joystick and no haptic device are attached to this host, so CNA reports zero of each. The absence contract is verified natively and the data path is verified through the boundary, but no reading has come off a real stick or a real motor here. That is stated rather than implied: a green suite on a device-less machine is evidence about absence, not about hardware",
+      "proof": []
+    },
+    {
+      "operation": "Physical keyboard/mouse/gamepad/touch behavior",
+      "category": "HARDWARE_PENDING",
+      "owner": "qualification hardware",
+      "evidence": "HEADLESS route execution is deterministic but not physical-device evidence. Asked of the windowed SDL3 build as well on 2026-09-01 -- because that question caught two stale audio rows the same day -- and it answers identically: no keys pressed, the mouse at the origin, no gamepad and no touch panel connected. That is the honest answer for a machine driving an Xvfb display with nobody at it, so this row is a property of the host rather than of the backend, and both backends now say so"
+    },
+    {
+      "operation": "Physical sensors, joysticks and haptics in a browser",
+      "category": "HARDWARE_PENDING",
+      "owner": "CNA-TS",
+      "evidence": "PHYSICAL_HARDWARE_NOT_VERIFIED. Headless Chromium reports no accelerometer, compass, gyroscope or motion sensor, no joystick and no haptic device, and every one of those is a true statement about the host rather than a gap in the binding: the counts are read from CNA, the enumerations refuse every index, and nothing is manufactured. The marshalling those families exist to do is verified instead through CNA own synthetic backends, and labelled as synthetic wherever it is recorded",
+      "proof": [
+        "test:test/wasm-browser-non-engine.mjs"
+      ]
+    },
+    {
+      "operation": "The gyroscope's reading path, and physical compass/motion hardware",
+      "category": "HARDWARE_PENDING",
+      "owner": "cna-ts/extensions/sensors",
+      "evidence": "The gyroscope is projected and its absence contract is verified, but its *reading* path cannot be exercised here: CNA gives the compass and the motion sensor a synthetic test backend and gives the gyroscope only a support override, so Start still needs a real platform sensor service and this host has none. Recorded as upstream finding 6 rather than worked around. The compass and motion data paths are proved by injection, which is not a measurement of physical hardware either; no reading in this package has come off a real sensor",
+      "proof": []
+    },
+    {
+      "operation": "Arbitrary custom generic vertex value transfer",
+      "category": "LANGUAGE_MAPPING_LIMITATION",
+      "owner": "TypeScript language projection",
+      "evidence": "four formally mapped XNA vertex structs have exact codecs; arbitrary JavaScript objects have no blittable CLR layout and are rejected explicitly"
+    },
+    {
+      "operation": "ContentReader.ReadRawObject<T>() without an explicit reader token",
+      "category": "LANGUAGE_MAPPING_LIMITATION",
+      "owner": "TypeScript language projection",
+      "evidence": "JavaScript erases T, so reader identity cannot be recovered deterministically; explicit ContentTypeReader overloads are implemented and the strict verifier models the generic surface without fake CLR reflection"
+    },
+    {
+      "operation": "DrawUserIndexedPrimitives Int16[] versus Int32[] overload identity",
+      "category": "LANGUAGE_MAPPING_LIMITATION",
+      "owner": "TypeScript language projection",
+      "evidence": "both CLR element types map to number[]; the deterministic public number[] route uses 32-bit indices rather than guessing from values"
+    },
+    {
+      "operation": "The CNB content pipeline in a browser",
+      "category": "NOT_APPLICABLE_TO_SELECTED_ENVIRONMENT",
+      "owner": "CNA-TS",
+      "evidence": "Fifteen CNB routes are reachable from the Node backend and from no browser one, and that is architecture rather than a gap: cna_cnb_compile_cnj, the three cna_cnb_import_* routes and the eleven cna_cnb_cnj_result_* routes belong to content/, a build-time toolchain that takes filesystem *paths* and produces compiled assets. They are not members of any runtime backend interface, which is why tools/wasm/backend-gap.mjs does not list them: nothing in src/internal/backend.ts declares them. A browser consumes the compiled output through the same CNB API a Node consumer does, which is verified separately; compiling it is a thing a build does",
+      "proof": [
+        "source:content/src/index.ts",
+        "test:test/cnb-content.integration.mjs"
+      ]
+    },
+    {
+      "operation": "Android and iOS runtime",
+      "category": "PLATFORM_PENDING",
+      "owner": "platform qualification",
+      "evidence": "not attempted; no mobile artifact/toolchain evidence"
+    },
+    {
+      "operation": "Electron desktop runtime",
+      "category": "PLATFORM_PENDING",
+      "owner": "platform qualification",
+      "evidence": "not attempted; no Electron main/renderer job exists. The old row also gave 'no windowed artifact' as a reason, which is no longer true -- a windowed OPENGLES3 build is qualified on this host -- so the remaining blocker is the Electron harness alone"
+    },
+    {
+      "operation": "Video decoding on the Emscripten toolchain",
+      "category": "PLATFORM_PENDING",
+      "owner": "CNA-TS",
+      "evidence": "Not a fixture problem and not a binding one. CNA video backend is FFmpeg, and modules/CMakeLists.txt lists EMSCRIPTEN among the targets deliberately outside that integration: CNA_ENABLE_VIDEO=ON is a configure-time FATAL_ERROR on this toolchain, so no artifact this package can build decodes a frame and no video asset would change that. The player control surface is bound and verified separately; only decode and frame output are blocked",
+      "proof": [
+        "source:tools/wasm/backend-gap.mjs"
+      ]
+    },
+    {
+      "operation": "Windows and macOS Node/native runtime",
+      "category": "PLATFORM_PENDING",
+      "owner": "platform qualification",
+      "evidence": "no qualified artifact/job on either OS"
+    },
+    {
+      "operation": "CNB's loader registry, and the native content manager it needs",
+      "category": "UNIMPLEMENTED_CNA_TS",
+      "owner": "CNA-TS",
+      "evidence": "measured rather than deferred on style. The registry itself works: a C probe mints a custom asset type id from a name, registers a loader, writes a .cnb of that type, and cna_content_manager_load_foreign_ext calls the loader and hands the object back -- twice for the same name, from the cache, without calling the loader again, which is XNA reference-type caching. What blocks the projection is this binding's own architecture: that retrieval route takes a NATIVE content manager handle, and there is none here. ContentManager in this package is a managed XNB reader that opens the file through TitleContainer and constructs the object in TypeScript, and no cna_content_manager_* route is imported at all. Registering a loader whose product could never be retrieved would be a mechanism with no consumer. Adopting it means projecting CNA's own ContentManager as a second content path with its own cache, which is an architectural decision to take deliberately rather than as a side effect of wanting one registry. The callback shape is not the obstacle: a trampoline holding a napi_ref and a checked slot table would keep void* and function pointers entirely inside the bridge, the same way the text-input subscriptions already do",
+      "proof": [
+        "absentRoute:cna_cnb_loader_registry_register",
+        "absentRoute:cna_content_manager_load_foreign_ext"
+      ]
+    },
+    {
+      "operation": "GamerServices sign-in, achievements, leaderboards, avatars and the whole .Net session surface",
+      "category": "UNIMPLEMENTED_CNA_TS",
+      "owner": "CNA-TS",
+      "evidence": "the dispatcher's lifetime, the Guide's state and both of the Guide's asynchronous screens are projected and verified above; everything that needs a signed-in user, a friends list or a peer -- sign-in, achievements, leaderboards, presence, avatars and every NetworkSession operation -- still refuses with GamerServicesNotAvailableException, because a fabricated gamer or peer would be worse than the exception XNA itself raises where the platform is absent",
+      "proof": [
+        "absentRoute:cna_signed_in_gamer_get_achievements",
+        "absentRoute:cna_network_session_create"
+      ]
+    },
+    {
+      "operation": "Audio enums, listener/emitter values and SoundEffect duration/size arithmetic",
+      "category": "VERIFIED_MANAGED",
+      "owner": "CNA-TS",
+      "evidence": "47 deterministic XNA differential observations",
+      "proof": [
+        "test:test/differential-xna.test.mjs"
+      ]
+    },
+    {
+      "operation": "BlendState, DepthStencilState, RasterizerState and SamplerState managed values/presets",
+      "category": "VERIFIED_MANAGED",
+      "owner": "CNA-TS",
+      "evidence": "graphics-foundation unit suite verifies snapshots, defaults and disposal",
+      "proof": [
+        "test:test/graphics-foundation.test.mjs"
+      ]
+    },
+    {
+      "operation": "Content cache, failure cleanup, dependency-ordered Unload and Dispose",
+      "category": "VERIFIED_MANAGED",
+      "owner": "CNA-TS",
+      "evidence": "content and content-xnb lifecycle tests including failed nested construction and native Effect-to-texture retention",
+      "proof": [
+        "test:test/content.test.mjs"
+      ]
+    },
+    {
+      "operation": "ContentManager LZX-compressed XNB framing and decompression",
+      "category": "VERIFIED_MANAGED",
+      "owner": "CNA-TS",
+      "evidence": "synthetic single/multi-frame tests plus exact independent 16,561/44,032-byte fixture comparison",
+      "proof": [
+        "test:test/content-xnb.test.mjs"
+      ]
+    },
+    {
+      "operation": "ContentManager uncompressed XNB framing, reader tables, object dispatch and shared resources",
+      "category": "VERIFIED_MANAGED",
+      "owner": "CNA-TS",
+      "evidence": "deterministic synthetic content-xnb fixtures",
+      "proof": [
+        "test:test/content-xnb.test.mjs"
+      ]
+    },
+    {
+      "operation": "ContentReader.ReadExternalReference and nested ContentManager resolution",
+      "category": "VERIFIED_MANAGED",
+      "owner": "CNA-TS",
+      "evidence": "relative/nested/repeated/circular/missing/malformed/compressed reference tests",
+      "proof": [
+        "test:test/content.test.mjs"
+      ]
+    },
+    {
+      "operation": "Design TypeConverter projections and GamerServicesComponent lifecycle",
+      "category": "VERIFIED_MANAGED",
+      "owner": "CNA-TS",
+      "evidence": "design and framework unit suites",
+      "proof": [
+        "test:test/framework-components.test.mjs"
+      ]
+    },
+    {
+      "operation": "Effect reflection, parameter values, techniques and managed stock-effect state",
+      "category": "VERIFIED_MANAGED",
+      "owner": "CNA-TS",
+      "evidence": "graphics/content differential observations and graphics-foundation tests",
+      "proof": [
+        "test:test/graphics-foundation.test.mjs"
+      ]
+    },
+    {
+      "operation": "Extended input's data path: joystick arrays and haptic answers, through the boundary",
+      "category": "VERIFIED_MANAGED",
+      "owner": "cna-ts/extensions/input",
+      "evidence": "test/extensions-input.test.mjs covers what a host with no joystick cannot. A deterministic backend supplies four state arrays of four different lengths with four different value sets, so substituting any one for any other is caught; a haptic device answers each of its four operations differently, so a projection returning one answer for all of them fails. This was written because a defect planted in the integration suite -- reading the hats out of the buttons -- stayed green there: with no device attached both arrays are empty. Three planted defects now fail it: hats from buttons, an exchanged trackball X and Y, and a Dispose that releases without closing. It is a projection test and claims nothing about physical hardware",
+      "proof": [
+        "test:test/extensions-input.test.mjs"
+      ]
+    },
+    {
+      "operation": "Framework math, geometry, curves, packed vectors, TimeSpan, Color and value contracts",
+      "category": "VERIFIED_MANAGED",
+      "owner": "CNA-TS",
+      "evidence": "83 deterministic XNA differential observations plus math/geometry/graphics-value unit suites",
+      "proof": [
+        "test:test/differential-xna.test.mjs",
+        "test:test/math.test.mjs",
+        "test:test/geometry.test.mjs"
+      ]
+    },
+    {
+      "operation": "GameComponent, DrawableGameComponent, collections, services and managed events",
+      "category": "VERIFIED_MANAGED",
+      "owner": "CNA-TS",
+      "evidence": "framework-components unit suite covers ordering, mutation, filtering, services and disposal",
+      "proof": [
+        "test:test/framework-components.test.mjs"
+      ]
+    },
+    {
+      "operation": "GamerServices and Net declarations, identities, value shapes and exception hierarchy",
+      "category": "VERIFIED_MANAGED",
+      "owner": "CNA-TS",
+      "evidence": "the xna40-windows-live profile holds at zero differences over 74 types and 676 members, with thirteen behaviour assertions over the identities, the catchable exception hierarchy, the empty signed-in collection, Guide title state, the mutable AvatarExpression, the null-preserving session property bag and a full packet round trip",
+      "proof": [
+        "test:test/gamer-services-net.test.mjs"
+      ]
+    },
+    {
+      "operation": "Graphics presentation, viewport, display, vertex and render-target value objects",
+      "category": "VERIFIED_MANAGED",
+      "owner": "CNA-TS",
+      "evidence": "graphics-foundation and graphics-values unit suites",
+      "proof": [
+        "test:test/graphics-values.test.mjs"
+      ]
+    },
+    {
+      "operation": "KeyboardState, MouseState, GamePad values and Touch values/collections",
+      "category": "VERIFIED_MANAGED",
+      "owner": "CNA-TS",
+      "evidence": "23 deterministic XNA differential observations and input unit suite",
+      "proof": [
+        "test:test/input.test.mjs",
+        "test:test/differential-xna.test.mjs"
+      ]
+    },
+    {
+      "operation": "Media collections, queue identity and MediaPlayer managed settings/events",
+      "category": "VERIFIED_MANAGED",
+      "owner": "CNA-TS",
+      "evidence": "deterministic subsystem differential observations",
+      "proof": [
+        "test:test/audio-media-storage-design.test.mjs"
+      ]
+    },
+    {
+      "operation": "Model graph collections, parent/child identity and absolute transforms",
+      "category": "VERIFIED_MANAGED",
+      "owner": "CNA-TS",
+      "evidence": "graphics/content differential observation and managed Model tests",
+      "proof": [
+        "test:test/content-xnb.test.mjs"
+      ]
+    },
+    {
+      "operation": "SoundEffectInstance managed lifecycle state and disposal guards",
+      "category": "VERIFIED_MANAGED",
+      "owner": "CNA-TS",
+      "evidence": "differential and audio/media/storage design suites",
+      "proof": [
+        "test:test/audio-media-storage-design.test.mjs"
+      ]
+    },
+    {
+      "operation": "SpriteBatch argument and Begin/End validation",
+      "category": "VERIFIED_MANAGED",
+      "owner": "CNA-TS",
+      "evidence": "graphics/content differential observation and graphics-foundation tests",
+      "proof": [
+        "test:test/graphics-foundation.test.mjs"
+      ]
+    },
+    {
+      "operation": "SpriteFont.MeasureString, checked against CNA's own SpriteFont",
+      "category": "VERIFIED_MANAGED",
+      "owner": "CNA-TS",
+      "evidence": "Not checked against numbers somebody typed. CNA's SpriteFont is built over the same texture and the same glyph table and asked the same question, so twenty-four strings are measured twice by implementations that share no code. The font is built to make the corners load-bearing: a negative left bearing, a negative right bearing, unequal cropping heights and a non-zero Spacing. All twenty-four agree exactly at ABI 0.35: the five strings ending in a negative right bearing, which CNA used to count into the width, now measure as XNA's SpriteFont::InternalMeasure does (Math.Max(pending, 0) at each line break and after the loop) -- upstream finding 27, fixed -- and are kept as the cases that would show it again.",
+      "proof": [
+        "route:cna_sprite_font_create",
+        "route:cna_sprite_font_get_info",
+        "route:cna_sprite_font_measure_utf8",
+        "route:cna_sprite_font_destroy",
+        "test:test/sprite-font-oracle.integration.mjs"
+      ]
+    },
+    {
+      "operation": "Storage path validation and isolated managed-directory adapter",
+      "category": "VERIFIED_MANAGED",
+      "owner": "CNA-TS",
+      "evidence": "deterministic storage differential observation and design suite",
+      "proof": [
+        "test:test/audio-media-storage-design.test.mjs"
+      ]
+    },
+    {
+      "operation": "Texture2D, SpriteFont and Model managed XNB reader graphs",
+      "category": "VERIFIED_MANAGED",
+      "owner": "CNA-TS",
+      "evidence": "uncompressed and compressed synthetic reader-graph tests",
+      "proof": [
+        "test:test/spritefont-xnb.test.mjs",
+        "test:test/content-xnb.test.mjs"
+      ]
+    },
+    {
+      "operation": "Texture3D/TextureCube exact Color codec, bounds and CNA dispatch projection",
+      "category": "VERIFIED_MANAGED",
+      "owner": "CNA-TS",
+      "evidence": "managed native-shaped backend verifies boxes, faces and exact packed Color round trips; all ABI signatures are compiler-audited and the qualified HEADLESS artifact returns documented NOT_SUPPORTED at creation",
+      "proof": [
+        "test:test/graphics-foundation.test.mjs"
+      ]
+    },
+    {
+      "operation": "AvatarDescription: construction from bytes, and CreateRandom",
+      "category": "VERIFIED_NATIVE",
+      "owner": "CNA-TS + CNA",
+      "evidence": "Projected because it needs no gamer, no sign-in and no service, while the renderer and the get-from-gamer routes still refuse. At ABI 0.21 CNA's CreateRandom returned XNA-for-Windows' 1021 zero bytes and ignored the body type; at 0.35 CNA draws a description from its avatar catalog and its body-type overload keeps the body type, so the projection now imports that overload (this binding had dropped the argument) and the shared Node/browser oracle asserts a valid 1021-byte description, a person's height, variety across draws and the requested body type. The byte constructor reads body type, height and validity out of the bytes and refuses any length but 1021.",
+      "proof": [
+        "route:cna_avatar_description_create",
+        "route:cna_avatar_description_create_random",
+        "route:cna_avatar_description_get_info",
+        "route:cna_avatar_description_copy_description",
+        "route:cna_avatar_description_destroy",
+        "test:test/avatar-description.integration.mjs",
+        "route:cna_avatar_description_create_random_for_body_type"
+      ]
+    },
+    {
+      "operation": "BasicEffect, AlphaTestEffect, DualTextureEffect, EnvironmentMapEffect and SkinnedEffect native construction",
+      "category": "VERIFIED_NATIVE",
+      "owner": "CNA-TS + CNA",
+      "evidence": "all five distinct ABI-0.7 constructors return owned effects with real technique/pass views under qualified HEADLESS integration",
+      "proof": [
+        "route:cna_basic_effect_create",
+        "route:cna_alpha_test_effect_create",
+        "route:cna_dual_texture_effect_create",
+        "route:cna_environment_map_effect_create",
+        "route:cna_skinned_effect_create"
+      ]
+    },
+    {
+      "operation": "BasicEffect, AlphaTestEffect, DualTextureEffect, EnvironmentMapEffect and SkinnedEffect native state/apply execution",
+      "category": "VERIFIED_NATIVE",
+      "owner": "CNA-TS + CNA",
+      "evidence": "qualified HEADLESS integration synchronizes dependency-complete stock state, applies every stock effect and verifies clone, texture retention and deterministic disposal",
+      "proof": [
+        "route:cna_basic_effect_set_diffuse_color",
+        "route:cna_skinned_effect_set_bone_transforms",
+        "route:cna_effect_matrices_set_world",
+        "route:cna_effect_apply"
+      ]
+    },
+    {
+      "operation": "Build-time content compilation: source files into .cnb, in a separate package",
+      "category": "VERIFIED_NATIVE",
+      "owner": "cna-ts-content",
+      "evidence": "The direction docs/content-pipeline-boundary.md chose, built. `cna-ts-content` is a separate package with its own exports, and the runtime tarball contains none of it: the three routes in the whole binding that read a file by path live there and nowhere else, which is what keeps the browser runtime free of filesystem and compiler APIs. Bytes cross that boundary and handles do not -- each operation imports, describes, encodes and releases inside one native call -- so the package owns no native lifetime at all. Proved end to end: a PNG and a RIFF/WAVE file written from their own specifications (not produced by CNA, because an importer test in which CNA reads back its own output proves nothing) are compiled to .cnb, written to disk, and loaded by the real runtime, where the four exact texels and the exact sample bytes come back. The colour key is asserted at the texel: the keyed one becomes transparent and the other three are untouched. Wrong-format sources are refused in both directions, and a planted defect that accepted the colour key without applying it passed until the test stopped varying the content name as well",
+      "proof": [
+        "route:cna_cnb_import_image_as_texture2d",
+        "route:cna_cnb_import_wav_as_sound_effect",
+        "route:cna_cnb_import_dds_as_texture_cube",
+        "test:content/test/content-pipeline.test.mjs"
+      ]
+    },
+    {
+      "operation": "Camera frame capture",
+      "category": "VERIFIED_NATIVE",
+      "owner": "CNA-TS",
+      "evidence": "CNA's own test backend supplies what hardware cannot: four distinct pixels published through it arrive in a caller-owned Texture2D with their channels the right way round, a second frame replaces the first, a texture whose size does not match the frame is refused rather than resized, and the frame stays available until it is replaced. Every injectable state round-trips, and CNA refuses Closed and NotSupported for a device it opened; the injection hooks refuse a camera that is not the test backend. The platform camera is the host's: at ABI 0.35 CNA initialises SDL's camera subsystem before enumerating (upstream finding 34, fixed), so this host's camera and headless Chromium's synthetic one are both enumerated, and the tests follow what the host offers.",
+      "proof": [
+        "route:cna_camera_create",
+        "route:cna_camera_create_with_test_backend_ext",
+        "route:cna_camera_try_acquire_frame_ext",
+        "route:cna_camera_set_test_frame_ext",
+        "test:test/native-cna.integration.mjs",
+        "test:test/wasm-browser-audio-capture.mjs"
+      ]
+    },
+    {
+      "operation": "CNA renderer identity and capability query extension",
+      "category": "VERIFIED_NATIVE",
+      "owner": "CNA-TS + CNA",
+      "evidence": "qualified artifact reports HEADLESS/custom-effects/compiled-effects capability bits",
+      "proof": [
+        "route:cna_graphics_device_get_renderer_info",
+        "route:cna_graphics_device_copy_renderer_name"
+      ]
+    },
+    {
+      "operation": "CNA sensors: support enumeration and the accelerometer's absence path",
+      "category": "VERIFIED_NATIVE",
+      "owner": "cna-ts/extensions/sensors",
+      "evidence": "the platform answers for all four sensor families, and on a host with no accelerometer the whole family agrees: the state is NotSupported, no data is valid, and CurrentValue refuses with InvalidOperationException rather than returning three zeroes a game would integrate into an orientation nothing measured. Start, Stop and the update interval report what the platform did rather than what was asked, disposal is idempotent, and a released sensor does not block the next one",
+      "proof": [
+        "route:cna_accelerometer_get_is_supported",
+        "route:cna_accelerometer_create",
+        "route:cna_accelerometer_get_state",
+        "route:cna_accelerometer_get_current_value",
+        "test:test/native-cna.integration.mjs"
+      ]
+    },
+    {
+      "operation": "CNA's content survey: what is under a content root and which XNB readers it needs",
+      "category": "VERIFIED_NATIVE",
+      "owner": "cna-ts/extensions/content",
+      "evidence": "The test builds the root it surveys, from the same fixtures the XNB reader suites use, so the expected reader names are known independently of what the survey answers rather than read back from it. Four assets across two subdirectories come back as the keys ContentManager.Load addresses -- extension stripped, subdirectories kept -- and a loose .png written beside an .xnb is reported as a native extension rather than as a second asset. A texture declares exactly its one reader and a model exactly its five, in the fixture's own order. Reader usage is counted across the whole root: the texture reader is wanted by two files (the atlas, and the model's effect), each distinct name appears once however many files want it, and each carries whether CNA has a reader for it. The limitation is asserted rather than hidden: the same model written twice, raw and LZX-compressed, reports five reader names and none -- the table lives inside the compressed payload and the survey reads headers without decompressing -- so an empty list means unknown, never \"needs nothing\". An empty root surveys to nothing instead of failing, changing the root re-points the scan, and a name nothing reads answers false rather than throwing. Loading is deliberately absent: CNA's content manager has a cache and an asset identity of its own, and one asset with two owners would break the same-reference guarantee XNA makes and this package's tests pin. See docs/native-content-survey.md",
+      "proof": [
+        "route:cna_content_manager_create",
+        "route:cna_content_manager_destroy",
+        "route:cna_content_manager_set_root_directory",
+        "route:cna_content_manager_copy_root_directory",
+        "route:cna_content_manager_refresh_content_manifest",
+        "route:cna_content_manager_get_manifest_entry_count",
+        "route:cna_content_manager_get_manifest_entry",
+        "route:cna_content_manager_copy_manifest_relative_path",
+        "route:cna_content_manager_copy_manifest_native_extension",
+        "route:cna_content_manager_copy_manifest_xnb_reader_name",
+        "route:cna_content_manager_get_xnb_reader_usage_count",
+        "route:cna_content_manager_get_xnb_reader_usage",
+        "route:cna_content_manager_copy_xnb_reader_usage_name",
+        "route:cna_content_type_reader_manager_get_is_registered",
+        "test:test/content-survey.integration.mjs"
+      ]
+    },
+    {
+      "operation": "CNB container: parse, validate, walk the table of contents and read chunk bytes",
+      "category": "VERIFIED_NATIVE",
+      "owner": "cna-ts/extensions/content",
+      "evidence": "a container encoded by CNA's own writer parses back with its container version, asset type, schema version, CMET metadata and chunk order; a chunk's bytes are exact and its CRC-32C recomputes to the table-of-contents value; truncation, a flipped payload byte and an XNB are each refused with CNA_RESULT_IO, and an unknown mandatory chunk refuses the whole file",
+      "proof": [
+        "route:cna_cnb_document_parse",
+        "route:cna_cnb_document_get_chunk",
+        "route:cna_cnb_document_copy_chunk_data",
+        "route:cna_cnb_document_require_mandatory_chunks_understood",
+        "route:cna_cnb_crc32c",
+        "test:test/cnb-content.integration.mjs"
+      ]
+    },
+    {
+      "operation": "CNB curves and animation clips",
+      "category": "VERIFIED_NATIVE",
+      "owner": "cna-ts/extensions/content",
+      "evidence": "A curve round-trips its two loop modes, its key count and every field of every key, including a continuity that differs between keys -- and then it is checked the way a curve actually matters, by evaluating both the authored and the decoded curve at ten positions including four between the keys, where the tangents and the continuity decide the answer. What comes back is a managed XNA Curve with no native object behind it: the native handle and its key collection are both released inside the decode. An animation clip keeps its handle, because XNA has no clip type to become; its duration, target space, two tracks with different bone indexes and different keyframe counts, and every component of every keyframe -- three vectors of different lengths at different offsets -- are asserted, along with out-of-range refusals and the fact that a curve and a clip refuse each other's containers. Two planted bridge defects, a dropped key continuity and an ignored track index, each fail exactly one test",
+      "proof": [
+        "route:cna_cnb_decode_curve",
+        "route:cna_cnb_encode_curve",
+        "route:cna_curve_key_collection_get",
+        "route:cna_cnb_decode_animation_clip",
+        "route:cna_cnb_animation_clip_copy_keyframes",
+        "test:test/cnb-content.integration.mjs"
+      ]
+    },
+    {
+      "operation": "CNB model: the bone hierarchy, parts and payloads, materials, meshes, skeleton and lights",
+      "category": "VERIFIED_NATIVE",
+      "owner": "cna-ts/extensions/content",
+      "evidence": "CNB's largest schema, read and written through CnbModelData. A reference model with every projected level occupied at once -- two bones in a hierarchy, a part with real vertex and index payloads, a material with distinguishable values in every field and all eight texture slots named differently, a mesh, a skeleton with three matrix sets, a light -- is built with the public API, encoded by CNA's own writer and decoded back. Every assertion is a value: the exact parent links and transforms, the exact payload bytes and lengths, each of the eight texture names through its own slot, the mesh's parent bone and part membership, and all three skeleton matrix sets kept apart by their own diagonals. Refusals are asserted too: another asset type, a corrupted image, a payload that contradicts its declared part (which CNA validates at encode rather than at set, measured rather than assumed), and use after disposal. Two planted bridge defects -- an ignored skeleton matrix-set identity and an ignored texture slot -- each fail exactly one test",
+      "proof": [
+        "route:cna_cnb_decode_model",
+        "route:cna_cnb_encode_model",
+        "route:cna_cnb_model_get_bone",
+        "route:cna_cnb_model_copy_part_vertex_bytes",
+        "route:cna_cnb_model_copy_material_texture",
+        "route:cna_cnb_model_copy_skeleton_matrices",
+        "test:test/cnb-content.integration.mjs"
+      ]
+    },
+    {
+      "operation": "CNB sound effects, songs and videos: the compiled media schemas",
+      "category": "VERIFIED_NATIVE",
+      "owner": "cna-ts/extensions/content",
+      "evidence": "A sound effect round-trips its format, rate, channels, frame count, both loop numbers and its sample bytes exactly, and CNA's own WAV decoder reads a RIFF image into one with the same bytes the header declared; a file that is not a WAV is refused. CreateSoundEffectFromCnb produces a real XNA SoundEffect owning a native audio resource whose name round-trips through CNA, and refuses by name for a format XNA cannot represent -- eight-bit PCM read as sixteen would play as noise -- while leaving the samples readable. Songs and videos carry a stream reference rather than the media, so both schemas are complete and fully testable with no encoded audio or video at all: name, duration and stream reference for a song; dimensions, a non-integer frame rate, duration, soundtrack kind and stream reference for a video. Each of the three refuses the other two's containers. Duration is zero on this artifact because it is built with CNA_AUDIO_PLATFORM=NULL, which is a property of the configuration rather than of the schema; the real 250 ms measurement is made in the browser suite, whose artifact has SDL3 audio",
+      "proof": [
+        "route:cna_cnb_decode_sound_effect",
+        "route:cna_cnb_encode_sound_effect",
+        "route:cna_cnb_decode_wav_as_sound_effect",
+        "route:cna_cnb_encode_song",
+        "route:cna_cnb_decode_song_stream_reference",
+        "route:cna_cnb_encode_video",
+        "route:cna_cnb_decode_video",
+        "test:test/cnb-content.integration.mjs"
+      ]
+    },
+    {
+      "operation": "CNB SpriteFont: decode a compiled font with its embedded atlas into a drawable SpriteFont",
+      "category": "VERIFIED_NATIVE",
+      "owner": "cna-ts/extensions/content",
+      "evidence": "a font CNA encoded decodes with its metrics, its ascending character map and its per-glyph rectangles and kerning; CreateSpriteFontFromCnb builds a SpriteFont whose MeasureString is exact, the copied atlas outlives the font it came from, an unsorted character map is refused at encode time, and an absent fallback character reads as null rather than U+0000",
+      "proof": [
+        "route:cna_cnb_decode_sprite_font",
+        "route:cna_cnb_sprite_font_data_get_glyph",
+        "route:cna_cnb_sprite_font_data_copy_atlas",
+        "route:cna_cnb_encode_sprite_font",
+        "test:test/cnb-content.integration.mjs"
+      ]
+    },
+    {
+      "operation": "CNB Texture2D: decode a compiled texture and upload it as a real XNA resource",
+      "category": "VERIFIED_NATIVE",
+      "owner": "cna-ts/extensions/content",
+      "evidence": "a texture description CNA encoded decodes to the same shape, representation format and level bytes, and CreateTexture2DFromCnb produces a Texture2D whose four readback texels are exactly the RGBA the encoder was given; representation selection reports an unsupported format as absence rather than failure",
+      "proof": [
+        "route:cna_cnb_decode_texture2d",
+        "route:cna_cnb_texture_data_copy_level",
+        "route:cna_cnb_texture_data_get_info",
+        "route:cna_cnb_encode_texture2d",
+        "test:test/cnb-content.integration.mjs"
+      ]
+    },
+    {
+      "operation": "CNB's writers: authoring a container for an asset type CNA has no schema for",
+      "category": "VERIFIED_NATIVE",
+      "owner": "CNA-TS",
+      "evidence": "one of every primitive the byte writer offers, decoded back at its exact offset with a DataView -- which is what proves the widths and the little-endian order rather than only that some bytes survived. A u64 survives exactly because it crosses as a bigint; a negative i32 is not read as unsigned; a string carries a four-byte length before its UTF-8 bytes. ToArray copies and Take empties, and the two are distinct. A container built from a custom asset type, custom schema version, metadata, an external reference and a game-defined chunk parses back through the same CnbDocument reader every projected schema uses, with the chunk payload byte for byte. CNB validates structure when a chunk is added -- alignment must be a power of two within its ceiling -- and sizes when the document is built, and both halves are asserted where they happen. Four planted defects all fail: a Take that copies, a u16 written at 32 bits, a dropped power-of-two check, and a limit narrowed but never sent",
+      "proof": [
+        "route:cna_cnb_byte_writer_write_u64",
+        "route:cna_cnb_writer_add_chunk",
+        "route:cna_cnb_writer_build",
+        "wasmRoute:cna_cnb_writer_build",
+        "test:test/cnb-content.integration.mjs",
+        "test:test/wasm-browser.mjs"
+      ]
+    },
+    {
+      "operation": "Compass and motion sensors: absence, and a real reading through CNA's own injection",
+      "category": "VERIFIED_NATIVE",
+      "owner": "cna-ts/extensions/sensors",
+      "evidence": "Absence first, and it is the point of the family: a heading of zero and a rotation rate of zero are both perfectly plausible measurements, so all three sensors report NotSupported with no valid data and refuse CurrentValue rather than returning them. Then the data path, through cna_compass_set_test_backend_ext and cna_motion_set_test_backend_ext -- CNA's own synthetic backends -- which is **injection evidence, not hardware evidence**: no physical compass or motion sensor exists on this host. Every component carries a value no other component has, so a transposed or substituted field is visible: two compass headings that differ by the local declination, a magnetometer vector, a 16-value attitude matrix asserted by first row and diagonal, a quaternion, and three motion vectors with disjoint value sets. Timestamps cross as bigints and are asserted to the tick, which a double would lose. The north-reference flag is installed both ways and read back both ways, so it is proved read rather than defaulted. A backend cannot be swapped underneath a running acquisition. Three planted defects each fail the test: two headings read from one field, a transposed attitude matrix, and gravity read from the device acceleration",
+      "proof": [
+        "route:cna_compass_get_current_value",
+        "route:cna_compass_set_test_backend_ext",
+        "route:cna_compass_inject_synthetic_update_ext",
+        "route:cna_motion_get_current_value",
+        "route:cna_motion_set_test_backend_ext",
+        "route:cna_motion_get_is_attitude_north_referenced_ext",
+        "test:test/native-cna.integration.mjs"
+      ]
+    },
+    {
+      "operation": "Compiled Effect creation binding route",
+      "category": "VERIFIED_NATIVE",
+      "owner": "CNA-TS + CNA",
+      "evidence": "exact byte payload reaches cna_effect_create_compiled with compiler-verified ABI; three legal conformance-FXB attempts deterministically return the qualified HEADLESS result 6 with invalid output and no shader-execution claim, and the same payload succeeds on the windowed build",
+      "proof": [
+        "route:cna_effect_create_compiled"
+      ]
+    },
+    {
+      "operation": "Compiled-effect execution, by renderer",
+      "category": "VERIFIED_NATIVE",
+      "owner": "CNA-TS + CNA",
+      "evidence": "the capability is a renderer property and was read from the running binary rather than from the renderer's name: CNA_GRAPHICS_CAPABILITY_COMPILED_EFFECTS is false on HEADLESS and true on the windowed OPENGLES3 build. On the windowed one XNA's own BasicEffect.fxb and the CnaConformanceEffect.fxb both load through cna_effect_create_compiled; on HEADLESS the same bytes are refused with result 6 and no shader-execution claim is made. The earlier inventory said only that the bit reports unavailable, which was true of the headless backend and too broad for the qualified set. The browser artifact was asked the same question with the same bytes rather than assumed to match: it answers CNA result 6, naming GraphicsCapability::CompiledEffects as false, which is the same result and sentence the Node HEADLESS backend gives. That answer was unreachable until cna_effect_create_compiled was added to the WebAssembly slice -- the binding declined first, with a message about its own coverage, so a consumer whose artifact HAD the runtime would have been told the wrong thing. WEBGL2 is in the family CNA supports; this artifact is built with CNA_EASYGL_COMPILED_EFFECTS=OFF, which is a build option and is recorded as one. Five backends have now been asked the same bytes and each answers once: OPENGLES3 (EasyGL, built CNA_EASYGL_COMPILED_EFFECTS=ON) creates the effect; SDL_RENDERER, SOFTWARE, HEADLESS and the WEBGL2 browser artifact all refuse with CNA result 6 naming GraphicsCapability::CompiledEffects false. The compiled-effect suite gates on that answer rather than on the word 'windowed': pointing CNA_WINDOWED_LIBRARY at one of the refusing renderers used to fail it with a cascade of assertion errors about missing reflection, and now skips once with the capability the renderer lacks -- while a REQUIRED run still fails, because a gate claiming compiled effects were qualified must not pass on a renderer that has none",
+      "proof": [
+        "route:cna_effect_create_compiled",
+        "route:cna_graphics_device_supports_capability",
+        "wasmRoute:cna_effect_create_compiled",
+        "test:test/wasm-browser.mjs"
+      ]
+    },
+    {
+      "operation": "Compiled-effect execution: the reflected parameters reach the pixels",
+      "category": "VERIFIED_NATIVE",
+      "owner": "CNA-TS + CNA",
+      "evidence": "Reflection and write-through above prove a value reaches CNA; they say nothing about it reaching the shader. Measured on the windowed OPENGLES3 build against CnaConformanceEffect.fxb, whose HLSL source CNA ships beside it, so every expectation is computed from the shader's own arithmetic and the values the test sets -- never from GetValue*, which answers from managed state and would agree with its own setter either way. SecondTechnique/P1 returns Tint * Weights[1] and samples nothing: three parameter states, each independently predicted and each matching the eight-bit texel to within one byte, where A->B moves only Tint and B->C only Weights[1]. FirstTechnique/P0 is a different program over identical parameter state -- it samples a white texel and scales by Gain and the Lighting struct -- so its disagreement with P1 is what makes CurrentTechnique's selection evidence; Lighting.Intensity and Lighting.Thresholds[0] are a struct member and a struct array element that only the pixel changes could prove. Halving Gain alone halves that image. A freshly constructed effect's FIRST draw is already correct, which is the opposite of what upstream finding 22 records for a ShaderEffect through SpriteBatch, and nothing here primes anything; a multiple-render-target bind straight after a compiled-effect draw also succeeds, where finding 22's pending GL error refuses it. Eight planted defects -- four dropped write-throughs, a truncated array, a no-op Apply, an ignored technique and a zeroed Vector4 W -- all fail these tests, against a rebuilt artifact, with the source and the artifact proved back at their baseline hash. This states what one fixture on one renderer proves and does not generalise to every compiled effect. Measured on two rasterizers rather than one: the AMD Radeon 780M (radeonsi) and Mesa's llvmpipe under Xvfb, both through the same OPENGLES3 EasyGL build. The expectations are unchanged between them and were written with a one-byte tolerance from the start, so this evidence is a property of the shader's arithmetic rather than of this machine's GPU -- which two neighbouring tests, having pinned exact bytes, turned out not to be",
+      "proof": [
+        "route:cna_effect_create_compiled",
+        "route:cna_effect_set_current_technique",
+        "route:cna_effect_pass_apply",
+        "route:cna_effect_parameter_set_value",
+        "route:cna_effect_parameter_set_values",
+        "route:cna_effect_parameter_set_value_texture",
+        "route:cna_effect_parameter_get_structure_members",
+        "route:cna_graphics_device_draw_user_primitives",
+        "route:cna_texture2d_get_data"
+      ]
+    },
+    {
+      "operation": "Compiled-effect parameter reflection and shader write-through",
+      "category": "VERIFIED_NATIVE",
+      "owner": "CNA-TS + CNA",
+      "evidence": "Effect.Parameters used to be built empty for a natively reflected effect. A stock effect's native collection really is empty on both backends -- measured -- so the surface looked unreachable; a compiled effect on a renderer that can run one carries the real thing. XNA's BasicEffect.fxb reflects twenty-three parameters with their names, classes, types, row and column counts, the 32-element VSIndices and PSIndices arrays, and Texture as an Object/Texture2D. SetValue is proved to reach CNA rather than managed state alone by reading the value back through cna_effect_parameter_get_value: a Matrix, a Vector4 and a scalar each arrive component for component. A value shape CNA's tagged API cannot carry is refused by name rather than stored and dropped",
+      "proof": [
+        "route:cna_effect_get_parameters",
+        "route:cna_effect_parameter_collection_get_at",
+        "route:cna_effect_parameter_get_info",
+        "route:cna_effect_parameter_set_value",
+        "route:cna_effect_parameter_get_value",
+        "route:cna_effect_parameter_set_values",
+        "route:cna_effect_parameter_set_value_texture"
+      ]
+    },
+    {
+      "operation": "Custom shader effects: an Effect built from GLSL the game wrote itself",
+      "category": "VERIFIED_NATIVE",
+      "owner": "cna-ts/extensions/graphics",
+      "evidence": "a ShaderEffect IS an Effect -- asserted with instanceof, and with the one technique and one pass it reports -- so it goes wherever a stock effect goes, which is the whole point of it. All three IEffectMatrices transforms round-trip to distinct values, and are read AGAIN after every uniform setter has run, so a setter wired to one of them instead of to its own uniform is caught. Every uniform shape CNA offers is exercised: mat4, vec4, vec3, vec2, float, int, float array, vec2 array, vec3 array, mat4 array and the std140 block declaration with its clearing form. The refusals are this binding's own and each names a different mistake: an empty or missing uniform name, a value that is not finite, a block whose names and offsets differ in length, and an array argument that is not one. A texture bound to a sampler unit is LENT to the effect -- the texture then refuses disposal while the effect can sample it, and disposes cleanly once the effect is gone, so the order is the only thing that matters -- and on a windowed renderer a texture bound to unit 1 is what a shader sampling unit 1 reads, which a binding that went to unit 0 cannot produce. Nonsense source is handled the way CNA's header says it must be: success means the object exists and not that anything compiled, and the two renderers here disagree exactly as the header predicts -- HEADLESS reports it valid with an empty log because it never compiled it, OPENGLES3 reports it invalid with the compiler's own words. Two empty sources are the one case refused identically everywhere; one empty source is not. On a windowed renderer the effect drives real pixels, and the weighted-blended accumulation it makes possible is predicted channel by channel from the published weight. Upstream finding 22 is asserted rather than worked around: a fresh effect's FIRST SpriteBatch draw produces nothing, its second is correct, a separately created effect loses its own first draw too, the same batch with no custom effect draws correctly the first time, and one Apply outside any batch fixes it -- which is the diagnosis as much as the workaround. Seventeen planted binding defects fail and none survives",
+      "proof": [
+        "route:cna_shader_effect_create",
+        "route:cna_shader_effect_is_valid",
+        "route:cna_shader_effect_has_renderer",
+        "route:cna_shader_effect_copy_compile_error_ext",
+        "route:cna_shader_effect_set_uniform_matrix",
+        "route:cna_shader_effect_set_uniform_vector4",
+        "route:cna_shader_effect_set_uniform_vector3",
+        "route:cna_shader_effect_set_uniform_vector2",
+        "route:cna_shader_effect_set_uniform_float",
+        "route:cna_shader_effect_set_uniform_int32",
+        "route:cna_shader_effect_set_uniform_float_array",
+        "route:cna_shader_effect_set_uniform_vector2_array",
+        "route:cna_shader_effect_set_uniform_vec3_array",
+        "route:cna_shader_effect_set_uniform_mat4_array",
+        "route:cna_shader_effect_declare_uniform_block_ext",
+        "route:cna_shader_effect_set_texture2d",
+        "route:cna_shader_effect_set_texture_cube",
+        "route:cna_shader_effect_set_texture3d",
+        "route:cna_shader_effect_get_world",
+        "route:cna_shader_effect_set_world",
+        "route:cna_shader_effect_get_view",
+        "route:cna_shader_effect_set_view",
+        "route:cna_shader_effect_get_projection",
+        "route:cna_shader_effect_set_projection",
+        "test:test/native-cna.integration.mjs",
+        "test:test/windowed-renderer.integration.mjs"
+      ]
+    },
+    {
+      "operation": "Destroying a test-backend camera, then opening the platform one",
+      "category": "VERIFIED_NATIVE",
+      "owner": "CNA-TS + CNA",
+      "evidence": "Fixed in CNA ABI 0.35 (upstream finding 11). At 0.21 cna_camera_destroy freed a test-backend camera without clearing the process-wide platform override that pointed into it, so the next platform camera crashed. The native suite now runs the sequence in a child process and asserts it survives; the browser suite asserts the same after enumerating cameras.",
+      "proof": [
+        "route:cna_camera_destroy",
+        "test:test/native-cna.integration.mjs",
+        "test:test/wasm-browser-non-engine.mjs"
+      ]
+    },
+    {
+      "operation": "Direct standalone GraphicsDevice construction",
+      "category": "VERIFIED_NATIVE",
+      "owner": "CNA-TS",
+      "evidence": "XNA public GraphicsDevice constructor now creates a real second device beside the game one, with no game of its own: cna_graphics_device_create takes an adapter index and presentation parameters and nothing else. A Texture2D made on it round-trips its four exact texels, its viewport and presentation parameters are its own rather than the manager (64x48 against the game 320x240), two caller-created devices live at once each answering with its own profile and size, and a texture from one device is refused by another device SpriteBatch with InvalidOperationException. The ownership rule is asserted directly off the native lifetime rather than inferred from a symptom: a caller-created device releases its own handle exactly once, and disposing a manager-created device leaves the game native lifetime active -- a Dispose that released whatever lifetime it found passed every other assertion and is caught only by that one. The adapter index is the adapter own position in CNA enumeration, which one physical adapter cannot discriminate, so test/standalone-device.test.mjs supplies two deterministic adapters and proves the index and the reported adapter are both the given one",
+      "proof": [
+        "route:cna_graphics_device_create",
+        "route:cna_graphics_device_destroy",
+        "test:test/native-cna.integration.mjs",
+        "test:test/standalone-device.test.mjs"
+      ]
+    },
+    {
+      "operation": "Dynamic buffer ContentLost subscription and deterministic release",
+      "category": "VERIFIED_NATIVE",
+      "owner": "CNA-TS",
+      "evidence": "the declared events now have a real CNA producer behind them: both subscriptions execute on the qualified artifact, the registration is released with the resource, and disposing twice with a live registration stays harmless",
+      "proof": [
+        "route:cna_vertex_buffer_subscribe_content_lost",
+        "route:cna_index_buffer_subscribe_content_lost",
+        "route:cna_vertex_buffer_unsubscribe_content_lost",
+        "route:cna_index_buffer_unsubscribe_content_lost"
+      ]
+    },
+    {
+      "operation": "DynamicSoundEffectInstance submit, pending buffers and managed refill pump",
+      "category": "VERIFIED_NATIVE",
+      "owner": "CNA-TS + CNA",
+      "evidence": "qualified native integration with reentrant/self-removing/throwing callback tests",
+      "proof": [
+        "route:cna_dynamic_sound_effect_instance_create",
+        "route:cna_dynamic_sound_effect_instance_submit_buffer",
+        "route:cna_dynamic_sound_effect_instance_get_pending_buffer_count"
+      ]
+    },
+    {
+      "operation": "DynamicVertexBuffer and DynamicIndexBuffer creation, typed transfer, readback and IsContentLost query",
+      "category": "VERIFIED_NATIVE",
+      "owner": "CNA-TS + CNA",
+      "evidence": "qualified integration covers Discard/NoOverwrite, built-in vertex and 16-bit index round trips, double disposal and parent shutdown",
+      "proof": [
+        "route:cna_vertex_buffer_set_data",
+        "route:cna_index_buffer_set_data",
+        "route:cna_vertex_buffer_get_info",
+        "route:cna_index_buffer_get_info"
+      ]
+    },
+    {
+      "operation": "Effect and EffectPass ABI-0.7 apply dispatch with native technique/pass reflection identity",
+      "category": "VERIFIED_NATIVE",
+      "owner": "CNA-TS + CNA",
+      "evidence": "qualified integration executes cna_effect_apply and cna_effect_pass_apply on effect-owned stock passes; managed/native ownership tests retain the parent, destroy owned views, reject disposed parents and expose no raw handles",
+      "proof": [
+        "route:cna_effect_apply",
+        "route:cna_effect_pass_apply",
+        "route:cna_effect_get_techniques",
+        "route:cna_effect_technique_get_passes"
+      ]
+    },
+    {
+      "operation": "Exiting a process after cna_game_destroy has refused",
+      "category": "VERIFIED_NATIVE",
+      "owner": "CNA",
+      "evidence": "Fixed in CNA ABI 0.35 (upstream finding 18). At 0.21 a process that ended after a refused cna_game_destroy took SIGSEGV after its last statement. Re-measured at 5b4edd6cc on HEADLESS and on OPENGLES3 with a plain-C probe that leaks one Texture2D: the destroy is refused with INVALID_STATE and the process exits 0, as does the clean control. Every probe game in this package still destroys its game and asserts the destroy succeeded.",
+      "proof": [
+        "route:cna_game_destroy",
+        "test:test/native-cna.integration.mjs"
+      ]
+    },
+    {
+      "operation": "Extended graphics layer availability probe",
+      "category": "VERIFIED_NATIVE",
+      "owner": "cna-ts/extensions/runtime",
+      "evidence": "cna_graphics_ext_is_available answers true on a CNA_CNAEXT=ON build and false on the WEBGL2 artifact, so structural presence is never reported as availability",
+      "proof": [
+        "route:cna_graphics_ext_is_available"
+      ]
+    },
+    {
+      "operation": "Extended input: raw joysticks and force feedback, on a host with neither attached",
+      "category": "VERIFIED_NATIVE",
+      "owner": "cna-ts/extensions/input",
+      "evidence": "cna-ts/extensions/input is a new public subpath, kept out of Microsoft.Xna.Framework.Input deliberately: a joystick's axes are raw, its identity is the platform's GUID, and it may carry hats and trackballs GamePadState has no member for, so folding one into the XNA type would drop data or invent a mapping. What this host proves is the absence contract, and CNA's is consistent and worth pinning -- measured rather than assumed. An identifier no device has is not refused; it is answered *absent*: a disconnected descriptor with zero counts and an empty name and GUID, which is the convention XNA's own GamePad.GetCapabilities follows. The haptic half is the stronger claim -- opening an absent device produces one that reports itself closed, offers no features, and declines InitializeRumble, PlayRumble, StopRumble and SetGain rather than silently accepting a request it cannot perform, which would be worse than an exception because a game would then offer the setting. Disposal closes and releases in that order, once",
+      "proof": [
+        "route:cna_joysticks_get_count",
+        "route:cna_joysticks_get_capabilities",
+        "route:cna_joysticks_capture_state",
+        "route:cna_haptics_get_count",
+        "route:cna_haptic_device_play_rumble",
+        "test:test/native-cna.integration.mjs"
+      ]
+    },
+    {
+      "operation": "FrameworkDispatcher.Update canonical native pump",
+      "category": "VERIFIED_NATIVE",
+      "owner": "CNA-TS + CNA",
+      "evidence": "native lifecycle and dynamic/media pump integration",
+      "proof": [
+        "route:cna_framework_dispatcher_update"
+      ]
+    },
+    {
+      "operation": "Game create, callbacks, one-frame/run/exit/destroy lifecycle",
+      "category": "VERIFIED_NATIVE",
+      "owner": "CNA-TS + CNA",
+      "evidence": "qualified ABI-0.7 integration covers seven real game lifetimes and 60/600 frames",
+      "proof": [
+        "route:cna_game_create",
+        "route:cna_game_run_one_frame",
+        "route:cna_game_destroy",
+        "route:cna_game_set_frame_hooks_ext"
+      ]
+    },
+    {
+      "operation": "GamerServicesDispatcher lifetime and Guide state over real CNA gamer services",
+      "category": "VERIFIED_NATIVE",
+      "owner": "CNA-TS + CNA",
+      "evidence": "the dispatcher initialises against the running game and reports CNA's own IsInitialized rather than a mirrored flag; a 64-bit platform window handle round-trips as a bigint; Guide's trial-mode simulation, notification position and visibility read and write through CNA. Two XNA rules CNA does not enforce are enforced here and asserted: an un-initialised Update raises InvalidOperationException, and IsTrialMode is the disjunction with SimulateTrialMode. IsScreenSaverEnabled is a platform display property, so with no displays the getter answers true and a write does not take -- reported rather than cached. Nothing fabricates a gamer: SignedInGamers is empty and every screen-showing operation still refuses with GamerServicesNotAvailableException",
+      "proof": [
+        "route:cna_gamer_services_dispatcher_initialize",
+        "route:cna_gamer_services_dispatcher_update",
+        "route:cna_guide_get_is_trial_mode",
+        "route:cna_guide_set_notification_position",
+        "test:test/native-cna.integration.mjs"
+      ]
+    },
+    {
+      "operation": "GameWindow stable facade, borrowed handle/state and removable event registrations",
+      "category": "VERIFIED_NATIVE",
+      "owner": "CNA-TS + CNA",
+      "evidence": "qualified integration verifies stable Game.Window identity, zero HEADLESS handle, title/state queries, callback registration cleanup and repeated game lifetimes",
+      "proof": [
+        "route:cna_game_window_get_client_bounds",
+        "route:cna_game_window_subscribe",
+        "route:cna_game_unsubscribe"
+      ]
+    },
+    {
+      "operation": "GPU custom-effect and rendering output qualification, by renderer",
+      "category": "VERIFIED_NATIVE",
+      "owner": "qualification hardware",
+      "evidence": "The old row said the typed draw routes reach CNA but 'the qualified HEADLESS pipeline returns result 12 and cannot prove visible output'. Both halves were about HEADLESS. On the windowed OPENGLES3 build the draw path produces exact pixels through both custom-shader APIs: a GLSL ShaderEffect writes a uniform-driven colour a fragment shader computed, and a compiled Effect loaded from .fxb bytecode draws a quad whose texels match its own HLSL arithmetic to within one byte across three parameter states and two techniques. Render-target readback is exact -- sixteen texels, each the colour Clear was given. What remains unproved is a *physical display*: every measurement here is a render-target readback under Xvfb, so the pixels are the renderer's and no claim is made about a monitor",
+      "proof": [
+        "route:cna_graphics_device_draw_user_primitives",
+        "route:cna_effect_pass_apply",
+        "route:cna_effect_create_compiled",
+        "route:cna_texture2d_get_data",
+        "route:cna_graphics_device_set_render_targets"
+      ]
+    },
+    {
+      "operation": "GraphicsAdapter: the adapter list, its display modes and its format answers",
+      "category": "VERIFIED_NATIVE",
+      "owner": "CNA-TS",
+      "evidence": "The one strict XNA type this package projected structurally and could not fill, because nothing read CNA's adapter capabilities. Its fourteen routes are now bound and the type is real on HEADLESS and on three windowed renderers. The read is deliberately lazy: CNA's adapter routes take a *borrowed* graphics-device handle and permit that borrow only inside a lifecycle callback, so a read at device-creation time is refused with INVALID_STATE -- what is registered there is a source, resolved the first time a caller asks, which for a game is from LoadContent. Asserted: one adapter, its four separate integer identity fields, a current display mode whose aspect ratio matches its own dimensions, a supported-mode list, both XNA profiles with HiDef implying Reach, and a 64x multisample request answered inexactly with a count CNA can actually provide. The description and device name are CNA's canonical XNA values rather than a GPU probe -- the same on HEADLESS and OPENGLES3 -- and that is stated rather than dressed up. A renderer with no adapters still refuses by name; a renderer with no native monitor handle answers zero, which is a legal IntPtr, rather than failing the whole adapter. Three planted defects fail it, including one that only fails because the test compares a case where the back-buffer and render-target queries genuinely disagree: Reach + Single is refused as a back buffer and accepted as a render target",
+      "proof": [
+        "route:cna_graphics_adapter_get_count",
+        "route:cna_graphics_adapter_get_info",
+        "route:cna_graphics_adapter_get_current_display_mode",
+        "route:cna_graphics_adapter_copy_display_modes",
+        "route:cna_graphics_adapter_is_profile_supported",
+        "route:cna_graphics_adapter_query_backbuffer_format",
+        "route:cna_graphics_adapter_query_render_target_format",
+        "test:test/native-cna.integration.mjs"
+      ]
+    },
+    {
+      "operation": "GraphicsDevice bound, indexed, instanced and four-codec user draw dispatch",
+      "category": "VERIFIED_NATIVE",
+      "owner": "CNA-TS + CNA",
+      "evidence": "360-symbol bridge dispatch and argument layouts are signature-audited; qualified HEADLESS calls reach CNA; no visible-output claim",
+      "proof": [
+        "route:cna_graphics_device_draw_primitives",
+        "route:cna_graphics_device_draw_indexed_primitives",
+        "route:cna_graphics_device_draw_instanced_primitives",
+        "route:cna_graphics_device_draw_user_primitives",
+        "route:cna_graphics_device_draw_user_indexed_primitives"
+      ]
+    },
+    {
+      "operation": "GraphicsDevice capability query and the compute work-group limits",
+      "category": "VERIFIED_NATIVE",
+      "owner": "CNA-TS",
+      "evidence": "XNA had GraphicsProfile, a two-value tier standing in for a capability list; CNA answers per capability and cna-ts asks rather than assumes. All nineteen answers are cross-checked against the renderer own capability bitmask, which reaches the test through a different route, on three windowed renderers whose masks differ (OPENGLES3 0x7ffff, SOFTWARE 0x1af7, SDL_RENDERER 0x1000) and on HEADLESS, which answers ten of nineteen. That the bitmask form is one shifted by the ordinal form is a compile-time fact rather than an assumption: tools/cna-abi/contract.json asserts it for all nineteen",
+      "proof": [
+        "route:cna_graphics_device_supports_capability",
+        "route:cna_graphics_device_get_max_compute_work_group_invocations_ext",
+        "test:test/native-cna.integration.mjs",
+        "test:test/windowed-renderer.integration.mjs"
+      ]
+    },
+    {
+      "operation": "GraphicsDevice copied state, scalar state, sampler/texture, buffer and render-target binding routes",
+      "category": "VERIFIED_NATIVE",
+      "owner": "CNA-TS + CNA",
+      "evidence": "qualified ABI-0.7 integration verifies successful assignment, null/unbind, stable read-after-write facade identity and render-target state; managed suite covers bounds, disposed, duplicate, wrong-device and rollback validation",
+      "proof": [
+        "route:cna_graphics_device_set_blend_state",
+        "route:cna_graphics_device_set_sampler_state",
+        "route:cna_graphics_device_set_texture",
+        "route:cna_graphics_device_set_render_targets"
+      ]
+    },
+    {
+      "operation": "GraphicsDevice status query",
+      "category": "VERIFIED_NATIVE",
+      "owner": "CNA-TS + CNA",
+      "evidence": "qualified HEADLESS device reports the canonical Normal status through cna_graphics_device_get_status",
+      "proof": [
+        "route:cna_graphics_device_get_status"
+      ]
+    },
+    {
+      "operation": "GraphicsDevice.Clear and Present",
+      "category": "VERIFIED_NATIVE",
+      "owner": "CNA-TS + CNA",
+      "evidence": "60/600-frame qualified native integration",
+      "proof": [
+        "route:cna_graphics_device_clear_rgba",
+        "route:cna_graphics_device_present"
+      ]
+    },
+    {
+      "operation": "GraphicsDeviceManager create/configure/apply and callback-scoped device borrowing",
+      "category": "VERIFIED_NATIVE",
+      "owner": "CNA-TS + CNA",
+      "evidence": "qualified native integration and ownership tests",
+      "proof": [
+        "route:cna_graphics_device_manager_create",
+        "route:cna_graphics_device_manager_apply_changes",
+        "route:cna_graphics_device_manager_get_graphics_device"
+      ]
+    },
+    {
+      "operation": "Indirect-draw argument structures and the image-based-light value",
+      "category": "VERIFIED_NATIVE",
+      "owner": "cna-ts/extensions/graphics",
+      "evidence": "the indirect command format is the GPU's own and is pinned as bytes: four words for a draw and five for an indexed one, in the order the GPU reads them, with a SIGNED base vertex -- minus five packs to 0xFFFFFFFB and reads back as minus five. CNA's defaults are all zero, which draws nothing. CNA's default image-based light has no textures, one prefiltered mip and unit intensity and is not complete; with all three textures present it is, and losing either the mip or one texture makes it incomplete again.",
+      "proof": [
+        "route:cna_indirect_draw_arguments_init",
+        "route:cna_indirect_draw_indexed_arguments_init",
+        "route:cna_image_based_light_ext_init",
+        "route:cna_image_based_light_ext_is_valid",
+        "test:test/native-cna.integration.mjs"
+      ]
+    },
+    {
+      "operation": "Keyboard, Mouse, GamePad and Touch polling routes",
+      "category": "VERIFIED_NATIVE",
+      "owner": "CNA-TS + CNA",
+      "evidence": "qualified HEADLESS native integration; physical device behavior is separate",
+      "proof": [
+        "route:cna_keyboard_get_state",
+        "route:cna_mouse_get_state",
+        "route:cna_gamepad_get_state_with_dead_zone",
+        "route:cna_touch_get_state"
+      ]
+    },
+    {
+      "operation": "MediaLibrary over CNA's index of the user's Music and Pictures folders",
+      "category": "VERIFIED_NATIVE",
+      "owner": "CNA-TS + CNA",
+      "evidence": "The library was projected with empty collections; it is not empty. The test builds the folders it then reads, so every expected value is known independently of what the library reports: a WAV of exactly 4000 frames at 8000Hz reports exactly 500ms -- a duration read from the file rather than defaulted, which a zero would have passed a weaker test with -- its containing folder becomes the album, a cover.png beside it becomes real album art returned byte for byte, and a 1x1 PNG in the picture root comes back measured 1x1 with its exact pixels. Object identity across the graph is asserted separately because it is not free: CNA's own handles are minted per call and never compare equal -- two calls for one song differ, and a song's album handle never equals the album collection's -- so relationships arrive as names and the managed graph interns them. song.Album is the object in library.Albums, album.Songs.Get(0) is the object in library.Songs, and the cycle closes. Art and pixels are fetched when asked for, not when the library is opened, because XNA asks for them with a method for that reason. SavePicture writes a picture that a re-opened library finds, and the token CNA gives it resolves through the public GetPictureFromToken to that very object. No CNA handle other than the library's own crosses the boundary, so a consumer has no media lifetime to get wrong",
+      "proof": [
+        "route:cna_media_library_create",
+        "route:cna_media_library_destroy",
+        "route:cna_media_library_get_songs",
+        "route:cna_media_library_get_albums",
+        "route:cna_media_library_get_artists",
+        "route:cna_media_library_get_genres",
+        "route:cna_media_library_get_playlists",
+        "route:cna_media_library_get_pictures",
+        "route:cna_media_library_get_saved_pictures",
+        "route:cna_song_get_duration",
+        "route:cna_song_get_album",
+        "route:cna_song_get_artist",
+        "route:cna_song_copy_handle_text_ext",
+        "route:cna_album_get_has_art",
+        "route:cna_album_copy_art",
+        "route:cna_picture_copy_image",
+        "route:cna_picture_get_width",
+        "route:cna_media_library_save_picture",
+        "route:cna_media_library_get_picture_from_token",
+        "test:test/media-library.integration.mjs"
+      ]
+    },
+    {
+      "operation": "MediaPlayer source/song creation, queue controls, position and visualization",
+      "category": "VERIFIED_NATIVE",
+      "owner": "CNA-TS + CNA",
+      "evidence": "generated legal silent WAV under qualified NULL-audio integration",
+      "proof": [
+        "route:cna_media_player_play_songs_from",
+        "route:cna_song_create_from_uri",
+        "route:cna_media_player_get_visualization_data"
+      ]
+    },
+    {
+      "operation": "Microphone enumeration/capture/buffer callbacks",
+      "category": "VERIFIED_NATIVE",
+      "owner": "qualification hardware",
+      "evidence": "The old row said 'all routes imported; HEADLESS enumerates zero microphones'. That was true of the HEADLESS artifact, whose audio platform is NULL, and was not a statement about CNA: asked of the windowed SDL3 build on the same host, the same routes enumerate three real capture devices and name them (a default device and two Ryzen HD Audio controller inputs), each reporting a 44100 Hz sample rate, a headset flag and the Stopped state. GetSampleSizeInBytes is checked against the rate the device itself reported rather than a constant. Capture is deliberately never started and no buffer callback is exercised: enumerating devices and configuring a buffer touch no audio, where opening a capture stream would record from the host's real microphone -- so enumeration and configuration are proved and the capture path is not, which is a choice rather than a limit. BufferDuration is upstream finding 28: CNA refuses 1000 ms, which is both XNA's documented maximum and the value the property itself reports before anything writes it, and it accepts durations above 1000 ms that XNA refuses. The whole measured table is asserted against XNA's own IL",
+      "proof": [
+        "route:cna_microphone_get_count",
+        "route:cna_microphone_get_name_size_at",
+        "route:cna_microphone_get_sample_rate_at",
+        "route:cna_microphone_get_is_headset_at",
+        "route:cna_microphone_get_state_at",
+        "route:cna_microphone_get_buffer_duration_ticks_at",
+        "route:cna_microphone_set_buffer_duration_ticks_at"
+      ]
+    },
+    {
+      "operation": "Model.Draw effect/pass/indexed-draw pipeline",
+      "category": "VERIFIED_NATIVE",
+      "owner": "CNA-TS + CNA",
+      "evidence": "qualified HEADLESS Model XNB executes buffer/index binding, BasicEffect matrices, real EffectPass.Apply and DrawIndexedPrimitives without a special native model renderer",
+      "proof": [
+        "route:cna_effect_pass_apply",
+        "route:cna_graphics_device_draw_indexed_primitives"
+      ]
+    },
+    {
+      "operation": "Modern CNA device layer: host CPU/memory, power, display scale and safe area, locales, clipboard, cameras",
+      "category": "VERIFIED_NATIVE",
+      "owner": "cna-ts/extensions/devices",
+      "evidence": "the layer's availability is asked before any reader is offered, CNA's logical core count matches Node's independently, an absent battery charge reads as null rather than zero so a low-charge comparison cannot misfire, a windowless session's zero content scale and empty safe area are recorded as CNA's own answers, locales come back as language/country pairs, the clipboard reports acceptance rather than throwing where there is none, and camera support is kept distinct from camera count",
+      "proof": [
+        "route:cna_devices_ext_is_available",
+        "route:cna_system_info_get_logical_cpu_core_count_ext",
+        "route:cna_power_get_state_ext",
+        "route:cna_display_info_get_safe_area_ext",
+        "route:cna_locale_get_preferred_count_ext",
+        "route:cna_camera_get_info_at_ext",
+        "test:test/native-cna.integration.mjs"
+      ]
+    },
+    {
+      "operation": "Modern CNA platform identity, renderer selection and runtime log",
+      "category": "VERIFIED_NATIVE",
+      "owner": "cna-ts/extensions/runtime",
+      "evidence": "nine native integration assertions over 37 handle-free routes, including the pre-latch and non-desktop refusals CNA reports as state",
+      "proof": [
+        "route:cna_platform_get_current",
+        "route:cna_graphics_renderer_get_selected_ext",
+        "route:cna_graphics_renderer_copy_available_ext",
+        "route:cna_logger_log"
+      ]
+    },
+    {
+      "operation": "OcclusionQuery construction, ordering, reuse, completion/result dispatch and disposal",
+      "category": "VERIFIED_NATIVE",
+      "owner": "CNA-TS + CNA",
+      "evidence": "qualified integration executes the real query state machine without fabricating PixelCount; managed suite covers completion and exact result identity",
+      "proof": [
+        "route:cna_occlusion_query_create",
+        "route:cna_occlusion_query_begin",
+        "route:cna_occlusion_query_end",
+        "route:cna_occlusion_query_get_is_complete"
+      ]
+    },
+    {
+      "operation": "Physical GameWindow resize events, by renderer",
+      "category": "VERIFIED_NATIVE",
+      "owner": "CNA-TS + CNA",
+      "evidence": "the earlier claim was that the registrations are real and removable but that there is no physical window or event stimulus. The first half held; the second was true of HEADLESS and generalised too far. On the windowed OPENGLES3 build a game that changes its preferred back buffer and calls ApplyChanges resizes from 320x240 to 512x384, and ClientSizeChanged fires exactly once carrying the new bounds rather than the old. Unsubscribing then resizing again to 400x300 delivers no further event while the resize still happens, so the silence is removal and not a resize that never occurred. Orientation and screen-device changes still have no stimulus here: this host has one display and no rotation",
+      "proof": [
+        "route:cna_game_window_get_client_bounds"
+      ]
+    },
+    {
+      "operation": "RenderTarget ContentLost subscription and deterministic release",
+      "category": "VERIFIED_NATIVE",
+      "owner": "CNA-TS",
+      "evidence": "subscription executes on the qualified artifact and its registration is released before the target is, ordered after the bound-target guard so a refused disposal leaves the subscription in place",
+      "proof": [
+        "route:cna_render_target_subscribe_content_lost",
+        "route:cna_render_target_unsubscribe_content_lost"
+      ]
+    },
+    {
+      "operation": "RenderTarget2D/Cube construction, metadata, binding and inherited exact transfer routes",
+      "category": "VERIFIED_NATIVE",
+      "owner": "CNA-TS + CNA",
+      "evidence": "qualified HEADLESS integration verifies RenderTarget2D and RenderTargetCube creation, metadata, 2D/cube-face bind/unbind identity, bound-destroy rejection and parent shutdown; managed backend covers cube metadata, face identity and duplicate validation",
+      "proof": [
+        "route:cna_render_target2d_create",
+        "route:cna_render_target_cube_create",
+        "route:cna_render_target_get_info",
+        "route:cna_render_target_destroy"
+      ]
+    },
+    {
+      "operation": "SoundEffect PCM creation, instances, controls, Apply3D and disposal",
+      "category": "VERIFIED_NATIVE",
+      "owner": "CNA-TS + CNA",
+      "evidence": "qualified NULL-audio integration; no audibility claim",
+      "proof": [
+        "route:cna_sound_effect_create_pcm16_range_ext",
+        "route:cna_sound_effect_create_instance",
+        "route:cna_sound_effect_instance_apply_3d_multi_ext",
+        "route:cna_sound_effect_destroy"
+      ]
+    },
+    {
+      "operation": "SoundEffect playback state machine, and audible output",
+      "category": "VERIFIED_NATIVE",
+      "owner": "qualification hardware",
+      "evidence": "The old row said 'NULL audio verifies state/lifetime only', which was again a fact about the HEADLESS artifact rather than about CNA. On the windowed SDL3 build the state machine is real: a fresh instance is Stopped, Play makes it Playing, Pause makes it Paused, Resume makes it Playing and Stop makes it Stopped -- four distinct transitions where the NULL backend answers Stopped to every one of them. Volume, Pitch and Pan round-trip. Duration is predicted rather than read back: the fixture is 4410 frames at 22050 Hz, which is exactly 200 ms, and the NULL backend reports zero for the same effect. Audible output remains UNVERIFIED and is stated that way in the suite's own output: a real mixer ran a real state machine over a real device and nobody listened to it, which is evidence about the path and not about the sound",
+      "proof": [
+        "route:cna_sound_effect_instance_play",
+        "route:cna_sound_effect_instance_pause",
+        "route:cna_sound_effect_instance_resume",
+        "route:cna_sound_effect_instance_stop",
+        "route:cna_sound_effect_instance_set_volume",
+        "route:cna_sound_effect_instance_set_pitch",
+        "route:cna_sound_effect_instance_set_pan",
+        "route:cna_sound_effect_get_duration_ticks"
+      ]
+    },
+    {
+      "operation": "SpriteBatch create, Begin, Draw/DrawString submission, End and destroy",
+      "category": "VERIFIED_NATIVE",
+      "owner": "CNA-TS + CNA",
+      "evidence": "qualified native integration and template 60/600 frames",
+      "proof": [
+        "route:cna_sprite_batch_create",
+        "route:cna_sprite_batch_begin",
+        "route:cna_sprite_batch_submit_scaled_many",
+        "route:cna_sprite_batch_end",
+        "route:cna_sprite_batch_destroy"
+      ]
+    },
+    {
+      "operation": "SpriteBatch Effect-bearing Begin",
+      "category": "VERIFIED_NATIVE",
+      "owner": "CNA-TS + CNA",
+      "evidence": "qualified HEADLESS integration executes cna_sprite_batch_begin_with_effect with a real BasicEffect; managed lifetime lease, device checks, null behavior, disposal guard and native-failure rollback are covered",
+      "proof": [
+        "route:cna_sprite_batch_begin_with_effect"
+      ]
+    },
+    {
+      "operation": "SpriteBatch explicit render-state and transform Begin",
+      "category": "VERIFIED_NATIVE",
+      "owner": "CNA-TS + CNA",
+      "evidence": "qualified integration executes copied Blend/Sampler/DepthStencil/Rasterizer descriptors; managed tests verify identity, wrong-device checks and post-success immutability",
+      "proof": [
+        "route:cna_sprite_batch_begin_with_states"
+      ]
+    },
+    {
+      "operation": "StorageDevice selector, StorageContainer and stream CRUD",
+      "category": "VERIFIED_NATIVE",
+      "owner": "CNA-TS + CNA",
+      "evidence": "qualified native integration in isolated XDG storage",
+      "proof": [
+        "route:cna_storage_device_show_selector",
+        "route:cna_storage_container_open",
+        "route:cna_storage_container_create_file",
+        "route:cna_storage_stream_read"
+      ]
+    },
+    {
+      "operation": "Texture2D create, Color transfer, regions/mips, FromStream and PNG encoding",
+      "category": "VERIFIED_NATIVE",
+      "owner": "CNA-TS + CNA",
+      "evidence": "qualified native integration with deterministic pixel checks",
+      "proof": [
+        "route:cna_texture2d_create",
+        "route:cna_texture2d_set_data",
+        "route:cna_texture2d_get_data",
+        "route:cna_texture2d_create_from_encoded_memory",
+        "route:cna_texture2d_copy_encoded"
+      ]
+    },
+    {
+      "operation": "Texture3D and TextureCube resource execution, by renderer",
+      "category": "VERIFIED_NATIVE",
+      "owner": "CNA-TS + CNA",
+      "evidence": "both creation routes answer CNA_RESULT_NOT_SUPPORTED under HEADLESS, which is where the earlier claim of unavailability came from and where it stopped being true: a renderer with a device creates both. On the windowed OPENGLES3 build a 4x4x4 Texture3D and an 8-wide TextureCube are created, and the volume is written and read back with two different texels so the evidence is storage rather than construction alone. The cube is exercised further by the skybox case, whose six faces are asserted to be a bijection onto six uploaded colours",
+      "proof": [
+        "route:cna_texture3d_create",
+        "route:cna_texturecube_create",
+        "route:cna_texture3d_set_data",
+        "route:cna_texture3d_get_data"
+      ]
+    },
+    {
+      "operation": "The .cnj compile front end, and the dependency lists a build system needs",
+      "category": "VERIFIED_NATIVE",
+      "owner": "CNA-TS",
+      "evidence": "a .cnj document authored here from its own specification -- so what the runtime decodes is evidence about the compiler rather than CNA agreeing with itself -- compiles into a .cnb the runtime package reads back with every key's position, value and continuity exactly as the JSON declared, and with the loop kinds it named. The content name defaults to the document stem and honours an override. A document naming a PNG sidecar reports both files in AbsorbedFiles, which is the dependency set a build system watches, and the four texels the PNG carried arrive through the compiler unchanged. An unsupported asset type, a missing sidecar and a missing document are each refused with CNA's own IO result rather than a message match, which is what distinguishes CNA refusing from this package refusing first. It lives in cna-ts-content because it takes filesystem paths",
+      "proof": [
+        "route:cna_cnb_compile_cnj",
+        "route:cna_cnb_cnj_result_copy_absorbed_file",
+        "test:content/test/content-pipeline.test.mjs"
+      ]
+    },
+    {
+      "operation": "The clipboard's reads, the attached-device inventory and an ungated power reading",
+      "category": "VERIFIED_NATIVE",
+      "owner": "cna-ts/extensions/devices",
+      "evidence": "Run against both renderers, asserting a different thing about each, because the interesting claim differs. On OPENGLES3/SDL3 under Xvfb the clipboard round-trips exactly -- including non-ASCII, written and read back byte for byte -- one mouse and one keyboard are enumerated with the platform's own names and distinct identifiers, and the power route reports a state rather than an error. On HEADLESS every one of them answers *emptily and successfully*: the clipboard reads an empty string, nothing is enumerated, and the power state is Unknown -- which is the evidence that nothing here fabricates a device. The reason this family is worth having is that CNA does not gate it on the extended device layer: the windowed library used here is built with CNA_DEVICES=OFF, so cna_power_get_*_ext answers NOT_SUPPORTED on it while cna_power_get_info reports a real 79% battery, and the clipboard reads work where the extension's own write refuses. SetClipboardText now prefers the extension's write for its acceptance flag and falls back to the ungated one, so a build without the layer can write the clipboard it can already read; both routes wrap one platform clipboard, which CNA's header states. Neither answer claims the clipboard changed -- that is what the reads are for",
+      "proof": [
+        "route:cna_clipboard_get_text_size",
+        "route:cna_clipboard_copy_text",
+        "route:cna_clipboard_get_has_text",
+        "route:cna_clipboard_set_text",
+        "route:cna_input_devices_get_mouse_count",
+        "route:cna_input_devices_get_mouse_info_at",
+        "route:cna_input_devices_copy_mouse_name_at",
+        "route:cna_input_devices_get_keyboard_count",
+        "route:cna_input_devices_get_keyboard_info_at",
+        "route:cna_input_devices_copy_keyboard_name_at",
+        "route:cna_input_devices_get_touch_device_count",
+        "route:cna_input_devices_get_touch_device_info_at",
+        "route:cna_input_devices_copy_touch_device_name_at",
+        "route:cna_power_get_info",
+        "test:test/input-devices.integration.mjs"
+      ]
+    },
+    {
+      "operation": "The debug drawer: lines and shapes, read back as geometry",
+      "category": "VERIFIED_NATIVE",
+      "owner": "cna-ts/extensions/graphics",
+      "evidence": "everything the drawer draws is a line list and cna_debug_draw_copy_vertices hands the whole list back, so what a shape consists of is read rather than looked at -- which is why this family needs no renderer to be qualified. A line is exactly its two endpoints in order; a cross is three lines reaching its size along each axis and nowhere else; a box is twelve edges over eight corners, asserted as the exact ordered edge list over a box asymmetric in all three axes so that a swapped Min and Max is a different picture rather than the same corners reordered, with each corner used by exactly three edges. A sphere is three rings of its segment count, every vertex exactly on the sphere and on one of the three axis planes through its centre, and twice the segments is twice the lines; a BoundingSphere draws exactly what the same centre and radius draw. A frustum's twelve edges use all eight of the corners BoundingFrustum gives for the same matrix and nothing else -- a second independent implementation, as with the frustum culler. The gizmos are checked against the light they describe: a point light is a sphere at exactly its range plus a cross, a spot light is two cones whose rims are at range times the tangent of the outer and the inner angle on the plane the range reaches, and a directional light is an arrow starting a length back along its direction with a head a fixed fraction of that length. The depth-tested and overlay lists are separate and keep their own colours including alpha, the line count is both together, clearing empties both, and beginning a frame starts it empty. Seven planted binding defects fail and none survives",
+      "proof": [
+        "route:cna_debug_draw_create",
+        "route:cna_debug_draw_begin",
+        "route:cna_debug_draw_end",
+        "route:cna_debug_draw_clear",
+        "route:cna_debug_draw_add_line",
+        "route:cna_debug_draw_add_box",
+        "route:cna_debug_draw_add_sphere",
+        "route:cna_debug_draw_add_bounding_sphere",
+        "route:cna_debug_draw_add_frustum",
+        "route:cna_debug_draw_add_cross",
+        "route:cna_debug_draw_copy_vertices",
+        "route:cna_debug_draw_get_line_count",
+        "route:cna_debug_draw_set_depth_tested",
+        "test:test/native-cna.integration.mjs"
+      ]
+    },
+    {
+      "operation": "The Guide's two asynchronous screens, and CNA's own answers to them",
+      "category": "VERIFIED_NATIVE",
+      "owner": "CNA-TS",
+      "evidence": "Guide.BeginShowMessageBox and Guide.BeginShowKeyboardInput are the only genuinely asynchronous begin/end pairs in XNA, and both now work. A message box does not complete inside the Begin call and says so, carries the caller's async state untouched, makes Guide.IsVisible true, and holds the focus button XNA was given rather than a default. Answering it runs the continuation exactly once with the very result object Begin returned -- the IAsyncResult contract -- and EndShowMessageBox returns the button that was pressed; a second box with a different press returns that one instead, so the answer is not a constant. The keyboard input reports its title, description and starting text back from CNA, and a cancel makes EndShowKeyboardInput return null rather than an empty string, which is XNA's distinction. A second screen while one is pending is INVALID_STATE, and End before the answer is an error rather than a wait. Three planted defects fail: a dropped focus button, an End that accepts a foreign or incomplete result, and a continuation that fires twice. Nothing here fabricates a gamer, a sign-in or a peer: CNA draws the screen and answers it, which is the same deterministic injection the sensors and the camera use",
+      "proof": [
+        "route:cna_guide_begin_show_message_box",
+        "route:cna_guide_end_show_message_box",
+        "route:cna_guide_begin_show_keyboard_input",
+        "route:cna_guide_simulate_message_box_click_ext",
+        "test:test/native-cna.integration.mjs",
+        "test:test/gamer-services-guide.test.mjs"
+      ]
+    },
+    {
+      "operation": "The physically-based effects, skinned and not",
+      "category": "VERIFIED_NATIVE",
+      "owner": "cna-ts/extensions/graphics",
+      "evidence": "on the windowed OPENGLES3 build both effects are compiled effects with named techniques whose pass applies. Every field written through the per-field accessors reads back through CNA with a value that differs from its default; a texture slot starts empty, holds exactly the texture set into it and no other slot, and clears to empty; the skinned effect keeps its weights per vertex and reads back the bone transforms written, translation included. ABI 0.30 removed the whole-material apply/extract routes, so the per-field and per-slot routes are the only surface.",
+      "proof": [
+        "route:cna_pbr_effect_create",
+        "route:cna_skinned_pbr_effect_create",
+        "route:cna_pbr_effect_set_metallic_factor",
+        "route:cna_pbr_effect_set_texture_coordinate_set_ext",
+        "route:cna_pbr_effect_get_texture",
+        "route:cna_pbr_effect_set_texture",
+        "route:cna_skinned_pbr_effect_set_bone_transforms",
+        "test:test/windowed-renderer.integration.mjs"
+      ]
+    },
+    {
+      "operation": "The retro effects: a CRT shader, an ASCII quantiser and a depth-quantising effect",
+      "category": "VERIFIED_NATIVE",
+      "owner": "cna-ts/extensions/graphics",
+      "evidence": "the CRT is drawn as one full-screen SpriteBatch quad over a flat grey source, the use CNA documents for it, so what comes back is the pattern the shader adds and nothing else. With all four parameters at zero it is an exact copy; scanlines darken alternate rows by exactly the intensity (200 becomes 100 at 0.5 and 150 at 0.25 on every texel of every second row, the rows between untouched); a vignette is symmetric under both mirrors and strictly brightens towards the centre. Every CRT and depth-effect parameter round-trips through CNA with values that differ from their defaults, and both report a named technique. The ASCII effect's grid is the source size over the cell size whatever the destination rectangle, measured for three cell shapes, and its default cell and quantize mode are CNA's.",
+      "proof": [
+        "route:cna_crt_effect_create",
+        "route:cna_crt_effect_set_scanline_intensity",
+        "route:cna_crt_effect_set_curvature",
+        "route:cna_crt_effect_set_vignette_intensity",
+        "route:cna_crt_effect_set_mask_intensity",
+        "route:cna_crt_effect_set_mask_type",
+        "route:cna_ascii_post_process_effect_create",
+        "route:cna_ascii_post_process_effect_draw",
+        "route:cna_ascii_post_process_effect_set_cell_size",
+        "route:cna_ascii_post_process_effect_get_last_grid_dimensions",
+        "route:cna_depth_effect_create",
+        "route:cna_depth_effect_set_mode",
+        "route:cna_depth_effect_set_dither_mode",
+        "test:test/windowed-renderer.integration.mjs"
+      ]
+    },
+    {
+      "operation": "TitleContainer.OpenStream and default ContentManager title-storage acquisition",
+      "category": "VERIFIED_NATIVE",
+      "owner": "CNA-TS + CNA",
+      "evidence": "qualified integration reads package.json through the CNA title-storage count/copy route; CNA-TS rejects absolute/traversal host paths and default ContentManager appends RootDirectory plus .xnb",
+      "proof": [
+        "route:cna_title_container_read_ext"
+      ]
+    },
+    {
+      "operation": "Typed text, IME composition and the mouse cursor",
+      "category": "VERIFIED_NATIVE",
+      "owner": "cna-ts/extensions/input",
+      "evidence": "The one input family CNA pushes rather than letting a game poll, because composition is: an IME sends editing updates and candidate lists between the keystroke and the committed character, none of which fits a per-frame snapshot. XNA had no concept of any of it -- Keyboard.GetState reports physical keys, a different question from what the user typed the moment the layout is not US English. Driven through CNA's own _ext injection hooks, which is injection evidence rather than hardware evidence and says so. Nothing assumes ASCII: 'a', 'e-acute', two CJK ideographs and U+1F600 are delivered as six UTF-16 code units -- the emoji as the surrogate pair the platform actually sends -- and appending them rebuilds the text exactly; five characters from six code units. Composition text round-trips as UTF-8 with its selection start and length kept apart, and candidate lists keep their order, selection and orientation. A disposed subscription receives nothing further, and an exception thrown out of a handler is contained at the boundary rather than unwound into compiled C, with a later subscriber still running. Start, Stop, the typed start and the input rectangle all succeed while IsActive stays false, because HEADLESS has no window to start input on -- measured, not assumed. A cursor is an owned handle that closes and releases in that order and refuses after disposal. Three planted defects each fail the test: a code unit truncated to a byte, a composition Length reported as its Start, and an unsubscribe that never reaches CNA",
+      "proof": [
+        "route:cna_text_input_subscribe_text_input_ext",
+        "route:cna_text_input_subscribe_text_editing_ext",
+        "route:cna_text_input_subscribe_text_editing_candidates_ext",
+        "route:cna_text_input_start_with_type_ext",
+        "route:cna_mouse_cursor_get_stock_ext",
+        "route:cna_mouse_cursor_create_from_texture2d",
+        "test:test/native-cna.integration.mjs"
+      ]
+    },
+    {
+      "operation": "VertexBuffer windowed upload with Discard or NoOverwrite",
+      "category": "VERIFIED_NATIVE",
+      "owner": "CNA-TS",
+      "evidence": "ABI 0.16 added cna_vertex_buffer_set_data_raw_at_with_options; the adapter routes non-None options through it and keeps the plain route for None",
+      "proof": [
+        "route:cna_vertex_buffer_set_data_raw_at_with_options"
+      ]
+    },
+    {
+      "operation": "VertexBuffer/IndexBuffer mapped public value transfer",
+      "category": "VERIFIED_NATIVE",
+      "owner": "CNA-TS + CNA",
+      "evidence": "qualified integration verifies four exact built-in vertex codecs and 16-bit index transfer; no JavaScript object serialization or layout guessing is used",
+      "proof": [
+        "route:cna_vertex_buffer_set_data_raw",
+        "route:cna_index_buffer_set_data_at"
+      ]
+    },
+    {
+      "operation": "VertexDeclaration, VertexBuffer and IndexBuffer resource construction/readback used by Model XNB",
+      "category": "VERIFIED_NATIVE",
+      "owner": "CNA-TS + CNA",
+      "evidence": "qualified native Model reader integration",
+      "proof": [
+        "route:cna_vertex_declaration_create_with_stride",
+        "route:cna_vertex_buffer_create",
+        "route:cna_index_buffer_create",
+        "route:cna_vertex_buffer_get_data_raw"
+      ]
+    },
+    {
+      "operation": "VideoPlayer construction and control/cached-property state without decoded frames",
+      "category": "VERIFIED_NATIVE",
+      "owner": "CNA-TS + CNA",
+      "evidence": "qualified native control-state integration",
+      "proof": [
+        "route:cna_video_player_create",
+        "route:cna_video_player_play",
+        "route:cna_video_player_get_state"
+      ]
+    },
+    {
+      "operation": "VideoPlayer.GetTexture borrowed frame projection and its decode identity",
+      "category": "VERIFIED_NATIVE",
+      "owner": "CNA-TS",
+      "evidence": "cna_video_player_get_frame_ext's monotonic decode generation is what made a safe projection possible: GetTexture now hands back a non-owning Texture2D over the player's own frame, returns the same object while the generation is unchanged, and retires it the moment anything else touches the player -- the exact window CNA says the handle is valid for. Before any decode the identity reads absent with generation zero and a negative presentation time, reading it twice does not advance the count, and neither path fabricates a texture. Frame progression across a real decode stays fixture-pending",
+      "proof": [
+        "route:cna_video_player_get_frame_ext",
+        "test:test/native-cna.integration.mjs"
+      ]
+    },
+    {
+      "operation": "Windowed Linux qualification: real GPU pixels through the public XNA drawing path",
+      "category": "VERIFIED_NATIVE",
+      "owner": "CNA-TS",
+      "evidence": "against an OPENGLES3/SDL3 CNA library under Xvfb, a RenderTarget2D cleared to (12, 34, 56, 255) through GraphicsDevice.Clear reads back all sixteen texels exactly, the renderer reports itself as OPENGLES3 with a 16384-texel limit and 0x7ffff capability flags, a stock BasicEffect pass applies for real rather than returning the HEADLESS not-supported branch, and 60 and 600 SpriteBatch frames run without drift. Opt-in through CNA_WINDOWED_LIBRARY, and it skips with a reason where no windowed library or display exists",
+      "proof": [
+        "route:cna_graphics_device_clear_rgba",
+        "route:cna_render_target2d_create",
+        "route:cna_texture2d_get_data",
+        "route:cna_effect_pass_apply",
+        "test:test/windowed-renderer.integration.mjs"
+      ]
+    },
+    {
+      "operation": "Windowed qualification, with GameWindow and adapter state",
+      "category": "VERIFIED_NATIVE",
+      "owner": "CNA-TS",
+      "evidence": "The windowed suite runs against whichever windowed renderer it is pointed at. At ABI 0.35.0 it was run against OPENGLES3 inside CNA's private Weston/Xwayland display (earlier generations also ran SDL_RENDERER and SOFTWARE). The renderer reports its own identity, capability flags and texture limit, applies a stock BasicEffect for real and runs 60 and 600 frames. GameWindow is exercised where HEADLESS cannot reach it: a title written, read back and restored, a native handle that stays a bigint, a screen device name, an orientation, and AllowUserResizing flipped and restored; client bounds are the 320x240 the manager requested. XNA's Reach profile is the default and CNA enforces it -- one render target, no volume texture -- so the probes that need more ask for HiDef and Reach's refusal is asserted.",
+      "proof": [
+        "route:cna_render_target2d_create",
+        "route:cna_graphics_device_set_render_targets",
+        "route:cna_game_window_copy_title",
+        "route:cna_game_window_get_client_bounds",
+        "route:cna_game_window_get_allow_user_resizing",
+        "test:test/windowed-renderer.integration.mjs"
+      ]
+    },
+    {
+      "operation": "Windowed renderer behavior on Linux",
+      "category": "VERIFIED_NATIVE",
+      "owner": "selected environment",
+      "evidence": "The old row said 'qualified artifact is HEADLESS', which stopped being the whole truth once a windowed artifact was qualified beside it. Twenty-five tests now run on Linux against a windowed OPENGLES3 build (EasyGL, Mesa 25.0.7, OpenGL ES 3.2) under Xvfb, covering render-target readback, the compute path, shadow, particle, decal, probe, sky, post-process, PBR, volumetric, culling, exposure and transparency passes, both custom-shader APIs, real GameWindow resize events, and the SDL3 audio backend. The suite is a REQUIRED gate: without CNA_WINDOWED_LIBRARY or a display it fails by name rather than skipping. Three further windowed renderers (SDL_RENDERER, SOFTWARE) are available on this host and are a wider matrix than this row claims",
+      "proof": [
+        "route:cna_graphics_device_draw_user_primitives",
+        "route:cna_texture2d_get_data",
+        "test:test/windowed-renderer.integration.mjs"
+      ]
+    },
+    {
+      "operation": "3D geometry in a browser: vertex and index buffers, BasicEffect and indexed draws",
+      "category": "VERIFIED_WEBASSEMBLY",
+      "owner": "CNA-TS",
+      "evidence": "Until this slice existed a browser could draw sprites and read pixels back and nothing else -- no vertex buffer, no index buffer, no effect, no indexed draw -- so a browser consumer could not put a triangle on the screen through the public API. Asserted texel by texel on WebGL2 in headless Chromium: a triangle covering an 8x8 target leaves all sixty-four texels the vertex colour, the same triangle translated off the target leaves all sixty-four the clear colour, and a smaller translation leaves the vertex colour again -- so the middle row cannot be explained by the draw simply failing. That middle row is what proves a CNA_Matrix reached the shader: it is taken by value, and a matrix arriving as zeroes would collapse the triangle rather than move it. The by-value lowering was measured separately with an Emscripten probe before being relied on: a CNA_Vector3 and a CNA_Matrix are both passed as a pointer to a caller-owned copy, and a scalarised call is rejected outright. The engine layer is deliberately absent: the WebAssembly artifact is built CNA_CNAEXT=OFF, so every instanced renderer and LOD route answers NOT_SUPPORTED there -- measured -- and binding them would offer a capability that cannot work. The other four stock effects refuse by name rather than half-applying a shared subset. See docs/wasm-backend.md",
+      "proof": [
+        "wasmRoute:cna_vertex_buffer_create",
+        "wasmRoute:cna_vertex_buffer_set_data",
+        "wasmRoute:cna_index_buffer_create",
+        "wasmRoute:cna_index_buffer_set_data",
+        "wasmRoute:cna_vertex_declaration_create_with_stride",
+        "wasmRoute:cna_graphics_device_set_vertex_buffers",
+        "wasmRoute:cna_graphics_device_set_index_buffer",
+        "wasmRoute:cna_graphics_device_draw_indexed_primitives",
+        "wasmRoute:cna_graphics_device_set_rasterizer_state",
+        "wasmRoute:cna_basic_effect_create",
+        "wasmRoute:cna_effect_matrices_set_world",
+        "wasmRoute:cna_effect_apply",
+        "test:test/wasm-browser.mjs"
+      ]
+    },
+    {
+      "operation": "All five XNA stock effects over WebAssembly",
+      "category": "VERIFIED_WEBASSEMBLY",
+      "owner": "CNA-TS",
+      "evidence": "BasicEffect, AlphaTestEffect, DualTextureEffect, EnvironmentMapEffect and SkinnedEffect are each created, synchronised from a managed snapshot and applied in a browser. Four of them were refused by name until a method-level route-parity check asked why the Node bridge reached thirty-two effect routes the WebAssembly backend never resolved: createStockEffect was a *bound* method covering one of its five inputs, which no count of bound methods can see. Each kind reaches its own routes -- an alpha-test comparison and reference value, two textures on one indexed route, an environment map with its amount and Fresnel factor, up to 72 bone transforms written as one array -- and lighting is applied to the three kinds that have it rather than to all five",
+      "proof": [
+        "wasmRoute:cna_alpha_test_effect_create",
+        "wasmRoute:cna_dual_texture_effect_set_texture",
+        "wasmRoute:cna_environment_map_effect_set_fresnel_factor",
+        "wasmRoute:cna_skinned_effect_set_bone_transforms",
+        "test:test/wasm-browser-non-engine.mjs"
+      ]
+    },
+    {
+      "operation": "Avatar descriptions over WebAssembly",
+      "category": "VERIFIED_WEBASSEMBLY",
+      "owner": "CNA-TS",
+      "evidence": "AvatarDescription.CreateRandom and the byte constructor in headless Chromium: 1021 bytes, every one of them zero, IsValid false and BodyType Female read out of those bytes rather than defaulted, the description round-tripping through the constructor, a wrong length refused by CNA and a body type that is not one refused as ArgumentOutOfRangeException. The body-type overload validates its argument and then ignores it, which is XNA behaviour CNA reproduces and this asserts rather than smooths over. No native handle escapes: the description is copied out and released inside the call",
+      "proof": [
+        "wasmRoute:cna_avatar_description_create",
+        "wasmRoute:cna_avatar_description_create_random",
+        "wasmRoute:cna_avatar_description_copy_description",
+        "test:test/wasm-browser-non-engine.mjs"
+      ]
+    },
+    {
+      "operation": "Browser clipboard, attached-device inventory and host power",
+      "category": "VERIFIED_WEBASSEMBLY",
+      "owner": "CNA-TS",
+      "evidence": "Text written to the clipboard is text the clipboard has, and reading it back gives the same string with its size reported in UTF-8 bytes rather than characters. Headless Chromium enumerates one mouse and one keyboard, each with an identifier and a name, and no touch device; an index past the end of any of the three is refused, which is what separates an empty inventory from a broken enumeration. CNA -1 for an unknown battery percentage or time remaining is projected as null rather than handed on as a number",
+      "proof": [
+        "wasmRoute:cna_clipboard_set_text",
+        "wasmRoute:cna_clipboard_copy_text",
+        "wasmRoute:cna_input_devices_get_mouse_count",
+        "wasmRoute:cna_power_get_info",
+        "test:test/wasm-browser-non-engine.mjs"
+      ]
+    },
+    {
+      "operation": "Browser content survey: what is under a root and which readers it needs",
+      "category": "VERIFIED_WEBASSEMBLY",
+      "owner": "CNA-TS",
+      "evidence": "A content root written into the module filesystem and surveyed: three assets found across a nested directory, named root-relative and without their extensions, the compiled .xnb reported as compiled and the loose .png and .txt reported by their extensions. CNA own reader registry answers true for its Texture2DReader and false for a name that does not exist. Nothing is loaded: the strict ContentManager owns loading and a survey deliberately gives an asset no second owner",
+      "proof": [
+        "wasmRoute:cna_content_manager_create",
+        "wasmRoute:cna_content_manager_refresh_content_manifest",
+        "wasmRoute:cna_content_manager_get_manifest_entry",
+        "test:test/wasm-browser-non-engine.mjs"
+      ]
+    },
+    {
+      "operation": "Browser GamePad: connection, capabilities, buttons, thumbsticks and triggers",
+      "category": "VERIFIED_WEBASSEMBLY",
+      "owner": "CNA-TS",
+      "evidence": "test/wasm-browser-input.mjs drives GamePad.GetState/GetCapabilities from inside an ordinary XNA Update in headless Chromium. With no controller attached all four PlayerIndex slots report IsConnected false rather than an invented device; with a Gamepad API device emulated at the browser boundary -- the integration point SDL3's Emscripten joystick driver actually reads -- the capability table, A and D-pad button states, both thumbstick axes with CNA's Y-inversion, the analog left trigger and an advancing PacketNumber all arrive, and releasing returns every one of them to zero. SetVibration reports false, because the browser's standard mapping exposes no rumble to SDL. Three planted defects -- swapped thumbsticks, an always-connected capability table and a previous-position that reports the current one -- each fail exactly one of these tests",
+      "proof": [
+        "wasmRoute:cna_gamepad_get_capabilities",
+        "wasmRoute:cna_gamepad_get_state_with_dead_zone",
+        "wasmRoute:cna_gamepad_set_vibration",
+        "test:test/wasm-browser-input.mjs"
+      ]
+    },
+    {
+      "operation": "Browser GameWindow: title, client bounds and the resize event",
+      "category": "VERIFIED_WEBASSEMBLY",
+      "owner": "CNA-TS",
+      "evidence": "The XNA GameWindow over the canvas CNA presents to. The title round-trips through CNA, the orientation and screen device name answer, and Window.Handle is CNA own native-window token passed through unchanged rather than a fabricated pointer. A device change through GraphicsDeviceManager.ApplyChanges of a known delta moves ClientBounds by exactly that delta, raises ClientSizeChanged once, and a handler attached at the time reads the new bounds; restoring the preferred size restores them",
+      "proof": [
+        "wasmRoute:cna_game_window_get_client_bounds",
+        "wasmRoute:cna_game_set_window_title",
+        "wasmRoute:cna_game_window_subscribe",
+        "test:test/wasm-browser-non-engine.mjs"
+      ]
+    },
+    {
+      "operation": "Browser GraphicsAdapter read through a live device",
+      "category": "VERIFIED_WEBASSEMBLY",
+      "owner": "CNA-TS",
+      "evidence": "GraphicsAdapter.Adapters, DefaultAdapter and GraphicsDevice.Adapter all answer in a browser, filled from CNA own adapter routes rather than invented. Nothing here manufactures a display name: what the Emscripten platform calls its adapter is what a consumer gets. What is asserted is consistency -- the current display mode has a positive size, its aspect ratio is its own width over its own height, the wide-screen flag agrees with that ratio rather than with a neighbouring field, the adapter reports at least the mode it is in as supported, and the device adapter is the first listed one",
+      "proof": [
+        "wasmRoute:cna_graphics_adapter_get_count",
+        "wasmRoute:cna_graphics_adapter_get_info",
+        "wasmRoute:cna_graphics_adapter_get_current_display_mode",
+        "test:test/wasm-browser-non-engine.mjs"
+      ]
+    },
+    {
+      "operation": "Browser Guide: message box and keyboard input, with exactly-once completion",
+      "category": "VERIFIED_WEBASSEMBLY",
+      "owner": "CNA-TS",
+      "evidence": "No modal opens anywhere: CNA holds its own pending dialog and draws it itself, which is what makes the asynchronous contract checkable in headless Chromium. A message box is begun, reports itself pending with the focus button it was given, is clicked through CNA simulate route, and its End reports that button with the completion handler having run exactly once; ending the same token twice is refused as the Node bridge refuses it. A keyboard prompt carries its title, description and default text to CNA, is cancelled, and its End answers null rather than the empty string a game would read as a deliberately blank name. Guide.SimulateTrialMode round-trips and does not move IsTrialMode, which the pinned XNA IL confirms is correct: they are two independent static fields",
+      "proof": [
+        "wasmRoute:cna_guide_begin_show_message_box",
+        "wasmRoute:cna_guide_simulate_message_box_click_ext",
+        "wasmRoute:cna_guide_begin_show_keyboard_input",
+        "wasmRoute:cna_gamer_services_dispatcher_initialize",
+        "test:test/wasm-browser-non-engine.mjs"
+      ]
+    },
+    {
+      "operation": "Browser media player state and an empty media library",
+      "category": "VERIFIED_WEBASSEMBLY",
+      "owner": "CNA-TS",
+      "evidence": "The media player mute, repeat, shuffle, volume and visualisation flags all reach CNA, the platform reports its local media source by name, and the game has control. The visualisation buffers are read at their measured length -- 256 floats each -- and with nothing playing they are zero, which is recorded as silence rather than dressed up as a spectrum. What used to end there now continues: the visualisation is a post-mix tap on CNA whole mixer rather than on the media player own track, so an XACT cue, a SoundEffect and a DynamicSoundEffectInstance all reach it, and four authored tones each land in the bin round(f * 512 / rate) predicts from their own frequency and the rate CNA mixer announced. The magnitude is predicted too, from the transform own documented scaling -- 2/N with the Hann window 0.5 coherent gain left uncompensated, so amplitude/2 -- and the two page-authored tones sit exactly on a bin centre where the window response is textbook: half the peak in each adjacent bin, essentially nothing two bins out. The frequency axis itself is upstream finding 35: CNA does not publish the mixer negotiated rate on the C ABI, and the browser own AudioContext runs at a different rate (48000 against 44100), so the suite takes it from CNA stderr notice and asserts the two really do differ. The media library opens and reports zero of all seven collections, which on a host with no music or pictures folder is the correct answer; an index into an empty collection is refused",
+      "proof": [
+        "wasmRoute:cna_media_player_set_is_muted",
+        "wasmRoute:cna_media_player_get_visualization_data",
+        "wasmRoute:cna_media_library_create",
+        "wasmRoute:cna_media_library_get_songs",
+        "test:test/wasm-browser-non-engine.mjs",
+        "test:test/wasm-browser-audio.mjs"
+      ]
+    },
+    {
+      "operation": "Browser microphones: enumeration, buffer duration and capture state",
+      "category": "VERIFIED_WEBASSEMBLY",
+      "owner": "CNA-TS",
+      "evidence": "SDL3 Emscripten backend enumerates recording devices, and headless Chromium reports two -- a default device and a system audio recording device -- each with a name, a 44100 Hz sample rate, a state and a buffer duration, and exactly one of them marked default. A buffer duration written is the duration read back as a 64-bit tick count, starting and stopping move the state, and a capture asks for 65536 bytes and is answered with what CNA produced rather than with what was asked for. The old row stopped there, at PHYSICAL_CAPTURE_NOT_VERIFIED, because a page needs microphone permission. It does -- and Chromium can supply a capture device that is not hardware at all. Launched with --use-fake-device-for-media-stream and --use-file-for-fake-audio-capture pointing at a file this repository authored, every capture device Chromium offers is synthetic, and what CNA records is that file: two tones at 1500 Hz and 3187.5 Hz, present at the 2:1 amplitude ratio they were written at, at least ten times above anything else in the spectrum (measured 50:1). Chromium own gain control costs about 20 dB of absolute level and leaves the ratio alone, so the assertions are on the shape, which room noise, a buffer of zeroes and a single hard-coded frequency all fail. SYNTHETIC_BROWSER_CAPTURE_VERIFIED. PHYSICAL_MICROPHONE_ACCESSED = 0 and PHYSICAL_CAPTURE_VERIFIED = 0: the harness refuses to launch without the file flag rather than falling back to a real device, and a synthetic device passing is not evidence that a physical one would. Two things had to be found on the way: Playwright bundled headless shell has no media-capture stack at all, so the run asks for the full chromium channel by name, and SDL3 recording backend writes zeroes on a timer until its own getUserMedia resolves, so a capture that stopped at the first buffer would read that silence as a microphone that delivered nothing. BufferDuration is upstream finding 28",
+      "proof": [
+        "wasmRoute:cna_microphone_get_count",
+        "wasmRoute:cna_microphone_get_default_index_ext",
+        "wasmRoute:cna_microphone_set_buffer_duration_ticks_at",
+        "wasmRoute:cna_microphone_get_data_at",
+        "test:test/wasm-browser-non-engine.mjs",
+        "test:test/wasm-browser-audio-capture.mjs"
+      ]
+    },
+    {
+      "operation": "Browser off-screen rendering with exact pixel readback",
+      "category": "VERIFIED_WEBASSEMBLY",
+      "owner": "CNA-TS",
+      "evidence": "a RenderTarget2D is created, bound, cleared to an exact colour and read back through Texture2D.GetData in headless Chromium on WebGL2; all sixteen texels equal the cleared value, and disposing a still-bound target is refused",
+      "proof": [
+        "wasmRoute:cna_render_target2d_create",
+        "wasmRoute:cna_graphics_device_set_render_targets",
+        "wasmRoute:cna_render_target_get_info",
+        "wasmRoute:cna_render_target_destroy",
+        "test:test/wasm-browser.mjs"
+      ]
+    },
+    {
+      "operation": "Browser sensors driven through CNA synthetic backends",
+      "category": "VERIFIED_WEBASSEMBLY",
+      "owner": "CNA-TS",
+      "evidence": "SYNTHETIC_BACKEND_VERIFIED, not PHYSICAL_SENSOR_VERIFIED. All four sensors report unsupported on headless Chromium and a reading from an unsupported sensor is refused rather than answered with zeroes. Each is then driven through CNA own test backend: an accelerometer interval written and read back as a 64-bit tick count, a compass reading injected and returned with its three doubles distinct, its magnetometer axes and signs intact and a timestamp that a JavaScript double could not hold, a gyroscope rate keeping its signs, and a fused motion reading whose attitude quaternion, sixteen-float rotation matrix, three vectors and own nested timestamp all survive. CNA validates the timestamp pair as a real DateTimeOffset: an offset that is not a whole number of minutes is refused",
+      "proof": [
+        "wasmRoute:cna_compass_set_test_backend_ext",
+        "wasmRoute:cna_compass_inject_synthetic_update_ext",
+        "wasmRoute:cna_motion_inject_synthetic_update_ext",
+        "wasmRoute:cna_gyroscope_inject_synthetic_update_ext",
+        "test:test/wasm-browser-non-engine.mjs"
+      ]
+    },
+    {
+      "operation": "Browser sound effects: PCM construction, exact duration and the instance state machine",
+      "category": "VERIFIED_WEBASSEMBLY",
+      "owner": "CNA-TS",
+      "evidence": "a quarter second of 16-bit mono PCM built in the page reports exactly 250 ms and 2,500,000 ticks, volume, pitch, pan and looping round-trip through CNA at float precision, and an instance walks stopped -> playing -> paused -> playing -> stopped. Audibility is deliberately not claimed, and the reason has been corrected. A browser really will not start a WebAudio context without a user gesture -- measured: a fresh AudioContext is suspended at load and a page-initiated element.click() is isTrusted false and leaves it suspended -- but that gates output rather than mixing, and this suite had been getting an activation by accident anyway, because Playwright issues CDP Runtime.evaluate with userGesture true so page.evaluate and page.waitForFunction grant one. test/wasm-browser-audio.mjs supplies a deliberate one instead and measures both halves apart. SoundEffect.Play reports whether the runtime accepted the sample; whether anyone heard it is not something a headless browser can answer",
+      "proof": [
+        "wasmRoute:cna_sound_effect_create_pcm16_range_ext",
+        "wasmRoute:cna_sound_effect_get_duration_ticks",
+        "wasmRoute:cna_sound_effect_instance_get_info",
+        "test:test/wasm-browser.mjs"
+      ]
+    },
+    {
+      "operation": "Browser storage: containers, directories, files and pattern listing",
+      "category": "VERIFIED_WEBASSEMBLY",
+      "owner": "CNA-TS",
+      "evidence": "StorageDevice selection, a container opened by name and answering with it, a directory and two files created, both listed, a search pattern that reaches CNA and returns one of the two, a file read back, and a file and a directory that stop existing when deleted. Opening a file that is not there is refused rather than answered with empty bytes. The filesystem is the module own: in-session behaviour is what is verified here and persistence across a page reload is not claimed, because that is the host page IDBFS decision rather than this binding",
+      "proof": [
+        "wasmRoute:cna_storage_container_open",
+        "wasmRoute:cna_storage_container_create_file",
+        "wasmRoute:cna_storage_container_get_file_name_count",
+        "wasmRoute:cna_storage_stream_read",
+        "test:test/wasm-browser-non-engine.mjs"
+      ]
+    },
+    {
+      "operation": "Browser text composition and the extended input inventory",
+      "category": "VERIFIED_WEBASSEMBLY",
+      "owner": "CNA-TS",
+      "evidence": "A committed UTF-16 code unit raised through CNA arrives at a subscription as its character, including U+263A which a byte mask would truncate; a composition update keeps its text and selection; a candidate list keeps its order, selection and orientation; and an unsubscribed handler stops being called, which is the module function-table entry actually being released. Headless Chromium reports zero joysticks and zero haptic devices and refuses an index past the end of either",
+      "proof": [
+        "wasmRoute:cna_text_input_subscribe_text_input_ext",
+        "wasmRoute:cna_text_input_raise_text_editing_candidates_ext",
+        "wasmRoute:cna_joysticks_get_count",
+        "wasmRoute:cna_haptics_get_count",
+        "test:test/wasm-browser-non-engine.mjs"
+      ]
+    },
+    {
+      "operation": "Browser title storage and ContentManager XNB loading",
+      "category": "VERIFIED_WEBASSEMBLY",
+      "owner": "CNA-TS",
+      "evidence": "the browser harness writes assets into the module filesystem, reads exact title bytes back through TitleContainer.OpenStream, and loads an uncompressed Texture2D XNB and an LZX-compressed SpriteFont XNB through an ordinary ContentManager; a missing asset refuses with CNA_RESULT_IO rather than reading as empty",
+      "proof": [
+        "wasmRoute:cna_title_container_read_ext",
+        "test:test/wasm-browser.mjs"
+      ]
+    },
+    {
+      "operation": "Browser TouchPanel: the touch collection and XNA's press/move/release states",
+      "category": "VERIFIED_WEBASSEMBLY",
+      "owner": "CNA-TS",
+      "evidence": "test/wasm-browser-input.mjs dispatches real Chromium touch events and reads TouchPanel.GetState from inside Update. Before the first finger there is no touch device at all, which is distinct from a device with nothing on it. A press arrives as TouchLocationState.Pressed with no previous location, the next frame is Moved at the same point, a move keeps the identifier and reports the press position as its previous one, a second finger is Pressed while the first stays Moved, and lifting reports Released exactly once before the collection empties. The XNA enumerator visits the same identifiers in the same order as the indexer",
+      "proof": [
+        "wasmRoute:cna_touch_get_capabilities",
+        "wasmRoute:cna_touch_get_state",
+        "wasmRoute:cna_touch_panel_get_is_gesture_available",
+        "wasmRoute:cna_touch_panel_read_gesture",
+        "test:test/wasm-browser-input.mjs"
+      ]
+    },
+    {
+      "operation": "Browser VideoPlayer control surface",
+      "category": "VERIFIED_WEBASSEMBLY",
+      "owner": "CNA-TS",
+      "evidence": "A player is created, holds looping, mute and volume, reports its state and position, and is destroyed. Its frame reports itself unavailable with CNA invalid handle and a zero generation, and playing a null video is refused -- claiming a frame with no decoder is the one thing this family must not do. Decoding itself is not available on this toolchain at all and is recorded separately",
+      "proof": [
+        "wasmRoute:cna_video_player_create",
+        "wasmRoute:cna_video_player_get_state",
+        "wasmRoute:cna_video_player_get_frame_ext",
+        "test:test/wasm-browser-non-engine.mjs"
+      ]
+    },
+    {
+      "operation": "Browser WebAudio rendering behind a browser-trusted user activation",
+      "category": "VERIFIED_WEBASSEMBLY",
+      "owner": "CNA-TS",
+      "evidence": "The gesture rule is real and it was being satisfied by accident. Measured with no CDP call having touched the page: a fresh AudioContext is suspended at load, a page-initiated element.click() is isTrusted false and grants neither sticky nor transient activation and leaves it suspended, and a Playwright locator.click() is isTrusted true, grants both, and moves SDL own context from suspended to running. The accident is that Playwright issues CDP Runtime.evaluate with userGesture true, so page.evaluate and page.waitForFunction GRANT an activation -- every other browser suite here has been handing its page a gesture it never asked for, and a pre-gesture measurement read that way would have been measuring the question. So the harness gained an HTTP page-to-harness channel and runFrames(frames, page, { activate: true }), which waits on that channel and then sends a real click; the pre-gesture facts come back over HTTP before Playwright has run a line of script in the page. What the gesture does NOT gate is mixing: SDL3 Emscripten backend, finding the context suspended, pumps the audio callback from a timer and discards the buffer, so CNA mixer runs either way and the pre-gesture and post-gesture spectra of the same cue are identical to every digit. A second observable owes nothing to this package arithmetic -- DynamicSoundEffectInstance.PendingBufferCount drains 6 to 0 as CNA mixer finishes with the buffers, which is CNA counting its own consumption. WEB_AUDIO_RENDERING_VERIFIED and XACT_SAMPLE_CONSUMPTION_VERIFIED; AUDIBLE_OUTPUT_VERIFIED = 0, because a headless browser has no speaker and no amount of local work changes that",
+      "proof": [
+        "wasmRoute:cna_media_player_get_visualization_data",
+        "wasmRoute:cna_dynamic_sound_effect_instance_get_pending_buffer_count",
+        "wasmRoute:cna_cue_play",
+        "test:test/wasm-browser-audio.mjs"
+      ]
+    },
+    {
+      "operation": "Browser/Wasm CNA runtime",
+      "category": "VERIFIED_WEBASSEMBLY",
+      "owner": "CNA-TS",
+      "evidence": "60 and 600 real frames of the public XNA Game/GraphicsDeviceManager/Texture2D/SpriteBatch path in headless Chromium on a WebGL2 context, ABI 0.35.0, no uncaught page error",
+      "proof": [
+        "wasmRoute:cna_game_create",
+        "wasmRoute:cna_game_run_one_frame",
+        "wasmRoute:cna_game_destroy",
+        "test:test/wasm-browser.mjs"
+      ]
+    },
+    {
+      "operation": "CNA device layer over WebAssembly: host, locales, clipboard and a synthetic camera",
+      "category": "VERIFIED_WEBASSEMBLY",
+      "owner": "CNA-TS",
+      "evidence": "Present on an artifact built CNA_DEVICES=ON and reporting itself absent on one that is not, with both branches asserted. Where present: logical cores, system memory, power state, content scale and the display safe area all answer; the preferred-locale list answers with a language tag that is one; the device-layer clipboard write reports whether the platform accepted it. The camera is CNA own test backend and is labelled SYNTHETIC_BACKEND_VERIFIED -- a 4x2 frame keeps both of its dimensions, each state the backend accepts is the state it then reports, and CNA refuses to be told a camera it opened is closed",
+      "proof": [
+        "wasmRoute:cna_devices_ext_is_available",
+        "wasmRoute:cna_system_info_get_logical_cpu_core_count_ext",
+        "wasmRoute:cna_locale_get_preferred_count_ext",
+        "wasmRoute:cna_camera_create_with_test_backend_ext",
+        "test:test/wasm-browser-non-engine.mjs"
+      ]
+    },
+    {
+      "operation": "CNA's graphics extensions over WebAssembly: every public extension class, and the ASCII quantizer's texels",
+      "category": "VERIFIED_WEBASSEMBLY",
+      "owner": "cna-ts/extensions/graphics",
+      "evidence": "on an artifact built with CNA_CNAEXT=ON, headless Chromium on WebGL2 constructs every public extension class -- the PBR and skinned PBR effects, the CRT and depth effects, the ASCII effect and the debug drawer -- reads every accessor and round-trips every settable one, and draws the ASCII quantizer over four uniform quadrants with every texel predicted from AsciiQuantizer.cpp: three dark quadrants exactly their cell background, the white one exactly its two named colours, the collapsed cell its average, and BlackWhite mode with no hue.",
+      "proof": [
+        "wasmRoute:cna_ascii_post_process_effect_create",
+        "wasmRoute:cna_ascii_post_process_effect_draw",
+        "wasmRoute:cna_crt_effect_create",
+        "wasmRoute:cna_depth_effect_create",
+        "wasmRoute:cna_pbr_effect_create",
+        "wasmRoute:cna_debug_draw_create",
+        "test:test/wasm-browser-strong.mjs"
+      ]
+    },
+    {
+      "operation": "CNB curves and animation clips in a browser",
+      "category": "VERIFIED_WEBASSEMBLY",
+      "owner": "cna-ts/extensions/content",
+      "evidence": "the same two schemas over the WebAssembly backend, and the one that settles a wasm32 convention with evidence: cna_curve_key_collection_add takes CNA_CurveKey **by value**, and cna_cnb_encode_animation_clip takes a descriptor holding a pointer to an array of descriptors each holding a pointer to an array of 48-byte keyframes. Both cross correctly -- the page's decoded curve evaluates identically to the one it authored at ten sample positions, and every keyframe component of both clip tracks comes back exactly. All the layouts involved are measured by the Emscripten probe rather than written",
+      "proof": [
+        "wasmRoute:cna_cnb_decode_curve",
+        "wasmRoute:cna_curve_key_collection_add",
+        "wasmRoute:cna_cnb_encode_animation_clip",
+        "wasmRoute:cna_cnb_animation_clip_copy_keyframes",
+        "test:test/wasm-browser.mjs"
+      ]
+    },
+    {
+      "operation": "CNB in a browser: the same compiled-content API, on the WebAssembly backend",
+      "category": "VERIFIED_WEBASSEMBLY",
+      "owner": "cna-ts/extensions/content",
+      "evidence": "a page encodes a texture with CNA's own writer, parses the container back and uploads it with CreateTexture2DFromCnb, and the four readback texels are exactly the RGBA the encoder was given -- the same assertion the Node suite makes, through the same public API, against a different backend. The container primitives agree across backends too: the CRC-32C check value and the magic are the same C routines either side",
+      "proof": [
+        "wasmRoute:cna_cnb_document_parse",
+        "wasmRoute:cna_cnb_decode_texture2d",
+        "wasmRoute:cna_cnb_texture_data_copy_level",
+        "wasmRoute:cna_cnb_encode_texture2d",
+        "test:test/wasm-browser.mjs"
+      ]
+    },
+    {
+      "operation": "CNB media in a browser, including a measured sound-effect duration",
+      "category": "VERIFIED_WEBASSEMBLY",
+      "owner": "cna-ts/extensions/content",
+      "evidence": "the same three schemas over the WebAssembly backend. The browser artifact is built with SDL3 audio rather than NULL, so this is where the sound effect's duration is actually measurable: a quarter second of 8 kHz mono PCM16 encoded to .cnb, decoded back and turned into an XNA SoundEffect reports exactly 250 ms and 2,500,000 ticks, which is arithmetic on the frame count and therefore exact evidence that the samples and the rate both survived. Both loop numbers, the sample bytes, and the song and video descriptions are asserted as on Node",
+      "proof": [
+        "wasmRoute:cna_cnb_decode_sound_effect",
+        "wasmRoute:cna_cnb_encode_sound_effect",
+        "wasmRoute:cna_cnb_encode_song",
+        "wasmRoute:cna_cnb_decode_video",
+        "test:test/wasm-browser.mjs"
+      ]
+    },
+    {
+      "operation": "CNB model in a browser: the same schema, on the WebAssembly backend",
+      "category": "VERIFIED_WEBASSEMBLY",
+      "owner": "cna-ts/extensions/content",
+      "evidence": "a page builds a model with CnbModelData, encodes it with CNA's own writer and decodes it back, asserting the same values the Node suite asserts: both bone parents and both transforms, the part's stride and its exact vertex and index payloads through wasm32 memory, two named texture slots beside a third left empty, the mesh's parent bone and part list, all three skeleton matrix sets kept apart by their own diagonals, and the baked light. The structure layouts are measured by the same Emscripten probe as the rest, never hand-written. A planted defect that ignored the skeleton matrix-set identity fails this test; a second, which returned zero for every bone parent, passed until the test was strengthened to sample the root bone as well as the child -- so the gate is known to be able to fail for both",
+      "proof": [
+        "wasmRoute:cna_cnb_decode_model",
+        "wasmRoute:cna_cnb_encode_model",
+        "wasmRoute:cna_cnb_model_get_bone",
+        "wasmRoute:cna_cnb_model_copy_part_vertex_bytes",
+        "wasmRoute:cna_cnb_model_copy_skeleton_matrices",
+        "test:test/wasm-browser.mjs"
+      ]
+    },
+    {
+      "operation": "CNB's writers produce identical bytes on both backends",
+      "category": "VERIFIED_WEBASSEMBLY",
+      "owner": "CNA-TS",
+      "evidence": "the content-pipeline boundary claims a .cnb built in a build script and one built in a page are the same bytes. A browser page builds the same 52-byte payload and the same 326-byte container from the same calls, and the test compares the payload against the exact little-endian layout the desktop ABI produces rather than against the page agreeing with itself. The read-limits structure crosses through a wasm32 layout measured by an Emscripten probe, not a handwritten one",
+      "proof": [
+        "wasmRoute:cna_cnb_byte_writer_copy_bytes",
+        "wasmRoute:cna_cnb_writer_get_limits",
+        "test:test/wasm-browser.mjs"
+      ]
+    },
+    {
+      "operation": "Compiled XNA Effect reflection, native parameter write-through, technique selection and rendered pixels, over WebAssembly",
+      "category": "VERIFIED_WEBASSEMBLY",
+      "owner": "CNA-TS",
+      "evidence": "Available only on an artifact built with CNA_EASYGL_COMPILED_EFFECTS=ON; the default artifact answers CNA_RESULT_NOT_SUPPORTED naming GraphicsCapability::CompiledEffects, and the browser suite asserts that refusal instead. On a strong artifact, headless Chromium on WebGL2 loads CnaConformanceEffect.fxb through the ordinary XNA Effect constructor, reflects its six parameters with their classes, types and array/struct shape, writes values that CNA reads back, selects both techniques, and draws texels matching arithmetic computed from CNA's own shipped HLSL to within a byte -- the same scenario and the same expectation the windowed OPENGLES3 suite is held to. Fourteen planted defects die on it.",
+      "proof": [
+        "wasmRoute:cna_effect_create_compiled",
+        "wasmRoute:cna_effect_get_parameters",
+        "wasmRoute:cna_effect_parameter_get_info",
+        "wasmRoute:cna_effect_parameter_set_value",
+        "wasmRoute:cna_effect_parameter_set_values",
+        "wasmRoute:cna_effect_set_current_technique",
+        "wasmRoute:cna_graphics_device_draw_user_primitives",
+        "test:test/wasm-browser-strong.mjs"
+      ]
+    },
+    {
+      "operation": "Device capability and compute work-group limit queries over WebAssembly",
+      "category": "VERIFIED_WEBASSEMBLY",
+      "owner": "cna-ts/extensions/graphics",
+      "evidence": "All nineteen GraphicsCapability identities and the three compute work-group limits, asked of a live WebGL2 device through the public GraphicsDeviceCapabilities. Sixteen of nineteen are on for the default artifact and seventeen for one built with CNA_EASYGL_COMPILED_EFFECTS=ON -- CompiledEffects is the only one that moves, which is a second and independent confirmation of the compiled-effect capability, reached without touching the Effect constructor. ComputeShaders and IndirectDraw are off on both and no CNA build option changes them: WebGL 2.0 has no compute stage and no indirect draw, so every engine family needing either is renderer-blocked rather than unbound. This slice dispatches nothing; compute shaders, storage buffers, image bindings, barriers and GPU timers all refuse by name.",
+      "proof": [
+        "wasmRoute:cna_graphics_device_supports_capability",
+        "wasmRoute:cna_graphics_device_get_max_compute_work_group_count_ext",
+        "wasmRoute:cna_graphics_device_get_max_compute_work_group_size_ext",
+        "wasmRoute:cna_graphics_device_get_max_compute_work_group_invocations_ext",
+        "test:test/wasm-browser.mjs"
+      ]
+    },
+    {
+      "operation": "Modern CNA runtime services over WebAssembly",
+      "category": "VERIFIED_WEBASSEMBLY",
+      "owner": "cna-ts/extensions/runtime",
+      "evidence": "the browser harness reads platform, renderer selection and available renderers, and round-trips two by-value CNA_StringView routes",
+      "proof": [
+        "wasmRoute:cna_platform_get_current",
+        "wasmRoute:cna_graphics_renderer_try_parse_name_ext",
+        "wasmRoute:cna_graphics_renderer_copy_available_ext",
+        "test:test/wasm-browser.mjs"
+      ]
+    },
+    {
+      "operation": "SpriteFont measurement checked against CNA over WebAssembly",
+      "category": "VERIFIED_WEBASSEMBLY",
+      "owner": "CNA-TS",
+      "evidence": "CNA SpriteFont built in a browser over the same texture and the same glyph table the managed font holds, and asked for twenty-four strings. The two implementations share no code and agree exactly on all of them at ABI 0.35, including the five that upstream finding 27 used to split. The oracle is shared with the Node suite, so a browser answering differently is a failure rather than a second green suite.",
+      "proof": [
+        "wasmRoute:cna_sprite_font_create",
+        "wasmRoute:cna_sprite_font_measure_utf8",
+        "wasmRoute:cna_sprite_font_get_info",
+        "test:test/wasm-browser-non-engine.mjs"
+      ]
+    },
+    {
+      "operation": "Standalone GraphicsDevice construction in a browser",
+      "category": "VERIFIED_WEBASSEMBLY",
+      "owner": "CNA-TS",
+      "evidence": "XNA's public GraphicsDevice constructor in a browser: a real second device at the 64x48 its presentation parameters asked for rather than the game's size, which disposes, after which the game still disposes cleanly. It was withdrawn once because on CNA before 17281e841 the game's destroy then threw an Emscripten ErrnoError (errno 44) from SDL's file-drop teardown -- upstream finding 32, fixed by CNA for Emscripten -- and the WebAssembly backend now implements both halves and the browser suite asserts the device and the clean disposal",
+      "proof": [
+        "wasmRoute:cna_presentation_parameters_init",
+        "wasmRoute:cna_graphics_device_create",
+        "wasmRoute:cna_graphics_device_destroy",
+        "test:test/wasm-browser-non-engine.mjs"
+      ]
+    },
+    {
+      "operation": "WebAssembly game lifecycle, device creation, Clear, Texture2D transfer, SpriteBatch and input snapshots",
+      "category": "VERIFIED_WEBASSEMBLY",
+      "owner": "CNA-TS",
+      "evidence": "test/wasm-browser.mjs drives the first vertical slice through the same public XNA classes the Node backend serves",
+      "proof": [
+        "wasmRoute:cna_graphics_device_manager_create_device",
+        "wasmRoute:cna_graphics_device_clear_rgba",
+        "wasmRoute:cna_texture2d_set_data",
+        "wasmRoute:cna_sprite_batch_submit_scaled_many",
+        "wasmRoute:cna_keyboard_get_state",
+        "test:test/wasm-browser.mjs"
+      ]
+    },
+    {
+      "operation": "XACT in a browser over repository-authored banks",
+      "category": "VERIFIED_WEBASSEMBLY",
+      "owner": "CNA-TS",
+      "evidence": "The settings file, wave bank and sound bank are written from scratch by test/fixtures/xact.mjs rather than downloaded, so the family is not fixture-blocked: CNA parses real XACT bytes. An engine loads two categories and two global variables, the writable one takes a new value and the READONLY one does not, the renderer list answers, two fetches of one category are two handles that CNA own comparison and hash agree are equal, and a cue runs prepared then playing then paused-while-playing then playing then stopped. A cue name that is not in the bank is refused. Two authored cues are then run into CNA mixer and measured: 261.6 Hz answers bin 3 and 523.3 Hz answers bin 6, each predicted by round(f * 512 / 44100) rather than recorded, at the amplitude the visualisation transform own scaling implies, with silence before the cue and silence after it. That measurement is what found the fixture own defect: it wrote nChannels = 0 into the wave bank MINIWAVEFORMAT on the belief that the field holds the count minus one, and CNA reads it as (channels == 1) ? Mono : Stereo, so every mono wave here had been decoding as interleaved stereo and playing at exactly double its authored frequency. Nothing had ever measured the pitch. Audibility is still not claimed, but the user gesture is no longer the reason: a browser-trusted Playwright click is supplied, the AudioContext leaves suspended for running, and the pre-gesture and post-gesture spectra are identical -- SDL3 Emscripten backend pumps the mixer from a timer while the context is suspended and discards the output, so the gesture gates output and not mixing. What remains unproved is that a speaker moved, and a headless browser has none",
+      "proof": [
+        "wasmRoute:cna_audio_engine_create",
+        "wasmRoute:cna_sound_bank_create",
+        "wasmRoute:cna_wave_bank_create",
+        "wasmRoute:cna_cue_get_info",
+        "test:test/wasm-browser-non-engine.mjs",
+        "test:test/wasm-browser-audio.mjs"
+      ]
+    }
+  ]
+}

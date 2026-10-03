@@ -1,0 +1,269 @@
+{
+  "schemaVersion": 1,
+  "methodCasing": "preserve",
+  "propertyStyle": "same-cased-accessor",
+  "mixedAccessorVisibility": "project-most-visible-accessor",
+  "ignoredMethods": [
+    "Finalize",
+    "GetObjectData"
+  ],
+  "mixedVisibilityOverloads": [
+    "Microsoft.Xna.Framework.Game.Dispose",
+    "Microsoft.Xna.Framework.GameComponent.Dispose",
+    "Microsoft.Xna.Framework.Content.ContentManager.Dispose",
+    "Microsoft.Xna.Framework.DrawableGameComponent.Dispose",
+    "Microsoft.Xna.Framework.Graphics.GraphicsResource.Dispose",
+    "Microsoft.Xna.Framework.Graphics.GraphicsDevice.Dispose",
+    "Microsoft.Xna.Framework.GraphicsDeviceManager.Dispose",
+    "Microsoft.Xna.Framework.Graphics.BlendState.Dispose",
+    "Microsoft.Xna.Framework.Graphics.DepthStencilState.Dispose",
+    "Microsoft.Xna.Framework.Graphics.RasterizerState.Dispose",
+    "Microsoft.Xna.Framework.Graphics.SamplerState.Dispose",
+    "Microsoft.Xna.Framework.Graphics.Texture2D.Dispose",
+    "Microsoft.Xna.Framework.Graphics.Texture3D.Dispose",
+    "Microsoft.Xna.Framework.Graphics.TextureCube.Dispose",
+    "Microsoft.Xna.Framework.Graphics.RenderTarget2D.Dispose",
+    "Microsoft.Xna.Framework.Graphics.RenderTargetCube.Dispose",
+    "Microsoft.Xna.Framework.Graphics.OcclusionQuery.Dispose",
+    "Microsoft.Xna.Framework.Graphics.VertexDeclaration.Dispose",
+    "Microsoft.Xna.Framework.Graphics.VertexBuffer.Dispose",
+    "Microsoft.Xna.Framework.Graphics.IndexBuffer.Dispose",
+    "Microsoft.Xna.Framework.Graphics.Effect.Dispose",
+    "Microsoft.Xna.Framework.Graphics.SpriteBatch.Dispose",
+    "Microsoft.Xna.Framework.Audio.AudioEngine.Dispose",
+    "Microsoft.Xna.Framework.Audio.DynamicSoundEffectInstance.Dispose",
+    "Microsoft.Xna.Framework.Audio.SoundBank.Dispose",
+    "Microsoft.Xna.Framework.Audio.SoundEffectInstance.Dispose",
+    "Microsoft.Xna.Framework.Audio.WaveBank.Dispose",
+    "Microsoft.Xna.Framework.GamerServices.AvatarAnimation.Dispose",
+    "Microsoft.Xna.Framework.GamerServices.AvatarRenderer.Dispose"
+  ],
+  "publicConstructorOverloads": [
+    "Microsoft.Xna.Framework.Graphics.Effect..ctor(Microsoft.Xna.Framework.Graphics.Effect)",
+    "Microsoft.Xna.Framework.Graphics.AlphaTestEffect..ctor(Microsoft.Xna.Framework.Graphics.AlphaTestEffect)",
+    "Microsoft.Xna.Framework.Graphics.BasicEffect..ctor(Microsoft.Xna.Framework.Graphics.BasicEffect)",
+    "Microsoft.Xna.Framework.Graphics.DualTextureEffect..ctor(Microsoft.Xna.Framework.Graphics.DualTextureEffect)",
+    "Microsoft.Xna.Framework.Graphics.EnvironmentMapEffect..ctor(Microsoft.Xna.Framework.Graphics.EnvironmentMapEffect)",
+    "Microsoft.Xna.Framework.Graphics.SkinnedEffect..ctor(Microsoft.Xna.Framework.Graphics.SkinnedEffect)"
+  ],
+  "ignoredConstructors": [
+    "Microsoft.Xna.Framework.Content.ContentLoadException..ctor(System.Runtime.Serialization.SerializationInfo,System.Runtime.Serialization.StreamingContext)",
+    "Microsoft.Xna.Framework.Storage.StorageDeviceNotConnectedException..ctor(System.Runtime.Serialization.SerializationInfo,System.Runtime.Serialization.StreamingContext)",
+    "Microsoft.Xna.Framework.GamerServices.NetworkException..ctor(System.Runtime.Serialization.SerializationInfo,System.Runtime.Serialization.StreamingContext)",
+    "Microsoft.Xna.Framework.GamerServices.NetworkNotAvailableException..ctor(System.Runtime.Serialization.SerializationInfo,System.Runtime.Serialization.StreamingContext)",
+    "Microsoft.Xna.Framework.GamerServices.GamerServicesNotAvailableException..ctor(System.Runtime.Serialization.SerializationInfo,System.Runtime.Serialization.StreamingContext)",
+    "Microsoft.Xna.Framework.GamerServices.GamerPrivilegeException..ctor(System.Runtime.Serialization.SerializationInfo,System.Runtime.Serialization.StreamingContext)",
+    "Microsoft.Xna.Framework.GamerServices.GuideAlreadyVisibleException..ctor(System.Runtime.Serialization.SerializationInfo,System.Runtime.Serialization.StreamingContext)",
+    "Microsoft.Xna.Framework.GamerServices.GameUpdateRequiredException..ctor(System.Runtime.Serialization.SerializationInfo,System.Runtime.Serialization.StreamingContext)",
+    "Microsoft.Xna.Framework.Net.NetworkSessionJoinException..ctor(System.Runtime.Serialization.SerializationInfo,System.Runtime.Serialization.StreamingContext)"
+  ],
+  "fieldStyle": "same-cased-field",
+  "structStyle": "mutable-class",
+  "timeSpan": "Microsoft.Xna.Framework.TimeSpan",
+  "gameRun": "Promise<void>",
+  "genericConstraints": {
+    "referenceType": "object",
+    "valueType": "erased; runtime transfer representations enforce the value contract",
+    "defaultConstructor": "erased when attached to a CLR value-type constraint"
+  },
+  "numericOverloadCollisions": {
+    "Microsoft.Xna.Framework.Color..ctor(number,number,number)": "integral-channels; normalized values use the Vector3 overload",
+    "Microsoft.Xna.Framework.Color..ctor(number,number,number,number)": "integral-channels; normalized values use the Vector4 overload"
+  },
+  "operatorMethods": {
+    "op_Addition": "Add",
+    "op_Subtraction": "Subtract",
+    "op_Multiply": "Multiply",
+    "op_Division": "Divide",
+    "op_UnaryNegation": "Negate",
+    "op_Equality": "Equals",
+    "op_Inequality": "Equals"
+  },
+  "refOut": {
+    "deduplicateWhenReturnOverloadExists": true,
+    "otherwise": "named-result-object"
+  },
+  "refOutMethods": {
+    "Microsoft.Xna.Framework.Graphics.GraphicsAdapter.QueryBackBufferFormat": {
+      "returnType": "Microsoft.Xna.Framework.Graphics.GraphicsFormatQueryResult"
+    },
+    "Microsoft.Xna.Framework.Graphics.GraphicsAdapter.QueryRenderTargetFormat": {
+      "returnType": "Microsoft.Xna.Framework.Graphics.GraphicsFormatQueryResult"
+    },
+    "Microsoft.Xna.Framework.Graphics.ModelBoneCollection.TryGetValue": {
+      "returnType": "Microsoft.Xna.Framework.TryResult<Microsoft.Xna.Framework.Graphics.ModelBone>"
+    },
+    "Microsoft.Xna.Framework.Graphics.ModelMeshCollection.TryGetValue": {
+      "returnType": "Microsoft.Xna.Framework.TryResult<Microsoft.Xna.Framework.Graphics.ModelMesh>"
+    },
+    "Microsoft.Xna.Framework.Input.Touch.TouchCollection.FindById": {
+      "returnType": "Microsoft.Xna.Framework.Input.Touch.TouchLocationResult"
+    },
+    "Microsoft.Xna.Framework.Input.Touch.TouchLocation.TryGetPreviousLocation": {
+      "returnType": "Microsoft.Xna.Framework.Input.Touch.TouchLocationResult"
+    },
+    "Microsoft.Xna.Framework.Matrix.Decompose": {
+      "returnType": "Microsoft.Xna.Framework.MatrixDecomposeResult"
+    },
+    "Microsoft.Xna.Framework.GamerServices.PropertyDictionary.TryGetValue": {
+      "returnType": "Microsoft.Xna.Framework.TryResult<unknown>"
+    },
+    "Microsoft.Xna.Framework.Net.LocalNetworkGamer.ReceiveData": {
+      "returnType": "Microsoft.Xna.Framework.Net.NetworkPacketResult"
+    }
+  },
+  "contentLoad": "Load<T>(assetType: XnaType<T>, assetName: string): T",
+  "contentExternalReference": "ReadExternalReference<T>(assetType: XnaType<T>): T",
+  "events": "XnaEvent<TSender,TArgs>",
+  "iterableProtocolMember": "[Symbol.iterator]",
+  "genericTypeRenames": {
+    "System.Action`1": "Microsoft.Xna.Framework.XnaAction",
+    "Microsoft.Xna.Framework.Content.ContentTypeReader`1": "Microsoft.Xna.Framework.Content.ContentTypeReaderOfT",
+    "Microsoft.Xna.Framework.Graphics.PackedVector.IPackedVector`1": "Microsoft.Xna.Framework.Graphics.PackedVector.IPackedVectorOfT"
+  },
+  "erasedInterfaces": [
+    "System.Collections.Generic.ICollection`1",
+    "System.Collections.Generic.IList`1",
+    "System.Collections.Generic.IEnumerator`1",
+    "Microsoft.Xna.Framework.Graphics.IGraphicsResource",
+    "Microsoft.Xna.Framework.Graphics.IDynamicGraphicsResource",
+    "System.Collections.Generic.IDictionary`2"
+  ],
+  "erasedBaseTypes": [
+    "System.Collections.ObjectModel.Collection`1",
+    "System.Collections.ObjectModel.ReadOnlyCollection`1"
+  ],
+  "syntheticTypes": [
+    {
+      "name": "Microsoft.Xna.Framework.TimeSpan",
+      "kind": "class"
+    },
+    {
+      "name": "Microsoft.Xna.Framework.IEquatable",
+      "kind": "interface",
+      "genericArity": 1,
+      "genericParameters": [
+        "T"
+      ]
+    },
+    {
+      "name": "Microsoft.Xna.Framework.IComparable",
+      "kind": "interface",
+      "genericArity": 1,
+      "genericParameters": [
+        "T"
+      ]
+    },
+    {
+      "name": "Microsoft.Xna.Framework.IDisposable",
+      "kind": "interface"
+    },
+    {
+      "name": "Microsoft.Xna.Framework.TryResult",
+      "kind": "interface",
+      "genericArity": 1,
+      "genericParameters": [
+        "T"
+      ]
+    },
+    {
+      "name": "Microsoft.Xna.Framework.MatrixDecomposeResult",
+      "kind": "interface"
+    },
+    {
+      "name": "Microsoft.Xna.Framework.Graphics.GraphicsFormatQueryResult",
+      "kind": "interface"
+    },
+    {
+      "name": "Microsoft.Xna.Framework.Input.Touch.TouchLocationResult",
+      "kind": "interface"
+    },
+    {
+      "name": "Microsoft.Xna.Framework.EventArgs",
+      "kind": "class"
+    },
+    {
+      "name": "Microsoft.Xna.Framework.XnaEvent",
+      "kind": "interface",
+      "genericArity": 2,
+      "genericParameters": [
+        "TSender",
+        "TArgs"
+      ]
+    },
+    {
+      "name": "Microsoft.Xna.Framework.XnaAction",
+      "kind": "delegate",
+      "genericArity": 1,
+      "genericParameters": [
+        "T"
+      ]
+    },
+    {
+      "name": "Microsoft.Xna.Framework.XnaEventHandler",
+      "kind": "delegate",
+      "genericArity": 2,
+      "genericParameters": [
+        "TSender",
+        "TArgs"
+      ]
+    },
+    {
+      "name": "Microsoft.Xna.Framework.XnaType",
+      "kind": "interface",
+      "genericArity": 1,
+      "genericParameters": [
+        "T"
+      ]
+    },
+    {
+      "name": "Microsoft.Xna.Framework.IServiceProvider",
+      "kind": "interface"
+    },
+    {
+      "name": "Microsoft.Xna.Framework.IAsyncResult",
+      "kind": "interface"
+    },
+    {
+      "name": "Microsoft.Xna.Framework.AsyncCallback",
+      "kind": "delegate"
+    },
+    {
+      "name": "Microsoft.Xna.Framework.Net.NetworkPacketResult",
+      "kind": "interface"
+    }
+  ],
+  "frameworkTypeMappings": {
+    "System.Void": "void",
+    "System.Boolean": "boolean",
+    "System.Byte": "number",
+    "System.SByte": "number",
+    "System.Int16": "number",
+    "System.UInt16": "number",
+    "System.Int32": "number",
+    "System.UInt32": "number",
+    "System.Int64": "bigint",
+    "System.UInt64": "bigint",
+    "System.Single": "number",
+    "System.Double": "number",
+    "System.Char": "string",
+    "System.String": "string",
+    "System.Object": "unknown",
+    "System.IntPtr": "bigint",
+    "System.IO.Stream": "Uint8Array",
+    "System.Text.StringBuilder": "string",
+    "System.EventArgs": "Microsoft.Xna.Framework.EventArgs",
+    "System.Exception": "Error",
+    "System.Runtime.InteropServices.ExternalException": "Error",
+    "System.DateTime": "Date",
+    "System.Uri": "URL",
+    "System.IServiceProvider": "Microsoft.Xna.Framework.IServiceProvider",
+    "System.TimeSpan": "Microsoft.Xna.Framework.TimeSpan",
+    "System.Type": "Microsoft.Xna.Framework.XnaType<unknown>",
+    "System.IAsyncResult": "Microsoft.Xna.Framework.IAsyncResult",
+    "System.AsyncCallback": "Microsoft.Xna.Framework.AsyncCallback",
+    "System.Globalization.RegionInfo": "string"
+  },
+  "allowlist": [],
+  "keyValuePairMapping": "readonly [key, value] tuple"
+}

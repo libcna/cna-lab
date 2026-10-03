@@ -1,0 +1,136 @@
+# Architecture
+
+```text
+Canonical TypeScript source
+          │
+          ├── tsc ──> dist/*.js ──> JavaScript and TypeScript consumers
+          └── tsc ──> dist/*.d.ts ─> TypeScript consumers
+                                │
+                    XNA projection objects
+                                │
+                       private backend contract
+                      ┌─────────┴─────────┐
+                 WebAssembly         Node/native
+                      └─────────┬─────────┘
+                           CNA C ABI
+                                │
+                             CNA C++
+```
+
+## Public package boundaries
+
+- `cna-ts` provides convenient root aliases and the `Microsoft` runtime namespace.
+- `cna-ts/xna` is the strict `Microsoft.Xna.Framework.*` projection plus the same module aliases.
+- `cna-ts/extensions` contains opt-in CNA-specific APIs.
+- `cna-ts/runtime` exposes loading/status concepts without exposing a backend instance.
+- `src/internal/**` owns handles, memory, callbacks, error translation, and resource ownership. It
+  is compiled into the package but cannot be imported through package `exports`.
+
+The root alias `Vector2` and `Microsoft.Xna.Framework.Vector2` are the same constructor. Aliases are
+module conveniences, not extra members of the strict namespace.
+
+## Source and generated artifacts
+
+Only `.ts` implementation files live under `src/`. TypeScript 5.9.2 runs in strict NodeNext/ESM
+mode and writes JavaScript, declaration files, declaration maps, and source maps to `dist/`. There
+is no handwritten aggregate declaration and no checked-in JavaScript implementation copy.
+
+## Runtime boundary
+
+Pure values and math stay in TypeScript. Native resources cross only an internal backend interface
+and use CNA's versioned C ABI, never the CNA C++ ABI. The public XNA surface must not
+contain raw pointers, numeric native handles, memory offsets, callback IDs, or backend classes.
+
+The backend interface is executable rather than status-only: it defines initialization and error
+access, Game create/run-one-frame/run/exit/destroy, graphics-manager/device borrowing,
+clear/present, copied graphics state, sampler/texture/buffer/render-target binding, typed draw
+dispatch, static/dynamic buffers, Texture2D/3D/Cube, render targets, OcclusionQuery, SpriteBatch,
+GameWindow/title-storage, renderer information, and keyboard/mouse/gamepad/touch operations. The
+unavailable backend implements the same contract and
+fails explicitly. Managed tests install an internal backend to prove lifecycle call order and
+`NativeResourceLifetime` behavior without exposing public injection.
+
+The inspected CNA revision publishes experimental C ABI version 0.7.0 through 59 public C headers
+and 2,861 unique `CNA_C_API` declarations. CNA has real Emscripten-aware engine and renderer code,
+but the inspected worktree has no packaged CNA C-ABI ESM loader/Wasm artifact and the local
+environment has no `emcc` toolchain. Consequently the default/browser backend remains unavailable;
+Node users may explicitly load the adapter and a compatible library. This is an artifact/toolchain
+gap, not absence of a CNA C ABI.
+
+The package now carries a small C Node-API adapter source. It dynamically loads one explicitly
+selected library, checks encoded ABI `0x00000700`, resolves exactly 360 named C symbols, uses bigint
+for opaque 64-bit handles, marshals synchronous game callbacks on the Node thread, and translates
+CNA UTF-8 errors into JavaScript errors. It does not use the CNA C++ ABI, a generic FFI dependency,
+or finalizers. The adapter source/build helper are portable inputs; no platform binary or CNA
+library is packed.
+
+Linux x86-64 integration used an existing HEADLESS/NULL-audio CNA ABI-0.7 library built by the
+sibling Java verification from CNA commit `a09196a6477f69a7a57c8364f990658d31531a5b`. Seven real game lifetimes covered 60 and 600
+frames, callback-scoped device access, graphics state/binding identity, dynamic buffers,
+RenderTarget2D/RenderTargetCube, query lifecycle, stock Effect/pass/Model execution,
+Effect-bearing SpriteBatch, title/window routes, Texture2D and
+SpriteBatch child ownership, all modeled input
+polling families, PCM/dynamic audio, media/video controls, isolated storage, renderer identity,
+double disposal, live-child parent shutdown, and repeated creation/destruction. Current CNA HEAD
+still cannot reproduce that artifact because its unmodified
+C-API build stops at the renderer identity guard (49 mapped identities versus 50 canonical
+entries). This is recorded separately from the successful compatible-artifact evidence.
+
+The reproducible evidence, 46-symbol sentinel inventory, 360-symbol imported Node slice, and
+required upstream artifact contract are recorded in [`cna-abi-audit.md`](cna-abi-audit.md). The audit accepts an explicit CNA checkout
+path and is not part of normal build, package installation, or runtime.
+
+The audit also compiles all 360 adapter function-pointer assignments against the selected CNA
+headers. That makes signature, pointer depth, fixed-width integer, `CNA_Bool`, structure pointer,
+and callback-typedef compatibility a gate rather than a name-only inference.
+
+## Managed content boundary
+
+`ContentManager` owns asset-name normalization, case-insensitive cache identity, construction-time
+disposable tracking, nested-load cycle detection, and unload. `ContentReader` owns Windows XNB v5
+framing and reader graphs. Its managed LZX layer implements the XNA frame wrapper—including short
+32-KiB frames and extended frame/block headers—over one persistent decoder, and accepts a stream
+only when the final decompressed byte count exactly matches the header.
+
+External-reference strings remain content identities, not host paths. They resolve relative to the
+referring XNB, normalize through the same cache key, and recursively call `ContentManager.Load`
+with the mapped class token. A derived content provider supplies bytes through protected
+`OpenStream`. The base manager combines `RootDirectory`, normalized asset identity and `.xnb`, then
+uses CNA's title-storage count/copy route; absolute and traversal paths are rejected before CNA, so
+this does not become a Node filesystem escape. Raw image bytes remain a separate
+`Texture2D.FromStream` path.
+
+## Qualification boundary
+
+[`runtime-capabilities.json`](runtime-capabilities.json) is the machine-readable capability source
+generated from `tools/runtime-capabilities/source.json`; its Markdown companion groups reviewed
+operation families by verified, upstream-blocked, fixture/hardware/platform-pending, and CNA-TS-gap
+status. It audits every selected-framework source site that explicitly constructs
+`NativeUnavailableError` or `NotSupportedException`, but remains independent of the strict API
+verifier.
+
+CI always runs locked install, clean build/type checking, managed and differential tests,
+runtime-symbol/leak gates, exact ABI-header signature audit, reproducible `dist` and tarball checks,
+packed TS/JS consumers, internal-export rejection, and generated-template consumers. Strict XNA
+metadata and native integration jobs require repository-controlled paths on a self-hosted runner;
+when absent, the workflow records `NOT_CONFIGURED` and does not download an arbitrary reference or
+native binary.
+
+## Ownership
+
+Native-backed resources carry one private state: owned, borrowed, parent-owned, or adopted.
+`Dispose()` is the primary lifetime contract and must be idempotent. Finalization may only be a
+safety net. The internal lifetime state machine tears down callback registrations first, children
+in reverse creation order, and then the owned parent handle. Borrowed and parent-owned wrappers are
+invalidated without destroying their referent. Partial construction rolls already-acquired
+resources back in reverse order, while transfer invalidates the old wrapper and requires immediate
+adoption by another owner. A failed release retains its opaque handle in an unusable, retryable
+internal state; a parent is not released while any child remains live.
+
+Graphics bindings retain non-owning facade references only after a successful CNA call. Resource
+getters return those stable facades and clear disposed entries; CNA descriptors are copied values,
+so no second owning wrapper is created. GraphicsDevice shutdown restores the backbuffer before the
+manager is released. An explicit bound render-target `Dispose` is rejected in TypeScript before
+native dispatch because the qualified ABI-0.7 artifact aborts in that documented invalid-state
+case instead of returning an error. Native lifecycle callback exceptions are retained by the
+adapter and rethrown on both run and destroy boundaries.

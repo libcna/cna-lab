@@ -1,0 +1,137 @@
+{
+  "name": "cna-ts",
+  "version": "0.1.0",
+  "description": "Canonical TypeScript and JavaScript binding for CNA with an XNA 4.0 API projection",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./xna": {
+      "types": "./dist/xna.d.ts",
+      "import": "./dist/xna.js"
+    },
+    "./extensions": {
+      "types": "./dist/extensions/index.d.ts",
+      "import": "./dist/extensions/index.js"
+    },
+    "./extensions/runtime": {
+      "types": "./dist/extensions/runtime/index.d.ts",
+      "import": "./dist/extensions/runtime/index.js"
+    },
+    "./extensions/content": {
+      "types": "./dist/extensions/content/index.d.ts",
+      "import": "./dist/extensions/content/index.js"
+    },
+    "./extensions/devices": {
+      "types": "./dist/extensions/devices/index.d.ts",
+      "import": "./dist/extensions/devices/index.js"
+    },
+    "./extensions/gamer-services": {
+      "types": "./dist/extensions/gamer-services/index.d.ts",
+      "import": "./dist/extensions/gamer-services/index.js"
+    },
+    "./extensions/graphics": {
+      "types": "./dist/extensions/graphics/index.d.ts",
+      "import": "./dist/extensions/graphics/index.js"
+    },
+    "./extensions/input": {
+      "types": "./dist/extensions/input/index.d.ts",
+      "import": "./dist/extensions/input/index.js"
+    },
+    "./extensions/sensors": {
+      "types": "./dist/extensions/sensors/index.d.ts",
+      "import": "./dist/extensions/sensors/index.js"
+    },
+    "./runtime": {
+      "types": "./dist/runtime/index.d.ts",
+      "import": "./dist/runtime/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "docs",
+    "native",
+    "tools/build-native-bridge.mjs",
+    "LICENSE",
+    "NOTICE.md",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "node tools/clean.mjs && tsc -p tsconfig.json",
+    "check": "npm run build && tsc -p tsconfig.types.json",
+    "test": "npm run build && node --test test/*.test.mjs",
+    "test:differential": "npm run build && node test/differential-xna.test.mjs",
+    "build:native-bridge": "node tools/build-native-bridge.mjs",
+    "test:native": "npm run build:native-bridge && npm run build && node --test test/native-cna.integration.mjs",
+    "test:extensions": "npm run build && node --test test/extensions-runtime.integration.mjs",
+    "test:cnb": "npm run build && node --test test/cnb-content.integration.mjs",
+    "build:content": "node content/tools/clean.mjs && tsc -p content/tsconfig.json",
+    "check:content": "npm run build:content && tsc -p content/tsconfig.types.json",
+    "test:content": "npm run build && npm run build:content && node --test content/test/*.test.mjs",
+    "test:content:required": "npm run build && npm run build:content && CNA_REQUIRE_CONTENT_TESTS=1 node --test content/test/*.test.mjs",
+    "test:content-survey": "npm run build:native-bridge && npm run build && node --test test/content-survey.integration.mjs",
+    "test:input-devices": "npm run build:native-bridge && npm run build && node --test test/input-devices.integration.mjs",
+    "test:media-library": "npm run build:native-bridge && npm run build && node --test test/media-library.integration.mjs",
+    "test:avatars": "npm run build:native-bridge && npm run build && node --test test/avatar-description.integration.mjs",
+    "test:sprite-font-oracle": "npm run build:native-bridge && npm run build && node --test test/sprite-font-oracle.integration.mjs",
+    "test:effect-reflection": "npm run build && node --test test/effect-reflection.integration.mjs",
+    "test:effect-reflection:required": "npm run build && CNA_REQUIRE_EFFECT_TESTS=1 node --test test/effect-reflection.integration.mjs",
+    "test:windowed": "npm run build && node --test test/windowed-renderer.integration.mjs",
+    "test:windowed:required": "npm run build && CNA_REQUIRE_WINDOWED_TESTS=1 node --test test/windowed-renderer.integration.mjs",
+    "test:wasm-browser": "npm run build && node --test test/wasm-browser.mjs",
+    "test:wasm-browser:strong": "npm run build && node --test test/wasm-browser-strong.mjs",
+    "test:wasm-browser:non-engine": "npm run build && node --test test/wasm-browser-non-engine.mjs",
+    "test:wasm-browser:non-engine:required": "npm run build && CNA_REQUIRE_NON_ENGINE_WASM_TESTS=1 node --test test/wasm-browser-non-engine.mjs",
+    "test:wasm-browser:strong:required": "npm run build && CNA_REQUIRE_STRONG_WASM_TESTS=1 node --test test/wasm-browser-strong.mjs",
+    "test:wasm-browser:audio": "npm run build && node --test test/wasm-browser-audio.mjs",
+    "test:wasm-browser:audio:required": "npm run build && CNA_REQUIRE_AUDIO_WASM_TESTS=1 node --test test/wasm-browser-audio.mjs",
+    "test:wasm-browser:audio-capture": "npm run build && node --test test/wasm-browser-audio-capture.mjs",
+    "test:wasm-browser:audio-capture:required": "npm run build && CNA_REQUIRE_AUDIO_CAPTURE_TESTS=1 node --test test/wasm-browser-audio-capture.mjs",
+    "test:wasm-browser-input": "npm run build && node --test test/wasm-browser-input.mjs",
+    "audit:cna-abi": "node tools/audit-cna-abi.mjs",
+    "report:cna-abi": "node tools/audit-cna-abi.mjs --portable --format json --output docs/cna-abi-report.json && node tools/cna-abi/verify-contract.mjs --portable --format json --output docs/cna-abi-contract-report.json && node tools/api-compat/verify-runtime.mjs --format json --output docs/runtime-symbol-report.json && node tools/api-compat/verify.mjs --leak-only --format json --output docs/internal-leak-report.json",
+    "verify:cna-contract": "node tools/cna-abi/verify-contract.mjs",
+    "verify:wasm": "node tools/wasm/sync-routes.mjs --check && node tools/wasm/verify-route-calls.mjs && node tools/wasm/verify-struct-fields.mjs && node tools/mutation-plans/check-anchors.mjs && node tools/wasm/verify-oracles.mjs && node tools/wasm/backend-gap.mjs --check",
+    "verify:modules": "npm run build && node tools/verify-module-cycles.mjs",
+    "report:wasm-gap": "node tools/wasm/backend-gap.mjs --json docs/wasm-backend-gap.json --markdown docs/wasm-backend-gap.md",
+    "coverage:cna-abi": "node tools/cna-abi/coverage.mjs --output docs/cna-api-coverage.md --json-output docs/cna-api-coverage.json",
+    "api:report": "node tools/api-compat/verify.mjs --report-only --summary-only",
+    "api:inventory": "node tools/api-compat/missing-type-inventory.mjs --output docs/missing-type-inventory.md --json-output docs/missing-type-inventory.json",
+    "api:profiles": "node tools/api-compat/profile-inventory.mjs --output docs/xna-profile-inventory.md --json-output docs/xna-profile-inventory.json",
+    "api:verify": "node tools/api-compat/verify.mjs --summary-only",
+    "api:verify:live": "node tools/api-compat/verify.mjs --profile tools/api-compat/profiles/xna40-windows-live.json --summary-only",
+    "verify:runtime": "npm run build && node tools/api-compat/verify-runtime.mjs",
+    "verify:leaks": "npm run build && node tools/api-compat/verify.mjs --leak-only --summary-only",
+    "runtime:inventory": "node tools/runtime-capabilities/generate.mjs",
+    "verify:package": "npm run check && node tools/verify-package.mjs",
+    "verify:build-reproducibility": "node tools/verify-build-reproducibility.mjs",
+    "verify:package-reproducibility": "node tools/verify-package-reproducibility.mjs",
+    "prepack": "npm run check && npm test"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "keywords": [
+    "cna",
+    "xna",
+    "game-framework",
+    "webassembly"
+  ],
+  "license": "Ms-PL",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/libcna/cna-ts.git"
+  },
+  "bugs": {
+    "url": "https://github.com/libcna/cna-ts/issues"
+  },
+  "sideEffects": false,
+  "devDependencies": {
+    "typescript": "5.9.2"
+  }
+}

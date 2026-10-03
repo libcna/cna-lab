@@ -1,0 +1,793 @@
+{
+  "description": "The CNA C ABI structures the WebAssembly backend writes and reads. wasm32 layouts differ from the native ones -- pointers are four bytes -- so they are measured from a compiled Emscripten probe rather than copied from the native ABI baseline, which is exactly the mistake docs/c-api/WASM_ARTIFACT.md warns a binding will make.",
+  "structs": {
+    "CNA_StringView": [
+      "data",
+      "byte_length"
+    ],
+    "CNA_CallbackError": [
+      "struct_size",
+      "struct_version",
+      "message"
+    ],
+    "CNA_GameTime": [
+      "total_game_time_ticks",
+      "elapsed_game_time_ticks",
+      "is_running_slowly"
+    ],
+    "CNA_GameCallbacks": [
+      "struct_size",
+      "struct_version",
+      "load_content",
+      "update",
+      "draw",
+      "unload_content",
+      "exiting",
+      "context"
+    ],
+    "CNA_GameFrameHooks": [
+      "struct_size",
+      "struct_version",
+      "initialize",
+      "begin_run",
+      "end_run",
+      "begin_draw",
+      "end_draw",
+      "context"
+    ],
+    "CNA_GameCreateInfo": [
+      "struct_size",
+      "struct_version",
+      "is_fixed_time_step",
+      "target_elapsed_time_ticks",
+      "window_title",
+      "callbacks"
+    ],
+    "CNA_RendererInfo": [
+      "struct_size",
+      "struct_version",
+      "renderer_name_byte_length",
+      "capability_flags",
+      "renderer_type",
+      "max_texture_dimension"
+    ],
+    "CNA_Rectangle": [
+      "x",
+      "y",
+      "width",
+      "height"
+    ],
+    "CNA_Vector2": [
+      "x",
+      "y"
+    ],
+    "CNA_Color": [
+      "r",
+      "g",
+      "b",
+      "a"
+    ],
+    "CNA_Texture2DCreateInfo": [
+      "struct_size",
+      "struct_version",
+      "width",
+      "height",
+      "mip_map",
+      "format"
+    ],
+    "CNA_Texture2DDecodeInfo": [
+      "struct_size",
+      "struct_version",
+      "width",
+      "height",
+      "zoom"
+    ],
+    "CNA_Texture2DInfo": [
+      "struct_size",
+      "struct_version",
+      "width",
+      "height",
+      "level_count",
+      "format"
+    ],
+    "CNA_Texture2DTransfer": [
+      "struct_size",
+      "struct_version",
+      "level",
+      "has_rectangle",
+      "rectangle",
+      "start_index",
+      "element_count"
+    ],
+    "CNA_SpriteBatchBeginInfo": [
+      "struct_size",
+      "struct_version",
+      "sort_mode"
+    ],
+    "CNA_SpriteScaledCommand": [
+      "struct_size",
+      "struct_version",
+      "texture",
+      "position",
+      "source",
+      "color",
+      "rotation",
+      "origin",
+      "scale",
+      "effects",
+      "layer_depth"
+    ],
+    "CNA_KeyboardState": [
+      "struct_size",
+      "struct_version",
+      "pressed_key_words"
+    ],
+    "CNA_MouseState": [
+      "struct_size",
+      "struct_version",
+      "x",
+      "y",
+      "scroll_wheel",
+      "horizontal_scroll_wheel",
+      "pressed_buttons"
+    ],
+    "CNA_GamePadCapabilities": [
+      "struct_size",
+      "struct_version",
+      "gamepad_type",
+      "is_connected",
+      "has_a_button",
+      "has_b_button",
+      "has_x_button",
+      "has_y_button",
+      "has_back_button",
+      "has_start_button",
+      "has_big_button",
+      "has_dpad_up_button",
+      "has_dpad_down_button",
+      "has_dpad_left_button",
+      "has_dpad_right_button",
+      "has_left_shoulder_button",
+      "has_right_shoulder_button",
+      "has_left_stick_button",
+      "has_right_stick_button",
+      "has_left_x_thumb_stick",
+      "has_left_y_thumb_stick",
+      "has_right_x_thumb_stick",
+      "has_right_y_thumb_stick",
+      "has_left_trigger",
+      "has_right_trigger",
+      "has_left_vibration_motor",
+      "has_right_vibration_motor",
+      "has_voice_support"
+    ],
+    "CNA_GamePadAnalogState": [
+      "left_thumb_stick",
+      "right_thumb_stick",
+      "left_trigger",
+      "right_trigger"
+    ],
+    "CNA_GamePadState": [
+      "struct_size",
+      "struct_version",
+      "is_connected",
+      "packet_number",
+      "pressed_buttons",
+      "analog"
+    ],
+    "CNA_TouchCapabilities": [
+      "struct_size",
+      "struct_version",
+      "is_connected",
+      "maximum_touch_count"
+    ],
+    "CNA_TouchLocation": [
+      "id",
+      "state",
+      "position",
+      "previous_state",
+      "previous_position",
+      "pressure"
+    ],
+    "CNA_TouchState": [
+      "struct_size",
+      "struct_version",
+      "is_connected",
+      "touch_count",
+      "touches"
+    ],
+    "CNA_GestureSample": [
+      "struct_size",
+      "struct_version",
+      "gesture_type",
+      "timestamp_ticks",
+      "position",
+      "position2",
+      "delta",
+      "delta2"
+    ],
+    "CNA_GraphicsRendererFallbackRecord": [
+      "struct_size",
+      "struct_version",
+      "type",
+      "reason"
+    ],
+    "CNA_RenderTarget2DCreateInfo": [
+      "struct_size",
+      "struct_version",
+      "width",
+      "height",
+      "mip_map",
+      "format",
+      "depth_format",
+      "multi_sample_count",
+      "usage"
+    ],
+    "CNA_RenderTargetCubeCreateInfo": [
+      "struct_size",
+      "struct_version",
+      "size",
+      "mip_map",
+      "format",
+      "depth_format",
+      "multi_sample_count",
+      "usage"
+    ],
+    "CNA_RenderTargetInfo": [
+      "struct_size",
+      "struct_version",
+      "kind",
+      "width",
+      "height",
+      "level_count",
+      "format",
+      "depth_format",
+      "multi_sample_count",
+      "usage",
+      "is_content_lost",
+      "renderer_available"
+    ],
+    "CNA_RenderTargetBinding": [
+      "struct_size",
+      "struct_version",
+      "render_target",
+      "array_slice",
+      "cube_map_face"
+    ],
+    "CNA_SoundEffectCreateInfo": [
+      "struct_size",
+      "struct_version",
+      "sample_rate",
+      "channels"
+    ],
+    "CNA_SoundEffectInstanceInfo": [
+      "struct_size",
+      "struct_version",
+      "state",
+      "is_looped",
+      "volume",
+      "pitch",
+      "pan"
+    ],
+    "CNA_Vector3": [
+      "x",
+      "y",
+      "z"
+    ],
+    "CNA_CnbMetadata": [
+      "struct_size",
+      "struct_version",
+      "present",
+      "flags"
+    ],
+    "CNA_CnbChunkEntry": [
+      "struct_size",
+      "struct_version",
+      "offset",
+      "stored_size",
+      "uncompressed_size",
+      "type",
+      "flags",
+      "checksum",
+      "compression",
+      "alignment"
+    ],
+    "CNA_CnbExternalReference": [
+      "struct_size",
+      "struct_version",
+      "flags",
+      "expected_asset_type_id"
+    ],
+    "CNA_CnbTextureInfo": [
+      "struct_size",
+      "struct_version",
+      "width",
+      "height",
+      "depth",
+      "face_count",
+      "mip_count",
+      "representation_count"
+    ],
+    "CNA_CnbSpriteFontInfo": [
+      "struct_size",
+      "struct_version",
+      "glyph_count",
+      "line_spacing",
+      "spacing",
+      "default_character",
+      "has_default_character"
+    ],
+    "CNA_CnbModelInfo": [
+      "struct_size",
+      "struct_version",
+      "bone_count",
+      "part_count",
+      "mesh_count",
+      "animation_count",
+      "light_count",
+      "has_skeleton",
+      "applies_gltf_lighting_policy",
+      "has_bone_hierarchy"
+    ],
+    "CNA_CnbModelBone": [
+      "struct_size",
+      "struct_version",
+      "parent",
+      "transform"
+    ],
+    "CNA_CnbModelPartInfo": [
+      "struct_size",
+      "struct_version",
+      "vertex_stride",
+      "vertex_count",
+      "index_count",
+      "index_element_size",
+      "primitive_topology",
+      "primitive_count",
+      "effect_kind",
+      "vertex_color_enabled",
+      "unlit"
+    ],
+    "CNA_CnbMaterialInfo": [
+      "struct_size",
+      "struct_version",
+      "base_color_factor",
+      "emissive_factor",
+      "specular_color_factor",
+      "metallic_factor",
+      "roughness_factor",
+      "ior",
+      "specular_factor",
+      "normal_scale",
+      "occlusion_strength",
+      "alpha_cutoff",
+      "alpha_mode",
+      "double_sided"
+    ],
+    "CNA_CnbMeshInfo": [
+      "struct_size",
+      "struct_version",
+      "parent_bone",
+      "part_index_count"
+    ],
+    "CNA_CnbSkeletonInfo": [
+      "struct_size",
+      "struct_version",
+      "joint_count",
+      "has_root_prefix"
+    ],
+    "CNA_CnbModelLight": [
+      "direction",
+      "diffuse_color"
+    ],
+    "CNA_CnbSoundEffectInfo": [
+      "struct_size",
+      "struct_version",
+      "format",
+      "sample_rate",
+      "channels",
+      "frame_count",
+      "loop_start",
+      "loop_length"
+    ],
+    "CNA_CnbVideoInfo": [
+      "struct_size",
+      "struct_version",
+      "duration_milliseconds",
+      "width",
+      "height",
+      "frames_per_second",
+      "soundtrack_type"
+    ],
+    "CNA_CurveKey": [
+      "position",
+      "value",
+      "tangent_in",
+      "tangent_out",
+      "continuity"
+    ],
+    "CNA_Quaternion": [
+      "x",
+      "y",
+      "z",
+      "w"
+    ],
+    "CNA_KeyframeEXT": [
+      "time_seconds",
+      "translation",
+      "rotation",
+      "scale"
+    ],
+    "CNA_BoneTrackEXTDescriptor": [
+      "bone_index",
+      "reserved",
+      "keyframes",
+      "keyframe_count"
+    ],
+    "CNA_AnimationClipEXTDescriptor": [
+      "duration_seconds",
+      "tracks",
+      "track_count"
+    ],
+    "CNA_SpriteFontGlyph": [
+      "struct_size",
+      "struct_version",
+      "glyph_bounds",
+      "cropping",
+      "character",
+      "kerning"
+    ],
+    "CNA_CnbReadLimits": [
+      "struct_size",
+      "struct_version",
+      "max_file_size",
+      "max_chunk_size",
+      "max_total_uncompressed_size",
+      "max_chunk_count",
+      "max_string_bytes",
+      "max_array_element_count",
+      "max_chunk_alignment"
+    ],
+    "CNA_VertexElement": [
+      "offset",
+      "format",
+      "usage",
+      "usage_index"
+    ],
+    "CNA_VertexBufferCreateInfo": [
+      "struct_size",
+      "struct_version",
+      "vertex_declaration",
+      "vertex_count",
+      "buffer_usage",
+      "dynamic"
+    ],
+    "CNA_IndexBufferCreateInfo": [
+      "struct_size",
+      "struct_version",
+      "index_count",
+      "index_element_size",
+      "buffer_usage",
+      "dynamic"
+    ],
+    "CNA_VertexBufferBinding": [
+      "vertex_buffer",
+      "vertex_offset",
+      "instance_frequency"
+    ],
+    "CNA_Matrix": [
+      "m11",
+      "m22",
+      "m33",
+      "m44"
+    ],
+    "CNA_AvatarDescriptionInfo": [
+      "struct_size",
+      "struct_version",
+      "body_type",
+      "height",
+      "description_byte_count",
+      "is_valid"
+    ],
+    "CNA_IndexBufferTransfer": [
+      "struct_size",
+      "struct_version",
+      "index_element_size",
+      "options",
+      "start_index",
+      "element_count"
+    ],
+    "CNA_VertexBufferTransfer": [
+      "struct_size",
+      "struct_version",
+      "vertex_type",
+      "options",
+      "start_index",
+      "element_count"
+    ],
+    "CNA_RasterizerState": [
+      "struct_size",
+      "struct_version",
+      "cull_mode",
+      "fill_mode",
+      "depth_bias",
+      "slope_scale_depth_bias",
+      "multi_sample_anti_alias",
+      "scissor_test_enable"
+    ],
+    "CNA_DepthStencilState": [
+      "struct_size",
+      "struct_version",
+      "depth_buffer_enable",
+      "depth_buffer_write_enable",
+      "stencil_enable",
+      "two_sided_stencil_mode",
+      "depth_buffer_function",
+      "stencil_function",
+      "stencil_mask",
+      "stencil_write_mask",
+      "reference_stencil",
+      "stencil_fail",
+      "stencil_depth_buffer_fail",
+      "stencil_pass",
+      "counter_clockwise_stencil_function",
+      "counter_clockwise_stencil_fail",
+      "counter_clockwise_stencil_depth_buffer_fail",
+      "counter_clockwise_stencil_pass"
+    ],
+    "CNA_EffectParameterInfo": [
+      "struct_size",
+      "struct_version",
+      "row_count",
+      "column_count",
+      "parameter_class",
+      "parameter_type"
+    ],
+    "CNA_EffectAnnotationInfo": [
+      "struct_size",
+      "struct_version",
+      "row_count",
+      "column_count",
+      "parameter_class",
+      "parameter_type"
+    ],
+    "CNA_UserPrimitives": [
+      "struct_size",
+      "struct_version",
+      "primitive_type",
+      "vertex_source",
+      "vertex_data",
+      "vertex_declaration",
+      "vertex_offset",
+      "num_vertices",
+      "primitive_count",
+      "reserved"
+    ],
+    "CNA_Texture3DInfo": [
+      "struct_size",
+      "struct_version",
+      "width",
+      "height",
+      "depth",
+      "level_count",
+      "format",
+      "reserved"
+    ],
+    "CNA_BoundingBox": [
+      "min",
+      "max"
+    ],
+    "CNA_BoundingSphere": [
+      "center",
+      "radius"
+    ],
+    "CNA_TextureCubeInfo": [
+      "struct_size",
+      "struct_version",
+      "size",
+      "level_count",
+      "format"
+    ],
+    "CNA_TextureCubeTransfer": [
+      "struct_size",
+      "struct_version",
+      "face",
+      "level",
+      "has_rectangle",
+      "rectangle",
+      "start_index",
+      "element_count"
+    ],
+    "CNA_Texture3DTransfer": [
+      "struct_size",
+      "struct_version",
+      "level",
+      "left",
+      "top",
+      "right",
+      "bottom",
+      "front",
+      "back",
+      "start_index",
+      "element_count"
+    ],
+    "CNA_BlendState": [
+      "struct_size",
+      "struct_version",
+      "alpha_blend_function",
+      "alpha_destination_blend",
+      "alpha_source_blend",
+      "color_blend_function",
+      "color_destination_blend",
+      "color_source_blend",
+      "color_write_channels",
+      "color_write_channels1",
+      "color_write_channels2",
+      "color_write_channels3",
+      "blend_factor",
+      "multi_sample_mask"
+    ],
+    "CNA_SamplerState": [
+      "struct_size",
+      "struct_version",
+      "address_u",
+      "address_v",
+      "address_w",
+      "filter",
+      "max_anisotropy",
+      "max_mip_level",
+      "mip_map_level_of_detail_bias"
+    ],
+    "CNA_Viewport": [
+      "x",
+      "y",
+      "width",
+      "height",
+      "min_depth",
+      "max_depth"
+    ],
+    "CNA_Texture3DCreateInfo": [
+      "struct_size",
+      "struct_version",
+      "width",
+      "height",
+      "depth",
+      "mip_map",
+      "format"
+    ],
+    "CNA_TextureCubeCreateInfo": [
+      "struct_size",
+      "struct_version",
+      "size",
+      "mip_map",
+      "format"
+    ],
+    "CNA_VertexBufferInfo": [
+      "struct_size",
+      "struct_version",
+      "vertex_count",
+      "buffer_usage",
+      "dynamic",
+      "is_content_lost",
+      "has_renderer",
+      "vertex_stride",
+      "vertex_element_count"
+    ],
+    "CNA_IndexBufferInfo": [
+      "struct_size",
+      "struct_version",
+      "index_count",
+      "index_element_size",
+      "buffer_usage",
+      "dynamic",
+      "is_content_lost",
+      "has_renderer"
+    ],
+    "CNA_UserIndices": [
+      "struct_size",
+      "struct_version",
+      "index_element_size",
+      "index_offset",
+      "index_data"
+    ],
+    "CNA_ImageBasedLightEXT": [
+      "struct_size",
+      "struct_version",
+      "irradiance",
+      "prefiltered_specular",
+      "brdf_lut",
+      "prefiltered_mip_count",
+      "intensity"
+    ],
+    "CNA_IndirectDrawArguments": [
+      "vertex_count",
+      "instance_count",
+      "first_vertex",
+      "base_instance"
+    ],
+    "CNA_IndirectDrawIndexedArguments": [
+      "index_count",
+      "instance_count",
+      "first_index",
+      "base_vertex",
+      "base_instance"
+    ],
+    "CNA_TextureTransformEXT": [
+      "struct_size",
+      "struct_version",
+      "offset",
+      "scale",
+      "rotation"
+    ],
+    "CNA_VertexPositionColor": [
+      "position",
+      "color"
+    ],
+    "CNA_AudioListener": [
+      "struct_size",
+      "struct_version",
+      "forward",
+      "position",
+      "up",
+      "velocity"
+    ],
+    "CNA_AudioEmitter": [
+      "struct_size",
+      "struct_version",
+      "doppler_scale",
+      "forward",
+      "position",
+      "up",
+      "velocity"
+    ],
+    "CNA_SpriteFontCreateInfo": [],
+    "CNA_SpriteFontInfo": [],
+    "CNA_InputDeviceInfo": [],
+    "CNA_SensorInfo": [],
+    "CNA_DateTimeOffset": [],
+    "CNA_AccelerometerReading": [],
+    "CNA_GyroscopeReading": [],
+    "CNA_AttitudeReading": [],
+    "CNA_CompassReading": [],
+    "CNA_MotionReading": [],
+    "CNA_ContentManagerCreateInfo": [],
+    "CNA_ContentManifestEntryInfo": [],
+    "CNA_ContentReaderUsageInfo": [],
+    "CNA_VisualizationData": [],
+    "CNA_DisplayMode": [],
+    "CNA_GraphicsAdapterInfo": [],
+    "CNA_GraphicsFormatSelection": [],
+    "CNA_CameraDeviceInfo": [],
+    "CNA_JoystickInfo": [],
+    "CNA_JoystickCapabilities": [],
+    "CNA_HapticCapabilities": [],
+    "CNA_Point": [],
+    "CNA_VideoFrameEXT": [],
+    "CNA_VideoInfo": [],
+    "CNA_CueInfo": [],
+    "CNA_TextEditingEventInfo": [],
+    "CNA_TextEditingCandidatesEventInfo": [],
+    "CNA_PresentationParameters": []
+  },
+  "callbacks": {
+    "CNA_GameLifecycleCallback": "ijiii",
+    "CNA_GameBeginDrawCallback": "ijiiii",
+    "CNA_ContentLostCallback": "vji",
+    "CNA_ContextCallback": "ii",
+    "CNA_GameEventCallback": "vi",
+    "CNA_SensorEventCallback": "vi",
+    "CNA_GamerAsyncCallback": "vi",
+    "CNA_StorageCompletionCallback": "vi",
+    "CNA_MediaPlayerEventCallback": "vi",
+    "CNA_InputDeviceHotplugCallback": "vii",
+    "CNA_JoystickHotplugCallback": "vii",
+    "CNA_AccelerometerReadingCallback": "vii",
+    "CNA_CompassReadingCallback": "vii",
+    "CNA_GyroscopeReadingCallback": "vii",
+    "CNA_MotionReadingCallback": "vii",
+    "CNA_TextInputCallback": "vii",
+    "CNA_TextEditingCallback": "vii",
+    "CNA_TextEditingCandidatesCallback": "vii"
+  },
+  "callbackSignatureNote": "An Emscripten addFunction signature names the return type first and then the parameters, so a CNA_Result(CNA_Handle, const CNA_GameTime*, void*, CNA_CallbackError*) is 'ijiii': i32 return, i64 handle, three pointers."
+}

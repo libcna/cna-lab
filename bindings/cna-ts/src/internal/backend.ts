@@ -1,0 +1,2233 @@
+import { CNA_ABI_MAJOR, CNA_ABI_MINOR } from "./abi.js";
+import type { PlayerIndex } from "../Microsoft/Xna/Framework/PlayerIndex.js";
+import type { NativeHandle } from "./ownership.js";
+import type { NativeResourceLifetime } from "./ownership.js";
+import type { GamePadDeadZone } from "../Microsoft/Xna/Framework/Input/Enums.js";
+import type {
+  GamePadCapabilities,
+  GamePadState,
+} from "../Microsoft/Xna/Framework/Input/GamePadValues.js";
+import type { KeyboardState } from "../Microsoft/Xna/Framework/Input/KeyboardState.js";
+import type { MouseState } from "../Microsoft/Xna/Framework/Input/MouseState.js";
+import type { TouchCollection } from "../Microsoft/Xna/Framework/Input/Touch/TouchCollection.js";
+import type {
+  GestureSample,
+  TouchPanelCapabilities,
+} from "../Microsoft/Xna/Framework/Input/Touch/TouchValues.js";
+import { NativeUnavailableError } from "./native-error.js";
+import type { DisplayOrientation } from "../Microsoft/Xna/Framework/DisplayOrientation.js";
+import type {
+  DepthFormat,
+  GraphicsProfile,
+  SurfaceFormat,
+} from "../Microsoft/Xna/Framework/Graphics/DeviceEnums.js";
+
+export type BackendKind = "unavailable" | "wasm" | "node-native";
+
+/**
+ * The presentation parameters a caller-created `GraphicsDevice` is made with.
+ *
+ * These are XNA's own fields, in CNA's numbering. CNA seeds the rest of its structure -- the
+ * version header and its reserved bytes -- from its own initialiser, so nothing here restates a
+ * layout this package does not own.
+ */
+export interface StandaloneDeviceParameters {
+  readonly BackBufferFormat: number;
+  readonly BackBufferWidth: number;
+  readonly BackBufferHeight: number;
+  readonly DepthStencilFormat: number;
+  readonly MultiSampleCount: number;
+  readonly PresentationInterval: number;
+  readonly DisplayOrientation: number;
+  readonly RenderTargetUsage: number;
+  readonly IsFullScreen: boolean;
+}
+
+export interface GraphicsManagerConfiguration {
+  readonly GraphicsProfile: GraphicsProfile;
+  readonly IsFullScreen: boolean;
+  readonly PreferMultiSampling: boolean;
+  readonly PreferredBackBufferFormat: SurfaceFormat;
+  readonly PreferredBackBufferHeight: number;
+  readonly PreferredBackBufferWidth: number;
+  readonly PreferredDepthStencilFormat: DepthFormat;
+  readonly SupportedOrientations: DisplayOrientation;
+  readonly SynchronizeWithVerticalRetrace: boolean;
+}
+
+export interface CnaGameTimeSnapshot {
+  readonly TotalGameTimeTicks: bigint;
+  readonly ElapsedGameTimeTicks: bigint;
+  readonly IsRunningSlowly: boolean;
+}
+
+export interface CnaGameConfiguration {
+  readonly IsFixedTimeStep: boolean;
+  readonly TargetElapsedTimeTicks: bigint;
+}
+
+export interface CnaGameCallbacks {
+  readonly initialize: () => void;
+  readonly loadContent: () => void;
+  readonly beginRun: () => void;
+  readonly update: (time: CnaGameTimeSnapshot) => void;
+  readonly beginDraw: () => boolean;
+  readonly draw: (time: CnaGameTimeSnapshot) => void;
+  readonly endDraw: () => void;
+  readonly endRun: () => void;
+  readonly unloadContent: () => void;
+  readonly exiting: () => void;
+}
+
+export interface BackendRendererInfo {
+  readonly Name: string;
+  readonly RendererType: number;
+  readonly CapabilityFlags: bigint;
+  readonly MaxTextureDimension: number;
+}
+
+export interface Texture2DInfo {
+  readonly Width: number;
+  readonly Height: number;
+  readonly LevelCount: number;
+  readonly Format: number;
+}
+
+export interface Texture2DTransfer {
+  readonly DataType: number;
+  readonly ElementSize: number;
+  readonly Level: number;
+  readonly Rectangle: {
+    readonly X: number;
+    readonly Y: number;
+    readonly Width: number;
+    readonly Height: number;
+  } | null;
+  readonly StartIndex: number;
+  readonly ElementCount: number;
+  readonly Capacity: number;
+}
+
+export interface SpriteBatchCommand {
+  readonly Texture: NativeHandle;
+  readonly PositionX: number;
+  readonly PositionY: number;
+  readonly SourceX: number;
+  readonly SourceY: number;
+  readonly SourceWidth: number;
+  readonly SourceHeight: number;
+  readonly ColorR: number;
+  readonly ColorG: number;
+  readonly ColorB: number;
+  readonly ColorA: number;
+  readonly Rotation: number;
+  readonly OriginX: number;
+  readonly OriginY: number;
+  readonly ScaleX: number;
+  readonly ScaleY: number;
+  readonly Effects: number;
+  readonly LayerDepth: number;
+}
+
+export interface VertexElementSnapshot {
+  readonly Offset: number;
+  readonly VertexElementFormat: number;
+  readonly VertexElementUsage: number;
+  readonly UsageIndex: number;
+}
+
+export interface BlendStateSnapshot {
+  readonly AlphaBlendFunction: number;
+  readonly AlphaDestinationBlend: number;
+  readonly AlphaSourceBlend: number;
+  readonly ColorBlendFunction: number;
+  readonly ColorDestinationBlend: number;
+  readonly ColorSourceBlend: number;
+  readonly ColorWriteChannels: number;
+  readonly ColorWriteChannels1: number;
+  readonly ColorWriteChannels2: number;
+  readonly ColorWriteChannels3: number;
+  readonly BlendFactor: number;
+  readonly MultiSampleMask: number;
+}
+
+export interface DepthStencilStateSnapshot {
+  readonly DepthBufferEnable: boolean;
+  readonly DepthBufferWriteEnable: boolean;
+  readonly StencilEnable: boolean;
+  readonly TwoSidedStencilMode: boolean;
+  readonly DepthBufferFunction: number;
+  readonly StencilFunction: number;
+  readonly StencilMask: number;
+  readonly StencilWriteMask: number;
+  readonly ReferenceStencil: number;
+  readonly StencilFail: number;
+  readonly StencilDepthBufferFail: number;
+  readonly StencilPass: number;
+  readonly CounterClockwiseStencilFunction: number;
+  readonly CounterClockwiseStencilFail: number;
+  readonly CounterClockwiseStencilDepthBufferFail: number;
+  readonly CounterClockwiseStencilPass: number;
+}
+
+export interface RasterizerStateSnapshot {
+  readonly CullMode: number;
+  readonly FillMode: number;
+  readonly DepthBias: number;
+  readonly SlopeScaleDepthBias: number;
+  readonly MultiSampleAntiAlias: boolean;
+  readonly ScissorTestEnable: boolean;
+}
+
+export interface SamplerStateSnapshot {
+  readonly AddressU: number;
+  readonly AddressV: number;
+  readonly AddressW: number;
+  readonly Filter: number;
+  readonly MaxAnisotropy: number;
+  readonly MaxMipLevel: number;
+  readonly MipMapLevelOfDetailBias: number;
+}
+
+export interface VertexBufferBindingSnapshot {
+  readonly VertexBuffer: NativeHandle;
+  readonly VertexOffset: number;
+  readonly InstanceFrequency: number;
+}
+
+export interface Texture3DInfo {
+  readonly Width: number;
+  readonly Height: number;
+  readonly Depth: number;
+  readonly LevelCount: number;
+  readonly Format: number;
+}
+
+export interface TextureCubeInfo {
+  readonly Size: number;
+  readonly LevelCount: number;
+  readonly Format: number;
+}
+
+export interface RenderTargetInfo {
+  readonly Kind: number;
+  readonly Width: number;
+  readonly Height: number;
+  readonly LevelCount: number;
+  readonly Format: number;
+  readonly DepthFormat: number;
+  readonly MultiSampleCount: number;
+  readonly Usage: number;
+  readonly IsContentLost: boolean;
+  readonly RendererAvailable: boolean;
+}
+
+export interface RenderTargetBindingSnapshot {
+  readonly RenderTarget: NativeHandle;
+  readonly ArraySlice: number;
+  readonly CubeMapFace: number;
+}
+
+export interface GameWindowBoundsSnapshot {
+  readonly X: number;
+  readonly Y: number;
+  readonly Width: number;
+  readonly Height: number;
+}
+
+/** Game-owned borrowed window facade and same-thread removable event registrations. */
+/** One graphics adapter's numeric identity, as CNA reports it. */
+export interface GraphicsAdapterInfoSnapshot {
+  readonly AdapterIndex: number;
+  readonly IsDefaultAdapter: boolean;
+  readonly IsWideScreen: boolean;
+  readonly UseNullDevice: boolean;
+  readonly UseReferenceDevice: boolean;
+  readonly VendorId: number;
+  readonly DeviceId: number;
+  readonly Revision: number;
+  readonly SubSystemId: number;
+  readonly MonitorHandle: bigint;
+}
+
+/** One display mode: a resolution, its aspect ratio and its surface format. */
+export interface DisplayModeSnapshot {
+  readonly Width: number;
+  readonly Height: number;
+  readonly AspectRatio: number;
+  readonly Format: number;
+}
+
+/** What CNA chose when asked whether a format triple is usable. */
+export interface GraphicsFormatSelectionSnapshot {
+  readonly IsExactMatch: boolean;
+  readonly SelectedFormat: number;
+  readonly SelectedDepthFormat: number;
+  readonly SelectedMultiSampleCount: number;
+}
+
+/**
+ * CNA's graphics adapters, read through a live device.
+ *
+ * Every route takes a graphics-device handle rather than standing alone, because an adapter list is
+ * a property of a device a game created. A renderer with no displays reports **no adapters**, and
+ * this boundary carries that through rather than inventing one.
+ */
+export interface CnaGraphicsAdapterBackend {
+  getGraphicsAdapterCount(device: NativeHandle): number;
+  refreshGraphicsAdapters(device: NativeHandle): void;
+  getGraphicsAdapterInfo(device: NativeHandle, index: number): GraphicsAdapterInfoSnapshot;
+  getGraphicsAdapterDescription(device: NativeHandle, index: number): string;
+  getGraphicsAdapterDeviceName(device: NativeHandle, index: number): string;
+  getGraphicsAdapterCurrentDisplayMode(device: NativeHandle, index: number): DisplayModeSnapshot;
+  getGraphicsAdapterDisplayModes(
+    device: NativeHandle, index: number,
+  ): readonly DisplayModeSnapshot[];
+  isGraphicsAdapterProfileSupported(
+    device: NativeHandle, index: number, profile: number,
+  ): boolean;
+  queryGraphicsAdapterBackBufferFormat(
+    device: NativeHandle, index: number, profile: number, format: number, depthFormat: number,
+    multiSampleCount: number,
+  ): GraphicsFormatSelectionSnapshot;
+  queryGraphicsAdapterRenderTargetFormat(
+    device: NativeHandle, index: number, profile: number, format: number, depthFormat: number,
+    multiSampleCount: number,
+  ): GraphicsFormatSelectionSnapshot;
+  setGraphicsAdapterDevicePreferences(
+    device: NativeHandle, index: number, useNullDevice: boolean, useReferenceDevice: boolean,
+  ): void;
+}
+
+export interface CnaGameWindowBackend {
+  getGameWindowAllowUserResizing(): boolean;
+  setGameWindowAllowUserResizing(value: boolean): void;
+  getGameWindowClientBounds(): GameWindowBoundsSnapshot;
+  getGameWindowCurrentOrientation(): number;
+  getGameWindowHandle(): bigint;
+  getGameWindowScreenDeviceName(): string;
+  getGameWindowTitle(): string;
+  setGameWindowTitle(value: string): void;
+  beginGameWindowScreenDeviceChange(willBeFullScreen: boolean): void;
+  endGameWindowScreenDeviceChange(name: string, width: number, height: number): void;
+  subscribeGameWindowEvent(event: number, callback: () => void): NativeHandle;
+  unsubscribeGameWindowEvent(registration: NativeHandle): void;
+}
+
+/** Optional dependency-complete graphics slice beyond the minimal 2D backend. */
+/** Which resource family a ContentLost subscription is for. */
+export type ContentLostResourceKind = "render-target" | "vertex-buffer" | "index-buffer";
+
+export interface CnaGraphicsBackend {
+  getGraphicsDeviceStatus(device: NativeHandle): number;
+  setGraphicsDeviceBlendFactor(device: NativeHandle, packedColor: number): void;
+  setGraphicsDeviceBlendState(device: NativeHandle, state: BlendStateSnapshot): void;
+  setGraphicsDeviceDepthStencilState(device: NativeHandle, state: DepthStencilStateSnapshot): void;
+  setGraphicsDeviceRasterizerState(device: NativeHandle, state: RasterizerStateSnapshot): void;
+  setGraphicsDeviceSamplerState(
+    device: NativeHandle, shaderStage: number, slot: number, state: SamplerStateSnapshot,
+  ): void;
+  setGraphicsDeviceTexture(
+    device: NativeHandle, shaderStage: number, slot: number, texture: NativeHandle | null,
+  ): void;
+  setGraphicsDeviceMultiSampleMask(device: NativeHandle, value: number): void;
+  setGraphicsDeviceReferenceStencil(device: NativeHandle, value: number): void;
+  setGraphicsDeviceScissorRectangle(
+    device: NativeHandle, x: number, y: number, width: number, height: number,
+  ): void;
+  setGraphicsDeviceViewport(
+    device: NativeHandle, x: number, y: number, width: number, height: number,
+    minDepth: number, maxDepth: number,
+  ): void;
+  setGraphicsDeviceVertexBuffers(
+    device: NativeHandle, bindings: readonly VertexBufferBindingSnapshot[],
+  ): void;
+  setGraphicsDeviceIndexBuffer(device: NativeHandle, buffer: NativeHandle | null): void;
+  drawPrimitives(device: NativeHandle, primitiveType: number, startVertex: number, primitiveCount: number): void;
+  drawIndexedPrimitives(
+    device: NativeHandle, primitiveType: number, baseVertex: number, minVertexIndex: number,
+    numVertices: number, startIndex: number, primitiveCount: number,
+  ): void;
+  drawInstancedPrimitives(
+    device: NativeHandle, primitiveType: number, baseVertex: number, minVertexIndex: number,
+    numVertices: number, startIndex: number, primitiveCount: number, instanceCount: number,
+  ): void;
+  drawUserPrimitives(
+    device: NativeHandle, primitiveType: number, vertexSource: number, bytes: Uint8Array,
+    vertexStride: number, vertexCapacity: number, vertexOffset: number, numVertices: number,
+    primitiveCount: number, declaration: readonly VertexElementSnapshot[] | null,
+  ): void;
+  drawUserIndexedPrimitives(
+    device: NativeHandle, primitiveType: number, vertexSource: number, bytes: Uint8Array,
+    vertexStride: number, vertexCapacity: number, vertexOffset: number, numVertices: number,
+    primitiveCount: number, declaration: readonly VertexElementSnapshot[] | null,
+    indexBytes: Uint8Array, indexElementSize: number, indexCapacity: number, indexOffset: number,
+  ): void;
+  beginSpriteBatchWithStates(
+    spriteBatch: NativeHandle, sortMode: number, blend: BlendStateSnapshot,
+    sampler: SamplerStateSnapshot, depth: DepthStencilStateSnapshot,
+    rasterizer: RasterizerStateSnapshot, transform: readonly number[] | null,
+  ): void;
+  setVertexBufferData(
+    buffer: NativeHandle, vertexType: number, options: number, startIndex: number,
+    elementCount: number, capacity: number, bytes: Uint8Array,
+  ): void;
+  setVertexBufferRawAt(
+    buffer: NativeHandle, offsetInBytes: number, bytes: Uint8Array,
+    vertexCount: number, vertexStride: number, options: number,
+  ): void;
+  getVertexBufferRawAt(
+    buffer: NativeHandle, offsetInBytes: number, vertexCount: number, vertexStride: number,
+  ): Uint8Array;
+  getVertexBufferIsContentLost(buffer: NativeHandle): boolean;
+  /**
+   * Subscribes to a resource's ContentLost event. ABI 0.9 made the event real on the renderers
+   * whose API can lose a device, so a registration has a producer behind it rather than only
+   * preserving the shape of the public contract.
+   */
+  subscribeContentLost(
+    kind: ContentLostResourceKind, resource: NativeHandle, callback: () => void,
+  ): NativeHandle;
+  unsubscribeContentLost(registration: NativeHandle): void;
+  setIndexBufferData(
+    buffer: NativeHandle, elementSize: number, options: number, offsetInBytes: number | null,
+    startIndex: number, elementCount: number, capacity: number, bytes: Uint8Array,
+  ): void;
+  getIndexBufferIsContentLost(buffer: NativeHandle): boolean;
+  createTexture3D(
+    device: NativeHandle, width: number, height: number, depth: number,
+    mipMap: boolean, format: number,
+  ): NativeHandle;
+  getTexture3DInfo(texture: NativeHandle): Texture3DInfo;
+  setTexture3DColors(
+    texture: NativeHandle, level: number, left: number, top: number, right: number,
+    bottom: number, front: number, back: number, startIndex: number,
+    elementCount: number, packedColors: Uint32Array,
+  ): void;
+  getTexture3DColors(
+    texture: NativeHandle, level: number, left: number, top: number, right: number,
+    bottom: number, front: number, back: number, startIndex: number,
+    elementCount: number, capacity: number,
+  ): Uint32Array;
+  destroyTexture3D(texture: NativeHandle): void;
+  createTextureCube(device: NativeHandle, size: number, mipMap: boolean, format: number): NativeHandle;
+  getTextureCubeInfo(texture: NativeHandle): TextureCubeInfo;
+  setTextureCubeColors(
+    texture: NativeHandle, face: number, level: number,
+    rectangle: { readonly X: number; readonly Y: number; readonly Width: number; readonly Height: number } | null,
+    startIndex: number, elementCount: number, packedColors: Uint32Array,
+  ): void;
+  getTextureCubeColors(
+    texture: NativeHandle, face: number, level: number,
+    rectangle: { readonly X: number; readonly Y: number; readonly Width: number; readonly Height: number } | null,
+    startIndex: number, elementCount: number, capacity: number,
+  ): Uint32Array;
+  destroyTextureCube(texture: NativeHandle): void;
+  createRenderTarget2D(
+    device: NativeHandle, width: number, height: number, mipMap: boolean, format: number,
+    depthFormat: number, multiSampleCount: number, usage: number,
+  ): NativeHandle;
+  createRenderTargetCube(
+    device: NativeHandle, size: number, mipMap: boolean, format: number,
+    depthFormat: number, multiSampleCount: number, usage: number,
+  ): NativeHandle;
+  getRenderTargetInfo(target: NativeHandle): RenderTargetInfo;
+  destroyRenderTarget(target: NativeHandle): void;
+  setGraphicsDeviceRenderTargets(
+    device: NativeHandle, bindings: readonly RenderTargetBindingSnapshot[],
+  ): void;
+  createOcclusionQuery(device: NativeHandle): NativeHandle;
+  beginOcclusionQuery(query: NativeHandle): void;
+  endOcclusionQuery(query: NativeHandle): void;
+  getOcclusionQueryIsComplete(query: NativeHandle): boolean;
+  getOcclusionQueryPixelCount(query: NativeHandle): number;
+  destroyOcclusionQuery(query: NativeHandle): void;
+}
+
+export interface NativeEffectPassSnapshot {
+  readonly Handle: NativeHandle;
+  readonly Name: string;
+  readonly Annotations: readonly NativeEffectAnnotationSnapshot[];
+}
+
+export interface NativeEffectTechniqueSnapshot {
+  readonly Handle: NativeHandle;
+  readonly Name: string;
+  readonly Passes: readonly NativeEffectPassSnapshot[];
+  readonly Annotations: readonly NativeEffectAnnotationSnapshot[];
+}
+
+export interface NativeEffectReflectionSnapshot {
+  readonly CurrentTechnique: number;
+  readonly Techniques: readonly NativeEffectTechniqueSnapshot[];
+}
+
+export interface NativeEffectAnnotationSnapshot {
+  readonly Name: string;
+  readonly RowCount: number;
+  readonly ColumnCount: number;
+  readonly ParameterClass: number;
+  readonly ParameterType: number;
+  /** The declared value, or `null` for a shape CNA has no accessor for -- never a stand-in zero. */
+  readonly Value: boolean | number | string | readonly number[] | null;
+}
+
+/**
+ * One reflected effect parameter, and the owned native view it was read through.
+ *
+ * `Handle` is a view CNA minted for this call and is released through the effect's lifetime; it
+ * never leaves internal state, so no public member exposes it.
+ */
+export interface NativeEffectParameterSnapshot {
+  readonly Handle: NativeHandle;
+  readonly Name: string;
+  readonly Semantic: string;
+  readonly RowCount: number;
+  readonly ColumnCount: number;
+  readonly ParameterClass: number;
+  readonly ParameterType: number;
+  readonly Elements: readonly NativeEffectParameterSnapshot[];
+  readonly StructureMembers: readonly NativeEffectParameterSnapshot[];
+  readonly Annotations: readonly NativeEffectAnnotationSnapshot[];
+}
+
+export interface StockEffectSnapshot {
+  readonly World: readonly number[];
+  readonly View: readonly number[];
+  readonly Projection: readonly number[];
+  readonly FogColor: readonly number[];
+  readonly FogEnabled: boolean;
+  readonly FogStart: number;
+  readonly FogEnd: number;
+  readonly Alpha: number;
+  readonly DiffuseColor: readonly number[];
+  readonly EmissiveColor: readonly number[];
+  readonly SpecularColor: readonly number[];
+  readonly SpecularPower: number;
+  readonly AmbientLightColor: readonly number[];
+  readonly LightingEnabled: boolean;
+  readonly PreferPerPixelLighting: boolean;
+  readonly VertexColorEnabled: boolean;
+  readonly TextureEnabled: boolean;
+  readonly Texture: NativeHandle;
+  readonly Texture2: NativeHandle;
+  readonly EnvironmentMap: NativeHandle;
+  readonly EnvironmentMapAmount: number;
+  readonly EnvironmentMapSpecular: readonly number[];
+  readonly FresnelFactor: number;
+  readonly AlphaFunction: number;
+  readonly ReferenceAlpha: number;
+  readonly WeightsPerVertex: number;
+  readonly BoneTransforms: readonly (readonly number[])[];
+  readonly Lights: readonly {
+    readonly Direction: readonly number[];
+    readonly DiffuseColor: readonly number[];
+    readonly SpecularColor: readonly number[];
+    readonly Enabled: boolean;
+  }[];
+}
+
+/** Optional dependency-complete ABI-0.7 Effect ownership and execution slice. */
+export interface CnaEffectBackend {
+  createEffectEmpty(device: NativeHandle): NativeHandle;
+  createEffectCompiled(device: NativeHandle, bytes: Uint8Array): NativeHandle;
+  cloneEffect(effect: NativeHandle): NativeHandle;
+  createStockEffect(device: NativeHandle, kind: number): NativeHandle;
+  getEffectReflection(effect: NativeHandle): NativeEffectReflectionSnapshot;
+  getEffectParameters(effect: NativeHandle): readonly NativeEffectParameterSnapshot[];
+  destroyEffectParameter(parameter: NativeHandle): void;
+  setEffectParameterValue(
+    parameter: NativeHandle, valueType: number, components: readonly number[]): void;
+  getEffectParameterValue(parameter: NativeHandle, valueType: number): number[];
+  setEffectParameterValues(
+    parameter: NativeHandle, valueType: number, components: readonly number[]): void;
+  getEffectParameterValues(
+    parameter: NativeHandle, valueType: number, requested: number): number[];
+  setEffectParameterTexture(
+    parameter: NativeHandle, textureType: number, texture: NativeHandle): void;
+  setEffectParameterString(parameter: NativeHandle, value: string): void;
+  setEffectCurrentTechnique(effect: NativeHandle, technique: NativeHandle): void;
+  applyEffect(effect: NativeHandle): void;
+  applyEffectPass(pass: NativeHandle): void;
+  syncStockEffect(effect: NativeHandle, kind: number, snapshot: StockEffectSnapshot): void;
+  destroyEffectTechnique(technique: NativeHandle): void;
+  destroyEffectPass(pass: NativeHandle): void;
+  destroyEffect(effect: NativeHandle): void;
+  beginSpriteBatchWithEffect(
+    spriteBatch: NativeHandle, sortMode: number, blend: BlendStateSnapshot,
+    sampler: SamplerStateSnapshot, depth: DepthStencilStateSnapshot,
+    rasterizer: RasterizerStateSnapshot, effect: NativeHandle,
+    transform: readonly number[] | null,
+  ): void;
+}
+
+export interface AudioVectorSnapshot {
+  readonly X: number;
+  readonly Y: number;
+  readonly Z: number;
+}
+
+export interface AudioListenerSnapshot {
+  readonly Forward: AudioVectorSnapshot;
+  readonly Position: AudioVectorSnapshot;
+  readonly Up: AudioVectorSnapshot;
+  readonly Velocity: AudioVectorSnapshot;
+}
+
+export interface AudioEmitterSnapshot extends AudioListenerSnapshot {
+  readonly DopplerScale: number;
+}
+
+export interface SoundEffectInstanceSnapshot {
+  readonly State: number;
+  readonly IsLooped: boolean;
+  readonly Volume: number;
+  readonly Pitch: number;
+  readonly Pan: number;
+}
+
+export interface MicrophoneSnapshot {
+  readonly Index: number;
+  readonly Name: string;
+  readonly IsHeadset: boolean;
+  readonly SampleRate: number;
+  readonly State: number;
+  readonly BufferDurationTicks: bigint;
+  readonly IsDefault: boolean;
+}
+
+export interface RendererDetailSnapshot {
+  readonly FriendlyName: string;
+  readonly RendererId: string;
+}
+
+export interface CueSnapshot {
+  readonly IsCreated: boolean;
+  readonly IsDisposed: boolean;
+  readonly IsPaused: boolean;
+  readonly IsPlaying: boolean;
+  readonly IsPrepared: boolean;
+  readonly IsPreparing: boolean;
+  readonly IsStopped: boolean;
+  readonly IsStopping: boolean;
+}
+
+/** Optional typed CNA XACT slice. Authored-bank success still requires legal XGS/XSB/XWB assets. */
+export interface CnaXactBackend {
+  readonly ParentLifetime: NativeResourceLifetime;
+  createAudioEngine(settingsFile: string, lookAheadTicks?: bigint, rendererId?: string): NativeHandle;
+  destroyAudioEngine(engine: NativeHandle): void;
+  getAudioEngineIsDisposed(engine: NativeHandle): boolean;
+  getAudioEngineRendererDetails(engine: NativeHandle): readonly RendererDetailSnapshot[];
+  getAudioEngineGlobalVariable(engine: NativeHandle, name: string): number;
+  setAudioEngineGlobalVariable(engine: NativeHandle, name: string, value: number): void;
+  updateAudioEngine(engine: NativeHandle): void;
+  getAudioCategory(engine: NativeHandle, name: string): NativeHandle;
+  destroyAudioCategory(category: NativeHandle): void;
+  getAudioCategoryName(category: NativeHandle): string;
+  pauseAudioCategory(category: NativeHandle): void;
+  resumeAudioCategory(category: NativeHandle): void;
+  setAudioCategoryVolume(category: NativeHandle, value: number): void;
+  stopAudioCategory(category: NativeHandle, options: number): void;
+  audioCategoriesEqual(left: NativeHandle, right: NativeHandle): boolean;
+  getAudioCategoryHashCode(category: NativeHandle): number;
+  createSoundBank(engine: NativeHandle, filename: string): NativeHandle;
+  destroySoundBank(bank: NativeHandle): void;
+  getSoundBankIsDisposed(bank: NativeHandle): boolean;
+  getSoundBankIsInUse(bank: NativeHandle): boolean;
+  getCue(bank: NativeHandle, name: string): NativeHandle;
+  playCue(bank: NativeHandle, name: string): void;
+  playCue3D(
+    bank: NativeHandle,
+    name: string,
+    listener: AudioListenerSnapshot,
+    emitter: AudioEmitterSnapshot,
+  ): void;
+  createWaveBank(engine: NativeHandle, filename: string): NativeHandle;
+  createStreamingWaveBank(
+    engine: NativeHandle,
+    filename: string,
+    offset: number,
+    packetSize: number,
+  ): NativeHandle;
+  destroyWaveBank(bank: NativeHandle): void;
+  getWaveBankIsDisposed(bank: NativeHandle): boolean;
+  getWaveBankIsInUse(bank: NativeHandle): boolean;
+  getWaveBankIsPrepared(bank: NativeHandle): boolean;
+  destroyCue(cue: NativeHandle): void;
+  getCueInfo(cue: NativeHandle): CueSnapshot;
+  getCueName(cue: NativeHandle): string;
+  applyCue3D(cue: NativeHandle, listener: AudioListenerSnapshot, emitter: AudioEmitterSnapshot): void;
+  getCueVariable(cue: NativeHandle, name: string): number;
+  setCueVariable(cue: NativeHandle, name: string, value: number): void;
+  playCueHandle(cue: NativeHandle): void;
+  pauseCue(cue: NativeHandle): void;
+  resumeCue(cue: NativeHandle): void;
+  stopCue(cue: NativeHandle, options: number): void;
+}
+
+export interface MediaSourceSnapshot {
+  readonly Index: number;
+  readonly Name: string;
+  readonly Type: number;
+}
+
+export interface MediaSongPlaybackSnapshot {
+  readonly Name: string;
+  readonly Uri: string;
+}
+
+/** Optional typed process-global media-player slice. */
+export interface CnaMediaBackend {
+  getAvailableMediaSources(): readonly MediaSourceSnapshot[];
+  playSongs(songs: readonly MediaSongPlaybackSnapshot[], index: number): void;
+  pause(): void;
+  resume(): void;
+  stop(): void;
+  moveNext(): void;
+  movePrevious(): void;
+  setVolume(value: number): void;
+  setMuted(value: boolean): void;
+  setRepeating(value: boolean): void;
+  setShuffled(value: boolean): void;
+  setVisualizationEnabled(value: boolean): void;
+  getGameHasControl(): boolean;
+  getPlayPositionTicks(): bigint;
+  getVisualizationData(): {
+    readonly Frequencies: readonly number[];
+    readonly Samples: readonly number[];
+  };
+  update(): void;
+}
+
+export interface VideoPlayerSnapshot {
+  readonly State: number;
+  readonly PlayPositionTicks: bigint;
+}
+
+/** Optional typed video-player slice. Frame textures remain player-owned transient aliases. */
+/**
+ * The frame a VideoPlayer holds, and the identity that makes it trackable.
+ *
+ * `Texture` is **borrowed** and valid only until the next call on that player. `Generation` is what
+ * distinguishes "the same frame, asked for twice" from "the frame advanced": it counts decoded
+ * frames, never restarts, and is a `bigint` because a frame count that outgrew a double would start
+ * comparing equal to itself.
+ */
+export interface VideoFrameSnapshot {
+  readonly Texture: NativeHandle;
+  readonly Generation: bigint;
+  readonly PresentationTimeSeconds: number;
+  readonly IsAvailable: boolean;
+}
+
+export interface CnaVideoBackend {
+  readonly ParentLifetime: NativeResourceLifetime;
+  createVideoPlayer(): NativeHandle;
+  destroyVideoPlayer(player: NativeHandle): void;
+  getVideoPlayerInfo(player: NativeHandle): VideoPlayerSnapshot;
+  getVideoPlayerFrame(player: NativeHandle): VideoFrameSnapshot;
+  setVideoPlayerLooped(player: NativeHandle, value: boolean): void;
+  setVideoPlayerMuted(player: NativeHandle, value: boolean): void;
+  setVideoPlayerVolume(player: NativeHandle, value: number): void;
+  playVideo(player: NativeHandle, video: NativeHandle): void;
+  pauseVideo(player: NativeHandle): void;
+  resumeVideo(player: NativeHandle): void;
+  stopVideo(player: NativeHandle): void;
+}
+
+export interface StorageDeviceSnapshot {
+  readonly IsConnected: boolean;
+  readonly FreeSpace: bigint;
+  readonly TotalSpace: bigint;
+}
+
+/** Optional typed CNA storage slice. Paths remain private to the storage backend. */
+export interface CnaStorageBackend {
+  readonly ParentLifetime: NativeResourceLifetime;
+  selectStorageDevice(player: number | null, sizeInBytes: number | null, directoryCount: number | null): NativeHandle;
+  destroyStorageDevice(device: NativeHandle): void;
+  getStorageDeviceInfo(device: NativeHandle): StorageDeviceSnapshot;
+  deleteStorageContainer(device: NativeHandle, name: string): void;
+  openStorageContainer(device: NativeHandle, name: string): NativeHandle;
+  destroyStorageContainer(container: NativeHandle): void;
+  getStorageContainerDisplayName(container: NativeHandle): string;
+  createStorageDirectory(container: NativeHandle, path: string): void;
+  storageDirectoryExists(container: NativeHandle, path: string): boolean;
+  deleteStorageDirectory(container: NativeHandle, path: string): void;
+  getStorageDirectoryNames(container: NativeHandle, pattern: string): readonly string[];
+  createStorageFile(container: NativeHandle, path: string): void;
+  storageFileExists(container: NativeHandle, path: string): boolean;
+  deleteStorageFile(container: NativeHandle, path: string): void;
+  getStorageFileNames(container: NativeHandle, pattern: string): readonly string[];
+  openStorageFile(
+    container: NativeHandle, path: string, mode: number, access: number, share: number,
+  ): Uint8Array;
+}
+
+/** Optional typed CNA audio slice. Absence means the loaded backend cannot execute audio. */
+export interface CnaAudioBackend {
+  readonly ParentLifetime: NativeResourceLifetime;
+  createSoundEffect(
+    pcmBytes: Uint8Array,
+    offset: number,
+    count: number,
+    sampleRate: number,
+    channels: number,
+    loopStart: number,
+    loopLength: number,
+  ): NativeHandle;
+  createSoundEffectFromEncoded(encoded: Uint8Array): NativeHandle;
+  getSoundEffectDurationTicks(soundEffect: NativeHandle): bigint;
+  getSoundEffectName(soundEffect: NativeHandle): string;
+  setSoundEffectName(soundEffect: NativeHandle, value: string): void;
+  createSoundEffectInstance(soundEffect: NativeHandle): NativeHandle;
+  playSoundEffect(soundEffect: NativeHandle, volume: number, pitch: number, pan: number): boolean;
+  destroySoundEffect(soundEffect: NativeHandle): void;
+  getMasterVolume(): number;
+  setMasterVolume(value: number): void;
+  getDistanceScale(): number;
+  setDistanceScale(value: number): void;
+  getDopplerScale(): number;
+  setDopplerScale(value: number): void;
+  getSpeedOfSound(): number;
+  setSpeedOfSound(value: number): void;
+  playSoundEffectInstance(instance: NativeHandle): void;
+  pauseSoundEffectInstance(instance: NativeHandle): void;
+  resumeSoundEffectInstance(instance: NativeHandle): void;
+  stopSoundEffectInstance(instance: NativeHandle, immediate: boolean): void;
+  getSoundEffectInstanceInfo(instance: NativeHandle): SoundEffectInstanceSnapshot;
+  setSoundEffectInstanceVolume(instance: NativeHandle, value: number): void;
+  setSoundEffectInstancePitch(instance: NativeHandle, value: number): void;
+  setSoundEffectInstancePan(instance: NativeHandle, value: number): void;
+  setSoundEffectInstanceLooped(instance: NativeHandle, value: boolean): void;
+  applySoundEffectInstance3D(
+    instance: NativeHandle,
+    listeners: readonly AudioListenerSnapshot[],
+    emitter: AudioEmitterSnapshot,
+  ): void;
+  destroySoundEffectInstance(instance: NativeHandle): void;
+  createDynamicSoundEffectInstance(sampleRate: number, channels: number): NativeHandle;
+  getDynamicPendingBufferCount(instance: NativeHandle): number;
+  submitDynamicBuffer(instance: NativeHandle, buffer: Uint8Array, offset: number, count: number): void;
+  getMicrophones?(): readonly MicrophoneSnapshot[];
+  setMicrophoneBufferDurationTicks?(index: number, ticks: bigint): void;
+  startMicrophone?(index: number): void;
+  stopMicrophone?(index: number): void;
+  getMicrophoneData?(index: number, count: number): Uint8Array;
+}
+
+/**
+ * One renderer identity as the CNA runtime describes it. There is deliberately no `Name`: the C ABI
+ * names the *current* renderer, a backend category, a maturity and a fallback reason, but has no
+ * route that names an arbitrary renderer identity. The public facade supplies that spelling from
+ * the identity enumeration, which the ABI contract proves against the canonical constants.
+ */
+export interface RendererIdentitySnapshot {
+  readonly Type: number;
+  readonly Category: number;
+  readonly CategoryName: string;
+  readonly Maturity: number;
+  readonly MaturityName: string;
+  readonly IsAvailable: boolean;
+}
+
+/** The CNA runtime's own account of which renderer it is running and how it got there. */
+export interface RendererSelectionSnapshot {
+  readonly Selected: number;
+  /** Null until a renderer has actually been created; CNA refuses to invent one. */
+  readonly Active: number | null;
+  readonly Current: number | null;
+  readonly CurrentName: string | null;
+  readonly IsLatched: boolean;
+  readonly AutomaticFallback: boolean;
+}
+
+/** One renderer CNA tried and rejected, with the reason it gave. */
+export interface RendererFallbackSnapshot {
+  readonly Type: number;
+  readonly Reason: number;
+  readonly ReasonName: string;
+  readonly Message: string;
+}
+
+/** The host CNA reports itself running on. */
+export interface PlatformSnapshot {
+  readonly Platform: number;
+  readonly Name: string;
+  readonly IsApple: boolean;
+  readonly IsMobile: boolean;
+  /** Null where the platform is not a desktop; CNA refuses the question rather than answering it. */
+  readonly DesktopOperatingSystem: number | null;
+}
+
+/**
+ * Process-wide CNA services with no Microsoft.Xna.Framework counterpart: which host the runtime is
+ * on, which renderer it selected and why, and its log sink. None of these take a handle, so they
+ * answer before a Game exists and are the same operations on every backend.
+ */
+export interface CnaRuntimeServicesBackend {
+  getPlatform(): PlatformSnapshot;
+  getRendererSelection(): RendererSelectionSnapshot;
+  getAvailableRendererTypes(): readonly number[];
+  isRendererAvailable(type: number): boolean;
+  describeRenderer(type: number): RendererIdentitySnapshot;
+  setPreferredRenderer(type: number): void;
+  setPreferredRendererByName(name: string): void;
+  tryParseRendererName(name: string): number | null;
+  setRendererFallbackChain(types: readonly number[]): void;
+  setAutomaticRendererFallback(enabled: boolean): void;
+  getRendererFallbacks(): readonly RendererFallbackSnapshot[];
+  getMinimumLogLevel(): number;
+  setMinimumLogLevel(level: number): void;
+  writeLog(level: number, category: number, message: string): void;
+  isGraphicsExtensionLayerAvailable(): boolean;
+}
+
+export interface CnaGraphicsExtensionBackend {
+  createAsciiEffect(device: NativeHandle): NativeHandle;
+  destroyAsciiEffect(effect: NativeHandle): void;
+  getAsciiCellSize(effect: NativeHandle): SizeSnapshot;
+  setAsciiCellSize(effect: NativeHandle, width: number, height: number): void;
+  getAsciiQuantizeMode(effect: NativeHandle): number;
+  setAsciiQuantizeMode(effect: NativeHandle, mode: number): void;
+  drawAsciiEffect(
+    effect: NativeHandle, source: NativeHandle, destination: RectangleSnapshot,
+  ): void;
+  getAsciiLastGridDimensions(effect: NativeHandle): SizeSnapshot;
+  createCrtEffect(device: NativeHandle): NativeHandle;
+  getCrtScanlineIntensity(effect: NativeHandle): number;
+  setCrtScanlineIntensity(effect: NativeHandle, value: number): void;
+  getCrtCurvature(effect: NativeHandle): number;
+  setCrtCurvature(effect: NativeHandle, value: number): void;
+  getCrtVignetteIntensity(effect: NativeHandle): number;
+  setCrtVignetteIntensity(effect: NativeHandle, value: number): void;
+  getCrtMaskIntensity(effect: NativeHandle): number;
+  setCrtMaskIntensity(effect: NativeHandle, value: number): void;
+  getCrtMaskType(effect: NativeHandle): number;
+  setCrtMaskType(effect: NativeHandle, maskType: number): void;
+  createDepthEffect(device: NativeHandle): NativeHandle;
+  getDepthEffectMode(effect: NativeHandle): number;
+  setDepthEffectMode(effect: NativeHandle, mode: number): void;
+  getDepthEffectDitherMode(effect: NativeHandle): number;
+  setDepthEffectDitherMode(effect: NativeHandle, mode: number): void;
+  getDefaultTextureTransform(): TextureTransformSnapshot;
+  /* What ApplyState wrote, read back below the wrapper's own state objects. */
+  getDeviceBlendState(device: NativeHandle): BlendStateSnapshot;
+  getDeviceRasterizerState(device: NativeHandle): RasterizerStateSnapshot;
+  // --- the debug drawer -------------------------------------------------------------------------
+  createDebugDraw(graphicsDevice: NativeHandle): NativeHandle;
+  destroyDebugDraw(debug: NativeHandle): void;
+  beginDebugDraw(
+    debug: NativeHandle, view: readonly number[], projection: readonly number[],
+  ): void;
+  endDebugDraw(debug: NativeHandle): void;
+  clearDebugDraw(debug: NativeHandle): void;
+  addDebugDrawLine(
+    debug: NativeHandle, from: Vector3Snapshot, to: Vector3Snapshot, color: number,
+  ): void;
+  addDebugDrawBox(debug: NativeHandle, bounds: ClusterBoundsSnapshot, color: number): void;
+  addDebugDrawSphere(
+    debug: NativeHandle, centre: Vector3Snapshot, radius: number, color: number, segments: number,
+  ): void;
+  addDebugDrawBoundingSphere(
+    debug: NativeHandle, sphere: BoundingSphereSnapshot, color: number, segments: number,
+  ): void;
+  addDebugDrawFrustum(
+    debug: NativeHandle, viewProjection: readonly number[], color: number,
+  ): void;
+  addDebugDrawCross(
+    debug: NativeHandle, position: Vector3Snapshot, size: number, color: number,
+  ): void;
+  isDebugDrawDepthTested(debug: NativeHandle): boolean;
+  setDebugDrawDepthTested(debug: NativeHandle, value: boolean): void;
+  getDebugDrawLineCount(debug: NativeHandle): number;
+  getDebugDrawVertices(
+    debug: NativeHandle, depthTested: boolean,
+  ): readonly DebugVertexSnapshot[];
+  // --- shader effects: an Effect whose two shader sources the game wrote itself ------------------
+  createShaderEffect(graphicsDevice: NativeHandle, vertexSource: string, fragmentSource: string): NativeHandle;
+  isShaderEffectValid(effect: NativeHandle): boolean;
+  shaderEffectHasRenderer(effect: NativeHandle): boolean;
+  getShaderEffectCompileError(effect: NativeHandle): string;
+  setShaderEffectUniformMatrix(effect: NativeHandle, name: string, value: readonly number[]): void;
+  setShaderEffectUniformVector4(effect: NativeHandle, name: string, value: Vector4Snapshot): void;
+  setShaderEffectUniformVector3(effect: NativeHandle, name: string, value: Vector3Snapshot): void;
+  setShaderEffectUniformVector2(effect: NativeHandle, name: string, value: Vector2Snapshot): void;
+  setShaderEffectUniformFloat(effect: NativeHandle, name: string, value: number): void;
+  setShaderEffectUniformInt32(effect: NativeHandle, name: string, value: number): void;
+  declareShaderEffectUniformBlock(effect: NativeHandle, blockSizeBytes: number, names: readonly string[], offsets: readonly number[]): void;
+  setShaderEffectUniformFloatArray(effect: NativeHandle, name: string, values: readonly number[]): void;
+  setShaderEffectUniformVector2Array(effect: NativeHandle, name: string, values: readonly Vector2Snapshot[]): void;
+  setShaderEffectUniformVec3Array(effect: NativeHandle, name: string, values: readonly number[]): void;
+  setShaderEffectUniformMat4Array(effect: NativeHandle, name: string, values: readonly number[]): void;
+  setShaderEffectTexture2D(effect: NativeHandle, unit: number, texture: NativeHandle): void;
+  setShaderEffectTextureCube(effect: NativeHandle, unit: number, texture: NativeHandle): void;
+  setShaderEffectTexture3D(effect: NativeHandle, unit: number, texture: NativeHandle): void;
+  getShaderEffectWorld(effect: NativeHandle): readonly number[];
+  setShaderEffectWorld(effect: NativeHandle, value: readonly number[]): void;
+  getShaderEffectView(effect: NativeHandle): readonly number[];
+  setShaderEffectView(effect: NativeHandle, value: readonly number[]): void;
+  getShaderEffectProjection(effect: NativeHandle): readonly number[];
+  setShaderEffectProjection(effect: NativeHandle, value: readonly number[]): void;
+  createDefaultImageBasedLight(): ImageBasedLightSnapshot;
+  isImageBasedLightValid(light: ImageBasedLightSnapshot): boolean;
+  // --- the indirect-draw argument structures ---------------------------------------------------
+  createDefaultIndirectDrawArguments(): IndirectDrawArgumentsSnapshot;
+  createDefaultIndirectDrawIndexedArguments(): IndirectDrawIndexedArgumentsSnapshot;
+  // --- the PBR effects that carry one ------------------------------------------------------
+  createPbrEffect(graphicsDevice: NativeHandle): NativeHandle;
+  createSkinnedPbrEffect(graphicsDevice: NativeHandle): NativeHandle;
+  getPbrEffectAlpha(effect: NativeHandle): number;
+  getPbrEffectAlphaCutoff(effect: NativeHandle): number;
+  getPbrEffectAlphaMode(effect: NativeHandle): number;
+  getPbrEffectDiffuseColor(effect: NativeHandle): Vector3Snapshot;
+  getPbrEffectDoubleSided(effect: NativeHandle): boolean;
+  getPbrEffectEmissiveFactor(effect: NativeHandle): Vector3Snapshot;
+  getPbrEffectEncodeOutputToSrgb(effect: NativeHandle): boolean;
+  getPbrEffectIor(effect: NativeHandle): number;
+  getPbrEffectMetallicFactor(effect: NativeHandle): number;
+  getPbrEffectNormalScale(effect: NativeHandle): number;
+  getPbrEffectOcclusionStrength(effect: NativeHandle): number;
+  getPbrEffectRoughnessFactor(effect: NativeHandle): number;
+  getPbrEffectSpecularColorFactor(effect: NativeHandle): Vector3Snapshot;
+  getPbrEffectSpecularFactor(effect: NativeHandle): number;
+  getPbrEffectTexture(effect: NativeHandle, slot: number): NativeHandle;
+  getPbrEffectTextureCoordinateSet(effect: NativeHandle, slot: number): number;
+  getPbrEffectTextureIsSrgb(effect: NativeHandle, slot: number): boolean;
+  getPbrEffectTextureTransform(effect: NativeHandle, slot: number): TextureTransformSnapshot;
+  getPbrEffectVertexColorEnabled(effect: NativeHandle): boolean;
+  getSkinnedPbrEffectBoneTransforms(effect: NativeHandle, count: number): readonly (readonly number[])[];
+  getSkinnedPbrEffectWeightsPerVertex(effect: NativeHandle): number;
+  setPbrEffectAlpha(effect: NativeHandle, value: number): void;
+  setPbrEffectAlphaCutoff(effect: NativeHandle, value: number): void;
+  setPbrEffectAlphaMode(effect: NativeHandle, value: number): void;
+  setPbrEffectDiffuseColor(effect: NativeHandle, value: Vector3Snapshot): void;
+  setPbrEffectDoubleSided(effect: NativeHandle, value: boolean): void;
+  setPbrEffectEmissiveFactor(effect: NativeHandle, value: Vector3Snapshot): void;
+  setPbrEffectEncodeOutputToSrgb(effect: NativeHandle, value: boolean): void;
+  setPbrEffectIor(effect: NativeHandle, value: number): void;
+  setPbrEffectMetallicFactor(effect: NativeHandle, value: number): void;
+  setPbrEffectNormalScale(effect: NativeHandle, value: number): void;
+  setPbrEffectOcclusionStrength(effect: NativeHandle, value: number): void;
+  setPbrEffectRoughnessFactor(effect: NativeHandle, value: number): void;
+  setPbrEffectSpecularColorFactor(effect: NativeHandle, value: Vector3Snapshot): void;
+  setPbrEffectSpecularFactor(effect: NativeHandle, value: number): void;
+  setPbrEffectTexture(effect: NativeHandle, slot: number, texture: NativeHandle): void;
+  setPbrEffectTextureCoordinateSet(effect: NativeHandle, slot: number, value: number): void;
+  setPbrEffectTextureIsSrgb(effect: NativeHandle, slot: number, value: boolean): void;
+  setPbrEffectTextureTransform(effect: NativeHandle, slot: number, transform: TextureTransformSnapshot): void;
+  setPbrEffectVertexColorEnabled(effect: NativeHandle, value: boolean): void;
+  setSkinnedPbrEffectBoneTransforms(effect: NativeHandle, transforms: readonly (readonly number[])[]): void;
+  setSkinnedPbrEffectWeightsPerVertex(effect: NativeHandle, value: number): void;
+}
+
+
+/** The bounds CNB refuses past, both while reading and while building. */
+export interface CnbLimitsSnapshot {
+  readonly MaxFileSize: number;
+  readonly MaxChunkSize: number;
+  readonly MaxTotalUncompressedSize: number;
+  readonly MaxChunkCount: number;
+  readonly MaxStringBytes: number;
+  readonly MaxArrayElementCount: number;
+  readonly MaxChunkAlignment: number;
+}
+
+/** One parsed `.cnb` table-of-contents entry, exactly as CNA reports it. */
+export interface CnbChunkEntrySnapshot {
+  readonly Offset: number;
+  readonly StoredByteLength: number;
+  readonly ByteLength: number;
+  readonly Type: number;
+  readonly Flags: number;
+  readonly Checksum: number;
+  readonly Compression: number;
+  readonly Alignment: number;
+}
+
+/** A `.cnb` container's identities, counts and `CMET` metadata in one read. */
+export interface CnbDocumentSnapshot {
+  readonly ContainerMajor: number;
+  readonly ContainerMinor: number;
+  readonly AssetTypeId: number;
+  readonly AssetSchemaVersion: number;
+  readonly ChunkCount: number;
+  readonly ExternalReferenceCount: number;
+  readonly Origin: string;
+  readonly MetadataPresent: boolean;
+  readonly MetadataFlags: number;
+  readonly MetadataAssetTypeName: string;
+  readonly MetadataContentName: string;
+}
+
+/** One `XREF` entry: the logical name of an asset this file refers to but does not embed. */
+export interface CnbExternalReferenceSnapshot {
+  readonly Name: string;
+  readonly Flags: number;
+  readonly ExpectedAssetTypeId: number;
+}
+
+/** A decoded texture's shape, independent of any GPU object. */
+export interface CnbTextureInfoSnapshot {
+  readonly Width: number;
+  readonly Height: number;
+  readonly Depth: number;
+  readonly FaceCount: number;
+  readonly MipCount: number;
+  readonly RepresentationCount: number;
+}
+
+/** One glyph of a compiled font, in the shape the sprite-font family already publishes. */
+export interface CnbGlyphSnapshot {
+  readonly Bounds: { readonly X: number; readonly Y: number; readonly Width: number; readonly Height: number };
+  readonly Cropping: { readonly X: number; readonly Y: number; readonly Width: number; readonly Height: number };
+  readonly Character: number;
+  readonly KerningLeft: number;
+  readonly KerningWidth: number;
+  readonly KerningRight: number;
+}
+
+/** A compiled font's whole-font metrics. */
+export interface CnbSpriteFontInfoSnapshot {
+  readonly GlyphCount: number;
+  readonly LineSpacing: number;
+  readonly Spacing: number;
+  readonly DefaultCharacter: number;
+  readonly HasDefaultCharacter: boolean;
+}
+
+/**
+ * CNB, CNA's own compiled content format.
+ *
+ * Unlike the rest of this boundary, most of the family is pure functions over caller-owned bytes.
+ * Three things own something and are handles with one release each: the parsed document, a decoded
+ * texture description and a decoded font description. Nothing here touches a `GraphicsDevice` --
+ * turning a description into a real resource is the extension layer's job, above this line.
+ */
+/** What a `.cnb` model's top level declares, before any node is addressed. */
+export interface CnbModelInfoSnapshot {
+  readonly BoneCount: number;
+  readonly PartCount: number;
+  readonly MeshCount: number;
+  readonly AnimationCount: number;
+  readonly LightCount: number;
+  readonly HasSkeleton: boolean;
+  readonly AppliesGltfLightingPolicy: boolean;
+  readonly HasBoneHierarchy: boolean;
+}
+
+/** One drawable part's numeric description. Its payloads are fetched separately. */
+export interface CnbModelPartSnapshot {
+  readonly VertexStride: number;
+  readonly VertexCount: number;
+  readonly IndexCount: number;
+  readonly IndexElementSize: number;
+  readonly PrimitiveTopology: number;
+  readonly PrimitiveCount: number;
+  readonly EffectKind: number;
+  readonly VertexColorEnabled: boolean;
+  readonly Unlit: boolean;
+}
+
+/** A part's material state, without its eight texture names. */
+export interface CnbMaterialSnapshot {
+  readonly BaseColorFactor: readonly number[];
+  readonly EmissiveFactor: readonly number[];
+  readonly SpecularColorFactor: readonly number[];
+  readonly MetallicFactor: number;
+  readonly RoughnessFactor: number;
+  readonly Ior: number;
+  readonly SpecularFactor: number;
+  readonly NormalScale: number;
+  readonly OcclusionStrength: number;
+  readonly AlphaCutoff: number;
+  readonly AlphaMode: number;
+  readonly DoubleSided: boolean;
+}
+
+/** A `.cnb` sound effect's description: format, rate, channels, frames and its loop region. */
+export interface CnbSoundEffectInfoSnapshot {
+  readonly Format: number;
+  readonly SampleRate: number;
+  readonly Channels: number;
+  readonly FrameCount: number;
+  readonly LoopStart: number;
+  readonly LoopLength: number;
+}
+
+/** A `.cnb` video's description. The media itself is a stream reference, not an embedded payload. */
+export interface CnbVideoInfoSnapshot {
+  readonly DurationMilliseconds: number;
+  readonly Width: number;
+  readonly Height: number;
+  readonly FramesPerSecond: number;
+  readonly SoundtrackType: number;
+}
+
+/** A `.cnb` curve, read whole: XNA's `Curve` is managed, so the native handle never escapes. */
+export interface CnbCurveSnapshot {
+  readonly PreLoop: number;
+  readonly PostLoop: number;
+  readonly IsConstant: boolean;
+  readonly Keys: readonly {
+    readonly Position: number;
+    readonly Value: number;
+    readonly TangentIn: number;
+    readonly TangentOut: number;
+    readonly Continuity: number;
+  }[];
+}
+
+/** One keyframe of a `.cnb` animation track. */
+export interface CnbKeyframeSnapshot {
+  readonly TimeSeconds: number;
+  readonly Translation: readonly number[];
+  readonly Rotation: readonly number[];
+  readonly Scale: readonly number[];
+}
+
+/** One raw joystick as CNA enumerates it, before any XNA mapping. */
+export interface JoystickInfoSnapshot {
+  readonly Id: number;
+  readonly Type: number;
+}
+
+/** What a raw joystick reports about itself. */
+export interface JoystickCapabilitiesSnapshot {
+  readonly AxisCount: number;
+  readonly ButtonCount: number;
+  readonly HatCount: number;
+  readonly BallCount: number;
+  readonly Type: number;
+  readonly PowerState: number;
+  readonly PowerPercent: number;
+  readonly IsConnected: boolean;
+}
+
+/** One captured joystick state, read whole and released natively before it is returned. */
+export interface JoystickStateSnapshot {
+  readonly Axes: readonly number[];
+  readonly Buttons: readonly boolean[];
+  readonly Hats: readonly number[];
+  readonly Balls: readonly { readonly X: number; readonly Y: number }[];
+}
+
+/** What an opened haptic device can do. */
+export interface HapticCapabilitiesSnapshot {
+  readonly Features: number;
+  readonly AxisCount: number;
+  readonly MaxEffects: number;
+  readonly MaxEffectsPlaying: number;
+  readonly IsOpen: boolean;
+  readonly RumbleSupported: boolean;
+}
+
+/**
+ * CNA's extended input layer: raw joysticks and force feedback, neither of which XNA modelled.
+ *
+ * A joystick is deliberately not a `GamePad`. Its axes are raw, its identity is the platform's, and
+ * it may have hats and balls a `GamePadState` has no room for -- so folding one into the XNA type
+ * would either lose data or invent a mapping. These stay outside `Microsoft.Xna.Framework.Input`.
+ */
+/** One composition update: the in-progress text and the cursor selection inside it. */
+export interface TextEditingSnapshot {
+  readonly Text: string;
+  readonly Start: number;
+  readonly Length: number;
+}
+
+/** One candidate list an IME is offering. */
+export interface TextEditingCandidatesSnapshot {
+  readonly Candidates: readonly string[];
+  readonly Selected: number;
+  readonly IsHorizontal: boolean;
+}
+
+/** Three components, as CNA lays out `CNA_Vector3`. */
+export interface Vector3Snapshot {
+  readonly X: number;
+  readonly Y: number;
+  readonly Z: number;
+}
+
+/** A width and a height, as CNA answers a pair of them. */
+export interface SizeSnapshot {
+  readonly Width: number;
+  readonly Height: number;
+}
+
+/** A rectangle in the shape CNA lays one out. */
+export interface RectangleSnapshot {
+  readonly X: number;
+  readonly Y: number;
+  readonly Width: number;
+  readonly Height: number;
+}
+
+/** A two-component vector, as CNA answers one. */
+export interface Vector2Snapshot {
+  readonly X: number;
+  readonly Y: number;
+}
+
+/** A light's world-space influence, as CNA computes it from the light's own range. */
+export interface BoundingSphereSnapshot {
+  readonly Center: Vector3Snapshot;
+  readonly Radius: number;
+}
+
+/** One cluster's view-space extent. */
+export interface ClusterBoundsSnapshot {
+  readonly Min: Vector3Snapshot;
+  readonly Max: Vector3Snapshot;
+}
+
+/** A `KHR_texture_transform`: the selected UV is scaled, then rotated, then translated. */
+export interface TextureTransformSnapshot {
+  readonly Offset: Vector2Snapshot;
+  readonly Scale: Vector2Snapshot;
+  readonly Rotation: number;
+}
+
+/** One vertex of a debug line list: where it is and what colour it is. */
+export interface DebugVertexSnapshot {
+  readonly Position: Vector3Snapshot;
+  readonly Color: number;
+}
+
+/** One image-based light: the three textures a PBR shader needs, and how bright they are. */
+export interface ImageBasedLightSnapshot {
+  readonly Irradiance: NativeHandle;
+  readonly PrefilteredSpecular: NativeHandle;
+  readonly BrdfLut: NativeHandle;
+  readonly PrefilteredMipCount: number;
+  readonly Intensity: number;
+}
+
+/** The arguments of an indirect draw, in the exact layout the GPU reads: sixteen bytes, four words. */
+export interface IndirectDrawArgumentsSnapshot {
+  readonly VertexCount: number;
+  readonly InstanceCount: number;
+  readonly FirstVertex: number;
+  readonly BaseInstance: number;
+}
+
+/** The same, indexed: twenty bytes, five words. */
+export interface IndirectDrawIndexedArgumentsSnapshot {
+  readonly IndexCount: number;
+  readonly InstanceCount: number;
+  readonly FirstIndex: number;
+  readonly BaseVertex: number;
+  readonly BaseInstance: number;
+}
+
+/** Four components, as CNA lays out `CNA_Vector4`. */
+export interface Vector4Snapshot {
+  readonly X: number;
+  readonly Y: number;
+  readonly Z: number;
+  readonly W: number;
+}
+
+/** One glyph, in the shape CNA's reader already takes. */
+export interface CnaSpriteFontGlyphSnapshot {
+  readonly Character: number;
+  readonly Bounds: { readonly X: number; readonly Y: number; readonly Width: number; readonly Height: number };
+  readonly Cropping: { readonly X: number; readonly Y: number; readonly Width: number; readonly Height: number };
+  readonly KerningLeft: number;
+  readonly KerningWidth: number;
+  readonly KerningRight: number;
+}
+
+/** What CNA stored for a font, so the oracle can be checked against its own inputs. */
+export interface CnaSpriteFontInfoSnapshot {
+  readonly CharacterCount: number;
+  readonly LineSpacing: number;
+  readonly Spacing: number;
+  readonly HasDefaultCharacter: boolean;
+  readonly DefaultCharacter: number;
+}
+
+/**
+ * CNA's SpriteFont, used only as a measurement *oracle*. `SpriteFont.MeasureString` is projected
+ * in TypeScript; this is a second implementation of the same predicate, sharing no code with it.
+ */
+export interface CnaSpriteFontOracleBackend {
+  createCnaSpriteFont(
+    texture: NativeHandle,
+    glyphs: readonly CnaSpriteFontGlyphSnapshot[],
+    lineSpacing: number,
+    spacing: number,
+    defaultCharacter: number | null,
+  ): NativeHandle;
+  destroyCnaSpriteFont(font: NativeHandle): void;
+  getCnaSpriteFontInfo(font: NativeHandle): CnaSpriteFontInfoSnapshot;
+  measureCnaSpriteFont(font: NativeHandle, text: string): { readonly X: number; readonly Y: number };
+}
+
+/** An avatar description, copied whole: exactly 1021 bytes plus what CNA reads out of them. */
+export interface AvatarDescriptionSnapshot {
+  readonly BodyType: number;
+  readonly Height: number;
+  readonly IsValid: boolean;
+  readonly Description: Uint8Array;
+}
+
+/** CNA's avatar descriptions, which need no gamer service. */
+export interface CnaAvatarBackend {
+  createAvatarDescription(bytes: Uint8Array): AvatarDescriptionSnapshot;
+  /** A random description, of the given body type when one is given. */
+  createRandomAvatarDescription(bodyType?: number): AvatarDescriptionSnapshot;
+}
+
+/** One song as CNA's media index describes it. Relationships are names, not handles. */
+export interface MediaSongSnapshot {
+  readonly Name: string;
+  /** The file path CNA indexed it from — the only stable identity a song has. */
+  readonly Handle: string;
+  readonly AlbumName: string;
+  readonly ArtistName: string;
+  readonly GenreName: string;
+  readonly DurationTicks: bigint;
+  readonly TrackNumber: number;
+  readonly PlayCount: number;
+  readonly Rating: number;
+  readonly IsProtected: boolean;
+  readonly IsRated: boolean;
+}
+
+/** An album, artist, genre or playlist row. The optional fields are present per collection. */
+export interface MediaNamedSnapshot {
+  readonly Name: string;
+  readonly DurationTicks?: bigint;
+  readonly ArtistName?: string;
+  readonly GenreName?: string;
+  readonly HasArt?: boolean;
+}
+
+/** One picture; its bytes are deliberately absent and fetched on demand. */
+export interface MediaPictureSnapshot {
+  readonly Name: string;
+  readonly Token: string;
+  readonly AlbumName: string;
+  readonly DateUnixTicks: bigint;
+  readonly Width: number;
+  readonly Height: number;
+}
+
+/** Everything CNA's media index holds, read in one call. No handle is included by design. */
+export interface MediaLibrarySnapshot {
+  readonly Songs: readonly MediaSongSnapshot[];
+  readonly Albums: readonly MediaNamedSnapshot[];
+  readonly Artists: readonly MediaNamedSnapshot[];
+  readonly Genres: readonly MediaNamedSnapshot[];
+  readonly Playlists: readonly MediaNamedSnapshot[];
+  readonly Pictures: readonly MediaPictureSnapshot[];
+  readonly SavedPictures: readonly MediaPictureSnapshot[];
+}
+
+/** CNA's index of the user's Music and Pictures folders. */
+export interface CnaMediaLibraryBackend {
+  createMediaLibrary(): NativeHandle;
+  destroyMediaLibrary(library: NativeHandle): void;
+  getMediaLibrarySnapshot(library: NativeHandle): MediaLibrarySnapshot;
+  getMediaLibraryPlaylistSongs(
+    library: NativeHandle, index: number,
+  ): readonly MediaSongSnapshot[];
+  getMediaLibraryAlbumBytes(
+    library: NativeHandle, index: number, thumbnail: boolean,
+  ): Uint8Array;
+  getMediaLibraryPictureBytes(
+    library: NativeHandle, saved: boolean, index: number, thumbnail: boolean,
+  ): Uint8Array;
+  saveMediaLibraryPicture(
+    library: NativeHandle, name: string, image: Uint8Array,
+  ): MediaPictureSnapshot;
+  getMediaLibraryPictureFromToken(
+    library: NativeHandle, token: string,
+  ): MediaPictureSnapshot | null;
+}
+
+/** One mouse, keyboard or touch device the platform currently enumerates. */
+export interface AttachedInputDeviceSnapshot {
+  readonly Id: bigint;
+  readonly Name: string;
+}
+
+/** The host's power supply as `cna_power_get_info` reports it; -1 arrives as null. */
+export interface HostPowerSnapshot {
+  readonly State: number;
+  readonly BatteryPercent: number | null;
+  readonly SecondsRemaining: number | null;
+}
+
+/**
+ * The parts of `input_devices.h` that CNA's extended device layer does not gate: the clipboard's
+ * *reads*, the attached-device inventory, and a power reading that answers where
+ * `cna_power_get_*_ext` refuses because the layer was built out.
+ */
+export interface CnaInputDeviceInventoryBackend {
+  getClipboardText(): string;
+  getClipboardTextSize(): number;
+  getClipboardHasText(): boolean;
+  setClipboardTextUngated(text: string): void;
+  getAttachedMouseCount(): number;
+  getAttachedMouseAt(index: number): AttachedInputDeviceSnapshot;
+  getAttachedKeyboardCount(): number;
+  getAttachedKeyboardAt(index: number): AttachedInputDeviceSnapshot;
+  getAttachedTouchDeviceCount(): number;
+  getAttachedTouchDeviceAt(index: number): AttachedInputDeviceSnapshot;
+  getHostPowerInfo(): HostPowerSnapshot;
+}
+
+/** One row of CNA's content survey: a file found under the content root. */
+export interface ContentSurveyEntrySnapshot {
+  readonly AssetName: string;
+  readonly HasXnb: boolean;
+  readonly HasCnj: boolean;
+  readonly NativeExtensions: readonly string[];
+  readonly XnbReaderNames: readonly string[];
+}
+
+/** One distinct XNB reader name found across the whole root. */
+export interface ContentSurveyReaderUsageSnapshot {
+  readonly ReaderName: string;
+  readonly IsRegisteredWithCna: boolean;
+  readonly FileCount: number;
+}
+
+/**
+ * CNA's content *survey*: what is under a content root, and which XNB readers it needs.
+ *
+ * Deliberately no `load` of any kind. The strict `ContentManager` owns loading, its cache and its
+ * asset identity; a second loader here would give one asset two owners. A survey gives it none.
+ */
+export interface CnaContentSurveyBackend {
+  createContentSurvey(device: NativeHandle, rootDirectory: string): NativeHandle;
+  destroyContentSurvey(survey: NativeHandle): void;
+  getContentSurveyRoot(survey: NativeHandle): string;
+  setContentSurveyRoot(survey: NativeHandle, rootDirectory: string): void;
+  refreshContentSurvey(survey: NativeHandle): void;
+  getContentSurveyEntryCount(survey: NativeHandle): number;
+  getContentSurveyEntry(survey: NativeHandle, index: number): ContentSurveyEntrySnapshot;
+  getContentSurveyReaderUsageCount(survey: NativeHandle): number;
+  getContentSurveyReaderUsage(
+    survey: NativeHandle, index: number,
+  ): ContentSurveyReaderUsageSnapshot;
+  isContentTypeReaderRegisteredWithCna(readerName: string): boolean;
+}
+
+export interface CnaComputeBackend {
+  supportsGraphicsCapability(device: NativeHandle, capability: number): boolean;
+  getMaxComputeWorkGroupCount(device: NativeHandle, axis: number): number;
+  getMaxComputeWorkGroupSize(device: NativeHandle, axis: number): number;
+  getMaxComputeWorkGroupInvocations(device: NativeHandle): number;
+}
+
+export interface CnaExtendedInputBackend {
+  getJoystickCount(): number;
+  getJoystickInfoAt(index: number): JoystickInfoSnapshot;
+  getJoystickNameAt(index: number): string;
+  getJoystickCapabilities(id: number): JoystickCapabilitiesSnapshot;
+  getJoystickCapabilitiesName(id: number): string;
+  getJoystickCapabilitiesGuid(id: number): string;
+  captureJoystickState(id: number): JoystickStateSnapshot;
+  getHapticCount(): number;
+  getHapticIdAt(index: number): number;
+  getHapticNameAt(index: number): string;
+  isJoystickHaptic(joystickId: number): boolean;
+  openHaptic(id: number): NativeHandle;
+  openHapticFromJoystick(joystickId: number): NativeHandle;
+  getHapticCapabilities(device: NativeHandle): HapticCapabilitiesSnapshot;
+  getHapticName(device: NativeHandle): string;
+  getHapticIsOpen(device: NativeHandle): boolean;
+  initHapticRumble(device: NativeHandle): boolean;
+  playHapticRumble(device: NativeHandle, strength: number, lengthMilliseconds: number): boolean;
+  stopHapticRumble(device: NativeHandle): boolean;
+  setHapticGain(device: NativeHandle, gain: number): boolean;
+  disposeHapticDevice(device: NativeHandle): void;
+  destroyHapticDevice(device: NativeHandle): void;
+  subscribeTextInput(handler: (character: string) => void): NativeHandle;
+  subscribeTextEditing(handler: (editing: TextEditingSnapshot) => void): NativeHandle;
+  subscribeTextEditingCandidates(
+    handler: (candidates: TextEditingCandidatesSnapshot) => void,
+  ): NativeHandle;
+  unsubscribeTextInput(registration: NativeHandle): void;
+  raiseTextInput(codeUnit: number): void;
+  raiseTextEditing(text: string, start: number, length: number): void;
+  raiseTextEditingCandidates(
+    candidates: readonly string[], selected: number, horizontal: boolean,
+  ): void;
+  startTextInput(): void;
+  startTextInputWithType(type: number): void;
+  stopTextInput(): void;
+  isTextInputActive(): boolean;
+  isScreenKeyboardShown(): boolean;
+  setTextInputRectangle(x: number, y: number, width: number, height: number): void;
+  resetTextInputForTests(): void;
+  getStockCursor(stock: number): NativeHandle;
+  createCursorFromTexture2D(texture: NativeHandle, originX: number, originY: number): NativeHandle;
+  disposeCursor(cursor: NativeHandle): void;
+  destroyCursor(cursor: NativeHandle): void;
+  setMouseCursor(cursor: NativeHandle): void;
+}
+
+export interface CnaContentBackend {
+  cnbHasMagic(bytes: Uint8Array): boolean;
+  cnbFormatMagic(): Uint8Array;
+  cnbCrc32c(bytes: Uint8Array): number;
+  cnbIsCompressionSupported(codec: number): boolean;
+  cnbCompressionName(codec: number): string;
+  cnbAssetTypeName(assetTypeId: number): string;
+  cnbAssetTypeIdFromName(name: string): number;
+  cnbIsCustomAssetTypeId(assetTypeId: number): boolean;
+  cnbMakeChunkId(a: number, b: number, c: number, d: number): number;
+  /** CNB's read limits, which the container writer also enforces while it builds. */
+  cnbWriterGetLimits(writer: NativeHandle): CnbLimitsSnapshot;
+  cnbWriterSetLimits(writer: NativeHandle, limits: CnbLimitsSnapshot): void;
+  cnbByteWriterCreate(initial: Uint8Array | null): NativeHandle;
+  cnbByteWriterDestroy(writer: NativeHandle): void;
+  cnbByteWriterWriteU8(writer: NativeHandle, value: number): void;
+  cnbByteWriterWriteU16(writer: NativeHandle, value: number): void;
+  cnbByteWriterWriteU32(writer: NativeHandle, value: number): void;
+  cnbByteWriterWriteU64(writer: NativeHandle, value: bigint): void;
+  cnbByteWriterWriteI32(writer: NativeHandle, value: number): void;
+  cnbByteWriterWriteF32(writer: NativeHandle, value: number): void;
+  cnbByteWriterWriteF64(writer: NativeHandle, value: number): void;
+  cnbByteWriterWriteString(writer: NativeHandle, value: string): void;
+  cnbByteWriterWriteBytes(writer: NativeHandle, bytes: Uint8Array): void;
+  cnbByteWriterWriteZeros(writer: NativeHandle, byteCount: number): void;
+  cnbByteWriterGetSize(writer: NativeHandle): number;
+  cnbByteWriterCopyBytes(writer: NativeHandle): Uint8Array;
+  cnbByteWriterTake(writer: NativeHandle): Uint8Array;
+  cnbWriterCreate(assetTypeId: number, assetSchemaVersion: number): NativeHandle;
+  cnbWriterDestroy(writer: NativeHandle): void;
+  cnbWriterSetMetadata(writer: NativeHandle, assetTypeName: string, contentName: string): void;
+  cnbWriterAddExternalReference(
+    writer: NativeHandle, flags: number, expectedAssetTypeId: number, logicalName: string,
+  ): void;
+  cnbWriterClearExternalReferences(writer: NativeHandle): void;
+  cnbWriterAddChunk(
+    writer: NativeHandle, chunkId: number, data: Uint8Array, flags: number, alignment: number,
+  ): void;
+  cnbWriterGetSchemaChunkCount(writer: NativeHandle): number;
+  cnbWriterSetCompression(writer: NativeHandle, codec: number, level: number): void;
+  cnbWriterAppendEmbeddedTexture2D(
+    writer: NativeHandle, texture: NativeHandle, label: string,
+  ): void;
+  cnbWriterBuild(writer: NativeHandle): Uint8Array;
+  cnbChunkIdString(id: number): string;
+  cnbIsWellFormedChunkId(id: number): boolean;
+  cnbTextureFormatName(format: number): string;
+  cnbIsBlockCompressedTextureFormat(format: number): boolean;
+  cnbTextureFormatUnitBytes(format: number): number;
+  cnbTextureLevelByteSize(format: number, width: number, height: number, depth: number): number;
+  cnbTextureFormatToSurfaceFormat(format: number): number;
+  cnbDocumentParse(bytes: Uint8Array, origin: string): NativeHandle;
+  cnbDocumentDestroy(document: NativeHandle): void;
+  cnbDocumentGetInfo(document: NativeHandle): CnbDocumentSnapshot;
+  cnbDocumentGetChunk(document: NativeHandle, index: number): CnbChunkEntrySnapshot;
+  cnbDocumentCopyChunkData(document: NativeHandle, index: number): Uint8Array;
+  cnbDocumentFindAll(document: NativeHandle, type: number): readonly number[];
+  cnbDocumentRequireMandatoryChunksUnderstood(document: NativeHandle, known: readonly number[]): void;
+  cnbDocumentGetExternalReference(document: NativeHandle, index: number): CnbExternalReferenceSnapshot;
+  cnbDecodeTexture2D(document: NativeHandle): NativeHandle;
+  cnbTextureDataDestroy(texture: NativeHandle): void;
+  cnbTextureDataGetInfo(texture: NativeHandle): CnbTextureInfoSnapshot;
+  cnbTextureDataGetLevelDimensions(
+    texture: NativeHandle, level: number,
+  ): { readonly Width: number; readonly Height: number; readonly Depth: number };
+  cnbTextureDataGetRepresentationFormat(texture: NativeHandle, representation: number): number;
+  cnbTextureDataGetLevelCount(texture: NativeHandle, representation: number): number;
+  cnbTextureDataCopyLevel(texture: NativeHandle, representation: number, level: number): Uint8Array;
+  cnbTextureDataCreate(
+    width: number, height: number, depth: number, faceCount: number, mipCount: number,
+  ): NativeHandle;
+  cnbTextureDataCreateRgba8(width: number, height: number, rgba: Uint8Array): NativeHandle;
+  cnbTextureDataAddRepresentation(texture: NativeHandle, format: number): number;
+  cnbTextureDataSetLevel(
+    texture: NativeHandle, representation: number, level: number, bytes: Uint8Array,
+  ): void;
+  cnbEncodeTexture2D(texture: NativeHandle, contentName: string): Uint8Array;
+  cnbDecodeSpriteFont(document: NativeHandle): NativeHandle;
+  cnbSpriteFontDataCreate(): NativeHandle;
+  cnbSpriteFontDataDestroy(font: NativeHandle): void;
+  cnbSpriteFontDataGetInfo(font: NativeHandle): CnbSpriteFontInfoSnapshot;
+  cnbSpriteFontDataSetInfo(font: NativeHandle, info: {
+    readonly LineSpacing: number;
+    readonly Spacing: number;
+    readonly DefaultCharacter: number;
+    readonly HasDefaultCharacter: boolean;
+  }): void;
+  cnbSpriteFontDataGetGlyph(font: NativeHandle, index: number): CnbGlyphSnapshot;
+  cnbSpriteFontDataAddGlyph(font: NativeHandle, glyph: CnbGlyphSnapshot): number;
+  cnbSpriteFontDataSetAtlas(font: NativeHandle, atlas: NativeHandle): void;
+  cnbSpriteFontDataCopyAtlas(font: NativeHandle): NativeHandle;
+  cnbEncodeSpriteFont(font: NativeHandle, contentName: string): Uint8Array;
+  cnbEncodeCurve(curve: CnbCurveSnapshot, contentName: string): Uint8Array;
+  cnbDecodeCurve(document: NativeHandle): CnbCurveSnapshot;
+  cnbEncodeAnimationClip(
+    durationSeconds: number,
+    tracks: readonly { readonly BoneIndex: number; readonly Keyframes: readonly CnbKeyframeSnapshot[] }[],
+    targetSpace: number,
+    contentName: string,
+  ): Uint8Array;
+  cnbDecodeAnimationClip(document: NativeHandle): NativeHandle;
+  cnbAnimationClipDestroy(clip: NativeHandle): void;
+  cnbAnimationClipGet(clip: NativeHandle): {
+    readonly DurationSeconds: number;
+    readonly TrackCount: number;
+    readonly TargetSpace: number;
+  };
+  cnbAnimationClipGetTrack(clip: NativeHandle, track: number): {
+    readonly BoneIndex: number;
+    readonly KeyframeCount: number;
+  };
+  cnbAnimationClipCopyKeyframes(
+    clip: NativeHandle, track: number,
+  ): readonly CnbKeyframeSnapshot[];
+  cnbSoundEffectDataCreate(info: CnbSoundEffectInfoSnapshot, samples: Uint8Array): NativeHandle;
+  cnbSoundEffectDataDestroy(sound: NativeHandle): void;
+  cnbSoundEffectDataGetInfo(sound: NativeHandle): CnbSoundEffectInfoSnapshot;
+  cnbSoundEffectDataCopySamples(sound: NativeHandle): Uint8Array;
+  cnbEncodeSoundEffect(sound: NativeHandle, contentName: string): Uint8Array;
+  cnbDecodeSoundEffect(document: NativeHandle): NativeHandle;
+  cnbDecodeWavAsSoundEffect(bytes: Uint8Array, origin: string): NativeHandle;
+  cnbEncodeSong(
+    streamReference: string, name: string, durationMilliseconds: number, contentName: string,
+  ): Uint8Array;
+  cnbDecodeSongDuration(document: NativeHandle): number;
+  cnbDecodeSongName(document: NativeHandle): string;
+  cnbDecodeSongStreamReference(document: NativeHandle): string;
+  cnbEncodeVideo(
+    streamReference: string, info: CnbVideoInfoSnapshot, contentName: string,
+  ): Uint8Array;
+  cnbDecodeVideo(document: NativeHandle): CnbVideoInfoSnapshot;
+  cnbDecodeVideoStreamReference(document: NativeHandle): string;
+  cnbModelCreate(): NativeHandle;
+  cnbModelDestroy(model: NativeHandle): void;
+  cnbModelSetFlags(
+    model: NativeHandle, appliesGltfLightingPolicy: boolean, hasBoneHierarchy: boolean,
+  ): void;
+  cnbModelGetInfo(model: NativeHandle): CnbModelInfoSnapshot;
+  cnbModelAddBone(
+    model: NativeHandle, name: string, parent: number, transform: readonly number[],
+  ): number;
+  cnbModelGetBone(
+    model: NativeHandle, index: number,
+  ): { readonly Parent: number; readonly Transform: readonly number[] };
+  cnbModelGetBoneName(model: NativeHandle, index: number): string;
+  cnbModelAddPart(
+    model: NativeHandle, info: CnbModelPartSnapshot, name: string, externalEffect: string,
+  ): number;
+  cnbModelGetPart(model: NativeHandle, index: number): CnbModelPartSnapshot;
+  cnbModelGetPartName(model: NativeHandle, index: number): string;
+  cnbModelGetPartExternalEffect(model: NativeHandle, index: number): string;
+  cnbModelSetPartVertexBytes(model: NativeHandle, index: number, bytes: Uint8Array): void;
+  cnbModelCopyPartVertexBytes(model: NativeHandle, index: number): Uint8Array;
+  cnbModelSetPartIndexBytes(model: NativeHandle, index: number, bytes: Uint8Array): void;
+  cnbModelCopyPartIndexBytes(model: NativeHandle, index: number): Uint8Array;
+  cnbModelGetMaterial(model: NativeHandle, part: number): CnbMaterialSnapshot;
+  cnbModelSetMaterial(model: NativeHandle, part: number, material: CnbMaterialSnapshot): void;
+  cnbModelGetMaterialTexture(model: NativeHandle, part: number, slot: number): string;
+  cnbModelSetMaterialTexture(
+    model: NativeHandle, part: number, slot: number, assetName: string,
+  ): void;
+  cnbModelAddMesh(
+    model: NativeHandle, name: string, parentBone: number, partIndices: readonly number[],
+  ): number;
+  cnbModelGetMesh(
+    model: NativeHandle, index: number,
+  ): { readonly ParentBone: number; readonly PartIndexCount: number };
+  cnbModelGetMeshName(model: NativeHandle, index: number): string;
+  cnbModelCopyMeshPartIndices(model: NativeHandle, index: number): readonly number[];
+  cnbModelSetSkeleton(
+    model: NativeHandle,
+    hierarchy: readonly number[],
+    bindPose: readonly number[],
+    inverseBindPose: readonly number[],
+    rootPrefix: readonly number[],
+  ): void;
+  cnbModelGetSkeleton(
+    model: NativeHandle,
+  ): { readonly JointCount: number; readonly HasRootPrefix: boolean };
+  cnbModelCopySkeletonHierarchy(model: NativeHandle): readonly number[];
+  cnbModelCopySkeletonMatrices(model: NativeHandle, set: number): readonly number[];
+  cnbModelAddLight(
+    model: NativeHandle, direction: readonly number[], diffuseColor: readonly number[],
+  ): number;
+  cnbModelGetLight(
+    model: NativeHandle, index: number,
+  ): { readonly Direction: readonly number[]; readonly DiffuseColor: readonly number[] };
+  cnbEncodeModel(model: NativeHandle, contentName: string): Uint8Array;
+  cnbDecodeModel(document: NativeHandle): NativeHandle;
+}
+
+
+/** Host facts a game reads once, from CNA's extended device layer. */
+export interface HostDeviceSnapshot {
+  readonly LogicalCpuCoreCount: number;
+  readonly SystemRamMegabytes: number;
+  readonly PowerState: number;
+  readonly BatteryPercent: number;
+  readonly SecondsRemaining: number;
+  readonly ContentScale: number;
+  readonly SafeArea: {
+    readonly X: number; readonly Y: number; readonly Width: number; readonly Height: number;
+  };
+}
+
+/** One entry of the user's preferred-locale list, in preference order. */
+export interface PreferredLocaleSnapshot {
+  readonly Language: string;
+  readonly Country: string;
+}
+
+/** What the host's cameras are, and whether the platform has any camera concept at all. */
+export interface CameraInventorySnapshot {
+  readonly IsSupported: boolean;
+  readonly Devices: readonly { readonly Name: string; readonly Position: number }[];
+}
+
+/**
+ * CNA's extended device layer: the host itself rather than anything XNA modelled.
+ *
+ * Every route is exported in both build states and answers `NOT_SUPPORTED` where the layer is
+ * compiled out, so {@link isDeviceExtensionLayerAvailable} is asked first rather than a refusal
+ * being read as a device that is missing.
+ */
+export interface CnaDeviceBackend {
+  isDeviceExtensionLayerAvailable(): boolean;
+  getHostDeviceInfo(): HostDeviceSnapshot;
+  getPreferredLocales(): readonly PreferredLocaleSnapshot[];
+  setClipboardText(text: string): boolean;
+  getCameras(): CameraInventorySnapshot;
+  /** Opens the platform's default camera. Creation succeeds even where there is none. */
+  createCamera(): NativeHandle;
+  /** Opens a camera backed by CNA's own test backend, which is the only one a build host has. */
+  createTestCamera(): NativeHandle;
+  getCameraState(camera: NativeHandle): number;
+  getCameraFrameWidth(camera: NativeHandle): number;
+  getCameraFrameHeight(camera: NativeHandle): number;
+  tryAcquireCameraFrame(camera: NativeHandle, texture: NativeHandle): boolean;
+  setTestCameraState(camera: NativeHandle, state: number): void;
+  setTestCameraFrame(
+    camera: NativeHandle, width: number, height: number, pixels: Uint8Array | null,
+  ): void;
+  destroyCamera(camera: NativeHandle): void;
+}
+
+
+/**
+ * The parts of gamer services a host without platform services can answer honestly.
+ *
+ * The dispatcher's own lifetime and the Guide's state are real CNA state that any native component
+ * would see. Everything that needs a signed-in user, a friends list or a platform overlay is
+ * deliberately absent: a fabricated gamer would be worse than the
+ * `GamerServicesNotAvailableException` XNA itself raises where the platform is missing.
+ */
+export interface CnaGamerServicesBackend {
+  initializeGamerServices(): void;
+  getGamerServicesIsInitialized(): boolean;
+  updateGamerServices(): void;
+  getGamerServicesWindowHandle(): bigint;
+  setGamerServicesWindowHandle(handle: bigint): void;
+  getGuideIsVisible(): boolean;
+  getGuideIsTrialMode(): boolean;
+  getGuideSimulateTrialMode(): boolean;
+  setGuideSimulateTrialMode(value: boolean): void;
+  getGuideIsScreenSaverEnabled(): boolean;
+  setGuideIsScreenSaverEnabled(value: boolean): void;
+  getGuideNotificationPosition(): number;
+  /**
+   * The Guide's two genuinely asynchronous operations. The token that comes back is opaque and is
+   * only ever handed straight back to the matching end route; the continuation is invoked when
+   * CNA completes the operation.
+   */
+  guideBeginShowMessageBox(
+    player: number, title: string, text: string, buttons: readonly string[],
+    focusButton: number, icon: number, onCompleted: () => void,
+  ): unknown;
+  guideEndShowMessageBox(token: unknown): number | null;
+  guideHasPendingMessageBox(): boolean;
+  guidePendingMessageBoxFocusButton(): number;
+  guideSimulateMessageBoxClick(buttonIndex: number): void;
+  guideBeginShowKeyboardInput(
+    player: number, title: string, description: string, defaultText: string,
+    usePasswordMode: boolean, onCompleted: () => void,
+  ): unknown;
+  guideEndShowKeyboardInput(token: unknown): string | null;
+  guideHasPendingKeyboardInput(): boolean;
+  guideWasKeyboardInputCanceled(): boolean;
+  guidePendingKeyboardInputTitle(): string;
+  guidePendingKeyboardInputDescription(): string;
+  guidePendingKeyboardInputDisplayText(): string;
+  guideSimulateKeyboardInputCancel(): void;
+  guideResetPendingKeyboardInput(): void;
+  setGuideNotificationPosition(position: number): void;
+}
+
+
+/** Which of CNA's sensor families the platform has at all. */
+export interface SensorSupportSnapshot {
+  readonly Accelerometer: boolean;
+  readonly Compass: boolean;
+  readonly Gyroscope: boolean;
+  readonly Motion: boolean;
+}
+
+/** A sensor's state, plus how often it is asked to update. */
+export interface SensorStateSnapshot {
+  readonly State: number;
+  readonly IsDataValid: boolean;
+  readonly TimeBetweenUpdatesTicks: bigint;
+}
+
+/** One accelerometer reading, in g per axis, with the timestamp that identifies it. */
+/** One compass reading: two headings, their accuracy and the raw magnetometer vector. */
+export interface CompassReadingSnapshot {
+  readonly HeadingAccuracy: number;
+  readonly MagneticHeading: number;
+  readonly TrueHeading: number;
+  readonly MagnetometerReading: { readonly X: number; readonly Y: number; readonly Z: number };
+  readonly TimestampTicks: bigint;
+  readonly TimestampOffsetTicks: bigint;
+}
+
+/** One gyroscope reading: the device's rotation rate about each axis. */
+export interface GyroscopeReadingSnapshot {
+  readonly RotationRate: { readonly X: number; readonly Y: number; readonly Z: number };
+  readonly TimestampTicks: bigint;
+  readonly TimestampOffsetTicks: bigint;
+}
+
+/** One motion reading: a fused attitude plus the three vectors it was fused from. */
+export interface MotionReadingSnapshot {
+  readonly Attitude: {
+    readonly Pitch: number;
+    readonly Roll: number;
+    readonly Yaw: number;
+    readonly Quaternion: readonly number[];
+    readonly RotationMatrix: readonly number[];
+    readonly TimestampTicks: bigint;
+    readonly TimestampOffsetTicks: bigint;
+  };
+  readonly DeviceAcceleration: { readonly X: number; readonly Y: number; readonly Z: number };
+  readonly DeviceRotationRate: { readonly X: number; readonly Y: number; readonly Z: number };
+  readonly Gravity: { readonly X: number; readonly Y: number; readonly Z: number };
+  readonly TimestampTicks: bigint;
+  readonly TimestampOffsetTicks: bigint;
+}
+
+export interface AccelerometerReadingSnapshot {
+  readonly X: number;
+  readonly Y: number;
+  readonly Z: number;
+  readonly TimestampTicks: bigint;
+  readonly TimestampOffsetTicks: bigint;
+}
+
+/**
+ * CNA's sensors.
+ *
+ * The rule that shapes this boundary: a sensor that is not there is not a sensor reading zero.
+ * Support is asked separately from state, and a host without an accelerometer says so rather than
+ * handing back three zeroes a game would integrate into a wrong orientation.
+ */
+export interface CnaSensorBackend {
+  getSensorSupport(): SensorSupportSnapshot;
+  createAccelerometer(): NativeHandle;
+  destroyAccelerometer(sensor: NativeHandle): void;
+  startAccelerometer(sensor: NativeHandle): void;
+  stopAccelerometer(sensor: NativeHandle): void;
+  getAccelerometerState(sensor: NativeHandle): SensorStateSnapshot;
+  setAccelerometerInterval(sensor: NativeHandle, ticks: bigint): void;
+  getAccelerometerReading(sensor: NativeHandle): AccelerometerReadingSnapshot;
+  createCompass(): NativeHandle;
+  destroyCompass(sensor: NativeHandle): void;
+  startCompass(sensor: NativeHandle): void;
+  stopCompass(sensor: NativeHandle): void;
+  disposeCompass(sensor: NativeHandle): void;
+  getCompassState(sensor: NativeHandle): number;
+  getCompassIsDataValid(sensor: NativeHandle): boolean;
+  getCompassReading(sensor: NativeHandle): CompassReadingSnapshot;
+  getCompassInterval(sensor: NativeHandle): bigint;
+  setCompassInterval(sensor: NativeHandle, ticks: bigint): void;
+  injectCompassReading(sensor: NativeHandle, reading: CompassReadingSnapshot): void;
+  setCompassTestBackend(sensor: NativeHandle, installed: boolean, supported: boolean): void;
+  createGyroscope(): NativeHandle;
+  destroyGyroscope(sensor: NativeHandle): void;
+  startGyroscope(sensor: NativeHandle): void;
+  stopGyroscope(sensor: NativeHandle): void;
+  disposeGyroscope(sensor: NativeHandle): void;
+  getGyroscopeState(sensor: NativeHandle): number;
+  getGyroscopeIsDataValid(sensor: NativeHandle): boolean;
+  getGyroscopeReading(sensor: NativeHandle): GyroscopeReadingSnapshot;
+  getGyroscopeInterval(sensor: NativeHandle): bigint;
+  setGyroscopeInterval(sensor: NativeHandle, ticks: bigint): void;
+  injectGyroscopeReading(sensor: NativeHandle, x: number, y: number, z: number): void;
+  setGyroscopeSupported(sensor: NativeHandle, supported: boolean): void;
+  createMotion(): NativeHandle;
+  destroyMotion(sensor: NativeHandle): void;
+  startMotion(sensor: NativeHandle): void;
+  stopMotion(sensor: NativeHandle): void;
+  disposeMotion(sensor: NativeHandle): void;
+  getMotionState(sensor: NativeHandle): number;
+  getMotionIsDataValid(sensor: NativeHandle): boolean;
+  getMotionIsNorthReferenced(sensor: NativeHandle): boolean;
+  getMotionReading(sensor: NativeHandle): MotionReadingSnapshot;
+  getMotionInterval(sensor: NativeHandle): bigint;
+  setMotionInterval(sensor: NativeHandle, ticks: bigint): void;
+  injectMotionReading(sensor: NativeHandle, reading: MotionReadingSnapshot): void;
+  setMotionTestBackend(
+    sensor: NativeHandle, installed: boolean, supported: boolean, northReferenced: boolean,
+  ): void;
+}
+
+export interface CnaBackend {
+  readonly Kind: BackendKind;
+  readonly IsAvailable: boolean;
+  readonly AbiVersion: string | null;
+  readonly Detail: string;
+  readonly Audio?: CnaAudioBackend;
+  readonly Xact?: CnaXactBackend;
+  readonly Media?: CnaMediaBackend;
+  readonly Video?: CnaVideoBackend;
+  readonly Storage?: CnaStorageBackend;
+  readonly Graphics?: CnaGraphicsBackend;
+  readonly Effects?: CnaEffectBackend;
+  readonly Window?: CnaGameWindowBackend;
+  readonly RuntimeServices?: CnaRuntimeServicesBackend;
+  readonly GraphicsExtensions?: CnaGraphicsExtensionBackend;
+  readonly Compute?: CnaComputeBackend;
+  readonly ContentSurvey?: CnaContentSurveyBackend;
+  readonly InputDeviceInventory?: CnaInputDeviceInventoryBackend;
+  readonly MediaLibrary?: CnaMediaLibraryBackend;
+  readonly Avatars?: CnaAvatarBackend;
+  readonly SpriteFontOracle?: CnaSpriteFontOracleBackend;
+  readonly Content?: CnaContentBackend;
+  readonly Devices?: CnaDeviceBackend;
+  readonly GamerServices?: CnaGamerServicesBackend;
+  readonly Sensors?: CnaSensorBackend;
+  readonly ExtendedInput?: CnaExtendedInputBackend;
+  readonly GraphicsAdapters?: CnaGraphicsAdapterBackend;
+  openTitleStream?(name: string): Uint8Array;
+
+  initialize(): Promise<void>;
+  bindGameLifetimeForInternalUse?(lifetime: NativeResourceLifetime | null): void;
+  updateFrameworkDispatcher(): void;
+  getLastError(): string | null;
+  createGame(callbacks: CnaGameCallbacks, configuration: CnaGameConfiguration): NativeHandle;
+  runGame(game: NativeHandle): Promise<void>;
+  runGameOneFrame(game: NativeHandle): void;
+  exitGame(game: NativeHandle): void;
+  destroyGame(game: NativeHandle): void;
+  /**
+   * Creates a GraphicsDevice that belongs to no game, which is what XNA's public `GraphicsDevice`
+   * constructor makes. Optional: a backend without it leaves that constructor refusing by name.
+   */
+  createStandaloneGraphicsDevice?(
+    adapterIndex: number, graphicsProfile: number, parameters: StandaloneDeviceParameters,
+  ): NativeHandle;
+  /** Releases a caller-created device and everything made on it. */
+  destroyStandaloneGraphicsDevice?(device: NativeHandle): void;
+  createGraphicsDeviceManager(game: NativeHandle): NativeHandle;
+  configureGraphicsDeviceManager(
+    manager: NativeHandle,
+    configuration: GraphicsManagerConfiguration,
+  ): void;
+  applyGraphicsDeviceManagerChanges(manager: NativeHandle): void;
+  toggleGraphicsDeviceManagerFullScreen(manager: NativeHandle): void;
+  createManagedGraphicsDevice(manager: NativeHandle): void;
+  beginGraphicsDeviceManagerDraw(manager: NativeHandle): boolean;
+  endGraphicsDeviceManagerDraw(manager: NativeHandle): void;
+  destroyGraphicsDeviceManager(manager: NativeHandle): void;
+  borrowGraphicsDevice(manager: NativeHandle): NativeHandle;
+  clearGraphicsDevice(device: NativeHandle, packedColor: number): void;
+  presentGraphicsDevice(device: NativeHandle): void;
+  getRendererInfo(device: NativeHandle): BackendRendererInfo;
+  createTexture2D(
+    device: NativeHandle,
+    width: number,
+    height: number,
+    mipMap: boolean,
+    surfaceFormat: number,
+  ): NativeHandle;
+  getTexture2DInfo(texture: NativeHandle): Texture2DInfo;
+  createTexture2DFromEncodedMemory(
+    device: NativeHandle,
+    encoded: Uint8Array,
+    decode: { readonly Width: number; readonly Height: number; readonly Zoom: boolean } | null,
+  ): NativeHandle;
+  setTexture2DData(texture: NativeHandle, transfer: Texture2DTransfer, bytes: Uint8Array): void;
+  getTexture2DData(texture: NativeHandle, transfer: Texture2DTransfer): Uint8Array;
+  encodeTexture2D(
+    texture: NativeHandle,
+    imageFormat: number,
+    width: number,
+    height: number,
+  ): Uint8Array;
+  destroyTexture2D(texture: NativeHandle): void;
+  createSpriteBatch(device: NativeHandle): NativeHandle;
+  beginSpriteBatch(spriteBatch: NativeHandle, sortMode: number): void;
+  submitSpriteBatch(spriteBatch: NativeHandle, commands: readonly SpriteBatchCommand[]): void;
+  endSpriteBatch(spriteBatch: NativeHandle): void;
+  destroySpriteBatch(spriteBatch: NativeHandle): void;
+  createVertexBuffer(
+    device: NativeHandle, vertexStride: number, elements: readonly VertexElementSnapshot[],
+    vertexCount: number, usage: number, dynamic: boolean,
+  ): NativeHandle;
+  setVertexBufferRaw(buffer: NativeHandle, bytes: Uint8Array, vertexCount: number, vertexStride: number): void;
+  getVertexBufferRaw(buffer: NativeHandle, vertexCount: number, vertexStride: number): Uint8Array;
+  destroyVertexBuffer(buffer: NativeHandle): void;
+  createIndexBuffer(
+    device: NativeHandle, elementSize: number, indexCount: number, usage: number, dynamic: boolean,
+  ): NativeHandle;
+  setIndexBufferRaw(buffer: NativeHandle, elementSize: number, bytes: Uint8Array): void;
+  getIndexBufferRaw(buffer: NativeHandle, elementSize: number, indexCount: number): Uint8Array;
+  destroyIndexBuffer(buffer: NativeHandle): void;
+
+  getKeyboardState(playerIndex: PlayerIndex | null): KeyboardState;
+  getMouseState(): MouseState;
+  setMousePosition(x: number, y: number): void;
+  readonly mouseWindowHandle: bigint;
+  setMouseWindowHandle(value: bigint): void;
+  getGamePadState(playerIndex: PlayerIndex, deadZoneMode: GamePadDeadZone): GamePadState;
+  getGamePadCapabilities(playerIndex: PlayerIndex): GamePadCapabilities;
+  setGamePadVibration(playerIndex: PlayerIndex, leftMotor: number, rightMotor: number): boolean;
+  getTouchState(): TouchCollection;
+  getTouchCapabilities(): TouchPanelCapabilities;
+  isGestureAvailable(): boolean;
+  readGesture(): GestureSample;
+  readonly touchWindowHandle: bigint;
+  setTouchWindowHandle(value: bigint): void;
+}
+
+class UnavailableBackend implements CnaBackend {
+  public readonly Kind = "unavailable";
+  public readonly IsAvailable = false;
+  public readonly AbiVersion = null;
+  public readonly Detail =
+    `CNA publishes experimental C ABI ${CNA_ABI_MAJOR}.${CNA_ABI_MINOR}.x headers, but this package ` +
+    "has no loaded WebAssembly or Node backend artifact";
+
+  public initialize(): Promise<void> { return Promise.reject(this.error()); }
+  public updateFrameworkDispatcher(): void { this.fail(); }
+  public getLastError(): string | null { return this.Detail; }
+  public createGame(_callbacks: CnaGameCallbacks, _configuration: CnaGameConfiguration): NativeHandle {
+    return this.fail();
+  }
+  public runGame(_game: NativeHandle): Promise<void> { return Promise.reject(this.error()); }
+  public runGameOneFrame(_game: NativeHandle): void { this.fail(); }
+  public exitGame(_game: NativeHandle): void { this.fail(); }
+  public destroyGame(_game: NativeHandle): void { this.fail(); }
+  public createGraphicsDeviceManager(_game: NativeHandle): NativeHandle { return this.fail(); }
+  public configureGraphicsDeviceManager(
+    _manager: NativeHandle,
+    _configuration: GraphicsManagerConfiguration,
+  ): void { this.fail(); }
+  public applyGraphicsDeviceManagerChanges(_manager: NativeHandle): void { this.fail(); }
+  public toggleGraphicsDeviceManagerFullScreen(_manager: NativeHandle): void { this.fail(); }
+  public createManagedGraphicsDevice(_manager: NativeHandle): void { this.fail(); }
+  public beginGraphicsDeviceManagerDraw(_manager: NativeHandle): boolean { return this.fail(); }
+  public endGraphicsDeviceManagerDraw(_manager: NativeHandle): void { this.fail(); }
+  public destroyGraphicsDeviceManager(_manager: NativeHandle): void { this.fail(); }
+  public borrowGraphicsDevice(_manager: NativeHandle): NativeHandle { return this.fail(); }
+  public clearGraphicsDevice(_device: NativeHandle, _packedColor: number): void { this.fail(); }
+  public presentGraphicsDevice(_device: NativeHandle): void { this.fail(); }
+  public getRendererInfo(_device: NativeHandle): BackendRendererInfo { return this.fail(); }
+  public createTexture2D(
+    _device: NativeHandle,
+    _width: number,
+    _height: number,
+    _mipMap: boolean,
+    _surfaceFormat: number,
+  ): NativeHandle { return this.fail(); }
+  public getTexture2DInfo(_texture: NativeHandle): Texture2DInfo { return this.fail(); }
+  public createTexture2DFromEncodedMemory(
+    _device: NativeHandle,
+    _encoded: Uint8Array,
+    _decode: { readonly Width: number; readonly Height: number; readonly Zoom: boolean } | null,
+  ): NativeHandle { return this.fail(); }
+  public setTexture2DData(
+    _texture: NativeHandle,
+    _transfer: Texture2DTransfer,
+    _bytes: Uint8Array,
+  ): void { this.fail(); }
+  public getTexture2DData(
+    _texture: NativeHandle,
+    _transfer: Texture2DTransfer,
+  ): Uint8Array { return this.fail(); }
+  public encodeTexture2D(
+    _texture: NativeHandle,
+    _imageFormat: number,
+    _width: number,
+    _height: number,
+  ): Uint8Array { return this.fail(); }
+  public destroyTexture2D(_texture: NativeHandle): void { this.fail(); }
+  public createSpriteBatch(_device: NativeHandle): NativeHandle { return this.fail(); }
+  public beginSpriteBatch(_spriteBatch: NativeHandle, _sortMode: number): void { this.fail(); }
+  public submitSpriteBatch(
+    _spriteBatch: NativeHandle,
+    _commands: readonly SpriteBatchCommand[],
+  ): void { this.fail(); }
+  public endSpriteBatch(_spriteBatch: NativeHandle): void { this.fail(); }
+  public destroySpriteBatch(_spriteBatch: NativeHandle): void { this.fail(); }
+  public createVertexBuffer(
+    _device: NativeHandle, _vertexStride: number, _elements: readonly VertexElementSnapshot[],
+    _vertexCount: number, _usage: number, _dynamic: boolean,
+  ): NativeHandle { return this.fail(); }
+  public setVertexBufferRaw(
+    _buffer: NativeHandle, _bytes: Uint8Array, _vertexCount: number, _vertexStride: number,
+  ): void { this.fail(); }
+  public getVertexBufferRaw(
+    _buffer: NativeHandle, _vertexCount: number, _vertexStride: number,
+  ): Uint8Array { return this.fail(); }
+  public destroyVertexBuffer(_buffer: NativeHandle): void { this.fail(); }
+  public createIndexBuffer(
+    _device: NativeHandle, _elementSize: number, _indexCount: number,
+    _usage: number, _dynamic: boolean,
+  ): NativeHandle { return this.fail(); }
+  public setIndexBufferRaw(
+    _buffer: NativeHandle, _elementSize: number, _bytes: Uint8Array,
+  ): void { this.fail(); }
+  public getIndexBufferRaw(
+    _buffer: NativeHandle, _elementSize: number, _indexCount: number,
+  ): Uint8Array { return this.fail(); }
+  public destroyIndexBuffer(_buffer: NativeHandle): void { this.fail(); }
+
+  public getKeyboardState(_playerIndex: PlayerIndex | null): KeyboardState { return this.fail(); }
+  public getMouseState(): MouseState { return this.fail(); }
+  public setMousePosition(_x: number, _y: number): void { this.fail(); }
+  public get mouseWindowHandle(): bigint { return this.fail(); }
+  public setMouseWindowHandle(_value: bigint): void { this.fail(); }
+  public getGamePadState(_playerIndex: PlayerIndex, _deadZoneMode: GamePadDeadZone): GamePadState {
+    return this.fail();
+  }
+  public getGamePadCapabilities(_playerIndex: PlayerIndex): GamePadCapabilities { return this.fail(); }
+  public setGamePadVibration(
+    _playerIndex: PlayerIndex,
+    _leftMotor: number,
+    _rightMotor: number,
+  ): boolean { return this.fail(); }
+  public getTouchState(): TouchCollection { return this.fail(); }
+  public getTouchCapabilities(): TouchPanelCapabilities { return this.fail(); }
+  public isGestureAvailable(): boolean { return this.fail(); }
+  public readGesture(): GestureSample { return this.fail(); }
+  public get touchWindowHandle(): bigint { return this.fail(); }
+  public setTouchWindowHandle(_value: bigint): void { this.fail(); }
+
+  private error(): NativeUnavailableError { return new NativeUnavailableError(this.Detail); }
+  private fail(): never { throw this.error(); }
+}
+
+let activeBackend: CnaBackend = new UnavailableBackend();
+
+export function getBackend(): CnaBackend {
+  return activeBackend;
+}
+
+export function setBackendForInternalUse(backend: CnaBackend): void {
+  activeBackend = backend;
+}

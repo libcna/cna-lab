@@ -1,0 +1,212 @@
+{
+  "GeneratedFrom": {
+    "Artifact": "/home/robertvokac/deps/cna-c-abi-0.35.0-wasm-webgl2",
+    "CnaHeaders": "/rv/data/development/github.com/libcna/cna/modules/c-api/include/CNA/C"
+  },
+  "Totals": {
+    "WASM_BOUND_INTERFACES": 23,
+    "WASM_PARTIAL_INTERFACES": 0,
+    "WASM_ABSENT_INTERFACES": 0,
+    "WASM_BOUND_METHODS": 683,
+    "WASM_ABSENT_METHODS": 0,
+    "ACTIONABLE_LOCAL": 0,
+    "UNCLASSIFIED_WASM_BACKEND_GAP": 0,
+    "STALE_CLASSIFICATIONS": 0,
+    "UNWIRED_WASM_FACADES": 0,
+    "WASM_PARTIAL_METHODS": 8,
+    "UNCLASSIFIED_PARTIAL_METHODS": 0
+  },
+  "Interfaces": {
+    "Audio": {
+      "total": 31,
+      "bound": 31,
+      "absent": 0
+    },
+    "Avatar": {
+      "total": 2,
+      "bound": 2,
+      "absent": 0
+    },
+    "Backend": {
+      "total": 54,
+      "bound": 54,
+      "absent": 0
+    },
+    "Compute": {
+      "total": 4,
+      "bound": 4,
+      "absent": 0
+    },
+    "Content": {
+      "total": 126,
+      "bound": 126,
+      "absent": 0
+    },
+    "ContentSurvey": {
+      "total": 10,
+      "bound": 10,
+      "absent": 0
+    },
+    "Device": {
+      "total": 14,
+      "bound": 14,
+      "absent": 0
+    },
+    "Effect": {
+      "total": 21,
+      "bound": 21,
+      "absent": 0
+    },
+    "ExtendedInput": {
+      "total": 41,
+      "bound": 41,
+      "absent": 0
+    },
+    "GamerServices": {
+      "total": 27,
+      "bound": 27,
+      "absent": 0
+    },
+    "GameWindow": {
+      "total": 12,
+      "bound": 12,
+      "absent": 0
+    },
+    "Graphics": {
+      "total": 48,
+      "bound": 48,
+      "absent": 0
+    },
+    "GraphicsAdapter": {
+      "total": 11,
+      "bound": 11,
+      "absent": 0
+    },
+    "GraphicsExtension": {
+      "total": 114,
+      "bound": 114,
+      "absent": 0
+    },
+    "InputDeviceInventory": {
+      "total": 11,
+      "bound": 11,
+      "absent": 0
+    },
+    "Media": {
+      "total": 16,
+      "bound": 16,
+      "absent": 0
+    },
+    "MediaLibrary": {
+      "total": 8,
+      "bound": 8,
+      "absent": 0
+    },
+    "RuntimeServices": {
+      "total": 15,
+      "bound": 15,
+      "absent": 0
+    },
+    "Sensor": {
+      "total": 45,
+      "bound": 45,
+      "absent": 0
+    },
+    "SpriteFontOracle": {
+      "total": 4,
+      "bound": 4,
+      "absent": 0
+    },
+    "Storage": {
+      "total": 17,
+      "bound": 17,
+      "absent": 0
+    },
+    "Video": {
+      "total": 12,
+      "bound": 12,
+      "absent": 0
+    },
+    "Xact": {
+      "total": 40,
+      "bound": 40,
+      "absent": 0
+    }
+  },
+  "Methods": [],
+  "PartialMethods": [
+    {
+      "Interface": "Backend",
+      "Method": "borrowGraphicsDevice",
+      "RoutesNotReached": [
+        "cna_graphics_device_get_renderer_name_size"
+      ],
+      "Status": "DELIBERATE_NON_BINDING",
+      "Reason": "the renderer name's byte length is a *field* of CNA_RendererInfo, which this backend reads in the same call that gets the rest of the renderer's description. The Node bridge asks the separate size route because it does not read the structure; both arrive at the same length"
+    },
+    {
+      "Interface": "Backend",
+      "Method": "createGame",
+      "RoutesNotReached": [
+        "cna_game_run",
+        "cna_title_location_set_path_ext"
+      ],
+      "Status": "DELIBERATE_NON_BINDING",
+      "Reason": "cna_game_run is CNA's blocking loop, and a browser cannot have one: a page that blocks never yields to the event loop that would drive it. The browser backend drives frames from requestAnimationFrame through cna_game_run_one_frame, which is the same contract the Node backend's runGame reaches for a fixed frame count. The route is attributed to createGame only because the two share a bridge helper"
+    },
+    {
+      "Interface": "Backend",
+      "Method": "getRendererInfo",
+      "RoutesNotReached": [
+        "cna_graphics_device_get_renderer_name_size"
+      ],
+      "Status": "DELIBERATE_NON_BINDING",
+      "Reason": "the same CNA_RendererInfo field as borrowGraphicsDevice above: the length is already in the structure this method reads, so the separate size route would be a second answer to a question already answered"
+    },
+    {
+      "Interface": "Content",
+      "Method": "cnbModelGetBoneName",
+      "RoutesNotReached": [
+        "cna_cnb_model_get_bone_name_size"
+      ],
+      "Status": "DELIBERATE_NON_BINDING",
+      "Reason": "the WebAssembly backend reads a CNB model's bone name through the copy route's own length probe, which reports the byte count when it is given a null destination -- so the separate size route has nothing left to answer. One route instead of two, the same string out, and one fewer place for the two to disagree about a length"
+    },
+    {
+      "Interface": "Content",
+      "Method": "cnbModelGetMaterialTexture",
+      "RoutesNotReached": [
+        "cna_cnb_model_get_material_texture_size"
+      ],
+      "Status": "DELIBERATE_NON_BINDING",
+      "Reason": "the WebAssembly backend reads a CNB model's material texture name through the copy route's own length probe, which reports the byte count when it is given a null destination -- so the separate size route has nothing left to answer. One route instead of two, the same string out, and one fewer place for the two to disagree about a length"
+    },
+    {
+      "Interface": "Content",
+      "Method": "cnbModelGetMeshName",
+      "RoutesNotReached": [
+        "cna_cnb_model_get_mesh_name_size"
+      ],
+      "Status": "DELIBERATE_NON_BINDING",
+      "Reason": "the WebAssembly backend reads a CNB model's mesh name through the copy route's own length probe, which reports the byte count when it is given a null destination -- so the separate size route has nothing left to answer. One route instead of two, the same string out, and one fewer place for the two to disagree about a length"
+    },
+    {
+      "Interface": "Content",
+      "Method": "cnbModelGetPartExternalEffect",
+      "RoutesNotReached": [
+        "cna_cnb_model_get_part_external_effect_size"
+      ],
+      "Status": "DELIBERATE_NON_BINDING",
+      "Reason": "the WebAssembly backend reads a CNB model's external effect name through the copy route's own length probe, which reports the byte count when it is given a null destination -- so the separate size route has nothing left to answer. One route instead of two, the same string out, and one fewer place for the two to disagree about a length"
+    },
+    {
+      "Interface": "Content",
+      "Method": "cnbModelGetPartName",
+      "RoutesNotReached": [
+        "cna_cnb_model_get_part_name_size"
+      ],
+      "Status": "DELIBERATE_NON_BINDING",
+      "Reason": "the WebAssembly backend reads a CNB model's part name through the copy route's own length probe, which reports the byte count when it is given a null destination -- so the separate size route has nothing left to answer. One route instead of two, the same string out, and one fewer place for the two to disagree about a length"
+    }
+  ]
+}

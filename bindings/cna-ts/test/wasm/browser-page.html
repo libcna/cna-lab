@@ -1,0 +1,1219 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>CNA-TS WebAssembly runtime harness</title>
+</head>
+<body>
+<canvas id="canvas" width="320" height="240"></canvas>
+<script type="module">
+// This page is a real consumer of the built package: it imports the public XNA surface and never
+// an internal path, and the game below is the ordinary XNA shape a Node consumer writes.
+const result = { status: "running", frames: 0, errors: [] };
+globalThis.__cnaHarness = result;
+window.onerror = (message, source, line, column, error) => {
+  result.errors.push(`error: ${error && error.stack ? error.stack : `${message} @${source}:${line}:${column}`}`);
+  return false;
+};
+window.addEventListener("unhandledrejection", (event) => result.errors.push(
+  `rejection: ${event.reason && event.reason.stack ? event.reason.stack : String(event.reason)}`,
+));
+
+try {
+  const {
+    Audio, BoundingBox, Color, Content, Game, GraphicsDeviceManager, Graphics, GetRuntimeStatus,
+    LoadWasmBackend,
+    Curve, CurveContinuity, CurveKey, CurveLoopType,
+    Matrix, Quaternion, Rectangle, TitleContainer, TimeSpan, Vector2, Vector3, Vector4,
+  } = await import("/cna-ts/index.js");
+  // CNA's own read-back of what a parameter holds. Internal, and used for the same reason the Node
+  // suite uses it: a test comparing only `GetValue*` would pass whether or not the value ever left
+  // managed state.
+  const { readNativeParameterValueForInternalUse: readNativeParameterValue,
+          readNativeParameterValuesForInternalUse: readNativeParameterValues } =
+    await import("/cna-ts/Microsoft/Xna/Framework/Graphics/Effect.js");
+  const createCnaCApi = (await import("/wasm/cna_c_api.mjs")).default;
+
+  /** CNA's tagged value identities, repeated rather than imported from the implementation. */
+  const VALUE_SINGLE = 2;
+  const VALUE_VECTOR4 = 8;
+
+  /** A full-screen quad already in clip space: `Transform` is the identity, so these are NDC. */
+  const EFFECT_QUAD = [
+    [-1, 1, 0, 0], [-1, -1, 0, 1], [1, -1, 1, 1],
+    [-1, 1, 0, 0], [1, -1, 1, 1], [1, 1, 1, 0],
+  ].map(([x, y, u, v]) =>
+    new Graphics.VertexPositionTexture(new Vector3(x, y, 0), new Vector2(u, v)));
+
+  /** A Matrix in the row order the engine layer's C structures use, for evidence and comparison. */
+  const matrixRow = (matrix) => [
+    matrix.M11, matrix.M12, matrix.M13, matrix.M14,
+    matrix.M21, matrix.M22, matrix.M23, matrix.M24,
+    matrix.M31, matrix.M32, matrix.M33, matrix.M34,
+    matrix.M41, matrix.M42, matrix.M43, matrix.M44,
+  ];
+
+  /** A colour no expectation is near, so a lost draw reads as the clear and not as a pass. */
+  const RENDER_CLEAR = new Color(50, 50, 50, 255);
+  const canvas = document.getElementById("canvas");
+
+  // The module is instantiated here rather than through LoadWasmBackend's Factory option because a
+  // browser game's assets have to reach the module's filesystem before CNA reads them. This is the
+  // ordinary browser shape: fetch the bytes, write them where the runtime looks, then load them
+  // through the same Content API a desktop consumer uses.
+  const module = await createCnaCApi({ canvas });
+  const fetchBytes = async (url) => new Uint8Array(await (await fetch(url)).arrayBuffer());
+  module.FS.writeFile("/title-note.txt", await fetchBytes("/fixtures/title-note.txt"));
+  module.FS.mkdir("/Content");
+  module.FS.writeFile("/Content/Atlas.xnb", await fetchBytes("/fixtures/Atlas.xnb"));
+  module.FS.writeFile("/Content/SyntheticFont.xnb", await fetchBytes("/fixtures/SyntheticFont.xnb"));
+  // The compiled effect the Node windowed suite draws with. Optional: it lives in the CNA checkout, and
+  // where the server has no copy the page records that rather than inventing bytes.
+  let compiledEffectBytes = null;
+  try {
+    const response = await fetch("/fixtures/CnaConformanceEffect.fxb");
+    if (response.ok) compiledEffectBytes = new Uint8Array(await response.arrayBuffer());
+  } catch { compiledEffectBytes = null; }
+
+  const status = await LoadWasmBackend({ Module: module });
+  result.backend = status.Backend;
+  result.abiVersion = status.AbiVersion;
+  result.importedSymbolCount = status.ImportedSymbolCount;
+
+  // The modern CNA runtime services, over the same WebAssembly module. These reach routes that
+  // take a CNA_StringView by value, which docs/c-api/WASM_ARTIFACT.md leaves unpinned for wasm32,
+  // so exercising them here is what settles the convention with evidence.
+  const ext = await import("/cna-ts/extensions/runtime/index.js");
+  const platform = ext.GetPlatformInfo();
+  result.extensions = {
+    platform: platform.Platform,
+    platformName: platform.Name,
+    isMobile: platform.IsMobile,
+    selected: ext.RendererSelection.GetState().Selected,
+    available: ext.RendererSelection.GetAvailable().map((r) => r.Name),
+    availableCategories: ext.RendererSelection.GetAvailable().map((r) => r.CategoryName),
+    parsedWebGL2: ext.RendererSelection.TryParseName("webgl2"),
+    parsedNonsense: ext.RendererSelection.TryParseName("not-a-renderer"),
+    fallbacks: ext.RendererSelection.GetFallbacks().length,
+    logLevel: ext.CnaLog.GetMinimumLevel(),
+    graphicsExtensionLayer: ext.IsGraphicsExtensionLayerAvailable(),
+  };
+  ext.CnaLog.Write(ext.CnaLogLevel.Fatal, ext.CnaLogCategory.Test, "cna-ts wasm runtime services");
+
+  // Imported before the game runs: LoadContent is synchronous, as XNA's is.
+  const cnb = await import("/cna-ts/extensions/content/index.js");
+  // CNA's extended graphics layer, through the same public entry point a desktop consumer uses.
+  const PostProcess = await import("/cna-ts/extensions/graphics/index.js");
+
+  const targetFrames = Number(new URLSearchParams(location.search).get("frames") ?? "60");
+
+  class HelloGame extends Game {
+    constructor() {
+      super();
+      this.graphics = new GraphicsDeviceManager(this);
+      // HiDef: the page binds two render targets and builds a volume texture, and XNA's Reach
+      // profile -- the default, which CNA enforces -- allows one target and no volumes.
+      this.graphics.GraphicsProfile = Graphics.GraphicsProfile.HiDef;
+      this.graphics.PreferredBackBufferWidth = 320;
+      this.graphics.PreferredBackBufferHeight = 240;
+      // A browser drives frames from requestAnimationFrame, so the frame clock is the
+      // page's. A fixed timestep would make CNA wait out the remainder of each frame.
+      this.IsFixedTimeStep = false;
+      this.updates = 0;
+      this.draws = 0;
+      this.texture = null;
+      this.font = null;
+      this.spriteBatch = null;
+    }
+
+    Initialize() {
+      super.Initialize();
+    }
+
+    LoadContent() {
+      this.spriteBatch = new Graphics.SpriteBatch(this.GraphicsDevice);
+      this.texture = new Graphics.Texture2D(this.GraphicsDevice, 2, 2);
+      this.texture.SetData([Color.Red, Color.Green, Color.Blue, Color.White]);
+      const info = this.texture.Width * 1000 + this.texture.Height;
+      result.textureInfo = info;
+
+      // Title storage, read out of the module filesystem through the ordinary XNA entry point.
+      result.titleNote = new TextDecoder().decode(TitleContainer.OpenStream("title-note.txt"));
+      try {
+        TitleContainer.OpenStream("does-not-exist.txt");
+        result.titleMissing = "opened";
+      } catch (error) {
+        result.titleMissing = String(error && error.message ? error.message : error);
+      }
+
+      // The raw asset, before any XNB parsing: proves the count/copy pair agrees with itself and
+      // that the copy landed the file's real leading bytes rather than a zeroed buffer.
+      const atlasBytes = TitleContainer.OpenStream("Content/Atlas.xnb");
+      result.atlasProbe = { length: atlasBytes.length, head: [...atlasBytes.subarray(0, 12)] };
+
+      // A real ContentManager over that same title storage: XNB framing, the reader table and the
+      // Texture2D reader graph, all managed, ending in a native texture whose pixels are asserted.
+      this.content = new Content.ContentManager(this.Services, "Content");
+      this.atlas = this.content.Load(Graphics.Texture2D, "Atlas");
+      const loaded = new Array(4);
+      this.atlas.GetData(loaded);
+      result.contentTexture = {
+        width: this.atlas.Width,
+        height: this.atlas.Height,
+        format: this.atlas.Format,
+        pixels: loaded.map((color) => color.PackedValue),
+        cached: this.content.Load(Graphics.Texture2D, "Atlas") === this.atlas,
+      };
+      this.font = this.content.Load(Graphics.SpriteFont, "SyntheticFont");
+      const measured = this.font.MeasureString("A?");
+      result.contentFont = { width: measured.X, height: measured.Y, spacing: this.font.Spacing };
+
+      // Off-screen rendering, and the first pixels this project asserts out of a real GPU: clear a
+      // render target to an exact colour, restore the backbuffer, and read the target back.
+      this.target = new Graphics.RenderTarget2D(this.GraphicsDevice, 4, 4);
+      this.GraphicsDevice.SetRenderTarget(this.target);
+      result.boundTarget = this.GraphicsDevice.GetRenderTargets().length;
+      this.GraphicsDevice.Clear(new Color(12, 34, 56, 255));
+      this.GraphicsDevice.SetRenderTarget(null);
+      result.unboundTarget = this.GraphicsDevice.GetRenderTargets().length;
+      const readback = new Array(16);
+      this.target.GetData(readback);
+      result.renderTarget = {
+        width: this.target.Width,
+        height: this.target.Height,
+        depthFormat: this.target.DepthStencilFormat,
+        usage: this.target.RenderTargetUsage,
+        multiSampleCount: this.target.MultiSampleCount,
+        isContentLost: this.target.IsContentLost,
+        pixels: readback.map((color) => color.PackedValue),
+      };
+      try {
+        this.GraphicsDevice.SetRenderTarget(this.target);
+        this.target.Dispose();
+        result.boundDisposal = "disposed";
+      } catch (error) {
+        result.boundDisposal = String(error && error.message ? error.message : error);
+      } finally {
+        this.GraphicsDevice.SetRenderTarget(null);
+      }
+      // Sound, which is most of what separates a demo from a game. A quarter second of 16-bit
+      // mono PCM at 8 kHz: the duration is arithmetic on the sample count, so it is exact and does
+      // not depend on anything being audible. Whether a browser actually plays it depends on the
+      // page having had a user gesture, which a headless run does not have -- so what is asserted
+      // is the state machine, not a sound nobody heard.
+      const sampleRate = 8000;
+      const frames = sampleRate / 4;
+      // XNA's SoundEffect takes a byte[], and this projection keeps that signature exactly, so the
+      // samples are written through a view and handed over as the byte array XNA declares.
+      const samples = new DataView(new ArrayBuffer(frames * 2));
+      for (let index = 0; index < frames; index += 1) {
+        samples.setInt16(index * 2, Math.round(8000 * Math.sin(index * 0.05)), true);
+      }
+      const pcm = [...new Uint8Array(samples.buffer)];
+      this.sound = new Audio.SoundEffect(pcm, sampleRate, Audio.AudioChannels.Mono);
+      this.soundInstance = this.sound.CreateInstance();
+      const played = this.sound.Play();
+      this.soundInstance.Volume = 0.5;
+      this.soundInstance.Pitch = 0.25;
+      this.soundInstance.Pan = -0.75;
+      this.soundInstance.IsLooped = true;
+      const initialState = this.soundInstance.State;
+      this.soundInstance.Play();
+      const playingState = this.soundInstance.State;
+      this.soundInstance.Pause();
+      const pausedState = this.soundInstance.State;
+      this.soundInstance.Resume();
+      const resumedState = this.soundInstance.State;
+      this.soundInstance.Stop();
+      result.audio = {
+        durationTicks: String(this.sound.Duration.Ticks),
+        durationMilliseconds: this.sound.Duration.TotalMilliseconds,
+        expectedMilliseconds: TimeSpan.FromTicks(
+          BigInt(Math.round((frames / sampleRate) * 10_000_000)),
+        ).TotalMilliseconds,
+        played,
+        volume: this.soundInstance.Volume,
+        pitch: this.soundInstance.Pitch,
+        pan: this.soundInstance.Pan,
+        isLooped: this.soundInstance.IsLooped,
+        states: [initialState, playingState, pausedState, resumedState, this.soundInstance.State],
+        masterVolume: Audio.SoundEffect.MasterVolume,
+      };
+
+      // CNB, CNA's own compiled content format, in a browser. The public API is backend-neutral,
+      // so this is the same CnbTextureData/CnbDocument/CreateTexture2DFromCnb a desktop consumer
+      // writes -- built here rather than fetched only so the expected pixels are in one place.
+      const rgba = Uint8Array.from([
+        255, 0, 0, 255,
+        0, 128, 0, 255,
+        0, 0, 255, 255,
+        16, 32, 48, 64,
+      ]);
+      const authored = cnb.CnbTextureData.FromRgba8(2, 2, rgba);
+      let image;
+      try {
+        image = authored.Encode("Browser/Atlas");
+      } finally {
+        authored.Dispose();
+      }
+      const document = cnb.CnbDocument.Parse(image, "Browser/Atlas.cnb");
+      try {
+        this.cnbTexture = cnb.CreateTexture2DFromCnb(this.GraphicsDevice, document);
+        const decoded = new Array(4);
+        this.cnbTexture.GetData(decoded);
+        result.cnb = {
+          hasMagic: cnb.CnbFormat.HasMagic(image),
+          crc32c: cnb.CnbFormat.Crc32c(new TextEncoder().encode("123456789")) >>> 0,
+          assetType: document.AssetType,
+          contentName: document.Metadata.ContentName,
+          chunks: document.Chunks.map((chunk) => chunk.Id),
+          externalReferences: document.ExternalReferences.length,
+          uploadedPixels: decoded.map((color) => color.PackedValue),
+          textureSize: [this.cnbTexture.Width, this.cnbTexture.Height],
+        };
+      } finally {
+        document.Dispose();
+      }
+
+
+      // CNB's writers, in a browser. docs/content-pipeline-boundary.md says a .cnb built in a
+      // build script and one built in a page are the same bytes; the Node suite builds exactly
+      // this image from exactly these values, so the assertion on the other side is that the two
+      // are byte for byte identical rather than merely both parseable.
+      const byteWriter = new cnb.CnbByteWriter();
+      let customPayload;
+      try {
+        byteWriter
+          .WriteByte(0xAB)
+          .WriteUInt16(0xBEEF)
+          .WriteUInt32(0xDEADBEEF)
+          .WriteUInt64(0x0123456789ABCDEFn)
+          .WriteInt32(-123456)
+          .WriteSingle(0.5)
+          .WriteDouble(-2.25)
+          .WriteString("hello, cnb")
+          .WriteBytes(Uint8Array.from([1, 2, 3]))
+          .WriteZeros(4);
+        customPayload = byteWriter.ToArray();
+      } finally {
+        byteWriter.Dispose();
+      }
+      const customChunkId = cnb.CnbFormat.MakeChunkId("mydt");
+      const container = new cnb.CnbWriter(9999, 3);
+      let customImage;
+      let limits;
+      try {
+        limits = container.Limits;
+        container.SetMetadata("MyGame.Level", "Levels/One");
+        container.AddExternalReference("Textures/Atlas", cnb.CnbAssetType.Texture2D);
+        container.AddChunk(customChunkId, customPayload);
+        customImage = container.Build();
+      } finally {
+        container.Dispose();
+      }
+      const customDocument = cnb.CnbDocument.Parse(customImage, "Levels/One.cnb");
+      try {
+        const index = customDocument.Chunks.findIndex((chunk) => chunk.RawId === customChunkId);
+        result.cnbWriters = {
+          payloadSize: customPayload.length,
+          payloadHex: [...customPayload].map((b) => b.toString(16).padStart(2, "0")).join(""),
+          imageSize: customImage.length,
+          imageHex: [...customImage].map((b) => b.toString(16).padStart(2, "0")).join(""),
+          assetType: customDocument.AssetType,
+          schemaVersion: customDocument.AssetSchemaVersion,
+          metadata: [customDocument.Metadata.AssetTypeName, customDocument.Metadata.ContentName],
+          chunks: customDocument.Chunks.map((chunk) => chunk.Id),
+          externalReference: customDocument.ExternalReferences[0]?.Name,
+          chunkRoundTrip:
+            [...customDocument.ReadChunk(index)].join(",") === [...customPayload].join(","),
+          maxChunkAlignment: limits.MaxChunkAlignment,
+        };
+      } finally {
+        customDocument.Dispose();
+      }
+
+      // The CNB model schema, in a browser. Built with the public API, encoded by CNA's own writer
+      // and decoded back inside the page, so what is asserted below is CNA's round trip rather
+      // than this page agreeing with itself. Same classes as the Node suite; different backend.
+      const rig = cnb.CnbModelData.Create();
+      let rigImage;
+      try {
+        rig.SetFlags(true, true);
+        rig.AddBone("root", -1, Matrix.Identity);
+        rig.AddBone("child", 0, Matrix.CreateScale(2));
+        rig.AddPart({
+          VertexStride: 12, VertexCount: 3, IndexCount: 3, IndexElementSize: 2,
+          PrimitiveTopology: 4, PrimitiveCount: 1, EffectKind: cnb.CnbEffectKind.Pbr,
+          VertexColorEnabled: true, Unlit: false,
+        }, "triangle", "");
+        rig.SetPartVertexBytes(0, new Uint8Array(
+          new Float32Array([0, 0, 0, 1, 0, 0, 0, 1, 0]).buffer,
+        ));
+        rig.SetPartIndexBytes(0, new Uint8Array(Uint16Array.from([0, 1, 2]).buffer));
+        rig.SetMaterialTexture(0, cnb.CnbMaterialTextureSlot.BaseColor, "albedo");
+        rig.SetMaterialTexture(0, cnb.CnbMaterialTextureSlot.Normal, "bumps");
+        rig.AddMesh("body", 1, [0]);
+        rig.SetSkeleton(
+          [-1, 0],
+          [Matrix.CreateScale(1), Matrix.CreateScale(2)],
+          [Matrix.CreateScale(3), Matrix.CreateScale(4)],
+          [Matrix.CreateScale(5), Matrix.CreateScale(6)],
+        );
+        rig.AddLight(new Vector3(0, -1, 0), new Vector3(1, 0.5, 0.25));
+        rigImage = rig.Encode("Browser/Rig");
+      } finally {
+        rig.Dispose();
+      }
+      const rigDocument = cnb.CnbDocument.Parse(rigImage, "Browser/Rig.cnb");
+      try {
+        const decoded = cnb.CnbModelData.Decode(rigDocument);
+        try {
+          const shape = decoded.Shape;
+          const root = decoded.GetBone(0);
+          const child = decoded.GetBone(1);
+          const part = decoded.GetPart(0);
+          const mesh = decoded.GetMesh(0);
+          const vertices = decoded.ReadPartVertexBytes(0);
+          result.cnbModel = {
+            assetType: rigDocument.AssetType,
+            contentName: rigDocument.Metadata.ContentName,
+            boneCount: shape.BoneCount,
+            partCount: shape.PartCount,
+            meshCount: shape.MeshCount,
+            lightCount: shape.LightCount,
+            hasSkeleton: shape.HasSkeleton,
+            rootName: root.Name,
+            // Both parents, not just the child's: the child's happens to be zero, so a reader that
+            // returned zero for everything would pass on the child alone.
+            rootParent: root.Parent,
+            rootScale: [root.Transform.M11, root.Transform.M22, root.Transform.M33],
+            childName: child.Name,
+            childParent: child.Parent,
+            childScale: [child.Transform.M11, child.Transform.M22, child.Transform.M33],
+            partName: part.Name,
+            partStride: part.VertexStride,
+            partVertexCount: part.VertexCount,
+            partEffectKind: part.EffectKind,
+            vertexBytes: [...new Float32Array(vertices.buffer, vertices.byteOffset, 9)],
+            indexBytes: [...new Uint16Array(decoded.ReadPartIndexBytes(0).buffer)],
+            baseColorTexture: decoded.GetMaterialTexture(0, cnb.CnbMaterialTextureSlot.BaseColor),
+            normalTexture: decoded.GetMaterialTexture(0, cnb.CnbMaterialTextureSlot.Normal),
+            emissiveTexture: decoded.GetMaterialTexture(0, cnb.CnbMaterialTextureSlot.Emissive),
+            meshName: mesh.Name,
+            meshParentBone: mesh.ParentBone,
+            meshParts: [...mesh.PartIndices],
+            skeletonHierarchy: [...decoded.GetSkeleton().Hierarchy],
+            skeletonDiagonals: [
+              cnb.CnbSkeletonMatrixSet.BindPose,
+              cnb.CnbSkeletonMatrixSet.InverseBindPose,
+              cnb.CnbSkeletonMatrixSet.RootPrefix,
+            ].map((set) => decoded.GetSkeletonMatrices(set).map((matrix) => matrix.M11)),
+            light: (() => {
+              const light = decoded.GetLight(0);
+              return [
+                light.Direction.X, light.Direction.Y, light.Direction.Z,
+                light.DiffuseColor.X, light.DiffuseColor.Y, light.DiffuseColor.Z,
+              ];
+            })(),
+          };
+        } finally {
+          decoded.Dispose();
+        }
+      } finally {
+        rigDocument.Dispose();
+      }
+
+
+      // The CNB media schemas. This artifact has SDL3 audio, so the *duration* of a compiled sound
+      // effect is measurable here in a way it is not on the NULL-audio Node artifact -- and the
+      // duration is arithmetic on the frame count, so it is exact evidence that the samples and
+      // the sample rate both survived the encode/decode cycle.
+      const beepRate = 8000;
+      const beepFrames = beepRate / 4;
+      const beepSamples = new DataView(new ArrayBuffer(beepFrames * 2));
+      for (let index = 0; index < beepFrames; index += 1) {
+        beepSamples.setInt16(index * 2, (index * 7) % 32768 - 16384, true);
+      }
+      const beepBytes = new Uint8Array(beepSamples.buffer);
+      const beepData = cnb.CnbSoundEffectData.Create({
+        Format: cnb.CnbAudioFormat.Pcm16, SampleRate: beepRate, Channels: 1,
+        FrameCount: beepFrames, LoopStart: 25, LoopLength: 75,
+      }, beepBytes);
+      let beepImage;
+      try {
+        beepImage = beepData.Encode("Browser/Beep");
+      } finally {
+        beepData.Dispose();
+      }
+      const beepDocument = cnb.CnbDocument.Parse(beepImage, "Browser/Beep.cnb");
+      try {
+        const decodedBeep = cnb.CnbSoundEffectData.Decode(beepDocument);
+        let description;
+        let sampleBytes;
+        try {
+          description = decodedBeep.Description;
+          sampleBytes = [...decodedBeep.ReadSamples()];
+        } finally {
+          decodedBeep.Dispose();
+        }
+        this.cnbSound = cnb.CreateSoundEffectFromCnb(beepDocument);
+        result.cnbSoundEffect = {
+          assetType: beepDocument.AssetType,
+          format: description.Format,
+          sampleRate: description.SampleRate,
+          channels: description.Channels,
+          frameCount: description.FrameCount,
+          loopStart: description.LoopStart,
+          loopLength: description.LoopLength,
+          sampleBytesMatch: sampleBytes.length === beepBytes.length &&
+            sampleBytes.every((value, index) => value === beepBytes[index]),
+          durationMilliseconds: this.cnbSound.Duration.TotalMilliseconds,
+          durationTicks: String(this.cnbSound.Duration.Ticks),
+        };
+      } finally {
+        beepDocument.Dispose();
+      }
+
+      // A song and a video: containers that carry a stream reference rather than the media, so
+      // both are complete and testable in a page with no encoded audio or video at all.
+      const songDocument = cnb.CnbDocument.Parse(cnb.EncodeCnbSong({
+        StreamReference: "Music/Theme.ogg", Name: "Main Theme", DurationMilliseconds: 123456,
+      }, "Browser/Theme"), "Browser/Theme.cnb");
+      try {
+        const song = cnb.DecodeCnbSong(songDocument);
+        result.cnbSong = {
+          assetType: songDocument.AssetType,
+          streamReference: song.StreamReference,
+          name: song.Name,
+          durationMilliseconds: song.DurationMilliseconds,
+        };
+      } finally {
+        songDocument.Dispose();
+      }
+      const videoDocument = cnb.CnbDocument.Parse(cnb.EncodeCnbVideo({
+        StreamReference: "Movies/Intro.ogv", DurationMilliseconds: 45678,
+        Width: 1280, Height: 720, FramesPerSecond: 29.97, SoundtrackType: 2,
+      }, "Browser/Intro"), "Browser/Intro.cnb");
+      try {
+        const video = cnb.DecodeCnbVideo(videoDocument);
+        result.cnbVideo = {
+          assetType: videoDocument.AssetType,
+          streamReference: video.StreamReference,
+          durationMilliseconds: video.DurationMilliseconds,
+          width: video.Width,
+          height: video.Height,
+          framesPerSecond: video.FramesPerSecond,
+          soundtrackType: video.SoundtrackType,
+        };
+      } finally {
+        videoDocument.Dispose();
+      }
+
+
+      // The curve and animation-clip schemas. The curve is the interesting one here: its native
+      // handle never leaves the backend, so what comes back is an ordinary managed XNA Curve that
+      // evaluates in TypeScript -- and the page checks that by comparing it against the curve it
+      // authored, sampled between the keys where the tangents and continuity actually matter.
+      const authoredCurve = new Curve();
+      authoredCurve.PreLoop = CurveLoopType.Cycle;
+      authoredCurve.PostLoop = CurveLoopType.Oscillate;
+      authoredCurve.Keys.Add(new CurveKey(0, 1, 0.25, 0.5, CurveContinuity.Smooth));
+      authoredCurve.Keys.Add(new CurveKey(2, 5, 0.75, 1.25, CurveContinuity.Step));
+      authoredCurve.Keys.Add(new CurveKey(4, -3, -0.5, -1.5, CurveContinuity.Smooth));
+      const curveDocument = cnb.CnbDocument.Parse(
+        cnb.EncodeCnbCurve(authoredCurve, "Browser/Ease"), "Browser/Ease.cnb",
+      );
+      try {
+        const decodedCurve = cnb.DecodeCnbCurve(curveDocument);
+        const samples = [-1, 0, 0.5, 1, 1.9, 2, 2.1, 3, 4, 5.5];
+        result.cnbCurve = {
+          assetType: curveDocument.AssetType,
+          preLoop: decodedCurve.PreLoop,
+          postLoop: decodedCurve.PostLoop,
+          keyCount: decodedCurve.Keys.Count,
+          continuities: Array.from(
+            { length: decodedCurve.Keys.Count }, (_, i) => decodedCurve.Keys.Get(i).Continuity,
+          ),
+          evaluatesIdentically: samples.every(
+            (at) => decodedCurve.Evaluate(at) === authoredCurve.Evaluate(at),
+          ),
+        };
+      } finally {
+        curveDocument.Dispose();
+      }
+
+      const clipDocument = cnb.CnbDocument.Parse(cnb.EncodeCnbAnimationClip({
+        DurationSeconds: 2.5,
+        TargetSpace: 1,
+        Tracks: [
+          {
+            BoneIndex: 3,
+            Keyframes: [
+              {
+                TimeSeconds: 0, Translation: new Vector3(1, 2, 3),
+                Rotation: new Quaternion(0, 0, 0, 1), Scale: new Vector3(1, 1, 1),
+              },
+              {
+                TimeSeconds: 1.25, Translation: new Vector3(4, 5, 6),
+                Rotation: new Quaternion(0.5, 0.5, 0.5, 0.5), Scale: new Vector3(2, 3, 4),
+              },
+            ],
+          },
+          {
+            BoneIndex: 7,
+            Keyframes: [{
+              TimeSeconds: 2.5, Translation: new Vector3(-1, -2, -3),
+              Rotation: new Quaternion(0, 1, 0, 0), Scale: new Vector3(0.5, 0.25, 0.125),
+            }],
+          },
+        ],
+      }, "Browser/Walk"), "Browser/Walk.cnb");
+      try {
+        const clip = cnb.CnbAnimationClip.Decode(clipDocument);
+        try {
+          const description = clip.Description;
+          const first = clip.ReadKeyframes(0);
+          const second = clip.ReadKeyframes(1);
+          result.cnbClip = {
+            assetType: clipDocument.AssetType,
+            durationSeconds: description.DurationSeconds,
+            trackCount: description.TrackCount,
+            targetSpace: description.TargetSpace,
+            boneIndices: [clip.GetTrack(0).BoneIndex, clip.GetTrack(1).BoneIndex],
+            keyframeCounts: [first.length, second.length],
+            firstTimes: first.map((frame) => frame.TimeSeconds),
+            lastTranslation: [
+              second[0].Translation.X, second[0].Translation.Y, second[0].Translation.Z,
+            ],
+            lastRotation: [
+              second[0].Rotation.X, second[0].Rotation.Y,
+              second[0].Rotation.Z, second[0].Rotation.W,
+            ],
+            lastScale: [second[0].Scale.X, second[0].Scale.Y, second[0].Scale.Z],
+          };
+        } finally {
+          clip.Dispose();
+        }
+      } finally {
+        clipDocument.Dispose();
+      }
+
+      // --- 3D geometry, drawn into a render target and read back ------------------------------
+      //
+      // Until the buffer, effect and indexed-draw routes existed, a browser could draw sprites and
+      // nothing else. This draws a triangle covering the whole target with a BasicEffect and
+      // vertex colours, then reads the texels: a clear-coloured target would mean the draw did
+      // nothing, and the clear colour is deliberately none of the vertex colours.
+      try {
+        const device = this.GraphicsDevice;
+        const target = new Graphics.RenderTarget2D(device, 8, 8);
+        const vertices = [
+          new Graphics.VertexPositionColor(new Vector3(-3, -1, 0), Color.Red),
+          new Graphics.VertexPositionColor(new Vector3(3, -1, 0), Color.Red),
+          new Graphics.VertexPositionColor(new Vector3(0, 3, 0), Color.Red),
+        ];
+        const vertexBuffer = new Graphics.VertexBuffer(
+          device, Graphics.VertexPositionColor, 3, Graphics.BufferUsage.None,
+        );
+        vertexBuffer.SetData(vertices);
+        const indexBuffer = new Graphics.IndexBuffer(
+          device, Graphics.IndexElementSize.SixteenBits, 3, Graphics.BufferUsage.None,
+        );
+        indexBuffer.SetData([0, 1, 2]);
+        const effect = new Graphics.BasicEffect(device);
+        effect.VertexColorEnabled = true;
+        effect.World = Matrix.Identity;
+        effect.View = Matrix.Identity;
+        effect.Projection = Matrix.Identity;
+
+        // The by-value convention for CNA_Matrix and CNA_Vector3 under wasm32 is not asserted
+        // through a getter here: this page is a consumer of the public surface and imports no
+        // internal path. It is asserted by the *pixels*. A world matrix that moved the triangle
+        // off the target, or a diffuse colour that arrived as noise, both show up as texels that
+        // are not the ones below -- which is stronger evidence than a round-trip anyway.
+        const shifted = Matrix.CreateTranslation(new Vector3(0.5, 0, 0));
+
+        const drawInto = (world) => {
+          effect.World = world;
+          device.SetRenderTarget(target);
+          device.Clear(new Color(9, 11, 13, 255));
+          // XNA culls counter-clockwise by default and this triangle is wound that way, so
+          // without these the draw is culled and every texel stays the clear colour -- which is
+          // exactly what the first run of this test measured, on Node as well as here.
+          device.RasterizerState = Graphics.RasterizerState.CullNone;
+          device.DepthStencilState = Graphics.DepthStencilState.None;
+          device.SetVertexBuffer(vertexBuffer);
+          device.Indices = indexBuffer;
+          for (const pass of effect.CurrentTechnique.Passes) {
+            pass.Apply();
+            device.DrawIndexedPrimitives(Graphics.PrimitiveType.TriangleList, 0, 0, 3, 0, 1);
+          }
+          device.SetRenderTarget(null);
+          const texels = new Array(64);
+          target.GetData(texels);
+          return texels.map((color) => [color.R, color.G, color.B, color.A]);
+        };
+        result.wasm3d = {
+          // A triangle that covers the whole target: every texel must be the vertex colour.
+          covered: drawInto(Matrix.Identity),
+          // The same triangle translated far enough to leave the target entirely: every texel
+          // must be the clear colour. That is what proves the world matrix reached the shader --
+          // a matrix that arrived as zeroes or noise would not move it by exactly this much.
+          movedAway: drawInto(Matrix.CreateTranslation(new Vector3(8, 0, 0))),
+          nudged: drawInto(shifted),
+          clear: [9, 11, 13, 255],
+        };
+        effect.Dispose();
+        indexBuffer.Dispose();
+        vertexBuffer.Dispose();
+        target.Dispose();
+      } catch (error) {
+        result.wasm3d = { failed: `${error?.constructor?.name}: ${error?.message}` };
+        // A render target left bound stops the next present, which would turn one clear failure
+        // into a confusing second one.
+        try { this.GraphicsDevice.SetRenderTarget(null); } catch { /* already unbound */ }
+      }
+
+      // --- can this artifact run a COMPILED effect? ------------------------------------------
+      //
+      // The Node windowed suite draws with `CnaConformanceEffect.fxb` and asserts its texels. The
+      // honest question here is whether the same consumer scenario is available in a browser at
+      // all, and it is a property of the running artifact rather than of the renderer's name: CNA
+      // builds the compiled-effect runtime into the EasyGL family only when
+      // `CNA_EASYGL_COMPILED_EFFECTS` is on, and it is off by default because that runtime is a
+      // dependency those renderers do not otherwise need. So this asks the binary, with the real
+      // bytes, and records exactly what came back rather than reading a build flag.
+      if (!compiledEffectBytes) {
+        result.compiledEffect = { fixture: "absent" };
+      } else {
+        let effect = null;
+        try {
+          effect = new Graphics.Effect(this.GraphicsDevice, [...compiledEffectBytes]);
+        } catch (error) {
+          result.compiledEffect = {
+            fixture: "present",
+            outcome: "refused",
+            error: `${error?.constructor?.name}: ${error?.message}`,
+            cnaResult: error?.cnaResult ?? null,
+          };
+        }
+        if (effect) {
+          // Two different failures, kept apart. CNA declining the bytes is a fact about how the
+          // artifact was built; the scenario below throwing is a fact about this binding, and
+          // recording the second as the first would tell somebody to rebuild CNA over a defect in
+          // cna-ts. The effect is handed over rather than disposed here because it retains the
+          // texture given to `FxTexture`: the scenario owns both and releases them in the one
+          // order that works.
+          result.compiledEffect = { fixture: "present", outcome: "created" };
+          try {
+            Object.assign(result.compiledEffect, this.#compiledEffectEvidence(effect));
+          } catch (error) {
+            result.compiledEffect.evidenceError =
+              `${error?.constructor?.name}: ${error?.message}`;
+          }
+        }
+      }
+
+      // --- what this device can be asked ------------------------------------------------------
+      //
+      // Every capability identity and the three compute work-group limits, through the public
+      // GraphicsDeviceCapabilities: what a page branches on before reaching for an extension.
+      result.deviceCapabilities = this.#deviceCapabilityEvidence();
+
+      // --- one stock-effect draw into one bound target, then into two -----------------------
+      result.multipleRenderTargets = this.#multipleRenderTargetEvidence();
+
+      // --- the ASCII quantizer, whose every texel is predictable ------------------------------
+      result.asciiEffect = (() => {
+        const owned = [];
+        try {
+          return this.#asciiEvidence(this.GraphicsDevice, owned);
+        } catch (error) {
+          return {
+            layerAbsent: error?.cnaResult === 6,
+            cnaResult: error?.cnaResult ?? null,
+            error: `${error?.constructor?.name}: ${error?.message}`,
+          };
+        } finally {
+          for (const item of owned.reverse()) { try { item.Dispose(); } catch { /* reported */ } }
+        }
+      })();
+
+      // --- every public extension class, constructed and exercised ----------------------------
+      result.engineCensus = this.#engineCensus();
+
+      super.LoadContent();
+    }
+
+    Update(gameTime) {
+      this.updates += 1;
+      super.Update(gameTime);
+    }
+
+    Draw(gameTime) {
+      this.GraphicsDevice.Clear(Color.CornflowerBlue);
+      this.spriteBatch.Begin();
+      this.spriteBatch.Draw(this.texture, new Vector2(16, 16), Color.White);
+      this.spriteBatch.DrawString(this.font, "A?", new Vector2(32, 32), Color.White);
+      this.spriteBatch.End();
+      this.draws += 1;
+      super.Draw(gameTime);
+    }
+
+    /**
+     * The whole compiled-effect chain, in a browser: reflection, native write-through, technique
+     * and pass selection, a real draw and the texels it produced.
+     *
+     * This is deliberately the same scenario `test/effect-reflection.integration.mjs` runs against
+     * the windowed OPENGLES3 build -- same fixture, same parameter values, same techniques, same
+     * geometry, same 8x8 render target -- so the two backends are compared on one question rather
+     * than on two that merely resemble each other. The expectations live in the test file and are
+     * computed from CNA's own shipped HLSL, never from `GetValue*`, which answers from managed
+     * state and would agree with its own setter whether or not a uniform ever moved.
+     */
+    #compiledEffectEvidence(effect) {
+      const device = this.GraphicsDevice;
+      const evidence = {
+        parameters: effect.Parameters.Count,
+        techniques: effect.Techniques.Count,
+      };
+
+      // --- reflection ------------------------------------------------------------------------
+      const described = [];
+      for (let index = 0; index < effect.Parameters.Count; index += 1) {
+        const parameter = effect.Parameters.Get(index);
+        described.push({
+          Name: parameter.Name,
+          Semantic: parameter.Semantic,
+          ParameterClass: parameter.ParameterClass,
+          ParameterType: parameter.ParameterType,
+          RowCount: parameter.RowCount,
+          ColumnCount: parameter.ColumnCount,
+          Elements: parameter.Elements.Count,
+          StructureMembers: parameter.StructureMembers.Count,
+          Annotations: parameter.Annotations.Count,
+        });
+      }
+      evidence.reflection = described;
+      evidence.techniqueNames = [];
+      for (let index = 0; index < effect.Techniques.Count; index += 1) {
+        const technique = effect.Techniques.Get(index);
+        const passes = [];
+        for (let pass = 0; pass < technique.Passes.Count; pass += 1) {
+          passes.push(technique.Passes.Get(pass).Name);
+        }
+        evidence.techniqueNames.push({ Name: technique.Name, Passes: passes });
+      }
+
+      // --- the write-through ------------------------------------------------------------------
+      // `GetValue*` answers from managed state, so the proof a value reached CNA is CNA's own
+      // read-back through the internal reader the Node suite uses, not this package's getter.
+      const tint = effect.Parameters.Get("Tint");
+      tint.SetValue(new Vector4(0.25, 0.5, 0.75, 0.375));
+      evidence.nativeTint = readNativeParameterValue(tint, VALUE_VECTOR4);
+      const gain = effect.Parameters.Get("Gain");
+      gain.SetValue(12.5);
+      evidence.nativeGain = readNativeParameterValue(gain, VALUE_SINGLE);
+      const weights = effect.Parameters.Get("Weights");
+      const wantedWeights = [0.375, 0.625];
+      weights.SetValue([...wantedWeights]);
+      evidence.nativeWeights = {
+        native: readNativeParameterValues(weights, VALUE_SINGLE, weights.Elements.Count),
+        wanted: wantedWeights,
+      };
+
+      // --- execution --------------------------------------------------------------------------
+      const target = new Graphics.RenderTarget2D(device, 8, 8);
+      const white = new Graphics.Texture2D(device, 1, 1);
+      // Neither P0 nor P1 sets a CullMode of its own, so the winding is decided by the device's
+      // rasterizer state -- exactly as it is for the Node suite and for CNA's own draw test.
+      device.RasterizerState = Graphics.RasterizerState.CullNone;
+
+      const drawCentre = (techniqueIndex, passIndex) => {
+        device.SetRenderTarget(target);
+        try {
+          device.Clear(RENDER_CLEAR);
+          effect.CurrentTechnique = effect.Techniques.Get(techniqueIndex);
+          effect.CurrentTechnique.Passes.Get(passIndex).Apply();
+          device.DrawUserPrimitives(Graphics.PrimitiveType.TriangleList, EFFECT_QUAD, 0, 2);
+        } finally {
+          device.SetRenderTarget(null);
+        }
+        const texels = new Array(64);
+        target.GetData(texels);
+        const centre = texels[8 * 4 + 4];
+        return [centre.R, centre.G, centre.B, centre.A];
+      };
+
+      try {
+        white.SetData([new Color(255, 255, 255, 255)]);
+
+        // The three states through SecondTechnique/P1, whose program samples nothing: its output
+        // is arithmetic on two parameters and nothing else. A to B moves only Tint, B to C only
+        // Weights[1], so each says which parameter reached the shader.
+        evidence.states = [
+          { label: "A", tint: [0.8, 0.6, 0.4, 1.0], weights: [0.125, 0.5] },
+          { label: "B", tint: [0.2, 1.0, 0.8, 0.6], weights: [0.125, 0.5] },
+          { label: "C", tint: [0.2, 1.0, 0.8, 0.6], weights: [0.125, 0.25] },
+        ].map((state) => {
+          tint.SetValue(new Vector4(...state.tint));
+          weights.SetValue([...state.weights]);
+          return { ...state, actual: drawCentre(1, 0) };
+        });
+
+        // The same parameters through the other technique. FirstTechnique/P0 samples the texture
+        // and scales by Gain and the Lighting struct -- a different program over identical
+        // parameter state, so the answer says which technique actually ran.
+        effect.Parameters.Get("FxTexture").SetValue(white);
+        effect.Parameters.Get("Gain").SetValue(0.5);
+        const lighting = effect.Parameters.Get("Lighting");
+        const intensity = 0.25;
+        const thresholds = [0.125, 0.0];
+        lighting.StructureMembers.Get("Intensity").SetValue(intensity);
+        lighting.StructureMembers.Get("Thresholds").SetValue([...thresholds]);
+        const mainTint = [1.0, 0.75, 0.5, 1.0];
+        tint.SetValue(new Vector4(...mainTint));
+        evidence.main = {
+          actual: drawCentre(0, 0), tint: mainTint, gain: 0.5, intensity, thresholds,
+        };
+
+        // Gain alone, halved. Nothing else moves, so the whole image has to halve with it.
+        effect.Parameters.Get("Gain").SetValue(0.25);
+        evidence.halvedGain = { actual: drawCentre(0, 0), gain: 0.25 };
+
+        // Finding 22's second half, measured rather than assumed for this route on this renderer.
+        const extra = [
+          new Graphics.RenderTarget2D(device, 8, 8), new Graphics.RenderTarget2D(device, 8, 8),
+        ];
+        try {
+          device.SetRenderTargets(extra.map((item) => new Graphics.RenderTargetBinding(item)));
+          device.SetRenderTarget(null);
+          evidence.mrtAfterDraw = "SUCCESS";
+        } catch (error) {
+          evidence.mrtAfterDraw = `${error?.constructor?.name}: ${error?.message}`;
+        } finally {
+          for (const item of extra) item.Dispose();
+        }
+      } finally {
+        // The effect retains the texture given to `FxTexture`, so it is released first: disposing
+        // the texture while the effect still holds it is refused by name. Same order as the Node
+        // windowed suite, for the same reason.
+        effect.Dispose();
+        white.Dispose();
+        target.Dispose();
+      }
+      return evidence;
+    }
+
+    /** Every `GraphicsCapability` this device answers, and the compute limits beside them. */
+    // Upstream finding 30: on WEBGL2 a draw into two bound targets used to reach neither, while
+    // the Clear reached both. The single-target run is the control and is taken first. BasicEffect
+    // writes one colour output, so the draw belongs in the first target and nowhere else.
+    #multipleRenderTargetEvidence() {
+      const device = this.GraphicsDevice;
+      const WIDTH = 80, HEIGHT = 48;
+      const CLEARED = new Color(12, 34, 56, 255);
+      const one = new Graphics.RenderTarget2D(device, WIDTH, HEIGHT);
+      const two = new Graphics.RenderTarget2D(device, WIDTH, HEIGHT);
+      const effect = new Graphics.BasicEffect(device);
+      const rasterizer = device.RasterizerState;
+      try {
+        effect.VertexColorEnabled = true;
+        effect.World = Matrix.Identity;
+        effect.View = Matrix.CreateLookAt(new Vector3(0, 0, 10), Vector3.Zero, Vector3.Up);
+        effect.Projection = Matrix.CreatePerspectiveFieldOfView(Math.PI / 2, WIDTH / HEIGHT, 1, 100);
+        device.RasterizerState = Graphics.RasterizerState.CullNone;
+        const green = new Color(0, 255, 0, 255);
+        const triangle = [
+          new Graphics.VertexPositionColor(new Vector3(-6, -6, 0), green),
+          new Graphics.VertexPositionColor(new Vector3(10, -6, 0), green),
+          new Graphics.VertexPositionColor(new Vector3(10, -1, 0), green),
+        ];
+        const painted = (texture) => {
+          const texels = new Array(WIDTH * HEIGHT);
+          texture.GetData(texels);
+          return {
+            drawn: texels.filter((texel) => texel.PackedValue !== CLEARED.PackedValue).length,
+            cleared: texels.some((texel) => texel.PackedValue === CLEARED.PackedValue),
+          };
+        };
+        const attempt = (targets) => {
+          try {
+            device.SetRenderTargets(targets.map((item) => new Graphics.RenderTargetBinding(item)));
+            device.Clear(CLEARED);
+            effect.CurrentTechnique.Passes.Get(0).Apply();
+            device.DrawUserPrimitives(Graphics.PrimitiveType.TriangleList, triangle, 0, 1);
+            device.SetRenderTarget(null);
+            return targets.map(painted);
+          } catch (error) {
+            try { device.SetRenderTarget(null); } catch { /* already unbound */ }
+            return `${error?.constructor?.name}: ${error?.message}`;
+          }
+        };
+        return { oneTarget: attempt([one]), twoTargets: attempt([one, two]) };
+      } finally {
+        device.RasterizerState = rasterizer;
+        effect.Dispose();
+        two.Dispose();
+        one.Dispose();
+      }
+    }
+
+    #deviceCapabilityEvidence() {
+      const device = this.GraphicsDevice;
+      const caps = PostProcess.GraphicsDeviceCapabilities;
+      const named = Object.entries(PostProcess.GraphicsCapability)
+        .filter(([, value]) => typeof value === "number");
+      const supported = {};
+      for (const [name, value] of named) {
+        try { supported[name] = caps.Supports(device, value); }
+        catch (error) { supported[name] = `${error?.constructor?.name}: ${error?.message}`; }
+      }
+      const limit = (body) => {
+        try { return body(); }
+        catch (error) { return `${error?.constructor?.name}: ${error?.message}`; }
+      };
+      return {
+        supported,
+        maxWorkGroupCount: [0, 1, 2].map((axis) =>
+          limit(() => caps.MaxComputeWorkGroupCount(device, axis))),
+        maxWorkGroupSize: [0, 1, 2].map((axis) =>
+          limit(() => caps.MaxComputeWorkGroupSize(device, axis))),
+        maxWorkGroupInvocations: limit(() => caps.MaxComputeWorkGroupInvocations(device)),
+      };
+    }
+
+    /**
+     * ASCII quantization, asserted texel by texel.
+     *
+     * The source is four uniform 4x4 quadrants. Three are dark enough that their glyph index
+     * rounds to zero -- the ramp `" .:-=+*#%@"` starts with a space, which has no lit pixels -- so
+     * those cells are their background colour and nothing else, and the background in Color mode
+     * is exactly the cell average divided by four. The fourth is white, so its cell is the only
+     * one containing two colours, and both of them are named.
+     *
+     * Then the cell size is doubled, which must collapse the grid to one cell whose average is the
+     * average of the four quadrants. A cell size read as a single number, or transposed, produces
+     * a different grid and fails on the dimensions before any texel is compared.
+     */
+    #asciiEvidence(device, owned) {
+      const N = 8;
+      const effect = new PostProcess.AsciiPostProcessEffect(device);
+      owned.push(effect);
+      const quadrant = [[40, 0, 0], [0, 20, 0], [0, 0, 80], [255, 255, 255]];
+      const texels = [];
+      for (let y = 0; y < N; y += 1) {
+        for (let x = 0; x < N; x += 1) {
+          const [r, g, b] = quadrant[(y < 4 ? 0 : 2) + (x < 4 ? 0 : 1)];
+          texels.push(new Color(r, g, b, 255));
+        }
+      }
+      const source = new Graphics.Texture2D(device, N, N);
+      owned.push(source);
+      source.SetData(texels);
+      const target = new Graphics.RenderTarget2D(device, N, N);
+      owned.push(target);
+
+      const draw = (cellWidth, cellHeight) => {
+        effect.SetCellSize(cellWidth, cellHeight);
+        device.SetRenderTarget(target);
+        try {
+          device.Clear(RENDER_CLEAR);
+          effect.Draw(source, new Rectangle(0, 0, N, N));
+        } finally {
+          device.SetRenderTarget(null);
+        }
+        const pixels = new Array(N * N);
+        target.GetData(pixels);
+        const grid = effect.LastGridDimensions;
+        return {
+          cellSize: [effect.CellSize.Width, effect.CellSize.Height],
+          grid: [grid.Columns, grid.Rows],
+          pixels: pixels.map((color) => [color.R, color.G, color.B, color.A]),
+        };
+      };
+
+      const evidence = {
+        source: quadrant,
+        mode: effect.QuantizeMode,
+        colour: draw(4, 4),
+        collapsed: draw(8, 8),
+        // A non-square cell, which is the shape that dies if width and height are swapped.
+        oblong: draw(2, 4),
+      };
+      effect.QuantizeMode = PostProcess.AsciiQuantizeMode.BlackWhite;
+      evidence.blackWhiteMode = effect.QuantizeMode;
+      evidence.blackWhite = draw(4, 4);
+      return evidence;
+    }
+
+    /**
+     * Every public engine class, constructed and exercised, one property at a time.
+     *
+     * The deep scenarios above prove particular families against arithmetic. This proves something
+     * different and broader: that **every** member of the engine layer this backend now binds is
+     * reachable through the public API and marshals correctly. Nine hundred routes are not nine
+     * hundred hand-written tests, and a slice this size fails in a way no scenario catches -- a
+     * field read four bytes off, an enumeration read as an `int`, a growable structure whose size
+     * was never written.
+     *
+     * So each property is read, and each settable one is written with a value chosen to be
+     * distinguishable and read back. A getter that answers `undefined`, a setter whose value does
+     * not survive, or any call that throws where CNA did not refuse it, is a failure -- and a
+     * refusal that *is* CNA's is recorded with its result code rather than swallowed.
+     */
+    #engineCensus() {
+      const device = this.GraphicsDevice;
+      const owned = [];
+      const rows = [];
+      const record = (name, construct, extra) => {
+        let instance;
+        try {
+          instance = construct();
+        } catch (error) {
+          rows.push({
+            name, constructed: false,
+            cnaResult: error?.cnaResult ?? null,
+            error: `${error?.constructor?.name}: ${error?.message}`,
+          });
+          return;
+        }
+        owned.push(instance);
+        const row = { name, constructed: true, read: 0, wrote: 0, roundTripped: 0, failures: [] };
+        // Every accessor the class declares, read once. A getter that throws where CNA did not
+        // refuse is a marshalling failure; one that answers undefined is a binding that forgot to
+        // return.
+        for (const [property, descriptor] of Object.entries(
+          Object.getOwnPropertyDescriptors(Object.getPrototypeOf(instance)))) {
+          if (property === "constructor" || typeof descriptor.get !== "function") continue;
+          if (property === "IsDisposed") continue;
+          try {
+            const value = instance[property];
+            row.read += 1;
+            if (value === undefined) row.failures.push(`${property} answered undefined`);
+          } catch (error) {
+            row.failures.push(
+              `${property} threw ${error?.constructor?.name}` +
+              `${error?.cnaResult == null ? "" : ` (CNA ${error.cnaResult})`}: ${error?.message}`);
+          }
+          if (typeof descriptor.set !== "function") continue;
+          // A settable property is written with a value of its own type and read back. Numbers use
+          // a value CNA is unlikely to clamp; where it does, the clamp is recorded rather than
+          // treated as a failure, because a clamp is CNA's answer and proof the value arrived.
+          try {
+            const before = instance[property];
+            const attempt = typeof before === "number"
+              ? (Number.isInteger(before) ? 2 : 0.28125)
+              : typeof before === "boolean" ? !before
+              : null;
+            if (attempt === null) continue;
+            instance[property] = attempt;
+            row.wrote += 1;
+            const after = instance[property];
+            if (after === attempt) row.roundTripped += 1;
+            else if (typeof after !== typeof attempt) {
+              row.failures.push(`${property} wrote ${typeof attempt} and read ${typeof after}`);
+            }
+            instance[property] = before;
+          } catch (error) {
+            if (error?.cnaResult == null && !(error instanceof RangeError)
+              && !(error instanceof TypeError)) {
+              row.failures.push(`${property} setter threw ${error?.constructor?.name}`);
+            }
+          }
+        }
+        if (extra) {
+          try {
+            extra(instance, row);
+          } catch (error) {
+            row.failures.push(`extra: ${error?.constructor?.name}: ${error?.message}`);
+          }
+        }
+        rows.push(row);
+      };
+
+      const {
+        AsciiPostProcessEffect, CrtEffect, DebugDraw, DepthEffect, PbrEffect, SkinnedPbrEffect,
+      } = PostProcess;
+      try {
+        // CRT, depth and the two PBR effects are static-method facades over an ordinary Effect, so
+        // what is recorded for them is the effect CNA made, read through the accessors every
+        // effect has.
+        record("PbrEffect", () => PbrEffect.Create(device));
+        record("SkinnedPbrEffect", () => SkinnedPbrEffect.Create(device));
+        record("CrtEffect", () => CrtEffect.Create(device));
+        record("DepthEffect", () => DepthEffect.Create(device));
+        record("AsciiPostProcessEffect", () => new AsciiPostProcessEffect(device));
+        record("DebugDraw", () => new DebugDraw(device));
+      } catch (error) {
+        return {
+          censusError: `${error?.constructor?.name}: ${error?.message}`,
+          stack: String(error?.stack ?? ""), rows,
+        };
+      } finally {
+        for (const item of owned.reverse()) { try { item.Dispose?.(); } catch { /* reported */ } }
+      }
+      return { rows };
+    }
+
+    UnloadContent() {
+      this.cnbSound?.Dispose();
+      this.cnbSound = null;
+      this.cnbTexture?.Dispose();
+      this.cnbTexture = null;
+      this.soundInstance?.Dispose();
+      this.soundInstance = null;
+      this.sound?.Dispose();
+      this.sound = null;
+      this.target?.Dispose();
+      this.target = null;
+      this.content?.Dispose();
+      this.content = null;
+      this.texture?.Dispose();
+      this.texture = null;
+      this.spriteBatch?.Dispose();
+      this.spriteBatch = null;
+      super.UnloadContent();
+    }
+  }
+
+  const game = new HelloGame();
+  result.rendererName = null;
+
+  await new Promise((resolve, reject) => {
+    const pump = () => {
+      try {
+        game.RunOneFrame();
+        result.frames += 1;
+        if (result.rendererName == null && game.GraphicsDevice) {
+          result.rendererName = GetRuntimeStatus().RendererInfo?.Name ?? "";
+        }
+        if (result.frames >= targetFrames) {
+          resolve();
+          return;
+        }
+        requestAnimationFrame(pump);
+      } catch (error) {
+        reject(error);
+      }
+    };
+    requestAnimationFrame(pump);
+  });
+
+  result.isFixedTimeStep = game.IsFixedTimeStep;
+  result.updates = game.updates;
+  result.draws = game.draws;
+  game.Exit();
+  game.Dispose();
+  result.disposed = game.IsDisposed !== false;
+  result.status = "ok";
+} catch (error) {
+  result.status = "failed";
+  result.error = String(error && error.stack ? error.stack : error);
+  if (error && error.cause) {
+    result.error += `\ncaused by: ${error.cause.stack ?? error.cause}`;
+  }
+}
+</script>
+</body>
+</html>

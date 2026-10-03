@@ -1,0 +1,887 @@
+{
+  "description": "What CNA-TS depends on at the CNA C ABI boundary, stated once so it can be proved against the canonical headers instead of restated in prose. tools/cna-abi/verify-contract.mjs generates a C translation unit from this file and compiles it against CNA/C/*.h under -Wall -Wextra -Werror, so an absent constant, a changed value, a changed scalar width or a changed struct version is a compile error rather than a silent runtime mismatch.",
+  "scalarRepresentations": [
+    {
+      "expression": "sizeof(CNA_Bool)",
+      "value": 1,
+      "reason": "the ABI fixes CNA_Bool as uint8_t"
+    },
+    {
+      "expression": "sizeof(CNA_Handle)",
+      "value": 8,
+      "reason": "the ABI fixes CNA_Handle as uint64_t; the adapter carries it as a JavaScript bigint"
+    },
+    {
+      "expression": "sizeof(CNA_Result)",
+      "value": 4,
+      "reason": "the ABI fixes CNA_Result as uint32_t"
+    },
+    {
+      "expression": "(uint32_t) CNA_FALSE",
+      "value": 0,
+      "reason": "the only two canonical CNA_Bool bytes"
+    },
+    {
+      "expression": "(uint32_t) CNA_TRUE",
+      "value": 1,
+      "reason": "the only two canonical CNA_Bool bytes"
+    },
+    {
+      "expression": "(uint64_t) CNA_INVALID_HANDLE",
+      "value": 0,
+      "reason": "the adapter treats 0n as the absent handle"
+    },
+    {
+      "expression": "CNA_GRAPHICS_CAPABILITY_FLAG_THREE_D == (UINT64_C(1) << CNA_GRAPHICS_CAPABILITY_THREE_D)",
+      "value": 1,
+      "reason": "the THREE_D capability bit is one shifted by its ordinal, which is what lets a capability answer be checked against the renderer capability mask"
+    },
+    {
+      "expression": "CNA_GRAPHICS_CAPABILITY_FLAG_DEPTH_STENCIL_BUFFER == (UINT64_C(1) << CNA_GRAPHICS_CAPABILITY_DEPTH_STENCIL_BUFFER)",
+      "value": 1,
+      "reason": "the DEPTH_STENCIL_BUFFER capability bit is one shifted by its ordinal, which is what lets a capability answer be checked against the renderer capability mask"
+    },
+    {
+      "expression": "CNA_GRAPHICS_CAPABILITY_FLAG_MULTI_SAMPLE_ANTI_ALIASING == (UINT64_C(1) << CNA_GRAPHICS_CAPABILITY_MULTI_SAMPLE_ANTI_ALIASING)",
+      "value": 1,
+      "reason": "the MULTI_SAMPLE_ANTI_ALIASING capability bit is one shifted by its ordinal, which is what lets a capability answer be checked against the renderer capability mask"
+    },
+    {
+      "expression": "CNA_GRAPHICS_CAPABILITY_FLAG_MULTIPLE_RENDER_TARGETS == (UINT64_C(1) << CNA_GRAPHICS_CAPABILITY_MULTIPLE_RENDER_TARGETS)",
+      "value": 1,
+      "reason": "the MULTIPLE_RENDER_TARGETS capability bit is one shifted by its ordinal, which is what lets a capability answer be checked against the renderer capability mask"
+    },
+    {
+      "expression": "CNA_GRAPHICS_CAPABILITY_FLAG_ANISOTROPIC_FILTERING == (UINT64_C(1) << CNA_GRAPHICS_CAPABILITY_ANISOTROPIC_FILTERING)",
+      "value": 1,
+      "reason": "the ANISOTROPIC_FILTERING capability bit is one shifted by its ordinal, which is what lets a capability answer be checked against the renderer capability mask"
+    },
+    {
+      "expression": "CNA_GRAPHICS_CAPABILITY_FLAG_WIRE_FRAME == (UINT64_C(1) << CNA_GRAPHICS_CAPABILITY_WIRE_FRAME)",
+      "value": 1,
+      "reason": "the WIRE_FRAME capability bit is one shifted by its ordinal, which is what lets a capability answer be checked against the renderer capability mask"
+    },
+    {
+      "expression": "CNA_GRAPHICS_CAPABILITY_FLAG_OCCLUSION_QUERY == (UINT64_C(1) << CNA_GRAPHICS_CAPABILITY_OCCLUSION_QUERY)",
+      "value": 1,
+      "reason": "the OCCLUSION_QUERY capability bit is one shifted by its ordinal, which is what lets a capability answer be checked against the renderer capability mask"
+    },
+    {
+      "expression": "CNA_GRAPHICS_CAPABILITY_FLAG_CUSTOM_EFFECTS == (UINT64_C(1) << CNA_GRAPHICS_CAPABILITY_CUSTOM_EFFECTS)",
+      "value": 1,
+      "reason": "the CUSTOM_EFFECTS capability bit is one shifted by its ordinal, which is what lets a capability answer be checked against the renderer capability mask"
+    },
+    {
+      "expression": "CNA_GRAPHICS_CAPABILITY_FLAG_TEXTURE_3D == (UINT64_C(1) << CNA_GRAPHICS_CAPABILITY_TEXTURE_3D)",
+      "value": 1,
+      "reason": "the TEXTURE_3D capability bit is one shifted by its ordinal, which is what lets a capability answer be checked against the renderer capability mask"
+    },
+    {
+      "expression": "CNA_GRAPHICS_CAPABILITY_FLAG_MULTI_STREAM_VERTEX_INPUT == (UINT64_C(1) << CNA_GRAPHICS_CAPABILITY_MULTI_STREAM_VERTEX_INPUT)",
+      "value": 1,
+      "reason": "the MULTI_STREAM_VERTEX_INPUT capability bit is one shifted by its ordinal, which is what lets a capability answer be checked against the renderer capability mask"
+    },
+    {
+      "expression": "CNA_GRAPHICS_CAPABILITY_FLAG_INSTANCING == (UINT64_C(1) << CNA_GRAPHICS_CAPABILITY_INSTANCING)",
+      "value": 1,
+      "reason": "the INSTANCING capability bit is one shifted by its ordinal, which is what lets a capability answer be checked against the renderer capability mask"
+    },
+    {
+      "expression": "CNA_GRAPHICS_CAPABILITY_FLAG_STENCIL_BUFFER == (UINT64_C(1) << CNA_GRAPHICS_CAPABILITY_STENCIL_BUFFER)",
+      "value": 1,
+      "reason": "the STENCIL_BUFFER capability bit is one shifted by its ordinal, which is what lets a capability answer be checked against the renderer capability mask"
+    },
+    {
+      "expression": "CNA_GRAPHICS_CAPABILITY_FLAG_ADDITIVE_BLENDING == (UINT64_C(1) << CNA_GRAPHICS_CAPABILITY_ADDITIVE_BLENDING)",
+      "value": 1,
+      "reason": "the ADDITIVE_BLENDING capability bit is one shifted by its ordinal, which is what lets a capability answer be checked against the renderer capability mask"
+    },
+    {
+      "expression": "CNA_GRAPHICS_CAPABILITY_FLAG_COMPILED_EFFECTS == (UINT64_C(1) << CNA_GRAPHICS_CAPABILITY_COMPILED_EFFECTS)",
+      "value": 1,
+      "reason": "the COMPILED_EFFECTS capability bit is one shifted by its ordinal, which is what lets a capability answer be checked against the renderer capability mask"
+    },
+    {
+      "expression": "CNA_GRAPHICS_CAPABILITY_FLAG_FLOAT_RENDER_TARGETS == (UINT64_C(1) << CNA_GRAPHICS_CAPABILITY_FLOAT_RENDER_TARGETS)",
+      "value": 1,
+      "reason": "the FLOAT_RENDER_TARGETS capability bit is one shifted by its ordinal, which is what lets a capability answer be checked against the renderer capability mask"
+    },
+    {
+      "expression": "CNA_GRAPHICS_CAPABILITY_FLAG_HALF_FLOAT_RENDER_TARGETS == (UINT64_C(1) << CNA_GRAPHICS_CAPABILITY_HALF_FLOAT_RENDER_TARGETS)",
+      "value": 1,
+      "reason": "the HALF_FLOAT_RENDER_TARGETS capability bit is one shifted by its ordinal, which is what lets a capability answer be checked against the renderer capability mask"
+    },
+    {
+      "expression": "CNA_GRAPHICS_CAPABILITY_FLAG_HALF_FLOAT_TEXTURE_LINEAR_FILTERING == (UINT64_C(1) << CNA_GRAPHICS_CAPABILITY_HALF_FLOAT_TEXTURE_LINEAR_FILTERING)",
+      "value": 1,
+      "reason": "the HALF_FLOAT_TEXTURE_LINEAR_FILTERING capability bit is one shifted by its ordinal, which is what lets a capability answer be checked against the renderer capability mask"
+    },
+    {
+      "expression": "CNA_GRAPHICS_CAPABILITY_FLAG_COMPUTE_SHADERS == (UINT64_C(1) << CNA_GRAPHICS_CAPABILITY_COMPUTE_SHADERS)",
+      "value": 1,
+      "reason": "the COMPUTE_SHADERS capability bit is one shifted by its ordinal, which is what lets a capability answer be checked against the renderer capability mask"
+    },
+    {
+      "expression": "CNA_GRAPHICS_CAPABILITY_FLAG_INDIRECT_DRAW == (UINT64_C(1) << CNA_GRAPHICS_CAPABILITY_INDIRECT_DRAW)",
+      "value": 1,
+      "reason": "the INDIRECT_DRAW capability bit is one shifted by its ordinal, which is what lets a capability answer be checked against the renderer capability mask"
+    },
+    {
+      "expression": "CNA_GRAPHICS_CAPABILITY_MAXIMUM == CNA_GRAPHICS_CAPABILITY_INDIRECT_DRAW",
+      "value": 1,
+      "reason": "GraphicsCapability projects every capability up to the maximum; a new one added upstream moves this sentinel and fails here"
+    },
+    {
+      "expression": "sizeof(CNA_SurfaceFormat)",
+      "value": 4,
+      "reason": "the Node adapter writes this field of CNA_PresentationParameters through a 32-bit word when it builds a caller-created GraphicsDevice, so its width is proved rather than assumed"
+    },
+    {
+      "expression": "sizeof(CNA_DepthFormat)",
+      "value": 4,
+      "reason": "the Node adapter writes this field of CNA_PresentationParameters through a 32-bit word when it builds a caller-created GraphicsDevice, so its width is proved rather than assumed"
+    },
+    {
+      "expression": "sizeof(CNA_PresentInterval)",
+      "value": 4,
+      "reason": "the Node adapter writes this field of CNA_PresentationParameters through a 32-bit word when it builds a caller-created GraphicsDevice, so its width is proved rather than assumed"
+    },
+    {
+      "expression": "sizeof(CNA_DisplayOrientation)",
+      "value": 4,
+      "reason": "the Node adapter writes this field of CNA_PresentationParameters through a 32-bit word when it builds a caller-created GraphicsDevice, so its width is proved rather than assumed"
+    },
+    {
+      "expression": "sizeof(CNA_RenderTargetUsage)",
+      "value": 4,
+      "reason": "the Node adapter writes this field of CNA_PresentationParameters through a 32-bit word when it builds a caller-created GraphicsDevice, so its width is proved rather than assumed"
+    }
+  ],
+  "resultCodes": {
+    "reason": "the adapter maps these onto XNA and CNA error identities, so their numbers are part of the contract",
+    "constants": {
+      "CNA_RESULT_SUCCESS": 0,
+      "CNA_RESULT_INVALID_ARGUMENT": 1,
+      "CNA_RESULT_INVALID_HANDLE": 2,
+      "CNA_RESULT_INVALID_STATE": 3,
+      "CNA_RESULT_OUT_OF_MEMORY": 4,
+      "CNA_RESULT_IO": 5,
+      "CNA_RESULT_NOT_SUPPORTED": 6,
+      "CNA_RESULT_PLATFORM": 7,
+      "CNA_RESULT_THREAD": 8,
+      "CNA_RESULT_CALLBACK": 9,
+      "CNA_RESULT_OVERFLOW": 10,
+      "CNA_RESULT_ENCODING": 11,
+      "CNA_RESULT_INTERNAL": 12,
+      "CNA_RESULT_SHUTTING_DOWN": 13,
+      "CNA_RESULT_BUFFER_TOO_SMALL": 14
+    }
+  },
+  "structVersions": {
+    "reason": "every versioned descriptor the adapter fills sets struct_version to 1; where the headers publish a macro for that version, the macro is asserted rather than assumed",
+    "declared": {
+      "CNA_VIDEO_FRAME_EXT_STRUCT_VERSION": 1,
+      "CNA_CNB_READ_LIMITS_STRUCT_VERSION": 1,
+      "CNA_CNB_CHUNK_ENTRY_STRUCT_VERSION": 1,
+      "CNA_CNB_METADATA_STRUCT_VERSION": 1,
+      "CNA_CNB_EXTERNAL_REFERENCE_STRUCT_VERSION": 1,
+      "CNA_CNB_TEXTURE_INFO_STRUCT_VERSION": 1
+    }
+  },
+  "adapterStructVersionLiteral": 1,
+  "managedEnums": {
+    "ButtonState": "XNA's pressed/released identity is carried across the C ABI as a CNA_Bool rather than as an identity of its own, so there is no constant family for it to agree with"
+  },
+  "expectedCnaOnlyConstants": {
+    "reason": "constants that share a mapped family's prefix but have no XNA counterpart: MAXIMUM sentinels, _EXT extensions beyond XNA 4.0, state presets and type names, and sub-families that merely share a prefix. Listing them means a newly added one arrives as a diagnostic instead of passing unnoticed.",
+    "constants": [
+      "CNA_ALPHA_MODE_MAXIMUM_EXT",
+      "CNA_AUDIO_STOP_OPTIONS_MAXIMUM",
+      "CNA_AVATAR_ANIMATION_PRESET_MAXIMUM",
+      "CNA_AVATAR_BODY_TYPE_MAXIMUM",
+      "CNA_AVATAR_BONE_MAXIMUM",
+      "CNA_AVATAR_EYEBROW_MAXIMUM",
+      "CNA_AVATAR_EYE_MAXIMUM",
+      "CNA_AVATAR_MOUTH_MAXIMUM",
+      "CNA_AVATAR_RENDERER_STATE_MAXIMUM",
+      "CNA_BLEND_STATE_PRESET_ADDITIVE",
+      "CNA_BLEND_STATE_PRESET_ALPHA_BLEND",
+      "CNA_BLEND_STATE_PRESET_DEFAULT",
+      "CNA_BLEND_STATE_PRESET_NON_PREMULTIPLIED",
+      "CNA_BLEND_STATE_PRESET_OPAQUE",
+      "CNA_BLEND_STATE_TYPE_NAME",
+      "CNA_CAMERA_POSITION_MAXIMUM",
+      "CNA_CAMERA_STATE_MAXIMUM",
+      "CNA_CNB_ASSET_TYPE_CUSTOM_RANGE_FIRST",
+      "CNA_CNB_ASSET_TYPE_EFFECT",
+      "CNA_CNB_ASSET_TYPE_RESERVED_RANGE_FIRST",
+      "CNA_CNB_AUDIO_FORMAT_MAXIMUM",
+      "CNA_CNB_COMPRESSION_MAXIMUM",
+      "CNA_CNB_EFFECT_KIND_MAXIMUM",
+      "CNA_CNB_MATERIAL_TEXTURE_MAXIMUM",
+      "CNA_CNB_SKELETON_MATRIX_MAXIMUM",
+      "CNA_CNB_TEXTURE_FORMAT_MAXIMUM",
+      "CNA_CONTROLLER_SENSITIVITY_MAXIMUM",
+      "CNA_GAMEPAD_BUTTON_ALL",
+      "CNA_GAMEPAD_BUTTON_LABEL_A",
+      "CNA_GAMEPAD_BUTTON_LABEL_B",
+      "CNA_GAMEPAD_BUTTON_LABEL_CIRCLE",
+      "CNA_GAMEPAD_BUTTON_LABEL_CROSS",
+      "CNA_GAMEPAD_BUTTON_LABEL_SQUARE",
+      "CNA_GAMEPAD_BUTTON_LABEL_TRIANGLE",
+      "CNA_GAMEPAD_BUTTON_LABEL_UNKNOWN",
+      "CNA_GAMEPAD_BUTTON_LABEL_X",
+      "CNA_GAMEPAD_BUTTON_LABEL_Y",
+      "CNA_GAMEPAD_BUTTON_MISC1_EXT",
+      "CNA_GAMEPAD_BUTTON_NONE",
+      "CNA_GAMEPAD_BUTTON_PADDLE1_EXT",
+      "CNA_GAMEPAD_BUTTON_PADDLE2_EXT",
+      "CNA_GAMEPAD_BUTTON_PADDLE3_EXT",
+      "CNA_GAMEPAD_BUTTON_PADDLE4_EXT",
+      "CNA_GAMEPAD_BUTTON_TOUCH_PAD_EXT",
+      "CNA_GAMER_PRESENCE_MODE_MAXIMUM",
+      "CNA_GAMER_PRIVILEGE_SETTING_MAXIMUM",
+      "CNA_GAMER_ZONE_MAXIMUM",
+      "CNA_GAME_DIFFICULTY_MAXIMUM",
+      "CNA_GESTURE_TYPE_ALL",
+      "CNA_GRAPHICS_CAPABILITY_FLAG_ADDITIVE_BLENDING",
+      "CNA_GRAPHICS_CAPABILITY_FLAG_ANISOTROPIC_FILTERING",
+      "CNA_GRAPHICS_CAPABILITY_FLAG_COMPILED_EFFECTS",
+      "CNA_GRAPHICS_CAPABILITY_FLAG_COMPUTE_SHADERS",
+      "CNA_GRAPHICS_CAPABILITY_FLAG_CUSTOM_EFFECTS",
+      "CNA_GRAPHICS_CAPABILITY_FLAG_DEPTH_STENCIL_BUFFER",
+      "CNA_GRAPHICS_CAPABILITY_FLAG_FLOAT_RENDER_TARGETS",
+      "CNA_GRAPHICS_CAPABILITY_FLAG_HALF_FLOAT_RENDER_TARGETS",
+      "CNA_GRAPHICS_CAPABILITY_FLAG_HALF_FLOAT_TEXTURE_LINEAR_FILTERING",
+      "CNA_GRAPHICS_CAPABILITY_FLAG_INDIRECT_DRAW",
+      "CNA_GRAPHICS_CAPABILITY_FLAG_INSTANCING",
+      "CNA_GRAPHICS_CAPABILITY_FLAG_MULTIPLE_RENDER_TARGETS",
+      "CNA_GRAPHICS_CAPABILITY_FLAG_MULTI_SAMPLE_ANTI_ALIASING",
+      "CNA_GRAPHICS_CAPABILITY_FLAG_MULTI_STREAM_VERTEX_INPUT",
+      "CNA_GRAPHICS_CAPABILITY_FLAG_OCCLUSION_QUERY",
+      "CNA_GRAPHICS_CAPABILITY_FLAG_STENCIL_BUFFER",
+      "CNA_GRAPHICS_CAPABILITY_FLAG_TEXTURE_3D",
+      "CNA_GRAPHICS_CAPABILITY_FLAG_THREE_D",
+      "CNA_GRAPHICS_CAPABILITY_FLAG_WIRE_FRAME",
+      "CNA_GRAPHICS_CAPABILITY_MAXIMUM",
+      "CNA_GRAPHICS_RENDERER_FALLBACK_MAXIMUM",
+      "CNA_GRAPHICS_RENDERER_MAXIMUM",
+      "CNA_HAPTIC_FEATURE_ALL",
+      "CNA_JOYSTICK_HAT_POSITION_MAXIMUM",
+      "CNA_JOYSTICK_TYPE_MAXIMUM",
+      "CNA_KEY_MODIFIER_ALL",
+      "CNA_KEY_MODIFIER_ALT",
+      "CNA_KEY_MODIFIER_CAPS",
+      "CNA_KEY_MODIFIER_CTRL",
+      "CNA_KEY_MODIFIER_GUI",
+      "CNA_KEY_MODIFIER_MODE",
+      "CNA_KEY_MODIFIER_NONE",
+      "CNA_KEY_MODIFIER_NUM",
+      "CNA_KEY_MODIFIER_SCROLL",
+      "CNA_KEY_MODIFIER_SHIFT",
+      "CNA_LEADERBOARD_KEY_MAXIMUM",
+      "CNA_LEADERBOARD_OUTCOME_MAXIMUM",
+      "CNA_MEDIA_STATE_MAXIMUM",
+      "CNA_MESSAGE_BOX_ICON_MAXIMUM",
+      "CNA_MICROPHONE_STATE_MAXIMUM",
+      "CNA_NOTIFICATION_POSITION_MAXIMUM",
+      "CNA_PBR_TEXTURE_MAXIMUM",
+      "CNA_POWER_STATE_MAXIMUM",
+      "CNA_PRIMITIVE_POINT_LIST_EXT",
+      "CNA_RACING_CAMERA_ANGLE_MAXIMUM",
+      "CNA_SENSOR_STATE_MAXIMUM",
+      "CNA_SURFACE_FORMAT_BC7_EXT",
+      "CNA_SURFACE_FORMAT_BC7_SRGB_EXT",
+      "CNA_SURFACE_FORMAT_BYTE_EXT",
+      "CNA_SURFACE_FORMAT_COLOR_BGRA_EXT",
+      "CNA_SURFACE_FORMAT_COLOR_SRGB_EXT",
+      "CNA_SURFACE_FORMAT_DXT5_SRGB_EXT",
+      "CNA_SURFACE_FORMAT_USHORT_EXT",
+      "CNA_TEXT_INPUT_TYPE_MAXIMUM",
+      "CNA_VIDEO_SOUNDTRACK_TYPE_MAXIMUM"
+    ]
+  },
+  "enumFamilies": [
+    {
+      "typeScriptEnum": "FileAccess",
+      "cnaPrefix": "CNA_FILE_ACCESS"
+    },
+    {
+      "typeScriptEnum": "FileMode",
+      "cnaPrefix": "CNA_FILE_MODE"
+    },
+    {
+      "typeScriptEnum": "FileShare",
+      "cnaPrefix": "CNA_FILE_SHARE"
+    },
+    {
+      "typeScriptEnum": "AudioChannels",
+      "cnaPrefix": "CNA_AUDIO_CHANNELS"
+    },
+    {
+      "typeScriptEnum": "AudioStopOptions",
+      "cnaPrefix": "CNA_AUDIO_STOP_OPTIONS"
+    },
+    {
+      "typeScriptEnum": "SoundState",
+      "cnaPrefix": "CNA_SOUND_STATE"
+    },
+    {
+      "typeScriptEnum": "MicrophoneState",
+      "cnaPrefix": "CNA_MICROPHONE_STATE"
+    },
+    {
+      "typeScriptEnum": "ContainmentType",
+      "cnaPrefix": "CNA_CONTAINMENT"
+    },
+    {
+      "typeScriptEnum": "CurveContinuity",
+      "cnaPrefix": "CNA_CURVE_CONTINUITY"
+    },
+    {
+      "typeScriptEnum": "CurveLoopType",
+      "cnaPrefix": "CNA_CURVE_LOOP"
+    },
+    {
+      "typeScriptEnum": "CurveTangent",
+      "cnaPrefix": "CNA_CURVE_TANGENT"
+    },
+    {
+      "typeScriptEnum": "DisplayOrientation",
+      "cnaPrefix": "CNA_DISPLAY_ORIENTATION"
+    },
+    {
+      "typeScriptEnum": "ClearOptions",
+      "cnaPrefix": "CNA_CLEAR_OPTION"
+    },
+    {
+      "typeScriptEnum": "DepthFormat",
+      "cnaPrefix": "CNA_DEPTH_FORMAT"
+    },
+    {
+      "typeScriptEnum": "GraphicsDeviceStatus",
+      "cnaPrefix": "CNA_GRAPHICS_DEVICE_STATUS"
+    },
+    {
+      "typeScriptEnum": "GraphicsProfile",
+      "cnaPrefix": "CNA_GRAPHICS_PROFILE"
+    },
+    {
+      "typeScriptEnum": "PresentInterval",
+      "cnaPrefix": "CNA_PRESENT_INTERVAL"
+    },
+    {
+      "typeScriptEnum": "RenderTargetUsage",
+      "cnaPrefix": "CNA_RENDER_TARGET_USAGE"
+    },
+    {
+      "typeScriptEnum": "SurfaceFormat",
+      "cnaPrefix": "CNA_SURFACE_FORMAT"
+    },
+    {
+      "typeScriptEnum": "EffectParameterClass",
+      "cnaPrefix": "CNA_EFFECT_PARAMETER_CLASS"
+    },
+    {
+      "typeScriptEnum": "EffectParameterType",
+      "cnaPrefix": "CNA_EFFECT_PARAMETER_TYPE",
+      "suffixOverrides": {
+        "Texture1D": "TEXTURE1D",
+        "Texture2D": "TEXTURE2D",
+        "Texture3D": "TEXTURE3D"
+      }
+    },
+    {
+      "typeScriptEnum": "SpriteEffects",
+      "cnaPrefix": "CNA_SPRITE_EFFECT"
+    },
+    {
+      "typeScriptEnum": "SpriteSortMode",
+      "cnaPrefix": "CNA_SPRITE_SORT_MODE"
+    },
+    {
+      "typeScriptEnum": "Blend",
+      "cnaPrefix": "CNA_BLEND",
+      "suffixOverrides": {
+        "BlendFactor": "FACTOR",
+        "InverseBlendFactor": "INVERSE_FACTOR"
+      }
+    },
+    {
+      "typeScriptEnum": "BlendFunction",
+      "cnaPrefix": "CNA_BLEND_FUNCTION",
+      "translations": {
+        "Min": {
+          "cnaConstant": "CNA_BLEND_FUNCTION_MIN",
+          "cnaValue": 4,
+          "translator": "toCnaBlendFunction"
+        },
+        "Max": {
+          "cnaConstant": "CNA_BLEND_FUNCTION_MAX",
+          "cnaValue": 3,
+          "translator": "toCnaBlendFunction"
+        }
+      },
+      "translationReason": "XNA 4.0 numbers Min=3 and Max=4; the CNA C ABI numbers MAX=3 and MIN=4, so an untranslated value exchanges the two functions"
+    },
+    {
+      "typeScriptEnum": "ColorWriteChannels",
+      "cnaPrefix": "CNA_COLOR_WRITE"
+    },
+    {
+      "typeScriptEnum": "CompareFunction",
+      "cnaPrefix": "CNA_COMPARE"
+    },
+    {
+      "typeScriptEnum": "StencilOperation",
+      "cnaPrefix": "CNA_STENCIL"
+    },
+    {
+      "typeScriptEnum": "CullMode",
+      "cnaPrefix": "CNA_CULL",
+      "suffixOverrides": {
+        "CullClockwiseFace": "CLOCKWISE_FACE",
+        "CullCounterClockwiseFace": "COUNTER_CLOCKWISE_FACE"
+      }
+    },
+    {
+      "typeScriptEnum": "FillMode",
+      "cnaPrefix": "CNA_FILL",
+      "suffixOverrides": {
+        "WireFrame": "WIREFRAME"
+      }
+    },
+    {
+      "typeScriptEnum": "TextureAddressMode",
+      "cnaPrefix": "CNA_TEXTURE_ADDRESS"
+    },
+    {
+      "typeScriptEnum": "TextureFilter",
+      "cnaPrefix": "CNA_TEXTURE_FILTER"
+    },
+    {
+      "typeScriptEnum": "CubeMapFace",
+      "cnaPrefix": "CNA_CUBE_MAP_FACE"
+    },
+    {
+      "typeScriptEnum": "BufferUsage",
+      "cnaPrefix": "CNA_BUFFER_USAGE"
+    },
+    {
+      "typeScriptEnum": "IndexElementSize",
+      "cnaPrefix": "CNA_INDEX_ELEMENT_SIZE"
+    },
+    {
+      "typeScriptEnum": "SetDataOptions",
+      "cnaPrefix": "CNA_SET_DATA"
+    },
+    {
+      "typeScriptEnum": "PrimitiveType",
+      "cnaPrefix": "CNA_PRIMITIVE"
+    },
+    {
+      "typeScriptEnum": "VertexElementFormat",
+      "cnaPrefix": "CNA_VERTEX_ELEMENT_FORMAT"
+    },
+    {
+      "typeScriptEnum": "VertexElementUsage",
+      "cnaPrefix": "CNA_VERTEX_ELEMENT_USAGE"
+    },
+    {
+      "typeScriptEnum": "Buttons",
+      "cnaPrefix": "CNA_GAMEPAD_BUTTON",
+      "suffixOverrides": {
+        "DPadUp": "DPAD_UP",
+        "DPadDown": "DPAD_DOWN",
+        "DPadLeft": "DPAD_LEFT",
+        "DPadRight": "DPAD_RIGHT"
+      }
+    },
+    {
+      "typeScriptEnum": "GamePadDeadZone",
+      "cnaPrefix": "CNA_GAMEPAD_DEAD_ZONE"
+    },
+    {
+      "typeScriptEnum": "GamePadType",
+      "cnaPrefix": "CNA_GAMEPAD_TYPE",
+      "suffixOverrides": {
+        "GamePad": "GAMEPAD"
+      },
+      "translations": {
+        "BigButtonPad": {
+          "cnaConstant": "CNA_GAMEPAD_TYPE_BIG_BUTTON_PAD",
+          "cnaValue": 9,
+          "translator": "fromCnaGamePadType"
+        }
+      },
+      "translationReason": "XNA numbers BigButtonPad 0x300 while the CNA C ABI continues its dense sequence at 9; the adapter translates the value it reads back from a capability snapshot"
+    },
+    {
+      "typeScriptEnum": "KeyState",
+      "cnaPrefix": "CNA_KEY_STATE"
+    },
+    {
+      "typeScriptEnum": "Keys",
+      "cnaPrefix": "CNA_KEY"
+    },
+    {
+      "typeScriptEnum": "GestureType",
+      "cnaPrefix": "CNA_GESTURE_TYPE"
+    },
+    {
+      "typeScriptEnum": "TouchLocationState",
+      "cnaPrefix": "CNA_TOUCH_LOCATION"
+    },
+    {
+      "typeScriptEnum": "MediaSourceType",
+      "cnaPrefix": "CNA_MEDIA_SOURCE_TYPE"
+    },
+    {
+      "typeScriptEnum": "MediaState",
+      "cnaPrefix": "CNA_MEDIA_STATE"
+    },
+    {
+      "typeScriptEnum": "VideoSoundtrackType",
+      "cnaPrefix": "CNA_VIDEO_SOUNDTRACK_TYPE"
+    },
+    {
+      "typeScriptEnum": "PlaneIntersectionType",
+      "cnaPrefix": "CNA_PLANE_INTERSECTION"
+    },
+    {
+      "typeScriptEnum": "PlayerIndex",
+      "cnaPrefix": "CNA_PLAYER_INDEX"
+    },
+    {
+      "typeScriptEnum": "CnaPlatform",
+      "cnaPrefix": "CNA_PLATFORM"
+    },
+    {
+      "typeScriptEnum": "CnaDesktopOperatingSystem",
+      "cnaPrefix": "CNA_DESKTOP_OS",
+      "suffixOverrides": {
+        "MacOSX": "MACOSX"
+      }
+    },
+    {
+      "typeScriptEnum": "GraphicsBackendCategory",
+      "cnaPrefix": "CNA_GRAPHICS_BACKEND_CATEGORY"
+    },
+    {
+      "typeScriptEnum": "GraphicsBackendMaturity",
+      "cnaPrefix": "CNA_GRAPHICS_BACKEND_MATURITY"
+    },
+    {
+      "typeScriptEnum": "GraphicsRendererFallbackReason",
+      "cnaPrefix": "CNA_GRAPHICS_RENDERER_FALLBACK"
+    },
+    {
+      "typeScriptEnum": "CnaLogLevel",
+      "cnaPrefix": "CNA_LOG_LEVEL"
+    },
+    {
+      "typeScriptEnum": "CnaLogCategory",
+      "cnaPrefix": "CNA_LOG_CATEGORY"
+    },
+    {
+      "typeScriptEnum": "GraphicsRendererType",
+      "cnaPrefix": "CNA_GRAPHICS_RENDERER",
+      "suffixOverrides": {
+        "OpenGLES2": "OPENGLES2",
+        "OpenGLES3": "OPENGLES3",
+        "OpenGL33": "OPENGL33",
+        "WebGL1": "WEBGL1",
+        "WebGL2": "WEBGL2",
+        "WebGpu": "WEBGPU",
+        "DirectX11": "DIRECTX11",
+        "DirectX12": "DIRECTX12",
+        "Direct2D": "DIRECT2D",
+        "FreeDirect": "FREEDIRECT",
+        "DirectX9": "DIRECTX9",
+        "DirectX1": "DIRECTX1",
+        "DirectX2": "DIRECTX2",
+        "DirectX3": "DIRECTX3",
+        "DirectX5": "DIRECTX5",
+        "DirectX6": "DIRECTX6",
+        "DirectX7": "DIRECTX7",
+        "DirectX8": "DIRECTX8",
+        "DirectX10": "DIRECTX10",
+        "OpenGLES1": "OPENGLES1",
+        "OpenGL4": "OPENGL4",
+        "OpenGL1": "OPENGL1",
+        "OpenGL2": "OPENGL2",
+        "Fna3D": "FNA3D",
+        "PortableGL": "PORTABLEGL",
+        "PixiJs": "PIXIJS"
+      }
+    },
+    {
+      "typeScriptEnum": "AvatarAnimationPreset",
+      "cnaPrefix": "CNA_AVATAR_ANIMATION_PRESET",
+      "suffixOverrides": {
+        "Stand0": "STAND_0",
+        "Stand1": "STAND_1",
+        "Stand2": "STAND_2",
+        "Stand3": "STAND_3",
+        "Stand4": "STAND_4",
+        "Stand5": "STAND_5",
+        "Stand6": "STAND_6",
+        "Stand7": "STAND_7"
+      }
+    },
+    {
+      "typeScriptEnum": "AvatarBodyType",
+      "cnaPrefix": "CNA_AVATAR_BODY_TYPE"
+    },
+    {
+      "typeScriptEnum": "AvatarBone",
+      "cnaPrefix": "CNA_AVATAR_BONE",
+      "suffixOverrides": {
+        "FingerIndex2Left": "FINGER_INDEX_2_LEFT",
+        "FingerIndex2Right": "FINGER_INDEX_2_RIGHT",
+        "FingerIndex3Left": "FINGER_INDEX_3_LEFT",
+        "FingerIndex3Right": "FINGER_INDEX_3_RIGHT",
+        "FingerMiddle2Left": "FINGER_MIDDLE_2_LEFT",
+        "FingerMiddle2Right": "FINGER_MIDDLE_2_RIGHT",
+        "FingerMiddle3Left": "FINGER_MIDDLE_3_LEFT",
+        "FingerMiddle3Right": "FINGER_MIDDLE_3_RIGHT",
+        "FingerRing2Left": "FINGER_RING_2_LEFT",
+        "FingerRing2Right": "FINGER_RING_2_RIGHT",
+        "FingerRing3Left": "FINGER_RING_3_LEFT",
+        "FingerRing3Right": "FINGER_RING_3_RIGHT",
+        "FingerSmall2Left": "FINGER_SMALL_2_LEFT",
+        "FingerSmall2Right": "FINGER_SMALL_2_RIGHT",
+        "FingerSmall3Left": "FINGER_SMALL_3_LEFT",
+        "FingerSmall3Right": "FINGER_SMALL_3_RIGHT",
+        "FingerThumb2Left": "FINGER_THUMB_2_LEFT",
+        "FingerThumb2Right": "FINGER_THUMB_2_RIGHT",
+        "FingerThumb3Left": "FINGER_THUMB_3_LEFT",
+        "FingerThumb3Right": "FINGER_THUMB_3_RIGHT"
+      }
+    },
+    {
+      "typeScriptEnum": "AvatarEye",
+      "cnaPrefix": "CNA_AVATAR_EYE"
+    },
+    {
+      "typeScriptEnum": "AvatarEyebrow",
+      "cnaPrefix": "CNA_AVATAR_EYEBROW"
+    },
+    {
+      "typeScriptEnum": "AvatarMouth",
+      "cnaPrefix": "CNA_AVATAR_MOUTH"
+    },
+    {
+      "typeScriptEnum": "AvatarRendererState",
+      "cnaPrefix": "CNA_AVATAR_RENDERER_STATE"
+    },
+    {
+      "typeScriptEnum": "ControllerSensitivity",
+      "cnaPrefix": "CNA_CONTROLLER_SENSITIVITY"
+    },
+    {
+      "typeScriptEnum": "GameDifficulty",
+      "cnaPrefix": "CNA_GAME_DIFFICULTY"
+    },
+    {
+      "typeScriptEnum": "GamerPresenceMode",
+      "cnaPrefix": "CNA_GAMER_PRESENCE_MODE"
+    },
+    {
+      "typeScriptEnum": "GamerPrivilegeSetting",
+      "cnaPrefix": "CNA_GAMER_PRIVILEGE_SETTING"
+    },
+    {
+      "typeScriptEnum": "GamerZone",
+      "cnaPrefix": "CNA_GAMER_ZONE"
+    },
+    {
+      "typeScriptEnum": "LeaderboardKey",
+      "cnaPrefix": "CNA_LEADERBOARD_KEY"
+    },
+    {
+      "typeScriptEnum": "LeaderboardOutcome",
+      "cnaPrefix": "CNA_LEADERBOARD_OUTCOME"
+    },
+    {
+      "typeScriptEnum": "MessageBoxIcon",
+      "cnaPrefix": "CNA_MESSAGE_BOX_ICON"
+    },
+    {
+      "typeScriptEnum": "NotificationPosition",
+      "cnaPrefix": "CNA_NOTIFICATION_POSITION"
+    },
+    {
+      "typeScriptEnum": "RacingCameraAngle",
+      "cnaPrefix": "CNA_RACING_CAMERA_ANGLE"
+    },
+    {
+      "typeScriptEnum": "NetworkSessionEndReason",
+      "cnaPrefix": "CNA_NETWORK_SESSION_END_REASON"
+    },
+    {
+      "typeScriptEnum": "NetworkSessionJoinError",
+      "cnaPrefix": "CNA_NETWORK_SESSION_JOIN_ERROR"
+    },
+    {
+      "typeScriptEnum": "NetworkSessionState",
+      "cnaPrefix": "CNA_NETWORK_SESSION_STATE"
+    },
+    {
+      "typeScriptEnum": "NetworkSessionType",
+      "cnaPrefix": "CNA_NETWORK_SESSION_TYPE"
+    },
+    {
+      "typeScriptEnum": "SendDataOptions",
+      "cnaPrefix": "CNA_SEND_DATA_OPTIONS"
+    },
+    {
+      "typeScriptEnum": "AlphaMode",
+      "cnaPrefix": "CNA_ALPHA_MODE",
+      "suffixOverrides": {
+        "Opaque": "OPAQUE_EXT",
+        "Mask": "MASK_EXT",
+        "Blend": "BLEND_EXT"
+      }
+    },
+    {
+      "typeScriptEnum": "CnbAssetType",
+      "cnaPrefix": "CNA_CNB_ASSET_TYPE",
+      "suffixOverrides": {
+        "Texture2D": "TEXTURE2D",
+        "Texture3D": "TEXTURE3D"
+      }
+    },
+    {
+      "typeScriptEnum": "CnbCompression",
+      "cnaPrefix": "CNA_CNB_COMPRESSION"
+    },
+    {
+      "typeScriptEnum": "CnbTextureFormat",
+      "cnaPrefix": "CNA_CNB_TEXTURE_FORMAT"
+    },
+    {
+      "typeScriptEnum": "CnbEffectKind",
+      "cnaPrefix": "CNA_CNB_EFFECT_KIND"
+    },
+    {
+      "typeScriptEnum": "CnbMaterialTextureSlot",
+      "cnaPrefix": "CNA_CNB_MATERIAL_TEXTURE"
+    },
+    {
+      "typeScriptEnum": "CnbSkeletonMatrixSet",
+      "cnaPrefix": "CNA_CNB_SKELETON_MATRIX"
+    },
+    {
+      "typeScriptEnum": "CnbAudioFormat",
+      "cnaPrefix": "CNA_CNB_AUDIO_FORMAT",
+      "suffixOverrides": {
+        "Pcm16": "PCM16",
+        "Pcm8": "PCM8",
+        "PcmFloat32": "PCM_FLOAT32"
+      }
+    },
+    {
+      "typeScriptEnum": "PowerState",
+      "cnaPrefix": "CNA_POWER_STATE"
+    },
+    {
+      "typeScriptEnum": "CameraPosition",
+      "cnaPrefix": "CNA_CAMERA_POSITION"
+    },
+    {
+      "typeScriptEnum": "SensorState",
+      "cnaPrefix": "CNA_SENSOR_STATE"
+    },
+    {
+      "typeScriptEnum": "JoystickType",
+      "cnaPrefix": "CNA_JOYSTICK_TYPE",
+      "suffixOverrides": {
+        "GamePad": "GAMEPAD"
+      }
+    },
+    {
+      "typeScriptEnum": "JoystickHatPosition",
+      "cnaPrefix": "CNA_JOYSTICK_HAT_POSITION"
+    },
+    {
+      "typeScriptEnum": "HapticFeature",
+      "cnaPrefix": "CNA_HAPTIC_FEATURE"
+    },
+    {
+      "typeScriptEnum": "TextInputType",
+      "cnaPrefix": "CNA_TEXT_INPUT_TYPE",
+      "suffixOverrides": {
+        "Name": "TEXT_NAME",
+        "Email": "TEXT_EMAIL",
+        "Username": "TEXT_USERNAME",
+        "PasswordHidden": "TEXT_PASSWORD_HIDDEN",
+        "PasswordVisible": "TEXT_PASSWORD_VISIBLE"
+      }
+    },
+    {
+      "typeScriptEnum": "MouseCursorStock",
+      "cnaPrefix": "CNA_MOUSE_CURSOR_STOCK",
+      "suffixOverrides": {
+        "IBeam": "IBEAM",
+        "SizeNesw": "SIZE_NESW",
+        "SizeNs": "SIZE_NS",
+        "SizeNwse": "SIZE_NWSE",
+        "SizeWe": "SIZE_WE"
+      }
+    },
+    {
+      "typeScriptEnum": "GraphicsCapability",
+      "cnaPrefix": "CNA_GRAPHICS_CAPABILITY",
+      "suffixOverrides": {
+        "Texture3D": "TEXTURE_3D"
+      }
+    },
+    {
+      "typeScriptEnum": "CameraState",
+      "cnaPrefix": "CNA_CAMERA_STATE"
+    },
+    {
+      "typeScriptEnum": "AsciiQuantizeMode",
+      "cnaPrefix": "CNA_ASCII_QUANTIZE_MODE",
+      "suffixOverrides": {
+        "BlackWhite": "BLACK_WHITE"
+      }
+    },
+    {
+      "typeScriptEnum": "CrtMaskType",
+      "cnaPrefix": "CNA_CRT_MASK_TYPE"
+    },
+    {
+      "typeScriptEnum": "DepthEffectMode",
+      "cnaPrefix": "CNA_DEPTH_EFFECT_MODE",
+      "suffixOverrides": {
+        "Color16Bit": "COLOR_16_BIT",
+        "Color8Bit": "COLOR_8_BIT",
+        "Grayscale4Bit": "GRAYSCALE_4_BIT",
+        "Grayscale2Bit": "GRAYSCALE_2_BIT",
+        "Grayscale1Bit": "GRAYSCALE_1_BIT",
+        "Palette256": "PALETTE_256",
+        "Palette16": "PALETTE_16"
+      }
+    },
+    {
+      "typeScriptEnum": "DitherMode",
+      "cnaPrefix": "CNA_DITHER_MODE",
+      "suffixOverrides": {
+        "Bayer4X4": "BAYER_4X4",
+        "Bayer8X8": "BAYER_8X8"
+      }
+    },
+    {
+      "typeScriptEnum": "PbrTextureSlot",
+      "cnaPrefix": "CNA_PBR_TEXTURE",
+      "suffixOverrides": {
+        "BaseColor": "BASE_COLOR",
+        "MetallicRoughness": "METALLIC_ROUGHNESS",
+        "Specular": "SPECULAR_EXT",
+        "SpecularColor": "SPECULAR_COLOR_EXT"
+      }
+    }
+  ]
+}

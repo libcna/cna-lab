@@ -1,0 +1,240 @@
+#!/usr/bin/env node
+
+/**
+ * Measures the wasm32 layout of every CNA C ABI structure the WebAssembly backend touches, from a
+ * probe compiled by the same Emscripten toolchain that builds the artifact, and writes
+ * `src/internal/wasm/layout.ts`.
+ *
+ * `docs/c-api/WASM_ARTIFACT.md` names hand-rolling `CNA_GameCreateInfo` from the native baseline as
+ * how a binding earns `CNA_RESULT_INVALID_ARGUMENT` for no visible reason: pointers are four bytes
+ * under wasm32, so the native offsets are simply wrong. Nothing here is written by hand.
+ *
+ * `--check` regenerates and fails when the checked-in module is stale.
+ */
+
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { spawnSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
+
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
+const SPEC = path.join(ROOT, "tools/wasm/layout-spec.json");
+const OUTPUT = path.join(ROOT, "src/internal/wasm/layout.ts");
+
+function emsdkRoots() {
+  const roots = [];
+  if (process.env.EMSDK) roots.push(path.resolve(process.env.EMSDK));
+  const home = os.homedir();
+  if (home) roots.push(path.join(home, "emsdk"));
+  return roots.filter((root) => fs.statSync(root, { throwIfNoEntry: false })?.isDirectory());
+}
+
+function resolveEmcc() {
+  for (const directory of (process.env.PATH ?? "").split(path.delimiter)) {
+    const candidate = path.join(directory, "emcc");
+    if (fs.statSync(candidate, { throwIfNoEntry: false })?.isFile()) return candidate;
+  }
+  for (const root of emsdkRoots()) {
+    const candidate = path.join(root, "upstream/emscripten/emcc");
+    if (fs.statSync(candidate, { throwIfNoEntry: false })?.isFile()) return candidate;
+  }
+  return null;
+}
+
+function resolveNode() {
+  for (const root of emsdkRoots()) {
+    const nodeRoot = path.join(root, "node");
+    if (!fs.statSync(nodeRoot, { throwIfNoEntry: false })?.isDirectory()) continue;
+    for (const version of fs.readdirSync(nodeRoot).sort().reverse()) {
+      const candidate = path.join(nodeRoot, version, "bin/node");
+      if (fs.statSync(candidate, { throwIfNoEntry: false })?.isFile()) return candidate;
+    }
+  }
+  return process.execPath;
+}
+
+/**
+ * Every member of a C structure, read from CNA's own headers.
+ *
+ * The spec used to carry a hand-maintained field list per structure, and a field left off it was
+ * simply never measured -- so `WasmStruct` threw "the measured layout has no field X" the first
+ * time anything read it, which for three structures was long after they were written. Deriving the
+ * list removes the possibility: what the backend can read is what CNA declares.
+ *
+ * A bad parse cannot pass silently. Every name found here becomes an `offsetof` in the probe, and
+ * the probe is compiled `-Werror`, so a member this misreads fails the build with the C compiler's
+ * own message rather than producing a wrong offset.
+ */
+function declaredFields(headerText, name) {
+  const match = new RegExp(
+    `typedef struct ${name}\\s*\\{([\\s\\S]*?)\\}\\s*${name}\\s*;`,
+  ).exec(headerText);
+  if (match === null) return null;
+  const fields = [];
+  for (const member of match[1].split(";")) {
+    const text = member.trim();
+    if (text === "") continue;
+    // A function-pointer member names itself inside the parentheses; everything else names itself
+    // last, optionally followed by an array bound.
+    const pointer = /\(\s*\*\s*([A-Za-z_][A-Za-z0-9_]*)\s*\)/.exec(text);
+    if (pointer !== null) { fields.push(pointer[1]); continue; }
+    if (text.includes(":")) continue;                       // a bitfield has no offsetof
+    const plain = /([A-Za-z_][A-Za-z0-9_]*)\s*(?:\[[^\]]*\]\s*)*$/.exec(text);
+    if (plain !== null) fields.push(plain[1]);
+  }
+  return fields;
+}
+
+function main() {
+  const check = process.argv.includes("--check");
+  const cnaRoot = path.resolve(process.env.CNA_SOURCE_PATH ?? path.join(ROOT, "../cna"));
+  const includeRoot = path.join(cnaRoot, "modules/c-api/include");
+  if (!fs.statSync(path.join(includeRoot, "CNA/C/cna.h"), { throwIfNoEntry: false })?.isFile()) {
+    throw new Error(`CNA public C headers not found under ${includeRoot}`);
+  }
+  const emcc = resolveEmcc();
+  if (!emcc) {
+    throw new Error("emcc not found: set EMSDK or put the Emscripten SDK's emcc on PATH");
+  }
+  const spec = JSON.parse(fs.readFileSync(SPEC, "utf8"));
+  // The headers, comments stripped, as one string to search for declarations.
+  let headerText = "";
+  for (const entry of fs.readdirSync(path.join(includeRoot, "CNA/C"))) {
+    if (entry.endsWith(".h")) {
+      headerText += fs.readFileSync(path.join(includeRoot, "CNA/C", entry), "utf8");
+    }
+  }
+  headerText = headerText.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/\/\/[^\n]*/g, " ");
+
+  // The spec names the structures to measure; CNA names their fields. A spec entry keeps any field
+  // it lists that the parse did not find, so a structure the regex cannot read still measures what
+  // it always did, and `undeclared` reports the ones that are no longer in the headers at all.
+  const undeclared = [];
+  const measured = new Map();
+  for (const [name, fields] of Object.entries(spec.structs)) {
+    const declared = declaredFields(headerText, name);
+    if (declared === null) {
+      measured.set(name, fields);
+      undeclared.push(name);
+      continue;
+    }
+    const union = [...declared];
+    for (const field of fields) if (!union.includes(field)) union.push(field);
+    measured.set(name, union);
+  }
+  if (undeclared.length > 0) {
+    console.warn(`no declaration found for: ${undeclared.join(", ")} (spec field list kept)`);
+  }
+
+  const lines = [
+    "#include <CNA/C/cna.h>",
+    "#include <stddef.h>",
+    "#include <stdio.h>",
+    "int main(void) {",
+    '  printf("POINTER %zu\\n", sizeof(void*));',
+  ];
+  for (const [name, fields] of measured) {
+    lines.push(`  printf("STRUCT ${name} %zu %zu\\n", sizeof(${name}), _Alignof(${name}));`);
+    for (const field of fields) {
+      lines.push(
+        `  printf("FIELD ${name} ${field} %zu %zu\\n", offsetof(${name}, ${field}), ` +
+        `sizeof(((${name}*)0)->${field}));`,
+      );
+    }
+  }
+  lines.push("  return 0;", "}", "");
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "cna-ts-wasm-layout-"));
+  let stdout;
+  try {
+    const source = path.join(directory, "layout_probe.c");
+    fs.writeFileSync(source, lines.join("\n"));
+    // A plain .js output is a script that runs main; an .mjs output is an ES module
+    // factory that exports one and runs nothing, which is a silent empty measurement.
+    const module = path.join(directory, "layout_probe.js");
+    // And a script only while no enclosing package.json declares "type": "module" -- which this
+    // repository's does, whenever TMPDIR points inside it.
+    fs.writeFileSync(path.join(directory, "package.json"), '{ "type": "commonjs" }\n');
+    const compile = spawnSync(emcc, [
+      "-std=c11", "-Wall", "-Wextra", "-Werror",
+      "-sENVIRONMENT=node", `-I${includeRoot}`, source, "-o", module,
+    ], { encoding: "utf8" });
+    if (compile.error) throw compile.error;
+    if (compile.status !== 0) throw new Error(`emcc failed\n${compile.stdout}${compile.stderr}`);
+    const run = spawnSync(resolveNode(), [module], { encoding: "utf8" });
+    if (run.error) throw run.error;
+    if (run.status !== 0) throw new Error(`layout probe failed\n${run.stdout}${run.stderr}`);
+    stdout = run.stdout;
+  } finally {
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
+
+  let pointerSize = 0;
+  const structs = new Map();
+  for (const line of stdout.trim().split("\n")) {
+    const parts = line.trim().split(/\s+/);
+    if (parts[0] === "POINTER") pointerSize = Number(parts[1]);
+    else if (parts[0] === "STRUCT") structs.set(parts[1], { size: Number(parts[2]), align: Number(parts[3]), fields: {} });
+    else if (parts[0] === "FIELD") structs.get(parts[1]).fields[parts[2]] = { offset: Number(parts[3]), size: Number(parts[4]) };
+  }
+
+  const body = [
+    "// Generated by tools/wasm/generate-layout.mjs. Do not edit by hand.",
+    "//",
+    "// The wasm32 layout of every CNA C ABI structure the WebAssembly backend writes or reads,",
+    "// measured from a probe compiled by the Emscripten toolchain that builds the artifact. These",
+    "// are not the native offsets: a wasm32 pointer is four bytes, so the native ABI baseline would",
+    "// place several of these fields somewhere the module does not look.",
+    "",
+    "/** One structure's wasm32 size, alignment and field offsets. */",
+    "export interface WasmStructLayout {",
+    "  readonly size: number;",
+    "  readonly align: number;",
+    "  readonly fields: Readonly<Record<string, { readonly offset: number; readonly size: number }>>;",
+    "}",
+    "",
+    `/** Size in bytes of a wasm32 pointer. */`,
+    `export const WASM_POINTER_SIZE = ${pointerSize};`,
+    "",
+    "/** Emscripten `addFunction` signature strings for the callbacks the backend installs. */",
+    "export const WASM_CALLBACK_SIGNATURES = {",
+    ...Object.entries(spec.callbacks).map(([name, signature]) => `  ${name}: ${JSON.stringify(signature)},`),
+    "} as const;",
+    "",
+    "/** Measured wasm32 layouts, keyed by CNA structure name. */",
+    "export const WASM_STRUCT_LAYOUTS = {",
+  ];
+  for (const [name, layout] of structs) {
+    body.push(`  ${name}: {`);
+    body.push(`    size: ${layout.size},`);
+    body.push(`    align: ${layout.align},`);
+    body.push("    fields: {");
+    for (const [field, value] of Object.entries(layout.fields)) {
+      body.push(`      ${field}: { offset: ${value.offset}, size: ${value.size} },`);
+    }
+    body.push("    },");
+    body.push("  },");
+  }
+  body.push("} as const satisfies Readonly<Record<string, WasmStructLayout>>;", "");
+  const generated = body.join("\n");
+  if (check) {
+    const current = fs.existsSync(OUTPUT) ? fs.readFileSync(OUTPUT, "utf8") : "";
+    if (current !== generated) {
+      console.error("src/internal/wasm/layout.ts is stale; run node tools/wasm/generate-layout.mjs");
+      process.exitCode = 1;
+    } else {
+      process.stdout.write("WASM_LAYOUT_UP_TO_DATE=1\n");
+    }
+    return;
+  }
+  fs.mkdirSync(path.dirname(OUTPUT), { recursive: true });
+  fs.writeFileSync(OUTPUT, generated);
+  process.stdout.write(`wrote ${path.relative(ROOT, OUTPUT)} (${structs.size} structures, pointer ${pointerSize})\n`);
+}
+
+try {
+  main();
+} catch (error) {
+  console.error(error instanceof Error ? error.message : error);
+  process.exitCode = 2;
+}

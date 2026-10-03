@@ -1,0 +1,42 @@
+{
+  "Backend.borrowGraphicsDevice": {
+    "status": "DELIBERATE_NON_BINDING",
+    "reason": "the renderer name's byte length is a *field* of CNA_RendererInfo, which this backend reads in the same call that gets the rest of the renderer's description. The Node bridge asks the separate size route because it does not read the structure; both arrive at the same length",
+    "evidence": "test/wasm-browser.mjs asserts the renderer name the browser reports, which is read through that field"
+  },
+  "Backend.getRendererInfo": {
+    "status": "DELIBERATE_NON_BINDING",
+    "reason": "the same CNA_RendererInfo field as borrowGraphicsDevice above: the length is already in the structure this method reads, so the separate size route would be a second answer to a question already answered",
+    "evidence": "test/wasm-browser.mjs asserts the renderer name the browser reports"
+  },
+  "Backend.createGame": {
+    "status": "DELIBERATE_NON_BINDING",
+    "reason": "cna_game_run is CNA's blocking loop, and a browser cannot have one: a page that blocks never yields to the event loop that would drive it. The browser backend drives frames from requestAnimationFrame through cna_game_run_one_frame, which is the same contract the Node backend's runGame reaches for a fixed frame count. The route is attributed to createGame only because the two share a bridge helper",
+    "evidence": "test/wasm-browser.mjs runs 60 and 600 real frames through requestAnimationFrame"
+  },
+  "Content.cnbModelGetBoneName": {
+    "status": "DELIBERATE_NON_BINDING",
+    "reason": "the WebAssembly backend reads a CNB model's bone name through the copy route's own length probe, which reports the byte count when it is given a null destination -- so the separate size route has nothing left to answer. One route instead of two, the same string out, and one fewer place for the two to disagree about a length",
+    "evidence": "test/cnb-content.integration.mjs and test/wasm-browser.mjs load the same CNB model on both backends and compare every name"
+  },
+  "Content.cnbModelGetMeshName": {
+    "status": "DELIBERATE_NON_BINDING",
+    "reason": "the WebAssembly backend reads a CNB model's mesh name through the copy route's own length probe, which reports the byte count when it is given a null destination -- so the separate size route has nothing left to answer. One route instead of two, the same string out, and one fewer place for the two to disagree about a length",
+    "evidence": "test/cnb-content.integration.mjs and test/wasm-browser.mjs load the same CNB model on both backends and compare every name"
+  },
+  "Content.cnbModelGetPartName": {
+    "status": "DELIBERATE_NON_BINDING",
+    "reason": "the WebAssembly backend reads a CNB model's part name through the copy route's own length probe, which reports the byte count when it is given a null destination -- so the separate size route has nothing left to answer. One route instead of two, the same string out, and one fewer place for the two to disagree about a length",
+    "evidence": "test/cnb-content.integration.mjs and test/wasm-browser.mjs load the same CNB model on both backends and compare every name"
+  },
+  "Content.cnbModelGetMaterialTexture": {
+    "status": "DELIBERATE_NON_BINDING",
+    "reason": "the WebAssembly backend reads a CNB model's material texture name through the copy route's own length probe, which reports the byte count when it is given a null destination -- so the separate size route has nothing left to answer. One route instead of two, the same string out, and one fewer place for the two to disagree about a length",
+    "evidence": "test/cnb-content.integration.mjs and test/wasm-browser.mjs load the same CNB model on both backends and compare every name"
+  },
+  "Content.cnbModelGetPartExternalEffect": {
+    "status": "DELIBERATE_NON_BINDING",
+    "reason": "the WebAssembly backend reads a CNB model's external effect name through the copy route's own length probe, which reports the byte count when it is given a null destination -- so the separate size route has nothing left to answer. One route instead of two, the same string out, and one fewer place for the two to disagree about a length",
+    "evidence": "test/cnb-content.integration.mjs and test/wasm-browser.mjs load the same CNB model on both backends and compare every name"
+  }
+}

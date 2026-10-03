@@ -1,0 +1,2501 @@
+/**
+ * The WebAssembly backend: the same private boundary the Node adapter implements, over the
+ * `cna_c_api` Emscripten module.
+ *
+ * Nothing above this file knows which backend is loaded. `Game`, `GraphicsDeviceManager`,
+ * `Texture2D`, `SpriteBatch` and the input snapshots are the identical public XNA objects in a
+ * browser and in Node; what differs is only which object answers `getBackend()`.
+ *
+ * This is the first vertical slice, and it says so: every boundary member it does not implement
+ * refuses by name through {@link CnaBackendBase} rather than pretending to work.
+ */
+
+import { CNA_ABI_MAJOR, CNA_ABI_MINOR, decodeAbiVersion, describeAbiWindow, isSupportedAbiVersion } from "../abi.js";
+import { CnaBackendBase } from "../backend-base.js";
+import { CnaResult } from "../cna-results.js";
+import type {
+  BackendRendererInfo,
+  CnaAudioBackend,
+  CnaContentBackend,
+  CnaGraphicsBackend,
+  CnaComputeBackend,
+  CnaAvatarBackend,
+  CnaSpriteFontOracleBackend,
+  CnaContentSurveyBackend,
+  CnaDeviceBackend,
+  CnaExtendedInputBackend,
+  CnaGamerServicesBackend,
+  CnaGameWindowBackend,
+  CnaGraphicsAdapterBackend,
+  CnaInputDeviceInventoryBackend,
+  CnaMediaBackend,
+  CnaMediaLibraryBackend,
+  CnaSensorBackend,
+  CnaStorageBackend,
+  CnaVideoBackend,
+  CnaXactBackend,
+  CnaGraphicsExtensionBackend,
+  CnaRuntimeServicesBackend,
+  PlatformSnapshot,
+  RendererFallbackSnapshot,
+  RendererIdentitySnapshot,
+  RendererSelectionSnapshot,
+  CnaGameCallbacks,
+  CnaEffectBackend,
+  CnaGameConfiguration,
+  CnaGameTimeSnapshot,
+  GraphicsManagerConfiguration,
+  StandaloneDeviceParameters,
+  SpriteBatchCommand,
+  Texture2DInfo,
+  Texture2DTransfer,
+  VertexElementSnapshot,
+} from "../backend.js";
+import { NativeUnavailableError } from "../native-error.js";
+import type { NativeHandle, NativeResourceLifetime } from "../ownership.js";
+import { fromCnaGamePadType } from "../cna-enums.js";
+import { ButtonState, type GamePadDeadZone, type Keys } from "../../Microsoft/Xna/Framework/Input/Enums.js";
+import {
+  createGamePadCapabilities,
+  createGamePadState,
+  type GamePadCapabilities,
+  type GamePadState,
+} from "../../Microsoft/Xna/Framework/Input/GamePadValues.js";
+import { KeyboardState } from "../../Microsoft/Xna/Framework/Input/KeyboardState.js";
+import { MouseState } from "../../Microsoft/Xna/Framework/Input/MouseState.js";
+import {
+  createTouchCollection,
+  type TouchCollection,
+} from "../../Microsoft/Xna/Framework/Input/Touch/TouchCollection.js";
+import type { GestureType } from "../../Microsoft/Xna/Framework/Input/Touch/Enums.js";
+import { TouchLocationState } from "../../Microsoft/Xna/Framework/Input/Touch/Enums.js";
+import {
+  createTouchPanelCapabilities,
+  GestureSample,
+  TouchLocation,
+  type TouchPanelCapabilities,
+} from "../../Microsoft/Xna/Framework/Input/Touch/TouchValues.js";
+import { TimeSpan } from "../../Microsoft/Xna/Framework/TimeSpan.js";
+import { Vector2 } from "../../Microsoft/Xna/Framework/Vector2.js";
+import type { PlayerIndex } from "../../Microsoft/Xna/Framework/PlayerIndex.js";
+import { WASM_CALLBACK_SIGNATURES, WASM_STRUCT_LAYOUTS } from "./layout.js";
+import {
+  allocateStruct,
+  readUtf8,
+  WasmCnaError,
+  WasmRouteTable,
+  WasmScope,
+  WasmStruct,
+  type CnaWasmModule,
+} from "./module.js";
+import { WasmAudioBackend } from "./audio.js";
+import { WasmContentBackend } from "./content.js";
+import { WasmGraphicsBackend } from "./graphics.js";
+import { WasmEffectBackend } from "./effects.js";
+import { WasmComputeBackend } from "./compute.js";
+import { WasmGraphicsExtensionBackend } from "./graphics-ext.js";
+import { WasmAvatarBackend } from "./avatars.js";
+import { WasmSpriteFontOracleBackend } from "./sprite-font.js";
+import { WasmContentSurveyBackend } from "./content-survey.js";
+import { WasmDeviceBackend } from "./devices.js";
+import { WasmExtendedInputBackend } from "./extended-input.js";
+import { WasmGamerServicesBackend } from "./gamer-services.js";
+import { WasmGraphicsAdapterBackend } from "./graphics-adapters.js";
+import { WasmInputDeviceInventoryBackend } from "./input-devices.js";
+import { WasmMediaBackend, WasmMediaLibraryBackend } from "./media.js";
+import { WasmSensorBackend } from "./sensors.js";
+import { WasmStorageBackend } from "./storage.js";
+import { WasmVideoBackend } from "./video.js";
+import { WasmGameWindowBackend } from "./window.js";
+import { WasmXactBackend } from "./xact.js";
+
+const CNA_RESULT_SUCCESS = CnaResult.Success;
+const CNA_RESULT_INVALID_STATE = CnaResult.InvalidState;
+const MOUSE_BUTTON_LEFT = 1 << 0;
+const MOUSE_BUTTON_MIDDLE = 1 << 1;
+const MOUSE_BUTTON_RIGHT = 1 << 2;
+const MOUSE_BUTTON_X1 = 1 << 3;
+const MOUSE_BUTTON_X2 = 1 << 4;
+
+/** The CNA routes this slice reaches. Every one is resolved when the backend is constructed. */
+const ROUTES = [
+  "cna_get_abi_version",
+  "cna_vertex_declaration_create_with_stride",
+  "cna_vertex_declaration_destroy",
+  "cna_vertex_buffer_create",
+  "cna_vertex_buffer_set_data_raw",
+  "cna_vertex_buffer_set_data",
+  "cna_vertex_buffer_get_data_raw",
+  "cna_vertex_buffer_destroy",
+  "cna_index_buffer_create",
+  "cna_index_buffer_set_data",
+  "cna_index_buffer_set_data_at",
+  "cna_index_buffer_get_data",
+  "cna_index_buffer_destroy",
+  "cna_presentation_parameters_init",
+  "cna_graphics_device_create",
+  "cna_graphics_device_destroy",
+  "cna_graphics_device_set_vertex_buffers",
+  "cna_graphics_device_set_index_buffer",
+  "cna_graphics_device_set_rasterizer_state",
+  "cna_graphics_device_set_depth_stencil_state",
+  "cna_graphics_device_draw_primitives",
+  "cna_graphics_device_draw_indexed_primitives",
+  "cna_graphics_device_draw_user_primitives",
+  "cna_basic_effect_create",
+  "cna_effect_create_compiled",
+  "cna_basic_effect_set_vertex_color_enabled",
+  "cna_effect_matrices_set_world",
+  "cna_effect_matrices_set_view",
+  "cna_effect_matrices_set_projection",
+  "cna_effect_apply",
+  "cna_effect_get_current_technique",
+  "cna_effect_get_techniques",
+  "cna_effect_technique_collection_get_count",
+  "cna_effect_technique_collection_get_at",
+  "cna_effect_technique_collection_destroy",
+  "cna_effect_technique_get_name_byte_count",
+  "cna_effect_technique_copy_name",
+  "cna_effect_technique_get_index_ext",
+  "cna_effect_technique_get_passes",
+  "cna_effect_technique_destroy",
+  "cna_effect_pass_collection_get_count",
+  "cna_effect_pass_collection_get_at",
+  "cna_effect_pass_collection_destroy",
+  "cna_effect_pass_get_name_byte_count",
+  "cna_effect_pass_copy_name",
+  "cna_effect_pass_destroy",
+  "cna_effect_pass_apply",
+  "cna_effect_pass_get_annotations",
+  "cna_effect_technique_get_annotations",
+  "cna_effect_set_current_technique",
+  "cna_effect_get_parameters",
+  "cna_effect_parameter_collection_get_count",
+  "cna_effect_parameter_collection_get_at",
+  "cna_effect_parameter_collection_destroy",
+  "cna_effect_parameter_destroy",
+  "cna_effect_parameter_get_info",
+  "cna_effect_parameter_get_name_byte_count",
+  "cna_effect_parameter_copy_name",
+  "cna_effect_parameter_get_semantic_byte_count",
+  "cna_effect_parameter_copy_semantic",
+  "cna_effect_parameter_get_elements",
+  "cna_effect_parameter_get_structure_members",
+  "cna_effect_parameter_get_annotations",
+  "cna_effect_parameter_get_value",
+  "cna_effect_parameter_set_value",
+  "cna_effect_parameter_get_values",
+  "cna_effect_parameter_set_values",
+  "cna_effect_parameter_set_value_texture",
+  "cna_effect_parameter_set_value_string",
+  "cna_effect_annotation_collection_get_count",
+  "cna_effect_annotation_collection_get_at",
+  "cna_effect_annotation_collection_destroy",
+  "cna_effect_annotation_destroy",
+  "cna_effect_annotation_get_info",
+  "cna_effect_annotation_get_name_byte_count",
+  "cna_effect_annotation_copy_name",
+  "cna_effect_annotation_get_value_boolean",
+  "cna_effect_annotation_get_value_int32",
+  "cna_effect_annotation_get_value_single",
+  "cna_effect_annotation_get_value_string_byte_count",
+  "cna_effect_annotation_copy_value_string",
+  "cna_effect_annotation_get_value_vector2",
+  "cna_effect_annotation_get_value_vector3",
+  "cna_effect_annotation_get_value_vector4",
+  "cna_effect_annotation_get_value_matrix",
+  "cna_basic_effect_set_alpha",
+  "cna_basic_effect_set_diffuse_color",
+  "cna_basic_effect_set_emissive_color",
+  "cna_basic_effect_set_specular_color",
+  "cna_basic_effect_set_specular_power",
+  "cna_basic_effect_set_prefer_per_pixel_lighting",
+  "cna_basic_effect_set_texture",
+  "cna_basic_effect_set_texture_enabled",
+  "cna_effect_fog_set_color",
+  "cna_effect_fog_set_enabled",
+  "cna_effect_fog_set_start",
+  "cna_effect_fog_set_end",
+  "cna_effect_lights_set_ambient_color",
+  "cna_effect_lights_set_enabled",
+  "cna_effect_lights_get_directional_light",
+  "cna_directional_light_set_direction",
+  "cna_directional_light_set_diffuse_color",
+  "cna_directional_light_set_specular_color",
+  "cna_directional_light_set_enabled",
+  "cna_directional_light_destroy",
+  "cna_effect_destroy",
+  "cna_texture3d_get_info",
+  "cna_texture3d_destroy",
+  "cna_graphics_device_supports_capability",
+  "cna_graphics_device_get_max_compute_work_group_count_ext",
+  "cna_graphics_device_get_max_compute_work_group_size_ext",
+  "cna_graphics_device_get_max_compute_work_group_invocations_ext",
+  "cna_error_get_last_message_size",
+  "cna_error_copy_last_message",
+  "cna_game_create",
+  "cna_game_set_frame_hooks_ext",
+  "cna_game_run_one_frame",
+  "cna_game_request_exit",
+  "cna_game_destroy",
+  "cna_graphics_device_manager_create",
+  "cna_graphics_device_manager_set_graphics_profile",
+  "cna_graphics_device_manager_set_is_full_screen",
+  "cna_graphics_device_manager_set_prefer_multi_sampling",
+  "cna_graphics_device_manager_set_preferred_back_buffer_format",
+  "cna_graphics_device_manager_set_preferred_back_buffer_width",
+  "cna_graphics_device_manager_set_preferred_back_buffer_height",
+  "cna_graphics_device_manager_set_preferred_depth_stencil_format",
+  "cna_graphics_device_manager_set_synchronize_with_vertical_retrace",
+  "cna_graphics_device_manager_set_supported_orientations",
+  "cna_graphics_device_manager_apply_changes",
+  "cna_graphics_device_manager_create_device",
+  "cna_graphics_device_manager_begin_draw",
+  "cna_graphics_device_manager_end_draw",
+  "cna_graphics_device_manager_destroy",
+  "cna_graphics_device_manager_get_graphics_device",
+  "cna_graphics_device_clear_rgba",
+  "cna_graphics_device_present",
+  "cna_graphics_device_get_renderer_info",
+  "cna_graphics_device_copy_renderer_name",
+  "cna_texture2d_create",
+  "cna_texture2d_get_info",
+  "cna_texture2d_create_from_encoded_memory",
+  "cna_texture2d_set_data",
+  "cna_texture2d_get_data",
+  "cna_texture2d_destroy",
+  "cna_sprite_batch_create",
+  "cna_sprite_batch_begin",
+  "cna_sprite_batch_submit_scaled_many",
+  "cna_sprite_batch_end",
+  "cna_sprite_batch_destroy",
+  "cna_keyboard_get_state",
+  "cna_mouse_get_state",
+  "cna_gamepad_get_capabilities",
+  "cna_gamepad_get_state_with_dead_zone",
+  "cna_gamepad_set_vibration",
+  "cna_touch_get_capabilities",
+  "cna_touch_get_state",
+  "cna_touch_panel_get_window_handle",
+  "cna_touch_panel_set_window_handle",
+  "cna_touch_panel_get_is_gesture_available",
+  "cna_touch_panel_read_gesture",
+  "cna_platform_get_current",
+  "cna_platform_get_is_apple_ext",
+  "cna_platform_get_is_mobile_ext",
+  "cna_platform_get_current_name_size_ext",
+  "cna_platform_copy_current_name_ext",
+  "cna_desktop_os_get_current",
+  "cna_graphics_backend_get_category",
+  "cna_graphics_backend_category_get_name_size",
+  "cna_graphics_backend_category_copy_name",
+  "cna_graphics_backend_get_maturity",
+  "cna_graphics_backend_maturity_get_name_size",
+  "cna_graphics_backend_maturity_copy_name",
+  "cna_graphics_renderer_set_preferred_ext",
+  "cna_graphics_renderer_set_preferred_by_name_ext",
+  "cna_graphics_renderer_get_selected_ext",
+  "cna_graphics_renderer_get_active_ext",
+  "cna_graphics_renderer_get_is_latched_ext",
+  "cna_graphics_renderer_get_available_count_ext",
+  "cna_graphics_renderer_copy_available_ext",
+  "cna_graphics_renderer_get_is_available_ext",
+  "cna_graphics_renderer_set_fallback_chain_ext",
+  "cna_graphics_renderer_set_automatic_fallback_ext",
+  "cna_graphics_renderer_get_automatic_fallback_ext",
+  "cna_graphics_renderer_get_fallback_count_ext",
+  "cna_graphics_renderer_get_fallback_at_ext",
+  "cna_graphics_renderer_fallback_get_message_size_ext",
+  "cna_graphics_renderer_fallback_copy_message_ext",
+  "cna_graphics_renderer_fallback_reason_get_name_size_ext",
+  "cna_graphics_renderer_fallback_reason_copy_name_ext",
+  "cna_graphics_renderer_try_parse_name_ext",
+  "cna_graphics_renderer_get_current_type",
+  "cna_graphics_renderer_get_current_name_size",
+  "cna_graphics_renderer_copy_current_name",
+  "cna_logger_get_minimum_level",
+  "cna_logger_set_minimum_level",
+  "cna_logger_log",
+  "cna_graphics_ext_is_available",
+  "cna_title_container_read_ext",
+  "cna_render_target2d_create",
+  "cna_render_target_cube_create",
+  "cna_render_target_get_info",
+  "cna_render_target_destroy",
+  "cna_graphics_device_set_render_targets",
+  "cna_sound_effect_create_pcm16_range_ext",
+  "cna_sound_effect_get_duration_ticks",
+  "cna_sound_effect_get_name_size",
+  "cna_sound_effect_copy_name",
+  "cna_sound_effect_set_name",
+  "cna_sound_effect_create_instance",
+  "cna_sound_effect_play_with_settings",
+  "cna_sound_effect_destroy",
+  "cna_sound_effect_get_master_volume",
+  "cna_sound_effect_set_master_volume",
+  "cna_sound_effect_instance_play",
+  "cna_sound_effect_instance_pause",
+  "cna_sound_effect_instance_resume",
+  "cna_sound_effect_instance_stop",
+  "cna_sound_effect_instance_get_info",
+  "cna_sound_effect_instance_set_volume",
+  "cna_sound_effect_instance_set_pitch",
+  "cna_sound_effect_instance_set_pan",
+  "cna_sound_effect_instance_set_is_looped",
+  "cna_sound_effect_instance_destroy",
+  "cna_cnb_has_magic",
+  "cna_cnb_copy_format_magic",
+  "cna_cnb_crc32c",
+  "cna_cnb_is_compression_supported",
+  "cna_cnb_get_compression_name_size",
+  "cna_cnb_copy_compression_name",
+  "cna_cnb_get_asset_type_name_size",
+  "cna_cnb_copy_asset_type_name",
+  "cna_cnb_asset_type_id_from_name",
+  "cna_cnb_is_custom_asset_type_id",
+  "cna_cnb_make_chunk_id",
+  "cna_cnb_get_chunk_id_string_size",
+  "cna_cnb_copy_chunk_id_string",
+  "cna_cnb_is_well_formed_chunk_id",
+  "cna_cnb_get_texture_format_name_size",
+  "cna_cnb_copy_texture_format_name",
+  "cna_cnb_is_block_compressed_texture_format",
+  "cna_cnb_get_texture_format_unit_bytes",
+  "cna_cnb_get_texture_level_byte_size",
+  "cna_cnb_texture_format_to_surface_format",
+  "cna_cnb_document_parse",
+  "cna_cnb_document_destroy",
+  "cna_cnb_document_get_origin_size",
+  "cna_cnb_document_copy_origin",
+  "cna_cnb_document_get_container_major",
+  "cna_cnb_document_get_container_minor",
+  "cna_cnb_document_get_asset_type_id",
+  "cna_cnb_document_get_asset_schema_version",
+  "cna_cnb_document_get_chunk_count",
+  "cna_cnb_document_get_chunk",
+  "cna_cnb_document_copy_chunk_data",
+  "cna_cnb_document_find_all",
+  "cna_cnb_document_require_mandatory_chunks_understood",
+  "cna_cnb_document_get_metadata",
+  "cna_cnb_document_get_metadata_asset_type_name_size",
+  "cna_cnb_document_copy_metadata_asset_type_name",
+  "cna_cnb_document_get_metadata_content_name_size",
+  "cna_cnb_document_copy_metadata_content_name",
+  "cna_cnb_document_get_external_reference_count",
+  "cna_cnb_document_get_external_reference",
+  "cna_cnb_document_get_external_reference_name_size",
+  "cna_cnb_document_copy_external_reference_name",
+  "cna_cnb_decode_texture2d",
+  "cna_cnb_texture_data_destroy",
+  "cna_cnb_texture_data_get_info",
+  "cna_cnb_texture_data_get_level_dimensions",
+  "cna_cnb_texture_data_get_representation_format",
+  "cna_cnb_texture_data_get_level_count",
+  "cna_cnb_texture_data_copy_level",
+  "cna_cnb_texture_data_create",
+  "cna_cnb_texture_data_create_rgba8",
+  "cna_cnb_texture_data_add_representation",
+  "cna_cnb_texture_data_set_level",
+  "cna_cnb_encode_texture2d",
+  "cna_cnb_byte_writer_create",
+  "cna_cnb_byte_writer_create_from_bytes",
+  "cna_cnb_byte_writer_destroy",
+  "cna_cnb_byte_writer_write_u8",
+  "cna_cnb_byte_writer_write_u16",
+  "cna_cnb_byte_writer_write_u32",
+  "cna_cnb_byte_writer_write_u64",
+  "cna_cnb_byte_writer_write_i32",
+  "cna_cnb_byte_writer_write_f32",
+  "cna_cnb_byte_writer_write_f64",
+  "cna_cnb_byte_writer_write_string",
+  "cna_cnb_byte_writer_write_bytes",
+  "cna_cnb_byte_writer_write_zeros",
+  "cna_cnb_byte_writer_get_size",
+  "cna_cnb_byte_writer_copy_bytes",
+  "cna_cnb_byte_writer_take",
+  "cna_cnb_read_limits_init",
+  "cna_cnb_writer_create",
+  "cna_cnb_writer_destroy",
+  "cna_cnb_writer_set_metadata",
+  "cna_cnb_writer_add_external_reference",
+  "cna_cnb_writer_clear_external_references",
+  "cna_cnb_writer_add_chunk",
+  "cna_cnb_writer_get_schema_chunk_count",
+  "cna_cnb_writer_set_compression",
+  "cna_cnb_writer_set_limits",
+  "cna_cnb_writer_get_limits",
+  "cna_cnb_writer_build",
+  "cna_cnb_writer_append_embedded_texture2d",
+  "cna_cnb_decode_sprite_font",
+  "cna_cnb_sprite_font_data_create",
+  "cna_cnb_sprite_font_data_destroy",
+  "cna_cnb_sprite_font_data_get_info",
+  "cna_cnb_sprite_font_data_set_info",
+  "cna_cnb_sprite_font_data_get_glyph",
+  "cna_cnb_sprite_font_data_add_glyph",
+  "cna_cnb_sprite_font_data_set_atlas",
+  "cna_cnb_sprite_font_data_copy_atlas",
+  "cna_cnb_encode_sprite_font",
+  "cna_curve_create",
+  "cna_curve_destroy",
+  "cna_curve_get_keys",
+  "cna_curve_get_pre_loop",
+  "cna_curve_set_pre_loop",
+  "cna_curve_get_post_loop",
+  "cna_curve_set_post_loop",
+  "cna_curve_get_is_constant",
+  "cna_curve_key_collection_destroy",
+  "cna_curve_key_collection_get_count",
+  "cna_curve_key_collection_get",
+  "cna_curve_key_collection_add",
+  "cna_curve_key_init_full",
+  "cna_cnb_encode_curve",
+  "cna_cnb_decode_curve",
+  "cna_cnb_encode_animation_clip",
+  "cna_cnb_decode_animation_clip",
+  "cna_cnb_animation_clip_destroy",
+  "cna_cnb_animation_clip_get",
+  "cna_cnb_animation_clip_get_track",
+  "cna_cnb_animation_clip_copy_keyframes",
+  "cna_cnb_sound_effect_data_create",
+  "cna_cnb_sound_effect_data_destroy",
+  "cna_cnb_sound_effect_data_get_info",
+  "cna_cnb_sound_effect_data_copy_samples",
+  "cna_cnb_encode_sound_effect",
+  "cna_cnb_decode_sound_effect",
+  "cna_cnb_decode_wav_as_sound_effect",
+  "cna_cnb_encode_song",
+  "cna_cnb_decode_song_duration_milliseconds",
+  "cna_cnb_decode_song_name_size",
+  "cna_cnb_decode_song_name",
+  "cna_cnb_decode_song_stream_reference_size",
+  "cna_cnb_decode_song_stream_reference",
+  "cna_cnb_encode_video",
+  "cna_cnb_decode_video",
+  "cna_cnb_decode_video_stream_reference_size",
+  "cna_cnb_decode_video_stream_reference",
+  "cna_cnb_model_create",
+  "cna_cnb_model_destroy",
+  "cna_cnb_model_set_flags",
+  "cna_cnb_model_get_info",
+  "cna_cnb_model_add_bone",
+  "cna_cnb_model_get_bone",
+  "cna_cnb_model_copy_bone_name",
+  "cna_cnb_model_add_part",
+  "cna_cnb_model_get_part",
+  "cna_cnb_model_copy_part_name",
+  "cna_cnb_model_copy_part_external_effect",
+  "cna_cnb_model_set_part_vertex_bytes",
+  "cna_cnb_model_copy_part_vertex_bytes",
+  "cna_cnb_model_set_part_index_bytes",
+  "cna_cnb_model_copy_part_index_bytes",
+  "cna_cnb_model_get_material",
+  "cna_cnb_model_set_material",
+  "cna_cnb_model_copy_material_texture",
+  "cna_cnb_model_set_material_texture",
+  "cna_cnb_model_add_mesh",
+  "cna_cnb_model_get_mesh",
+  "cna_cnb_model_copy_mesh_name",
+  "cna_cnb_model_copy_mesh_part_indices",
+  "cna_cnb_model_set_skeleton",
+  "cna_cnb_model_get_skeleton",
+  "cna_cnb_model_copy_skeleton_hierarchy",
+  "cna_cnb_model_copy_skeleton_matrices",
+  "cna_cnb_model_add_light",
+  "cna_cnb_model_get_light",
+  "cna_cnb_encode_model",
+  "cna_cnb_decode_model",
+  "cna_ascii_post_process_effect_create",
+  "cna_ascii_post_process_effect_destroy",
+  "cna_ascii_post_process_effect_draw",
+  "cna_ascii_post_process_effect_get_cell_size",
+  "cna_ascii_post_process_effect_get_last_grid_dimensions",
+  "cna_ascii_post_process_effect_get_quantize_mode",
+  "cna_ascii_post_process_effect_set_cell_size",
+  "cna_ascii_post_process_effect_set_quantize_mode",
+  "cna_graphics_device_draw_instanced_primitives",
+  "cna_graphics_device_draw_user_indexed_primitives",
+  "cna_graphics_device_get_status",
+  "cna_graphics_device_set_blend_factor",
+  "cna_graphics_device_set_blend_state",
+  "cna_graphics_device_set_multi_sample_mask",
+  "cna_graphics_device_set_reference_stencil",
+  "cna_graphics_device_set_sampler_state",
+  "cna_graphics_device_set_scissor_rectangle",
+  "cna_graphics_device_set_texture",
+  "cna_graphics_device_set_viewport",
+  "cna_index_buffer_get_info",
+  "cna_occlusion_query_begin",
+  "cna_occlusion_query_create",
+  "cna_occlusion_query_destroy",
+  "cna_occlusion_query_end",
+  "cna_occlusion_query_get_is_complete",
+  "cna_occlusion_query_get_pixel_count",
+  "cna_sprite_batch_begin_with_effect",
+  "cna_sprite_batch_begin_with_states",
+  "cna_texture3d_create",
+  "cna_texture3d_get_data",
+  "cna_texture3d_set_data",
+  "cna_texturecube_create",
+  "cna_texturecube_destroy",
+  "cna_texturecube_get_data",
+  "cna_texturecube_get_info",
+  "cna_texturecube_set_data",
+  "cna_vertex_buffer_get_info",
+  "cna_vertex_buffer_set_data_raw_at",
+  "cna_vertex_buffer_set_data_raw_at_with_options",
+  "cna_index_buffer_subscribe_content_lost",
+  "cna_index_buffer_unsubscribe_content_lost",
+  "cna_render_target_subscribe_content_lost",
+  "cna_render_target_unsubscribe_content_lost",
+  "cna_vertex_buffer_subscribe_content_lost",
+  "cna_vertex_buffer_unsubscribe_content_lost",
+  "cna_crt_effect_create",
+  "cna_crt_effect_get_curvature",
+  "cna_crt_effect_get_mask_intensity",
+  "cna_crt_effect_get_mask_type",
+  "cna_crt_effect_get_scanline_intensity",
+  "cna_crt_effect_get_vignette_intensity",
+  "cna_crt_effect_set_curvature",
+  "cna_crt_effect_set_mask_intensity",
+  "cna_crt_effect_set_mask_type",
+  "cna_crt_effect_set_scanline_intensity",
+  "cna_crt_effect_set_vignette_intensity",
+  "cna_debug_draw_clear",
+  "cna_debug_draw_create",
+  "cna_debug_draw_destroy",
+  "cna_debug_draw_end",
+  "cna_debug_draw_get_line_count",
+  "cna_debug_draw_is_depth_tested",
+  "cna_debug_draw_set_depth_tested",
+  "cna_depth_effect_create",
+  "cna_depth_effect_get_dither_mode",
+  "cna_depth_effect_get_mode",
+  "cna_depth_effect_set_dither_mode",
+  "cna_depth_effect_set_mode",
+  "cna_pbr_effect_create",
+  "cna_pbr_effect_get_alpha",
+  "cna_pbr_effect_get_alpha_cutoff_ext",
+  "cna_pbr_effect_get_alpha_mode_ext",
+  "cna_pbr_effect_get_diffuse_color",
+  "cna_pbr_effect_get_double_sided_ext",
+  "cna_pbr_effect_get_emissive_factor",
+  "cna_pbr_effect_get_encode_output_to_srgb_ext",
+  "cna_pbr_effect_get_ior_ext",
+  "cna_pbr_effect_get_metallic_factor",
+  "cna_pbr_effect_get_normal_scale_ext",
+  "cna_pbr_effect_get_occlusion_strength_ext",
+  "cna_pbr_effect_get_roughness_factor",
+  "cna_pbr_effect_get_specular_color_factor_ext",
+  "cna_pbr_effect_get_specular_factor_ext",
+  "cna_pbr_effect_get_texture",
+  "cna_pbr_effect_get_vertex_color_enabled_ext",
+  "cna_pbr_effect_set_alpha",
+  "cna_pbr_effect_set_alpha_cutoff_ext",
+  "cna_pbr_effect_set_alpha_mode_ext",
+  "cna_pbr_effect_set_double_sided_ext",
+  "cna_pbr_effect_set_encode_output_to_srgb_ext",
+  "cna_pbr_effect_set_ior_ext",
+  "cna_pbr_effect_set_metallic_factor",
+  "cna_pbr_effect_set_normal_scale_ext",
+  "cna_pbr_effect_set_occlusion_strength_ext",
+  "cna_pbr_effect_set_roughness_factor",
+  "cna_pbr_effect_set_specular_factor_ext",
+  "cna_pbr_effect_set_texture",
+  "cna_pbr_effect_set_vertex_color_enabled_ext",
+  "cna_shader_effect_copy_compile_error_ext",
+  "cna_shader_effect_get_projection",
+  "cna_shader_effect_get_view",
+  "cna_shader_effect_get_world",
+  "cna_shader_effect_has_renderer",
+  "cna_shader_effect_is_valid",
+  "cna_shader_effect_set_texture2d",
+  "cna_shader_effect_set_texture3d",
+  "cna_shader_effect_set_texture_cube",
+  "cna_skinned_pbr_effect_create",
+  "cna_skinned_pbr_effect_get_weights_per_vertex",
+  "cna_skinned_pbr_effect_set_weights_per_vertex",
+  "cna_debug_draw_add_cross",
+  "cna_debug_draw_add_frustum",
+  "cna_debug_draw_add_sphere",
+  "cna_pbr_effect_set_diffuse_color",
+  "cna_pbr_effect_set_emissive_factor",
+  "cna_pbr_effect_set_specular_color_factor_ext",
+  "cna_shader_effect_set_projection",
+  "cna_shader_effect_set_uniform_float",
+  "cna_shader_effect_set_uniform_int32",
+  "cna_shader_effect_set_view",
+  "cna_shader_effect_set_world",
+  "cna_image_based_light_ext_init",
+  "cna_image_based_light_ext_is_valid",
+  "cna_indirect_draw_arguments_init",
+  "cna_indirect_draw_indexed_arguments_init",
+  "cna_texture_transform_ext_init",
+  "cna_debug_draw_add_line",
+  "cna_debug_draw_begin",
+  "cna_pbr_effect_get_texture_coordinate_set_ext",
+  "cna_pbr_effect_get_texture_is_srgb_ext",
+  "cna_pbr_effect_get_texture_transform_ext",
+  "cna_pbr_effect_set_texture_coordinate_set_ext",
+  "cna_pbr_effect_set_texture_is_srgb_ext",
+  "cna_pbr_effect_set_texture_transform_ext",
+  "cna_shader_effect_create",
+  "cna_shader_effect_set_uniform_float_array",
+  "cna_shader_effect_set_uniform_mat4_array",
+  "cna_shader_effect_set_uniform_matrix",
+  "cna_shader_effect_set_uniform_vec3_array",
+  "cna_shader_effect_set_uniform_vector2",
+  "cna_shader_effect_set_uniform_vector3",
+  "cna_debug_draw_add_bounding_sphere",
+  "cna_debug_draw_add_box",
+  "cna_debug_draw_copy_vertices",
+  "cna_graphics_device_get_blend_state",
+  "cna_graphics_device_get_rasterizer_state",
+  "cna_shader_effect_declare_uniform_block_ext",
+  "cna_shader_effect_set_uniform_vector2_array",
+  "cna_shader_effect_set_uniform_vector4",
+  "cna_skinned_pbr_effect_copy_bone_transforms",
+  "cna_skinned_pbr_effect_set_bone_transforms",
+  "cna_dynamic_sound_effect_instance_create",
+  "cna_dynamic_sound_effect_instance_get_pending_buffer_count",
+  "cna_dynamic_sound_effect_instance_submit_buffer",
+  "cna_sound_effect_create_from_encoded_ext",
+  "cna_sound_effect_get_distance_scale",
+  "cna_sound_effect_get_doppler_scale",
+  "cna_sound_effect_get_speed_of_sound",
+  "cna_sound_effect_instance_apply_3d_multi_ext",
+  "cna_sound_effect_set_distance_scale",
+  "cna_sound_effect_set_doppler_scale",
+  "cna_sound_effect_set_speed_of_sound",
+  "cna_effect_clone",
+  "cna_effect_create_empty",
+  "cna_graphics_device_manager_toggle_full_screen",
+  "cna_mouse_set_position",
+  "cna_mouse_set_window_handle",
+  "cna_texture2d_copy_encoded",
+  "cna_texture2d_get_encoded_byte_count",
+  "cna_avatar_description_copy_description",
+  "cna_avatar_description_create",
+  "cna_avatar_description_create_random",
+  "cna_avatar_description_create_random_for_body_type",
+  "cna_avatar_description_destroy",
+  "cna_avatar_description_get_info",
+  "cna_sprite_font_create",
+  "cna_sprite_font_destroy",
+  "cna_sprite_font_get_info",
+  "cna_sprite_font_measure_utf8",
+  "cna_accelerometer_create",
+  "cna_accelerometer_destroy",
+  "cna_accelerometer_get_current_value",
+  "cna_accelerometer_get_is_data_valid",
+  "cna_accelerometer_get_is_supported",
+  "cna_accelerometer_get_state",
+  "cna_accelerometer_get_time_between_updates_ticks",
+  "cna_accelerometer_set_time_between_updates_ticks",
+  "cna_accelerometer_start",
+  "cna_accelerometer_stop",
+  "cna_album_collection_get_at",
+  "cna_album_collection_get_count",
+  "cna_album_copy_art",
+  "cna_album_copy_name",
+  "cna_album_copy_thumbnail",
+  "cna_album_get_art_size",
+  "cna_album_get_artist",
+  "cna_album_get_duration",
+  "cna_album_get_genre",
+  "cna_album_get_has_art",
+  "cna_album_get_name_size",
+  "cna_album_get_thumbnail_size",
+  "cna_artist_collection_get_at",
+  "cna_artist_collection_get_count",
+  "cna_artist_copy_name",
+  "cna_artist_get_name_size",
+  "cna_audio_category_copy_name",
+  "cna_audio_category_destroy",
+  "cna_audio_category_equals",
+  "cna_audio_category_get_hash_code",
+  "cna_audio_category_get_name_size",
+  "cna_audio_category_pause",
+  "cna_audio_category_resume",
+  "cna_audio_category_set_volume",
+  "cna_audio_category_stop",
+  "cna_audio_engine_copy_renderer_friendly_name",
+  "cna_audio_engine_copy_renderer_id",
+  "cna_audio_engine_create",
+  "cna_audio_engine_create_with_renderer",
+  "cna_audio_engine_destroy",
+  "cna_audio_engine_get_category",
+  "cna_audio_engine_get_global_variable",
+  "cna_audio_engine_get_is_disposed",
+  "cna_audio_engine_get_renderer_count",
+  "cna_audio_engine_get_renderer_friendly_name_size",
+  "cna_audio_engine_get_renderer_id_size",
+  "cna_audio_engine_set_global_variable",
+  "cna_audio_engine_update",
+  "cna_camera_copy_name_at_ext",
+  "cna_camera_create",
+  "cna_camera_create_with_test_backend_ext",
+  "cna_camera_destroy",
+  "cna_camera_device_info_init",
+  "cna_camera_get_count_ext",
+  "cna_camera_get_frame_height_ext",
+  "cna_camera_get_frame_width_ext",
+  "cna_camera_get_info_at_ext",
+  "cna_camera_get_is_supported_ext",
+  "cna_camera_get_name_size_at_ext",
+  "cna_camera_get_state_ext",
+  "cna_camera_set_test_frame_ext",
+  "cna_camera_set_test_state_ext",
+  "cna_camera_try_acquire_frame_ext",
+  "cna_clipboard_copy_text",
+  "cna_clipboard_get_has_text",
+  "cna_clipboard_get_text_size",
+  "cna_clipboard_set_text",
+  "cna_compass_create",
+  "cna_compass_destroy",
+  "cna_compass_dispose",
+  "cna_compass_get_current_value",
+  "cna_compass_get_is_data_valid",
+  "cna_compass_get_is_supported",
+  "cna_compass_get_state",
+  "cna_compass_get_time_between_updates_ticks",
+  "cna_compass_inject_synthetic_update_ext",
+  "cna_compass_reading_init",
+  "cna_compass_set_test_backend_ext",
+  "cna_compass_set_time_between_updates_ticks",
+  "cna_compass_start",
+  "cna_compass_stop",
+  "cna_content_manager_copy_manifest_native_extension",
+  "cna_content_manager_copy_manifest_relative_path",
+  "cna_content_manager_copy_manifest_xnb_reader_name",
+  "cna_content_manager_copy_root_directory",
+  "cna_content_manager_copy_xnb_reader_usage_name",
+  "cna_content_manager_create",
+  "cna_content_manager_destroy",
+  "cna_content_manager_get_manifest_entry",
+  "cna_content_manager_get_manifest_entry_count",
+  "cna_content_manager_get_root_directory_size",
+  "cna_content_manager_get_xnb_reader_usage",
+  "cna_content_manager_get_xnb_reader_usage_count",
+  "cna_content_manager_refresh_content_manifest",
+  "cna_content_manager_set_root_directory",
+  "cna_content_type_reader_manager_get_is_registered",
+  "cna_cue_apply_3d",
+  "cna_cue_copy_name",
+  "cna_cue_destroy",
+  "cna_cue_get_info",
+  "cna_cue_get_name_size",
+  "cna_cue_get_variable",
+  "cna_cue_pause",
+  "cna_cue_play",
+  "cna_cue_resume",
+  "cna_cue_set_variable",
+  "cna_cue_stop",
+  "cna_devices_clipboard_set_text_ext",
+  "cna_devices_ext_is_available",
+  "cna_display_info_get_content_scale_ext",
+  "cna_display_info_get_safe_area_ext",
+  "cna_game_set_window_title",
+  "cna_game_unsubscribe",
+  "cna_game_window_begin_screen_device_change",
+  "cna_game_window_copy_screen_device_name",
+  "cna_game_window_copy_title",
+  "cna_game_window_end_screen_device_change",
+  "cna_game_window_get_allow_user_resizing",
+  "cna_game_window_get_client_bounds",
+  "cna_game_window_get_current_orientation",
+  "cna_game_window_get_native_handle_ext",
+  "cna_game_window_get_screen_device_name_size",
+  "cna_game_window_get_title_size",
+  "cna_game_window_set_allow_user_resizing",
+  "cna_game_window_subscribe",
+  "cna_gamer_services_dispatcher_get_is_initialized",
+  "cna_gamer_services_dispatcher_get_window_handle",
+  "cna_gamer_services_dispatcher_initialize",
+  "cna_gamer_services_dispatcher_set_window_handle",
+  "cna_gamer_services_dispatcher_update",
+  "cna_genre_collection_get_at",
+  "cna_genre_collection_get_count",
+  "cna_genre_copy_name",
+  "cna_genre_get_name_size",
+  "cna_graphics_adapter_copy_description",
+  "cna_graphics_adapter_copy_device_name",
+  "cna_graphics_adapter_copy_display_modes",
+  "cna_graphics_adapter_get_count",
+  "cna_graphics_adapter_get_current_display_mode",
+  "cna_graphics_adapter_get_display_mode_count",
+  "cna_graphics_adapter_get_info",
+  "cna_graphics_adapter_get_native_monitor_handle",
+  "cna_graphics_adapter_is_profile_supported",
+  "cna_graphics_adapter_query_backbuffer_format",
+  "cna_graphics_adapter_query_render_target_format",
+  "cna_graphics_adapter_set_device_preferences",
+  "cna_graphics_adapters_refresh",
+  "cna_guide_begin_show_keyboard_input",
+  "cna_guide_begin_show_message_box",
+  "cna_guide_copy_pending_keyboard_input_description_ext",
+  "cna_guide_copy_pending_keyboard_input_display_text_ext",
+  "cna_guide_copy_pending_keyboard_input_title_ext",
+  "cna_guide_end_show_keyboard_input",
+  "cna_guide_end_show_keyboard_input_size",
+  "cna_guide_end_show_message_box",
+  "cna_guide_get_has_pending_keyboard_input_ext",
+  "cna_guide_get_has_pending_message_box_ext",
+  "cna_guide_get_is_screen_saver_enabled",
+  "cna_guide_get_is_trial_mode",
+  "cna_guide_get_is_visible",
+  "cna_guide_get_notification_position",
+  "cna_guide_get_pending_keyboard_input_description_size_ext",
+  "cna_guide_get_pending_keyboard_input_display_text_size_ext",
+  "cna_guide_get_pending_keyboard_input_title_size_ext",
+  "cna_guide_get_pending_message_box_focus_button_ext",
+  "cna_guide_get_simulate_trial_mode",
+  "cna_guide_reset_pending_keyboard_input_ext",
+  "cna_guide_set_is_screen_saver_enabled",
+  "cna_guide_set_notification_position",
+  "cna_guide_set_simulate_trial_mode",
+  "cna_guide_simulate_keyboard_input_cancel_ext",
+  "cna_guide_simulate_message_box_click_ext",
+  "cna_guide_was_keyboard_input_canceled_ext",
+  "cna_gyroscope_create",
+  "cna_gyroscope_destroy",
+  "cna_gyroscope_dispose",
+  "cna_gyroscope_get_current_value",
+  "cna_gyroscope_get_is_data_valid",
+  "cna_gyroscope_get_is_supported",
+  "cna_gyroscope_get_state",
+  "cna_gyroscope_get_time_between_updates_ticks",
+  "cna_gyroscope_inject_synthetic_update_ext",
+  "cna_gyroscope_reading_init",
+  "cna_gyroscope_set_supported_for_tests_ext",
+  "cna_gyroscope_set_time_between_updates_ticks",
+  "cna_gyroscope_start",
+  "cna_gyroscope_stop",
+  "cna_haptic_device_copy_name",
+  "cna_haptic_device_destroy",
+  "cna_haptic_device_dispose",
+  "cna_haptic_device_get_capabilities",
+  "cna_haptic_device_get_is_open",
+  "cna_haptic_device_get_name_size",
+  "cna_haptic_device_init_rumble",
+  "cna_haptic_device_play_rumble",
+  "cna_haptic_device_set_gain",
+  "cna_haptic_device_stop_rumble",
+  "cna_haptics_copy_name_at",
+  "cna_haptics_get_count",
+  "cna_haptics_get_id_at",
+  "cna_haptics_get_is_joystick_haptic",
+  "cna_haptics_get_name_size_at",
+  "cna_haptics_open",
+  "cna_haptics_open_from_joystick",
+  "cna_input_devices_copy_keyboard_name_at",
+  "cna_input_devices_copy_mouse_name_at",
+  "cna_input_devices_copy_touch_device_name_at",
+  "cna_input_devices_get_keyboard_count",
+  "cna_input_devices_get_keyboard_info_at",
+  "cna_input_devices_get_keyboard_name_size_at",
+  "cna_input_devices_get_mouse_count",
+  "cna_input_devices_get_mouse_info_at",
+  "cna_input_devices_get_mouse_name_size_at",
+  "cna_input_devices_get_touch_device_count",
+  "cna_input_devices_get_touch_device_info_at",
+  "cna_input_devices_get_touch_device_name_size_at",
+  "cna_joystick_state_copy_axes",
+  "cna_joystick_state_copy_balls",
+  "cna_joystick_state_copy_buttons",
+  "cna_joystick_state_copy_hats",
+  "cna_joystick_state_destroy",
+  "cna_joystick_state_get_axis_count",
+  "cna_joystick_state_get_ball_count",
+  "cna_joystick_state_get_button_count",
+  "cna_joystick_state_get_hat_count",
+  "cna_joysticks_capture_state",
+  "cna_joysticks_copy_capabilities_guid",
+  "cna_joysticks_copy_capabilities_name",
+  "cna_joysticks_copy_name_at",
+  "cna_joysticks_get_capabilities",
+  "cna_joysticks_get_capabilities_guid_size",
+  "cna_joysticks_get_capabilities_name_size",
+  "cna_joysticks_get_count",
+  "cna_joysticks_get_info_at",
+  "cna_joysticks_get_name_size_at",
+  "cna_locale_copy_country_at_ext",
+  "cna_locale_copy_language_at_ext",
+  "cna_locale_get_country_size_at_ext",
+  "cna_locale_get_language_size_at_ext",
+  "cna_locale_get_preferred_count_ext",
+  "cna_media_library_create",
+  "cna_media_library_destroy",
+  "cna_media_library_get_albums",
+  "cna_media_library_get_artists",
+  "cna_media_library_get_genres",
+  "cna_media_library_get_picture_from_token",
+  "cna_media_library_get_pictures",
+  "cna_media_library_get_playlists",
+  "cna_media_library_get_saved_pictures",
+  "cna_media_library_get_songs",
+  "cna_media_library_save_picture",
+  "cna_media_player_get_game_has_control",
+  "cna_media_player_get_play_position_ticks",
+  "cna_media_player_get_visualization_data",
+  "cna_media_player_move_next",
+  "cna_media_player_move_previous",
+  "cna_media_player_pause",
+  "cna_media_player_play_songs_from",
+  "cna_media_player_resume",
+  "cna_media_player_set_is_muted",
+  "cna_media_player_set_is_repeating",
+  "cna_media_player_set_is_shuffled",
+  "cna_media_player_set_is_visualization_enabled",
+  "cna_media_player_set_volume",
+  "cna_media_player_stop",
+  "cna_media_player_update_ext",
+  "cna_media_source_copy_name_at",
+  "cna_media_source_get_available_count",
+  "cna_media_source_get_name_size_at",
+  "cna_media_source_get_type_at",
+  "cna_motion_create",
+  "cna_motion_destroy",
+  "cna_motion_dispose",
+  "cna_motion_get_current_value",
+  "cna_motion_get_is_attitude_north_referenced_ext",
+  "cna_motion_get_is_data_valid",
+  "cna_motion_get_is_supported",
+  "cna_motion_get_state",
+  "cna_motion_get_time_between_updates_ticks",
+  "cna_motion_inject_synthetic_update_ext",
+  "cna_motion_reading_init",
+  "cna_motion_set_test_backend_ext",
+  "cna_motion_set_time_between_updates_ticks",
+  "cna_motion_start",
+  "cna_motion_stop",
+  "cna_mouse_cursor_create_from_texture2d",
+  "cna_mouse_cursor_destroy",
+  "cna_mouse_cursor_dispose",
+  "cna_mouse_cursor_get_stock_ext",
+  "cna_mouse_set_cursor_ext",
+  "cna_picture_album_copy_name",
+  "cna_picture_album_get_name_size",
+  "cna_picture_collection_get_at",
+  "cna_picture_collection_get_count",
+  "cna_picture_copy_image",
+  "cna_picture_copy_name",
+  "cna_picture_copy_thumbnail",
+  "cna_picture_copy_token_ext",
+  "cna_picture_get_album",
+  "cna_picture_get_date_unix_ticks",
+  "cna_picture_get_height",
+  "cna_picture_get_image_size",
+  "cna_picture_get_name_size",
+  "cna_picture_get_thumbnail_size",
+  "cna_picture_get_token_size_ext",
+  "cna_picture_get_width",
+  "cna_playlist_collection_get_at",
+  "cna_playlist_collection_get_count",
+  "cna_playlist_copy_name",
+  "cna_playlist_get_duration",
+  "cna_playlist_get_name_size",
+  "cna_playlist_get_songs",
+  "cna_power_get_battery_percent_ext",
+  "cna_power_get_info",
+  "cna_power_get_seconds_remaining_ext",
+  "cna_power_get_state_ext",
+  "cna_song_collection_create",
+  "cna_song_collection_destroy",
+  "cna_song_collection_get_at",
+  "cna_song_collection_get_count",
+  "cna_song_copy_handle_text_ext",
+  "cna_song_copy_name",
+  "cna_song_create_from_uri",
+  "cna_song_destroy",
+  "cna_song_get_album",
+  "cna_song_get_artist",
+  "cna_song_get_duration",
+  "cna_song_get_genre",
+  "cna_song_get_handle_text_size_ext",
+  "cna_song_get_is_protected",
+  "cna_song_get_is_rated",
+  "cna_song_get_name_size",
+  "cna_song_get_play_count",
+  "cna_song_get_rating",
+  "cna_song_get_track_number",
+  "cna_sound_bank_create",
+  "cna_sound_bank_destroy",
+  "cna_sound_bank_get_cue",
+  "cna_sound_bank_get_is_disposed",
+  "cna_sound_bank_get_is_in_use",
+  "cna_sound_bank_play_cue",
+  "cna_sound_bank_play_cue_3d",
+  "cna_storage_container_copy_directory_name",
+  "cna_storage_container_copy_display_name",
+  "cna_storage_container_copy_file_name",
+  "cna_storage_container_create_directory",
+  "cna_storage_container_create_file",
+  "cna_storage_container_delete_directory",
+  "cna_storage_container_delete_file",
+  "cna_storage_container_destroy",
+  "cna_storage_container_directory_exists",
+  "cna_storage_container_file_exists",
+  "cna_storage_container_get_directory_name_count",
+  "cna_storage_container_get_display_name_size",
+  "cna_storage_container_get_file_name_count",
+  "cna_storage_container_open",
+  "cna_storage_container_open_file_share",
+  "cna_storage_device_delete_container",
+  "cna_storage_device_destroy",
+  "cna_storage_device_get_free_space",
+  "cna_storage_device_get_is_connected",
+  "cna_storage_device_get_total_space",
+  "cna_storage_device_show_selector",
+  "cna_storage_device_show_selector_for_player",
+  "cna_storage_device_show_selector_for_player_with_space",
+  "cna_storage_device_show_selector_with_space",
+  "cna_storage_stream_close",
+  "cna_storage_stream_get_length",
+  "cna_storage_stream_read",
+  "cna_system_info_get_logical_cpu_core_count_ext",
+  "cna_system_info_get_system_ram_megabytes_ext",
+  "cna_text_input_is_active_ext",
+  "cna_text_input_is_screen_keyboard_shown_ext",
+  "cna_text_input_raise_text_editing_candidates_ext",
+  "cna_text_input_raise_text_editing_ext",
+  "cna_text_input_raise_text_input_ext",
+  "cna_text_input_reset_for_tests_ext",
+  "cna_text_input_set_input_rectangle_ext",
+  "cna_text_input_start_ext",
+  "cna_text_input_start_with_type_ext",
+  "cna_text_input_stop_ext",
+  "cna_text_input_subscribe_text_editing_candidates_ext",
+  "cna_text_input_subscribe_text_editing_ext",
+  "cna_text_input_subscribe_text_input_ext",
+  "cna_text_input_unsubscribe_ext",
+  "cna_video_player_create",
+  "cna_video_player_destroy",
+  "cna_video_player_get_frame_ext",
+  "cna_video_player_get_play_position_ticks",
+  "cna_video_player_get_state",
+  "cna_video_player_pause",
+  "cna_video_player_play",
+  "cna_video_player_resume",
+  "cna_video_player_set_is_looped",
+  "cna_video_player_set_is_muted",
+  "cna_video_player_set_volume",
+  "cna_video_player_stop",
+  "cna_wave_bank_create",
+  "cna_wave_bank_create_streaming",
+  "cna_wave_bank_destroy",
+  "cna_wave_bank_get_is_disposed",
+  "cna_wave_bank_get_is_in_use",
+  "cna_wave_bank_get_is_prepared",
+  "cna_alpha_test_effect_create",
+  "cna_alpha_test_effect_set_alpha",
+  "cna_alpha_test_effect_set_alpha_function",
+  "cna_alpha_test_effect_set_diffuse_color",
+  "cna_alpha_test_effect_set_reference_alpha",
+  "cna_alpha_test_effect_set_texture",
+  "cna_alpha_test_effect_set_vertex_color_enabled",
+  "cna_dual_texture_effect_create",
+  "cna_dual_texture_effect_set_alpha",
+  "cna_dual_texture_effect_set_diffuse_color",
+  "cna_dual_texture_effect_set_texture",
+  "cna_dual_texture_effect_set_vertex_color_enabled",
+  "cna_environment_map_effect_create",
+  "cna_environment_map_effect_set_alpha",
+  "cna_environment_map_effect_set_amount",
+  "cna_environment_map_effect_set_diffuse_color",
+  "cna_environment_map_effect_set_emissive_color",
+  "cna_environment_map_effect_set_environment_map",
+  "cna_environment_map_effect_set_fresnel_factor",
+  "cna_environment_map_effect_set_specular",
+  "cna_environment_map_effect_set_texture",
+  "cna_skinned_effect_create",
+  "cna_skinned_effect_set_alpha",
+  "cna_skinned_effect_set_bone_transforms",
+  "cna_skinned_effect_set_diffuse_color",
+  "cna_skinned_effect_set_emissive_color",
+  "cna_skinned_effect_set_prefer_per_pixel_lighting",
+  "cna_skinned_effect_set_specular_color",
+  "cna_skinned_effect_set_specular_power",
+  "cna_skinned_effect_set_texture",
+  "cna_skinned_effect_set_vertex_color_enabled",
+  "cna_skinned_effect_set_weights_per_vertex",
+  "cna_framework_dispatcher_update",
+  "cna_haptic_capabilities_init",
+  "cna_joystick_capabilities_init",
+  "cna_joystick_info_init",
+  "cna_mouse_get_window_handle",
+  "cna_microphone_copy_name_at",
+  "cna_microphone_get_buffer_duration_ticks_at",
+  "cna_microphone_get_count",
+  "cna_microphone_get_data_at",
+  "cna_microphone_get_default_index_ext",
+  "cna_microphone_get_is_headset_at",
+  "cna_microphone_get_name_size_at",
+  "cna_microphone_get_sample_rate_at",
+  "cna_microphone_get_state_at",
+  "cna_microphone_set_buffer_duration_ticks_at",
+  "cna_microphone_start_at",
+  "cna_microphone_stop_at",
+] as const;
+
+type RouteName = (typeof ROUTES)[number];
+
+interface GameCallbackState {
+  readonly callbacks: CnaGameCallbacks;
+  readonly functionPointers: number[];
+  readonly scope: WasmScope;
+  pendingError: unknown;
+}
+
+export class WasmBackend extends CnaBackendBase implements CnaRuntimeServicesBackend {
+  public readonly Kind = "wasm" as const;
+  public readonly IsAvailable = true;
+  public readonly AbiVersion: string;
+  public readonly Detail: string;
+  public readonly ImportedSymbolCount = ROUTES.length;
+  /** Reported once the graphics device exists, matching the Node adapter's status shape. */
+  public RendererInfo: BackendRendererInfo | null = null;
+  public readonly RuntimeServices: CnaRuntimeServicesBackend = this;
+  /**
+   * The graphics boundary is a separate interface, so it is a separate object: everything it does
+   * not reach refuses through the generated `CnaGraphicsBackendBase` by its own member name rather
+   * than through this class's message about a different boundary.
+   */
+  public readonly Graphics: CnaGraphicsBackend;
+  public readonly Effects: CnaEffectBackend;
+  /**
+   * CNA's extended graphics layer, which the browser backend had none of until now.
+   *
+   * Present rather than absent even though only one family of it is implemented, and the
+   * difference matters to a consumer: an absent `GraphicsExtensions` makes every public engine API
+   * fail with "CNA extended graphics requires a loaded backend", which is a statement about the
+   * *binding*. What actually varies is whether their artifact was built `CNA_CNAEXT=ON` -- and
+   * with the object present, a route outside the slice names itself and a route inside it gets
+   * CNA's own answer for the artifact in front of it, including `NOT_SUPPORTED` where the layer
+   * was compiled out.
+   */
+  public readonly GraphicsExtensions: CnaGraphicsExtensionBackend;
+  /**
+   * What the device can be asked, which is how a page decides what to reach for.
+   *
+   * No compute is dispatched here. The object exists because `GraphicsDeviceCapabilities.Supports`
+   * hangs off it, and without it a browser had no way to find out what its context supports short
+   * of constructing something that needs a capability and reading the exception.
+   */
+  public readonly Compute: CnaComputeBackend;
+  /** Sound effects, so a browser game can make a noise. */
+  public readonly Audio: CnaAudioBackend;
+  /**
+   * CNB, so a page can load CNA's own compiled content. The public API above this line is
+   * backend-neutral, so a browser gets the same `CnbDocument` and `CreateTexture2DFromCnb` a Node
+   * consumer gets rather than a browser-shaped variant of them.
+   */
+  public readonly Content: CnaContentBackend;
+  /**
+   * Avatar descriptions, which need no gamer service and no device -- the one non-engine family
+   * whose whole answer is 1021 bytes and a verdict on them.
+   */
+  public readonly Avatars: CnaAvatarBackend;
+  /**
+   * CNA's own `SpriteFont`, used as a measurement oracle rather than as a way to draw text. The
+   * public `SpriteFont.MeasureString` is the pinned XNA behaviour projected in TypeScript; this is
+   * the second implementation the browser suite compares it against.
+   */
+  public readonly SpriteFontOracle: CnaSpriteFontOracleBackend;
+  /**
+   * The window the game runs in, which in a browser is the canvas CNA presents to. Its title, its
+   * client bounds and its three events are the same routes a desktop game reaches.
+   */
+  public readonly Window: CnaGameWindowBackend;
+  /** XNA's `StorageDevice` and `StorageContainer`, over the module's own POSIX filesystem. */
+  public readonly Storage: CnaStorageBackend;
+  /** The clipboard, the attached-device inventory and the host's power supply. */
+  public readonly InputDeviceInventory: CnaInputDeviceInventoryBackend;
+  /** Accelerometer, compass, gyroscope and motion, with CNA's synthetic backends behind them. */
+  public readonly Sensors: CnaSensorBackend;
+  /** What is under a content root and which XNB readers it needs. Loads nothing. */
+  public readonly ContentSurvey: CnaContentSurveyBackend;
+  /** The media player's state machine, which a browser drives exactly as a desktop does. */
+  public readonly Media: CnaMediaBackend;
+  /** CNA's index of the host's music and pictures, which in a browser is legitimately empty. */
+  public readonly MediaLibrary: CnaMediaLibraryBackend;
+  /** The gamer-services dispatcher and the Guide. Not the signed-in gamer -- see finding 29. */
+  public readonly GamerServices: CnaGamerServicesBackend;
+  /** XACT, over settings and banks this repository authors rather than downloads. */
+  public readonly Xact: CnaXactBackend;
+  /** The video player's control surface. Decoding is upstream-blocked on this toolchain. */
+  public readonly Video: CnaVideoBackend;
+  /** Raw joysticks, force feedback, text composition and the mouse cursor. */
+  public readonly ExtendedInput: CnaExtendedInputBackend;
+  /** XNA's `GraphicsAdapter`, read through a live device rather than invented. */
+  public readonly GraphicsAdapters: CnaGraphicsAdapterBackend;
+  /**
+   * CNA's extended device layer, which answers on an artifact built `CNA_DEVICES=ON` and reports
+   * itself unavailable on one that is not.
+   */
+  public readonly Devices: CnaDeviceBackend;
+
+  readonly #module: CnaWasmModule;
+  readonly #routes: WasmRouteTable;
+  #game: GameCallbackState | null = null;
+  #activeGame: NativeHandle | null = null;
+  #gameLifetime: NativeResourceLifetime | null = null;
+
+  public constructor(module: CnaWasmModule) {
+    super();
+    this.#module = module;
+    this.#routes = new WasmRouteTable(module, ROUTES);
+    this.Graphics = new WasmGraphicsBackend(this.#routes);
+    this.Effects = new WasmEffectBackend(this.#routes);
+    this.GraphicsExtensions = new WasmGraphicsExtensionBackend(this.#routes);
+    this.Compute = new WasmComputeBackend(this.#routes);
+    this.Audio = new WasmAudioBackend(
+      this.#routes, () => this.#requireGame(), () => this.#requireGameLifetime(),
+    );
+    this.Content = new WasmContentBackend(this.#routes);
+    this.Avatars = new WasmAvatarBackend(this.#routes);
+    this.SpriteFontOracle = new WasmSpriteFontOracleBackend(this.#routes);
+    this.Window = new WasmGameWindowBackend(this.#routes, () => this.#requireGame());
+    this.Storage = new WasmStorageBackend(this.#routes, () => this.#requireGameLifetime());
+    this.InputDeviceInventory =
+      new WasmInputDeviceInventoryBackend(this.#routes, () => this.#requireGame());
+    this.Sensors = new WasmSensorBackend(this.#routes, () => this.#requireGame());
+    this.ContentSurvey = new WasmContentSurveyBackend(this.#routes);
+    this.Media = new WasmMediaBackend(this.#routes, () => this.#requireGame());
+    this.MediaLibrary = new WasmMediaLibraryBackend(this.#routes, () => this.#requireGame());
+    this.GamerServices = new WasmGamerServicesBackend(this.#routes, () => this.#requireGame());
+    this.Xact = new WasmXactBackend(
+      this.#routes, () => this.#requireGame(), () => this.#requireGameLifetime(),
+    );
+    this.Video = new WasmVideoBackend(
+      this.#routes, () => this.#requireGame(), () => this.#requireGameLifetime(),
+    );
+    this.ExtendedInput = new WasmExtendedInputBackend(this.#routes, () => this.#requireGame());
+    this.GraphicsAdapters = new WasmGraphicsAdapterBackend(this.#routes);
+    this.Devices = new WasmDeviceBackend(this.#routes, () => this.#requireGame());
+    const version = decodeAbiVersion(Number(this.#call("cna_get_abi_version")));
+    if (!isSupportedAbiVersion(version)) {
+      throw new NativeUnavailableError(
+        `the CNA WebAssembly module reports ABI ${version.Text}, which is outside the ` +
+        `${describeAbiWindow()} window this package targets`,
+      );
+    }
+    this.AbiVersion = version.Text;
+    this.Detail =
+      `CNA ABI ${version.Text} loaded from a WebAssembly module (${ROUTES.length} routes, ` +
+      `targeting ${CNA_ABI_MAJOR}.${CNA_ABI_MINOR})`;
+  }
+
+  protected override unsupported(member: string): never {
+    throw new NativeUnavailableError(
+      `${member} is not part of the CNA-TS WebAssembly backend's first vertical slice; ` +
+      "the Node-API backend implements it",
+    );
+  }
+
+  #call(name: RouteName, ...args: readonly (number | bigint)[]): number {
+    return this.#routes.call(name, ...args);
+  }
+
+  #check(name: RouteName, result: number): void {
+    if (result === CnaResult.Success) return;
+    throw new WasmCnaError(name, result, this.getLastError());
+  }
+
+  #invoke(name: RouteName, ...args: readonly (number | bigint)[]): void {
+    this.#routes.invoke(name, ...args);
+  }
+
+  public override initialize(): Promise<void> { return Promise.resolve(); }
+
+  // XNA's public `GraphicsDevice` constructor: a device that belongs to no game. It was written,
+  // measured and withdrawn once, because on CNA before 17281e841 the game's destroy afterwards threw
+  // an Emscripten `ErrnoError` (errno 44) from SDL's file-drop teardown -- upstream finding 32.
+  // CNA fixed that for Emscripten, and the browser suite asserts both the device and the game's
+  // clean disposal after it. The presentation parameters are seeded by CNA's own initialiser, so
+  // the reserved bytes are CNA's, and only the fields XNA has are written over them.
+  public createStandaloneGraphicsDevice(
+    adapterIndex: number, graphicsProfile: number, parameters: StandaloneDeviceParameters,
+  ): NativeHandle {
+    const scope = new WasmScope(this.#module);
+    try {
+      const presentation = allocateStruct(this.#module, scope, "CNA_PresentationParameters");
+      this.#invoke("cna_presentation_parameters_init", presentation.pointer);
+      presentation
+        .setI32("back_buffer_format", parameters.BackBufferFormat)
+        .setI32("back_buffer_width", parameters.BackBufferWidth)
+        .setI32("back_buffer_height", parameters.BackBufferHeight)
+        .setI32("depth_stencil_format", parameters.DepthStencilFormat)
+        .setI32("multi_sample_count", parameters.MultiSampleCount)
+        .setI32("presentation_interval", parameters.PresentationInterval)
+        .setI32("display_orientation", parameters.DisplayOrientation)
+        .setI32("render_target_usage", parameters.RenderTargetUsage)
+        .setU8("is_full_screen", parameters.IsFullScreen ? 1 : 0);
+      return this.#outHandle(
+        "cna_graphics_device_create", adapterIndex, graphicsProfile, presentation.pointer);
+    } finally {
+      scope.dispose();
+    }
+  }
+
+  public destroyStandaloneGraphicsDevice(device: NativeHandle): void {
+    this.#invoke("cna_graphics_device_destroy", device);
+  }
+
+  public override getLastError(): string | null { return this.#routes.lastError(); }
+
+  #gameTime(pointer: number): CnaGameTimeSnapshot {
+    if (pointer === 0) {
+      return { TotalGameTimeTicks: 0n, ElapsedGameTimeTicks: 0n, IsRunningSlowly: false };
+    }
+    const time = new WasmStruct(this.#module, "CNA_GameTime", pointer);
+    return {
+      TotalGameTimeTicks: time.getI64("total_game_time_ticks"),
+      ElapsedGameTimeTicks: time.getI64("elapsed_game_time_ticks"),
+      IsRunningSlowly: time.getU8("is_running_slowly") !== 0,
+    };
+  }
+
+  /**
+   * Wraps a JavaScript lifecycle callback as a C function pointer. A JavaScript exception must
+   * never unwind into compiled C: the failure is held and rethrown at the frame boundary, and the
+   * callback answers `CNA_RESULT_CALLBACK` so CNA stops the frame the way its contract says.
+   */
+  #lifecycleCallback(state: GameCallbackState, handler: (time: CnaGameTimeSnapshot) => void): number {
+    const pointer = this.#module.addFunction(
+      ((_game: bigint, timePointer: number, _context: number, _error: number): number => {
+        try {
+          handler(this.#gameTime(timePointer));
+          return CNA_RESULT_SUCCESS;
+        } catch (error) {
+          state.pendingError ??= error;
+          return 9;
+        }
+      }) as never,
+      WASM_CALLBACK_SIGNATURES.CNA_GameLifecycleCallback,
+    );
+    state.functionPointers.push(pointer);
+    return pointer;
+  }
+
+  #beginDrawCallback(state: GameCallbackState, handler: () => boolean): number {
+    const pointer = this.#module.addFunction(
+      ((_game: bigint, _time: number, _context: number, shouldDraw: number, _error: number): number => {
+        try {
+          this.#module.HEAPU8[shouldDraw] = handler() ? 1 : 0;
+          return CNA_RESULT_SUCCESS;
+        } catch (error) {
+          state.pendingError ??= error;
+          return 9;
+        }
+      }) as never,
+      WASM_CALLBACK_SIGNATURES.CNA_GameBeginDrawCallback,
+    );
+    state.functionPointers.push(pointer);
+    return pointer;
+  }
+
+  #rethrowPendingCallbackError(): void {
+    const state = this.#game;
+    if (!state?.pendingError) return;
+    const error = state.pendingError;
+    state.pendingError = null;
+    throw error;
+  }
+
+  public override createGame(
+    callbacks: CnaGameCallbacks, configuration: CnaGameConfiguration,
+  ): NativeHandle {
+    if (this.#game) throw new NativeUnavailableError("a CNA WebAssembly game is already active");
+    if (configuration.TargetElapsedTimeTicks <= 0n) {
+      throw new RangeError("target elapsed ticks must be positive");
+    }
+    // The callback tables and the create info outlive the call: CNA keeps the game callbacks for
+    // the game's whole lifetime, so this scope is released by destroyGame rather than here.
+    const scope = new WasmScope(this.#module);
+    const state: GameCallbackState = { callbacks, functionPointers: [], scope, pendingError: null };
+    try {
+      const table = allocateStruct(this.#module, scope, "CNA_GameCallbacks");
+      table.setPointer("load_content", this.#lifecycleCallback(state, () => callbacks.loadContent()));
+      table.setPointer("update", this.#lifecycleCallback(state, (time) => callbacks.update(time)));
+      table.setPointer("draw", this.#lifecycleCallback(state, (time) => callbacks.draw(time)));
+      table.setPointer("unload_content", this.#lifecycleCallback(state, () => callbacks.unloadContent()));
+      table.setPointer("exiting", this.#lifecycleCallback(state, () => callbacks.exiting()));
+
+      const title = scope.allocateUtf8("CNA");
+      const createInfo = allocateStruct(this.#module, scope, "CNA_GameCreateInfo");
+      createInfo.setU8("is_fixed_time_step", configuration.IsFixedTimeStep ? 1 : 0);
+      createInfo.setI64("target_elapsed_time_ticks", configuration.TargetElapsedTimeTicks);
+      createInfo.nested("window_title", "CNA_StringView")
+        .setPointer("data", title.pointer)
+        .setU64("byte_length", BigInt(title.byteLength));
+      createInfo.setPointer("callbacks", table.pointer);
+
+      const out = scope.allocate(8);
+      this.#invoke("cna_game_create", createInfo.pointer, out);
+      const handle = new DataView(this.#module.HEAPU8.buffer as ArrayBuffer).getBigUint64(out, true);
+
+      const hooks = allocateStruct(this.#module, scope, "CNA_GameFrameHooks");
+      hooks.setPointer("initialize", this.#lifecycleCallback(state, () => callbacks.initialize()));
+      hooks.setPointer("begin_run", this.#lifecycleCallback(state, () => callbacks.beginRun()));
+      hooks.setPointer("end_run", this.#lifecycleCallback(state, () => callbacks.endRun()));
+      hooks.setPointer("begin_draw", this.#beginDrawCallback(state, () => callbacks.beginDraw()));
+      hooks.setPointer("end_draw", this.#lifecycleCallback(state, () => callbacks.endDraw()));
+      const hookResult = this.#call("cna_game_set_frame_hooks_ext", handle, hooks.pointer);
+      if (hookResult !== CNA_RESULT_SUCCESS) {
+        this.#call("cna_game_destroy", handle);
+        throw new WasmCnaError("cna_game_set_frame_hooks_ext", hookResult, this.getLastError());
+      }
+      this.#game = state;
+      this.#activeGame = handle;
+      return handle;
+    } catch (error) {
+      for (const pointer of state.functionPointers) this.#module.removeFunction(pointer);
+      scope.dispose();
+      throw error;
+    }
+  }
+
+  public override runGame(game: NativeHandle): Promise<void> {
+    // A browser owns its event loop, so a blocking Run has no honest implementation here. The
+    // frame pump belongs to the caller; `Game.Run` on this backend is a documented refusal rather
+    // than a loop that never yields.
+    void game;
+    return Promise.reject(new NativeUnavailableError(
+      "the CNA WebAssembly backend has no blocking Run: a browser owns the event loop, so drive " +
+      "Game.RunOneFrame from requestAnimationFrame instead",
+    ));
+  }
+
+  public override runGameOneFrame(game: NativeHandle): void {
+    const result = this.#call("cna_game_run_one_frame", game);
+    this.#rethrowPendingCallbackError();
+    this.#check("cna_game_run_one_frame", result);
+  }
+
+  public override exitGame(game: NativeHandle): void {
+    this.#invoke("cna_game_request_exit", game);
+  }
+
+  public override destroyGame(game: NativeHandle): void {
+    const result = this.#call("cna_game_destroy", game);
+    const state = this.#game;
+    this.#game = null;
+    this.#activeGame = null;
+    if (state) {
+      for (const pointer of state.functionPointers) this.#module.removeFunction(pointer);
+      state.scope.dispose();
+    }
+    this.#check("cna_game_destroy", result);
+  }
+
+  /**
+   * `FrameworkDispatcher.Update`, which is what pumps CNA's asynchronous completions.
+   *
+   * This checked for an active game and then did nothing at all, so a browser consumer calling it
+   * every frame -- which is what XNA asks of a game that uses gamer services or storage -- pumped
+   * nothing. Found by asking why the Node bridge reached `cna_framework_dispatcher_update` and the
+   * WebAssembly backend never resolved it.
+   */
+  public override updateFrameworkDispatcher(): void {
+    this.#invoke("cna_framework_dispatcher_update", this.#requireGame());
+  }
+
+  public override createGraphicsDeviceManager(game: NativeHandle): NativeHandle {
+    return this.#outHandle("cna_graphics_device_manager_create", game);
+  }
+
+  #outHandle(name: RouteName, ...args: readonly (number | bigint)[]): NativeHandle {
+    return this.#routes.outHandle(name, ...args);
+  }
+
+  public override configureGraphicsDeviceManager(
+    manager: NativeHandle, configuration: GraphicsManagerConfiguration,
+  ): void {
+    this.#invoke("cna_graphics_device_manager_set_graphics_profile", manager, configuration.GraphicsProfile);
+    this.#invoke("cna_graphics_device_manager_set_is_full_screen", manager, configuration.IsFullScreen ? 1 : 0);
+    this.#invoke("cna_graphics_device_manager_set_prefer_multi_sampling", manager, configuration.PreferMultiSampling ? 1 : 0);
+    this.#invoke("cna_graphics_device_manager_set_preferred_back_buffer_format", manager, configuration.PreferredBackBufferFormat);
+    this.#invoke("cna_graphics_device_manager_set_preferred_back_buffer_width", manager, configuration.PreferredBackBufferWidth);
+    this.#invoke("cna_graphics_device_manager_set_preferred_back_buffer_height", manager, configuration.PreferredBackBufferHeight);
+    this.#invoke("cna_graphics_device_manager_set_preferred_depth_stencil_format", manager, configuration.PreferredDepthStencilFormat);
+    this.#invoke("cna_graphics_device_manager_set_synchronize_with_vertical_retrace", manager, configuration.SynchronizeWithVerticalRetrace ? 1 : 0);
+    this.#invoke("cna_graphics_device_manager_set_supported_orientations", manager, configuration.SupportedOrientations);
+  }
+
+  public override applyGraphicsDeviceManagerChanges(manager: NativeHandle): void {
+    this.#invoke("cna_graphics_device_manager_apply_changes", manager);
+  }
+
+  public override createManagedGraphicsDevice(manager: NativeHandle): void {
+    this.#invoke("cna_graphics_device_manager_create_device", manager);
+  }
+
+  public override beginGraphicsDeviceManagerDraw(manager: NativeHandle): boolean {
+    const scope = new WasmScope(this.#module);
+    try {
+      const out = scope.allocate(1);
+      this.#invoke("cna_graphics_device_manager_begin_draw", manager, out);
+      return this.#module.HEAPU8[out] !== 0;
+    } finally {
+      scope.dispose();
+    }
+  }
+
+  public override endGraphicsDeviceManagerDraw(manager: NativeHandle): void {
+    this.#invoke("cna_graphics_device_manager_end_draw", manager);
+  }
+
+  public override destroyGraphicsDeviceManager(manager: NativeHandle): void {
+    this.#invoke("cna_graphics_device_manager_destroy", manager);
+  }
+
+  public override borrowGraphicsDevice(manager: NativeHandle): NativeHandle {
+    const device = this.#outHandle("cna_graphics_device_manager_get_graphics_device", manager);
+    this.RendererInfo ??= Object.freeze(this.getRendererInfo(device));
+    return device;
+  }
+
+  public override clearGraphicsDevice(device: NativeHandle, packedColor: number): void {
+    const red = ((packedColor >>> 0) & 0xff) / 255;
+    const green = ((packedColor >>> 8) & 0xff) / 255;
+    const blue = ((packedColor >>> 16) & 0xff) / 255;
+    const alpha = ((packedColor >>> 24) & 0xff) / 255;
+    this.#invoke("cna_graphics_device_clear_rgba", device, red, green, blue, alpha);
+  }
+
+  public override presentGraphicsDevice(device: NativeHandle): void {
+    this.#invoke("cna_graphics_device_present", device);
+  }
+
+  public override getRendererInfo(device: NativeHandle): BackendRendererInfo {
+    const scope = new WasmScope(this.#module);
+    try {
+      const info = allocateStruct(this.#module, scope, "CNA_RendererInfo");
+      this.#invoke("cna_graphics_device_get_renderer_info", device, info.pointer);
+      const byteLength = Number(info.getU64("renderer_name_byte_length"));
+      let name = "";
+      if (byteLength > 0) {
+        const buffer = scope.allocate(byteLength);
+        const written = scope.allocate(8);
+        this.#invoke("cna_graphics_device_copy_renderer_name", device, buffer, BigInt(byteLength), written);
+        const count = Number(new DataView(this.#module.HEAPU8.buffer as ArrayBuffer).getBigUint64(written, true));
+        name = readUtf8(this.#module, buffer, count);
+      }
+      return {
+        Name: name,
+        RendererType: info.getU32("renderer_type"),
+        CapabilityFlags: BigInt(info.getU32("capability_flags")),
+        MaxTextureDimension: info.getU32("max_texture_dimension"),
+      };
+    } finally {
+      scope.dispose();
+    }
+  }
+
+  public override createTexture2D(
+    device: NativeHandle, width: number, height: number, mipMap: boolean, surfaceFormat: number,
+  ): NativeHandle {
+    const scope = new WasmScope(this.#module);
+    try {
+      const info = allocateStruct(this.#module, scope, "CNA_Texture2DCreateInfo");
+      info.setU32("width", width).setU32("height", height)
+        .setU8("mip_map", mipMap ? 1 : 0).setU32("format", surfaceFormat);
+      return this.#outHandle("cna_texture2d_create", device, info.pointer);
+    } finally {
+      scope.dispose();
+    }
+  }
+
+  public override getTexture2DInfo(texture: NativeHandle): Texture2DInfo {
+    const scope = new WasmScope(this.#module);
+    try {
+      const info = allocateStruct(this.#module, scope, "CNA_Texture2DInfo");
+      this.#invoke("cna_texture2d_get_info", texture, info.pointer);
+      return {
+        Width: info.getU32("width"),
+        Height: info.getU32("height"),
+        LevelCount: info.getU32("level_count"),
+        Format: info.getU32("format"),
+      };
+    } finally {
+      scope.dispose();
+    }
+  }
+
+  public override createTexture2DFromEncodedMemory(
+    device: NativeHandle,
+    encoded: Uint8Array,
+    decode: { readonly Width: number; readonly Height: number; readonly Zoom: boolean } | null,
+  ): NativeHandle {
+    const scope = new WasmScope(this.#module);
+    try {
+      const bytes = scope.allocateBytes(encoded);
+      let decodePointer = 0;
+      if (decode) {
+        const info = allocateStruct(this.#module, scope, "CNA_Texture2DDecodeInfo");
+        info.setU32("width", decode.Width).setU32("height", decode.Height)
+          .setU8("zoom", decode.Zoom ? 1 : 0);
+        decodePointer = info.pointer;
+      }
+      return this.#outHandle(
+        "cna_texture2d_create_from_encoded_memory",
+        device, bytes, BigInt(encoded.byteLength), decodePointer,
+      );
+    } finally {
+      scope.dispose();
+    }
+  }
+
+  #transfer(scope: WasmScope, transfer: Texture2DTransfer): WasmStruct {
+    const structure = allocateStruct(this.#module, scope, "CNA_Texture2DTransfer");
+    structure.setI32("level", transfer.Level);
+    structure.setU8("has_rectangle", transfer.Rectangle ? 1 : 0);
+    if (transfer.Rectangle) {
+      structure.nested("rectangle", "CNA_Rectangle")
+        .setI32("x", transfer.Rectangle.X).setI32("y", transfer.Rectangle.Y)
+        .setI32("width", transfer.Rectangle.Width).setI32("height", transfer.Rectangle.Height);
+    }
+    structure.setU64("start_index", BigInt(transfer.StartIndex));
+    structure.setU64("element_count", BigInt(transfer.ElementCount));
+    return structure;
+  }
+
+  public override setTexture2DData(
+    texture: NativeHandle, transfer: Texture2DTransfer, bytes: Uint8Array,
+  ): void {
+    const scope = new WasmScope(this.#module);
+    try {
+      const descriptor = this.#transfer(scope, transfer);
+      const data = scope.allocateBytes(bytes);
+      this.#invoke(
+        "cna_texture2d_set_data",
+        texture, transfer.DataType, descriptor.pointer, data, BigInt(transfer.Capacity),
+      );
+    } finally {
+      scope.dispose();
+    }
+  }
+
+  public override getTexture2DData(texture: NativeHandle, transfer: Texture2DTransfer): Uint8Array {
+    const scope = new WasmScope(this.#module);
+    try {
+      const descriptor = this.#transfer(scope, transfer);
+      const byteCount = transfer.ElementCount * transfer.ElementSize;
+      const destination = scope.allocate(Math.max(byteCount, 1));
+      const written = scope.allocate(8);
+      this.#invoke(
+        "cna_texture2d_get_data",
+        texture, transfer.DataType, descriptor.pointer, destination,
+        BigInt(transfer.Capacity), written,
+      );
+      return new Uint8Array(this.#module.HEAPU8.subarray(destination, destination + byteCount));
+    } finally {
+      scope.dispose();
+    }
+  }
+
+  public override destroyTexture2D(texture: NativeHandle): void {
+    this.#invoke("cna_texture2d_destroy", texture);
+  }
+
+  public override createSpriteBatch(device: NativeHandle): NativeHandle {
+    return this.#outHandle("cna_sprite_batch_create", device);
+  }
+
+  public override beginSpriteBatch(spriteBatch: NativeHandle, sortMode: number): void {
+    const scope = new WasmScope(this.#module);
+    try {
+      const info = allocateStruct(this.#module, scope, "CNA_SpriteBatchBeginInfo");
+      info.setU32("sort_mode", sortMode);
+      this.#invoke("cna_sprite_batch_begin", spriteBatch, info.pointer);
+    } finally {
+      scope.dispose();
+    }
+  }
+
+  public override submitSpriteBatch(
+    spriteBatch: NativeHandle, commands: readonly SpriteBatchCommand[],
+  ): void {
+    if (commands.length === 0) return;
+    const scope = new WasmScope(this.#module);
+    try {
+      // The array stride is the measured wasm32 structure size, not a number written here: a
+      // by-hand stride is exactly how a binding writes every command but the first into the wrong
+      // place and sees CNA_RESULT_INVALID_ARGUMENT with nothing visibly wrong.
+      const stride = WASM_STRUCT_LAYOUTS.CNA_SpriteScaledCommand.size;
+      const base = scope.allocate(stride * commands.length);
+      for (let index = 0; index < commands.length; index += 1) {
+        const command = commands[index] as SpriteBatchCommand;
+        const entry = new WasmStruct(this.#module, "CNA_SpriteScaledCommand", base + index * stride);
+        entry.setU32("struct_size", stride).setU32("struct_version", 1);
+        entry.setU64("texture", command.Texture);
+        entry.nested("position", "CNA_Vector2").setF32("x", command.PositionX).setF32("y", command.PositionY);
+        entry.nested("source", "CNA_Rectangle")
+          .setI32("x", command.SourceX).setI32("y", command.SourceY)
+          .setI32("width", command.SourceWidth).setI32("height", command.SourceHeight);
+        entry.nested("color", "CNA_Color")
+          .setU8("r", command.ColorR).setU8("g", command.ColorG)
+          .setU8("b", command.ColorB).setU8("a", command.ColorA);
+        entry.setF32("rotation", command.Rotation);
+        entry.nested("origin", "CNA_Vector2").setF32("x", command.OriginX).setF32("y", command.OriginY);
+        entry.nested("scale", "CNA_Vector2").setF32("x", command.ScaleX).setF32("y", command.ScaleY);
+        entry.setU32("effects", command.Effects);
+        entry.setF32("layer_depth", command.LayerDepth);
+      }
+      this.#invoke("cna_sprite_batch_submit_scaled_many", spriteBatch, base, BigInt(commands.length));
+    } finally {
+      scope.dispose();
+    }
+  }
+
+  public override endSpriteBatch(spriteBatch: NativeHandle): void {
+    this.#invoke("cna_sprite_batch_end", spriteBatch);
+  }
+
+  public override destroySpriteBatch(spriteBatch: NativeHandle): void {
+    this.#invoke("cna_sprite_batch_destroy", spriteBatch);
+  }
+
+  /* ---- 3D geometry -----------------------------------------------------------------------------
+   *
+   * The browser slice could draw sprites and read pixels back, and nothing else: no vertex buffer,
+   * no index buffer, no effect, no indexed draw. So a browser consumer could not draw a triangle.
+   * These add exactly that, and no more.
+   */
+
+  #writeVertexElements(scope: WasmScope, elements: readonly VertexElementSnapshot[]): number {
+    const layout = WASM_STRUCT_LAYOUTS.CNA_VertexElement;
+    const pointer = scope.allocate(Math.max(layout.size * elements.length, 1));
+    elements.forEach((element, index) => {
+      const entry = new WasmStruct(this.#module, "CNA_VertexElement", pointer + layout.size * index);
+      entry.setI32("offset", element.Offset)
+        .setU32("format", element.VertexElementFormat)
+        .setU32("usage", element.VertexElementUsage)
+        .setI32("usage_index", element.UsageIndex);
+    });
+    return pointer;
+  }
+
+  public override createVertexBuffer(
+    device: NativeHandle, vertexStride: number, elements: readonly VertexElementSnapshot[],
+    vertexCount: number, usage: number, dynamic: boolean,
+  ): NativeHandle {
+    const scope = new WasmScope(this.#module);
+    try {
+      const declaration = this.#outHandle(
+        "cna_vertex_declaration_create_with_stride",
+        vertexStride, this.#writeVertexElements(scope, elements), BigInt(elements.length),
+      );
+      try {
+        const info = allocateStruct(this.#module, scope, "CNA_VertexBufferCreateInfo");
+        info.setU64("vertex_declaration", declaration)
+          .setI32("vertex_count", vertexCount)
+          .setU32("buffer_usage", usage)
+          .setU8("dynamic", dynamic ? 1 : 0);
+        return this.#outHandle("cna_vertex_buffer_create", device, info.pointer);
+      } finally {
+        // The buffer copies the declaration during creation, so the caller's is released here
+        // rather than leaked for the buffer's lifetime.
+        this.#invoke("cna_vertex_declaration_destroy", declaration);
+      }
+    } finally {
+      scope.dispose();
+    }
+  }
+
+  public override setVertexBufferRaw(
+    buffer: NativeHandle, bytes: Uint8Array, vertexCount: number, vertexStride: number,
+  ): void {
+    const scope = new WasmScope(this.#module);
+    try {
+      this.#invoke(
+        "cna_vertex_buffer_set_data_raw", buffer, scope.allocateBytes(bytes),
+        BigInt(bytes.byteLength), BigInt(vertexCount), vertexStride,
+      );
+    } finally {
+      scope.dispose();
+    }
+  }
+
+  public override getVertexBufferRaw(
+    buffer: NativeHandle, vertexCount: number, vertexStride: number,
+  ): Uint8Array {
+    const scope = new WasmScope(this.#module);
+    try {
+      const byteCount = vertexCount * vertexStride;
+      const destination = scope.allocate(Math.max(byteCount, 1));
+      this.#invoke(
+        "cna_vertex_buffer_get_data_raw", buffer, 0n, destination,
+        BigInt(byteCount), BigInt(vertexCount), vertexStride,
+      );
+      return this.#module.HEAPU8.slice(destination, destination + byteCount);
+    } finally {
+      scope.dispose();
+    }
+  }
+
+  public override destroyVertexBuffer(buffer: NativeHandle): void {
+    this.#invoke("cna_vertex_buffer_destroy", buffer);
+  }
+
+  public override createIndexBuffer(
+    device: NativeHandle, elementSize: number, indexCount: number, usage: number, dynamic: boolean,
+  ): NativeHandle {
+    const scope = new WasmScope(this.#module);
+    try {
+      const info = allocateStruct(this.#module, scope, "CNA_IndexBufferCreateInfo");
+      info.setI32("index_count", indexCount)
+        .setU32("index_element_size", elementSize)
+        .setU32("buffer_usage", usage)
+        .setU8("dynamic", dynamic ? 1 : 0);
+      return this.#outHandle("cna_index_buffer_create", device, info.pointer);
+    } finally {
+      scope.dispose();
+    }
+  }
+
+  /*
+   * An index buffer has no `_raw` transfer the way a vertex buffer does -- the only setter is the
+   * typed one, which takes a CNA_IndexBufferTransfer describing the element width and the window.
+   * Assuming the symmetry and calling a `cna_index_buffer_set_data_raw` that does not exist is how
+   * this first failed, and the route table said so by name at load rather than mid-frame.
+   */
+  #indexTransfer(scope: WasmScope, elementSize: number, indexCount: number): number {
+    const transfer = allocateStruct(this.#module, scope, "CNA_IndexBufferTransfer");
+    transfer.setU32("index_element_size", elementSize)
+      .setU32("options", 0)
+      .setU64("start_index", 0n)
+      .setU64("element_count", BigInt(indexCount));
+    return transfer.pointer;
+  }
+
+  public override setIndexBufferRaw(
+    buffer: NativeHandle, elementSize: number, bytes: Uint8Array,
+  ): void {
+    const scope = new WasmScope(this.#module);
+    try {
+      const width = elementSize === 0 ? 2 : 4;
+      const indexCount = bytes.byteLength / width;
+      this.#invoke(
+        "cna_index_buffer_set_data", buffer, this.#indexTransfer(scope, elementSize, indexCount),
+        scope.allocateBytes(bytes), BigInt(indexCount),
+      );
+    } finally {
+      scope.dispose();
+    }
+  }
+
+  public override getIndexBufferRaw(
+    buffer: NativeHandle, elementSize: number, indexCount: number,
+  ): Uint8Array {
+    const scope = new WasmScope(this.#module);
+    try {
+      const width = elementSize === 0 ? 2 : 4;
+      const byteCount = indexCount * width;
+      const destination = scope.allocate(Math.max(byteCount, 1));
+      this.#invoke(
+        "cna_index_buffer_get_data", buffer, this.#indexTransfer(scope, elementSize, indexCount),
+        destination, BigInt(indexCount),
+      );
+      return this.#module.HEAPU8.slice(destination, destination + byteCount);
+    } finally {
+      scope.dispose();
+    }
+  }
+
+  public override destroyIndexBuffer(buffer: NativeHandle): void {
+    this.#invoke("cna_index_buffer_destroy", buffer);
+  }
+
+
+  /**
+   * The running game's lifetime, which every audio resource is a child of.
+   *
+   * `Game` binds it when it creates the native game, so a game going away releases its sound
+   * effects deterministically instead of leaving handles CNA will later refuse to let go of.
+   */
+  public bindGameLifetimeForInternalUse(lifetime: NativeResourceLifetime | null): void {
+    this.#gameLifetime = lifetime;
+  }
+
+  #requireGameLifetime(): NativeResourceLifetime {
+    if (this.#gameLifetime == null) {
+      throw new NativeUnavailableError("CNA audio resources require an active native Game lifetime");
+    }
+    return this.#gameLifetime;
+  }
+
+  #requireGame(): NativeHandle {
+    if (this.#activeGame == null) {
+      throw new NativeUnavailableError("this operation requires an active native Game");
+    }
+    return this.#activeGame;
+  }
+
+  /**
+   * Reads a whole title asset, which is what a browser consumer needs to reach `ContentManager`.
+   *
+   * `TitleContainer` has no stream handle in this ABI -- the route is a count/copy pair delivering
+   * the complete file -- so the bytes are copied out of module memory and the allocation is
+   * released before returning. Nothing above this line ever holds a pointer into the heap, which
+   * `ALLOW_MEMORY_GROWTH` would invalidate on the next allocation anyway.
+   *
+   * Where the file comes from is the browser's business, not this backend's: the module's
+   * filesystem is what CNA reads, so a page writes its assets into it (from `fetch`, from a bundle,
+   * from `--preload-file`) and then loads them through the ordinary XNA API.
+   */
+  public openTitleStream(name: string): Uint8Array {
+    const scope = new WasmScope(this.#module);
+    try {
+      // The name is a CNA_StringView passed by value, which Emscripten lowers to a pointer to the
+      // structure in module memory -- the same convention the renderer-name routes pinned.
+      const text = scope.allocateUtf8(name);
+      const nameView = allocateStruct(this.#module, scope, "CNA_StringView", false);
+      nameView.setPointer("data", text.pointer).setU64("byte_length", BigInt(text.byteLength));
+      const sizePointer = scope.allocate(8);
+      const view = () => new DataView(this.#module.HEAPU8.buffer as ArrayBuffer);
+      // Capacity zero asks for the size; the route writes it before refusing for size, and a
+      // missing file is CNA_RESULT_IO, which must surface rather than read as an empty asset.
+      const probe = this.#call(
+        "cna_title_container_read_ext",
+        this.#requireGame(), nameView.pointer, 0, 0n, sizePointer,
+      );
+      if (probe !== CnaResult.Success && probe !== CnaResult.BufferTooSmall) {
+        throw new WasmCnaError("cna_title_container_read_ext", probe, this.getLastError());
+      }
+      const byteLength = Number(view().getBigUint64(sizePointer, true));
+      if (byteLength === 0) return new Uint8Array(0);
+      const destination = scope.allocate(byteLength);
+      this.#invoke(
+        "cna_title_container_read_ext",
+        this.#requireGame(), nameView.pointer, destination, BigInt(byteLength), sizePointer,
+      );
+      return new Uint8Array(this.#module.HEAPU8.subarray(destination, destination + byteLength));
+    } finally {
+      scope.dispose();
+    }
+  }
+
+  public override getKeyboardState(playerIndex: PlayerIndex | null): KeyboardState {
+    void playerIndex;
+    const scope = new WasmScope(this.#module);
+    try {
+      const state = allocateStruct(this.#module, scope, "CNA_KeyboardState");
+      this.#invoke("cna_keyboard_get_state", this.#requireGame(), state.pointer);
+      const keys: Keys[] = [];
+      for (let word = 0; word < 4; word += 1) {
+        let bits = state.getU64Element("pressed_key_words", word);
+        for (let bit = 0; bits !== 0n; bit += 1, bits >>= 1n) {
+          if ((bits & 1n) === 1n) keys.push((word * 64 + bit) as Keys);
+        }
+      }
+      return new KeyboardState(keys);
+    } finally {
+      scope.dispose();
+    }
+  }
+
+  public override getMouseState(): MouseState {
+    const scope = new WasmScope(this.#module);
+    try {
+      const state = allocateStruct(this.#module, scope, "CNA_MouseState");
+      this.#invoke("cna_mouse_get_state", this.#requireGame(), state.pointer);
+      const buttons = state.getU32("pressed_buttons");
+      const pressed = (mask: number): ButtonState =>
+        (buttons & mask) !== 0 ? ButtonState.Pressed : ButtonState.Released;
+      return new MouseState(
+        state.getI32("x"), state.getI32("y"), state.getI32("scroll_wheel"),
+        pressed(MOUSE_BUTTON_LEFT), pressed(MOUSE_BUTTON_MIDDLE), pressed(MOUSE_BUTTON_RIGHT),
+        pressed(MOUSE_BUTTON_X1), pressed(MOUSE_BUTTON_X2),
+      );
+    } finally {
+      scope.dispose();
+    }
+  }
+
+  /**
+   * The same `GamePad.GetState` a Node consumer calls, over the same C route. In a browser SDL3's
+   * Emscripten joystick driver is what stands behind it, and that reads the page's Gamepad API --
+   * so a page with no controller attached gets `IsConnected === false` rather than an invented
+   * device, and one with a controller gets its real buttons, sticks and triggers.
+   *
+   * Dead-zone processing is CNA's, not this backend's: the mode is passed through and the analog
+   * values come back already transformed, which is what keeps the two backends' answers identical
+   * for identical hardware.
+   */
+  public override getGamePadState(playerIndex: PlayerIndex, deadZoneMode: GamePadDeadZone): GamePadState {
+    const scope = new WasmScope(this.#module);
+    try {
+      const state = allocateStruct(this.#module, scope, "CNA_GamePadState");
+      this.#invoke(
+        "cna_gamepad_get_state_with_dead_zone",
+        this.#requireGame(), playerIndex, deadZoneMode, state.pointer,
+      );
+      const analog = state.nested("analog", "CNA_GamePadAnalogState");
+      const left = analog.nested("left_thumb_stick", "CNA_Vector2");
+      const right = analog.nested("right_thumb_stick", "CNA_Vector2");
+      return createGamePadState({
+        IsConnected: state.getU8("is_connected") !== 0,
+        PacketNumber: state.getI32("packet_number"),
+        PressedButtons: state.getU32("pressed_buttons"),
+        LeftX: left.getF32("x"),
+        LeftY: left.getF32("y"),
+        RightX: right.getF32("x"),
+        RightY: right.getF32("y"),
+        LeftTrigger: analog.getF32("left_trigger"),
+        RightTrigger: analog.getF32("right_trigger"),
+      });
+    } finally {
+      scope.dispose();
+    }
+  }
+
+  public override getGamePadCapabilities(playerIndex: PlayerIndex): GamePadCapabilities {
+    const scope = new WasmScope(this.#module);
+    try {
+      const caps = allocateStruct(this.#module, scope, "CNA_GamePadCapabilities");
+      this.#invoke("cna_gamepad_get_capabilities", this.#requireGame(), playerIndex, caps.pointer);
+      const has = (field: string): boolean => caps.getU8(field) !== 0;
+      return createGamePadCapabilities({
+        IsConnected: has("is_connected"),
+        // The one family whose numbering differs between XNA and the C ABI; the translation is
+        // contract-declared in src/internal/cna-enums.ts and proved by a _Static_assert.
+        GamePadType: fromCnaGamePadType(caps.getU32("gamepad_type")),
+        HasAButton: has("has_a_button"),
+        HasBButton: has("has_b_button"),
+        HasXButton: has("has_x_button"),
+        HasYButton: has("has_y_button"),
+        HasBackButton: has("has_back_button"),
+        HasStartButton: has("has_start_button"),
+        HasBigButton: has("has_big_button"),
+        HasDPadUpButton: has("has_dpad_up_button"),
+        HasDPadDownButton: has("has_dpad_down_button"),
+        HasDPadLeftButton: has("has_dpad_left_button"),
+        HasDPadRightButton: has("has_dpad_right_button"),
+        HasLeftShoulderButton: has("has_left_shoulder_button"),
+        HasRightShoulderButton: has("has_right_shoulder_button"),
+        HasLeftStickButton: has("has_left_stick_button"),
+        HasRightStickButton: has("has_right_stick_button"),
+        HasLeftXThumbStick: has("has_left_x_thumb_stick"),
+        HasLeftYThumbStick: has("has_left_y_thumb_stick"),
+        HasRightXThumbStick: has("has_right_x_thumb_stick"),
+        HasRightYThumbStick: has("has_right_y_thumb_stick"),
+        HasLeftTrigger: has("has_left_trigger"),
+        HasRightTrigger: has("has_right_trigger"),
+        HasLeftVibrationMotor: has("has_left_vibration_motor"),
+        HasRightVibrationMotor: has("has_right_vibration_motor"),
+        HasVoiceSupport: has("has_voice_support"),
+      });
+    } finally {
+      scope.dispose();
+    }
+  }
+
+  /**
+   * Reports whether CNA accepted the vibration request, which is the most a caller can truthfully
+   * be told: XNA's `SetVibration` returns a boolean and a browser's Gamepad API exposes haptics
+   * only where the device and the user agent both provide them.
+   */
+  public override setGamePadVibration(
+    playerIndex: PlayerIndex, leftMotor: number, rightMotor: number,
+  ): boolean {
+    const scope = new WasmScope(this.#module);
+    try {
+      const out = scope.allocate(1);
+      this.#invoke(
+        "cna_gamepad_set_vibration", this.#requireGame(), playerIndex, leftMotor, rightMotor, out,
+      );
+      return this.#module.HEAPU8[out] !== 0;
+    } finally {
+      scope.dispose();
+    }
+  }
+
+  /**
+   * `TouchPanel.GetState`, from the browser's own touch events by way of SDL3's Emscripten
+   * platform. The collection is copied out of the module's memory into ordinary JavaScript objects
+   * before this returns, so nothing a consumer holds points into a heap `ALLOW_MEMORY_GROWTH` can
+   * move underneath it.
+   */
+  public override getTouchState(): TouchCollection {
+    const scope = new WasmScope(this.#module);
+    try {
+      const state = allocateStruct(this.#module, scope, "CNA_TouchState");
+      this.#invoke("cna_touch_get_state", this.#requireGame(), state.pointer);
+      // The count is CNA's, but the array is fixed-capacity; clamping to the measured array rather
+      // than trusting the count keeps a malformed answer from reading past the structure.
+      const capacity = WASM_STRUCT_LAYOUTS.CNA_TouchState.fields.touches.size
+        / WASM_STRUCT_LAYOUTS.CNA_TouchLocation.size;
+      const count = Math.min(state.getU32("touch_count"), capacity);
+      const touches: TouchLocation[] = [];
+      for (let index = 0; index < count; index += 1) {
+        const location = state.element("touches", index, "CNA_TouchLocation");
+        const position = location.nested("position", "CNA_Vector2");
+        const previous = location.nested("previous_position", "CNA_Vector2");
+        touches.push(new TouchLocation(
+          location.getI32("id"),
+          location.getU32("state") as TouchLocationState,
+          new Vector2(position.getF32("x"), position.getF32("y")),
+          location.getU32("previous_state") as TouchLocationState,
+          new Vector2(previous.getF32("x"), previous.getF32("y")),
+        ));
+      }
+      return createTouchCollection(touches, state.getU8("is_connected") !== 0);
+    } finally {
+      scope.dispose();
+    }
+  }
+
+  public override getTouchCapabilities(): TouchPanelCapabilities {
+    const scope = new WasmScope(this.#module);
+    try {
+      const caps = allocateStruct(this.#module, scope, "CNA_TouchCapabilities");
+      this.#invoke("cna_touch_get_capabilities", this.#requireGame(), caps.pointer);
+      return createTouchPanelCapabilities({
+        IsConnected: caps.getU8("is_connected") !== 0,
+        MaximumTouchCount: caps.getU32("maximum_touch_count"),
+      });
+    } finally {
+      scope.dispose();
+    }
+  }
+
+  public override isGestureAvailable(): boolean {
+    return this.#outBool("cna_touch_panel_get_is_gesture_available", this.#requireGame());
+  }
+
+  public override readGesture(): GestureSample {
+    const scope = new WasmScope(this.#module);
+    try {
+      const sample = allocateStruct(this.#module, scope, "CNA_GestureSample");
+      this.#invoke("cna_touch_panel_read_gesture", this.#requireGame(), sample.pointer);
+      const vector = (field: string): Vector2 => {
+        const value = sample.nested(field, "CNA_Vector2");
+        return new Vector2(value.getF32("x"), value.getF32("y"));
+      };
+      return new GestureSample(
+        sample.getU32("gesture_type") as GestureType,
+        // Ticks stay a bigint the whole way: TimeSpan's are 100-nanosecond units and an i64 does
+        // not survive a trip through Number.
+        TimeSpan.FromTicks(sample.getI64("timestamp_ticks")),
+        vector("position"), vector("position2"), vector("delta"), vector("delta2"),
+      );
+    } finally {
+      scope.dispose();
+    }
+  }
+
+  public override get touchWindowHandle(): bigint {
+    const scope = new WasmScope(this.#module);
+    try {
+      const out = scope.allocate(8);
+      this.#invoke("cna_touch_panel_get_window_handle", this.#requireGame(), out);
+      return new DataView(this.#module.HEAPU8.buffer as ArrayBuffer).getBigInt64(out, true);
+    } finally {
+      scope.dispose();
+    }
+  }
+
+  public override setTouchWindowHandle(value: bigint): void {
+    this.#invoke("cna_touch_panel_set_window_handle", this.#requireGame(), value);
+  }
+
+  // ---- Process-wide CNA runtime services -------------------------------------------------------
+  // Identical operations to the Node adapter's, over the same C routes. None takes a handle, so
+  // they answer before a game exists and before a canvas is attached.
+
+  #outU32(name: RouteName, ...args: readonly (number | bigint)[]): number {
+    const scope = new WasmScope(this.#module);
+    try {
+      const out = scope.allocate(4);
+      this.#invoke(name, ...args, out);
+      return new DataView(this.#module.HEAPU8.buffer as ArrayBuffer).getUint32(out, true);
+    } finally {
+      scope.dispose();
+    }
+  }
+
+  #outBool(name: RouteName, ...args: readonly (number | bigint)[]): boolean {
+    const scope = new WasmScope(this.#module);
+    try {
+      const out = scope.allocate(1);
+      this.#invoke(name, ...args, out);
+      return this.#module.HEAPU8[out] !== 0;
+    } finally {
+      scope.dispose();
+    }
+  }
+
+  #outU64(name: RouteName, ...args: readonly (number | bigint)[]): number {
+    const scope = new WasmScope(this.#module);
+    try {
+      const out = scope.allocate(8);
+      this.#invoke(name, ...args, out);
+      return Number(new DataView(this.#module.HEAPU8.buffer as ArrayBuffer).getBigUint64(out, true));
+    } finally {
+      scope.dispose();
+    }
+  }
+
+  /** A copied CNA string carries no terminator, so its exact byte count is read first. */
+  #copyText(
+    sizeRoute: RouteName, copyRoute: RouteName, ...leading: readonly (number | bigint)[]
+  ): string {
+    const byteLength = this.#outU64(sizeRoute, ...leading);
+    if (byteLength === 0) return "";
+    const scope = new WasmScope(this.#module);
+    try {
+      const buffer = scope.allocate(byteLength);
+      const written = scope.allocate(8);
+      this.#invoke(copyRoute, ...leading, buffer, BigInt(byteLength), written);
+      const count = Number(new DataView(this.#module.HEAPU8.buffer as ArrayBuffer).getBigUint64(written, true));
+      return readUtf8(this.#module, buffer, count);
+    } finally {
+      scope.dispose();
+    }
+  }
+
+  /** Runs a read that CNA answers only in some states, mapping its refusal to null. */
+  #optional(read: () => number): number | null {
+    try {
+      return read();
+    } catch (error) {
+      if (error instanceof WasmCnaError && error.cnaResult === CNA_RESULT_INVALID_STATE) return null;
+      throw error;
+    }
+  }
+
+  public getPlatform(): PlatformSnapshot {
+    return Object.freeze({
+      Platform: this.#outU32("cna_platform_get_current"),
+      Name: this.#copyText("cna_platform_get_current_name_size_ext", "cna_platform_copy_current_name_ext"),
+      IsApple: this.#outBool("cna_platform_get_is_apple_ext"),
+      IsMobile: this.#outBool("cna_platform_get_is_mobile_ext"),
+      // Off a desktop there is no desktop operating system and CNA refuses the question.
+      DesktopOperatingSystem: this.#optional(() => this.#outU32("cna_desktop_os_get_current")),
+    });
+  }
+
+  public getRendererSelection(): RendererSelectionSnapshot {
+    // Before any renderer has been created there is no active or current identity, and CNA says so
+    // with CNA_RESULT_INVALID_STATE rather than inventing one. That is a state, not a failure.
+    const current = this.#optional(() => this.#outU32("cna_graphics_renderer_get_current_type"));
+    return Object.freeze({
+      Selected: this.#outU32("cna_graphics_renderer_get_selected_ext"),
+      Active: this.#optional(() => this.#outU32("cna_graphics_renderer_get_active_ext")),
+      Current: current,
+      CurrentName: current == null ? null : this.#copyText(
+        "cna_graphics_renderer_get_current_name_size", "cna_graphics_renderer_copy_current_name",
+      ),
+      IsLatched: this.#outBool("cna_graphics_renderer_get_is_latched_ext"),
+      AutomaticFallback: this.#outBool("cna_graphics_renderer_get_automatic_fallback_ext"),
+    });
+  }
+
+  public getAvailableRendererTypes(): readonly number[] {
+    const count = this.#outU64("cna_graphics_renderer_get_available_count_ext");
+    if (count === 0) return Object.freeze([]);
+    const scope = new WasmScope(this.#module);
+    try {
+      const buffer = scope.allocate(count * 4);
+      const written = scope.allocate(8);
+      this.#invoke("cna_graphics_renderer_copy_available_ext", buffer, BigInt(count), written);
+      const view = new DataView(this.#module.HEAPU8.buffer as ArrayBuffer);
+      const types: number[] = [];
+      for (let index = 0; index < count; index += 1) types.push(view.getUint32(buffer + index * 4, true));
+      return Object.freeze(types);
+    } finally {
+      scope.dispose();
+    }
+  }
+
+  public isRendererAvailable(type: number): boolean {
+    return this.#outBool("cna_graphics_renderer_get_is_available_ext", type);
+  }
+
+  public describeRenderer(type: number): RendererIdentitySnapshot {
+    const category = this.#outU32("cna_graphics_backend_get_category", type);
+    const maturity = this.#outU32("cna_graphics_backend_get_maturity", type);
+    return Object.freeze({
+      Type: type,
+      Category: category,
+      CategoryName: this.#copyText(
+        "cna_graphics_backend_category_get_name_size", "cna_graphics_backend_category_copy_name", category,
+      ),
+      Maturity: maturity,
+      MaturityName: this.#copyText(
+        "cna_graphics_backend_maturity_get_name_size", "cna_graphics_backend_maturity_copy_name", maturity,
+      ),
+      IsAvailable: this.isRendererAvailable(type),
+    });
+  }
+
+  public setPreferredRenderer(type: number): void {
+    this.#invoke("cna_graphics_renderer_set_preferred_ext", type);
+  }
+
+  #withStringView<T>(value: string, body: (pointer: number, byteLength: number) => T): T {
+    const scope = new WasmScope(this.#module);
+    try {
+      const text = scope.allocateUtf8(value);
+      const view = allocateStruct(this.#module, scope, "CNA_StringView", false);
+      view.setPointer("data", text.pointer).setU64("byte_length", BigInt(text.byteLength));
+      return body(view.pointer, text.byteLength);
+    } finally {
+      scope.dispose();
+    }
+  }
+
+  public setPreferredRendererByName(name: string): void {
+    // A CNA_StringView passed by value is not pinned for wasm32, so the routes that take one are
+    // reached through their pointer form where the ABI offers a choice. This one does not, so the
+    // structure is built in module memory and its address is handed over, which is how Emscripten
+    // lowers a by-value aggregate argument.
+    this.#withStringView(name, (pointer) => {
+      this.#invoke("cna_graphics_renderer_set_preferred_by_name_ext", pointer);
+    });
+  }
+
+  public tryParseRendererName(name: string): number | null {
+    return this.#withStringView(name, (pointer) => {
+      const scope = new WasmScope(this.#module);
+      try {
+        const type = scope.allocate(4);
+        const recognized = scope.allocate(1);
+        this.#invoke("cna_graphics_renderer_try_parse_name_ext", pointer, type, recognized);
+        if (this.#module.HEAPU8[recognized] === 0) return null;
+        return new DataView(this.#module.HEAPU8.buffer as ArrayBuffer).getUint32(type, true);
+      } finally {
+        scope.dispose();
+      }
+    });
+  }
+
+  public setRendererFallbackChain(types: readonly number[]): void {
+    const scope = new WasmScope(this.#module);
+    try {
+      const buffer = scope.allocate(Math.max(types.length * 4, 1));
+      const view = new DataView(this.#module.HEAPU8.buffer as ArrayBuffer);
+      types.forEach((type, index) => view.setUint32(buffer + index * 4, type, true));
+      this.#invoke("cna_graphics_renderer_set_fallback_chain_ext", buffer, BigInt(types.length));
+    } finally {
+      scope.dispose();
+    }
+  }
+
+  public setAutomaticRendererFallback(enabled: boolean): void {
+    this.#invoke("cna_graphics_renderer_set_automatic_fallback_ext", enabled ? 1 : 0);
+  }
+
+  public getRendererFallbacks(): readonly RendererFallbackSnapshot[] {
+    const count = this.#outU64("cna_graphics_renderer_get_fallback_count_ext");
+    const rows: RendererFallbackSnapshot[] = [];
+    for (let index = 0; index < count; index += 1) {
+      const scope = new WasmScope(this.#module);
+      try {
+        const record = allocateStruct(this.#module, scope, "CNA_GraphicsRendererFallbackRecord");
+        this.#invoke("cna_graphics_renderer_get_fallback_at_ext", BigInt(index), record.pointer);
+        const reason = record.getU32("reason");
+        rows.push(Object.freeze({
+          Type: record.getU32("type"),
+          Reason: reason,
+          ReasonName: this.#copyText(
+            "cna_graphics_renderer_fallback_reason_get_name_size_ext",
+            "cna_graphics_renderer_fallback_reason_copy_name_ext",
+            reason,
+          ),
+          Message: this.#copyText(
+            "cna_graphics_renderer_fallback_get_message_size_ext",
+            "cna_graphics_renderer_fallback_copy_message_ext",
+            BigInt(index),
+          ),
+        }));
+      } finally {
+        scope.dispose();
+      }
+    }
+    return Object.freeze(rows);
+  }
+
+  public getMinimumLogLevel(): number { return this.#outU32("cna_logger_get_minimum_level"); }
+
+  public setMinimumLogLevel(level: number): void {
+    this.#invoke("cna_logger_set_minimum_level", level);
+  }
+
+  public writeLog(level: number, category: number, message: string): void {
+    this.#withStringView(message, (pointer) => {
+      this.#invoke("cna_logger_log", level, pointer, category, 0);
+    });
+  }
+
+  public isGraphicsExtensionLayerAvailable(): boolean {
+    return this.#outBool("cna_graphics_ext_is_available");
+  }
+
+
+  public override toggleGraphicsDeviceManagerFullScreen(manager: NativeHandle): void {
+    this.#invoke("cna_graphics_device_manager_toggle_full_screen", manager);
+  }
+
+  /**
+   * The texture as PNG or another image format, counted first and then copied.
+   *
+   * A browser has its own encoders, and this is not one of them: it is CNA's, so a page that
+   * writes a screenshot into CNB or hands one back through the same route a desktop consumer uses
+   * gets identical bytes. `target_width` and `target_height` of zero are the texture's own size.
+   */
+  public override encodeTexture2D(
+    texture: NativeHandle, imageFormat: number, width: number, height: number,
+  ): Uint8Array {
+    const scope = new WasmScope(this.#module);
+    try {
+      const countOut = scope.allocate(8);
+      this.#invoke(
+        "cna_texture2d_get_encoded_byte_count", texture, imageFormat,
+        Math.trunc(width) >>> 0, Math.trunc(height) >>> 0, countOut,
+      );
+      const byteCount = Number(this.#routes.view().getBigUint64(countOut, true));
+      if (byteCount === 0) return new Uint8Array(0);
+      const destination = scope.allocate(byteCount);
+      const writtenOut = scope.allocate(8);
+      this.#invoke(
+        "cna_texture2d_copy_encoded", texture, imageFormat,
+        Math.trunc(width) >>> 0, Math.trunc(height) >>> 0, destination, BigInt(byteCount),
+        writtenOut,
+      );
+      const written = Number(this.#routes.view().getBigUint64(writtenOut, true));
+      return new Uint8Array(this.#module.HEAPU8.subarray(destination, destination + written));
+    } finally {
+      scope.dispose();
+    }
+  }
+
+  /**
+   * Warps the pointer, which a browser will not do without a pointer lock the page has to ask for.
+   *
+   * Bound anyway: CNA's own answer for a context that refuses is what a consumer wants, and the
+   * binding declining first would be a statement about this package.
+   */
+  public override setMousePosition(x: number, y: number): void {
+    this.#invoke("cna_mouse_set_position", this.#requireGame(), Math.trunc(x), Math.trunc(y));
+  }
+
+  /**
+   * The window the mouse reports positions relative to.
+   *
+   * The setter was here and the getter was not, which left `Mouse.WindowHandle` reading through
+   * `CnaBackendBase`'s refusal in a browser while writing through CNA. An accessor is invisible to
+   * a member walk that filters on `typeof descriptor.value === "function"`, which is how it went
+   * unnoticed until `backend-gap.mjs` started counting getters.
+   */
+  public override get mouseWindowHandle(): bigint {
+    return this.#routes.outU64("cna_mouse_get_window_handle", this.#requireGame());
+  }
+
+  public override setMouseWindowHandle(value: bigint): void {
+    this.#invoke("cna_mouse_set_window_handle", this.#requireGame(), value);
+  }
+
+}
