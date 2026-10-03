@@ -1,0 +1,13 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cna-python-starter"
+version = "0.1.0.dev0"
+description = "Desktop starter for the CNA-Python binding"
+requires-python = ">=3.10"
+dependencies = ["cna-python==0.1.0.dev0"]
+
+[tool.setuptools.packages.find]
+include = ["game*"]
