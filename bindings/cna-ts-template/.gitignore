@@ -1,0 +1,16 @@
+node_modules/
+dist/
+build/
+generated/
+.env
+*.log
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
