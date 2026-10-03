@@ -1,0 +1,339 @@
+# CNA-Python implementation plan
+
+Status: the selected XNA 4.0 Windows projection is structurally complete, the
+native boundary speaks the current CNA C ABI `0.35.0`, CNA extension families
+are open, and XNA's online runtime is open as a second strict profile beside the
+Windows runtime one.
+
+Date: 2026-09-30 (requalified against CNA `next` `4228ff913`).
+
+This is the normative current-state plan. Missing XNA surface stays visible in
+the strict verifier; no allowlist, fake backend state, fabricated asset, or
+asset-name special case is an acceptable way to make it green.
+
+## Completed foundation
+
+- [x] Pin and measure the seven-assembly XNA 4.0 Windows projection: 257 types,
+  2,964 CLR members, and 2,887 mapped Python members.
+- [x] Implement the exact ctypes loader, callback exception boundary,
+  OWNED/BORROWED/PARENT_OWNED lifetime model, and child-before-parent shutdown.
+- [x] Complete core math/value, geometry/intersection, non-touch input, Game,
+  components, services, window, and the selected 2D graphics foundation.
+- [x] Complete Texture2D, render targets, buffers/declarations, SpriteBatch,
+  SpriteFont, Content/XNB with LZX, custom readers, shared resources, external
+  references, cache/rollback/Unload, and title-path integration.
+- [x] Complete Effect reflection and typed codecs, five native stock Effects,
+  Texture3D/Cube exact routes, EffectPass.Apply, the Model graph, uncompressed
+  and compressed Model XNB, and ordinary indexed Model.Draw.
+- [x] Complete all 19 Audio types, all six Curve types, both PackedVector
+  interfaces with seventeen concrete structs, and all thirteen Design converters.
+- [x] Complete FrameworkDispatcher, GamerServicesComponent, OcclusionQuery,
+  RenderTargetCube, all eight Touch types, and all three Storage types.
+- [x] Complete all 24 Media/Video types with native catalog collections, Song,
+  synchronized process-global MediaPlayer, generation-scoped MediaQueue/events,
+  VisualizationData, private Video XNB loading, and VideoPlayer.
+
+## Completed migration and requalification
+
+- [x] Migrate the native boundary to CNA `0.21.0` with a version policy derived
+  from CNA's own contract rather than a hard-coded constant.
+- [x] Requalify against CNA `0.35.0` (2026-09-30): measured with the prototype,
+  layout and census gates first, then admitted; drop the 849 bound routes CNA
+  retired (engine layer, avatar real rendering, Guide setters) and the
+  pending-route stub; see `docs/cna-abi-audit.md`.
+- [x] Add compiler-backed prototype verification: every imported route's ctypes
+  prototype is proven against the canonical C declaration by the C compiler,
+  with planted defects proving the gate can fail.
+- [x] Census all 4,055 canonical routes by purpose and binding status, with
+  `UNREVIEWED = 0` and every non-binding carrying a written reason.
+- [x] Gate route reachability from canonical declaration through to consumer,
+  with `UNJUSTIFIED_BOUND_WITHOUT_CALL_SITE = 0`; eight dead routes unbound.
+- [x] Qualify a second artifact that actually rasterizes and produce
+  rendered-pixel evidence for every draw path, SpriteBatch, render targets,
+  Texture3D, TextureCube and Model.
+- [x] Requalify all 119 runtime capability rows per artifact, closing five
+  upstream blockers by measurement and confirming four unchanged.
+- [x] Requalify audio against a real mixer, separating the verified state
+  machine from audible output and physical capture, which remain unverified.
+- [x] Open `cna.extensions` with renderer identity and a separate surface gate.
+
+## Completed extension family: CNB/CNJ compiled content
+
+- [x] Select CNB/CNJ as the second public `cna.extensions` family and replace the
+  blanket "outside the selected profile" census rule with per-route decisions.
+- [x] Bind 270 of `cnb.h`'s 272 routes, plus the two dependency slices the
+  family needs: eleven `curve.h` routes for the curve codec and two `content.h`
+  routes for loader invocation. The two unbound routes are checked integer
+  arithmetic Python already does exactly.
+- [x] Build `cna.extensions.content`: the container vocabulary, `CnbDocument`,
+  the reader and both writers, every typed asset codec, the model graph, the
+  source importers, `.cnj` compilation and the loader registry.
+- [x] Keep the strict XNA `ContentManager` unchanged, with a test asserting it
+  does not read a `.cnb` placed where it looks for a `.xnb`.
+- [x] Measure every CNB structure and every frozen wire constant against the
+  canonical headers with a compiler-backed probe.
+- [x] Qualify every slice against an oracle other than its own decoder,
+  including byte-identical agreement with CNA's own `cnj_to_cnb` tool across two
+  OS processes.
+- [x] Plant 35 defects across the family and kill all of them; four survivors on
+  the first run were real test gaps and were closed.
+
+## Completed extension family: the engine layer
+
+CNA retired `engine_layer.h` at ABI 0.30; since 2026-09-30 this family is
+DebugDraw and the ASCII effect only (`docs/engine-extensions.md`). The items
+below are the record of what was built against 0.21.
+
+- [x] Select `engine_layer.h` as the third public `cna.extensions` family and
+  replace the blanket "outside the selected extension profile" census rule
+  covering ~838 routes with per-family, per-route decisions.
+- [x] Bind 867 of its 870 routes, plus three dependency slices: five routes for
+  PBR effects and materials, eight for the ASCII effect, and two `models.h`
+  routes to project a strict `ModelMeshPart` into the native handle
+  level-of-detail and instancing demand. The three unbound routes are C
+  ownership transfers that would invalidate a live Python facade.
+- [x] Build `cna.extensions.engine` across fourteen modules: values, errors,
+  compute, post-processing, the concrete passes, atmosphere, PBR, shadows,
+  scene, the render pipeline, clustered lighting, light probes, culling and
+  instancing, and debug drawing.
+- [x] Keep `Microsoft.Xna.Framework` unchanged: no engine class or member enters
+  it, the dependency runs extension -> strict only, and only private members
+  were added to strict types (`Texture2D._view_of`, `RenderTarget2D._view_of`).
+- [x] Generate the engine ABI -- structures, constants, callbacks and their
+  parameter constness -- from the canonical headers rather than transcribing it,
+  and measure every structure with a compiler-backed probe.
+- [x] Qualify every family against an oracle other than its own getter, with the
+  oracles themselves gated by hand-worked cases that touch no native library.
+- [x] Plant 47 defects across the family and kill all of them; nine survivors on
+  the first run were real test gaps and were closed.
+- [x] Record eight upstream findings, each with a reproducer, expected against
+  actual, the local behaviour and an unblock condition.
+
+## Completed extension families: sensors, device services and extended input
+
+- [x] Select `sensors.h` and `devices.h` as the fourth family and replace the
+  blanket "unopened extension decision" census rules with per-route decisions:
+  206 routes, 177 bound.
+- [x] Build `cna.extensions.devices` across eight modules: the exact
+  `DateTimeOffset`, the four sensors over one state machine, five reading
+  structures built by CNA's own constructors, the camera, host services,
+  non-modal dialogs and vibration.
+- [x] Select the five extended-input headers as the fifth family: 126 routes,
+  119 bound, `cna.extensions.input` across ten modules.
+- [x] Plant 51 defects across both families and kill all of them; nine survivors
+  across the two first runs were real test gaps and were closed.
+- [x] Record the evidence in `docs/device-extensions.md` and
+  `docs/input-extensions.md`. Every result is `SYNTHETIC_BACKEND_VERIFIED`: no
+  sensor was tilted, no camera opened, no motor spun and no window reached a
+  desktop.
+
+## Completed strict profile: `xna40-windows-online`
+
+- [x] Re-derive every reference contract from the assemblies themselves rather
+  than trusting one accepted file, proving the extractor byte-identical to the
+  795,415-byte contract already in the repository.
+- [x] Make the strict verifier profile-driven, with declared sibling profiles:
+  two Windows profiles share two Python packages because XNA shares the
+  namespace, each is verified against its own contract, and a name owned by
+  neither is still `UNEXPECTED_TYPE`.
+- [x] Open XNA's Net, GamerServices and Avatar runtime as a profile of its own:
+  74 types, 676 CLR members, 605 mapped Python members, zero diagnostics, with
+  the Windows runtime profile unchanged at 257 types and 2,423 members.
+- [x] Bind 416 of the family's 437 routes; the 21 that are not carry a written
+  reason each.
+- [x] Build `cna.extensions.online` for the CNA-only surface around the profile:
+  publishing synthetic gamers, filling a roster, delivering a packet, reading
+  the Guide's held request, naming an avatar's animation clip.
+- [x] Fix a hole in the route-reachability gate -- a generated manifest was
+  satisfying its own reachability, hiding 247 routes -- and close every route it
+  exposed with a real consumer.
+- [x] Plant 25 further defects and kill all of them; five survivors on the first
+  run were real test gaps and are closed, and one mutation was withdrawn as
+  provably equivalent with the measurement that proves it.
+- [x] Record five upstream findings in `docs/online-upstream-findings.md` and the
+  profile itself in `docs/online-profile.md`. Every result is
+  `SYNTHETIC_SIGNED_IN_GAMER_VERIFIED` and never `REAL_PLATFORM_SIGN_IN_VERIFIED`.
+
+## Completed design-time profile: `xna40-windows-content-pipeline`
+
+- [x] Project XNA's whole design-time surface: 128 types, 743 CLR members, 598
+  mapped Python members, zero diagnostics -- and no CNA route at all, because a
+  content build reads files and writes files.
+- [x] Keep it structurally separate from the runtime: it is a *subpackage* of
+  `Microsoft.Xna.Framework.Content`, which is where XNA puts it, and Python
+  imports a subpackage only when something asks for it. Two tests in fresh
+  interpreters assert that importing the runtime namespace loads no pipeline
+  module and that importing the pipeline loads no CNA library.
+- [x] Write every decoder the pipeline needs rather than depending on one: PNG
+  (all five filters, palettes and transparency), BMP, TGA (plain and RLE), DDS
+  (uncompressed and DXT), RIFF/WAVE with its `smpl` loop region, MPEG audio and
+  ASF headers, and DirectX `.x`.
+- [x] Implement a real DXT1/3/5 codec, with endpoints chosen along each block's
+  own colour axis, and check it by decompressing, against hand-worked blocks,
+  and against the format's own quantisation bound.
+- [x] Build the XNB writer and prove it against an independent reader -- the
+  `ContentManager` in this repository -- for thirteen value types, four list
+  types, a texture and a whole model loaded in a running `Game`.
+- [x] Build the intermediate XML serializer, both ends, with a reflective
+  serializer that writes a type's state and not its derived values.
+- [x] Build the four MSBuild tasks as real, incremental build steps: a
+  dependency an importer recorded rebuilds the asset that named it, and a clean
+  removes what the cache recorded and nothing else.
+- [x] Gate the whole surface with `tools/verify_content_pipeline.py`: every
+  member that can refuse carries a written decision, `UNREVIEWED = 0`,
+  `STALE = 0`, `CONTENT_PIPELINE_ACTIONABLE_LOCAL = 0`, and both shapes of the
+  defect are planted in `tests/test_content_pipeline_gate.py`.
+- [x] Plant 85 defects across the family and kill all of them; 28 survivors on
+  the first run were real test gaps and are closed, and two mutations were
+  withdrawn as provably equivalent with the measurement recorded beside them.
+- [x] Record four narrow blockers, each citing where the missing capability is
+  documented and what would unblock it, in `docs/content-pipeline.md`.
+
+## Completed platform profile: `xna40-xbox360-runtime`
+
+- [x] Measure the Xbox 360 surface against Microsoft's own metadata and the
+  Compact Framework `mscorlib` the assemblies were built for: 318 types, 3,577
+  CLR members, 2,986 mapped Python members, zero diagnostics.
+- [x] Establish that it is a strict subset -- zero Xbox-only types, zero
+  Xbox-only members, zero enum-value differences, zero type-shape differences --
+  and that the whole difference is thirteen `Microsoft.Xna.Framework.Design`
+  converters and ten .NET-Framework-only serialization members.
+- [x] *Generate* the profile from the contract rather than writing 316
+  re-exports by hand, with `--check` proving a regeneration changes nothing.
+- [x] Give a member the platform does not declare a spelling that does not lie:
+  a descriptor that raises on *access*, so `hasattr` answers False, while the
+  narrowed type stays catchable as the Windows one it derives from.
+- [x] Gate the separation with `tools/verify_profile_separation.py`: zero
+  platform leaks, zero Windows-only names reachable from the platform root, zero
+  unjustified removals, and the default Windows profile still exactly 257 types
+  and 2,423 members. Each is planted and required to fail.
+- [x] Find and fix the one place a *metadata encoding* was about to be reported
+  as a platform difference: the two `mscorlib`s spell `where T : struct`
+  differently, and the verifier now reads both spellings as the one thing they
+  say.
+- [x] Record the profile in `docs/xbox360-profile.md`, including what it is not:
+  a surface, verified on Windows, and never a claim about hardware nobody here
+  has.
+
+## The sixth scope: Windows Phone, blocked on a file and on nothing else
+
+- [x] Prove the absence rather than assert it: `tools/find_reference_assemblies.py`
+  examined 1,296,128 files across eight roots on 2026-09-02 and identified every
+  one of the thirty-six files that matched by name -- twenty-four are assemblies
+  another profile already pins, and every readable one references
+  `mscorlib 4.0.0.0`, which is a desktop assembly and not a phone one.
+- [x] Write the reader that makes those identifications possible:
+  `tools/cli_assembly.py` reads PE and CLI metadata for an assembly's identity
+  and the core library it was compiled against, checked against the two
+  platforms this repository does have.
+- [x] Declare the profile `BLOCKED_REFERENCE_ASSET` with the seven assemblies it
+  needs, the search that failed and the one directory that would unblock it.
+- [x] Make the block keep earning it: `tools/verify_blocked_profiles.py` rejects
+  a block on a profile that has a contract, a block with no written reason, a
+  block whose recorded search found the assemblies after all, and a search run
+  for another profile. Each is planted.
+- [x] Do the work that does not depend on the assemblies: the generator is
+  parameterised rather than named after Xbox, `TargetPlatform.WindowsPhone`
+  writes its own XNB platform byte, the Reach limits are enforced and measured,
+  and touch and the accelerometer are already projected.
+
+## Current measured boundary
+
+- Strict profiles, each against its own reference contract:
+
+  | profile | reference | mapped | strict target | diagnostics |
+  | --- | --- | --- | --- | --- |
+  | `xna40-windows-runtime` | 257 / 2,964 | 257 / 2,887 | 257 / 2,423 | 0 |
+  | `xna40-windows-online` | 74 / 676 | 74 / 605 | 74 / 605 | 0 |
+  | `xna40-windows-content-pipeline` | 128 / 743 | 128 / 598 | 128 / 598 | 0 |
+  | `xna40-xbox360-runtime` | 318 / 3,577 | 318 / 2,986 | 318 / 2,986 | 0 |
+
+  Every mismatch, leak, allowlist and unmeasured category is zero in both.
+  Normal and leak-only strict checks pass. The two share two Python packages
+  because XNA shares the namespace, and are declared siblings so that a name
+  belonging to neither is still `UNEXPECTED_TYPE`.
+- Native manifest: 1,770 imported routes, 1,770 compiler-verified prototypes,
+  2,105 C and 2,105 ctypes layout measurements, zero missing symbols, zero ABI
+  mismatches (CNA C ABI 0.35.0).
+- Route census: 3,202 canonical routes, zero unreviewed, zero actionable-local,
+  zero rule contradictions, zero shadowed or dead rules. Inside the five
+  selected families: CNB/CNJ 285/283, engine (graphics_ext.h) 44/24, devices
+  206/177, extended input 126/119, online 426/405.
+- Route reachability: 1,770 bound routes, 1,673 with a direct call site, 18
+  reached through a name template, 37 admitted with a written reason, zero
+  unjustified and zero stale admissions.
+- Behavior evidence: 181 PURE_XNA_DERIVED observations, 1,004 assertions, zero
+  failures.
+- Runtime evidence: two artifacts. A non-windowed HEADLESS control
+  (`~/deps/cna-c-abi-0.35.0`, built without FFmpeg) and OPENGLES3 with compiled
+  effects, CNAEXT and devices (`~/deps/cna-c-abi-0.35.0-opengles3-fx`), run
+  inside CNA's private Weston/Xwayland on the real GPU. Every capability row
+  names the artifact that produced it.
+- Extension profile: `cna.extensions.graphics`, `.content`, `.engine`,
+  `.devices`, `.input` and `.online`, 51 modules and 751 public names, zero
+  surface diagnostics, and no dependency from the XNA namespace on any of them.
+- Content Pipeline coverage: 667 projected members, 623 implemented, 39 abstract
+  by design, four blockers with written reasons, zero unreviewed, zero stale,
+  `CONTENT_PIPELINE_ACTIONABLE_LOCAL = 0`.
+- Profile separation: zero platform leaks, zero Windows-only names reachable
+  from a platform root, zero unjustified removals, and the default Windows
+  profile unchanged at 257 types and 2,423 members.
+- Blocked profiles: one, with a recorded search of 1,296,128 files, zero
+  unidentified name matches and zero candidates; zero unjustified blocks.
+- Falsifiability: 257 planted defects across eight families, all killed.
+
+## The stop condition, in one command
+
+`python3 tools/verify_stop_condition.py` reads what every gate wrote and answers
+whether the six opened scopes are finished: 45 counters, every one of which must
+be zero or an exact expected value, plus the four strict profiles' diagnostics
+and type counts. It fails if a report is missing, if a counter a gate used to
+report has disappeared, or if any number moved. `tests/test_stop_condition.py`
+plants each of those.
+
+```text
+STOP_CONDITION=held
+COUNTERS_CHECKED=45
+FAILURES=0
+MEASURED_PROFILES=4
+BLOCKED_PROFILES=1
+```
+
+## Invariants
+
+1. CNA canonical C headers are authoritative at the native boundary; the C++
+   ABI and other language bindings never cross Python's boundary.
+2. Public `Microsoft.Xna.Framework.*` names preserve XNA identity and contain
+   only the selected XNA profile; private code is idiomatic Python, and CNA-only
+   capability lives under `cna.extensions`.
+3. A public operation reaches real behavior or throws an explicit, accurate
+   error naming the measured reason. It never silently succeeds, fabricates
+   state, or drops arguments.
+4. Exact evidence is regenerated, attributed to the artifact that produced it,
+   and missing surface remains visible.
+
+## The six opened scopes
+
+On 2026-09-02 every remaining "future profile" and "unopened extension" decision
+was revoked by product decision, and all six scopes were opened. Five are
+finished:
+
+1. Sensors and device services -- `docs/device-extensions.md`.
+2. Extended input -- `docs/input-extensions.md`.
+3. Net, wider GamerServices and Avatar -- `docs/online-profile.md`.
+4. The XNA Content Pipeline -- `docs/content-pipeline.md`.
+5. The Xbox 360 surface profile -- `docs/xbox360-profile.md`.
+
+The sixth is finished as far as this machine allows:
+
+6. **Windows Phone** -- `docs/windowsphone-profile.md`. The reference
+   assemblies are measured absent, so the profile is `BLOCKED_REFERENCE_ASSET`
+   and has no contract: writing one from anything other than Microsoft's
+   metadata would be a guess wearing a measurement's clothes. Everything that
+   does not depend on them is done, and the gate rejects the block the moment it
+   stops being true.
+
+A giant union API is not an acceptable shape for any of them. The default
+Windows runtime profile stays exactly 257 types and 2,423 members with zero
+diagnostics, and a cross-profile gate has to prove that no Xbox-only,
+Phone-only or design-time member has leaked into it.

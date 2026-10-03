@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cna-python"
+version = "0.1.0.dev0"
+description = "Measured Python projection of XNA 4.0 backed by the CNA C ABI"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MS-PL"
+license-files = ["LICENSE", "NOTICE.md"]
+authors = [{ name = "openeggbert" }]
+classifiers = [
+  "Development Status :: 2 - Pre-Alpha",
+  "Programming Language :: Python :: 3",
+]
+
+[project.urls]
+Homepage = "https://github.com/openeggbert/cna-python"
+Repository = "https://github.com/openeggbert/cna-python"
+Issues = "https://github.com/openeggbert/cna-python/issues"
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+"*" = ["py.typed", "*.pyi"]
+
+[tool.setuptools.data-files]
+"share/doc/cna-python" = ["README.md"]

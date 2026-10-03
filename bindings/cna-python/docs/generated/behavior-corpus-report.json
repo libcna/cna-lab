@@ -1,0 +1,3594 @@
+{
+  "schemaVersion": 1,
+  "profile": "XNA 4.0 Windows runtime",
+  "provenance": "Pinned XNA reference metadata and IL/algorithm analysis; not a Linux CNA runtime capture",
+  "category": "PURE_XNA_DERIVED",
+  "summary": {
+    "OBSERVATIONS": 181,
+    "ASSERTIONS": 1004,
+    "FAILURES": 0,
+    "MEDIA_PURE_XNA_DERIVED": 10
+  },
+  "results": [
+    {
+      "id": "math.clamp.low",
+      "passed": true,
+      "expected": 0.0,
+      "actual": 0.0
+    },
+    {
+      "id": "math.lerp",
+      "passed": true,
+      "expected": 4.0,
+      "actual": 4.0
+    },
+    {
+      "id": "math.barycentric",
+      "passed": true,
+      "expected": 3.5,
+      "actual": 3.5
+    },
+    {
+      "id": "math.catmullrom",
+      "passed": true,
+      "expected": 1.5,
+      "actual": 1.5
+    },
+    {
+      "id": "math.hermite",
+      "passed": true,
+      "expected": 1.0,
+      "actual": 1.0
+    },
+    {
+      "id": "math.smoothstep",
+      "passed": true,
+      "expected": 5.0,
+      "actual": 5.0
+    },
+    {
+      "id": "math.wrapangle",
+      "passed": true,
+      "expected": 1.0,
+      "actual": 1.0
+    },
+    {
+      "id": "math.to_degrees",
+      "passed": true,
+      "expected": 180.0,
+      "actual": 180.0
+    },
+    {
+      "id": "vector2.add",
+      "passed": true,
+      "expected": [
+        4.75,
+        -2.0
+      ],
+      "actual": [
+        4.75,
+        -2.0
+      ]
+    },
+    {
+      "id": "vector2.dot",
+      "passed": true,
+      "expected": 3.125,
+      "actual": 3.125
+    },
+    {
+      "id": "vector2.normalize",
+      "passed": true,
+      "expected": [
+        0.6000000238418579,
+        0.800000011920929
+      ],
+      "actual": [
+        0.6000000238418579,
+        0.800000011920929
+      ]
+    },
+    {
+      "id": "vector2.reflect",
+      "passed": true,
+      "expected": [
+        1.0,
+        1.0
+      ],
+      "actual": [
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "id": "vector2.barycentric",
+      "passed": true,
+      "expected": [
+        1.0,
+        1.0
+      ],
+      "actual": [
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "id": "vector2.transform",
+      "passed": true,
+      "expected": [
+        4.0,
+        6.0
+      ],
+      "actual": [
+        4.0,
+        6.0
+      ]
+    },
+    {
+      "id": "vector2.zero.copy",
+      "passed": true,
+      "expected": true,
+      "actual": true
+    },
+    {
+      "id": "vector3.cross",
+      "passed": true,
+      "expected": [
+        0.0,
+        0.0,
+        1.0
+      ],
+      "actual": [
+        0.0,
+        0.0,
+        1.0
+      ]
+    },
+    {
+      "id": "vector3.distance",
+      "passed": true,
+      "expected": 5.0,
+      "actual": 5.0
+    },
+    {
+      "id": "vector3.reflect",
+      "passed": true,
+      "expected": [
+        1.0,
+        2.0,
+        3.0
+      ],
+      "actual": [
+        1.0,
+        2.0,
+        3.0
+      ]
+    },
+    {
+      "id": "vector3.transform_normal",
+      "passed": true,
+      "expected": [
+        2.0,
+        6.0,
+        12.0
+      ],
+      "actual": [
+        2.0,
+        6.0,
+        12.0
+      ]
+    },
+    {
+      "id": "vector3.smoothstep",
+      "passed": true,
+      "expected": [
+        5.0,
+        10.0,
+        15.0
+      ],
+      "actual": [
+        5.0,
+        10.0,
+        15.0
+      ]
+    },
+    {
+      "id": "vector4.dot",
+      "passed": true,
+      "expected": 20.0,
+      "actual": 20.0
+    },
+    {
+      "id": "vector4.hermite",
+      "passed": true,
+      "expected": [
+        1.0,
+        2.0,
+        3.0,
+        4.0
+      ],
+      "actual": [
+        1.0,
+        2.0,
+        3.0,
+        4.0
+      ]
+    },
+    {
+      "id": "vector4.transform",
+      "passed": true,
+      "expected": [
+        5.0,
+        7.0,
+        9.0,
+        1.0
+      ],
+      "actual": [
+        5.0,
+        7.0,
+        9.0,
+        1.0
+      ]
+    },
+    {
+      "id": "quaternion.identity",
+      "passed": true,
+      "expected": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "actual": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ]
+    },
+    {
+      "id": "quaternion.yaw",
+      "passed": true,
+      "expected": [
+        0.0,
+        0.70710677,
+        0.0,
+        0.70710677
+      ],
+      "actual": [
+        0.0,
+        0.7071067690849304,
+        0.0,
+        0.7071067690849304
+      ]
+    },
+    {
+      "id": "quaternion.concatenate.identity",
+      "passed": true,
+      "expected": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "actual": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ]
+    },
+    {
+      "id": "quaternion.slerp",
+      "passed": true,
+      "expected": [
+        0.0,
+        0.38268343,
+        0.0,
+        0.9238795
+      ],
+      "actual": [
+        0.0,
+        0.3826834261417389,
+        0.0,
+        0.9238795042037964
+      ]
+    },
+    {
+      "id": "quaternion.from_matrix.identity",
+      "passed": true,
+      "expected": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "actual": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ]
+    },
+    {
+      "id": "matrix.translation",
+      "passed": true,
+      "expected": [
+        2.0,
+        3.0,
+        4.0,
+        1.0
+      ],
+      "actual": [
+        2.0,
+        3.0,
+        4.0,
+        1.0
+      ]
+    },
+    {
+      "id": "matrix.multiply",
+      "passed": true,
+      "expected": [
+        5.0,
+        7.0,
+        9.0,
+        1.0
+      ],
+      "actual": [
+        5.0,
+        7.0,
+        9.0,
+        1.0
+      ]
+    },
+    {
+      "id": "matrix.inverse.product",
+      "passed": true,
+      "expected": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "actual": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ]
+    },
+    {
+      "id": "matrix.inverse.singular",
+      "passed": true,
+      "expected": true,
+      "actual": true
+    },
+    {
+      "id": "matrix.rotation.y",
+      "passed": true,
+      "expected": [
+        0.0,
+        -1.0,
+        1.0,
+        0.0
+      ],
+      "actual": [
+        -4.371138828673793e-08,
+        -1.0,
+        1.0,
+        -4.371138828673793e-08
+      ]
+    },
+    {
+      "id": "matrix.perspective.infinity",
+      "passed": true,
+      "expected": [
+        true,
+        true
+      ],
+      "actual": [
+        true,
+        true
+      ]
+    },
+    {
+      "id": "matrix.decompose",
+      "passed": true,
+      "expected": [
+        true,
+        2.0,
+        3.0,
+        4.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        5.0,
+        6.0,
+        7.0
+      ],
+      "actual": [
+        true,
+        2.0,
+        3.0,
+        4.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        5.0,
+        6.0,
+        7.0
+      ]
+    },
+    {
+      "id": "matrix.billboard",
+      "passed": true,
+      "expected": [
+        -1.0,
+        1.0,
+        -1.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "actual": [
+        -1.0,
+        1.0,
+        -1.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "id": "matrix.orthographic",
+      "passed": true,
+      "expected": [
+        0.5,
+        1.0,
+        -0.1,
+        -0.1,
+        1.0
+      ],
+      "actual": [
+        0.5,
+        1.0,
+        -0.10000000149011612,
+        -0.10000000149011612,
+        1.0
+      ]
+    },
+    {
+      "id": "color.clamp",
+      "passed": true,
+      "expected": [
+        255,
+        0,
+        1,
+        255
+      ],
+      "actual": [
+        255,
+        0,
+        1,
+        255
+      ]
+    },
+    {
+      "id": "color.normalized.ties_even",
+      "passed": true,
+      "expected": [
+        128,
+        128,
+        128,
+        128
+      ],
+      "actual": [
+        128,
+        128,
+        128,
+        128
+      ]
+    },
+    {
+      "id": "color.packed",
+      "passed": true,
+      "expected": 67305985,
+      "actual": 67305985
+    },
+    {
+      "id": "color.lerp",
+      "passed": true,
+      "expected": [
+        50,
+        100,
+        25,
+        127
+      ],
+      "actual": [
+        50,
+        100,
+        25,
+        127
+      ]
+    },
+    {
+      "id": "color.multiply",
+      "passed": true,
+      "expected": [
+        25,
+        50,
+        12,
+        63
+      ],
+      "actual": [
+        25,
+        50,
+        12,
+        63
+      ]
+    },
+    {
+      "id": "color.nonpremultiplied",
+      "passed": true,
+      "expected": [
+        128,
+        64,
+        32,
+        128
+      ],
+      "actual": [
+        128,
+        64,
+        32,
+        128
+      ]
+    },
+    {
+      "id": "color.vector4",
+      "passed": true,
+      "expected": [
+        1.0,
+        0.5019608,
+        0.0,
+        0.2509804
+      ],
+      "actual": [
+        1.0,
+        0.501960813999176,
+        0.0,
+        0.250980406999588
+      ]
+    },
+    {
+      "id": "rectangle.contains.inclusive_min",
+      "passed": true,
+      "expected": true,
+      "actual": true
+    },
+    {
+      "id": "rectangle.contains.exclusive_max",
+      "passed": true,
+      "expected": false,
+      "actual": false
+    },
+    {
+      "id": "rectangle.intersect",
+      "passed": true,
+      "expected": [
+        5,
+        0,
+        5,
+        5
+      ],
+      "actual": [
+        5,
+        0,
+        5,
+        5
+      ]
+    },
+    {
+      "id": "rectangle.union",
+      "passed": true,
+      "expected": [
+        0,
+        -5,
+        15,
+        15
+      ],
+      "actual": [
+        0,
+        -5,
+        15,
+        15
+      ]
+    },
+    {
+      "id": "rectangle.inflate",
+      "passed": true,
+      "expected": [
+        1,
+        1,
+        6,
+        9
+      ],
+      "actual": [
+        1,
+        1,
+        6,
+        9
+      ]
+    },
+    {
+      "id": "rectangle.offset",
+      "passed": true,
+      "expected": [
+        1,
+        5,
+        4,
+        5
+      ],
+      "actual": [
+        1,
+        5,
+        4,
+        5
+      ]
+    },
+    {
+      "id": "point.value_equality",
+      "passed": true,
+      "expected": true,
+      "actual": true
+    },
+    {
+      "id": "point.zero.copy",
+      "passed": true,
+      "expected": true,
+      "actual": true
+    },
+    {
+      "id": "plane.normalize",
+      "passed": true,
+      "expected": [
+        0.0,
+        1.0,
+        0.0,
+        -2.0
+      ],
+      "actual": [
+        0.0,
+        1.0,
+        0.0,
+        -2.0
+      ]
+    },
+    {
+      "id": "plane.dot.coordinate",
+      "passed": true,
+      "expected": 0.0,
+      "actual": 0.0
+    },
+    {
+      "id": "plane.box.back",
+      "passed": true,
+      "expected": 1,
+      "actual": 1
+    },
+    {
+      "id": "plane.sphere.tangent",
+      "passed": true,
+      "expected": 2,
+      "actual": 2
+    },
+    {
+      "id": "ray.box",
+      "passed": true,
+      "expected": 1.0,
+      "actual": 1.0
+    },
+    {
+      "id": "ray.sphere.tangent",
+      "passed": true,
+      "expected": 2.0,
+      "actual": 2.0
+    },
+    {
+      "id": "ray.plane.behind",
+      "passed": true,
+      "expected": null,
+      "actual": null
+    },
+    {
+      "id": "box.contains.point.edge",
+      "passed": true,
+      "expected": 1,
+      "actual": 1
+    },
+    {
+      "id": "box.contains.sphere",
+      "passed": true,
+      "expected": 1,
+      "actual": 1
+    },
+    {
+      "id": "box.merge",
+      "passed": true,
+      "expected": [
+        -1.0,
+        -1.0,
+        -1.0,
+        2.0,
+        3.0,
+        4.0
+      ],
+      "actual": [
+        -1.0,
+        -1.0,
+        -1.0,
+        2.0,
+        3.0,
+        4.0
+      ]
+    },
+    {
+      "id": "sphere.contains.point.surface",
+      "passed": true,
+      "expected": 0,
+      "actual": 0
+    },
+    {
+      "id": "sphere.merge",
+      "passed": true,
+      "expected": [
+        1.0,
+        0.0,
+        0.0,
+        3.0
+      ],
+      "actual": [
+        1.0,
+        0.0,
+        0.0,
+        3.0
+      ]
+    },
+    {
+      "id": "sphere.transform",
+      "passed": true,
+      "expected": [
+        5.0,
+        6.0,
+        7.0,
+        4.0
+      ],
+      "actual": [
+        5.0,
+        6.0,
+        7.0,
+        4.0
+      ]
+    },
+    {
+      "id": "frustum.contains.point",
+      "passed": true,
+      "expected": 1,
+      "actual": 1
+    },
+    {
+      "id": "frustum.disjoint.point",
+      "passed": true,
+      "expected": 0,
+      "actual": 0
+    },
+    {
+      "id": "frustum.contains.box",
+      "passed": true,
+      "expected": 1,
+      "actual": 1
+    },
+    {
+      "id": "frustum.disjoint.sphere",
+      "passed": true,
+      "expected": false,
+      "actual": false
+    },
+    {
+      "id": "frustum.ray.entry",
+      "passed": true,
+      "expected": 1.0,
+      "actual": 1.0
+    },
+    {
+      "id": "frustum.corners",
+      "passed": true,
+      "expected": [
+        8,
+        -1.0,
+        -9.99999713897705
+      ],
+      "actual": [
+        8,
+        -1.0,
+        -9.99999713897705
+      ]
+    },
+    {
+      "id": "vector2.normalize.zero.bits",
+      "passed": true,
+      "expected": [
+        "FFC00000",
+        "FFC00000"
+      ],
+      "actual": [
+        "FFC00000",
+        "FFC00000"
+      ]
+    },
+    {
+      "id": "vector3.normalize.zero.bits",
+      "passed": true,
+      "expected": [
+        "FFC00000",
+        "FFC00000",
+        "FFC00000"
+      ],
+      "actual": [
+        "FFC00000",
+        "FFC00000",
+        "FFC00000"
+      ]
+    },
+    {
+      "id": "vector4.normalize.zero.bits",
+      "passed": true,
+      "expected": [
+        "FFC00000",
+        "FFC00000",
+        "FFC00000",
+        "FFC00000"
+      ],
+      "actual": [
+        "FFC00000",
+        "FFC00000",
+        "FFC00000",
+        "FFC00000"
+      ]
+    },
+    {
+      "id": "vector.scalar.divide.bits",
+      "passed": true,
+      "expected": [
+        "3EDB6DB8",
+        "40155556",
+        "458099CA",
+        "3EAAAAAB"
+      ],
+      "actual": [
+        "3EDB6DB8",
+        "40155556",
+        "458099CA",
+        "3EAAAAAB"
+      ]
+    },
+    {
+      "id": "quaternion.zero.nonfinite.bits",
+      "passed": true,
+      "expected": [
+        "FFC00000",
+        "FFC00000",
+        "FFC00000",
+        "FFC00000",
+        "FFC00000",
+        "FFC00000",
+        "FFC00000",
+        "FFC00000"
+      ],
+      "actual": [
+        "FFC00000",
+        "FFC00000",
+        "FFC00000",
+        "FFC00000",
+        "FFC00000",
+        "FFC00000",
+        "FFC00000",
+        "FFC00000"
+      ]
+    },
+    {
+      "id": "quaternion.products.bits",
+      "passed": true,
+      "expected": [
+        "BE3F1A81",
+        "3EAC1068",
+        "3D8B8437",
+        "3F6BAF93",
+        "CE47A05E",
+        "CF03EDF7",
+        "4FC9C4DD",
+        "5011D115",
+        "BE3F1A81",
+        "3EAC1068",
+        "BD8B8437",
+        "3F6BAF93",
+        "4073BBE2",
+        "BF57A32E",
+        "40253083"
+      ],
+      "actual": [
+        "BE3F1A81",
+        "3EAC1068",
+        "3D8B8437",
+        "3F6BAF93",
+        "CE47A05E",
+        "CF03EDF7",
+        "4FC9C4DD",
+        "5011D115",
+        "BE3F1A81",
+        "3EAC1068",
+        "BD8B8437",
+        "3F6BAF93",
+        "4073BBE2",
+        "BF57A32E",
+        "40253083"
+      ]
+    },
+    {
+      "id": "matrix.vector.transforms.bits",
+      "passed": true,
+      "expected": [
+        "40FD03FE",
+        "00000000",
+        "4102775D",
+        "00000000",
+        "40E74122",
+        "4102775D",
+        "00000000",
+        "40E74122",
+        "3F800000"
+      ],
+      "actual": [
+        "40FD03FE",
+        "00000000",
+        "4102775D",
+        "00000000",
+        "40E74122",
+        "4102775D",
+        "00000000",
+        "40E74122",
+        "3F800000"
+      ]
+    },
+    {
+      "id": "color.nonfinite.extreme.bits",
+      "passed": true,
+      "expected": [
+        "00FF0080",
+        "FFFFFFFF"
+      ],
+      "actual": [
+        "00FF0080",
+        "FFFFFFFF"
+      ]
+    },
+    {
+      "id": "plane.transform.bits",
+      "passed": true,
+      "expected": [
+        "00000000",
+        "3F800000",
+        "00000000",
+        "C0E00000"
+      ],
+      "actual": [
+        "00000000",
+        "3F800000",
+        "00000000",
+        "C0E00000"
+      ]
+    },
+    {
+      "id": "value.nan.equality",
+      "passed": true,
+      "expected": [
+        false,
+        false,
+        false,
+        false
+      ],
+      "actual": [
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "id": "value.hash.codes",
+      "passed": true,
+      "expected": [
+        -1077936128,
+        -33554432,
+        3,
+        10
+      ],
+      "actual": [
+        -1077936128,
+        -33554432,
+        3,
+        10
+      ]
+    },
+    {
+      "id": "mathhelper.edge.bits",
+      "passed": true,
+      "expected": [
+        "40000000",
+        "BFC2E06C",
+        "C1218313",
+        "C1351EBA",
+        true
+      ],
+      "actual": [
+        "40000000",
+        "BFC2E06C",
+        "C1218313",
+        "C1351EBA",
+        true
+      ]
+    },
+    {
+      "id": "vector3.edge.bits",
+      "passed": true,
+      "expected": [
+        "40E00000",
+        "FFC00000",
+        "FFC00000",
+        "40000000",
+        "40000000",
+        "40000000"
+      ],
+      "actual": [
+        "40E00000",
+        "FFC00000",
+        "FFC00000",
+        "40000000",
+        "40000000",
+        "40000000"
+      ]
+    },
+    {
+      "id": "quaternion.edge.bits",
+      "passed": true,
+      "expected": [
+        "BD9A16EC",
+        "3E60D7E7",
+        "00000000",
+        "3F79023D",
+        "00000000",
+        "3F30464F",
+        "00000000",
+        "BF39A48F",
+        "00000000",
+        "3EAF904C",
+        "00000000",
+        "3F707ABB"
+      ],
+      "actual": [
+        "BD9A16EC",
+        "3E60D7E7",
+        "00000000",
+        "3F79023D",
+        "00000000",
+        "3F30464F",
+        "00000000",
+        "BF39A48F",
+        "00000000",
+        "3EAF904C",
+        "00000000",
+        "3F707ABB"
+      ]
+    },
+    {
+      "id": "matrix.edge.bits",
+      "passed": true,
+      "expected": [
+        "3D53E807",
+        "BF7FA83D",
+        "FFC00000",
+        "FFC00000",
+        true,
+        "40000000",
+        "40400000",
+        "C0800000",
+        "00000000",
+        "3F7E00AA",
+        "00000000",
+        "BDFF5579",
+        "40A00000",
+        "40C00000",
+        "40E00000",
+        "80000000",
+        "80000000",
+        "80000000"
+      ],
+      "actual": [
+        "3D53E807",
+        "BF7FA83D",
+        "FFC00000",
+        "FFC00000",
+        true,
+        "40000000",
+        "40400000",
+        "C0800000",
+        "00000000",
+        "3F7E00AA",
+        "00000000",
+        "BDFF5579",
+        "40A00000",
+        "40C00000",
+        "40E00000",
+        "80000000",
+        "80000000",
+        "80000000"
+      ]
+    },
+    {
+      "id": "matrix.degenerate.bits",
+      "passed": true,
+      "expected": [
+        "BF800000",
+        "40000000",
+        "BF800000",
+        true,
+        true,
+        "40000000",
+        "40800000",
+        "BF800000",
+        "C0800000",
+        "FFC00000",
+        "FFC00000",
+        "FFC00000",
+        "00000000",
+        "FFC00000",
+        "FFC00000",
+        "FFC00000",
+        "00000000",
+        "FFC00000",
+        "FFC00000",
+        "FFC00000",
+        "00000000",
+        "7FC00000",
+        "7FC00000",
+        "7FC00000",
+        "3F800000"
+      ],
+      "actual": [
+        "BF800000",
+        "40000000",
+        "BF800000",
+        true,
+        true,
+        "40000000",
+        "40800000",
+        "BF800000",
+        "C0800000",
+        "FFC00000",
+        "FFC00000",
+        "FFC00000",
+        "00000000",
+        "FFC00000",
+        "FFC00000",
+        "FFC00000",
+        "00000000",
+        "FFC00000",
+        "FFC00000",
+        "FFC00000",
+        "00000000",
+        "7FC00000",
+        "7FC00000",
+        "7FC00000",
+        "3F800000"
+      ]
+    },
+    {
+      "id": "plane.edge.bits",
+      "passed": true,
+      "expected": [
+        "FFC00000",
+        "FFC00000",
+        "FFC00000",
+        "7FC00000",
+        "3F19999A",
+        "3F4CCCCC",
+        "00000000",
+        "40000000",
+        2
+      ],
+      "actual": [
+        "FFC00000",
+        "FFC00000",
+        "FFC00000",
+        "7FC00000",
+        "3F19999A",
+        "3F4CCCCC",
+        "00000000",
+        "40000000",
+        2
+      ]
+    },
+    {
+      "id": "geometry.nonfinite.tangent",
+      "passed": true,
+      "expected": [
+        0,
+        true,
+        0,
+        false,
+        null,
+        null
+      ],
+      "actual": [
+        0,
+        true,
+        0,
+        false,
+        null,
+        null
+      ]
+    },
+    {
+      "id": "frustum.planes.corners.bits",
+      "passed": true,
+      "expected": [
+        "80000000",
+        "80000000",
+        "3F800000",
+        "C0800000",
+        "00000000",
+        "3F6C835F",
+        "3EC3EF16",
+        "BFF4EADB",
+        "BF0D6289",
+        "3ED413CB",
+        "40800000",
+        "40B0BB28",
+        "C0848C5D",
+        "C09FFFF8"
+      ],
+      "actual": [
+        "80000000",
+        "80000000",
+        "3F800000",
+        "C0800000",
+        "00000000",
+        "3F6C835F",
+        "3EC3EF16",
+        "BFF4EADB",
+        "BF0D6289",
+        "3ED413CB",
+        "40800000",
+        "40B0BB28",
+        "C0848C5D",
+        "C09FFFF8"
+      ]
+    },
+    {
+      "id": "frustum.gjk.relations.bits",
+      "passed": true,
+      "expected": [
+        1,
+        0,
+        1,
+        1,
+        true,
+        false,
+        true,
+        false,
+        false,
+        "41800000"
+      ],
+      "actual": [
+        1,
+        0,
+        1,
+        1,
+        true,
+        false,
+        true,
+        false,
+        false,
+        "41800000"
+      ]
+    },
+    {
+      "id": "float32.signed_zero",
+      "passed": true,
+      "expected": true,
+      "actual": true
+    },
+    {
+      "id": "graphics.surface_format.values",
+      "passed": true,
+      "expected": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19
+      ],
+      "actual": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19
+      ]
+    },
+    {
+      "id": "graphics.viewport.project.bits",
+      "passed": true,
+      "expected": [
+        "43CD0000",
+        "43BE0000",
+        "3EE147AE"
+      ],
+      "actual": [
+        "43CD0000",
+        "43BE0000",
+        "3EE147AE"
+      ]
+    },
+    {
+      "id": "graphics.viewport.roundtrip.bits",
+      "passed": true,
+      "expected": [
+        "3E800000",
+        "BF000000",
+        "3ECCCCCC"
+      ],
+      "actual": [
+        "3E800000",
+        "BF000000",
+        "3ECCCCCC"
+      ]
+    },
+    {
+      "id": "graphics.presentation.defaults",
+      "passed": true,
+      "expected": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        true,
+        true
+      ],
+      "actual": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        true,
+        true
+      ]
+    },
+    {
+      "id": "graphics.state.defaults",
+      "passed": true,
+      "expected": [
+        0,
+        1,
+        0,
+        true,
+        true,
+        3,
+        2,
+        0,
+        true,
+        0,
+        4,
+        0
+      ],
+      "actual": [
+        0,
+        1,
+        0,
+        true,
+        true,
+        3,
+        2,
+        0,
+        true,
+        0,
+        4,
+        0
+      ]
+    },
+    {
+      "id": "graphics.vertex.strides",
+      "passed": true,
+      "expected": [
+        16,
+        24,
+        32,
+        20
+      ],
+      "actual": [
+        16,
+        24,
+        32,
+        20
+      ]
+    },
+    {
+      "id": "content.serializer.defaults",
+      "passed": true,
+      "expected": [
+        "",
+        false,
+        false,
+        true,
+        false,
+        "Item",
+        false
+      ],
+      "actual": [
+        "",
+        false,
+        false,
+        true,
+        false,
+        "Item",
+        false
+      ]
+    },
+    {
+      "id": "content.serializer.clone",
+      "passed": true,
+      "expected": [
+        "Original",
+        "Clone",
+        "Entry",
+        "Child",
+        true
+      ],
+      "actual": [
+        "Original",
+        "Clone",
+        "Entry",
+        "Child",
+        true
+      ]
+    },
+    {
+      "id": "content.root_directory",
+      "passed": true,
+      "expected": [
+        "First",
+        true,
+        "Nested/Second",
+        "Nested/Second"
+      ],
+      "actual": [
+        "First",
+        true,
+        "Nested/Second",
+        "Nested/Second"
+      ]
+    },
+    {
+      "id": "content.reader.primitives",
+      "passed": true,
+      "expected": [
+        true,
+        254,
+        -2,
+        -1234,
+        -123456,
+        4000000000,
+        -1234567890123,
+        1234567890123456789,
+        1.25,
+        -2.5,
+        "\u017d",
+        "xnb"
+      ],
+      "actual": [
+        true,
+        254,
+        -2,
+        -1234,
+        -123456,
+        4000000000,
+        -1234567890123,
+        1234567890123456789,
+        1.25,
+        -2.5,
+        "\u017d",
+        "xnb"
+      ]
+    },
+    {
+      "id": "content.reader.values",
+      "passed": true,
+      "expected": [
+        1.0,
+        2.0,
+        3.0,
+        4.0,
+        5.0,
+        6.0,
+        7.0,
+        8.0,
+        9.0,
+        10,
+        20,
+        30,
+        40
+      ],
+      "actual": [
+        1.0,
+        2.0,
+        3.0,
+        4.0,
+        5.0,
+        6.0,
+        7.0,
+        8.0,
+        9.0,
+        10,
+        20,
+        30,
+        40
+      ]
+    },
+    {
+      "id": "content.cache.identity",
+      "passed": true,
+      "expected": [
+        "asset",
+        true,
+        "asset"
+      ],
+      "actual": [
+        "asset",
+        true,
+        "asset"
+      ]
+    },
+    {
+      "id": "content.reader.version",
+      "passed": true,
+      "expected": [
+        true,
+        true
+      ],
+      "actual": [
+        true,
+        true
+      ]
+    },
+    {
+      "id": "content.shared.fixup.order",
+      "passed": true,
+      "expected": [
+        "first:resource",
+        "second:resource"
+      ],
+      "actual": [
+        "first:resource",
+        "second:resource"
+      ]
+    },
+    {
+      "id": "content.external.normalization",
+      "passed": true,
+      "expected": [
+        "external",
+        true
+      ],
+      "actual": [
+        "external",
+        true
+      ]
+    },
+    {
+      "id": "content.disposed.behavior",
+      "passed": true,
+      "expected": [
+        "Content",
+        true
+      ],
+      "actual": [
+        "Content",
+        true
+      ]
+    },
+    {
+      "id": "effect.parameter.enum.values",
+      "passed": true,
+      "expected": [
+        [
+          0,
+          1,
+          2,
+          3,
+          4
+        ],
+        [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9
+        ]
+      ],
+      "actual": [
+        [
+          0,
+          1,
+          2,
+          3,
+          4
+        ],
+        [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9
+        ]
+      ]
+    },
+    {
+      "id": "model.collection.identity",
+      "passed": true,
+      "expected": [
+        2,
+        1,
+        "Root",
+        true,
+        true,
+        true,
+        2,
+        true,
+        true,
+        "Child",
+        false,
+        true
+      ],
+      "actual": [
+        2,
+        1,
+        "Root",
+        true,
+        true,
+        true,
+        2,
+        true,
+        true,
+        "Child",
+        false,
+        true
+      ]
+    },
+    {
+      "id": "model.bone.transform.copies",
+      "passed": true,
+      "expected": [
+        1.0,
+        3.0,
+        2.0,
+        99.0
+      ],
+      "actual": [
+        1.0,
+        3.0,
+        2.0,
+        99.0
+      ]
+    },
+    {
+      "id": "audio.enum.values",
+      "passed": true,
+      "expected": [
+        [
+          1,
+          2
+        ],
+        [
+          0,
+          1
+        ],
+        [
+          0,
+          1,
+          2
+        ],
+        [
+          0,
+          1
+        ]
+      ],
+      "actual": [
+        [
+          1,
+          2
+        ],
+        [
+          0,
+          1
+        ],
+        [
+          0,
+          1,
+          2
+        ],
+        [
+          0,
+          1
+        ]
+      ]
+    },
+    {
+      "id": "audio.listener.emitter.defaults",
+      "passed": true,
+      "expected": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        -1.0,
+        0.0,
+        1.0,
+        0.0,
+        1.0
+      ],
+      "actual": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        -1.0,
+        0.0,
+        1.0,
+        0.0,
+        1.0
+      ]
+    },
+    {
+      "id": "audio.vector.copy.boundaries",
+      "passed": true,
+      "expected": [
+        true,
+        true
+      ],
+      "actual": [
+        true,
+        true
+      ]
+    },
+    {
+      "id": "audio.emitter.doppler.nan",
+      "passed": true,
+      "expected": [
+        true,
+        true
+      ],
+      "actual": [
+        true,
+        true
+      ]
+    },
+    {
+      "id": "audio.sample.duration",
+      "passed": true,
+      "expected": [
+        0,
+        1000,
+        1000000,
+        1000000
+      ],
+      "actual": [
+        0,
+        1000,
+        1000000,
+        1000000
+      ]
+    },
+    {
+      "id": "audio.sample.size",
+      "passed": true,
+      "expected": [
+        88198,
+        176400,
+        1600,
+        0
+      ],
+      "actual": [
+        88198,
+        176400,
+        1600,
+        0
+      ]
+    },
+    {
+      "id": "audio.renderer.default",
+      "passed": true,
+      "expected": [
+        null,
+        null,
+        0,
+        true,
+        "Microsoft.Xna.Framework.Audio.RendererDetail"
+      ],
+      "actual": [
+        null,
+        null,
+        0,
+        true,
+        "Microsoft.Xna.Framework.Audio.RendererDetail"
+      ]
+    },
+    {
+      "id": "audio.category.default",
+      "passed": true,
+      "expected": [
+        "",
+        true,
+        0
+      ],
+      "actual": [
+        "",
+        true,
+        0
+      ]
+    },
+    {
+      "id": "packedvector.alpha8",
+      "passed": true,
+      "expected": [
+        0,
+        128,
+        255,
+        255,
+        128,
+        90,
+        true
+      ],
+      "actual": [
+        0,
+        128,
+        255,
+        255,
+        128,
+        90,
+        true
+      ]
+    },
+    {
+      "id": "packedvector.bgr565",
+      "passed": true,
+      "expected": [
+        0,
+        17431,
+        65535,
+        2047,
+        17431,
+        4660,
+        true
+      ],
+      "actual": [
+        0,
+        17431,
+        65535,
+        2047,
+        17431,
+        4660,
+        true
+      ]
+    },
+    {
+      "id": "packedvector.bgra4444",
+      "passed": true,
+      "expected": [
+        0,
+        62603,
+        65535,
+        61680,
+        62603,
+        4660,
+        true
+      ],
+      "actual": [
+        0,
+        62603,
+        65535,
+        61680,
+        62603,
+        4660,
+        true
+      ]
+    },
+    {
+      "id": "packedvector.bgra5551",
+      "passed": true,
+      "expected": [
+        0,
+        41495,
+        65535,
+        33760,
+        41495,
+        37428,
+        true
+      ],
+      "actual": [
+        0,
+        41495,
+        65535,
+        33760,
+        41495,
+        37428,
+        true
+      ]
+    },
+    {
+      "id": "packedvector.byte4",
+      "passed": true,
+      "expected": [
+        0,
+        67371522,
+        4294967295,
+        4278255360,
+        67371522,
+        305419896,
+        true
+      ],
+      "actual": [
+        0,
+        67371522,
+        4294967295,
+        4278255360,
+        67371522,
+        305419896,
+        true
+      ]
+    },
+    {
+      "id": "packedvector.halfsingle",
+      "passed": true,
+      "expected": [
+        0,
+        15872,
+        32767,
+        32767,
+        15872,
+        13653,
+        true,
+        1,
+        32767,
+        32767,
+        "47800000"
+      ],
+      "actual": [
+        0,
+        15872,
+        32767,
+        32767,
+        15872,
+        13653,
+        true,
+        1,
+        32767,
+        32767,
+        "47800000"
+      ]
+    },
+    {
+      "id": "packedvector.halfvector2",
+      "passed": true,
+      "expected": [
+        0,
+        3221240832,
+        4294934527,
+        2147450879,
+        3221240832,
+        894809429,
+        true
+      ],
+      "actual": [
+        0,
+        3221240832,
+        4294934527,
+        2147450879,
+        3221240832,
+        894809429,
+        true
+      ]
+    },
+    {
+      "id": "packedvector.halfvector4",
+      "passed": true,
+      "expected": [
+        0,
+        4899977970451495936,
+        9223372041149710335,
+        422212465033215,
+        4899977970451495936,
+        3843177233707532288,
+        true
+      ],
+      "actual": [
+        0,
+        4899977970451495936,
+        9223372041149710335,
+        422212465033215,
+        4899977970451495936,
+        3843177233707532288,
+        true
+      ]
+    },
+    {
+      "id": "packedvector.normalizedbyte2",
+      "passed": true,
+      "expected": [
+        0,
+        41248,
+        33151,
+        32641,
+        41248,
+        33151,
+        true
+      ],
+      "actual": [
+        0,
+        41248,
+        33151,
+        32641,
+        41248,
+        33151,
+        true
+      ]
+    },
+    {
+      "id": "packedvector.normalizedbyte4",
+      "passed": true,
+      "expected": [
+        0,
+        3225461024,
+        2172617087,
+        2130739073,
+        3225461024,
+        2130739583,
+        true
+      ],
+      "actual": [
+        0,
+        3225461024,
+        2172617087,
+        2130739073,
+        3225461024,
+        2130739583,
+        true
+      ]
+    },
+    {
+      "id": "packedvector.normalizedshort2",
+      "passed": true,
+      "expected": [
+        0,
+        2684428288,
+        2147581951,
+        2147450881,
+        2684428288,
+        2147581951,
+        true
+      ],
+      "actual": [
+        0,
+        2684428288,
+        2147581951,
+        2147450881,
+        2684428288,
+        2147581951,
+        true
+      ]
+    },
+    {
+      "id": "packedvector.normalizedshort4",
+      "passed": true,
+      "expected": [
+        0,
+        13835128426710769664,
+        9223794247172456447,
+        9223090564025516033,
+        13835128426710769664,
+        9223090564025516033,
+        true
+      ],
+      "actual": [
+        0,
+        13835128426710769664,
+        9223794247172456447,
+        9223090564025516033,
+        13835128426710769664,
+        9223090564025516033,
+        true
+      ]
+    },
+    {
+      "id": "packedvector.rg32",
+      "passed": true,
+      "expected": [
+        0,
+        3221176320,
+        4294967295,
+        4294901760,
+        3221176320,
+        305419896,
+        true
+      ],
+      "actual": [
+        0,
+        3221176320,
+        4294967295,
+        4294901760,
+        3221176320,
+        305419896,
+        true
+      ]
+    },
+    {
+      "id": "packedvector.rgba1010102",
+      "passed": true,
+      "expected": [
+        0,
+        4026007808,
+        4294967295,
+        3222273024,
+        4026007808,
+        3240314215,
+        true
+      ],
+      "actual": [
+        0,
+        4026007808,
+        4294967295,
+        3222273024,
+        4026007808,
+        3240314215,
+        true
+      ]
+    },
+    {
+      "id": "packedvector.rgba64",
+      "passed": true,
+      "expected": [
+        0,
+        18446673702817906688,
+        18446744073709551615,
+        18446462603027742720,
+        18446673702817906688,
+        1311768467463790320,
+        true
+      ],
+      "actual": [
+        0,
+        18446673702817906688,
+        18446744073709551615,
+        18446462603027742720,
+        18446673702817906688,
+        1311768467463790320,
+        true
+      ]
+    },
+    {
+      "id": "packedvector.short2",
+      "passed": true,
+      "expected": [
+        0,
+        4294836226,
+        2147516415,
+        2147450880,
+        4294836226,
+        2147516415,
+        true
+      ],
+      "actual": [
+        0,
+        4294836226,
+        2147516415,
+        2147450880,
+        4294836226,
+        2147516415,
+        true
+      ]
+    },
+    {
+      "id": "packedvector.short4",
+      "passed": true,
+      "expected": [
+        0,
+        18445618195277414402,
+        9223512772195680255,
+        9223090564025516032,
+        18445618195277414402,
+        18446603336221294591,
+        true
+      ],
+      "actual": [
+        0,
+        18445618195277414402,
+        9223512772195680255,
+        9223090564025516032,
+        18445618195277414402,
+        18446603336221294591,
+        true
+      ]
+    },
+    {
+      "id": "curve.defaults",
+      "passed": true,
+      "expected": [
+        0,
+        0,
+        true,
+        "00000000"
+      ],
+      "actual": [
+        0,
+        0,
+        true,
+        "00000000"
+      ]
+    },
+    {
+      "id": "curve.key.ordering",
+      "passed": true,
+      "expected": [
+        [
+          0.0,
+          1.0,
+          1.0,
+          2.0
+        ],
+        [
+          0.0,
+          10.0,
+          20.0,
+          30.0
+        ],
+        true,
+        true
+      ],
+      "actual": [
+        [
+          0.0,
+          1.0,
+          1.0,
+          2.0
+        ],
+        [
+          0.0,
+          10.0,
+          20.0,
+          30.0
+        ],
+        true,
+        true
+      ]
+    },
+    {
+      "id": "curve.clone",
+      "passed": true,
+      "expected": [
+        true,
+        true,
+        true,
+        42.0
+      ],
+      "actual": [
+        true,
+        true,
+        true,
+        42.0
+      ]
+    },
+    {
+      "id": "curve.evaluate",
+      "passed": true,
+      "expected": [
+        "3FC80000",
+        "40B80000"
+      ],
+      "actual": [
+        "3FC80000",
+        "40B80000"
+      ]
+    },
+    {
+      "id": "curve.step",
+      "passed": true,
+      "expected": [
+        "40000000",
+        "41100000"
+      ],
+      "actual": [
+        "40000000",
+        "41100000"
+      ]
+    },
+    {
+      "id": "curve.tangents",
+      "passed": true,
+      "expected": [
+        "00000000",
+        "41200000",
+        "41A00000",
+        "00000000"
+      ],
+      "actual": [
+        "00000000",
+        "41200000",
+        "41A00000",
+        "00000000"
+      ]
+    },
+    {
+      "id": "curve.loops",
+      "passed": true,
+      "expected": [
+        "00000000",
+        "41200000",
+        "40A00000",
+        "40A00000",
+        "C0A00000",
+        "41700000",
+        "40A00000",
+        "40A00000",
+        "C0000000",
+        "41500000"
+      ],
+      "actual": [
+        "00000000",
+        "41200000",
+        "40A00000",
+        "40A00000",
+        "C0A00000",
+        "41700000",
+        "40A00000",
+        "40A00000",
+        "C0000000",
+        "41500000"
+      ]
+    },
+    {
+      "id": "curve.negative.cycles",
+      "passed": true,
+      "expected": [
+        "41200000",
+        "C1200000",
+        "41200000"
+      ],
+      "actual": [
+        "41200000",
+        "C1200000",
+        "41200000"
+      ]
+    },
+    {
+      "id": "curve.duplicates",
+      "passed": true,
+      "expected": [
+        "41200000",
+        "41200000",
+        "41A00000"
+      ],
+      "actual": [
+        "41200000",
+        "41200000",
+        "41A00000"
+      ]
+    },
+    {
+      "id": "curve.key.nan",
+      "passed": true,
+      "expected": [
+        1,
+        false
+      ],
+      "actual": [
+        1,
+        false
+      ]
+    },
+    {
+      "id": "design.base",
+      "passed": true,
+      "expected": [
+        true,
+        false,
+        true,
+        true,
+        true,
+        true
+      ],
+      "actual": [
+        true,
+        false,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "id": "design.properties.math",
+      "passed": true,
+      "expected": [
+        [],
+        []
+      ],
+      "actual": [
+        [],
+        []
+      ]
+    },
+    {
+      "id": "design.properties.boundingbox",
+      "passed": true,
+      "expected": [
+        [
+          "Min",
+          "Max"
+        ],
+        [
+          "Vector3",
+          "Vector3"
+        ]
+      ],
+      "actual": [
+        [
+          "Min",
+          "Max"
+        ],
+        [
+          "Vector3",
+          "Vector3"
+        ]
+      ]
+    },
+    {
+      "id": "design.properties.boundingsphere",
+      "passed": true,
+      "expected": [
+        [
+          "Center",
+          "Radius"
+        ],
+        [
+          "Vector3",
+          "float"
+        ]
+      ],
+      "actual": [
+        [
+          "Center",
+          "Radius"
+        ],
+        [
+          "Vector3",
+          "float"
+        ]
+      ]
+    },
+    {
+      "id": "design.properties.color",
+      "passed": true,
+      "expected": [
+        [
+          "R",
+          "G",
+          "B",
+          "A"
+        ],
+        [
+          "int",
+          "int",
+          "int",
+          "int"
+        ]
+      ],
+      "actual": [
+        [
+          "R",
+          "G",
+          "B",
+          "A"
+        ],
+        [
+          "int",
+          "int",
+          "int",
+          "int"
+        ]
+      ]
+    },
+    {
+      "id": "design.properties.matrix",
+      "passed": true,
+      "expected": [
+        [
+          "Translation",
+          "M11",
+          "M12",
+          "M13",
+          "M14",
+          "M21",
+          "M22",
+          "M23",
+          "M24",
+          "M31",
+          "M32",
+          "M33",
+          "M34",
+          "M41",
+          "M42",
+          "M43",
+          "M44"
+        ],
+        [
+          "Vector3",
+          "float",
+          "float",
+          "float",
+          "float",
+          "float",
+          "float",
+          "float",
+          "float",
+          "float",
+          "float",
+          "float",
+          "float",
+          "float",
+          "float",
+          "float",
+          "float"
+        ]
+      ],
+      "actual": [
+        [
+          "Translation",
+          "M11",
+          "M12",
+          "M13",
+          "M14",
+          "M21",
+          "M22",
+          "M23",
+          "M24",
+          "M31",
+          "M32",
+          "M33",
+          "M34",
+          "M41",
+          "M42",
+          "M43",
+          "M44"
+        ],
+        [
+          "Vector3",
+          "float",
+          "float",
+          "float",
+          "float",
+          "float",
+          "float",
+          "float",
+          "float",
+          "float",
+          "float",
+          "float",
+          "float",
+          "float",
+          "float",
+          "float",
+          "float"
+        ]
+      ]
+    },
+    {
+      "id": "design.properties.plane",
+      "passed": true,
+      "expected": [
+        [
+          "Normal",
+          "D"
+        ],
+        [
+          "Vector3",
+          "float"
+        ]
+      ],
+      "actual": [
+        [
+          "Normal",
+          "D"
+        ],
+        [
+          "Vector3",
+          "float"
+        ]
+      ]
+    },
+    {
+      "id": "design.properties.point",
+      "passed": true,
+      "expected": [
+        [
+          "X",
+          "Y"
+        ],
+        [
+          "int",
+          "int"
+        ]
+      ],
+      "actual": [
+        [
+          "X",
+          "Y"
+        ],
+        [
+          "int",
+          "int"
+        ]
+      ]
+    },
+    {
+      "id": "design.properties.quaternion",
+      "passed": true,
+      "expected": [
+        [
+          "X",
+          "Y",
+          "Z",
+          "W"
+        ],
+        [
+          "float",
+          "float",
+          "float",
+          "float"
+        ]
+      ],
+      "actual": [
+        [
+          "X",
+          "Y",
+          "Z",
+          "W"
+        ],
+        [
+          "float",
+          "float",
+          "float",
+          "float"
+        ]
+      ]
+    },
+    {
+      "id": "design.properties.ray",
+      "passed": true,
+      "expected": [
+        [
+          "Position",
+          "Direction"
+        ],
+        [
+          "Vector3",
+          "Vector3"
+        ]
+      ],
+      "actual": [
+        [
+          "Position",
+          "Direction"
+        ],
+        [
+          "Vector3",
+          "Vector3"
+        ]
+      ]
+    },
+    {
+      "id": "design.properties.rectangle",
+      "passed": true,
+      "expected": [
+        [
+          "X",
+          "Y",
+          "Width",
+          "Height"
+        ],
+        [
+          "int",
+          "int",
+          "int",
+          "int"
+        ]
+      ],
+      "actual": [
+        [
+          "X",
+          "Y",
+          "Width",
+          "Height"
+        ],
+        [
+          "int",
+          "int",
+          "int",
+          "int"
+        ]
+      ]
+    },
+    {
+      "id": "design.properties.vector2",
+      "passed": true,
+      "expected": [
+        [
+          "X",
+          "Y"
+        ],
+        [
+          "float",
+          "float"
+        ]
+      ],
+      "actual": [
+        [
+          "X",
+          "Y"
+        ],
+        [
+          "float",
+          "float"
+        ]
+      ]
+    },
+    {
+      "id": "design.properties.vector3",
+      "passed": true,
+      "expected": [
+        [
+          "X",
+          "Y",
+          "Z"
+        ],
+        [
+          "float",
+          "float",
+          "float"
+        ]
+      ],
+      "actual": [
+        [
+          "X",
+          "Y",
+          "Z"
+        ],
+        [
+          "float",
+          "float",
+          "float"
+        ]
+      ]
+    },
+    {
+      "id": "design.properties.vector4",
+      "passed": true,
+      "expected": [
+        [
+          "X",
+          "Y",
+          "Z",
+          "W"
+        ],
+        [
+          "float",
+          "float",
+          "float",
+          "float"
+        ]
+      ],
+      "actual": [
+        [
+          "X",
+          "Y",
+          "Z",
+          "W"
+        ],
+        [
+          "float",
+          "float",
+          "float",
+          "float"
+        ]
+      ]
+    },
+    {
+      "id": "design.support",
+      "passed": true,
+      "expected": [
+        [
+          "MathTypeConverter",
+          true,
+          true,
+          true
+        ],
+        [
+          "BoundingBoxConverter",
+          false,
+          true,
+          true
+        ],
+        [
+          "BoundingSphereConverter",
+          false,
+          true,
+          true
+        ],
+        [
+          "ColorConverter",
+          true,
+          true,
+          true
+        ],
+        [
+          "MatrixConverter",
+          false,
+          true,
+          true
+        ],
+        [
+          "PlaneConverter",
+          false,
+          true,
+          true
+        ],
+        [
+          "PointConverter",
+          true,
+          true,
+          true
+        ],
+        [
+          "QuaternionConverter",
+          true,
+          true,
+          true
+        ],
+        [
+          "RayConverter",
+          false,
+          true,
+          true
+        ],
+        [
+          "RectangleConverter",
+          false,
+          true,
+          true
+        ],
+        [
+          "Vector2Converter",
+          true,
+          true,
+          true
+        ],
+        [
+          "Vector3Converter",
+          true,
+          true,
+          true
+        ],
+        [
+          "Vector4Converter",
+          true,
+          true,
+          true
+        ]
+      ],
+      "actual": [
+        [
+          "MathTypeConverter",
+          true,
+          true,
+          true
+        ],
+        [
+          "BoundingBoxConverter",
+          false,
+          true,
+          true
+        ],
+        [
+          "BoundingSphereConverter",
+          false,
+          true,
+          true
+        ],
+        [
+          "ColorConverter",
+          true,
+          true,
+          true
+        ],
+        [
+          "MatrixConverter",
+          false,
+          true,
+          true
+        ],
+        [
+          "PlaneConverter",
+          false,
+          true,
+          true
+        ],
+        [
+          "PointConverter",
+          true,
+          true,
+          true
+        ],
+        [
+          "QuaternionConverter",
+          true,
+          true,
+          true
+        ],
+        [
+          "RayConverter",
+          false,
+          true,
+          true
+        ],
+        [
+          "RectangleConverter",
+          false,
+          true,
+          true
+        ],
+        [
+          "Vector2Converter",
+          true,
+          true,
+          true
+        ],
+        [
+          "Vector3Converter",
+          true,
+          true,
+          true
+        ],
+        [
+          "Vector4Converter",
+          true,
+          true,
+          true
+        ]
+      ]
+    },
+    {
+      "id": "design.culture",
+      "passed": true,
+      "expected": [
+        "1.25, -2.5, 3.75",
+        "1,25; -2,5; 3,75",
+        "NaN, Infinity, -Infinity, 0",
+        "NaN; +unendlich; -unendlich; 0",
+        "1E-30, 3.402823E+38"
+      ],
+      "actual": [
+        "1.25, -2.5, 3.75",
+        "1,25; -2,5; 3,75",
+        "NaN, Infinity, -Infinity, 0",
+        "NaN; +unendlich; -unendlich; 0",
+        "1E-30, 3.402823E+38"
+      ]
+    },
+    {
+      "id": "design.parse",
+      "passed": true,
+      "expected": [
+        2147483647,
+        -2147483648,
+        "80000000",
+        "0DA24260",
+        "7F7FFFFF",
+        "3FC00000",
+        "C0100000",
+        "40700000",
+        0,
+        255,
+        10,
+        40
+      ],
+      "actual": [
+        2147483647,
+        -2147483648,
+        "80000000",
+        "0DA24260",
+        "7F7FFFFF",
+        "3FC00000",
+        "C0100000",
+        "40700000",
+        0,
+        255,
+        10,
+        40
+      ]
+    },
+    {
+      "id": "design.create",
+      "passed": true,
+      "expected": [
+        1.0,
+        2.0,
+        3.0,
+        1.0,
+        8.0,
+        13.0,
+        16.0
+      ],
+      "actual": [
+        1.0,
+        2.0,
+        3.0,
+        1.0,
+        8.0,
+        13.0,
+        16.0
+      ]
+    },
+    {
+      "id": "design.descriptors",
+      "passed": true,
+      "expected": [
+        [
+          "BoundingBox",
+          2,
+          true
+        ],
+        [
+          "BoundingSphere",
+          2,
+          true
+        ],
+        [
+          "Color",
+          4,
+          true
+        ],
+        [
+          "Matrix",
+          16,
+          true
+        ],
+        [
+          "Plane",
+          2,
+          true
+        ],
+        [
+          "Point",
+          2,
+          true
+        ],
+        [
+          "Quaternion",
+          4,
+          true
+        ],
+        [
+          "Ray",
+          2,
+          true
+        ],
+        [
+          "Rectangle",
+          4,
+          true
+        ],
+        [
+          "Vector2",
+          2,
+          true
+        ],
+        [
+          "Vector3",
+          3,
+          true
+        ],
+        [
+          "Vector4",
+          4,
+          true
+        ]
+      ],
+      "actual": [
+        [
+          "BoundingBox",
+          2,
+          true
+        ],
+        [
+          "BoundingSphere",
+          2,
+          true
+        ],
+        [
+          "Color",
+          4,
+          true
+        ],
+        [
+          "Matrix",
+          16,
+          true
+        ],
+        [
+          "Plane",
+          2,
+          true
+        ],
+        [
+          "Point",
+          2,
+          true
+        ],
+        [
+          "Quaternion",
+          4,
+          true
+        ],
+        [
+          "Ray",
+          2,
+          true
+        ],
+        [
+          "Rectangle",
+          4,
+          true
+        ],
+        [
+          "Vector2",
+          2,
+          true
+        ],
+        [
+          "Vector3",
+          3,
+          true
+        ],
+        [
+          "Vector4",
+          4,
+          true
+        ]
+      ]
+    },
+    {
+      "id": "design.fallback",
+      "passed": true,
+      "expected": [
+        "{X:1 Y:2 Width:3 Height:4}",
+        "{ {M11:1 M12:0 M13:0 M14:0} {M21:0 M22:1 M23:0 M24:0} {M31:0 M32:0 M33:1 M34:0} {M41:0 M42:0 M43:0 M44:1} }"
+      ],
+      "actual": [
+        "{X:1 Y:2 Width:3 Height:4}",
+        "{ {M11:1 M12:0 M13:0 M14:0} {M21:0 M22:1 M23:0 M24:0} {M31:0 M32:0 M33:1 M34:0} {M41:0 M42:0 M43:0 M44:1} }"
+      ]
+    },
+    {
+      "id": "design.invalid",
+      "passed": true,
+      "expected": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "actual": [
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "id": "touch.gesture.values",
+      "passed": true,
+      "expected": [
+        [
+          1,
+          2,
+          4,
+          8,
+          16,
+          32,
+          64,
+          128,
+          256,
+          512
+        ],
+        513,
+        0,
+        0.0,
+        [
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0
+        ]
+      ],
+      "actual": [
+        [
+          1,
+          2,
+          4,
+          8,
+          16,
+          32,
+          64,
+          128,
+          256,
+          512
+        ],
+        513,
+        0,
+        0.0,
+        [
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0
+        ]
+      ]
+    },
+    {
+      "id": "touch.location.value",
+      "passed": true,
+      "expected": [
+        true,
+        false,
+        -2112880633,
+        "{Position:{X:8 Y:9}}",
+        true,
+        7,
+        2,
+        [
+          2.5,
+          -3.0
+        ],
+        false,
+        -1,
+        0,
+        [
+          0.0,
+          0.0
+        ]
+      ],
+      "actual": [
+        true,
+        false,
+        -2112880633,
+        "{Position:{X:8 Y:9}}",
+        true,
+        7,
+        2,
+        [
+          2.5,
+          -3.0
+        ],
+        false,
+        -1,
+        0,
+        [
+          0.0,
+          0.0
+        ]
+      ]
+    },
+    {
+      "id": "touch.collection.value",
+      "passed": true,
+      "expected": [
+        0,
+        false,
+        2,
+        true,
+        true,
+        1,
+        true,
+        true,
+        2,
+        [
+          0,
+          1,
+          2
+        ],
+        [
+          true,
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "actual": [
+        0,
+        false,
+        2,
+        true,
+        true,
+        1,
+        true,
+        true,
+        2,
+        [
+          0,
+          1,
+          2
+        ],
+        [
+          true,
+          true,
+          true,
+          true,
+          true
+        ]
+      ]
+    },
+    {
+      "id": "touch.enumerator.value",
+      "passed": true,
+      "expected": [
+        true,
+        true,
+        1,
+        true,
+        2,
+        false,
+        true,
+        [
+          1,
+          2
+        ]
+      ],
+      "actual": [
+        true,
+        true,
+        1,
+        true,
+        2,
+        false,
+        true,
+        [
+          1,
+          2
+        ]
+      ]
+    },
+    {
+      "id": "media.state.values",
+      "passed": true,
+      "expected": [
+        0,
+        1,
+        2
+      ],
+      "actual": [
+        0,
+        1,
+        2
+      ]
+    },
+    {
+      "id": "media.source.values",
+      "passed": true,
+      "expected": [
+        0,
+        4
+      ],
+      "actual": [
+        0,
+        4
+      ]
+    },
+    {
+      "id": "media.video.soundtrack.values",
+      "passed": true,
+      "expected": [
+        0,
+        1,
+        2
+      ],
+      "actual": [
+        0,
+        1,
+        2
+      ]
+    },
+    {
+      "id": "media.visualization.counts",
+      "passed": true,
+      "expected": [
+        256,
+        256
+      ],
+      "actual": [
+        256,
+        256
+      ]
+    },
+    {
+      "id": "media.visualization.identity",
+      "passed": true,
+      "expected": [
+        true,
+        true
+      ],
+      "actual": [
+        true,
+        true
+      ]
+    },
+    {
+      "id": "media.visualization.defaults",
+      "passed": true,
+      "expected": [
+        true,
+        true
+      ],
+      "actual": [
+        true,
+        true
+      ]
+    },
+    {
+      "id": "media.visualization.frequency.bounds",
+      "passed": true,
+      "expected": true,
+      "actual": true
+    },
+    {
+      "id": "media.visualization.sample.bounds",
+      "passed": true,
+      "expected": true,
+      "actual": true
+    },
+    {
+      "id": "media.visualization.frequency.readonly",
+      "passed": true,
+      "expected": true,
+      "actual": true
+    },
+    {
+      "id": "media.visualization.sample.readonly",
+      "passed": true,
+      "expected": true,
+      "actual": true
+    }
+  ]
+}
