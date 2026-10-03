@@ -1,0 +1,4363 @@
+{
+ "schema_version": 1,
+ "implementation": "SBCL",
+ "profile": "XNA 4.0 Windows runtime",
+ "selection": {
+  "name": "Foundation 1 and the managed closures",
+  "rationale": "Foundation 1 is the dependency closure of a real textured sprite game: create a native game, receive its lifecycle, expose its graphics device, clear, decode a PNG into a Texture2D, submit a SpriteBatch draw, read the keyboard, exit and destroy deterministically. The selection then grows one dependency-complete closure at a time, in the order NEXT.md records. Some of those closures are pure managed and touch no native route -- the 3D transform types, the bounding volumes, the Curve family and the packed vectors; others reach CNA, as the input surface and the graphics state objects do.",
+  "type_count": 211,
+  "member_count": 2734
+ },
+ "provenance": {
+  "authority": "hash-pinned public metadata of the Microsoft XNA Framework 4.0 Windows runtime profile",
+  "snapshot_sha256": "7207908eb7926cc90a156d0370c907add4dda465421cea1cbec51afba2f97fdc",
+  "snapshot_types": 257,
+  "note": "Public contract metadata only. No Microsoft binary is stored in this repository or distributed with it. Reproduce with tools/api-compat/import-contract.py and a snapshot of the pinned hash."
+ },
+ "totals": {
+  "types": 211,
+  "members": 2734,
+  "types_by_status": {
+   "partial": 22,
+   "complete": 189
+  },
+  "members_by_status": {
+   "complete": 2190,
+   "missing": 19,
+   "not-applicable": 489,
+   "partial": 36
+  },
+  "diagnostics": 19,
+  "diagnostics_by_category": {
+   "missing_type": 0,
+   "missing_member": 19,
+   "wrong_package": 0,
+   "wrong_kind": 0,
+   "wrong_superclass": 0,
+   "wrong_generic_function_shape": 0,
+   "wrong_lambda_list": 0,
+   "wrong_accessor_mutability": 0,
+   "overload_mapping_mismatch": 0,
+   "event_mapping_mismatch": 0,
+   "enum_mismatch": 0,
+   "unexpected_public_symbol": 0,
+   "private_implementation_leak": 0,
+   "unmeasured_category": 0,
+   "stale_mapping_rule": 0,
+   "stale_declared_absence": 0,
+   "uncategorised_absence": 0,
+   "wrong_overload_shape": 0
+  },
+  "disagreement_total": 0
+ },
+ "types": [
+  {
+   "name": "Microsoft.Xna.Framework.Game",
+   "status": "partial",
+   "members": {
+    "new()": "complete",
+    "Run()": "complete",
+    "RunOneFrame()": "complete",
+    "Tick()": "complete",
+    "SuppressDraw()": "complete",
+    "Exit()": "complete",
+    "BeginRun()": "complete",
+    "EndRun()": "complete",
+    "Update(GameTime)": "complete",
+    "BeginDraw()": "complete",
+    "Draw(GameTime)": "complete",
+    "EndDraw()": "complete",
+    "Initialize()": "complete",
+    "ResetElapsedTime()": "complete",
+    "OnActivated(Object,EventArgs)": "missing",
+    "OnDeactivated(Object,EventArgs)": "missing",
+    "OnExiting(Object,EventArgs)": "complete",
+    "LoadContent()": "complete",
+    "UnloadContent()": "complete",
+    "Dispose()": "complete",
+    "Finalize()": "not-applicable",
+    "Dispose(Boolean)": "not-applicable",
+    "ShowMissingRequirementMessage(Exception)": "missing",
+    "LaunchParameters": "complete",
+    "Components": "complete",
+    "Services": "complete",
+    "InactiveSleepTime": "complete",
+    "IsMouseVisible": "complete",
+    "TargetElapsedTime": "complete",
+    "IsFixedTimeStep": "complete",
+    "Window": "complete",
+    "IsActive": "complete",
+    "GraphicsDevice": "complete",
+    "Content": "complete",
+    "Activated": "complete",
+    "Deactivated": "complete",
+    "Exiting": "complete",
+    "Disposed": "complete"
+   },
+   "lisp": "microsoft.xna.framework:game"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.GameTime",
+   "status": "complete",
+   "members": {
+    "new()": "complete",
+    "new(TimeSpan,TimeSpan,Boolean)": "complete",
+    "new(TimeSpan,TimeSpan)": "complete",
+    "TotalGameTime": "complete",
+    "ElapsedGameTime": "complete",
+    "IsRunningSlowly": "complete"
+   },
+   "lisp": "microsoft.xna.framework:game-time"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.IGameComponent",
+   "status": "complete",
+   "members": {
+    "Initialize()": "complete"
+   },
+   "projection": "interface: its members are generic functions in microsoft.xna.framework"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.IUpdateable",
+   "status": "complete",
+   "members": {
+    "Update(GameTime)": "complete",
+    "Enabled": "complete",
+    "UpdateOrder": "complete",
+    "EnabledChanged": "complete",
+    "UpdateOrderChanged": "complete"
+   },
+   "projection": "interface: its members are generic functions in microsoft.xna.framework"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.IDrawable",
+   "status": "complete",
+   "members": {
+    "Draw(GameTime)": "complete",
+    "Visible": "complete",
+    "DrawOrder": "complete",
+    "VisibleChanged": "complete",
+    "DrawOrderChanged": "complete"
+   },
+   "projection": "interface: its members are generic functions in microsoft.xna.framework"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.GameComponent",
+   "status": "complete",
+   "members": {
+    "new(Game)": "complete",
+    "Initialize()": "complete",
+    "Update(GameTime)": "complete",
+    "Dispose()": "complete",
+    "Finalize()": "not-applicable",
+    "Dispose(Boolean)": "complete",
+    "OnUpdateOrderChanged(Object,EventArgs)": "not-applicable",
+    "OnEnabledChanged(Object,EventArgs)": "not-applicable",
+    "Enabled": "complete",
+    "UpdateOrder": "complete",
+    "Game": "complete",
+    "EnabledChanged": "complete",
+    "UpdateOrderChanged": "complete",
+    "Disposed": "complete"
+   },
+   "lisp": "microsoft.xna.framework:game-component"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.DrawableGameComponent",
+   "status": "complete",
+   "members": {
+    "new(Game)": "complete",
+    "Initialize()": "complete",
+    "Dispose(Boolean)": "complete",
+    "Draw(GameTime)": "complete",
+    "LoadContent()": "complete",
+    "UnloadContent()": "complete",
+    "OnDrawOrderChanged(Object,EventArgs)": "not-applicable",
+    "OnVisibleChanged(Object,EventArgs)": "not-applicable",
+    "Visible": "complete",
+    "DrawOrder": "complete",
+    "GraphicsDevice": "complete",
+    "VisibleChanged": "complete",
+    "DrawOrderChanged": "complete"
+   },
+   "lisp": "microsoft.xna.framework:drawable-game-component"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.GameComponentCollection",
+   "status": "partial",
+   "members": {
+    "new()": "missing",
+    "InsertItem(Int32,IGameComponent)": "not-applicable",
+    "RemoveItem(Int32)": "not-applicable",
+    "SetItem(Int32,IGameComponent)": "not-applicable",
+    "ClearItems()": "not-applicable",
+    "ComponentAdded": "complete",
+    "ComponentRemoved": "complete"
+   },
+   "lisp": "microsoft.xna.framework:game-component-collection"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.GameComponentCollectionEventArgs",
+   "status": "complete",
+   "members": {
+    "new(IGameComponent)": "complete",
+    "GameComponent": "complete"
+   },
+   "lisp": "microsoft.xna.framework:game-component-collection-event-args"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.LaunchParameters",
+   "status": "complete",
+   "members": {
+    "new()": "complete"
+   },
+   "lisp": "microsoft.xna.framework:launch-parameters"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.GameWindow",
+   "status": "partial",
+   "members": {
+    "BeginScreenDeviceChange(Boolean)": "complete",
+    "EndScreenDeviceChange(String,Int32,Int32)": "complete",
+    "EndScreenDeviceChange(String)": "complete",
+    "SetTitle(String)": "not-applicable",
+    "SetSupportedOrientations(DisplayOrientation)": "not-applicable",
+    "OnActivated()": "missing",
+    "OnDeactivated()": "missing",
+    "OnPaint()": "missing",
+    "OnScreenDeviceNameChanged()": "missing",
+    "OnClientSizeChanged()": "missing",
+    "OnOrientationChanged()": "missing",
+    "Title": "complete",
+    "Handle": "missing",
+    "AllowUserResizing": "complete",
+    "ClientBounds": "complete",
+    "ScreenDeviceName": "complete",
+    "CurrentOrientation": "complete",
+    "ScreenDeviceNameChanged": "complete",
+    "ClientSizeChanged": "complete",
+    "OrientationChanged": "complete"
+   },
+   "lisp": "microsoft.xna.framework:game-window"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.TitleContainer",
+   "status": "partial",
+   "members": {
+    "OpenStream(String)": "partial"
+   },
+   "projection": "static class: microsoft.xna.framework:title-container-<member>"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Graphics.GraphicsProfile",
+   "status": "complete",
+   "members": {
+    "value__": "not-applicable",
+    "Reach": "complete",
+    "HiDef": "complete"
+   },
+   "lisp": "microsoft.xna.framework.graphics:graphics-profile"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Graphics.ClearOptions",
+   "status": "complete",
+   "members": {
+    "value__": "not-applicable",
+    "Target": "complete",
+    "DepthBuffer": "complete",
+    "Stencil": "complete"
+   },
+   "lisp": "microsoft.xna.framework.graphics:clear-options"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Graphics.PresentInterval",
+   "status": "complete",
+   "members": {
+    "value__": "not-applicable",
+    "Default": "complete",
+    "One": "complete",
+    "Two": "complete",
+    "Immediate": "complete"
+   },
+   "lisp": "microsoft.xna.framework.graphics:present-interval"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Graphics.GraphicsDeviceStatus",
+   "status": "complete",
+   "members": {
+    "value__": "not-applicable",
+    "Normal": "complete",
+    "Lost": "complete",
+    "NotReset": "complete"
+   },
+   "lisp": "microsoft.xna.framework.graphics:graphics-device-status"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Graphics.DisplayMode",
+   "status": "complete",
+   "members": {
+    "ToString()": "not-applicable",
+    "Format": "complete",
+    "Height": "complete",
+    "Width": "complete",
+    "AspectRatio": "complete",
+    "TitleSafeArea": "complete"
+   },
+   "lisp": "microsoft.xna.framework.graphics:display-mode"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Graphics.PresentationParameters",
+   "status": "partial",
+   "members": {
+    "new()": "complete",
+    "Clone()": "complete",
+    "BackBufferWidth": "complete",
+    "BackBufferHeight": "complete",
+    "BackBufferFormat": "complete",
+    "DepthStencilFormat": "complete",
+    "MultiSampleCount": "complete",
+    "DisplayOrientation": "complete",
+    "PresentationInterval": "complete",
+    "RenderTargetUsage": "complete",
+    "DeviceWindowHandle": "missing",
+    "IsFullScreen": "complete",
+    "Bounds": "complete"
+   },
+   "lisp": "microsoft.xna.framework.graphics:presentation-parameters"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Graphics.GraphicsAdapter",
+   "status": "partial",
+   "members": {
+    "QueryBackBufferFormat(GraphicsProfile,SurfaceFormat,DepthFormat,Int32,SurfaceFormat&,DepthFormat&,Int32&)": "complete",
+    "QueryRenderTargetFormat(GraphicsProfile,SurfaceFormat,DepthFormat,Int32,SurfaceFormat&,DepthFormat&,Int32&)": "complete",
+    "IsProfileSupported(GraphicsProfile)": "complete",
+    "UseReferenceDevice": "complete",
+    "UseNullDevice": "complete",
+    "MonitorHandle": "missing",
+    "SupportedDisplayModes": "complete",
+    "CurrentDisplayMode": "complete",
+    "IsWideScreen": "complete",
+    "IsDefaultAdapter": "complete",
+    "Revision": "partial",
+    "SubSystemId": "partial",
+    "DeviceId": "complete",
+    "VendorId": "complete",
+    "DeviceName": "complete",
+    "Description": "complete",
+    "DefaultAdapter": "partial",
+    "Adapters": "partial"
+   },
+   "lisp": "microsoft.xna.framework.graphics:graphics-adapter"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Graphics.DisplayModeCollection",
+   "status": "complete",
+   "members": {
+    "GetEnumerator()": "complete",
+    "Item(SurfaceFormat)": "complete"
+   },
+   "lisp": "microsoft.xna.framework.graphics:display-mode-collection"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.GraphicsDeviceManager",
+   "status": "partial",
+   "members": {
+    "new(Game)": "complete",
+    "ApplyChanges()": "complete",
+    "ToggleFullScreen()": "complete",
+    "FindBestDevice(Boolean)": "partial",
+    "CanResetDevice(GraphicsDeviceInformation)": "partial",
+    "RankDevices(List`1)": "partial",
+    "OnDeviceCreated(Object,EventArgs)": "complete",
+    "OnDeviceDisposing(Object,EventArgs)": "complete",
+    "OnDeviceReset(Object,EventArgs)": "complete",
+    "OnDeviceResetting(Object,EventArgs)": "complete",
+    "Dispose(Boolean)": "not-applicable",
+    "OnPreparingDeviceSettings(Object,PreparingDeviceSettingsEventArgs)": "complete",
+    "GraphicsProfile": "complete",
+    "PreferredDepthStencilFormat": "complete",
+    "PreferredBackBufferFormat": "complete",
+    "PreferredBackBufferWidth": "complete",
+    "PreferredBackBufferHeight": "complete",
+    "IsFullScreen": "complete",
+    "SynchronizeWithVerticalRetrace": "complete",
+    "PreferMultiSampling": "complete",
+    "SupportedOrientations": "complete",
+    "GraphicsDevice": "complete",
+    "DeviceCreated": "complete",
+    "DeviceResetting": "complete",
+    "DeviceReset": "complete",
+    "DeviceDisposing": "complete",
+    "PreparingDeviceSettings": "complete",
+    "Disposed": "complete",
+    "DefaultBackBufferWidth": "complete",
+    "DefaultBackBufferHeight": "complete"
+   },
+   "lisp": "microsoft.xna.framework:graphics-device-manager"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Content.ContentManager",
+   "status": "partial",
+   "members": {
+    "new(IServiceProvider)": "complete",
+    "new(IServiceProvider,String)": "complete",
+    "Dispose()": "complete",
+    "Dispose(Boolean)": "not-applicable",
+    "Unload()": "complete",
+    "Load(String)": "partial",
+    "ReadAsset(String,Action`1)": "not-applicable",
+    "OpenStream(String)": "not-applicable",
+    "ServiceProvider": "complete",
+    "RootDirectory": "complete"
+   },
+   "lisp": "microsoft.xna.framework.content:content-manager"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Graphics.RenderTargetCube",
+   "status": "complete",
+   "members": {
+    "new(GraphicsDevice,Int32,Boolean,SurfaceFormat,DepthFormat,Int32,RenderTargetUsage)": "complete",
+    "new(GraphicsDevice,Int32,Boolean,SurfaceFormat,DepthFormat)": "complete",
+    "Dispose(Boolean)": "not-applicable",
+    "IsContentLost": "complete",
+    "RenderTargetUsage": "complete",
+    "MultiSampleCount": "complete",
+    "DepthStencilFormat": "complete",
+    "ContentLost": "complete"
+   },
+   "lisp": "microsoft.xna.framework.graphics:render-target-cube"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Graphics.RenderTargetBinding",
+   "status": "complete",
+   "members": {
+    "new(RenderTargetCube,CubeMapFace)": "complete",
+    "new(RenderTarget2D)": "complete",
+    "op_Implicit(RenderTarget2D)": "not-applicable",
+    "CubeMapFace": "complete",
+    "RenderTarget": "complete"
+   },
+   "lisp": "microsoft.xna.framework.graphics:render-target-binding"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Color",
+   "status": "complete",
+   "members": {
+    "new(Int32,Int32,Int32)": "complete",
+    "new(Int32,Int32,Int32,Int32)": "complete",
+    "new(Single,Single,Single)": "complete",
+    "new(Single,Single,Single,Single)": "complete",
+    "new(Vector3)": "complete",
+    "new(Vector4)": "complete",
+    "FromNonPremultiplied(Vector4)": "complete",
+    "FromNonPremultiplied(Int32,Int32,Int32,Int32)": "complete",
+    "ToVector3()": "complete",
+    "ToVector4()": "complete",
+    "Lerp(Color,Color,Single)": "complete",
+    "Multiply(Color,Single)": "complete",
+    "op_Multiply(Color,Single)": "complete",
+    "ToString()": "not-applicable",
+    "GetHashCode()": "not-applicable",
+    "Equals(Object)": "not-applicable",
+    "Equals(Color)": "complete",
+    "op_Equality(Color,Color)": "complete",
+    "op_Inequality(Color,Color)": "not-applicable",
+    "R": "complete",
+    "G": "complete",
+    "B": "complete",
+    "A": "complete",
+    "PackedValue": "complete",
+    "Transparent": "complete",
+    "AliceBlue": "complete",
+    "AntiqueWhite": "complete",
+    "Aqua": "complete",
+    "Aquamarine": "complete",
+    "Azure": "complete",
+    "Beige": "complete",
+    "Bisque": "complete",
+    "Black": "complete",
+    "BlanchedAlmond": "complete",
+    "Blue": "complete",
+    "BlueViolet": "complete",
+    "Brown": "complete",
+    "BurlyWood": "complete",
+    "CadetBlue": "complete",
+    "Chartreuse": "complete",
+    "Chocolate": "complete",
+    "Coral": "complete",
+    "CornflowerBlue": "complete",
+    "Cornsilk": "complete",
+    "Crimson": "complete",
+    "Cyan": "complete",
+    "DarkBlue": "complete",
+    "DarkCyan": "complete",
+    "DarkGoldenrod": "complete",
+    "DarkGray": "complete",
+    "DarkGreen": "complete",
+    "DarkKhaki": "complete",
+    "DarkMagenta": "complete",
+    "DarkOliveGreen": "complete",
+    "DarkOrange": "complete",
+    "DarkOrchid": "complete",
+    "DarkRed": "complete",
+    "DarkSalmon": "complete",
+    "DarkSeaGreen": "complete",
+    "DarkSlateBlue": "complete",
+    "DarkSlateGray": "complete",
+    "DarkTurquoise": "complete",
+    "DarkViolet": "complete",
+    "DeepPink": "complete",
+    "DeepSkyBlue": "complete",
+    "DimGray": "complete",
+    "DodgerBlue": "complete",
+    "Firebrick": "complete",
+    "FloralWhite": "complete",
+    "ForestGreen": "complete",
+    "Fuchsia": "complete",
+    "Gainsboro": "complete",
+    "GhostWhite": "complete",
+    "Gold": "complete",
+    "Goldenrod": "complete",
+    "Gray": "complete",
+    "Green": "complete",
+    "GreenYellow": "complete",
+    "Honeydew": "complete",
+    "HotPink": "complete",
+    "IndianRed": "complete",
+    "Indigo": "complete",
+    "Ivory": "complete",
+    "Khaki": "complete",
+    "Lavender": "complete",
+    "LavenderBlush": "complete",
+    "LawnGreen": "complete",
+    "LemonChiffon": "complete",
+    "LightBlue": "complete",
+    "LightCoral": "complete",
+    "LightCyan": "complete",
+    "LightGoldenrodYellow": "complete",
+    "LightGreen": "complete",
+    "LightGray": "complete",
+    "LightPink": "complete",
+    "LightSalmon": "complete",
+    "LightSeaGreen": "complete",
+    "LightSkyBlue": "complete",
+    "LightSlateGray": "complete",
+    "LightSteelBlue": "complete",
+    "LightYellow": "complete",
+    "Lime": "complete",
+    "LimeGreen": "complete",
+    "Linen": "complete",
+    "Magenta": "complete",
+    "Maroon": "complete",
+    "MediumAquamarine": "complete",
+    "MediumBlue": "complete",
+    "MediumOrchid": "complete",
+    "MediumPurple": "complete",
+    "MediumSeaGreen": "complete",
+    "MediumSlateBlue": "complete",
+    "MediumSpringGreen": "complete",
+    "MediumTurquoise": "complete",
+    "MediumVioletRed": "complete",
+    "MidnightBlue": "complete",
+    "MintCream": "complete",
+    "MistyRose": "complete",
+    "Moccasin": "complete",
+    "NavajoWhite": "complete",
+    "Navy": "complete",
+    "OldLace": "complete",
+    "Olive": "complete",
+    "OliveDrab": "complete",
+    "Orange": "complete",
+    "OrangeRed": "complete",
+    "Orchid": "complete",
+    "PaleGoldenrod": "complete",
+    "PaleGreen": "complete",
+    "PaleTurquoise": "complete",
+    "PaleVioletRed": "complete",
+    "PapayaWhip": "complete",
+    "PeachPuff": "complete",
+    "Peru": "complete",
+    "Pink": "complete",
+    "Plum": "complete",
+    "PowderBlue": "complete",
+    "Purple": "complete",
+    "Red": "complete",
+    "RosyBrown": "complete",
+    "RoyalBlue": "complete",
+    "SaddleBrown": "complete",
+    "Salmon": "complete",
+    "SandyBrown": "complete",
+    "SeaGreen": "complete",
+    "SeaShell": "complete",
+    "Sienna": "complete",
+    "Silver": "complete",
+    "SkyBlue": "complete",
+    "SlateBlue": "complete",
+    "SlateGray": "complete",
+    "Snow": "complete",
+    "SpringGreen": "complete",
+    "SteelBlue": "complete",
+    "Tan": "complete",
+    "Teal": "complete",
+    "Thistle": "complete",
+    "Tomato": "complete",
+    "Turquoise": "complete",
+    "Violet": "complete",
+    "Wheat": "complete",
+    "White": "complete",
+    "WhiteSmoke": "complete",
+    "Yellow": "complete",
+    "YellowGreen": "complete"
+   },
+   "lisp": "microsoft.xna.framework:color"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Point",
+   "status": "complete",
+   "members": {
+    "new(Int32,Int32)": "complete",
+    "Equals(Point)": "complete",
+    "Equals(Object)": "not-applicable",
+    "GetHashCode()": "not-applicable",
+    "ToString()": "not-applicable",
+    "op_Equality(Point,Point)": "complete",
+    "op_Inequality(Point,Point)": "not-applicable",
+    "Zero": "complete",
+    "X": "complete",
+    "Y": "complete"
+   },
+   "lisp": "microsoft.xna.framework:point"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Rectangle",
+   "status": "complete",
+   "members": {
+    "new(Int32,Int32,Int32,Int32)": "complete",
+    "Offset(Point)": "complete",
+    "Offset(Int32,Int32)": "complete",
+    "Inflate(Int32,Int32)": "complete",
+    "Contains(Int32,Int32)": "complete",
+    "Contains(Point)": "complete",
+    "Contains(Point&,Boolean&)": "not-applicable",
+    "Contains(Rectangle)": "complete",
+    "Contains(Rectangle&,Boolean&)": "not-applicable",
+    "Intersects(Rectangle)": "complete",
+    "Intersects(Rectangle&,Boolean&)": "not-applicable",
+    "Intersect(Rectangle,Rectangle)": "complete",
+    "Intersect(Rectangle&,Rectangle&,Rectangle&)": "not-applicable",
+    "Union(Rectangle,Rectangle)": "complete",
+    "Union(Rectangle&,Rectangle&,Rectangle&)": "not-applicable",
+    "Equals(Rectangle)": "complete",
+    "Equals(Object)": "not-applicable",
+    "ToString()": "not-applicable",
+    "GetHashCode()": "not-applicable",
+    "op_Equality(Rectangle,Rectangle)": "complete",
+    "op_Inequality(Rectangle,Rectangle)": "not-applicable",
+    "Left": "complete",
+    "Right": "complete",
+    "Top": "complete",
+    "Bottom": "complete",
+    "Location": "complete",
+    "Center": "complete",
+    "Empty": "complete",
+    "IsEmpty": "complete",
+    "X": "complete",
+    "Y": "complete",
+    "Width": "complete",
+    "Height": "complete"
+   },
+   "lisp": "microsoft.xna.framework:rectangle"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Vector2",
+   "status": "complete",
+   "members": {
+    "new(Single,Single)": "complete",
+    "new(Single)": "complete",
+    "ToString()": "not-applicable",
+    "Equals(Vector2)": "complete",
+    "Equals(Object)": "not-applicable",
+    "GetHashCode()": "not-applicable",
+    "Length()": "complete",
+    "LengthSquared()": "complete",
+    "Distance(Vector2,Vector2)": "complete",
+    "Distance(Vector2&,Vector2&,Single&)": "not-applicable",
+    "DistanceSquared(Vector2,Vector2)": "complete",
+    "DistanceSquared(Vector2&,Vector2&,Single&)": "not-applicable",
+    "Dot(Vector2,Vector2)": "complete",
+    "Dot(Vector2&,Vector2&,Single&)": "not-applicable",
+    "Normalize()": "complete",
+    "Normalize(Vector2)": "complete",
+    "Normalize(Vector2&,Vector2&)": "not-applicable",
+    "Reflect(Vector2,Vector2)": "complete",
+    "Reflect(Vector2&,Vector2&,Vector2&)": "not-applicable",
+    "Min(Vector2,Vector2)": "complete",
+    "Min(Vector2&,Vector2&,Vector2&)": "not-applicable",
+    "Max(Vector2,Vector2)": "complete",
+    "Max(Vector2&,Vector2&,Vector2&)": "not-applicable",
+    "Clamp(Vector2,Vector2,Vector2)": "complete",
+    "Clamp(Vector2&,Vector2&,Vector2&,Vector2&)": "not-applicable",
+    "Lerp(Vector2,Vector2,Single)": "complete",
+    "Lerp(Vector2&,Vector2&,Single,Vector2&)": "not-applicable",
+    "Barycentric(Vector2,Vector2,Vector2,Single,Single)": "complete",
+    "Barycentric(Vector2&,Vector2&,Vector2&,Single,Single,Vector2&)": "not-applicable",
+    "SmoothStep(Vector2,Vector2,Single)": "complete",
+    "SmoothStep(Vector2&,Vector2&,Single,Vector2&)": "not-applicable",
+    "CatmullRom(Vector2,Vector2,Vector2,Vector2,Single)": "complete",
+    "CatmullRom(Vector2&,Vector2&,Vector2&,Vector2&,Single,Vector2&)": "not-applicable",
+    "Hermite(Vector2,Vector2,Vector2,Vector2,Single)": "complete",
+    "Hermite(Vector2&,Vector2&,Vector2&,Vector2&,Single,Vector2&)": "not-applicable",
+    "Transform(Vector2,Matrix)": "complete",
+    "Transform(Vector2&,Matrix&,Vector2&)": "not-applicable",
+    "TransformNormal(Vector2,Matrix)": "complete",
+    "TransformNormal(Vector2&,Matrix&,Vector2&)": "not-applicable",
+    "Transform(Vector2,Quaternion)": "complete",
+    "Transform(Vector2&,Quaternion&,Vector2&)": "not-applicable",
+    "Transform(Vector2[],Matrix&,Vector2[])": "complete",
+    "Transform(Vector2[],Int32,Matrix&,Vector2[],Int32,Int32)": "complete",
+    "TransformNormal(Vector2[],Matrix&,Vector2[])": "complete",
+    "TransformNormal(Vector2[],Int32,Matrix&,Vector2[],Int32,Int32)": "complete",
+    "Transform(Vector2[],Quaternion&,Vector2[])": "complete",
+    "Transform(Vector2[],Int32,Quaternion&,Vector2[],Int32,Int32)": "complete",
+    "Negate(Vector2)": "complete",
+    "Negate(Vector2&,Vector2&)": "not-applicable",
+    "Add(Vector2,Vector2)": "complete",
+    "Add(Vector2&,Vector2&,Vector2&)": "not-applicable",
+    "Subtract(Vector2,Vector2)": "complete",
+    "Subtract(Vector2&,Vector2&,Vector2&)": "not-applicable",
+    "Multiply(Vector2,Vector2)": "complete",
+    "Multiply(Vector2&,Vector2&,Vector2&)": "not-applicable",
+    "Multiply(Vector2,Single)": "complete",
+    "Multiply(Vector2&,Single,Vector2&)": "not-applicable",
+    "Divide(Vector2,Vector2)": "complete",
+    "Divide(Vector2&,Vector2&,Vector2&)": "not-applicable",
+    "Divide(Vector2,Single)": "complete",
+    "Divide(Vector2&,Single,Vector2&)": "not-applicable",
+    "op_UnaryNegation(Vector2)": "complete",
+    "op_Equality(Vector2,Vector2)": "complete",
+    "op_Inequality(Vector2,Vector2)": "not-applicable",
+    "op_Addition(Vector2,Vector2)": "complete",
+    "op_Subtraction(Vector2,Vector2)": "complete",
+    "op_Multiply(Vector2,Vector2)": "complete",
+    "op_Multiply(Vector2,Single)": "complete",
+    "op_Multiply(Single,Vector2)": "complete",
+    "op_Division(Vector2,Vector2)": "complete",
+    "op_Division(Vector2,Single)": "complete",
+    "Zero": "complete",
+    "One": "complete",
+    "UnitX": "complete",
+    "UnitY": "complete",
+    "X": "complete",
+    "Y": "complete"
+   },
+   "lisp": "microsoft.xna.framework:vector2"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Vector3",
+   "status": "complete",
+   "members": {
+    "new(Single,Single,Single)": "complete",
+    "new(Single)": "complete",
+    "new(Vector2,Single)": "complete",
+    "ToString()": "not-applicable",
+    "Equals(Vector3)": "complete",
+    "Equals(Object)": "not-applicable",
+    "GetHashCode()": "not-applicable",
+    "Length()": "complete",
+    "LengthSquared()": "complete",
+    "Distance(Vector3,Vector3)": "complete",
+    "Distance(Vector3&,Vector3&,Single&)": "not-applicable",
+    "DistanceSquared(Vector3,Vector3)": "complete",
+    "DistanceSquared(Vector3&,Vector3&,Single&)": "not-applicable",
+    "Dot(Vector3,Vector3)": "complete",
+    "Dot(Vector3&,Vector3&,Single&)": "not-applicable",
+    "Normalize()": "complete",
+    "Normalize(Vector3)": "complete",
+    "Normalize(Vector3&,Vector3&)": "not-applicable",
+    "Cross(Vector3,Vector3)": "complete",
+    "Cross(Vector3&,Vector3&,Vector3&)": "not-applicable",
+    "Reflect(Vector3,Vector3)": "complete",
+    "Reflect(Vector3&,Vector3&,Vector3&)": "not-applicable",
+    "Min(Vector3,Vector3)": "complete",
+    "Min(Vector3&,Vector3&,Vector3&)": "not-applicable",
+    "Max(Vector3,Vector3)": "complete",
+    "Max(Vector3&,Vector3&,Vector3&)": "not-applicable",
+    "Clamp(Vector3,Vector3,Vector3)": "complete",
+    "Clamp(Vector3&,Vector3&,Vector3&,Vector3&)": "not-applicable",
+    "Lerp(Vector3,Vector3,Single)": "complete",
+    "Lerp(Vector3&,Vector3&,Single,Vector3&)": "not-applicable",
+    "Barycentric(Vector3,Vector3,Vector3,Single,Single)": "complete",
+    "Barycentric(Vector3&,Vector3&,Vector3&,Single,Single,Vector3&)": "not-applicable",
+    "SmoothStep(Vector3,Vector3,Single)": "complete",
+    "SmoothStep(Vector3&,Vector3&,Single,Vector3&)": "not-applicable",
+    "CatmullRom(Vector3,Vector3,Vector3,Vector3,Single)": "complete",
+    "CatmullRom(Vector3&,Vector3&,Vector3&,Vector3&,Single,Vector3&)": "not-applicable",
+    "Hermite(Vector3,Vector3,Vector3,Vector3,Single)": "complete",
+    "Hermite(Vector3&,Vector3&,Vector3&,Vector3&,Single,Vector3&)": "not-applicable",
+    "Transform(Vector3,Matrix)": "complete",
+    "Transform(Vector3&,Matrix&,Vector3&)": "not-applicable",
+    "TransformNormal(Vector3,Matrix)": "complete",
+    "TransformNormal(Vector3&,Matrix&,Vector3&)": "not-applicable",
+    "Transform(Vector3,Quaternion)": "complete",
+    "Transform(Vector3&,Quaternion&,Vector3&)": "not-applicable",
+    "Transform(Vector3[],Matrix&,Vector3[])": "complete",
+    "Transform(Vector3[],Int32,Matrix&,Vector3[],Int32,Int32)": "complete",
+    "TransformNormal(Vector3[],Matrix&,Vector3[])": "complete",
+    "TransformNormal(Vector3[],Int32,Matrix&,Vector3[],Int32,Int32)": "complete",
+    "Transform(Vector3[],Quaternion&,Vector3[])": "complete",
+    "Transform(Vector3[],Int32,Quaternion&,Vector3[],Int32,Int32)": "complete",
+    "Negate(Vector3)": "complete",
+    "Negate(Vector3&,Vector3&)": "not-applicable",
+    "Add(Vector3,Vector3)": "complete",
+    "Add(Vector3&,Vector3&,Vector3&)": "not-applicable",
+    "Subtract(Vector3,Vector3)": "complete",
+    "Subtract(Vector3&,Vector3&,Vector3&)": "not-applicable",
+    "Multiply(Vector3,Vector3)": "complete",
+    "Multiply(Vector3&,Vector3&,Vector3&)": "not-applicable",
+    "Multiply(Vector3,Single)": "complete",
+    "Multiply(Vector3&,Single,Vector3&)": "not-applicable",
+    "Divide(Vector3,Vector3)": "complete",
+    "Divide(Vector3&,Vector3&,Vector3&)": "not-applicable",
+    "Divide(Vector3,Single)": "complete",
+    "Divide(Vector3&,Single,Vector3&)": "not-applicable",
+    "op_UnaryNegation(Vector3)": "complete",
+    "op_Equality(Vector3,Vector3)": "complete",
+    "op_Inequality(Vector3,Vector3)": "not-applicable",
+    "op_Addition(Vector3,Vector3)": "complete",
+    "op_Subtraction(Vector3,Vector3)": "complete",
+    "op_Multiply(Vector3,Vector3)": "complete",
+    "op_Multiply(Vector3,Single)": "complete",
+    "op_Multiply(Single,Vector3)": "complete",
+    "op_Division(Vector3,Vector3)": "complete",
+    "op_Division(Vector3,Single)": "complete",
+    "Zero": "complete",
+    "One": "complete",
+    "UnitX": "complete",
+    "UnitY": "complete",
+    "UnitZ": "complete",
+    "Up": "complete",
+    "Down": "complete",
+    "Right": "complete",
+    "Left": "complete",
+    "Forward": "complete",
+    "Backward": "complete",
+    "X": "complete",
+    "Y": "complete",
+    "Z": "complete"
+   },
+   "lisp": "microsoft.xna.framework:vector3"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Vector4",
+   "status": "complete",
+   "members": {
+    "new(Single,Single,Single,Single)": "complete",
+    "new(Vector2,Single,Single)": "complete",
+    "new(Vector3,Single)": "complete",
+    "new(Single)": "complete",
+    "ToString()": "not-applicable",
+    "Equals(Vector4)": "complete",
+    "Equals(Object)": "not-applicable",
+    "GetHashCode()": "not-applicable",
+    "Length()": "complete",
+    "LengthSquared()": "complete",
+    "Distance(Vector4,Vector4)": "complete",
+    "Distance(Vector4&,Vector4&,Single&)": "not-applicable",
+    "DistanceSquared(Vector4,Vector4)": "complete",
+    "DistanceSquared(Vector4&,Vector4&,Single&)": "not-applicable",
+    "Dot(Vector4,Vector4)": "complete",
+    "Dot(Vector4&,Vector4&,Single&)": "not-applicable",
+    "Normalize()": "complete",
+    "Normalize(Vector4)": "complete",
+    "Normalize(Vector4&,Vector4&)": "not-applicable",
+    "Min(Vector4,Vector4)": "complete",
+    "Min(Vector4&,Vector4&,Vector4&)": "not-applicable",
+    "Max(Vector4,Vector4)": "complete",
+    "Max(Vector4&,Vector4&,Vector4&)": "not-applicable",
+    "Clamp(Vector4,Vector4,Vector4)": "complete",
+    "Clamp(Vector4&,Vector4&,Vector4&,Vector4&)": "not-applicable",
+    "Lerp(Vector4,Vector4,Single)": "complete",
+    "Lerp(Vector4&,Vector4&,Single,Vector4&)": "not-applicable",
+    "Barycentric(Vector4,Vector4,Vector4,Single,Single)": "complete",
+    "Barycentric(Vector4&,Vector4&,Vector4&,Single,Single,Vector4&)": "not-applicable",
+    "SmoothStep(Vector4,Vector4,Single)": "complete",
+    "SmoothStep(Vector4&,Vector4&,Single,Vector4&)": "not-applicable",
+    "CatmullRom(Vector4,Vector4,Vector4,Vector4,Single)": "complete",
+    "CatmullRom(Vector4&,Vector4&,Vector4&,Vector4&,Single,Vector4&)": "not-applicable",
+    "Hermite(Vector4,Vector4,Vector4,Vector4,Single)": "complete",
+    "Hermite(Vector4&,Vector4&,Vector4&,Vector4&,Single,Vector4&)": "not-applicable",
+    "Transform(Vector2,Matrix)": "complete",
+    "Transform(Vector2&,Matrix&,Vector4&)": "not-applicable",
+    "Transform(Vector3,Matrix)": "complete",
+    "Transform(Vector3&,Matrix&,Vector4&)": "not-applicable",
+    "Transform(Vector4,Matrix)": "complete",
+    "Transform(Vector4&,Matrix&,Vector4&)": "not-applicable",
+    "Transform(Vector2,Quaternion)": "complete",
+    "Transform(Vector2&,Quaternion&,Vector4&)": "not-applicable",
+    "Transform(Vector3,Quaternion)": "complete",
+    "Transform(Vector3&,Quaternion&,Vector4&)": "not-applicable",
+    "Transform(Vector4,Quaternion)": "complete",
+    "Transform(Vector4&,Quaternion&,Vector4&)": "not-applicable",
+    "Transform(Vector4[],Matrix&,Vector4[])": "complete",
+    "Transform(Vector4[],Int32,Matrix&,Vector4[],Int32,Int32)": "complete",
+    "Transform(Vector4[],Quaternion&,Vector4[])": "complete",
+    "Transform(Vector4[],Int32,Quaternion&,Vector4[],Int32,Int32)": "complete",
+    "Negate(Vector4)": "complete",
+    "Negate(Vector4&,Vector4&)": "not-applicable",
+    "Add(Vector4,Vector4)": "complete",
+    "Add(Vector4&,Vector4&,Vector4&)": "not-applicable",
+    "Subtract(Vector4,Vector4)": "complete",
+    "Subtract(Vector4&,Vector4&,Vector4&)": "not-applicable",
+    "Multiply(Vector4,Vector4)": "complete",
+    "Multiply(Vector4&,Vector4&,Vector4&)": "not-applicable",
+    "Multiply(Vector4,Single)": "complete",
+    "Multiply(Vector4&,Single,Vector4&)": "not-applicable",
+    "Divide(Vector4,Vector4)": "complete",
+    "Divide(Vector4&,Vector4&,Vector4&)": "not-applicable",
+    "Divide(Vector4,Single)": "complete",
+    "Divide(Vector4&,Single,Vector4&)": "not-applicable",
+    "op_UnaryNegation(Vector4)": "complete",
+    "op_Equality(Vector4,Vector4)": "complete",
+    "op_Inequality(Vector4,Vector4)": "not-applicable",
+    "op_Addition(Vector4,Vector4)": "complete",
+    "op_Subtraction(Vector4,Vector4)": "complete",
+    "op_Multiply(Vector4,Vector4)": "complete",
+    "op_Multiply(Vector4,Single)": "complete",
+    "op_Multiply(Single,Vector4)": "complete",
+    "op_Division(Vector4,Vector4)": "complete",
+    "op_Division(Vector4,Single)": "complete",
+    "Zero": "complete",
+    "One": "complete",
+    "UnitX": "complete",
+    "UnitY": "complete",
+    "UnitZ": "complete",
+    "UnitW": "complete",
+    "X": "complete",
+    "Y": "complete",
+    "Z": "complete",
+    "W": "complete"
+   },
+   "lisp": "microsoft.xna.framework:vector4"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.MathHelper",
+   "status": "complete",
+   "members": {
+    "ToRadians(Single)": "complete",
+    "ToDegrees(Single)": "complete",
+    "Distance(Single,Single)": "complete",
+    "Min(Single,Single)": "complete",
+    "Max(Single,Single)": "complete",
+    "Clamp(Single,Single,Single)": "complete",
+    "Lerp(Single,Single,Single)": "complete",
+    "Barycentric(Single,Single,Single,Single,Single)": "complete",
+    "SmoothStep(Single,Single,Single)": "complete",
+    "CatmullRom(Single,Single,Single,Single,Single)": "complete",
+    "Hermite(Single,Single,Single,Single,Single)": "complete",
+    "WrapAngle(Single)": "complete",
+    "E": "complete",
+    "Log2E": "complete",
+    "Log10E": "complete",
+    "Pi": "complete",
+    "TwoPi": "complete",
+    "PiOver2": "complete",
+    "PiOver4": "complete"
+   },
+   "projection": "static class: microsoft.xna.framework:math-helper-<member>"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Quaternion",
+   "status": "complete",
+   "members": {
+    "new(Single,Single,Single,Single)": "complete",
+    "new(Vector3,Single)": "complete",
+    "ToString()": "not-applicable",
+    "Equals(Quaternion)": "complete",
+    "Equals(Object)": "not-applicable",
+    "GetHashCode()": "not-applicable",
+    "LengthSquared()": "complete",
+    "Length()": "complete",
+    "Normalize()": "complete",
+    "Normalize(Quaternion)": "complete",
+    "Normalize(Quaternion&,Quaternion&)": "not-applicable",
+    "Conjugate()": "complete",
+    "Conjugate(Quaternion)": "complete",
+    "Conjugate(Quaternion&,Quaternion&)": "not-applicable",
+    "Inverse(Quaternion)": "complete",
+    "Inverse(Quaternion&,Quaternion&)": "not-applicable",
+    "CreateFromAxisAngle(Vector3,Single)": "complete",
+    "CreateFromAxisAngle(Vector3&,Single,Quaternion&)": "not-applicable",
+    "CreateFromYawPitchRoll(Single,Single,Single)": "complete",
+    "CreateFromYawPitchRoll(Single,Single,Single,Quaternion&)": "not-applicable",
+    "CreateFromRotationMatrix(Matrix)": "complete",
+    "CreateFromRotationMatrix(Matrix&,Quaternion&)": "not-applicable",
+    "Dot(Quaternion,Quaternion)": "complete",
+    "Dot(Quaternion&,Quaternion&,Single&)": "not-applicable",
+    "Slerp(Quaternion,Quaternion,Single)": "complete",
+    "Slerp(Quaternion&,Quaternion&,Single,Quaternion&)": "not-applicable",
+    "Lerp(Quaternion,Quaternion,Single)": "complete",
+    "Lerp(Quaternion&,Quaternion&,Single,Quaternion&)": "not-applicable",
+    "Concatenate(Quaternion,Quaternion)": "complete",
+    "Concatenate(Quaternion&,Quaternion&,Quaternion&)": "not-applicable",
+    "Negate(Quaternion)": "complete",
+    "Negate(Quaternion&,Quaternion&)": "not-applicable",
+    "Add(Quaternion,Quaternion)": "complete",
+    "Add(Quaternion&,Quaternion&,Quaternion&)": "not-applicable",
+    "Subtract(Quaternion,Quaternion)": "complete",
+    "Subtract(Quaternion&,Quaternion&,Quaternion&)": "not-applicable",
+    "Multiply(Quaternion,Quaternion)": "complete",
+    "Multiply(Quaternion&,Quaternion&,Quaternion&)": "not-applicable",
+    "Multiply(Quaternion,Single)": "complete",
+    "Multiply(Quaternion&,Single,Quaternion&)": "not-applicable",
+    "Divide(Quaternion,Quaternion)": "complete",
+    "Divide(Quaternion&,Quaternion&,Quaternion&)": "not-applicable",
+    "op_UnaryNegation(Quaternion)": "complete",
+    "op_Equality(Quaternion,Quaternion)": "complete",
+    "op_Inequality(Quaternion,Quaternion)": "not-applicable",
+    "op_Addition(Quaternion,Quaternion)": "complete",
+    "op_Subtraction(Quaternion,Quaternion)": "complete",
+    "op_Multiply(Quaternion,Quaternion)": "complete",
+    "op_Multiply(Quaternion,Single)": "complete",
+    "op_Division(Quaternion,Quaternion)": "complete",
+    "Identity": "complete",
+    "X": "complete",
+    "Y": "complete",
+    "Z": "complete",
+    "W": "complete"
+   },
+   "lisp": "microsoft.xna.framework:quaternion"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Matrix",
+   "status": "complete",
+   "members": {
+    "new(Single,Single,Single,Single,Single,Single,Single,Single,Single,Single,Single,Single,Single,Single,Single,Single)": "complete",
+    "CreateBillboard(Vector3,Vector3,Vector3,Nullable`1)": "complete",
+    "CreateBillboard(Vector3&,Vector3&,Vector3&,Nullable`1,Matrix&)": "not-applicable",
+    "CreateConstrainedBillboard(Vector3,Vector3,Vector3,Nullable`1,Nullable`1)": "complete",
+    "CreateConstrainedBillboard(Vector3&,Vector3&,Vector3&,Nullable`1,Nullable`1,Matrix&)": "not-applicable",
+    "CreateTranslation(Vector3)": "complete",
+    "CreateTranslation(Vector3&,Matrix&)": "not-applicable",
+    "CreateTranslation(Single,Single,Single)": "complete",
+    "CreateTranslation(Single,Single,Single,Matrix&)": "not-applicable",
+    "CreateScale(Single,Single,Single)": "complete",
+    "CreateScale(Single,Single,Single,Matrix&)": "not-applicable",
+    "CreateScale(Vector3)": "complete",
+    "CreateScale(Vector3&,Matrix&)": "not-applicable",
+    "CreateScale(Single)": "complete",
+    "CreateScale(Single,Matrix&)": "not-applicable",
+    "CreateRotationX(Single)": "complete",
+    "CreateRotationX(Single,Matrix&)": "not-applicable",
+    "CreateRotationY(Single)": "complete",
+    "CreateRotationY(Single,Matrix&)": "not-applicable",
+    "CreateRotationZ(Single)": "complete",
+    "CreateRotationZ(Single,Matrix&)": "not-applicable",
+    "CreateFromAxisAngle(Vector3,Single)": "complete",
+    "CreateFromAxisAngle(Vector3&,Single,Matrix&)": "not-applicable",
+    "CreatePerspectiveFieldOfView(Single,Single,Single,Single)": "complete",
+    "CreatePerspectiveFieldOfView(Single,Single,Single,Single,Matrix&)": "not-applicable",
+    "CreatePerspective(Single,Single,Single,Single)": "complete",
+    "CreatePerspective(Single,Single,Single,Single,Matrix&)": "not-applicable",
+    "CreatePerspectiveOffCenter(Single,Single,Single,Single,Single,Single)": "complete",
+    "CreatePerspectiveOffCenter(Single,Single,Single,Single,Single,Single,Matrix&)": "not-applicable",
+    "CreateOrthographic(Single,Single,Single,Single)": "complete",
+    "CreateOrthographic(Single,Single,Single,Single,Matrix&)": "not-applicable",
+    "CreateOrthographicOffCenter(Single,Single,Single,Single,Single,Single)": "complete",
+    "CreateOrthographicOffCenter(Single,Single,Single,Single,Single,Single,Matrix&)": "not-applicable",
+    "CreateLookAt(Vector3,Vector3,Vector3)": "complete",
+    "CreateLookAt(Vector3&,Vector3&,Vector3&,Matrix&)": "not-applicable",
+    "CreateWorld(Vector3,Vector3,Vector3)": "complete",
+    "CreateWorld(Vector3&,Vector3&,Vector3&,Matrix&)": "not-applicable",
+    "CreateFromQuaternion(Quaternion)": "complete",
+    "CreateFromQuaternion(Quaternion&,Matrix&)": "not-applicable",
+    "CreateFromYawPitchRoll(Single,Single,Single)": "complete",
+    "CreateFromYawPitchRoll(Single,Single,Single,Matrix&)": "not-applicable",
+    "CreateShadow(Vector3,Plane)": "complete",
+    "CreateShadow(Vector3&,Plane&,Matrix&)": "not-applicable",
+    "CreateReflection(Plane)": "complete",
+    "CreateReflection(Plane&,Matrix&)": "not-applicable",
+    "Decompose(Vector3&,Quaternion&,Vector3&)": "complete",
+    "Transform(Matrix,Quaternion)": "complete",
+    "Transform(Matrix&,Quaternion&,Matrix&)": "not-applicable",
+    "ToString()": "not-applicable",
+    "Equals(Matrix)": "complete",
+    "Equals(Object)": "not-applicable",
+    "GetHashCode()": "not-applicable",
+    "Transpose(Matrix)": "complete",
+    "Transpose(Matrix&,Matrix&)": "not-applicable",
+    "Determinant()": "complete",
+    "Invert(Matrix)": "complete",
+    "Invert(Matrix&,Matrix&)": "not-applicable",
+    "Lerp(Matrix,Matrix,Single)": "complete",
+    "Lerp(Matrix&,Matrix&,Single,Matrix&)": "not-applicable",
+    "Negate(Matrix)": "complete",
+    "Negate(Matrix&,Matrix&)": "not-applicable",
+    "Add(Matrix,Matrix)": "complete",
+    "Add(Matrix&,Matrix&,Matrix&)": "not-applicable",
+    "Subtract(Matrix,Matrix)": "complete",
+    "Subtract(Matrix&,Matrix&,Matrix&)": "not-applicable",
+    "Multiply(Matrix,Matrix)": "complete",
+    "Multiply(Matrix&,Matrix&,Matrix&)": "not-applicable",
+    "Multiply(Matrix,Single)": "complete",
+    "Multiply(Matrix&,Single,Matrix&)": "not-applicable",
+    "Divide(Matrix,Matrix)": "complete",
+    "Divide(Matrix&,Matrix&,Matrix&)": "not-applicable",
+    "Divide(Matrix,Single)": "complete",
+    "Divide(Matrix&,Single,Matrix&)": "not-applicable",
+    "op_UnaryNegation(Matrix)": "complete",
+    "op_Equality(Matrix,Matrix)": "complete",
+    "op_Inequality(Matrix,Matrix)": "not-applicable",
+    "op_Addition(Matrix,Matrix)": "complete",
+    "op_Subtraction(Matrix,Matrix)": "complete",
+    "op_Multiply(Matrix,Matrix)": "complete",
+    "op_Multiply(Matrix,Single)": "complete",
+    "op_Multiply(Single,Matrix)": "complete",
+    "op_Division(Matrix,Matrix)": "complete",
+    "op_Division(Matrix,Single)": "complete",
+    "Identity": "complete",
+    "Up": "complete",
+    "Down": "complete",
+    "Right": "complete",
+    "Left": "complete",
+    "Forward": "complete",
+    "Backward": "complete",
+    "Translation": "complete",
+    "M11": "complete",
+    "M12": "complete",
+    "M13": "complete",
+    "M14": "complete",
+    "M21": "complete",
+    "M22": "complete",
+    "M23": "complete",
+    "M24": "complete",
+    "M31": "complete",
+    "M32": "complete",
+    "M33": "complete",
+    "M34": "complete",
+    "M41": "complete",
+    "M42": "complete",
+    "M43": "complete",
+    "M44": "complete"
+   },
+   "lisp": "microsoft.xna.framework:matrix"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Plane",
+   "status": "complete",
+   "members": {
+    "new(Single,Single,Single,Single)": "complete",
+    "new(Vector3,Single)": "complete",
+    "new(Vector4)": "complete",
+    "new(Vector3,Vector3,Vector3)": "complete",
+    "Equals(Plane)": "complete",
+    "Equals(Object)": "not-applicable",
+    "GetHashCode()": "not-applicable",
+    "ToString()": "not-applicable",
+    "Normalize()": "complete",
+    "Normalize(Plane)": "complete",
+    "Normalize(Plane&,Plane&)": "not-applicable",
+    "Transform(Plane,Matrix)": "complete",
+    "Transform(Plane&,Matrix&,Plane&)": "not-applicable",
+    "Transform(Plane,Quaternion)": "complete",
+    "Transform(Plane&,Quaternion&,Plane&)": "not-applicable",
+    "Dot(Vector4)": "complete",
+    "Dot(Vector4&,Single&)": "not-applicable",
+    "DotCoordinate(Vector3)": "complete",
+    "DotCoordinate(Vector3&,Single&)": "not-applicable",
+    "DotNormal(Vector3)": "complete",
+    "DotNormal(Vector3&,Single&)": "not-applicable",
+    "Intersects(BoundingBox)": "complete",
+    "Intersects(BoundingBox&,PlaneIntersectionType&)": "not-applicable",
+    "Intersects(BoundingFrustum)": "complete",
+    "Intersects(BoundingSphere)": "complete",
+    "Intersects(BoundingSphere&,PlaneIntersectionType&)": "not-applicable",
+    "op_Equality(Plane,Plane)": "complete",
+    "op_Inequality(Plane,Plane)": "not-applicable",
+    "Normal": "complete",
+    "D": "complete"
+   },
+   "lisp": "microsoft.xna.framework:plane"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.ContainmentType",
+   "status": "complete",
+   "members": {
+    "value__": "not-applicable",
+    "Disjoint": "complete",
+    "Contains": "complete",
+    "Intersects": "complete"
+   },
+   "lisp": "microsoft.xna.framework:containment-type"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.PlaneIntersectionType",
+   "status": "complete",
+   "members": {
+    "value__": "not-applicable",
+    "Front": "complete",
+    "Back": "complete",
+    "Intersecting": "complete"
+   },
+   "lisp": "microsoft.xna.framework:plane-intersection-type"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Ray",
+   "status": "complete",
+   "members": {
+    "new(Vector3,Vector3)": "complete",
+    "Equals(Ray)": "complete",
+    "Equals(Object)": "not-applicable",
+    "GetHashCode()": "not-applicable",
+    "ToString()": "not-applicable",
+    "Intersects(BoundingBox)": "complete",
+    "Intersects(BoundingBox&,Nullable`1)": "not-applicable",
+    "Intersects(BoundingFrustum)": "complete",
+    "Intersects(Plane)": "complete",
+    "Intersects(Plane&,Nullable`1)": "not-applicable",
+    "Intersects(BoundingSphere)": "complete",
+    "Intersects(BoundingSphere&,Nullable`1)": "not-applicable",
+    "op_Equality(Ray,Ray)": "complete",
+    "op_Inequality(Ray,Ray)": "not-applicable",
+    "Position": "complete",
+    "Direction": "complete"
+   },
+   "lisp": "microsoft.xna.framework:ray"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.BoundingBox",
+   "status": "complete",
+   "members": {
+    "new(Vector3,Vector3)": "complete",
+    "GetCorners()": "complete",
+    "GetCorners(Vector3[])": "complete",
+    "Equals(BoundingBox)": "complete",
+    "Equals(Object)": "not-applicable",
+    "GetHashCode()": "not-applicable",
+    "ToString()": "not-applicable",
+    "CreateMerged(BoundingBox,BoundingBox)": "complete",
+    "CreateMerged(BoundingBox&,BoundingBox&,BoundingBox&)": "not-applicable",
+    "CreateFromSphere(BoundingSphere)": "complete",
+    "CreateFromSphere(BoundingSphere&,BoundingBox&)": "not-applicable",
+    "CreateFromPoints(IEnumerable`1)": "complete",
+    "Intersects(BoundingBox)": "complete",
+    "Intersects(BoundingBox&,Boolean&)": "not-applicable",
+    "Intersects(BoundingFrustum)": "complete",
+    "Intersects(Plane)": "complete",
+    "Intersects(Plane&,PlaneIntersectionType&)": "not-applicable",
+    "Intersects(Ray)": "complete",
+    "Intersects(Ray&,Nullable`1)": "not-applicable",
+    "Intersects(BoundingSphere)": "complete",
+    "Intersects(BoundingSphere&,Boolean&)": "not-applicable",
+    "Contains(BoundingBox)": "complete",
+    "Contains(BoundingBox&,ContainmentType&)": "not-applicable",
+    "Contains(BoundingFrustum)": "complete",
+    "Contains(Vector3)": "complete",
+    "Contains(Vector3&,ContainmentType&)": "not-applicable",
+    "Contains(BoundingSphere)": "complete",
+    "Contains(BoundingSphere&,ContainmentType&)": "not-applicable",
+    "op_Equality(BoundingBox,BoundingBox)": "complete",
+    "op_Inequality(BoundingBox,BoundingBox)": "not-applicable",
+    "CornerCount": "complete",
+    "Min": "complete",
+    "Max": "complete"
+   },
+   "lisp": "microsoft.xna.framework:bounding-box"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.BoundingSphere",
+   "status": "complete",
+   "members": {
+    "new(Vector3,Single)": "complete",
+    "Equals(BoundingSphere)": "complete",
+    "Equals(Object)": "not-applicable",
+    "GetHashCode()": "not-applicable",
+    "ToString()": "not-applicable",
+    "CreateMerged(BoundingSphere,BoundingSphere)": "complete",
+    "CreateMerged(BoundingSphere&,BoundingSphere&,BoundingSphere&)": "not-applicable",
+    "CreateFromBoundingBox(BoundingBox)": "complete",
+    "CreateFromBoundingBox(BoundingBox&,BoundingSphere&)": "not-applicable",
+    "CreateFromPoints(IEnumerable`1)": "complete",
+    "CreateFromFrustum(BoundingFrustum)": "complete",
+    "Intersects(BoundingBox)": "complete",
+    "Intersects(BoundingBox&,Boolean&)": "not-applicable",
+    "Intersects(BoundingFrustum)": "complete",
+    "Intersects(Plane)": "complete",
+    "Intersects(Plane&,PlaneIntersectionType&)": "not-applicable",
+    "Intersects(Ray)": "complete",
+    "Intersects(Ray&,Nullable`1)": "not-applicable",
+    "Intersects(BoundingSphere)": "complete",
+    "Intersects(BoundingSphere&,Boolean&)": "not-applicable",
+    "Contains(BoundingBox)": "complete",
+    "Contains(BoundingBox&,ContainmentType&)": "not-applicable",
+    "Contains(BoundingFrustum)": "complete",
+    "Contains(Vector3)": "complete",
+    "Contains(Vector3&,ContainmentType&)": "not-applicable",
+    "Contains(BoundingSphere)": "complete",
+    "Contains(BoundingSphere&,ContainmentType&)": "not-applicable",
+    "Transform(Matrix)": "complete",
+    "Transform(Matrix&,BoundingSphere&)": "not-applicable",
+    "op_Equality(BoundingSphere,BoundingSphere)": "complete",
+    "op_Inequality(BoundingSphere,BoundingSphere)": "not-applicable",
+    "Center": "complete",
+    "Radius": "complete"
+   },
+   "lisp": "microsoft.xna.framework:bounding-sphere"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.BoundingFrustum",
+   "status": "complete",
+   "members": {
+    "new(Matrix)": "complete",
+    "GetCorners()": "complete",
+    "GetCorners(Vector3[])": "complete",
+    "Equals(BoundingFrustum)": "complete",
+    "Equals(Object)": "not-applicable",
+    "GetHashCode()": "not-applicable",
+    "ToString()": "not-applicable",
+    "Intersects(BoundingBox)": "complete",
+    "Intersects(BoundingBox&,Boolean&)": "not-applicable",
+    "Intersects(BoundingFrustum)": "complete",
+    "Intersects(Plane)": "complete",
+    "Intersects(Plane&,PlaneIntersectionType&)": "not-applicable",
+    "Intersects(Ray)": "complete",
+    "Intersects(Ray&,Nullable`1)": "not-applicable",
+    "Intersects(BoundingSphere)": "complete",
+    "Intersects(BoundingSphere&,Boolean&)": "not-applicable",
+    "Contains(BoundingBox)": "complete",
+    "Contains(BoundingBox&,ContainmentType&)": "not-applicable",
+    "Contains(BoundingFrustum)": "complete",
+    "Contains(Vector3)": "complete",
+    "Contains(Vector3&,ContainmentType&)": "not-applicable",
+    "Contains(BoundingSphere)": "complete",
+    "Contains(BoundingSphere&,ContainmentType&)": "not-applicable",
+    "op_Equality(BoundingFrustum,BoundingFrustum)": "complete",
+    "op_Inequality(BoundingFrustum,BoundingFrustum)": "not-applicable",
+    "Near": "complete",
+    "Far": "complete",
+    "Left": "complete",
+    "Right": "complete",
+    "Top": "complete",
+    "Bottom": "complete",
+    "Matrix": "complete",
+    "CornerCount": "complete"
+   },
+   "lisp": "microsoft.xna.framework:bounding-frustum"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Curve",
+   "status": "complete",
+   "members": {
+    "new()": "complete",
+    "Clone()": "complete",
+    "ComputeTangent(Int32,CurveTangent)": "complete",
+    "ComputeTangent(Int32,CurveTangent,CurveTangent)": "complete",
+    "ComputeTangents(CurveTangent)": "complete",
+    "ComputeTangents(CurveTangent,CurveTangent)": "complete",
+    "Evaluate(Single)": "complete",
+    "PreLoop": "complete",
+    "PostLoop": "complete",
+    "Keys": "complete",
+    "IsConstant": "complete"
+   },
+   "lisp": "microsoft.xna.framework:curve"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.CurveKey",
+   "status": "complete",
+   "members": {
+    "new(Single,Single)": "complete",
+    "new(Single,Single,Single,Single)": "complete",
+    "new(Single,Single,Single,Single,CurveContinuity)": "complete",
+    "Clone()": "complete",
+    "Equals(CurveKey)": "complete",
+    "Equals(Object)": "not-applicable",
+    "GetHashCode()": "not-applicable",
+    "op_Equality(CurveKey,CurveKey)": "complete",
+    "op_Inequality(CurveKey,CurveKey)": "not-applicable",
+    "CompareTo(CurveKey)": "complete",
+    "Position": "complete",
+    "Value": "complete",
+    "TangentIn": "complete",
+    "TangentOut": "complete",
+    "Continuity": "complete"
+   },
+   "lisp": "microsoft.xna.framework:curve-key"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.CurveKeyCollection",
+   "status": "complete",
+   "members": {
+    "new()": "complete",
+    "IndexOf(CurveKey)": "complete",
+    "RemoveAt(Int32)": "complete",
+    "Add(CurveKey)": "complete",
+    "Clear()": "complete",
+    "Contains(CurveKey)": "complete",
+    "CopyTo(CurveKey[],Int32)": "complete",
+    "Remove(CurveKey)": "complete",
+    "GetEnumerator()": "complete",
+    "Clone()": "complete",
+    "Item(Int32)": "complete",
+    "Count": "complete",
+    "IsReadOnly": "complete"
+   },
+   "lisp": "microsoft.xna.framework:curve-key-collection"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.CurveContinuity",
+   "status": "complete",
+   "members": {
+    "value__": "not-applicable",
+    "Smooth": "complete",
+    "Step": "complete"
+   },
+   "lisp": "microsoft.xna.framework:curve-continuity"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.CurveLoopType",
+   "status": "complete",
+   "members": {
+    "value__": "not-applicable",
+    "Constant": "complete",
+    "Cycle": "complete",
+    "CycleOffset": "complete",
+    "Oscillate": "complete",
+    "Linear": "complete"
+   },
+   "lisp": "microsoft.xna.framework:curve-loop-type"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.CurveTangent",
+   "status": "complete",
+   "members": {
+    "value__": "not-applicable",
+    "Flat": "complete",
+    "Linear": "complete",
+    "Smooth": "complete"
+   },
+   "lisp": "microsoft.xna.framework:curve-tangent"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.PlayerIndex",
+   "status": "complete",
+   "members": {
+    "value__": "not-applicable",
+    "One": "complete",
+    "Two": "complete",
+    "Three": "complete",
+    "Four": "complete"
+   },
+   "lisp": "microsoft.xna.framework:player-index"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.DisplayOrientation",
+   "status": "complete",
+   "members": {
+    "value__": "not-applicable",
+    "Default": "complete",
+    "LandscapeLeft": "complete",
+    "LandscapeRight": "complete",
+    "Portrait": "complete"
+   },
+   "lisp": "microsoft.xna.framework:display-orientation"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Graphics.GraphicsResource",
+   "status": "complete",
+   "members": {
+    "ToString()": "not-applicable",
+    "Dispose(Boolean)": "not-applicable",
+    "Dispose()": "complete",
+    "Finalize()": "not-applicable",
+    "IsDisposed": "complete",
+    "Tag": "complete",
+    "Name": "complete",
+    "GraphicsDevice": "complete",
+    "Disposing": "complete"
+   },
+   "lisp": "microsoft.xna.framework.graphics:graphics-resource"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Graphics.GraphicsDevice",
+   "status": "partial",
+   "members": {
+    "new(GraphicsAdapter,GraphicsProfile,PresentationParameters)": "complete",
+    "Present(Nullable`1,Nullable`1,IntPtr)": "missing",
+    "Present()": "complete",
+    "Reset()": "complete",
+    "Reset(PresentationParameters)": "complete",
+    "Reset(PresentationParameters,GraphicsAdapter)": "complete",
+    "DrawPrimitives(PrimitiveType,Int32,Int32)": "complete",
+    "DrawIndexedPrimitives(PrimitiveType,Int32,Int32,Int32,Int32,Int32)": "complete",
+    "DrawInstancedPrimitives(PrimitiveType,Int32,Int32,Int32,Int32,Int32,Int32)": "complete",
+    "DrawUserIndexedPrimitives(PrimitiveType,!!0[],Int32,Int32,Int32[],Int32,Int32)": "complete",
+    "DrawUserIndexedPrimitives(PrimitiveType,!!0[],Int32,Int32,Int16[],Int32,Int32)": "complete",
+    "DrawUserIndexedPrimitives(PrimitiveType,!!0[],Int32,Int32,Int32[],Int32,Int32,VertexDeclaration)": "complete",
+    "DrawUserIndexedPrimitives(PrimitiveType,!!0[],Int32,Int32,Int16[],Int32,Int32,VertexDeclaration)": "complete",
+    "DrawUserPrimitives(PrimitiveType,!!0[],Int32,Int32)": "complete",
+    "DrawUserPrimitives(PrimitiveType,!!0[],Int32,Int32,VertexDeclaration)": "complete",
+    "Clear(ClearOptions,Vector4,Single,Int32)": "complete",
+    "Clear(ClearOptions,Color,Single,Int32)": "complete",
+    "Clear(Color)": "complete",
+    "SetRenderTargets(RenderTargetBinding[])": "complete",
+    "SetRenderTarget(RenderTargetCube,CubeMapFace)": "complete",
+    "SetRenderTarget(RenderTarget2D)": "complete",
+    "GetRenderTargets()": "complete",
+    "GetBackBufferData(Nullable`1,!!0[],Int32,Int32)": "complete",
+    "GetBackBufferData(!!0[],Int32,Int32)": "complete",
+    "GetBackBufferData(!!0[])": "complete",
+    "GetVertexBuffers()": "complete",
+    "SetVertexBuffer(VertexBuffer,Int32)": "complete",
+    "SetVertexBuffer(VertexBuffer)": "complete",
+    "SetVertexBuffers(VertexBufferBinding[])": "complete",
+    "Dispose(Boolean)": "not-applicable",
+    "Dispose()": "complete",
+    "Finalize()": "not-applicable",
+    "IsDisposed": "complete",
+    "ScissorRectangle": "complete",
+    "Indices": "complete",
+    "Viewport": "partial",
+    "DisplayMode": "complete",
+    "GraphicsDeviceStatus": "complete",
+    "GraphicsProfile": "complete",
+    "Adapter": "complete",
+    "PresentationParameters": "complete",
+    "RasterizerState": "complete",
+    "ReferenceStencil": "complete",
+    "DepthStencilState": "complete",
+    "MultiSampleMask": "complete",
+    "BlendFactor": "complete",
+    "BlendState": "complete",
+    "VertexTextures": "complete",
+    "Textures": "complete",
+    "VertexSamplerStates": "complete",
+    "SamplerStates": "complete",
+    "Disposing": "complete",
+    "ResourceDestroyed": "missing",
+    "ResourceCreated": "missing",
+    "DeviceLost": "complete",
+    "DeviceReset": "complete",
+    "DeviceResetting": "complete"
+   },
+   "lisp": "microsoft.xna.framework.graphics:graphics-device"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Graphics.Viewport",
+   "status": "complete",
+   "members": {
+    "new(Int32,Int32,Int32,Int32)": "complete",
+    "new(Rectangle)": "complete",
+    "ToString()": "not-applicable",
+    "Project(Vector3,Matrix,Matrix,Matrix)": "complete",
+    "Unproject(Vector3,Matrix,Matrix,Matrix)": "complete",
+    "X": "complete",
+    "Y": "complete",
+    "Width": "complete",
+    "Height": "complete",
+    "MinDepth": "complete",
+    "MaxDepth": "complete",
+    "Bounds": "complete",
+    "AspectRatio": "complete",
+    "TitleSafeArea": "complete"
+   },
+   "lisp": "microsoft.xna.framework.graphics:viewport"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Graphics.Texture",
+   "status": "complete",
+   "members": {
+    "LevelCount": "complete",
+    "Format": "complete"
+   },
+   "lisp": "microsoft.xna.framework.graphics:texture"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Graphics.Texture2D",
+   "status": "partial",
+   "members": {
+    "new(GraphicsDevice,Int32,Int32)": "complete",
+    "new(GraphicsDevice,Int32,Int32,Boolean,SurfaceFormat)": "complete",
+    "FromStream(GraphicsDevice,Stream,Int32,Int32,Boolean)": "partial",
+    "FromStream(GraphicsDevice,Stream)": "partial",
+    "SaveAsJpeg(Stream,Int32,Int32)": "complete",
+    "SaveAsPng(Stream,Int32,Int32)": "complete",
+    "SetData(!!0[])": "complete",
+    "SetData(!!0[],Int32,Int32)": "complete",
+    "SetData(Int32,Nullable`1,!!0[],Int32,Int32)": "complete",
+    "GetData(!!0[])": "complete",
+    "GetData(!!0[],Int32,Int32)": "complete",
+    "GetData(Int32,Nullable`1,!!0[],Int32,Int32)": "complete",
+    "Dispose(Boolean)": "not-applicable",
+    "Bounds": "complete",
+    "Height": "partial",
+    "Width": "partial"
+   },
+   "lisp": "microsoft.xna.framework.graphics:texture-2d"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Graphics.RenderTarget2D",
+   "status": "complete",
+   "members": {
+    "new(GraphicsDevice,Int32,Int32,Boolean,SurfaceFormat,DepthFormat,Int32,RenderTargetUsage)": "complete",
+    "new(GraphicsDevice,Int32,Int32,Boolean,SurfaceFormat,DepthFormat)": "complete",
+    "new(GraphicsDevice,Int32,Int32)": "complete",
+    "Dispose(Boolean)": "not-applicable",
+    "IsContentLost": "complete",
+    "RenderTargetUsage": "complete",
+    "MultiSampleCount": "complete",
+    "DepthStencilFormat": "complete",
+    "ContentLost": "complete"
+   },
+   "lisp": "microsoft.xna.framework.graphics:render-target-2d"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Graphics.RenderTargetUsage",
+   "status": "complete",
+   "members": {
+    "value__": "not-applicable",
+    "DiscardContents": "complete",
+    "PreserveContents": "complete",
+    "PlatformContents": "complete"
+   },
+   "lisp": "microsoft.xna.framework.graphics:render-target-usage"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Graphics.DepthFormat",
+   "status": "complete",
+   "members": {
+    "value__": "not-applicable",
+    "None": "complete",
+    "Depth16": "complete",
+    "Depth24": "complete",
+    "Depth24Stencil8": "complete"
+   },
+   "lisp": "microsoft.xna.framework.graphics:depth-format"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Graphics.SpriteBatch",
+   "status": "complete",
+   "members": {
+    "new(GraphicsDevice)": "complete",
+    "Dispose(Boolean)": "not-applicable",
+    "Begin()": "complete",
+    "Begin(SpriteSortMode,BlendState)": "complete",
+    "Begin(SpriteSortMode,BlendState,SamplerState,DepthStencilState,RasterizerState)": "complete",
+    "Begin(SpriteSortMode,BlendState,SamplerState,DepthStencilState,RasterizerState,Effect)": "complete",
+    "Begin(SpriteSortMode,BlendState,SamplerState,DepthStencilState,RasterizerState,Effect,Matrix)": "complete",
+    "End()": "complete",
+    "Draw(Texture2D,Vector2,Color)": "complete",
+    "Draw(Texture2D,Vector2,Nullable`1,Color)": "complete",
+    "Draw(Texture2D,Vector2,Nullable`1,Color,Single,Vector2,Single,SpriteEffects,Single)": "complete",
+    "Draw(Texture2D,Vector2,Nullable`1,Color,Single,Vector2,Vector2,SpriteEffects,Single)": "complete",
+    "Draw(Texture2D,Rectangle,Color)": "complete",
+    "Draw(Texture2D,Rectangle,Nullable`1,Color)": "complete",
+    "Draw(Texture2D,Rectangle,Nullable`1,Color,Single,Vector2,SpriteEffects,Single)": "complete",
+    "DrawString(SpriteFont,String,Vector2,Color)": "complete",
+    "DrawString(SpriteFont,StringBuilder,Vector2,Color)": "complete",
+    "DrawString(SpriteFont,String,Vector2,Color,Single,Vector2,Single,SpriteEffects,Single)": "complete",
+    "DrawString(SpriteFont,StringBuilder,Vector2,Color,Single,Vector2,Single,SpriteEffects,Single)": "complete",
+    "DrawString(SpriteFont,String,Vector2,Color,Single,Vector2,Vector2,SpriteEffects,Single)": "complete",
+    "DrawString(SpriteFont,StringBuilder,Vector2,Color,Single,Vector2,Vector2,SpriteEffects,Single)": "complete"
+   },
+   "lisp": "microsoft.xna.framework.graphics:sprite-batch"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Graphics.SpriteFont",
+   "status": "complete",
+   "members": {
+    "MeasureString(String)": "complete",
+    "MeasureString(StringBuilder)": "complete",
+    "LineSpacing": "complete",
+    "Spacing": "complete",
+    "DefaultCharacter": "complete",
+    "Characters": "complete"
+   },
+   "lisp": "microsoft.xna.framework.graphics:sprite-font"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Graphics.SpriteSortMode",
+   "status": "complete",
+   "members": {
+    "value__": "not-applicable",
+    "Deferred": "complete",
+    "Immediate": "complete",
+    "Texture": "complete",
+    "BackToFront": "complete",
+    "FrontToBack": "complete"
+   },
+   "lisp": "microsoft.xna.framework.graphics:sprite-sort-mode"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Graphics.SpriteEffects",
+   "status": "complete",
+   "members": {
+    "value__": "not-applicable",
+    "None": "complete",
+    "FlipHorizontally": "complete",
+    "FlipVertically": "complete"
+   },
+   "lisp": "microsoft.xna.framework.graphics:sprite-effects"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Graphics.SurfaceFormat",
+   "status": "complete",
+   "members": {
+    "value__": "not-applicable",
+    "Color": "complete",
+    "Bgr565": "complete",
+    "Bgra5551": "complete",
+    "Bgra4444": "complete",
+    "Dxt1": "complete",
+    "Dxt3": "complete",
+    "Dxt5": "complete",
+    "NormalizedByte2": "complete",
+    "NormalizedByte4": "complete",
+    "Rgba1010102": "complete",
+    "Rg32": "complete",
+    "Rgba64": "complete",
+    "Alpha8": "complete",
+    "Single": "complete",
+    "Vector2": "complete",
+    "Vector4": "complete",
+    "HalfSingle": "complete",
+    "HalfVector2": "complete",
+    "HalfVector4": "complete",
+    "HdrBlendable": "complete"
+   },
+   "lisp": "microsoft.xna.framework.graphics:surface-format"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Graphics.Blend",
+   "status": "complete",
+   "members": {
+    "value__": "not-applicable",
+    "One": "complete",
+    "Zero": "complete",
+    "SourceColor": "complete",
+    "InverseSourceColor": "complete",
+    "SourceAlpha": "complete",
+    "InverseSourceAlpha": "complete",
+    "DestinationColor": "complete",
+    "InverseDestinationColor": "complete",
+    "DestinationAlpha": "complete",
+    "InverseDestinationAlpha": "complete",
+    "BlendFactor": "complete",
+    "InverseBlendFactor": "complete",
+    "SourceAlphaSaturation": "complete"
+   },
+   "lisp": "microsoft.xna.framework.graphics:blend"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Graphics.BlendFunction",
+   "status": "complete",
+   "members": {
+    "value__": "not-applicable",
+    "Add": "complete",
+    "Subtract": "complete",
+    "ReverseSubtract": "complete",
+    "Min": "complete",
+    "Max": "complete"
+   },
+   "lisp": "microsoft.xna.framework.graphics:blend-function"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Graphics.ColorWriteChannels",
+   "status": "complete",
+   "members": {
+    "value__": "not-applicable",
+    "None": "complete",
+    "Red": "complete",
+    "Green": "complete",
+    "Blue": "complete",
+    "Alpha": "complete",
+    "All": "complete"
+   },
+   "lisp": "microsoft.xna.framework.graphics:color-write-channels"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Graphics.CompareFunction",
+   "status": "complete",
+   "members": {
+    "value__": "not-applicable",
+    "Always": "complete",
+    "Never": "complete",
+    "Less": "complete",
+    "LessEqual": "complete",
+    "Equal": "complete",
+    "GreaterEqual": "complete",
+    "Greater": "complete",
+    "NotEqual": "complete"
+   },
+   "lisp": "microsoft.xna.framework.graphics:compare-function"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Graphics.StencilOperation",
+   "status": "complete",
+   "members": {
+    "value__": "not-applicable",
+    "Keep": "complete",
+    "Zero": "complete",
+    "Replace": "complete",
+    "Increment": "complete",
+    "Decrement": "complete",
+    "IncrementSaturation": "complete",
+    "DecrementSaturation": "complete",
+    "Invert": "complete"
+   },
+   "lisp": "microsoft.xna.framework.graphics:stencil-operation"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Graphics.CullMode",
+   "status": "complete",
+   "members": {
+    "value__": "not-applicable",
+    "None": "complete",
+    "CullClockwiseFace": "complete",
+    "CullCounterClockwiseFace": "complete"
+   },
+   "lisp": "microsoft.xna.framework.graphics:cull-mode"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Graphics.FillMode",
+   "status": "complete",
+   "members": {
+    "value__": "not-applicable",
+    "Solid": "complete",
+    "WireFrame": "complete"
+   },
+   "lisp": "microsoft.xna.framework.graphics:fill-mode"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Graphics.TextureAddressMode",
+   "status": "complete",
+   "members": {
+    "value__": "not-applicable",
+    "Wrap": "complete",
+    "Clamp": "complete",
+    "Mirror": "complete"
+   },
+   "lisp": "microsoft.xna.framework.graphics:texture-address-mode"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Graphics.TextureFilter",
+   "status": "complete",
+   "members": {
+    "value__": "not-applicable",
+    "Linear": "complete",
+    "Point": "complete",
+    "Anisotropic": "complete",
+    "LinearMipPoint": "complete",
+    "PointMipLinear": "complete",
+    "MinLinearMagPointMipLinear": "complete",
+    "MinLinearMagPointMipPoint": "complete",
+    "MinPointMagLinearMipLinear": "complete",
+    "MinPointMagLinearMipPoint": "complete"
+   },
+   "lisp": "microsoft.xna.framework.graphics:texture-filter"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Graphics.BlendState",
+   "status": "complete",
+   "members": {
+    "new()": "complete",
+    "Dispose(Boolean)": "not-applicable",
+    "MultiSampleMask": "complete",
+    "BlendFactor": "complete",
+    "ColorWriteChannels3": "complete",
+    "ColorWriteChannels2": "complete",
+    "ColorWriteChannels1": "complete",
+    "ColorWriteChannels": "complete",
+    "AlphaBlendFunction": "complete",
+    "AlphaDestinationBlend": "complete",
+    "AlphaSourceBlend": "complete",
+    "ColorBlendFunction": "complete",
+    "ColorDestinationBlend": "complete",
+    "ColorSourceBlend": "complete",
+    "Opaque": "complete",
+    "AlphaBlend": "complete",
+    "Additive": "complete",
+    "NonPremultiplied": "complete"
+   },
+   "lisp": "microsoft.xna.framework.graphics:blend-state"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Graphics.DepthStencilState",
+   "status": "complete",
+   "members": {
+    "new()": "complete",
+    "Dispose(Boolean)": "not-applicable",
+    "ReferenceStencil": "complete",
+    "StencilWriteMask": "complete",
+    "StencilMask": "complete",
+    "CounterClockwiseStencilDepthBufferFail": "complete",
+    "CounterClockwiseStencilFail": "complete",
+    "CounterClockwiseStencilPass": "complete",
+    "CounterClockwiseStencilFunction": "complete",
+    "TwoSidedStencilMode": "complete",
+    "StencilDepthBufferFail": "complete",
+    "StencilFail": "complete",
+    "StencilPass": "complete",
+    "StencilFunction": "complete",
+    "StencilEnable": "complete",
+    "DepthBufferFunction": "complete",
+    "DepthBufferWriteEnable": "complete",
+    "DepthBufferEnable": "complete",
+    "None": "complete",
+    "Default": "complete",
+    "DepthRead": "complete"
+   },
+   "lisp": "microsoft.xna.framework.graphics:depth-stencil-state"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Graphics.RasterizerState",
+   "status": "complete",
+   "members": {
+    "new()": "complete",
+    "Dispose(Boolean)": "not-applicable",
+    "SlopeScaleDepthBias": "complete",
+    "DepthBias": "complete",
+    "MultiSampleAntiAlias": "complete",
+    "ScissorTestEnable": "complete",
+    "FillMode": "complete",
+    "CullMode": "complete",
+    "CullNone": "complete",
+    "CullClockwise": "complete",
+    "CullCounterClockwise": "complete"
+   },
+   "lisp": "microsoft.xna.framework.graphics:rasterizer-state"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Graphics.SamplerState",
+   "status": "complete",
+   "members": {
+    "new()": "complete",
+    "Dispose(Boolean)": "not-applicable",
+    "MipMapLevelOfDetailBias": "complete",
+    "MaxMipLevel": "complete",
+    "MaxAnisotropy": "complete",
+    "AddressW": "complete",
+    "AddressV": "complete",
+    "AddressU": "complete",
+    "Filter": "complete",
+    "PointWrap": "complete",
+    "PointClamp": "complete",
+    "LinearWrap": "complete",
+    "LinearClamp": "complete",
+    "AnisotropicWrap": "complete",
+    "AnisotropicClamp": "complete"
+   },
+   "lisp": "microsoft.xna.framework.graphics:sampler-state"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Graphics.SamplerStateCollection",
+   "status": "complete",
+   "members": {
+    "Item(Int32)": "complete"
+   },
+   "lisp": "microsoft.xna.framework.graphics:sampler-state-collection"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Graphics.TextureCollection",
+   "status": "complete",
+   "members": {
+    "Item(Int32)": "complete"
+   },
+   "lisp": "microsoft.xna.framework.graphics:texture-collection"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Graphics.VertexElementFormat",
+   "status": "complete",
+   "members": {
+    "value__": "not-applicable",
+    "Single": "complete",
+    "Vector2": "complete",
+    "Vector3": "complete",
+    "Vector4": "complete",
+    "Color": "complete",
+    "Byte4": "complete",
+    "Short2": "complete",
+    "Short4": "complete",
+    "NormalizedShort2": "complete",
+    "NormalizedShort4": "complete",
+    "HalfVector2": "complete",
+    "HalfVector4": "complete"
+   },
+   "lisp": "microsoft.xna.framework.graphics:vertex-element-format"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Graphics.VertexElementUsage",
+   "status": "complete",
+   "members": {
+    "value__": "not-applicable",
+    "Position": "complete",
+    "Color": "complete",
+    "TextureCoordinate": "complete",
+    "Normal": "complete",
+    "Binormal": "complete",
+    "Tangent": "complete",
+    "BlendIndices": "complete",
+    "BlendWeight": "complete",
+    "Depth": "complete",
+    "Fog": "complete",
+    "PointSize": "complete",
+    "Sample": "complete",
+    "TessellateFactor": "complete"
+   },
+   "lisp": "microsoft.xna.framework.graphics:vertex-element-usage"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Graphics.VertexElement",
+   "status": "complete",
+   "members": {
+    "new(Int32,VertexElementFormat,VertexElementUsage,Int32)": "complete",
+    "GetHashCode()": "not-applicable",
+    "ToString()": "not-applicable",
+    "Equals(Object)": "complete",
+    "op_Equality(VertexElement,VertexElement)": "complete",
+    "op_Inequality(VertexElement,VertexElement)": "not-applicable",
+    "Offset": "complete",
+    "VertexElementFormat": "complete",
+    "VertexElementUsage": "complete",
+    "UsageIndex": "complete"
+   },
+   "lisp": "microsoft.xna.framework.graphics:vertex-element"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Graphics.VertexDeclaration",
+   "status": "complete",
+   "members": {
+    "new(Int32,VertexElement[])": "complete",
+    "new(VertexElement[])": "complete",
+    "GetVertexElements()": "complete",
+    "Dispose(Boolean)": "not-applicable",
+    "VertexStride": "complete"
+   },
+   "lisp": "microsoft.xna.framework.graphics:vertex-declaration"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Graphics.IVertexType",
+   "status": "complete",
+   "members": {
+    "VertexDeclaration": "complete"
+   },
+   "projection": "interface: its members are generic functions in microsoft.xna.framework.graphics"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Graphics.VertexPositionColor",
+   "status": "complete",
+   "members": {
+    "new(Vector3,Color)": "complete",
+    "GetHashCode()": "not-applicable",
+    "ToString()": "not-applicable",
+    "op_Equality(VertexPositionColor,VertexPositionColor)": "complete",
+    "op_Inequality(VertexPositionColor,VertexPositionColor)": "not-applicable",
+    "Equals(Object)": "complete",
+    "Position": "complete",
+    "Color": "complete",
+    "VertexDeclaration": "complete"
+   },
+   "lisp": "microsoft.xna.framework.graphics:vertex-position-color"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Graphics.VertexPositionTexture",
+   "status": "complete",
+   "members": {
+    "new(Vector3,Vector2)": "complete",
+    "GetHashCode()": "not-applicable",
+    "ToString()": "not-applicable",
+    "op_Equality(VertexPositionTexture,VertexPositionTexture)": "complete",
+    "op_Inequality(VertexPositionTexture,VertexPositionTexture)": "not-applicable",
+    "Equals(Object)": "complete",
+    "Position": "complete",
+    "TextureCoordinate": "complete",
+    "VertexDeclaration": "complete"
+   },
+   "lisp": "microsoft.xna.framework.graphics:vertex-position-texture"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Graphics.VertexPositionColorTexture",
+   "status": "complete",
+   "members": {
+    "new(Vector3,Color,Vector2)": "complete",
+    "GetHashCode()": "not-applicable",
+    "ToString()": "not-applicable",
+    "op_Equality(VertexPositionColorTexture,VertexPositionColorTexture)": "complete",
+    "op_Inequality(VertexPositionColorTexture,VertexPositionColorTexture)": "not-applicable",
+    "Equals(Object)": "complete",
+    "Position": "complete",
+    "Color": "complete",
+    "TextureCoordinate": "complete",
+    "VertexDeclaration": "complete"
+   },
+   "lisp": "microsoft.xna.framework.graphics:vertex-position-color-texture"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Graphics.VertexPositionNormalTexture",
+   "status": "complete",
+   "members": {
+    "new(Vector3,Vector3,Vector2)": "complete",
+    "GetHashCode()": "not-applicable",
+    "ToString()": "not-applicable",
+    "op_Equality(VertexPositionNormalTexture,VertexPositionNormalTexture)": "complete",
+    "op_Inequality(VertexPositionNormalTexture,VertexPositionNormalTexture)": "not-applicable",
+    "Equals(Object)": "complete",
+    "Position": "complete",
+    "Normal": "complete",
+    "TextureCoordinate": "complete",
+    "VertexDeclaration": "complete"
+   },
+   "lisp": "microsoft.xna.framework.graphics:vertex-position-normal-texture"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Graphics.BufferUsage",
+   "status": "complete",
+   "members": {
+    "value__": "not-applicable",
+    "None": "complete",
+    "WriteOnly": "complete"
+   },
+   "lisp": "microsoft.xna.framework.graphics:buffer-usage"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Graphics.IndexElementSize",
+   "status": "complete",
+   "members": {
+    "value__": "not-applicable",
+    "SixteenBits": "complete",
+    "ThirtyTwoBits": "complete"
+   },
+   "lisp": "microsoft.xna.framework.graphics:index-element-size"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Graphics.SetDataOptions",
+   "status": "complete",
+   "members": {
+    "value__": "not-applicable",
+    "None": "complete",
+    "Discard": "complete",
+    "NoOverwrite": "complete"
+   },
+   "lisp": "microsoft.xna.framework.graphics:set-data-options"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Graphics.PrimitiveType",
+   "status": "complete",
+   "members": {
+    "value__": "not-applicable",
+    "TriangleList": "complete",
+    "TriangleStrip": "complete",
+    "LineList": "complete",
+    "LineStrip": "complete"
+   },
+   "lisp": "microsoft.xna.framework.graphics:primitive-type"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Graphics.VertexBuffer",
+   "status": "complete",
+   "members": {
+    "new(GraphicsDevice,Type,Int32,BufferUsage)": "complete",
+    "new(GraphicsDevice,VertexDeclaration,Int32,BufferUsage)": "complete",
+    "SetData(!!0[])": "complete",
+    "SetData(!!0[],Int32,Int32)": "complete",
+    "SetData(Int32,!!0[],Int32,Int32,Int32)": "complete",
+    "GetData(!!0[])": "complete",
+    "GetData(!!0[],Int32,Int32)": "complete",
+    "GetData(Int32,!!0[],Int32,Int32,Int32)": "complete",
+    "Dispose(Boolean)": "not-applicable",
+    "VertexDeclaration": "complete",
+    "VertexCount": "complete",
+    "BufferUsage": "complete"
+   },
+   "lisp": "microsoft.xna.framework.graphics:vertex-buffer"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Graphics.DynamicVertexBuffer",
+   "status": "complete",
+   "members": {
+    "new(GraphicsDevice,Type,Int32,BufferUsage)": "complete",
+    "new(GraphicsDevice,VertexDeclaration,Int32,BufferUsage)": "complete",
+    "SetData(!!0[],Int32,Int32,SetDataOptions)": "complete",
+    "SetData(Int32,!!0[],Int32,Int32,Int32,SetDataOptions)": "complete",
+    "IsContentLost": "complete",
+    "ContentLost": "complete"
+   },
+   "lisp": "microsoft.xna.framework.graphics:dynamic-vertex-buffer"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Graphics.IndexBuffer",
+   "status": "complete",
+   "members": {
+    "new(GraphicsDevice,Type,Int32,BufferUsage)": "complete",
+    "new(GraphicsDevice,IndexElementSize,Int32,BufferUsage)": "complete",
+    "SetData(!!0[])": "complete",
+    "SetData(!!0[],Int32,Int32)": "complete",
+    "SetData(Int32,!!0[],Int32,Int32)": "complete",
+    "GetData(!!0[])": "complete",
+    "GetData(!!0[],Int32,Int32)": "complete",
+    "GetData(Int32,!!0[],Int32,Int32)": "complete",
+    "Dispose(Boolean)": "not-applicable",
+    "IndexCount": "complete",
+    "IndexElementSize": "complete",
+    "BufferUsage": "complete"
+   },
+   "lisp": "microsoft.xna.framework.graphics:index-buffer"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Graphics.DynamicIndexBuffer",
+   "status": "complete",
+   "members": {
+    "new(GraphicsDevice,Type,Int32,BufferUsage)": "complete",
+    "new(GraphicsDevice,IndexElementSize,Int32,BufferUsage)": "complete",
+    "SetData(!!0[],Int32,Int32,SetDataOptions)": "complete",
+    "SetData(Int32,!!0[],Int32,Int32,SetDataOptions)": "complete",
+    "IsContentLost": "complete",
+    "ContentLost": "complete"
+   },
+   "lisp": "microsoft.xna.framework.graphics:dynamic-index-buffer"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Graphics.VertexBufferBinding",
+   "status": "complete",
+   "members": {
+    "new(VertexBuffer,Int32,Int32)": "complete",
+    "new(VertexBuffer,Int32)": "complete",
+    "new(VertexBuffer)": "complete",
+    "op_Implicit(VertexBuffer)": "complete",
+    "InstanceFrequency": "complete",
+    "VertexOffset": "complete",
+    "VertexBuffer": "complete"
+   },
+   "lisp": "microsoft.xna.framework.graphics:vertex-buffer-binding"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Graphics.Effect",
+   "status": "partial",
+   "members": {
+    "new(GraphicsDevice,Byte[])": "complete",
+    "new(Effect)": "not-applicable",
+    "Clone()": "complete",
+    "OnApply()": "missing",
+    "Dispose(Boolean)": "not-applicable",
+    "Parameters": "complete",
+    "Techniques": "complete",
+    "CurrentTechnique": "complete"
+   },
+   "lisp": "microsoft.xna.framework.graphics:effect"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Graphics.EffectTechnique",
+   "status": "complete",
+   "members": {
+    "Annotations": "complete",
+    "Passes": "complete",
+    "Name": "complete"
+   },
+   "lisp": "microsoft.xna.framework.graphics:effect-technique"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Graphics.EffectTechniqueCollection",
+   "status": "complete",
+   "members": {
+    "GetEnumerator()": "complete",
+    "Item(Int32)": "complete",
+    "Item(String)": "complete",
+    "Count": "complete"
+   },
+   "lisp": "microsoft.xna.framework.graphics:effect-technique-collection"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Graphics.EffectPass",
+   "status": "complete",
+   "members": {
+    "Apply()": "complete",
+    "Annotations": "complete",
+    "Name": "complete"
+   },
+   "lisp": "microsoft.xna.framework.graphics:effect-pass"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Graphics.EffectPassCollection",
+   "status": "complete",
+   "members": {
+    "GetEnumerator()": "complete",
+    "Item(Int32)": "complete",
+    "Item(String)": "complete",
+    "Count": "complete"
+   },
+   "lisp": "microsoft.xna.framework.graphics:effect-pass-collection"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Graphics.EffectParameter",
+   "status": "complete",
+   "members": {
+    "SetValue(Texture)": "complete",
+    "SetValue(String)": "complete",
+    "SetValue(Matrix[])": "complete",
+    "SetValue(Matrix)": "complete",
+    "SetValue(Quaternion[])": "complete",
+    "SetValue(Quaternion)": "complete",
+    "SetValue(Vector4[])": "complete",
+    "SetValue(Vector4)": "complete",
+    "SetValue(Vector3[])": "complete",
+    "SetValue(Vector3)": "complete",
+    "SetValue(Vector2[])": "complete",
+    "SetValue(Vector2)": "complete",
+    "SetValue(Single[])": "complete",
+    "SetValue(Single)": "complete",
+    "SetValue(Int32[])": "complete",
+    "SetValue(Int32)": "complete",
+    "SetValue(Boolean[])": "complete",
+    "SetValue(Boolean)": "complete",
+    "SetValueTranspose(Matrix[])": "complete",
+    "SetValueTranspose(Matrix)": "complete",
+    "GetValueBoolean()": "complete",
+    "GetValueBooleanArray(Int32)": "complete",
+    "GetValueInt32()": "complete",
+    "GetValueInt32Array(Int32)": "complete",
+    "GetValueSingle()": "complete",
+    "GetValueSingleArray(Int32)": "complete",
+    "GetValueVector2()": "complete",
+    "GetValueVector2Array(Int32)": "complete",
+    "GetValueVector3()": "complete",
+    "GetValueVector3Array(Int32)": "complete",
+    "GetValueVector4()": "complete",
+    "GetValueVector4Array(Int32)": "complete",
+    "GetValueQuaternion()": "complete",
+    "GetValueQuaternionArray(Int32)": "complete",
+    "GetValueMatrix()": "complete",
+    "GetValueMatrixArray(Int32)": "complete",
+    "GetValueMatrixTranspose()": "complete",
+    "GetValueMatrixTransposeArray(Int32)": "complete",
+    "GetValueString()": "complete",
+    "GetValueTexture2D()": "complete",
+    "GetValueTextureCube()": "complete",
+    "GetValueTexture3D()": "complete",
+    "ParameterType": "complete",
+    "ParameterClass": "complete",
+    "Elements": "complete",
+    "StructureMembers": "complete",
+    "ColumnCount": "complete",
+    "RowCount": "complete",
+    "Annotations": "complete",
+    "Semantic": "complete",
+    "Name": "complete"
+   },
+   "lisp": "microsoft.xna.framework.graphics:effect-parameter"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Graphics.EffectParameterCollection",
+   "status": "complete",
+   "members": {
+    "GetParameterBySemantic(String)": "complete",
+    "GetEnumerator()": "complete",
+    "Item(Int32)": "complete",
+    "Item(String)": "complete",
+    "Count": "complete"
+   },
+   "lisp": "microsoft.xna.framework.graphics:effect-parameter-collection"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Graphics.EffectAnnotation",
+   "status": "complete",
+   "members": {
+    "GetValueBoolean()": "complete",
+    "GetValueInt32()": "complete",
+    "GetValueSingle()": "complete",
+    "GetValueVector2()": "complete",
+    "GetValueVector3()": "complete",
+    "GetValueVector4()": "complete",
+    "GetValueMatrix()": "complete",
+    "GetValueString()": "complete",
+    "ParameterType": "complete",
+    "ParameterClass": "complete",
+    "ColumnCount": "complete",
+    "RowCount": "complete",
+    "Semantic": "complete",
+    "Name": "complete"
+   },
+   "lisp": "microsoft.xna.framework.graphics:effect-annotation"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Graphics.EffectAnnotationCollection",
+   "status": "complete",
+   "members": {
+    "GetEnumerator()": "complete",
+    "Item(Int32)": "complete",
+    "Item(String)": "complete",
+    "Count": "complete"
+   },
+   "lisp": "microsoft.xna.framework.graphics:effect-annotation-collection"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Graphics.EffectParameterClass",
+   "status": "complete",
+   "members": {
+    "value__": "not-applicable",
+    "Scalar": "complete",
+    "Vector": "complete",
+    "Matrix": "complete",
+    "Object": "complete",
+    "Struct": "complete"
+   },
+   "lisp": "microsoft.xna.framework.graphics:effect-parameter-class"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Graphics.EffectParameterType",
+   "status": "complete",
+   "members": {
+    "value__": "not-applicable",
+    "Void": "complete",
+    "Bool": "complete",
+    "Int32": "complete",
+    "Single": "complete",
+    "String": "complete",
+    "Texture": "complete",
+    "Texture1D": "complete",
+    "Texture2D": "complete",
+    "Texture3D": "complete",
+    "TextureCube": "complete"
+   },
+   "lisp": "microsoft.xna.framework.graphics:effect-parameter-type"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Graphics.IEffectMatrices",
+   "status": "complete",
+   "members": {
+    "World": "complete",
+    "View": "complete",
+    "Projection": "complete"
+   },
+   "projection": "interface: its members are generic functions in microsoft.xna.framework.graphics"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Graphics.IEffectLights",
+   "status": "complete",
+   "members": {
+    "EnableDefaultLighting()": "complete",
+    "DirectionalLight0": "complete",
+    "DirectionalLight1": "complete",
+    "DirectionalLight2": "complete",
+    "AmbientLightColor": "complete",
+    "LightingEnabled": "complete"
+   },
+   "projection": "interface: its members are generic functions in microsoft.xna.framework.graphics"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Graphics.IEffectFog",
+   "status": "complete",
+   "members": {
+    "FogEnabled": "complete",
+    "FogStart": "complete",
+    "FogEnd": "complete",
+    "FogColor": "complete"
+   },
+   "projection": "interface: its members are generic functions in microsoft.xna.framework.graphics"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Graphics.DirectionalLight",
+   "status": "partial",
+   "members": {
+    "new(EffectParameter,EffectParameter,EffectParameter,DirectionalLight)": "missing",
+    "Enabled": "complete",
+    "Direction": "complete",
+    "DiffuseColor": "complete",
+    "SpecularColor": "complete"
+   },
+   "lisp": "microsoft.xna.framework.graphics:directional-light"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Graphics.BasicEffect",
+   "status": "partial",
+   "members": {
+    "new(GraphicsDevice)": "complete",
+    "new(BasicEffect)": "not-applicable",
+    "Clone()": "complete",
+    "EnableDefaultLighting()": "complete",
+    "OnApply()": "missing",
+    "World": "partial",
+    "View": "partial",
+    "Projection": "partial",
+    "DiffuseColor": "complete",
+    "EmissiveColor": "complete",
+    "SpecularColor": "complete",
+    "SpecularPower": "complete",
+    "Alpha": "complete",
+    "LightingEnabled": "complete",
+    "PreferPerPixelLighting": "complete",
+    "AmbientLightColor": "complete",
+    "DirectionalLight0": "complete",
+    "DirectionalLight1": "complete",
+    "DirectionalLight2": "complete",
+    "FogEnabled": "complete",
+    "FogStart": "complete",
+    "FogEnd": "complete",
+    "FogColor": "complete",
+    "TextureEnabled": "complete",
+    "Texture": "complete",
+    "VertexColorEnabled": "complete"
+   },
+   "lisp": "microsoft.xna.framework.graphics:basic-effect"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Graphics.AlphaTestEffect",
+   "status": "complete",
+   "members": {
+    "new(GraphicsDevice)": "complete",
+    "new(AlphaTestEffect)": "not-applicable",
+    "Clone()": "complete",
+    "OnApply()": "not-applicable",
+    "World": "complete",
+    "View": "complete",
+    "Projection": "complete",
+    "DiffuseColor": "complete",
+    "Alpha": "complete",
+    "FogEnabled": "complete",
+    "FogStart": "complete",
+    "FogEnd": "complete",
+    "FogColor": "complete",
+    "Texture": "complete",
+    "VertexColorEnabled": "complete",
+    "AlphaFunction": "complete",
+    "ReferenceAlpha": "complete"
+   },
+   "lisp": "microsoft.xna.framework.graphics:alpha-test-effect"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Graphics.DualTextureEffect",
+   "status": "complete",
+   "members": {
+    "new(GraphicsDevice)": "complete",
+    "new(DualTextureEffect)": "not-applicable",
+    "Clone()": "complete",
+    "OnApply()": "not-applicable",
+    "World": "complete",
+    "View": "complete",
+    "Projection": "complete",
+    "DiffuseColor": "complete",
+    "Alpha": "complete",
+    "FogEnabled": "complete",
+    "FogStart": "complete",
+    "FogEnd": "complete",
+    "FogColor": "complete",
+    "Texture": "complete",
+    "Texture2": "complete",
+    "VertexColorEnabled": "complete"
+   },
+   "lisp": "microsoft.xna.framework.graphics:dual-texture-effect"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Graphics.SkinnedEffect",
+   "status": "complete",
+   "members": {
+    "new(GraphicsDevice)": "complete",
+    "new(SkinnedEffect)": "not-applicable",
+    "SetBoneTransforms(Matrix[])": "complete",
+    "GetBoneTransforms(Int32)": "complete",
+    "Clone()": "complete",
+    "EnableDefaultLighting()": "complete",
+    "OnApply()": "not-applicable",
+    "World": "complete",
+    "View": "complete",
+    "Projection": "complete",
+    "DiffuseColor": "complete",
+    "EmissiveColor": "complete",
+    "SpecularColor": "complete",
+    "SpecularPower": "complete",
+    "Alpha": "complete",
+    "PreferPerPixelLighting": "complete",
+    "AmbientLightColor": "complete",
+    "DirectionalLight0": "complete",
+    "DirectionalLight1": "complete",
+    "DirectionalLight2": "complete",
+    "FogEnabled": "complete",
+    "FogStart": "complete",
+    "FogEnd": "complete",
+    "FogColor": "complete",
+    "Texture": "complete",
+    "WeightsPerVertex": "complete",
+    "MaxBones": "complete"
+   },
+   "lisp": "microsoft.xna.framework.graphics:skinned-effect"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Graphics.EnvironmentMapEffect",
+   "status": "complete",
+   "members": {
+    "new(GraphicsDevice)": "complete",
+    "new(EnvironmentMapEffect)": "not-applicable",
+    "Clone()": "complete",
+    "EnableDefaultLighting()": "complete",
+    "OnApply()": "not-applicable",
+    "World": "complete",
+    "View": "complete",
+    "Projection": "complete",
+    "DiffuseColor": "complete",
+    "EmissiveColor": "complete",
+    "Alpha": "complete",
+    "AmbientLightColor": "complete",
+    "DirectionalLight0": "complete",
+    "DirectionalLight1": "complete",
+    "DirectionalLight2": "complete",
+    "FogEnabled": "complete",
+    "FogStart": "complete",
+    "FogEnd": "complete",
+    "FogColor": "complete",
+    "Texture": "complete",
+    "EnvironmentMap": "complete",
+    "EnvironmentMapAmount": "complete",
+    "EnvironmentMapSpecular": "complete",
+    "FresnelFactor": "complete"
+   },
+   "lisp": "microsoft.xna.framework.graphics:environment-map-effect"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Graphics.TextureCube",
+   "status": "partial",
+   "members": {
+    "new(GraphicsDevice,Int32,Boolean,SurfaceFormat)": "complete",
+    "SetData(CubeMapFace,!!0[])": "partial",
+    "SetData(CubeMapFace,!!0[],Int32,Int32)": "partial",
+    "SetData(CubeMapFace,Int32,Nullable`1,!!0[],Int32,Int32)": "partial",
+    "GetData(CubeMapFace,!!0[])": "partial",
+    "GetData(CubeMapFace,!!0[],Int32,Int32)": "partial",
+    "GetData(CubeMapFace,Int32,Nullable`1,!!0[],Int32,Int32)": "partial",
+    "Dispose(Boolean)": "not-applicable",
+    "Size": "complete"
+   },
+   "lisp": "microsoft.xna.framework.graphics:texture-cube"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Graphics.CubeMapFace",
+   "status": "complete",
+   "members": {
+    "value__": "not-applicable",
+    "PositiveX": "complete",
+    "NegativeX": "complete",
+    "PositiveY": "complete",
+    "NegativeY": "complete",
+    "PositiveZ": "complete",
+    "NegativeZ": "complete"
+   },
+   "lisp": "microsoft.xna.framework.graphics:cube-map-face"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Graphics.Texture3D",
+   "status": "partial",
+   "members": {
+    "new(GraphicsDevice,Int32,Int32,Int32,Boolean,SurfaceFormat)": "complete",
+    "SetData(!!0[])": "partial",
+    "SetData(!!0[],Int32,Int32)": "partial",
+    "SetData(Int32,Int32,Int32,Int32,Int32,Int32,Int32,!!0[],Int32,Int32)": "partial",
+    "GetData(!!0[])": "partial",
+    "GetData(!!0[],Int32,Int32)": "partial",
+    "GetData(Int32,Int32,Int32,Int32,Int32,Int32,Int32,!!0[],Int32,Int32)": "partial",
+    "Dispose(Boolean)": "not-applicable",
+    "Depth": "complete",
+    "Height": "complete",
+    "Width": "complete"
+   },
+   "lisp": "microsoft.xna.framework.graphics:texture-3d"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Graphics.PackedVector.Alpha8",
+   "status": "complete",
+   "members": {
+    "new(Single)": "complete",
+    "ToAlpha()": "complete",
+    "ToString()": "not-applicable",
+    "GetHashCode()": "not-applicable",
+    "Equals(Object)": "not-applicable",
+    "Equals(Alpha8)": "complete",
+    "op_Equality(Alpha8,Alpha8)": "complete",
+    "op_Inequality(Alpha8,Alpha8)": "not-applicable",
+    "PackedValue": "complete"
+   },
+   "lisp": "microsoft.xna.framework.graphics.packed-vector:alpha8"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Graphics.PackedVector.Bgr565",
+   "status": "complete",
+   "members": {
+    "new(Single,Single,Single)": "complete",
+    "new(Vector3)": "complete",
+    "ToVector3()": "complete",
+    "ToString()": "not-applicable",
+    "GetHashCode()": "not-applicable",
+    "Equals(Object)": "not-applicable",
+    "Equals(Bgr565)": "complete",
+    "op_Equality(Bgr565,Bgr565)": "complete",
+    "op_Inequality(Bgr565,Bgr565)": "not-applicable",
+    "PackedValue": "complete"
+   },
+   "lisp": "microsoft.xna.framework.graphics.packed-vector:bgr565"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Graphics.PackedVector.Bgra4444",
+   "status": "complete",
+   "members": {
+    "new(Single,Single,Single,Single)": "complete",
+    "new(Vector4)": "complete",
+    "ToVector4()": "complete",
+    "ToString()": "not-applicable",
+    "GetHashCode()": "not-applicable",
+    "Equals(Object)": "not-applicable",
+    "Equals(Bgra4444)": "complete",
+    "op_Equality(Bgra4444,Bgra4444)": "complete",
+    "op_Inequality(Bgra4444,Bgra4444)": "not-applicable",
+    "PackedValue": "complete"
+   },
+   "lisp": "microsoft.xna.framework.graphics.packed-vector:bgra4444"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Graphics.PackedVector.Bgra5551",
+   "status": "complete",
+   "members": {
+    "new(Single,Single,Single,Single)": "complete",
+    "new(Vector4)": "complete",
+    "ToVector4()": "complete",
+    "ToString()": "not-applicable",
+    "GetHashCode()": "not-applicable",
+    "Equals(Object)": "not-applicable",
+    "Equals(Bgra5551)": "complete",
+    "op_Equality(Bgra5551,Bgra5551)": "complete",
+    "op_Inequality(Bgra5551,Bgra5551)": "not-applicable",
+    "PackedValue": "complete"
+   },
+   "lisp": "microsoft.xna.framework.graphics.packed-vector:bgra5551"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Graphics.PackedVector.Byte4",
+   "status": "complete",
+   "members": {
+    "new(Single,Single,Single,Single)": "complete",
+    "new(Vector4)": "complete",
+    "ToVector4()": "complete",
+    "ToString()": "not-applicable",
+    "GetHashCode()": "not-applicable",
+    "Equals(Object)": "not-applicable",
+    "Equals(Byte4)": "complete",
+    "op_Equality(Byte4,Byte4)": "complete",
+    "op_Inequality(Byte4,Byte4)": "not-applicable",
+    "PackedValue": "complete"
+   },
+   "lisp": "microsoft.xna.framework.graphics.packed-vector:byte4"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Graphics.PackedVector.HalfSingle",
+   "status": "complete",
+   "members": {
+    "new(Single)": "complete",
+    "ToSingle()": "complete",
+    "ToString()": "not-applicable",
+    "GetHashCode()": "not-applicable",
+    "Equals(Object)": "not-applicable",
+    "Equals(HalfSingle)": "complete",
+    "op_Equality(HalfSingle,HalfSingle)": "complete",
+    "op_Inequality(HalfSingle,HalfSingle)": "not-applicable",
+    "PackedValue": "complete"
+   },
+   "lisp": "microsoft.xna.framework.graphics.packed-vector:half-single"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Graphics.PackedVector.HalfVector2",
+   "status": "complete",
+   "members": {
+    "new(Single,Single)": "complete",
+    "new(Vector2)": "complete",
+    "ToVector2()": "complete",
+    "ToString()": "not-applicable",
+    "GetHashCode()": "not-applicable",
+    "Equals(Object)": "not-applicable",
+    "Equals(HalfVector2)": "complete",
+    "op_Equality(HalfVector2,HalfVector2)": "complete",
+    "op_Inequality(HalfVector2,HalfVector2)": "not-applicable",
+    "PackedValue": "complete"
+   },
+   "lisp": "microsoft.xna.framework.graphics.packed-vector:half-vector2"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Graphics.PackedVector.HalfVector4",
+   "status": "complete",
+   "members": {
+    "new(Single,Single,Single,Single)": "complete",
+    "new(Vector4)": "complete",
+    "ToVector4()": "complete",
+    "ToString()": "not-applicable",
+    "GetHashCode()": "not-applicable",
+    "Equals(Object)": "not-applicable",
+    "Equals(HalfVector4)": "complete",
+    "op_Equality(HalfVector4,HalfVector4)": "complete",
+    "op_Inequality(HalfVector4,HalfVector4)": "not-applicable",
+    "PackedValue": "complete"
+   },
+   "lisp": "microsoft.xna.framework.graphics.packed-vector:half-vector4"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Graphics.PackedVector.NormalizedByte2",
+   "status": "complete",
+   "members": {
+    "new(Single,Single)": "complete",
+    "new(Vector2)": "complete",
+    "ToVector2()": "complete",
+    "ToString()": "not-applicable",
+    "GetHashCode()": "not-applicable",
+    "Equals(Object)": "not-applicable",
+    "Equals(NormalizedByte2)": "complete",
+    "op_Equality(NormalizedByte2,NormalizedByte2)": "complete",
+    "op_Inequality(NormalizedByte2,NormalizedByte2)": "not-applicable",
+    "PackedValue": "complete"
+   },
+   "lisp": "microsoft.xna.framework.graphics.packed-vector:normalized-byte2"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Graphics.PackedVector.NormalizedByte4",
+   "status": "complete",
+   "members": {
+    "new(Single,Single,Single,Single)": "complete",
+    "new(Vector4)": "complete",
+    "ToVector4()": "complete",
+    "ToString()": "not-applicable",
+    "GetHashCode()": "not-applicable",
+    "Equals(Object)": "not-applicable",
+    "Equals(NormalizedByte4)": "complete",
+    "op_Equality(NormalizedByte4,NormalizedByte4)": "complete",
+    "op_Inequality(NormalizedByte4,NormalizedByte4)": "not-applicable",
+    "PackedValue": "complete"
+   },
+   "lisp": "microsoft.xna.framework.graphics.packed-vector:normalized-byte4"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Graphics.PackedVector.NormalizedShort2",
+   "status": "complete",
+   "members": {
+    "new(Single,Single)": "complete",
+    "new(Vector2)": "complete",
+    "ToVector2()": "complete",
+    "ToString()": "not-applicable",
+    "GetHashCode()": "not-applicable",
+    "Equals(Object)": "not-applicable",
+    "Equals(NormalizedShort2)": "complete",
+    "op_Equality(NormalizedShort2,NormalizedShort2)": "complete",
+    "op_Inequality(NormalizedShort2,NormalizedShort2)": "not-applicable",
+    "PackedValue": "complete"
+   },
+   "lisp": "microsoft.xna.framework.graphics.packed-vector:normalized-short2"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Graphics.PackedVector.NormalizedShort4",
+   "status": "complete",
+   "members": {
+    "new(Single,Single,Single,Single)": "complete",
+    "new(Vector4)": "complete",
+    "ToVector4()": "complete",
+    "ToString()": "not-applicable",
+    "GetHashCode()": "not-applicable",
+    "Equals(Object)": "not-applicable",
+    "Equals(NormalizedShort4)": "complete",
+    "op_Equality(NormalizedShort4,NormalizedShort4)": "complete",
+    "op_Inequality(NormalizedShort4,NormalizedShort4)": "not-applicable",
+    "PackedValue": "complete"
+   },
+   "lisp": "microsoft.xna.framework.graphics.packed-vector:normalized-short4"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Graphics.PackedVector.Rg32",
+   "status": "complete",
+   "members": {
+    "new(Single,Single)": "complete",
+    "new(Vector2)": "complete",
+    "ToVector2()": "complete",
+    "ToString()": "not-applicable",
+    "GetHashCode()": "not-applicable",
+    "Equals(Object)": "not-applicable",
+    "Equals(Rg32)": "complete",
+    "op_Equality(Rg32,Rg32)": "complete",
+    "op_Inequality(Rg32,Rg32)": "not-applicable",
+    "PackedValue": "complete"
+   },
+   "lisp": "microsoft.xna.framework.graphics.packed-vector:rg32"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Graphics.PackedVector.Rgba1010102",
+   "status": "complete",
+   "members": {
+    "new(Single,Single,Single,Single)": "complete",
+    "new(Vector4)": "complete",
+    "ToVector4()": "complete",
+    "ToString()": "not-applicable",
+    "GetHashCode()": "not-applicable",
+    "Equals(Object)": "not-applicable",
+    "Equals(Rgba1010102)": "complete",
+    "op_Equality(Rgba1010102,Rgba1010102)": "complete",
+    "op_Inequality(Rgba1010102,Rgba1010102)": "not-applicable",
+    "PackedValue": "complete"
+   },
+   "lisp": "microsoft.xna.framework.graphics.packed-vector:rgba1010102"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Graphics.PackedVector.Rgba64",
+   "status": "complete",
+   "members": {
+    "new(Single,Single,Single,Single)": "complete",
+    "new(Vector4)": "complete",
+    "ToVector4()": "complete",
+    "ToString()": "not-applicable",
+    "GetHashCode()": "not-applicable",
+    "Equals(Object)": "not-applicable",
+    "Equals(Rgba64)": "complete",
+    "op_Equality(Rgba64,Rgba64)": "complete",
+    "op_Inequality(Rgba64,Rgba64)": "not-applicable",
+    "PackedValue": "complete"
+   },
+   "lisp": "microsoft.xna.framework.graphics.packed-vector:rgba64"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Graphics.PackedVector.Short2",
+   "status": "complete",
+   "members": {
+    "new(Single,Single)": "complete",
+    "new(Vector2)": "complete",
+    "ToVector2()": "complete",
+    "ToString()": "not-applicable",
+    "GetHashCode()": "not-applicable",
+    "Equals(Object)": "not-applicable",
+    "Equals(Short2)": "complete",
+    "op_Equality(Short2,Short2)": "complete",
+    "op_Inequality(Short2,Short2)": "not-applicable",
+    "PackedValue": "complete"
+   },
+   "lisp": "microsoft.xna.framework.graphics.packed-vector:short2"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Graphics.PackedVector.Short4",
+   "status": "complete",
+   "members": {
+    "new(Single,Single,Single,Single)": "complete",
+    "new(Vector4)": "complete",
+    "ToVector4()": "complete",
+    "ToString()": "not-applicable",
+    "GetHashCode()": "not-applicable",
+    "Equals(Object)": "not-applicable",
+    "Equals(Short4)": "complete",
+    "op_Equality(Short4,Short4)": "complete",
+    "op_Inequality(Short4,Short4)": "not-applicable",
+    "PackedValue": "complete"
+   },
+   "lisp": "microsoft.xna.framework.graphics.packed-vector:short4"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Input.Keyboard",
+   "status": "complete",
+   "members": {
+    "GetState()": "complete",
+    "GetState(PlayerIndex)": "complete"
+   },
+   "projection": "static class: microsoft.xna.framework.input:keyboard-<member>"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Input.KeyboardState",
+   "status": "complete",
+   "members": {
+    "new(Keys[])": "complete",
+    "IsKeyDown(Keys)": "complete",
+    "IsKeyUp(Keys)": "complete",
+    "GetPressedKeys()": "complete",
+    "GetHashCode()": "not-applicable",
+    "Equals(Object)": "not-applicable",
+    "op_Equality(KeyboardState,KeyboardState)": "complete",
+    "op_Inequality(KeyboardState,KeyboardState)": "not-applicable",
+    "Item(Keys)": "complete"
+   },
+   "lisp": "microsoft.xna.framework.input:keyboard-state"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Input.KeyState",
+   "status": "complete",
+   "members": {
+    "value__": "not-applicable",
+    "Down": "complete",
+    "Up": "complete"
+   },
+   "lisp": "microsoft.xna.framework.input:key-state"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Input.Keys",
+   "status": "complete",
+   "members": {
+    "value__": "not-applicable",
+    "A": "complete",
+    "Add": "complete",
+    "Apps": "complete",
+    "Attn": "complete",
+    "B": "complete",
+    "Back": "complete",
+    "BrowserBack": "complete",
+    "BrowserFavorites": "complete",
+    "BrowserForward": "complete",
+    "BrowserHome": "complete",
+    "BrowserRefresh": "complete",
+    "BrowserSearch": "complete",
+    "BrowserStop": "complete",
+    "C": "complete",
+    "CapsLock": "complete",
+    "Crsel": "complete",
+    "D": "complete",
+    "D0": "complete",
+    "D1": "complete",
+    "D2": "complete",
+    "D3": "complete",
+    "D4": "complete",
+    "D5": "complete",
+    "D6": "complete",
+    "D7": "complete",
+    "D8": "complete",
+    "D9": "complete",
+    "Decimal": "complete",
+    "Delete": "complete",
+    "Divide": "complete",
+    "Down": "complete",
+    "E": "complete",
+    "End": "complete",
+    "Enter": "complete",
+    "EraseEof": "complete",
+    "Escape": "complete",
+    "Execute": "complete",
+    "Exsel": "complete",
+    "F": "complete",
+    "F1": "complete",
+    "F10": "complete",
+    "F11": "complete",
+    "F12": "complete",
+    "F13": "complete",
+    "F14": "complete",
+    "F15": "complete",
+    "F16": "complete",
+    "F17": "complete",
+    "F18": "complete",
+    "F19": "complete",
+    "F2": "complete",
+    "F20": "complete",
+    "F21": "complete",
+    "F22": "complete",
+    "F23": "complete",
+    "F24": "complete",
+    "F3": "complete",
+    "F4": "complete",
+    "F5": "complete",
+    "F6": "complete",
+    "F7": "complete",
+    "F8": "complete",
+    "F9": "complete",
+    "G": "complete",
+    "H": "complete",
+    "Help": "complete",
+    "Home": "complete",
+    "I": "complete",
+    "ImeConvert": "complete",
+    "ImeNoConvert": "complete",
+    "Insert": "complete",
+    "J": "complete",
+    "K": "complete",
+    "Kana": "complete",
+    "Kanji": "complete",
+    "L": "complete",
+    "LaunchApplication1": "complete",
+    "LaunchApplication2": "complete",
+    "LaunchMail": "complete",
+    "LeftControl": "complete",
+    "Left": "complete",
+    "LeftAlt": "complete",
+    "LeftShift": "complete",
+    "LeftWindows": "complete",
+    "M": "complete",
+    "MediaNextTrack": "complete",
+    "MediaPlayPause": "complete",
+    "MediaPreviousTrack": "complete",
+    "MediaStop": "complete",
+    "Multiply": "complete",
+    "N": "complete",
+    "None": "complete",
+    "NumLock": "complete",
+    "NumPad0": "complete",
+    "NumPad1": "complete",
+    "NumPad2": "complete",
+    "NumPad3": "complete",
+    "NumPad4": "complete",
+    "NumPad5": "complete",
+    "NumPad6": "complete",
+    "NumPad7": "complete",
+    "NumPad8": "complete",
+    "NumPad9": "complete",
+    "O": "complete",
+    "OemAuto": "complete",
+    "OemCopy": "complete",
+    "OemEnlW": "complete",
+    "OemSemicolon": "complete",
+    "OemBackslash": "complete",
+    "OemQuestion": "complete",
+    "OemTilde": "complete",
+    "OemOpenBrackets": "complete",
+    "OemPipe": "complete",
+    "OemCloseBrackets": "complete",
+    "OemQuotes": "complete",
+    "Oem8": "complete",
+    "OemClear": "complete",
+    "OemComma": "complete",
+    "OemMinus": "complete",
+    "OemPeriod": "complete",
+    "OemPlus": "complete",
+    "P": "complete",
+    "Pa1": "complete",
+    "PageDown": "complete",
+    "PageUp": "complete",
+    "Pause": "complete",
+    "Play": "complete",
+    "Print": "complete",
+    "PrintScreen": "complete",
+    "ProcessKey": "complete",
+    "Q": "complete",
+    "R": "complete",
+    "RightControl": "complete",
+    "Right": "complete",
+    "RightAlt": "complete",
+    "RightShift": "complete",
+    "RightWindows": "complete",
+    "S": "complete",
+    "Scroll": "complete",
+    "Select": "complete",
+    "SelectMedia": "complete",
+    "Separator": "complete",
+    "Sleep": "complete",
+    "Space": "complete",
+    "Subtract": "complete",
+    "T": "complete",
+    "Tab": "complete",
+    "U": "complete",
+    "Up": "complete",
+    "V": "complete",
+    "VolumeDown": "complete",
+    "VolumeMute": "complete",
+    "VolumeUp": "complete",
+    "W": "complete",
+    "X": "complete",
+    "Y": "complete",
+    "Z": "complete",
+    "Zoom": "complete",
+    "ChatPadGreen": "complete",
+    "ChatPadOrange": "complete"
+   },
+   "lisp": "microsoft.xna.framework.input:keys"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Input.Touch.TouchPanel",
+   "status": "complete",
+   "members": {
+    "GetCapabilities()": "complete",
+    "ReadGesture()": "complete",
+    "GetState()": "complete",
+    "EnabledGestures": "complete",
+    "IsGestureAvailable": "complete",
+    "WindowHandle": "not-applicable",
+    "DisplayOrientation": "complete",
+    "DisplayWidth": "complete",
+    "DisplayHeight": "complete"
+   },
+   "projection": "static class: microsoft.xna.framework.input.touch:touch-panel-<member>"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Input.Touch.TouchCollection",
+   "status": "complete",
+   "members": {
+    "new(TouchLocation[])": "complete",
+    "FindById(Int32,TouchLocation&)": "complete",
+    "IndexOf(TouchLocation)": "complete",
+    "Insert(Int32,TouchLocation)": "complete",
+    "RemoveAt(Int32)": "complete",
+    "Add(TouchLocation)": "complete",
+    "Clear()": "complete",
+    "Contains(TouchLocation)": "complete",
+    "CopyTo(TouchLocation[],Int32)": "complete",
+    "Remove(TouchLocation)": "complete",
+    "GetEnumerator()": "complete",
+    "IsConnected": "complete",
+    "Item(Int32)": "complete",
+    "Count": "complete",
+    "IsReadOnly": "complete"
+   },
+   "lisp": "microsoft.xna.framework.input.touch:touch-collection"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Input.Touch.TouchLocation",
+   "status": "complete",
+   "members": {
+    "new(Int32,TouchLocationState,Vector2)": "complete",
+    "new(Int32,TouchLocationState,Vector2,TouchLocationState,Vector2)": "complete",
+    "TryGetPreviousLocation(TouchLocation&)": "complete",
+    "ToString()": "not-applicable",
+    "Equals(TouchLocation)": "complete",
+    "Equals(Object)": "not-applicable",
+    "GetHashCode()": "not-applicable",
+    "op_Equality(TouchLocation,TouchLocation)": "complete",
+    "op_Inequality(TouchLocation,TouchLocation)": "not-applicable",
+    "State": "complete",
+    "Id": "complete",
+    "Position": "complete"
+   },
+   "lisp": "microsoft.xna.framework.input.touch:touch-location"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Input.Touch.TouchLocationState",
+   "status": "complete",
+   "members": {
+    "value__": "not-applicable",
+    "Invalid": "complete",
+    "Released": "complete",
+    "Pressed": "complete",
+    "Moved": "complete"
+   },
+   "lisp": "microsoft.xna.framework.input.touch:touch-location-state"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Input.Touch.TouchPanelCapabilities",
+   "status": "complete",
+   "members": {
+    "IsConnected": "complete",
+    "MaximumTouchCount": "complete"
+   },
+   "lisp": "microsoft.xna.framework.input.touch:touch-panel-capabilities"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Input.Touch.GestureSample",
+   "status": "complete",
+   "members": {
+    "new(GestureType,TimeSpan,Vector2,Vector2,Vector2,Vector2)": "complete",
+    "GestureType": "complete",
+    "Timestamp": "complete",
+    "Position": "complete",
+    "Position2": "complete",
+    "Delta": "complete",
+    "Delta2": "complete"
+   },
+   "lisp": "microsoft.xna.framework.input.touch:gesture-sample"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Input.Touch.GestureType",
+   "status": "complete",
+   "members": {
+    "value__": "not-applicable",
+    "None": "complete",
+    "Tap": "complete",
+    "DoubleTap": "complete",
+    "Hold": "complete",
+    "HorizontalDrag": "complete",
+    "VerticalDrag": "complete",
+    "FreeDrag": "complete",
+    "Pinch": "complete",
+    "Flick": "complete",
+    "DragComplete": "complete",
+    "PinchComplete": "complete"
+   },
+   "lisp": "microsoft.xna.framework.input.touch:gesture-type"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Input.GamePad",
+   "status": "complete",
+   "members": {
+    "GetState(PlayerIndex)": "complete",
+    "GetState(PlayerIndex,GamePadDeadZone)": "complete",
+    "GetCapabilities(PlayerIndex)": "complete",
+    "SetVibration(PlayerIndex,Single,Single)": "complete"
+   },
+   "projection": "static class: microsoft.xna.framework.input:game-pad-<member>"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Input.GamePadState",
+   "status": "complete",
+   "members": {
+    "new(GamePadThumbSticks,GamePadTriggers,GamePadButtons,GamePadDPad)": "complete",
+    "new(Vector2,Vector2,Single,Single,Buttons[])": "complete",
+    "IsButtonDown(Buttons)": "complete",
+    "IsButtonUp(Buttons)": "complete",
+    "Equals(Object)": "not-applicable",
+    "GetHashCode()": "not-applicable",
+    "ToString()": "not-applicable",
+    "op_Equality(GamePadState,GamePadState)": "complete",
+    "op_Inequality(GamePadState,GamePadState)": "not-applicable",
+    "Buttons": "complete",
+    "DPad": "complete",
+    "IsConnected": "complete",
+    "PacketNumber": "complete",
+    "ThumbSticks": "complete",
+    "Triggers": "complete"
+   },
+   "lisp": "microsoft.xna.framework.input:game-pad-state"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Input.GamePadButtons",
+   "status": "complete",
+   "members": {
+    "new(Buttons)": "complete",
+    "Equals(Object)": "not-applicable",
+    "GetHashCode()": "not-applicable",
+    "ToString()": "not-applicable",
+    "op_Equality(GamePadButtons,GamePadButtons)": "complete",
+    "op_Inequality(GamePadButtons,GamePadButtons)": "not-applicable",
+    "A": "complete",
+    "B": "complete",
+    "Back": "complete",
+    "X": "complete",
+    "Y": "complete",
+    "Start": "complete",
+    "LeftShoulder": "complete",
+    "LeftStick": "complete",
+    "RightShoulder": "complete",
+    "RightStick": "complete",
+    "BigButton": "complete"
+   },
+   "lisp": "microsoft.xna.framework.input:game-pad-buttons"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Input.GamePadDPad",
+   "status": "complete",
+   "members": {
+    "new(ButtonState,ButtonState,ButtonState,ButtonState)": "complete",
+    "Equals(Object)": "not-applicable",
+    "GetHashCode()": "not-applicable",
+    "ToString()": "not-applicable",
+    "op_Equality(GamePadDPad,GamePadDPad)": "complete",
+    "op_Inequality(GamePadDPad,GamePadDPad)": "not-applicable",
+    "Up": "complete",
+    "Down": "complete",
+    "Right": "complete",
+    "Left": "complete"
+   },
+   "lisp": "microsoft.xna.framework.input:game-pad-dpad"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Input.GamePadThumbSticks",
+   "status": "complete",
+   "members": {
+    "new(Vector2,Vector2)": "complete",
+    "Equals(Object)": "not-applicable",
+    "GetHashCode()": "not-applicable",
+    "ToString()": "not-applicable",
+    "op_Equality(GamePadThumbSticks,GamePadThumbSticks)": "complete",
+    "op_Inequality(GamePadThumbSticks,GamePadThumbSticks)": "not-applicable",
+    "Left": "complete",
+    "Right": "complete"
+   },
+   "lisp": "microsoft.xna.framework.input:game-pad-thumb-sticks"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Input.GamePadTriggers",
+   "status": "complete",
+   "members": {
+    "new(Single,Single)": "complete",
+    "Equals(Object)": "not-applicable",
+    "GetHashCode()": "not-applicable",
+    "ToString()": "not-applicable",
+    "op_Equality(GamePadTriggers,GamePadTriggers)": "complete",
+    "op_Inequality(GamePadTriggers,GamePadTriggers)": "not-applicable",
+    "Left": "complete",
+    "Right": "complete"
+   },
+   "lisp": "microsoft.xna.framework.input:game-pad-triggers"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Input.GamePadCapabilities",
+   "status": "complete",
+   "members": {
+    "GamePadType": "complete",
+    "IsConnected": "complete",
+    "HasAButton": "complete",
+    "HasBackButton": "complete",
+    "HasBButton": "complete",
+    "HasDPadDownButton": "complete",
+    "HasDPadLeftButton": "complete",
+    "HasDPadRightButton": "complete",
+    "HasDPadUpButton": "complete",
+    "HasLeftShoulderButton": "complete",
+    "HasLeftStickButton": "complete",
+    "HasRightShoulderButton": "complete",
+    "HasRightStickButton": "complete",
+    "HasStartButton": "complete",
+    "HasXButton": "complete",
+    "HasYButton": "complete",
+    "HasBigButton": "complete",
+    "HasLeftXThumbStick": "complete",
+    "HasLeftYThumbStick": "complete",
+    "HasRightXThumbStick": "complete",
+    "HasRightYThumbStick": "complete",
+    "HasLeftTrigger": "complete",
+    "HasRightTrigger": "complete",
+    "HasLeftVibrationMotor": "complete",
+    "HasRightVibrationMotor": "complete",
+    "HasVoiceSupport": "complete"
+   },
+   "lisp": "microsoft.xna.framework.input:game-pad-capabilities"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Input.Buttons",
+   "status": "complete",
+   "members": {
+    "value__": "not-applicable",
+    "A": "complete",
+    "B": "complete",
+    "X": "complete",
+    "Y": "complete",
+    "Back": "complete",
+    "Start": "complete",
+    "DPadUp": "complete",
+    "DPadDown": "complete",
+    "DPadLeft": "complete",
+    "DPadRight": "complete",
+    "LeftShoulder": "complete",
+    "RightShoulder": "complete",
+    "LeftStick": "complete",
+    "RightStick": "complete",
+    "BigButton": "complete",
+    "LeftThumbstickLeft": "complete",
+    "LeftThumbstickRight": "complete",
+    "LeftThumbstickDown": "complete",
+    "LeftThumbstickUp": "complete",
+    "RightThumbstickLeft": "complete",
+    "RightThumbstickRight": "complete",
+    "RightThumbstickDown": "complete",
+    "RightThumbstickUp": "complete",
+    "LeftTrigger": "complete",
+    "RightTrigger": "complete"
+   },
+   "lisp": "microsoft.xna.framework.input:buttons"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Input.GamePadType",
+   "status": "complete",
+   "members": {
+    "value__": "not-applicable",
+    "Unknown": "complete",
+    "ArcadeStick": "complete",
+    "DancePad": "complete",
+    "FlightStick": "complete",
+    "GamePad": "complete",
+    "Wheel": "complete",
+    "Guitar": "complete",
+    "DrumKit": "complete",
+    "AlternateGuitar": "complete",
+    "BigButtonPad": "complete"
+   },
+   "lisp": "microsoft.xna.framework.input:game-pad-type"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Input.GamePadDeadZone",
+   "status": "complete",
+   "members": {
+    "value__": "not-applicable",
+    "None": "complete",
+    "IndependentAxes": "complete",
+    "Circular": "complete"
+   },
+   "lisp": "microsoft.xna.framework.input:game-pad-dead-zone"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Input.Mouse",
+   "status": "complete",
+   "members": {
+    "GetState()": "complete",
+    "SetPosition(Int32,Int32)": "complete",
+    "WindowHandle": "not-applicable"
+   },
+   "projection": "static class: microsoft.xna.framework.input:mouse-<member>"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Input.MouseState",
+   "status": "complete",
+   "members": {
+    "new(Int32,Int32,Int32,ButtonState,ButtonState,ButtonState,ButtonState,ButtonState)": "complete",
+    "GetHashCode()": "not-applicable",
+    "ToString()": "not-applicable",
+    "Equals(Object)": "not-applicable",
+    "op_Equality(MouseState,MouseState)": "complete",
+    "op_Inequality(MouseState,MouseState)": "not-applicable",
+    "X": "complete",
+    "Y": "complete",
+    "LeftButton": "complete",
+    "RightButton": "complete",
+    "MiddleButton": "complete",
+    "XButton1": "complete",
+    "XButton2": "complete",
+    "ScrollWheelValue": "complete"
+   },
+   "lisp": "microsoft.xna.framework.input:mouse-state"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Input.ButtonState",
+   "status": "complete",
+   "members": {
+    "value__": "not-applicable",
+    "Released": "complete",
+    "Pressed": "complete"
+   },
+   "lisp": "microsoft.xna.framework.input:button-state"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Audio.SoundEffect",
+   "status": "partial",
+   "members": {
+    "new(Byte[],Int32,AudioChannels)": "complete",
+    "new(Byte[],Int32,Int32,Int32,AudioChannels,Int32,Int32)": "complete",
+    "FromStream(Stream)": "complete",
+    "Finalize()": "not-applicable",
+    "Dispose()": "complete",
+    "CreateInstance()": "complete",
+    "Play()": "complete",
+    "Play(Single,Single,Single)": "complete",
+    "GetSampleSizeInBytes(TimeSpan,Int32,AudioChannels)": "complete",
+    "GetSampleDuration(Int32,Int32,AudioChannels)": "complete",
+    "IsDisposed": "complete",
+    "Name": "complete",
+    "Duration": "partial",
+    "MasterVolume": "complete",
+    "SpeedOfSound": "complete",
+    "DopplerScale": "complete",
+    "DistanceScale": "complete"
+   },
+   "lisp": "microsoft.xna.framework.audio:sound-effect"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Audio.SoundEffectInstance",
+   "status": "partial",
+   "members": {
+    "Finalize()": "not-applicable",
+    "Dispose()": "complete",
+    "Dispose(Boolean)": "not-applicable",
+    "Play()": "complete",
+    "Stop()": "complete",
+    "Stop(Boolean)": "complete",
+    "Pause()": "complete",
+    "Resume()": "complete",
+    "Apply3D(AudioListener,AudioEmitter)": "complete",
+    "Apply3D(AudioListener[],AudioEmitter)": "partial",
+    "IsDisposed": "complete",
+    "Volume": "complete",
+    "Pitch": "complete",
+    "Pan": "complete",
+    "IsLooped": "complete",
+    "State": "complete"
+   },
+   "lisp": "microsoft.xna.framework.audio:sound-effect-instance"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Audio.DynamicSoundEffectInstance",
+   "status": "partial",
+   "members": {
+    "new(Int32,AudioChannels)": "partial",
+    "Dispose(Boolean)": "not-applicable",
+    "SubmitBuffer(Byte[])": "complete",
+    "SubmitBuffer(Byte[],Int32,Int32)": "complete",
+    "GetSampleDuration(Int32)": "complete",
+    "GetSampleSizeInBytes(TimeSpan)": "complete",
+    "Play()": "complete",
+    "IsLooped": "complete",
+    "PendingBufferCount": "complete",
+    "BufferNeeded": "complete"
+   },
+   "lisp": "microsoft.xna.framework.audio:dynamic-sound-effect-instance"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Audio.AudioListener",
+   "status": "complete",
+   "members": {
+    "new()": "complete",
+    "Position": "complete",
+    "Velocity": "complete",
+    "Forward": "complete",
+    "Up": "complete"
+   },
+   "lisp": "microsoft.xna.framework.audio:audio-listener"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Audio.AudioEmitter",
+   "status": "complete",
+   "members": {
+    "new()": "complete",
+    "Position": "complete",
+    "Velocity": "complete",
+    "Forward": "complete",
+    "Up": "complete",
+    "DopplerScale": "complete"
+   },
+   "lisp": "microsoft.xna.framework.audio:audio-emitter"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Audio.SoundState",
+   "status": "complete",
+   "members": {
+    "value__": "not-applicable",
+    "Playing": "complete",
+    "Paused": "complete",
+    "Stopped": "complete"
+   },
+   "lisp": "microsoft.xna.framework.audio:sound-state"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Audio.AudioChannels",
+   "status": "complete",
+   "members": {
+    "value__": "not-applicable",
+    "Mono": "complete",
+    "Stereo": "complete"
+   },
+   "lisp": "microsoft.xna.framework.audio:audio-channels"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Audio.NoAudioHardwareException",
+   "status": "complete",
+   "members": {
+    "new()": "complete",
+    "new(String)": "complete",
+    "new(String,Exception)": "complete"
+   },
+   "lisp": "microsoft.xna.framework.audio:no-audio-hardware-error"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Audio.InstancePlayLimitException",
+   "status": "complete",
+   "members": {
+    "new()": "complete",
+    "new(String)": "complete",
+    "new(String,Exception)": "complete"
+   },
+   "lisp": "microsoft.xna.framework.audio:instance-play-limit-error"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Audio.Microphone",
+   "status": "partial",
+   "members": {
+    "Finalize()": "not-applicable",
+    "GetSampleSizeInBytes(TimeSpan)": "complete",
+    "GetSampleDuration(Int32)": "complete",
+    "Start()": "complete",
+    "Stop()": "complete",
+    "GetData(Byte[])": "complete",
+    "GetData(Byte[],Int32,Int32)": "complete",
+    "All": "complete",
+    "Default": "complete",
+    "State": "complete",
+    "BufferDuration": "partial",
+    "SampleRate": "complete",
+    "IsHeadset": "complete",
+    "BufferReady": "complete",
+    "Name": "complete"
+   },
+   "lisp": "microsoft.xna.framework.audio:microphone"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Audio.MicrophoneState",
+   "status": "complete",
+   "members": {
+    "value__": "not-applicable",
+    "Started": "complete",
+    "Stopped": "complete"
+   },
+   "lisp": "microsoft.xna.framework.audio:microphone-state"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Audio.NoMicrophoneConnectedException",
+   "status": "complete",
+   "members": {
+    "new()": "complete",
+    "new(String)": "complete",
+    "new(String,Exception)": "complete"
+   },
+   "lisp": "microsoft.xna.framework.audio:no-microphone-connected-error"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Graphics.Model",
+   "status": "partial",
+   "members": {
+    "CopyBoneTransformsTo(Matrix[])": "complete",
+    "CopyAbsoluteBoneTransformsTo(Matrix[])": "complete",
+    "CopyBoneTransformsFrom(Matrix[])": "complete",
+    "Draw(Matrix,Matrix,Matrix)": "partial",
+    "Root": "complete",
+    "Bones": "complete",
+    "Tag": "complete",
+    "Meshes": "complete"
+   },
+   "lisp": "microsoft.xna.framework.graphics:model"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Graphics.ModelBone",
+   "status": "complete",
+   "members": {
+    "Name": "complete",
+    "Index": "complete",
+    "Transform": "complete",
+    "Parent": "complete",
+    "Children": "complete"
+   },
+   "lisp": "microsoft.xna.framework.graphics:model-bone"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Graphics.ModelBoneCollection",
+   "status": "complete",
+   "members": {
+    "TryGetValue(String,ModelBone&)": "complete",
+    "GetEnumerator()": "complete",
+    "Item(String)": "complete"
+   },
+   "lisp": "microsoft.xna.framework.graphics:model-bone-collection"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Graphics.ModelBoneCollection+Enumerator",
+   "status": "complete",
+   "members": {
+    "MoveNext()": "complete",
+    "Dispose()": "complete",
+    "Current": "complete"
+   },
+   "lisp": "microsoft.xna.framework.graphics:model-bone-collection-enumerator"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Graphics.ModelMesh",
+   "status": "partial",
+   "members": {
+    "Draw()": "partial",
+    "Name": "complete",
+    "ParentBone": "complete",
+    "BoundingSphere": "complete",
+    "Tag": "complete",
+    "MeshParts": "complete",
+    "Effects": "complete"
+   },
+   "lisp": "microsoft.xna.framework.graphics:model-mesh"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Graphics.ModelMeshCollection",
+   "status": "complete",
+   "members": {
+    "TryGetValue(String,ModelMesh&)": "complete",
+    "GetEnumerator()": "complete",
+    "Item(String)": "complete"
+   },
+   "lisp": "microsoft.xna.framework.graphics:model-mesh-collection"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Graphics.ModelMeshCollection+Enumerator",
+   "status": "complete",
+   "members": {
+    "MoveNext()": "complete",
+    "Dispose()": "complete",
+    "Current": "complete"
+   },
+   "lisp": "microsoft.xna.framework.graphics:model-mesh-collection-enumerator"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Graphics.ModelMeshPart",
+   "status": "partial",
+   "members": {
+    "StartIndex": "complete",
+    "PrimitiveCount": "complete",
+    "VertexOffset": "complete",
+    "NumVertices": "complete",
+    "IndexBuffer": "complete",
+    "VertexBuffer": "complete",
+    "Effect": "partial",
+    "Tag": "complete"
+   },
+   "lisp": "microsoft.xna.framework.graphics:model-mesh-part"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Graphics.ModelMeshPartCollection",
+   "status": "complete",
+   "members": {
+    "GetEnumerator()": "complete"
+   },
+   "lisp": "microsoft.xna.framework.graphics:model-mesh-part-collection"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Graphics.ModelMeshPartCollection+Enumerator",
+   "status": "complete",
+   "members": {
+    "MoveNext()": "complete",
+    "Dispose()": "complete",
+    "Current": "complete"
+   },
+   "lisp": "microsoft.xna.framework.graphics:model-mesh-part-collection-enumerator"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Graphics.ModelEffectCollection",
+   "status": "complete",
+   "members": {
+    "GetEnumerator()": "complete"
+   },
+   "lisp": "microsoft.xna.framework.graphics:model-effect-collection"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Graphics.ModelEffectCollection+Enumerator",
+   "status": "complete",
+   "members": {
+    "MoveNext()": "complete",
+    "Dispose()": "complete",
+    "Current": "complete"
+   },
+   "lisp": "microsoft.xna.framework.graphics:model-effect-collection-enumerator"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Media.MediaPlayer",
+   "status": "complete",
+   "members": {
+    "Play(Song)": "complete",
+    "Play(SongCollection)": "complete",
+    "Play(SongCollection,Int32)": "complete",
+    "Pause()": "complete",
+    "Resume()": "complete",
+    "Stop()": "complete",
+    "MoveNext()": "complete",
+    "MovePrevious()": "complete",
+    "GetVisualizationData(VisualizationData)": "complete",
+    "IsShuffled": "complete",
+    "IsRepeating": "complete",
+    "Queue": "complete",
+    "State": "complete",
+    "PlayPosition": "complete",
+    "Volume": "complete",
+    "IsMuted": "complete",
+    "IsVisualizationEnabled": "complete",
+    "GameHasControl": "complete",
+    "ActiveSongChanged": "complete",
+    "MediaStateChanged": "complete"
+   },
+   "projection": "static class: microsoft.xna.framework.media:media-player-<member>"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Media.MediaState",
+   "status": "complete",
+   "members": {
+    "value__": "not-applicable",
+    "Paused": "complete",
+    "Playing": "complete",
+    "Stopped": "complete"
+   },
+   "lisp": "microsoft.xna.framework.media:media-state"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Media.MediaQueue",
+   "status": "complete",
+   "members": {
+    "Count": "complete",
+    "ActiveSongIndex": "complete",
+    "ActiveSong": "complete",
+    "Item(Int32)": "complete"
+   },
+   "lisp": "microsoft.xna.framework.media:media-queue"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Media.Song",
+   "status": "complete",
+   "members": {
+    "FromUri(String,Uri)": "complete",
+    "Finalize()": "not-applicable",
+    "Dispose()": "complete",
+    "op_Equality(Song,Song)": "complete",
+    "op_Inequality(Song,Song)": "not-applicable",
+    "Equals(Object)": "complete",
+    "Equals(Song)": "not-applicable",
+    "ToString()": "not-applicable",
+    "GetHashCode()": "not-applicable",
+    "IsDisposed": "complete",
+    "Name": "complete",
+    "Artist": "complete",
+    "Album": "complete",
+    "Genre": "complete",
+    "Duration": "complete",
+    "IsRated": "complete",
+    "Rating": "complete",
+    "PlayCount": "complete",
+    "TrackNumber": "complete",
+    "IsProtected": "complete"
+   },
+   "lisp": "microsoft.xna.framework.media:song"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Media.SongCollection",
+   "status": "complete",
+   "members": {
+    "Finalize()": "not-applicable",
+    "Dispose()": "complete",
+    "GetEnumerator()": "not-applicable",
+    "IsDisposed": "complete",
+    "Count": "complete",
+    "Item(Int32)": "complete"
+   },
+   "lisp": "microsoft.xna.framework.media:song-collection"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Media.VisualizationData",
+   "status": "complete",
+   "members": {
+    "new()": "complete",
+    "Frequencies": "complete",
+    "Samples": "complete"
+   },
+   "lisp": "microsoft.xna.framework.media:visualization-data"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Media.MediaLibrary",
+   "status": "complete",
+   "members": {
+    "new(MediaSource)": "complete",
+    "new()": "complete",
+    "SavePicture(String,Byte[])": "complete",
+    "SavePicture(String,Stream)": "complete",
+    "GetPictureFromToken(String)": "complete",
+    "Dispose()": "complete",
+    "Finalize()": "not-applicable",
+    "Pictures": "complete",
+    "RootPictureAlbum": "complete",
+    "SavedPictures": "complete",
+    "MediaSource": "complete",
+    "IsDisposed": "complete",
+    "Songs": "complete",
+    "Artists": "complete",
+    "Albums": "complete",
+    "Playlists": "complete",
+    "Genres": "complete"
+   },
+   "lisp": "microsoft.xna.framework.media:media-library"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Media.MediaSource",
+   "status": "complete",
+   "members": {
+    "ToString()": "not-applicable",
+    "GetAvailableMediaSources()": "complete",
+    "MediaSourceType": "complete",
+    "Name": "complete"
+   },
+   "lisp": "microsoft.xna.framework.media:media-source"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Media.MediaSourceType",
+   "status": "complete",
+   "members": {
+    "value__": "not-applicable",
+    "LocalDevice": "complete",
+    "WindowsMediaConnect": "complete"
+   },
+   "lisp": "microsoft.xna.framework.media:media-source-type"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Media.Album",
+   "status": "complete",
+   "members": {
+    "Finalize()": "not-applicable",
+    "Dispose()": "complete",
+    "GetAlbumArt()": "complete",
+    "GetThumbnail()": "complete",
+    "op_Equality(Album,Album)": "complete",
+    "op_Inequality(Album,Album)": "not-applicable",
+    "Equals(Object)": "complete",
+    "Equals(Album)": "not-applicable",
+    "ToString()": "not-applicable",
+    "GetHashCode()": "not-applicable",
+    "IsDisposed": "complete",
+    "Name": "complete",
+    "Artist": "complete",
+    "Songs": "complete",
+    "Genre": "complete",
+    "Duration": "complete",
+    "HasArt": "complete"
+   },
+   "lisp": "microsoft.xna.framework.media:album"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Media.AlbumCollection",
+   "status": "complete",
+   "members": {
+    "Finalize()": "not-applicable",
+    "Dispose()": "complete",
+    "GetEnumerator()": "not-applicable",
+    "IsDisposed": "complete",
+    "Item(Int32)": "complete",
+    "Count": "complete"
+   },
+   "lisp": "microsoft.xna.framework.media:album-collection"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Media.Artist",
+   "status": "complete",
+   "members": {
+    "Finalize()": "not-applicable",
+    "Dispose()": "complete",
+    "op_Equality(Artist,Artist)": "complete",
+    "op_Inequality(Artist,Artist)": "not-applicable",
+    "Equals(Object)": "complete",
+    "Equals(Artist)": "not-applicable",
+    "ToString()": "not-applicable",
+    "GetHashCode()": "not-applicable",
+    "IsDisposed": "complete",
+    "Name": "complete",
+    "Songs": "complete",
+    "Albums": "complete"
+   },
+   "lisp": "microsoft.xna.framework.media:artist"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Media.ArtistCollection",
+   "status": "complete",
+   "members": {
+    "Finalize()": "not-applicable",
+    "Dispose()": "complete",
+    "GetEnumerator()": "not-applicable",
+    "IsDisposed": "complete",
+    "Item(Int32)": "complete",
+    "Count": "complete"
+   },
+   "lisp": "microsoft.xna.framework.media:artist-collection"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Media.Genre",
+   "status": "complete",
+   "members": {
+    "Finalize()": "not-applicable",
+    "Dispose()": "complete",
+    "op_Equality(Genre,Genre)": "complete",
+    "op_Inequality(Genre,Genre)": "not-applicable",
+    "Equals(Object)": "complete",
+    "Equals(Genre)": "not-applicable",
+    "ToString()": "not-applicable",
+    "GetHashCode()": "not-applicable",
+    "IsDisposed": "complete",
+    "Name": "complete",
+    "Songs": "complete",
+    "Albums": "complete"
+   },
+   "lisp": "microsoft.xna.framework.media:genre"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Media.GenreCollection",
+   "status": "complete",
+   "members": {
+    "Finalize()": "not-applicable",
+    "Dispose()": "complete",
+    "GetEnumerator()": "not-applicable",
+    "IsDisposed": "complete",
+    "Item(Int32)": "complete",
+    "Count": "complete"
+   },
+   "lisp": "microsoft.xna.framework.media:genre-collection"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Media.Playlist",
+   "status": "complete",
+   "members": {
+    "Finalize()": "not-applicable",
+    "Dispose()": "complete",
+    "op_Equality(Playlist,Playlist)": "complete",
+    "op_Inequality(Playlist,Playlist)": "not-applicable",
+    "Equals(Object)": "complete",
+    "ToString()": "not-applicable",
+    "GetHashCode()": "not-applicable",
+    "Equals(Playlist)": "not-applicable",
+    "IsDisposed": "complete",
+    "Name": "complete",
+    "Songs": "complete",
+    "Duration": "complete"
+   },
+   "lisp": "microsoft.xna.framework.media:playlist"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Media.PlaylistCollection",
+   "status": "complete",
+   "members": {
+    "Finalize()": "not-applicable",
+    "Dispose()": "complete",
+    "GetEnumerator()": "not-applicable",
+    "IsDisposed": "complete",
+    "Item(Int32)": "complete",
+    "Count": "complete"
+   },
+   "lisp": "microsoft.xna.framework.media:playlist-collection"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Media.Picture",
+   "status": "complete",
+   "members": {
+    "Finalize()": "not-applicable",
+    "Dispose()": "complete",
+    "GetImage()": "complete",
+    "GetThumbnail()": "complete",
+    "op_Equality(Picture,Picture)": "complete",
+    "op_Inequality(Picture,Picture)": "not-applicable",
+    "Equals(Object)": "complete",
+    "ToString()": "not-applicable",
+    "GetHashCode()": "not-applicable",
+    "Equals(Picture)": "not-applicable",
+    "IsDisposed": "complete",
+    "Name": "complete",
+    "Album": "complete",
+    "Width": "complete",
+    "Height": "complete",
+    "Date": "complete"
+   },
+   "lisp": "microsoft.xna.framework.media:picture"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Media.PictureAlbum",
+   "status": "complete",
+   "members": {
+    "Finalize()": "not-applicable",
+    "Dispose()": "complete",
+    "op_Equality(PictureAlbum,PictureAlbum)": "complete",
+    "op_Inequality(PictureAlbum,PictureAlbum)": "not-applicable",
+    "Equals(Object)": "complete",
+    "ToString()": "not-applicable",
+    "GetHashCode()": "not-applicable",
+    "Equals(PictureAlbum)": "not-applicable",
+    "IsDisposed": "complete",
+    "Name": "complete",
+    "Albums": "complete",
+    "Pictures": "complete",
+    "Parent": "complete"
+   },
+   "lisp": "microsoft.xna.framework.media:picture-album"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Media.PictureCollection",
+   "status": "complete",
+   "members": {
+    "Finalize()": "not-applicable",
+    "Dispose()": "complete",
+    "GetEnumerator()": "not-applicable",
+    "IsDisposed": "complete",
+    "Item(Int32)": "complete",
+    "Count": "complete"
+   },
+   "lisp": "microsoft.xna.framework.media:picture-collection"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Media.PictureAlbumCollection",
+   "status": "complete",
+   "members": {
+    "Finalize()": "not-applicable",
+    "Dispose()": "complete",
+    "GetEnumerator()": "not-applicable",
+    "IsDisposed": "complete",
+    "Item(Int32)": "complete",
+    "Count": "complete"
+   },
+   "lisp": "microsoft.xna.framework.media:picture-album-collection"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.GameServiceContainer",
+   "status": "complete",
+   "members": {
+    "new()": "complete",
+    "AddService(Type,Object)": "complete",
+    "RemoveService(Type)": "complete",
+    "GetService(Type)": "complete"
+   },
+   "lisp": "microsoft.xna.framework:game-service-container"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.IGraphicsDeviceManager",
+   "status": "complete",
+   "members": {
+    "CreateDevice()": "complete",
+    "BeginDraw()": "complete",
+    "EndDraw()": "complete"
+   },
+   "projection": "interface: its members are generic functions in microsoft.xna.framework"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Graphics.IGraphicsDeviceService",
+   "status": "complete",
+   "members": {
+    "GraphicsDevice": "complete",
+    "DeviceDisposing": "complete",
+    "DeviceReset": "complete",
+    "DeviceResetting": "complete",
+    "DeviceCreated": "complete"
+   },
+   "projection": "interface: its members are generic functions in microsoft.xna.framework.graphics"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.GraphicsDeviceInformation",
+   "status": "complete",
+   "members": {
+    "new()": "complete",
+    "Equals(Object)": "complete",
+    "GetHashCode()": "not-applicable",
+    "Clone()": "complete",
+    "Adapter": "complete",
+    "GraphicsProfile": "complete",
+    "PresentationParameters": "complete"
+   },
+   "lisp": "microsoft.xna.framework:graphics-device-information"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.PreparingDeviceSettingsEventArgs",
+   "status": "complete",
+   "members": {
+    "new(GraphicsDeviceInformation)": "complete",
+    "GraphicsDeviceInformation": "complete"
+   },
+   "lisp": "microsoft.xna.framework:preparing-device-settings-event-args"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Storage.StorageDevice",
+   "status": "complete",
+   "members": {
+    "BeginShowSelector(PlayerIndex,AsyncCallback,Object)": "complete",
+    "BeginShowSelector(PlayerIndex,Int32,Int32,AsyncCallback,Object)": "complete",
+    "EndShowSelector(IAsyncResult)": "complete",
+    "BeginOpenContainer(String,AsyncCallback,Object)": "complete",
+    "EndOpenContainer(IAsyncResult)": "complete",
+    "DeleteContainer(String)": "complete",
+    "BeginShowSelector(AsyncCallback,Object)": "complete",
+    "BeginShowSelector(Int32,Int32,AsyncCallback,Object)": "complete",
+    "FreeSpace": "complete",
+    "IsConnected": "complete",
+    "TotalSpace": "complete",
+    "DeviceChanged": "complete"
+   },
+   "lisp": "microsoft.xna.framework.storage:storage-device"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Storage.StorageContainer",
+   "status": "complete",
+   "members": {
+    "DirectoryExists(String)": "complete",
+    "FileExists(String)": "complete",
+    "CreateDirectory(String)": "complete",
+    "CreateFile(String)": "complete",
+    "DeleteDirectory(String)": "complete",
+    "OpenFile(String,FileMode)": "complete",
+    "OpenFile(String,FileMode,FileAccess)": "complete",
+    "OpenFile(String,FileMode,FileAccess,FileShare)": "complete",
+    "DeleteFile(String)": "complete",
+    "GetDirectoryNames()": "complete",
+    "GetDirectoryNames(String)": "complete",
+    "GetFileNames()": "complete",
+    "GetFileNames(String)": "complete",
+    "Finalize()": "not-applicable",
+    "Dispose()": "complete",
+    "DisplayName": "complete",
+    "StorageDevice": "complete",
+    "IsDisposed": "complete",
+    "Disposing": "complete"
+   },
+   "lisp": "microsoft.xna.framework.storage:storage-container"
+  },
+  {
+   "name": "Microsoft.Xna.Framework.Storage.StorageDeviceNotConnectedException",
+   "status": "complete",
+   "members": {
+    "new()": "complete",
+    "new(String)": "complete",
+    "new(String,Exception)": "complete",
+    "new(SerializationInfo,StreamingContext)": "not-applicable"
+   },
+   "lisp": "microsoft.xna.framework.storage:storage-device-not-connected-error"
+  }
+ ],
+ "diagnostics": [
+  {
+   "category": "missing_member",
+   "subject": "Microsoft.Xna.Framework.Game.OnActivated(Object,EventArgs)",
+   "detail": "The protected On<Event> methods are the base class's way of raising an event a subclass may intercept before its handlers run. CNA raises the events itself, so there is no place in this projection for a subclass to stand between CNA and the handlers; the event itself is projected and these two are not."
+  },
+  {
+   "category": "missing_member",
+   "subject": "Microsoft.Xna.Framework.Game.OnDeactivated(Object,EventArgs)",
+   "detail": "The protected On<Event> methods are the base class's way of raising an event a subclass may intercept before its handlers run. CNA raises the events itself, so there is no place in this projection for a subclass to stand between CNA and the handlers; the event itself is projected and these two are not."
+  },
+  {
+   "category": "missing_member",
+   "subject": "Microsoft.Xna.Framework.Game.ShowMissingRequirementMessage(Exception)",
+   "detail": "A **protected** virtual (`.method family` in the pinned Game assembly), and one of the raiser-shaped family rather than a member of its own. XNA calls it from inside `Run`'s two catch handlers -- for NoSuitableGraphicsDeviceException and NoAudioHardwareException -- and *rethrows when it answers false*. CNA runs the loop and catches nothing into Lisp: measured against 0.21.0, CNA_GameCallbacks and CNA_GameFrameHooks have load_content, update, draw, unload_content, exiting, initialize, begin_run, end_run, begin_draw and end_draw, and no hook for a run that failed to start. So an override here would never be called. The reason that used to stand said it needed \"the CLR exception projection and a platform message box\". **CNA has a message box** -- cna_message_box_show_ext and cna_message_box_get_is_supported_ext -- so that half was wrong, and the half that actually blocks it went unmentioned. Its dispatch is also entirely `isinst` on those two exception types, and neither is in the selection."
+  },
+  {
+   "category": "missing_member",
+   "subject": "Microsoft.Xna.Framework.GameComponentCollection.new()",
+   "detail": "XNA's constructor is public and a standalone collection is legal there, if useless -- a Game makes its own and drives that one. CNA has no route for a collection apart from a game's: `a game owns exactly one component collection, so the collection needs no handle of its own and every route addresses the game's`. So a standalone one is not projected rather than faked."
+  },
+  {
+   "category": "missing_member",
+   "subject": "Microsoft.Xna.Framework.GameWindow.OnActivated()",
+   "detail": "A protected raiser, and the half that cannot be projected is the half the member exists for: in XNA OnActivated *is* what raises Activated, and a platform window is what calls it. CNA raises, and reaches Lisp only through one callback per subscribed handler, so an override could notify but never suppress. GameWindow is abstract in XNA and these six are its extension point for a platform; this projection is not a platform window."
+  },
+  {
+   "category": "missing_member",
+   "subject": "Microsoft.Xna.Framework.GameWindow.OnDeactivated()",
+   "detail": "A protected raiser, and the half that cannot be projected is the half the member exists for: in XNA OnDeactivated *is* what raises Deactivated, and a platform window is what calls it. CNA raises, and reaches Lisp only through one callback per subscribed handler, so an override could notify but never suppress. GameWindow is abstract in XNA and these six are its extension point for a platform; this projection is not a platform window."
+  },
+  {
+   "category": "missing_member",
+   "subject": "Microsoft.Xna.Framework.GameWindow.OnPaint()",
+   "detail": "A protected raiser, and the half that cannot be projected is the half the member exists for: in XNA OnPaint *is* what raises Paint, and a platform window is what calls it. CNA raises, and reaches Lisp only through one callback per subscribed handler, so an override could notify but never suppress. GameWindow is abstract in XNA and these six are its extension point for a platform; this projection is not a platform window."
+  },
+  {
+   "category": "missing_member",
+   "subject": "Microsoft.Xna.Framework.GameWindow.OnScreenDeviceNameChanged()",
+   "detail": "A protected raiser, and the half that cannot be projected is the half the member exists for: in XNA OnScreenDeviceNameChanged *is* what raises ScreenDeviceNameChanged, and a platform window is what calls it. CNA raises, and reaches Lisp only through one callback per subscribed handler, so an override could notify but never suppress. GameWindow is abstract in XNA and these six are its extension point for a platform; this projection is not a platform window."
+  },
+  {
+   "category": "missing_member",
+   "subject": "Microsoft.Xna.Framework.GameWindow.OnClientSizeChanged()",
+   "detail": "A protected raiser, and the half that cannot be projected is the half the member exists for: in XNA OnClientSizeChanged *is* what raises ClientSizeChanged, and a platform window is what calls it. CNA raises, and reaches Lisp only through one callback per subscribed handler, so an override could notify but never suppress. GameWindow is abstract in XNA and these six are its extension point for a platform; this projection is not a platform window."
+  },
+  {
+   "category": "missing_member",
+   "subject": "Microsoft.Xna.Framework.GameWindow.OnOrientationChanged()",
+   "detail": "A protected raiser, and the half that cannot be projected is the half the member exists for: in XNA OnOrientationChanged *is* what raises OrientationChanged, and a platform window is what calls it. CNA raises, and reaches Lisp only through one callback per subscribed handler, so an override could notify but never suppress. GameWindow is abstract in XNA and these six are its extension point for a platform; this projection is not a platform window."
+  },
+  {
+   "category": "missing_member",
+   "subject": "Microsoft.Xna.Framework.GameWindow.Handle",
+   "detail": "A System.IntPtr naming the native window. cna_game_window_get_native_handle_ext answers a uint64 rather than refusing, so unlike PresentationParameters.DeviceWindowHandle the number is available -- what is missing is a type to put it in. This projection has no IntPtr, and handing back a bare integer that a consumer can do nothing safe with is not one."
+  },
+  {
+   "category": "missing_member",
+   "subject": "Microsoft.Xna.Framework.Graphics.PresentationParameters.DeviceWindowHandle",
+   "detail": "A System.IntPtr naming the native window, and this projection has no IntPtr to hand one back in. CNA also refuses the question at this end by design: cna_graphics_device_get_native_window_handle answers CNA_RESULT_NOT_SUPPORTED after validating the device, and the header gives the reason -- \"a device may outlive or precede the window it presents to and answering here would invent an ownership relationship the canonical layer does not have\". cna_game_window_get_native_window_ext answers it from the window instead, which is GameWindow.Handle's gap and not this one. The earlier reason named the route `cna_graphics_device_get_device_window_handle`, which does not exist in 0.21.0 under that name."
+  },
+  {
+   "category": "missing_member",
+   "subject": "Microsoft.Xna.Framework.Graphics.GraphicsAdapter.MonitorHandle",
+   "detail": "A System.IntPtr naming the monitor. CNA refuses the question by design: cna_graphics_adapter_get_native_monitor_handle \"reports the native-monitor-handle mapping as unavailable at the stable C boundary\" and answers CNA_RESULT_NOT_SUPPORTED after validating the adapter index. An IntPtr is not a thing this projection has either."
+  },
+  {
+   "category": "missing_member",
+   "subject": "Microsoft.Xna.Framework.Graphics.GraphicsDevice.Present(Nullable`1,Nullable`1,IntPtr)",
+   "detail": "Needs Nullable<Rectangle> and IntPtr, neither of which is projected -- and there is no route either: cna_graphics_device_present takes the device and nothing else, so the source rectangle, destination rectangle and override window have nowhere to go. The no-argument Present is complete."
+  },
+  {
+   "category": "missing_member",
+   "subject": "Microsoft.Xna.Framework.Graphics.GraphicsDevice.ResourceDestroyed",
+   "detail": "As ResourceCreated, from the other end, and blocked the same two ways. CNA_ResourceDestroyedEventInfo carries a callback-scoped name and a `has_tag` boolean -- the header: \"the canonical `System::Object*` tag is caller-owned native state, so it is reported as presence only\" -- and ResourceDestroyedEventArgs is not in the selection. Its Name could be answered; its Tag could not, and half an event args under the event's name would be worse than the absence."
+  },
+  {
+   "category": "missing_member",
+   "subject": "Microsoft.Xna.Framework.Graphics.GraphicsDevice.ResourceCreated",
+   "detail": "Two blockers, either one sufficient. **CNA reports presence, not a resource**: CNA_ResourceCreatedEventInfo carries `has_resource` and nothing else, and the header says why -- \"the canonical event is raised from the graphics-resource base constructor, so the reported object is still under construction: its concrete type does not exist yet and no member of it can be queried. The C event therefore reports only that a resource was supplied, and no native object pointer crosses the ABI.\" And **ResourceCreatedEventArgs is not in the selection**, so there is no type to hand a resource in even if one crossed. The earlier reason said this needed \"a decision about what object a handler is handed\"; there is nothing to hand."
+  },
+  {
+   "category": "missing_member",
+   "subject": "Microsoft.Xna.Framework.Graphics.Effect.OnApply()",
+   "detail": "A protected-internal virtual (`.method famorassem`) that XNA calls from inside EffectPass.Apply, so a subclass can adjust parameters immediately before the pass is applied. CNA applies a pass in one route -- cna_effect_pass_apply(pass) takes the pass and nothing else -- with no callback into managed code in the middle, so an override here would never be called. The same shape as ContentManager.ReadAsset: a hook needs somewhere to be called from. The reason that used to stand added \"and returning true from it cancels the pass\". **In the pinned assembly OnApply returns `void`** and cancels nothing; Effect's own body is a single `ret`. That was a claim about XNA taken from somewhere other than XNA."
+  },
+  {
+   "category": "missing_member",
+   "subject": "Microsoft.Xna.Framework.Graphics.DirectionalLight.new(EffectParameter,EffectParameter,EffectParameter,DirectionalLight)",
+   "detail": "XNA's constructor takes three EffectParameters and a DirectionalLight to copy from, which is how the stock effects wire their own lights up: the light *is* the three parameters, and writing it writes them. A program does not build one -- it reaches DirectionalLight through BasicEffect.DirectionalLight0 and its two siblings, which are complete. **cna_directional_light_create does exist**, and it is not this constructor: it takes no arguments and, in the header's words, \"creates an owned default disabled DirectionalLight\" with no parameters behind it. The wiring is the member, and CNA's route cannot express it."
+  },
+  {
+   "category": "missing_member",
+   "subject": "Microsoft.Xna.Framework.Graphics.BasicEffect.OnApply()",
+   "detail": "A protected-internal virtual (`.method famorassem`) that XNA calls from inside EffectPass.Apply, so a subclass can adjust parameters immediately before the pass is applied. CNA applies a pass in one route -- cna_effect_pass_apply(pass) takes the pass and nothing else -- with no callback into managed code in the middle, so an override here would never be called. The same shape as ContentManager.ReadAsset: a hook needs somewhere to be called from. The reason that used to stand added \"and returning true from it cancels the pass\". **In the pinned assembly OnApply returns `void`** and cancels nothing; Effect's own body is a single `ret`. That was a claim about XNA taken from somewhere other than XNA."
+  }
+ ]
+}

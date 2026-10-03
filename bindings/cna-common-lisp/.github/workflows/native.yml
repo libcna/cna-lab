@@ -1,0 +1,1059 @@
+# Native gates, in two lanes that prove different things and must never be
+# collapsed into one sentence.
+#
+#   native      HEADLESS. Proves the lifecycle ran, handles were valid and draw
+#               commands were submitted and accepted. Proves nothing about pixels.
+#               This is also where the *no-game* claims run: the storage lanes,
+#               and the caller-owned GraphicsDevice, which is the only graphics
+#               surface here that needs no `Game' at all.
+#   texture3d   OPENGL33 (EasyGL) under Xvfb and Mesa llvmpipe. The one lane
+#               here that needs a display, and it needs a *virtual* one --
+#               deliberately, so no GPU is a prerequisite. It proves the single
+#               capability the other two renderers do not have: volume storage.
+#               It does NOT run the suite, and it changes nothing about the two
+#               lanes below; adding a renderer must not make an existing gate
+#               conditional.
+#   rasterizer  SOFTWARE, a CPU rasteriser that needs no display and no Xvfb.
+#               Three separate proofs: a Clear reaches the back buffer and reads
+#               back; a SpriteBatch draw puts a generated opaque texture's own
+#               texels on exactly the pixels its destination names; and a
+#               DrawUserPrimitives triangle, drawn through a BasicEffect pass,
+#               covers exactly the pixels its geometry covers. The lane fails if
+#               any is missing -- the sprite path and the primitive path are
+#               different paths through the renderer. Not a claim about a
+#               physical monitor, and not a claim about a GPU renderer.
+#
+# Every one of these needs a real CNA C ABI shared library, and most of them need
+# the CNA source it was built from.
+#
+# The stages are separate on purpose: a failure in the compiler-backed ABI check
+# means something different from a failure in the runtime tests, and neither means
+# what a failure in the isolated consumer run means.
+#
+# The runtime here is the reference one, SBCL 2.5.2 -- the same runtime the local
+# qualification uses. ubuntu-24.04's own SBCL is a different runtime and is
+# exercised by lisp.yml's distro job. docs/qualification.md says which claim each
+# one supports.
+#
+# The CNA source is a *moving branch* by policy (see docs/qualification.md), so
+# every run resolves it to a commit and records that commit in the step summary
+# and in the uploaded evidence. An ABI artifact whose CNA commit was not recorded
+# is not qualification evidence.
+
+name: Native
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      cna_ref:
+        description: >
+          CNA branch, tag or commit to build the C ABI from. Defaults to the
+          pinned commit below -- the newest origin/next commit whose ABI this
+          binding admits. Pass 'next' to measure the branch tip's newer ABI, or
+          056e57d478f8e6accfa9124337803e735b39f1e4 to reproduce the 0.21.0 half
+          of the admitted set.
+        required: false
+        default: ''
+      sharp_runtime_ref:
+        description: >
+          sharp-runtime branch, tag or commit. CNA does not pin this -- its own
+          CHANGELOG says so -- so the pairing is this workflow's to choose.
+        required: false
+        default: 'next'
+
+concurrency:
+  group: native-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # A pinned commit on libcna/cna's `next` branch, not the branch tip.
+  #
+  # **Two earlier reasons for this pin are both gone.** Between 2026-09-04 and
+  # 2026-09-05 it existed because cna:next called
+  # SharpRuntime::Storage::StoragePaths::SetIsolatedStorageRootOverride and
+  # libcna/sharp-runtime:next did not publish that member, so the tip did not
+  # build from published sources at all; sharp-runtime:next caught up (bfc826e1).
+  # Then it existed because cna:next had moved to ABI 0.23.0 and this binding
+  # admitted {0.21.0, 0.22.0}, so the tip would have failed the gate. 0.23.0 was
+  # qualified and admitted on 2026-09-06, so that reason is gone too.
+  #
+  # **The reason now is that evidence has to be reproducible.** `next` moved from
+  # 0.22.0 to 0.23.0 in a single day and moved again fifteen commits later while
+  # 0.23.0 was being qualified. A job that follows the branch tip qualifies
+  # whatever the tip happened to be that hour, which is not a claim anyone can
+  # re-run. docs/qualification.md records an exact pair per admitted version, and
+  # this pin is the newest of those pairs.
+  #
+  # 5c8840657 is that commit: ABI 0.23.0, on origin/next, the newest commit whose
+  # headers declare it, carrying every route
+  # docs/generated/native-abi-manifest.json binds, and the exact commit the
+  # 0.23.0 evidence in docs/qualification.md was produced against.
+  #
+  # Reproducing the other two members of the admitted set, both of which the
+  # release standard still requires a full run against:
+  #
+  #   0.22.0 -- workflow_dispatch with
+  #             cna_ref: fb62662c9536f30a6a8bd080597002b8443b28d4
+  #   0.21.0 -- workflow_dispatch with
+  #             cna_ref: 056e57d478f8e6accfa9124337803e735b39f1e4
+  #
+  # To measure the next bump before it is admitted: workflow_dispatch with
+  # cna_ref: next, which is how 0.23.0 was found. docs/qualification.md has the
+  # policy and the evidence for all three.
+  CNA_REF: ${{ github.event.inputs.cna_ref || '5c8840657caa448149af9374b96bbd6acee354a1' }}
+  # CNA consumes sharp-runtime as a sibling checkout with add_subdirectory and
+  # pins no revision -- "sharp-runtime is the exception and is not pinned by the
+  # build", in CNA's own CHANGELOG, which calls recording the revision a stopgap.
+  # So the pairing is this workflow's to make, and getting it wrong is a compile
+  # error deep in CNA's storage module rather than anything a version check
+  # catches: libcna/cna:next needs libcna/sharp-runtime:next, and
+  # sharp-runtime's default branch is develop.
+  #
+  # **This defaulted to the `next` branch until 2026-09-06, and that was half a
+  # pin.** Run 34041187578 is the evidence: CNA_REF was the exact qualified 0.23.0
+  # commit, and `next` resolved to sharp-runtime 30ccdef3 -- one commit past the
+  # bfc826e1 the 0.23.0 evidence was produced against, pushed while that
+  # qualification was running. The run passed, so nothing broke; what broke was
+  # the claim, because CI had qualified a pair no document describes.
+  #
+  # A pair is two commits. Pinning one and letting the other follow a branch does
+  # not make the pair reproducible, and it is *this* half that CNA leaves
+  # unpinned, so it is the half most likely to move without anyone deciding to
+  # move it. bfc826e1 is what docs/qualification.md records for both 0.22.0 and
+  # 0.23.0.
+  SHARP_RUNTIME_REF: ${{ github.event.inputs.sharp_runtime_ref || 'bfc826e1fa7eef1adb36df1c64782e9939a0af37' }}
+  # The GL family, for the `texture3d' lane alone. CNA consumes easy-gl as a
+  # sibling checkout and easy-gl consumes meta-gl the same way, and CNA pins a
+  # revision of neither -- so, exactly as with sharp-runtime, the pairing is this
+  # workflow's to make and both halves are pinned rather than following a branch.
+  # These are the commits docs/texture3d-audit.md recorded its measurements
+  # against; a lane that followed `develop' would qualify whatever the branch
+  # happened to be that hour.
+  #
+  # Both are published and check out from GitHub. `META_GL_REF' is the commit
+  # that adds `metagl::InternalFormat::Rgba16' (`GL_RGBA16', 0x805B), which CNA's
+  # EasyGL renderer maps `SurfaceFormat::Rgba64' to; it was unpublished until
+  # 2026-09-08, which is what the `texture3d' job's dispatch gate existed for.
+  EASY_GL_REF: deda7a426c3c166c0e03a4790f1ede610e2e46fb
+  META_GL_REF: 20c8b2dc5bb80e32706784066db9fd9e15b3f46a
+
+jobs:
+  native:
+    name: CNA C ABI, ABI gate, runtime tests, isolated consumer
+    runs-on: ubuntu-24.04
+    timeout-minutes: 360
+    steps:
+      - name: Checkout CNA-Lisp
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: cna-common-lisp
+
+      - name: Checkout the template
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: libcna/cna-common-lisp-template
+          path: cna-common-lisp-template
+
+      - name: Checkout CNA
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: libcna/cna
+          ref: ${{ env.CNA_REF }}
+          path: cna
+
+      - name: Checkout sharp-runtime
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: libcna/sharp-runtime
+          ref: ${{ env.SHARP_RUNTIME_REF }}
+          path: sharp-runtime
+
+      # CNA's own configure-time message says a non-recursive init is what it
+      # wants: this build disables every optional codec dependency under
+      # SDL_image's and SDL_mixer's nested submodules, so `--recursive` would
+      # only add a much slower, unnecessary fetch. Naming the paths keeps
+      # vendor/googletest out of it as well, since CNA_BUILD_TESTS is OFF below.
+      - name: Initialise exactly the CNA submodules this build needs
+        working-directory: cna
+        run: |
+          set -eu
+          # Full clones, not --depth 1: a shallow submodule fetch only reaches the
+          # default branch tip, and a pinned commit behind it leaves the checkout
+          # half-initialised and the recovery worse than the ~250 MB it saved.
+          paths="third_party/SDL third_party/SDL_image third_party/SDL_mixer third_party/draco"
+          # shellcheck disable=SC2086
+          git submodule update --init --jobs 4 $paths
+          # shellcheck disable=SC2086
+          git submodule status $paths
+
+      - name: Resolve and record the CNA source commit
+        id: cna_source
+        run: |
+          set -eu
+          sha=$(git -C cna rev-parse HEAD)
+          sharp=$(git -C sharp-runtime rev-parse HEAD)
+          template=$(git -C cna-common-lisp-template rev-parse HEAD)
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "CNA_SOURCE_SHA=$sha" >> "$GITHUB_ENV"
+          echo "SHARP_RUNTIME_SHA=$sharp" >> "$GITHUB_ENV"
+          {
+            echo "### CNA source used for this qualification"
+            echo
+            echo "| what | value |"
+            echo "| --- | --- |"
+            echo "| CNA ref requested | \`${CNA_REF}\` |"
+            echo "| CNA commit resolved | \`${sha}\` |"
+            echo "| sharp-runtime ref requested | \`${SHARP_RUNTIME_REF}\` |"
+            echo "| sharp-runtime commit | \`${sharp}\` |"
+            echo "| template commit | \`${template}\` |"
+            echo "| CNA-Lisp commit | \`${GITHUB_SHA}\` |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # CNA builds SDL3, SDL3_image and SDL3_mixer from its own vendored
+      # submodules, so SDL's Linux build dependencies are this job's
+      # dependencies too -- and SDL's CMake treats a missing one as a hard error
+      # rather than a disabled backend (X11 without XScrnSaver is what failed
+      # here first). The Wayland set is deliberately complete: CNA keys its
+      # persistent SDL install root on whether Wayland *could* be built, and
+      # then refuses a cache that promised Wayland and did not deliver it.
+      - name: Install build and Lisp toolchains
+        run: |
+          set -eu
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            cmake ninja-build build-essential ccache pkg-config python3
+          packages="libasound2-dev libpulse-dev libjack-dev libpipewire-0.3-dev
+                    libsamplerate0-dev libx11-dev libxext-dev libxrandr-dev
+                    libxcursor-dev libxi-dev libxfixes-dev libxss-dev libxtst-dev
+                    libxrender-dev libxkbcommon-dev libwayland-dev wayland-protocols
+                    libdecor-0-dev libegl-dev libgles-dev libgl-dev libdrm-dev
+                    libgbm-dev libdbus-1-dev libudev-dev libibus-1.0-dev
+                    libavcodec-dev libavformat-dev libavutil-dev libswresample-dev
+                    libswscale-dev"
+          # One transaction if every name resolves; otherwise one at a time, so a
+          # package a future runner image renames reports itself instead of
+          # failing the job before SDL's configure has had its say.
+          # shellcheck disable=SC2086
+          sudo apt-get install -y --no-install-recommends $packages || {
+            for package in $packages; do
+              sudo apt-get install -y --no-install-recommends "$package" \
+                || echo "note: $package is not available on this runner image"
+            done
+          }
+          cc --version
+
+      - name: Install the reference SBCL
+        uses: ./cna-common-lisp/.github/actions/reference-sbcl
+
+      # ---------------------------------------------------------------- stage 1
+      # SDL3, SDL3_image and SDL3_mixer are built once into a persistent install
+      # root CNA owns and keys by platform; caching it on the exact submodule
+      # commits means a later run reuses that build and a bumped submodule does
+      # not. ccache is keyed loosely on purpose -- a stale hit is always safe
+      # there, because ccache decides reuse by content hash, not by key.
+      - name: Cache key for the vendored SDL install root
+        id: sdlkey
+        working-directory: cna
+        run: |
+          set -eu
+          key=$(git submodule status third_party/SDL third_party/SDL_image third_party/SDL_mixer \
+                  | awk '{print $1}' | tr -d ' -+U' | tr '\n' '-')
+          echo "key=$key" >> "$GITHUB_OUTPUT"
+
+      - name: Cache the vendored SDL install root
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: cna/.sdl-prebuilt-*
+          key: cna-sdl-${{ runner.os }}-${{ steps.sdlkey.outputs.key }}
+
+      - name: Cache ccache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/ccache
+          key: cna-ccache-${{ runner.os }}-${{ steps.cna_source.outputs.sha }}
+          restore-keys: |
+            cna-ccache-${{ runner.os }}-
+
+      - name: Build a minimal HEADLESS CNA C API
+        working-directory: cna
+        env:
+          # Bounded on purpose, and this is **not** the shared-cache mistake the
+          # openeggbert build rules forbid. That rule is about a developer machine
+          # where one physical ccache (~/.cache/ccache, which /rv/cnaccache is a
+          # symlink to) is shared by every agent, and where exporting a maximum
+          # size overrides ccache.conf and evicts other agents' entries. A GitHub
+          # runner is ephemeral and its cache is this job's alone, restored and
+          # saved by actions/cache above -- so the size has to be capped here or
+          # the cache entry grows without bound.
+          CCACHE_MAXSIZE: 2G
+        run: |
+          set -eu
+          ccache --zero-stats
+          cmake -S . -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+            -DCNA_BUILD_C_API=ON \
+            -DCNA_BUILD_TESTS=OFF \
+            -DCNA_BUILD_EXAMPLES=OFF \
+            -DCNA_PLATFORM=SDL3 \
+            -DCNA_AUDIO_PLATFORM=SDL3 \
+            -DCNA_GRAPHICS_RENDERER=HEADLESS \
+            -DCNA_SHARP_RUNTIME_ROOT="${GITHUB_WORKSPACE}/sharp-runtime"
+          cmake --build build --target cna_c_api -j"$(nproc)"
+          ccache --show-stats || true
+          echo "CNA_NATIVE_LIBRARY=$(readlink -f build/modules/c-api/libcna_c_api.so)" >> "$GITHUB_ENV"
+          echo "CNA_HEADERS=$(readlink -f modules/c-api/include)" >> "$GITHUB_ENV"
+          echo "CNA_ABI_BASELINE=$(readlink -f tools/c-api/abi_baseline.json)" >> "$GITHUB_ENV"
+
+      - name: The library exports what the manifest binds
+        working-directory: cna-common-lisp
+        run: |
+          python3 - <<'PY'
+          import json, os, subprocess, sys
+          manifest = json.load(open("docs/generated/native-abi-manifest.json"))
+          out = subprocess.run(["nm", "-D", "--defined-only", os.environ["CNA_NATIVE_LIBRARY"]],
+                               capture_output=True, text=True, check=True).stdout
+          exported = {line.split()[-1].split("@")[0] for line in out.splitlines() if " T " in line}
+          missing = [f["name"] for f in manifest["functions"] if f["name"] not in exported]
+          if missing:
+              sys.exit("routes absent from the built library: %s" % missing)
+          print("all %d bound routes are exported" % len(manifest["functions"]))
+          PY
+
+      # ---------------------------------------------------------------- stage 2
+      - name: Compiler-backed ABI verification
+        working-directory: cna-common-lisp
+        run: tools/native-abi/verify.sh "$CNA_HEADERS"
+
+      # ---------------------------------------------------------------- stage 3
+      - name: Cache Quicklisp
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/quicklisp
+            ~/.cache/common-lisp
+          key: quicklisp-${{ runner.os }}-reference-2026-01-01-${{ hashFiles('cna-common-lisp/cna-common-lisp.asd') }}
+          restore-keys: quicklisp-${{ runner.os }}-reference-2026-01-01-
+
+      - name: Install Quicklisp and the pinned dependencies
+        run: |
+          if [ ! -f "$HOME/quicklisp/setup.lisp" ]; then
+            curl -sSLo /tmp/quicklisp.lisp https://beta.quicklisp.org/quicklisp.lisp
+            sbcl --non-interactive --load /tmp/quicklisp.lisp \
+                 --eval '(quicklisp-quickstart:install :path "~/quicklisp/")'
+          fi
+          sbcl --non-interactive --load ~/quicklisp/setup.lisp \
+               --eval '(ql-dist:install-dist "http://beta.quicklisp.org/dist/quicklisp/2026-01-01/distinfo.txt" :replace t :prompt nil)' \
+               --eval '(ql:quickload (list :cffi :babel :bordeaux-threads :trivial-gray-streams :fiveam))'
+
+      - name: Native runtime tests
+        working-directory: cna-common-lisp
+        env:
+          CNA_LISP_VALUEPROBE: ${{ github.workspace }}/cna-common-lisp/build-probe/libcna-lisp-valueprobe.so
+          # The shim is optional; the suite asserts both outcomes, so the run that
+          # supplies it exercises the viewport setter rather than its refusal.
+          CNA_LISP_SHIM: ${{ github.workspace }}/cna-common-lisp/build-probe/libcna-lisp-shim.so
+        run: |
+          sbcl --non-interactive \
+               --load ~/quicklisp/setup.lisp \
+               --eval '(push (truename ".") asdf:*central-registry*)' \
+               --eval '(asdf:test-system "cna-common-lisp")'
+
+      # ---------------------------------------------------------------- stage 4
+      - name: Native runtime tests again, without the optional shim
+        working-directory: cna-common-lisp
+        env:
+          CNA_LISP_VALUEPROBE: ${{ github.workspace }}/cna-common-lisp/build-probe/libcna-lisp-valueprobe.so
+        run: |
+          sbcl --non-interactive \
+               --load ~/quicklisp/setup.lisp \
+               --eval '(push (truename ".") asdf:*central-registry*)' \
+               --eval '(asdf:test-system "cna-common-lisp")'
+
+      # ---------------------------------------------------------------- stage 5
+      # A GitHub runner has **no audio device**: measured, and the two runs above
+      # therefore qualify only the unavailable branch of the audio surface. That
+      # is a real result and the runner prints it, but it is not the whole claim.
+      #
+      # This step runs both branches in their own processes, which is the only way
+      # to run them at all: SDL's audio driver selection is process-global and
+      # latches at initialisation, so one image cannot answer for two drivers.
+      # SDL's dummy driver still opens a device, so the whole play/pause/resume/
+      # stop state machine is qualified here with no speaker attached -- and the
+      # script fails if either lane reaches the other one's branch.
+      #
+      # Nothing here is a claim that a sound was heard, and the script says so.
+      - name: Audio qualification, unavailable and dummy-device lanes
+        working-directory: cna-common-lisp
+        env:
+          CNA_LISP_VALUEPROBE: ${{ github.workspace }}/cna-common-lisp/build-probe/libcna-lisp-valueprobe.so
+        run: tools/qualification/audio.sh
+
+      # The capture surface, and it is a **separate step from the one above**
+      # rather than two more lanes inside it: playback and capture are different
+      # devices behind different CNA routes, and a runner may have neither, so a
+      # script that read one out of the other would let either be reported as the
+      # other. Same process-per-driver constraint, same two deterministic
+      # branches -- a driver that does not exist enumerates no capture device, and
+      # SDL's dummy driver enumerates devices that advance a PCM16 stream of
+      # silence at the rate they report.
+      #
+      # It also runs the public-only consumer, which is the independent evidence
+      # that a complete capture session needs nothing but the two exported
+      # packages: the suite's own tests reach two private symbols, legitimately,
+      # and this proves neither is required.
+      #
+      # Nothing here is a claim that a sound was captured, and the script says so.
+      - name: Microphone qualification, unavailable and dummy-capture lanes
+        working-directory: cna-common-lisp
+        env:
+          CNA_LISP_VALUEPROBE: ${{ github.workspace }}/cna-common-lisp/build-probe/libcna-lisp-valueprobe.so
+        run: tools/qualification/microphone.sh
+
+      # The song-playback surface, and a **third** step rather than more lanes in
+      # either of the two above: a song is not a sound effect and not a capture
+      # device, it goes through media_player.h routes of its own, and a run that
+      # qualified the sound-effect transport says nothing about the media
+      # player's. Same process-per-driver constraint, same two deterministic
+      # branches -- with no device a Song is created anyway and the refusal
+      # arrives at Play, and SDL's dummy driver opens one with no speaker so the
+      # transport, the play clock, the queue and both static events all run.
+      #
+      # It also runs the public-only consumer, which is the independent evidence
+      # that a complete playback session needs nothing but the two exported
+      # packages.
+      #
+      # Nothing here is a claim that music was heard, and the script says so.
+      - name: Media qualification, unavailable and dummy-device lanes
+        working-directory: cna-common-lisp
+        env:
+          CNA_LISP_VALUEPROBE: ${{ github.workspace }}/cna-common-lisp/build-probe/libcna-lisp-valueprobe.so
+        run: tools/qualification/media.sh
+
+      # The save-game surface, and a **fourth** step for a reason none of the
+      # three above have: storage needs no device at all, and no game either.
+      # Its lanes are in their own processes because CNA's storage application
+      # name is process-global and cannot be unset -- so "an image whose very
+      # first name was refused" is a state an image can be in exactly once --
+      # and because one of the claims needs two processes by definition: a save
+      # written by one and read back by another.
+      #
+      # Both branches are forced rather than environmental. An application name
+      # CNA cannot build a directory from is refused on every admitted ABI, and
+      # after it a device still selects, answers IsConnected false and refuses
+      # every container: XNA's disconnected device, reached deterministically on
+      # a runner whose home directory is perfectly writable.
+      #
+      # It also runs the public-only consumer, audited for the usual reaches into
+      # the internals and for one thing no other consumer can claim -- it never
+      # constructs a Game.
+      #
+      # Nothing here is a claim about durability, and the script says so.
+      - name: Storage qualification, no-root, persistence and consumer lanes
+        working-directory: cna-common-lisp
+        env:
+          CNA_LISP_VALUEPROBE: ${{ github.workspace }}/cna-common-lisp/build-probe/libcna-lisp-valueprobe.so
+        run: tools/qualification/storage.sh
+
+      # Game services and device selection. Seven kinds of evidence, required by
+      # name, and the lane that needs the least of the machine: no display, no
+      # GPU, no audio device, no capture device and no content fixture --
+      # everything it does is lifecycle and configuration.
+      #
+      # The discriminating check is that the device-settings lane reports the
+      # *mutated* back buffer: a run that only proved a callback fired would
+      # record the kind and not the number, and this fails on that.
+      #
+      # Nothing here claims that FindBestDevice, RankDevices or CanResetDevice
+      # influences device creation. They answer XNA's semantics when called and
+      # no admitted CNA ABI calls them, which the suite asserts directly.
+      - name: Services and device-selection qualification, and the consumer lane
+        working-directory: cna-common-lisp
+        env:
+          CNA_LISP_VALUEPROBE: ${{ github.workspace }}/cna-common-lisp/build-probe/libcna-lisp-valueprobe.so
+        run: tools/qualification/services.sh
+
+      # The caller-owned GraphicsDevice, in a lane of its own because the claim
+      # it makes is that a GraphicsDevice needs no `Game' -- and a suite run
+      # creates games, so a lane proving that cannot be one of its tests. Nine
+      # kinds of evidence are required by name; reading one out of another is
+      # what a single "owned device works" line would do.
+      #
+      # This job's renderer is HEADLESS, so the script takes the no-readback
+      # branch and **makes no pixel claim**: it proves the standalone device's
+      # lifecycle, its commands, its resource ownership and its disposal. The
+      # rasterizer job below runs the same script against SOFTWARE, where the
+      # pixel claim is made. The script refuses a run that produces both
+      # branches or neither.
+      - name: Owned GraphicsDevice qualification, and its no-game consumer lane
+        working-directory: cna-common-lisp
+        env:
+          CNA_LISP_VALUEPROBE: ${{ github.workspace }}/cna-common-lisp/build-probe/libcna-lisp-valueprobe.so
+        run: tools/qualification/owned-graphics-device.sh
+
+      # Game's private device-event wiring, and it needs a step of its own for
+      # the reason the device lanes above each do: the claim is a *lifecycle
+      # invariant with no public member*, so no compatibility cell reports it
+      # and the evidence lines are the only record it holds. Eight kinds,
+      # required by name -- a real font and its atlas released by the device
+      # event, the CURRENT Game.Content chosen over a replaced one, the
+      # framework's listener in subscription order between two program
+      # handlers, and a signalling disposal contained rather than unwound
+      # through C.
+      #
+      # Nothing here claims this binding calls Game.UnloadContent: CNA's native
+      # game drives that callback itself at the same point, measured, and the
+      # binding deliberately does not double it.
+      - name: Game device/content lifecycle qualification
+        working-directory: cna-common-lisp
+        env:
+          CNA_LISP_VALUEPROBE: ${{ github.workspace }}/cna-common-lisp/build-probe/libcna-lisp-valueprobe.so
+          CNA_NATIVE_LIBRARY: ${{ env.CNA_NATIVE_LIBRARY }}
+        run: tools/qualification/game-device-events.sh
+
+      # The four shim-dependent setters, in both configurations, in separate
+      # processes -- the shim handle is process-global and latches in the
+      # loader, so one image cannot answer for two configurations. This is the
+      # evidence behind the classification in docs/compatibility.md: the four
+      # are one class, so no rule may report three of them complete and the
+      # fourth partial, and the suite fails a run in which they disagree.
+      - name: Shim policy, absent and present branches
+        working-directory: cna-common-lisp
+        env:
+          CNA_LISP_VALUEPROBE: ${{ github.workspace }}/cna-common-lisp/build-probe/libcna-lisp-valueprobe.so
+          CNA_NATIVE_LIBRARY: ${{ env.CNA_NATIVE_LIBRARY }}
+          CNA_LISP_SHIM: ${{ github.workspace }}/cna-common-lisp/build-probe/libcna-lisp-shim.so
+        run: tools/qualification/shim-policy.sh
+
+      # The MediaLibrary closure, and it needs a step of its own for a reason
+      # none of the lanes above have: **a media library is whatever the machine
+      # running the test happens to hold.** `media_library.h' calls an empty one
+      # an ordinary result, so "non-empty" would pass on a developer's machine
+      # and fail on a bare runner, and "empty" would do the opposite. This lane
+      # generates a tree, points XDG_CONFIG_HOME at it -- which is how SDL
+      # resolves the user folders, and how CNA's own C-API suite builds its
+      # fixture -- and then asserts exact counts.
+      #
+      # Seven kinds, required by name, on each admitted ABI. The discriminating
+      # one is the single genre: the fixture's WAV carries no tags, so it
+      # contributes a path-derived artist and album and no genre at all.
+      #
+      # Nothing here claims a library song can be played: the tagged MP3 indexes
+      # and does not decode, and playback is the media lane's claim.
+      - name: MediaLibrary qualification, against a generated library
+        working-directory: cna-common-lisp
+        env:
+          CNA_LISP_VALUEPROBE: ${{ github.workspace }}/cna-common-lisp/build-probe/libcna-lisp-valueprobe.so
+          CNA_NATIVE_LIBRARY: ${{ env.CNA_NATIVE_LIBRARY }}
+        run: tools/qualification/media-library.sh
+
+      - name: Isolated consumer qualification, 60 and 600 frames
+        working-directory: cna-common-lisp
+        run: |
+          tools/qualification/isolated-consumer.sh \
+            "${GITHUB_WORKSPACE}/cna-common-lisp-template"
+
+      # ---------------------------------------------------------------- evidence
+      - name: Write the qualification evidence for this run
+        if: always()
+        working-directory: cna-common-lisp
+        run: |
+          set -eu
+          mkdir -p "${RUNNER_TEMP}/evidence"
+          cp -r docs/generated "${RUNNER_TEMP}/evidence/reports"
+          python3 - <<'PY' > "${RUNNER_TEMP}/evidence/qualification-run.json"
+          import json, os, subprocess
+          def sh(*a):
+              return subprocess.run(a, capture_output=True, text=True).stdout.strip() or None
+          print(json.dumps({
+              "kind": "CI_TESTED",
+              "runtime": {"implementation": "SBCL", "version": sh("sbcl", "--version")},
+              "platform": "Linux x86-64 (ubuntu-24.04 runner)",
+              "cna": {
+                  "ref_requested": os.environ.get("CNA_REF"),
+                  "commit": os.environ.get("CNA_SOURCE_SHA"),
+                  "repository": "libcna/cna",
+                  "renderer": "HEADLESS",
+                  "sharp_runtime_ref_requested": os.environ.get("SHARP_RUNTIME_REF"),
+                  "sharp_runtime_commit": os.environ.get("SHARP_RUNTIME_SHA"),
+                  "platform_backend": "SDL3",
+                  "audio_backend": "SDL3",
+              },
+              "cna_lisp": {
+                  "repository": os.environ.get("GITHUB_REPOSITORY"),
+                  "commit": os.environ.get("GITHUB_SHA"),
+              },
+              "workflow_run": {
+                  "id": os.environ.get("GITHUB_RUN_ID"),
+                  "url": "%s/%s/actions/runs/%s" % (
+                      os.environ.get("GITHUB_SERVER_URL"),
+                      os.environ.get("GITHUB_REPOSITORY"),
+                      os.environ.get("GITHUB_RUN_ID")),
+              },
+          }, indent=2))
+          PY
+          cat "${RUNNER_TEMP}/evidence/qualification-run.json"
+
+      - name: Upload the generated reports and the run's qualification evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: cna-lisp-reports
+          path: ${{ runner.temp }}/evidence/
+
+  # ------------------------------------------------------------------ lane two
+  # A second CNA, configured with the SOFTWARE renderer, and the same suite run
+  # against it. Its own job, so that a failure here cannot take down the lane
+  # above: they support different claims and are allowed to disagree about
+  # whether they are ready.
+  texture3d:
+    name: Volume storage on a software OpenGL stack
+    # **An ordinary per-push job, and it was not always one.** Until 2026-09-08
+    # this lane was dispatch-gated, because CNA's EasyGL renderer references
+    # `metagl::InternalFormat::Rgba16' and that enumerator existed only in an
+    # unpublished meta-gl commit: a checkout of the pin failed with
+    # "upload-pack: not our ref", measured on run 34210794619. meta-gl published
+    # it -- `20c8b2dc5' on `libcna/meta-gl' `develop', with `eaf07887' beneath it
+    # -- and run 34215911608 then recorded all eleven claims here, on Xvfb and
+    # Mesa llvmpipe, with no GPU. The gate came off in the same commit as this
+    # comment.
+    #
+    # It is a single focused build and does not run the suite, so it costs about
+    # what the rasterizer lane costs. It changes nothing about the two lanes
+    # beside it: HEADLESS and SOFTWARE have no volume storage, answer
+    # NOT_SUPPORTED, and `tests/native/texture-3d.lisp' asserts that refusal.
+    # Three renderers, three different claims, and none of them conditional on
+    # another.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 360
+    steps:
+      - name: Checkout CNA-Lisp
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: cna-common-lisp
+
+      - name: Checkout CNA
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: libcna/cna
+          ref: ${{ env.CNA_REF }}
+          path: cna
+
+      - name: Checkout sharp-runtime
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: libcna/sharp-runtime
+          ref: ${{ env.SHARP_RUNTIME_REF }}
+          path: sharp-runtime
+
+      # EasyGL is a **sibling checkout**, not a submodule -- CNA's own
+      # RendererSelection.cmake says so and looks for `../easy-gl' relative to
+      # its own source directory -- and easy-gl looks for `../meta-gl' the same
+      # way. `git submodule update --init' fetches neither.
+      - name: Checkout easy-gl
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: libcna/easy-gl
+          ref: ${{ env.EASY_GL_REF }}
+          path: easy-gl
+
+      - name: Checkout meta-gl
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: libcna/meta-gl
+          ref: ${{ env.META_GL_REF }}
+          path: meta-gl
+
+      - name: Initialise exactly the CNA submodules this build needs
+        working-directory: cna
+        run: |
+          set -eu
+          paths="third_party/SDL third_party/SDL_image third_party/SDL_mixer third_party/draco"
+          # shellcheck disable=SC2086
+          git submodule update --init --jobs 4 $paths
+
+      # A pair is two commits, and this lane's is four: the GL family is two more
+      # sibling repositories that CNA pins no revision of either.
+      - name: Record the source commits
+        id: cna_source
+        run: |
+          set -eu
+          sha=$(git -C cna rev-parse HEAD)
+          easygl=$(git -C easy-gl rev-parse HEAD)
+          metagl=$(git -C meta-gl rev-parse HEAD)
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          {
+            echo "### Texture3D lane"
+            echo
+            echo "| what | value |"
+            echo "| --- | --- |"
+            echo "| CNA commit | \`${sha}\` |"
+            echo "| sharp-runtime commit | \`$(git -C sharp-runtime rev-parse HEAD)\` |"
+            echo "| easy-gl commit | \`${easygl}\` |"
+            echo "| meta-gl commit | \`${metagl}\` |"
+            echo "| renderer | \`OPENGL33\` (EasyGL, desktop core) |"
+            echo "| GL stack | Xvfb + Mesa llvmpipe, no GPU |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Install build and Lisp toolchains
+        run: |
+          set -eu
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            cmake ninja-build build-essential ccache pkg-config python3 \
+            xvfb mesa-utils libgl1-mesa-dri
+          packages="libasound2-dev libpulse-dev libjack-dev libpipewire-0.3-dev
+                    libsamplerate0-dev libx11-dev libxext-dev libxrandr-dev
+                    libxcursor-dev libxi-dev libxfixes-dev libxss-dev libxtst-dev
+                    libxrender-dev libxkbcommon-dev libwayland-dev wayland-protocols
+                    libdecor-0-dev libegl-dev libgles-dev libgl-dev libdrm-dev
+                    libgbm-dev libdbus-1-dev libudev-dev libibus-1.0-dev
+                    libavcodec-dev libavformat-dev libavutil-dev libswresample-dev
+                    libswscale-dev"
+          # shellcheck disable=SC2086
+          sudo apt-get install -y --no-install-recommends $packages || {
+            for package in $packages; do
+              sudo apt-get install -y --no-install-recommends "$package" \
+                || echo "note: $package is not available on this runner image"
+            done
+          }
+
+      - name: Install the reference SBCL
+        uses: ./cna-common-lisp/.github/actions/reference-sbcl
+
+      - name: Cache key for the vendored SDL install root
+        id: sdlkey
+        working-directory: cna
+        run: |
+          set -eu
+          key=$(git submodule status third_party/SDL third_party/SDL_image third_party/SDL_mixer \
+                  | awk '{print $1}' | tr -d ' -+U' | tr '\n' '-')
+          echo "key=$key" >> "$GITHUB_OUTPUT"
+
+      - name: Cache the vendored SDL install root
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: cna/.sdl-prebuilt-*
+          key: cna-sdl-${{ runner.os }}-${{ steps.sdlkey.outputs.key }}
+
+      - name: Cache ccache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/ccache
+          key: cna-ccache-opengl33-${{ runner.os }}-${{ steps.cna_source.outputs.sha }}
+          restore-keys: |
+            cna-ccache-opengl33-${{ runner.os }}-
+            cna-ccache-${{ runner.os }}-
+
+      # OPENGL33 is the identity cmake/RendererRegistry.cmake maps to
+      # EasyGL|GetDescriptorOpenGL33 -- the desktop-core profile. OPENGLES2 and
+      # WEBGL1 are deliberately not used: EasyGL reports Texture3D unsupported for
+      # the ES2 API generation, so a refusal there would be the profile's answer
+      # rather than the renderer's.
+      - name: Build an OPENGL33 CNA C API
+        working-directory: cna
+        env:
+          CCACHE_MAXSIZE: 2G
+        run: |
+          set -eu
+          cmake -S . -B build-opengl33 -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+            -DCNA_BUILD_C_API=ON \
+            -DCNA_BUILD_TESTS=OFF \
+            -DCNA_BUILD_EXAMPLES=OFF \
+            -DCNA_PLATFORM=SDL3 \
+            -DCNA_AUDIO_PLATFORM=SDL3 \
+            -DCNA_GRAPHICS_RENDERER=OPENGL33 \
+            -DCNA_SHARP_RUNTIME_ROOT="${GITHUB_WORKSPACE}/sharp-runtime"
+          cmake --build build-opengl33 --target cna_c_api -j"$(nproc)"
+          echo "CNA_NATIVE_LIBRARY=$(readlink -f build-opengl33/modules/c-api/libcna_c_api.so)" \
+            >> "$GITHUB_ENV"
+
+      # The C-level measurement first, with no binding in the path: it is what
+      # decides whether the capability exists at all, and a Lisp failure after it
+      # means something different from a Lisp failure instead of it.
+      - name: The native volume-transfer matrix
+        working-directory: cna-common-lisp
+        env:
+          # The script builds its probe against the CNA headers; its default is a
+          # local development path that does not exist on a runner.
+          CNA_HEADERS: ${{ github.workspace }}/cna/modules/c-api/include
+        run: |
+          set -eu
+          tools/qualification/texture3d-matrix.sh "$CNA_NATIVE_LIBRARY"
+
+      # The same one-question probe that answers NOT_SUPPORTED on the other two
+      # renderers, asked of this one, so the two answers are produced by the same
+      # program. **The negative branch is not rebuilt here**: the `native' and
+      # `rasterizer' jobs run tests/native/texture-3d.lisp against HEADLESS and
+      # SOFTWARE and assert the refusal there, so building either renderer again
+      # in this job would be a third CNA build for a claim already gated.
+      - name: The support probe answers SUCCESS on this renderer
+        working-directory: cna-common-lisp
+        run: |
+          set -eu
+          mkdir -p build-probe
+          cc -O1 -o build-probe/texture3d-support-probe \
+             -I "${GITHUB_WORKSPACE}/cna/modules/c-api/include" \
+             tools/native-abi/texture3d-support-probe.c -ldl
+          xvfb-run -a --server-args="-screen 0 1280x800x24" \
+            ./build-probe/texture3d-support-probe "$CNA_NATIVE_LIBRARY" \
+            | tee /tmp/easygl-support.log
+          grep -q 'texture3d_create -> 0 (SUCCESS)' /tmp/easygl-support.log
+
+      - name: Cache Quicklisp
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/quicklisp
+            ~/.cache/common-lisp
+          key: quicklisp-${{ runner.os }}-reference-2026-01-01-${{ hashFiles('cna-common-lisp/cna-common-lisp.asd') }}
+          restore-keys: quicklisp-${{ runner.os }}-reference-2026-01-01-
+
+      - name: Install Quicklisp and the pinned dependencies
+        run: |
+          if [ ! -f "$HOME/quicklisp/setup.lisp" ]; then
+            curl -sSLo /tmp/quicklisp.lisp https://beta.quicklisp.org/quicklisp.lisp
+            sbcl --non-interactive --load /tmp/quicklisp.lisp \
+                 --eval '(quicklisp-quickstart:install :path "~/quicklisp/")'
+          fi
+          sbcl --non-interactive --load ~/quicklisp/setup.lisp \
+               --eval '(ql-dist:install-dist "http://beta.quicklisp.org/dist/quicklisp/2026-01-01/distinfo.txt" :replace t :prompt nil)' \
+               --eval '(ql:quickload (list :cffi :babel :bordeaux-threads :trivial-gray-streams :fiveam))'
+
+      - name: Build the by-value aggregate probe
+        working-directory: cna-common-lisp
+        run: tools/native-abi/verify.sh "${GITHUB_WORKSPACE}/cna/modules/c-api/include"
+        env:
+          CNA_ABI_BASELINE: ${{ github.workspace }}/cna/tools/c-api/abi_baseline.json
+
+      # Every claim by name. The lane refuses a run that produces a claim its
+      # registry does not name, and one that fails to produce one it does.
+      - name: Texture3D qualification, the TEXTURE3D_TRANSFER capability
+        working-directory: cna-common-lisp
+        env:
+          CNA_LISP_VALUEPROBE: ${{ github.workspace }}/cna-common-lisp/build-probe/libcna-lisp-valueprobe.so
+        run: tools/qualification/texture3d.sh "$CNA_NATIVE_LIBRARY"
+
+      - name: Record what this lane proved
+        if: always()
+        working-directory: cna-common-lisp
+        run: |
+          set -eu
+          {
+            echo
+            echo '```'
+            cat build-probe/texture3d-*-volume.log 2>/dev/null \
+              | grep '^texture3d : ' || echo "no claims were recorded"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  rasterizer:
+    name: Real rasterization, and pixels read back
+    runs-on: ubuntu-24.04
+    timeout-minutes: 360
+    steps:
+      - name: Checkout CNA-Lisp
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: cna-common-lisp
+
+      - name: Checkout the template
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: libcna/cna-common-lisp-template
+          path: cna-common-lisp-template
+
+      - name: Checkout CNA
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: libcna/cna
+          ref: ${{ env.CNA_REF }}
+          path: cna
+
+      - name: Checkout sharp-runtime
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: libcna/sharp-runtime
+          ref: ${{ env.SHARP_RUNTIME_REF }}
+          path: sharp-runtime
+
+      - name: Initialise exactly the CNA submodules this build needs
+        working-directory: cna
+        run: |
+          set -eu
+          paths="third_party/SDL third_party/SDL_image third_party/SDL_mixer third_party/draco"
+          # shellcheck disable=SC2086
+          git submodule update --init --jobs 4 $paths
+
+      - name: Record the CNA source commit
+        id: cna_source
+        run: |
+          set -eu
+          sha=$(git -C cna rev-parse HEAD)
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "CNA_SOURCE_SHA=$sha" >> "$GITHUB_ENV"
+          {
+            echo "### Rasterizer lane"
+            echo
+            echo "| what | value |"
+            echo "| --- | --- |"
+            echo "| CNA commit | \`${sha}\` |"
+            echo "| renderer | \`SOFTWARE\` (CPU rasteriser, no display) |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Install build and Lisp toolchains
+        run: |
+          set -eu
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            cmake ninja-build build-essential ccache pkg-config python3
+          packages="libasound2-dev libpulse-dev libjack-dev libpipewire-0.3-dev
+                    libsamplerate0-dev libx11-dev libxext-dev libxrandr-dev
+                    libxcursor-dev libxi-dev libxfixes-dev libxss-dev libxtst-dev
+                    libxrender-dev libxkbcommon-dev libwayland-dev wayland-protocols
+                    libdecor-0-dev libegl-dev libgles-dev libgl-dev libdrm-dev
+                    libgbm-dev libdbus-1-dev libudev-dev libibus-1.0-dev
+                    libavcodec-dev libavformat-dev libavutil-dev libswresample-dev
+                    libswscale-dev"
+          # shellcheck disable=SC2086
+          sudo apt-get install -y --no-install-recommends $packages || {
+            for package in $packages; do
+              sudo apt-get install -y --no-install-recommends "$package" \
+                || echo "note: $package is not available on this runner image"
+            done
+          }
+
+      - name: Install the reference SBCL
+        uses: ./cna-common-lisp/.github/actions/reference-sbcl
+
+      - name: Cache key for the vendored SDL install root
+        id: sdlkey
+        working-directory: cna
+        run: |
+          set -eu
+          key=$(git submodule status third_party/SDL third_party/SDL_image third_party/SDL_mixer \
+                  | awk '{print $1}' | tr -d ' -+U' | tr '\n' '-')
+          echo "key=$key" >> "$GITHUB_OUTPUT"
+
+      - name: Cache the vendored SDL install root
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: cna/.sdl-prebuilt-*
+          key: cna-sdl-${{ runner.os }}-${{ steps.sdlkey.outputs.key }}
+
+      - name: Cache ccache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/ccache
+          key: cna-ccache-software-${{ runner.os }}-${{ steps.cna_source.outputs.sha }}
+          restore-keys: |
+            cna-ccache-software-${{ runner.os }}-
+            cna-ccache-${{ runner.os }}-
+
+      - name: Build a SOFTWARE CNA C API
+        working-directory: cna
+        env:
+          CCACHE_MAXSIZE: 2G
+        run: |
+          set -eu
+          cmake -S . -B build-software -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+            -DCNA_BUILD_C_API=ON \
+            -DCNA_BUILD_TESTS=OFF \
+            -DCNA_BUILD_EXAMPLES=OFF \
+            -DCNA_PLATFORM=SDL3 \
+            -DCNA_AUDIO_PLATFORM=SDL3 \
+            -DCNA_GRAPHICS_RENDERER=SOFTWARE \
+            -DCNA_SHARP_RUNTIME_ROOT="${GITHUB_WORKSPACE}/sharp-runtime"
+          cmake --build build-software --target cna_c_api -j"$(nproc)"
+          echo "CNA_NATIVE_LIBRARY=$(readlink -f build-software/modules/c-api/libcna_c_api.so)" \
+            >> "$GITHUB_ENV"
+
+      - name: Cache Quicklisp
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/quicklisp
+            ~/.cache/common-lisp
+          key: quicklisp-${{ runner.os }}-reference-2026-01-01-${{ hashFiles('cna-common-lisp/cna-common-lisp.asd') }}
+          restore-keys: quicklisp-${{ runner.os }}-reference-2026-01-01-
+
+      - name: Install Quicklisp and the pinned dependencies
+        run: |
+          if [ ! -f "$HOME/quicklisp/setup.lisp" ]; then
+            curl -sSLo /tmp/quicklisp.lisp https://beta.quicklisp.org/quicklisp.lisp
+            sbcl --non-interactive --load /tmp/quicklisp.lisp \
+                 --eval '(quicklisp-quickstart:install :path "~/quicklisp/")'
+          fi
+          sbcl --non-interactive --load ~/quicklisp/setup.lisp \
+               --eval '(ql-dist:install-dist "http://beta.quicklisp.org/dist/quicklisp/2026-01-01/distinfo.txt" :replace t :prompt nil)' \
+               --eval '(ql:quickload (list :cffi :babel :bordeaux-threads :trivial-gray-streams :fiveam))'
+
+      # The same script as the HEADLESS job above, against a rasterising
+      # renderer: here it takes the readback branch and checks a standalone
+      # device's pixels one by one. Both runs are needed and neither implies the
+      # other -- that is the whole evidence discipline of this repository,
+      # applied to the first graphics surface that needs no game.
+      - name: Owned GraphicsDevice qualification, with pixels it can point at
+        working-directory: cna-common-lisp
+        env:
+          CNA_LISP_VALUEPROBE: ${{ github.workspace }}/cna-common-lisp/build-probe/libcna-lisp-valueprobe.so
+        run: tools/qualification/owned-graphics-device.sh
+
+      # No Xvfb and no DISPLAY: the SOFTWARE renderer is a CPU rasteriser. The
+      # script fails if the run silently took the no-readback branch, which is
+      # how a lane like this stops proving anything without anyone noticing.
+      - name: Rasterizer qualification
+        working-directory: cna-common-lisp
+        run: tools/qualification/rasterizer.sh
+
+      # The same consumer story, with pixels. The canary reports the colours it
+      # read back, and this checks them: the one that was cleared, and the one
+      # its own BasicEffect-drawn triangle painted -- so the template is proved
+      # from a consumer's position against a renderer that really rasterises,
+      # not only against one that accepts commands.
+      - name: Isolated consumer, with a pixel it can point at
+        working-directory: cna-common-lisp
+        run: |
+          set -eu
+          tools/qualification/isolated-consumer.sh \
+            "${GITHUB_WORKSPACE}/cna-common-lisp-template" | tee consumer.log
+          grep -q '^CANARY pixels=100,149,237,255$' consumer.log || {
+            echo "the canary did not read CornflowerBlue out of the back buffer:" >&2
+            grep '^CANARY pixels=' consumer.log >&2 || echo "  no pixels line at all" >&2
+            exit 1
+          }
+          # And the primitive it drew through a BasicEffect. A culled triangle
+          # still draws successfully and reads back as the clear colour, so this
+          # has to check the triangle's own colour and not merely that a pixel
+          # was read.
+          grep -q '^CANARY triangle_pixel=255,128,0,255$' consumer.log || {
+            echo "the canary did not read its own triangle back:" >&2
+            grep '^CANARY triangle_pixel=' consumer.log >&2 \
+              || echo "  no triangle_pixel line at all" >&2
+            exit 1
+          }
+          echo "the consumer read the cleared colour, and its own triangle, back out"
+          echo "of the back buffer"
+
+      - name: Record what this lane proved
+        if: always()
+        working-directory: cna-common-lisp
+        run: |
+          set -eu
+          {
+            echo
+            echo '```'
+            grep -E '^(checks passed|failures|not run|rasterization) ' \
+              build-probe/rasterizer-qualification.log || echo "no summary was produced"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

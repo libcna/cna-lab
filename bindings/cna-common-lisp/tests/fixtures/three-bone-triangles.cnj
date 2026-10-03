@@ -1,0 +1,92 @@
+{
+  "cnjVersion": 1,
+  "type": "Model",
+  "bones": [
+    {
+      "name": "Root",
+      "parent": -1,
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ]
+    },
+    {
+      "name": "Arm",
+      "parent": 0,
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        10.0,
+        0.0,
+        0.0,
+        1.0
+      ]
+    },
+    {
+      "name": "Hand",
+      "parent": 1,
+      "transform": [
+        2.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        2.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        2.0,
+        0.0,
+        0.0,
+        5.0,
+        0.0,
+        1.0
+      ]
+    }
+  ],
+  "meshes": [
+    {
+      "name": "LeftTriangle",
+      "parentBone": 1,
+      "vertices": "three-bone-triangles-left-verts.bin",
+      "indices": "three-bone-triangles-left-index.bin",
+      "vertexStride": 16,
+      "effect": "BasicEffect",
+      "vertexColorEnabled": true
+    },
+    {
+      "name": "RightTriangle",
+      "parentBone": 2,
+      "vertices": "three-bone-triangles-right-verts.bin",
+      "indices": "three-bone-triangles-right-index.bin",
+      "vertexStride": 16,
+      "effect": "BasicEffect",
+      "vertexColorEnabled": true
+    }
+  ]
+}

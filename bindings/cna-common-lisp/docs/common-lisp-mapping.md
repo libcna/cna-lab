@@ -1,0 +1,723 @@
+# The Common Lisp mapping
+
+This document is the rulebook. It says how a selected Microsoft XNA Framework
+4.0 Windows contract element becomes a Common Lisp one, and it is normative: the
+structural verifier in `tools/api-compat/` checks the live image against these
+rules, and `tests/structure/public-surface.lisp` fails when a name appears that
+no rule accounts for.
+
+Two things are true of every rule below.
+
+* **The public API is Common Lisp.** A consumer works with CLOS classes, generic
+  functions, methods, conditions, Lisp strings, Lisp numbers, Lisp sequences and
+  Lisp value objects. There is no handle, no result code, no CFFI pointer and no
+  C name anywhere in it.
+* **The exceptions are declared.** Where Common Lisp cannot express something the
+  way C# does, the deviation is written down here and recorded in
+  `src/capabilities.lisp`, not smoothed over.
+
+## 1. Namespaces and packages
+
+One XNA namespace maps to one Common Lisp package with the namespace's own name,
+lowercased:
+
+| XNA namespace | Common Lisp package |
+| --- | --- |
+| `Microsoft.Xna.Framework` | `microsoft.xna.framework` |
+| `Microsoft.Xna.Framework.Graphics` | `microsoft.xna.framework.graphics` |
+| `Microsoft.Xna.Framework.Input` | `microsoft.xna.framework.input` |
+| `Microsoft.Xna.Framework.Input.Touch` | `microsoft.xna.framework.input.touch` |
+| `Microsoft.Xna.Framework.Content` | `microsoft.xna.framework.content` |
+| `Microsoft.Xna.Framework.Graphics.PackedVector` | `microsoft.xna.framework.graphics.packed-vector` |
+| `Microsoft.Xna.Framework.Audio` | `microsoft.xna.framework.audio` |
+| `Microsoft.Xna.Framework.Media` | `microsoft.xna.framework.media` |
+| `Microsoft.Xna.Framework.Storage` | `microsoft.xna.framework.storage` |
+
+Namespaces not yet reached keep their obvious names when they arrive:
+`microsoft.xna.framework.gamer-services` and `microsoft.xna.framework.net`.
+
+`microsoft.xna.framework.storage` is the one package that **shadows** a
+`COMMON-LISP` symbol: `StorageContainer.DeleteFile` is `delete-file`, and
+`CL:DELETE-FILE` is a standard function. The XNA name wins inside that package
+because a projection that renamed the member would be answering a different
+question, and a consumer reaching it through `:local-nicknames` writes
+`storage:delete-file` and `cl:delete-file` without ambiguity either way.
+
+There is no single flattened package. Two members named the same thing in two
+namespaces stay two symbols in two packages, which is what lets `Game.Draw` and
+`SpriteBatch.Draw` both keep the name `draw` without either one shadowing the
+other. Consumers are expected to use `:local-nicknames`:
+
+```lisp
+(defpackage #:my-game
+  (:use #:cl)
+  (:local-nicknames (#:xna   #:microsoft.xna.framework)
+                    (#:gfx   #:microsoft.xna.framework.graphics)
+                    (#:input #:microsoft.xna.framework.input)))
+```
+
+Implementation packages are named so that their status is unmistakable and export
+nothing a consumer needs: `cna-lisp.internal`, `cna-lisp.internal.ffi`,
+`cna-lisp.internal.framework`, `cna-lisp.internal.input`, `cna-lisp.internal.abi`.
+
+## 2. Spelling
+
+A CLR identifier becomes a Common Lisp symbol by inserting a hyphen at each
+word boundary and lowercasing: `LoadContent` becomes `load-content`,
+`IsKeyDown` becomes `is-key-down`, `Texture2D` becomes `texture-2d`,
+`PreferredBackBufferWidth` becomes `preferred-back-buffer-width`.
+
+The `Is` prefix is kept where the original has it (`is-active`, `is-key-down`,
+`is-fixed-time-step`). It is not translated into a `-p` suffix, because that
+would silently rename a member. `-p` is reserved for predicates CNA-Lisp adds
+itself, of which `disposed-p` is the only one at present.
+
+`microsoft.xna.framework` shadows `cl:exit` so that `Game.Exit` keeps its name.
+
+## 3. Reference types
+
+An XNA class becomes a CLOS class. Reference identity is preserved where XNA
+preserves it: `(graphics-device game)` answers the same object every time,
+because `Game.GraphicsDevice` answers the same device.
+
+Native-backed classes inherit from the private base
+`cna-lisp.internal:native-object`, which carries the native handle, the ownership
+category, the owner, the owner's generation, the owning thread and the disposed
+flag. **None of those slots is publicly readable**, and none of their accessors
+is exported from any public package.
+
+The public inheritance the contract gives a class is kept too:
+`graphics-resource` is the base of `texture` and `sprite-batch`, as it is in XNA,
+and the mapping rules declare each type's `expected_superclass` so the verifier
+checks the class precedence list rather than taking the hierarchy on trust.
+
+A member may project onto a symbol in **another package** when the operation is
+one thing rather than one thing per type. `GraphicsResource.Dispose()` is
+`microsoft.xna.framework:dispose`, because deterministic disposal is one
+operation every native object in this binding has, not one per graphics type. The
+rule says which package, so the symbol is accounted for where it really lives.
+
+Not every XNA class is native-backed. `BoundingFrustum` is a class in XNA -- two
+names for one frustum see each other's changes, and assigning its `Matrix`
+rebuilds its planes and corners in place -- and it is a CLOS class here for that
+reason alone. It owns no native resource, so it has no `native-object`
+superclass, nothing to dispose, and no thread affinity. A class in this
+projection means *reference semantics*; it does not mean *holds a handle*.
+
+A class's members would otherwise project to bare names -- `contains`,
+`intersects`, `matrix` -- so where those would collide, as every member of
+`BoundingFrustum` would, the mapping rules name each one explicitly and the
+verifier checks the names it declares rather than the default it would have
+produced.
+
+## 4. Value types
+
+An XNA struct becomes a Common Lisp structure (`defstruct`), because that is what
+a value is: `point`, `rectangle`, `vector2`, `color`, `viewport`,
+`keyboard-state`. Value semantics are restored at every boundary -- a value
+stored into an object is copied in, and a value read out of one is copied out --
+so mutating what an accessor answered can never reach through to the object, the
+way it cannot in C#.
+
+A predefined value of a mutable value type is a **function**, not a constant:
+`(cornflower-blue)`, `(white)`, `(point-zero)`, `(rectangle-empty)`,
+`(vector2-one)`. `Color.CornflowerBlue` is a property on a value type, so every
+read of it in C# is a fresh copy; a Lisp constant bound to one shared structure
+would not be, and a consumer who set `R` on it would change what every later read
+answered.
+
+Pure value arithmetic is implemented in Lisp, not routed through the C ABI, even
+where CNA has a route for it. The route would be slower and would make the
+binding's arithmetic CNA's arithmetic rather than XNA's -- and would leave
+nothing to cross-check.
+
+Every arithmetic method in the projected value types was written by reading the
+corresponding method body in the disassembled IL of the hash-pinned
+`Microsoft.Xna.Framework.dll`, instruction by instruction. See
+`tools/api-compat/reference/XNA_IL_PROVENANCE.md` for the hash and the procedure,
+and for the list of things that reading caught which a reimplementation from
+first principles gets wrong.
+
+### Binary32
+
+XNA computes in IEEE 754 binary32, under the CLR's floating-point rules, which
+are IEEE's **default** rules: an overflow answers an infinity, an invalid
+operation answers a NaN, and nothing is signalled. SBCL traps overflow, invalid
+and divide-by-zero by default, so every projected arithmetic operation runs
+inside `cna-lisp.internal:with-binary32-semantics`, which masks them. Without it,
+`(vector2-length (make-vector2 1f20 1f20))` would signal where XNA answers +Inf.
+
+XNA computes in IEEE 754 binary32. Every arithmetic step in a projected value
+type is performed in `single-float`, in the order the original performs it. Where
+the original promotes -- `Math.Sqrt` takes a `double` -- the projection promotes
+at exactly that point and narrows exactly where the original casts back. Computing
+in `double-float` and rounding at the end answers different bits and is not done.
+
+`Vector2.Divide` by a scalar takes the reciprocal once and multiplies twice,
+because the original does; `x * (1/d)` and `x / d` are not the same binary32.
+
+## 5. Methods, properties and constructors
+
+| XNA | Common Lisp |
+| --- | --- |
+| instance method | generic function, dispatching on the receiver |
+| readable property | reader generic function of one argument |
+| writable property | `(setf reader)` method |
+| constructor | `make-instance`, plus initargs |
+| static method on a static class | function named `<class>-<member>` |
+| static method on an instantiable type | function named `<type>-<member>` |
+| constant / predefined value | constant if immutable, function if not (§4) |
+
+`Keyboard.GetState()` is `keyboard-get-state`, not `get-state`: `Mouse` and
+`GamePad` live in the same namespace and have a `GetState` of their own, and a
+binding that gives two different members the same name has already lost. The
+original takes no game argument and neither does the projection, because CNA
+allows one active game per process and CNA-Lisp resolves it.
+
+`Rectangle.Left` and friends are `rectangle-left` and friends: they are static-
+looking readers on a value type, and the type prefix is what keeps them from
+colliding with `Viewport`'s.
+
+## 6. Inheritance and the game loop
+
+`game` is a public CLOS class meant to be subclassed. The loop is generic
+functions, never a callback table:
+
+| XNA virtual | Generic function | Default method |
+| --- | --- | --- |
+| `Game.Initialize` | `initialize` | does nothing |
+| `Game.LoadContent` | `load-content` | does nothing |
+| `Game.UnloadContent` | `unload-content` | does nothing |
+| `Game.BeginRun` | `begin-run` | does nothing |
+| `Game.EndRun` | `end-run` | does nothing |
+| `Game.Update(GameTime)` | `update` | does nothing |
+| `Game.BeginDraw()` | `begin-draw` | answers `t` |
+| `Game.Draw(GameTime)` | `draw` | does nothing |
+| `Game.EndDraw()` | `end-draw` | does nothing |
+| `Game.OnExiting` | `on-exiting` | does nothing |
+
+The default methods do what XNA's base implementations do **for a game with no
+components**: nothing, except that `BeginDraw` answers true. With components the
+engine gives them more to do, and it is CNA's own — `cna_game_components_add` puts
+a component in the collection the game drives, and CNA calls `Initialize`,
+`Update`, `Draw`, `LoadContent` and `UnloadContent` in its order, honouring
+`UpdateOrder`, `DrawOrder`, `Enabled` and `Visible`. See "The component engine
+runs, and two things around it do not" in `docs/limitations.md`.
+
+`initialize` is CNA-Lisp's name for `Game.Initialize`. It is a distinct symbol
+from `cl:initialize-instance`, and a subclass that wants to build its own state
+at construction time uses `initialize-instance :after` as any CLOS program does;
+`initialize` is the game-loop hook and runs later, on the game's own thread.
+
+### Static and instance members with the same name
+
+XNA often has both an instance method that mutates the receiver and a static one
+that answers a new value, under one name: `Vector3.Normalize()` and
+`Vector3.Normalize(Vector3)`, `Quaternion.Conjugate()` and
+`Quaternion.Conjugate(Quaternion)`, `Plane.Normalize()` and
+`Plane.Normalize(Plane)`.
+
+One Lisp function cannot be both without the caller having to know which it got,
+so the pair splits: the **verb** mutates and answers the receiver, and the
+**adjective** answers a new value.
+
+| XNA | Common Lisp |
+| --- | --- |
+| `Vector3.Normalize()` | `vector3-normalize` — mutates |
+| `Vector3.Normalize(Vector3)` | `vector3-normalized` — answers a new value |
+| `Quaternion.Conjugate()` | `quaternion-conjugate` |
+| `Quaternion.Conjugate(Quaternion)` | `quaternion-conjugated` |
+
+### Constant fields of a static class
+
+A constant field projects to a Common Lisp constant, which by convention wears
+earmuffs: `MathHelper.Pi` is `+math-helper-pi+`, not `math-helper-pi`.
+
+### The M<row><column> fields
+
+`Matrix`'s sixteen fields keep their digits together: `matrix-m11`, not
+`matrix-m-1-1`. The identifier rule would split at the digit boundary, and for
+the one type where the indices *are* the name that is unreadable.
+
+## 7. Overloads
+
+An overload family maps by this order of preference.
+
+1. **Multiple dispatch**, when the overloads have congruent lambda lists and the
+   dispatch really is on argument type. `rectangle-contains` has methods on
+   `point` and on `rectangle`; `vector2-multiply` has methods on `real` and on
+   `vector2`.
+2. **Keyword arguments**, when the family is one member with optional parameters
+   and no ambiguity results. `draw-texture` takes `:position` or `:destination`,
+   `:source`, `:color`, `:rotation`, `:origin`, `:scale`, `:effects` and
+   `:layer-depth`. Giving both `:position` and `:destination` is refused, because
+   they are different overloads meaning different things.
+3. **Optional arguments**, when the family differs only by a trailing parameter.
+   `keyboard-get-state` takes an optional `player-index`.
+4. **A separate, descriptive function**, when Common Lisp cannot express the
+   family congruently. `rectangle-contains-coordinates` is
+   `Rectangle.Contains(int, int)`: three arguments cannot share a congruent
+   generic function with two-argument methods.
+
+Never done: one `&rest` sink; accepting everything and guessing; answering
+success for a shape that is not supported; dropping an overload silently; adding
+a default that changes behaviour.
+
+### The keyword combination *is* the overload
+
+When a family collapses onto one keyword-taking function, the keyword combination
+selects the overload — and **only the combinations the original has are
+accepted**. `SpriteBatch.Draw` is the worked example:
+
+| XNA overload | Keywords |
+| --- | --- |
+| `Draw(t, Vector2, Color)` | `:position :color` |
+| `Draw(t, Vector2, Rectangle?, Color)` | `:position :source :color` |
+| `Draw(t, Vector2, Rectangle?, Color, float, Vector2, float, SpriteEffects, float)` | `:position [:source] :color :rotation :origin :scale :effects :layer-depth` |
+| `Draw(t, Vector2, Rectangle?, Color, float, Vector2, Vector2, SpriteEffects, float)` | the same, with `:scale` a `vector2` |
+| `Draw(t, Rectangle, Color)` | `:destination :color` |
+| `Draw(t, Rectangle, Rectangle?, Color)` | `:destination :source :color` |
+| `Draw(t, Rectangle, Rectangle?, Color, float, Vector2, SpriteEffects, float)` | `:destination [:source] :color :rotation :origin :effects :layer-depth` |
+
+Everything else is refused: no placement, both placements, no `:color`, half the
+transform group, `:scale` without the transform group, `:scale` with a
+`:destination`. A keyword-taking projection that accepted a combination the
+original lacks would be **inventing an overload**, which is the failure the whole
+overload section exists to prevent — and it is easy to do accidentally, because a
+`&key` lambda list accepts every combination unless something says otherwise.
+
+The mapping rules therefore carry, per overload, the exact keyword set that
+expresses it, and `tools/api-compat/verify.py` checks every one of them against
+the real method lambda lists in the image. A family that collapses without
+declaring how each overload is distinguished — by CLOS dispatch, by a trailing
+optional argument, or by keywords — is a `wrong_overload_shape` diagnostic.
+
+### When two overloads are two operations
+
+`Color`'s constructors take either three integers or three floats, and XNA tells
+them apart by static type. Common Lisp would have to tell `1` from `1.0` at run
+time to do the same -- and those two mean almost opposite colours, since
+`(make-color 1 1 1)` is very nearly black where
+`(make-color-from-floats 1.0 1.0 1.0)` is white. A projection that dispatched on
+`integer` versus `single-float` would be correct and unreadable: the bug it
+invites is a literal written without its decimal point, and nothing would catch
+it. So the two are separate names.
+
+`Color.FromNonPremultiplied` is the stronger case. Its integer overload
+multiplies the unclamped channel by the unclamped alpha and truncates an integer
+quotient; its `Vector4` overload multiplies in floats and packs through
+`PackUNorm`. They disagree by a level on ordinary inputs. Collapsing them onto
+one name would be claiming they are one operation reached two ways, which they
+are not.
+
+Every such split is declared in `overload_families` in the mapping rules with
+the reason, and the verifier reports an `overload_mapping_mismatch` for a family
+that maps to several symbols without one.
+
+### One generic function, three return types
+
+`BoundingSphere.Intersects` has four overloads, and three different return types
+between them: a Boolean for a box or another sphere, a `PlaneIntersectionType`
+for a plane, and a `Nullable<float>` for a ray. CLOS dispatches on the argument,
+so all four collapse onto `bounding-sphere-intersects` and the answer's *type*
+follows the argument's, which is exactly what the original does. The
+documentation string of each such generic function names the return type per
+argument type, because the lambda list cannot.
+
+`Nullable<float>` maps to a `single-float` or `nil`, never to a distinguished
+float. A miss is `nil`; a hit at distance zero is `0.0f0`, and those are
+different answers a caller has to be able to tell apart.
+
+Each of these families declares `distinguished_by: "dispatch"` in
+`tools/api-compat/mapping-rules.json`, so the verifier checks that a method
+really is specialised on each overload's argument type rather than the family
+having quietly become one method that accepts anything.
+
+### By-reference overloads
+
+XNA pairs almost every value-type computation with a by-reference form:
+`Vector3.Add(Vector3, Vector3)` and
+`Vector3.Add(ref Vector3, ref Vector3, out Vector3)`. The second exists so a C#
+caller can avoid copying a value type into a call and can write the answer into
+storage it already has. **The value it computes is the by-value overload's.**
+
+Common Lisp passes a reference already, so the by-value form *is* the whole
+contract, and projecting the ref form would be a second name for one operation.
+Those members are classified **not applicable**, not missing, with the reason
+recorded per type in `tools/api-compat/mapping-rules.json`. Calling them missing
+would imply work that is never going to be done.
+
+### Array overloads
+
+`Transform(Vector3[], ref Matrix, Vector3[])` and
+`Transform(Vector3[], int, ref Matrix, Vector3[], int, int)` differ only by
+trailing parameters, so one function with `:source-index`, `:destination-index`
+and `:length` expresses both — `vector3-transform-array`. It is a distinct
+function from the single-value `vector3-transform`, because a rule that let one
+stand for the other would be a rule that could claim either without doing it.
+
+### 7b. When one mechanism does not separate two overloads
+
+Declaring how an overload is told from its siblings is not the same as being told
+from them, and the verifier now computes the difference: each declared mechanism
+is applied to the member's contract signature to produce a key, and two overloads
+on one symbol with the same key have not been separated by anything.
+
+Two declarations exist for what is left over.
+
+* **A discriminator** names an argument whose *Lisp type* selects the overload.
+  `SpriteBatch.Draw`'s uniform-scale and per-axis-scale overloads take the same
+  keywords and differ only in whether `:scale` is a real or a `vector2`;
+  `GraphicsDevice.DrawUserIndexedPrimitives`'s two index widths differ only in
+  whether `indices` is an `(unsigned-byte 16)` or an `(unsigned-byte 32)` array.
+  The named argument has to be one the projection really accepts, every overload
+  in the partition has to name the same one, and no two of them may claim the
+  same type.
+
+* **A unified collapse** says that nothing separates them and that this is
+  correct — their parameter types share one Common Lisp representation and their
+  bodies are observably identical. `SpriteFont.MeasureString(String)` and
+  `MeasureString(StringBuilder)` are the case. Such a rule must name exactly the
+  siblings it is indistinguishable from, and give a reason.
+
+The two combine, and `SpriteBatch.DrawString` needs both: the scale's type tells
+the three placement shapes apart, and inside each shape the String and
+StringBuilder members are the same call.
+
+## 8. Enumerations and flags
+
+**An enum member is a keyword.** Each enum gets a Common Lisp type of the enum's
+name over those keywords, plus `<enum>-value`, `<enum>-from-value` and
+`all-<enum>`:
+
+```lisp
+(gfx:begin batch :sort-mode :deferred)
+(input:is-key-down state :escape)
+(gfx:sprite-sort-mode-value :back-to-front)   ; => 3
+(typep :escape 'input:keys)                   ; => T
+```
+
+A **flags** enum is a *list* of keywords, and `<enum>-value` combines their bits:
+`(gfx:sprite-effects-value '(:flip-horizontally :flip-vertically))` is 3. The
+empty list is the named zero member where the enum has one.
+
+The exact numeric values are preserved privately, generated from the CNA C ABI's
+own identities, and are reachable only through the conversion functions. A raw
+ABI integer is never the public representation of an enum.
+
+`define-xna-enum` in `src/graphics/enums.lisp` is the single place this shape is
+defined, so no enum can drift into a different one. `ContainmentType` and
+`PlaneIntersectionType` follow the same shape from `src/framework/plane.lisp`,
+because they are needed before the graphics package exists.
+
+## 9. Conditions
+
+Every failure a consumer can see is a Lisp condition. The hierarchy is
+
+```
+error
+└── cna-error                        operation, native-message, object-type
+    ├── cna-usage-error              the program broke a contract
+    │   ├── cna-argument-out-of-range-error   parameter-name
+    │   ├── cna-disposed-error
+    │   ├── cna-ownership-error
+    │   ├── cna-scope-error
+    │   ├── cna-native-library-error native-library-path
+    │   └── cna-abi-rejected-error   found-version, admitted-versions
+    └── cna-native-error             CNA refused or failed
+        ├── cna-invalid-argument-error   cna-not-supported-error
+        ├── cna-invalid-object-error     cna-platform-error
+        ├── cna-invalid-state-error      cna-thread-error
+        ├── cna-out-of-memory-error      cna-overflow-error
+        ├── cna-io-error                 cna-encoding-error
+        ├── cna-internal-error           cna-shutting-down-error
+        ├── cna-buffer-too-small-error
+        └── cna-callback-error       underlying-condition
+```
+
+The CNA result code is **not** a public reader. It is an ABI detail; the
+condition class is the public fact. The code and CNA's error category are kept in
+private slots so diagnostics and tests can still see exactly what the ABI said.
+
+A native failure is never swallowed, printed, or turned into a default answer.
+
+### The one BCL exception
+
+`System.ArgumentOutOfRangeException` is the only base-class-library exception the
+selected surface throws at a caller: `Matrix.CreatePerspectiveFieldOfView` and
+its neighbours check their arguments and throw. It projects to
+`cna-argument-out-of-range-error`, whose `cna-error-parameter-name` reader names
+the argument. Projecting it -- rather than letting the checks disappear -- is
+what keeps `(matrix-create-perspective-field-of-view 0 ...)` refusing here as it
+refuses there.
+
+No other BCL exception type is projected, because the selected surface reaches no
+other.
+
+## 10. `ref`, `out`, nullable, and collections
+
+| CLR shape | Common Lisp |
+| --- | --- |
+| `out T` | an additional return value (`values`) |
+| `ref T` on a value type | the mutable value object itself, mutated in place |
+| nullable reference | `nil` |
+| `Nullable<T>` value type, returned | the value, or `nil` -- `nil` is not of the value's type, so it is not a sentinel |
+| `Nullable<T>` value type, as a parameter | an optional argument whose absent value is `nil` |
+| `T[]` | a Lisp vector, with the element type where it is fixed |
+| byte buffer | `(vector (unsigned-byte 8))` |
+| `IEnumerable<T>` | a Lisp list or vector, whichever the member's shape fits |
+| read-only collection | a fresh Lisp sequence; the projection copies rather than aliasing |
+| `System.Char` | an integer in `[0, 65535]`, one UTF-16 code unit. See below |
+| `System.String`, `System.Text.StringBuilder` | a Common Lisp `string`, converted to UTF-16 code units at the boundary. See below |
+| `TimeSpan` | an integer count of 100-nanosecond ticks |
+| `IntPtr` | not projected. `Mouse.WindowHandle` is the only member of the selection that has one, and it is classified not applicable: answering it would put a raw platform pointer in the public API, and setting it would need a window handle a CNA-Lisp program never has, because CNA owns the game's window |
+| `List<T>` | a Lisp list or vector, like any other collection. `RankDevices` is the only member that takes one, and see 10c for why it *answers* the ranked sequence rather than sorting in place |
+| `System.Type`, as a service key | a **service type designator**: a CLOS class, a symbol naming one, or a symbol naming a protocol. See 10c |
+| `System.IServiceProvider` | the single generic function `GET-SERVICE`. See 10c |
+
+A member with a return value *and* `out` parameters answers the return value
+first and the `out` parameters after it, in their declared order.
+`matrix-decompose` is the example, and the order matters: its first value says
+whether the decomposition succeeded, and the three that follow are filled in
+either way.
+
+`GameTime.TotalGameTime` is `total-game-time`, answering ticks.
+`total-game-time-seconds` is a CNA-Lisp convenience over it, declared as an
+extension.
+
+No fake .NET base class library is invented. Only the BCL surface the selected
+XNA profile actually reaches is projected, and each projection is recorded here.
+
+### 10b. `System.IO.Stream` is a Common Lisp stream, in both directions
+
+`Stream` is not in the selected contract and never was — it is the BCL's. Six
+selected members hand one across anyway, and all six take or answer an **ordinary
+Common Lisp binary stream**:
+
+| Member | Direction |
+| --- | --- |
+| `Texture2D.FromStream` (both overloads) | a stream the program opened, read by the projection |
+| `Texture2D.SaveAsPng`, `SaveAsJpeg` | a stream the program opened, written by the projection |
+| `TitleContainer.OpenStream` | a stream the projection answers |
+| `StorageContainer.CreateFile`, `OpenFile` (three overloads) | a **CNA-owned** stream the projection answers |
+
+The first five move bytes across the boundary and can be served by reading or
+writing a vector at the edge. The last is different in kind: a CNA-owned,
+seekable, read-write file handle that outlives the call, so it is a real stream
+class — `STORAGE-STREAM`, over `trivial-gray-streams`, and simultaneously a
+`NATIVE-OBJECT` in the ownership graph.
+
+What a program gets is an ordinary stream and nothing new to learn:
+`WITH-OPEN-STREAM`, `READ-SEQUENCE`, `WRITE-SEQUENCE`, `READ-BYTE`, `WRITE-BYTE`,
+`FILE-POSITION`, `FORCE-OUTPUT`, `FINISH-OUTPUT`, `CLOSE`, `OPEN-STREAM-P`,
+`INPUT-STREAM-P`, `OUTPUT-STREAM-P` and `STREAM-ELEMENT-TYPE` all work, and
+`CLOSE` is also its disposal.
+
+**`FILE-LENGTH` is the one that does not**, and the reason is the standard's
+rather than this binding's: `CL:FILE-LENGTH` is specified to take a *file
+stream*, and the Gray protocol has no generic behind it. `(file-position stream
+:end)` is how a program asks how long the file is.
+
+### 10c. `System.Type`, `IServiceProvider` and `List<T>`, where the services closure meets the BCL
+
+Three base-class-library shapes reach the selected profile through
+`GameServiceContainer` and `GraphicsDeviceManager`, and **none of the three is
+added to the profile as a type**. That is the standing rule -- a BCL type is not
+projected because a signature mentions it -- and each collapses the way its kind
+collapses.
+
+**`System.Type`, as a dictionary key, becomes a service type designator.**
+`GameServiceContainer` is keyed by `Type`, and a key is not a reason to import CLR
+reflection. A designator is a CLOS class, a symbol naming one, or a symbol naming
+a protocol declared with `DEFINE-SERVICE-PROTOCOL`; all three normalise to a
+symbol, so equality is `EQ` and duplicate detection is the hash table's own.
+
+Those two kinds and no third, and the reason is a guard rather than taste:
+**`AddService` really does check `type.IsAssignableFrom(provider.GetType())`** --
+it is in the IL, after the null and duplicate guards -- so a designator whose
+membership cannot be tested would make a guard this binding reproduces
+unanswerable. A declared protocol is a real Common Lisp type, so the guard is one
+`TYPEP` either way. A symbol naming neither is refused, and the refusal says which
+two kinds it takes.
+
+**A CLR interface used as a *key* is the reason protocols exist.** This binding
+projects an interface as generic functions and gives it no class, which is right
+until the framework registers something under `typeof(IGraphicsDeviceService)` --
+and it does, twice. So `IGRAPHICS-DEVICE-MANAGER` and `IGRAPHICS-DEVICE-SERVICE`
+are exported symbols naming types, and a class states that it answers one with
+`DECLARE-SERVICE-PROTOCOL-IMPLEMENTOR`.
+
+**`System.IServiceProvider` becomes one generic function.** It has exactly one
+member, and `GET-SERVICE` is what that projects onto -- the same collapse
+`System.IAsyncResult` gets for being already-complete and `System.IO.Stream` gets
+for being a stream. The consequence is worth stating: anything with a method on
+`GET-SERVICE` is a service provider here, so `ContentManager`'s canonical
+constructors accept one and are not restricted to a `GameServiceContainer`.
+
+**`List<GraphicsDeviceInformation>` becomes an ordinary mutable Lisp sequence**,
+as every other generic collection does -- and `RANK-DEVICES` **answers** the
+ranked sequence rather than only sorting in place. XNA returns `void` and sorts
+the caller's `List<T>`; `FindBestPlatformDevice` then takes `[0]` from the list it
+passed in. A Common Lisp list cannot be reordered in place where a caller's
+variable would see it, and `CL:SORT` may destroy its argument, so both halves are
+said out loud: the argument may be destroyed, and the ranking is the return value.
+**Sorting a temporary copy and discarding it** -- the shape that would have
+satisfied the signature silently -- is exactly the failure this avoids.
+
+**`System.EventArgs` stays collapsed**, and `PreparingDeviceSettingsEventArgs`
+derives from it without a projected superclass: an empty base class with no
+members is not a type a Lisp program could use or observe, and projecting it would
+make `EventArgs` look like part of the selected profile. The rule file records
+that as a `base_type_exception` with its reason, so the verifier checks it rather
+than the absence going unnoticed.
+
+### 10a. `System.Char` is a code unit, and so is a string's element
+
+A CLR `char` is a **UTF-16 code unit**: sixteen bits, and all 65536 values are
+legal. It is not a Unicode scalar value, not a code point, and not a Common Lisp
+`character`. `(char)0xD800` is an unpaired high surrogate; it is an ordinary
+`System.Char`, it can sit inside a `System.String`, and `SpriteFont.Characters`
+can contain it.
+
+So `System.Char` projects onto **an integer in `[0, 65535]`**, and
+`Nullable<Char>` onto `nil` or one of those. Two measured facts decided it, and
+neither is about which reads better:
+
+* **A Common Lisp string is a sequence of code points; a CLR string is a sequence
+  of code units.** They agree across the whole BMP and disagree above it: U+1F600
+  is *one* `character` here and *two* `char`s there. XNA's `SpriteFont` looks
+  each of those two up in its glyph table separately, so a projection that
+  measured one `character` would answer a width XNA never answers. Text is
+  therefore converted to code units before it is measured or drawn — not as an
+  optimisation, but because that is what makes the projected text the same text.
+* **Whether a lone surrogate is representable as a `character` at all is
+  implementation-defined.** SBCL admits `(code-char #xD800)`; ANSI does not
+  require it. An integer is exact on every conforming implementation, which is
+  what a projection of a sixteen-bit value needs.
+
+`nil` is unambiguous for the empty `Nullable<Char>` precisely because a code unit
+is an integer: `0` is a real code unit and is not `nil`, which is the distinction
+`SpriteFont.DefaultCharacter` needs between "no fallback" and "fall back to
+U+0000".
+
+**`System.Text.StringBuilder` is not projected as a type.** The selected surface
+reaches one only through `Length` and `Chars` — XNA's own private `StringProxy`
+wraps a `String` or a `StringBuilder` and every method body after it is identical
+— and a Common Lisp string is already a mutable random-access sequence of
+characters. So both parameter types project onto `string`, and the two contract
+members stay two members: the mapping rules declare the collapse with
+`distinguished_by: "unified"`, each names the sibling it cannot be told from, and
+the verifier refuses a collapse that names nobody. Narrowing the projection is
+allowed; losing an overload behind it is not.
+
+### 7a. Events
+
+A CLR event is two operations -- `add_E` and `remove_E` -- and it projects to two
+**generic functions** on the object that raises it:
+
+    (add-activated-handler game (lambda (game) ...))
+    (remove-activated-handler game the-same-function)
+
+Three decisions, each with a reason a reader can check.
+
+* **Generic functions, not plain ones.** `Disposed` is raised by more than one
+  type in one package -- `Game` and `GraphicsDeviceManager` -- so a plain
+  function could not be specialised on the second. The verifier rejects an event
+  projection whose add or remove is not generic, for exactly that reason.
+* **The handler takes the sender and nothing else.** The events in the selection
+  carry `EventArgs.Empty`, which holds no information. A second always-empty
+  argument would be something every handler had to write and ignore. This is the
+  same decision `on-exiting` already records.
+* **Removal takes the function, not a registration object.** `-=` takes the
+  delegate, so this takes the function; the object keeps the native registration
+  beside the function it belongs to and finds it by identity. Removing a handler
+  that is not subscribed answers `nil` rather than signalling, which is what `-=`
+  does silently.
+
+A condition signalled inside a handler cannot be reported to the framework:
+CNA's event callback returns `void`, so there is no result code and no
+diagnostic structure. It is contained and preserved on the Lisp side, and
+`docs/callbacks-and-threading.md` says what happens to it.
+
+The protected `On<Event>` methods are the base class's way of letting a subclass
+intercept an event before its handlers run, and **whether this projection can
+offer that depends on the type, not on CNA**.
+
+`GraphicsDeviceManager`'s five are **real seams**. Its events take *one* CNA
+registration per event **kind** rather than one per handler, so the registration
+calls the CLOS generic function `ON-DEVICE-CREATED` (and its four siblings) and
+the default method raises the managed handler list. `CALL-NEXT-METHOD` is
+`base.OnX(...)`, and an override that omits it suppresses the public event --
+which is what the pinned IL says the member is for, since its body is nothing but
+`if (deviceCreated != null) deviceCreated(sender, args)`. This is the only place
+in the binding with that shape, and it is why the manager's events run their
+handlers oldest-first, a multicast delegate's own order.
+
+`Game.OnActivated` and `OnDeactivated` are **still missing**, and now for a
+narrower reason than "CNA raises the events itself": there is no equivalent
+seam to build one on. CNA delivers those two only through
+`cna_game_subscribe`, whose registrations are per subscription, and neither
+`CNA_GameCallbacks` nor `CNA_GameFrameHooks` has a hook for them -- where the
+manager has a per-event-kind subscribe route that one registration can own.
+`Game.OnExiting` is projected because CNA models exiting as a *lifecycle
+callback* rather than an event subscription, which is the same distinction seen
+from the other side.
+
+The argument shape of a projected raiser is `(RECEIVER SENDER)`: `Object sender`
+is a real value and is passed, and `EventArgs` is `EventArgs.Empty` at every
+raise site in the assembly and is collapsed, exactly as it is in the public
+handler shape. `OnPreparingDeviceSettings` is the one exception and takes three,
+because its `EventArgs` carries the mutable candidate settings and collapsing it
+would throw the event's whole payload away.
+
+## 11. Disposal
+
+`dispose` and `disposed-p` are CNA-Lisp additions rather than XNA members: XNA
+spells disposal differently on each type that has it, and a binding over a native
+runtime needs one operation and one question that apply to anything holding a
+handle. `with-disposal` is an `unwind-protect` convenience, not a replacement for
+the object model. See `docs/ownership-and-lifetimes.md`.
+
+## 12. What the projection refuses to invent
+
+Three failures are easy to commit and hard to see, so each has a check:
+
+* **An overload the original does not have.** A `&key` lambda list accepts every
+  combination unless something refuses; `draw-texture` refuses the six illegal
+  ones, and `begin` takes no arguments because XNA's next `Begin` overload takes
+  a `SpriteSortMode` *and* a `BlendState` together.
+* **A mapping rule that names nothing.** A rule keyed on a signature no member
+  produces is silently ignored and the default naming rule applies instead, so
+  the member ends up reported under a mapping nobody wrote. That is a
+  `stale_mapping_rule` diagnostic, and it is how five `SpriteBatch.Draw`
+  overloads once came to be reported missing while a rule for each of them sat in
+  the file being skipped.
+* **A route reimplemented instead of used.** `SpriteBatch.Draw`'s position-and-
+  scale overloads take CNA's `cna_sprite_batch_submit_scaled_many`, not a
+  destination rectangle computed from the position. The C ABI says the two are
+  not interchangeable and it is right: the position is in floating-point screen
+  pixels and the origin is in source-texture pixels with the scale applied after
+  that offset, so rounding a rectangle out of them loses the fractional position
+  and moves the sprite.
+
+### A defect in the original is part of the contract
+
+`BoundingBox.Contains(BoundingSphere)` tests `Max.X - Min.X` against the radius
+twice, the second time in the slot where the Z extent belongs. It is a typo in
+the shipped assembly, it is observable — a zero radius against a box with no
+thickness in Z answers Contains where the intended test answers Intersects — and
+it is reproduced here, because a binding whose job is to agree with XNA does not
+get to decide which of XNA's answers are the real ones. What the projection does
+owe the reader is a note wherever the defect is reproduced: the source comment
+cites the IL offset, the unit test says the quirk is the point of the test, and
+the behaviour corpus records it as `:xna-derived` with the inputs that see it.
+
+Silently "fixing" it would be the worse failure of the two, and an unmarked
+reproduction would be the second worst.
+
+## 13. Declared extensions
+
+Every public symbol that is not a mapped XNA member is listed in
+`cna-lisp.internal::*binding-extensions*` with the reason it exists. The
+structural verifier treats an exported symbol that is neither a mapped member nor
+a declared extension as a diagnostic.

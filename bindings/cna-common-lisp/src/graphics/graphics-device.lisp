@@ -1,0 +1,826 @@
+;;;; graphics-device.lisp --- Microsoft.Xna.Framework.Graphics.GraphicsDevice.
+;;;;
+;;;; **One public type, two native lifetimes.** XNA permits both and CNA supplies
+;;;; both, and the whole shape of this file is keeping them behind one
+;;;; `GraphicsDevice' rather than two classes a consumer would have to choose
+;;;; between. `%DEVICE-LIFETIME-MODE' names which one an instance has:
+;;;;
+;;;;   :PARENT-OWNED   the game's device. CNA lends it only from inside a
+;;;;                   lifecycle callback and the borrowed handle is valid only
+;;;;                   until that callback returns, so this mode stores **no
+;;;;                   handle at all** and resolves a fresh one per operation.
+;;;;                   Keeping the borrowed handle in a slot would be the classic
+;;;;                   bug: it would look like it worked, right up to the first
+;;;;                   use after the frame that produced it. An operation
+;;;;                   attempted outside a callback is refused with a
+;;;;                   CNA-SCOPE-ERROR before anything reaches the ABI, and the
+;;;;                   caller may not dispose it -- the game owns it.
+;;;;
+;;;;   :OWNED          a device the caller made with XNA's own constructor,
+;;;;                   outside any game. It holds a persistent handle from
+;;;;                   `cna_graphics_device_create', needs no callback scope, is
+;;;;                   disposed by the caller, and owns its own graphics
+;;;;                   resources rather than lending the game's.
+;;;;
+;;;; `%RESOLVE-DEVICE-HANDLE' is the single seam between the two: every member
+;;;; below goes through it and none of them knows which mode it has. The two
+;;;; places where XNA's *own* behaviour differs -- `Adapter' and
+;;;; `PresentationParameters', which an owned device can answer exactly from what
+;;;; its constructor was given and a facade can only approximate from CNA -- say
+;;;; so at the member rather than here.
+;;;;
+;;;; Everything CNA does under a caller-created device was measured before any of
+;;;; this was written; `tools/qualification/owned-device-matrix.sh' is that
+;;;; measurement and `docs/compatibility.md' records what it found.
+
+(in-package #:microsoft.xna.framework.graphics)
+
+(defclass graphics-device (cna-lisp.internal:native-object)
+  (;; The four collection properties answer the same object every time, as XNA's
+   ;; do, and each collection is the record of what this binding bound into its
+   ;; slots. See src/graphics/state-collections.lisp.
+   (sampler-states :initform nil)
+   (vertex-sampler-states :initform nil)
+   (textures :initform nil)
+   (vertex-textures :initform nil)
+   ;; What this binding bound into the device's vertex streams and index slot.
+   ;; CNA's ABI has no route from a native buffer back to the handle that names
+   ;; it, so the getters answer from here and cross-check the count CNA reports
+   ;; rather than inventing an object. See src/graphics/drawing.lisp.
+   (bound-vertex-buffers :initform '() :accessor %bound-vertex-buffers)
+   (bound-index-buffer :initform nil :accessor %bound-index-buffer)
+   ;; The RENDER-TARGET-BINDINGs currently set, for the same reason and with the
+   ;; same limit: `cna_graphics_device_copy_render_targets' answers handles, and
+   ;; the ABI has no route from a handle back to the object that owns it, so
+   ;; GetRenderTargets answers this record and cross-checks CNA against it.
+   (bound-render-targets :initform '() :accessor %bound-render-targets)
+   ;; The device raises four payload-free events of its own. It is a facade with
+   ;; no handle, so the subscriptions live here and the *game* releases them:
+   ;; CNA requires every registration released before `cna_game_destroy'
+   ;; succeeds, and the game is what performs that destroy.
+   (event-handlers :initform '() :accessor microsoft.xna.framework::%event-handlers)
+   ;; What XNA's constructor stores, and only an :OWNED device has it. The
+   ;; adapter is `pCurrentAdapter', assigned `ldarg.1' -- the caller's own
+   ;; object, by reference -- and the parameters are `pPublicCachedParams', the
+   ;; second of the constructor's two `PresentationParameters::Clone()' calls.
+   ;; A :PARENT-OWNED facade leaves all three NIL and asks CNA instead, because
+   ;; there was no constructor call here for it to remember.
+   (%owned-adapter :initform nil :reader %device-owned-adapter)
+   (%owned-profile :initform nil :reader %device-owned-profile)
+   (%owned-presentation-parameters :initform nil
+                                   :reader %device-owned-presentation-parameters))
+  (:default-initargs :ownership :parent-owned)
+  (:documentation
+   "Microsoft.Xna.Framework.Graphics.GraphicsDevice: a device to draw through.
+
+**There are two ways to have one, and they are one type because XNA has one
+type.**
+
+The game's device is reached through MICROSOFT.XNA.FRAMEWORK:GRAPHICS-DEVICE. A
+consumer does not create it and may not dispose it; every operation on it is
+legal only inside a game lifecycle method -- LOAD-CONTENT, UPDATE, DRAW and their
+neighbours -- because that is the only time CNA lends the device out.
+
+A device of your own is made with XNA's constructor, needs no game at all, and
+is yours to dispose:
+
+    (make-instance \='graphics-device
+                   :adapter adapter
+                   :graphics-profile :reach
+                   :presentation-parameters parameters)
+
+It works outside every callback, owns the graphics resources created against it,
+and coexists with a game's device and with other devices of its own kind. See
+DISPOSE, and `docs/ownership-and-lifetimes.md'."))
+
+(defun %device-lifetime-mode (device)
+  "Which of the two native lifetimes DEVICE has: :PARENT-OWNED or :OWNED.
+
+The private discriminator this whole file turns on. It is read from the
+ownership token NATIVE-OBJECT already carries rather than stored twice, so the
+two can never disagree."
+  (if (eq (cna-lisp.internal:ownership-of device) :owned) :owned :parent-owned))
+
+(defun %owned-device-p (device)
+  "True when DEVICE is one the caller made and owns."
+  (eq (%device-lifetime-mode device) :owned))
+
+(defmethod microsoft.xna.framework::%check-disposable ((device graphics-device))
+  "A game's graphics device is lent, not owned, and disposing it is refused.
+
+**Only the parent-owned facade refuses.** A device the caller constructed is the
+caller's to dispose -- that is what makes it a different lifetime rather than a
+different type -- so this method lets an :OWNED device through and DISPOSE goes
+on to do XNA's disposal on it.
+
+The refusal has to be here rather than in DESTROY-NATIVE, and that was a real
+bug: DISPOSE invalidates through an UNWIND-PROTECT, so a refusal raised from the
+destruction still ran the invalidation on the way out and left the game with a
+device it could no longer draw through. CNA agrees with the refusal from its own
+side -- `cna_graphics_device_dispose' answers NOT_SUPPORTED for a borrowed
+handle -- but the refusal is made here, before anything is touched."
+  (unless (%owned-device-p device)
+    (error 'microsoft.xna.framework:cna-ownership-error
+           :operation "dispose" :object-type 'graphics-device
+           :format-control
+           "a game's graphics device is lent by CNA for the duration of a callback and is ~
+            released with its game; there is no handle here to dispose. Dispose the game ~
+            instead, or construct a GRAPHICS-DEVICE of your own, which is yours to ~
+            dispose. This device is untouched and remains usable."
+           :format-arguments '())))
+
+(defun %resolve-device-handle (device operation)
+  "The native handle to perform OPERATION on DEVICE through.
+
+**The one seam between the two lifetimes.** Every device member goes through it,
+which is why none of them has to be written twice.
+
+For an :OWNED device the handle is the device's own and persists, so there is
+nothing to resolve beyond the checks: no callback scope is required, and the
+measurement says CNA agrees -- clear, present, viewport get and set, texture
+create and bind all answer SUCCESS on a caller-created device with no game in
+the process at all.
+
+For the :PARENT-OWNED facade the handle is the game's, borrowed, and valid only
+until the current callback returns. It is fetched fresh here and never stored.
+
+The owner-thread check runs *before* either, deliberately. CNA's own answer to a
+wrong-thread call on an owned device is INVALID_HANDLE from the getters and
+THREAD only from destroy -- measured -- and neither is what a caller who used
+the wrong thread needs to read."
+  (cna-lisp.internal:check-live device operation)
+  (cna-lisp.internal:check-owner-thread
+   (cna-lisp.internal:owner-thread-of device) operation :object-type 'graphics-device)
+  (if (%owned-device-p device)
+      (cna-lisp.internal:handle-of device)
+      (progn
+        (unless (cna-lisp.internal:in-callback-scope-p)
+          (error 'microsoft.xna.framework:cna-scope-error
+                 :operation operation
+                 :object-type 'graphics-device
+                 :format-control
+                 "~a is only legal inside a game lifecycle method. CNA lends the game's ~
+                  graphics device for the duration of a callback and no longer, so there ~
+                  is no valid device handle outside one. Do graphics work in LOAD-CONTENT, ~
+                  DRAW or another lifecycle method -- or construct a GRAPHICS-DEVICE of ~
+                  your own, which needs no game and no callback."
+                 :format-arguments (list operation)))
+        (let ((game (cna-lisp.internal:owner-of device)))
+          (cffi:with-foreign-object (out :uint64)
+            (cna-lisp.internal:check-result
+             (cna-lisp.internal.ffi::%game-get-graphics-device
+              (cna-lisp.internal:handle-of game) out)
+             operation :object-type 'graphics-device)
+            (mem-ref-handle out))))))
+
+(defun mem-ref-handle (pointer)
+  (cffi:mem-ref pointer :uint64))
+
+(defgeneric clear (graphics-device color &key options depth stencil)
+  (:documentation
+   "GraphicsDevice.Clear: all three overloads, the keywords selecting between them.
+
+    (clear device (xna:cornflower-blue))                       Clear(Color)
+    (clear device color  :options \='(:target) :depth 1.0 :stencil 0)
+    (clear device vector :options \='(:target) :depth 1.0 :stencil 0)
+
+XNA has `Clear(Color)', `Clear(ClearOptions, Color, Single, Int32)' and
+`Clear(ClearOptions, Vector4, Single, Int32)' and nothing between them, so either
+all three of :OPTIONS, :DEPTH and :STENCIL or none of them, and a VECTOR4 with
+none is refused -- there is no `Clear(Vector4)' to be.
+
+**A Vector4 is quantised to eight bits per channel, and that is XNA's doing.**
+Its overload is four instructions: `new Color(vector4)' and then the Color
+overload. So the two four-argument forms are one operation, and this reproduces
+that rather than reaching for a float route CNA does have -- taking the float
+route would make the Vector4 form *differ* from XNA."))
+
+(defun %clear-with-options (device color options depth stencil operation)
+  "The Clear(ClearOptions, Color, Single, Int32) overload, which the other is."
+  (check-type stencil (signed-byte 32))
+  (let ((handle (%resolve-device-handle device operation)))
+    (cna-lisp.internal:check-result
+     (cna-lisp.internal.ffi::%graphics-device-clear-options
+      handle
+      (clear-options-value options)
+      ;; CNA_Color is four bytes in R G B A order, which is the packed value, and
+      ;; a by-value one flattens to a single 32-bit argument.
+      (microsoft.xna.framework:color-packed-value color)
+      (coerce depth 'single-float)
+      stencil)
+     operation :object-type 'graphics-device))
+  (values))
+
+(defun %check-clear-shape (options-p depth-p stencil-p operation vector-p)
+  "Refuse a keyword set XNA has no overload for."
+  (let ((supplied (count t (list options-p depth-p stencil-p))))
+    (when (and vector-p (zerop supplied))
+      (error 'microsoft.xna.framework:cna-argument-error
+             :operation operation :parameter-name "color"
+             :format-control
+             "XNA has no Clear(Vector4). A Vector4 clear is the four-argument overload, ~
+              so it needs :OPTIONS, :DEPTH and :STENCIL; a bare colour clear takes a ~
+              COLOR."))
+    (unless (or (zerop supplied) (= 3 supplied))
+      (error 'microsoft.xna.framework:cna-argument-error
+             :operation operation
+             :parameter-name (cond ((not options-p) "options")
+                                   ((not depth-p) "depth")
+                                   (t "stencil"))
+             :format-control
+             "XNA's Clear overloads take all three of :OPTIONS, :DEPTH and :STENCIL or ~
+              none of them, and there is no overload between. ~d of the three were given."
+             :format-arguments (list supplied)))
+    (= 3 supplied)))
+
+(defmethod clear ((device graphics-device) (color microsoft.xna.framework:color)
+                  &key (options nil options-p) (depth nil depth-p)
+                       (stencil nil stencil-p))
+  (if (%check-clear-shape options-p depth-p stencil-p "clear" nil)
+      (%clear-with-options device color options depth stencil "clear")
+      ;; Clear(Color) is Clear(DefaultClearOptions, color, 1f, 0) in the assembly,
+      ;; and DefaultClearOptions is derived from the *current* depth-stencil
+      ;; format -- which this binding cannot read, because PresentationParameters
+      ;; is missing. CNA implements the canonical member, so the bare route is
+      ;; what carries it, and the derivation stays CNA's.
+      (flet ((channel (byte) (/ (coerce byte 'single-float) 255.0f0)))
+        (let ((handle (%resolve-device-handle device "clear")))
+          (cna-lisp.internal:check-result
+           (cna-lisp.internal.ffi::%graphics-device-clear-rgba
+            handle
+            (channel (microsoft.xna.framework:color-r color))
+            (channel (microsoft.xna.framework:color-g color))
+            (channel (microsoft.xna.framework:color-b color))
+            (channel (microsoft.xna.framework:color-a color)))
+           "clear" :object-type 'graphics-device))
+        (values))))
+
+(defmethod clear ((device graphics-device) (color microsoft.xna.framework:vector4)
+                  &key (options nil options-p) (depth nil depth-p)
+                       (stencil nil stencil-p))
+  (%check-clear-shape options-p depth-p stencil-p "clear" t)
+  ;; `new Color(vector4)' and then the Color overload, which is all XNA's
+  ;; Vector4 overload is.
+  (%clear-with-options device (microsoft.xna.framework:make-color-from-vector4 color)
+                       options depth stencil "clear"))
+
+(defgeneric graphics-profile (graphics-device)
+  (:documentation
+   "GraphicsDevice.GraphicsProfile: the profile the device was created with.
+
+Get-only, as XNA's is: a device's profile is decided when the device is made.
+`MICROSOFT.XNA.FRAMEWORK:GRAPHICS-PROFILE' is the *manager's* preference, which
+is settable and is the other side of the same subject."))
+
+(defmethod graphics-profile ((device graphics-device))
+  ;; XNA answers `_graphicsProfile', the value the constructor was *given*,
+  ;; never a value read back from the device. An owned device therefore answers
+  ;; what it was asked for -- and cross-checks CNA against it rather than
+  ;; trusting either alone, because a silent normalisation by CNA would
+  ;; otherwise change a public answer with nothing to notice it.
+  (let ((handle (%resolve-device-handle device "graphics-profile")))
+    (cffi:with-foreign-object (out :uint32)
+      (cna-lisp.internal:check-result
+       (cna-lisp.internal.ffi::%graphics-device-get-graphics-profile handle out)
+       "graphics-profile" :object-type 'graphics-device)
+      (let ((reported (graphics-profile-from-value (cffi:mem-ref out :uint32)))
+            (requested (%device-owned-profile device)))
+        (when (and requested (not (eq requested reported)))
+          (error 'microsoft.xna.framework:cna-internal-error
+                 :operation "graphics-profile" :object-type 'graphics-device
+                 :format-control
+                 "this device was created with GraphicsProfile ~s and CNA reports ~s. ~
+                  XNA's property answers the requested profile, so answering either ~
+                  would hide the disagreement; it is reported instead."
+                 :format-arguments (list requested reported)))
+        (or requested reported)))))
+
+(defgeneric is-disposed (graphics-device)
+  (:documentation
+   "GraphicsDevice.IsDisposed: whether the *native* device has been disposed.
+
+Distinct from MICROSOFT.XNA.FRAMEWORK:DISPOSED-P, and the difference is the point.
+DISPOSED-P is this binding's question about the CLOS object; this one asks CNA
+about the device CNA owns, which is destroyed with the game rather than by
+anything a program does. So a program that has not disposed its game and gets a
+true here has learned something DISPOSED-P could not tell it.
+
+Callback-scoped like every other device reader, because that is when CNA lends
+the handle -- XNA's property has no such rule, and `docs/limitations.md` records
+the scope difference once for the whole type rather than on each member."))
+
+(defmethod is-disposed ((device graphics-device))
+  (let ((handle (%resolve-device-handle device "is-disposed")))
+    (cffi:with-foreign-object (out :uint8)
+      (cna-lisp.internal:check-result
+       (cna-lisp.internal.ffi::%graphics-device-get-is-disposed handle out)
+       "is-disposed" :object-type 'graphics-device)
+      (cna-lisp.internal.ffi:cna-true-p (cffi:mem-ref out :uint8)))))
+
+(defgeneric viewport (graphics-device)
+  (:documentation
+   "GraphicsDevice.Viewport.
+
+The reader is unconditional. The setter needs the optional private shim, because
+`cna_graphics_device_set_viewport' takes CNA_Viewport by value and at 24 bytes the
+System V AMD64 ABI passes it in memory, which CFFI cannot express without
+cffi-libffi. See docs/native-abi.md."))
+
+(defmethod viewport ((device graphics-device))
+  (let ((handle (%resolve-device-handle device "viewport")))
+    (cffi:with-foreign-object (vp '(:struct cna-lisp.internal.ffi::cna-viewport))
+      (cna-lisp.internal:check-result
+       (cna-lisp.internal.ffi::%graphics-device-get-viewport handle vp)
+       "viewport" :object-type 'graphics-device)
+      (macrolet ((slot (name)
+                   `(cffi:foreign-slot-value
+                     vp '(:struct cna-lisp.internal.ffi::cna-viewport) ',name)))
+        (make-viewport (slot cna-lisp.internal.ffi::x)
+                       (slot cna-lisp.internal.ffi::y)
+                       (slot cna-lisp.internal.ffi::width)
+                       (slot cna-lisp.internal.ffi::height)
+                       (slot cna-lisp.internal.ffi::min-depth)
+                       (slot cna-lisp.internal.ffi::max-depth))))))
+
+(defgeneric renderer-name (graphics-device)
+  (:documentation
+   "The name of the renderer behind this device.
+
+A CNA-Lisp addition, not an XNA member: XNA has no equivalent, and knowing which
+renderer is present is what makes a headless qualification run interpretable."))
+
+(defmethod renderer-name ((device graphics-device))
+  (let ((handle (%resolve-device-handle device "renderer-name")))
+    (cffi:with-foreign-object (info '(:struct cna-lisp.internal.ffi::cna-renderer-info))
+      (cffi:foreign-funcall "memset" :pointer info :int 0
+                            :size cna-lisp.internal.ffi::+sizeof-cna-renderer-info+ :void)
+      (setf (cffi:foreign-slot-value info '(:struct cna-lisp.internal.ffi::cna-renderer-info)
+                                     'cna-lisp.internal.ffi::struct-size)
+            cna-lisp.internal.ffi::+sizeof-cna-renderer-info+
+            (cffi:foreign-slot-value info '(:struct cna-lisp.internal.ffi::cna-renderer-info)
+                                     'cna-lisp.internal.ffi::struct-version)
+            1)
+      (cna-lisp.internal:check-result
+       (cna-lisp.internal.ffi::%graphics-device-get-renderer-info handle info)
+       "renderer-name" :object-type 'graphics-device)
+      (let ((size (cffi:foreign-slot-value
+                   info '(:struct cna-lisp.internal.ffi::cna-renderer-info)
+                   'cna-lisp.internal.ffi::renderer-name-byte-length)))
+        (if (zerop size)
+            ""
+            (cffi:with-foreign-object (buffer :uint8 size)
+              (cffi:with-foreign-object (written :uint64)
+                (cna-lisp.internal:check-result
+                 (cna-lisp.internal.ffi::%graphics-device-copy-renderer-name
+                  handle buffer size written)
+                 "renderer-name" :object-type 'graphics-device)
+                (let ((n (cffi:mem-ref written :uint64)))
+                  (cna-lisp.internal:utf8-octets-to-string
+                   (let ((v (make-array n :element-type '(unsigned-byte 8))))
+                     (dotimes (i n v)
+                       (setf (aref v i) (cffi:mem-aref buffer :uint8 i))))))))))))) 
+
+(defparameter +viewport-shim-reason+
+  "cna_graphics_device_set_viewport takes CNA_Viewport by value, and at 24 bytes the System V
+AMD64 ABI passes it in memory rather than in registers -- which CFFI cannot express without
+cffi-libffi, a dependency a released CNA-Lisp must not have."
+  "Why the viewport setter is the one member that needs the optional shim.")
+
+(defgeneric (setf viewport) (viewport graphics-device)
+  (:documentation
+   "GraphicsDevice.Viewport's setter.
+
+One of the four members that go through the optional private shim -- this one and
+BasicEffect's World, View and Projection, which is the whole of that list. The
+route takes CNA_Viewport by value, and the System V AMD64 ABI passes a 24-byte
+aggregate in memory, which CFFI cannot do without cffi-libffi, a load-time
+libffi-and-C-compiler dependency a released CNA-Lisp must not take. Without the
+shim it refuses with a CNA-NOT-SUPPORTED-ERROR saying how to build one; the reader
+and everything else work regardless.
+
+**Reported partial for that reason**, as all four are: a released CNA-Lisp does
+not ship the shim, so an ordinary installation cannot reach this setter. See
+docs/compatibility.md on what `complete' means across configurations."))
+
+(defmethod (setf viewport) (new-viewport (device graphics-device))
+  (let ((entry (cna-lisp.internal:shim-entry-point
+                "cna_lisp_shim_cna_graphics_device_set_viewport")))
+    (unless entry
+      (cna-lisp.internal:refuse-without-shim
+       "(setf viewport)" "cna_lisp_shim_cna_graphics_device_set_viewport"
+       +viewport-shim-reason+))
+    (let ((handle (%resolve-device-handle device "(setf viewport)")))
+      (cffi:with-foreign-object (vp '(:struct cna-lisp.internal.ffi::cna-viewport))
+        (macrolet ((slot (name)
+                     `(cffi:foreign-slot-value
+                       vp '(:struct cna-lisp.internal.ffi::cna-viewport) ',name)))
+          (setf (slot cna-lisp.internal.ffi::x) (viewport-x new-viewport)
+                (slot cna-lisp.internal.ffi::y) (viewport-y new-viewport)
+                (slot cna-lisp.internal.ffi::width) (viewport-width new-viewport)
+                (slot cna-lisp.internal.ffi::height) (viewport-height new-viewport)
+                (slot cna-lisp.internal.ffi::min-depth) (viewport-min-depth new-viewport)
+                (slot cna-lisp.internal.ffi::max-depth) (viewport-max-depth new-viewport)))
+        (cna-lisp.internal:check-result
+         (cffi:foreign-funcall-pointer
+          entry ()
+          :pointer (cffi:foreign-symbol-pointer "cna_graphics_device_set_viewport")
+          :uint64 handle
+          :pointer vp
+          :uint32)
+         "(setf viewport)" :object-type 'graphics-device))))
+  new-viewport)
+
+(defgeneric present (graphics-device)
+  (:documentation "GraphicsDevice.Present()."))
+
+(defmethod present ((device graphics-device))
+  (let ((handle (%resolve-device-handle device "present")))
+    (cna-lisp.internal:check-result
+     (cna-lisp.internal.ffi::%graphics-device-present handle)
+     "present" :object-type 'graphics-device))
+  (values))
+
+(defun device-handle-for-child (device operation)
+  "The device handle a child resource is created against.
+
+Exported to the rest of CNA-Lisp only; a consumer never sees it."
+  (%resolve-device-handle device operation))
+
+(defun native-resource-owner-for-device (device)
+  "The NATIVE-OBJECT a resource created against DEVICE becomes a child of.
+
+**The one place that answers this question, and there are two answers.** CNA has
+two native ownership graphs under XNA's one public hierarchy:
+
+    game   -> borrowed device facade -> the game's graphics resources
+    caller -> owned device           -> that device's graphics resources
+
+For the facade the owner is the *game*: CNA requires every graphics resource
+destroyed before `cna_game_destroy' succeeds, so the game is what has to know
+about them. For an owned device the owner is the *device*, and the measurement
+says CNA means it -- `cna_graphics_device_get_tracked_resource_count' rises and
+falls per device, and `cna_game_destroy' succeeds with an owned device and its
+resources still live.
+
+Every native graphics resource derives its owner through this function rather
+than reaching for the game itself, so no resource family can be left behind when
+a second kind of device appears. Pretending an owned device has a game parent
+would be the same bug in the other direction: the game would then gate resources
+it does not own."
+  (if (%owned-device-p device)
+      device
+      (cna-lisp.internal:owner-of device)))
+
+(defun adopt-native-resource (resource device)
+  "Register RESOURCE, which already holds its handle, as a child of DEVICE's owner.
+
+The other half of NATIVE-RESOURCE-OWNER-FOR-DEVICE, and the reason every native
+graphics resource records the *same three things* in the same order: the native
+owner CNA will hold it against, the thread that owner runs on, and -- the part
+this closure added -- **the public GRAPHICS-DEVICE object it was made from**.
+
+That last one is `GraphicsResource::_parent' in the pinned IL, which
+`get_GraphicsDevice' returns with a bare `ldfld'. Before there were owned
+devices the binding could get away with answering the active game's facade,
+because that was the only device a program could have. With two kinds of device
+that answer is wrong for one of them, so the resource remembers the object
+rather than looking one up."
+  (let ((owner (native-resource-owner-for-device device)))
+    (setf (slot-value resource 'cna-lisp.internal::owner) owner
+          (slot-value resource 'cna-lisp.internal::owner-thread)
+          (cna-lisp.internal:owner-thread-of owner)
+          (%resource-device resource) device)
+    (cna-lisp.internal:register-child owner resource)
+    resource))
+
+;;; --- a device made only to ask a question through ------------------------------
+
+(defun %make-transient-enumeration-device (operation)
+  "A caller-owned device on adapter zero, for one query, over CNA's own defaults.
+
+**Why this has to exist.** Every CNA adapter route takes a graphics-device
+handle: `cna_graphics_adapter_get_count' was measured refusing
+`CNA_INVALID_HANDLE' and zero alike. But XNA's constructor takes a
+`GraphicsAdapter', and a program with no game has no way to obtain one -- which
+is the loop this breaks. `cna_graphics_device_create' takes an adapter *index*,
+not an object, and index zero is valid whenever the runtime is up, so a device
+made on it can answer the enumeration that produces the real adapter objects.
+
+Deliberately not the public constructor: there is no adapter to hand it, and
+building one would be the loop again. Deliberately not exposed, cached or
+reused either -- it is created, asked, and disposed inside one call, and twenty
+such rounds were measured at 53 milliseconds. Its presentation parameters are
+whatever `cna_presentation_parameters_init' says XNA's defaults are, because
+nothing about them matters to a question about adapters."
+  (cna-lisp.internal:ensure-abi-admitted)
+  (cffi:with-foreign-objects
+      ((parameters '(:struct cna-lisp.internal.ffi::cna-presentation-parameters))
+       (out :uint64))
+    (cffi:foreign-funcall
+     "memset" :pointer parameters :int 0
+     :size cna-lisp.internal.ffi::+sizeof-cna-presentation-parameters+ :void)
+    (cna-lisp.internal:check-result
+     (cna-lisp.internal.ffi::%presentation-parameters-init parameters)
+     operation :object-type 'graphics-device)
+    ;; The call the whole boundary was found through: GraphicsAdapter.Adapters
+    ;; in a process with no device signalled FLOATING-POINT-INVALID-OPERATION
+    ;; from here. See src/internal/float-semantics.lisp.
+    (cna-lisp.internal:check-result
+     (cna-lisp.internal:with-foreign-float-environment
+       (cna-lisp.internal.ffi::%graphics-device-create
+        0 cna-lisp.internal.ffi::+graphics-profile-reach+ parameters out))
+     operation :object-type 'graphics-device)
+    (let ((device (make-instance 'graphics-device
+                                 :ownership :owned
+                                 :handle (cffi:mem-ref out :uint64)
+                                 :%transient t)))
+      device)))
+
+(defmacro %with-transient-enumeration-device ((device operation) &body body)
+  "Run BODY with DEVICE bound to a device that exists only for it.
+
+The device is disposed on the way out, whether BODY finished or signalled: it is
+this function's and nobody else's, and leaving one behind would leak a native
+device for the life of the process."
+  (let ((op (gensym "OPERATION")))
+    `(let* ((,op ,operation)
+            (,device (%make-transient-enumeration-device ,op)))
+       (unwind-protect (progn ,@body)
+         (microsoft.xna.framework:dispose ,device)))))
+
+
+;;; --- the device's own state ---------------------------------------------------
+;;;
+;;; Setting one of these three is XNA's Apply: the state object is copied into the
+;;; device and becomes read-only, permanently, for exactly the reason XNA gives --
+;;; a caller who could still mutate it would be editing a value the device had
+;;; already taken. A null is refused rather than defaulted: XNA's setters throw
+;;; ArgumentNullException, and it is SpriteBatch.Begin, not the device, that turns
+;;; a missing state into AlphaBlend.
+
+(macrolet
+    ((define-state-property (name class getter setter writer reader struct size doc)
+       (let ((operation (string-downcase (symbol-name name)))
+             (setf-operation (format nil "(setf ~(~a~))" name)))
+         `(progn
+            (defgeneric ,name (graphics-device) (:documentation ,doc))
+            (defmethod ,name ((device graphics-device))
+              (let ((handle (%resolve-device-handle device ,operation)))
+                (%with-state-descriptor (pointer ,struct ,size)
+                  (cna-lisp.internal:check-result
+                   (,getter handle pointer)
+                   ,operation :object-type 'graphics-device)
+                  ;; The device answers a *copy*: a caller who mutates it is
+                  ;; describing what to apply next, not editing what is applied.
+                  (,reader pointer))))
+            (defgeneric (setf ,name) (state graphics-device)
+              (:documentation
+               ,(format nil "GraphicsDevice.~a's setter. Refuses NIL, and latches ~
+                             the state object read-only as XNA's Apply does."
+                        (symbol-name name))))
+            (defmethod (setf ,name) (state (device graphics-device))
+              (unless state
+                (error 'microsoft.xna.framework:cna-argument-out-of-range-error
+                       :operation ,setf-operation
+                       :parameter-name ,(string-downcase (symbol-name class))
+                       :object-type 'graphics-device
+                       :format-control
+                       "GraphicsDevice.~a does not accept NIL; XNA throws ~
+                        ArgumentNullException here. SpriteBatch.Begin is where a ~
+                        null state means \"use the default\"."
+                       :format-arguments (list ,(symbol-name name))))
+              (check-type state ,class)
+              (let ((handle (%resolve-device-handle device ,setf-operation)))
+                (%with-state-descriptor (pointer ,struct ,size)
+                  (,writer pointer state)
+                  (cna-lisp.internal:check-result
+                   (,setter handle pointer)
+                   ,setf-operation :object-type 'graphics-device)))
+              ;; XNA's Apply sets _parent as well as isBound, so the state's
+              ;; GraphicsDevice answers the device it was applied to.
+              (%mark-bound state device)
+              state)))))
+  (define-state-property blend-state blend-state
+    cna-lisp.internal.ffi::%graphics-device-get-blend-state
+    cna-lisp.internal.ffi::%graphics-device-set-blend-state
+    %write-blend-state %read-blend-state
+    cna-lisp.internal.ffi::cna-blend-state
+    cna-lisp.internal.ffi::+sizeof-cna-blend-state+
+    "GraphicsDevice.BlendState.")
+  (define-state-property depth-stencil-state depth-stencil-state
+    cna-lisp.internal.ffi::%graphics-device-get-depth-stencil-state
+    cna-lisp.internal.ffi::%graphics-device-set-depth-stencil-state
+    %write-depth-stencil-state %read-depth-stencil-state
+    cna-lisp.internal.ffi::cna-depth-stencil-state
+    cna-lisp.internal.ffi::+sizeof-cna-depth-stencil-state+
+    "GraphicsDevice.DepthStencilState.")
+  (define-state-property rasterizer-state rasterizer-state
+    cna-lisp.internal.ffi::%graphics-device-get-rasterizer-state
+    cna-lisp.internal.ffi::%graphics-device-set-rasterizer-state
+    %write-rasterizer-state %read-rasterizer-state
+    cna-lisp.internal.ffi::cna-rasterizer-state
+    cna-lisp.internal.ffi::+sizeof-cna-rasterizer-state+
+    "GraphicsDevice.RasterizerState."))
+
+;;; --- the three scalar pieces of device state ----------------------------------
+;;;
+;;; XNA keeps these on the device as well as on the state object that carries
+;;; them: applying a BlendState copies its BlendFactor and MultiSampleMask into
+;;; the device, and applying a DepthStencilState copies its ReferenceStencil, but
+;;; each can also be set on its own afterwards.
+
+(macrolet ((define-integer-property (name getter setter doc)
+             (let ((operation (string-downcase (symbol-name name)))
+                   (setf-operation (format nil "(setf ~(~a~))" name)))
+               ;; No DEFGENERIC: BlendState and DepthStencilState carry members of
+               ;; the same names, so the generic function already exists and this
+               ;; adds a method to it. XNA has the same property in a different
+               ;; shape -- applying a BlendState copies its MultiSampleMask into
+               ;; the device -- and one generic function with two methods says
+               ;; that better than two names would. DOC is the member's, kept on
+               ;; the method.
+               `(progn
+                  (defmethod ,name ((device graphics-device))
+                    ,doc
+                    (let ((handle (%resolve-device-handle device ,operation)))
+                      (cffi:with-foreign-object (out :int32)
+                        (cna-lisp.internal:check-result
+                         (,getter handle out) ,operation :object-type 'graphics-device)
+                        (cffi:mem-ref out :int32))))
+                  (defmethod (setf ,name) (value (device graphics-device))
+                    (check-type value (signed-byte 32))
+                    (let ((handle (%resolve-device-handle device ,setf-operation)))
+                      (cna-lisp.internal:check-result
+                       (,setter handle value) ,setf-operation
+                       :object-type 'graphics-device))
+                    value)))))
+  (define-integer-property multi-sample-mask
+      cna-lisp.internal.ffi::%graphics-device-get-multi-sample-mask
+      cna-lisp.internal.ffi::%graphics-device-set-multi-sample-mask
+    "GraphicsDevice.MultiSampleMask.")
+  (define-integer-property reference-stencil
+      cna-lisp.internal.ffi::%graphics-device-get-reference-stencil
+      cna-lisp.internal.ffi::%graphics-device-set-reference-stencil
+    "GraphicsDevice.ReferenceStencil."))
+
+(defmethod blend-factor ((device graphics-device))
+  "GraphicsDevice.BlendFactor. A method on BlendState's generic function, because
+applying a blend state is what copies its factor into the device."
+  (let ((handle (%resolve-device-handle device "blend-factor")))
+    (cffi:with-foreign-object (out '(:struct cna-lisp.internal.ffi::cna-color))
+      (cna-lisp.internal:check-result
+       (cna-lisp.internal.ffi::%graphics-device-get-blend-factor handle out)
+       "blend-factor" :object-type 'graphics-device)
+      (microsoft.xna.framework:color-from-packed-value (cffi:mem-ref out :uint32)))))
+
+(defmethod (setf blend-factor) (color (device graphics-device))
+  (check-type color microsoft.xna.framework:color)
+  (let ((handle (%resolve-device-handle device "(setf blend-factor)")))
+    ;; CNA_Color is one INTEGER eightbyte, so the by-value parameter is the packed
+    ;; value itself; docs/native-abi.md has the flattening rule and its proof.
+    (cna-lisp.internal:check-result
+     (cna-lisp.internal.ffi::%graphics-device-set-blend-factor
+      handle (microsoft.xna.framework:color-packed-value color))
+     "(setf blend-factor)" :object-type 'graphics-device))
+  color)
+
+(defgeneric scissor-rectangle (graphics-device)
+  (:documentation "GraphicsDevice.ScissorRectangle."))
+
+(defmethod scissor-rectangle ((device graphics-device))
+  (let ((handle (%resolve-device-handle device "scissor-rectangle")))
+    (cffi:with-foreign-object (out '(:struct cna-lisp.internal.ffi::cna-rectangle))
+      (cna-lisp.internal:check-result
+       (cna-lisp.internal.ffi::%graphics-device-get-scissor-rectangle handle out)
+       "scissor-rectangle" :object-type 'graphics-device)
+      (macrolet ((slot (name)
+                   `(cffi:foreign-slot-value
+                     out '(:struct cna-lisp.internal.ffi::cna-rectangle) ',name)))
+        (microsoft.xna.framework:make-rectangle
+         (slot cna-lisp.internal.ffi::x) (slot cna-lisp.internal.ffi::y)
+         (slot cna-lisp.internal.ffi::width) (slot cna-lisp.internal.ffi::height))))))
+
+(defgeneric (setf scissor-rectangle) (rectangle graphics-device))
+
+(defmethod (setf scissor-rectangle) (rectangle (device graphics-device))
+  (check-type rectangle microsoft.xna.framework:rectangle)
+  (let ((handle (%resolve-device-handle device "(setf scissor-rectangle)")))
+    ;; CNA_Rectangle is 16 bytes of four int32: two INTEGER eightbytes, so it is
+    ;; passed as two uint64 arguments, x and y in the first and width and height
+    ;; in the second. tools/native-abi/valueprobe.generated.c proves the shape at
+    ;; run time rather than leaving it asserted here.
+    (cffi:with-foreign-object (packed '(:struct cna-lisp.internal.ffi::cna-rectangle))
+      (%write-rectangle packed rectangle)
+      (cna-lisp.internal:check-result
+       (cna-lisp.internal.ffi::%graphics-device-set-scissor-rectangle
+        handle
+        (cffi:mem-aref packed :uint64 0)
+        (cffi:mem-aref packed :uint64 1))
+       "(setf scissor-rectangle)" :object-type 'graphics-device)))
+  rectangle)
+
+;;; --- reading the back buffer -----------------------------------------------------
+;;;
+;;; This is the one member of the projection that can answer *pixels*, and it is
+;;; therefore the one that can prove a renderer rasterised anything. Under the
+;;; HEADLESS renderer CNA answers CNA_RESULT_NOT_SUPPORTED, in its own words
+;;; "when the active renderer has no honest back-buffer readback", and the
+;;; refusal is the honest answer rather than a buffer of zeroes. Under a
+;;; rasterising renderer -- SOFTWARE, say -- it answers what was drawn.
+;;;
+;;; XNA's GetBackBufferData is generic over the element type. There is no type
+;;; parameter to instantiate in Common Lisp, and CNA's route produces RGBA8
+;;; pixels and nothing else, so this answers a simple-vector of COLOR. XNA's
+;;; other element types are the same bytes read differently, which a caller does
+;;; with COLOR-PACKED-VALUE.
+
+(defgeneric get-back-buffer-data (graphics-device &key source start-index element-count)
+  (:documentation
+   "GraphicsDevice.GetBackBufferData: the back buffer's pixels, as a vector of COLOR.
+
+    (get-back-buffer-data device)
+    (get-back-buffer-data device :start-index i :element-count n)
+    (get-back-buffer-data device :source rectangle :start-index i :element-count n)
+
+Those are XNA's three overloads. :START-INDEX and :ELEMENT-COUNT are one group,
+because XNA has no overload that carries one without the other; :SOURCE may be
+given with them or alone. With nothing supplied the whole back buffer is read.
+
+**Under a renderer with no honest readback this signals**
+CNA-NOT-SUPPORTED-ERROR rather than answering zeroes -- which is what makes the
+member usable as evidence that pixels were produced. See docs/limitations.md."))
+
+(defmethod get-back-buffer-data ((device graphics-device)
+                                 &key (source nil source-p)
+                                      (start-index nil start-index-p)
+                                      (element-count nil element-count-p))
+  (when (and (or start-index-p element-count-p)
+             (not (and start-index-p element-count-p)))
+    (error 'microsoft.xna.framework:cna-usage-error
+           :operation "get-back-buffer-data"
+           :format-control
+           ":START-INDEX and :ELEMENT-COUNT are one group: XNA has no ~
+            GetBackBufferData overload that carries one without the other."))
+  ;; XNA's three overloads are `GetBackBufferData(T[])',
+  ;; `GetBackBufferData(T[], int, int)' and
+  ;; `GetBackBufferData(Rectangle?, T[], int, int)'. The rectangle belongs to the
+  ;; last, which also takes the window; a rectangle on its own is a fourth shape
+  ;; that does not exist, and used to be accepted here with the window inferred
+  ;; from the rectangle's area.
+  (when (and source-p (not (and start-index-p element-count-p)))
+    (error 'microsoft.xna.framework:cna-usage-error
+           :operation "get-back-buffer-data"
+           :format-control
+           ":SOURCE belongs to the overload that also takes :START-INDEX and ~
+            :ELEMENT-COUNT. XNA's rectangle overload adds a source region to the ~
+            windowed one; there is none that names a region and reads the whole ~
+            back buffer into an unwindowed array."))
+  (when source (check-type source microsoft.xna.framework:rectangle))
+  (let* ((viewport (viewport device))
+         (pixels (if element-count-p
+                     (+ (or start-index 0) element-count)
+                     (if source
+                         (* (microsoft.xna.framework:rectangle-width source)
+                            (microsoft.xna.framework:rectangle-height source))
+                         (* (viewport-width viewport) (viewport-height viewport)))))
+         (start (if start-index-p start-index 0))
+         (count (if element-count-p element-count (- pixels start))))
+    (when (or (minusp start) (minusp count))
+      (error 'microsoft.xna.framework:cna-argument-out-of-range-error
+             :operation "get-back-buffer-data"
+             :parameter-name (if (minusp start) "start-index" "element-count")
+             :format-control "a back-buffer window cannot start at ~d and run for ~d."
+             :format-arguments (list start count)))
+    (let ((handle (%resolve-device-handle device "get-back-buffer-data"))
+          (result (make-array (+ start count))))
+      (cffi:with-foreign-object (readback '(:struct cna-lisp.internal.ffi::cna-back-buffer-readback))
+        (cffi:foreign-funcall
+         "memset" :pointer readback :int 0
+         :size cna-lisp.internal.ffi::+sizeof-cna-back-buffer-readback+ :void)
+        (macrolet ((slot (name)
+                     `(cffi:foreign-slot-value
+                       readback '(:struct cna-lisp.internal.ffi::cna-back-buffer-readback)
+                       ',name)))
+          (setf (slot cna-lisp.internal.ffi::struct-size)
+                cna-lisp.internal.ffi::+sizeof-cna-back-buffer-readback+
+                (slot cna-lisp.internal.ffi::struct-version) 1
+                (slot cna-lisp.internal.ffi::has-source-rectangle)
+                (cna-lisp.internal.ffi:cna-bool-of source)
+                (slot cna-lisp.internal.ffi::start-index) start
+                (slot cna-lisp.internal.ffi::element-count) count))
+        (when source
+          (%write-rectangle (cffi:foreign-slot-pointer
+                             readback
+                             '(:struct cna-lisp.internal.ffi::cna-back-buffer-readback)
+                             'cna-lisp.internal.ffi::source-rectangle)
+                            source))
+        (cffi:with-foreign-object (destination :uint32 (max 1 (length result)))
+          (cna-lisp.internal:check-result
+           (cna-lisp.internal.ffi::%graphics-device-get-backbuffer-data-window
+            handle readback destination (length result))
+           "get-back-buffer-data" :object-type 'graphics-device)
+          ;; CNA_Color is four bytes in R G B A order, which is the packed value.
+          (dotimes (index (length result) result)
+            (setf (aref result index)
+                  (microsoft.xna.framework:color-from-packed-value
+                   (cffi:mem-aref destination :uint32 index)))))))))

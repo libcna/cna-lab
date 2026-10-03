@@ -1,0 +1,141 @@
+# Pure Lisp gates. Nothing here needs a CNA native library, a C compiler or a CNA
+# source checkout, and nothing here is evidence about the C ABI, the game loop,
+# graphics, input or ownership -- the runner prints that in so many words when the
+# native layer does not run. See native.yml for the gates that do.
+#
+# Two runtimes, and they are not the same claim. `reference` runs SBCL 2.5.2, the
+# runtime docs/qualification.md calls REFERENCE_QUALIFIED and the one the local
+# qualification uses. `distro` runs whatever SBCL ubuntu-24.04 packages -- 2.2.9
+# at the time of writing -- and is a secondary compatibility test, CI_TESTED.
+# Neither job may claim the other's result.
+
+name: Lisp
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: lisp-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pure-lisp:
+    name: ${{ matrix.label }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runtime: reference
+            label: 'REFERENCE_QUALIFIED runtime (SBCL 2.5.2): compile, load and test'
+          - runtime: distro
+            label: 'CI_TESTED runtime (ubuntu-24.04 SBCL): compile, load and test'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # The whitespace gate below walks from the root commit. A shallow
+          # checkout -- the default -- makes `git rev-list --max-parents=0 HEAD`
+          # answer HEAD itself, so the gate compared HEAD to HEAD and passed
+          # without looking at anything. It had never checked a line.
+          fetch-depth: 0
+
+      - name: Install the distro SBCL
+        if: matrix.runtime == 'distro'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends sbcl
+
+      - name: Install the reference SBCL
+        if: matrix.runtime == 'reference'
+        uses: ./.github/actions/reference-sbcl
+
+      - name: Record the runtime this job actually tested
+        run: |
+          set -eu
+          version=$(sbcl --version)
+          echo "SBCL_TESTED=$version" >> "$GITHUB_ENV"
+          {
+            echo "### ${{ matrix.runtime }} runtime"
+            echo
+            echo '```'
+            echo "$version"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # A cache miss must never change the result: everything below is
+      # reproducible from the pinned Quicklisp dist, and the cache only makes it
+      # quicker.
+      - name: Cache Quicklisp
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/quicklisp
+            ~/.cache/common-lisp
+          key: quicklisp-${{ runner.os }}-${{ matrix.runtime }}-2026-01-01-${{ hashFiles('cna-common-lisp.asd') }}
+          restore-keys: quicklisp-${{ runner.os }}-${{ matrix.runtime }}-2026-01-01-
+
+      - name: Install Quicklisp and the pinned dependencies
+        run: |
+          if [ ! -f "$HOME/quicklisp/setup.lisp" ]; then
+            curl -sSLo /tmp/quicklisp.lisp https://beta.quicklisp.org/quicklisp.lisp
+            sbcl --non-interactive --load /tmp/quicklisp.lisp \
+                 --eval '(quicklisp-quickstart:install :path "~/quicklisp/")'
+          fi
+          sbcl --non-interactive --load ~/quicklisp/setup.lisp \
+               --eval '(ql-dist:install-dist "http://beta.quicklisp.org/dist/quicklisp/2026-01-01/distinfo.txt" :replace t :prompt nil)' \
+               --eval '(ql:quickload (list :cffi :babel :bordeaux-threads :trivial-gray-streams :fiveam))'
+
+      - name: Compile and load from a fresh image, with no warnings tolerated
+        run: |
+          sbcl --script /dev/stdin <<'LISP'
+          (require :asdf)
+          (load (merge-pathnames "quicklisp/setup.lisp" (user-homedir-pathname)))
+          (push (truename ".") asdf:*central-registry*)
+          (defvar *problems* '())
+          ;; A macro defined in a file that is compiled and then loaded into the
+          ;; same image is defined twice, and SBCL says so. That is an artefact of
+          ;; compiling and loading in one process, not a defect in the code, so it
+          ;; is the one warning class this gate ignores.
+          (handler-bind ((sb-kernel:redefinition-warning #'muffle-warning)
+                         (warning (lambda (c)
+                                    (push (format nil "~a: ~a" (type-of c) c) *problems*))))
+            (asdf:load-system "cna-common-lisp"))
+          (when *problems*
+            (format *error-output* "~&~{~a~%~}" (reverse *problems*))
+            (uiop:quit 1))
+          (format t "~&loaded with no warnings~%")
+          LISP
+
+      - name: asdf:test-system, without a native library
+        run: |
+          sbcl --non-interactive \
+               --load ~/quicklisp/setup.lisp \
+               --eval '(push (truename ".") asdf:*central-registry*)' \
+               --eval '(asdf:test-system "cna-common-lisp")'
+
+      - name: Structural verification and the generated reports
+        run: |
+          sbcl --script tools/api-compat/dump-surface.lisp
+          python3 tools/api-compat/verify.py --strict
+          python3 tools/qualification/verify-numbers.py
+
+      - name: The generated reports must be the committed ones
+        run: |
+          git diff --exit-code -- docs/generated/ \
+            || { echo "the committed generated reports are stale; regenerate them"; exit 1; }
+
+      - name: Whitespace
+        run: |
+          set -eu
+          root=$(git rev-list --max-parents=0 HEAD | tail -1)
+          # A gate that cannot tell "clean" from "looked at nothing" is not a
+          # gate. If the checkout is shallow the range is empty, and that is a
+          # failure of the workflow rather than a pass for the tree.
+          test "$root" != "$(git rev-parse HEAD)" \
+            || { echo "the checkout is shallow; this gate would check nothing"; exit 1; }
+          git diff --check "$root"..HEAD

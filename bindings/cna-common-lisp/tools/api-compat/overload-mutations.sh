@@ -1,0 +1,263 @@
+#!/bin/sh
+# Overload-shape mutation self-test.
+#
+# A family of XNA overloads collapsed onto one Lisp function has to declare how
+# each overload is told from its siblings, and the verifier has to be able to
+# call a declaration a lie. This mutates the rules ten ways and requires a
+# wrong_overload_shape diagnostic each time, mutates the contract once and
+# requires a refusal, and then requires a clean run.
+#
+# The fifth is not about overloads at all but belongs with them: two members
+# sharing a signature key is how an overload goes unmeasured, and the count is the
+# only thing that notices.
+#
+# Steps 5 to 7 exist because declaring a mechanism is not the same as being
+# separated by it: two overloads can both say "keywords" and list the same
+# ones, which is how SpriteBatch.Draw's two scale overloads and
+# GraphicsDevice's two index widths sat side by side telling nobody what
+# actually distinguishes them. Steps 8 to 10 exist because sometimes nothing
+# does -- MeasureString(String) and MeasureString(StringBuilder) are one call
+# -- and that has to be a checked claim rather than a silence.
+#
+# The tagged-argument steps exist because of the mechanism EffectParameter
+# needed. Its eighteen SetValue overloads differ only in the value's type; Lisp
+# has no overloading to dispatch on that, so the projection takes the type as an
+# argument and the rules declare "tagged-argument". A mechanism like that is
+# worth nothing unless declaring it *wrongly* is caught -- naming no tag, or
+# giving two overloads the same tag, which would make them the same call.
+#
+#   tools/api-compat/overload-mutations.sh
+set -eu
+
+here=$(cd "$(dirname "$0")" && pwd)
+root=$(cd "$here/../.." && pwd)
+work="$root/build-probe/overload-mutations"
+rules="$here/mapping-rules.json"
+# Mutation 12 breaks the *dumped surface* rather than the rules -- whether a class
+# is a condition is a fact about the image, not about the projection -- so both
+# files are saved and both are restored.
+surface="$root/docs/generated/public-surface.json"
+
+mkdir -p "$work"
+cp "$rules" "$work/rules.orig"
+cp "$surface" "$work/surface.orig"
+restore() { cp "$work/rules.orig" "$rules"; cp "$work/surface.orig" "$surface"; }
+trap restore EXIT
+
+expect_red() {
+    label=$1
+    if python3 "$here/verify.py" --strict > "$work/out.txt" 2>&1; then
+        echo "FAIL $label: the verifier stayed green" >&2
+        exit 1
+    fi
+    if ! grep -q "wrong_overload_shape" "$work/out.txt"; then
+        echo "FAIL $label: it went red, but not with wrong_overload_shape:" >&2
+        sed -n '1,25p' "$work/out.txt" >&2
+        exit 1
+    fi
+    echo "  ok  $label -> wrong_overload_shape"
+    restore
+}
+
+expect_red_with() {
+    label=$1; category=$2
+    if python3 "$here/verify.py" --strict > "$work/out.txt" 2>&1; then
+        echo "FAIL $label: the verifier stayed green" >&2
+        exit 1
+    fi
+    if ! grep -q "$category" "$work/out.txt"; then
+        echo "FAIL $label: it went red, but not with $category:" >&2
+        sed -n '1,25p' "$work/out.txt" >&2
+        exit 1
+    fi
+    echo "  ok  $label -> $category"
+    restore
+}
+echo "== 1. an overload family that declares no mechanism at all =="
+python3 - "$rules" <<'PY'
+import json, sys
+path = sys.argv[1]
+d = json.load(open(path))
+overrides = d["types"]["Microsoft.Xna.Framework.Graphics.EffectParameter"]["member_overrides"]
+for key in ("SetValue(Single)", "SetValue(Int32)"):
+    overrides[key].pop("distinguished_by", None)
+    overrides[key].pop("tag", None)
+json.dump(d, open(path, "w"), indent=2)
+PY
+expect_red "two SetValue overloads stop saying how they differ"
+
+echo "== 2. a tagged-argument rule that names no tag =="
+python3 - "$rules" <<'PY'
+import json, sys
+path = sys.argv[1]
+d = json.load(open(path))
+overrides = d["types"]["Microsoft.Xna.Framework.Graphics.EffectParameter"]["member_overrides"]
+overrides["SetValue(Vector3)"].pop("tag", None)
+json.dump(d, open(path, "w"), indent=2)
+PY
+expect_red "a tagged-argument rule with no tag"
+
+echo "== 3. two overloads answering to the same tag =="
+python3 - "$rules" <<'PY'
+import json, sys
+path = sys.argv[1]
+d = json.load(open(path))
+overrides = d["types"]["Microsoft.Xna.Framework.Graphics.EffectParameter"]["member_overrides"]
+overrides["SetValue(Vector3)"]["tag"] = overrides["SetValue(Vector2)"]["tag"]
+json.dump(d, open(path, "w"), indent=2)
+PY
+expect_red "Vector3 and Vector2 claiming the same tag"
+
+echo "== 4. a keyword-distinguished overload that lists a keyword the method has not =="
+python3 - "$rules" <<'PY'
+import json, sys
+path = sys.argv[1]
+d = json.load(open(path))
+overrides = d["types"]["Microsoft.Xna.Framework.Graphics.SpriteBatch"]["member_overrides"]
+key = "Begin(SpriteSortMode,BlendState,SamplerState,DepthStencilState,RasterizerState,Effect)"
+overrides[key]["keywords"] = ["sort-mode", "blend-state", "sampler-state",
+                              "depth-stencil-state", "rasterizer-state", "shader"]
+json.dump(d, open(path, "w"), indent=2)
+PY
+expect_red "Begin claiming a :SHADER keyword it does not take"
+
+echo "== 5. an overload whose declared mechanism does not actually separate it =="
+# The gap this closes: SpriteBatch.Draw's uniform-scale and per-axis-scale
+# overloads declare the *same* keyword set, so the keywords do not tell them
+# apart at all and only the Lisp type of :SCALE does. Declaring a mechanism used
+# to be enough; now the mechanism has to work, so dropping the discriminator that
+# does the separating has to be caught.
+python3 - "$rules" <<'PY'
+import json, sys
+path = sys.argv[1]
+d = json.load(open(path))
+overrides = d["types"]["Microsoft.Xna.Framework.Graphics.SpriteBatch"]["member_overrides"]
+key = "Draw(Texture2D,Vector2,Nullable`1,Color,Single,Vector2,Vector2,SpriteEffects,Single)"
+overrides[key].pop("discriminator", None)
+json.dump(d, open(path, "w"), indent=2)
+PY
+expect_red "two Draw overloads left with identical keywords and nothing else"
+
+echo "== 6. a discriminator naming an argument the projection does not take =="
+python3 - "$rules" <<'PY'
+import json, sys
+path = sys.argv[1]
+d = json.load(open(path))
+overrides = d["types"]["Microsoft.Xna.Framework.Graphics.SpriteBatch"]["member_overrides"]
+key = "Draw(Texture2D,Vector2,Nullable`1,Color,Single,Vector2,Vector2,SpriteEffects,Single)"
+overrides[key]["discriminator"] = {"argument": "stretch", "lisp_type": "vector2"}
+json.dump(d, open(path, "w"), indent=2)
+PY
+expect_red "a discriminator on a :STRETCH argument that does not exist"
+
+echo "== 7. two overloads claiming the same discriminating type =="
+python3 - "$rules" <<'PY'
+import json, sys
+path = sys.argv[1]
+d = json.load(open(path))
+overrides = d["types"]["Microsoft.Xna.Framework.Graphics.SpriteBatch"]["member_overrides"]
+key = "Draw(Texture2D,Vector2,Nullable`1,Color,Single,Vector2,Vector2,SpriteEffects,Single)"
+overrides[key]["discriminator"] = {"argument": "scale", "lisp_type": "real"}
+json.dump(d, open(path, "w"), indent=2)
+PY
+expect_red "both scale overloads claiming :SCALE is a real"
+
+echo "== 8. a unified collapse that stops naming its sibling =="
+# MeasureString(String) and MeasureString(StringBuilder) are one Lisp call, and
+# saying so is a declaration rather than a silence. Dropping it is exactly how an
+# overload disappears behind a collapse, which is the bug the indexed-property
+# fix was about.
+python3 - "$rules" <<'PY'
+import json, sys
+path = sys.argv[1]
+d = json.load(open(path))
+overrides = d["types"]["Microsoft.Xna.Framework.Graphics.SpriteFont"]["member_overrides"]
+overrides["MeasureString(StringBuilder)"].pop("unified_with", None)
+json.dump(d, open(path, "w"), indent=2)
+PY
+expect_red "MeasureString(StringBuilder) no longer declaring the collapse"
+
+echo "== 9. a unified collapse naming the wrong sibling =="
+python3 - "$rules" <<'PY'
+import json, sys
+path = sys.argv[1]
+d = json.load(open(path))
+overrides = d["types"]["Microsoft.Xna.Framework.Graphics.SpriteFont"]["member_overrides"]
+overrides["MeasureString(StringBuilder)"]["unified_with"] = ["MeasureString(Object)"]
+json.dump(d, open(path, "w"), indent=2)
+PY
+expect_red "a unified collapse pointing at an overload that is not the one"
+
+echo "== 10. a unified collapse with no reason for being one =="
+python3 - "$rules" <<'PY'
+import json, sys
+path = sys.argv[1]
+d = json.load(open(path))
+overrides = d["types"]["Microsoft.Xna.Framework.Graphics.SpriteFont"]["member_overrides"]
+overrides["MeasureString(String)"].pop("reason", None)
+json.dump(d, open(path, "w"), indent=2)
+PY
+expect_red "a unified collapse that gives no reason"
+
+echo "== 11. a contract whose member count does not match what gets measured =="
+# Not an overload rule, but the same failure it protects against: two members
+# sharing a signature key means one of them is never measured, and the count is
+# the only thing that notices. The guard is a refusal to write the report at all
+# rather than a diagnostic, so this checks the exit and the message.
+python3 -c "import json,sys; d=json.load(open(sys.argv[1])); d['selection']['member_count'] += 1; json.dump(d, open(sys.argv[2],'w'))" \
+    "$here/reference/xna40-selected-contract.json" "$work/contract.json"
+if python3 "$here/verify.py" --contract "$work/contract.json" \
+        --output "$work/report.json" > "$work/out.txt" 2>&1; then
+    echo "FAIL a wrong member count was accepted" >&2
+    exit 1
+fi
+if ! grep -q "were measured" "$work/out.txt"; then
+    echo "FAIL it refused, but not for the count:" >&2
+    sed -n '1,10p' "$work/out.txt" >&2
+    exit 1
+fi
+echo "  ok  a selection count that does not match the measurement -> refused"
+
+# --- the one mechanism the Audio closure added -------------------------------
+#
+# A CLR exception type's constructors project onto MAKE-CONDITION, which is the
+# same statement about a condition class that MAKE-INSTANCE is about an ordinary
+# one. The two are **not** interchangeable: a rule claiming MAKE-CONDITION for a
+# type that is not a condition class is claiming an exception projection that
+# cannot be signalled with ERROR or caught with HANDLER-CASE. Before the check
+# existed such a rule was accepted and the member read complete.
+echo "== 12. MAKE-CONDITION claimed for a type that is not a condition class =="
+python3 - "$surface" <<'MUTPY'
+import json, sys
+path = sys.argv[1]
+d = json.load(open(path))
+for pkg in d["packages"]:
+    if pkg["package"] != "microsoft.xna.framework.audio":
+        continue
+    for sym in pkg["symbols"]:
+        if sym["name"] == "no-audio-hardware-error":
+            # Still a class, still in the right package, still with the right
+            # superclass -- only no longer a *condition*. That is the one fact
+            # this projection rests on, and the only one mutated here.
+            sym["condition"] = False
+json.dump(d, open(path, "w"), indent=2)
+MUTPY
+expect_red_with "MAKE-CONDITION over a non-condition class" "wrong_kind"
+
+echo "== 13. and the unmutated rules are green =="
+# --strict exits non-zero on any disagreement, and `set -e' is what makes that
+# stop the script. Piping it into grep used to hide the exit code, so a mutation
+# left behind by a failing step would have been reported as a pass.
+python3 "$here/verify.py" --strict > "$work/final.txt"
+grep -E "disagreement" "$work/final.txt"
+
+echo
+echo "overload mutation self-test passed: the verifier goes red for a family that"
+echo "declares nothing, for a tagged-argument rule with no tag, for two overloads"
+echo "sharing one tag, for a keyword set the real method does not have, for a"
+echo "declared mechanism that does not actually separate two overloads, for a"
+echo "discriminator on an argument that does not exist or on a type its sibling"
+echo "also claims, and for a unified collapse that names nobody, names the wrong"
+echo "sibling or gives no reason -- and refuses to write a report whose member"
+echo "count does not add up. It also refuses a CLR exception constructor projected"
+echo "onto MAKE-CONDITION when the type behind it is not a condition class."
