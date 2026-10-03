@@ -1,0 +1,542 @@
+{
+  "schemaVersion": 1,
+  "profile": "XNA 4.0 Windows runtime",
+  "note": "The seven hash-registered Microsoft XNA Framework 4.0.0.0 assemblies that are the behaviour authority for this binding. Only SHA-256 digests are retained; no Microsoft binary is stored in the repository. The prose registry is docs/xna-swift-mapping.md.",
+  "assemblies": [
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "sha256": "38e7093f52d7474bbc6256906519781a1210d7da50a1c667b52716fcf49ca130",
+      "registered": "Foundation 1"
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.Graphics.dll",
+      "sha256": "560080fc39021c611ca9d076dcebed312faf6d7d1413c2dc523683ea635e9f55",
+      "registered": "Foundation 1"
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.Game.dll",
+      "sha256": "b5dffdd8125abef2a4507ba4e1d2f11062143f0a63d48fe4f298b95ad746a1f0",
+      "registered": "Foundation 17"
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.Input.Touch.dll",
+      "sha256": "b0585224c18022c3661057ae79544644c10f33f1dc529678364f3d6b25151c25",
+      "registered": "Foundation 17"
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.Xact.dll",
+      "sha256": "a14d5364dca7cf49fb90639e87ba04d52b59a700dc9198efa5707ce8eae28f0a",
+      "registered": "Foundation 17"
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.Video.dll",
+      "sha256": "17538b1ca9d48a993e2cd88c96b436df08e7abb4aec5d4758eb21feb580d6e06",
+      "registered": "Foundation 17"
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.Storage.dll",
+      "sha256": "798f678e9ae3d9afc3bed66c30123bc9634fb923b6d200188344b618e608cbb8",
+      "registered": "Foundation 17"
+    }
+  ],
+  "resourceStringNote": "A user-visible XNA message is not an IL literal: the code loads a resource KEY and the runtime resolves it against the assembly's own embedded string table. Every message this binding reproduces is therefore read out of the registered binary by tools/api_compat/pinned_assembly_audit.py, pinned in tools/api_compat/reference/xna40-selected-resource-strings.json, and compared against the Swift source by the verifier. Transcribing one from memory is a mapping mismatch even when it looks right -- one already differed by a whole clause and by a double space.",
+  "selectedResourceStrings": [
+    {
+      "assembly": "Microsoft.Xna.Framework.Game.dll",
+      "key": "BackBufferDimMustBePositive",
+      "reason": "GraphicsDeviceManager.set_PreferredBackBufferWidth and set_PreferredBackBufferHeight both raise ArgumentOutOfRangeException with this for a non-positive value. One message names both dimensions whichever setter raised it."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.Game.dll",
+      "key": "CannotAddSameComponentMultipleTimes",
+      "reason": "GameComponentCollection.InsertItem raises ArgumentException with this when the item is already present."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.Game.dll",
+      "key": "CannotSetItemsIntoGameComponentCollection",
+      "reason": "GameComponentCollection.SetItem's whole body is a throw carrying this."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.Game.dll",
+      "key": "GraphicsDeviceManagerAlreadyPresent",
+      "reason": "GraphicsDeviceManager..ctor raises ArgumentException with this when the game already has an IGraphicsDeviceManager registered. It contains two consecutive spaces after the first sentence, which is why transcribing it is not safe."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.Game.dll",
+      "key": "InactiveSleepTimeCannotBeZero",
+      "reason": "Game.set_InactiveSleepTime raises ArgumentOutOfRangeException with this for a non-positive value."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.Game.dll",
+      "key": "MissingGraphicsDeviceService",
+      "reason": "DrawableGameComponent.Initialize raises InvalidOperationException with this. It is a different key from NoGraphicsDeviceService, which Game.GraphicsDevice raises, and the two are not interchangeable."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.Game.dll",
+      "key": "NoGraphicsDeviceService",
+      "reason": "Game.get_GraphicsDevice raises InvalidOperationException with this when no IGraphicsDeviceService is registered."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.Game.dll",
+      "key": "PropertyCannotBeCalledBeforeInitialize",
+      "reason": "DrawableGameComponent.get_GraphicsDevice raises InvalidOperationException with this before Initialize has run. Its sibling Initialize raises MissingGraphicsDeviceService, and Game.get_GraphicsDevice raises NoGraphicsDeviceService: three keys, three meanings, and this projection used the wrong one until Foundation 50."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.Game.dll",
+      "key": "ServiceAlreadyPresent",
+      "reason": "GameServiceContainer.AddService raises ArgumentException with this when the container already holds the type."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.Game.dll",
+      "key": "ServiceMustBeAssignable",
+      "reason": "GameServiceContainer.AddService raises ArgumentException with this, formatted with two type names, when the provider is not assignable to the service type. The TEMPLATE is reproduced; the substituted names cannot be, because Type.FullName is not part of the Any.Type language projection."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.Game.dll",
+      "key": "ServiceProviderCannotBeNull",
+      "reason": "GameServiceContainer.AddService raises the two-argument ArgumentNullException(\"provider\", this) for a null provider. It was deliberately unregistered while argument failures came out of CNAError; the projected ArgumentNullException reproduces the message, so it is registered now."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.Game.dll",
+      "key": "TargetElaspedCannotBeZero",
+      "reason": "Game.set_TargetElapsedTime raises ArgumentOutOfRangeException with this. The key's own spelling is Microsoft's typo -- 'Elasped' -- and is reproduced as found."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "BeginMustBeCalledBeforeDraw",
+      "reason": "SpriteBatch.InternalDraw, which every public Draw overload funnels through, raises InvalidOperationException with this outside an interval."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "BeginMustBeCalledBeforeEnd",
+      "reason": "SpriteBatch.End raises InvalidOperationException with this outside an interval."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "BoundStateObject",
+      "reason": "BlendState/DepthStencilState/RasterizerState/SamplerState ThrowIfBound raises InvalidOperationException with this, formatted with the declaring class's own simple name."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "BoundingBoxZeroPoints",
+      "reason": "BoundingBox.CreateFromPoints raises ArgumentException with this for an empty sequence. It has no trailing period."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "BoundingSphereZeroPoints",
+      "reason": "BoundingSphere.CreateFromPoints raises ArgumentException with this for an empty sequence. It ends with a period; BoundingBoxZeroPoints does not, and the two are not interchangeable."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "CannotClearNullDepth",
+      "reason": "GraphicsDevice.Clear(ClearOptions, Color, Single, Int32) raises InvalidOperationException with this when the clear failed AND the depth/stencil bits the caller asked for are not among the ones the device actually has. It is a diagnosis of a failure, never a pre-validation."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "CannotGetBackBufferActiveRenderTargets",
+      "reason": "GraphicsDevice.GetBackBufferData raises InvalidOperationException with this after copy-window validation when any render target is active."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "CantDisableLighting",
+      "reason": "EnvironmentMapEffect and SkinnedEffect implement IEffectLights.LightingEnabled EXPLICITLY: the getter of each is `ldc.i4.1; ret` and the setter raises NotSupportedException(Format(CantDisableLighting, GetType().Name)) for false. CNA refuses the same call independently with a message of its own, so the managed message is the one a caller must be shown."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "CharacterNotInFont",
+      "reason": "One message, two exception shapes, in one type. SpriteFont.GetIndexForCharacter raises ArgumentException(Format(CharacterNotInFont, c, (int)c), \"character\") when a character is neither in the map nor reachable through DefaultCharacter; set_DefaultCharacter raises ArgumentException with the SAME formatted message and NO paramName when the proposed fallback is not in the font. Its second placeholder is `0x{1:x4}`, so the numeric argument is formatted as four lowercase hex digits."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "DuplicateVertexElement",
+      "reason": "VertexElementValidator.Validate raises ArgumentException with this when two elements share a VertexElementUsage and UsageIndex, formatted with the later element's own pair."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "DxtNotMultipleOfFour"
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "EndMustBeCalledBeforeBegin",
+      "reason": "SpriteBatch.Begin raises InvalidOperationException with this when an interval is already open."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "IndexBuffersMustBeSizedCorrectly"
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "InvalidDataSize",
+      "reason": "Texture.GetAndValidateSizes<T> raises ArgumentException with this when sizeof(T) is neither the surface format's byte size nor a size that divides it exactly."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "InvalidDevice"
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "InvalidEmitterDopplerScale",
+      "reason": "AudioEmitter.set_DopplerScale raises ArgumentOutOfRangeException(\"value\", this) for a negative or NaN scale."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "InvalidRectangle",
+      "reason": "Texture.GetAndValidateRect raises ArgumentException with this, naming the parameter `rect`, for a negative origin, a non-positive extent, or an edge past the surface."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "InvalidTotalSize",
+      "reason": "Texture.ValidateTotalSize raises ArgumentException with this when the array window's byte count does not equal the region's."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "MustBeValidIndex"
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "NegativePlaneDistance",
+      "reason": "Matrix's four perspective factories raise ArgumentOutOfRangeException with this, formatted with the offending plane-distance parameter name."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "NegativeRadius",
+      "reason": "BoundingSphere..ctor(Vector3, float) raises ArgumentException with this for a negative radius."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "NotEnoughCorners",
+      "reason": "BoundingBox.GetCorners and BoundingFrustum.GetCorners raise ArgumentOutOfRangeException(\"corners\", this) for a destination shorter than the corner count."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "NotEnoughSourceSize",
+      "reason": "The indexed Vector2/Vector3/Vector4 Transform and TransformNormal overloads raise ArgumentException with this when the source array cannot supply the requested length."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "NotEnoughTargetSize",
+      "reason": "The Vector2/Vector3/Vector4 Transform and TransformNormal overloads raise ArgumentException with this when the destination array is too small."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "NullNotAllowed",
+      "reason": "GraphicsDevice.set_BlendState, set_DepthStencilState and set_RasterizerState each raise ArgumentNullException(\"value\", NullNotAllowed) for a null state, as does SamplerStateCollection.set_Item."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "OppositePlanes",
+      "reason": "Matrix's four perspective factories raise ArgumentOutOfRangeException(\"nearPlaneDistance\", this) when the near plane is beyond the far plane."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "OutRangeFieldOfView",
+      "reason": "Matrix.CreatePerspectiveFieldOfView raises ArgumentOutOfRangeException(\"fieldOfView\", this) formatted with the parameter name."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "ProfileAspectRatio"
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "ProfileFormatNotSupported"
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "ProfileFeatureNotSupported",
+      "reason": "ProfileCapabilities.ThrowNotSupportedException formats this with the active profile and GetBackBufferData when that profile forbids back-buffer readback."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "ProfileMaxPrimitiveCount"
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "ProfileMaxVertexStreams"
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "ProfileNoIndexElementSize32"
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "ProfileNotPowerOfTwoDXT"
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "ProfileNotPowerOfTwoMipped"
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "ProfileTooBig"
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "ResourceDataMustBeCorrectSize"
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "ResourcesMustBeGreaterThanZeroSize",
+      "reason": "Texture2D.ValidateCreationParameters raises ArgumentOutOfRangeException with this for a non-positive width or height. One message, two parameter names, width tested first."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "ScissorInvalid",
+      "reason": "GraphicsDevice.set_ScissorRectangle raises ArgumentException with this from three branches: a negative field, an edge past the current render target's bounds, and an extent past them that only an int32 overflow can reach."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "SkinnedEffectMaxBones",
+      "reason": "One message serves both bone-transform members and they raise different exceptions with it: SetBoneTransforms raises ArgumentException(Format(SkinnedEffectMaxBones, 72)) with NO paramName for an array longer than MaxBones, and GetBoneTransforms raises ArgumentOutOfRangeException(\"count\", Format(SkinnedEffectMaxBones, 72)) for the same bound. Both 72s are the pinned MaxBones field."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "SkinnedEffectWeightsPerVertex",
+      "reason": "SkinnedEffect.set_WeightsPerVertex accepts 1, 2 or 4 and raises ArgumentOutOfRangeException(\"value\", SkinnedEffectWeightsPerVertex) for anything else -- three beq tests and then the throw, which is why the accessor is pinned IL_DIRECT_THROW rather than reachable through a parameter."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "VertexElementOffsetNotMultipleFour",
+      "reason": "VertexElementValidator.Validate raises ArgumentException with this for a vertex stride that is not a multiple of four, and again for an element offset that is not \u2014 which is why the one message names both."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "VertexElementOutsideStride",
+      "reason": "VertexElementValidator.Validate raises ArgumentException with this, formatted with the element's VertexElementUsage and UsageIndex, when an element's offset is negative or its end exceeds the vertex stride."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "VertexElementsOverlap",
+      "reason": "VertexElementValidator.Validate raises ArgumentException with this when two elements claim the same byte of the vertex, formatted with the usage and index of the element that already owned the byte and then of the element that collided with it."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "VertexStrideTooSmall"
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "VertexTypeNotIVertexType"
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "VertexTypeNotValueType"
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "VertexTypeWrongSize"
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "ViewportInvalid",
+      "reason": "GraphicsDevice.set_Viewport raises ArgumentException with this from five separate branches: a negative origin, a non-positive extent, an extent past the current render target's bounds, a depth outside 0 through 1, and MaxDepth below MinDepth."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "WriteOnlyGetNotSupported"
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "ProfileMaxRenderTargets",
+      "reason": "The private GraphicsDevice.SetRenderTargets raises NotSupportedException through ProfileCapabilities.ThrowNotSupportedException when the binding count exceeds MaxRenderTargets, which is 1 on Reach and 4 on HiDef. The message names the PROFILE and the LIMIT -- the boxed argument is MaxRenderTargets, not the requested count."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "CannotSetAlreadyUsedRenderTarget",
+      "reason": "The private GraphicsDevice.SetRenderTargets raises ArgumentException with this when the same target appears twice in one binding array. Reached only for i > 0, so a single-target bind never meets it."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "RenderTargetsMustMatch",
+      "reason": "The private GraphicsDevice.SetRenderTargets raises ArgumentException with this when RenderTargetHelper.IsSameSize refuses a binding against slot zero -- four fields: both extents, the multisample count and the colour format's byte size. Reached only for i > 0."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "MustResolveRenderTarget",
+      "reason": "TextureCollection.set_Item and the CopyData of Texture2D and TextureCube each raise InvalidOperationException with this when a texture is the device's own active render target. Texture.isActiveRenderTarget is set and cleared by the private GraphicsDevice.SetRenderTargets."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "ResourceInUse",
+      "reason": "Helpers.GetExceptionFromResult maps E_ABORT (0x80004004) to InvalidOperationException with this, and the CopyData of all three texture types raises it through that mapping when the texture is bound to a sampler slot. The message names SetData, and the scan is guarded by isSetting, so GetData is allowed."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "ProfileVertexTextureFormatNotSupported",
+      "reason": "TextureCollection.set_Item raises NotSupportedException through ProfileCapabilities.ThrowNotSupportedException when the VERTEX collection is given a texture whose format is not in ValidVertexTextureFormats. Reach's list is empty, so every texture fails it -- and because the value is tested before the index, that is what a Reach caller is told rather than the zero-slot bound."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "ArrayMultipleFour",
+      "reason": "Effect.CreateEffectFromCode raises ArgumentException with this, formatted with the parameter name, when effectCode's length is not a multiple of four. Pure managed arithmetic on the array, ahead of anything that reads its content."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "NotCurrentTechnique",
+      "reason": "EffectPass.Apply raises InvalidOperationException with this when the pass's own technique is not the effect's CurrentTechnique. It sits between the effect's disposal check and the call to Effect.OnApply."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "MustDrawSomething",
+      "reason": "Every draw raises ArgumentOutOfRangeException with this for a non-positive primitiveCount, and DrawInstancedPrimitives reuses it for instanceCount rather than declaring an instance-specific message."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "NumberVerticesMustBeGreaterZero",
+      "reason": "DrawIndexedPrimitives and DrawInstancedPrimitives raise ArgumentOutOfRangeException('numVertices') with this, and the test comes BEFORE the primitive count's."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "NonZeroInstanceFrequency",
+      "reason": "The three non-instanced draws raise InvalidOperationException with this when instanceStreamMask is non-zero -- that is, when a bound VertexBufferBinding carries an instance frequency. DrawInstancedPrimitives does not, because it is the draw that needs one."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "OffsetNotValid",
+      "reason": "The user-primitive draws raise ArgumentOutOfRangeException with this for a vertexOffset or indexOffset outside its array."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "InvalidInstanceStreams",
+      "reason": "DrawInstancedPrimitives raises InvalidOperationException with this when the bound bindings are ALL instanced or ALL non-instanced -- it needs per-instance data and per-vertex data, and either extreme supplies only half. Derived from the same cached bindings GetVertexBuffers reads."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "InvalidStringFormat",
+      "reason": "MathTypeConverter.ConvertToValues formats this with the culture's list separator and expected field names when a Design converter receives the wrong component count or a component cannot be parsed."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.Game.dll",
+      "key": "NoCompatibleDevices",
+      "reason": "GraphicsDeviceManager.CreateDevice raises NoSuitableGraphicsDeviceException with this when no adapter supports the requested profile. The message takes the profile name as {0}, so the projection formats it rather than quoting a fixed string."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.Game.dll",
+      "key": "NoCompatibleDevicesAfterRanking",
+      "reason": "The second, distinct failure of the same path: adapters were found and then ranked away. XNA reports the two separately and so does this projection."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.Game.dll",
+      "key": "TitleCannotBeNull",
+      "reason": "GameWindow.set_Title raises ArgumentNullException with this. Note the two spaces after the full stop -- they are in the assembly, so they are in the message."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "InvalidTitleContainerName",
+      "reason": "TitleContainer.OpenStream raises ArgumentException with this for a path that is not a relative URI (Foundation 73)."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "OpenStreamError",
+      "reason": "TitleContainer.OpenStream raises FileNotFoundException with this when the file exists but cannot be opened; {0} is the name."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "OpenStreamNotFound",
+      "reason": "The same path's other half: the file is not there at all. Two messages, two causes, and the projection must not collapse them into one."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "BadXnb",
+      "reason": "ContentReader wraps an IOException while reading the body with this asset-naming format."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "BadXnbMagic",
+      "reason": "ContentReader rejects a stream whose first three bytes are not XNB with this exact message."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "BadXnbPlatform",
+      "reason": "The Windows reader accepts platform label w and reports this for any other compiled target."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "BadXnbSize",
+      "reason": "The seekable XNB prologue check reports a declared body longer than the source as truncated."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "BadXnbTypeVersion",
+      "reason": "ContentTypeReaderManager compares each manifest version with the constructed reader's TypeVersion and reports a disagreement with this format."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "BadXnbVersion",
+      "reason": "ContentReader rejects a non-XNA-4 XNB version with this format."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "BadXnbWrongType",
+      "reason": "ContentReader's erased generic bridge and ContentManager's cache-hit check both report the actual and requested type through this format."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "TypeReaderDuplicate",
+      "reason": "The manifest manager refuses two reader identities that claim the same target type through this four-slot format."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "TypeReaderInvalid",
+      "reason": "Failure to construct a manifest-named ContentTypeReader is wrapped with this format."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "TypeReaderNotFound",
+      "reason": "An unknown manifest reader name is reported through this format."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "TypeReaderNotRegistered",
+      "reason": "ContentTypeReaderManager.GetTypeReader reports an unknown target type through this format."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "ReaderConstructedNewInstance",
+      "reason": "InvokeReader refuses a reader that replaces a non-null existing reference rather than filling it."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "DecompressionError",
+      "reason": "The selected managed path explicitly classifies unsupported compressed XNB input with XNA's decompression failure text."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "OpenResourceNotFound",
+      "reason": "ResourceContentManager.OpenStream reports a null ResourceManager result with this asset-naming format."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "OpenResourceNotBinary",
+      "reason": "ResourceContentManager.OpenStream requires the selected resource to be Byte[] and reports every other value with this format."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "ContentManagerCannotChangeRootDirectory",
+      "reason": "ContentManager's RootDirectory setter refuses to move an already-populated cache with this exact message."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "InvalidXactVolume",
+      "reason": "AudioCategory.SetVolume raises ArgumentException with this when the supplied volume is ordered below zero."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "InvalidMicrophoneBufferDuration",
+      "reason": "Microphone.set_BufferDuration raises ArgumentOutOfRangeException with this unless the duration is 100 through 1000 milliseconds in exact 10-millisecond increments."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "InvalidDynamicIsLoopedCall",
+      "reason": "DynamicSoundEffectInstance.set_IsLooped raises InvalidOperationException with this when true is requested; false is a no-op after the disposed check."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "ModelHasNoEffect",
+      "reason": "Held in Microsoft.Xna.Framework.dll's FrameworkResources, not in the Graphics assembly whose IL names it: Graphics carries no embedded string table at all. Model.Draw and ModelMesh.Draw raise InvalidOperationException with this when a mesh part carries no effect. Reachable and tested: cna_model_mesh_create and cna_model_mesh_part_create are both bound, so a mesh with an effectless part can be built here."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "ModelHasNoIEffectMatrices",
+      "reason": "Also in the Framework assembly's table. Model.Draw raises InvalidOperationException with this when a part's effect does not implement IEffectMatrices, which is what Draw needs in order to push the world, view and projection it was given."
+    }
+  ]
+}

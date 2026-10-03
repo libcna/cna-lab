@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "SOURCE_ARCHIVE_FILENAME": "cna-swift-b24d81b.zip",
+  "SOURCE_ARCHIVE_SHA256": "89271d2def3ed8bef1b0dfb53e4c4348e5b1a7c753b8c35cafd38147f2a1ebd3",
+  "SOURCE_ARCHIVE_ENTRIES": 551,
+  "QUALIFIED_INPUTS_SHA256": "ffa0626b61fd5ba29263b0ce3a91589fa33e8e5f145ae0f89ba68b7c3d22f576",
+  "FORBIDDEN_ENTRIES": [],
+  "NATIVE_LIBRARIES": [],
+  "MICROSOFT_REFERENCE_BINARIES": [],
+  "DEVELOPER_PATH_LEAKS": [],
+  "DEBUG_BUILD": "PASS",
+  "RELEASE_BUILD": "PASS",
+  "RUN_60": "PASS",
+  "RUN_600": "PASS",
+  "REJECTED_NEGATIVE_CONSUMERS": [
+    "nullable reference return bound as non-Optional",
+    "Optional return assigned to a non-Optional binding",
+    "fallible reader called without try",
+    "key path formed to a throwing getter",
+    "BCL base bound with the element type erased to Any",
+    "BCL base bound with the wrong element type",
+    "a sealed CLR collection subclassed",
+    "read-only collection used as a mutable one",
+    "mutating through the read-only collection surface",
+    "a sealed public collection member overridden",
+    "VisualizationData internal producer reached from outside"
+  ]
+}

@@ -1,0 +1,14 @@
+.DS_Store
+/.build
+/Packages
+/*.xcodeproj
+/DerivedData
+.swiftpm/
+.swiftlib/
+/build-asan
+/build-tsan
+/build-consumer
+__pycache__/
+*.pyc
+/build-probe
+/.mutation-gate.lock

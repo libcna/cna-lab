@@ -1,0 +1,522 @@
+{
+  "schemaVersion": 1,
+  "profile": "XNA 4.0 Windows runtime selected resource strings",
+  "note": "The user-visible messages this binding reproduces, read mechanically out of the embedded string tables of the hash-registered XNA assemblies named in registered-assemblies.json. Only keys and values are retained; no Microsoft binary is stored in the repository.",
+  "resourceStrings": [
+    {
+      "assembly": "Microsoft.Xna.Framework.Game.dll",
+      "key": "BackBufferDimMustBePositive",
+      "value": "BackBufferWidth and BackBufferHeight must be greater than zero."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.Game.dll",
+      "key": "CannotAddSameComponentMultipleTimes",
+      "value": "Cannot add the same game component to a game component collection multiple times."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.Game.dll",
+      "key": "CannotSetItemsIntoGameComponentCollection",
+      "value": "Cannot set a value using operator[] on GameComponentCollection.  Use Add/Remove instead."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.Game.dll",
+      "key": "GraphicsDeviceManagerAlreadyPresent",
+      "value": "A graphics device manager is already registered.  The graphics device manager cannot be changed once it is set."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.Game.dll",
+      "key": "InactiveSleepTimeCannotBeZero",
+      "value": "The inactive sleep time must be greater than or equal to zero.  Specify zero or a positive value."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.Game.dll",
+      "key": "MissingGraphicsDeviceService",
+      "value": "Drawable components require a graphics device service in the game service container."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.Game.dll",
+      "key": "NoCompatibleDevices",
+      "value": "Could not find a Direct3D device that supports the XNA Framework {0} profile.\r\n\r\nVerify that a suitable graphics device is installed.\r\n\r\nMake sure the desktop is not locked, and that no other application is running in full screen mode.\r\n\r\nAvoid running under Remote Desktop or as a Windows service.\r\n\r\nCheck the display properties to make sure hardware acceleration is set to Full."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.Game.dll",
+      "key": "NoCompatibleDevicesAfterRanking",
+      "value": "The process of ranking devices removed all compatible devices."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.Game.dll",
+      "key": "NoGraphicsDeviceService",
+      "value": "This property requires a graphics device service in the game service container."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.Game.dll",
+      "key": "PropertyCannotBeCalledBeforeInitialize",
+      "value": "The GraphicsDevice property cannot be used before Initialize has been called."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.Game.dll",
+      "key": "ServiceAlreadyPresent",
+      "value": "Container already contains a service of this type."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.Game.dll",
+      "key": "ServiceMustBeAssignable",
+      "value": "Service provider object of type {0} must be assignable to service type {1}."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.Game.dll",
+      "key": "ServiceProviderCannotBeNull",
+      "value": "The service provider instance cannot be null."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.Game.dll",
+      "key": "TargetElaspedCannotBeZero",
+      "value": "The target elapsed time must be greater than zero.  Specify a non-zero positive value."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.Game.dll",
+      "key": "TitleCannotBeNull",
+      "value": "The title name cannot be null.  Use an empty string instead."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "ArrayMultipleFour",
+      "value": "The array {0} must have a length that is a multiple of four."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "BadXnb",
+      "value": "Error loading \"{0}\"."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "BadXnbMagic",
+      "value": "Error loading \"{0}\". This is not a compiled content file."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "BadXnbPlatform",
+      "value": "Error loading \"{0}\". This file was compiled for the wrong target platform."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "BadXnbSize",
+      "value": "Error loading \"{0}\". File has been truncated."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "BadXnbTypeVersion",
+      "value": "Error loading \"{0}\". File contains the wrong version of type {1}."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "BadXnbVersion",
+      "value": "Error loading \"{0}\". This file was compiled using the wrong version of the XNA Framework."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "BadXnbWrongType",
+      "value": "Error loading \"{0}\". File contains {1} but trying to load as {2}."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "BeginMustBeCalledBeforeDraw",
+      "value": "Begin must be called successfully before a Draw can be called."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "BeginMustBeCalledBeforeEnd",
+      "value": "Begin must be called successfully before End can be called."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "BoundStateObject",
+      "value": "Cannot change read-only {0}. State objects become read-only the first time they are bound to a GraphicsDevice. To change property values, create a new {0} instance."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "BoundingBoxZeroPoints",
+      "value": "You should have at least one point in points"
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "BoundingSphereZeroPoints",
+      "value": "You should have at least one point in points."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "CannotClearNullDepth",
+      "value": "Cannot clear depth or stencil because the device does not have an active depth or stencil buffer."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "CannotGetBackBufferActiveRenderTargets",
+      "value": "Cannot use GetBackBufferData when a render target is active."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "CannotSetAlreadyUsedRenderTarget",
+      "value": "The render target has already been set on another index. Each render target may only be set on a single index at a time."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "CantDisableLighting",
+      "value": "{0} does not support setting LightingEnabled to false."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "CharacterNotInFont",
+      "value": "The character '{0}' (0x{1:x4}) is not available in this SpriteFont. If applicable, adjust the font's start and end CharacterRegions to include this character."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "ContentManagerCannotChangeRootDirectory",
+      "value": "This property cannot be changed after content has been loaded into the ContentManager."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "DecompressionError",
+      "value": "Error decompressing content data."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "DuplicateVertexElement",
+      "value": "Invalid VertexDeclaration. Duplicate element {0}{1}."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "DxtNotMultipleOfFour",
+      "value": "DXT compressed texture sizes must be multiples of four."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "EndMustBeCalledBeforeBegin",
+      "value": "Begin cannot be called again until End has been successfully called."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "IndexBuffersMustBeSizedCorrectly",
+      "value": "IndexBuffers may be created only with types that are 16 bit or 32 bit in size."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "InvalidDataSize",
+      "value": "The type you are using for T in this method is an invalid size for this resource."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "InvalidDevice",
+      "value": "Resources can only be used on the GraphicsDevice that they were created on. This resource was not created on this GraphicsDevice."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "InvalidDynamicIsLoopedCall",
+      "value": "IsLooped property is not supported for DynamicSoundEffectInstance."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "InvalidEmitterDopplerScale",
+      "value": "The doppler scale of an audio emitter must be greater than or equal to zero."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "InvalidInstanceStreams",
+      "value": "DrawInstancedPrimitives requires at least one vertex buffer to be bound with a non-zero instance frequency, and also at least one with a zero instance frequency."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "InvalidMicrophoneBufferDuration",
+      "value": "Microphone buffer duration must be between 100ms and 1sec and  10ms aligned."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "InvalidRectangle",
+      "value": "The rectangle is too large or too small for this resource."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "InvalidStringFormat",
+      "value": "Invalid string format. Expected a string in the format \"{0}\"."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "InvalidTitleContainerName",
+      "value": "Invalid filename. TitleContainer.OpenStream requires a relative URI."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "InvalidTotalSize",
+      "value": "The size of the data passed in is too large or too small for this resource."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "InvalidXactVolume",
+      "value": "Volume must be a positive float value."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "ModelHasNoEffect",
+      "value": "ModelMeshPart has a null Effect."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "ModelHasNoIEffectMatrices",
+      "value": "This model contains a custom effect which does not implement the IEffectMatrices interface, so it cannot be drawn using Model.Draw. Instead, call ModelMesh.Draw after setting the appropriate effect parameters."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "MustBeValidIndex",
+      "value": "This parameter must be a valid index within the array."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "MustDrawSomething",
+      "value": "When drawing, at least one primitive must be drawn."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "MustResolveRenderTarget",
+      "value": "The render target must not be set on the device when it is used as a texture."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "NegativePlaneDistance",
+      "value": "You should specify positive value for {0}."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "NegativeRadius",
+      "value": "Radius must be greater than 0."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "NonZeroInstanceFrequency",
+      "value": "Non-instanced draw calls are not valid when a vertex buffer is bound with a non-zero instance frequency."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "NotCurrentTechnique",
+      "value": "Cannot Apply an EffectPass that is not from the CurrentTechnique."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "NotEnoughCorners",
+      "value": "You have to have at least 8 elements to copy corners."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "NotEnoughSourceSize",
+      "value": "Source array must be equal or bigger than requested length."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "NotEnoughTargetSize",
+      "value": "Target array size must be equal or bigger than source array size."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "NullNotAllowed",
+      "value": "This method does not accept null for this parameter."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "NumberVerticesMustBeGreaterZero",
+      "value": "When drawing indexed primitives, the number of vertices passed in must be greater than zero."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "OffsetNotValid",
+      "value": "The offset must be within the valid range for this resource."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "OpenResourceNotBinary",
+      "value": "Error loading \"{0}\". Not a binary resource."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "OpenResourceNotFound",
+      "value": "Error loading \"{0}\". Resource not found."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "OpenStreamError",
+      "value": "Error loading \"{0}\". Cannot open file."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "OpenStreamNotFound",
+      "value": "Error loading \"{0}\". File not found."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "OppositePlanes",
+      "value": "Near plane distance is larger than Far plane distance. Near plane distance must be smaller than Far plane distance."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "OutRangeFieldOfView",
+      "value": "{0} takes a value between 0 and Pi (180 degrees) in radians."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "ProfileAspectRatio",
+      "value": "XNA Framework {0} profile supports a maximum {1} aspect ratio of {2}."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "ProfileFeatureNotSupported",
+      "value": "XNA Framework {0} profile does not support {1}."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "ProfileFormatNotSupported",
+      "value": "XNA Framework {0} profile does not support {1} format {2}."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "ProfileMaxPrimitiveCount",
+      "value": "XNA Framework {0} profile supports a maximum of {1} primitives per draw call."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "ProfileMaxRenderTargets",
+      "value": "XNA Framework {0} profile supports a maximum of {1} simultaneous rendertargets."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "ProfileMaxVertexStreams",
+      "value": "XNA Framework {0} profile supports a maximum of {1} simultaneous vertex buffers."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "ProfileNoIndexElementSize32",
+      "value": "XNA Framework {0} profile does not support 32 bit indices. Use IndexElementSize.SixteenBits or a type that has a size of two bytes."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "ProfileNotPowerOfTwoDXT",
+      "value": "XNA Framework {0} profile requires DXT compressed {1} sizes to be powers of two. To use a non power of two {1}, disable DXT compression."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "ProfileNotPowerOfTwoMipped",
+      "value": "XNA Framework {0} profile requires mipmapped {1} sizes to be powers of two. To use a non power of two {1}, remove the mipmaps."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "ProfileTooBig",
+      "value": "XNA Framework {0} profile supports a maximum {1} size of {2}."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "ProfileVertexTextureFormatNotSupported",
+      "value": "XNA Framework {0} profile does not support vertex texture format {1}."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "ReaderConstructedNewInstance",
+      "value": "ContentTypeReader {0} returned a new object instance from its Read method. This should have loaded data into the existingInstance parameter."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "RenderTargetsMustMatch",
+      "value": "All active render targets must be the same size with the same multisample type and bit depth."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "ResourceDataMustBeCorrectSize",
+      "value": "The array is not the correct size for the amount of data requested."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "ResourceInUse",
+      "value": "You may not call SetData on a resource while it is actively set on the GraphicsDevice. Unset it from the device before calling SetData."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "ResourcesMustBeGreaterThanZeroSize",
+      "value": "Resource size must be greater than zero."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "ScissorInvalid",
+      "value": "The scissor rectangle is invalid. The scissor rectangle cannot be larger than or outside of the current render target bounds."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "SkinnedEffectMaxBones",
+      "value": "SkinnedEffect supports a maximum of {0} bones."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "SkinnedEffectWeightsPerVertex",
+      "value": "SkinnedEffect.WeightsPerVertex must be 1, 2, or 4."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "TypeReaderDuplicate",
+      "value": "Error loading \"{0}\". ContentTypeReader {1} conflicts with existing handler {2} for type {3}."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "TypeReaderInvalid",
+      "value": "Error loading \"{0}\". Cannot instantiate ContentTypeReader {1}."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "TypeReaderNotFound",
+      "value": "Error loading \"{0}\". Cannot find ContentTypeReader {1}."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "TypeReaderNotRegistered",
+      "value": "Error loading \"{0}\". Cannot find ContentTypeReader for {1}."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "VertexElementOffsetNotMultipleFour",
+      "value": "Invalid VertexDeclaration. Vertex stride and VertexElement.Offset must be multiples of four."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "VertexElementOutsideStride",
+      "value": "Invalid VertexDeclaration. Element {0}{1} does not fit within the specified vertex stride."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "VertexElementsOverlap",
+      "value": "Invalid VertexDeclaration. Elements {0}{1} and {2}{3} are overlapping."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "VertexStrideTooSmall",
+      "value": "The vertex stride is too small for the type of data requested. This is not allowed."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "VertexTypeNotIVertexType",
+      "value": "Invalid vertex type. {0} does not implement the IVertexType interface."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "VertexTypeNotValueType",
+      "value": "Invalid vertex type. {0} is not a value type."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "VertexTypeWrongSize",
+      "value": "Invalid vertex type. The size of {0} does not match the stride of its vertex declaration."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "ViewportInvalid",
+      "value": "The viewport is invalid. The viewport cannot be larger than or outside of the current render target bounds. The MinDepth and MaxDepth must be between 0 and 1."
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "key": "WriteOnlyGetNotSupported",
+      "value": "Calling GetData on a resource that was created with BufferUsage.WriteOnly is not supported."
+    }
+  ]
+}

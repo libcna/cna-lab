@@ -1,0 +1,562 @@
+{
+  "schemaVersion": 1,
+  "profile": "Microsoft .NET Framework 4.0 BCL behaviour authority",
+  "note": "The hash-registered Microsoft .NET Framework 4.0 BCL assemblies that are the behaviour authority for the selected BCL families this binding derives its support classes from. This registry is deliberately SEPARATE from tools/api_compat/registered-assemblies.json: that one is calibrated by reproducing the pinned 257-type/2964-member XNA contract, and a BCL assembly declares zero XNA contract types, so that gate would pass vacuously. Authority here is earned instead by reproducing a pinned selected-shape manifest, by independently-stated sentinel facts, by mutation self-tests, and by an independent metadata reader. Only digests and identity are retained; no Microsoft binary is stored in the repository.",
+  "calibration": "tools/api_compat/reference/bcl40-selected-shape.json",
+  "authorities": [
+    {
+      "assembly": "mscorlib.dll",
+      "assemblyName": "mscorlib",
+      "assemblyVersion": "4.0.0.0",
+      "publicKey": "00000000000000000400000000000000",
+      "publicKeyToken": "b77a5c561934e089",
+      "sha256": "5634668d4775b0113f08ea31093b281fea69bfc4e99227f5ca761b4ed98acc63",
+      "fileSize": 5196112,
+      "moduleName": "CommonLanguageRuntimeLibrary",
+      "versionResource": {
+        "CompanyName": "Microsoft Corporation",
+        "FileDescription": "Microsoft Common Language Runtime Class Library",
+        "FileVersion": "4.0.30319.1 (RTMRel.030319-0100)",
+        "ProductName": "Microsoft\u00ae .NET Framework",
+        "ProductVersion": "4.0.30319.1",
+        "OriginalFilename": "mscorlib.dll",
+        "InternalName": "mscorlib.dll"
+      },
+      "strongNameKeyFile": "f:\\dd\\Tools\\devdiv\\ecmapublickey.snk",
+      "requiredModuleImports": [
+        "clr.dll",
+        "mscoree.dll"
+      ],
+      "forbiddenProvenanceMarkers": [
+        "Mono.Runtime",
+        "Mono.RuntimeStructs",
+        "System.Private.CoreLib",
+        "MonoTODO"
+      ],
+      "registered": "Foundation 26",
+      "selectedFamilies": [
+        {
+          "type": "System.Text.StringBuilder",
+          "reason": "The declared parameter type of four XNA members -- SpriteFont.MeasureString(StringBuilder) and SpriteBatch.DrawString's three StringBuilder overloads -- which cannot be projected over String, because XNA's overloads take a MUTABLE BUFFER and a caller holding one is not served by a projection that copies it. Projected as CNAStringBuilder over a [UInt16] store: every index in this family's API is a UTF-16 code-unit index, which is the same reason System.Char maps to UInt16."
+        },
+        {
+          "type": "System.Collections.ObjectModel.Collection`1",
+          "reason": "The direct CLR base of Microsoft.Xna.Framework.GameComponentCollection. Its public surface, its protected Items view and its four protected virtual hooks are the behaviour CNACollection<Element> projects."
+        },
+        {
+          "type": "System.Collections.ObjectModel.ReadOnlyCollection`1",
+          "reason": "The direct CLR base of ModelBoneCollection, ModelMeshCollection, ModelMeshPartCollection and ModelEffectCollection, and the declared return type of several still-deferred XNA members. Projected as CNAReadOnlyCollection<Element>."
+        },
+        {
+          "type": "System.Collections.Generic.List`1",
+          "reason": "Collection<T>..ctor() allocates exactly this type as its backing store, so its observable list behaviour -- bounds rules, version bumps and element ordering -- is part of Collection<T>'s own behaviour. Projected as CNAList<Element>."
+        },
+        {
+          "type": "System.Collections.Generic.List`1+Enumerator",
+          "reason": "Collection<T>.GetEnumerator() returns the backing list's enumerator, so this is where the mutation-invalidation contract CNAEnumerator projects is actually declared."
+        },
+        {
+          "type": "System.Collections.Generic.IList`1",
+          "reason": "The declared type of Collection<T>.items and ReadOnlyCollection<T>.list, of both wrapping constructors and of the protected Items property. Every one of the four hooks is a call on this interface."
+        },
+        {
+          "type": "System.Collections.Generic.ICollection`1",
+          "reason": "Supplies the Count and IsReadOnly reads that guard every Collection<T> mutator, and the Clear/Contains/CopyTo the hooks and public methods delegate to."
+        },
+        {
+          "type": "System.Collections.Generic.IEnumerable`1",
+          "reason": "Supplies the GetEnumerator that Collection<T>.GetEnumerator and ReadOnlyCollection<T>.GetEnumerator delegate to."
+        },
+        {
+          "type": "System.Collections.Generic.IEnumerator`1",
+          "reason": "The declared return type of GetEnumerator on both selected collection families; it is the CLR contract CNAEnumerator<Element> projects."
+        },
+        {
+          "type": "System.Exception",
+          "reason": "The direct CLR base of NoMicrophoneConnectedException, ContentLoadException, DeviceLostException, DeviceNotResetException and NoSuitableGraphicsDeviceException, the transitive base of the other three XNA exception types, and the declared parameter type of every two-argument XNA exception constructor and of Game.ShowMissingRequirementMessage. It owns the whole observable state those eight types have -- Message, InnerException, HResult -- because every one of their constructors is a bare forward to it. Projected as CNAException.",
+          "registered": "Foundation 30"
+        },
+        {
+          "type": "System.SystemException",
+          "reason": "The exact direct CLR base of ExternalException. It is not a marker: each of its constructors substitutes the resource message Arg_SystemException and sets HResult to 0x80131501, which ExternalException then overwrites, so collapsing it would change both. Projected as CNASystemException.",
+          "registered": "Foundation 30"
+        },
+        {
+          "type": "System.Collections.Generic.Dictionary`2",
+          "reason": "The direct CLR base of Microsoft.Xna.Framework.LaunchParameters, which declares one parameterless constructor and inherits everything else. Its bucket/entry/free-list storage is what defines the enumeration order, the duplicate-key refusal and the version invalidation CNADictionary<Key, Value> projects.",
+          "registered": "Foundation 31"
+        },
+        {
+          "type": "System.Collections.Generic.Dictionary`2+KeyCollection",
+          "reason": "The declared type of Dictionary<TKey,TValue>.Keys. A live view over the dictionary, not a copy, projected as the nested CNADictionary.KeyCollection.",
+          "registered": "Foundation 31"
+        },
+        {
+          "type": "System.Collections.Generic.Dictionary`2+ValueCollection",
+          "reason": "The declared type of Dictionary<TKey,TValue>.Values, projected as the nested CNADictionary.ValueCollection.",
+          "registered": "Foundation 31"
+        },
+        {
+          "type": "System.Collections.Generic.Dictionary`2+Enumerator",
+          "reason": "The declared return type of Dictionary<TKey,TValue>.GetEnumerator. Its whole surface is Current/MoveNext/Dispose, so it is the IEnumerator<KeyValuePair<TKey,TValue>> contract CNAEnumerator already projects, and admitting it is what proves the struct adds nothing that projection would drop.",
+          "registered": "Foundation 31"
+        },
+        {
+          "type": "System.Collections.Generic.KeyValuePair`2",
+          "reason": "The element type of Dictionary<TKey,TValue> enumeration. A CLR struct with two get-only properties, projected as the Swift struct CNAKeyValuePair<Key, Value>.",
+          "registered": "Foundation 31"
+        },
+        {
+          "type": "System.Collections.Generic.IEqualityComparer`1",
+          "reason": "The declared type of Dictionary<TKey,TValue>.Comparer and of three of its constructors. It is what the dictionary asks for BOTH halves of key identity, so a caller-supplied comparer decides which keys collide and which are equal. Projected as the CNAEqualityComparer protocol.",
+          "registered": "Foundation 31"
+        },
+        {
+          "type": "System.Attribute",
+          "reason": "The direct CLR base of all five Microsoft.Xna.Framework.Content.ContentSerializer* attribute types. It is what makes them attributes rather than plain classes, and it is where their one inherited member, IsDefaultAttribute, is declared. Projected as CNAAttribute.",
+          "registered": "Foundation 32"
+        },
+        {
+          "type": "System.Collections.Generic.IDictionary`2",
+          "reason": "The declared parameter type of two Dictionary<TKey,TValue> constructors and the interface whose members the class implements as sealed virtual finals; it is what establishes that nothing on the public surface is an override point.",
+          "registered": "Foundation 31"
+        },
+        {
+          "type": "System.Runtime.InteropServices.ExternalException",
+          "reason": "The direct CLR base of InstancePlayLimitException, NoAudioHardwareException and StorageDeviceNotConnectedException. It substitutes the resource message Arg_ExternalException, sets HResult to 0x80004005, and adds the public ErrorCode property that reads it. Projected as CNAExternalException.",
+          "registered": "Foundation 30"
+        },
+        {
+          "type": "System.ArgumentException",
+          "reason": "The exception class every CLR-shaped argument failure in this binding's support layer raises, and the direct base of ArgumentNullException and ArgumentOutOfRangeException. It is not a marker: it adds the m_paramName field, the public ParamName property, an HResult of 0x80070057, and a get_Message override that appends Arg_ParamName_Name to the base message around Environment.NewLine. Projected as CNAArgumentException.",
+          "registered": "Foundation 37"
+        },
+        {
+          "type": "System.ArgumentNullException",
+          "reason": "Raised by GameServiceContainer.AddService for a null provider through the two-argument (paramName, message) constructor, and by Dictionary<TKey,TValue>'s KeyCollection/ValueCollection CopyTo for a null destination. Adds only an HResult of 0x80004003 -- every constructor forwards to ArgumentException -- so its Message composition is its base's. Projected as CNAArgumentNullException.",
+          "registered": "Foundation 37"
+        },
+        {
+          "type": "System.ArgumentOutOfRangeException",
+          "reason": "Raised by List<T>'s indexer, Insert and RemoveAt, by Collection<T>'s indexed setter, Insert and RemoveAt, and by Dictionary<TKey,TValue>'s capacity constructors and its key/value CopyTo. Adds the m_actualValue field, the ActualValue property, an HResult of 0x80131502 and a second get_Message override. Projected as CNAArgumentOutOfRangeException.",
+          "registered": "Foundation 37"
+        },
+        {
+          "type": "System.NotSupportedException",
+          "reason": "Raised by every Collection<T> mutator when the wrapped IList<T> reports itself read-only, through ThrowHelper with ExceptionResource NotSupported_ReadOnlyCollection, and by GameComponentCollection.SetItem and every TouchCollection mutator with XNA's own message. Declares no member of its own; its whole contribution is the HResult 0x80131515. Projected as CNANotSupportedException.",
+          "registered": "Foundation 37"
+        },
+        {
+          "type": "System.InvalidOperationException",
+          "reason": "Raised by List<T>.Enumerator.MoveNext and Dictionary<TKey,TValue>.Enumerator.MoveNext once the version they captured no longer matches, through ThrowHelper with ExceptionResource InvalidOperation_EnumFailedVersion. Contributes the HResult 0x80131509. Projected as CNAInvalidOperationException.",
+          "registered": "Foundation 37"
+        },
+        {
+          "type": "System.Collections.Generic.KeyNotFoundException",
+          "reason": "Raised by Dictionary<TKey,TValue>.get_Item through ThrowHelper.ThrowKeyNotFoundException, whose whole body is `new KeyNotFoundException()`, so the message is the parameterless constructor's Arg_KeyNotFound and the HResult is 0x80131577. Its base is SystemException directly, not ArgumentException. Projected as CNAKeyNotFoundException.",
+          "registered": "Foundation 37"
+        },
+        {
+          "type": "System.NullReferenceException",
+          "reason": "CurveKey.CompareTo performs no null check: its first instructions are `ldarg.1; ldfld position`, and ECMA-335 specifies that ldfld through a null reference raises this. The class is therefore certain from the IL even though the runtime, not the IL, produces the message. Projected as CNANullReferenceException.",
+          "registered": "Foundation 37"
+        },
+        {
+          "type": "System.IndexOutOfRangeException",
+          "reason": "The indexed Vector2/Vector3/Vector4 Transform overloads validate the two array LENGTHS and never the indices, so a negative sourceIndex or destinationIndex reaches `ldelema`, which ECMA-335 specifies raises this. It is the one SEALED class in this family, so its Swift projection is final where the others are open. Projected as CNAIndexOutOfRangeException.",
+          "registered": "Foundation 37"
+        },
+        {
+          "type": "System.ObjectDisposedException",
+          "reason": "The class XNA raises for a use-after-dispose: Helpers.CheckDisposed, which its guarded graphics-resource members call, is `if (pComPtr == IntPtr.Zero) throw new ObjectDisposedException(obj.GetType().Name);`, and all four state objects' Apply open the same way with `ldtoken` on the declaring class instead. A consumer using a resource it disposed must therefore see this class rather than the CNA runtime channel. Projected as CNAObjectDisposedException with the ObjectName payload and the composed Message.",
+          "registered": "Foundation 42a"
+        },
+        {
+          "type": "System.IO.IOException",
+          "reason": "The intermediate CLR base between System.SystemException, already admitted, and System.IO.FileNotFoundException, which TitleContainer.OpenStream raises. It is admitted for the chain, not for a member: nothing in this binding raises a bare IOException, and its own surface adds only the HResult COR_E_IO 0x80131620 that FileNotFoundException overrides. Projected as CNAIOException."
+        },
+        {
+          "type": "System.IO.FileNotFoundException",
+          "reason": "The class TitleContainer.OpenStream raises when the asset is absent. Its IL catches FileNotFoundException, DirectoryNotFoundException and ArgumentException out of File.OpenRead and re-raises this one with FrameworkResources.OpenStreamNotFound formatted with the requested name, so it is the class a consumer meets for a missing title asset and is not substitutable by the CNA runtime channel. Only the (String message) constructor is on XNA's path; FileName is therefore null on every instance this binding produces, which is what that constructor leaves it. Projected as CNAFileNotFoundException."
+        },
+        {
+          "type": "System.IServiceProvider",
+          "reason": "The declared parameter type of both ContentManager constructors and the declared type of its ServiceProvider property, and the interface GameServiceContainer implements. Without it the constructor can only be spelled over the one concrete implementation this binding has, which narrows XNA's contract: a consumer's own service provider could not be handed to a ContentManager at all. Projected as CNAServiceProvider, a one-member protocol -- the smallest family admitted here, and the whole of it is GetService(Type)."
+        },
+        {
+          "type": "System.IDisposable",
+          "reason": "The declared argument of Action<IDisposable> on ContentManager.ReadAsset. Earlier XNA types could expose Dispose structurally, but this signature passes the interface as a value and therefore requires the one-member CNADisposable protocol."
+        },
+        {
+          "type": "System.IO.BinaryReader",
+          "reason": "The direct CLR base of Microsoft.Xna.Framework.Content.ContentReader. Its reachable public/protected surface is projected as the real Swift superclass CNABinaryReader; the Encoding constructor is authority-visible but refused by the demand-driven ContentReader closure because constructors are not inherited."
+        },
+        {
+          "type": "System.IO.EndOfStreamException",
+          "reason": "The exact exception BinaryReader primitive methods raise when the backing stream ends before a fixed-width value is complete. Projected as CNAEndOfStreamException."
+        },
+        {
+          "type": "System.FormatException",
+          "reason": "The exact exception BinaryReader.Read7BitEncodedInt raises after five continuation bytes. Projected as CNAFormatException."
+        },
+        {
+          "type": "System.Resources.ResourceManager",
+          "reason": "The exact mscorlib base class named by ResourceContentManager's public constructor and the source of its virtual GetObject(String) lookup. The selected projection retains the protected construction path, invariant-culture GetObject/GetString operations, BaseName, IgnoreCase, ResourceSetType and ReleaseAllResources; Assembly, CultureInfo, ResourceSet and UnmanagedMemoryStream overloads remain refused by the measured ContentReader closure."
+        },
+        {
+          "type": "System.Runtime.Serialization.SerializationInfo",
+          "reason": "The first parameter of the protected serialization constructor declared by ContentLoadException and StorageDeviceNotConnectedException. Exception's base constructor reads the serialized class name, message, inner exception, help link and HResult from it; those already-projected observable fields form the selected carrier. Its own IFormatterConverter constructor and general value-conversion API are not inherited and remain refused."
+        },
+        {
+          "type": "System.Runtime.Serialization.StreamingContext",
+          "reason": "The second parameter of both protected XNA exception serialization constructors. Exception reads its State only for CLR remoting stack-trace rewriting; because stack state remains outside the selected Exception surface, the XNA-facing value is admitted as an opaque carrier and no StreamingContextStates API is projected."
+        },
+        {
+          "type": "System.Globalization.CultureInfo",
+          "reason": "The second parameter of ConvertFrom and ConvertTo on every converter. Foundation 74 corrected the claim that it is only ever opaque here: the math converters format and parse THROUGH it, so its number formatting is part of what they do."
+        },
+        {
+          "type": "System.Globalization.TextInfo",
+          "reason": "MathTypeConverter reads CultureInfo.TextInfo.ListSeparator both to split input and join output, and CultureInfo publicly exposes the same TextInfo object."
+        },
+        {
+          "type": "System.Collections.IDictionary",
+          "reason": "The parameter of TypeConverter.CreateInstance, which MathTypeConverter overrides to build a value out of the property bag GetProperties described."
+        },
+        {
+          "type": "System.Reflection.MemberInfo",
+          "reason": "InstanceDescriptor.MemberInfo exposes the constructor selected by every XNA Design converter. The projection retains stable member identity and the constructor metadata the descriptor can actually return; assembly/module/custom-attribute reflection remains outside the selected Design closure."
+        },
+        {
+          "type": "System.Reflection.MemberTypes",
+          "reason": "MemberInfo.MemberType identifies every converter-produced descriptor member as a constructor. The enum preserves that public reflection identity without admitting unrelated reflection services."
+        },
+        {
+          "type": "System.Reflection.MethodBase",
+          "reason": "The direct CLR base of ConstructorInfo. It carries the parameter-list and invocation contract reached through the InstanceDescriptor returned by every XNA Design converter."
+        },
+        {
+          "type": "System.Reflection.ConstructorInfo",
+          "reason": "Every XNA Design converter creates an InstanceDescriptor over the value type's public constructor. A real constructor identity is therefore observable through MemberInfo and Invoke, not an implementation-only closure."
+        },
+        {
+          "type": "System.Reflection.ParameterInfo",
+          "reason": "ConstructorInfo.GetParameters exposes the ordered constructor parameter types and names behind the InstanceDescriptor returned by the XNA Design converters."
+        },
+        {
+          "type": "System.IAsyncResult",
+          "reason": "The return of StorageDevice.BeginShowSelector and BeginOpenContainer and the parameter of both End methods -- seven of the two Storage types' signatures name it. Its AsyncWaitHandle property returns System.Threading.WaitHandle, which is deliberately NOT admitted: this projection has no synchronisation primitive to hand back and CNA's storage routes complete inline, so the member is declared and refused, the way Exception.StackTrace is."
+        },
+        {
+          "type": "System.AsyncCallback",
+          "reason": "The callback parameter of both Begin methods. A delegate, so what is admitted is its shape -- one object argument, void return -- rather than a type a consumer constructs."
+        },
+        {
+          "type": "System.IO.FileMode",
+          "reason": "The second parameter of StorageContainer.OpenFile's three overloads. An enum that declares no member of its own beyond its values, which is why this family costs nothing to admit and everything to get wrong: a value renumbered here changes which file operation a caller asked for."
+        },
+        {
+          "type": "System.IO.FileAccess",
+          "reason": "The third parameter of two OpenFile overloads. A [Flags] enum, and whether it is one is the fact worth pinning."
+        },
+        {
+          "type": "System.IO.FileShare",
+          "reason": "The fourth parameter of the widest OpenFile overload. Also [Flags], and it carries a value XNA's own callers rarely name -- Delete -- which is exactly the kind of member a hand-written enum drops."
+        }
+      ],
+      "selectedResourceStrings": [
+        {
+          "key": "ArgumentOutOfRange_NegativeLength",
+          "value": "Length cannot be less than zero.",
+          "reason": "StringBuilder.set_Length refuses a negative value with it, naming \"value\"."
+        },
+        {
+          "key": "ArgumentOutOfRange_SmallCapacity",
+          "value": "capacity was less than the current size.",
+          "reason": "Three StringBuilder members share it: set_Length past MaxCapacity, set_Capacity below the current Length, and -- reached from every growing member -- ExpandByABlock, whose ParamName is the internal \"requiredLength\" no caller passes."
+        },
+        {
+          "key": "ArgumentOutOfRange_NegativeCapacity",
+          "value": "Capacity must be positive.",
+          "reason": "StringBuilder.set_Capacity and EnsureCapacity refuse a negative capacity with it."
+        },
+        {
+          "key": "ArgumentOutOfRange_Capacity",
+          "value": "Capacity exceeds maximum capacity.",
+          "reason": "StringBuilder.set_Capacity refuses a value above MaxCapacity with it, and the two-argument constructor refuses a capacity above its own ceiling."
+        },
+        {
+          "key": "ArgumentOutOfRange_NegativeCount",
+          "value": "Count cannot be less than zero.",
+          "reason": "StringBuilder.Append(Char, Int32) refuses a negative repeatCount with it, before writing anything."
+        },
+        {
+          "key": "ArgumentOutOfRange_StartIndex",
+          "value": "StartIndex cannot be less than zero.",
+          "reason": "StringBuilder.Remove and ToString(Int32, Int32) refuse a negative start with it."
+        },
+        {
+          "key": "ArgumentOutOfRange_StartIndexLargerThanLength",
+          "value": "startIndex cannot be larger than length of string.",
+          "reason": "StringBuilder.ToString(Int32, Int32) refuses a start past Length with it."
+        },
+        {
+          "key": "ArgumentOutOfRange_IndexLength",
+          "value": "Index and length must refer to a location within the string.",
+          "reason": "StringBuilder.ToString(Int32, Int32) refuses a range past the end with it, naming \"length\"."
+        },
+        {
+          "key": "ArgumentOutOfRange_MustBePositive",
+          "value": "'{0}' must be greater than zero.",
+          "reason": "The two-argument StringBuilder constructor refuses a negative capacity with it -- the ONLY formatted message in the family, whose {0} is the parameter name, so the argument is named twice."
+        },
+        {
+          "key": "ArgumentOutOfRange_SmallMaxCapacity",
+          "value": "MaxCapacity must be one or greater.",
+          "reason": "The two-argument StringBuilder constructor refuses a maxCapacity below one with it."
+        },
+        {
+          "key": "Arg_ArgumentException",
+          "value": "Value does not fall within the expected range.",
+          "reason": "The message a parameterless ArgumentException carries, and therefore the base message of every ArgumentException whose caller supplied none."
+        },
+        {
+          "key": "Arg_ArgumentOutOfRangeException",
+          "value": "Specified argument was out of the range of valid values.",
+          "reason": "The message ArgumentOutOfRangeException's parameterless and paramName-only constructors pass to their base, through the cached private RangeMessage property."
+        },
+        {
+          "key": "Arg_ArrayPlusOffTooSmall",
+          "value": "Destination array is not long enough to copy all the items in the collection. Check array index and length.",
+          "reason": "The message KeyCollection.CopyTo and ValueCollection.CopyTo raise for a destination that cannot hold the collection from the supplied index."
+        },
+        {
+          "key": "Arg_ExternalException",
+          "value": "External component has thrown an exception.",
+          "reason": "The message System.Runtime.InteropServices.ExternalException..ctor() passes to its base, and therefore the Message of a parameterless InstancePlayLimitException, NoAudioHardwareException or StorageDeviceNotConnectedException."
+        },
+        {
+          "key": "Arg_IndexOutOfRangeException",
+          "value": "Index was outside the bounds of the array.",
+          "reason": "The message a parameterless IndexOutOfRangeException carries."
+        },
+        {
+          "key": "Arg_InvalidOperationException",
+          "value": "Operation is not valid due to the current state of the object.",
+          "reason": "The message a parameterless InvalidOperationException carries."
+        },
+        {
+          "key": "Arg_KeyNotFound",
+          "value": "The given key was not present in the dictionary.",
+          "reason": "The message KeyNotFoundException..ctor() carries, which Dictionary<TKey,TValue>::get_Item raises through ThrowHelper::ThrowKeyNotFoundException."
+        },
+        {
+          "key": "Arg_NotSupportedException",
+          "value": "Specified method is not supported.",
+          "reason": "The message a parameterless NotSupportedException carries. Collection<T>'s mutators raise it when the backing list is read-only, and every TouchCollection mutator raises exactly it."
+        },
+        {
+          "key": "Arg_NullReferenceException",
+          "value": "Object reference not set to an instance of an object.",
+          "reason": "The message a parameterless NullReferenceException carries."
+        },
+        {
+          "key": "Arg_ParamName_Name",
+          "value": "Parameter name: {0}",
+          "reason": "The template ArgumentException.get_Message appends to the base message, around Environment.NewLine, whenever ParamName is neither null nor empty. This one string is what makes an argument exception's Message differ from its constructor argument."
+        },
+        {
+          "key": "Arg_SystemException",
+          "value": "System error.",
+          "reason": "The message System.SystemException..ctor() passes to its base."
+        },
+        {
+          "key": "ArgumentNull_Generic",
+          "value": "Value cannot be null.",
+          "reason": "The message both ArgumentNullException constructors that do not take one pass to their base."
+        },
+        {
+          "key": "ArgumentOutOfRange_Index",
+          "value": "Index was out of range. Must be non-negative and less than the size of the collection.",
+          "reason": "ExceptionResource 22, which ThrowHelper.ThrowArgumentOutOfRangeException() -- the no-argument overload List<T>'s indexer and RemoveAt and Collection<T>'s indexed setter, Insert and RemoveAt call -- pairs with ExceptionArgument 13 (index)."
+        },
+        {
+          "key": "ArgumentOutOfRange_ListInsert",
+          "value": "Index must be within the bounds of the List.",
+          "reason": "ExceptionResource 27, which List<T>.Insert and Collection<T>.Insert pass with ExceptionArgument 13 (index). It is a DIFFERENT message from ArgumentOutOfRange_Index, which is why an insert past the end and a read past the end do not report the same thing."
+        },
+        {
+          "key": "ArgumentOutOfRange_NeedNonNegNum",
+          "value": "Non-negative number required.",
+          "reason": "The message a negative capacity produces on the Dictionary<TKey,TValue> capacity constructors."
+        },
+        {
+          "key": "Argument_AddingDuplicate",
+          "value": "An item with the same key has already been added.",
+          "reason": "ExceptionResource 14, which Dictionary<TKey,TValue>::Insert passes to ThrowHelper::ThrowArgumentException when Add is given a key that is already present."
+        },
+        {
+          "key": "Exception_WasThrown",
+          "value": "Exception of type '{0}' was thrown.",
+          "reason": "System.Exception.get_Message returns this, formatted with GetClassName(), whenever the stored message is null -- which every parameterless XNA exception constructor produces. Read from the assembly's own embedded mscorlib.resources, never from documentation or memory."
+        },
+        {
+          "key": "InvalidOperation_EnumFailedVersion",
+          "value": "Collection was modified; enumeration operation may not execute.",
+          "reason": "ExceptionResource 32, the message both List<T>.Enumerator and Dictionary<TKey,TValue>.Enumerator raise when the collection was modified."
+        },
+        {
+          "key": "NotSupported_ReadOnlyCollection",
+          "value": "Collection is read-only.",
+          "reason": "ExceptionResource 28, the message every Collection<T> mutator raises for a read-only backing list. It is NOT Arg_NotSupportedException, which is what a parameterless NotSupportedException carries and what XNA's own TouchCollection mutators raise."
+        },
+        {
+          "key": "ObjectDisposed_Generic",
+          "value": "Cannot access a disposed object.",
+          "reason": "The message ObjectDisposedException..ctor(String objectName) substitutes, and therefore the base message of every ObjectDisposedException raised with only an object name."
+        },
+        {
+          "key": "ObjectDisposed_ObjectName_Name",
+          "value": "Object name: '{0}'.",
+          "reason": "The template ObjectDisposedException.get_Message formats and appends after Environment.NewLine when ObjectName is neither null nor empty."
+        },
+        {
+          "key": "Arg_EndOfStreamException",
+          "value": "Attempted to read past the end of the stream.",
+          "reason": "EndOfStreamException's parameterless constructor substitutes it before setting COR_E_ENDOFSTREAM."
+        },
+        {
+          "key": "Arg_FormatException",
+          "value": "One of the identified items was in an invalid format.",
+          "reason": "FormatException's parameterless constructor substitutes it before setting COR_E_FORMAT."
+        },
+        {
+          "key": "Arg_IOException",
+          "value": "I/O error occurred.",
+          "reason": "IOException's parameterless constructor substitutes it before setting COR_E_IO."
+        },
+        {
+          "key": "Argument_InvalidOffLen",
+          "value": "Offset and length were out of bounds for the array or count is greater than the number of elements from index to the end of the source collection.",
+          "reason": "BinaryReader's byte and character array overloads use it for a range outside the caller's array."
+        },
+        {
+          "key": "Argument_StreamNotReadable",
+          "value": "Stream was not readable.",
+          "reason": "BinaryReader construction refuses a Stream whose CanRead property is false."
+        },
+        {
+          "key": "ArgumentOutOfRange_BinaryReaderFillBuffer",
+          "value": "The number of bytes requested does not fit into BinaryReader's internal buffer.",
+          "reason": "BinaryReader.FillBuffer refuses a byte count wider than its sixteen-byte internal buffer."
+        },
+        {
+          "key": "Format_Bad7BitInt32",
+          "value": "Too many bytes in what should have been a 7 bit encoded Int32.",
+          "reason": "BinaryReader.Read7BitEncodedInt raises it after five continuation bytes."
+        },
+        {
+          "key": "IO.EOF_ReadBeyondEOF",
+          "value": "Unable to read beyond the end of the stream.",
+          "reason": "BinaryReader's fixed-width reads raise EndOfStreamException with this message on a short input."
+        },
+        {
+          "key": "IO.IO_InvalidStringLen_Len",
+          "value": "BinaryReader encountered an invalid string length of {0} characters.",
+          "reason": "BinaryReader.ReadString formats it when the decoded seven-bit length is negative."
+        },
+        {
+          "key": "ObjectDisposed_FileClosed",
+          "value": "Cannot access a closed file.",
+          "reason": "BinaryReader reports this through ObjectDisposedException after Close has cleared its backing stream."
+        },
+        {
+          "key": "InvalidOperation_ResourceNotString_Type",
+          "value": "Resource was of type '{0}' instead of String - call GetObject instead.",
+          "reason": "ResourceManager.GetString raises InvalidOperationException with this formatted message when the named resource exists but is not a String."
+        },
+        {
+          "key": "IO.FileNotFound",
+          "value": "Unable to find the specified file.",
+          "reason": "FileNotFoundException's parameterless constructor substitutes it, and SetMessageField restores it for an instance deserialized with neither a message nor a file name whose HResult is still COR_E_EXCEPTION."
+        }
+      ],
+      "selectedStaticTables": [
+        {
+          "type": "System.Collections.HashHelpers",
+          "field": "primes",
+          "swiftSymbol": "CNAHashHelpers.hashPrimes",
+          "reason": "Dictionary<TKey,TValue>::Initialize and ::Resize size their bucket and entry arrays with HashHelpers.GetPrime, which reads this 72-entry table. Nothing observable depends on it -- enumeration order is entry order and a lookup is correct for any bucket count -- but transcribing it by hand would be a sizing decision of this projection's own, so it is read out of the assembly's static-array initializer and compared against the Swift source."
+        }
+      ],
+      "selectedIlLiterals": [
+        {
+          "type": "System.Environment",
+          "member": "get_NewLine",
+          "value": "\r\n",
+          "swiftSymbol": "CNAException.environmentNewLine",
+          "reason": "ArgumentException.get_Message concatenates the base message, Environment.NewLine and the formatted Arg_ParamName_Name. The newline is therefore part of an observable Message, and in the admitted assembly it is not probed from the platform at all: System.Environment::get_NewLine's entire body is `ldstr \"\\r\\n\"; ret`. Reading it here is what lets the composed message be reproduced without asserting anything about the platform this binding runs on."
+        }
+      ]
+    },
+    {
+      "assembly": "System.dll",
+      "assemblyName": "System",
+      "assemblyVersion": "4.0.0.0",
+      "publicKey": "00000000000000000400000000000000",
+      "publicKeyToken": "b77a5c561934e089",
+      "sha256": "c3182e40f09a8d3a0167a833dc1ce7c3cb2bfddbd32031d8d3f41481d0467462",
+      "fileSize": 3481928,
+      "moduleName": "System.dll",
+      "versionResource": {
+        "CompanyName": "Microsoft Corporation",
+        "ProductName": "Microsoft\u00ae .NET Framework",
+        "OriginalFilename": "System.dll",
+        "InternalName": "System.dll"
+      },
+      "strongNameKeyFile": "f:\\dd\\tools\\devdiv\\EcmaPublicKey.snk",
+      "requiredModuleImports": [],
+      "forbiddenProvenanceMarkers": [
+        "Mono.Runtime",
+        "Mono.RuntimeStructs",
+        "System.Private.CoreLib",
+        "MonoTODO"
+      ],
+      "registered": "Foundation 100",
+      "selectedFamilies": [
+        {
+          "type": "System.ComponentModel.TypeConverter",
+          "reason": "The transitive base of all thirteen XNA Design converters and the type whose eight virtual members they override. Its ConvertFrom/ConvertTo/CanConvertFrom/CanConvertTo pairs are the whole behaviour a converter has."
+        },
+        {
+          "type": "System.ComponentModel.TypeConverter+StandardValuesCollection",
+          "reason": "The public return of TypeConverter.GetStandardValues(ITypeDescriptorContext), inherited by MathTypeConverter even though the XNA converters return null from the base implementation."
+        },
+        {
+          "type": "System.ComponentModel.ExpandableObjectConverter",
+          "reason": "The DIRECT base of MathTypeConverter, which is itself the direct base of the other twelve. It adds only GetProperties/GetPropertiesSupported over TypeConverter, and those two are exactly what the math converters override."
+        },
+        {
+          "type": "System.ComponentModel.ITypeDescriptorContext",
+          "reason": "The first parameter of nine of TypeConverter's members and of every override the thirteen declare. Always passed through, never read by XNA's code -- but it is in every signature, so it is in the closure."
+        },
+        {
+          "type": "System.ComponentModel.PropertyDescriptor",
+          "reason": "What PropertyDescriptorCollection holds, and what MathTypeConverter's GetProperties builds one of per field."
+        },
+        {
+          "type": "System.ComponentModel.PropertyDescriptorCollection",
+          "reason": "The declared return of GetProperties on ExpandableObjectConverter and on every math converter that overrides it."
+        },
+        {
+          "type": "System.ComponentModel.Design.Serialization.InstanceDescriptor",
+          "reason": "MathTypeConverter.CanConvertTo explicitly accepts this destination type and all twelve concrete converters return one from ConvertTo. Its MemberInfo, Arguments, IsComplete and Invoke surface is the observable round-trip contract selected for the Design family."
+        }
+      ],
+      "selectedResourceStrings": [],
+      "selectedStaticTables": [],
+      "selectedIlLiterals": []
+    }
+  ],
+  "availableButNotAdmitted": []
+}

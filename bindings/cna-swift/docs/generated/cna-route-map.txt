@@ -1,0 +1,185 @@
+4076 distinct cna_* symbols in the headers
+
+PROVENANCE, added Foundation 101. That count is CNA C ABI **0.22.0**, not the
+0.21.0 this binding is qualified against, which has 4074. Nothing generates
+this file and nothing compares it, so the drift was invisible: cnanext moved to
+0.22.0 on 2026-09-04 and this map was measured after that, while
+CNA_NATIVE_LIBRARY and the pinned headers stayed at 0.21.0 deliberately -- the
+pair the qualified library was qualified with.
+
+Read it as a map of routes that EXIST in a slightly newer ABI, not as a
+description of the qualified one. A route named here may not be in 0.21.0.
+
+ 140  Microsoft.Xna.Framework.Graphics.Effect
+        cna_effect_, cna_effect_annotation_collection_add, cna_effect_annotation_collection_create, cna_effect_annotation_collection_destroy, cna_effect_annotation_collection_find, cna_effect_annotation_collection_get_at
+ 134  Microsoft.Xna.Framework.Graphics.Model
+        cna_model_add_camera_ext, cna_model_add_gltf_import_diagnostic_ext, cna_model_add_skin_ext, cna_model_animations_ext_copy_clip_name_at, cna_model_animations_ext_copy_type_name, cna_model_animations_ext_create
+  50  Microsoft.Xna.Framework.Graphics.ModelMesh
+        cna_model_mesh_collection_contains, cna_model_mesh_collection_create, cna_model_mesh_collection_destroy, cna_model_mesh_collection_find, cna_model_mesh_collection_get_at, cna_model_mesh_collection_get_count
+  45  Microsoft.Xna.Framework.Media.Picture
+        cna_picture_album_collection_copy_type_name, cna_picture_album_collection_destroy, cna_picture_album_collection_dispose, cna_picture_album_collection_get_at, cna_picture_album_collection_get_count, cna_picture_album_collection_get_is_disposed
+  42  Microsoft.Xna.Framework.Audio.SoundEffect
+        cna_sound_effect_, cna_sound_effect_copy_name, cna_sound_effect_copy_type_name, cna_sound_effect_create_from_asset_ext, cna_sound_effect_create_from_encoded_ext, cna_sound_effect_create_instance
+  34  Microsoft.Xna.Framework.Content.ContentManager
+        cna_content_manager_, cna_content_manager_copy_asset_path, cna_content_manager_copy_manifest_native_extension, cna_content_manager_copy_manifest_relative_path, cna_content_manager_copy_manifest_xnb_reader_name, cna_content_manager_copy_normalized_key
+  33  Microsoft.Xna.Framework.Media.Song
+        cna_song_collection_copy_type_name, cna_song_collection_create, cna_song_collection_destroy, cna_song_collection_dispose, cna_song_collection_get_at, cna_song_collection_get_count
+  31  Microsoft.Xna.Framework.Media.MediaPlayer
+        cna_media_player_detect_song_ended_by_elapsed_time_ext, cna_media_player_get_game_has_control, cna_media_player_get_is_muted, cna_media_player_get_is_repeating, cna_media_player_get_is_shuffled, cna_media_player_get_is_visualization_enabled
+  30  Microsoft.Xna.Framework.Graphics.ModelMeshPart
+        cna_model_mesh_part_collection_create, cna_model_mesh_part_collection_destroy, cna_model_mesh_part_collection_get_at, cna_model_mesh_part_collection_get_count, cna_model_mesh_part_create, cna_model_mesh_part_create_default
+  27  Microsoft.Xna.Framework.Graphics.EffectParameter
+        cna_effect_parameter_collection_add_create, cna_effect_parameter_collection_create, cna_effect_parameter_collection_destroy, cna_effect_parameter_collection_find_name, cna_effect_parameter_collection_find_semantic, cna_effect_parameter_collection_get_at
+  27  Microsoft.Xna.Framework.Input.Mouse
+        cna_mouse_cursor_create_ext, cna_mouse_cursor_create_from_texture2d, cna_mouse_cursor_destroy, cna_mouse_cursor_dispose, cna_mouse_cursor_get_stock_ext, cna_mouse_get_global_position_ext
+  25  Microsoft.Xna.Framework.Media.Album
+        cna_album_collection_copy_type_name, cna_album_collection_destroy, cna_album_collection_dispose, cna_album_collection_get_at, cna_album_collection_get_count, cna_album_collection_get_is_disposed
+  24  Microsoft.Xna.Framework.Storage.StorageContainer
+        cna_storage_container_copy_directory_name, cna_storage_container_copy_display_name, cna_storage_container_copy_file_name, cna_storage_container_copy_type_name, cna_storage_container_create_directory, cna_storage_container_create_file
+  23  Microsoft.Xna.Framework.Media.VideoPlayer
+        cna_video_player_copy_type_name, cna_video_player_create, cna_video_player_destroy, cna_video_player_dispose, cna_video_player_get_frame_ext, cna_video_player_get_is_disposed
+  22  Microsoft.Xna.Framework.Graphics.EffectAnnotation
+        cna_effect_annotation_collection_add, cna_effect_annotation_collection_create, cna_effect_annotation_collection_destroy, cna_effect_annotation_collection_find, cna_effect_annotation_collection_get_at, cna_effect_annotation_collection_get_count
+  21  Microsoft.Xna.Framework.Graphics.SkinnedEffect
+        cna_skinned_effect_copy_bone_transforms, cna_skinned_effect_create, cna_skinned_effect_get_alpha, cna_skinned_effect_get_diffuse_color, cna_skinned_effect_get_emissive_color, cna_skinned_effect_get_prefer_per_pixel_lighting
+  21  Microsoft.Xna.Framework.Input.Touch.TouchPanel
+        cna_touch_panel_enqueue_gesture_ext, cna_touch_panel_get_display_height, cna_touch_panel_get_display_orientation, cna_touch_panel_get_display_width, cna_touch_panel_get_enabled_gestures, cna_touch_panel_get_is_gesture_available
+  21  Microsoft.Xna.Framework.Media.MediaLibrary
+        cna_media_library_copy_media_source_name, cna_media_library_copy_type_name, cna_media_library_create, cna_media_library_create_from_source, cna_media_library_destroy, cna_media_library_dispose
+  20  Microsoft.Xna.Framework.Audio.AudioEngine
+        cna_audio_engine_copy_renderer_friendly_name, cna_audio_engine_copy_renderer_id, cna_audio_engine_copy_renderer_text, cna_audio_engine_copy_type_name, cna_audio_engine_create, cna_audio_engine_create_with_renderer
+  20  Microsoft.Xna.Framework.Content.ContentReader
+        cna_content_reader_check_collection_element_count, cna_content_reader_check_decoded_byte_size, cna_content_reader_copy_asset_name, cna_content_reader_create, cna_content_reader_destroy, cna_content_reader_get_asset_name_size
+  19  Microsoft.Xna.Framework.GameWindow
+        cna_game_window_begin_screen_device_change, cna_game_window_copy_screen_device_name, cna_game_window_copy_title, cna_game_window_copy_type_name, cna_game_window_end_screen_device_change, cna_game_window_get_allow_user_resizing
+  19  Microsoft.Xna.Framework.Graphics.BasicEffect
+        cna_basic_effect_create, cna_basic_effect_get_alpha, cna_basic_effect_get_diffuse_color, cna_basic_effect_get_emissive_color, cna_basic_effect_get_prefer_per_pixel_lighting, cna_basic_effect_get_specular_color
+  19  Microsoft.Xna.Framework.Media.PictureAlbum
+        cna_picture_album_collection_copy_type_name, cna_picture_album_collection_destroy, cna_picture_album_collection_dispose, cna_picture_album_collection_get_at, cna_picture_album_collection_get_count, cna_picture_album_collection_get_is_disposed
+  18  Microsoft.Xna.Framework.Audio.Microphone
+        cna_microphone_check_all_buffers_ext, cna_microphone_copy_name_at, cna_microphone_copy_type_name, cna_microphone_get_buffer_duration_ticks_at, cna_microphone_get_count, cna_microphone_get_data_at
+  18  Microsoft.Xna.Framework.Media.Artist
+        cna_artist_collection_copy_type_name, cna_artist_collection_destroy, cna_artist_collection_dispose, cna_artist_collection_get_at, cna_artist_collection_get_count, cna_artist_collection_get_is_disposed
+  18  Microsoft.Xna.Framework.Media.Genre
+        cna_genre_collection_copy_type_name, cna_genre_collection_destroy, cna_genre_collection_dispose, cna_genre_collection_get_at, cna_genre_collection_get_count, cna_genre_collection_get_is_disposed
+  18  Microsoft.Xna.Framework.Media.Playlist
+        cna_playlist_collection_copy_type_name, cna_playlist_collection_destroy, cna_playlist_collection_dispose, cna_playlist_collection_get_at, cna_playlist_collection_get_count, cna_playlist_collection_get_is_disposed
+  17  Microsoft.Xna.Framework.Graphics.EffectTechnique
+        cna_effect_technique_collection_add_default, cna_effect_technique_collection_add_named, cna_effect_technique_collection_create, cna_effect_technique_collection_destroy, cna_effect_technique_collection_find, cna_effect_technique_collection_get_at
+  17  Microsoft.Xna.Framework.Graphics.EnvironmentMapEffect
+        cna_environment_map_effect_create, cna_environment_map_effect_get_alpha, cna_environment_map_effect_get_amount, cna_environment_map_effect_get_diffuse_color, cna_environment_map_effect_get_emissive_color, cna_environment_map_effect_get_environment_map
+  17  Microsoft.Xna.Framework.Graphics.ModelBone
+        cna_model_bone_add_child, cna_model_bone_collection_contains, cna_model_bone_collection_create, cna_model_bone_collection_destroy, cna_model_bone_collection_find, cna_model_bone_collection_get_at
+  16  Microsoft.Xna.Framework.Audio.SoundEffectInstance
+        cna_sound_effect_instance_, cna_sound_effect_instance_apply_3d, cna_sound_effect_instance_apply_3d_multi_ext, cna_sound_effect_instance_copy_type_name, cna_sound_effect_instance_destroy, cna_sound_effect_instance_get_info
+  16  Microsoft.Xna.Framework.Graphics.VertexBuffer
+        cna_vertex_buffer_binding_init, cna_vertex_buffer_copy_declaration_elements, cna_vertex_buffer_copy_type_name, cna_vertex_buffer_create, cna_vertex_buffer_destroy, cna_vertex_buffer_get_data
+  14  Microsoft.Xna.Framework.Audio.Cue
+        cna_cue_apply_3d, cna_cue_copy_name, cna_cue_copy_type_name, cna_cue_destroy, cna_cue_get_info, cna_cue_get_name_size
+  14  Microsoft.Xna.Framework.Graphics.EffectPass
+        cna_effect_pass_apply, cna_effect_pass_collection_add_create, cna_effect_pass_collection_create, cna_effect_pass_collection_destroy, cna_effect_pass_collection_find, cna_effect_pass_collection_get_at
+  13  Microsoft.Xna.Framework.Content.ContentTypeReader
+        cna_content_type_reader_copy_target_type_name, cna_content_type_reader_destroy, cna_content_type_reader_get_can_deserialize_into_existing_object, cna_content_type_reader_get_target_type_name_size, cna_content_type_reader_get_type_version, cna_content_type_reader_initialize
+  13  Microsoft.Xna.Framework.Graphics.AlphaTestEffect
+        cna_alpha_test_effect_create, cna_alpha_test_effect_get_alpha, cna_alpha_test_effect_get_alpha_function, cna_alpha_test_effect_get_diffuse_color, cna_alpha_test_effect_get_reference_alpha, cna_alpha_test_effect_get_texture
+  13  Microsoft.Xna.Framework.Graphics.GraphicsAdapter
+        cna_graphics_adapter_, cna_graphics_adapter_copy_description, cna_graphics_adapter_copy_device_name, cna_graphics_adapter_copy_display_modes, cna_graphics_adapter_get_count, cna_graphics_adapter_get_current_display_mode
+  12  Microsoft.Xna.Framework.Audio.DynamicSoundEffectInstance
+        cna_dynamic_sound_effect_instance_clear_buffers_ext, cna_dynamic_sound_effect_instance_copy_type_name, cna_dynamic_sound_effect_instance_create, cna_dynamic_sound_effect_instance_get_pending_buffer_count, cna_dynamic_sound_effect_instance_get_sample_duration_ticks, cna_dynamic_sound_effect_instance_get_sample_size_in_bytes
+  11  Microsoft.Xna.Framework.Graphics.DirectionalLight
+        cna_directional_light_create, cna_directional_light_destroy, cna_directional_light_ext_init, cna_directional_light_get_diffuse_color, cna_directional_light_get_direction, cna_directional_light_get_enabled
+  11  Microsoft.Xna.Framework.Storage.StorageDevice
+        cna_storage_device_delete_container, cna_storage_device_destroy, cna_storage_device_get_free_space, cna_storage_device_get_is_connected, cna_storage_device_get_total_space, cna_storage_device_show_selector
+  10  Microsoft.Xna.Framework.Audio.SoundBank
+        cna_sound_bank_copy_type_name, cna_sound_bank_create, cna_sound_bank_destroy, cna_sound_bank_get_cue, cna_sound_bank_get_is_disposed, cna_sound_bank_get_is_in_use
+  10  Microsoft.Xna.Framework.Graphics.IndexBuffer
+        cna_index_buffer_copy_type_name, cna_index_buffer_create, cna_index_buffer_destroy, cna_index_buffer_get_data, cna_index_buffer_get_info, cna_index_buffer_get_type_name_byte_count
+  10  Microsoft.Xna.Framework.Graphics.SpriteFont
+        cna_sprite_font_, cna_sprite_font_copy_characters, cna_sprite_font_copy_glyphs, cna_sprite_font_create, cna_sprite_font_destroy, cna_sprite_font_get_info
+  10  Microsoft.Xna.Framework.Media.MediaQueue
+        cna_media_queue_add, cna_media_queue_clear, cna_media_queue_copy_type_name, cna_media_queue_destroy, cna_media_queue_get_active_song, cna_media_queue_get_active_song_index
+   9  Microsoft.Xna.Framework.Audio.AudioCategory
+        cna_audio_category_copy_name, cna_audio_category_destroy, cna_audio_category_equals, cna_audio_category_get_hash_code, cna_audio_category_get_name_size, cna_audio_category_pause
+   9  Microsoft.Xna.Framework.Audio.WaveBank
+        cna_wave_bank_copy_type_name, cna_wave_bank_create, cna_wave_bank_create_streaming, cna_wave_bank_destroy, cna_wave_bank_get_is_disposed, cna_wave_bank_get_is_in_use
+   9  Microsoft.Xna.Framework.Graphics.DualTextureEffect
+        cna_dual_texture_effect_create, cna_dual_texture_effect_get_alpha, cna_dual_texture_effect_get_diffuse_color, cna_dual_texture_effect_get_texture, cna_dual_texture_effect_get_vertex_color_enabled, cna_dual_texture_effect_set_alpha
+   8  Microsoft.Xna.Framework.Graphics.OcclusionQuery
+        cna_occlusion_query_begin, cna_occlusion_query_create, cna_occlusion_query_destroy, cna_occlusion_query_end, cna_occlusion_query_get_is_complete, cna_occlusion_query_get_is_pixel_count_precise_ext
+   8  Microsoft.Xna.Framework.Media.SongCollection
+        cna_song_collection_copy_type_name, cna_song_collection_create, cna_song_collection_destroy, cna_song_collection_dispose, cna_song_collection_get_at, cna_song_collection_get_count
+   7  Microsoft.Xna.Framework.Graphics.EffectParameterCollection
+        cna_effect_parameter_collection_add_create, cna_effect_parameter_collection_create, cna_effect_parameter_collection_destroy, cna_effect_parameter_collection_find_name, cna_effect_parameter_collection_find_semantic, cna_effect_parameter_collection_get_at
+   7  Microsoft.Xna.Framework.Graphics.EffectTechniqueCollection
+        cna_effect_technique_collection_add_default, cna_effect_technique_collection_add_named, cna_effect_technique_collection_create, cna_effect_technique_collection_destroy, cna_effect_technique_collection_find, cna_effect_technique_collection_get_at
+   7  Microsoft.Xna.Framework.Media.AlbumCollection
+        cna_album_collection_copy_type_name, cna_album_collection_destroy, cna_album_collection_dispose, cna_album_collection_get_at, cna_album_collection_get_count, cna_album_collection_get_is_disposed
+   7  Microsoft.Xna.Framework.Media.ArtistCollection
+        cna_artist_collection_copy_type_name, cna_artist_collection_destroy, cna_artist_collection_dispose, cna_artist_collection_get_at, cna_artist_collection_get_count, cna_artist_collection_get_is_disposed
+   7  Microsoft.Xna.Framework.Media.GenreCollection
+        cna_genre_collection_copy_type_name, cna_genre_collection_destroy, cna_genre_collection_dispose, cna_genre_collection_get_at, cna_genre_collection_get_count, cna_genre_collection_get_is_disposed
+   7  Microsoft.Xna.Framework.Media.PictureAlbumCollection
+        cna_picture_album_collection_copy_type_name, cna_picture_album_collection_destroy, cna_picture_album_collection_dispose, cna_picture_album_collection_get_at, cna_picture_album_collection_get_count, cna_picture_album_collection_get_is_disposed
+   7  Microsoft.Xna.Framework.Media.PictureCollection
+        cna_picture_collection_copy_type_name, cna_picture_collection_destroy, cna_picture_collection_dispose, cna_picture_collection_get_at, cna_picture_collection_get_count, cna_picture_collection_get_is_disposed
+   7  Microsoft.Xna.Framework.Media.PlaylistCollection
+        cna_playlist_collection_copy_type_name, cna_playlist_collection_destroy, cna_playlist_collection_dispose, cna_playlist_collection_get_at, cna_playlist_collection_get_count, cna_playlist_collection_get_is_disposed
+   6  Microsoft.Xna.Framework.Graphics.EffectAnnotationCollection
+        cna_effect_annotation_collection_add, cna_effect_annotation_collection_create, cna_effect_annotation_collection_destroy, cna_effect_annotation_collection_find, cna_effect_annotation_collection_get_at, cna_effect_annotation_collection_get_count
+   6  Microsoft.Xna.Framework.Graphics.EffectPassCollection
+        cna_effect_pass_collection_add_create, cna_effect_pass_collection_create, cna_effect_pass_collection_destroy, cna_effect_pass_collection_find, cna_effect_pass_collection_get_at, cna_effect_pass_collection_get_count
+   6  Microsoft.Xna.Framework.Graphics.ModelBoneCollection
+        cna_model_bone_collection_contains, cna_model_bone_collection_create, cna_model_bone_collection_destroy, cna_model_bone_collection_find, cna_model_bone_collection_get_at, cna_model_bone_collection_get_count
+   6  Microsoft.Xna.Framework.Graphics.ModelEffectCollection
+        cna_model_effect_collection_add, cna_model_effect_collection_contains, cna_model_effect_collection_destroy, cna_model_effect_collection_get_at, cna_model_effect_collection_get_count, cna_model_effect_collection_remove
+   6  Microsoft.Xna.Framework.Graphics.ModelMeshCollection
+        cna_model_mesh_collection_contains, cna_model_mesh_collection_create, cna_model_mesh_collection_destroy, cna_model_mesh_collection_find, cna_model_mesh_collection_get_at, cna_model_mesh_collection_get_count
+   6  Microsoft.Xna.Framework.Media.MediaSource
+        cna_media_source_copy_name_at, cna_media_source_copy_type_name_at, cna_media_source_get_available_count, cna_media_source_get_name_size_at, cna_media_source_get_type_at, cna_media_source_get_type_name_size_at
+   5  Microsoft.Xna.Framework.Content.ContentTypeReaderManager
+        cna_content_type_reader_manager_clear_type_creators, cna_content_type_reader_manager_create_reader, cna_content_type_reader_manager_get_is_registered, cna_content_type_reader_manager_register, cna_content_type_reader_manager_unregister
+   4  Microsoft.Xna.Framework.Graphics.ModelMeshPartCollection
+        cna_model_mesh_part_collection_create, cna_model_mesh_part_collection_destroy, cna_model_mesh_part_collection_get_at, cna_model_mesh_part_collection_get_count
+   4  Microsoft.Xna.Framework.GraphicsDeviceInformation
+        cna_graphics_device_information_clone, cna_graphics_device_information_copy_type_name, cna_graphics_device_information_get_type_name_size, cna_graphics_device_information_init
+   3  Microsoft.Xna.Framework.Graphics.EffectMaterial
+        cna_effect_material_create, cna_effect_material_get_retained_parameter_texture_count_ext, cna_effect_material_retain_parameter_texture_ext
+   1  Microsoft.Xna.Framework.FrameworkDispatcher
+        cna_framework_dispatcher_update
+   1  Microsoft.Xna.Framework.GamerServices.GamerServicesComponent
+        cna_gamer_services_component_create
+   1  Microsoft.Xna.Framework.Graphics.RenderTargetCube
+        cna_render_target_cube_create
+   1  Microsoft.Xna.Framework.Graphics.TextureCube
+        cna_texture_cube_
+   1  Microsoft.Xna.Framework.Graphics.VertexBufferBinding
+        cna_vertex_buffer_binding_init
+   1  Microsoft.Xna.Framework.TitleContainer
+        cna_title_container_read_ext
+   0  Microsoft.Xna.Framework.Audio.RendererDetail
+   0  Microsoft.Xna.Framework.Content.ContentTypeReaderOfT
+   0  Microsoft.Xna.Framework.Content.ResourceContentManager
+   0  Microsoft.Xna.Framework.Design.BoundingBoxConverter
+   0  Microsoft.Xna.Framework.Design.BoundingSphereConverter
+   0  Microsoft.Xna.Framework.Design.ColorConverter
+   0  Microsoft.Xna.Framework.Design.MathTypeConverter
+   0  Microsoft.Xna.Framework.Design.MatrixConverter
+   0  Microsoft.Xna.Framework.Design.PlaneConverter
+   0  Microsoft.Xna.Framework.Design.PointConverter
+   0  Microsoft.Xna.Framework.Design.QuaternionConverter
+   0  Microsoft.Xna.Framework.Design.RayConverter
+   0  Microsoft.Xna.Framework.Design.RectangleConverter
+   0  Microsoft.Xna.Framework.Design.Vector2Converter
+   0  Microsoft.Xna.Framework.Design.Vector3Converter
+   0  Microsoft.Xna.Framework.Design.Vector4Converter
+   0  Microsoft.Xna.Framework.Graphics.DynamicIndexBuffer
+   0  Microsoft.Xna.Framework.Graphics.DynamicVertexBuffer
+   0  Microsoft.Xna.Framework.Graphics.IEffectLights
+   0  Microsoft.Xna.Framework.Graphics.ModelBoneCollection.Enumerator
+   0  Microsoft.Xna.Framework.Graphics.ModelEffectCollection.Enumerator
+   0  Microsoft.Xna.Framework.Graphics.ModelMeshCollection.Enumerator
+   0  Microsoft.Xna.Framework.Graphics.ModelMeshPartCollection.Enumerator
+   0  Microsoft.Xna.Framework.Graphics.RenderTargetBinding
+   0  Microsoft.Xna.Framework.Graphics.Texture3D
+   0  Microsoft.Xna.Framework.Graphics.TextureCollection
+   0  Microsoft.Xna.Framework.PreparingDeviceSettingsEventArgs

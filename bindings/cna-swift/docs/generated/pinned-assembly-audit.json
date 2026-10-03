@@ -1,0 +1,91 @@
+{
+  "schemaVersion": 1,
+  "referenceSha256": "681e55b33c1e5a09a31d5b5cdd0a137f6d3f10b37fdbdab1f5b85bc9580dde6d",
+  "calibrationAssemblies": [
+    "Microsoft.Xna.Framework.Graphics.dll",
+    "Microsoft.Xna.Framework.dll"
+  ],
+  "CALIBRATION_STATUS": "PASS",
+  "RESOURCE_STRING_CHECKS": 206,
+  "RESOURCE_STRINGS_REPRODUCED": 103,
+  "resourceStringFailures": [],
+  "AUDIT_SELF_TESTS": 80,
+  "AUDIT_SELF_TEST_STATUS": "PASS",
+  "auditSelfTestFailures": [],
+  "CONTRACT_TYPES_REPRODUCED": 257,
+  "CONTRACT_MEMBERS_REPRODUCED": 2964,
+  "calibrationFailures": [],
+  "unattributedContractTypes": [],
+  "assemblies": [
+    {
+      "assembly": "Microsoft.Xna.Framework.Game.dll",
+      "sha256": "b5dffdd8125abef2a4507ba4e1d2f11062143f0a63d48fe4f298b95ad746a1f0",
+      "contractTypes": 17,
+      "contractMembers": 161,
+      "contractInterfaceReductions": 0,
+      "typesExact": 17,
+      "typesMismatched": 0,
+      "mismatches": []
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.Graphics.dll",
+      "sha256": "560080fc39021c611ca9d076dcebed312faf6d7d1413c2dc523683ea635e9f55",
+      "contractTypes": 99,
+      "contractMembers": 854,
+      "contractInterfaceReductions": 11,
+      "typesExact": 99,
+      "typesMismatched": 0,
+      "mismatches": []
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.Input.Touch.dll",
+      "sha256": "b0585224c18022c3661057ae79544644c10f33f1dc529678364f3d6b25151c25",
+      "contractTypes": 8,
+      "contractMembers": 65,
+      "contractInterfaceReductions": 5,
+      "typesExact": 8,
+      "typesMismatched": 0,
+      "mismatches": []
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.Storage.dll",
+      "sha256": "798f678e9ae3d9afc3bed66c30123bc9634fb923b6d200188344b618e608cbb8",
+      "contractTypes": 3,
+      "contractMembers": 35,
+      "contractInterfaceReductions": 0,
+      "typesExact": 3,
+      "typesMismatched": 0,
+      "mismatches": []
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.Video.dll",
+      "sha256": "17538b1ca9d48a993e2cd88c96b436df08e7abb4aec5d4758eb21feb580d6e06",
+      "contractTypes": 3,
+      "contractMembers": 24,
+      "contractInterfaceReductions": 0,
+      "typesExact": 3,
+      "typesMismatched": 0,
+      "mismatches": []
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.Xact.dll",
+      "sha256": "a14d5364dca7cf49fb90639e87ba04d52b59a700dc9198efa5707ce8eae28f0a",
+      "contractTypes": 7,
+      "contractMembers": 72,
+      "contractInterfaceReductions": 0,
+      "typesExact": 7,
+      "typesMismatched": 0,
+      "mismatches": []
+    },
+    {
+      "assembly": "Microsoft.Xna.Framework.dll",
+      "sha256": "38e7093f52d7474bbc6256906519781a1210d7da50a1c667b52716fcf49ca130",
+      "contractTypes": 120,
+      "contractMembers": 1753,
+      "contractInterfaceReductions": 27,
+      "typesExact": 120,
+      "typesMismatched": 0,
+      "mismatches": []
+    }
+  ]
+}

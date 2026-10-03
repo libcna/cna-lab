@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "reference": {
+    "path": "tools/api_compat/reference/xna40-windows-runtime-contract.json",
+    "rules": "tools/api_compat/mapping-rules.json"
+  },
+  "edgeRule": "A -> B when A's pinned public signature (base, direct interface, return, property/field type, or parameter type) mentions XNA type B",
+  "DEPENDENCY_COMPLETE_MISSING_TYPES": 0,
+  "ranked": []
+}

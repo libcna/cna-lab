@@ -1,0 +1,170 @@
+{
+  "authority": "CANONICAL_CNA_NATIVE_QUALIFICATION",
+  "backend": "HEADLESS/NULL",
+  "failures": 0,
+  "generation": {
+    "crashed": false,
+    "exitCode": 0,
+    "test": "NativeLifecycleTests.testGamePadQueriesFollowCurrentGeneration"
+  },
+  "hardwareAvailable": false,
+  "library": "libcna_c_api.so",
+  "librarySHA256": "3a6f0edc718a2368d76cd6acd597ac468e33b5f2d23bcd3404fa93f1c1809030",
+  "positiveCapabilityPath": "HARDWARE_PENDING",
+  "positiveStatePath": "HARDWARE_PENDING",
+  "positiveVibrationPath": "HARDWARE_PENDING",
+  "routeTest": {
+    "crashed": false,
+    "exitCode": 0,
+    "test": "NativeLifecycleTests.testGamePadNativeRoutesAndDisconnectedOrHardwareSnapshot"
+  },
+  "routes": [
+    {
+      "canonicalSymbol": "cna_gamepad_get_state",
+      "cnaResult": "SUCCESS",
+      "deadZoneMode": "IndependentAxes",
+      "operation": "GetState default",
+      "playerSlot": 0,
+      "positiveHardwareStatus": "HARDWARE_PENDING",
+      "proven": "canonical route returned its real disconnected snapshot; no state was synthesized",
+      "returned": {
+        "isConnected": false,
+        "leftTrigger": 0,
+        "leftX": 0,
+        "leftY": 0,
+        "packetNumber": 0,
+        "returned": true,
+        "rightTrigger": 0,
+        "rightX": 0,
+        "rightY": 0
+      },
+      "routeStatus": "VERIFIED_NATIVE_ROUTE"
+    },
+    {
+      "canonicalSymbol": "cna_gamepad_get_state_with_dead_zone",
+      "cnaResult": "SUCCESS",
+      "deadZoneMode": "None",
+      "operation": "GetState None",
+      "playerSlot": 0,
+      "positiveHardwareStatus": "HARDWARE_PENDING",
+      "proven": "canonical route returned its real disconnected snapshot; no state was synthesized",
+      "returned": {
+        "isConnected": false,
+        "leftTrigger": 0,
+        "leftX": 0,
+        "leftY": 0,
+        "packetNumber": 0,
+        "returned": true,
+        "rightTrigger": 0,
+        "rightX": 0,
+        "rightY": 0
+      },
+      "routeStatus": "VERIFIED_NATIVE_ROUTE"
+    },
+    {
+      "canonicalSymbol": "cna_gamepad_get_state_with_dead_zone",
+      "cnaResult": "SUCCESS",
+      "deadZoneMode": "IndependentAxes",
+      "operation": "GetState IndependentAxes",
+      "playerSlot": 0,
+      "positiveHardwareStatus": "HARDWARE_PENDING",
+      "proven": "canonical route returned its real disconnected snapshot; no state was synthesized",
+      "returned": {
+        "isConnected": false,
+        "leftTrigger": 0,
+        "leftX": 0,
+        "leftY": 0,
+        "packetNumber": 0,
+        "returned": true,
+        "rightTrigger": 0,
+        "rightX": 0,
+        "rightY": 0
+      },
+      "routeStatus": "VERIFIED_NATIVE_ROUTE"
+    },
+    {
+      "canonicalSymbol": "cna_gamepad_get_state_with_dead_zone",
+      "cnaResult": "SUCCESS",
+      "deadZoneMode": "Circular",
+      "operation": "GetState Circular",
+      "playerSlot": 0,
+      "positiveHardwareStatus": "HARDWARE_PENDING",
+      "proven": "canonical route returned its real disconnected snapshot; no state was synthesized",
+      "returned": {
+        "isConnected": false,
+        "leftTrigger": 0,
+        "leftX": 0,
+        "leftY": 0,
+        "packetNumber": 0,
+        "returned": true,
+        "rightTrigger": 0,
+        "rightX": 0,
+        "rightY": 0
+      },
+      "routeStatus": "VERIFIED_NATIVE_ROUTE"
+    },
+    {
+      "canonicalSymbol": "cna_gamepad_get_capabilities",
+      "cnaResult": "SUCCESS",
+      "operation": "GetCapabilities",
+      "playerSlot": 0,
+      "positiveHardwareStatus": "HARDWARE_PENDING",
+      "proven": "canonical route returned its real all-false disconnected capabilities",
+      "returned": {
+        "gamePadType": 0,
+        "hasAButton": false,
+        "hasBButton": false,
+        "hasBackButton": false,
+        "hasBigButton": false,
+        "hasDPadDownButton": false,
+        "hasDPadLeftButton": false,
+        "hasDPadRightButton": false,
+        "hasDPadUpButton": false,
+        "hasLeftShoulderButton": false,
+        "hasLeftStickButton": false,
+        "hasLeftTrigger": false,
+        "hasLeftVibrationMotor": false,
+        "hasLeftXThumbStick": false,
+        "hasLeftYThumbStick": false,
+        "hasRightShoulderButton": false,
+        "hasRightStickButton": false,
+        "hasRightTrigger": false,
+        "hasRightVibrationMotor": false,
+        "hasRightXThumbStick": false,
+        "hasRightYThumbStick": false,
+        "hasStartButton": false,
+        "hasVoiceSupport": false,
+        "hasXButton": false,
+        "hasYButton": false,
+        "isConnected": false
+      },
+      "routeStatus": "VERIFIED_NATIVE_ROUTE"
+    },
+    {
+      "applied": false,
+      "canonicalSymbol": "cna_gamepad_set_vibration",
+      "cnaResult": "SUCCESS",
+      "operation": "SetVibration",
+      "playerSlot": 0,
+      "positiveHardwareStatus": "HARDWARE_PENDING",
+      "proven": "canonical disconnected route returned applied=false; no success was fabricated",
+      "requested": {
+        "left": 0.0,
+        "right": 0.0
+      },
+      "routeStatus": "VERIFIED_NATIVE_ROUTE"
+    }
+  ],
+  "schemaVersion": 1,
+  "stress": {
+    "capabilityCycles": 20,
+    "repeatedVibrationStress": "NOT_RUN_WITHOUT_HARDWARE",
+    "stateCyclesPerDeadZoneRoute": 50,
+    "totalStateCalls": 200
+  },
+  "wrongThread": {
+    "crashed": false,
+    "exitCode": 0,
+    "test": "NativeLifecycleTests.testGamePadWrongThreadQueryRejectsBeforeNativeEntry"
+  }
+}

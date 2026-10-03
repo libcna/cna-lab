@@ -1,0 +1,24 @@
+#!/bin/sh
+# Refuse to commit Sources/ while the mutation harness holds its lock.
+#
+# Twice now a planted mutation has reached a commit -- 5513b94, and then nine
+# commits in a row on 2026-09-05 -- because `git add -A` ran while a run was in
+# flight and captured whatever was planted at that instant. The harness restores
+# the file afterwards, so the damage is invisible in the working tree and lands
+# only in history.
+#
+# `--audit-tree` cannot catch this: by the time anyone runs it the tree is
+# already restored. The only place to stop it is here.
+root=$(git rev-parse --show-toplevel)
+lock="$root/.mutation-gate.lock"
+[ -e "$lock" ] || exit 0
+if flock -n "$lock" true 2>/dev/null; then
+    exit 0                      # lock file exists but nobody holds it
+fi
+if git diff --cached --name-only | grep -q '^Sources/'; then
+    echo "pre-commit: refusing -- a mutation run holds $lock and Sources/ is staged." >&2
+    echo "  Whatever is staged under Sources/ is probably a planted mutation." >&2
+    echo "  Wait for the run, or commit only the paths you edited." >&2
+    exit 1
+fi
+exit 0

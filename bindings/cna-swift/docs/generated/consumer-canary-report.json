@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "CANARY_EXIT_CODE": 0,
+  "CANARY_CHECKS": 32,
+  "CANARY_FINDINGS": 0,
+  "CANARY_STATUS": "PASS",
+  "requestedFrames": 60,
+  "hostFacts": {
+    "librarySongs": "0",
+    "libraryArtists": "0",
+    "libraryPlaylists": "0",
+    "libraryPictures": "89",
+    "mediaSources": "1",
+    "connected": "false",
+    "maxTouches": "0",
+    "touches": "0",
+    "gestures": "1",
+    "pixels": "1",
+    "waited": "0",
+    "ms": "100",
+    "queued": "1",
+    "pending": "64",
+    "track": "0",
+    "name": "canary",
+    "playerState": "Playing",
+    "handle": "0",
+    "client": "0x0",
+    "resizing": "false",
+    "root": ""
+  },
+  "findings": []
+}

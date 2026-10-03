@@ -1,0 +1,291 @@
+{
+  "schemaVersion": 1,
+  "profile": "messages an implemented member can raise that this binding does not reproduce",
+  "note": "Every entry is a resource key reachable from a member this binding implements whose message is NOT in the Swift sources, with the reason. tools/api_compat/message_coverage.py fails on any reachable key that is neither reproduced nor listed here. `kind` is `unreachable` (no input reaches the branch through the projected surface), `native-owned` (the failure is CNA's and is reported on the runtime channel, and XNA's message describes something that did not happen), or `deferred` (an acknowledged gap that names the work). Deferred entries are counted separately in the summary so they cannot hide inside a total.",
+  "absences": [
+    {
+      "type": "Microsoft.Xna.Framework.GameServiceContainer",
+      "key": "ServiceTypeCannotBeNull",
+      "kind": "unreachable",
+      "reason": "The service type is a Swift metatype parameter and cannot be nil, so the null-Type branch of GetService has no input that reaches it. Same rule as SamplerStateCollection.SetItem's null check: an unreachable branch is recorded, not written as code that cannot run."
+    },
+    {
+      "type": "Microsoft.Xna.Framework.Graphics.RenderTarget2D",
+      "key": "DeviceCannotBeNullOnResourceCreate",
+      "kind": "unreachable",
+      "reason": "`graphicsDevice` is a non-Optional Swift class parameter, so the null-device branch cannot be reached through the projected constructor."
+    },
+    {
+      "type": "Microsoft.Xna.Framework.Graphics.SpriteBatch",
+      "key": "DeviceCannotBeNullOnResourceCreate",
+      "kind": "unreachable",
+      "reason": "`graphicsDevice` is a non-Optional Swift class parameter, so the null-device branch cannot be reached through the projected constructor."
+    },
+    {
+      "type": "Microsoft.Xna.Framework.Graphics.Texture2D",
+      "key": "DeviceCannotBeNullOnResourceCreate",
+      "kind": "unreachable",
+      "reason": "`graphicsDevice` is a non-Optional Swift class parameter, so the null-device branch cannot be reached through the projected constructor."
+    },
+    {
+      "type": "Microsoft.Xna.Framework.Graphics.Texture2D",
+      "key": "StreamNotSeekable",
+      "kind": "unreachable",
+      "reason": "Raised by the Stream constructor, which seeks the stream back after probing it. This projection's FromStream reads the stream forward-only into memory and never seeks, so there is no seek to fail; Foundation.InputStream has no seek to offer either. The condition XNA tests for cannot arise here."
+    },
+    {
+      "type": "Microsoft.Xna.Framework.GraphicsDeviceManager",
+      "key": "Direct3DCreateError",
+      "kind": "native-owned",
+      "reason": "Raised from XNA's ChangeDevice while it enumerates adapters, ranks device configurations and creates a Direct3D device. CNA owns device creation here and is not Direct3D; `cna_graphics_device_manager_apply_changes` reports its own failure, and inventing a Direct3D diagnosis for it would put a message in front of a user that describes something that did not happen."
+    },
+    {
+      "type": "Microsoft.Xna.Framework.GraphicsDeviceManager",
+      "key": "Direct3DInvalidCreateParameters",
+      "kind": "native-owned",
+      "reason": "Raised from XNA's ChangeDevice while it enumerates adapters, ranks device configurations and creates a Direct3D device. CNA owns device creation here and is not Direct3D; `cna_graphics_device_manager_apply_changes` reports its own failure, and inventing a Direct3D diagnosis for it would put a message in front of a user that describes something that did not happen."
+    },
+    {
+      "type": "Microsoft.Xna.Framework.GraphicsDeviceManager",
+      "key": "GameCannotBeNull",
+      "kind": "unreachable",
+      "reason": "`game` is a non-Optional Swift class parameter. The constructor's own documentation already records this branch as unreachable."
+    },
+    {
+      "type": "Microsoft.Xna.Framework.GraphicsDeviceManager",
+      "key": "GraphicsComponentNotAttachedToGame",
+      "kind": "native-owned",
+      "reason": "Raised from ChangeDevice when the manager's game reference is gone. The projected manager holds its game weakly and CNA owns the device, so the condition XNA tests for is not the condition this binding can be in; the runtime channel reports a stale generation instead."
+    },
+    {
+      "type": "Microsoft.Xna.Framework.GraphicsDeviceManager",
+      "key": "NoCompatibleDevices",
+      "kind": "native-owned",
+      "reason": "Raised from XNA's ChangeDevice while it enumerates adapters, ranks device configurations and creates a Direct3D device. CNA owns device creation here and is not Direct3D; `cna_graphics_device_manager_apply_changes` reports its own failure, and inventing a Direct3D diagnosis for it would put a message in front of a user that describes something that did not happen."
+    },
+    {
+      "type": "Microsoft.Xna.Framework.GraphicsDeviceManager",
+      "key": "NoCompatibleDevicesAfterRanking",
+      "kind": "native-owned",
+      "reason": "Raised from XNA's ChangeDevice while it enumerates adapters, ranks device configurations and creates a Direct3D device. CNA owns device creation here and is not Direct3D; `cna_graphics_device_manager_apply_changes` reports its own failure, and inventing a Direct3D diagnosis for it would put a message in front of a user that describes something that did not happen."
+    },
+    {
+      "type": "Microsoft.Xna.Framework.GraphicsDeviceManager",
+      "key": "ValidateBackBufferDimsFullScreen",
+      "kind": "native-owned",
+      "reason": "Raised from XNA's ChangeDevice while it enumerates adapters, ranks device configurations and creates a Direct3D device. CNA owns device creation here and is not Direct3D; `cna_graphics_device_manager_apply_changes` reports its own failure, and inventing a Direct3D diagnosis for it would put a message in front of a user that describes something that did not happen."
+    },
+    {
+      "type": "Microsoft.Xna.Framework.GraphicsDeviceManager",
+      "key": "ValidateBackBufferDimsModeFullScreen",
+      "kind": "native-owned",
+      "reason": "Raised from XNA's ChangeDevice while it enumerates adapters, ranks device configurations and creates a Direct3D device. CNA owns device creation here and is not Direct3D; `cna_graphics_device_manager_apply_changes` reports its own failure, and inventing a Direct3D diagnosis for it would put a message in front of a user that describes something that did not happen."
+    },
+    {
+      "type": "Microsoft.Xna.Framework.Media.MediaSource",
+      "key": "WmpMediaSource",
+      "kind": "native-owned",
+      "reason": "XNA's internal parameterless MediaSource constructor uses this resource as the display name of its one hard-coded Windows Media Player source; it is not an exception message. The projected GetAvailableMediaSources asks CNA for the actual platform media-source names, so substituting the Windows-only label would describe a source the runtime did not enumerate."
+    },
+    {
+      "type": "Microsoft.Xna.Framework.Input.GamePad",
+      "key": "InvalidController",
+      "kind": "deferred",
+      "reason": "XNA splits XInput's result in two: ERROR_DEVICE_NOT_CONNECTED (0x48f) returns a GamePadState with IsConnected false, and every other error raises InvalidOperationException(InvalidController). CNA already matches the first half -- cna_gamepad_get_state answers SUCCESS for a disconnected pad and reports its real disconnected state, measured in docs/generated/gamepad-native-report.json. The second half has no input that reaches it here: PlayerIndex is a closed Swift enum, the handle is validated before the call, and no HEADLESS failure of this route has been produced. Projecting the diagnosis would add a branch no test could reach and no mutation could falsify -- the rule Foundation 45's withdrawn dirty-flag mutation and Foundation 48's unfalsifiable clear mask both follow. Revisit when a controller is attached, or when a CNA input failure can be induced."
+    },
+    {
+      "type": "Microsoft.Xna.Framework.Input.Keyboard",
+      "key": "CouldNotReadKeyboard",
+      "kind": "deferred",
+      "reason": "XNA formats this with the Win32 GetLastError value when GetKeyboardState fails. Same shape and same blocker as GamePad.InvalidController: cna_keyboard_get_state does not fail on the qualified HEADLESS artifact, so the branch has no reachable input, no test and no possible mutation control. The message's own placeholder says 'result code' rather than 'Win32 error', so CNA's result would be an honest substitution the day the branch is reachable."
+    },
+    {
+      "type": "Microsoft.Xna.Framework.Graphics.GraphicsDevice",
+      "key": "NullNotAllowed",
+      "kind": "unreachable",
+      "reason": "SetVertexBuffers tests each binding's _vertexBuffer for null and raises ArgumentException(NullNotAllowed). A Swift VertexBufferBinding stores a non-Optional VertexBuffer and every one of its three constructors requires one, so no binding a caller can build reaches the branch. The array itself being null IS reachable and is the selected unbind-all operation, which is a normal ret and not this throw."
+    },
+    {
+      "type": "Microsoft.Xna.Framework.Graphics.Texture2D",
+      "key": "CannotUseFormatTypeAsManualWhenLocking",
+      "kind": "native-owned",
+      "reason": "Raised when IDirect3D9::CheckDeviceFormat(adapter, deviceType, adapterFormat, D3DUSAGE_DYNAMIC, D3DRTYPE_TEXTURE, format) answers a failing HRESULT -- XNA asking the installed DRIVER whether this texture's format can be locked, and reporting the driver's refusal. CNA publishes no route that asks that question and is not Direct3D; its own transfer routes answer NOT_SUPPORTED for storage they cannot move, which is reported on the runtime channel. Deciding for a driver that a format is unlockable would be an invented diagnosis."
+    },
+    {
+      "type": "Microsoft.Xna.Framework.Graphics.TextureCube",
+      "key": "DeviceCannotBeNullOnResourceCreate",
+      "kind": "unreachable",
+      "reason": "`graphicsDevice` is a non-Optional Swift class parameter, so the null-device branch cannot be reached through the projected constructor."
+    },
+    {
+      "type": "Microsoft.Xna.Framework.Graphics.Texture3D",
+      "key": "DeviceCannotBeNullOnResourceCreate",
+      "kind": "unreachable",
+      "reason": "`graphicsDevice` is a non-Optional Swift class parameter, so the null-device branch cannot be reached through the projected constructor."
+    },
+    {
+      "type": "Microsoft.Xna.Framework.Graphics.TextureCube",
+      "key": "CannotUseFormatTypeAsManualWhenLocking",
+      "kind": "native-owned",
+      "reason": "Raised when IDirect3D9::CheckDeviceFormat(adapter, deviceType, adapterFormat, D3DUSAGE_DYNAMIC, D3DRTYPE_CUBETEXTURE, format) answers a failing HRESULT -- XNA asking the installed DRIVER whether this cube's format can be locked, and reporting the driver's refusal. Same shape and same reason as Texture2D's: CNA publishes no route that asks that question and is not Direct3D. On the qualified artifact CNA refuses the cube transfer itself with NOT_SUPPORTED, which is reported on the runtime channel."
+    },
+    {
+      "type": "Microsoft.Xna.Framework.Graphics.RenderTargetCube",
+      "key": "DeviceCannotBeNullOnResourceCreate",
+      "kind": "unreachable",
+      "reason": "`graphicsDevice` is a non-Optional Swift class parameter, so the null-device branch cannot be reached through the projected constructor."
+    },
+    {
+      "type": "Microsoft.Xna.Framework.Graphics.RenderTargetBinding",
+      "key": "NullNotAllowed",
+      "kind": "unreachable",
+      "reason": "Both constructors null-test renderTarget and raise ArgumentNullException(\"renderTarget\", NullNotAllowed). Both Swift parameters are non-Optional class parameters, so neither branch has an input that reaches it. Same rule as GameServiceContainer.GetService's null Type: an unreachable branch is recorded, not written as code that cannot run."
+    },
+    {
+      "type": "Microsoft.Xna.Framework.Graphics.Effect",
+      "key": "DeviceCannotBeNullOnResourceCreate",
+      "kind": "unreachable",
+      "reason": "`graphicsDevice` is a non-Optional Swift class parameter, so the null-device branch cannot be reached through the projected constructor."
+    },
+    {
+      "type": "Microsoft.Xna.Framework.Graphics.EffectPass",
+      "key": "DeviceCannotBeNullOnResourceCreate",
+      "kind": "unreachable",
+      "reason": "Reached from EffectPass.Apply only through the Effect constructor it shares a call graph with; the constructor's own null-device branch is unreachable for the same reason, and a pass cannot exist without an effect that was already constructed."
+    },
+    {
+      "type": "Microsoft.Xna.Framework.Graphics.Effect",
+      "key": "MustUserShaderCode",
+      "kind": "native-owned",
+      "reason": "Raised when the bytes handed to the Effect constructor are not a compiled effect, which XNA decides by parsing the effect header itself. This binding does not parse compiled shader bytecode and has no business inventing a verdict about it; cna_effect_create_compiled reaches its own conclusion about the same bytes and reports it on the runtime channel."
+    },
+    {
+      "type": "Microsoft.Xna.Framework.Graphics.Effect",
+      "key": "ProfileVertexShaderModel",
+      "kind": "native-owned",
+      "reason": "Raised when the vertex shader model inside the compiled effect exceeds the profile's VertexShaderVersion. The shader model is a field of the compiled bytecode, which this binding does not read -- the profile limit is pinned and available, but the value to compare it against is not."
+    },
+    {
+      "type": "Microsoft.Xna.Framework.Graphics.Effect",
+      "key": "ProfilePixelShaderModel",
+      "kind": "native-owned",
+      "reason": "The pixel-shader half of the same test, unreachable for the same reason."
+    },
+    {
+      "type": "Microsoft.Xna.Framework.Graphics.GraphicsDevice",
+      "key": "CannotDrawNoShader",
+      "kind": "native-owned",
+      "reason": "Raised from GraphicsDevice.VerifyCanDraw, which every draw calls and which reads `pStateTracker` -- the Direct3D state tracker holding the shaders, vertex declaration, sampler modes and bound textures the DEVICE currently has. CNA publishes no equivalent and reaches its own verdict about the same states, which the draw members forward on the runtime channel: `cna_graphics_device_draw_primitives` answers CNA_RESULT_INTERNAL with 'no effect has been applied' for the state XNA calls CannotDrawNoShader (build-probe/f67_effect.c). Inventing a managed exception here would mean asserting a conclusion about a shader pipeline this binding cannot inspect."
+    },
+    {
+      "type": "Microsoft.Xna.Framework.Graphics.GraphicsDevice",
+      "key": "CannotDrawNoData",
+      "kind": "native-owned",
+      "reason": "Raised from GraphicsDevice.VerifyCanDraw, which every draw calls and which reads `pStateTracker` -- the Direct3D state tracker holding the shaders, vertex declaration, sampler modes and bound textures the DEVICE currently has. CNA publishes no equivalent and reaches its own verdict about the same states, which the draw members forward on the runtime channel: `cna_graphics_device_draw_primitives` answers CNA_RESULT_INTERNAL with 'no effect has been applied' for the state XNA calls CannotDrawNoShader (build-probe/f67_effect.c). The bound-buffer half is CNA's own refusal, 'The requested primitive range exceeds the bound vertex buffer', which is a different and narrower claim than XNA's."
+    },
+    {
+      "type": "Microsoft.Xna.Framework.Graphics.GraphicsDevice",
+      "key": "CannotMixShader2and3",
+      "kind": "native-owned",
+      "reason": "Raised from GraphicsDevice.VerifyCanDraw, which every draw calls and which reads `pStateTracker` -- the Direct3D state tracker holding the shaders, vertex declaration, sampler modes and bound textures the DEVICE currently has. CNA publishes no equivalent and reaches its own verdict about the same states, which the draw members forward on the runtime channel: `cna_graphics_device_draw_primitives` answers CNA_RESULT_INTERNAL with 'no effect has been applied' for the state XNA calls CannotDrawNoShader (build-probe/f67_effect.c). It compares the vertex and pixel shader models the tracker holds; neither is readable here."
+    },
+    {
+      "type": "Microsoft.Xna.Framework.Graphics.GraphicsDevice",
+      "key": "MissingVertexShaderInput",
+      "kind": "native-owned",
+      "reason": "Raised from GraphicsDevice.VerifyCanDraw, which every draw calls and which reads `pStateTracker` -- the Direct3D state tracker holding the shaders, vertex declaration, sampler modes and bound textures the DEVICE currently has. CNA publishes no equivalent and reaches its own verdict about the same states, which the draw members forward on the runtime channel: `cna_graphics_device_draw_primitives` answers CNA_RESULT_INTERNAL with 'no effect has been applied' for the state XNA calls CannotDrawNoShader (build-probe/f67_effect.c). It asks whether the bound vertex declaration satisfies the compiled vertex shader's input semantics, which requires reading the shader's signature."
+    },
+    {
+      "type": "Microsoft.Xna.Framework.Graphics.GraphicsDevice",
+      "key": "MissingVertexShaderInputDetails",
+      "kind": "native-owned",
+      "reason": "Raised from GraphicsDevice.VerifyCanDraw, which every draw calls and which reads `pStateTracker` -- the Direct3D state tracker holding the shaders, vertex declaration, sampler modes and bound textures the DEVICE currently has. CNA publishes no equivalent and reaches its own verdict about the same states, which the draw members forward on the runtime channel: `cna_graphics_device_draw_primitives` answers CNA_RESULT_INTERNAL with 'no effect has been applied' for the state XNA calls CannotDrawNoShader (build-probe/f67_effect.c). The detail half of MissingVertexShaderInput, formatted with the missing semantic's usage and index -- both read from the shader signature."
+    },
+    {
+      "type": "Microsoft.Xna.Framework.Graphics.GraphicsDevice",
+      "key": "ProfileInvalidBlendFormat",
+      "kind": "native-owned",
+      "reason": "Raised from GraphicsDevice.VerifyCanDraw, which every draw calls and which reads `pStateTracker` -- the Direct3D state tracker holding the shaders, vertex declaration, sampler modes and bound textures the DEVICE currently has. CNA publishes no equivalent and reaches its own verdict about the same states, which the draw members forward on the runtime channel: `cna_graphics_device_draw_primitives` answers CNA_RESULT_INTERNAL with 'no effect has been applied' for the state XNA calls CannotDrawNoShader (build-probe/f67_effect.c). It LOOKS derivable -- InvalidBlendFormats is in the extracted profile table and the render-target bindings are cached here -- but it is the tracker's blend state and the tracker's render target that decide, and a SpriteBatch flush changes both without this binding seeing it. A check that reads a partial view would silently not fire, which is worse than an honest absence."
+    },
+    {
+      "type": "Microsoft.Xna.Framework.Graphics.GraphicsDevice",
+      "key": "ProfileInvalidFilterFormat",
+      "kind": "native-owned",
+      "reason": "Raised from GraphicsDevice.VerifyCanDraw, which every draw calls and which reads `pStateTracker` -- the Direct3D state tracker holding the shaders, vertex declaration, sampler modes and bound textures the DEVICE currently has. CNA publishes no equivalent and reaches its own verdict about the same states, which the draw members forward on the runtime channel: `cna_graphics_device_draw_primitives` answers CNA_RESULT_INTERNAL with 'no effect has been applied' for the state XNA calls CannotDrawNoShader (build-probe/f67_effect.c). Same shape as ProfileInvalidBlendFormat: InvalidFilterFormats is pinned, but the TextureFilter that decides is the tracker's applied sampler state rather than the managed SamplerStateCollection, and canonical CNA code fills sampler slots this binding never wrote."
+    },
+    {
+      "type": "Microsoft.Xna.Framework.Graphics.GraphicsDevice",
+      "key": "ProfileNoWrapNonPow2",
+      "kind": "native-owned",
+      "reason": "Raised from GraphicsDevice.VerifyCanDraw, which every draw calls and which reads `pStateTracker` -- the Direct3D state tracker holding the shaders, vertex declaration, sampler modes and bound textures the DEVICE currently has. CNA publishes no equivalent and reaches its own verdict about the same states, which the draw members forward on the runtime channel: `cna_graphics_device_draw_primitives` answers CNA_RESULT_INTERNAL with 'no effect has been applied' for the state XNA calls CannotDrawNoShader (build-probe/f67_effect.c). Same again: it pairs the tracker's TextureAddressMode with the bound texture's dimensions, and CNA_TextureSlotInfo reports that a slot is occupied without naming the object when something else owns it."
+    },
+    {
+      "type": "Microsoft.Xna.Framework.Graphics.SpriteBatch",
+      "key": "CannotNextSpriteBeginImmediate",
+      "kind": "unreachable",
+      "reason": "The branch belongs to Begin's Immediate sort mode, and the parameterless Begin() is the only overload this binding projects -- it passes SpriteSortMode.Deferred. Nothing a consumer can call reaches the test, so the message and the two device counters that serve it are recorded rather than written as code that cannot run. The reasoning is also in SpriteBatch.Begin's own documentation, where a reader meets it first."
+    },
+    {
+      "type": "Microsoft.Xna.Framework.Graphics.GraphicsAdapter",
+      "key": "DriverError",
+      "member": "QueryBackBufferFormat",
+      "kind": "native-owned",
+      "reason": "XNA raises this when its own D3D query fails. Here the query is CNA's, and a failure arrives on the runtime error channel naming the route that failed -- which says what actually went wrong, where \"The driver has encountered an unexpected error.\" describes a driver call this binding never makes."
+    },
+    {
+      "type": "Microsoft.Xna.Framework.Graphics.GraphicsAdapter",
+      "key": "DriverError",
+      "member": "QueryRenderTargetFormat",
+      "kind": "native-owned",
+      "reason": "XNA raises this when its own D3D query fails. Here the query is CNA's, and a failure arrives on the runtime error channel naming the route that failed -- which says what actually went wrong, where \"The driver has encountered an unexpected error.\" describes a driver call this binding never makes."
+    },
+    {
+      "type": "Microsoft.Xna.Framework.Graphics.GraphicsDevice",
+      "key": "NullWindowHandleNotAllowed",
+      "member": "ctor",
+      "kind": "deferred",
+      "reason": "Measured, not assumed: the qualified HEADLESS renderer reports PresentationParameters.DeviceWindowHandle == 0 for every device it makes -- the consumer canary prints window=handle=0 -- so enforcing XNA's check would refuse EVERY device creation and reset on this binding's own qualified boundary. It was implemented, it failed three existing suites for exactly that reason, and it was withdrawn. The work it names: reinstate the guard when a qualified renderer publishes a real window handle, and make it conditional on that rather than unconditional."
+    },
+    {
+      "type": "Microsoft.Xna.Framework.Graphics.GraphicsDevice",
+      "key": "NullWindowHandleNotAllowed",
+      "member": "Reset",
+      "kind": "deferred",
+      "reason": "Measured, not assumed: the qualified HEADLESS renderer reports PresentationParameters.DeviceWindowHandle == 0 for every device it makes -- the consumer canary prints window=handle=0 -- so enforcing XNA's check would refuse EVERY device creation and reset on this binding's own qualified boundary. It was implemented, it failed three existing suites for exactly that reason, and it was withdrawn. The work it names: reinstate the guard when a qualified renderer publishes a real window handle, and make it conditional on that rather than unconditional."
+    },
+    {
+      "type": "Microsoft.Xna.Framework.Graphics.GraphicsDevice",
+      "key": "ProfileInvalidDevice",
+      "member": "ctor",
+      "kind": "native-owned",
+      "reason": "Whether a profile can be served is CNA's decision, and cna_graphics_device_create reports its refusal on the runtime error channel naming the route. Reproducing the check over GraphicsAdapter.IsProfileSupported was implemented and it refused a reset CNA accepts -- proof the two conditions are not the same one -- so it was withdrawn. XNA's text describes a driver enumeration this binding never performs."
+    },
+    {
+      "type": "Microsoft.Xna.Framework.Graphics.GraphicsDevice",
+      "key": "ProfileInvalidDevice",
+      "member": "Reset",
+      "kind": "native-owned",
+      "reason": "Whether a profile can be served is CNA's decision, and cna_graphics_device_create reports its refusal on the runtime error channel naming the route. Reproducing the check over GraphicsAdapter.IsProfileSupported was implemented and it refused a reset CNA accepts -- proof the two conditions are not the same one -- so it was withdrawn. XNA's text describes a driver enumeration this binding never performs."
+    },
+    {
+      "type": "Microsoft.Xna.Framework.Graphics.OcclusionQuery",
+      "key": "DeviceCannotBeNullOnResourceCreate",
+      "kind": "unreachable",
+      "reason": "`graphicsDevice` is a non-Optional Swift class parameter, so the null-device branch cannot be reached through the projected constructor -- the same reason RenderTarget2D records for the same key."
+    },
+    {
+      "type": "Microsoft.Xna.Framework.Audio.SoundEffect",
+      "key": "CallFrameworkDispatcherUpdate",
+      "member": "Play",
+      "kind": "unreachable",
+      "reason": "XNA raises this for applications that use audio WITHOUT running a game loop, which this binding cannot express: a SoundEffect is built through RuntimeRegistry.current(), so one can exist only while a game does, and Game.Tick calls the dispatcher itself (see FrameworkDispatcher.Update's own documentation). The branch has no input. The message constant was written and then REMOVED, because an unused constant satisfies message_coverage.py by its text alone -- see the note in NEXT.md."
+    },
+    {
+      "type": "Microsoft.Xna.Framework.Media.MediaLibrary",
+      "key": "UnexpectedError",
+      "member": "ctor",
+      "kind": "native-owned",
+      "reason": "XNA's catch-all for a library it could not open: \"An unexpected error has occurred.\" Whether a media library opens is CNA's decision, and cna_media_library_create reports its refusal on the runtime error channel naming the route -- which tells a caller what actually failed, where XNA's text tells them only that something did."
+    }
+  ]
+}

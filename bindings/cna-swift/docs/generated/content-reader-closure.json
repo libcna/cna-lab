@@ -1,0 +1,1400 @@
+{
+  "schemaVersion": 1,
+  "scope": "XNA Content reader family",
+  "shapeAuthority": {
+    "profile": "XNA 4.0 Windows runtime",
+    "contractSha256": "681e55b33c1e5a09a31d5b5cdd0a137f6d3f10b37fdbdab1f5b85bc9580dde6d"
+  },
+  "behaviourAuthority": {
+    "xna": "seven hash-registered Microsoft XNA 4.0 Windows assemblies",
+    "bcl": "mscorlib.dll 4.0.0.0 sha256 5634668d4775b0113f08ea31093b281fea69bfc4e99227f5ca761b4ed98acc63",
+    "bclIlSha256": "8463f16117a11a33dcc46a86b29ca4522f87c537d41f29ba83444a2c5b22a5c9"
+  },
+  "xnaTypes": [
+    {
+      "type": "Microsoft.Xna.Framework.Content.ContentReader",
+      "swiftType": "Microsoft.Xna.Framework.Content.ContentReader",
+      "kind": "class",
+      "abstract": false,
+      "sealed": true,
+      "declaredBase": "System.IO.BinaryReader",
+      "interfaces": [],
+      "genericParameters": [],
+      "declaredMembers": [
+        {
+          "identity": "method:ReadObject()->!!0",
+          "access": "public",
+          "static": false,
+          "genericParameters": [
+            {
+              "name": "T",
+              "position": 0,
+              "specialConstraints": [],
+              "typeConstraints": []
+            }
+          ],
+          "parameters": []
+        },
+        {
+          "identity": "method:ReadObject(!!0)->!!0",
+          "access": "public",
+          "static": false,
+          "genericParameters": [
+            {
+              "name": "T",
+              "position": 0,
+              "specialConstraints": [],
+              "typeConstraints": []
+            }
+          ],
+          "parameters": [
+            {
+              "name": "existingInstance",
+              "type": "!!0",
+              "ref": false,
+              "out": false,
+              "in": false,
+              "optional": false
+            }
+          ]
+        },
+        {
+          "identity": "method:ReadObject(Microsoft.Xna.Framework.Content.ContentTypeReader)->!!0",
+          "access": "public",
+          "static": false,
+          "genericParameters": [
+            {
+              "name": "T",
+              "position": 0,
+              "specialConstraints": [],
+              "typeConstraints": []
+            }
+          ],
+          "parameters": [
+            {
+              "name": "typeReader",
+              "type": "Microsoft.Xna.Framework.Content.ContentTypeReader",
+              "ref": false,
+              "out": false,
+              "in": false,
+              "optional": false
+            }
+          ]
+        },
+        {
+          "identity": "method:ReadObject(Microsoft.Xna.Framework.Content.ContentTypeReader,!!0)->!!0",
+          "access": "public",
+          "static": false,
+          "genericParameters": [
+            {
+              "name": "T",
+              "position": 0,
+              "specialConstraints": [],
+              "typeConstraints": []
+            }
+          ],
+          "parameters": [
+            {
+              "name": "typeReader",
+              "type": "Microsoft.Xna.Framework.Content.ContentTypeReader",
+              "ref": false,
+              "out": false,
+              "in": false,
+              "optional": false
+            },
+            {
+              "name": "existingInstance",
+              "type": "!!0",
+              "ref": false,
+              "out": false,
+              "in": false,
+              "optional": false
+            }
+          ]
+        },
+        {
+          "identity": "method:ReadRawObject()->!!0",
+          "access": "public",
+          "static": false,
+          "genericParameters": [
+            {
+              "name": "T",
+              "position": 0,
+              "specialConstraints": [],
+              "typeConstraints": []
+            }
+          ],
+          "parameters": []
+        },
+        {
+          "identity": "method:ReadRawObject(!!0)->!!0",
+          "access": "public",
+          "static": false,
+          "genericParameters": [
+            {
+              "name": "T",
+              "position": 0,
+              "specialConstraints": [],
+              "typeConstraints": []
+            }
+          ],
+          "parameters": [
+            {
+              "name": "existingInstance",
+              "type": "!!0",
+              "ref": false,
+              "out": false,
+              "in": false,
+              "optional": false
+            }
+          ]
+        },
+        {
+          "identity": "method:ReadRawObject(Microsoft.Xna.Framework.Content.ContentTypeReader)->!!0",
+          "access": "public",
+          "static": false,
+          "genericParameters": [
+            {
+              "name": "T",
+              "position": 0,
+              "specialConstraints": [],
+              "typeConstraints": []
+            }
+          ],
+          "parameters": [
+            {
+              "name": "typeReader",
+              "type": "Microsoft.Xna.Framework.Content.ContentTypeReader",
+              "ref": false,
+              "out": false,
+              "in": false,
+              "optional": false
+            }
+          ]
+        },
+        {
+          "identity": "method:ReadRawObject(Microsoft.Xna.Framework.Content.ContentTypeReader,!!0)->!!0",
+          "access": "public",
+          "static": false,
+          "genericParameters": [
+            {
+              "name": "T",
+              "position": 0,
+              "specialConstraints": [],
+              "typeConstraints": []
+            }
+          ],
+          "parameters": [
+            {
+              "name": "typeReader",
+              "type": "Microsoft.Xna.Framework.Content.ContentTypeReader",
+              "ref": false,
+              "out": false,
+              "in": false,
+              "optional": false
+            },
+            {
+              "name": "existingInstance",
+              "type": "!!0",
+              "ref": false,
+              "out": false,
+              "in": false,
+              "optional": false
+            }
+          ]
+        },
+        {
+          "identity": "method:ReadSharedResource(System.Action`1[!!0])->System.Void",
+          "access": "public",
+          "static": false,
+          "genericParameters": [
+            {
+              "name": "T",
+              "position": 0,
+              "specialConstraints": [],
+              "typeConstraints": []
+            }
+          ],
+          "parameters": [
+            {
+              "name": "fixup",
+              "type": "System.Action`1[!!0]",
+              "ref": false,
+              "out": false,
+              "in": false,
+              "optional": false
+            }
+          ]
+        },
+        {
+          "identity": "method:ReadExternalReference()->!!0",
+          "access": "public",
+          "static": false,
+          "genericParameters": [
+            {
+              "name": "T",
+              "position": 0,
+              "specialConstraints": [],
+              "typeConstraints": []
+            }
+          ],
+          "parameters": []
+        },
+        {
+          "identity": "method:ReadVector2()->Microsoft.Xna.Framework.Vector2",
+          "access": "public",
+          "static": false,
+          "genericParameters": [],
+          "parameters": []
+        },
+        {
+          "identity": "method:ReadVector3()->Microsoft.Xna.Framework.Vector3",
+          "access": "public",
+          "static": false,
+          "genericParameters": [],
+          "parameters": []
+        },
+        {
+          "identity": "method:ReadVector4()->Microsoft.Xna.Framework.Vector4",
+          "access": "public",
+          "static": false,
+          "genericParameters": [],
+          "parameters": []
+        },
+        {
+          "identity": "method:ReadMatrix()->Microsoft.Xna.Framework.Matrix",
+          "access": "public",
+          "static": false,
+          "genericParameters": [],
+          "parameters": []
+        },
+        {
+          "identity": "method:ReadQuaternion()->Microsoft.Xna.Framework.Quaternion",
+          "access": "public",
+          "static": false,
+          "genericParameters": [],
+          "parameters": []
+        },
+        {
+          "identity": "method:ReadColor()->Microsoft.Xna.Framework.Color",
+          "access": "public",
+          "static": false,
+          "genericParameters": [],
+          "parameters": []
+        },
+        {
+          "identity": "method:ReadSingle()->System.Single",
+          "access": "public",
+          "static": false,
+          "genericParameters": [],
+          "parameters": []
+        },
+        {
+          "identity": "method:ReadDouble()->System.Double",
+          "access": "public",
+          "static": false,
+          "genericParameters": [],
+          "parameters": []
+        },
+        {
+          "identity": "property:ContentManager->Microsoft.Xna.Framework.Content.ContentManager",
+          "access": "public",
+          "static": false,
+          "genericParameters": [],
+          "parameters": []
+        },
+        {
+          "identity": "property:AssetName->System.String",
+          "access": "public",
+          "static": false,
+          "genericParameters": [],
+          "parameters": []
+        }
+      ],
+      "declaredMemberCount": 20,
+      "inheritedXnaSurface": [],
+      "bclSignatureTypes": [
+        "System.Action`1[!!0]",
+        "System.Double",
+        "System.IO.BinaryReader",
+        "System.Single",
+        "System.String",
+        "System.Void"
+      ],
+      "bclBehaviouralDependencies": [
+        "System.Action`1[System.IDisposable]",
+        "System.Collections.Generic.List`1[System.Action`1[System.Object]]",
+        "System.Globalization.CultureInfo (formatting only)",
+        "System.IO.BinaryReader",
+        "System.IO.IOException (caught and wrapped)",
+        "System.IO.Path (private reference-path composition)",
+        "System.IO.Stream",
+        "System.Type (identity and assignability only)"
+      ],
+      "xnaPrivateInternalDependencies": [
+        "ContentReader.Create/PrepareStream/ReadHeader/ReadAsset",
+        "ContentReader.ReadSharedResources/InvokeReader",
+        "ContentLoadException",
+        "ContentManager.Load/RecordDisposableObject",
+        "ContentTypeReaderManager.ReadTypeManifest/internal GetTypeReader",
+        "DecompressStream (compressed XNB branch only)",
+        "FrameworkResources",
+        "TitleContainer.GetCleanPath"
+      ],
+      "currentSwiftMappingStatus": "projected",
+      "currentCnaRouteRelevance": "NONE: cna_content_reader_* consumes CNA_StorageStreamHandle and is a save-game/storage transport, not the XNA title-asset BinaryReader",
+      "fixtureRequirements": [
+        "byte-authored uncompressed Windows XNB v5",
+        "primary object plus shared resource",
+        "independent primitive/math/string bytes"
+      ],
+      "unreviewedMembers": 0,
+      "inheritedBclSurface": [
+        "method:Close()->System.Void",
+        "method:Dispose()->System.Void",
+        "method:Dispose(System.Boolean)->System.Void",
+        "method:FillBuffer(System.Int32)->System.Void",
+        "method:PeekChar()->System.Int32",
+        "method:Read()->System.Int32",
+        "method:Read(System.Byte[],System.Int32,System.Int32)->System.Int32",
+        "method:Read(System.Char[],System.Int32,System.Int32)->System.Int32",
+        "method:Read7BitEncodedInt()->System.Int32",
+        "method:ReadBoolean()->System.Boolean",
+        "method:ReadByte()->System.Byte",
+        "method:ReadBytes(System.Int32)->System.Byte[]",
+        "method:ReadChar()->System.Char",
+        "method:ReadChars(System.Int32)->System.Char[]",
+        "method:ReadDouble()->System.Double",
+        "method:ReadInt16()->System.Int16",
+        "method:ReadInt32()->System.Int32",
+        "method:ReadInt64()->System.Int64",
+        "method:ReadSByte()->System.SByte",
+        "method:ReadSingle()->System.Single",
+        "method:ReadString()->System.String",
+        "method:ReadUInt16()->System.UInt16",
+        "method:ReadUInt32()->System.UInt32",
+        "method:ReadUInt64()->System.UInt64",
+        "property:BaseStream->System.IO.Stream"
+      ]
+    },
+    {
+      "type": "Microsoft.Xna.Framework.Content.ContentTypeReader",
+      "swiftType": "Microsoft.Xna.Framework.Content.ContentTypeReader",
+      "kind": "class",
+      "abstract": true,
+      "sealed": false,
+      "declaredBase": "System.Object",
+      "interfaces": [],
+      "genericParameters": [],
+      "declaredMembers": [
+        {
+          "identity": "constructor:.ctor(System.Type)",
+          "access": "protected",
+          "static": false,
+          "genericParameters": [],
+          "parameters": [
+            {
+              "name": "targetType",
+              "type": "System.Type",
+              "ref": false,
+              "out": false,
+              "in": false,
+              "optional": false
+            }
+          ]
+        },
+        {
+          "identity": "method:Initialize(Microsoft.Xna.Framework.Content.ContentTypeReaderManager)->System.Void",
+          "access": "protected-internal",
+          "static": false,
+          "genericParameters": [],
+          "parameters": [
+            {
+              "name": "manager",
+              "type": "Microsoft.Xna.Framework.Content.ContentTypeReaderManager",
+              "ref": false,
+              "out": false,
+              "in": false,
+              "optional": false
+            }
+          ]
+        },
+        {
+          "identity": "method:Read(Microsoft.Xna.Framework.Content.ContentReader,System.Object)->System.Object",
+          "access": "protected-internal",
+          "static": false,
+          "genericParameters": [],
+          "parameters": [
+            {
+              "name": "input",
+              "type": "Microsoft.Xna.Framework.Content.ContentReader",
+              "ref": false,
+              "out": false,
+              "in": false,
+              "optional": false
+            },
+            {
+              "name": "existingInstance",
+              "type": "System.Object",
+              "ref": false,
+              "out": false,
+              "in": false,
+              "optional": false
+            }
+          ]
+        },
+        {
+          "identity": "property:TargetType->System.Type",
+          "access": "public",
+          "static": false,
+          "genericParameters": [],
+          "parameters": []
+        },
+        {
+          "identity": "property:TypeVersion->System.Int32",
+          "access": "public",
+          "static": false,
+          "genericParameters": [],
+          "parameters": []
+        },
+        {
+          "identity": "property:CanDeserializeIntoExistingObject->System.Boolean",
+          "access": "public",
+          "static": false,
+          "genericParameters": [],
+          "parameters": []
+        }
+      ],
+      "declaredMemberCount": 6,
+      "inheritedXnaSurface": [],
+      "bclSignatureTypes": [
+        "System.Boolean",
+        "System.Int32",
+        "System.Object",
+        "System.Type",
+        "System.Void"
+      ],
+      "bclBehaviouralDependencies": [
+        "System.Object",
+        "System.Type (identity and value-type test)"
+      ],
+      "xnaPrivateInternalDependencies": [
+        "TargetIsValueType field"
+      ],
+      "currentSwiftMappingStatus": "projected",
+      "currentCnaRouteRelevance": "NONE: managed reader contract",
+      "fixtureRequirements": [
+        "test subclass exercising TargetType, version, initialize, existing instance"
+      ],
+      "unreviewedMembers": 0,
+      "inheritedBclSurface": []
+    },
+    {
+      "type": "Microsoft.Xna.Framework.Content.ContentTypeReader`1",
+      "swiftType": "Microsoft.Xna.Framework.Content.ContentTypeReaderOfT",
+      "kind": "class",
+      "abstract": true,
+      "sealed": false,
+      "declaredBase": "Microsoft.Xna.Framework.Content.ContentTypeReader",
+      "interfaces": [],
+      "genericParameters": [
+        {
+          "name": "T",
+          "position": 0,
+          "specialConstraints": [],
+          "typeConstraints": []
+        }
+      ],
+      "declaredMembers": [
+        {
+          "identity": "constructor:.ctor()",
+          "access": "protected",
+          "static": false,
+          "genericParameters": [],
+          "parameters": []
+        },
+        {
+          "identity": "method:Read(Microsoft.Xna.Framework.Content.ContentReader,System.Object)->System.Object",
+          "access": "protected-internal",
+          "static": false,
+          "genericParameters": [],
+          "parameters": [
+            {
+              "name": "input",
+              "type": "Microsoft.Xna.Framework.Content.ContentReader",
+              "ref": false,
+              "out": false,
+              "in": false,
+              "optional": false
+            },
+            {
+              "name": "existingInstance",
+              "type": "System.Object",
+              "ref": false,
+              "out": false,
+              "in": false,
+              "optional": false
+            }
+          ]
+        },
+        {
+          "identity": "method:Read(Microsoft.Xna.Framework.Content.ContentReader,!0)->!0",
+          "access": "protected-internal",
+          "static": false,
+          "genericParameters": [],
+          "parameters": [
+            {
+              "name": "input",
+              "type": "Microsoft.Xna.Framework.Content.ContentReader",
+              "ref": false,
+              "out": false,
+              "in": false,
+              "optional": false
+            },
+            {
+              "name": "existingInstance",
+              "type": "!0",
+              "ref": false,
+              "out": false,
+              "in": false,
+              "optional": false
+            }
+          ]
+        }
+      ],
+      "declaredMemberCount": 3,
+      "inheritedXnaSurface": [
+        {
+          "declaredBy": "Microsoft.Xna.Framework.Content.ContentTypeReader",
+          "identity": "method:Initialize(Microsoft.Xna.Framework.Content.ContentTypeReaderManager)->System.Void"
+        },
+        {
+          "declaredBy": "Microsoft.Xna.Framework.Content.ContentTypeReader",
+          "identity": "property:TargetType->System.Type"
+        },
+        {
+          "declaredBy": "Microsoft.Xna.Framework.Content.ContentTypeReader",
+          "identity": "property:TypeVersion->System.Int32"
+        },
+        {
+          "declaredBy": "Microsoft.Xna.Framework.Content.ContentTypeReader",
+          "identity": "property:CanDeserializeIntoExistingObject->System.Boolean"
+        }
+      ],
+      "bclSignatureTypes": [
+        "System.Object"
+      ],
+      "bclBehaviouralDependencies": [
+        "System.Object (private erased bridge)"
+      ],
+      "xnaPrivateInternalDependencies": [
+        "ContentTypeReader.Read erased override"
+      ],
+      "currentSwiftMappingStatus": "projected",
+      "currentCnaRouteRelevance": "NONE: managed generic bridge",
+      "fixtureRequirements": [
+        "typed test reader plus erased bridge and wrong-T refusal"
+      ],
+      "unreviewedMembers": 0,
+      "inheritedBclSurface": []
+    },
+    {
+      "type": "Microsoft.Xna.Framework.Content.ContentTypeReaderManager",
+      "swiftType": "Microsoft.Xna.Framework.Content.ContentTypeReaderManager",
+      "kind": "class",
+      "abstract": false,
+      "sealed": true,
+      "declaredBase": "System.Object",
+      "interfaces": [],
+      "genericParameters": [],
+      "declaredMembers": [
+        {
+          "identity": "method:GetTypeReader(System.Type)->Microsoft.Xna.Framework.Content.ContentTypeReader",
+          "access": "public",
+          "static": false,
+          "genericParameters": [],
+          "parameters": [
+            {
+              "name": "targetType",
+              "type": "System.Type",
+              "ref": false,
+              "out": false,
+              "in": false,
+              "optional": false
+            }
+          ]
+        }
+      ],
+      "declaredMemberCount": 1,
+      "inheritedXnaSurface": [],
+      "bclSignatureTypes": [
+        "System.Object",
+        "System.Type"
+      ],
+      "bclBehaviouralDependencies": [
+        "System.Activator and System.Reflection (private CLR construction path)",
+        "System.Collections.Generic.Dictionary and List (private registries)",
+        "System.Threading.Monitor (private registry locking)",
+        "System.Type (public lookup identity)"
+      ],
+      "xnaPrivateInternalDependencies": [
+        "ContentReader.ReadString/ReadInt32",
+        "ContentTypeReader.Initialize/TargetType/TypeVersion",
+        "FrameworkResources type-reader failures"
+      ],
+      "currentSwiftMappingStatus": "projected",
+      "currentCnaRouteRelevance": "NONE: managed registry",
+      "fixtureRequirements": [
+        "private creator registry: known name, duplicate, unknown name, stable identity"
+      ],
+      "unreviewedMembers": 0,
+      "inheritedBclSurface": []
+    },
+    {
+      "type": "Microsoft.Xna.Framework.Content.ResourceContentManager",
+      "swiftType": "Microsoft.Xna.Framework.Content.ResourceContentManager",
+      "kind": "class",
+      "abstract": false,
+      "sealed": false,
+      "declaredBase": "Microsoft.Xna.Framework.Content.ContentManager",
+      "interfaces": [],
+      "genericParameters": [],
+      "declaredMembers": [
+        {
+          "identity": "constructor:.ctor(System.IServiceProvider,System.Resources.ResourceManager)",
+          "access": "public",
+          "static": false,
+          "genericParameters": [],
+          "parameters": [
+            {
+              "name": "serviceProvider",
+              "type": "System.IServiceProvider",
+              "ref": false,
+              "out": false,
+              "in": false,
+              "optional": false
+            },
+            {
+              "name": "resourceManager",
+              "type": "System.Resources.ResourceManager",
+              "ref": false,
+              "out": false,
+              "in": false,
+              "optional": false
+            }
+          ]
+        },
+        {
+          "identity": "method:OpenStream(System.String)->System.IO.Stream",
+          "access": "protected",
+          "static": false,
+          "genericParameters": [],
+          "parameters": [
+            {
+              "name": "assetName",
+              "type": "System.String",
+              "ref": false,
+              "out": false,
+              "in": false,
+              "optional": false
+            }
+          ]
+        }
+      ],
+      "declaredMemberCount": 2,
+      "inheritedXnaSurface": [
+        {
+          "declaredBy": "Microsoft.Xna.Framework.Content.ContentManager",
+          "identity": "method:Dispose()->System.Void"
+        },
+        {
+          "declaredBy": "Microsoft.Xna.Framework.Content.ContentManager",
+          "identity": "method:Dispose(System.Boolean)->System.Void"
+        },
+        {
+          "declaredBy": "Microsoft.Xna.Framework.Content.ContentManager",
+          "identity": "method:Unload()->System.Void"
+        },
+        {
+          "declaredBy": "Microsoft.Xna.Framework.Content.ContentManager",
+          "identity": "method:Load(System.String)->!!0"
+        },
+        {
+          "declaredBy": "Microsoft.Xna.Framework.Content.ContentManager",
+          "identity": "method:ReadAsset(System.String,System.Action`1[System.IDisposable])->!!0"
+        },
+        {
+          "declaredBy": "Microsoft.Xna.Framework.Content.ContentManager",
+          "identity": "property:ServiceProvider->System.IServiceProvider"
+        },
+        {
+          "declaredBy": "Microsoft.Xna.Framework.Content.ContentManager",
+          "identity": "property:RootDirectory->System.String"
+        }
+      ],
+      "bclSignatureTypes": [
+        "System.IO.Stream",
+        "System.IServiceProvider",
+        "System.Resources.ResourceManager",
+        "System.String"
+      ],
+      "bclBehaviouralDependencies": [
+        "System.Globalization.CultureInfo (message formatting only)",
+        "System.IO.MemoryStream (maps to Foundation.InputStream over bytes)",
+        "System.Resources.ResourceManager.GetObject(String)"
+      ],
+      "xnaPrivateInternalDependencies": [
+        "FrameworkResources resource lookup failures"
+      ],
+      "currentSwiftMappingStatus": "projected",
+      "currentCnaRouteRelevance": "DO NOT BIND: cna_content_manager_create_resource is a documented placeholder whose loads report IO",
+      "fixtureRequirements": [
+        "project-owned ResourceManager subclass returning the same XNB bytes"
+      ],
+      "unreviewedMembers": 0,
+      "inheritedBclSurface": []
+    }
+  ],
+  "bclTypes": [
+    {
+      "assembly": "mscorlib.dll",
+      "type": "System.IO.BinaryReader",
+      "declaredBase": "System.Object",
+      "interfaces": [
+        "System.IDisposable"
+      ],
+      "authorityVisibleMembers": 28,
+      "selectedMembers": [
+        {
+          "identity": "constructor:.ctor(System.IO.Stream)",
+          "access": "public",
+          "static": false,
+          "virtual": false,
+          "abstract": false,
+          "final": false,
+          "reason": "internal base-construction support; constructors are not inherited"
+        },
+        {
+          "identity": "method:Close()->System.Void",
+          "access": "public",
+          "static": false,
+          "virtual": true,
+          "abstract": false,
+          "final": false,
+          "reason": "public/protected BinaryReader member inherited by ContentReader"
+        },
+        {
+          "identity": "method:Dispose()->System.Void",
+          "access": "public",
+          "static": false,
+          "virtual": true,
+          "abstract": false,
+          "final": true,
+          "reason": "public/protected BinaryReader member inherited by ContentReader"
+        },
+        {
+          "identity": "method:Dispose(System.Boolean)->System.Void",
+          "access": "protected",
+          "static": false,
+          "virtual": true,
+          "abstract": false,
+          "final": false,
+          "reason": "public/protected BinaryReader member inherited by ContentReader"
+        },
+        {
+          "identity": "method:FillBuffer(System.Int32)->System.Void",
+          "access": "protected",
+          "static": false,
+          "virtual": true,
+          "abstract": false,
+          "final": false,
+          "reason": "public/protected BinaryReader member inherited by ContentReader"
+        },
+        {
+          "identity": "method:PeekChar()->System.Int32",
+          "access": "public",
+          "static": false,
+          "virtual": true,
+          "abstract": false,
+          "final": false,
+          "reason": "public/protected BinaryReader member inherited by ContentReader"
+        },
+        {
+          "identity": "method:Read()->System.Int32",
+          "access": "public",
+          "static": false,
+          "virtual": true,
+          "abstract": false,
+          "final": false,
+          "reason": "public/protected BinaryReader member inherited by ContentReader"
+        },
+        {
+          "identity": "method:Read(System.Byte[],System.Int32,System.Int32)->System.Int32",
+          "access": "public",
+          "static": false,
+          "virtual": true,
+          "abstract": false,
+          "final": false,
+          "reason": "public/protected BinaryReader member inherited by ContentReader"
+        },
+        {
+          "identity": "method:Read(System.Char[],System.Int32,System.Int32)->System.Int32",
+          "access": "public",
+          "static": false,
+          "virtual": true,
+          "abstract": false,
+          "final": false,
+          "reason": "public/protected BinaryReader member inherited by ContentReader"
+        },
+        {
+          "identity": "method:Read7BitEncodedInt()->System.Int32",
+          "access": "protected-internal",
+          "static": false,
+          "virtual": false,
+          "abstract": false,
+          "final": false,
+          "reason": "public/protected BinaryReader member inherited by ContentReader"
+        },
+        {
+          "identity": "method:ReadBoolean()->System.Boolean",
+          "access": "public",
+          "static": false,
+          "virtual": true,
+          "abstract": false,
+          "final": false,
+          "reason": "public/protected BinaryReader member inherited by ContentReader"
+        },
+        {
+          "identity": "method:ReadByte()->System.Byte",
+          "access": "public",
+          "static": false,
+          "virtual": true,
+          "abstract": false,
+          "final": false,
+          "reason": "public/protected BinaryReader member inherited by ContentReader"
+        },
+        {
+          "identity": "method:ReadBytes(System.Int32)->System.Byte[]",
+          "access": "public",
+          "static": false,
+          "virtual": true,
+          "abstract": false,
+          "final": false,
+          "reason": "public/protected BinaryReader member inherited by ContentReader"
+        },
+        {
+          "identity": "method:ReadChar()->System.Char",
+          "access": "public",
+          "static": false,
+          "virtual": true,
+          "abstract": false,
+          "final": false,
+          "reason": "public/protected BinaryReader member inherited by ContentReader"
+        },
+        {
+          "identity": "method:ReadChars(System.Int32)->System.Char[]",
+          "access": "public",
+          "static": false,
+          "virtual": true,
+          "abstract": false,
+          "final": false,
+          "reason": "public/protected BinaryReader member inherited by ContentReader"
+        },
+        {
+          "identity": "method:ReadDouble()->System.Double",
+          "access": "public",
+          "static": false,
+          "virtual": true,
+          "abstract": false,
+          "final": false,
+          "reason": "public/protected BinaryReader member inherited by ContentReader"
+        },
+        {
+          "identity": "method:ReadInt16()->System.Int16",
+          "access": "public",
+          "static": false,
+          "virtual": true,
+          "abstract": false,
+          "final": false,
+          "reason": "public/protected BinaryReader member inherited by ContentReader"
+        },
+        {
+          "identity": "method:ReadInt32()->System.Int32",
+          "access": "public",
+          "static": false,
+          "virtual": true,
+          "abstract": false,
+          "final": false,
+          "reason": "public/protected BinaryReader member inherited by ContentReader"
+        },
+        {
+          "identity": "method:ReadInt64()->System.Int64",
+          "access": "public",
+          "static": false,
+          "virtual": true,
+          "abstract": false,
+          "final": false,
+          "reason": "public/protected BinaryReader member inherited by ContentReader"
+        },
+        {
+          "identity": "method:ReadSByte()->System.SByte",
+          "access": "public",
+          "static": false,
+          "virtual": true,
+          "abstract": false,
+          "final": false,
+          "reason": "public/protected BinaryReader member inherited by ContentReader"
+        },
+        {
+          "identity": "method:ReadSingle()->System.Single",
+          "access": "public",
+          "static": false,
+          "virtual": true,
+          "abstract": false,
+          "final": false,
+          "reason": "public/protected BinaryReader member inherited by ContentReader"
+        },
+        {
+          "identity": "method:ReadString()->System.String",
+          "access": "public",
+          "static": false,
+          "virtual": true,
+          "abstract": false,
+          "final": false,
+          "reason": "public/protected BinaryReader member inherited by ContentReader"
+        },
+        {
+          "identity": "method:ReadUInt16()->System.UInt16",
+          "access": "public",
+          "static": false,
+          "virtual": true,
+          "abstract": false,
+          "final": false,
+          "reason": "public/protected BinaryReader member inherited by ContentReader"
+        },
+        {
+          "identity": "method:ReadUInt32()->System.UInt32",
+          "access": "public",
+          "static": false,
+          "virtual": true,
+          "abstract": false,
+          "final": false,
+          "reason": "public/protected BinaryReader member inherited by ContentReader"
+        },
+        {
+          "identity": "method:ReadUInt64()->System.UInt64",
+          "access": "public",
+          "static": false,
+          "virtual": true,
+          "abstract": false,
+          "final": false,
+          "reason": "public/protected BinaryReader member inherited by ContentReader"
+        },
+        {
+          "identity": "property:BaseStream->System.IO.Stream",
+          "access": null,
+          "static": false,
+          "virtual": false,
+          "abstract": false,
+          "final": false,
+          "reason": "public/protected BinaryReader member inherited by ContentReader"
+        }
+      ],
+      "refusedMembers": [
+        {
+          "identity": "constructor:.ctor(System.IO.Stream,System.Text.Encoding)",
+          "access": "public",
+          "static": false,
+          "virtual": false,
+          "abstract": false,
+          "final": false,
+          "reason": "Encoding overload is not inherited and no selected XNA signature names Encoding"
+        },
+        {
+          "identity": "method:ReadDecimal()->System.Decimal",
+          "access": "public",
+          "static": false,
+          "virtual": true,
+          "abstract": false,
+          "final": false,
+          "reason": "no selected XNA member reaches Decimal; demand rule refuses the expansion"
+        }
+      ],
+      "unreviewedMembers": 0,
+      "inheritedObjectSurface": [
+        {
+          "identity": "method:Equals(System.Object)->System.Boolean",
+          "status": "refused",
+          "reason": "System.Object is the Swift language root; its reflection/finalizer surface is not fabricated"
+        },
+        {
+          "identity": "method:Equals(System.Object,System.Object)->System.Boolean",
+          "status": "refused",
+          "reason": "System.Object is the Swift language root; its reflection/finalizer surface is not fabricated"
+        },
+        {
+          "identity": "method:Finalize()->System.Void",
+          "status": "refused",
+          "reason": "System.Object is the Swift language root; its reflection/finalizer surface is not fabricated"
+        },
+        {
+          "identity": "method:GetHashCode()->System.Int32",
+          "status": "refused",
+          "reason": "System.Object is the Swift language root; its reflection/finalizer surface is not fabricated"
+        },
+        {
+          "identity": "method:GetType()->System.Type",
+          "status": "refused",
+          "reason": "System.Object is the Swift language root; its reflection/finalizer surface is not fabricated"
+        },
+        {
+          "identity": "method:MemberwiseClone()->System.Object",
+          "status": "refused",
+          "reason": "System.Object is the Swift language root; its reflection/finalizer surface is not fabricated"
+        },
+        {
+          "identity": "method:ReferenceEquals(System.Object,System.Object)->System.Boolean",
+          "status": "refused",
+          "reason": "System.Object is the Swift language root; its reflection/finalizer surface is not fabricated"
+        },
+        {
+          "identity": "method:ToString()->System.String",
+          "status": "refused",
+          "reason": "System.Object is the Swift language root; its reflection/finalizer surface is not fabricated"
+        }
+      ]
+    },
+    {
+      "assembly": "mscorlib.dll",
+      "type": "System.Resources.ResourceManager",
+      "declaredBase": "System.Object",
+      "interfaces": [],
+      "authorityVisibleMembers": 26,
+      "selectedMembers": [
+        {
+          "identity": "constructor:.ctor()",
+          "access": "protected",
+          "static": false,
+          "virtual": false,
+          "abstract": false,
+          "final": false,
+          "reason": "protected subclass construction is part of the reachable surface"
+        },
+        {
+          "identity": "method:GetObject(System.String)->System.Object",
+          "access": "public",
+          "static": false,
+          "virtual": true,
+          "abstract": false,
+          "final": false,
+          "reason": "the exact call made by ResourceContentManager.OpenStream"
+        },
+        {
+          "identity": "method:GetString(System.String)->System.String",
+          "access": "public",
+          "static": false,
+          "virtual": true,
+          "abstract": false,
+          "final": false,
+          "reason": "same selected resource store and public string lookup semantics"
+        },
+        {
+          "identity": "method:ReleaseAllResources()->System.Void",
+          "access": "public",
+          "static": false,
+          "virtual": true,
+          "abstract": false,
+          "final": false,
+          "reason": "observable cache/resource-set lifetime on the selected store"
+        },
+        {
+          "identity": "property:BaseName->System.String",
+          "access": null,
+          "static": false,
+          "virtual": false,
+          "abstract": false,
+          "final": false,
+          "reason": "selected resource identity"
+        },
+        {
+          "identity": "property:IgnoreCase->System.Boolean",
+          "access": null,
+          "static": false,
+          "virtual": false,
+          "abstract": false,
+          "final": false,
+          "reason": "selected lookup policy and its mutation test"
+        },
+        {
+          "identity": "property:ResourceSetType->System.Type",
+          "access": null,
+          "static": false,
+          "virtual": false,
+          "abstract": false,
+          "final": false,
+          "reason": "selected public type identity"
+        }
+      ],
+      "refusedMembers": [
+        {
+          "identity": "constructor:.ctor(System.String,System.Reflection.Assembly,System.Type)",
+          "access": "public",
+          "static": false,
+          "virtual": false,
+          "abstract": false,
+          "final": false,
+          "reason": "not reached by ResourceContentManager; refusing transitive surface System.Reflection.Assembly, System.String, System.Type"
+        },
+        {
+          "identity": "constructor:.ctor(System.String,System.Reflection.Assembly)",
+          "access": "public",
+          "static": false,
+          "virtual": false,
+          "abstract": false,
+          "final": false,
+          "reason": "not reached by ResourceContentManager; refusing transitive surface System.Reflection.Assembly, System.String"
+        },
+        {
+          "identity": "constructor:.ctor(System.Type)",
+          "access": "public",
+          "static": false,
+          "virtual": false,
+          "abstract": false,
+          "final": false,
+          "reason": "not reached by ResourceContentManager; refusing transitive surface System.Type"
+        },
+        {
+          "identity": "field:BaseNameField->System.String",
+          "access": "protected",
+          "static": false,
+          "virtual": false,
+          "abstract": false,
+          "final": false,
+          "reason": "not reached by ResourceContentManager; refusing transitive surface System.String"
+        },
+        {
+          "identity": "field:HeaderVersionNumber->System.Int32",
+          "access": "public",
+          "static": true,
+          "virtual": false,
+          "abstract": false,
+          "final": false,
+          "reason": "not reached by ResourceContentManager; refusing transitive surface System.Int32"
+        },
+        {
+          "identity": "field:MagicNumber->System.Int32",
+          "access": "public",
+          "static": true,
+          "virtual": false,
+          "abstract": false,
+          "final": false,
+          "reason": "not reached by ResourceContentManager; refusing transitive surface System.Int32"
+        },
+        {
+          "identity": "field:MainAssembly->System.Reflection.Assembly",
+          "access": "protected",
+          "static": false,
+          "virtual": false,
+          "abstract": false,
+          "final": false,
+          "reason": "not reached by ResourceContentManager; refusing transitive surface System.Reflection.Assembly"
+        },
+        {
+          "identity": "field:ResourceSets->System.Collections.Hashtable",
+          "access": "protected",
+          "static": false,
+          "virtual": false,
+          "abstract": false,
+          "final": false,
+          "reason": "not reached by ResourceContentManager; refusing transitive surface System.Collections.Hashtable"
+        },
+        {
+          "identity": "method:CreateFileBasedResourceManager(System.String,System.String,System.Type)->System.Resources.ResourceManager",
+          "access": "public",
+          "static": true,
+          "virtual": false,
+          "abstract": false,
+          "final": false,
+          "reason": "not reached by ResourceContentManager; refusing transitive surface System.Resources.ResourceManager, System.String, System.Type"
+        },
+        {
+          "identity": "method:GetNeutralResourcesLanguage(System.Reflection.Assembly)->System.Globalization.CultureInfo",
+          "access": "protected",
+          "static": true,
+          "virtual": false,
+          "abstract": false,
+          "final": false,
+          "reason": "not reached by ResourceContentManager; refusing transitive surface System.Globalization.CultureInfo, System.Reflection.Assembly"
+        },
+        {
+          "identity": "method:GetObject(System.String,System.Globalization.CultureInfo)->System.Object",
+          "access": "public",
+          "static": false,
+          "virtual": true,
+          "abstract": false,
+          "final": false,
+          "reason": "not reached by ResourceContentManager; refusing transitive surface System.Globalization.CultureInfo, System.Object, System.String"
+        },
+        {
+          "identity": "method:GetResourceFileName(System.Globalization.CultureInfo)->System.String",
+          "access": "protected",
+          "static": false,
+          "virtual": true,
+          "abstract": false,
+          "final": false,
+          "reason": "not reached by ResourceContentManager; refusing transitive surface System.Globalization.CultureInfo, System.String"
+        },
+        {
+          "identity": "method:GetResourceSet(System.Globalization.CultureInfo,System.Boolean,System.Boolean)->System.Resources.ResourceSet",
+          "access": "public",
+          "static": false,
+          "virtual": true,
+          "abstract": false,
+          "final": false,
+          "reason": "not reached by ResourceContentManager; refusing transitive surface System.Boolean, System.Globalization.CultureInfo, System.Resources.ResourceSet"
+        },
+        {
+          "identity": "method:GetSatelliteContractVersion(System.Reflection.Assembly)->System.Version",
+          "access": "protected",
+          "static": true,
+          "virtual": false,
+          "abstract": false,
+          "final": false,
+          "reason": "not reached by ResourceContentManager; refusing transitive surface System.Reflection.Assembly, System.Version"
+        },
+        {
+          "identity": "method:GetStream(System.String,System.Globalization.CultureInfo)->System.IO.UnmanagedMemoryStream",
+          "access": "public",
+          "static": false,
+          "virtual": false,
+          "abstract": false,
+          "final": false,
+          "reason": "not reached by ResourceContentManager; refusing transitive surface System.Globalization.CultureInfo, System.IO.UnmanagedMemoryStream, System.String"
+        },
+        {
+          "identity": "method:GetStream(System.String)->System.IO.UnmanagedMemoryStream",
+          "access": "public",
+          "static": false,
+          "virtual": false,
+          "abstract": false,
+          "final": false,
+          "reason": "not reached by ResourceContentManager; refusing transitive surface System.IO.UnmanagedMemoryStream, System.String"
+        },
+        {
+          "identity": "method:GetString(System.String,System.Globalization.CultureInfo)->System.String",
+          "access": "public",
+          "static": false,
+          "virtual": true,
+          "abstract": false,
+          "final": false,
+          "reason": "not reached by ResourceContentManager; refusing transitive surface System.Globalization.CultureInfo, System.String"
+        },
+        {
+          "identity": "method:InternalGetResourceSet(System.Globalization.CultureInfo,System.Boolean,System.Boolean)->System.Resources.ResourceSet",
+          "access": "protected",
+          "static": false,
+          "virtual": true,
+          "abstract": false,
+          "final": false,
+          "reason": "not reached by ResourceContentManager; refusing transitive surface System.Boolean, System.Globalization.CultureInfo, System.Resources.ResourceSet"
+        },
+        {
+          "identity": "property:FallbackLocation->System.Resources.UltimateResourceFallbackLocation",
+          "access": null,
+          "static": false,
+          "virtual": false,
+          "abstract": false,
+          "final": false,
+          "reason": "not reached by ResourceContentManager; refusing transitive surface System.Resources.UltimateResourceFallbackLocation"
+        }
+      ],
+      "unreviewedMembers": 0,
+      "inheritedObjectSurface": [
+        {
+          "identity": "method:Equals(System.Object)->System.Boolean",
+          "status": "refused",
+          "reason": "System.Object is the Swift language root; its reflection/finalizer surface is not fabricated"
+        },
+        {
+          "identity": "method:Equals(System.Object,System.Object)->System.Boolean",
+          "status": "refused",
+          "reason": "System.Object is the Swift language root; its reflection/finalizer surface is not fabricated"
+        },
+        {
+          "identity": "method:Finalize()->System.Void",
+          "status": "refused",
+          "reason": "System.Object is the Swift language root; its reflection/finalizer surface is not fabricated"
+        },
+        {
+          "identity": "method:GetHashCode()->System.Int32",
+          "status": "refused",
+          "reason": "System.Object is the Swift language root; its reflection/finalizer surface is not fabricated"
+        },
+        {
+          "identity": "method:GetType()->System.Type",
+          "status": "refused",
+          "reason": "System.Object is the Swift language root; its reflection/finalizer surface is not fabricated"
+        },
+        {
+          "identity": "method:MemberwiseClone()->System.Object",
+          "status": "refused",
+          "reason": "System.Object is the Swift language root; its reflection/finalizer surface is not fabricated"
+        },
+        {
+          "identity": "method:ReferenceEquals(System.Object,System.Object)->System.Boolean",
+          "status": "refused",
+          "reason": "System.Object is the Swift language root; its reflection/finalizer surface is not fabricated"
+        },
+        {
+          "identity": "method:ToString()->System.String",
+          "status": "refused",
+          "reason": "System.Object is the Swift language root; its reflection/finalizer surface is not fabricated"
+        }
+      ]
+    }
+  ],
+  "additionalBclSupport": [
+    {
+      "type": "System.IDisposable",
+      "reason": "Action<IDisposable> is in ContentManager.ReadAsset and reader ownership",
+      "projection": "CNADisposable protocol with Dispose()"
+    },
+    {
+      "type": "System.Action`1",
+      "reason": "ReadAsset and ReadSharedResource callback signatures",
+      "projection": "typed Swift throwing closure"
+    },
+    {
+      "type": "System.IO.EndOfStreamException",
+      "reason": "BinaryReader exact EOF identity",
+      "projection": "CNAEndOfStreamException : CNAIOException"
+    },
+    {
+      "type": "System.FormatException",
+      "reason": "BinaryReader malformed 7-bit integer identity",
+      "projection": "CNAFormatException : CNASystemException"
+    }
+  ],
+  "publicEncodingDependencies": 0,
+  "closureMutationSelfTests": 2,
+  "contentReaderUnreviewed": 0,
+  "bclContentClosureUnreviewed": 0,
+  "CONTENT_READER_ACTIONABLE_LOCAL": 0,
+  "CONTENT_READER_UNREVIEWED": 0,
+  "BCL_CONTENT_CLOSURE_UNREVIEWED": 0,
+  "CONTENT_READER_MISSING_TYPES": 0,
+  "CONTENT_READER_STRICT_DIAGNOSTICS": 0,
+  "CONTENT_READER_ENCODING_DEPENDENCIES": 0,
+  "BINARY_READER_AUTHORITY_FINDINGS": 0,
+  "RESOURCE_MANAGER_AUTHORITY_FINDINGS": 0,
+  "counts": {
+    "selectedXnaTypes": 5,
+    "selectedXnaDeclaredMembers": 32,
+    "binaryReaderAuthorityVisibleMembers": 28,
+    "binaryReaderSelectedMembers": 26,
+    "binaryReaderRefusedMembers": 2,
+    "resourceManagerAuthorityVisibleMembers": 26,
+    "resourceManagerSelectedMembers": 7,
+    "resourceManagerRefusedMembers": 19
+  }
+}
