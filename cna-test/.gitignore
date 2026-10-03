@@ -1,0 +1,35 @@
+# CMake and generated build trees
+/build*/
+/cmake-build-*/
+/out/
+/install/
+CMakeCache.txt
+CMakeFiles/
+CTestTestfile.cmake
+Testing/
+compile_commands.json
+cmake_install.cmake
+Makefile
+
+# Native compilation and profiling artefacts
+*.a
+*.dll
+*.dylib
+*.exe
+*.gcda
+*.gcno
+*.o
+*.obj
+*.pdb
+*.so
+
+# Editors and operating systems
+.cache/
+.clangd/
+.idea/
+.vscode/
+*.swp
+*.user
+*~
+.DS_Store
+Thumbs.db
